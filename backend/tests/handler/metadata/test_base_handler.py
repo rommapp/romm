@@ -1,10 +1,13 @@
 import json
 import re
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qsl, urlparse
 
+import httpx
 import pytest
 
+from handler.metadata import base_handler
 from handler.metadata.base_handler import (
     LEADING_ARTICLE_PATTERN,
     MAME_XML_KEY,
@@ -26,6 +29,7 @@ from handler.metadata.base_handler import (
     strip_sensitive_query_params,
 )
 from handler.redis_handler import async_cache
+from utils.context import ctx_httpx_client
 
 
 class ExampleMetadataHandler(MetadataHandler):
@@ -747,3 +751,39 @@ class TestConstants:
         ]
 
         assert len(keys) == len(set(keys))
+
+
+class _CappedHandler(base_handler.MetadataHandler):
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return True
+
+
+@pytest.mark.asyncio
+async def test_fetch_capped_abandons_an_oversized_body_mid_stream(monkeypatch):
+    """Providers are third parties: the read stops instead of buffering it all."""
+    monkeypatch.setattr(base_handler, "MAX_RESPONSE_BYTES", 1024)
+    sent = 0
+
+    async def endless() -> AsyncIterator[bytes]:
+        nonlocal sent
+        while True:
+            sent += 1
+            yield b"A" * 512
+
+    async def respond(request: httpx.Request) -> httpx.Response:
+        if "big" in str(request.url):
+            return httpx.Response(200, content=endless())
+        return httpx.Response(200, content=b"small")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    token = ctx_httpx_client.set(client)
+    try:
+        handler = _CappedHandler()
+        assert await handler._fetch_capped("https://x.test/", headers={}) == b"small"
+        assert await handler._fetch_capped("https://x.test/?big=1", headers={}) is None
+    finally:
+        ctx_httpx_client.reset(token)
+        await client.aclose()
+
+    assert sent == 3, f"stream should stop just past the cap, pulled {sent} chunks"

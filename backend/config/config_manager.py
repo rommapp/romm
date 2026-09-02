@@ -33,7 +33,6 @@ ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     "db",
-    "ini",
     "tmp",
     "bak",
     "lock",
@@ -135,6 +134,10 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
         "sgdb",
         "flashpoint",
         "hltb",
+        "demozoo",
+        "pouet",
+        "csdb",
+        "steam",
         "gamelist",
         "libretro",
         "playmatch",
@@ -478,7 +481,11 @@ class ConfigManager:
                     "hasheous",
                     "tgdb",
                     "flashpoint",
+                    "steam",
                     "hltb",
+                    "demozoo",
+                    "pouet",
+                    "csdb",
                 ],
             ),
             SCAN_ARTWORK_PRIORITY=pydash.get(
@@ -496,7 +503,11 @@ class ConfigManager:
                     "hasheous",
                     "tgdb",
                     "flashpoint",
+                    "steam",
                     "hltb",
+                    "demozoo",
+                    "pouet",
+                    "csdb",
                 ],
             ),
             SCAN_ARTWORK_PRIORITY_OVERRIDES={

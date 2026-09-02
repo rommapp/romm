@@ -38,9 +38,8 @@ type SourceStatus = "missing" | "invalid" | "ok" | "pending";
 
 interface Source {
   name: string;
-  /** Optional descriptor under the name — used by specialised sources
-   *  (Achievements, Cover art, Completion times) so the user knows what
-   *  each one contributes without having to recognise the brand. */
+  /** Optional descriptor under the name: what a source contributes, or
+   *  the platforms it covers. */
   subtitle?: string;
   key: MetadataProviderKey;
   logo: string;
@@ -106,6 +105,17 @@ const sources = computed<Source[]>(() => [
     heartbeat: heartbeatStatus.value.flashpoint,
   },
   {
+    name: "Steam",
+    subtitle: t("settings.metadata-subtitle-pc"),
+    key: "steam",
+    logo: "/assets/scrappers/steam.png",
+    website: "https://store.steampowered.com",
+    docsUrl: "https://store.steampowered.com",
+    requiresKey: false,
+    disabled: !heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED,
+    heartbeat: heartbeatStatus.value.steam,
+  },
+  {
     name: "RetroAchievements",
     subtitle: t("settings.metadata-subtitle-achievements"),
     key: "ra",
@@ -137,6 +147,39 @@ const sources = computed<Source[]>(() => [
     requiresKey: false,
     disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
     heartbeat: heartbeatStatus.value.hltb,
+  },
+  {
+    name: "Demozoo",
+    subtitle: t("settings.metadata-subtitle-demoscene"),
+    key: "demozoo",
+    logo: "/assets/scrappers/demozoo.png",
+    website: "https://demozoo.org",
+    docsUrl: "https://demozoo.org/api/docs/",
+    requiresKey: false,
+    disabled: !heartbeat.value.METADATA_SOURCES?.DEMOZOO_API_ENABLED,
+    heartbeat: heartbeatStatus.value.demozoo,
+  },
+  {
+    name: "Pouët",
+    subtitle: t("settings.metadata-subtitle-demoscene"),
+    key: "pouet",
+    logo: "/assets/scrappers/pouet.png",
+    website: "https://www.pouet.net",
+    docsUrl: "https://api.pouet.net/",
+    requiresKey: false,
+    disabled: !heartbeat.value.METADATA_SOURCES?.POUET_API_ENABLED,
+    heartbeat: heartbeatStatus.value.pouet,
+  },
+  {
+    name: "CSDb",
+    subtitle: t("settings.metadata-subtitle-demoscene"),
+    key: "csdb",
+    logo: "/assets/scrappers/csdb.png",
+    website: "https://csdb.dk",
+    docsUrl: "https://csdb.dk/webservice/",
+    requiresKey: false,
+    disabled: !heartbeat.value.METADATA_SOURCES?.CSDB_API_ENABLED,
+    heartbeat: heartbeatStatus.value.csdb,
   },
   {
     name: "Hasheous",

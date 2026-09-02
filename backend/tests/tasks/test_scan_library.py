@@ -2,6 +2,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from handler.metadata.csdb_handler import CsdbHandler
+from handler.metadata.demozoo_handler import DemozooHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler
 from handler.metadata.hasheous_handler import HasheousHandler
 from handler.metadata.hltb_handler import HLTBHandler
@@ -10,6 +12,7 @@ from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.libretro_handler import LibretroHandler
 from handler.metadata.moby_handler import MobyGamesHandler
 from handler.metadata.playmatch_handler import PlaymatchHandler
+from handler.metadata.pouet_handler import PouetHandler
 from handler.metadata.ra_handler import RAHandler
 from handler.metadata.sgdb_handler import SGDBBaseHandler
 from handler.metadata.ss_handler import SSHandler
@@ -40,6 +43,9 @@ class TestScanLibraryTask:
         mocker.patch.object(SSHandler, "is_enabled", return_value=False)
         mocker.patch.object(FlashpointHandler, "is_enabled", return_value=False)
         mocker.patch.object(HLTBHandler, "is_enabled", return_value=False)
+        mocker.patch.object(DemozooHandler, "is_enabled", return_value=False)
+        mocker.patch.object(PouetHandler, "is_enabled", return_value=False)
+        mocker.patch.object(CsdbHandler, "is_enabled", return_value=False)
         mocker.patch.object(TGDBHandler, "is_enabled", return_value=False)
         mocker.patch.object(LibretroHandler, "is_enabled", return_value=False)
         mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", True)

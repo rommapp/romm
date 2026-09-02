@@ -1,5 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
-import { mount } from "@vue/test-utils";
+import { type DOMWrapper, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
@@ -31,7 +31,10 @@ vi.mock("@v2/lib", () => ({
 }));
 
 vi.mock("@/v2/components/Settings/SettingsSection.vue", () => ({
-  default: defineComponent({ template: "<section><slot /></section>" }),
+  default: defineComponent({
+    props: { title: { type: String, default: "" } },
+    template: '<section :data-title="title"><slot /></section>',
+  }),
 }));
 
 function mountWith(devCredentialsSet: boolean, loaded = true) {
@@ -62,5 +65,30 @@ describe("MetadataSources", () => {
 
   it("stays quiet until a heartbeat has landed", () => {
     expect(mountWith(false, false).find(".alert").exists()).toBe(false);
+  });
+
+  // The split has to keep matching useScanProviders' general/specific sets,
+  // which drive the same providers in the scan dialog.
+  it.each([
+    ["settings.metadata-catalogs", ["IGDB", "ScreenScraper", "Steam"]],
+    ["settings.metadata-specialised", ["RetroAchievements", "SteamGridDB"]],
+    ["settings.metadata-proxies", ["Hasheous", "PlayMatch"]],
+  ])("groups %s tiles under their own section", (title, names) => {
+    const wrapper = mountWith(true);
+
+    const tileNames = (section: DOMWrapper<Element>) =>
+      section.findAll(".r-v2-meta__name").map((n) => n.text());
+
+    const sections = wrapper.findAll("section");
+    const section = sections.find((s) => s.attributes("data-title") === title);
+    expect(section).toBeDefined();
+
+    const elsewhere = sections
+      .filter((s) => s.attributes("data-title") !== title)
+      .flatMap(tileNames);
+    for (const name of names) {
+      expect(tileNames(section!)).toContain(name);
+      expect(elsewhere).not.toContain(name);
+    }
   });
 });

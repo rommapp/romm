@@ -42,7 +42,7 @@ from httpcore._backends.base import (
 )
 from httpcore._backends.sync import SyncBackend
 
-from config import PLAYMATCH_API_URL
+from config import HASHEOUS_API_URL, PLAYMATCH_API_URL
 from logger.logger import log
 from utils.validation import ValidationError
 
@@ -118,7 +118,7 @@ def _parse_origin(origin: str) -> tuple[str, int] | None:
 # Origins the admin explicitly configured are trusted to reach private addresses.
 # Matched by exact host and port so the exception stays as narrow as possible.
 INTERNAL_ORIGIN_ALLOWLIST: frozenset[tuple[str, int]] = frozenset(
-    pydash.compact([_parse_origin(PLAYMATCH_API_URL)])
+    pydash.compact([_parse_origin(PLAYMATCH_API_URL), _parse_origin(HASHEOUS_API_URL)])
 )
 
 

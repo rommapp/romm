@@ -262,6 +262,7 @@ backend/
 │       ├── sgdb_handler.py          # SteamGridDB
 │       ├── ra_handler.py            # RetroAchievements
 │       ├── hltb_handler.py          # HowLongToBeat
+│       ├── steam_handler.py         # Steam storefront (PC platforms)
 │       ├── hasheous_handler.py      # Hasheous hash-based lookup
 │       ├── tgdb_handler.py          # TheGamesDB
 │       ├── flashpoint_handler.py    # Flashpoint archive
@@ -549,17 +550,17 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 **Table:** `roms` (the central entity)
 
-| Column Group          | Columns                                                                                                                                                                                   | Notes                   |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| **Identity**          | `id`, `platform_id` (FK)                                                                                                                                                                  | Core identifiers        |
-| **External IDs**      | `igdb_id`, `sgdb_id`, `moby_id`, `ss_id`, `ra_id`, `launchbox_id`, `hasheous_id`, `tgdb_id`, `flashpoint_id`, `hltb_id`, `gamelist_id`                                                    | All indexed             |
-| **Filesystem**        | `fs_name`, `fs_name_no_tags`, `fs_name_no_ext`, `fs_extension`, `fs_path`, `fs_size_bytes`                                                                                                | File info               |
-| **Display**           | `name`, `slug`, `summary`                                                                                                                                                                 | Game metadata           |
-| **Provider metadata** | `igdb_metadata`, `moby_metadata`, `ss_metadata`, `ra_metadata`, `launchbox_metadata`, `hasheous_metadata`, `flashpoint_metadata`, `hltb_metadata`, `gamelist_metadata`, `manual_metadata` | JSON blobs per provider |
-| **Media**             | `path_cover_s`, `path_cover_l`, `url_cover`, `path_manual`, `url_manual`, `path_screenshots`, `url_screenshots`                                                                           | Cover art & screenshots |
-| **Classification**    | `revision`, `version`, `regions`, `languages`, `tags`                                                                                                                                     | Game attributes         |
-| **Hashes**            | `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash`                                                                                                                                            | File integrity          |
-| **State**             | `missing_from_fs`                                                                                                                                                                         | Filesystem sync         |
+| Column Group          | Columns                                                                                                                                                                                                     | Notes                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **Identity**          | `id`, `platform_id` (FK)                                                                                                                                                                                    | Core identifiers        |
+| **External IDs**      | `igdb_id`, `sgdb_id`, `moby_id`, `ss_id`, `ra_id`, `launchbox_id`, `hasheous_id`, `tgdb_id`, `flashpoint_id`, `hltb_id`, `steam_id`, `gamelist_id`                                                          | All indexed             |
+| **Filesystem**        | `fs_name`, `fs_name_no_tags`, `fs_name_no_ext`, `fs_extension`, `fs_path`, `fs_size_bytes`                                                                                                                  | File info               |
+| **Display**           | `name`, `slug`, `summary`                                                                                                                                                                                   | Game metadata           |
+| **Provider metadata** | `igdb_metadata`, `moby_metadata`, `ss_metadata`, `ra_metadata`, `launchbox_metadata`, `hasheous_metadata`, `flashpoint_metadata`, `hltb_metadata`, `steam_metadata`, `gamelist_metadata`, `manual_metadata` | JSON blobs per provider |
+| **Media**             | `path_cover_s`, `path_cover_l`, `url_cover`, `path_manual`, `url_manual`, `path_screenshots`, `url_screenshots`                                                                                             | Cover art & screenshots |
+| **Classification**    | `revision`, `version`, `regions`, `languages`, `tags`                                                                                                                                                       | Game attributes         |
+| **Hashes**            | `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash`                                                                                                                                                              | File integrity          |
+| **State**             | `missing_from_fs`                                                                                                                                                                                           | Filesystem sync         |
 
 **Relationships:** platform (M:1), files (1:M), saves (1:M), states (1:M), screenshots (1:M), rom_users (1:M), notes (1:M), metadatum (1:1), sibling_roms (M:M self-referential), collections (M:M)
 
@@ -1136,6 +1137,7 @@ The core of RomM. Orchestrates library scanning and metadata enrichment.
    │   ├── Hasheous (hash-based matching)
    │   ├── Flashpoint
    │   ├── HLTB
+   │   ├── Steam (PC platforms)
    │   └── TheGamesDB
    ├── Download cover art and screenshots
    ├── Build aggregated metadata (RomMetadata)
@@ -1181,6 +1183,7 @@ Each external provider has a handler that normalizes data into a common format:
 | `sgdb_handler`       | SteamGridDB       | Grid artwork, logos, icons                 |
 | `ra_handler`         | RetroAchievements | Achievements, user progression             |
 | `hltb_handler`       | HowLongToBeat     | Playtime estimates                         |
+| `steam_handler`      | Steam             | PC store metadata, capsule art             |
 | `hasheous_handler`   | Hasheous          | Hash-based ROM identification              |
 | `tgdb_handler`       | TheGamesDB        | Alternative metadata                       |
 | `flashpoint_handler` | Flashpoint        | Browser game archive                       |
@@ -1312,6 +1315,7 @@ Each adapter wraps an external API with authentication, retry logic, and type sa
 | ------------- | -------------------- | ------------------------------------------------- |
 | LaunchBox     | `launchbox_handler/` | Local XML database + remote API, platform mapping |
 | HowLongToBeat | `hltb_handler`       | Game playtime estimates                           |
+| Steam         | `steam_handler`      | Storefront metadata for win/linux/mac only        |
 | Hasheous      | `hasheous_handler`   | Hash-based ROM identification                     |
 | TheGamesDB    | `tgdb_handler`       | Alternative game metadata                         |
 | Flashpoint    | `flashpoint_handler` | Browser game archive database                     |
@@ -1604,6 +1608,7 @@ Falls back to `FakeRedis` in test mode.
 | `TGDB_API_ENABLED`       | `false` | TheGamesDB               |
 | `FLASHPOINT_API_ENABLED` | `false` | Flashpoint archive       |
 | `HLTB_API_ENABLED`       | `false` | HowLongToBeat            |
+| `STEAM_API_ENABLED`      | `false` | Steam storefront         |
 | `DISABLE_EMULATOR_JS`    | `false` | Hide EmulatorJS player   |
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
 | `DISABLE_JSDOS`          | `false` | Hide js-dos player       |
