@@ -11,10 +11,6 @@ except ImportError:
     sigil = None  # type: ignore[assignment]
     log.debug("sigil binding not installed, title id extraction disabled")
 
-# The Switch family needs prod.keys to decrypt headers, and is the only family
-# whose files may have their title id embedded in the filename.
-SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
-
 SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.PSP: "psp",
     UPS.PSX: "psx",

@@ -373,7 +373,28 @@ def _should_hash_firmware(
     )
 
 
-def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
+async def _rebuild_rom_files(
+    rom: Rom,
+    fs_rom: FSRom,
+    calculate_hashes: bool,
+    extract_title_ids: bool,
+    embed_title_ids: bool,
+) -> tuple[ParsedRomFiles, str | None]:
+    """Re-read a rom's files onto `fs_rom`, embedding title ids when enabled.
+
+    Returns:
+        The parse, and the rom's new `fs_name` when embedding renamed it.
+    """
+    parsed = await fs_rom_handler.get_rom_files(
+        rom,
+        calculate_hashes=calculate_hashes,
+        extract_title_ids=extract_title_ids,
+    )
+
+    renamed_rom_fs_name = (
+        await fs_rom_handler.embed_switch_title_ids(parsed) if embed_title_ids else None
+    )
+
     fs_rom.update(
         {
             "files": parsed.rom_files,
@@ -381,13 +402,13 @@ def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
             "md5_hash": parsed.md5_hash,
             "sha1_hash": parsed.sha1_hash,
             "ra_hash": parsed.ra_hash,
-            "title_id": parsed.title_id,
-            "save_target": parsed.save_target,
-            "save_target_layout": parsed.save_target_layout,
+            "identity": parsed.identity,
         }
     )
-    if parsed.renamed_rom_fs_name:
-        fs_rom["fs_name"] = parsed.renamed_rom_fs_name
+    if renamed_rom_fs_name:
+        fs_rom["fs_name"] = renamed_rom_fs_name
+
+    return parsed, renamed_rom_fs_name
 
 
 # There's an order of operations here that is important:
@@ -445,19 +466,19 @@ async def _identify_rom(
         # the files and check whether they belong to an existing entry that went
         # missing (a renamed or moved ROM), so its collections, notes, and
         # uploaded assets carry over instead of being orphaned on a duplicate.
-        parsed_rom_files = await fs_rom_handler.get_rom_files(
+        parsed_rom_files, renamed_rom_fs_name = await _rebuild_rom_files(
             Rom(
                 **rom_attrs,
                 platform=platform,
             ),
+            fs_rom,
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
             embed_title_ids=embed_title_ids,
         )
-        _apply_scanned_values(fs_rom, parsed_rom_files)
         # The new-entry insert reads its name from rom_attrs, not fs_rom.
-        if parsed_rom_files.renamed_rom_fs_name:
-            rom_attrs["fs_name"] = parsed_rom_files.renamed_rom_fs_name
+        if renamed_rom_fs_name:
+            rom_attrs["fs_name"] = renamed_rom_fs_name
         files_built = True
 
         missing_match = db_rom_handler.get_matching_missing_rom(
@@ -465,7 +486,7 @@ async def _identify_rom(
             crc_hash=parsed_rom_files.crc_hash,
             md5_hash=parsed_rom_files.md5_hash,
             sha1_hash=parsed_rom_files.sha1_hash,
-            title_id=parsed_rom_files.title_id,
+            title_id=parsed_rom_files.identity.title_id,
         )
         if missing_match is not None:
             # Move the existing entry onto the new file, clearing its missing state.
@@ -522,16 +543,16 @@ async def _identify_rom(
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
-        parsed_rom_files = await fs_rom_handler.get_rom_files(
+        _, renamed_rom_fs_name = await _rebuild_rom_files(
             rom,
+            fs_rom,
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
             embed_title_ids=embed_title_ids,
         )
-        _apply_scanned_values(fs_rom, parsed_rom_files)
-        # Keep the in-memory rom's identity matching the renamed file.
-        if parsed_rom_files.renamed_rom_fs_name:
-            rom.fs_name = parsed_rom_files.renamed_rom_fs_name
+        # Keep the in-memory rom's name matching the renamed file.
+        if renamed_rom_fs_name:
+            rom.fs_name = renamed_rom_fs_name
 
     # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
     # stale files (e.g. a cover from the wrong region) can't be reused. The

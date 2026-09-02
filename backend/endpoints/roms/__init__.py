@@ -32,7 +32,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
-from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
@@ -100,6 +99,7 @@ from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
     TITLE_ID_MAX_LENGTH,
     Rom,
+    RomIdentity,
     RomUserStatus,
     SaveTargetLayout,
     apply_file_stats,
@@ -2597,11 +2597,17 @@ async def update_rom_identity(
 
     cleaned_data = data.model_dump(exclude_unset=True)
 
-    # Reassociating a renamed non-hashable ROM matches on this id, which only
-    # works while it is the base game's.
-    title_id = cleaned_data.get("title_id")
-    if title_id and rom.platform_slug in SWITCH_PLATFORM_SLUGS:
-        cleaned_data["title_id"] = switch.derive_base_title_id(title_id) or title_id
+    if cleaned_data.get("title_id"):
+        normalized = switch.normalize_identity(
+            rom.platform_slug, RomIdentity(**cleaned_data)
+        )
+        # Only the fields the client sent are written, so an omitted one keeps
+        # whatever the rom already has.
+        cleaned_data = {
+            key: value
+            for key, value in normalized.as_rom_attrs().items()
+            if key in cleaned_data
+        }
 
     db_rom_handler.update_rom(id, cleaned_data)
 

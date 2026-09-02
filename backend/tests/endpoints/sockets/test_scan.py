@@ -32,7 +32,7 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import MetadataSource, ScanType
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 
 
 def test_scan_stats():
@@ -731,6 +731,7 @@ def patch_identify_rom(
     name_with_no_tags: str,
     platform_slug: str,
     embed_switch_title_ids: bool = False,
+    renamed_rom_fs_name: str | None = None,
 ) -> tuple[Mock, Platform]:
     """Stub out everything `_identify_rom` reaches so only the wiring under test
     is exercised, returning the patched db handler and the platform to scan."""
@@ -749,6 +750,11 @@ def patch_identify_rom(
         fs, "get_file_name_with_no_tags", return_value=name_with_no_tags
     )
     mocker.patch.object(fs, "get_rom_files", AsyncMock(return_value=parsed))
+    mocker.patch.object(
+        fs,
+        "embed_switch_title_ids",
+        AsyncMock(return_value=renamed_rom_fs_name),
+    )
 
     config = MagicMock()
     config.SKIP_HASH_CALCULATION = False
@@ -865,7 +871,7 @@ class TestIdentifyRomReassociation:
                     md5_hash="",
                     sha1_hash="",
                     ra_hash="",
-                    title_id="0100ABCD12340000",
+                    identity=RomIdentity(title_id="0100ABCD12340000"),
                 )
             ),
         )
@@ -936,13 +942,13 @@ class TestIdentifyRomTitleIdEmbedRename:
                 md5_hash="md5",
                 sha1_hash="sha1",
                 ra_hash="",
-                title_id="0100ABCD12340000",
-                renamed_rom_fs_name=self.NEW_NAME,
+                identity=RomIdentity(title_id="0100ABCD12340000"),
             ),
             roms_fs_structure="switch/roms",
             name_with_no_tags="Game",
             platform_slug="switch",
             embed_switch_title_ids=True,
+            renamed_rom_fs_name=self.NEW_NAME,
         )
         db.get_matching_missing_rom.return_value = None
         return db, platform
@@ -982,7 +988,7 @@ class TestIdentifyRomPersistsFileCategory:
                 md5_hash="md5",
                 sha1_hash="sha1",
                 ra_hash="",
-                title_id=self.UPDATE_TITLE_ID,
+                identity=RomIdentity(title_id=self.UPDATE_TITLE_ID),
             ),
             roms_fs_structure="switch/roms",
             name_with_no_tags="Game",

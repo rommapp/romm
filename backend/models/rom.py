@@ -4,6 +4,7 @@ import copy
 import enum
 import re
 from collections.abc import Sequence
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
@@ -117,6 +118,23 @@ class SaveTargetLayout(enum.StrEnum):
     FILE_EXACT = "file-exact"
     FILE_PREFIX = "file-prefix"
     FOLDER_SPLIT = "folder-split"
+
+
+@dataclass(frozen=True)
+class RomIdentity:
+    """A ROM's platform-native identity, as read from its binary.
+
+    One home for the triple that travels from the scan through to the `Rom`
+    columns of the same names.
+    """
+
+    title_id: str | None = None
+    save_target: str | None = None
+    save_target_layout: SaveTargetLayout | None = None
+
+    def as_rom_attrs(self) -> dict[str, Any]:
+        """The identity as `Rom` column values, for a scan's attribute merge."""
+        return asdict(self)
 
 
 # Document-category files (manuals, walkthroughs) share one substrate: a

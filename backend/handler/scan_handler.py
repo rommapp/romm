@@ -542,14 +542,9 @@ async def scan_rom(
 
         # Only overwrite title id values when extraction produced them, so a
         # hash-only or extraction-disabled rescan can't wipe existing ones.
-        if fs_rom.get("title_id"):
-            rom_attrs.update(
-                {
-                    "title_id": fs_rom.get("title_id"),
-                    "save_target": fs_rom.get("save_target"),
-                    "save_target_layout": fs_rom.get("save_target_layout"),
-                }
-            )
+        identity = fs_rom.get("identity")
+        if identity and identity.title_id:
+            rom_attrs.update(identity.as_rom_attrs())
 
     # Update properties from existing rom if not a complete rescan
     if not newly_added and scan_type != ScanType.COMPLETE:

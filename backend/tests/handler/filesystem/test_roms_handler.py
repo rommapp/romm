@@ -1488,9 +1488,9 @@ class TestSigilTitleIdExtraction:
             parsed = await handler.get_rom_files(rom)
 
         assert len(parsed.rom_files) == 1
-        assert parsed.title_id == "0100ABCD12340000"
-        assert parsed.save_target == "0100ABCD12340000"
-        assert parsed.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+        assert parsed.identity.title_id == "0100ABCD12340000"
+        assert parsed.identity.save_target == "0100ABCD12340000"
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
         mock_extract.assert_awaited_once_with(
             "switch",
             str(tmp_path / "switch/roms/Game.nsp"),
@@ -1527,9 +1527,9 @@ class TestSigilTitleIdExtraction:
         assert mock_extract.await_count == 3
 
         # The base game is still selected for the rom-level values.
-        assert parsed.title_id == "0100ABCD12340000"
-        assert parsed.save_target == "0100ABCD12340000"
-        assert parsed.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+        assert parsed.identity.title_id == "0100ABCD12340000"
+        assert parsed.identity.save_target == "0100ABCD12340000"
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
     @pytest.mark.asyncio
     async def test_content_type_overrides_folder_category(
@@ -1641,9 +1641,9 @@ class TestSigilTitleIdExtraction:
             parsed = await handler.get_rom_files(rom)
 
         # Switch saves are keyed by the base title id itself.
-        assert parsed.title_id == expected
-        assert parsed.save_target == expected
-        assert parsed.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+        assert parsed.identity.title_id == expected
+        assert parsed.identity.save_target == expected
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -1698,9 +1698,9 @@ class TestSigilTitleIdExtraction:
         with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
             parsed = await handler.get_rom_files(rom)
 
-        assert parsed.title_id == extraction.title_id
-        assert parsed.save_target == extraction.save_target
-        assert parsed.save_target_layout == expected_layout
+        assert parsed.identity.title_id == extraction.title_id
+        assert parsed.identity.save_target == extraction.save_target
+        assert parsed.identity.save_target_layout == expected_layout
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -1735,8 +1735,8 @@ class TestSigilTitleIdExtraction:
             parsed = await handler.get_rom_files(rom, **kwargs)
 
         mock_extract.assert_not_awaited()
-        assert parsed.title_id is None
-        assert parsed.save_target_layout is None
+        assert parsed.identity.title_id is None
+        assert parsed.identity.save_target_layout is None
 
     @pytest.mark.asyncio
     async def test_hashable_archive_rom_skips_extraction(
@@ -1768,7 +1768,7 @@ class TestSigilTitleIdExtraction:
             parsed = await handler.get_rom_files(rom)
 
         mock_extract.assert_not_awaited()
-        assert parsed.title_id is None
+        assert parsed.identity.title_id is None
 
 
 class TestEmbedSwitchTitleIdInName:
@@ -1866,10 +1866,10 @@ class TestEmbedSwitchTitleIdInName:
 
 
 class TestSwitchTitleIdEmbedding:
-    """Config-gated on-disk renaming of Switch files during get_rom_files."""
+    """`embed_switch_title_ids`, the rename step the scan runs after parsing."""
 
     @pytest.mark.asyncio
-    async def test_flag_off_leaves_file_unchanged(
+    async def test_parsing_alone_leaves_the_file_unchanged(
         self, tmp_path: Path, sigil_config: Config
     ):
         handler = make_sigil_handler(tmp_path)
@@ -1882,11 +1882,13 @@ class TestSwitchTitleIdEmbedding:
         )
 
         with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
-            parsed = await handler.get_rom_files(rom, embed_title_ids=False)
+            parsed = await handler.get_rom_files(rom)
 
         assert parsed.rom_files[0].file_name == "Game.nsp"
-        assert parsed.renamed_rom_fs_name is None
         assert (tmp_path / "switch/roms/Game.nsp").exists()
+        # The rename is offered to the caller, not performed.
+        assert [c.title_id for c in parsed.embed_candidates] == ["0100ABCD12340000"]
+        assert parsed.embed_candidates[0].is_rom_level
 
     @pytest.mark.asyncio
     async def test_single_file_renamed_and_reconciled(
@@ -1903,17 +1905,18 @@ class TestSwitchTitleIdEmbedding:
         )
 
         with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
-            parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+            parsed = await handler.get_rom_files(rom)
+        renamed_rom_fs_name = await handler.embed_switch_title_ids(parsed)
 
         new_name = "Moonlighter [0100F4700B2E0000][v0].xci"
+        assert renamed_rom_fs_name == new_name
         assert parsed.rom_files[0].file_name == new_name
         assert parsed.rom_files[0].file_path == "switch/roms"
-        assert parsed.renamed_rom_fs_name == new_name
         assert (tmp_path / "switch/roms" / new_name).exists()
         assert not (tmp_path / "switch/roms/Moonlighter.xci").exists()
 
     @pytest.mark.asyncio
-    async def test_non_switch_platform_never_renamed(
+    async def test_non_switch_platform_offers_no_candidates(
         self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
     ):
         platform = Platform(name="PlayStation Portable", slug="psp", fs_slug="psp")
@@ -1927,10 +1930,10 @@ class TestSwitchTitleIdEmbedding:
         )
 
         with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
-            parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+            parsed = await handler.get_rom_files(rom)
 
-        assert parsed.rom_files[0].file_name == "Game.iso"
-        assert parsed.renamed_rom_fs_name is None
+        assert parsed.embed_candidates == []
+        assert await handler.embed_switch_title_ids(parsed) is None
         assert (tmp_path / "psp/roms/Game.iso").exists()
 
     @pytest.mark.asyncio
@@ -1939,10 +1942,11 @@ class TestSwitchTitleIdEmbedding:
         rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, "Game.nsp")
 
         with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=None)):
-            parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+            parsed = await handler.get_rom_files(rom)
 
+        assert parsed.embed_candidates == []
+        assert await handler.embed_switch_title_ids(parsed) is None
         assert parsed.rom_files[0].file_name == "Game.nsp"
-        assert parsed.renamed_rom_fs_name is None
         assert (tmp_path / "switch/roms/Game.nsp").exists()
 
     @pytest.mark.asyncio
@@ -1958,14 +1962,15 @@ class TestSwitchTitleIdEmbedding:
         )
 
         with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=switch_family_extract)):
-            parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+            parsed = await handler.get_rom_files(rom)
+        renamed_rom_fs_name = await handler.embed_switch_title_ids(parsed)
 
         names = {rf.file_name for rf in parsed.rom_files}
         assert "Zelda base [0100ABCD12340000][v0].nsp" in names
         assert "Zelda update [0100ABCD12340800][v196608].nsp" in names
         assert "Zelda dlc [0100ABCD12341001][v0].nsp" in names
         # A multi-part rom's folder name is not changed by inner-file renames.
-        assert parsed.renamed_rom_fs_name is None
+        assert renamed_rom_fs_name is None
         rom_dir = tmp_path / "switch/roms/Zelda"
         assert (rom_dir / "Zelda base [0100ABCD12340000][v0].nsp").exists()
         assert (
