@@ -545,6 +545,9 @@ async def scan_rom(
         identity = fs_rom.get("identity")
         if identity and identity.title_id:
             rom_attrs.update(identity.as_rom_attrs())
+            # Metadata matching reads the id off the instance, so a first scan
+            # searches by what was just extracted rather than the old value.
+            rom.title_id = identity.title_id
 
     # Update properties from existing rom if not a complete rescan
     if not newly_added and scan_type != ScanType.COMPLETE:
@@ -917,7 +920,7 @@ async def scan_rom(
                 return await meta_moby_handler.get_rom_by_id(playmatch_rom["moby_id"])
 
             return await meta_moby_handler.get_rom(
-                rom_attrs["fs_name"], platform_moby_id=platform.moby_id
+                rom, rom_attrs["fs_name"], platform_moby_id=platform.moby_id
             )
 
         return MobyGamesRom(moby_id=None)

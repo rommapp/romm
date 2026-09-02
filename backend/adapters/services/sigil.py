@@ -48,6 +48,14 @@ class SigilService:
     """Service to extract platform-native title ids from ROM binaries via the
     optional `sigil` cffi binding."""
 
+    def is_enabled(self) -> bool:
+        """Whether this build can read title ids at all.
+
+        An absent binding is indistinguishable from a file with no title id in
+        the results alone, so admins and clients read this instead of guessing.
+        """
+        return sigil is not None
+
     async def extract_title_id(
         self,
         platform_slug: str,

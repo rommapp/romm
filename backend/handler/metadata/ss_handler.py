@@ -35,7 +35,6 @@ from models.rom import Rom, RomFile
 from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
@@ -958,19 +957,20 @@ class SSHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
-        if platform_ss_id == SWITCH_SS_ID and match:
-            search_term, index_entry = await self._switch_productid_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = SSRom(
-                    ss_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
+        if platform_ss_id == SWITCH_SS_ID:
+            product_id = self.switch_product_id(rom, file_name)
+            if product_id:
+                search_term, index_entry = await self._switch_productid_format(
+                    product_id, search_term
                 )
+                if index_entry:
+                    fallback_rom = SSRom(
+                        ss_id=None,
+                        name=index_entry["name"],
+                        summary=index_entry.get("description", ""),
+                        url_cover=index_entry.get("iconUrl", ""),
+                        url_screenshots=index_entry.get("screenshots", None) or [],
+                    )
 
         # Support for MAME arcade filename format
         if platform_ss_id in ARCADES_SS_IDS:

@@ -8,11 +8,11 @@ from adapters.services.mobygames import MobyGamesService
 from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
+from models.rom import Rom
 
 from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
@@ -150,7 +150,9 @@ class MobyGamesHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, fs_name: str, platform_moby_id: int) -> MobyGamesRom:
+    async def get_rom(
+        self, rom: Rom, fs_name: str, platform_moby_id: int
+    ) -> MobyGamesRom:
         from handler.filesystem import fs_rom_handler
 
         if not self.is_enabled():
@@ -213,19 +215,20 @@ class MobyGamesHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
-        if platform_moby_id == SWITCH_MOBY_ID and match:
-            search_term, index_entry = await self._switch_productid_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = MobyGamesRom(
-                    moby_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
+        if platform_moby_id == SWITCH_MOBY_ID:
+            product_id = self.switch_product_id(rom, fs_name)
+            if product_id:
+                search_term, index_entry = await self._switch_productid_format(
+                    product_id, search_term
                 )
+                if index_entry:
+                    fallback_rom = MobyGamesRom(
+                        moby_id=None,
+                        name=index_entry["name"],
+                        summary=index_entry.get("description", ""),
+                        url_cover=index_entry.get("iconUrl", ""),
+                        url_screenshots=index_entry.get("screenshots", None) or [],
+                    )
 
         # Support for MAME arcade filename format
         if platform_moby_id in ARCADE_MOBY_IDS:
@@ -250,7 +253,7 @@ class MobyGamesHandler(MetadataHandler):
         if not res:
             return fallback_rom
 
-        rom = {
+        moby_rom = {
             "moby_id": res["game_id"],
             "name": res["title"],
             "summary": res.get("description", ""),
@@ -259,7 +262,7 @@ class MobyGamesHandler(MetadataHandler):
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
 
-        return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+        return MobyGamesRom({k: v for k, v in moby_rom.items() if v})  # type: ignore[misc]
 
     async def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
         if not self.is_enabled():
