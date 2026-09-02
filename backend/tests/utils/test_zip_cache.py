@@ -2,6 +2,7 @@ import os
 import stat
 import tempfile
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from zipfile import ZipFile
@@ -496,7 +497,9 @@ class TestCachedZipReadability:
         assert list((library.parent / "cache").glob("**/*.tmp")) == []
 
     def test_concurrent_builds_share_one_write(self, library, mocker):
-        original_write = ZipFile.write
+        # Other tests reload the zipfile module, so patch the class the build
+        # resolves at call time rather than the one imported at collection.
+        original_write = zipfile.ZipFile.write
         writes: list[str] = []
 
         def slow_write(self, filename, *args, **kwargs):
@@ -504,7 +507,7 @@ class TestCachedZipReadability:
             time.sleep(0.2)
             return original_write(self, filename, *args, **kwargs)
 
-        mocker.patch.object(ZipFile, "write", slow_write)
+        mocker.patch.object(zipfile.ZipFile, "write", slow_write)
 
         def build() -> Path:
             return build_cached_zip(
