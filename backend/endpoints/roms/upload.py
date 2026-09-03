@@ -478,6 +478,7 @@ async def complete_chunked_upload(
         f".{file_location.name}.{uuid4().hex}.{ROM_UPLOAD_ASSEMBLING_EXT}"
     )
     assembled_bytes = 0
+    claimed = False
 
     try:
         async with await open_file(temp_location, "wb") as dest:
@@ -500,10 +501,15 @@ async def complete_chunked_upload(
             )
 
         _claim_destination(file_location)
+        claimed = True
         temp_location.replace(file_location)
     except Exception as exc:
         if temp_location.exists():
             temp_location.unlink()
+        if claimed:
+            # The claim is an empty placeholder the rename never replaced;
+            # left behind, a scan would ingest it as a zero-byte ROM.
+            file_location.unlink(missing_ok=True)
         await _cleanup_upload_state(upload_id)
         if isinstance(exc, HTTPException):
             raise

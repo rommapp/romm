@@ -2425,6 +2425,24 @@ class TestIdentifyRomFiles:
         identify_harness.db.get_rom_simple.assert_not_called()
         socket_manager.emit.assert_not_awaited()
 
+    async def test_restored_rom_emits_even_when_its_files_did_not_change(
+        self, identify_harness
+    ):
+        identify_harness.refresh.return_value = RomFilesRefresh(
+            files=[], new_files=0, updated_files=0, removed_files=0
+        )
+        rom = identify_harness.existing_rom()
+        rom.missing_from_fs = True
+        socket_manager = AsyncMock()
+
+        await identify_harness.run(
+            rom, ScanType.FILES, [], socket_manager=socket_manager
+        )
+
+        identify_harness.db.get_rom_simple.assert_called_once_with(rom.id)
+        socket_manager.emit.assert_awaited_once()
+        assert socket_manager.emit.await_args.args[0] == "scan:scanning_rom"
+
     async def test_new_rom_takes_the_regular_path(self, identify_harness):
         await identify_harness.run(None, ScanType.FILES, [])
 

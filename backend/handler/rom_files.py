@@ -1,3 +1,5 @@
+import asyncio
+import weakref
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,6 +16,23 @@ from models.rom import Rom, RomFile
 from utils.audio_tags import remove_persisted_cover
 
 ROM_LEVEL_HASH_COLUMNS = ("crc_hash", "md5_hash", "sha1_hash", "ra_hash")
+
+# A refresh lists the folder and then deletes every row the listing missed, so
+# two of them running for the same rom (parallel uploads into one folder) would
+# let the slower listing drop what the faster one just registered.
+_refresh_locks: weakref.WeakValueDictionary[int, asyncio.Lock] = (
+    weakref.WeakValueDictionary()
+)
+_refresh_locks_guard = asyncio.Lock()
+
+
+async def _refresh_lock(rom_id: int) -> asyncio.Lock:
+    async with _refresh_locks_guard:
+        lock = _refresh_locks.get(rom_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            _refresh_locks[rom_id] = lock
+        return lock
 
 
 @dataclass(frozen=True)
@@ -44,11 +63,18 @@ async def refresh_rom_files(rom: Rom) -> RomFilesRefresh:
     Returns:
         The persisted rows and what changed, so callers can report it.
     """
+    async with await _refresh_lock(rom.id):
+        return await _refresh(rom)
+
+
+async def _refresh(rom: Rom) -> RomFilesRefresh:
     existing = loaded_rom_files(rom)
-    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
+    cnfg = cm.get_config()
+    calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
     parsed = await fs_rom_handler.get_rom_files(
         rom,
         calculate_hashes=calculate_hashes,
+        extract_title_ids=not cnfg.SKIP_TITLE_ID_EXTRACTION,
         existing_files=existing,
     )
     if existing and not parsed.rom_files:

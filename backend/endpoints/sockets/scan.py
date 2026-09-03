@@ -552,6 +552,8 @@ async def _identify_rom(
     # A files scan only reconciles an existing entry's files with disk; the
     # metadata pipeline below is for new entries and the other scan types.
     if not newly_added and not reassociated and scan_type == ScanType.FILES:
+        # `refresh_rom_files` clears the flag, so read it before the call.
+        was_missing = bool(rom.missing_from_fs)
         refreshed = await refresh_rom_files(rom)
         await scan_stats.increment(
             socket_manager=socket_manager,
@@ -565,6 +567,14 @@ async def _identify_rom(
                 f"{refreshed.new_files} new, {refreshed.updated_files} updated, "
                 f"{refreshed.removed_files} removed"
             )
+        if was_missing:
+            log.info(
+                f"{hl(rom.fs_name)} is back in the filesystem, "
+                f"no longer {hl('missing', color=LIGHTYELLOW)}"
+            )
+        # A rom whose files did not change still needs an emit when it just
+        # stopped being missing, so an open gallery drops the stale badge.
+        if refreshed.changed or was_missing:
             hydrated_rom = db_rom_handler.get_rom_simple(rom.id)
             if hydrated_rom is not None:
                 await _emit_scanning_rom(socket_manager, hydrated_rom)

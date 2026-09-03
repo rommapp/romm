@@ -213,3 +213,19 @@ async def test_disabled_hashing_keeps_stored_rom_hashes(
         "stored-sha1",
     )
     assert _files_by_name(rom.id)["extra.bin"].md5_hash == ""
+
+
+async def test_disabled_title_id_extraction_is_passed_through(
+    platform, admin_user, library, mocker
+):
+    from config.config_manager import config_manager as cm
+
+    config = cm.get_config()
+    mocker.patch.object(config, "SKIP_TITLE_ID_EXTRACTION", True)
+    mocker.patch.object(cm, "get_config", return_value=config)
+    get_rom_files = mocker.spy(fs_rom_handler, "get_rom_files")
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+
+    await refresh_rom_files(rom)
+
+    assert get_rom_files.call_args.kwargs["extract_title_ids"] is False
