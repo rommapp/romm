@@ -1715,18 +1715,19 @@ class TestSigilTitleIdExtraction:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("platform", "fs_name", "kwargs"),
+        ("platform", "fs_name", "calculate_hashes", "extract_title_ids"),
         [
             # Not a platform sigil covers.
             (
                 Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
                 "Game.z64",
-                {"calculate_hashes": False},
+                False,
+                True,
             ),
             # Turned off by config.
-            (SWITCH_PLATFORM, "Game.nsp", {"extract_title_ids": False}),
+            (SWITCH_PLATFORM, "Game.nsp", True, False),
             # An archive holds no ROM binary sigil can read.
-            (SWITCH_PLATFORM, "game.zip", {}),
+            (SWITCH_PLATFORM, "game.zip", True, True),
         ],
     )
     async def test_extraction_is_skipped(
@@ -1735,7 +1736,8 @@ class TestSigilTitleIdExtraction:
         sigil_config: Config,
         platform: Platform,
         fs_name: str,
-        kwargs: dict[str, bool],
+        calculate_hashes: bool,
+        extract_title_ids: bool,
     ):
         handler = make_sigil_handler(tmp_path)
         rom = make_single_file_rom(tmp_path, platform, fs_name)
@@ -1743,7 +1745,11 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock()
 
         with patch(SIGIL_PATCH_TARGET, mock_extract):
-            parsed = await handler.get_rom_files(rom, **kwargs)
+            parsed = await handler.get_rom_files(
+                rom,
+                calculate_hashes=calculate_hashes,
+                extract_title_ids=extract_title_ids,
+            )
 
         mock_extract.assert_not_awaited()
         assert parsed.title_id is None
