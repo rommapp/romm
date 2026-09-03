@@ -28,7 +28,6 @@ class TestScanLibraryTask:
 
     def test_init(self, task):
         """Test task initialization"""
-        assert task.func == "tasks.scheduled.scan_library.scan_library_task.run"
         assert task.description == "Rescans the entire library"
 
     async def test_run_enabled(self, task, mocker):
@@ -74,20 +73,14 @@ class TestScanLibraryTask:
             "tasks.scheduled.scan_library.scan_platforms"
         )
         mock_log = mocker.patch("tasks.scheduled.scan_library.log")
-        task.unschedule = MagicMock()
 
         await task.run()
 
         mock_log.info.assert_called_once_with(
-            "Scheduled library scan not enabled, unscheduling..."
+            "Scheduled library scan not enabled, skipping..."
         )
-        task.unschedule.assert_called_once()
         mock_scan_platforms.assert_not_called()
 
     def test_task_instance(self):
         """Test that the module-level task instance is created correctly"""
         assert isinstance(scan_library_task, ScanLibraryTask)
-        assert (
-            scan_library_task.func
-            == "tasks.scheduled.scan_library.scan_library_task.run"
-        )

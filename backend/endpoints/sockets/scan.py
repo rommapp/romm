@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from itertools import batched, chain
+from itertools import batched
 from typing import Any, Final
 
 import socketio  # type: ignore
-from rq import Worker, get_current_job
+from rq import get_current_job
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
@@ -48,9 +48,9 @@ from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
-    get_job_func_name,
+    cancel_job,
+    get_job_status,
     high_prio_queue,
-    low_prio_queue,
     redis_client,
 )
 from handler.scan_handler import (
@@ -63,6 +63,11 @@ from handler.scan_handler import (
     scan_platform,
     scan_rom,
 )
+from handler.scan_jobs import (
+    get_queued_scan_jobs,
+    get_running_scan_job,
+    get_scheduled_scan_jobs,
+)
 from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
@@ -70,7 +75,7 @@ from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
-from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
+from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
@@ -80,66 +85,29 @@ from utils.pegasus_exporter import PegasusExporter
 STOP_SCAN_FLAG: Final = "scan:stop"
 
 
-def _scan_platforms_func_name() -> str:
-    """Fully qualified name RQ records for a directly enqueued scan.
-
-    Derived from the function itself so it cannot drift out of sync with the
-    name RQ stores when the job is enqueued.
-    """
-    return f"{scan_platforms.__module__}.{scan_platforms.__name__}"
-
-
-def _scan_job_func_names() -> frozenset[str]:
-    """Every job function name that ends up running a scan.
-
-    Socket and watcher scans enqueue scan_platforms itself, while the scheduled
-    rescan enqueues its own task and calls scan_platforms in process. Both have
-    to be recognised or an in-flight scan goes unseen.
-    """
-    return frozenset((_scan_platforms_func_name(), SCAN_LIBRARY_TASK_FUNC))
+def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
+    """What a scan job carries so a client can tell which scan is running."""
+    return {
+        "task_name": f"{scan_type.value.capitalize()} Scan",
+        "task_type": TaskType.SCAN.value,
+    }
 
 
-def _get_running_scan_job() -> Job | None:
-    """The scan currently executing on a worker, if any.
-
-    A started job is no longer in the queue, so it can only be found by asking
-    the workers what they are holding.
-    """
-    func_names = _scan_job_func_names()
-    for worker in Worker.all(connection=redis_client):
-        job = worker.get_current_job()
-        if job is not None and get_job_func_name(job) in func_names:
-            return job
-
-    return None
+def _scan_job_label(job: Job) -> str:
+    """How to refer to a scan job when reporting it to a client."""
+    return str(job.meta.get("task_name") or "A scan")
 
 
-def _get_queued_scan_jobs() -> list[Job]:
-    """Scans waiting to run, not yet picked up by a worker.
+def _scan_in_flight_message(running: Job | None, queued: list[Job]) -> str:
+    """Say which scan is in the way, so the client knows what to wait on."""
+    if running is None:
+        return f"{_scan_job_label(queued[0])} is already queued"
 
-    Socket scans sit in the high priority queue, while watcher scans are delayed
-    through the scheduler before landing in the low priority queue.
-    """
-    func_names = _scan_job_func_names()
-    jobs: dict[str, Job] = {}
+    stopping = (JobStatus.CANCELED, JobStatus.STOPPED)
+    if get_job_status(running, refresh=False) in stopping:
+        return f"{_scan_job_label(running)} is still stopping, try again in a moment"
 
-    for job in chain(high_prio_queue.get_jobs(), low_prio_queue.get_jobs()):
-        if isinstance(job, Job) and get_job_func_name(job) in func_names:
-            jobs[job.id] = job
-
-    # The scheduler registry also holds the standing cron entry for the
-    # scheduled rescan, which is a schedule rather than a pending scan, so only
-    # delayed scan_platforms jobs count as queued here.
-    scan_platforms_func_name = _scan_platforms_func_name()
-    for job in tasks_scheduler.get_jobs():
-        if (
-            isinstance(job, Job)
-            and get_job_func_name(job) == scan_platforms_func_name
-            and job.get_status() in (JobStatus.SCHEDULED, JobStatus.QUEUED)
-        ):
-            jobs[job.id] = job
-
-    return list(jobs.values())
+    return f"{_scan_job_label(running)} is already running"
 
 
 @dataclass
@@ -963,7 +931,7 @@ async def scan_platforms(
     # scan that ended first would otherwise stop this one before it began. A
     # scan still on a worker owns the flag though, and clearing it there would
     # let a stopped scan carry on.
-    running_job = _get_running_scan_job()
+    running_job = get_running_scan_job()
     current_job = get_current_job()
     if running_job is None or (
         current_job is not None and running_job.id == current_job.id
@@ -1266,14 +1234,18 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 
     # Without this, every request enqueues another full scan behind the running
     # one, and a client that lost the progress socket has no way to tell.
-    if not DEV_MODE and (_get_running_scan_job() or _get_queued_scan_jobs()):
-        log.info(f"{emoji.EMOJI_STOP_SIGN} Scan already in progress, ignoring request")
-        await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "A scan is already in progress",
-            to=sid,
-        )
-        return
+    if not DEV_MODE:
+        running_job = get_running_scan_job()
+        queued_jobs = get_queued_scan_jobs()
+        if running_job is not None or queued_jobs:
+            message = _scan_in_flight_message(running_job, queued_jobs)
+            log.info(f"{emoji.EMOJI_STOP_SIGN} {message}, ignoring request")
+            await socket_handler.socket_server.emit(
+                "scan:done_ko",
+                message,
+                to=sid,
+            )
+            return
 
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
@@ -1307,10 +1279,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         platform_fs_slugs=platform_fs_slugs,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": f"{scan_type.value.capitalize()} Scan",
-            "task_type": TaskType.SCAN,
-        },
+        meta=scan_job_meta(scan_type),
     )
 
 
@@ -1325,22 +1294,24 @@ async def stop_scan_handler(sid: str):
 
     # Queued scans have not started, so cancelling them is enough. They have to
     # go too: stopping only the running scan would hand the worker the next one.
-    queued_jobs = _get_queued_scan_jobs()
-    for job in queued_jobs:
-        job.cancel()
+    queued_jobs = get_queued_scan_jobs()
+    scheduled_jobs = get_scheduled_scan_jobs()
+    for job in queued_jobs + scheduled_jobs:
+        cancel_job(job)
 
     # A running scan cannot be interrupted from here, it polls the stop flag
     # between platforms and ROMs and unwinds itself.
-    running_job = _get_running_scan_job()
+    running_job = get_running_scan_job()
     if running_job is not None:
-        running_job.cancel()
+        cancel_job(running_job)
         redis_client.set(STOP_SCAN_FLAG, 1)
 
-    if running_job is None and not queued_jobs:
+    if running_job is None and not queued_jobs and not scheduled_jobs:
         log.info(f"{emoji.EMOJI_STOP_BUTTON} No running scan to stop")
         return
 
     log.info(
         f"{emoji.EMOJI_STOP_BUTTON} Stopping scan "
-        f"({int(running_job is not None)} running, {len(queued_jobs)} queued)"
+        f"({int(running_job is not None)} running, {len(queued_jobs)} queued, "
+        f"{len(scheduled_jobs)} scheduled)"
     )

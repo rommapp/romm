@@ -1,6 +1,6 @@
 from typing import Literal, TypedDict, Union
 
-from rq_scheduler.scheduler import JobStatus
+from rq.job import JobStatus
 
 from tasks.tasks import TaskType
 
