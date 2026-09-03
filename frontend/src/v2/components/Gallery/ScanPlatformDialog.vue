@@ -408,7 +408,9 @@ function onScan() {
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
-        :disabled="effectiveMetadataSources.length === 0"
+        :disabled="
+          effectiveMetadataSources.length === 0 && scanType !== 'files'
+        "
         @click="onScan"
       >
         {{ t("scan.scan", "Scan") }}

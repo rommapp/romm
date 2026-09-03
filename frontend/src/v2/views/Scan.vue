@@ -169,10 +169,13 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
 ];
 const scanType = ref<ScanType>("quick");
 
-// The start button is disabled while a scan runs OR when there's no
-// metadata source picked (the scan wouldn't do anything useful).
+// A files scan contacts no provider; every other type needs at least one
+// picked source or it wouldn't do anything useful.
+const needsMetadataSource = computed(() => scanType.value !== "files");
 const canStartScan = computed(
-  () => !scanning.value && effectiveMetadataSources.value.length > 0,
+  () =>
+    !scanning.value &&
+    (!needsMetadataSource.value || effectiveMetadataSources.value.length > 0),
 );
 
 // Live status header — pulled in from the (now retired) floating
@@ -569,7 +572,7 @@ function stopScan() {
       <footer class="r-v2-scan-card__section r-v2-scan-card__cta">
         <div class="r-v2-scan-card__hints">
           <RAlert
-            v-if="effectiveMetadataSources.length === 0"
+            v-if="needsMetadataSource && effectiveMetadataSources.length === 0"
             type="warning"
             density="compact"
             :icon="false"
