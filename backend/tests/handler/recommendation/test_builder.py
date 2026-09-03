@@ -22,6 +22,7 @@ def make_rom(
     name: str,
     *,
     igdb_id: int | None = None,
+    steam_id: int | None = None,
     genres: list[str] | None = None,
     franchises: list[str] | None = None,
     collections: list[str] | None = None,
@@ -67,6 +68,7 @@ def make_rom(
             fs_extension="zip",
             fs_path=f"{platform.slug}/roms",
             igdb_id=igdb_id,
+            steam_id=steam_id,
             igdb_metadata=metadata,
         )
     )
@@ -215,6 +217,34 @@ def test_region_duplicates_are_not_recommendations(platform: Platform):
 
     neighbours = db_recommendation_handler.get_similar_rom_edges(usa.id)
     assert europe.id not in {edge.rom_id for edge in neighbours}
+
+
+def test_storefront_copies_of_one_game_are_not_recommendations(
+    platform: Platform, library: dict[str, Rom]
+):
+    """Two copies of one Steam game share a steam_id and may have no IGDB match."""
+    bundle = make_rom(
+        platform,
+        "Portal Bundle",
+        steam_id=400,
+        genres=["Puzzle"],
+        franchises=["Portal"],
+    )
+    single = make_rom(
+        platform, "Portal", steam_id=400, genres=["Puzzle"], franchises=["Portal"]
+    )
+    sequel = make_rom(
+        platform, "Portal 2", igdb_id=6002, genres=["Puzzle"], franchises=["Portal"]
+    )
+
+    SimilarityBuilder().build()
+
+    neighbours = {
+        edge.rom_id
+        for edge in db_recommendation_handler.get_similar_rom_edges(bundle.id)
+    }
+    assert single.id not in neighbours
+    assert sequel.id in neighbours
 
 
 def test_ports_of_one_game_take_a_single_slot(platform: Platform):

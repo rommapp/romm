@@ -25,6 +25,11 @@ EDGE_INSERT_CHUNK_SIZE = 1_000
 # relate its entire contents to itself.
 MAX_CO_OCCURRENCE_SET_SIZE = 250
 
+# Provider ids that name a game rather than a file. Two ROMs sharing any of
+# them are one title (regions, revisions, storefront copies) and must never be
+# recommended for each other.
+IDENTITY_ID_COLUMNS = (RomFacets.igdb_id, RomFacets.steam_id)
+
 # Votes a rating needs before it is trusted on its own in the cold-start feed.
 # Below this it is blended with the library mean; well above it, the raw rating
 # carries. Tuned so a handful of votes cannot float an obscure game to the top.
@@ -114,17 +119,36 @@ class DBRecommendationsHandler(DBBaseHandler):
     def get_rom_igdb_ids(
         self, session: Session = None  # type: ignore
     ) -> dict[int, int]:
-        """ROM id -> IGDB id.
-
-        Keyed by ROM id, not IGDB id: the relationship is many-to-one (region
-        and revision variants of one game share an IGDB id), and keying the
-        other way would silently drop every duplicate but one -- which is
-        exactly the set the duplicate suppression needs to see.
-        """
+        """ROM id -> IGDB id, for resolving IGDB's related-game ids to owned copies."""
         stmt = select(RomFacets.rom_id, RomFacets.igdb_id).where(
             RomFacets.igdb_id.is_not(None)
         )
         return {rom_id: igdb_id for rom_id, igdb_id in session.execute(stmt).all()}
+
+    @begin_session
+    def get_rom_identity_ids(
+        self, session: Session = None  # type: ignore
+    ) -> dict[int, frozenset[str]]:
+        """ROM id -> "provider:id" tokens from every identity provider that matched it.
+
+        Keyed by ROM id: the relationship is many-to-one (region and revision
+        variants share an id), and keying the other way would silently drop
+        every duplicate but one, which is exactly the set the suppression
+        needs to see. ROMs no identity provider matched are absent.
+        """
+        stmt = select(RomFacets.rom_id, *IDENTITY_ID_COLUMNS)
+        identities: dict[int, frozenset[str]] = {}
+        for rom_id, *provider_ids in session.execute(stmt).all():
+            tokens = frozenset(
+                f"{column.key}:{provider_id}"
+                for column, provider_id in zip(
+                    IDENTITY_ID_COLUMNS, provider_ids, strict=True
+                )
+                if provider_id is not None
+            )
+            if tokens:
+                identities[rom_id] = tokens
+        return identities
 
     @begin_session
     def iter_igdb_related(

@@ -8,7 +8,7 @@ scores library-relative changes as the shelf grows.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from itertools import combinations
 from typing import Any, Final
@@ -30,6 +30,9 @@ from .scoring import (
     normalise_co_occurrence,
     shared_reasons,
 )
+
+# Identity of a ROM no identity provider matched: nothing to collide on.
+_NO_IDENTITY: Final[frozenset[str]] = frozenset()
 
 # Neighbours kept per ROM. Enough to fill a "Similar games" shelf several times
 # over and to give the personalised feed room to diversify, without letting the
@@ -131,18 +134,22 @@ class SimilarityBuilder:
         )
         postings = build_inverted_index(features)
 
-        igdb_ids = {
-            rom_id: igdb_id
+        # Resolving an IGDB id back to a ROM is one-to-many; any owned copy of
+        # the game is an equally good target for the edge.
+        igdb_to_rom = {
+            igdb_id: rom_id
             for rom_id, igdb_id in db_recommendation_handler.get_rom_igdb_ids().items()
             if rom_id in features
         }
-        # Resolving an IGDB id back to a ROM is one-to-many; any owned copy of
-        # the game is an equally good target for the edge.
-        igdb_to_rom = {igdb_id: rom_id for rom_id, igdb_id in igdb_ids.items()}
-        signals = self._collect_pair_signals(features, igdb_ids, igdb_to_rom)
+        identities = {
+            rom_id: tokens
+            for rom_id, tokens in db_recommendation_handler.get_rom_identity_ids().items()
+            if rom_id in features
+        }
+        signals = self._collect_pair_signals(features, identities, igdb_to_rom)
 
         log.info(f"Scoring similarity for {total_documents} ROMs")
-        self._score_and_write(features, vectors, postings, signals, igdb_ids)
+        self._score_and_write(features, vectors, postings, signals, identities)
 
         log.info(
             f"Recommendations index built: {self.stats.roms_indexed} ROMs, "
@@ -191,7 +198,7 @@ class SimilarityBuilder:
     def _collect_pair_signals(
         self,
         features: dict[int, RomFeatures],
-        igdb_ids: dict[int, int],
+        identities: Mapping[int, frozenset[str]],
         igdb_to_rom: dict[int, int],
     ) -> _PairSignals:
         signals = _PairSignals()
@@ -205,21 +212,21 @@ class SimilarityBuilder:
                 # ones actually on the shelf are worth an edge.
                 if related_rom_id is None or related_rom_id == rom_id:
                     continue
-                if self._is_duplicate(rom_id, related_rom_id, igdb_ids):
+                if self._is_duplicate(rom_id, related_rom_id, identities):
                     continue
                 signals.igdb[_pair_key(rom_id, related_rom_id)] = 1.0
 
         self._count_co_occurrence(
             db_recommendation_handler.get_played_sets(),
             features,
-            igdb_ids,
+            identities,
             signals.co_play,
             signals.play_totals,
         )
         self._count_co_occurrence(
             db_recommendation_handler.get_collection_membership_sets(),
             features,
-            igdb_ids,
+            identities,
             signals.co_collection,
             signals.collection_totals,
         )
@@ -237,7 +244,7 @@ class SimilarityBuilder:
         self,
         id_sets: Iterable[Sequence[int]],
         features: dict[int, RomFeatures],
-        igdb_ids: dict[int, int],
+        identities: Mapping[int, frozenset[str]],
         pair_counts: dict[tuple[int, int], float],
         totals: dict[int, int],
     ) -> None:
@@ -252,7 +259,7 @@ class SimilarityBuilder:
                 totals[rom_id] = totals.get(rom_id, 0) + 1
 
             for left, right in combinations(known, 2):
-                if self._is_duplicate(left, right, igdb_ids):
+                if self._is_duplicate(left, right, identities):
                     continue
                 raw[(left, right)] += 1
 
@@ -262,10 +269,13 @@ class SimilarityBuilder:
             )
 
     @staticmethod
-    def _is_duplicate(left: int, right: int, igdb_ids: dict[int, int]) -> bool:
-        """Two files of the same game (regions, revisions) are not a recommendation."""
-        left_igdb = igdb_ids.get(left)
-        return left_igdb is not None and left_igdb == igdb_ids.get(right)
+    def _is_duplicate(
+        left: int, right: int, identities: Mapping[int, frozenset[str]]
+    ) -> bool:
+        """Files of one game (regions, revisions, storefronts) are not recommendations."""
+        return not identities.get(left, _NO_IDENTITY).isdisjoint(
+            identities.get(right, _NO_IDENTITY)
+        )
 
     # --- Scoring -----------------------------------------------------------------
 
@@ -275,7 +285,7 @@ class SimilarityBuilder:
         vectors: dict[int, dict[str, float]],
         postings: dict[str, list[int]],
         signals: _PairSignals,
-        igdb_ids: dict[int, int],
+        identities: Mapping[int, frozenset[str]],
     ) -> None:
         total_documents = len(features)
         batch_rom_ids: list[int] = []
@@ -283,7 +293,13 @@ class SimilarityBuilder:
 
         for rom_id, feature in features.items():
             edges = self._score_one(
-                feature, features, vectors, postings, signals, igdb_ids, total_documents
+                feature,
+                features,
+                vectors,
+                postings,
+                signals,
+                identities,
+                total_documents,
             )
 
             batch_rom_ids.append(rom_id)
@@ -303,7 +319,7 @@ class SimilarityBuilder:
         vectors: dict[int, dict[str, float]],
         postings: dict[str, list[int]],
         signals: _PairSignals,
-        igdb_ids: dict[int, int],
+        identities: Mapping[int, frozenset[str]],
         total_documents: int,
     ) -> list[dict[str, Any]]:
         rom_id = feature.rom_id
@@ -328,7 +344,7 @@ class SimilarityBuilder:
 
         scored: list[tuple[float, int, list[dict[str, str]]]] = []
         for candidate_id in candidates:
-            if self._is_duplicate(rom_id, candidate_id, igdb_ids):
+            if self._is_duplicate(rom_id, candidate_id, identities):
                 continue
 
             candidate_vector = vectors.get(candidate_id, {})
@@ -358,17 +374,16 @@ class SimilarityBuilder:
         # source or each other. The per-candidate check above compares against
         # the source alone, so two discs of one release would each take a slot.
         edges: list[dict[str, Any]] = []
-        taken_igdb_ids: set[int] = set()
+        taken_identities: set[str] = set()
         taken_titles: set[str] = set()
         series_counts: dict[str, int] = {}
         source_title = feature.title_key
 
         for score, candidate_id, reasons in scored:
-            candidate_igdb_id = igdb_ids.get(candidate_id)
-            if candidate_igdb_id is not None:
-                if candidate_igdb_id in taken_igdb_ids:
-                    continue
-                taken_igdb_ids.add(candidate_igdb_id)
+            candidate_identity = identities.get(candidate_id, _NO_IDENTITY)
+            if not candidate_identity.isdisjoint(taken_identities):
+                continue
+            taken_identities |= candidate_identity
 
             # The same game on another platform is not a recommendation, and
             # IGDB gives every port its own id, so the id check above cannot
