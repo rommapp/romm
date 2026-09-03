@@ -109,6 +109,23 @@ def get_job_kwargs(job: Job) -> dict[str, Any] | None:
         return None
 
 
+def cancel_job(job: Job) -> bool:
+    """Cancel an RQ job, tolerating one that is already cancelled.
+
+    Args:
+        job: The RQ Job object to cancel
+
+    Returns:
+        Whether this call was the one that cancelled it
+    """
+    try:
+        job.cancel()
+    except InvalidJobOperation:
+        return False
+
+    return True
+
+
 def get_worker_current_job(worker: Worker) -> Job | None:
     """Safely get the job a worker is holding, which can be gone before the
     worker's own registration expires.

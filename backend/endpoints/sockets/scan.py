@@ -47,7 +47,12 @@ from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
-from handler.redis_handler import get_job_status, high_prio_queue, redis_client
+from handler.redis_handler import (
+    cancel_job,
+    get_job_status,
+    high_prio_queue,
+    redis_client,
+)
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -84,7 +89,7 @@ def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
     """What a scan job carries so a client can tell which scan is running."""
     return {
         "task_name": f"{scan_type.value.capitalize()} Scan",
-        "task_type": TaskType.SCAN,
+        "task_type": TaskType.SCAN.value,
     }
 
 
@@ -1276,13 +1281,13 @@ async def stop_scan_handler(sid: str):
     queued_jobs = get_queued_scan_jobs()
     scheduled_jobs = get_scheduled_scan_jobs()
     for job in queued_jobs + scheduled_jobs:
-        job.cancel()
+        cancel_job(job)
 
     # A running scan cannot be interrupted from here, it polls the stop flag
     # between platforms and ROMs and unwinds itself.
     running_job = get_running_scan_job()
     if running_job is not None:
-        running_job.cancel()
+        cancel_job(running_job)
         redis_client.set(STOP_SCAN_FLAG, 1)
 
     if running_job is None and not queued_jobs and not scheduled_jobs:

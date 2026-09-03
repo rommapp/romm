@@ -2,6 +2,7 @@ import importlib
 
 import pytest
 
+from config import TASK_RESULT_TTL
 from tasks import cron_config
 from tasks.registry import SCHEDULED_TASKS
 from tasks.tasks import run_task_by_name
@@ -42,6 +43,23 @@ class TestCronConfig:
         assert args[0] is run_task_by_name
         assert kwargs["kwargs"] == {"name": "test_task"}
         assert kwargs["cron"] == "0 4 * * *"
+
+    def test_each_entry_gets_its_own_cron_identity(self, mocker, registered):
+        # Every entry runs the same function, so an unnamed one would inherit
+        # that func name and share one job history with all the others.
+        register = registered(
+            {"first": _task(mocker), "second": _task(mocker)},
+        )
+
+        names = [call.kwargs["name"] for call in register.call_args_list]
+        assert names == ["first", "second"]
+
+    def test_a_finished_run_is_kept_as_long_as_a_manual_one(self, mocker, registered):
+        # rq.cron always passes a result_ttl, so leaving it out means its 500s
+        # default rather than the worker's setting.
+        register = registered({"test_task": _task(mocker)})
+
+        assert register.call_args.kwargs["result_ttl"] == TASK_RESULT_TTL
 
     def test_skips_a_disabled_task(self, mocker, registered):
         assert registered({"off": _task(mocker, enabled=False)}).call_count == 0

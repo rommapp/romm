@@ -1951,6 +1951,19 @@ class TestStopScan:
         for job in queued:
             job.cancel.assert_called_once()
 
+    async def test_a_second_stop_on_an_unwinding_scan_is_not_an_error(
+        self, mocker, emit, redis
+    ):
+        # The first Stop marks the job cancelled, but the worker still holds it
+        # while it unwinds, so the second Stop reaches it again.
+        running = make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.CANCELED)
+        running.cancel.side_effect = InvalidJobOperation
+        patch_scan_jobs(mocker, running=running)
+
+        await stop_scan_handler("sid")
+
+        redis.set.assert_called_once_with(scan_module.STOP_SCAN_FLAG, 1)
+
     async def test_cancels_watcher_scans(self, mocker, emit, redis):
         # Cancelling only the high priority queue would hand the worker the
         # watcher's scan the moment the running one unwinds.

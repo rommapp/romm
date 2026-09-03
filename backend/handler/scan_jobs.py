@@ -9,6 +9,7 @@ from rq.job import Job, JobStatus
 from rq.registry import ScheduledJobRegistry
 
 from handler.redis_handler import (
+    cancel_job,
     get_job_func_name,
     get_job_status,
     get_worker_current_job,
@@ -120,7 +121,9 @@ def drop_stale_scheduled_scans() -> int:
         if job is None or not is_scan_job(job):
             continue
 
-        job.cancel()
+        if not cancel_job(job):
+            continue
+
         dropped += 1
         log.warning(
             f"Dropped scan {job.id}, overdue by more than {STALE_SCHEDULED_SCAN_AGE}"

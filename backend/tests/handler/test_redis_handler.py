@@ -5,6 +5,7 @@ from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobEr
 from rq.job import Job, JobStatus
 
 from handler.redis_handler import (
+    cancel_job,
     get_job_func_name,
     get_job_kwargs,
     get_job_status,
@@ -75,6 +76,21 @@ class TestGetJobStatus:
         job.get_status.side_effect = InvalidJobOperation
 
         assert get_job_status(job) is None
+
+
+class TestCancelJob:
+    def test_cancels_a_live_job(self):
+        job = make_job()
+
+        assert cancel_job(job) is True
+        job.cancel.assert_called_once()
+
+    def test_tolerates_a_job_cancelled_by_an_earlier_call(self):
+        # Stopping a scan twice reaches the running job again while it unwinds.
+        job = make_job()
+        job.cancel.side_effect = InvalidJobOperation
+
+        assert cancel_job(job) is False
 
 
 class TestGetWorkerCurrentJob:

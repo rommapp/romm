@@ -6,6 +6,7 @@ import sentry_sdk
 from opentelemetry import trace
 from rq.exceptions import DuplicateJobError
 from rq.job import Job
+from rq.utils import as_text
 
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, SENTRY_DSN
 from handler.database import db_save_handler
@@ -98,7 +99,7 @@ def _drop_legacy_scheduler_state() -> None:
     """Clear what the old scheduler left in Redis, jobs included."""
     try:
         legacy_job_ids = {
-            job_id.decode()
+            as_text(job_id)
             for job_id in redis_client.zrange(LEGACY_SCHEDULED_JOBS_KEY, 0, -1)
         }
 
@@ -113,9 +114,7 @@ def _drop_legacy_scheduler_state() -> None:
             if orphans:
                 redis_client.delete(*(Job.key_for(job_id) for job_id in orphans))
 
-            log.info(
-                f"Cleared {len(legacy_job_ids)} job(s) left behind by the old scheduler"
-            )
+            log.info(f"Cleared {len(orphans)} job(s) left behind by the old scheduler")
 
         # The registry, the lock and the scheduler's own keys go regardless: an
         # old scheduler that never held a job still registered itself.
