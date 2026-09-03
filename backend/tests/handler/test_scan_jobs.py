@@ -2,8 +2,7 @@ from datetime import datetime, timezone
 
 from rq.job import JobStatus
 from tests.scan_job_stubs import (
-    CLEANUP_FUNC,
-    SCAN_PLATFORMS_FUNC,
+    NON_SCAN_FUNC,
     make_job,
     make_task_job,
     patch_scan_jobs,
@@ -11,6 +10,7 @@ from tests.scan_job_stubs import (
 
 import handler.scan_jobs as scan_jobs
 from endpoints.sockets.scan import scan_platforms
+from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 
 
 def test_the_scan_func_name_matches_the_function():
@@ -29,7 +29,7 @@ class TestIsScanJob:
         assert scan_jobs.is_scan_job(make_task_job())
 
     def test_ignores_another_task(self):
-        assert not scan_jobs.is_scan_job(make_job(CLEANUP_FUNC))
+        assert not scan_jobs.is_scan_job(make_job(NON_SCAN_FUNC))
 
 
 class TestGetQueuedScanJobs:
@@ -41,7 +41,7 @@ class TestGetQueuedScanJobs:
         assert scan_jobs.get_queued_scan_jobs() == [high, low]
 
     def test_leaves_out_jobs_that_are_not_scans(self, mocker):
-        patch_scan_jobs(mocker, high_queued=[make_job(CLEANUP_FUNC)])
+        patch_scan_jobs(mocker, high_queued=[make_job(NON_SCAN_FUNC)])
 
         assert scan_jobs.get_queued_scan_jobs() == []
 
@@ -113,7 +113,7 @@ class TestDropStaleScheduledScans:
         job.cancel.assert_not_called()
 
     def test_leaves_jobs_that_are_not_scans_alone(self, mocker):
-        job = make_job(CLEANUP_FUNC, status=JobStatus.SCHEDULED)
+        job = make_job(NON_SCAN_FUNC, status=JobStatus.SCHEDULED)
         registry = patch_scan_jobs(mocker, scheduled=[job])
         registry.get_jobs_to_schedule.return_value = [job.id]
 

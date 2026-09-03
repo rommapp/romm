@@ -41,8 +41,7 @@ router = APIRouter(
 
 
 # Scheduled tasks an admin can see and trigger. The rest of the catalog runs on
-# its schedule without being surfaced. Resolved here so a registry rename fails
-# at import rather than on a request.
+# its schedule without being surfaced.
 VISIBLE_SCHEDULED_TASKS: Final[dict[str, Task]] = {
     name: SCHEDULED_TASKS[name]
     for name in (

@@ -65,7 +65,7 @@ def enqueue_task(
     task_kwargs: dict[str, Any] | None = None,
     **job_options: Any,
 ) -> Job:
-    """Enqueue a registered task by name, on the queue a worker picks it up from.
+    """Enqueue a registered task by name.
 
     Args:
         name: The key the task is registered under.

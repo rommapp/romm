@@ -58,11 +58,7 @@ def _enqueue_backfill(task_name: str, job_id: str) -> None:
 
 
 def _enqueue_recompute_save_hashes_if_needed() -> None:
-    """Backfill content_hash for saves uploaded before the path-resolution fix.
-
-    A single COUNT query gates it, so a run that already completed costs nothing
-    on later restarts.
-    """
+    """Backfill content_hash for saves uploaded before the path-resolution fix."""
     try:
         missing = db_save_handler.count_saves_missing_content_hash()
     except Exception:
@@ -83,10 +79,8 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
 def _enqueue_convert_images_to_webp() -> None:
     """Backfill .webp covers when WebP conversion is enabled.
 
-    The frontend rewrites cover URLs to .webp as soon as the feature flag is on,
-    but the scheduled task only runs at its next cron time and the inline
-    conversion in the resources handler only fires for covers fetched after
-    enabling, so without this every existing cover 404s until then.
+    The frontend rewrites cover URLs to .webp as soon as the flag is on, so
+    without this every cover fetched before it 404s until the next cron run.
     """
     _enqueue_backfill("convert_images_to_webp", CONVERT_IMAGES_TO_WEBP_JOB_ID)
 

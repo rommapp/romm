@@ -110,10 +110,8 @@ def get_job_kwargs(job: Job) -> dict[str, Any] | None:
 
 
 def get_worker_current_job(worker: Worker) -> Job | None:
-    """Safely get the job a worker is holding.
-
-    A worker killed mid-job keeps pointing at it until its own registration
-    expires, by which time the job can be gone.
+    """Safely get the job a worker is holding, which can be gone before the
+    worker's own registration expires.
 
     Args:
         worker: The RQ Worker to read

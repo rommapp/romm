@@ -6,8 +6,7 @@ import socketio
 from rq.exceptions import InvalidJobOperation
 from rq.job import JobStatus
 from tests.scan_job_stubs import (
-    CLEANUP_FUNC,
-    SCAN_PLATFORMS_FUNC,
+    NON_SCAN_FUNC,
     make_job,
     make_task_job,
     patch_scan_jobs,
@@ -37,6 +36,7 @@ from handler.filesystem.roms_handler import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import MetadataSource, ScanType
+from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
@@ -1834,10 +1834,10 @@ class TestScanConcurrency:
         # Only scans block scans; a cleanup or metadata task must not.
         patch_scan_jobs(
             mocker,
-            running=make_job(CLEANUP_FUNC),
-            high_queued=[make_job(CLEANUP_FUNC)],
-            low_queued=[make_job(CLEANUP_FUNC)],
-            scheduled=[make_job(CLEANUP_FUNC, status=JobStatus.SCHEDULED)],
+            running=make_job(NON_SCAN_FUNC),
+            high_queued=[make_job(NON_SCAN_FUNC)],
+            low_queued=[make_job(NON_SCAN_FUNC)],
+            scheduled=[make_job(NON_SCAN_FUNC, status=JobStatus.SCHEDULED)],
         )
         enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
 

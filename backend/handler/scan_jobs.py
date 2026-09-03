@@ -1,8 +1,4 @@
-"""Finding and pruning the RQ jobs that run a library scan.
-
-Kept out of the socket endpoint so the watcher and the startup script can ask
-about scans without importing the scan implementation and everything under it.
-"""
+"""Finding and pruning the RQ jobs that run a library scan."""
 
 from datetime import datetime, timedelta, timezone
 from itertools import chain
@@ -23,9 +19,8 @@ from handler.redis_handler import (
 from logger.logger import log
 from tasks.tasks import TaskType
 
-# The name RQ records for a directly enqueued scan. Spelled out rather than
-# derived from the function, which lives in the module that imports this one;
-# a test holds the two together.
+# The name RQ records for a directly enqueued scan, kept in step with the
+# function by a test rather than an import, which would be a cycle.
 SCAN_PLATFORMS_FUNC: Final = "endpoints.sockets.scan.scan_platforms"
 
 # A delayed watcher scan this far past due was left behind by an instance that
@@ -36,9 +31,8 @@ STALE_SCHEDULED_SCAN_AGE: Final = timedelta(hours=1)
 def is_scan_job(job: Job) -> bool:
     """Whether this job runs a scan.
 
-    Socket and watcher scans enqueue scan_platforms itself. Task-driven scans go
-    through the task runner, which every task shares, so they are recognised by
-    the type their job carries instead.
+    Task-driven scans carry the task runner's func name, which every task
+    shares, so those are recognised by the type in their meta instead.
     """
     if get_job_func_name(job) == SCAN_PLATFORMS_FUNC:
         return True
@@ -117,8 +111,7 @@ def drop_stale_scheduled_scans() -> int:
     registry = _scheduled_scan_registry()
     cutoff = datetime.now(timezone.utc) - STALE_SCHEDULED_SCAN_AGE
 
-    # The registry is scored by due time, so it can hand back only what is past
-    # due rather than every delayed job.
+    # The registry is scored by due time, so it can hand back only what is due.
     stale_ids = registry.get_jobs_to_schedule(int(cutoff.timestamp()))
     jobs = Job.fetch_many(stale_ids, connection=redis_client)
     dropped = 0
@@ -129,6 +122,8 @@ def drop_stale_scheduled_scans() -> int:
 
         job.cancel()
         dropped += 1
-        log.warning(f"Dropped scan {job.id}, due over {STALE_SCHEDULED_SCAN_AGE} ago")
+        log.warning(
+            f"Dropped scan {job.id}, overdue by more than {STALE_SCHEDULED_SCAN_AGE}"
+        )
 
     return dropped

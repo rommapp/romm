@@ -7,11 +7,10 @@ from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
 
 import handler.scan_jobs as scan_jobs_module
-from tasks.tasks import TaskType
+from tasks.tasks import TaskType, run_task_by_name
 
-SCAN_PLATFORMS_FUNC = "endpoints.sockets.scan.scan_platforms"
-TASK_RUNNER_FUNC = "tasks.tasks.run_task_by_name"
-CLEANUP_FUNC = "tasks.scheduled.cleanup_zip_cache.cleanup_zip_cache_task.run"
+TASK_RUNNER_FUNC = f"{run_task_by_name.__module__}.{run_task_by_name.__name__}"
+NON_SCAN_FUNC = "tasks.tasks.not_a_scan"
 
 _job_ids = count()
 
