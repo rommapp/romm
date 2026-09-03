@@ -6,7 +6,6 @@ class TestCleanupZipCacheTask:
         task = CleanupZipCacheTask()
         assert task.enabled is True
         assert task.cron_string == "0 4 * * *"
-        assert "cleanup_zip_cache" in task.func
 
     async def test_run_calls_cleanup(self, mocker):
         task = CleanupZipCacheTask()

@@ -47,21 +47,19 @@ else
 	uv run python main.py &
 fi
 
-# Build Redis URL properly. The app reads REDIS_SSL as a boolean, so "false"
-# and "0" mean plaintext; testing it for non-emptiness would make every
-# documented value TLS.
-REDIS_SCHEME="redis"
-case "$(printf '%s' "${REDIS_SSL-}" | tr '[:upper:]' '[:lower:]')" in
+# REDIS_SSL is a boolean to the app, so "false" and "0" mean plaintext.
+REDIS_USERINFO=""
+REDIS_SSL_VALUE="${REDIS_SSL-}"
+case "${REDIS_SSL_VALUE,,}" in
 1 | true | yes | on) REDIS_SCHEME="rediss" ;;
-*) ;;
+*) REDIS_SCHEME="redis" ;;
 esac
 if [[ -n ${REDIS_PASSWORD-} ]]; then
-	REDIS_URL="${REDIS_SCHEME}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	REDIS_USERINFO="${REDIS_USERNAME-}:${REDIS_PASSWORD}@"
 elif [[ -n ${REDIS_USERNAME-} ]]; then
-	REDIS_URL="${REDIS_SCHEME}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-else
-	REDIS_URL="${REDIS_SCHEME}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	REDIS_USERINFO="${REDIS_USERNAME}@"
 fi
+REDIS_URL="${REDIS_SCHEME}://${REDIS_USERINFO}${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 
 echo "Starting RQ cron scheduler..."
 # The URL carries the password, so it goes through RQ_REDIS_URL rather than

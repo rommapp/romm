@@ -8,7 +8,6 @@ from typing import Any, Final
 
 import socketio  # type: ignore
 from rq import Worker, get_current_job
-from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
 from rq.registry import ScheduledJobRegistry
 from sqlalchemy.exc import IntegrityError
@@ -53,6 +52,7 @@ from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
     get_job_func_name,
     get_job_status,
+    get_worker_current_job,
     high_prio_queue,
     low_prio_queue,
     redis_client,
@@ -117,13 +117,7 @@ def _get_running_scan_job() -> Job | None:
     the workers what they are holding.
     """
     for worker in Worker.all(connection=redis_client):
-        # A worker killed mid-scan keeps pointing at its job until its own
-        # registration expires, and the job can be gone by then.
-        try:
-            job = worker.get_current_job()
-        except NoSuchJobError:
-            continue
-
+        job = get_worker_current_job(worker)
         if job is not None and _is_scan_job(job):
             return job
 
@@ -136,17 +130,17 @@ def _get_queued_scan_jobs() -> list[Job]:
     Socket scans go to the high priority queue and watcher scans to the low
     priority one, once their delay is up.
     """
-    jobs: dict[str, Job] = {}
+    job_ids = chain(high_prio_queue.get_job_ids(), low_prio_queue.get_job_ids())
+    jobs = Job.fetch_many(job_ids, connection=redis_client)
 
-    for job in chain(high_prio_queue.get_jobs(), low_prio_queue.get_jobs()):
-        if (
-            isinstance(job, Job)
-            and _is_scan_job(job)
-            and get_job_status(job) == JobStatus.QUEUED
-        ):
-            jobs[job.id] = job
-
-    return list(jobs.values())
+    return [
+        job
+        for job in jobs
+        if job is not None and _is_scan_job(job)
+        # The fetch above already carries the status, so re-reading it would be
+        # a round trip per queued job.
+        and get_job_status(job, refresh=False) == JobStatus.QUEUED
+    ]
 
 
 def _scheduled_scan_registry() -> ScheduledJobRegistry:
@@ -186,22 +180,30 @@ def drop_stale_scheduled_scans() -> int:
     """
     registry = _scheduled_scan_registry()
     cutoff = datetime.now(timezone.utc) - STALE_SCHEDULED_SCAN_AGE
+
+    # The registry is scored by due time, so it can hand back only what is past
+    # due rather than every delayed job.
+    stale_ids = registry.get_jobs_to_schedule(int(cutoff.timestamp()))
+    jobs = Job.fetch_many(stale_ids, connection=redis_client)
     dropped = 0
 
-    for job in _get_scheduled_scan_jobs():
-        try:
-            scheduled_at = registry.get_scheduled_time(job)
-        except NoSuchJobError:
-            continue
-
-        if scheduled_at > cutoff:
+    for job in jobs:
+        if job is None or not _is_scan_job(job):
             continue
 
         job.cancel()
         dropped += 1
-        log.warning(f"Dropped scan scheduled for {scheduled_at}, too long past due")
+        log.warning(f"Dropped scan {job.id}, due over {STALE_SCHEDULED_SCAN_AGE} ago")
 
     return dropped
+
+
+def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
+    """What a scan job carries so a client can tell which scan is running."""
+    return {
+        "task_name": f"{scan_type.value.capitalize()} Scan",
+        "task_type": TaskType.SCAN,
+    }
 
 
 def _scan_job_label(job: Job) -> str:
@@ -214,7 +216,8 @@ def _scan_in_flight_message(running: Job | None, queued: list[Job]) -> str:
     if running is None:
         return f"{_scan_job_label(queued[0])} is already queued"
 
-    if get_job_status(running) in (JobStatus.CANCELED, JobStatus.STOPPED):
+    stopping = (JobStatus.CANCELED, JobStatus.STOPPED)
+    if get_job_status(running, refresh=False) in stopping:
         return f"{_scan_job_label(running)} is still stopping, try again in a moment"
 
     return f"{_scan_job_label(running)} is already running"
@@ -1373,10 +1376,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         platform_fs_slugs=platform_fs_slugs,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": f"{scan_type.value.capitalize()} Scan",
-            "task_type": TaskType.SCAN,
-        },
+        meta=scan_job_meta(scan_type),
     )
 
 

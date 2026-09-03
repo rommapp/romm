@@ -425,7 +425,6 @@ class SyncPushPullTask(PeriodicTask):
             task_type=TaskType.SYNC,
             enabled=ENABLE_SYNC_PUSH_PULL,
             cron_string=SYNC_PUSH_PULL_CRON,
-            func="tasks.sync_push_pull_task.run_push_pull_sync",
         )
 
     async def run(self, *args: Any, **kwargs: Any) -> Any:

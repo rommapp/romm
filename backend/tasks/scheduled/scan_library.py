@@ -35,7 +35,6 @@ class ScanLibraryTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_RESCAN,
             manual_run=False,
             cron_string=SCHEDULED_RESCAN_CRON,
-            func="tasks.scheduled.scan_library.scan_library_task.run",
         )
 
     async def run(self) -> dict[str, str]:

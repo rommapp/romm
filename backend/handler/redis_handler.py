@@ -5,8 +5,8 @@ from typing import Any
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
-from rq import Queue
-from rq.exceptions import DeserializationError, InvalidJobOperation
+from rq import Queue, Worker
+from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobError
 from rq.job import Job, JobStatus
 
 from config import IS_PYTEST_RUN, REDIS_URL
@@ -77,17 +77,19 @@ def get_job_func_name(job: Job, fallback: str = "") -> str:
         return fallback
 
 
-def get_job_status(job: Job) -> JobStatus | None:
+def get_job_status(job: Job, refresh: bool = True) -> JobStatus | None:
     """Safely get the status of an RQ job, which is gone once its hash expires.
 
     Args:
         job: The RQ Job object to get the status of
+        refresh: Whether to re-read the status, rather than trust the one the
+            job was fetched with
 
     Returns:
         The job status, or None if the job no longer has one
     """
     try:
-        return job.get_status()
+        return job.get_status(refresh=refresh)
     except InvalidJobOperation:
         return None
 
@@ -104,4 +106,22 @@ def get_job_kwargs(job: Job) -> dict[str, Any] | None:
     try:
         return job.kwargs
     except DeserializationError:
+        return None
+
+
+def get_worker_current_job(worker: Worker) -> Job | None:
+    """Safely get the job a worker is holding.
+
+    A worker killed mid-job keeps pointing at it until its own registration
+    expires, by which time the job can be gone.
+
+    Args:
+        worker: The RQ Worker to read
+
+    Returns:
+        The job the worker is running, or None if it has none or it is gone
+    """
+    try:
+        return worker.get_current_job()
+    except NoSuchJobError:
         return None

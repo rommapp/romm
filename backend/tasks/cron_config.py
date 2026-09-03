@@ -1,8 +1,7 @@
 """The schedule `rq cron` runs, registered when that process starts.
 
-A task is registered only when it is enabled and has a cron string, so nothing
-in Redis has to be unscheduled when a deployment turns one off: the next start
-simply leaves it out.
+A task is registered only when it is enabled and has a cron string, so turning
+one off is a restart rather than an unschedule.
 """
 
 from rq import cron
@@ -22,9 +21,6 @@ for name, task in SCHEDULED_TASKS.items():
         kwargs={"name": name},
         cron=task.cron_string,
         job_timeout=task.timeout,
-        meta={
-            "task_name": task.title,
-            "task_type": task.task_type.value,
-        },
+        meta=task.job_meta,
     )
     log.info(f"Scheduled '{name}' at '{task.cron_string}'")

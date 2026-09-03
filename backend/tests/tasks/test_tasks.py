@@ -18,7 +18,6 @@ class TestPeriodicTask:
     @pytest.fixture
     def task(self):
         return ConcretePeriodicTask(
-            func="test.function",
             title="Test Task",
             description="test task",
             task_type=TaskType.GENERIC,
@@ -29,7 +28,6 @@ class TestPeriodicTask:
     @pytest.fixture
     def disabled_task(self):
         return ConcretePeriodicTask(
-            func="test.disabled.function",
             title="Disabled Task",
             description="disabled task",
             task_type=TaskType.GENERIC,
@@ -39,7 +37,6 @@ class TestPeriodicTask:
 
     def test_init(self, task):
         """Test task initialization"""
-        assert task.func == "test.function"
         assert task.title == "Test Task"
         assert task.description == "test task"
         assert task.enabled is True
@@ -55,7 +52,6 @@ class TestRemoteFilePullTask:
     @pytest.fixture
     def task(self):
         return RemoteFilePullTask(
-            func="test.remote.function",
             title="Remote Test Task",
             task_type=TaskType.UPDATE,
             description="remote test task",
@@ -67,7 +63,6 @@ class TestRemoteFilePullTask:
     @pytest.fixture
     def disabled_task(self):
         return RemoteFilePullTask(
-            func="test.remote.disabled.function",
             title="Disabled Remote Task",
             task_type=TaskType.UPDATE,
             description="disabled remote task",
@@ -77,7 +72,6 @@ class TestRemoteFilePullTask:
 
     def test_init(self, task):
         """Test RemoteFilePullTask initialization"""
-        assert task.func == "test.remote.function"
         assert task.task_type == TaskType.UPDATE
         assert task.description == "remote test task"
         assert task.enabled is True

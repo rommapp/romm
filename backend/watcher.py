@@ -21,6 +21,7 @@ from config import (
 from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import (
     get_pending_scan_jobs,
+    scan_job_meta,
     scan_platforms,
 )
 from handler.database import db_platform_handler
@@ -47,7 +48,6 @@ from handler.scan_handler import MetadataSource, ScanType
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
-from tasks.tasks import TaskType
 from utils import get_version
 
 sentry_sdk.init(
@@ -213,22 +213,22 @@ def process_changes(changes: Sequence[Change]) -> None:
         time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
         rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
 
-        # Any change to a platform directory should trigger a full rescan
-        if changes_platform_directory:
-            log.info(f"Platform directory changed, {rescan_in_msg}")
+        def schedule_rescan(platform_ids: list[int], scan_type: ScanType) -> None:
             low_prio_queue.enqueue_in(
                 time_delta,
                 scan_platforms,
-                platform_ids=[],
+                platform_ids=platform_ids,
                 metadata_sources=metadata_sources,
-                scan_type=ScanType.UPDATE,
+                scan_type=scan_type,
                 job_timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
-                meta={
-                    "task_name": "Update Scan",
-                    "task_type": TaskType.SCAN,
-                },
+                meta=scan_job_meta(scan_type),
             )
+
+        # Any change to a platform directory should trigger a full rescan
+        if changes_platform_directory:
+            log.info(f"Platform directory changed, {rescan_in_msg}")
+            schedule_rescan([], ScanType.UPDATE)
             return
 
         # Otherwise, process each platform slug
@@ -246,19 +246,7 @@ def process_changes(changes: Sequence[Change]) -> None:
                 continue
 
             log.info(f"Change detected in {hl(fs_slug)} folder, {rescan_in_msg}")
-            low_prio_queue.enqueue_in(
-                time_delta,
-                scan_platforms,
-                platform_ids=[db_platform.id],
-                metadata_sources=metadata_sources,
-                scan_type=ScanType.QUICK,
-                job_timeout=SCAN_TIMEOUT,
-                result_ttl=TASK_RESULT_TTL,
-                meta={
-                    "task_name": "Quick Scan",
-                    "task_type": TaskType.SCAN,
-                },
-            )
+            schedule_rescan([db_platform.id], ScanType.QUICK)
 
 
 if __name__ == "__main__":

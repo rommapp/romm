@@ -28,7 +28,6 @@ class TestScanLibraryTask:
 
     def test_init(self, task):
         """Test task initialization"""
-        assert task.func == "tasks.scheduled.scan_library.scan_library_task.run"
         assert task.description == "Rescans the entire library"
 
     async def test_run_enabled(self, task, mocker):
@@ -85,7 +84,3 @@ class TestScanLibraryTask:
     def test_task_instance(self):
         """Test that the module-level task instance is created correctly"""
         assert isinstance(scan_library_task, ScanLibraryTask)
-        assert (
-            scan_library_task.func
-            == "tasks.scheduled.scan_library.scan_library_task.run"
-        )

@@ -1,7 +1,13 @@
 """The catalog of tasks an admin can see, run, or have run on a schedule."""
 
-from typing import Final
+from typing import Any, Final
 
+from rq.job import Job
+from rq.queue import Queue
+
+from config import TASK_RESULT_TTL
+from exceptions.task_exceptions import TaskNotFoundException
+from handler.redis_handler import low_prio_queue
 from tasks.manual.cleanup_missing_firmware import cleanup_missing_firmware_task
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.recompute_save_content_hashes import (
@@ -20,7 +26,7 @@ from tasks.scheduled.sync_retroachievements_progress import (
 from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
 from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
 from tasks.sync_push_pull_task import sync_push_pull_task
-from tasks.tasks import PeriodicTask, Task
+from tasks.tasks import PeriodicTask, Task, run_task_by_name
 
 # The keys are the names the API and the cron schedule address a task by, and
 # they end up in the job payload, so they outlive any given release. Every task
@@ -50,3 +56,36 @@ MANUAL_TASKS: Final[dict[str, Task]] = {
 def get_task(name: str) -> Task | None:
     """Look up a task by the name it is addressed by."""
     return SCHEDULED_TASKS.get(name) or MANUAL_TASKS.get(name)
+
+
+def enqueue_task(
+    name: str,
+    *,
+    queue: Queue = low_prio_queue,
+    task_kwargs: dict[str, Any] | None = None,
+    **job_options: Any,
+) -> Job:
+    """Enqueue a registered task by name, on the queue a worker picks it up from.
+
+    Args:
+        name: The key the task is registered under.
+        queue: Which queue to enqueue on.
+        task_kwargs: Forwarded to the task's ``run``, nested so that they cannot
+            collide with the name of the task to run.
+        job_options: Passed through to RQ, for a fixed job id and the like.
+
+    Returns:
+        The enqueued job.
+    """
+    task = get_task(name)
+    if task is None:
+        raise TaskNotFoundException(name)
+
+    return queue.enqueue(
+        run_task_by_name,
+        kwargs={"name": name, "task_kwargs": task_kwargs or {}},
+        job_timeout=task.timeout,
+        result_ttl=TASK_RESULT_TTL,
+        meta=task.job_meta,
+        **job_options,
+    )

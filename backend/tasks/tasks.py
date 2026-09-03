@@ -95,16 +95,17 @@ class Task(ABC):
         """Whether an admin can trigger this task on demand."""
         return self.manual_run and self.enabled
 
+    @property
+    def job_meta(self) -> dict[str, Any]:
+        """What a job of this task carries so the API can describe it."""
+        return {"task_name": self.title, "task_type": self.task_type.value}
+
     @abstractmethod
     async def run(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class PeriodicTask(Task, ABC):
     """Base class for tasks the cron scheduler runs on a schedule."""
-
-    def __init__(self, *args: Any, func: str, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.func = func
 
 
 class RemoteFilePullTask(PeriodicTask, ABC):

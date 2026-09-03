@@ -1729,18 +1729,33 @@ def patch_scan_jobs(
     else:
         worker.get_current_job.return_value = running
     mocker.patch.object(scan_module.Worker, "all", return_value=[worker])
+
+    queued_jobs = list(high_queued) + list(low_queued)
+    scheduled_jobs = list(scheduled)
     mocker.patch.object(
-        scan_module.high_prio_queue, "get_jobs", return_value=list(high_queued)
+        scan_module.high_prio_queue,
+        "get_job_ids",
+        return_value=[job.id for job in high_queued],
     )
     mocker.patch.object(
-        scan_module.low_prio_queue, "get_jobs", return_value=list(low_queued)
+        scan_module.low_prio_queue,
+        "get_job_ids",
+        return_value=[job.id for job in low_queued],
     )
 
-    scheduled_jobs = list(scheduled)
     registry = MagicMock()
     registry.get_job_ids.return_value = [job.id for job in scheduled_jobs]
+    registry.get_jobs_to_schedule.return_value = []
     mocker.patch.object(scan_module, "_scheduled_scan_registry", return_value=registry)
-    mocker.patch.object(scan_module.Job, "fetch_many", return_value=scheduled_jobs)
+
+    # Both the queue and the registry lookups fetch by id, so the stub has to
+    # answer for whichever ids it is handed.
+    by_id = {job.id: job for job in queued_jobs + scheduled_jobs}
+    mocker.patch.object(
+        scan_module.Job,
+        "fetch_many",
+        side_effect=lambda job_ids, **kwargs: [by_id.get(i) for i in job_ids],
+    )
     return registry
 
 
@@ -2056,23 +2071,31 @@ class TestDropStaleScheduledScans:
     def test_drops_a_scan_long_past_due(self, mocker):
         job = make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)
         registry = patch_scan_jobs(mocker, scheduled=[job])
-        registry.get_scheduled_time.return_value = self._due(2)
+        registry.get_jobs_to_schedule.return_value = [job.id]
 
         assert scan_module.drop_stale_scheduled_scans() == 1
         job.cancel.assert_called_once()
 
+    def test_asks_the_registry_only_for_what_is_past_due(self, mocker):
+        registry = patch_scan_jobs(mocker)
+
+        scan_module.drop_stale_scheduled_scans()
+
+        cutoff = registry.get_jobs_to_schedule.call_args.args[0]
+        expected = datetime.now(timezone.utc) - scan_module.STALE_SCHEDULED_SCAN_AGE
+        assert abs(cutoff - expected.timestamp()) < 5
+
     def test_keeps_a_scan_still_waiting_out_its_delay(self, mocker):
         job = make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)
-        registry = patch_scan_jobs(mocker, scheduled=[job])
-        registry.get_scheduled_time.return_value = self._due(-1)
+        patch_scan_jobs(mocker, scheduled=[job])
 
         assert scan_module.drop_stale_scheduled_scans() == 0
         job.cancel.assert_not_called()
 
     def test_ignores_a_scan_that_left_the_registry(self, mocker):
         job = make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)
-        registry = patch_scan_jobs(mocker, scheduled=[job])
-        registry.get_scheduled_time.side_effect = NoSuchJobError
+        registry = patch_scan_jobs(mocker)
+        registry.get_jobs_to_schedule.return_value = [job.id]
 
         assert scan_module.drop_stale_scheduled_scans() == 0
         job.cancel.assert_not_called()
@@ -2080,7 +2103,7 @@ class TestDropStaleScheduledScans:
     def test_leaves_jobs_that_are_not_scans_alone(self, mocker):
         job = make_job(CLEANUP_FUNC, status=JobStatus.SCHEDULED)
         registry = patch_scan_jobs(mocker, scheduled=[job])
-        registry.get_scheduled_time.return_value = self._due(2)
+        registry.get_jobs_to_schedule.return_value = [job.id]
 
         assert scan_module.drop_stale_scheduled_scans() == 0
         job.cancel.assert_not_called()

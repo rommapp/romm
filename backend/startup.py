@@ -5,12 +5,9 @@ import asyncio
 import sentry_sdk
 from opentelemetry import trace
 from rq.exceptions import DuplicateJobError
+from rq.job import Job
 
-from config import (
-    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
-    SENTRY_DSN,
-    TASK_TIMEOUT,
-)
+from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, SENTRY_DSN
 from endpoints.sockets.scan import drop_stale_scheduled_scans
 from handler.database import db_save_handler
 from handler.metadata.base_handler import (
@@ -31,11 +28,7 @@ from handler.redis_handler import (
 )
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
-from tasks.manual.recompute_save_content_hashes import (
-    recompute_save_content_hashes_task,
-)
-from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
-from tasks.tasks import run_task_by_name
+from tasks.registry import enqueue_task
 from utils import get_version
 from utils.cache import conditionally_set_cache
 from utils.context import initialize_context
@@ -45,25 +38,37 @@ tracer = trace.get_tracer(__name__)
 RECOMPUTE_SAVE_HASHES_JOB_ID = "recompute_save_content_hashes_bootstrap"
 CONVERT_IMAGES_TO_WEBP_JOB_ID = "convert_images_to_webp_bootstrap"
 
-# The names these backfills are registered under, which is what the payload
-# carries rather than the task itself.
-RECOMPUTE_SAVE_HASHES_TASK = "recompute_save_content_hashes"
-CONVERT_IMAGES_TO_WEBP_TASK = "convert_images_to_webp"
+
+def _enqueue_backfill(task_name: str, job_id: str) -> None:
+    """Hand a backfill to the low-priority worker and move on.
+
+    A fixed id with unique=True settles it in one round trip, so two instances
+    starting together cannot both get past the check.
+    """
+    try:
+        enqueue_task(task_name, job_id=job_id, unique=True)
+        log.info(f"Enqueued {task_name} on the low-priority worker")
+    except DuplicateJobError:
+        log.info(
+            f"{task_name} already queued or running from a previous restart; "
+            "skipping enqueue"
+        )
+    except Exception:
+        log.exception(f"Failed to enqueue {task_name}; admins can run it manually")
 
 
 def _enqueue_recompute_save_hashes_if_needed() -> None:
-    """Backfill content_hash for saves uploaded before the path-resolution
-    fix. Non-blocking: a single COUNT query, then -- only if any Save rows
-    still have NULL content_hash -- enqueue the manual recompute task on
-    the low-priority RQ queue. The worker process picks it up; this
-    process moves on. Once the run completes, future restarts see 0 NULL
-    hashes and skip. Admins can still trigger the manual task explicitly."""
+    """Backfill content_hash for saves uploaded before the path-resolution fix.
+
+    A single COUNT query gates it, so a run that already completed costs nothing
+    on later restarts.
+    """
     try:
         missing = db_save_handler.count_saves_missing_content_hash()
     except Exception:
         log.exception(
-            "Failed to count saves with NULL content_hash; "
-            "skipping auto-enqueue of recompute_save_content_hashes (admins can run it manually)"
+            "Failed to count saves with NULL content_hash; skipping auto-enqueue "
+            "of recompute_save_content_hashes (admins can run it manually)"
         )
         return
 
@@ -71,70 +76,22 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
         log.debug("All saves have content_hash; skipping recompute auto-enqueue")
         return
 
-    try:
-        # A fixed id with unique=True settles it in one round trip, so two
-        # instances starting together cannot both get past the check.
-        low_prio_queue.enqueue(
-            run_task_by_name,
-            kwargs={"name": RECOMPUTE_SAVE_HASHES_TASK},
-            job_id=RECOMPUTE_SAVE_HASHES_JOB_ID,
-            unique=True,
-            job_timeout=TASK_TIMEOUT,
-            meta={
-                "task_name": recompute_save_content_hashes_task.title,
-                "task_type": recompute_save_content_hashes_task.task_type.value,
-            },
-        )
-        log.info(
-            f"Enqueued recompute_save_content_hashes ({missing} saves with NULL content_hash); "
-            "running on low-priority worker"
-        )
-    except DuplicateJobError:
-        log.info(
-            "recompute_save_content_hashes already queued or running from a "
-            "previous restart; skipping enqueue"
-        )
-    except Exception:
-        log.exception(
-            "Failed to enqueue recompute_save_content_hashes; admins can run it manually"
-        )
+    log.info(f"{missing} save(s) still have a NULL content_hash")
+    _enqueue_backfill("recompute_save_content_hashes", RECOMPUTE_SAVE_HASHES_JOB_ID)
 
 
 def _enqueue_convert_images_to_webp() -> None:
     """Backfill .webp covers when WebP conversion is enabled.
 
-    The frontend rewrites cover URLs to .webp as soon as the feature flag is
-    on, but the scheduled task only runs at its next cron time and the inline
+    The frontend rewrites cover URLs to .webp as soon as the feature flag is on,
+    but the scheduled task only runs at its next cron time and the inline
     conversion in the resources handler only fires for covers fetched after
-    enabling. Without a backfill, existing covers have no .webp sibling and
-    every request 404s until the cron eventually runs."""
-    try:
-        low_prio_queue.enqueue(
-            run_task_by_name,
-            kwargs={"name": CONVERT_IMAGES_TO_WEBP_TASK},
-            job_id=CONVERT_IMAGES_TO_WEBP_JOB_ID,
-            unique=True,
-            job_timeout=TASK_TIMEOUT,
-            meta={
-                "task_name": convert_images_to_webp_task.title,
-                "task_type": convert_images_to_webp_task.task_type.value,
-            },
-        )
-        log.info("Enqueued convert_images_to_webp backfill on low-priority worker")
-    except DuplicateJobError:
-        log.info(
-            "convert_images_to_webp already queued or running from a previous "
-            "restart; skipping enqueue"
-        )
-    except Exception:
-        log.exception(
-            "Failed to enqueue convert_images_to_webp; admins can run it manually"
-        )
+    enabling, so without this every existing cover 404s until then.
+    """
+    _enqueue_backfill("convert_images_to_webp", CONVERT_IMAGES_TO_WEBP_JOB_ID)
 
 
-# Keys the rq-scheduler process used before scheduling moved onto RQ itself.
-# Everything it held is either obsolete or now owned by the cron config, so it
-# only has to be cleared once, and this can go a release or two from now.
+# Keys the rq-scheduler process left behind, now owned by the cron config.
 LEGACY_SCHEDULED_JOBS_KEY = "rq:scheduler:scheduled_jobs"
 LEGACY_SCHEDULER_KEYS = (
     LEGACY_SCHEDULED_JOBS_KEY,
@@ -160,7 +117,7 @@ def _drop_legacy_scheduler_state() -> None:
 
             orphans = legacy_job_ids - queued
             if orphans:
-                redis_client.delete(*(f"rq:job:{job_id}" for job_id in orphans))
+                redis_client.delete(*(Job.key_for(job_id) for job_id in orphans))
 
             log.info(
                 f"Cleared {len(legacy_job_ids)} job(s) left behind by the old scheduler"
@@ -168,9 +125,10 @@ def _drop_legacy_scheduler_state() -> None:
 
         # The registry, the lock and the scheduler's own keys go regardless: an
         # old scheduler that never held a job still registered itself.
-        redis_client.delete(*LEGACY_SCHEDULER_KEYS)
-        for key in redis_client.scan_iter("rq:scheduler_instance:*"):
-            redis_client.delete(key)
+        instance_keys = list(
+            redis_client.scan_iter("rq:scheduler_instance:*", count=1000)
+        )
+        redis_client.delete(*LEGACY_SCHEDULER_KEYS, *instance_keys)
     except Exception:
         log.exception("Failed to clear the old scheduler's leftovers")
 
@@ -182,9 +140,6 @@ async def main() -> None:
     async with initialize_context():
         log.info("Running startup tasks")
 
-        # An instance that was down for a while comes back with every rescan
-        # its watcher queued still waiting, and releasing them all would run the
-        # same library scan over and over.
         try:
             drop_stale_scheduled_scans()
         except Exception:

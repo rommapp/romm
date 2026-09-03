@@ -96,9 +96,8 @@ class TestListTasks:
             ),
         },
     )
-    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ("test_scheduled",))
     @patch(
-        "endpoints.tasks.SCHEDULED_TASKS",
+        "endpoints.tasks.VISIBLE_SCHEDULED_TASKS",
         {
             "test_scheduled": Mock(
                 spec=Task,
@@ -160,7 +159,7 @@ class TestListTasks:
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", False)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 10)
     @patch("endpoints.tasks.MANUAL_TASKS", {})
-    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
+    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", {})
     def test_list_tasks_empty(self, client, access_token):
         """Test listing tasks when no tasks are available"""
         response = client.get(
@@ -220,9 +219,9 @@ class TestListTasks:
 class TestRunSingleTask:
     """Test suite for the run_single_task endpoint"""
 
-    @patch("endpoints.tasks.low_prio_queue.enqueue", return_value=create_mock_job())
+    @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
     @patch(
-        "endpoints.tasks.MANUAL_TASKS",
+        "endpoints.tasks.RUNNABLE_TASKS",
         {
             "test_task": Mock(
                 spec=Task,
@@ -237,8 +236,7 @@ class TestRunSingleTask:
             ),
         },
     )
-    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
-    def test_run_single_task_success(self, mock_queue, client, access_token):
+    def test_run_single_task_success(self, mock_enqueue, client, access_token):
         """Test successful running of a single task"""
         response = client.post(
             "/api/tasks/run/test_task",
@@ -254,10 +252,9 @@ class TestRunSingleTask:
         assert "created_at" in data
         assert "enqueued_at" in data
 
-        mock_queue.assert_called_once()
+        mock_enqueue.assert_called_once()
 
-    @patch("endpoints.tasks.MANUAL_TASKS", {})
-    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
+    @patch("endpoints.tasks.RUNNABLE_TASKS", {})
     def test_run_single_task_not_found(self, client, access_token):
         """Test running a non-existent task"""
         response = client.post(
@@ -269,9 +266,9 @@ class TestRunSingleTask:
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.enqueue_task")
     @patch(
-        "endpoints.tasks.MANUAL_TASKS",
+        "endpoints.tasks.RUNNABLE_TASKS",
         {
             "disabled_task": Mock(
                 spec=Task,
@@ -286,8 +283,7 @@ class TestRunSingleTask:
             ),
         },
     )
-    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
-    def test_run_single_task_disabled(self, mock_queue, client, access_token):
+    def test_run_single_task_disabled(self, mock_enqueue, client, access_token):
         """Test running a disabled task"""
         response = client.post(
             "/api/tasks/run/disabled_task",
@@ -298,9 +294,9 @@ class TestRunSingleTask:
         data = response.json()
         assert "cannot be run" in data["detail"].lower()
 
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.enqueue_task")
     @patch(
-        "endpoints.tasks.MANUAL_TASKS",
+        "endpoints.tasks.RUNNABLE_TASKS",
         {
             "non_manual_task": Mock(
                 spec=Task,
@@ -315,8 +311,7 @@ class TestRunSingleTask:
             ),
         },
     )
-    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
-    def test_run_single_task_non_manual(self, mock_queue, client, access_token):
+    def test_run_single_task_non_manual(self, mock_enqueue, client, access_token):
         """Test running a task that cannot be run manually"""
         response = client.post(
             "/api/tasks/run/non_manual_task",
@@ -523,7 +518,7 @@ class TestTaskInfoBuilding:
                 ),
             },
         ):
-            with patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ()):
+            with patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", {}):
                 response = client.get(
                     "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
                 )
@@ -537,11 +532,8 @@ class TestIntegration:
 
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", True)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)
-    @patch(
-        "endpoints.tasks.low_prio_queue.enqueue",
-        return_value=create_mock_job(),
-    )
-    def test_full_workflow(self, mock_queue, client, access_token):
+    @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
+    def test_full_workflow(self, mock_enqueue, client, access_token):
         """Test a complete workflow: list tasks, then run a specific task"""
         # First, list all tasks
         list_response = client.get(
@@ -551,7 +543,7 @@ class TestIntegration:
 
         # Then run a specific task (if any exist)
         with patch(
-            "endpoints.tasks.MANUAL_TASKS",
+            "endpoints.tasks.RUNNABLE_TASKS",
             {
                 "workflow_task": Mock(
                     spec=Task,
@@ -566,13 +558,12 @@ class TestIntegration:
                 ),
             },
         ):
-            with patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ()):
-                run_response = client.post(
-                    "/api/tasks/run/workflow_task",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-                assert run_response.status_code == status.HTTP_200_OK
-                assert mock_queue.called
+            run_response = client.post(
+                "/api/tasks/run/workflow_task",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert run_response.status_code == status.HTTP_200_OK
+            assert mock_enqueue.called
 
     def test_error_handling(self, client, access_token):
         """Test error handling for various scenarios"""
@@ -587,9 +578,9 @@ class TestIntegration:
 class TestRunSingleTaskArgumentHandling:
     """A request body must not be able to choose which task runs."""
 
-    @patch("endpoints.tasks.low_prio_queue.enqueue", return_value=create_mock_job())
+    @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
     @patch(
-        "endpoints.tasks.MANUAL_TASKS",
+        "endpoints.tasks.RUNNABLE_TASKS",
         {
             "allowed_task": Mock(
                 spec=Task,
@@ -603,7 +594,6 @@ class TestRunSingleTaskArgumentHandling:
             ),
         },
     )
-    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
     def test_body_cannot_override_the_task_name(
         self, mock_enqueue, client, access_token
     ):
@@ -614,7 +604,7 @@ class TestRunSingleTaskArgumentHandling:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert mock_enqueue.call_args.kwargs["kwargs"] == {
-            "name": "allowed_task",
-            "task_kwargs": {"name": "sync_push_pull"},
+        assert mock_enqueue.call_args.args == ("allowed_task",)
+        assert mock_enqueue.call_args.kwargs["task_kwargs"] == {
+            "name": "sync_push_pull"
         }
