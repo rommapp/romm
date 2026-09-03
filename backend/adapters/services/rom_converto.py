@@ -3,7 +3,6 @@ import contextlib
 import json
 import shutil
 from pathlib import Path
-from typing import TypedDict
 
 from config import (
     ROM_CONVERTO_ENABLED,
@@ -15,6 +14,11 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.rom import (
+    RomConvertoContainer,
+    RomConvertoImage,
+    RomConvertoMetadata,
+)
 
 # TODO: batch `info` exists in rom-converto >= 0.21 (`info --paths-file`);
 # wire it up if scan extraction ever moves to per-platform batching.
@@ -80,14 +84,8 @@ class RomConvertoOperationError(RomConvertoError):
         self.stderr = stderr
 
 
-class RomConvertoInfo(TypedDict):
-    kind: str
-    title_id: str | None
-    serial: str | None
-    names: dict[str, str]
-    region: str | None
-    version: str | None
-    encrypted: bool | None
+# The parsed shape is owned by the model layer (not persisted there yet).
+RomConvertoInfo = RomConvertoMetadata
 
 
 def _tail(text: str) -> str:
@@ -177,6 +175,119 @@ def _flatten(payload: dict) -> dict:
     return flat
 
 
+def _parse_image(value: object) -> RomConvertoImage | None:
+    """Decode an Image payload: {png_bytes: [n, ...], width, height}."""
+    if not isinstance(value, dict):
+        return None
+    raw = value.get("png_bytes")
+    width, height = value.get("width"), value.get("height")
+    if not isinstance(raw, list) or not isinstance(width, int) or not isinstance(height, int):
+        return None
+    return RomConvertoImage(
+        width=width, height=height, png=bytes(n & 0xFF for n in raw)
+    )
+
+
+def _parse_icons(flat: dict) -> dict[str, RomConvertoImage]:
+    """Collect embedded images under their source names: icon, small_icon,
+    banner (banner_image/image on dol/rvl), pic0, pic1."""
+    icons: dict[str, RomConvertoImage] = {}
+    for key in ("icon", "small_icon", "banner", "banner_image", "pic0", "pic1", "image"):
+        image = _parse_image(flat.get(key))
+        if image is not None:
+            name = "banner" if key in ("banner", "banner_image", "image") else key
+            icons.setdefault(name, image)
+    return icons
+
+
+def _parse_publisher(flat: dict) -> str | None:
+    publisher = _first_str(flat, "publisher", "maker_name")
+    if publisher:
+        return publisher
+    publishers = flat.get("publishers")
+    if isinstance(publishers, list):
+        return next((p for p in publishers if isinstance(p, str) and p), None)
+    return None
+
+
+def _parse_container(kind: str, flat: dict) -> RomConvertoContainer | None:
+    """Container/compression facts, whatever the console reports: CHD/CSO
+    carry full stats, disc kinds name their container (rvz, wbfs, ...),
+    Switch names its kind, ZAR reports both sizes."""
+    def container(
+        *,
+        kind: str = kind,
+        format: str | None = None,
+        compression: str | None = None,
+        compression_ratio: float | None = None,
+        physical_bytes: int | None = None,
+        logical_bytes: int | None = None,
+    ) -> RomConvertoContainer:
+        return RomConvertoContainer(
+            kind=kind,
+            format=format,
+            compression=compression,
+            compression_ratio=compression_ratio,
+            physical_bytes=physical_bytes,
+            logical_bytes=logical_bytes,
+        )
+
+    if kind == "chd":
+        compressors = flat.get("compressors")
+        header_version = (
+            f"CHD v{flat['version']}"
+            if isinstance(flat.get("version"), int)
+            else flat.get("version_string")
+        )
+        return container(
+            format=header_version if isinstance(header_version, str) else None,
+            compression=", ".join(compressors)
+            if isinstance(compressors, list)
+            else None,
+            compression_ratio=flat.get("compression_ratio")
+            if isinstance(flat.get("compression_ratio"), (int, float))
+            else None,
+            physical_bytes=flat.get("physical_bytes"),
+            logical_bytes=flat.get("logical_bytes"),
+        )
+    if kind == "cso":
+        fmt = _first_str(flat, "format")
+        return container(
+            kind=(fmt or "cso").lower(),
+            format=f"{fmt} v{flat['version']}"
+            if fmt and isinstance(flat.get("version"), int)
+            else fmt,
+            compression_ratio=flat.get("compression_ratio")
+            if isinstance(flat.get("compression_ratio"), (int, float))
+            else None,
+            physical_bytes=flat.get("physical_bytes"),
+            logical_bytes=flat.get("uncompressed_size"),
+        )
+    if kind == "xenon":
+        logical, compressed = flat.get("logical_size"), flat.get("compressed_size")
+        ratio = (
+            compressed / logical * 100
+            if isinstance(logical, int) and isinstance(compressed, int) and logical
+            else None
+        )
+        return container(
+            kind="zar",
+            compression_ratio=ratio,
+            physical_bytes=compressed,
+            logical_bytes=logical,
+        )
+    container_str = _first_str(flat, "container")
+    if container_str:
+        return container(kind=container_str.lower(), physical_bytes=flat.get("physical_bytes"))
+    nx_kind = flat.get("container_kind")
+    if isinstance(nx_kind, str):
+        return container(kind=nx_kind.lower(), physical_bytes=flat.get("physical_bytes"))
+    ctr_format = _first_str(flat, "format")
+    if ctr_format:
+        return container(kind=ctr_format.lower(), physical_bytes=flat.get("physical_bytes"))
+    return None
+
+
 def _parse_info(payload: dict) -> RomConvertoInfo:
     # `kind` is the serde tag of InfoResult (dol, rvl, ctr, psx, psp, ps3,
     # nds, retro, pbp, vpk, pkg, ...). Field names vary per console, so every
@@ -203,9 +314,13 @@ def _parse_info(payload: dict) -> RomConvertoInfo:
             "title_id_code",
         ),
         names=_parse_names(flat),
+        publisher=_parse_publisher(flat),
         region=_first_str(flat, "region"),
         version=_first_str(flat, "version"),
+        content_kind=_first_str(flat, "content_kind"),
         encrypted=encrypted,
+        icons=_parse_icons(flat),
+        container=_parse_container(kind=str(flat.get("kind") or ""), flat=flat),
     )
 
 

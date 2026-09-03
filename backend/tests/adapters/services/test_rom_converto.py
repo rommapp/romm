@@ -249,6 +249,112 @@ class TestReadInfo:
         assert info["title_id"] == "PCSA00001"
         assert info["names"] == {"": "Gravity Rush"}
 
+    async def test_parses_cso_container_stats(self, service):
+        payload = json.dumps(
+            {
+                "kind": "cso",
+                "format": "ZSO",
+                "version": 1,
+                "uncompressed_size": 819200000,
+                "physical_bytes": 409600000,
+                "compression_ratio": 50.0,
+            }
+        )
+        proc = FakeProc(stdout=payload.encode())
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("shutil.which", return_value="rc"),
+        ):
+            info = await service.read_info(Path("/roms/game.zso"))
+
+        assert info is not None
+        assert info["container"] == {
+            "kind": "zso",
+            "format": "ZSO v1",
+            "compression": None,
+            "compression_ratio": 50.0,
+            "physical_bytes": 409600000,
+            "logical_bytes": 819200000,
+        }
+
+    async def test_parses_rvl_container_and_banner(self, service):
+        payload = json.dumps(
+            {
+                "kind": "rvl",
+                "container": "RVZ",
+                "physical_bytes": 1024,
+                "game_name": "Wii Sports",
+                "maker_name": "Nintendo",
+                "image": {"png_bytes": [137, 80, 78, 71], "width": 8, "height": 4},
+            }
+        )
+        proc = FakeProc(stdout=payload.encode())
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("shutil.which", return_value="rc"),
+        ):
+            info = await service.read_info(Path("/roms/wiisports.rvz"))
+
+        assert info is not None
+        assert info["container"]["kind"] == "rvz"
+        assert info["publisher"] == "Nintendo"
+        assert info["icons"]["banner"] == {
+            "width": 8,
+            "height": 4,
+            "png": bytes([137, 80, 78, 71]),
+        }
+
+    async def test_parses_content_kind_and_vpk_publisher(self, service):
+        payload = json.dumps(
+            {
+                "kind": "vpk",
+                "title": "Gravity Rush",
+                "title_id": "PCSA00001",
+                "content_kind": "game",
+                "publisher": "SIE",
+                "icon": {"png_bytes": [1, 2, 3], "width": 1, "height": 1},
+            }
+        )
+        proc = FakeProc(stdout=payload.encode())
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("shutil.which", return_value="rc"),
+        ):
+            info = await service.read_info(Path("/roms/gr.vpk"))
+
+        assert info is not None
+        assert info["content_kind"] == "game"
+        assert info["publisher"] == "SIE"
+        assert info["icons"]["icon"]["png"] == bytes([1, 2, 3])
+
+    async def test_parses_chd_container(self, service):
+        payload = json.dumps(
+            {
+                "kind": "chd",
+                "version": 5,
+                "compressors": ["cdzl", "cdfl"],
+                "compression_ratio": 42.5,
+                "physical_bytes": 100,
+                "logical_bytes": 200,
+            }
+        )
+        proc = FakeProc(stdout=payload.encode())
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("shutil.which", return_value="rc"),
+        ):
+            info = await service.read_info(Path("/roms/game.chd"))
+
+        assert info is not None
+        assert info["container"] == {
+            "kind": "chd",
+            "format": "CHD v5",
+            "compression": "cdzl, cdfl",
+            "compression_ratio": 42.5,
+            "physical_bytes": 100,
+            "logical_bytes": 200,
+        }
+
     async def test_unrecognized_file_returns_none(self, service):
         proc = FakeProc(
             returncode=1,
