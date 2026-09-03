@@ -2217,3 +2217,18 @@ class TestReportScanFailure:
         )
 
         emit.assert_not_awaited()
+
+    def test_swallows_a_report_that_cannot_be_sent(self, emit):
+        # RQ re-raises out of the registry sweep that calls this, which would
+        # leave the abandoned scans in the registry and stop the worker.
+        emit.side_effect = ConnectionError("redis is gone")
+
+        scan_module.report_scan_failure(
+            make_job(SCAN_PLATFORMS_FUNC),
+            MagicMock(),
+            AbandonedJobError,
+            AbandonedJobError(),
+            None,
+        )
+
+        emit.assert_called_once()

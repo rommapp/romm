@@ -110,11 +110,16 @@ def report_scan_failure(
         return
 
     log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} was abandoned by its worker")
-    asyncio.run(
-        _get_socket_manager().emit(
-            "scan:done_ko", "the worker running it stopped unexpectedly"
+    try:
+        asyncio.run(
+            _get_socket_manager().emit(
+                "scan:done_ko", "the worker running it stopped unexpectedly"
+            )
         )
-    )
+    except Exception:
+        # RQ re-raises out of the registry sweep that calls this, which would
+        # leave the abandoned scans in the registry and stop the worker.
+        log.error(f"Could not report abandoned scan {job.id}", exc_info=True)
 
 
 def _scan_job_label(job: Job) -> str:

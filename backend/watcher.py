@@ -100,11 +100,17 @@ def get_pending_scan_coverage() -> PendingScanCoverage:
             # duplicate scan costs less than a rescan that never happens.
             continue
 
+        # A scan of named roms resolves them from the database and never walks
+        # the filesystem, so it covers no change on disk, not even one under the
+        # platform it names.
+        if kwargs.get("roms_ids"):
+            continue
+
         # Scans are enqueued with keywords only. A task-driven scan names no
         # scope at all, and covers everything.
         job_platform_ids = kwargs.get("platform_ids") or []
         job_platform_fs_slugs = kwargs.get("platform_fs_slugs") or []
-        if not (job_platform_ids or job_platform_fs_slugs or kwargs.get("roms_ids")):
+        if not (job_platform_ids or job_platform_fs_slugs):
             full_library += 1
             continue
 
