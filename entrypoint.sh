@@ -71,7 +71,6 @@ PYTHONPATH="/app/backend:${PYTHONPATH-}" \
 	--logging-level "${LOGLEVEL:-INFO}" \
 	tasks.cron_config &
 
-echo "Starting RQ worker..."
 # Set PYTHONPATH so RQ can find the tasks module.
 # Use a worker class that drops the noisy per-sweep "cleaning registries for
 # queue" log line. The maintenance interval keeps its default (~10 min) so
@@ -93,6 +92,7 @@ start_rq_worker() {
 		"$@" &
 }
 
+echo "Starting RQ worker..."
 start_rq_worker rq_worker high default low
 
 # Scans get a worker of their own, see SCAN_QUEUE_NAME.

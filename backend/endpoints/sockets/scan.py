@@ -102,8 +102,7 @@ def report_scan_failure(
     """Tell the clients a scan is over when the scan could not say so itself.
 
     A worker killed mid-scan never reaches the handler that emits this, so the
-    clients would keep showing a scan that no longer exists. RQ runs this from
-    whichever worker reaps the job.
+    clients would keep showing a scan that no longer exists.
     """
     # Every other failure is reported by the scan as it unwinds, and emitting
     # here too would report it twice.
@@ -1262,9 +1261,8 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
 
-    # A client that lost the progress socket has no way to tell a scan is
-    # running, and pressing scan again would queue a second pass over the whole
-    # library. A scan of named roms is not that, so it is allowed to queue.
+    # Pressing scan again after losing the progress socket would queue a second
+    # pass over the library; a scan of named roms is not that, so it may queue.
     if not DEV_MODE and not roms_ids:
         running_job, queued_jobs = get_blocking_library_scans()
         if running_job is not None or queued_jobs:

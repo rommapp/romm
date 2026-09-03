@@ -50,8 +50,8 @@ class TestIsScopedScanJob:
 
 class TestGetQueuedScanJobs:
     def test_collects_scans_from_every_queue(self, mocker):
-        # A scan enqueued before scans had their own queue is on one of the
-        # others, and a worker will still run it.
+        # A scan enqueued by an older release sits on one of the other queues,
+        # where a worker will still run it.
         scan = make_job(SCAN_PLATFORMS_FUNC)
         high = make_job(SCAN_PLATFORMS_FUNC)
         low = make_task_job()
@@ -162,7 +162,7 @@ class TestDropStaleScheduledScans:
 
 
 class TestScheduledScanRegistries:
-    """A scan delayed before scans had their own queue is still in the old one."""
+    """A scan delayed by an older release is still in the low priority queue."""
 
     def test_reads_the_scan_queue_and_the_low_queue(self):
         names = [registry.name for registry in scan_jobs._scheduled_scan_registries()]

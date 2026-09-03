@@ -16,10 +16,8 @@ for name, task in SCHEDULED_TASKS.items():
     if not task.enabled or not task.cron_string:
         continue
 
-    # Cron can attach no callback to report a scan whose worker died, so a scan
-    # is enqueued by a dispatch job that can. The dispatch only enqueues, so it
-    # takes the ordinary task timeout and leaves the scan timeout to the scan,
-    # and it is discarded on success so one rescan is not listed as two runs.
+    # Cron attaches no failure callback, so a scan goes through a dispatch job
+    # that can. It only enqueues, so it takes the ordinary task timeout.
     is_scan = task.task_type is TaskType.SCAN
 
     # Every entry runs the same function, so without an explicit name they all
@@ -31,6 +29,8 @@ for name, task in SCHEDULED_TASKS.items():
         kwargs={"name": name},
         cron=task.cron_string,
         job_timeout=TASK_TIMEOUT if is_scan else task.timeout,
+        # A spent dispatch carries the scan's own name, and RQ drops a job whose
+        # result_ttl is 0, so one rescan is not listed as two runs.
         result_ttl=0 if is_scan else TASK_RESULT_TTL,
         meta=task.job_meta,
     )

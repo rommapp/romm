@@ -70,8 +70,8 @@ def get_running_scan_job() -> Job | None:
 def get_queued_scan_jobs() -> list[Job]:
     """Scans sitting on a worker queue, waiting to be picked up.
 
-    The other queues are still read because a scan enqueued before scans had
-    their own queue is on one of them, and it will still run.
+    A scan enqueued by an older release sits on one of the other queues, where
+    a worker will still run it.
     """
     job_ids = chain(
         scan_queue.get_job_ids(),
@@ -93,8 +93,8 @@ def get_queued_scan_jobs() -> list[Job]:
 def _scheduled_scan_registries() -> list[ScheduledJobRegistry]:
     """Where delayed scans wait until a worker releases them.
 
-    The low priority queue is still read because a scan delayed before scans had
-    their own queue waits in its registry, and a worker will still release it.
+    A scan delayed by an older release waits in the low priority queue's
+    registry, where a worker will still release it.
     """
     return [
         ScheduledJobRegistry(queue=scan_queue),

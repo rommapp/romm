@@ -19,9 +19,8 @@ class QueuePrio(Enum):
     LOW = "low"
 
 
-# Scans have their own queue, consumed by a worker of its own: a library scan
-# runs for hours, and would otherwise hold up every cleanup and metadata refresh
-# behind it. One worker on it also keeps two scans from ever running at once.
+# Scans have a queue and a worker of their own: a library scan runs for hours,
+# and one worker on one queue keeps two of them from ever running at once.
 SCAN_QUEUE_NAME: Final = "scans"
 
 redis_client = Redis.from_url(REDIS_URL)
@@ -31,7 +30,6 @@ default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)
 low_prio_queue = Queue(name=QueuePrio.LOW.value, connection=redis_client)
 scan_queue = Queue(name=SCAN_QUEUE_NAME, connection=redis_client)
 
-# Every queue a job can be on, so a caller listing them does not miss one.
 ALL_QUEUES: Final = (scan_queue, high_prio_queue, default_queue, low_prio_queue)
 
 

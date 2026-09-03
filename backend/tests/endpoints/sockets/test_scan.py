@@ -1891,8 +1891,8 @@ class TestScanConcurrency:
     async def test_a_scan_left_on_an_older_queue_still_blocks(
         self, mocker, emit, queue
     ):
-        # A scan enqueued before scans had their own queue is on one of the
-        # others, and a worker will still run it.
+        # A scan enqueued by an older release sits on one of the other queues,
+        # where a worker will still run it.
         patch_scan_jobs(mocker, **{queue: [make_job(SCAN_PLATFORMS_FUNC)]})
         enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
