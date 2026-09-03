@@ -8,7 +8,6 @@ from rq.exceptions import DuplicateJobError
 from rq.job import Job
 
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, SENTRY_DSN
-from endpoints.sockets.scan import drop_stale_scheduled_scans
 from handler.database import db_save_handler
 from handler.metadata.base_handler import (
     MAME_XML_KEY,
@@ -26,6 +25,7 @@ from handler.redis_handler import (
     low_prio_queue,
     redis_client,
 )
+from handler.scan_jobs import drop_stale_scheduled_scans
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
 from tasks.registry import enqueue_task

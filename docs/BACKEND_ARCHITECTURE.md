@@ -226,6 +226,7 @@ backend/
 │   ├── socket_handler.py      # Socket.IO server management
 │   ├── netplay_handler.py     # Netplay room state
 │   ├── redis_handler.py       # Redis clients & queues
+│   ├── scan_jobs.py           # Finding & pruning in-flight scan jobs
 │   ├── auth/                  # Authentication subsystem
 │   │   ├── base_handler.py    # Auth, OAuth, OIDC handlers
 │   │   ├── hybrid_auth.py     # Multi-method auth backend
