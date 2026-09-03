@@ -12,8 +12,8 @@ Existing libraries carry no such data until it is fetched -- the columns are
 generated from the metadata blob, so they stay empty until a rescan or
 `tools/backfill_igdb_tags.py` populates the source.
 
-Revision ID: 0114_igdb_tag_columns
-Revises: 0113_rom_similarity
+Revision ID: 0118_igdb_tag_columns
+Revises: 0117_rom_similarity
 Create Date: 2026-08-08 00:00:00.000000
 
 """
@@ -24,8 +24,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0114_igdb_tag_columns"
-down_revision = "0113_rom_similarity"
+revision = "0118_igdb_tag_columns"
+down_revision = "0117_rom_similarity"
 branch_labels = None
 depends_on = None
 
@@ -151,8 +151,8 @@ def _backfill_facets() -> None:
         )
 
 
-# Mirrored into roms_facets by the triggers, matching migration 0100's list
-# with the three new columns appended.
+# Mirrored into roms_facets by the triggers: migration 0115's final list, in
+# its order, with the three tag columns appended by the rebuild below.
 _MIRRORED_COLUMNS = [
     ("platform_id", "platform_id"),
     ("genres", "generated_genres"),
@@ -165,6 +165,8 @@ _MIRRORED_COLUMNS = [
     ("regions", "regions"),
     ("languages", "languages"),
     ("tags", "tags"),
+    ("publishers", "generated_publishers"),
+    ("developers", "generated_developers"),
     ("igdb_id", "igdb_id"),
     ("ss_id", "ss_id"),
     ("moby_id", "moby_id"),
@@ -174,9 +176,13 @@ _MIRRORED_COLUMNS = [
     ("tgdb_id", "tgdb_id"),
     ("flashpoint_id", "flashpoint_id"),
     ("hltb_id", "hltb_id"),
+    ("demozoo_id", "demozoo_id"),
+    ("pouet_id", "pouet_id"),
+    ("csdb_id", "csdb_id"),
     ("gamelist_id", "gamelist_id"),
     ("libretro_id", "libretro_id"),
-] + [(facet, generated) for generated, facet in _ROLE_COLUMNS]
+    ("steam_id", "steam_id"),
+]
 
 _MYSQL_TRIGGERS = {
     "roms_facets_after_insert": "AFTER INSERT",
