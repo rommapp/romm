@@ -38,7 +38,6 @@ class ScanLibraryTask(PeriodicTask):
             cron_string=SCHEDULED_RESCAN_CRON,
             # A library scan is not a five-minute task like the rest.
             timeout=SCAN_TIMEOUT,
-            func="tasks.scheduled.scan_library.scan_library_task.run",
         )
 
     async def run(self) -> dict[str, str]:

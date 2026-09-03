@@ -12,10 +12,6 @@ class TestCleanupUploadTmpTask:
 
     def test_init(self, task):
         """Test task initialization"""
-        assert (
-            task.func
-            == "tasks.scheduled.cleanup_upload_tmp.cleanup_upload_tmp_task.run"
-        )
         assert task.enabled is True
         assert task.cron_string == "0 * * * *"
 

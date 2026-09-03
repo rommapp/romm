@@ -15,7 +15,6 @@ class CleanupUploadTmpTask(PeriodicTask):
             enabled=True,
             manual_run=False,
             cron_string="0 * * * *",  # Every hour
-            func="tasks.scheduled.cleanup_upload_tmp.cleanup_upload_tmp_task.run",
         )
 
     async def run(self) -> None:

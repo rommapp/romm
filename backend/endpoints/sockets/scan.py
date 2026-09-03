@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from itertools import batched, chain
+from itertools import batched
 from typing import Any, Final
 
 import socketio  # type: ignore
 from redis import Redis
-from rq import Worker, get_current_job
-from rq.exceptions import AbandonedJobError, NoSuchJobError
+from rq import get_current_job
+from rq.exceptions import AbandonedJobError
 from rq.job import Job, JobStatus
-from rq.registry import ScheduledJobRegistry
 from sqlalchemy.exc import IntegrityError
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
@@ -42,7 +39,7 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.roms_handler import FSRom, ParsedRomFiles
 from handler.metadata import (
     meta_gamelist_handler,
     meta_hltb_handler,
@@ -53,11 +50,8 @@ from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
-    get_job_func_name,
-    get_job_kwargs,
+    cancel_job,
     get_job_status,
-    high_prio_queue,
-    low_prio_queue,
     redis_client,
     scan_queue,
 )
@@ -70,6 +64,12 @@ from handler.scan_handler import (
     scan_firmware,
     scan_platform,
     scan_rom,
+)
+from handler.scan_jobs import (
+    get_queued_scan_jobs,
+    get_running_scan_job,
+    get_scheduled_scan_jobs,
+    is_scoped_scan_job,
 )
 from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
@@ -87,148 +87,13 @@ from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 
-# A delayed watcher scan this far past due was left behind by an instance that
-# was not running, and the change it reacted to has long since settled.
-STALE_SCHEDULED_SCAN_AGE: Final = timedelta(hours=1)
 
-
-def _scan_platforms_func_name() -> str:
-    """Fully qualified name RQ records for a directly enqueued scan.
-
-    Derived from the function itself so it cannot drift out of sync with the
-    name RQ stores when the job is enqueued.
-    """
-    return f"{scan_platforms.__module__}.{scan_platforms.__name__}"
-
-
-def _is_scan_job(job: Job) -> bool:
-    """Whether this job runs a scan.
-
-    Socket and watcher scans enqueue scan_platforms itself. Task-driven scans go
-    through the task runner, which every task shares, so they are recognised by
-    the type their job carries instead.
-    """
-    if get_job_func_name(job) == _scan_platforms_func_name():
-        return True
-
-    return job.meta.get("task_type") == TaskType.SCAN
-
-
-def _is_scoped_scan_job(job: Job) -> bool:
-    """Whether this scan covers named roms rather than the library.
-
-    A scan that cannot be read is treated as a library scan: the worker will
-    fail it on the next dequeue, so it stops standing in the way by itself.
-    """
-    kwargs = get_job_kwargs(job)
-    return bool(kwargs and kwargs.get("roms_ids"))
-
-
-def _get_running_scan_job() -> Job | None:
-    """The scan currently executing on a worker, if any.
-
-    A started job is no longer in the queue, so it can only be found by asking
-    the workers what they are holding.
-    """
-    for worker in Worker.all(connection=redis_client):
-        # A worker killed mid-scan keeps pointing at its job until its own
-        # registration expires, and the job can be gone by then.
-        try:
-            job = worker.get_current_job()
-        except NoSuchJobError:
-            continue
-
-        if job is not None and _is_scan_job(job):
-            return job
-
-    return None
-
-
-def _get_queued_scan_jobs() -> list[Job]:
-    """Scans sitting on a worker queue, waiting to be picked up.
-
-    The other queues are still read because a scan enqueued before scans had
-    their own queue is on one of them, and it will still run.
-    """
-    jobs: dict[str, Job] = {}
-
-    for job in chain(
-        scan_queue.get_jobs(), high_prio_queue.get_jobs(), low_prio_queue.get_jobs()
-    ):
-        if (
-            isinstance(job, Job)
-            and _is_scan_job(job)
-            and get_job_status(job) == JobStatus.QUEUED
-        ):
-            jobs[job.id] = job
-
-    return list(jobs.values())
-
-
-def _scheduled_scan_registries() -> list[ScheduledJobRegistry]:
-    """Where delayed scans wait until a worker releases them.
-
-    The low priority queue is still read because a scan delayed before scans had
-    their own queue waits in its registry, and a worker will still release it.
-    """
-    return [
-        ScheduledJobRegistry(queue=scan_queue),
-        ScheduledJobRegistry(queue=low_prio_queue),
-    ]
-
-
-def _iter_scheduled_scans() -> Iterator[tuple[ScheduledJobRegistry, Job]]:
-    """Every delayed scan, with the registry that holds its due time."""
-    for registry in _scheduled_scan_registries():
-        for job in Job.fetch_many(registry.get_job_ids(), connection=redis_client):
-            if job is not None and _is_scan_job(job):
-                yield registry, job
-
-
-def _get_scheduled_scan_jobs() -> list[Job]:
-    """Scans waiting out a delay, which only the watcher sets.
-
-    These never stand in for a scan in flight: a worker has to be running to
-    release them, so counting them would refuse scans on an idle instance.
-    """
-    return list({job.id: job for _, job in _iter_scheduled_scans()}.values())
-
-
-def get_pending_scan_jobs() -> list[Job]:
-    """Scans that have not started yet: queued, or waiting out a delay.
-
-    A scan already running is deliberately not one of these. It may have walked
-    past the folder that just changed, so a fresh scan is still warranted.
-    """
-    return _get_queued_scan_jobs() + _get_scheduled_scan_jobs()
-
-
-def drop_stale_scheduled_scans() -> int:
-    """Drop delayed watcher scans that are long past due.
-
-    Releasing a backlog of them at once, which is what an instance that was down
-    for a while does on start, would run the same library scan over and over.
-
-    Returns:
-        int: How many scans were dropped.
-    """
-    cutoff = datetime.now(timezone.utc) - STALE_SCHEDULED_SCAN_AGE
-    dropped = 0
-
-    for registry, job in _iter_scheduled_scans():
-        try:
-            scheduled_at = registry.get_scheduled_time(job)
-        except NoSuchJobError:
-            continue
-
-        if scheduled_at > cutoff:
-            continue
-
-        job.cancel()
-        dropped += 1
-        log.warning(f"Dropped scan scheduled for {scheduled_at}, too long past due")
-
-    return dropped
+def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
+    """What a scan job carries so a client can tell which scan is running."""
+    return {
+        "task_name": f"{scan_type.value.capitalize()} Scan",
+        "task_type": TaskType.SCAN.value,
+    }
 
 
 def report_scan_failure(
@@ -264,7 +129,8 @@ def _scan_in_flight_message(running: Job | None, queued: list[Job]) -> str:
     if running is None:
         return f"{_scan_job_label(queued[0])} is already queued"
 
-    if get_job_status(running) in (JobStatus.CANCELED, JobStatus.STOPPED):
+    stopping = (JobStatus.CANCELED, JobStatus.STOPPED)
+    if get_job_status(running, refresh=False) in stopping:
         return f"{_scan_job_label(running)} is still stopping, try again in a moment"
 
     return f"{_scan_job_label(running)} is already running"
@@ -501,6 +367,23 @@ def _should_hash_firmware(
     )
 
 
+def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
+    fs_rom.update(
+        {
+            "files": parsed.rom_files,
+            "crc_hash": parsed.crc_hash,
+            "md5_hash": parsed.md5_hash,
+            "sha1_hash": parsed.sha1_hash,
+            "ra_hash": parsed.ra_hash,
+            "title_id": parsed.title_id,
+            "save_target": parsed.save_target,
+            "save_target_layout": parsed.save_target_layout,
+        }
+    )
+    if parsed.renamed_rom_fs_name:
+        fs_rom["fs_name"] = parsed.renamed_rom_fs_name
+
+
 # There's an order of operations here that is important:
 # 1. Read the list of roms from the filesystem
 # 2. Check if ROM should be scanned based on the scan type
@@ -542,7 +425,10 @@ async def _identify_rom(
         "url_screenshots": [],
     }
 
-    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
+    cnfg = cm.get_config()
+    calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
+    extract_title_ids = not cnfg.SKIP_TITLE_ID_EXTRACTION
+    embed_title_ids = cnfg.EMBED_SWITCH_TITLE_IDS
 
     newly_added: bool = rom is None
     reassociated: bool = False
@@ -559,16 +445,13 @@ async def _identify_rom(
                 platform=platform,
             ),
             calculate_hashes=calculate_hashes,
+            extract_title_ids=extract_title_ids,
+            embed_title_ids=embed_title_ids,
         )
-        fs_rom.update(
-            {
-                "files": parsed_rom_files.rom_files,
-                "crc_hash": parsed_rom_files.crc_hash,
-                "md5_hash": parsed_rom_files.md5_hash,
-                "sha1_hash": parsed_rom_files.sha1_hash,
-                "ra_hash": parsed_rom_files.ra_hash,
-            }
-        )
+        _apply_scanned_values(fs_rom, parsed_rom_files)
+        # The new-entry insert reads its name from rom_attrs, not fs_rom.
+        if parsed_rom_files.renamed_rom_fs_name:
+            rom_attrs["fs_name"] = parsed_rom_files.renamed_rom_fs_name
         files_built = True
 
         missing_match = db_rom_handler.get_matching_missing_rom(
@@ -576,6 +459,7 @@ async def _identify_rom(
             crc_hash=parsed_rom_files.crc_hash,
             md5_hash=parsed_rom_files.md5_hash,
             sha1_hash=parsed_rom_files.sha1_hash,
+            title_id=parsed_rom_files.title_id,
         )
         if missing_match is not None:
             # Move the existing entry onto the new file, clearing its missing state.
@@ -633,17 +517,15 @@ async def _identify_rom(
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
         parsed_rom_files = await fs_rom_handler.get_rom_files(
-            rom, calculate_hashes=calculate_hashes
+            rom,
+            calculate_hashes=calculate_hashes,
+            extract_title_ids=extract_title_ids,
+            embed_title_ids=embed_title_ids,
         )
-        fs_rom.update(
-            {
-                "files": parsed_rom_files.rom_files,
-                "crc_hash": parsed_rom_files.crc_hash,
-                "md5_hash": parsed_rom_files.md5_hash,
-                "sha1_hash": parsed_rom_files.sha1_hash,
-                "ra_hash": parsed_rom_files.ra_hash,
-            }
-        )
+        _apply_scanned_values(fs_rom, parsed_rom_files)
+        # Keep the in-memory rom's identity matching the renamed file.
+        if parsed_rom_files.renamed_rom_fs_name:
+            rom.fs_name = parsed_rom_files.renamed_rom_fs_name
 
     # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
     # stale files (e.g. a cover from the wrong region) can't be reused. The
@@ -1075,7 +957,7 @@ async def scan_platforms(
     # scan that ended first would otherwise stop this one before it began. A
     # scan still on a worker owns the flag though, and clearing it there would
     # let a stopped scan carry on.
-    running_job = _get_running_scan_job()
+    running_job = get_running_scan_job()
     current_job = get_current_job()
     if running_job is None or (
         current_job is not None and running_job.id == current_job.id
@@ -1387,12 +1269,12 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     # roms is not that, and refusing it loses a click the user has to remember
     # to repeat, so it is allowed to queue instead.
     if not DEV_MODE and not roms_ids:
-        running_job = _get_running_scan_job()
-        if running_job is not None and _is_scoped_scan_job(running_job):
+        running_job = get_running_scan_job()
+        if running_job is not None and is_scoped_scan_job(running_job):
             running_job = None
 
         queued_jobs = [
-            job for job in _get_queued_scan_jobs() if not _is_scoped_scan_job(job)
+            job for job in get_queued_scan_jobs() if not is_scoped_scan_job(job)
         ]
 
         if running_job is not None or queued_jobs:
@@ -1437,10 +1319,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         platform_fs_slugs=platform_fs_slugs,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": f"{scan_type.value.capitalize()} Scan",
-            "task_type": TaskType.SCAN,
-        },
+        meta=scan_job_meta(scan_type),
     )
 
 
@@ -1455,16 +1334,16 @@ async def stop_scan_handler(sid: str):
 
     # Queued scans have not started, so cancelling them is enough. They have to
     # go too: stopping only the running scan would hand the worker the next one.
-    queued_jobs = _get_queued_scan_jobs()
-    scheduled_jobs = _get_scheduled_scan_jobs()
+    queued_jobs = get_queued_scan_jobs()
+    scheduled_jobs = get_scheduled_scan_jobs()
     for job in queued_jobs + scheduled_jobs:
-        job.cancel()
+        cancel_job(job)
 
     # A running scan cannot be interrupted from here, it polls the stop flag
     # between platforms and ROMs and unwinds itself.
-    running_job = _get_running_scan_job()
+    running_job = get_running_scan_job()
     if running_job is not None:
-        running_job.cancel()
+        cancel_job(running_job)
         redis_client.set(STOP_SCAN_FLAG, 1)
 
     if running_job is None and not queued_jobs and not scheduled_jobs:

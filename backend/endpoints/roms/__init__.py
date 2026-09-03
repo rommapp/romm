@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
+from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
@@ -97,11 +98,14 @@ from logger.logger import log
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
+    TITLE_ID_MAX_LENGTH,
     Rom,
     RomUserStatus,
+    SaveTargetLayout,
     apply_file_stats,
     compute_name_sort_key,
 )
+from utils import switch
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
@@ -2551,3 +2555,59 @@ async def update_rom_user(
         refresh_affected_smart_collections([id], membership_only=True)
 
     return RomUserSchema.model_validate(rom_user)
+
+
+class RomIdentityData(BaseModel):
+    """Binary identity a client extracted for a ROM that RomM cannot read itself."""
+
+    title_id: str | None = Field(
+        default=None,
+        description="Platform-native identity, e.g. 0100ABCD12340000 or SLUS-20152.",
+        max_length=TITLE_ID_MAX_LENGTH,
+    )
+    save_target: str | None = Field(
+        default=None,
+        description="On-disk name the emulator gives this game's saves.",
+        max_length=TITLE_ID_MAX_LENGTH,
+    )
+    save_target_layout: SaveTargetLayout | None = Field(
+        default=None,
+        description="How to apply save_target when locating saves on disk.",
+    )
+
+
+@protected_route(
+    router.put,
+    "/{id}/identity",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def update_rom_identity(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    data: Annotated[RomIdentityData, Body()],
+) -> DetailedRomSchema:
+    """Store binary identity a client extracted from a ROM the scan cannot read."""
+    rom = db_rom_handler.get_rom(id)
+
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    cleaned_data = data.model_dump(exclude_unset=True)
+
+    # Reassociating a renamed non-hashable ROM matches on this id, which only
+    # works while it is the base game's.
+    title_id = cleaned_data.get("title_id")
+    if title_id and rom.platform_slug in SWITCH_PLATFORM_SLUGS:
+        cleaned_data["title_id"] = switch.derive_base_title_id(title_id) or title_id
+
+    db_rom_handler.update_rom(id, cleaned_data)
+
+    # The update returns a bare row; the schema reads relationships off it.
+    updated_rom = db_rom_handler.get_rom(id)
+    if not updated_rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    return DetailedRomSchema.from_orm_with_request(updated_rom, request)

@@ -1,24 +1,16 @@
 """The schedule `rq cron` runs, registered when that process starts.
 
-A task is registered only when it is enabled and has a cron string, so nothing
-in Redis has to be unscheduled when a deployment turns one off: the next start
-simply leaves it out.
+A task is registered only when it is enabled and has a cron string, so turning
+one off is a restart rather than an unschedule.
 """
-
-from typing import Any
 
 from rq import cron
 
 from config import TASK_RESULT_TTL, TASK_TIMEOUT
-from endpoints.responses import TaskType
 from handler.redis_handler import QueuePrio
 from logger.logger import log
-from tasks.registry import SCHEDULED_TASKS
-from tasks.tasks import (
-    SCAN_DISPATCH_META_KEY,
-    enqueue_scheduled_scan,
-    run_task_by_name,
-)
+from tasks.registry import SCHEDULED_TASKS, enqueue_scheduled_scan
+from tasks.tasks import SCAN_DISPATCH_META_KEY, TaskType, run_task_by_name
 
 for name, task in SCHEDULED_TASKS.items():
     if not task.enabled or not task.cron_string:
@@ -30,23 +22,17 @@ for name, task in SCHEDULED_TASKS.items():
     # of waiting behind a scan, and only enqueues, so the scan timeout belongs
     # to the scan rather than to this.
     is_scan = task.task_type is TaskType.SCAN
+    meta = {**task.job_meta, SCAN_DISPATCH_META_KEY: True} if is_scan else task.job_meta
 
-    meta: dict[str, Any] = {
-        "task_name": task.title,
-        "task_type": task.task_type.value,
-    }
-    if is_scan:
-        meta[SCAN_DISPATCH_META_KEY] = True
-
+    # Every entry runs the same function, so without an explicit name they all
+    # share one cron identity and one job history.
     cron.register(
         enqueue_scheduled_scan if is_scan else run_task_by_name,
         QueuePrio.LOW.value,
+        name=name,
         kwargs={"name": name},
         cron=task.cron_string,
         job_timeout=TASK_TIMEOUT if is_scan else task.timeout,
-        # `register()` defaults this to RQ's 500 seconds and always writes it
-        # onto the job, so the worker's own result TTL can never apply and the
-        # task history would empty minutes after each run.
         result_ttl=TASK_RESULT_TTL,
         meta=meta,
     )

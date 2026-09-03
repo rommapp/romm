@@ -3,15 +3,10 @@ import importlib
 import pytest
 
 from config import TASK_RESULT_TTL, TASK_TIMEOUT
-from endpoints.responses import TaskType
 from handler.redis_handler import QueuePrio
 from tasks import cron_config
-from tasks.registry import SCHEDULED_TASKS
-from tasks.tasks import (
-    SCAN_DISPATCH_META_KEY,
-    enqueue_scheduled_scan,
-    run_task_by_name,
-)
+from tasks.registry import SCHEDULED_TASKS, enqueue_scheduled_scan
+from tasks.tasks import SCAN_DISPATCH_META_KEY, TaskType, run_task_by_name
 
 
 @pytest.fixture
@@ -35,12 +30,14 @@ def _task(mocker, *, enabled=True, cron_string="0 4 * * *"):
         title="Test Task",
         description="test task",
         task_type=TaskType.CLEANUP,
+        job_meta={"task_name": "Test Task", "task_type": TaskType.CLEANUP.value},
     )
 
 
 def _scan_task(mocker, **kwargs):
     task = _task(mocker, **kwargs)
     task.task_type = TaskType.SCAN
+    task.job_meta = {"task_name": "Test Task", "task_type": TaskType.SCAN.value}
     return task
 
 
@@ -65,7 +62,11 @@ class TestCronConfig:
         kwargs = register.call_args.kwargs
         assert register.call_args.args[0] is enqueue_scheduled_scan
         assert kwargs["job_timeout"] == TASK_TIMEOUT
-        assert kwargs["meta"][SCAN_DISPATCH_META_KEY] is True
+        assert kwargs["meta"] == {
+            "task_name": "Test Task",
+            "task_type": TaskType.SCAN.value,
+            SCAN_DISPATCH_META_KEY: True,
+        }
 
     def test_everything_runs_on_the_low_queue(self, mocker, registered):
         for tasks in ({"cleanup": _task(mocker)}, {"scan": _scan_task(mocker)}):
@@ -78,6 +79,16 @@ class TestCronConfig:
         register = registered({"cleanup": _task(mocker)})
 
         assert register.call_args.kwargs["result_ttl"] == TASK_RESULT_TTL
+
+    def test_each_entry_gets_its_own_cron_identity(self, mocker, registered):
+        # Every entry runs the same function, so an unnamed one would inherit
+        # that func name and share one job history with all the others.
+        register = registered(
+            {"first": _task(mocker), "second": _task(mocker)},
+        )
+
+        names = [call.kwargs["name"] for call in register.call_args_list]
+        assert names == ["first", "second"]
 
     def test_skips_a_disabled_task(self, mocker, registered):
         assert registered({"off": _task(mocker, enabled=False)}).call_count == 0

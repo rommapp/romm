@@ -13,12 +13,6 @@ class TestCleanupOrphanedResourcesTask:
     def task(self):
         return CleanupOrphanedResourcesTask()
 
-    def test_func_points_at_scheduled_module(self, task):
-        assert (
-            task.func
-            == "tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run"
-        )
-
     def test_disabled_by_default(self, task):
         # The run-task endpoint rejects a task unless both flags are set, so a
         # disabled schedule also means no manual runs.

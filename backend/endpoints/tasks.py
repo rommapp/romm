@@ -7,11 +7,7 @@ from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
 from rq.registry import FailedJobRegistry, FinishedJobRegistry
 
-from config import (
-    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
-    TASK_RESULT_TTL,
-)
+from config import ENABLE_RESCAN_ON_FILESYSTEM_CHANGE, RESCAN_ON_FILESYSTEM_CHANGE_DELAY
 from decorators.auth import protected_route
 from endpoints.responses import (
     CleanupTaskStatusResponse,
@@ -29,13 +25,14 @@ from handler.auth.constants import Scope
 from handler.redis_handler import (
     default_queue,
     get_job_func_name,
+    get_worker_current_job,
     high_prio_queue,
     low_prio_queue,
     redis_client,
     scan_queue,
 )
-from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS
-from tasks.tasks import SCAN_DISPATCH_META_KEY, Task, TaskType, run_task_by_name
+from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
+from tasks.tasks import SCAN_DISPATCH_META_KEY, Task, TaskType
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -49,14 +46,19 @@ ALL_QUEUES: Final = (scan_queue, high_prio_queue, default_queue, low_prio_queue)
 
 # Scheduled tasks an admin can see and trigger. The rest of the catalog runs on
 # its schedule without being surfaced.
-VISIBLE_SCHEDULED_TASKS: Final = (
-    "scan_library",
-    "update_launchbox_metadata",
-    "update_switch_titledb",
-    "convert_images_to_webp",
-    "cleanup_zip_cache",
-    "cleanup_orphaned_resources",
-)
+VISIBLE_SCHEDULED_TASKS: Final[dict[str, Task]] = {
+    name: SCHEDULED_TASKS[name]
+    for name in (
+        "scan_library",
+        "update_launchbox_metadata",
+        "update_switch_titledb",
+        "convert_images_to_webp",
+        "cleanup_zip_cache",
+        "cleanup_orphaned_resources",
+    )
+}
+
+RUNNABLE_TASKS: Final[dict[str, Task]] = {**MANUAL_TASKS, **VISIBLE_SCHEDULED_TASKS}
 
 
 def _build_task_info(name: str, task: Task) -> TaskInfo:
@@ -180,8 +182,8 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
     for name, task in MANUAL_TASKS.items():
         grouped_tasks["manual"].append(_build_task_info(name, task))
 
-    for name in VISIBLE_SCHEDULED_TASKS:
-        grouped_tasks["scheduled"].append(_build_task_info(name, SCHEDULED_TASKS[name]))
+    for name, task in VISIBLE_SCHEDULED_TASKS.items():
+        grouped_tasks["scheduled"].append(_build_task_info(name, task))
 
     # Add the adhoc watcher task
     grouped_tasks["watcher"].append(
@@ -211,15 +213,8 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
     all_tasks: list[TaskStatusResponse] = []
 
     # Get currently running jobs from workers
-    workers = Worker.all(connection=redis_client)
-    for worker in workers:
-        # A worker killed mid-job keeps pointing at it until its own
-        # registration expires, and the job can be gone by then.
-        try:
-            current_job = worker.get_current_job()
-        except NoSuchJobError:
-            continue
-
+    for worker in Worker.all(connection=redis_client):
+        current_job = get_worker_current_job(worker)
         if current_job and not _is_spent_scan_dispatch(current_job):
             all_tasks.append(_build_task_status_response(current_job))
 
@@ -302,39 +297,22 @@ async def run_single_task(
     Returns:
         TaskExecutionResponse: Task execution response with details
     """
-    all_tasks: dict[str, Task] = {
-        **MANUAL_TASKS,
-        **{name: SCHEDULED_TASKS[name] for name in VISIBLE_SCHEDULED_TASKS},
-    }
-
-    if task_name not in all_tasks:
-        available_tasks = list(all_tasks.keys())
+    task_instance = RUNNABLE_TASKS.get(task_name)
+    if task_instance is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Task '{task_name}' not found, available tasks are {', '.join(available_tasks)}",
+            detail=f"Task '{task_name}' not found, available tasks are {', '.join(RUNNABLE_TASKS)}",
         )
 
-    task_instance = all_tasks[task_name]
     if not task_instance.can_run_manually:
         raise HTTPException(
             status_code=400,
             detail=f"Task '{task_name}' cannot be run",
         )
 
-    # Enqueued by name, like the scheduled runs, so the payload carries no
-    # pickled task and the job is readable by whatever version picks it up. The
-    # caller's arguments are nested rather than spread, so a body cannot name a
-    # different task than the one this route just authorized.
-    job = low_prio_queue.enqueue(
-        run_task_by_name,
-        kwargs={"name": task_name, "task_kwargs": task_kwargs or {}},
-        job_timeout=task_instance.timeout,
-        result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": task_instance.title,
-            "task_type": task_instance.task_type.value,
-        },
-    )
+    # The caller's arguments are nested rather than spread, so a body cannot
+    # name a different task than the one this route just authorized.
+    job = enqueue_task(task_name, task_kwargs=task_kwargs or {})
 
     return {
         "task_name": task_instance.title,

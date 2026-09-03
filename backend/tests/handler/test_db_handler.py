@@ -1101,13 +1101,62 @@ def test_get_matching_missing_rom_ambiguous_match_returns_none(platform: Platfor
 
 
 def test_get_matching_missing_rom_requires_all_three_hashes(platform: Platform):
-    """A match needs all three hashes; omitting one yields no match."""
+    """A partial hash set yields no match when there is no title id either."""
     _add_missing_rom(
         platform, "renamed", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
     )
 
     match = db_rom_handler.get_matching_missing_rom(
         platform_id=platform.id, crc_hash="aabbccdd", md5_hash="md5val"
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_matches_title_id_without_hashes(platform: Platform):
+    """A non-hashable platform reassociates on the binary title id.
+
+    Switch ROMs are never hashed, so a renamed file would otherwise be
+    unrecoverable and land as a duplicate entry.
+    """
+    missing = _add_missing_rom(platform, "renamed", title_id="0100ABCD12340000")
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id, title_id="0100ABCD12340000"
+    )
+    assert match is not None
+    assert match.id == missing.id
+
+
+def test_get_matching_missing_rom_hashes_take_precedence_over_title_id(
+    platform: Platform,
+):
+    """A hashed file is matched on its hashes, not on a shared title id."""
+    _add_missing_rom(
+        platform,
+        "other",
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+        title_id="0100ABCD12340000",
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="different",
+        md5_hash="different",
+        sha1_hash="different",
+        title_id="0100ABCD12340000",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_ambiguous_title_id_returns_none(platform: Platform):
+    """Two missing entries sharing a title id leave the choice to a new entry."""
+    _add_missing_rom(platform, "dup_a", title_id="0100ABCD12340000")
+    _add_missing_rom(platform, "dup_b", title_id="0100ABCD12340000")
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id, title_id="0100ABCD12340000"
     )
     assert match is None
 

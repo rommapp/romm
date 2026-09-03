@@ -226,6 +226,7 @@ backend/
 │   ├── socket_handler.py      # Socket.IO server management
 │   ├── netplay_handler.py     # Netplay room state
 │   ├── redis_handler.py       # Redis clients & queues
+│   ├── scan_jobs.py           # Finding & pruning in-flight scan jobs
 │   ├── auth/                  # Authentication subsystem
 │   │   ├── base_handler.py    # Auth, OAuth, OIDC handlers
 │   │   ├── hybrid_auth.py     # Multi-method auth backend
@@ -1486,6 +1487,11 @@ Nginx receives an internal redirect header and efficiently serves the file from 
 
 Hashing can be disabled per-installation via `skip_hash_calculation` in config.yml.
 
+Alongside hashing, scans extract platform-native title IDs from ROM binaries via
+the optional `sigil` binding (Switch, PlayStation, Nintendo, Xbox and Dreamcast
+families). The feature no-ops when the binding is absent, and can be turned off
+with `skip_title_id_extraction`.
+
 ---
 
 ## 13. Caching (Redis)
@@ -1657,6 +1663,8 @@ filesystem:
   roms_folder: "roms" # Subfolder name for ROMs
   firmware_folder: "bios" # Subfolder name for BIOS
   skip_hash_calculation: false
+  skip_title_id_extraction: false # Skip sigil title ID extraction
+  embed_switch_title_ids: false # Rename Switch ROMs to embed their title ID
 
 system:
   platforms:

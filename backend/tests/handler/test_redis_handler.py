@@ -1,9 +1,16 @@
 from unittest.mock import MagicMock, PropertyMock
 
-from rq.exceptions import DeserializationError, InvalidJobOperation
+from rq import Worker
+from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobError
 from rq.job import Job, JobStatus
 
-from handler.redis_handler import get_job_func_name, get_job_kwargs, get_job_status
+from handler.redis_handler import (
+    cancel_job,
+    get_job_func_name,
+    get_job_kwargs,
+    get_job_status,
+    get_worker_current_job,
+)
 
 
 def make_job() -> MagicMock:
@@ -69,3 +76,39 @@ class TestGetJobStatus:
         job.get_status.side_effect = InvalidJobOperation
 
         assert get_job_status(job) is None
+
+
+class TestCancelJob:
+    def test_cancels_a_live_job(self):
+        job = make_job()
+
+        assert cancel_job(job) is True
+        job.cancel.assert_called_once()
+
+    def test_tolerates_a_job_cancelled_by_an_earlier_call(self):
+        # Stopping a scan twice reaches the running job again while it unwinds.
+        job = make_job()
+        job.cancel.side_effect = InvalidJobOperation
+
+        assert cancel_job(job) is False
+
+
+class TestGetWorkerCurrentJob:
+    @staticmethod
+    def _worker(**kwargs) -> MagicMock:
+        worker = MagicMock(spec=Worker)
+        worker.get_current_job.configure_mock(**kwargs)
+        return worker
+
+    def test_returns_the_job_the_worker_is_holding(self):
+        job = make_job()
+
+        assert get_worker_current_job(self._worker(return_value=job)) is job
+
+    def test_returns_none_when_the_worker_is_idle(self):
+        assert get_worker_current_job(self._worker(return_value=None)) is None
+
+    def test_returns_none_when_the_job_outlived_by_its_worker_is_gone(self):
+        worker = self._worker(side_effect=NoSuchJobError)
+
+        assert get_worker_current_job(worker) is None

@@ -82,7 +82,6 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
             manual_run=True,
             cron_string=SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
-            func="tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run",
         )
 
     @initialize_context()
