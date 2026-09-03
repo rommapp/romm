@@ -14,6 +14,7 @@ from config.config_manager import ConfigManager
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import (
+    db_firmware_handler,
     db_permission_handler,
     db_platform_handler,
     db_rom_handler,
@@ -26,6 +27,7 @@ from models.assets import Save, Screenshot, State
 from models.client_token import ClientToken
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from models.firmware import Firmware
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -100,6 +102,7 @@ def clear_database():
         s.query(Screenshot).delete(synchronize_session="evaluate")
         s.query(RomFile).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
+        s.query(Firmware).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
 
@@ -125,6 +128,45 @@ def platform():
 
 
 @pytest.fixture
+def other_platform():
+    platform = Platform(name="other", slug="other_slug", fs_slug="other_slug")
+    return db_platform_handler.add_platform(platform)
+
+
+@pytest.fixture
+def add_firmware():
+    """Factory for firmware rows, defaulting to a file still on disk."""
+
+    def _add(platform: Platform, file_name: str, missing: bool = False) -> Firmware:
+        return db_firmware_handler.add_firmware(
+            Firmware(
+                platform_id=platform.id,
+                file_name=file_name,
+                file_path=f"{platform.fs_slug}/bios",
+                file_size_bytes=1024,
+                crc_hash="crc",
+                md5_hash="md5",
+                sha1_hash="sha1",
+                missing_from_fs=missing,
+            )
+        )
+
+    return _add
+
+
+@pytest.fixture
+def firmware(platform: Platform, add_firmware):
+    """Firmware whose file is still on disk."""
+    return add_firmware(platform, "present.bin")
+
+
+@pytest.fixture
+def missing_firmware(platform: Platform, add_firmware):
+    """Firmware flagged by a scan as gone from the filesystem."""
+    return add_firmware(platform, "gone.bin", missing=True)
+
+
+@pytest.fixture
 def rom(admin_user: User, platform: Platform):
     rom = Rom(
         platform_id=platform.id,
@@ -133,6 +175,26 @@ def rom(admin_user: User, platform: Platform):
         fs_name="test_rom.zip",
         fs_name_no_tags="test_rom",
         fs_name_no_ext="test_rom",
+        fs_extension="zip",
+        fs_path=f"{platform.slug}/roms",
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+    return rom
+
+
+@pytest.fixture
+def second_rom(admin_user: User, platform: Platform):
+    """A second ROM on the same platform, for tests that scope by ROM."""
+    rom = Rom(
+        platform_id=platform.id,
+        name="test_rom_2",
+        slug="test_rom_slug_2",
+        fs_name="test_rom_2.zip",
+        fs_name_no_tags="test_rom_2",
+        fs_name_no_ext="test_rom_2",
         fs_extension="zip",
         fs_path=f"{platform.slug}/roms",
     )
@@ -214,6 +276,24 @@ def save(rom: Rom, platform: Platform, admin_user: User):
 
 
 @pytest.fixture
+def second_save(second_rom: Rom, platform: Platform, admin_user: User):
+    """Slot-bound save on `second_rom`, to check ROM-scoped queries exclude it."""
+    save = Save(
+        rom_id=second_rom.id,
+        user_id=admin_user.id,
+        file_name="test_save_2.sav",
+        file_name_no_tags="test_save_2",
+        file_name_no_ext="test_save_2",
+        file_extension="sav",
+        emulator="test_emulator",
+        slot="autosave",
+        file_path=f"{platform.slug}/saves/test_emulator",
+        file_size_bytes=1.0,
+    )
+    return db_save_handler.add_save(save)
+
+
+@pytest.fixture
 def archival_save(rom: Rom, platform: Platform, admin_user: User):
     """Null-slot save representing a web-UI / archival upload.
 
@@ -242,6 +322,23 @@ def state(rom: Rom, platform: Platform, admin_user: User):
         file_name="test_state.state",
         file_name_no_tags="test_state",
         file_name_no_ext="test_state",
+        file_extension="state",
+        emulator="test_emulator",
+        file_path=f"{platform.slug}/states/test_emulator",
+        file_size_bytes=2.0,
+    )
+    return db_state_handler.add_state(state)
+
+
+@pytest.fixture
+def second_state(second_rom: Rom, platform: Platform, admin_user: User):
+    """State on `second_rom`, to check ROM-scoped queries exclude it."""
+    state = State(
+        rom_id=second_rom.id,
+        user_id=admin_user.id,
+        file_name="test_state_2.state",
+        file_name_no_tags="test_state_2",
+        file_name_no_ext="test_state_2",
         file_extension="state",
         emulator="test_emulator",
         file_path=f"{platform.slug}/states/test_emulator",

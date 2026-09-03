@@ -20,6 +20,10 @@ class MetadataSourcesDict(TypedDict):
     TGDB_API_ENABLED: bool
     FLASHPOINT_API_ENABLED: bool
     HLTB_API_ENABLED: bool
+    DEMOZOO_API_ENABLED: bool
+    POUET_API_ENABLED: bool
+    CSDB_API_ENABLED: bool
+    STEAM_API_ENABLED: bool
     LIBRETRO_API_ENABLED: bool
 
 
@@ -30,6 +34,7 @@ class FilesystemDict(TypedDict):
 class EmulationDict(TypedDict):
     DISABLE_EMULATOR_JS: bool
     DISABLE_RUFFLE_RS: bool
+    DISABLE_JSDOS: bool
 
 
 class FrontendDict(TypedDict):

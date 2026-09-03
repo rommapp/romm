@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from sqlalchemy import and_, delete, select, update
-from sqlalchemy.orm import QueryableAttribute, Session, load_only
+from sqlalchemy.orm import QueryableAttribute, Session, load_only, noload
 
 from decorators.database import begin_session
 from models.firmware import Firmware
@@ -31,15 +31,25 @@ class DBFirmwareHandler(DBBaseHandler):
     def list_firmware(
         self,
         *,
-        platform_id: int | None = None,
+        platform_ids: Sequence[int] | None = None,
+        missing: bool | None = None,
         only_fields: Sequence[QueryableAttribute] | None = None,
         hidden_platform_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[Firmware]:
-        query = select(Firmware).order_by(Firmware.file_name.asc())
+        # `Firmware.platform` is lazy="joined", which drags in Platform's
+        # rom_count and fs_size_bytes subqueries. No caller here reads it.
+        query = (
+            select(Firmware)
+            .options(noload(Firmware.platform))
+            .order_by(Firmware.file_name.asc())
+        )
 
-        if platform_id:
-            query = query.filter_by(platform_id=platform_id)
+        if platform_ids:
+            query = query.filter(Firmware.platform_id.in_(platform_ids))
+
+        if missing is not None:
+            query = query.filter(Firmware.missing_from_fs == missing)
 
         # Firmware inherits its platform's visibility: hide firmware whose
         # platform an admin has hidden from the caller.

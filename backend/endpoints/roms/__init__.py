@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
+from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
@@ -66,15 +67,20 @@ from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
+    meta_csdb_handler,
+    meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
     meta_playmatch_handler,
+    meta_pouet_handler,
     meta_ra_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_upc_handler,
+    scene_id_or_none,
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
@@ -95,11 +101,14 @@ from logger.logger import log
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
+    TITLE_ID_MAX_LENGTH,
     Rom,
     RomUserStatus,
+    SaveTargetLayout,
     apply_file_stats,
     compute_name_sort_key,
 )
+from utils import switch
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
@@ -108,10 +117,11 @@ from utils.m3u import generate_m3u_content
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.screenshots import continue_playing_screenshot
-from utils.validation import ValidationError
+from utils.validation import ValidationError, parse_comma_separated_ids
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
     ZipFileEntry,
+    ensure_zipfile_writable,
     get_bulk_namespace,
     get_cache_key,
     get_cached_zip,
@@ -205,6 +215,10 @@ class RomUpdateForm(BaseModel):
     tgdb_id: str | None = Field(default=None, description="TheGamesDB game ID.")
     flashpoint_id: str | None = Field(default=None, description="Flashpoint game ID.")
     hltb_id: str | None = Field(default=None, description="HowLongToBeat game ID.")
+    demozoo_id: str | None = Field(default=None, description="Demozoo production ID.")
+    pouet_id: str | None = Field(default=None, description="Pouët production ID.")
+    csdb_id: str | None = Field(default=None, description="CSDb release ID.")
+    steam_id: str | None = Field(default=None, description="Steam app ID.")
     libretro_id: str | None = Field(default=None, description="Libretro thumbnail ID.")
     raw_igdb_metadata: str | None = Field(
         default=None, description="Raw IGDB metadata as JSON string."
@@ -226,6 +240,18 @@ class RomUpdateForm(BaseModel):
     )
     raw_hltb_metadata: str | None = Field(
         default=None, description="Raw HowLongToBeat metadata as JSON string."
+    )
+    raw_demozoo_metadata: str | None = Field(
+        default=None, description="Raw Demozoo metadata as JSON string."
+    )
+    raw_pouet_metadata: str | None = Field(
+        default=None, description="Raw Pouët metadata as JSON string."
+    )
+    raw_csdb_metadata: str | None = Field(
+        default=None, description="Raw CSDb metadata as JSON string."
+    )
+    raw_steam_metadata: str | None = Field(
+        default=None, description="Raw Steam metadata as JSON string."
     )
     raw_manual_metadata: str | None = Field(
         default=None, description="Raw manual metadata as JSON string."
@@ -281,6 +307,10 @@ async def parse_rom_update_form(
     tgdb_id: str | None = Form(default=None),
     flashpoint_id: str | None = Form(default=None),
     hltb_id: str | None = Form(default=None),
+    demozoo_id: str | None = Form(default=None),
+    pouet_id: str | None = Form(default=None),
+    csdb_id: str | None = Form(default=None),
+    steam_id: str | None = Form(default=None),
     libretro_id: str | None = Form(default=None),
     raw_igdb_metadata: str | None = Form(default=None),
     raw_moby_metadata: str | None = Form(default=None),
@@ -289,6 +319,10 @@ async def parse_rom_update_form(
     raw_hasheous_metadata: str | None = Form(default=None),
     raw_flashpoint_metadata: str | None = Form(default=None),
     raw_hltb_metadata: str | None = Form(default=None),
+    raw_demozoo_metadata: str | None = Form(default=None),
+    raw_pouet_metadata: str | None = Form(default=None),
+    raw_csdb_metadata: str | None = Form(default=None),
+    raw_steam_metadata: str | None = Form(default=None),
     raw_manual_metadata: str | None = Form(default=None),
     name: str | None = Form(default=None),
     name_sort_key: str | None = Form(default=None),
@@ -310,6 +344,10 @@ async def parse_rom_update_form(
         "tgdb_id": tgdb_id,
         "flashpoint_id": flashpoint_id,
         "hltb_id": hltb_id,
+        "demozoo_id": demozoo_id,
+        "pouet_id": pouet_id,
+        "csdb_id": csdb_id,
+        "steam_id": steam_id,
         "libretro_id": libretro_id,
         "raw_igdb_metadata": raw_igdb_metadata,
         "raw_moby_metadata": raw_moby_metadata,
@@ -318,6 +356,10 @@ async def parse_rom_update_form(
         "raw_hasheous_metadata": raw_hasheous_metadata,
         "raw_flashpoint_metadata": raw_flashpoint_metadata,
         "raw_hltb_metadata": raw_hltb_metadata,
+        "raw_demozoo_metadata": raw_demozoo_metadata,
+        "raw_pouet_metadata": raw_pouet_metadata,
+        "raw_csdb_metadata": raw_csdb_metadata,
+        "raw_steam_metadata": raw_steam_metadata,
         "raw_manual_metadata": raw_manual_metadata,
         "name": name,
         "name_sort_key": name_sort_key,
@@ -575,7 +617,8 @@ def get_roms(
         Query(
             description=(
                 "Matched metadata provider (igdb, moby, ss, ra, launchbox, hasheous,"
-                " flashpoint, hltb, gamelist, libretro). Multiple values are allowed by"
+                " flashpoint, hltb, demozoo, pouet, csdb, steam, gamelist,"
+                " libretro). Multiple values are allowed by"
                 " repeating the parameter, and results that match any of the values"
                 " will be returned."
             ),
@@ -1110,13 +1153,11 @@ async def download_roms(
         )
         rom_id_list = list(dict.fromkeys(rom.id for rom in rom_rows))
     elif rom_ids:
-        # Parse comma-separated string into list of integers
         try:
-            rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
-        except ValueError as e:
+            rom_id_list = parse_comma_separated_ids(rom_ids, "ROM ID")
+        except ValidationError as e:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid ROM ID format. Must be comma-separated integers.",
+                status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
             ) from e
     else:
         raise HTTPException(
@@ -1235,6 +1276,9 @@ def get_rom_by_metadata_provider(
         str | None, Query(description="Flashpoint ID to search by")
     ] = None,
     hltb_id: Annotated[int | None, Query(description="HLTB ID to search by")] = None,
+    steam_id: Annotated[
+        int | None, Query(description="Steam app ID to search by")
+    ] = None,
 ) -> DetailedRomSchema:
     """Retrieve a rom by metadata ID."""
 
@@ -1248,6 +1292,7 @@ def get_rom_by_metadata_provider(
         and not tgdb_id
         and not flashpoint_id
         and not hltb_id
+        and not steam_id
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1264,6 +1309,7 @@ def get_rom_by_metadata_provider(
         tgdb_id=tgdb_id,
         flashpoint_id=flashpoint_id,
         hltb_id=hltb_id,
+        steam_id=steam_id,
     )
 
     not_found_detail = "ROM not found with given metadata IDs"
@@ -1619,6 +1665,7 @@ async def get_rom_content(
             zip_buffer = BytesIO()
             now = datetime.now()
 
+            ensure_zipfile_writable()
             with ZipFile(zip_buffer, "w") as zip_file:
                 # Add content files
                 for file in files:
@@ -1885,6 +1932,10 @@ async def update_rom(
                 "tgdb_id": None,
                 "flashpoint_id": None,
                 "hltb_id": None,
+                "demozoo_id": None,
+                "pouet_id": None,
+                "csdb_id": None,
+                "steam_id": None,
                 "libretro_id": None,
                 "name": rom.fs_name,
                 "name_sort_key": compute_name_sort_key(rom.fs_name),
@@ -1904,6 +1955,10 @@ async def update_rom(
                 "hasheous_metadata": {},
                 "flashpoint_metadata": {},
                 "hltb_metadata": {},
+                "demozoo_metadata": {},
+                "pouet_metadata": {},
+                "csdb_metadata": {},
+                "steam_metadata": {},
                 "revision": "",
                 "gamelist_metadata": {},
             },
@@ -1969,6 +2024,26 @@ async def update_rom(
             if "hltb_id" in provided_fields
             else rom.hltb_id
         ),
+        "demozoo_id": (
+            scene_id_or_none(form_data.demozoo_id, "demozoo")
+            if "demozoo_id" in provided_fields
+            else rom.demozoo_id
+        ),
+        "pouet_id": (
+            scene_id_or_none(form_data.pouet_id, "pouet")
+            if "pouet_id" in provided_fields
+            else rom.pouet_id
+        ),
+        "csdb_id": (
+            scene_id_or_none(form_data.csdb_id, "csdb")
+            if "csdb_id" in provided_fields
+            else rom.csdb_id
+        ),
+        "steam_id": (
+            safe_int_or_none(form_data.steam_id)
+            if "steam_id" in provided_fields
+            else rom.steam_id
+        ),
         "libretro_id": (
             form_data.libretro_id or None
             if "libretro_id" in provided_fields
@@ -1984,6 +2059,10 @@ async def update_rom(
     raw_hasheous_metadata = parse_raw_metadata(form_data, "raw_hasheous_metadata")
     raw_flashpoint_metadata = parse_raw_metadata(form_data, "raw_flashpoint_metadata")
     raw_hltb_metadata = parse_raw_metadata(form_data, "raw_hltb_metadata")
+    raw_demozoo_metadata = parse_raw_metadata(form_data, "raw_demozoo_metadata")
+    raw_pouet_metadata = parse_raw_metadata(form_data, "raw_pouet_metadata")
+    raw_csdb_metadata = parse_raw_metadata(form_data, "raw_csdb_metadata")
+    raw_steam_metadata = parse_raw_metadata(form_data, "raw_steam_metadata")
     raw_manual_metadata = parse_raw_metadata(form_data, "raw_manual_metadata")
     if cleaned_data["igdb_id"] and raw_igdb_metadata is not None:
         cleaned_data["igdb_metadata"] = raw_igdb_metadata
@@ -1999,6 +2078,14 @@ async def update_rom(
         cleaned_data["flashpoint_metadata"] = raw_flashpoint_metadata
     if cleaned_data["hltb_id"] and raw_hltb_metadata is not None:
         cleaned_data["hltb_metadata"] = raw_hltb_metadata
+    if cleaned_data["demozoo_id"] and raw_demozoo_metadata is not None:
+        cleaned_data["demozoo_metadata"] = raw_demozoo_metadata
+    if cleaned_data["pouet_id"] and raw_pouet_metadata is not None:
+        cleaned_data["pouet_metadata"] = raw_pouet_metadata
+    if cleaned_data["csdb_id"] and raw_csdb_metadata is not None:
+        cleaned_data["csdb_metadata"] = raw_csdb_metadata
+    if cleaned_data["steam_id"] and raw_steam_metadata is not None:
+        cleaned_data["steam_metadata"] = raw_steam_metadata
     if raw_manual_metadata is not None:
         cleaned_data["manual_metadata"] = raw_manual_metadata
 
@@ -2055,12 +2142,46 @@ async def update_rom(
     elif rom.ss_id and not cleaned_data["ss_id"]:
         cleaned_data.update({"ss_id": None, "ss_metadata": {}})
 
+    if cleaned_data["steam_id"] and int(cleaned_data["steam_id"]) != rom.steam_id:
+        steam_rom = await meta_steam_handler.get_rom_by_id(
+            int(cleaned_data["steam_id"])
+        )
+        if steam_rom.get("steam_id"):
+            cleaned_data.update(steam_rom)
+    elif rom.steam_id and not cleaned_data["steam_id"]:
+        cleaned_data.update({"steam_id": None, "steam_metadata": {}})
+
     if cleaned_data["igdb_id"] and int(cleaned_data["igdb_id"]) != rom.igdb_id:
         igdb_rom = await meta_igdb_handler.get_rom_by_id(rom, cleaned_data["igdb_id"])
         if igdb_rom.get("igdb_id"):
             cleaned_data.update(igdb_rom)
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
+
+    if cleaned_data["demozoo_id"] and int(cleaned_data["demozoo_id"]) != rom.demozoo_id:
+        demozoo_rom = await meta_demozoo_handler.get_rom_by_id(
+            int(cleaned_data["demozoo_id"])
+        )
+        if demozoo_rom.get("demozoo_id"):
+            cleaned_data.update(demozoo_rom)
+    elif rom.demozoo_id and not cleaned_data["demozoo_id"]:
+        cleaned_data.update({"demozoo_id": None, "demozoo_metadata": {}})
+
+    if cleaned_data["pouet_id"] and int(cleaned_data["pouet_id"]) != rom.pouet_id:
+        pouet_rom = await meta_pouet_handler.get_rom_by_id(
+            int(cleaned_data["pouet_id"])
+        )
+        if pouet_rom.get("pouet_id"):
+            cleaned_data.update(pouet_rom)
+    elif rom.pouet_id and not cleaned_data["pouet_id"]:
+        cleaned_data.update({"pouet_id": None, "pouet_metadata": {}})
+
+    if cleaned_data["csdb_id"] and int(cleaned_data["csdb_id"]) != rom.csdb_id:
+        csdb_rom = await meta_csdb_handler.get_rom_by_id(int(cleaned_data["csdb_id"]))
+        if csdb_rom.get("csdb_id"):
+            cleaned_data.update(csdb_rom)
+    elif rom.csdb_id and not cleaned_data["csdb_id"]:
+        cleaned_data.update({"csdb_id": None, "csdb_metadata": {}})
 
     if cleaned_data["hltb_id"] and int(cleaned_data["hltb_id"]) != rom.hltb_id:
         hltb_rom = await meta_hltb_handler.get_rom_by_id(int(cleaned_data["hltb_id"]))
@@ -2124,9 +2245,14 @@ async def update_rom(
             }
         )
 
+    # Cover and manual both take and release locks, so they accumulate into one
+    # running set rather than each deriving from the same pre-update state.
+    locked_fields = set(rom.locked_fields or [])
+
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
+        locked_fields.discard("url_cover")
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = validate_image_upload(artwork, label="Artwork")
@@ -2136,6 +2262,8 @@ async def update_rom(
                 path_cover_s,
             ) = await fs_resource_handler.store_artwork(rom, artwork_content, file_ext)
 
+            # Supplying a file is the explicit act that locks the cover; the
+            # lock outlives the file, so losing it to a scan can't unlock it.
             cleaned_data.update(
                 {
                     "url_cover": "",
@@ -2143,6 +2271,7 @@ async def update_rom(
                     "path_cover_l": path_cover_l,
                 }
             )
+            locked_fields.add("url_cover")
         else:
             url_cover = (
                 form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
@@ -2160,6 +2289,10 @@ async def update_rom(
                         "path_cover_l": path_cover_l,
                     }
                 )
+                # The client posts the stored url on every save, so only a url
+                # that actually changed counts as a handover back to providers.
+                if url_cover and url_cover != rom.url_cover:
+                    locked_fields.discard("url_cover")
             except ValidationError as e:
                 log.error(f"Invalid cover URL in update_rom: {str(e)}")
                 raise HTTPException(status_code=400, detail=str(e)) from e
@@ -2179,9 +2312,14 @@ async def update_rom(
                 "path_manual": path_manual,
             }
         )
+        # Same handover rule as the cover.
+        if url_manual and url_manual != rom.url_manual:
+            locked_fields.discard("url_manual")
     except ValidationError as e:
         log.error(f"Invalid manual URL in update_rom: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+    cleaned_data["locked_fields"] = sorted(locked_fields)
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
@@ -2482,3 +2620,59 @@ async def update_rom_user(
         refresh_affected_smart_collections([id], membership_only=True)
 
     return RomUserSchema.model_validate(rom_user)
+
+
+class RomIdentityData(BaseModel):
+    """Binary identity a client extracted for a ROM that RomM cannot read itself."""
+
+    title_id: str | None = Field(
+        default=None,
+        description="Platform-native identity, e.g. 0100ABCD12340000 or SLUS-20152.",
+        max_length=TITLE_ID_MAX_LENGTH,
+    )
+    save_target: str | None = Field(
+        default=None,
+        description="On-disk name the emulator gives this game's saves.",
+        max_length=TITLE_ID_MAX_LENGTH,
+    )
+    save_target_layout: SaveTargetLayout | None = Field(
+        default=None,
+        description="How to apply save_target when locating saves on disk.",
+    )
+
+
+@protected_route(
+    router.put,
+    "/{id}/identity",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def update_rom_identity(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    data: Annotated[RomIdentityData, Body()],
+) -> DetailedRomSchema:
+    """Store binary identity a client extracted from a ROM the scan cannot read."""
+    rom = db_rom_handler.get_rom(id)
+
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    cleaned_data = data.model_dump(exclude_unset=True)
+
+    # Reassociating a renamed non-hashable ROM matches on this id, which only
+    # works while it is the base game's.
+    title_id = cleaned_data.get("title_id")
+    if title_id and rom.platform_slug in SWITCH_PLATFORM_SLUGS:
+        cleaned_data["title_id"] = switch.derive_base_title_id(title_id) or title_id
+
+    db_rom_handler.update_rom(id, cleaned_data)
+
+    # The update returns a bare row; the schema reads relationships off it.
+    updated_rom = db_rom_handler.get_rom(id)
+    if not updated_rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    return DetailedRomSchema.from_orm_with_request(updated_rom, request)

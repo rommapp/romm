@@ -429,3 +429,131 @@ def test_roms_has_soundtrack_filter(
         "/api/roms?has_soundtrack=false", headers=_auth(access_token)
     ).json()
     assert "Tetris" in {i["name"] for i in without["items"]}
+
+
+# ---------- game genres / platforms / games facets ----------
+
+
+def _set_game_genres(rom_id: int, genres: list[str]) -> None:
+    # `roms_metadata` is a view over generated columns on `roms`, so game
+    # genres are seeded through the manual metadata that feeds them.
+    db_rom_handler.update_rom(rom_id, {"manual_metadata": {"genres": genres}})
+
+
+@pytest.fixture
+def music_library_with_game_genres(music_library):
+    _set_game_genres(music_library["sonic"].id, ["Platform", "Action"])
+    return music_library
+
+
+def test_game_genres_facet_counts_tracks_per_genre(
+    client: TestClient, access_token: str, music_library_with_game_genres
+):
+    r = client.get("/api/music/game-genres", headers=_auth(access_token))
+    assert r.status_code == status.HTTP_200_OK
+    by_value = {i["value"]: i["count"] for i in r.json()["items"]}
+    assert by_value == {"Platform": 1, "Action": 1}
+
+
+def test_game_genres_facet_typeahead(
+    client: TestClient, access_token: str, music_library_with_game_genres
+):
+    r = client.get(
+        "/api/music/game-genres", params={"search": "plat"}, headers=_auth(access_token)
+    )
+    assert [i["value"] for i in r.json()["items"]] == ["Platform"]
+
+
+def test_tracks_filter_by_game_genre(
+    client: TestClient, access_token: str, music_library_with_game_genres
+):
+    r = client.get(
+        "/api/music/tracks",
+        params={"game_genre": "Platform"},
+        headers=_auth(access_token),
+    )
+    body = r.json()
+    assert body["total"] == 1
+    assert body["items"][0]["title"] == "Green Hill"
+
+
+def test_tracks_filter_by_year_range(
+    client: TestClient, access_token: str, music_library
+):
+    r = client.get(
+        "/api/music/tracks",
+        params={"min_year": 1990, "max_year": 1999},
+        headers=_auth(access_token),
+    )
+    body = r.json()
+    assert body["total"] == 2
+    assert {i["year"] for i in body["items"]} == {1991, 1992}
+
+
+def test_platforms_facet_lists_only_platforms_with_tracks(
+    client: TestClient, access_token: str, music_library
+):
+    r = client.get("/api/music/platforms", headers=_auth(access_token))
+    assert r.status_code == status.HTTP_200_OK
+    items = r.json()["items"]
+    by_slug = {i["slug"]: i["count"] for i in items}
+    assert by_slug == {"genesis": 2, "nes": 1}
+    assert all(i["id"] and i["name"] for i in items)
+
+
+def test_games_facet_is_the_album_list(
+    client: TestClient, access_token: str, music_library
+):
+    r = client.get("/api/music/games", headers=_auth(access_token))
+    assert r.status_code == status.HTTP_200_OK
+    items = r.json()["items"]
+    assert [i["name"] for i in items] == ["Mario", "Sonic", "Streets"]
+    streets = next(i for i in items if i["name"] == "Streets")
+    assert streets["count"] == 1
+    assert streets["platform_slug"] == "genesis"
+    assert streets["cover_url"] == f"{FRONTEND_RESOURCES_PATH}/roms/2/2/cover/big.png"
+    mario = next(i for i in items if i["name"] == "Mario")
+    assert mario["cover_url"] is None
+
+
+def test_games_facet_search_matches_game_and_track_fields(
+    client: TestClient, access_token: str, music_library
+):
+    by_game = client.get(
+        "/api/music/games", params={"search": "sonic"}, headers=_auth(access_token)
+    ).json()
+    assert [i["name"] for i in by_game["items"]] == ["Sonic"]
+
+    by_artist = client.get(
+        "/api/music/games", params={"search": "koshiro"}, headers=_auth(access_token)
+    ).json()
+    assert [i["name"] for i in by_artist["items"]] == ["Streets"]
+
+
+def test_games_facet_excludes_hidden_platform(music_library):
+    pa = music_library["platform_a"].id
+    rows, total = db_rom_handler.get_music_game_facet(hidden_platform_ids=[pa])
+    assert total == 1
+    assert [r.name for r in rows] == ["Mario"]
+
+
+def test_platform_facet_excludes_hidden_platform(music_library):
+    pa = music_library["platform_a"].id
+    rows, total = db_rom_handler.get_music_platform_facet(hidden_platform_ids=[pa])
+    assert total == 1
+    assert [r.slug for r in rows] == ["nes"]
+
+
+def test_stats_reports_totals(client: TestClient, access_token: str, music_library):
+    r = client.get("/api/music/stats", headers=_auth(access_token))
+    assert r.status_code == status.HTTP_200_OK
+    body = r.json()
+    assert body["total_tracks"] == 3
+    assert body["total_duration_seconds"] == pytest.approx(230.0)
+
+
+def test_stats_excludes_hidden_platform(music_library):
+    pa = music_library["platform_a"].id
+    total, duration = db_rom_handler.get_music_stats(hidden_platform_ids=[pa])
+    assert total == 1
+    assert duration == pytest.approx(90.0)

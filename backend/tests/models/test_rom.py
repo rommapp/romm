@@ -1,3 +1,5 @@
+import pytest
+
 from handler.database import db_rom_handler
 from models.platform import Platform
 from models.rom import LookupHashes, Rom, RomFile
@@ -186,3 +188,29 @@ def test_lookup_hashes_tolerates_a_member_without_a_size():
     assert file.lookup_hashes == LookupHashes(
         crc="romcrc", md5="rommd5", sha1="romsha1"
     )
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "javascript:x",
+        "../../evil",
+        "ugPZnsRH٣k٣",
+        "short",
+        "waytoolongvideoid",
+        None,
+        12345,
+    ],
+)
+def test_youtube_video_id_drops_anything_that_is_not_an_id(rom: Rom, stored):
+    """raw_*_metadata is client-writable, so the embed must not trust the blob."""
+    rom.igdb_metadata = {"youtube_video_id": stored}
+
+    assert rom.youtube_video_id is None
+
+
+def test_youtube_video_id_falls_through_to_the_next_valid_source(rom: Rom):
+    rom.igdb_metadata = {"youtube_video_id": "javascript:x"}
+    rom.demozoo_metadata = {"youtube_video_id": "ugPZnsRHUkc"}
+
+    assert rom.youtube_video_id == "ugPZnsRHUkc"

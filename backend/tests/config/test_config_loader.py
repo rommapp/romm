@@ -106,11 +106,13 @@ def test_empty_config_loader():
     assert loader.config.EXCLUDED_SINGLE_EXT == sorted(
         {e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS}
     )
+    assert "ini" not in loader.config.EXCLUDED_SINGLE_EXT
     assert loader.config.EXCLUDED_SINGLE_FILES == sorted(DEFAULT_EXCLUDED_FILES)
     assert loader.config.EXCLUDED_MULTI_FILES == sorted(DEFAULT_EXCLUDED_DIRS)
     assert loader.config.EXCLUDED_MULTI_PARTS_EXT == sorted(
         {e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS}
     )
+    assert "ini" not in loader.config.EXCLUDED_MULTI_PARTS_EXT
     assert loader.config.EXCLUDED_MULTI_PARTS_FILES == sorted(DEFAULT_EXCLUDED_FILES)
     assert loader.config.PLATFORMS_BINDING == {}
     assert loader.config.PLATFORMS_VERSIONS == {}

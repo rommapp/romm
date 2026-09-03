@@ -124,6 +124,11 @@ PLAYMATCH_API_URL: Final[str] = _get_env(
 
 # HASHEOUS
 HASHEOUS_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HASHEOUS_API_ENABLED"))
+# Base URL of the Hasheous API, overridable to point at a self-hosted instance.
+HASHEOUS_API_URL: Final[str] = _get_env(
+    "HASHEOUS_API_URL",
+    "https://beta.hasheous.org/api/v1" if DEV_MODE else "https://hasheous.org/api/v1",
+).rstrip("/")
 
 # THEGAMESDB
 TGDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("TGDB_API_ENABLED"))
@@ -135,6 +140,15 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
+
+# DEMOZOO / POUET (public JSON, no API key)
+DEMOZOO_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("DEMOZOO_API_ENABLED"))
+POUET_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("POUET_API_ENABLED"))
+# CSDb XML webservice, C64 stills
+CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))
+
+# STEAM
+STEAM_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("STEAM_API_ENABLED"))
 
 # UPC LOOKUP (barcode -> title, used when adding physical games by UPC)
 UPC_LOOKUP_ENABLED: Final[bool] = safe_str_to_bool(
@@ -301,6 +315,7 @@ SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
 # EMULATION
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
+DISABLE_JSDOS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_JSDOS"))
 
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))

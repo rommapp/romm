@@ -37,7 +37,7 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.roms_handler import FSRom, ParsedRomFiles
 from handler.metadata import (
     meta_gamelist_handler,
     meta_hltb_handler,
@@ -373,6 +373,23 @@ def _should_hash_firmware(
     )
 
 
+def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
+    fs_rom.update(
+        {
+            "files": parsed.rom_files,
+            "crc_hash": parsed.crc_hash,
+            "md5_hash": parsed.md5_hash,
+            "sha1_hash": parsed.sha1_hash,
+            "ra_hash": parsed.ra_hash,
+            "title_id": parsed.title_id,
+            "save_target": parsed.save_target,
+            "save_target_layout": parsed.save_target_layout,
+        }
+    )
+    if parsed.renamed_rom_fs_name:
+        fs_rom["fs_name"] = parsed.renamed_rom_fs_name
+
+
 # There's an order of operations here that is important:
 # 1. Read the list of roms from the filesystem
 # 2. Check if ROM should be scanned based on the scan type
@@ -414,7 +431,10 @@ async def _identify_rom(
         "url_screenshots": [],
     }
 
-    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
+    cnfg = cm.get_config()
+    calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
+    extract_title_ids = not cnfg.SKIP_TITLE_ID_EXTRACTION
+    embed_title_ids = cnfg.EMBED_SWITCH_TITLE_IDS
 
     newly_added: bool = rom is None
     reassociated: bool = False
@@ -431,16 +451,13 @@ async def _identify_rom(
                 platform=platform,
             ),
             calculate_hashes=calculate_hashes,
+            extract_title_ids=extract_title_ids,
+            embed_title_ids=embed_title_ids,
         )
-        fs_rom.update(
-            {
-                "files": parsed_rom_files.rom_files,
-                "crc_hash": parsed_rom_files.crc_hash,
-                "md5_hash": parsed_rom_files.md5_hash,
-                "sha1_hash": parsed_rom_files.sha1_hash,
-                "ra_hash": parsed_rom_files.ra_hash,
-            }
-        )
+        _apply_scanned_values(fs_rom, parsed_rom_files)
+        # The new-entry insert reads its name from rom_attrs, not fs_rom.
+        if parsed_rom_files.renamed_rom_fs_name:
+            rom_attrs["fs_name"] = parsed_rom_files.renamed_rom_fs_name
         files_built = True
 
         missing_match = db_rom_handler.get_matching_missing_rom(
@@ -448,6 +465,7 @@ async def _identify_rom(
             crc_hash=parsed_rom_files.crc_hash,
             md5_hash=parsed_rom_files.md5_hash,
             sha1_hash=parsed_rom_files.sha1_hash,
+            title_id=parsed_rom_files.title_id,
         )
         if missing_match is not None:
             # Move the existing entry onto the new file, clearing its missing state.
@@ -505,17 +523,15 @@ async def _identify_rom(
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
         parsed_rom_files = await fs_rom_handler.get_rom_files(
-            rom, calculate_hashes=calculate_hashes
+            rom,
+            calculate_hashes=calculate_hashes,
+            extract_title_ids=extract_title_ids,
+            embed_title_ids=embed_title_ids,
         )
-        fs_rom.update(
-            {
-                "files": parsed_rom_files.rom_files,
-                "crc_hash": parsed_rom_files.crc_hash,
-                "md5_hash": parsed_rom_files.md5_hash,
-                "sha1_hash": parsed_rom_files.sha1_hash,
-                "ra_hash": parsed_rom_files.ra_hash,
-            }
-        )
+        _apply_scanned_values(fs_rom, parsed_rom_files)
+        # Keep the in-memory rom's identity matching the renamed file.
+        if parsed_rom_files.renamed_rom_fs_name:
+            rom.fs_name = parsed_rom_files.renamed_rom_fs_name
 
     # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
     # stale files (e.g. a cover from the wrong region) can't be reused. The

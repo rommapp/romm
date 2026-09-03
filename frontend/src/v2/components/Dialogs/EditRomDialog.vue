@@ -171,6 +171,13 @@ const PROVIDERS: readonly ProviderConfig[] = [
     label: "HLTB",
     iconSrc: "/assets/scrappers/hltb.png",
   },
+  {
+    tabId: "steam",
+    idField: "steam_id",
+    metadataField: "steam_metadata",
+    label: "Steam",
+    iconSrc: "/assets/scrappers/steam.png",
+  },
 ];
 
 const activeTab = ref<string>("details");

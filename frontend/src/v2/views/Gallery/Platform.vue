@@ -139,10 +139,12 @@ const platformStats = computed<StatRow[]>(() => {
     },
     { label: t("platform.on-disk"), value: formatBytes(p.fs_size_bytes ?? 0) },
   ];
-  if (p.firmware_count) {
+  // Firmware whose file is gone can't be booted, so it isn't worth a stat.
+  const usableFirmware = (p.firmware ?? []).filter((f) => !f.missing_from_fs);
+  if (usableFirmware.length) {
     rows.push({
       label: t("common.firmware"),
-      value: String(p.firmware_count),
+      value: String(usableFirmware.length),
     });
   }
   return rows;
