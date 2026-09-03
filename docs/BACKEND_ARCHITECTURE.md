@@ -1375,11 +1375,12 @@ Redis-backed for horizontal scaling across multiple server instances.
 
 **Priority Queues:**
 
-| Queue             | Use Case                    |
-| ----------------- | --------------------------- |
-| `high_prio_queue` | Urgent operations           |
-| `default_queue`   | Standard background work    |
-| `low_prio_queue`  | Long-running scans, cleanup |
+| Queue             | Use Case                                       |
+| ----------------- | ---------------------------------------------- |
+| `high_prio_queue` | Urgent operations                              |
+| `default_queue`   | Standard background work                       |
+| `low_prio_queue`  | Cleanups, conversions, metadata refreshes      |
+| `scan_queue`      | Library scans, consumed by a worker of its own |
 
 ### Scheduled Tasks
 
@@ -1388,6 +1389,10 @@ Declared in `tasks/registry.py` and registered with RQ's cron scheduler by
 registered only when it is enabled and has a cron string, so turning one off is
 a restart rather than an unschedule. Delayed jobs, which is how the filesystem
 watcher defers a rescan, are released by the worker itself (`--with-scheduler`).
+
+Everything is registered on `low_prio_queue`. A scan is registered as a dispatch
+job that enqueues the real scan onto `scan_queue`, because cron can attach no
+failure callback and a scan needs one to report a worker that died mid-scan.
 
 Toggled via environment variables:
 

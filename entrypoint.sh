@@ -71,22 +71,33 @@ PYTHONPATH="/app/backend:${PYTHONPATH-}" \
 	--logging-level "${LOGLEVEL:-INFO}" \
 	tasks.cron_config &
 
-echo "Starting RQ worker..."
 # Set PYTHONPATH so RQ can find the tasks module.
 # Use a worker class that drops the noisy per-sweep "cleaning registries for
 # queue" log line. The maintenance interval keeps its default (~10 min) so
 # orphaned STARTED jobs and stale workers are still pruned promptly.
 # --with-scheduler releases delayed jobs, which is how the watcher's rescans
 # wait out their delay.
-PYTHONPATH="/app/backend:${PYTHONPATH-}" \
-	RQ_REDIS_URL="${REDIS_URL}" \
-	rq worker \
-	--path /app/backend \
-	--worker-class handler.rq_worker.RomMWorker \
-	--pid /tmp/rq_worker.pid \
-	--logging_level "${LOGLEVEL:-INFO}" \
-	--with-scheduler \
-	high default low &
+start_rq_worker() {
+	local name="$1"
+	shift
+
+	PYTHONPATH="/app/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${REDIS_URL}" \
+		rq worker \
+		--path /app/backend \
+		--worker-class handler.rq_worker.RomMWorker \
+		--pid "/tmp/${name}.pid" \
+		--logging_level "${LOGLEVEL:-INFO}" \
+		--with-scheduler \
+		"$@" &
+}
+
+echo "Starting RQ worker..."
+start_rq_worker rq_worker high default low
+
+# Scans get a worker of their own, see SCAN_QUEUE_NAME.
+echo "Starting RQ scan worker..."
+start_rq_worker rq_scan_worker scans
 
 echo "Starting watcher..."
 watchfiles \

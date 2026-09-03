@@ -1,7 +1,7 @@
 import os
 import sys
 from enum import Enum
-from typing import Any
+from typing import Any, Final
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -19,11 +19,18 @@ class QueuePrio(Enum):
     LOW = "low"
 
 
+# Scans have a queue and a worker of their own: a library scan runs for hours,
+# and one worker on one queue keeps two of them from ever running at once.
+SCAN_QUEUE_NAME: Final = "scans"
+
 redis_client = Redis.from_url(REDIS_URL)
 
 high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
 default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)
 low_prio_queue = Queue(name=QueuePrio.LOW.value, connection=redis_client)
+scan_queue = Queue(name=SCAN_QUEUE_NAME, connection=redis_client)
+
+ALL_QUEUES: Final = (scan_queue, high_prio_queue, default_queue, low_prio_queue)
 
 
 def __get_sync_cache() -> Redis:

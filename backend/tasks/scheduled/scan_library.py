@@ -1,5 +1,6 @@
 from config import (
     ENABLE_SCHEDULED_RESCAN,
+    SCAN_TIMEOUT,
     SCHEDULED_RESCAN_CRON,
 )
 from endpoints.sockets.scan import ScanStats, scan_platforms
@@ -35,6 +36,8 @@ class ScanLibraryTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_RESCAN,
             manual_run=False,
             cron_string=SCHEDULED_RESCAN_CRON,
+            # A library scan is not a five-minute task like the rest.
+            timeout=SCAN_TIMEOUT,
         )
 
     async def run(self) -> dict[str, str]:

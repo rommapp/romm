@@ -27,6 +27,7 @@ def make_job(
     job.id = f"job-{next(_job_ids)}"
     job.func_name = func_name
     job.get_status.return_value = status
+    job.kwargs = {}
     job.meta = {}
     if task_name:
         job.meta["task_name"] = task_name
@@ -40,10 +41,18 @@ def make_task_job(**kwargs):
     return make_job(TASK_RUNNER_FUNC, task_type=TaskType.SCAN, **kwargs)
 
 
+def make_scoped_job():
+    """A scan of named roms, which the metadata refresh dialog asks for."""
+    job = make_job(scan_jobs_module.SCAN_PLATFORMS_FUNC)
+    job.kwargs = {"platform_ids": [1], "roms_ids": [7]}
+    return job
+
+
 def patch_scan_jobs(
     mocker,
     *,
     running=None,
+    scan_queued=(),
     high_queued=(),
     low_queued=(),
     scheduled=(),
@@ -60,8 +69,13 @@ def patch_scan_jobs(
         worker.get_current_job.return_value = running
     mocker.patch.object(scan_jobs_module.Worker, "all", return_value=[worker])
 
-    queued_jobs = list(high_queued) + list(low_queued)
+    queued_jobs = list(scan_queued) + list(high_queued) + list(low_queued)
     scheduled_jobs = list(scheduled)
+    mocker.patch.object(
+        scan_jobs_module.scan_queue,
+        "get_job_ids",
+        return_value=[job.id for job in scan_queued],
+    )
     mocker.patch.object(
         scan_jobs_module.high_prio_queue,
         "get_job_ids",
@@ -77,7 +91,7 @@ def patch_scan_jobs(
     registry.get_job_ids.return_value = [job.id for job in scheduled_jobs]
     registry.get_jobs_to_schedule.return_value = []
     mocker.patch.object(
-        scan_jobs_module, "_scheduled_scan_registry", return_value=registry
+        scan_jobs_module, "_scheduled_scan_registries", return_value=[registry]
     )
 
     # Both the queue and the registry lookups fetch by id, so the stub has to

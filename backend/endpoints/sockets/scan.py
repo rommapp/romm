@@ -6,7 +6,9 @@ from itertools import batched
 from typing import Any, Final
 
 import socketio  # type: ignore
+from redis import Redis
 from rq import get_current_job
+from rq.exceptions import AbandonedJobError
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
@@ -50,8 +52,8 @@ from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
     cancel_job,
     get_job_status,
-    high_prio_queue,
     redis_client,
+    scan_queue,
 )
 from handler.scan_handler import (
     MetadataSource,
@@ -64,6 +66,7 @@ from handler.scan_handler import (
     scan_rom,
 )
 from handler.scan_jobs import (
+    get_blocking_library_scans,
     get_queued_scan_jobs,
     get_running_scan_job,
     get_scheduled_scan_jobs,
@@ -91,6 +94,32 @@ def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
         "task_name": f"{scan_type.value.capitalize()} Scan",
         "task_type": TaskType.SCAN.value,
     }
+
+
+def report_scan_failure(
+    job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
+) -> None:
+    """Tell the clients a scan is over when the scan could not say so itself.
+
+    A worker killed mid-scan never reaches the handler that emits this, so the
+    clients would keep showing a scan that no longer exists.
+    """
+    # Every other failure is reported by the scan as it unwinds, and emitting
+    # here too would report it twice.
+    if exc_type is not AbandonedJobError:
+        return
+
+    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} was abandoned by its worker")
+    try:
+        asyncio.run(
+            _get_socket_manager().emit(
+                "scan:done_ko", "the worker running it stopped unexpectedly"
+            )
+        )
+    except Exception:
+        # RQ re-raises out of the registry sweep that calls this, which would
+        # leave the abandoned scans in the registry and stop the worker.
+        log.error(f"Could not report abandoned scan {job.id}", exc_info=True)
 
 
 def _scan_job_label(job: Job) -> str:
@@ -1232,11 +1261,15 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     if await reject_unauthorized_scan(sid):
         return
 
-    # Without this, every request enqueues another full scan behind the running
-    # one, and a client that lost the progress socket has no way to tell.
-    if not DEV_MODE:
-        running_job = get_running_scan_job()
-        queued_jobs = get_queued_scan_jobs()
+    platform_ids = options.get("platforms", [])
+    platform_fs_slugs = options.get("platform_fs_slugs", [])
+    scan_type = ScanType[options.get("type", "quick").upper()]
+    roms_ids = options.get("roms_ids", [])
+
+    # Pressing scan again after losing the progress socket would queue a second
+    # pass over the library; a scan of named roms is not that, so it may queue.
+    if not DEV_MODE and not roms_ids:
+        running_job, queued_jobs = get_blocking_library_scans()
         if running_job is not None or queued_jobs:
             message = _scan_in_flight_message(running_job, queued_jobs)
             log.info(f"{emoji.EMOJI_STOP_SIGN} {message}, ignoring request")
@@ -1249,10 +1282,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
-    platform_ids = options.get("platforms", [])
-    platform_fs_slugs = options.get("platform_fs_slugs", [])
-    scan_type = ScanType[options.get("type", "quick").upper()]
-    roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
     playmatch_enabled = bool(options.get("playmatch_enabled", True))
@@ -1268,8 +1297,12 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             platform_fs_slugs=platform_fs_slugs,
         )
 
-    return high_prio_queue.enqueue(
+    return scan_queue.enqueue(
         scan_platforms,
+        # A scan of named roms resolves its work from the database and is done
+        # in seconds, so it goes ahead of any library scan already waiting.
+        at_front=bool(roms_ids),
+        on_failure=report_scan_failure,
         platform_ids=platform_ids,
         metadata_sources=metadata_sources,
         scan_type=scan_type,

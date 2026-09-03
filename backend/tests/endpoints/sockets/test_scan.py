@@ -3,11 +3,12 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 import socketio
-from rq.exceptions import InvalidJobOperation
+from rq.exceptions import AbandonedJobError, InvalidJobOperation
 from rq.job import JobStatus
 from tests.scan_job_stubs import (
     NON_SCAN_FUNC,
     make_job,
+    make_scoped_job,
     make_task_job,
     patch_scan_jobs,
 )
@@ -707,7 +708,7 @@ class TestScanAuthorization:
         mocker.patch.object(
             scan_module, "get_authenticated_user", AsyncMock(return_value=None)
         )
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
         scan_platforms_mock = mocker.patch.object(
             scan_module, "scan_platforms", AsyncMock()
         )
@@ -723,11 +724,11 @@ class TestScanAuthorization:
         mocker.patch.object(
             scan_module, "get_authenticated_user", AsyncMock(return_value=None)
         )
-        get_jobs = mocker.patch.object(scan_module.high_prio_queue, "get_jobs")
+        queued_jobs = mocker.patch.object(scan_module, "get_queued_scan_jobs")
 
         await stop_scan_handler("sid")
 
-        get_jobs.assert_not_called()
+        queued_jobs.assert_not_called()
 
 
 def patch_identify_rom(
@@ -1845,9 +1846,11 @@ class TestScanConcurrency:
         )
         mocker.patch.object(scan_module, "DEV_MODE", False)
 
-    async def test_enqueues_when_nothing_running(self, mocker, emit):
+    async def test_enqueues_on_the_scan_queue_when_nothing_running(self, mocker, emit):
+        # The scan queue has a worker of its own, so a scan cannot sit behind a
+        # cleanup, nor hold one up for hours.
         patch_scan_jobs(mocker)
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1855,7 +1858,7 @@ class TestScanConcurrency:
 
     async def test_refuses_when_a_scan_is_running(self, mocker, emit):
         patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1864,17 +1867,8 @@ class TestScanConcurrency:
         assert emit.await_args.args[0] == "scan:done_ko"
 
     async def test_refuses_when_a_scan_is_queued(self, mocker, emit):
-        patch_scan_jobs(mocker, high_queued=[make_job(SCAN_PLATFORMS_FUNC)])
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
-
-        await scan_handler("sid", {"type": "quick"})
-
-        enqueue.assert_not_called()
-
-    async def test_refuses_when_a_watcher_scan_is_queued(self, mocker, emit):
-        # Watcher scans land in the low priority queue, not the high one.
-        patch_scan_jobs(mocker, low_queued=[make_job(SCAN_PLATFORMS_FUNC)])
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        patch_scan_jobs(mocker, scan_queued=[make_job(SCAN_PLATFORMS_FUNC)])
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1887,18 +1881,31 @@ class TestScanConcurrency:
             mocker,
             scheduled=[make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)],
         )
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
         enqueue.assert_called_once()
 
+    @pytest.mark.parametrize("queue", ["high_queued", "low_queued"])
+    async def test_a_scan_left_on_an_older_queue_still_blocks(
+        self, mocker, emit, queue
+    ):
+        # A scan enqueued by an older release sits on one of the other queues,
+        # where a worker will still run it.
+        patch_scan_jobs(mocker, **{queue: [make_job(SCAN_PLATFORMS_FUNC)]})
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+
     async def test_a_cancelled_queued_scan_does_not_block(self, mocker, emit):
         patch_scan_jobs(
             mocker,
-            high_queued=[make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.CANCELED)],
+            scan_queued=[make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.CANCELED)],
         )
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1910,8 +1917,8 @@ class TestScanConcurrency:
         # RQ raises rather than reporting a status once the job hash expires.
         job = make_job(SCAN_PLATFORMS_FUNC)
         job.get_status.side_effect = InvalidJobOperation
-        patch_scan_jobs(mocker, high_queued=[job])
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        patch_scan_jobs(mocker, scan_queued=[job])
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1921,7 +1928,7 @@ class TestScanConcurrency:
         self, mocker, emit
     ):
         patch_scan_jobs(mocker, worker_lost=True)
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1934,7 +1941,7 @@ class TestScanConcurrency:
                 SCAN_PLATFORMS_FUNC, status=JobStatus.STARTED, task_name="Quick Scan"
             ),
         )
-        mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1949,7 +1956,7 @@ class TestScanConcurrency:
                 SCAN_PLATFORMS_FUNC, status=JobStatus.CANCELED, task_name="Quick Scan"
             ),
         )
-        mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1957,19 +1964,55 @@ class TestScanConcurrency:
 
     async def test_refusal_reports_a_queued_scan_as_queued(self, mocker, emit):
         patch_scan_jobs(
-            mocker, high_queued=[make_job(SCAN_PLATFORMS_FUNC, task_name="Full Scan")]
+            mocker, scan_queued=[make_job(SCAN_PLATFORMS_FUNC, task_name="Full Scan")]
         )
-        mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
         assert emit.await_args.args[1] == "Full Scan is already queued"
 
+    async def test_a_rom_scan_is_accepted_while_a_library_scan_runs(self, mocker, emit):
+        # The metadata refresh dialog fans a multi-platform selection into one
+        # request per platform, so each one has to be accepted.
+        patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick", "roms_ids": [7]})
+
+        enqueue.assert_called_once()
+        assert enqueue.call_args.kwargs["at_front"] is True
+
+    async def test_a_library_scan_does_not_ask_to_jump_the_queue(self, mocker, emit):
+        patch_scan_jobs(mocker)
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        assert enqueue.call_args.kwargs["at_front"] is False
+
+    async def test_a_running_rom_scan_does_not_block_a_library_scan(self, mocker, emit):
+        # It is done in seconds, so the library scan just queues behind it.
+        patch_scan_jobs(mocker, running=make_scoped_job())
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+    async def test_a_queued_rom_scan_does_not_block_a_library_scan(self, mocker, emit):
+        patch_scan_jobs(mocker, scan_queued=[make_scoped_job()])
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
     async def test_refuses_when_the_scheduled_rescan_is_running(self, mocker, emit):
         # Every task runs through the same runner, so the scheduled rescan is
         # only recognisable by the type its job carries.
         patch_scan_jobs(mocker, running=make_task_job())
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1980,11 +2023,11 @@ class TestScanConcurrency:
         patch_scan_jobs(
             mocker,
             running=make_job(NON_SCAN_FUNC),
-            high_queued=[make_job(NON_SCAN_FUNC)],
+            scan_queued=[make_job(NON_SCAN_FUNC)],
             low_queued=[make_job(NON_SCAN_FUNC)],
             scheduled=[make_job(NON_SCAN_FUNC, status=JobStatus.SCHEDULED)],
         )
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -2088,7 +2131,7 @@ class TestStopScan:
     async def test_cancels_queued_scans(self, mocker, emit, redis):
         queued = [make_job(SCAN_PLATFORMS_FUNC), make_job(SCAN_PLATFORMS_FUNC)]
         patch_scan_jobs(
-            mocker, running=make_job(SCAN_PLATFORMS_FUNC), high_queued=queued
+            mocker, running=make_job(SCAN_PLATFORMS_FUNC), scan_queued=queued
         )
 
         await stop_scan_handler("sid")
@@ -2127,7 +2170,7 @@ class TestStopScan:
         # Stopping a scan that has not been picked up yet must still drop it,
         # and must not leave a stop flag behind for the next scan to trip on.
         queued = [make_job(SCAN_PLATFORMS_FUNC)]
-        patch_scan_jobs(mocker, high_queued=queued)
+        patch_scan_jobs(mocker, scan_queued=queued)
 
         await stop_scan_handler("sid")
 
@@ -2140,3 +2183,52 @@ class TestStopScan:
         await stop_scan_handler("sid")
 
         redis.set.assert_not_called()
+
+
+class TestReportScanFailure:
+    """A scan whose worker died cannot report itself, so RQ reports for it."""
+
+    @pytest.fixture
+    def emit(self, mocker):
+        manager = AsyncMock()
+        mocker.patch.object(scan_module, "_get_socket_manager", return_value=manager)
+        return manager.emit
+
+    def test_reports_a_scan_its_worker_abandoned(self, emit):
+        scan_module.report_scan_failure(
+            make_job(SCAN_PLATFORMS_FUNC),
+            MagicMock(),
+            AbandonedJobError,
+            AbandonedJobError(),
+            None,
+        )
+
+        emit.assert_awaited_once()
+        assert emit.await_args.args[0] == "scan:done_ko"
+
+    def test_stays_quiet_for_a_failure_the_scan_already_reported(self, emit):
+        # scan_platforms emits on its way out, so reporting here would double up.
+        scan_module.report_scan_failure(
+            make_job(SCAN_PLATFORMS_FUNC),
+            MagicMock(),
+            RuntimeError,
+            RuntimeError("boom"),
+            None,
+        )
+
+        emit.assert_not_awaited()
+
+    def test_swallows_a_report_that_cannot_be_sent(self, emit):
+        # RQ re-raises out of the registry sweep that calls this, which would
+        # leave the abandoned scans in the registry and stop the worker.
+        emit.side_effect = ConnectionError("redis is gone")
+
+        scan_module.report_scan_failure(
+            make_job(SCAN_PLATFORMS_FUNC),
+            MagicMock(),
+            AbandonedJobError,
+            AbandonedJobError(),
+            None,
+        )
+
+        emit.assert_called_once()

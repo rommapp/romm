@@ -7,7 +7,7 @@ from rq.queue import Queue
 
 from config import TASK_RESULT_TTL
 from exceptions.task_exceptions import TaskNotFoundException
-from handler.redis_handler import low_prio_queue
+from handler.redis_handler import low_prio_queue, scan_queue
 from tasks.manual.cleanup_missing_firmware import cleanup_missing_firmware_task
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.recompute_save_content_hashes import (
@@ -89,3 +89,22 @@ def enqueue_task(
         meta=task.job_meta,
         **job_options,
     )
+
+
+def enqueue_scheduled_scan(name: str) -> str:
+    """Put a scheduled scan on the scan queue with the abandoned-job callback.
+
+    Cron can attach no `on_failure`, so a scan it enqueues itself is the one
+    scan whose worker can die without anything telling the clients.
+
+    Args:
+        name: The key the scan task is registered under.
+
+    Returns:
+        The id of the enqueued scan job.
+    """
+    # Imported here because the scan module imports the task modules this one
+    # pulls in.
+    from endpoints.sockets.scan import report_scan_failure
+
+    return enqueue_task(name, queue=scan_queue, on_failure=report_scan_failure).id

@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 from rq.exceptions import NoSuchJobError
 
+from handler.redis_handler import redis_client
 from tasks.tasks import Task, TaskType
 
 
@@ -332,25 +333,12 @@ class TestGetTasksStatus:
     """Test suite for the get_tasks_status endpoint"""
 
     @patch("endpoints.tasks.Worker.all", return_value=[])
-    @patch("endpoints.tasks.low_prio_queue")
-    @patch("endpoints.tasks.default_queue")
-    @patch("endpoints.tasks.high_prio_queue")
+    @patch("endpoints.tasks.ALL_QUEUES", new=())
     @patch("endpoints.tasks.Job.fetch")
     def test_get_tasks_status_skips_expired_jobs(
-        self,
-        mock_job_fetch,
-        mock_high_queue,
-        mock_default_queue,
-        mock_low_queue,
-        mock_worker_all,
-        client,
-        access_token,
+        self, mock_job_fetch, mock_worker_all, client, access_token
     ):
         """Test that get_tasks_status skips jobs that have expired from Redis"""
-        mock_low_queue.get_jobs.return_value = []
-        mock_default_queue.get_jobs.return_value = []
-        mock_high_queue.get_jobs.return_value = []
-
         mock_finished_registry = Mock()
         mock_finished_registry.get_job_ids.return_value = ["expired-job-id"]
         mock_failed_registry = Mock()
@@ -378,11 +366,8 @@ class TestGetTasksStatus:
 class TestGetTaskById:
     """Test suite for the get_task_by_id endpoint"""
 
-    @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.Job.fetch")
-    def test_get_task_by_id_success(
-        self, mock_job_fetch, mock_queue, client, access_token
-    ):
+    def test_get_task_by_id_success(self, mock_job_fetch, client, access_token):
         """Test successful retrieval of a task by job ID"""
         # Mock job object with all necessary attributes
         mock_job = Mock()
@@ -422,14 +407,11 @@ class TestGetTaskById:
         assert data["ended_at"] == "2023-01-01T00:02:00"
 
         mock_job_fetch.assert_called_once_with(
-            "test-job-id-123", connection=mock_queue.connection
+            "test-job-id-123", connection=redis_client
         )
 
-    @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.Job.fetch")
-    def test_get_task_by_id_not_found(
-        self, mock_job_fetch, mock_queue, client, access_token
-    ):
+    def test_get_task_by_id_not_found(self, mock_job_fetch, client, access_token):
         """Test retrieval of a non-existent task by job ID"""
         mock_job_fetch.side_effect = Exception("Job not found")
 
@@ -442,10 +424,9 @@ class TestGetTaskById:
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_with_exception_info(
-        self, mock_job_fetch, mock_queue, client, access_token
+        self, mock_job_fetch, client, access_token
     ):
         """Test retrieval of a task that failed with exception"""
         mock_job = Mock()

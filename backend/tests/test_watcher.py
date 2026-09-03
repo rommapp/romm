@@ -97,6 +97,13 @@ class TestPendingScanCoverage:
         assert coverage.full_library == 0
         assert coverage.platform_ids == frozenset()
 
+    def test_a_rom_scoped_scan_does_not_cover_the_platform_it_names(self, mocker):
+        # The refresh dialog names the platform alongside the roms, but the scan
+        # only touches those roms, so the platform still needs its rescan.
+        patch_pending_jobs(mocker, make_job(platform_ids=[1], roms_ids=[7]))
+
+        assert get_pending_scan_coverage().platform_ids == frozenset()
+
     def test_ignores_positional_arguments(self, mocker):
         # job.args is what the old dedupe read, and it is always empty.
         job = make_job(platform_ids=[1])
@@ -145,7 +152,7 @@ class TestProcessChanges:
 
     @pytest.fixture
     def enqueue_in(self, mocker):
-        return mocker.patch.object(watcher_module.low_prio_queue, "enqueue_in")
+        return mocker.patch.object(watcher_module.scan_queue, "enqueue_in")
 
     def rom_change(self, fs_slug: str = "gba"):
         return (EventType.ADDED, f"{LIBRARY_BASE_PATH}/roms/{fs_slug}/game.gba")

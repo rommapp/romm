@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from config import SCAN_TIMEOUT
 from handler.metadata.csdb_handler import CsdbHandler
 from handler.metadata.demozoo_handler import DemozooHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler
@@ -84,3 +85,8 @@ class TestScanLibraryTask:
     def test_task_instance(self):
         """Test that the module-level task instance is created correctly"""
         assert isinstance(scan_library_task, ScanLibraryTask)
+
+
+def test_scheduled_rescan_gets_the_scan_timeout():
+    """It inherits the five-minute task timeout otherwise, which kills it."""
+    assert scan_library_task.timeout == SCAN_TIMEOUT

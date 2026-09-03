@@ -7,11 +7,12 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
-# The only two callables a job payload names. Everything else runs through
+# The only callables a job payload names. Everything else runs through
 # run_task_by_name, which resolves it from the registry.
 JOB_FUNC_PATHS = (
     "tasks.tasks.run_task_by_name",
     "endpoints.sockets.scan.scan_platforms",
+    "tasks.registry.enqueue_scheduled_scan",
 )
 
 

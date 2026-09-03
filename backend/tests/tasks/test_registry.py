@@ -1,8 +1,15 @@
 import pytest
 
 from config import TASK_RESULT_TTL
+from endpoints.sockets.scan import report_scan_failure
 from exceptions.task_exceptions import TaskNotFoundException
-from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task, get_task
+from tasks.registry import (
+    MANUAL_TASKS,
+    SCHEDULED_TASKS,
+    enqueue_scheduled_scan,
+    enqueue_task,
+    get_task,
+)
 from tasks.tasks import PeriodicTask, run_task_by_name
 
 
@@ -63,3 +70,29 @@ class TestEnqueueTask:
             enqueue_task("no_such_task", queue=queue)
 
         queue.enqueue.assert_not_called()
+
+
+class TestEnqueueScheduledScan:
+    """Cron cannot attach a failure callback, so a dispatch job does it."""
+
+    @pytest.fixture
+    def scan_queue(self, mocker):
+        queue = mocker.patch("tasks.registry.scan_queue")
+        queue.enqueue.return_value = mocker.MagicMock(id="job-1")
+        return queue
+
+    def test_enqueues_the_scan_with_the_abandoned_job_callback(self, scan_queue):
+        assert enqueue_scheduled_scan("scan_library") == "job-1"
+
+        args, kwargs = scan_queue.enqueue.call_args
+        assert args[0] is run_task_by_name
+        assert kwargs["kwargs"]["name"] == "scan_library"
+        assert kwargs["on_failure"] is report_scan_failure
+
+    def test_the_scan_carries_its_own_timeout(self, scan_queue):
+        # The dispatch itself runs on the ordinary task timeout, so the scan
+        # timeout has to reach the scan it creates.
+        enqueue_scheduled_scan("scan_library")
+
+        job_timeout = scan_queue.enqueue.call_args.kwargs["job_timeout"]
+        assert job_timeout == SCHEDULED_TASKS["scan_library"].timeout

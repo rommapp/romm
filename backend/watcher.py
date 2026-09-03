@@ -19,7 +19,7 @@ from config import (
     TASK_RESULT_TTL,
 )
 from config.config_manager import config_manager as cm
-from endpoints.sockets.scan import scan_job_meta, scan_platforms
+from endpoints.sockets.scan import report_scan_failure, scan_job_meta, scan_platforms
 from handler.database import db_platform_handler
 from handler.metadata import (
     meta_csdb_handler,
@@ -39,7 +39,7 @@ from handler.metadata import (
     meta_steam_handler,
     meta_tgdb_handler,
 )
-from handler.redis_handler import get_job_kwargs, low_prio_queue
+from handler.redis_handler import get_job_kwargs, scan_queue
 from handler.scan_handler import MetadataSource, ScanType
 from handler.scan_jobs import get_pending_scan_jobs
 from logger.formatter import CYAN
@@ -100,11 +100,17 @@ def get_pending_scan_coverage() -> PendingScanCoverage:
             # duplicate scan costs less than a rescan that never happens.
             continue
 
+        # A scan of named roms resolves them from the database and never walks
+        # the filesystem, so it covers no change on disk, not even one under the
+        # platform it names.
+        if kwargs.get("roms_ids"):
+            continue
+
         # Scans are enqueued with keywords only. A task-driven scan names no
         # scope at all, and covers everything.
         job_platform_ids = kwargs.get("platform_ids") or []
         job_platform_fs_slugs = kwargs.get("platform_fs_slugs") or []
-        if not (job_platform_ids or job_platform_fs_slugs or kwargs.get("roms_ids")):
+        if not (job_platform_ids or job_platform_fs_slugs):
             full_library += 1
             continue
 
@@ -211,12 +217,13 @@ def process_changes(changes: Sequence[Change]) -> None:
         rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
 
         def schedule_rescan(platform_ids: list[int], scan_type: ScanType) -> None:
-            low_prio_queue.enqueue_in(
+            scan_queue.enqueue_in(
                 time_delta,
                 scan_platforms,
                 platform_ids=platform_ids,
                 metadata_sources=metadata_sources,
                 scan_type=scan_type,
+                on_failure=report_scan_failure,
                 job_timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
                 meta=scan_job_meta(scan_type),
