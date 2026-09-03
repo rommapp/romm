@@ -6,7 +6,7 @@ from config import TASK_RESULT_TTL, TASK_TIMEOUT
 from handler.redis_handler import QueuePrio
 from tasks import cron_config
 from tasks.registry import SCHEDULED_TASKS, enqueue_scheduled_scan
-from tasks.tasks import SCAN_DISPATCH_META_KEY, TaskType, run_task_by_name
+from tasks.tasks import TaskType, run_task_by_name
 
 
 @pytest.fixture
@@ -22,23 +22,20 @@ def registered(mocker):
     return _reload
 
 
-def _task(mocker, *, enabled=True, cron_string="0 4 * * *"):
+def _task(mocker, *, enabled=True, cron_string="0 4 * * *", task_type=TaskType.CLEANUP):
     return mocker.MagicMock(
         enabled=enabled,
         cron_string=cron_string,
         timeout=100,
         title="Test Task",
         description="test task",
-        task_type=TaskType.CLEANUP,
-        job_meta={"task_name": "Test Task", "task_type": TaskType.CLEANUP.value},
+        task_type=task_type,
+        job_meta={"task_name": "Test Task", "task_type": task_type.value},
     )
 
 
 def _scan_task(mocker, **kwargs):
-    task = _task(mocker, **kwargs)
-    task.task_type = TaskType.SCAN
-    task.job_meta = {"task_name": "Test Task", "task_type": TaskType.SCAN.value}
-    return task
+    return _task(mocker, task_type=TaskType.SCAN, **kwargs)
 
 
 class TestCronConfig:
@@ -62,11 +59,9 @@ class TestCronConfig:
         kwargs = register.call_args.kwargs
         assert register.call_args.args[0] is enqueue_scheduled_scan
         assert kwargs["job_timeout"] == TASK_TIMEOUT
-        assert kwargs["meta"] == {
-            "task_name": "Test Task",
-            "task_type": TaskType.SCAN.value,
-            SCAN_DISPATCH_META_KEY: True,
-        }
+        # RQ drops a job whose result_ttl is 0 as soon as it succeeds, so the
+        # dispatch is not listed next to the scan it enqueued.
+        assert kwargs["result_ttl"] == 0
 
     def test_everything_runs_on_the_low_queue(self, mocker, registered):
         for tasks in ({"cleanup": _task(mocker)}, {"scan": _scan_task(mocker)}):

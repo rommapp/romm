@@ -41,9 +41,9 @@ def make_task_job(**kwargs):
     return make_job(TASK_RUNNER_FUNC, task_type=TaskType.SCAN, **kwargs)
 
 
-def make_scoped_job(**kwargs):
+def make_scoped_job():
     """A scan of named roms, which the metadata refresh dialog asks for."""
-    job = make_job(scan_jobs_module.SCAN_PLATFORMS_FUNC, **kwargs)
+    job = make_job(scan_jobs_module.SCAN_PLATFORMS_FUNC)
     job.kwargs = {"platform_ids": [1], "roms_ids": [7]}
     return job
 

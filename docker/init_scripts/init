@@ -264,9 +264,7 @@ start_bin_rq_worker() {
 	start_rq_worker rq_worker high default low
 }
 
-# A scan runs for hours, so it gets its own worker: the queues above keep being
-# served while it runs, and one worker on one queue keeps two scans from
-# overlapping.
+# Scans get a worker of their own, see SCAN_QUEUE_NAME.
 start_bin_rq_scan_worker() {
 	info_log "Starting RQ scan worker"
 	start_rq_worker rq_scan_worker scans
@@ -415,7 +413,6 @@ while ! ((exited)); do
 
 	watchdog_process_pid rq_worker
 
-	# Scans get a worker of their own
 	watchdog_process_pid rq_scan_worker
 
 	# only start the watcher if enabled

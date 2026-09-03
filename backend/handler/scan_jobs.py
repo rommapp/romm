@@ -116,6 +116,21 @@ def get_scheduled_scan_jobs() -> list[Job]:
     return [job for job in jobs if job is not None and is_scan_job(job)]
 
 
+def get_blocking_library_scans() -> tuple[Job | None, list[Job]]:
+    """The library scans a second one has to wait for: one running, any queued.
+
+    A scan of named roms is not one of them. It resolves its work from the
+    database and is done in seconds, so nothing has to queue behind it.
+    """
+    running = get_running_scan_job()
+    if running is not None and is_scoped_scan_job(running):
+        running = None
+
+    queued = [job for job in get_queued_scan_jobs() if not is_scoped_scan_job(job)]
+
+    return running, queued
+
+
 def get_pending_scan_jobs() -> list[Job]:
     """Scans that have not started yet: queued, or waiting out a delay.
 

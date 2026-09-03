@@ -66,10 +66,10 @@ from handler.scan_handler import (
     scan_rom,
 )
 from handler.scan_jobs import (
+    get_blocking_library_scans,
     get_queued_scan_jobs,
     get_running_scan_job,
     get_scheduled_scan_jobs,
-    is_scoped_scan_job,
 )
 from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
@@ -103,8 +103,7 @@ def report_scan_failure(
 
     A worker killed mid-scan never reaches the handler that emits this, so the
     clients would keep showing a scan that no longer exists. RQ runs this from
-    whichever worker reaps the job, which is why the scan queue having a worker
-    of its own matters: another one is left to notice.
+    whichever worker reaps the job.
     """
     # Every other failure is reported by the scan as it unwinds, and emitting
     # here too would report it twice.
@@ -1263,20 +1262,11 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
 
-    # Refusing a second library scan is the point of this: a client that lost
-    # the progress socket has no way to tell one is running, and pressing scan
-    # again would queue another pass over the whole library. A scan of named
-    # roms is not that, and refusing it loses a click the user has to remember
-    # to repeat, so it is allowed to queue instead.
+    # A client that lost the progress socket has no way to tell a scan is
+    # running, and pressing scan again would queue a second pass over the whole
+    # library. A scan of named roms is not that, so it is allowed to queue.
     if not DEV_MODE and not roms_ids:
-        running_job = get_running_scan_job()
-        if running_job is not None and is_scoped_scan_job(running_job):
-            running_job = None
-
-        queued_jobs = [
-            job for job in get_queued_scan_jobs() if not is_scoped_scan_job(job)
-        ]
-
+        running_job, queued_jobs = get_blocking_library_scans()
         if running_job is not None or queued_jobs:
             message = _scan_in_flight_message(running_job, queued_jobs)
             log.info(f"{emoji.EMOJI_STOP_SIGN} {message}, ignoring request")

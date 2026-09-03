@@ -95,9 +95,7 @@ start_rq_worker() {
 
 start_rq_worker rq_worker high default low
 
-# A scan runs for hours, so it gets its own worker: the queues above keep being
-# served while it runs, and one worker on one queue keeps two scans from
-# overlapping.
+# Scans get a worker of their own, see SCAN_QUEUE_NAME.
 echo "Starting RQ scan worker..."
 start_rq_worker rq_scan_worker scans
 

@@ -1874,15 +1874,6 @@ class TestScanConcurrency:
 
         enqueue.assert_not_called()
 
-    async def test_refuses_when_a_watcher_scan_is_queued(self, mocker, emit):
-        # Watcher scans land in the low priority queue, not the high one.
-        patch_scan_jobs(mocker, low_queued=[make_job(SCAN_PLATFORMS_FUNC)])
-        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
-
-        await scan_handler("sid", {"type": "quick"})
-
-        enqueue.assert_not_called()
-
     async def test_a_scheduled_watcher_scan_does_not_block(self, mocker, emit):
         # A delayed watcher scan only moves when the scheduler releases it, so
         # a scheduler that is down would refuse manual scans for good.
@@ -1896,10 +1887,13 @@ class TestScanConcurrency:
 
         enqueue.assert_called_once()
 
-    async def test_a_scan_left_on_an_older_queue_still_blocks(self, mocker, emit):
-        # A scan enqueued before scans had their own queue is on the high or low
-        # queue, and a worker will still run it.
-        patch_scan_jobs(mocker, high_queued=[make_job(SCAN_PLATFORMS_FUNC)])
+    @pytest.mark.parametrize("queue", ["high_queued", "low_queued"])
+    async def test_a_scan_left_on_an_older_queue_still_blocks(
+        self, mocker, emit, queue
+    ):
+        # A scan enqueued before scans had their own queue is on one of the
+        # others, and a worker will still run it.
+        patch_scan_jobs(mocker, **{queue: [make_job(SCAN_PLATFORMS_FUNC)]})
         enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
@@ -1979,8 +1973,8 @@ class TestScanConcurrency:
         assert emit.await_args.args[1] == "Full Scan is already queued"
 
     async def test_a_rom_scan_is_accepted_while_a_library_scan_runs(self, mocker, emit):
-        # Refusing it would lose a click the user has to remember to repeat, and
-        # a scan of named roms is not the duplicate pass the guard is for.
+        # The metadata refresh dialog fans a multi-platform selection into one
+        # request per platform, so each one has to be accepted.
         patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
         enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
@@ -1996,16 +1990,6 @@ class TestScanConcurrency:
         await scan_handler("sid", {"type": "quick"})
 
         assert enqueue.call_args.kwargs["at_front"] is False
-
-    async def test_a_queued_rom_scan_does_not_block_another_one(self, mocker, emit):
-        # The metadata refresh dialog fans a multi-platform selection into one
-        # request per platform, so each has to be accepted.
-        patch_scan_jobs(mocker, scan_queued=[make_scoped_job()])
-        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
-
-        await scan_handler("sid", {"type": "quick", "roms_ids": [9]})
-
-        enqueue.assert_called_once()
 
     async def test_a_running_rom_scan_does_not_block_a_library_scan(self, mocker, emit):
         # It is done in seconds, so the library scan just queues behind it.
@@ -2023,14 +2007,6 @@ class TestScanConcurrency:
         await scan_handler("sid", {"type": "quick"})
 
         enqueue.assert_called_once()
-
-    async def test_a_library_scan_still_refuses_a_second_one(self, mocker, emit):
-        patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
-        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
-
-        await scan_handler("sid", {"type": "quick"})
-
-        enqueue.assert_not_called()
 
     async def test_refuses_when_the_scheduled_rescan_is_running(self, mocker, emit):
         # Every task runs through the same runner, so the scheduled rescan is

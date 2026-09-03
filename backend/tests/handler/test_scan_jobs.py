@@ -86,6 +86,25 @@ class TestGetRunningScanJob:
         assert scan_jobs.get_running_scan_job() is None
 
 
+class TestGetBlockingLibraryScans:
+    """Only a library scan makes another one wait."""
+
+    def test_reports_the_library_scans_in_flight(self, mocker):
+        running = make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.STARTED)
+        queued = make_job(SCAN_PLATFORMS_FUNC)
+        patch_scan_jobs(mocker, running=running, scan_queued=[queued])
+
+        assert scan_jobs.get_blocking_library_scans() == (running, [queued])
+
+    def test_a_scan_of_named_roms_blocks_nothing(self, mocker):
+        # It resolves its work from the database and is done in seconds.
+        patch_scan_jobs(
+            mocker, running=make_scoped_job(), scan_queued=[make_scoped_job()]
+        )
+
+        assert scan_jobs.get_blocking_library_scans() == (None, [])
+
+
 class TestGetPendingScanJobs:
     def test_counts_queued_and_delayed_scans_but_not_running_ones(self, mocker):
         queued = make_job(SCAN_PLATFORMS_FUNC)

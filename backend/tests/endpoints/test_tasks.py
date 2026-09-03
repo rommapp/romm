@@ -1,12 +1,11 @@
-from contextlib import contextmanager
 from unittest.mock import Mock, patch
 
 import pytest
 from fastapi import status
 from rq.exceptions import NoSuchJobError
-from rq.job import JobStatus
 
-from tasks.tasks import SCAN_DISPATCH_META_KEY, Task, TaskType
+from handler.redis_handler import redis_client
+from tasks.tasks import Task, TaskType
 
 
 @pytest.fixture
@@ -75,40 +74,6 @@ def create_mock_job(job_id="1", status="queued"):
     mock_job.enqueued_at = mock_enqueued_at
 
     return mock_job
-
-
-def _scan_dispatch_job(job_status):
-    """The cron job that only enqueues a scheduled scan."""
-    job = create_mock_job(job_id="dispatch", status=job_status)
-    job.started_at = None
-    job.ended_at = None
-    job.get_meta.return_value = {
-        "task_name": "Scan Library",
-        "task_type": TaskType.SCAN.value,
-        SCAN_DISPATCH_META_KEY: True,
-    }
-    return job
-
-
-@contextmanager
-def _registries(*, finished, failed):
-    """Serve these jobs from the two registries, with every queue empty."""
-    by_id = {job.id: job for job in (*finished, *failed)}
-    queue = Mock()
-    queue.get_jobs.return_value = []
-
-    def registry(jobs):
-        mock = Mock()
-        mock.get_job_ids.return_value = [job.id for job in jobs]
-        return mock
-
-    with (
-        patch("endpoints.tasks.ALL_QUEUES", new=(queue,)),
-        patch("endpoints.tasks.Job.fetch", side_effect=lambda id, **_: by_id[id]),
-        patch("endpoints.tasks.FinishedJobRegistry", return_value=registry(finished)),
-        patch("endpoints.tasks.FailedJobRegistry", return_value=registry(failed)),
-    ):
-        yield
 
 
 class TestListTasks:
@@ -368,25 +333,12 @@ class TestGetTasksStatus:
     """Test suite for the get_tasks_status endpoint"""
 
     @patch("endpoints.tasks.Worker.all", return_value=[])
-    @patch("endpoints.tasks.low_prio_queue")
-    @patch("endpoints.tasks.default_queue")
-    @patch("endpoints.tasks.high_prio_queue")
+    @patch("endpoints.tasks.ALL_QUEUES", new=())
     @patch("endpoints.tasks.Job.fetch")
     def test_get_tasks_status_skips_expired_jobs(
-        self,
-        mock_job_fetch,
-        mock_high_queue,
-        mock_default_queue,
-        mock_low_queue,
-        mock_worker_all,
-        client,
-        access_token,
+        self, mock_job_fetch, mock_worker_all, client, access_token
     ):
         """Test that get_tasks_status skips jobs that have expired from Redis"""
-        mock_low_queue.get_jobs.return_value = []
-        mock_default_queue.get_jobs.return_value = []
-        mock_high_queue.get_jobs.return_value = []
-
         mock_finished_registry = Mock()
         mock_finished_registry.get_job_ids.return_value = ["expired-job-id"]
         mock_failed_registry = Mock()
@@ -410,48 +362,12 @@ class TestGetTasksStatus:
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
 
-    @patch("endpoints.tasks.Worker.all", return_value=[])
-    def test_a_spent_scan_dispatch_is_left_out(
-        self, mock_worker_all, client, access_token
-    ):
-        # The dispatch carries the scan's own name, so listing it next to the
-        # scan it enqueued would show one scheduled scan as two runs.
-        dispatch = _scan_dispatch_job(JobStatus.FINISHED)
-
-        with _registries(finished=[dispatch], failed=[]):
-            response = client.get(
-                "/api/tasks/status",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json() == []
-
-    @patch("endpoints.tasks.Worker.all", return_value=[])
-    def test_a_failed_scan_dispatch_is_reported(
-        self, mock_worker_all, client, access_token
-    ):
-        # A dispatch that failed means no scan ran at all, so it has to be seen.
-        dispatch = _scan_dispatch_job(JobStatus.FAILED)
-
-        with _registries(finished=[], failed=[dispatch]):
-            response = client.get(
-                "/api/tasks/status",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-
-        assert response.status_code == status.HTTP_200_OK
-        assert [task["task_id"] for task in response.json()] == ["dispatch"]
-
 
 class TestGetTaskById:
     """Test suite for the get_task_by_id endpoint"""
 
-    @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.Job.fetch")
-    def test_get_task_by_id_success(
-        self, mock_job_fetch, mock_queue, client, access_token
-    ):
+    def test_get_task_by_id_success(self, mock_job_fetch, client, access_token):
         """Test successful retrieval of a task by job ID"""
         # Mock job object with all necessary attributes
         mock_job = Mock()
@@ -491,14 +407,11 @@ class TestGetTaskById:
         assert data["ended_at"] == "2023-01-01T00:02:00"
 
         mock_job_fetch.assert_called_once_with(
-            "test-job-id-123", connection=mock_queue.connection
+            "test-job-id-123", connection=redis_client
         )
 
-    @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.Job.fetch")
-    def test_get_task_by_id_not_found(
-        self, mock_job_fetch, mock_queue, client, access_token
-    ):
+    def test_get_task_by_id_not_found(self, mock_job_fetch, client, access_token):
         """Test retrieval of a non-existent task by job ID"""
         mock_job_fetch.side_effect = Exception("Job not found")
 
@@ -511,10 +424,9 @@ class TestGetTaskById:
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_with_exception_info(
-        self, mock_job_fetch, mock_queue, client, access_token
+        self, mock_job_fetch, client, access_token
     ):
         """Test retrieval of a task that failed with exception"""
         mock_job = Mock()

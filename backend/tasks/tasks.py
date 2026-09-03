@@ -10,10 +10,6 @@ from exceptions.task_exceptions import TaskNotFoundException
 from logger.logger import log
 from utils.context import ctx_httpx_client
 
-# Marks the cron job that only enqueues a scan, so the task history can tell it
-# apart from the scan it creates.
-SCAN_DISPATCH_META_KEY = "scan_dispatch"
-
 
 async def run_task_by_name(name: str, task_kwargs: dict[str, Any] | None = None) -> Any:
     """Run the task registered under ``name``.

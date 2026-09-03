@@ -1,6 +1,6 @@
 import pytest
 
-from config import SCAN_TIMEOUT, TASK_RESULT_TTL
+from config import TASK_RESULT_TTL
 from endpoints.sockets.scan import report_scan_failure
 from exceptions.task_exceptions import TaskNotFoundException
 from tasks.registry import (
@@ -89,9 +89,10 @@ class TestEnqueueScheduledScan:
         assert kwargs["kwargs"]["name"] == "scan_library"
         assert kwargs["on_failure"] is report_scan_failure
 
-    def test_the_scan_carries_the_scan_timeout(self, scan_queue):
+    def test_the_scan_carries_its_own_timeout(self, scan_queue):
         # The dispatch itself runs on the ordinary task timeout, so the scan
         # timeout has to reach the scan it creates.
         enqueue_scheduled_scan("scan_library")
 
-        assert scan_queue.enqueue.call_args.kwargs["job_timeout"] == SCAN_TIMEOUT
+        job_timeout = scan_queue.enqueue.call_args.kwargs["job_timeout"]
+        assert job_timeout == SCHEDULED_TASKS["scan_library"].timeout

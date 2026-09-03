@@ -23,26 +23,19 @@ from endpoints.responses import (
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
 from handler.auth.constants import Scope
 from handler.redis_handler import (
-    default_queue,
+    ALL_QUEUES,
     get_job_func_name,
     get_worker_current_job,
-    high_prio_queue,
-    low_prio_queue,
     redis_client,
-    scan_queue,
 )
 from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
-from tasks.tasks import SCAN_DISPATCH_META_KEY, Task, TaskType
+from tasks.tasks import Task, TaskType
 from utils.router import APIRouter
 
 router = APIRouter(
     prefix="/tasks",
     tags=["tasks"],
 )
-
-
-# Every queue a job can be on, so the task list does not miss one.
-ALL_QUEUES: Final = (scan_queue, high_prio_queue, default_queue, low_prio_queue)
 
 # Scheduled tasks an admin can see and trigger. The rest of the catalog runs on
 # its schedule without being surfaced.
@@ -71,18 +64,6 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
         enabled=task.enabled,
         manual_run=task.can_run_manually,
         cron_string=task.cron_string or "",
-    )
-
-
-def _is_spent_scan_dispatch(job: Job) -> bool:
-    """Whether a job is a scan dispatch that has already handed off.
-
-    It carries the scan's own name, so listing it too would show one scheduled
-    scan as two runs. A failed dispatch stays, because then no scan ran at all.
-    """
-    return (
-        bool(job.get_meta().get(SCAN_DISPATCH_META_KEY))
-        and job.get_status() is not JobStatus.FAILED
     )
 
 
@@ -215,33 +196,22 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
     # Get currently running jobs from workers
     for worker in Worker.all(connection=redis_client):
         current_job = get_worker_current_job(worker)
-        if current_job and not _is_spent_scan_dispatch(current_job):
+        if current_job:
             all_tasks.append(_build_task_status_response(current_job))
 
     # Get all jobs from the queues (including completed ones)
     for queue in ALL_QUEUES:
         for job in queue.get_jobs():
-            if _is_spent_scan_dispatch(job):
-                continue
             all_tasks.append(_build_task_status_response(job))
 
-    finished_registries = [FinishedJobRegistry(queue=queue) for queue in ALL_QUEUES]
-    failed_registries = [FailedJobRegistry(queue=queue) for queue in ALL_QUEUES]
+    # Process finished and failed jobs
+    registries = [
+        registry_class(queue=queue)
+        for registry_class in (FinishedJobRegistry, FailedJobRegistry)
+        for queue in ALL_QUEUES
+    ]
 
-    # Process finished jobs
-    for registry in finished_registries:
-        for job_id in registry.get_job_ids():
-            try:
-                job = Job.fetch(job_id, connection=redis_client)
-            except NoSuchJobError:
-                registry.remove(job_id)
-                continue
-            if _is_spent_scan_dispatch(job):
-                continue
-            all_tasks.append(_build_task_status_response(job))
-
-    # Process failed jobs
-    for registry in failed_registries:
+    for registry in registries:
         for job_id in registry.get_job_ids():
             try:
                 job = Job.fetch(job_id, connection=redis_client)
@@ -269,7 +239,7 @@ async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
         TaskStatusResponse: Task status information
     """
     try:
-        job = Job.fetch(task_id, connection=low_prio_queue.connection)
+        job = Job.fetch(task_id, connection=redis_client)
     except Exception as e:
         raise HTTPException(
             status_code=404,
