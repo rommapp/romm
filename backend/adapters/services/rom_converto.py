@@ -19,17 +19,27 @@ from logger.logger import log
 # TODO: batch `info` exists in rom-converto >= 0.21 (`info --paths-file`);
 # wire it up if scan extraction ever moves to per-platform batching.
 
-# Platform slugs the conversion targets v1 offers for.
+# Platform slugs whose files rom-converto's `info` can identify with a
+# title id or serial. Wider than the conversion target list on purpose:
+# extraction only reads headers, so every inspector counts.
 CONVERTO_PLATFORM_SLUGS: frozenset[str] = frozenset(
     {
         UPS.N3DS,
+        UPS.NDS,
         UPS.PSP,
+        UPS.PSVITA,
         UPS.PSX,
         UPS.PS2,
+        UPS.PS3,
         UPS.NGC,
         UPS.WII,
+        UPS.WIIU,
         UPS.SWITCH,
-        UPS.PS3,
+        UPS.DC,
+        UPS.SATURN,
+        UPS.SEGACD,
+        UPS.XBOX,
+        UPS.XBOX360,
     }
 )
 
@@ -142,29 +152,59 @@ def _parse_names(payload: dict) -> dict[str, str]:
             if isinstance(entry, (list, tuple)) and len(entry) == 2 and entry[1]:
                 names[entry[0] or ""] = entry[1]
     if not names:
-        fallback = _first_str(payload, "game_name", "title")
+        fallback = _first_str(
+            payload,
+            "game_name",
+            "title",
+            "game_title",
+            "title_name",
+            "overseas_title",
+            "domestic_title",
+        )
         if fallback:
             names[""] = fallback
     return names
 
 
+def _flatten(payload: dict) -> dict:
+    """Merge nested metadata blocks (xbox `xbe`, 360 `xex`, retro `details`)
+    into one lookup dict; top-level keys win on conflict."""
+    flat: dict = dict(payload)
+    for key in ("xbe", "xex", "details"):
+        nested = payload.get(key)
+        if isinstance(nested, dict):
+            flat = {**nested, **flat}
+    return flat
+
+
 def _parse_info(payload: dict) -> RomConvertoInfo:
-    # `kind` is the serde tag of InfoResult (dol, rvl, ctr, psx, psp, ps3, ...).
-    # Field names vary per console, so every lookup is defensive. `version` is
-    # only taken when a string: CHD/CSO carry an integer container version.
+    # `kind` is the serde tag of InfoResult (dol, rvl, ctr, psx, psp, ps3,
+    # nds, retro, pbp, vpk, pkg, ...). Field names vary per console, so every
+    # lookup is defensive. `version` is only taken when a string: CHD/CSO/PBP
+    # carry an integer container version.
+    flat = _flatten(payload)
     encrypted: bool | None = None
     for key in ("ncch_encrypted", "encrypted"):
-        value = payload.get(key)
+        value = flat.get(key)
         if isinstance(value, bool):
             encrypted = value
             break
     return RomConvertoInfo(
-        kind=str(payload.get("kind") or ""),
-        title_id=_first_str(payload, "title_id", "game_id"),
-        serial=_first_str(payload, "product_code", "serial", "game_id"),
-        names=_parse_names(payload),
-        region=_first_str(payload, "region"),
-        version=_first_str(payload, "version"),
+        kind=str(flat.get("kind") or ""),
+        title_id=_first_str(flat, "title_id_hex", "title_id", "game_id"),
+        serial=_first_str(
+            flat,
+            "product_code",
+            "serial",
+            "game_id",
+            "product_number",
+            "disc_id",
+            "game_code",
+            "title_id_code",
+        ),
+        names=_parse_names(flat),
+        region=_first_str(flat, "region"),
+        version=_first_str(flat, "version"),
         encrypted=encrypted,
     )
 

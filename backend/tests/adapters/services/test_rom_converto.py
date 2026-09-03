@@ -137,6 +137,118 @@ class TestReadInfo:
         assert info["names"] == {"english": "Pokemon Y", "japanese": "ポケモンY"}
         assert info["encrypted"] is True
 
+    async def test_parses_nds_game_code(self, service):
+        payload = json.dumps(
+            {
+                "kind": "nds",
+                "game_title": "Mario Kart DS",
+                "game_code": "AMCE",
+                "maker_code": "01",
+                "rom_version": 0,
+            }
+        )
+        proc = FakeProc(stdout=payload.encode())
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("shutil.which", return_value="rc"),
+        ):
+            info = await service.read_info(Path("/roms/mkds.nds"))
+
+        assert info is not None
+        assert info["kind"] == "nds"
+        assert info["title_id"] is None
+        assert info["serial"] == "AMCE"
+        assert info["names"] == {"": "Mario Kart DS"}
+
+    async def test_parses_retro_saturn_nested_details(self, service):
+        payload = json.dumps(
+            {
+                "kind": "retro",
+                "file_size": 123,
+                "details": {
+                    "system": "sega_saturn",
+                    "product_number": "T-8107H",
+                    "title": "Panzer Dragoon",
+                    "version": "V1.000",
+                },
+            }
+        )
+        proc = FakeProc(stdout=payload.encode())
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("shutil.which", return_value="rc"),
+        ):
+            info = await service.read_info(Path("/roms/panzer.cue"))
+
+        assert info is not None
+        assert info["kind"] == "retro"
+        assert info["serial"] == "T-8107H"
+        assert info["names"] == {"": "Panzer Dragoon"}
+        assert info["version"] == "V1.000"
+
+    async def test_parses_pbp_disc_id(self, service):
+        payload = json.dumps(
+            {
+                "kind": "pbp",
+                "version": 3,
+                "title": "Wipeout Pure",
+                "disc_id": "UCES-00001",
+            }
+        )
+        proc = FakeProc(stdout=payload.encode())
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("shutil.which", return_value="rc"),
+        ):
+            info = await service.read_info(Path("/roms/EBOOT.PBP"))
+
+        assert info is not None
+        assert info["kind"] == "pbp"
+        assert info["serial"] == "UCES-00001"
+        assert info["names"] == {"": "Wipeout Pure"}
+        assert info["version"] is None  # integer container version is skipped
+
+    async def test_parses_xbox_nested_xbe(self, service):
+        payload = json.dumps(
+            {
+                "kind": "xbox",
+                "partition_kind": "ftx",
+                "xbe": {
+                    "title_id": 1297438724,
+                    "title_id_hex": "4D530004",
+                    "title_id_code": "MS-004",
+                    "title_name": "Halo",
+                },
+            }
+        )
+        proc = FakeProc(stdout=payload.encode())
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("shutil.which", return_value="rc"),
+        ):
+            info = await service.read_info(Path("/roms/halo.iso"))
+
+        assert info is not None
+        assert info["kind"] == "xbox"
+        assert info["title_id"] == "4D530004"
+        assert info["serial"] == "MS-004"
+        assert info["names"] == {"": "Halo"}
+
+    async def test_parses_vpk_title_id(self, service):
+        payload = json.dumps(
+            {"kind": "vpk", "title": "Gravity Rush", "title_id": "PCSA00001"}
+        )
+        proc = FakeProc(stdout=payload.encode())
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("shutil.which", return_value="rc"),
+        ):
+            info = await service.read_info(Path("/roms/gr.vpk"))
+
+        assert info is not None
+        assert info["title_id"] == "PCSA00001"
+        assert info["names"] == {"": "Gravity Rush"}
+
     async def test_unrecognized_file_returns_none(self, service):
         proc = FakeProc(
             returncode=1,
