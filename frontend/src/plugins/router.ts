@@ -44,6 +44,7 @@ export const ROUTES = {
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
   SCAN_SETTINGS: "scan-settings",
+  CONVERSION_SETTINGS: "conversion-settings",
   METADATA_SOURCES: "metadata-sources",
   CLIENT_API_TOKENS: "client-api-tokens",
   ADMINISTRATION: "administration",
@@ -392,6 +393,18 @@ const routes = [
             components: {
               default: () => import("@/views/Home.vue"),
               v2: v2For(ROUTES.SCAN_SETTINGS),
+            },
+          },
+          {
+            path: "conversion-settings",
+            name: ROUTES.CONVERSION_SETTINGS,
+            meta: {
+              title: "settings.conversion-settings",
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.CONVERSION_SETTINGS),
             },
           },
           {

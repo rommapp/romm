@@ -51,6 +51,8 @@ export type { ClientTokenSchema } from './models/ClientTokenSchema';
 export type { CollectionRomsPayload } from './models/CollectionRomsPayload';
 export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
+export type { ConverttoConfig } from './models/ConverttoConfig';
+export type { ConverttoSettingsPayload } from './models/ConverttoSettingsPayload';
 export type { ConversionStats } from './models/ConversionStats';
 export type { ConversionTaskMeta } from './models/ConversionTaskMeta';
 export type { ConversionTaskStatusResponse } from './models/ConversionTaskStatusResponse';
