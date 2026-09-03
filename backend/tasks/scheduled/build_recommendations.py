@@ -28,14 +28,12 @@ class BuildRecommendationsTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS,
             manual_run=True,
             cron_string=SCHEDULED_BUILD_RECOMMENDATIONS_CRON,
-            func="tasks.scheduled.build_recommendations.build_recommendations_task.run",
         )
 
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, int]:
         if not self.enabled and not force:
-            log.info(f"Scheduled {self.description} not enabled, unscheduling...")
-            self.unschedule()
+            log.info(f"Scheduled {self.description} not enabled, skipping...")
             return UpdateStats().to_dict()
 
         log.info("Building recommendations index...")
