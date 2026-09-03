@@ -210,7 +210,7 @@ With `uiVersion = "v2"`:
 
 Run from `backend/`:
 
-1. `uv run pytest [path/file]` — zero failures (run the affected subset, or all with `-vv`).
+1. `uv run pytest <path/file>` — zero failures on the tests affected by the diff. Never run the whole suite locally (20+ minutes); see [AGENTS.md](../../../AGENTS.md) for how to pick targets. CI runs it in full.
 2. `trunk fmt && trunk check` — ruff/black/isort/mypy/bandit clean (CI enforces Trunk).
 3. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).
 4. **If a response schema or route signature changed:** regenerate frontend types (`npm run generate`) and typecheck the frontend.
