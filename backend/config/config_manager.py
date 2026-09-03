@@ -4,6 +4,7 @@ import glob
 import json
 import os
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, NotRequired, TypedDict
 
@@ -149,6 +150,41 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 # "prefer_config" makes scan.priority.region win over the rom's own tags.
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
+# Valid values for the rom-converto conversion settings. platform_formats maps
+# a platform slug to the target format rom-converto converts to.
+VALID_CONVERTTO_TARGET_FORMATS = frozenset(
+    {
+        "cia-decrypted",
+        "iso",
+        "chd",
+        "rvz",
+        "nsp",
+        "iso-decrypted",
+    }
+)
+# Config-side validation only; the runtime gate is the adapter's
+# CONVERTO_PLATFORM_SLUGS (importing it here would create a cycle).
+VALID_CONVERTTO_PLATFORM_SLUGS = frozenset(
+    {
+        "3ds",
+        "psp",
+        "psx",
+        "ps2",
+        "ngc",
+        "wii",
+        "switch",
+        "ps3",
+    }
+)
+
+
+@dataclass
+class ConverttoConfig:
+    download_conversion_enabled: bool = False
+    scan_metadata: bool = True
+    cache_ttl_hours: int = 24
+    platform_formats: dict[str, str] = field(default_factory=dict)
+
 
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
@@ -211,6 +247,7 @@ class Config:
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     STREAMING_ENABLED: bool
     STREAMING_CONTAINERS: list[StreamingContainer]
+    CONVERTTO: ConverttoConfig
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -560,6 +597,20 @@ class ConfigManager:
             STREAMING_CONTAINERS=pydash.get(
                 self._raw_config, "streaming.containers", []
             ),
+            CONVERTTO=ConverttoConfig(
+                download_conversion_enabled=pydash.get(
+                    self._raw_config, "convertto.download_conversion_enabled", False
+                ),
+                scan_metadata=pydash.get(
+                    self._raw_config, "convertto.scan_metadata", True
+                ),
+                cache_ttl_hours=pydash.get(
+                    self._raw_config, "convertto.cache_ttl_hours", 24
+                ),
+                platform_formats=pydash.get(
+                    self._raw_config, "convertto.platform_formats", {}
+                ),
+            ),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
@@ -762,8 +813,8 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.artwork must be a list")
             sys.exit(3)
 
-        for key, field in ARTWORK_PRIORITY_KEYS.items():
-            override = self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(field)
+        for key, field_name in ARTWORK_PRIORITY_KEYS.items():
+            override = self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(field_name)
             if override is None:
                 continue
 
@@ -854,6 +905,53 @@ class ConfigManager:
             log.critical("Invalid config.yml: streaming.containers must be a list")
             sys.exit(3)
 
+        if not isinstance(self.config.CONVERTTO.download_conversion_enabled, bool):
+            log.critical(
+                "Invalid config.yml: convertto.download_conversion_enabled must be a boolean"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.CONVERTTO.scan_metadata, bool):
+            log.critical(
+                "Invalid config.yml: convertto.scan_metadata must be a boolean"
+            )
+            sys.exit(3)
+
+        if (
+            not isinstance(self.config.CONVERTTO.cache_ttl_hours, int)
+            or self.config.CONVERTTO.cache_ttl_hours < 1
+        ):
+            log.critical(
+                "Invalid config.yml: convertto.cache_ttl_hours must be an integer >= 1"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.CONVERTTO.platform_formats, dict):
+            log.critical(
+                "Invalid config.yml: convertto.platform_formats must be a dictionary"
+            )
+            sys.exit(3)
+
+        self.config.CONVERTTO.platform_formats = {
+            str(slug).lower(): str(target).lower()
+            for slug, target in self.config.CONVERTTO.platform_formats.items()
+        }
+        for slug, target in self.config.CONVERTTO.platform_formats.items():
+            if slug not in VALID_CONVERTTO_PLATFORM_SLUGS:
+                log.critical(
+                    f"Invalid config.yml: convertto.platform_formats.{slug} is not a "
+                    f"valid platform slug. Valid options: "
+                    f"{sorted(VALID_CONVERTTO_PLATFORM_SLUGS)}."
+                )
+                sys.exit(3)
+            if target not in VALID_CONVERTTO_TARGET_FORMATS:
+                log.critical(
+                    f"Invalid config.yml: convertto.platform_formats.{slug} has an "
+                    f"invalid target format {target!r}. Valid options: "
+                    f"{sorted(VALID_CONVERTTO_TARGET_FORMATS)}."
+                )
+                sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
@@ -937,6 +1035,12 @@ class ConfigManager:
                 "pegasus": {
                     "export": self.config.PEGASUS_AUTO_EXPORT_ON_SCAN,
                 },
+            },
+            "convertto": {
+                "download_conversion_enabled": self.config.CONVERTTO.download_conversion_enabled,
+                "scan_metadata": self.config.CONVERTTO.scan_metadata,
+                "cache_ttl_hours": self.config.CONVERTTO.cache_ttl_hours,
+                "platform_formats": self.config.CONVERTTO.platform_formats,
             },
         }
 
@@ -1047,10 +1151,10 @@ class ConfigManager:
         self.config.SCAN_ARTWORK_PRIORITY = artwork_priority
 
         overrides: dict[str, list[str]] = {}
-        for key, field in ARTWORK_PRIORITY_KEYS.items():
+        for key, field_name in ARTWORK_PRIORITY_KEYS.items():
             value = artwork_overrides.get(key)
             if value is not None:
-                overrides[field] = value
+                overrides[field_name] = value
         self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES = overrides
 
         self.config.SCAN_REGION_PRIORITY = region_priority
@@ -1060,6 +1164,23 @@ class ConfigManager:
         self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
         self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
         self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
+        self._update_config_file()
+
+    def update_convertto_settings(
+        self,
+        *,
+        download_conversion_enabled: bool,
+        scan_metadata: bool,
+        cache_ttl_hours: int,
+        platform_formats: dict[str, str],
+    ) -> None:
+        """Replace the whole convertto.* section and persist it to config.yml."""
+        self.config.CONVERTTO = ConverttoConfig(
+            download_conversion_enabled=download_conversion_enabled,
+            scan_metadata=scan_metadata,
+            cache_ttl_hours=cache_ttl_hours,
+            platform_formats=platform_formats,
+        )
         self._update_config_file()
 
 
