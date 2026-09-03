@@ -530,6 +530,22 @@ async def scan_rom(
     # Check if files have been parsed and hashed
     if len(fs_rom["files"]) > 0:
         filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
+        # The ROM-level title id comes from the primary file: the one whose
+        # digest is the ROM's own hash (single-file roms and archives), falling
+        # back to the first file that carries one (multi-file roms).
+        primary_file = next(
+            (
+                file
+                for file in fs_rom["files"]
+                if file.sha1_hash and file.sha1_hash == fs_rom["sha1_hash"]
+            ),
+            None,
+        )
+        rom_title_id = primary_file.title_id if primary_file else None
+        if not rom_title_id:
+            rom_title_id = next(
+                (file.title_id for file in fs_rom["files"] if file.title_id), None
+            )
         rom_attrs.update(
             {
                 "crc_hash": fs_rom["crc_hash"],
@@ -539,6 +555,10 @@ async def scan_rom(
                 "fs_size_bytes": filesize,
             }
         )
+        # Absent extraction is not evidence of absence: keep any title_id
+        # already stored on the rom instead of overwriting it with None.
+        if rom_title_id:
+            rom_attrs["title_id"] = rom_title_id
 
         # Only overwrite title id values when extraction produced them, so a
         # hash-only or extraction-disabled rescan can't wipe existing ones.

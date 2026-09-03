@@ -61,6 +61,26 @@ ROM_PATCHER_MAX_CONCURRENCY: Final[int] = max(
     1, safe_int(_get_env("ROM_PATCHER_MAX_CONCURRENCY"), 2)
 )
 
+# ROM CONVERTO
+ROM_CONVERTO_ENABLED: Final[bool] = safe_str_to_bool(_get_env("ROM_CONVERTO_ENABLED"))
+ROM_CONVERTO_PATH: Final[str] = _get_env("ROM_CONVERTO_PATH", "/usr/bin/rom-converto")
+# Seconds per rom-converto CLI operation.
+ROM_CONVERTO_TIMEOUT: Final[int] = safe_int(_get_env("ROM_CONVERTO_TIMEOUT"), 600)
+# Limit concurrent conversion subprocesses to bound total memory use.
+ROM_CONVERTO_MAX_CONCURRENCY: Final[int] = max(
+    1, safe_int(_get_env("ROM_CONVERTO_MAX_CONCURRENCY"), 2)
+)
+# Disk cache for converted downloads. Must live under the tree nginx serves
+# at the internal /cache/ location (${ROMM_BASE_PATH}/cache/).
+ROM_CONVERTO_CACHE_PATH: Final[str] = _get_env(
+    "ROM_CONVERTO_CACHE_PATH", "/romm/cache/converts"
+)
+# Max source file size (MB) converted in-request on download; 0 disables
+# in-request conversion entirely and serves the original file.
+ROM_CONVERTO_MAX_SYNC_SIZE_MB: Final[int] = safe_int(
+    _get_env("ROM_CONVERTO_MAX_SYNC_SIZE_MB"), 512
+)
+
 # DATABASE
 DB_HOST: Final[str | None] = _get_env("DB_HOST")
 DB_PORT: Final[int] = safe_int(_get_env("DB_PORT"), 3306)

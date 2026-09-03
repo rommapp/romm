@@ -151,6 +151,48 @@ class RomArchiveMember(TypedDict):
     sha1_hash: str
 
 
+class RomConvertoImage(TypedDict):
+    """An embedded icon or banner decoded by rom-converto."""
+
+    width: int
+    height: int
+    png: bytes
+
+
+class RomConvertoContainer(TypedDict):
+    """Container/compression facts for the file the metadata was read from."""
+
+    kind: str  # chd, cso, zso, dax, rvz, wbfs, wia, gcz, nkit, nsp, xci, nsz, xcz, z3ds, cia, zar
+    format: str | None  # e.g. "CHD v5", "CSO v1"
+    compression: str | None  # compressor chain, e.g. "zstd,cdzl"
+    compression_ratio: float | None  # stored size as percent of uncompressed
+    physical_bytes: int | None
+    logical_bytes: int | None  # uncompressed size
+
+
+class RomConvertoMetadata(TypedDict, total=False):
+    """Everything rom-converto can read from a ROM file.
+
+    NOT persisted. RomFile stores only title_id / title_version today;
+    decide what belongs in RomM's DB before adding columns. Reasonable
+    column candidates: names, region, content_kind, encrypted, container.
+    Icons/banners belong in the assets pipeline on disk, never the DB.
+    Parsed by adapters/services/rom_converto.py (RomConvertoInfo).
+    """
+
+    kind: str  # serde tag: dol, rvl, ctr, nds, retro, pbp, vpk, pkg, ...
+    title_id: str | None
+    serial: str | None
+    names: dict[str, str]  # per-language internal names
+    publisher: str | None
+    region: str | None
+    version: str | None
+    content_kind: str | None  # game, update, dlc, demo, system
+    encrypted: bool | None
+    icons: dict[str, RomConvertoImage]
+    container: RomConvertoContainer | None
+
+
 class LookupHashes(NamedTuple):
     """The hashes a ROM database should be queried with."""
 
@@ -171,6 +213,7 @@ class RomFile(BaseModel):
         Index("idx_rom_files_sha1_hash", "sha1_hash"),
         Index("idx_rom_files_ra_hash", "ra_hash"),
         Index("idx_rom_files_chd_sha1_hash", "chd_sha1_hash"),
+        Index("idx_rom_files_title_id", "title_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -184,6 +227,9 @@ class RomFile(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    title_id: Mapped[str | None] = mapped_column(String(length=100))
+    # BigInteger because Switch title versions exceed int32
+    title_version: Mapped[int | None] = mapped_column(BigInteger, default=None)
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )
@@ -541,6 +587,7 @@ class Rom(BaseModel):
         Index("idx_roms_md5_hash", "md5_hash"),
         Index("idx_roms_sha1_hash", "sha1_hash"),
         Index("idx_roms_ra_hash", "ra_hash"),
+        Index("idx_roms_title_id", "title_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))

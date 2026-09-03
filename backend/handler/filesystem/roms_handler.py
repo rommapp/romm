@@ -396,6 +396,46 @@ class FSRomsHandler(FSHandler):
             archive_members=archive_members,
         )
 
+    async def _extract_title_ids(self, rom: Rom, rom_files: list[RomFile]) -> None:
+        """Read ROM-internal title ids with rom-converto onto the scanned files.
+
+        Best-effort by design: an unrecognized file leaves the columns unset and
+        any failure is logged, never raised into the scan.
+        """
+        from adapters.services.rom_converto import (
+            CONVERTO_PLATFORM_SLUGS,
+            rom_converto_service,
+        )
+
+        if (
+            not await rom_converto_service.is_enabled()
+            or not cm.get_config().CONVERTTO.scan_metadata
+            or rom.platform_slug not in CONVERTO_PLATFORM_SLUGS
+        ):
+            return
+
+        for rom_file in rom_files:
+            try:
+                info = await rom_converto_service.read_info(
+                    self.validate_path(rom_file.full_path)
+                )
+                if info is None:
+                    log.debug(f"rom-converto did not recognize {rom_file.full_path}")
+                    continue
+                rom_file.title_id = info["title_id"] or info["serial"]
+                try:
+                    rom_file.title_version = (
+                        int(info["version"]) if info["version"] else None
+                    )
+                except ValueError:
+                    rom_file.title_version = None
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    f"rom-converto title id extraction failed for "
+                    f"{rom_file.full_path}: {exc}"
+                )
+                continue
+
     async def get_rom_files(
         self,
         rom: Rom,
@@ -723,6 +763,8 @@ class FSRomsHandler(FSHandler):
         rom_title_id, rom_save_target, rom_save_target_layout = _rom_level_title_values(
             rom.platform_slug, sigil_extractions
         )
+
+        await self._extract_title_ids(rom, rom_files)
 
         return ParsedRomFiles(
             rom_files=rom_files,
