@@ -104,6 +104,12 @@ const groups = computed<Group[]>(() => {
           visible: scopes.value.includes("platforms.write"),
         },
         {
+          icon: "mdi-swap-horizontal",
+          label: t("settings.conversion-settings"),
+          to: { name: ROUTES.CONVERSION_SETTINGS },
+          visible: scopes.value.includes("platforms.write"),
+        },
+        {
           icon: "mdi-database-cog-outline",
           label: t("scan.metadata-sources"),
           to: { name: ROUTES.METADATA_SOURCES },
