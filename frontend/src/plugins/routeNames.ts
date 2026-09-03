@@ -25,6 +25,7 @@ export const ROUTES = {
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
   SCAN_SETTINGS: "scan-settings",
+  CONVERSION_SETTINGS: "conversion-settings",
   METADATA_SOURCES: "metadata-sources",
   CLIENT_API_TOKENS: "client-api-tokens",
   ADMINISTRATION: "administration",

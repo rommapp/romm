@@ -374,6 +374,18 @@ const routes = [
             },
           },
           {
+            path: "conversion-settings",
+            name: ROUTES.CONVERSION_SETTINGS,
+            meta: {
+              title: "settings.conversion-settings",
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.CONVERSION_SETTINGS),
+            },
+          },
+          {
             path: "metadata-sources",
             name: ROUTES.METADATA_SOURCES,
             meta: {
