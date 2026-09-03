@@ -92,7 +92,7 @@ def _tail(text: str) -> str:
     return text.strip()[-_STDERR_TAIL_BYTES:]
 
 
-async def _run(argv: list[str], timeout: int) -> tuple[int, str, str]:
+async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
     """Run a rom-converto subcommand and return (returncode, stdout, stderr)."""
     binary = await asyncio.to_thread(shutil.which, ROM_CONVERTO_PATH)
     if binary is None:
@@ -112,13 +112,13 @@ async def _run(argv: list[str], timeout: int) -> tuple[int, str, str]:
         ) from e
 
     try:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
-    except TimeoutError:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout_seconds)
+    except TimeoutError as err:
         proc.kill()
         await proc.wait()
         raise RomConvertoTimeoutError(
-            f"rom-converto {' '.join(argv[:2])} timed out after {timeout}s"
-        )
+            f"rom-converto {' '.join(argv[:2])} timed out after {timeout_seconds}s"
+        ) from err
 
     return (
         proc.returncode or 0,
@@ -181,7 +181,11 @@ def _parse_image(value: object) -> RomConvertoImage | None:
         return None
     raw = value.get("png_bytes")
     width, height = value.get("width"), value.get("height")
-    if not isinstance(raw, list) or not isinstance(width, int) or not isinstance(height, int):
+    if (
+        not isinstance(raw, list)
+        or not isinstance(width, int)
+        or not isinstance(height, int)
+    ):
         return None
     return RomConvertoImage(
         width=width, height=height, png=bytes(n & 0xFF for n in raw)
@@ -192,7 +196,15 @@ def _parse_icons(flat: dict) -> dict[str, RomConvertoImage]:
     """Collect embedded images under their source names: icon, small_icon,
     banner (banner_image/image on dol/rvl), pic0, pic1."""
     icons: dict[str, RomConvertoImage] = {}
-    for key in ("icon", "small_icon", "banner", "banner_image", "pic0", "pic1", "image"):
+    for key in (
+        "icon",
+        "small_icon",
+        "banner",
+        "banner_image",
+        "pic0",
+        "pic1",
+        "image",
+    ):
         image = _parse_image(flat.get(key))
         if image is not None:
             name = "banner" if key in ("banner", "banner_image", "image") else key
@@ -214,6 +226,7 @@ def _parse_container(kind: str, flat: dict) -> RomConvertoContainer | None:
     """Container/compression facts, whatever the console reports: CHD/CSO
     carry full stats, disc kinds name their container (rvz, wbfs, ...),
     Switch names its kind, ZAR reports both sizes."""
+
     def container(
         *,
         kind: str = kind,
@@ -241,12 +254,14 @@ def _parse_container(kind: str, flat: dict) -> RomConvertoContainer | None:
         )
         return container(
             format=header_version if isinstance(header_version, str) else None,
-            compression=", ".join(compressors)
-            if isinstance(compressors, list)
-            else None,
-            compression_ratio=flat.get("compression_ratio")
-            if isinstance(flat.get("compression_ratio"), (int, float))
-            else None,
+            compression=(
+                ", ".join(compressors) if isinstance(compressors, list) else None
+            ),
+            compression_ratio=(
+                flat.get("compression_ratio")
+                if isinstance(flat.get("compression_ratio"), (int, float))
+                else None
+            ),
             physical_bytes=flat.get("physical_bytes"),
             logical_bytes=flat.get("logical_bytes"),
         )
@@ -254,12 +269,16 @@ def _parse_container(kind: str, flat: dict) -> RomConvertoContainer | None:
         fmt = _first_str(flat, "format")
         return container(
             kind=(fmt or "cso").lower(),
-            format=f"{fmt} v{flat['version']}"
-            if fmt and isinstance(flat.get("version"), int)
-            else fmt,
-            compression_ratio=flat.get("compression_ratio")
-            if isinstance(flat.get("compression_ratio"), (int, float))
-            else None,
+            format=(
+                f"{fmt} v{flat['version']}"
+                if fmt and isinstance(flat.get("version"), int)
+                else fmt
+            ),
+            compression_ratio=(
+                flat.get("compression_ratio")
+                if isinstance(flat.get("compression_ratio"), (int, float))
+                else None
+            ),
             physical_bytes=flat.get("physical_bytes"),
             logical_bytes=flat.get("uncompressed_size"),
         )
@@ -278,13 +297,19 @@ def _parse_container(kind: str, flat: dict) -> RomConvertoContainer | None:
         )
     container_str = _first_str(flat, "container")
     if container_str:
-        return container(kind=container_str.lower(), physical_bytes=flat.get("physical_bytes"))
+        return container(
+            kind=container_str.lower(), physical_bytes=flat.get("physical_bytes")
+        )
     nx_kind = flat.get("container_kind")
     if isinstance(nx_kind, str):
-        return container(kind=nx_kind.lower(), physical_bytes=flat.get("physical_bytes"))
+        return container(
+            kind=nx_kind.lower(), physical_bytes=flat.get("physical_bytes")
+        )
     ctr_format = _first_str(flat, "format")
     if ctr_format:
-        return container(kind=ctr_format.lower(), physical_bytes=flat.get("physical_bytes"))
+        return container(
+            kind=ctr_format.lower(), physical_bytes=flat.get("physical_bytes")
+        )
     return None
 
 

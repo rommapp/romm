@@ -813,8 +813,8 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.artwork must be a list")
             sys.exit(3)
 
-        for key, field in ARTWORK_PRIORITY_KEYS.items():
-            override = self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(field)
+        for key, field_name in ARTWORK_PRIORITY_KEYS.items():
+            override = self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(field_name)
             if override is None:
                 continue
 
@@ -1151,10 +1151,10 @@ class ConfigManager:
         self.config.SCAN_ARTWORK_PRIORITY = artwork_priority
 
         overrides: dict[str, list[str]] = {}
-        for key, field in ARTWORK_PRIORITY_KEYS.items():
+        for key, field_name in ARTWORK_PRIORITY_KEYS.items():
             value = artwork_overrides.get(key)
             if value is not None:
-                overrides[field] = value
+                overrides[field_name] = value
         self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES = overrides
 
         self.config.SCAN_REGION_PRIORITY = region_priority

@@ -399,9 +399,7 @@ def test_update_convertto_settings_round_trip(tmp_path):
 
 def test_convertto_invalid_platform_slug_exits(tmp_path):
     config_file = tmp_path / "config.yml"
-    config_file.write_text(
-        "convertto:\n  platform_formats:\n    dreamcast: iso\n"
-    )
+    config_file.write_text("convertto:\n  platform_formats:\n    dreamcast: iso\n")
 
     with pytest.raises(SystemExit):
         ConfigManager(str(config_file))

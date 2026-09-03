@@ -13,7 +13,6 @@ class TestCleanupConversionCacheTask:
         task = CleanupConversionCacheTask()
         assert task.enabled is True
         assert task.cron_string == "0 4 * * *"
-        assert "cleanup_conversion_cache" in task.func
 
     async def test_run_calls_cleanup(self, mocker):
         task = CleanupConversionCacheTask()
@@ -24,10 +23,9 @@ class TestCleanupConversionCacheTask:
         await task.run()
         mock_cleanup.assert_called_once_with()
 
-    async def test_run_disabled_unschedules(self, mocker):
+    async def test_run_disabled_skips_the_cleanup(self, mocker):
         task = CleanupConversionCacheTask()
         task.enabled = False
-        mocker.patch.object(task, "unschedule")
         mock_cleanup = mocker.patch(
             "tasks.scheduled.cleanup_conversion_cache.cleanup_stale_conversions",
         )

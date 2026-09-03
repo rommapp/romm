@@ -4,13 +4,12 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from adapters.services import rom_converto
 from adapters.services.rom_converto import (
     RomConvertoOperationError,
+    RomConvertoService,
     RomConvertoTimeoutError,
     RomConvertoUnsupportedError,
-    RomConvertoService,
 )
 
 DOL_INFO_JSON = json.dumps(
@@ -32,8 +31,16 @@ CTR_INFO_JSON = json.dumps(
         "ncch_encrypted": True,
         "smdh": {
             "titles": [
-                {"language": "english", "short_description": "Pokemon Y", "publisher": ""},
-                {"language": "japanese", "short_description": "ポケモンY", "publisher": ""},
+                {
+                    "language": "english",
+                    "short_description": "Pokemon Y",
+                    "publisher": "",
+                },
+                {
+                    "language": "japanese",
+                    "short_description": "ポケモンY",
+                    "publisher": "",
+                },
             ]
         },
     }
@@ -391,7 +398,9 @@ class TestRunTimeout:
         ):
             with patch("shutil.which", return_value="/usr/bin/rom-converto"):
                 with pytest.raises(RomConvertoTimeoutError):
-                    await rom_converto._run(["info", "--json", "x"], timeout=0.01)
+                    await rom_converto._run(
+                        ["info", "--json", "x"], timeout_seconds=0.01
+                    )
         assert proc.killed is True
 
 
@@ -401,7 +410,7 @@ class TestConvertDispatch:
         """Record the argv handed to _run and return a canned success."""
         recorded: list[list[str]] = []
 
-        async def fake_run(argv, timeout):
+        async def fake_run(argv, timeout_seconds):
             recorded.append(argv)
             return 0, "", ""
 
@@ -417,7 +426,9 @@ class TestConvertDispatch:
         ):
             out = await service.convert("rvz", src, tmp_path)
 
-        assert recorded == [["rvl", "compress", str(src), str(tmp_path / "wii-game.rvz")]]
+        assert recorded == [
+            ["rvl", "compress", str(src), str(tmp_path / "wii-game.rvz")]
+        ]
         assert out == tmp_path / "wii-game.rvz"
 
     async def test_rvz_gc_iso_sniffs_dol(self, service, tmp_path, runner):
@@ -430,7 +441,9 @@ class TestConvertDispatch:
         ):
             await service.convert("rvz", src, tmp_path)
 
-        assert recorded == [["dol", "compress", str(src), str(tmp_path / "gc-game.rvz")]]
+        assert recorded == [
+            ["dol", "compress", str(src), str(tmp_path / "gc-game.rvz")]
+        ]
 
     async def test_rvz_wbfs_uses_rvl(self, service, tmp_path, runner):
         recorded, fake_run = runner
@@ -482,7 +495,7 @@ class TestConvertDispatch:
         src = tmp_path / "game.iso"
         src.write_bytes(b"x")
 
-        async def fake_run(argv, timeout):
+        async def fake_run(argv, timeout_seconds):
             return 1, "", b"error: bad disc key"
 
         with (
@@ -501,7 +514,7 @@ class TestConvertConcurrency:
         active = 0
         max_active = 0
 
-        async def fake_run(argv, timeout):
+        async def fake_run(argv, timeout_seconds):
             nonlocal active, max_active
             active += 1
             max_active = max(max_active, active)

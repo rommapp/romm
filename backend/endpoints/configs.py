@@ -122,7 +122,10 @@ class ConverttoSettingsPayload(BaseModel):
     @field_validator("platform_formats")
     @classmethod
     def validate_platform_formats(cls, value: dict[str, str]) -> dict[str, str]:
-        cleaned = {slug.strip().lower(): target.strip().lower() for slug, target in value.items()}
+        cleaned = {
+            slug.strip().lower(): target.strip().lower()
+            for slug, target in value.items()
+        }
         unknown_slugs = [
             slug for slug in cleaned if slug not in VALID_CONVERTTO_PLATFORM_SLUGS
         ]
@@ -326,9 +329,7 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
         db_rom_handler.invalidate_filter_values_cache()
 
 
-@protected_route(
-    router.put, "/convertto_settings", [Scope.PLATFORMS_WRITE]
-)
+@protected_route(router.put, "/convertto_settings", [Scope.PLATFORMS_WRITE])
 async def update_convertto_settings(
     request: Request, payload: ConverttoSettingsPayload
 ) -> None:

@@ -37,7 +37,8 @@ TARGET_EXTENSIONS = {
 def converted_file_path(rom_id: int, rom_file: RomFile, target: str) -> Path:
     """Deterministic cache path for a converted ROM file."""
     key = hashlib.sha1(
-        f"{rom_file.file_path}/{rom_file.file_name}|{rom_file.last_modified}|{rom_file.file_size_bytes}|{target}".encode()
+        f"{rom_file.file_path}/{rom_file.file_name}|{rom_file.last_modified}|{rom_file.file_size_bytes}|{target}".encode(),
+        usedforsecurity=False,
     ).hexdigest()[:CACHE_KEY_LENGTH]
     key_dir = Path(ROM_CONVERTO_CACHE_PATH) / f"{rom_id}-{key}"
     return key_dir / f"{Path(rom_file.file_name).stem}{TARGET_EXTENSIONS[target]}"

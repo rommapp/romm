@@ -76,6 +76,7 @@ class TestConvertLibraryTask:
     async def test_converts_single_file_roms_with_matching_extension(
         self,
         task,
+        convertto_config,
         conversion_enabled,
         fake_convert,
         rom,
@@ -90,18 +91,15 @@ class TestConvertLibraryTask:
         fake_convert.assert_called_once_with(rom.id, rom_file, "chd")
 
     async def test_skips_already_target_format_files(
-        self, task, mocker, conversion_enabled, fake_convert, rom, rom_file
+        self,
+        task,
+        convertto_config,
+        conversion_enabled,
+        fake_convert,
+        rom,
+        rom_file,
     ):
-        mocker.patch(
-            "tasks.manual.convert_library.cm",
-            mocker.Mock(
-                **{
-                    "get_config.return_value.CONVERTTO.platform_formats": {
-                        "test_platform_slug": "zip"
-                    }
-                }
-            ),
-        )
+        db_rom_handler.update_rom_file(rom_file.id, {"file_name": "test_rom.chd"})
 
         stats = await task.run()
 
@@ -112,6 +110,7 @@ class TestConvertLibraryTask:
     async def test_skips_multi_file_roms(
         self,
         task,
+        convertto_config,
         conversion_enabled,
         fake_convert,
         multi_file_rom,
@@ -123,7 +122,7 @@ class TestConvertLibraryTask:
         fake_convert.assert_not_called()
 
     async def test_counts_failed_conversions(
-        self, task, conversion_enabled, mocker, rom, rom_file
+        self, task, convertto_config, conversion_enabled, mocker, rom, rom_file
     ):
         fake_convert = mocker.patch(
             "tasks.manual.convert_library.get_or_convert", return_value=None
@@ -138,6 +137,7 @@ class TestConvertLibraryTask:
     async def test_platform_id_restricts_scope(
         self,
         task,
+        convertto_config,
         conversion_enabled,
         fake_convert,
         other_platform,

@@ -420,9 +420,7 @@ class FSRomsHandler(FSHandler):
                     self.validate_path(rom_file.full_path)
                 )
                 if info is None:
-                    log.debug(
-                        f"rom-converto did not recognize {rom_file.full_path}"
-                    )
+                    log.debug(f"rom-converto did not recognize {rom_file.full_path}")
                     continue
                 rom_file.title_id = info["title_id"] or info["serial"]
                 try:

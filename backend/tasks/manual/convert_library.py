@@ -52,7 +52,10 @@ class ConvertLibraryTask(Task):
         log.info(f"Starting {self.title} task...")
 
         convertto = cm.get_config().CONVERTTO
-        if not await rom_converto_service.is_enabled() or not convertto.platform_formats:
+        if (
+            not await rom_converto_service.is_enabled()
+            or not convertto.platform_formats
+        ):
             log.info(
                 "Conversion is not enabled or no platform formats configured, skipping"
             )

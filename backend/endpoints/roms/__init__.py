@@ -1541,9 +1541,7 @@ async def _maybe_converted_download(
     With trigger_conversion=False (HEAD preflight) only an already-cached
     conversion is reported — never start one."""
     convertto = cm.get_config().CONVERTTO
-    target = (
-        convertto.platform_formats.get(rom.platform.slug) if rom.platform else None
-    )
+    target = convertto.platform_formats.get(rom.platform.slug) if rom.platform else None
     if (
         not convertto.download_conversion_enabled
         or not await rom_converto_service.is_enabled()

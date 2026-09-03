@@ -131,9 +131,7 @@ class TestExtractTitleIds:
         assert rom_files[1].title_id == "TITLE-2"
 
     @pytest.mark.asyncio
-    async def test_unexpected_error_does_not_fail_scan(
-        self, handler, psx_rom, mocker
-    ):
+    async def test_unexpected_error_does_not_fail_scan(self, handler, psx_rom, mocker):
         rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
 
         async def read_info(path):

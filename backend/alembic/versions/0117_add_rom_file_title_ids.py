@@ -29,9 +29,7 @@ def upgrade() -> None:
         "rom_files",
         sa.Column("title_version", sa.BigInteger(), nullable=True),
     )
-    op.create_index(
-        "idx_rom_files_title_id", "rom_files", ["title_id"], unique=False
-    )
+    op.create_index("idx_rom_files_title_id", "rom_files", ["title_id"], unique=False)
 
 
 def downgrade() -> None:

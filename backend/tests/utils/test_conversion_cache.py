@@ -67,11 +67,10 @@ class TestConvertedFilePath:
         assert converted_file_path(1, _rom_file(), "nsp").name == "game.nsp"
 
     def test_key_dir_namespaces_rom_id(self):
-        assert converted_file_path(
-            1, _rom_file(), "cia-decrypted"
-        ).parent != converted_file_path(
-            2, _rom_file(), "cia-decrypted"
-        ).parent
+        assert (
+            converted_file_path(1, _rom_file(), "cia-decrypted").parent
+            != converted_file_path(2, _rom_file(), "cia-decrypted").parent
+        )
 
 
 class TestGetOrConvert:
@@ -120,9 +119,7 @@ class TestGetOrConvert:
         assert final.read_bytes() == b"converted"
         assert not sentinel.exists()
 
-    async def test_conversion_failure_returns_none_and_cleans(
-        self, cache_root, mocker
-    ):
+    async def test_conversion_failure_returns_none_and_cleans(self, cache_root, mocker):
         mocker.patch.object(
             conversion_cache.rom_converto_service,
             "convert",
