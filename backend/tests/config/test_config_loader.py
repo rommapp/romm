@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import pytest
+
 from config.config_manager import (
     DEFAULT_EXCLUDED_DIRS,
     DEFAULT_EXCLUDED_EXTENSIONS,
@@ -131,6 +133,10 @@ def test_empty_config_loader():
     assert loader.config.SCAN_REGION_MODE == "prefer_rom_tags"
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
+    assert not loader.config.CONVERTTO.download_conversion_enabled
+    assert loader.config.CONVERTTO.scan_metadata
+    assert loader.config.CONVERTTO.cache_ttl_hours == 24
+    assert loader.config.CONVERTTO.platform_formats == {}
 
 
 def test_missing_config_file_is_created(tmp_path):
@@ -350,3 +356,60 @@ def test_config_update_preserves_streaming_section(tmp_path):
             "label": "PCSX2",
         }
     ]
+
+
+def test_convertto_config_from_yaml(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "convertto:\n"
+        "  download_conversion_enabled: true\n"
+        "  scan_metadata: false\n"
+        "  cache_ttl_hours: 48\n"
+        "  platform_formats:\n"
+        "    PSP: iso\n"
+        "    ngc: rvz\n"
+    )
+    loader = ConfigManager(str(config_file))
+
+    # Slugs and targets are normalized to lowercase.
+    assert loader.config.CONVERTTO.download_conversion_enabled is True
+    assert loader.config.CONVERTTO.scan_metadata is False
+    assert loader.config.CONVERTTO.cache_ttl_hours == 48
+    assert loader.config.CONVERTTO.platform_formats == {"psp": "iso", "ngc": "rvz"}
+
+
+def test_update_convertto_settings_round_trip(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("convertto:\n  cache_ttl_hours: 12\n")
+    loader = ConfigManager(str(config_file))
+
+    loader.update_convertto_settings(
+        download_conversion_enabled=True,
+        scan_metadata=True,
+        cache_ttl_hours=72,
+        platform_formats={"psp": "iso", "ngc": "rvz"},
+    )
+
+    reloaded = ConfigManager(str(config_file))
+    assert reloaded.config.CONVERTTO.download_conversion_enabled is True
+    assert reloaded.config.CONVERTTO.scan_metadata is True
+    assert reloaded.config.CONVERTTO.cache_ttl_hours == 72
+    assert reloaded.config.CONVERTTO.platform_formats == {"psp": "iso", "ngc": "rvz"}
+
+
+def test_convertto_invalid_platform_slug_exits(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "convertto:\n  platform_formats:\n    dreamcast: iso\n"
+    )
+
+    with pytest.raises(SystemExit):
+        ConfigManager(str(config_file))
+
+
+def test_convertto_invalid_target_format_exits(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("convertto:\n  platform_formats:\n    psp: zso\n")
+
+    with pytest.raises(SystemExit):
+        ConfigManager(str(config_file))

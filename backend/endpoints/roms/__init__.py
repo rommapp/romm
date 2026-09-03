@@ -32,12 +32,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
+from adapters.services.rom_converto import rom_converto_service
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
+    ROM_CONVERTO_CACHE_PATH,
+    ROM_CONVERTO_MAX_SYNC_SIZE_MB,
 )
+from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.rom import (
@@ -100,6 +104,7 @@ from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
     TITLE_ID_MAX_LENGTH,
     Rom,
+    RomFile,
     RomUserStatus,
     SaveTargetLayout,
     apply_file_stats,
@@ -114,6 +119,11 @@ from utils.m3u import generate_m3u_content
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.screenshots import continue_playing_screenshot
+from utils.conversion_cache import (
+    TARGET_EXTENSIONS,
+    get_cached_converted,
+    get_or_convert,
+)
 from utils.validation import ValidationError, parse_comma_separated_ids
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
@@ -1484,6 +1494,17 @@ async def head_rom_content(
 
     # Otherwise proxy through nginx
     if len(files) == 1:
+        # Match GET: report the converted download when one is already cached,
+        # so clients polling HEAD see the same filename the GET will serve.
+        converted_path = await _maybe_converted_download(
+            rom, files[0], trigger_conversion=False
+        )
+        if converted_path:
+            return FileRedirectResponse(
+                download_path=Path("/cache/converts")
+                / converted_path.relative_to(ROM_CONVERTO_CACHE_PATH),
+                filename=converted_path.name,
+            )
         return FileRedirectResponse(
             download_path=Path(f"/library/{files[0].full_path}"),
         )
@@ -1509,6 +1530,39 @@ async def head_rom_content(
             "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
         },
     )
+
+
+async def _maybe_converted_download(
+    rom: Rom, file: RomFile, trigger_conversion: bool = True
+) -> Path | None:
+    """Return the converted file's disk path for a single-file download, or
+    None to serve the original. Every failure path falls back to the original.
+
+    With trigger_conversion=False (HEAD preflight) only an already-cached
+    conversion is reported — never start one."""
+    convertto = cm.get_config().CONVERTTO
+    target = (
+        convertto.platform_formats.get(rom.platform.slug) if rom.platform else None
+    )
+    if (
+        not convertto.download_conversion_enabled
+        or not await rom_converto_service.is_enabled()
+        or not target
+        # Skip pointless re-encodes of already-target-format files.
+        or f".{file.file_extension.lower()}" == TARGET_EXTENSIONS[target]
+        or ROM_CONVERTO_MAX_SYNC_SIZE_MB <= 0
+        or (file.file_size_bytes or rom.fs_size_bytes)
+        > ROM_CONVERTO_MAX_SYNC_SIZE_MB * 1024 * 1024
+    ):
+        return None
+
+    if not trigger_conversion:
+        return get_cached_converted(rom.id, file, target)
+
+    log.info(
+        f"Converting {hl(file.file_name)} of ROM {rom.id} to {hl(target)} for download"
+    )
+    return await get_or_convert(rom.id, file, target)
 
 
 @protected_route(
@@ -1657,8 +1711,16 @@ async def get_rom_content(
 
     # Otherwise proxy through nginx
     if len(files) == 1:
+        file = files[0]
+        converted_path = await _maybe_converted_download(rom, file)
+        if converted_path:
+            return FileRedirectResponse(
+                download_path=Path("/cache/converts")
+                / converted_path.relative_to(ROM_CONVERTO_CACHE_PATH),
+                filename=converted_path.name,
+            )
         return FileRedirectResponse(
-            download_path=Path(f"/library/{files[0].full_path}"),
+            download_path=Path(f"/library/{file.full_path}"),
         )
 
     # Multi-file path: serve cached ZIP for Range requests (resumable),

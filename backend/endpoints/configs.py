@@ -5,6 +5,8 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_DIRS,
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
+    VALID_CONVERTTO_PLATFORM_SLUGS,
+    VALID_CONVERTTO_TARGET_FORMATS,
     VALID_GAMELIST_IMAGE_TYPES,
     VALID_GAMELIST_THUMBNAIL_TYPES,
     VALID_SCAN_PRIORITY_SOURCES,
@@ -102,6 +104,42 @@ class ScanSettingsPayload(BaseModel):
         return value
 
 
+class ConverttoSettingsPayload(BaseModel):
+    """Full replacement of the convertto.* config section."""
+
+    download_conversion_enabled: bool
+    scan_metadata: bool
+    cache_ttl_hours: int
+    platform_formats: dict[str, str]
+
+    @field_validator("cache_ttl_hours")
+    @classmethod
+    def validate_cache_ttl(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("cache_ttl_hours must be an integer >= 1")
+        return value
+
+    @field_validator("platform_formats")
+    @classmethod
+    def validate_platform_formats(cls, value: dict[str, str]) -> dict[str, str]:
+        cleaned = {slug.strip().lower(): target.strip().lower() for slug, target in value.items()}
+        unknown_slugs = [
+            slug for slug in cleaned if slug not in VALID_CONVERTTO_PLATFORM_SLUGS
+        ]
+        if unknown_slugs:
+            raise ValueError(f"Unknown platform slug(s): {sorted(unknown_slugs)}")
+        unknown_targets = [
+            target
+            for target in cleaned.values()
+            if target not in VALID_CONVERTTO_TARGET_FORMATS
+        ]
+        if unknown_targets:
+            raise ValueError(
+                f"Unknown target format(s): {sorted(set(unknown_targets))}"
+            )
+        return cleaned
+
+
 @router.get("")
 def get_config(request: Request) -> ConfigResponse:
     """Get config endpoint
@@ -151,6 +189,7 @@ def get_config(request: Request) -> ConfigResponse:
         GAMELIST_MEDIA_THUMBNAIL=cfg.GAMELIST_MEDIA_THUMBNAIL,
         GAMELIST_MEDIA_IMAGE=cfg.GAMELIST_MEDIA_IMAGE,
         PEGASUS_AUTO_EXPORT_ON_SCAN=cfg.PEGASUS_AUTO_EXPORT_ON_SCAN,
+        CONVERTTO=cfg.CONVERTTO,
     )
 
 
@@ -285,3 +324,25 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
     # cached gallery sidecar is stale the moment the order changes.
     if region_priority_changed:
         db_rom_handler.invalidate_filter_values_cache()
+
+
+@protected_route(
+    router.put, "/convertto_settings", [Scope.PLATFORMS_WRITE]
+)
+async def update_convertto_settings(
+    request: Request, payload: ConverttoSettingsPayload
+) -> None:
+    """Replace the convertto.* section of the configuration"""
+
+    try:
+        cm.update_convertto_settings(
+            download_conversion_enabled=payload.download_conversion_enabled,
+            scan_metadata=payload.scan_metadata,
+            cache_ttl_hours=payload.cache_ttl_hours,
+            platform_formats=payload.platform_formats,
+        )
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc

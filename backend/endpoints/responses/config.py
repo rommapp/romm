@@ -1,6 +1,11 @@
 from typing import TypedDict
 
-from config.config_manager import EjsControls, MetadataMediaType, NetplayICEServer
+from config.config_manager import (
+    ConverttoConfig,
+    EjsControls,
+    MetadataMediaType,
+    NetplayICEServer,
+)
 
 
 class ConfigResponse(TypedDict):
@@ -37,3 +42,4 @@ class ConfigResponse(TypedDict):
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     PEGASUS_AUTO_EXPORT_ON_SCAN: bool
+    CONVERTTO: ConverttoConfig

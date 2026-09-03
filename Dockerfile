@@ -51,6 +51,24 @@ RUN make HAVE_CHD=1 -f ./Makefile.RAHasher \
     && cp ./bin64/RAHasher /usr/bin/RAHasher
 RUN rm -rf /tmp/RALibretro
 
+# Install rom-converto (optional ROM conversion/decryption/metadata tool).
+# Pin the release and verify its published sha256; the musl builds are
+# fully static so they run on this glibc image.
+ARG ROM_CONVERTO_VERSION=v0.21.0
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+        amd64) rc="linux-x64-musl" ;; \
+        arm64) rc="linux-arm64-musl" ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
+    esac \
+    && curl -fsSL -o "/tmp/rom-converto-cli-${rc}" \
+        "https://github.com/DevYukine/rom-converto/releases/download/${ROM_CONVERTO_VERSION}/rom-converto-cli-${rc}" \
+    && curl -fsSL -o "/tmp/rom-converto-cli-${rc}.sha256" \
+        "https://github.com/DevYukine/rom-converto/releases/download/${ROM_CONVERTO_VERSION}/rom-converto-cli-${rc}.sha256" \
+    && cd /tmp && sha256sum -c "rom-converto-cli-${rc}.sha256" --status \
+    && install -m 0755 "/tmp/rom-converto-cli-${rc}" /usr/bin/rom-converto \
+    && rm -f "/tmp/rom-converto-cli-${rc}" "/tmp/rom-converto-cli-${rc}.sha256"
+
 # Install frontend dependencies
 COPY frontend/package.json /app/frontend/
 WORKDIR /app/frontend
