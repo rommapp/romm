@@ -1,6 +1,5 @@
-// Scan types accepted by the `scan` socket event. Mirrors `ScanType` in
-// backend/handler/scan_handler.py, which never reaches the OpenAPI schema
-// because scans are started over Socket.IO rather than REST.
+// Mirrors `ScanType` in backend/handler/scan_handler.py: scans start over
+// Socket.IO, so the enum never reaches the OpenAPI schema.
 export type ScanType =
   | "new_platforms"
   | "quick"
@@ -10,9 +9,8 @@ export type ScanType =
   | "hashes"
   | "complete";
 
-/** One `scan` socket event: what to scan, plus the provider picks
- *  `useScanProviders().buildScanPayload()` contributes. A files scan reads
- *  no providers, so only `apis` is always sent. */
+/** One `scan` socket event. The provider flags are optional because a files
+ *  scan sends none of them. */
 export interface ScanRequest {
   type: ScanType;
   platforms?: number[];

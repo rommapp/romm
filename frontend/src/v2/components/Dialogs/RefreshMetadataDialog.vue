@@ -55,13 +55,8 @@ const {
   persistSelection,
 } = useScanProviders();
 
-// Per-ROM scan types — the Scan view's "new platforms" / "quick"
-// options don't apply to an already-ingested ROM. We keep `update`
-// (re-fetch by existing id and repopulate missing fields like summary
-// or cover), `hashes` (recalculate file hashes only — useful when
-// files changed on disk or hashing was disabled at scan time), `files`
-// (pick up files added to the ROM's folder without touching providers)
-// and `complete` (wipe + rematch from scratch).
+// Per-ROM scan types: the Scan view's "new platforms" and "quick" only apply
+// to a ROM the library has not ingested yet.
 type ScanType = Extract<
   SharedScanType,
   "update" | "hashes" | "files" | "complete"

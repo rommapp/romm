@@ -1,6 +1,5 @@
-// useScanTrigger: starts per-ROM scans over the `scan` socket event. The
-// RefreshMetadataDialog and the direct "Refresh files" action share it so
-// the running-scan guard and the store flip behave the same in both.
+// useScanTrigger: starts scans over the `scan` socket event, so every caller
+// refuses a second one the same way while a scan is running.
 import { useI18n } from "vue-i18n";
 import socket from "@/services/socket";
 import storeScanning from "@/stores/scanning";
