@@ -1,4 +1,3 @@
-import enum
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,19 +16,12 @@ from utils.audio_tags import remove_persisted_cover
 ROM_LEVEL_HASH_COLUMNS = ("crc_hash", "md5_hash", "sha1_hash", "ra_hash")
 
 
-class HashPolicy(enum.StrEnum):
-    FULL = "full"
-    INCREMENTAL = "incremental"
-
-
 @dataclass(frozen=True)
 class RomFilesRefresh:
     files: list[RomFile]
     new_files: int
     updated_files: int
     removed_files: int
-    top_level_changed: bool
-    rom_updates: dict[str, Any]
 
     @property
     def changed(self) -> bool:
@@ -43,15 +35,12 @@ def loaded_rom_files(rom: Rom) -> list[RomFile]:
     return db_rom_handler.rom_files_for_rom_id(rom.id)
 
 
-async def refresh_rom_files(
-    rom: Rom, *, hash_policy: HashPolicy = HashPolicy.INCREMENTAL
-) -> RomFilesRefresh:
-    """Reconcile a ROM's file rows with what is on disk.
+async def refresh_rom_files(rom: Rom) -> RomFilesRefresh:
+    """Reconcile a ROM's file rows with what is on disk, keeping the stored
+    hashes of files whose size and mtime are unchanged.
 
     Args:
         rom: A persisted ROM whose folder or file exists on disk.
-        hash_policy: INCREMENTAL keeps the stored hashes of unchanged files,
-            FULL re-reads every file.
     Returns:
         The persisted rows and what changed, so callers can report it.
     """
@@ -60,7 +49,7 @@ async def refresh_rom_files(
     parsed = await fs_rom_handler.get_rom_files(
         rom,
         calculate_hashes=calculate_hashes,
-        existing_files=existing if hash_policy == HashPolicy.INCREMENTAL else None,
+        existing_files=existing,
     )
     if existing and not parsed.rom_files:
         # A mount that dropped out would otherwise read as every file deleted.
@@ -68,7 +57,7 @@ async def refresh_rom_files(
             f"{hl(rom.fs_name)} lists no files on disk, keeping its "
             f"{len(existing)} recorded files"
         )
-        return RomFilesRefresh([], 0, 0, 0, False, {})
+        return RomFilesRefresh([], 0, 0, 0)
 
     existing_keys = {rom_file_key(f) for f in existing}
     reused_ids = {id(f) for f in existing}
@@ -112,6 +101,4 @@ async def refresh_rom_files(
         new_files=len(new_keys),
         updated_files=len(updated_keys),
         removed_files=len(removed_keys),
-        top_level_changed=parsed.top_level_changed,
-        rom_updates=rom_updates,
     )

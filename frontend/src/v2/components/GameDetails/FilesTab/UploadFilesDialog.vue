@@ -21,14 +21,12 @@ export interface UploadFolderOption {
   /** Folder path relative to the ROM root; "" is the root itself. */
   value: string;
   label: string;
-  icon: string;
 }
 
 const props = defineProps<{
   modelValue: boolean;
   folders: UploadFolderOption[];
   initialFolder: string;
-  uploading: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -76,7 +74,7 @@ function close() {
 }
 
 async function submit() {
-  if (files.value.length === 0 || props.uploading) return;
+  if (files.value.length === 0) return;
   const result = await formRef.value?.validate();
   if (result && !result.valid) return;
   const folder =
@@ -180,8 +178,7 @@ async function submit() {
         variant="translucent"
         color="primary"
         prepend-icon="mdi-cloud-upload-outline"
-        :disabled="files.length === 0 || uploading"
-        :loading="uploading"
+        :disabled="files.length === 0"
         @click="submit"
       >
         {{ t("common.upload") }}

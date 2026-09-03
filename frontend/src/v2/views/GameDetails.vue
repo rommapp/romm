@@ -59,7 +59,7 @@ useRightStickScroll(panelEl);
 
 // The files badge and every tab read `currentRom`, so the view owns the
 // post-scan refetch rather than the Files tab.
-useRomScanRefresh(() => currentRom.value?.id ?? null);
+useRomScanRefresh();
 
 onBeforeRouteUpdate(async (to) => {
   const nextId = parseInt(to.params.rom as string);

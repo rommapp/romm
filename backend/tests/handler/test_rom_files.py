@@ -6,7 +6,7 @@ import pytest
 
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.rom_files import HashPolicy, refresh_rom_files
+from handler.rom_files import refresh_rom_files
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
@@ -79,7 +79,6 @@ async def test_registers_new_nested_file(platform, admin_user, library):
     result = await refresh_rom_files(rom)
 
     assert (result.new_files, result.updated_files, result.removed_files) == (1, 0, 0)
-    assert result.top_level_changed is False
     new = _files_by_name(rom.id)["fix.ips"]
     assert new.category == RomFileCategory.PATCH
     assert (
@@ -98,7 +97,6 @@ async def test_top_level_addition_updates_rom_hashes_and_size(
 
     result = await refresh_rom_files(rom)
 
-    assert result.top_level_changed is True
     assert result.new_files == 1
     expected = hashlib.md5(usedforsecurity=False)
     for rom_file in result.files:
@@ -124,7 +122,6 @@ async def test_unchanged_rom_writes_nothing(platform, admin_user, library, mocke
     result = await refresh_rom_files(rom)
 
     assert not result.changed
-    assert result.rom_updates == {}
     sync.assert_not_called()
     update.assert_not_called()
 
@@ -138,8 +135,9 @@ async def test_removes_rows_for_vanished_files(platform, admin_user, library):
     result = await refresh_rom_files(rom)
 
     assert result.removed_files == 1
-    assert result.top_level_changed is False
     assert set(_files_by_name(rom.id)) == {"game.bin"}
+    # A nested file leaves the top level, and so the rom hash, alone.
+    assert db_rom_handler.get_rom(rom.id).md5_hash == "stored-md5"
 
 
 async def test_clears_missing_flag(platform, admin_user, library):
@@ -149,7 +147,7 @@ async def test_clears_missing_flag(platform, admin_user, library):
 
     result = await refresh_rom_files(rom)
 
-    assert result.rom_updates == {"missing_from_fs": False}
+    assert not result.changed
     assert db_rom_handler.get_rom(rom.id).missing_from_fs is False
 
 
@@ -164,14 +162,14 @@ async def test_empty_folder_keeps_recorded_rows(platform, admin_user, library):
     assert set(_files_by_name(rom.id)) == {"game.bin"}
 
 
-async def test_full_policy_rehashes_every_file_in_place(platform, admin_user, library):
-    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+async def test_edited_file_is_rehashed_in_place(platform, admin_user, library):
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"stale"})
     row_id = rom.files[0].id
+    _write(library, f"{rom.fs_path}/{FOLDER}/game.bin", b"game")
 
-    result = await refresh_rom_files(rom, hash_policy=HashPolicy.FULL)
+    result = await refresh_rom_files(rom)
 
     assert result.updated_files == 1
-    assert result.top_level_changed is True
     after = db_rom_handler.get_rom(rom.id)
     assert after.files[0].id == row_id
     assert (
@@ -208,7 +206,6 @@ async def test_disabled_hashing_keeps_stored_rom_hashes(
     result = await refresh_rom_files(rom)
 
     assert result.new_files == 1
-    assert result.top_level_changed is True
     after = db_rom_handler.get_rom(rom.id)
     assert (after.crc_hash, after.md5_hash, after.sha1_hash) == (
         "stored-crc",

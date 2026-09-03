@@ -232,10 +232,8 @@ onBeforeUnmount(() => {
 .r-v2-shell__app {
   position: relative;
   z-index: 2;
-  /* Match .r-v2-shell so the BottomNav anchor (absolute; inset: 0 against
-     this box) always spans the full viewport. Without it a short view
-     leaves the app shorter than the screen and the sticky pill floats
-     above the real bottom edge. */
+  /* Matches .r-v2-shell so the absolutely-positioned BottomNav anchor
+     spans the viewport even when the content is shorter than the screen. */
   min-height: 100vh;
   min-height: 100dvh;
 }

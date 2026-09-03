@@ -175,8 +175,7 @@ function onScan() {
       icon: "mdi-loading mdi-spin",
     });
   } else {
-    const r = roms.value[0];
-    const name = r.name ?? r.fs_name;
+    const name = singleRomTitle.value;
     snackbar.info(
       scanType.value === "files"
         ? t("rom.refreshing-files", { name })

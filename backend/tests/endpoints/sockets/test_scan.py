@@ -37,7 +37,7 @@ from handler.filesystem.roms_handler import (
     ParsedTags,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from handler.rom_files import HashPolicy, RomFilesRefresh
+from handler.rom_files import RomFilesRefresh
 from handler.scan_handler import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from models.firmware import Firmware
@@ -2324,12 +2324,7 @@ def identify_harness(mocker):
         "refresh_rom_files",
         AsyncMock(
             return_value=RomFilesRefresh(
-                files=[],
-                new_files=2,
-                updated_files=0,
-                removed_files=1,
-                top_level_changed=False,
-                rom_updates={},
+                files=[], new_files=2, updated_files=0, removed_files=1
             )
         ),
     )
@@ -2399,26 +2394,19 @@ class TestIdentifyRomFiles:
             scan_stats=scan_stats,
         )
 
-        identify_harness.refresh.assert_awaited_once_with(
-            rom, hash_policy=HashPolicy.INCREMENTAL
-        )
+        identify_harness.refresh.assert_awaited_once_with(rom)
         identify_harness.scan_rom.assert_not_called()
         identify_harness.db.add_rom.assert_not_called()
         scan_stats.increment.assert_awaited_once_with(
             socket_manager=socket_manager, scanned_roms=1, updated_roms=1, new_files=2
         )
-        identify_harness.db.get_rom.assert_called_once_with(rom.id)
+        identify_harness.db.get_rom_simple.assert_called_once_with(rom.id)
         socket_manager.emit.assert_awaited_once()
         assert socket_manager.emit.await_args.args[0] == "scan:scanning_rom"
 
     async def test_unchanged_rom_emits_nothing(self, identify_harness):
         identify_harness.refresh.return_value = RomFilesRefresh(
-            files=[],
-            new_files=0,
-            updated_files=0,
-            removed_files=0,
-            top_level_changed=False,
-            rom_updates={},
+            files=[], new_files=0, updated_files=0, removed_files=0
         )
         socket_manager = AsyncMock()
         scan_stats = AsyncMock()
@@ -2434,7 +2422,7 @@ class TestIdentifyRomFiles:
         scan_stats.increment.assert_awaited_once_with(
             socket_manager=socket_manager, scanned_roms=1, updated_roms=0, new_files=0
         )
-        identify_harness.db.get_rom.assert_not_called()
+        identify_harness.db.get_rom_simple.assert_not_called()
         socket_manager.emit.assert_not_awaited()
 
     async def test_new_rom_takes_the_regular_path(self, identify_harness):

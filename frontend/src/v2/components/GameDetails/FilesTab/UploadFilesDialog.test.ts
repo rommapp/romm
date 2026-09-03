@@ -54,7 +54,6 @@ function mountDialog(initialFolder = "") {
       modelValue: true,
       folders: [{ value: "hack", label: "Hack", icon: "mdi-pencil-ruler" }],
       initialFolder,
-      uploading: false,
     },
     global: {
       stubs: {

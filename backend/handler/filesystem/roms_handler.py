@@ -231,9 +231,9 @@ def rom_file_unchanged(
     )
 
 
-def _flat_file_unchanged(row: RomFile, file_path: Path, hashable: bool) -> bool:
+async def _flat_file_unchanged(row: RomFile, file_path: Path, hashable: bool) -> bool:
     try:
-        st = os.stat(file_path)
+        st = await asyncio.to_thread(os.stat, file_path)
     except OSError:
         return False
     return rom_file_unchanged(
@@ -596,18 +596,15 @@ class FSRomsHandler(FSHandler):
                     # RAHasher can't process CHD files via the /* wildcard and instead expects
                     # track files (bin/cue/etc.). For CHD-only folders, find the largest
                     # CHD and pass it directly, matching single-file CHD behaviour.
-
-                    def _largest_chd_file() -> Path | None:
-                        chds = [f for f in rom_dir.iterdir() if is_chd_file(f)]
-                        sorted_chds = sorted(
-                            chds, key=lambda f: f.stat().st_size, reverse=True
-                        )
-                        return sorted_chds[0] if sorted_chds else None
-
-                    chd_file = await asyncio.to_thread(_largest_chd_file)
+                    top_level_chds = [
+                        (st.st_size, Path(f_path, file_name))
+                        for f_path, file_name, st in entries
+                        if f_path == rom_dir and is_chd_file(Path(f_path, file_name))
+                    ]
+                    largest_chd = max(top_level_chds, key=lambda c: c[0], default=None)
                     ra_path = (
-                        str(chd_file)
-                        if chd_file and chd_file.is_file()
+                        str(largest_chd[1])
+                        if largest_chd
                         else f"{abs_fs_path}/{rom.fs_name}/*"
                     )
                     rom_ra_h = await RAHasherService().calculate_hash(
@@ -698,7 +695,7 @@ class FSRomsHandler(FSHandler):
             existing_by_key is not None
             and (flat_row := existing_by_key.get((rel_roms_path, rom.fs_name)))
             is not None
-            and _flat_file_unchanged(flat_row, rom_dir, hashable_platform)
+            and await _flat_file_unchanged(flat_row, rom_dir, hashable_platform)
         ):
             rom_files.append(flat_row)
             top_level_changed = False
@@ -854,30 +851,33 @@ class FSRomsHandler(FSHandler):
             rom.platform_slug, sigil_extractions
         )
 
-        if not top_level_changed:
-            return ParsedRomFiles(
-                rom_files=rom_files,
-                crc_hash=rom.crc_hash or "",
-                md5_hash=rom.md5_hash or "",
-                sha1_hash=rom.sha1_hash or "",
-                ra_hash=rom.ra_hash or "",
-                top_level_changed=False,
-            )
-
-        return ParsedRomFiles(
-            rom_files=rom_files,
-            crc_hash=crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else "",
-            md5_hash=(
+        if top_level_changed:
+            crc_hash = crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else ""
+            md5_hash = (
                 rom_md5_h.hexdigest()
                 if rom_md5_h and rom_md5_h.digest() != DEFAULT_MD5_H_DIGEST
                 else ""
-            ),
-            sha1_hash=(
+            )
+            sha1_hash = (
                 rom_sha1_h.hexdigest()
                 if rom_sha1_h and rom_sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
                 else ""
-            ),
-            ra_hash=rom_ra_h,
+            )
+            ra_hash = rom_ra_h
+        else:
+            # Nothing was re-read at this level, so the stored identity stands.
+            crc_hash = rom.crc_hash or ""
+            md5_hash = rom.md5_hash or ""
+            sha1_hash = rom.sha1_hash or ""
+            ra_hash = rom.ra_hash or ""
+
+        return ParsedRomFiles(
+            rom_files=rom_files,
+            crc_hash=crc_hash,
+            md5_hash=md5_hash,
+            sha1_hash=sha1_hash,
+            ra_hash=ra_hash,
+            top_level_changed=top_level_changed,
             title_id=rom_title_id,
             save_target=rom_save_target,
             save_target_layout=rom_save_target_layout,

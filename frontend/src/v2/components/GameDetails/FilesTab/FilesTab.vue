@@ -19,11 +19,8 @@
 // inside each row.
 //
 // Section header (per active subtab):
-//   * Upload: sends files into the active folder (or the ROM root)
-//     through the chunked upload; the backend registers them on the
-//     ROM. From "All files", or via the folder button, a dialog asks
-//     for the destination first, including a folder that does not
-//     exist yet. A single-file ROM is promoted to a folder ROM first.
+//   * Upload: the active subtab supplies the destination folder; "All
+//     files" has none, so the dialog asks for one.
 //
 // Content column:
 //   * Section header (Upload + Patch)
@@ -184,11 +181,22 @@ const files = computed<RomFileSchema[]>(() => {
   return arr;
 });
 
+// Resolved once per listing: the sort comparator, the folder grouping and
+// every row read the same path, and the template re-runs on any selection.
+const relativePaths = computed(() => {
+  const paths = new Map<number, string>();
+  for (const file of props.rom.files ?? []) {
+    paths.set(
+      file.id,
+      file.full_path.replace(props.rom.full_path, "").replace(/^\//, "") ||
+        file.file_name,
+    );
+  }
+  return paths;
+});
+
 function relativePath(file: RomFileSchema): string {
-  return (
-    file.full_path.replace(props.rom.full_path, "").replace(/^\//, "") ||
-    file.file_name
-  );
+  return relativePaths.value.get(file.id) ?? file.file_name;
 }
 
 // Path rendered in each row. Inside a folder subtab the folder name is
@@ -534,10 +542,6 @@ async function deleteSelectedFiles() {
   await deleteFiles(toDelete);
 }
 
-async function deleteFile(file: RomFileSchema) {
-  await deleteFiles([file]);
-}
-
 // ---------- Upload ----------
 // One hidden `<input>` serves every folder: the active subtab decides
 // the destination, and the dialog covers "All files" or a new folder.
@@ -550,7 +554,7 @@ const alive = useIsAlive();
 const uploadFolders = computed<UploadFolderOption[]>(() =>
   subtabDefs.value
     .filter((s) => s.id !== "all" && s.id !== ROOT)
-    .map((s) => ({ value: s.id, label: s.label, icon: s.icon })),
+    .map((s) => ({ value: s.id, label: s.label })),
 );
 
 // Destination implied by the active subtab: "" for the ROM root, null
@@ -669,7 +673,6 @@ async function refreshRom() {
     v-model="uploadDialogOpen"
     :folders="uploadFolders"
     :initial-folder="activeUploadFolder ?? ''"
-    :uploading="uploading"
     @submit="onDialogSubmit"
   />
 
@@ -833,7 +836,7 @@ async function refreshRom() {
           @toggle="toggleFile(file)"
           @download="downloadFile(file)"
           @copy-link="copyFileLink(file)"
-          @delete="deleteFile(file)"
+          @delete="deleteFiles([file])"
         />
       </ul>
     </div>

@@ -55,7 +55,7 @@ from handler.redis_handler import (
     redis_client,
     scan_queue,
 )
-from handler.rom_files import HashPolicy, loaded_rom_files, refresh_rom_files
+from handler.rom_files import loaded_rom_files, refresh_rom_files
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -297,10 +297,7 @@ def should_scan_rom(
     # This logic is tricky so only touch it if you know what you're doing"""
     should_scan = bool(
         # Any new roms should be scanned
-        (
-            scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK, ScanType.FILES}
-            and not rom
-        )
+        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
         # Complete rescan should scan all roms
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
@@ -555,7 +552,7 @@ async def _identify_rom(
     # A files scan only reconciles an existing entry's files with disk; the
     # metadata pipeline below is for new entries and the other scan types.
     if not newly_added and not reassociated and scan_type == ScanType.FILES:
-        refreshed = await refresh_rom_files(rom, hash_policy=HashPolicy.INCREMENTAL)
+        refreshed = await refresh_rom_files(rom)
         await scan_stats.increment(
             socket_manager=socket_manager,
             scanned_roms=1,
@@ -568,7 +565,7 @@ async def _identify_rom(
                 f"{refreshed.new_files} new, {refreshed.updated_files} updated, "
                 f"{refreshed.removed_files} removed"
             )
-            hydrated_rom = db_rom_handler.get_rom(rom.id)
+            hydrated_rom = db_rom_handler.get_rom_simple(rom.id)
             if hydrated_rom is not None:
                 await _emit_scanning_rom(socket_manager, hydrated_rom)
         return

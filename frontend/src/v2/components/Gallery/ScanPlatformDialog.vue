@@ -21,10 +21,9 @@ import {
 } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import socket from "@/services/socket";
 import type { Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import type { ScanType as SharedScanType } from "@/v2/types/scan";
 
@@ -41,7 +40,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
-const scanningStore = storeScanning();
+const { startScan } = useScanTrigger();
 
 const {
   calculateHashes,
@@ -106,15 +105,15 @@ function closeDialog() {
 }
 
 function onScan() {
-  scanningStore.setScanning(true);
+  const started = startScan([
+    {
+      platforms: [props.platform.id],
+      type: scanType.value,
+      ...buildScanPayload(),
+    },
+  ]);
+  if (!started) return;
   persistSelection();
-
-  if (!socket.connected) socket.connect();
-  socket.emit("scan", {
-    platforms: [props.platform.id],
-    type: scanType.value,
-    ...buildScanPayload(),
-  });
 
   snackbar.info(`Scanning ${props.platform.display_name}…`, {
     icon: "mdi-loading mdi-spin",

@@ -8,7 +8,7 @@ import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
-export function useRomScanRefresh(getRomId: () => number | null) {
+export function useRomScanRefresh() {
   const romsStore = storeRoms();
   const { syncCachedRom } = useRomSync();
   const alive = useIsAlive();
@@ -16,8 +16,8 @@ export function useRomScanRefresh(getRomId: () => number | null) {
   useSocketEvent<ScanStats>(
     "scan:done",
     async () => {
-      const romId = getRomId();
-      if (romId === null) return;
+      const romId = romsStore.currentRom?.id;
+      if (romId === undefined) return;
       try {
         const { data } = await romApi.getRom({ romId });
         if (!alive.value || romsStore.currentRom?.id !== romId) return;

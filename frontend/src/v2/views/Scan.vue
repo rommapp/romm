@@ -47,9 +47,11 @@ import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import type { ScanType } from "@/v2/types/scan";
 
 const { t } = useI18n();
+const { startScan } = useScanTrigger();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
@@ -242,19 +244,19 @@ function scan() {
   // bar start at 0 instead of inheriting the previous scan's final
   // counters.
   scanningStore.reset();
-  scanningStore.setScanning(true);
   scanningPlatforms.value = [];
   userScrolledDown = false;
 
-  if (!socket.connected) socket.connect();
+  const started = startScan([
+    {
+      platform_fs_slugs: platformsToScan.value,
+      type: scanType.value,
+      ...buildScanPayload(),
+    },
+  ]);
+  if (!started) return;
 
   persistSelection();
-
-  socket.emit("scan", {
-    platform_fs_slugs: platformsToScan.value,
-    type: scanType.value,
-    ...buildScanPayload(),
-  });
 }
 
 function stopScan() {

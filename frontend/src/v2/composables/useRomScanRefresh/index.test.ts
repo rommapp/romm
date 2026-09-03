@@ -32,11 +32,11 @@ function rom(overrides: Partial<DetailedRom> = {}): DetailedRom {
   return { id: 3, files: [], ...overrides } as DetailedRom;
 }
 
-function install(getRomId: () => number | null) {
+function install() {
   return mount(
     defineComponent({
       setup() {
-        useRomScanRefresh(getRomId);
+        useRomScanRefresh();
         return () => null;
       },
     }),
@@ -56,7 +56,7 @@ describe("useRomScanRefresh", () => {
     romsStore.setCurrentRom(rom());
     const fresh = rom({ files: [{ id: 9 } as RomFileSchema] });
     getRom.mockResolvedValue({ data: fresh });
-    install(() => 3);
+    install();
 
     handlers.get("scan:done")?.({});
     await flushPromises();
@@ -71,7 +71,7 @@ describe("useRomScanRefresh", () => {
     romsStore.setCurrentRom(rom());
     let resolve: (value: unknown) => void = () => {};
     getRom.mockReturnValue(new Promise((r) => (resolve = r)));
-    install(() => 3);
+    install();
 
     handlers.get("scan:done")?.({});
     romsStore.setCurrentRom(rom({ id: 4 }));
@@ -83,7 +83,7 @@ describe("useRomScanRefresh", () => {
   });
 
   it("does nothing without an open rom", () => {
-    install(() => null);
+    install();
 
     handlers.get("scan:done")?.({});
 

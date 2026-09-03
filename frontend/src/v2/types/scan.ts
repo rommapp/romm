@@ -10,7 +10,10 @@ export type ScanType =
   | "hashes"
   | "complete";
 
-export interface ScanPayload {
+/** One `scan` socket event: what to scan, plus the provider picks
+ *  `useScanProviders().buildScanPayload()` contributes. A files scan reads
+ *  no providers, so only `apis` is always sent. */
+export interface ScanRequest {
   type: ScanType;
   platforms?: number[];
   platform_fs_slugs?: string[];
