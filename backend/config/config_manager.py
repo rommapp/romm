@@ -52,8 +52,7 @@ DEFAULT_EXCLUDED_FILES: Final = [
     "gamelist.xml",
     "metadata.pegasus.txt",
 ]
-# ES-DE ignores media paths in gamelist.xml and only looks in
-# <MediaDirectory>/<system>/<folder>/, so these folders sit beside the ROMs.
+# ES-DE resolves media at <MediaDirectory>/<system>/<folder>/<rom>.<ext>.
 GAMELIST_MEDIA_DIRS: Final[dict[str, str]] = {
     "box2d": "covers",
     "box3d": "3dboxes",
@@ -73,7 +72,6 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     "@eaDir",
     "assets",
     *GAMELIST_MEDIA_DIRS.values(),
-    # RetroBat's scraper writes images/ beside the ROMs.
     "images",
     "__MACOSX",
     "#recycle",

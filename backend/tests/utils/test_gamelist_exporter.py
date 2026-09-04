@@ -562,9 +562,7 @@ async def test_export_platform_to_file_omits_tags_when_copy_fails(
 async def test_export_platform_to_file_uses_esde_media_dirs(
     platform_with_roms, isolated_filesystem
 ):
-    """ES-DE resolves media by <MediaDirectory>/<system>/<folder>/<rom>.<ext> and
-    ignores media paths in gamelist.xml, so 3D boxes and physical media must land
-    in the folder names ES-DE expects, directly inside the platform directory."""
+    """3D boxes and physical media land in ES-DE's folder names beside the ROMs."""
     resources_base, library_base = isolated_filesystem
     platform, roms = platform_with_roms
 
@@ -633,8 +631,7 @@ async def test_exported_media_dirs_are_excluded_from_scan(
 async def test_export_platform_to_file_reuses_existing_esde_media(
     platform_with_roms, isolated_filesystem
 ):
-    """Media already scraped by ES-DE into <platform>/covers/ is kept as-is instead
-    of being duplicated on export."""
+    """Media already scraped by ES-DE into <platform>/covers/ is left untouched."""
     resources_base, library_base = isolated_filesystem
     platform, _ = platform_with_roms
 

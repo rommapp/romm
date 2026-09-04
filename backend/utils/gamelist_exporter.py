@@ -251,8 +251,7 @@ class GamelistExporter:
         if rom.gamelist_id:
             SubElement(game, "id").text = str(rom.gamelist_id)
 
-        # ES-DE and RetroBat name the same media differently, so both tags are
-        # written; each frontend ignores the tags it does not know.
+        # RetroBat reads the same media under its own tag names.
         asset_tags: list[tuple[str, str]] = [
             ("box3d", "box3d"),
             ("box2d_back", "boxback"),
