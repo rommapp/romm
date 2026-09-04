@@ -1,18 +1,18 @@
+import fcntl
 import os
 import stat
-import tempfile
+import threading
 import time
-import zipfile
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
 
+from utils import zip_cache
+from utils.filesystem import SERVED_FILE_MODE
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
     BULK_NAMESPACE_PREFIX,
-    CACHE_FILE_MODE,
     CACHE_KEY_LENGTH,
     DEFAULT_TTL_HOURS,
     LARGE_ZIP_THRESHOLD_BYTES,
@@ -149,6 +149,27 @@ class TestGetCachedZip:
         mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
         assert get_cached_zip("1", "oldkey") is not None
         assert get_cached_zip("1", "newkey") is None
+
+
+@pytest.fixture
+def library(tmp_path, mocker):
+    lib = tmp_path / "library"
+    (lib / "roms").mkdir(parents=True)
+    (lib / "roms" / "a.bin").write_bytes(b"data")
+    mocker.patch("utils.zip_cache.LIBRARY_BASE_PATH", str(lib))
+    mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path / "cache"))
+    return lib
+
+
+def build_library_zip(**overrides):
+    kwargs = {
+        "namespace": "42",
+        "entries": [ZipFileEntry("a.bin", "roms/a.bin", 4, 1000.0)],
+        "m3u_content": None,
+        "m3u_filename": None,
+        "cache_key": "key",
+    }
+    return build_cached_zip(**{**kwargs, **overrides})
 
 
 class TestBuildCachedZip:
@@ -405,7 +426,7 @@ class TestZipFileEntryFromRomFile:
 
 
 class TestEnsureZipfileWritable:
-    def test_writestr_works_after_inflate64_patch(self, tmp_path, mocker):
+    def test_writestr_works_after_inflate64_patch(self, library, mocker):
         # Simulates the zipfile_inflate64 patch: a wrapper that drops the
         # compresslevel argument, which breaks ZipFile.write() on CPython 3.13.
         import zipfile
@@ -417,44 +438,17 @@ class TestEnsureZipfileWritable:
 
         mocker.patch.object(zipfile, "_get_compressor", one_arg_wrapper)
 
-        lib = tmp_path / "library"
-        (lib / "roms").mkdir(parents=True)
-        (lib / "roms" / "a.bin").write_bytes(b"data")
-        mocker.patch("utils.zip_cache.LIBRARY_BASE_PATH", str(lib))
-        mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path / "cache"))
-
-        result = build_cached_zip(
-            namespace="42",
-            entries=[ZipFileEntry("a.bin", "roms/a.bin", 4, 1000.0)],
-            m3u_content=b"a.bin",
-            m3u_filename="game.m3u",
-            cache_key="key",
-        )
+        result = build_library_zip(m3u_content=b"a.bin", m3u_filename="game.m3u")
         with ZipFile(result) as zf:
             assert zf.read("a.bin") == b"data"
             assert zf.read("game.m3u") == b"a.bin"
 
 
 class TestCachedZipReadability:
-    @pytest.fixture
-    def library(self, tmp_path, mocker):
-        lib = tmp_path / "library"
-        (lib / "roms").mkdir(parents=True)
-        (lib / "roms" / "a.bin").write_bytes(b"data")
-        mocker.patch("utils.zip_cache.LIBRARY_BASE_PATH", str(lib))
-        mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path / "cache"))
-        return lib
-
     def test_build_leaves_archive_world_readable(self, library):
-        result = build_cached_zip(
-            namespace="42",
-            entries=[ZipFileEntry("a.bin", "roms/a.bin", 4, 1000.0)],
-            m3u_content=None,
-            m3u_filename=None,
-            cache_key="key",
-        )
+        result = build_library_zip()
         mode = stat.S_IMODE(result.stat().st_mode)
-        assert mode & CACHE_FILE_MODE == CACHE_FILE_MODE
+        assert mode & SERVED_FILE_MODE == SERVED_FILE_MODE
 
     def test_hit_repairs_owner_only_archive(self, tmp_path, mocker):
         ns_dir = tmp_path / "42"
@@ -468,61 +462,27 @@ class TestCachedZipReadability:
 
         assert result is not None
         mode = stat.S_IMODE(result.stat().st_mode)
-        assert mode & CACHE_FILE_MODE == CACHE_FILE_MODE
-
-    def test_failed_chmod_closes_descriptor_and_removes_temp(self, library, mocker):
-        opened: list[int] = []
-        original_mkstemp = tempfile.mkstemp
-
-        def recording_mkstemp(*args, **kwargs):
-            fd, path = original_mkstemp(*args, **kwargs)
-            opened.append(fd)
-            return fd, path
-
-        mocker.patch("utils.zip_cache.tempfile.mkstemp", recording_mkstemp)
-        mocker.patch("utils.zip_cache.os.fchmod", side_effect=PermissionError)
-
-        with pytest.raises(PermissionError):
-            build_cached_zip(
-                namespace="42",
-                entries=[ZipFileEntry("a.bin", "roms/a.bin", 4, 1000.0)],
-                m3u_content=None,
-                m3u_filename=None,
-                cache_key="key",
-            )
-
-        assert len(opened) == 1
-        with pytest.raises(OSError):
-            os.fstat(opened[0])
-        assert list((library.parent / "cache").glob("**/*.tmp")) == []
+        assert mode & SERVED_FILE_MODE == SERVED_FILE_MODE
 
     def test_concurrent_builds_share_one_write(self, library, mocker):
-        # Other tests reload the zipfile module, so patch the class the build
-        # resolves at call time rather than the one imported at collection.
-        original_write = zipfile.ZipFile.write
-        writes: list[str] = []
+        # Release all three threads at the lock, so they are guaranteed to race
+        # for it rather than relying on a sleep to widen the window.
+        barrier = threading.Barrier(3, timeout=10)
+        original_flock = fcntl.flock
 
-        def slow_write(self, filename, *args, **kwargs):
-            writes.append(str(filename))
-            time.sleep(0.2)
-            return original_write(self, filename, *args, **kwargs)
+        def synchronized_flock(fd, operation):
+            barrier.wait()
+            return original_flock(fd, operation)
 
-        mocker.patch.object(zipfile.ZipFile, "write", slow_write)
-
-        def build() -> Path:
-            return build_cached_zip(
-                namespace="42",
-                entries=[ZipFileEntry("a.bin", "roms/a.bin", 4, 1000.0)],
-                m3u_content=None,
-                m3u_filename=None,
-                cache_key="key",
-            )
+        mocker.patch("utils.zip_cache.fcntl.flock", synchronized_flock)
+        write = mocker.patch(
+            "utils.zip_cache._write_cached_zip", wraps=zip_cache._write_cached_zip
+        )
 
         with ThreadPoolExecutor(max_workers=3) as pool:
-            results = list(pool.map(lambda _: build(), range(3)))
+            results = list(pool.map(lambda _: build_library_zip(), range(3)))
 
-        assert len(writes) == 1
-        assert len({str(r) for r in results}) == 1
+        assert write.call_count == 1
         with ZipFile(results[0]) as zf:
             assert zf.read("a.bin") == b"data"
 

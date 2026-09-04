@@ -12,6 +12,10 @@ COMPRESSED_FILE_EXTENSIONS: frozenset[str] = frozenset(
     (".7z", ".bz2", ".gz", ".rar", ".tar", ".zip", ".xz", ".tgz", ".tbz2", ".txz")
 )
 
+# Mode for files nginx serves directly: tempfile.mkstemp creates them 0600,
+# which the unprivileged nginx user cannot read.
+SERVED_FILE_MODE = 0o644
+
 
 def iter_files(path: str, recursive: bool = False) -> Iterator[tuple[Path, str]]:
     """List files in a directory.

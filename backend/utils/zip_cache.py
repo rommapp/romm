@@ -19,6 +19,7 @@ import anyio
 from config import LIBRARY_BASE_PATH, ZIP_CACHE_PATH
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.filesystem import SERVED_FILE_MODE
 
 if TYPE_CHECKING:
     from models.rom import RomFile
@@ -30,7 +31,6 @@ DEFAULT_TTL_HOURS = 48
 LARGE_ZIP_TTL_HOURS = 12
 BULK_CACHE_MAX_ROMS = 100
 BULK_NAMESPACE_PREFIX = "bulk"
-CACHE_FILE_MODE = 0o644
 
 
 @dataclasses.dataclass(frozen=True)
@@ -84,34 +84,29 @@ def _cache_file(namespace: str, cache_key: str) -> Path:
 
 
 def get_cached_zip(namespace: str, cache_key: str) -> Path | None:
-    """Return the cached ZIP path if it exists on disk, else None.
-
-    Nginx serves the cached archive as its own (unprivileged) user, so a hit
-    also repairs the file mode when an earlier build left it owner-only.
-    """
+    """Return the cached ZIP path if it exists on disk, else None."""
     path = _cache_file(namespace, cache_key)
-    if not path.exists():
+    try:
+        file_stat = os.stat(path)
+    except OSError:
         return None
-    _ensure_world_readable(path)
+    _ensure_nginx_readable(path, stat.S_IMODE(file_stat.st_mode))
     return path
 
 
-def _ensure_world_readable(path: Path) -> None:
+def _ensure_nginx_readable(path: Path, mode: int) -> None:
+    """Widen an archive an older build left owner-only, so nginx can read it."""
+    if mode & SERVED_FILE_MODE == SERVED_FILE_MODE:
+        return
     try:
-        mode = stat.S_IMODE(path.stat().st_mode)
-        if mode & CACHE_FILE_MODE != CACHE_FILE_MODE:
-            path.chmod(mode | CACHE_FILE_MODE)
+        path.chmod(mode | SERVED_FILE_MODE)
     except OSError as e:
         log.warning(f"Cached ZIP {hl(path.name)} may be unreadable by nginx: {e}")
 
 
 @contextlib.contextmanager
 def _namespace_build_lock(namespace_dir: Path) -> Generator[None]:
-    """Serialize builds within a namespace across threads and worker processes.
-
-    The lock lives on the namespace directory itself, so there is no lock file
-    to create, clean up, or race on.
-    """
+    """Serialize builds within a namespace across threads and worker processes."""
     fd = os.open(namespace_dir, os.O_RDONLY)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
@@ -161,20 +156,18 @@ def build_cached_zip(
 
     Writes to a temp file in the same directory, then atomically renames to
     the final path to prevent serving partial files. Concurrent requests for
-    the same namespace wait on one build instead of each copying the game.
+    the same namespace wait on one build.
     """
     target = _cache_file(namespace, cache_key)
-    if target.exists():
-        _ensure_world_readable(target)
-        return target
-
     target.parent.mkdir(parents=True, exist_ok=True)
 
     with _namespace_build_lock(target.parent):
-        if target.exists():
-            _ensure_world_readable(target)
-            return target
-        return _write_cached_zip(target, entries, m3u_content, m3u_filename)
+        if cached := get_cached_zip(namespace, cache_key):
+            return cached
+        _write_cached_zip(target, entries, m3u_content, m3u_filename)
+
+    log.info(f"Built cached ZIP in {hl(namespace)}: {hl(target.name)}")
+    return target
 
 
 def _write_cached_zip(
@@ -182,13 +175,11 @@ def _write_cached_zip(
     entries: list[ZipFileEntry],
     m3u_content: bytes | None,
     m3u_filename: str | None,
-) -> Path:
+) -> None:
     fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
+    os.close(fd)
     try:
-        try:
-            os.fchmod(fd, CACHE_FILE_MODE)
-        finally:
-            os.close(fd)
+        os.chmod(tmp_path, SERVED_FILE_MODE)
         ensure_zipfile_writable()
         with zipfile.ZipFile(tmp_path, "w") as zf:
             for entry in entries:
@@ -203,9 +194,6 @@ def _write_cached_zip(
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
         raise
-
-    log.info(f"Built cached ZIP in {hl(target.parent.name)}: {hl(target.name)}")
-    return target
 
 
 def get_zip_redirect_path(namespace: str, cache_key: str) -> Path:
@@ -279,9 +267,9 @@ def cleanup_stale_zips() -> int:
         if not ns_dir.is_dir():
             continue
         for zip_file in ns_dir.glob("*.zip"):
-            stat = zip_file.stat()
-            cutoff = now - (get_ttl_hours(stat.st_size) * SECONDS_PER_HOUR)
-            if stat.st_mtime < cutoff:
+            file_stat = zip_file.stat()
+            cutoff = now - (get_ttl_hours(file_stat.st_size) * SECONDS_PER_HOUR)
+            if file_stat.st_mtime < cutoff:
                 zip_file.unlink()
                 deleted += 1
         if ns_dir.exists() and not any(ns_dir.iterdir()):
