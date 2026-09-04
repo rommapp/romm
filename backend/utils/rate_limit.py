@@ -23,8 +23,8 @@ def enforce_rate_limit(
     """
     pipe = sync_cache.pipeline()
     pipe.incr(key)
-    # NX in the same transaction as the INCR: the window is only ever set on the
-    # counter that starts it, and a counter can never end up without a TTL.
+    # NX in the same transaction as the INCR: only the call that starts a window
+    # sets its TTL, and no counter can be left without one.
     pipe.expire(key, window_seconds, nx=True)
     count, _ = pipe.execute()
 

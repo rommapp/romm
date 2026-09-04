@@ -73,6 +73,7 @@ def test_heartbeat_metadata(client):
     assert response.status_code == status.HTTP_200_OK
     assert response.json() is False
 
+    # That first answer is cached, so drop it before probing for the other state.
     sync_cache.flushall()
 
     with patch.object(
@@ -119,7 +120,7 @@ def test_heartbeat_metadata_rate_limit(client):
 
 
 def test_heartbeat_metadata_unknown_source_is_not_rate_limited(client):
-    """An unparseable source never reaches a provider, so it must not create a key."""
+    """An unparseable source is rejected before the limiter, so it burns no window."""
     for _ in range(METADATA_HEARTBEAT_RATE_LIMIT + 1):
         response = client.get("/api/heartbeat/metadata/unknown")
         assert response.status_code == status.HTTP_400_BAD_REQUEST

@@ -61,16 +61,13 @@ from utils.platforms import get_supported_platforms
 from utils.rate_limit import enforce_rate_limit, get_client_ip
 from utils.router import APIRouter
 
-# The metadata heartbeat is unauthenticated and probes a third-party API through
-# that provider's process-global outbound limiter, so an unthrottled caller could
-# queue up enough probes to starve scans and burn the API quota. The cap is per
-# source, and generous enough for the settings page to probe every source per visit.
+# The endpoint is unauthenticated, and every probe passes through the provider's
+# process-global outbound limiter, where it competes with scans.
 METADATA_HEARTBEAT_RATE_LIMIT: Final[int] = 20
 METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS: Final[int] = 60
 
-# The per-IP cap alone is not enough: the client IP comes from a forwarded header
-# the caller controls, and a distributed flood has no single IP anyway. Caching the
-# result caps outbound probes at one per source per window, whatever the inbound rate.
+# Holds outbound probes to one per source per window whatever the inbound rate, which
+# the per-IP cap cannot do against a spoofed forwarded header or a distributed flood.
 METADATA_HEARTBEAT_CACHE_TTL_SECONDS: Final[int] = 60
 
 router = APIRouter(

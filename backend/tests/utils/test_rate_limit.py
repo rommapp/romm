@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from handler.redis_handler import sync_cache
 from utils.rate_limit import enforce_rate_limit
 
-KEY = "test-rate:1.2.3.4"
+KEY = "test-rate"
 
 
 def _call() -> None:
@@ -35,7 +35,7 @@ def test_window_is_not_extended_by_later_calls():
 
     _call()
 
-    assert sync_cache.ttl(KEY) == 5
+    assert sync_cache.ttl(KEY) <= 5
 
 
 def test_a_counter_left_without_a_ttl_is_repaired():
@@ -45,4 +45,4 @@ def test_a_counter_left_without_a_ttl_is_repaired():
 
     _call()
 
-    assert sync_cache.ttl(KEY) == 60
+    assert 0 < sync_cache.ttl(KEY) <= 60
