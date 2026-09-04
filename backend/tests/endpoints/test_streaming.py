@@ -28,6 +28,7 @@ from handler.database import (
     db_rom_handler,
     db_save_handler,
     db_state_handler,
+    db_user_handler,
 )
 from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache
@@ -4885,6 +4886,87 @@ def test_the_activate_body_carries_the_multiplayer_flag(client, access_token, ro
             )
 
     assert request.call_args.kwargs["body"]["multiplayer"] is True
+
+
+def _activate_body(client, token, rom: Rom) -> dict:
+    """Claim through the webstation protocol and return the activate body."""
+    with _streaming(_ws_for(rom)):
+        with patch(
+            "endpoints.streaming._broker_request", return_value={"url": "/room/x"}
+        ) as request:
+            client.post(
+                "/api/streaming/sessions",
+                json={"rom_id": rom.id},
+                headers=_auth(token),
+            )
+    return request.call_args.kwargs["body"]
+
+
+def test_the_activate_body_carries_the_rom_language(client, access_token, rom: Rom):
+    """ScummVM registers one target per language detected in a game folder and
+    the target is what boots, so a multilingual game needs this to start in the
+    language the ROM is recorded as."""
+    db_rom_handler.update_rom(rom.id, {"languages": ["French"]})
+
+    assert _activate_body(client, access_token, rom)["rom"]["language"] == "fr"
+
+
+def test_the_rom_language_is_reduced_to_an_iso_code(client, access_token, rom: Rom):
+    """Filename parsing stores names ("French"), metadata providers store
+    shortcodes ("fr"); brokers only ever see the ISO-639-1 code."""
+    db_rom_handler.update_rom(rom.id, {"languages": ["fr"]})
+
+    assert _activate_body(client, access_token, rom)["rom"]["language"] == "fr"
+
+
+def test_an_unknown_rom_language_is_sent_as_none(client, access_token, rom: Rom):
+    """A value RomM cannot reduce leaves the broker on its own default rather
+    than failing the launch."""
+    db_rom_handler.update_rom(rom.id, {"languages": ["Klingon"]})
+
+    assert _activate_body(client, access_token, rom)["rom"]["language"] is None
+
+
+def test_a_rom_without_a_language_sends_none(client, access_token, rom: Rom):
+    assert _activate_body(client, access_token, rom)["rom"]["language"] is None
+
+
+def test_the_activate_body_carries_the_users_interface_language(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """RomM rarely knows a game's own language, and a multilingual folder is
+    exactly where it usually does not, so the player's locale travels with it
+    as the broker's fallback."""
+    db_user_handler.update_user(admin_user.id, {"ui_settings": {"locale": "fr_FR"}})
+
+    assert _activate_body(client, access_token, rom)["gui_language"] == "fr-fr"
+
+
+def test_the_interface_language_keeps_its_region(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Brazilian and European Portuguese are different games to an emulator
+    that ships both, so the region travels and the broker decides what to make
+    of it."""
+    db_user_handler.update_user(admin_user.id, {"ui_settings": {"locale": "pt_BR"}})
+
+    assert _activate_body(client, access_token, rom)["gui_language"] == "pt-br"
+
+
+def test_the_interface_language_is_left_out_when_unset(client, access_token, rom: Rom):
+    """No locale means the broker keeps whatever the container is configured
+    with, rather than being handed an empty one to pin."""
+    assert "gui_language" not in _activate_body(client, access_token, rom)
+
+
+def test_the_interface_language_sits_beside_the_rom_not_inside_it(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """It describes the player, so a launch with no rom still carries it."""
+    db_user_handler.update_user(admin_user.id, {"ui_settings": {"locale": "fr_FR"}})
+    body = _activate_body(client, access_token, rom)
+
+    assert "gui_language" not in body["rom"]
 
 
 def test_a_claim_is_solo_unless_asked_otherwise(client, access_token, rom: Rom):

@@ -47,6 +47,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.base_handler import LANGUAGES
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save, scan_screenshot, scan_state
@@ -793,6 +794,16 @@ _EMULATOR_CAPABILITIES: dict[str, _SlotCapabilities] = {
     # slot, since RomM is the library of states. There is no grid to pick
     # from, just the one slot save and resume both land in.
     "retroarch": {
+        "max_slots": 0,
+        "has_autosave": True,
+        "autosave_slot": 10,
+        "has_memory_card": False,
+    },
+    # ScummVM saves are its states, so the broker's one working slot is both
+    # what a save-state writes and what a resume loads. No memory card exists,
+    # and its own slot 0 autosave rides the save archive rather than the state
+    # routes.
+    "scummvm": {
         "max_slots": 0,
         "has_autosave": True,
         "autosave_slot": 10,
@@ -1663,6 +1674,51 @@ def _broker_put_binary(
     return bool(body and body.get("status") == "ok")
 
 
+# ISO-639-1 codes for the languages RomM recognizes. rom.languages stores names
+# ("French") from filename parsing and shortcodes ("fr") from metadata
+# providers, so both spellings reduce to the same code here; ui_settings.locale
+# stores locale codes ("pt_BR"). A broker maps what it gets to its own dialect.
+_LANGUAGE_NAME_TO_ISO = {
+    name.lower(): code.lower() for code, name in LANGUAGES if code.lower() != "nolang"
+}
+_ISO_CODES = set(_LANGUAGE_NAME_TO_ISO.values())
+
+
+def _language_code(value: Any) -> str | None:
+    """Reduce a RomM language value to a code a broker can read, or None.
+
+    A name resolves to its ISO-639-1 code. A locale keeps its region as a
+    subtag ("pt_BR" becomes "pt-br"), which is the whole difference between
+    Brazilian and European Portuguese to an emulator shipping both; a broker
+    that makes nothing of the region drops it and keeps the language. Unknown
+    values are omitted so a broker falls back to its own default instead of
+    failing the launch.
+    """
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower().replace("_", "-")
+    if normalized in _LANGUAGE_NAME_TO_ISO:
+        return _LANGUAGE_NAME_TO_ISO[normalized]
+    base, _, region = normalized.partition("-")
+    if base not in _ISO_CODES:
+        return None
+    return f"{base}-{region}" if region else base
+
+
+def _rom_language(rom: Rom) -> str | None:
+    """The ROM's own language, as the first of its languages RomM can reduce."""
+    for candidate in rom.languages or []:
+        code = _language_code(candidate)
+        if code:
+            return code
+    return None
+
+
+def _gui_language(user: User) -> str | None:
+    """The user's own interface language, from their UI locale ("pt_BR")."""
+    return _language_code((user.ui_settings or {}).get("locale"))
+
+
 def _call_broker(
     container: dict[str, Any],
     rom_path: str,
@@ -1926,6 +1982,7 @@ def _webstation_activate(
     user: User,
     emulator: str,
     rom: dict[str, Any] | None = None,
+    gui_language: str | None = None,
     archive_path: str | None = None,
     resume_slot: int | None = None,
     memory_card_synced: bool = False,
@@ -1948,6 +2005,10 @@ def _webstation_activate(
     }
     if rom is not None:
         body["rom"] = rom
+    if gui_language:
+        # Describes the player, not the rom, so it goes alongside `rom` rather
+        # than inside it and is sent for a romless launch too.
+        body["gui_language"] = gui_language
     save: dict[str, Any] = {}
     if archive_path:
         save["archive"] = archive_path
@@ -3719,6 +3780,13 @@ async def claim_session(
         )
 
     rom_name = rom.name or rom.fs_name_no_ext
+    # A launcher whose games ship several languages in one folder (ScummVM
+    # detects one target per language) picks the variant that boots from these.
+    # RomM rarely knows a game's own language, and a multilingual folder is
+    # exactly the case where it usually does not, so the player's interface
+    # locale travels with it as the broker's fallback.
+    rom_language = _rom_language(rom)
+    gui_language = _gui_language(request.user)
 
     now = datetime.now(timezone.utc).isoformat()
     session = {
@@ -4035,8 +4103,10 @@ async def claim_session(
                     "id": rom.id,
                     "name": rom_name,
                     "platform": platform,
+                    "language": rom_language,
                     "path": rom_path,
                 },
+                gui_language=gui_language,
                 archive_path=archive_path,
                 resume_slot=(
                     resume_slot if resume_pushed or resume_after_launch else None
@@ -4858,6 +4928,7 @@ async def claim_desktop_session(
             session_id=str(session["broker_session_id"]),
             user=request.user,
             emulator="desktop",
+            gui_language=_gui_language(request.user),
         )
     except Exception:
         # Activation failed, free the claim so the container isn't wedged.
