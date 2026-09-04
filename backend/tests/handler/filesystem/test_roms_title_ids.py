@@ -1,12 +1,12 @@
 """Tests for rom-converto title id extraction during scan."""
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
-
 from adapters.services.rom_converto import RomConvertoError, rom_converto_service
 from handler import scan_handler as scan_handler_module
-from handler.filesystem.roms_handler import FSRomsHandler
+from handler.filesystem.roms_handler import FSRomsHandler, _merged_rom_title_id
 from handler.scan_handler import ScanType, scan_rom
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -53,7 +53,7 @@ def _patch_service(mocker, read_info=None, enabled: bool = True, scan_metadata=T
     )
 
 
-class TestExtractTitleIds:
+class TestReadConvertoTitleId:
     @pytest.mark.asyncio
     async def test_sets_title_id_and_version(self, handler, psx_rom, mocker):
         rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
@@ -63,7 +63,7 @@ class TestExtractTitleIds:
 
         _patch_service(mocker, read_info)
 
-        await handler._extract_title_ids(psx_rom, [rom_file])
+        await handler._read_converto_title_id(rom_file)
 
         assert rom_file.title_id == "SCUS-94163"
         assert rom_file.title_version == 65536
@@ -77,7 +77,7 @@ class TestExtractTitleIds:
 
         _patch_service(mocker, read_info)
 
-        await handler._extract_title_ids(psx_rom, [rom_file])
+        await handler._read_converto_title_id(rom_file)
 
         assert rom_file.title_id == "SLPS-91100"
         assert rom_file.title_version is None
@@ -91,7 +91,7 @@ class TestExtractTitleIds:
 
         _patch_service(mocker, read_info)
 
-        await handler._extract_title_ids(psx_rom, [rom_file])
+        await handler._read_converto_title_id(rom_file)
 
         assert rom_file.title_id == "TITLE-1"
         assert rom_file.title_version is None
@@ -105,7 +105,7 @@ class TestExtractTitleIds:
 
         _patch_service(mocker, read_info)
 
-        await handler._extract_title_ids(psx_rom, [rom_file])
+        await handler._read_converto_title_id(rom_file)
 
         assert rom_file.title_id is None
         assert rom_file.title_version is None
@@ -124,7 +124,8 @@ class TestExtractTitleIds:
 
         _patch_service(mocker, read_info)
 
-        await handler._extract_title_ids(psx_rom, rom_files)
+        for rom_file in rom_files:
+            await handler._read_converto_title_id(rom_file)
 
         assert rom_files[0].title_id is None
         assert rom_files[0].title_version is None
@@ -139,53 +140,44 @@ class TestExtractTitleIds:
 
         _patch_service(mocker, read_info)
 
-        await handler._extract_title_ids(psx_rom, [rom_file])
+        await handler._read_converto_title_id(rom_file)
 
         assert rom_file.title_id is None
         assert rom_file.title_version is None
 
-    @pytest.mark.asyncio
-    async def test_skipped_when_service_disabled(self, handler, psx_rom, mocker):
-        rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
-        read_info = mocker.AsyncMock(return_value=_info())
-        _patch_service(mocker, read_info=read_info, enabled=False)
 
-        await handler._extract_title_ids(psx_rom, [rom_file])
+def test_converto_active_for_supported_platform(handler, psx_rom, mocker):
+    _patch_service(mocker)
 
-        read_info.assert_not_called()
-        assert rom_file.title_id is None
-
-    @pytest.mark.asyncio
-    async def test_skipped_when_scan_metadata_disabled(self, handler, psx_rom, mocker):
-        rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
-        read_info = mocker.AsyncMock(return_value=_info())
-        _patch_service(mocker, read_info=read_info, scan_metadata=False)
-
-        await handler._extract_title_ids(psx_rom, [rom_file])
-
-        read_info.assert_not_called()
-        assert rom_file.title_id is None
-
-    @pytest.mark.asyncio
-    async def test_skipped_for_unsupported_platform(self, handler, mocker):
-        rom = Rom(
-            id=1,
-            fs_name="Paper Mario (USA).z64",
-            fs_path="n64/roms",
-            fs_extension="z64",
-            platform=Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
-        )
-        rom_file = RomFile(file_name="game.z64", file_path="n64/roms")
-        read_info = mocker.AsyncMock(return_value=_info())
-        _patch_service(mocker, read_info=read_info)
-
-        await handler._extract_title_ids(rom, [rom_file])
-
-        read_info.assert_not_called()
-        assert rom_file.title_id is None
+    assert asyncio.run(handler._converto_active(psx_rom)) is True
 
 
-def _fs_rom(files: list[RomFile], sha1_hash: str) -> dict:
+def test_converto_active_false_when_service_disabled(handler, psx_rom, mocker):
+    _patch_service(mocker, enabled=False)
+
+    assert asyncio.run(handler._converto_active(psx_rom)) is False
+
+
+def test_converto_active_false_when_scan_metadata_disabled(handler, psx_rom, mocker):
+    _patch_service(mocker, scan_metadata=False)
+
+    assert asyncio.run(handler._converto_active(psx_rom)) is False
+
+
+def test_converto_active_false_for_unsupported_platform(handler, mocker):
+    rom = Rom(
+        id=1,
+        fs_name="Paper Mario (USA).z64",
+        fs_path="n64/roms",
+        fs_extension="z64",
+        platform=Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
+    )
+    _patch_service(mocker)
+
+    assert asyncio.run(handler._converto_active(rom)) is False
+
+
+def _fs_rom(files: list[RomFile], sha1_hash: str, title_id: str | None = None) -> dict:
     return {
         "fs_name": "PaRappa the Rapper (USA).chd",
         "flat": True,
@@ -195,6 +187,7 @@ def _fs_rom(files: list[RomFile], sha1_hash: str) -> dict:
         "md5_hash": "",
         "sha1_hash": sha1_hash,
         "ra_hash": "",
+        "title_id": title_id,
     }
 
 
@@ -220,58 +213,23 @@ def patched_scan_env(mocker):
 
 class TestScanRomTitleId:
     @pytest.mark.asyncio
-    async def test_title_id_from_primary_file(self, patched_scan_env, psx_rom):
-        # A single-file rom's own hash is the rom's hash.
-        primary = _rom_file("game.chd", sha1_hash="abc123", title_id="SCUS-94163")
+    async def test_title_id_flows_from_merged_value(self, patched_scan_env, psx_rom):
+        # get_rom_files merged converto's file ids with sigil's rom-level
+        # value; scan_rom trusts what fs_rom carries.
         scanned = await scan_rom(
             scan_type=ScanType.QUICK,
             platform=psx_rom.platform,
             rom=psx_rom,
-            fs_rom=_fs_rom([primary], sha1_hash="abc123"),
+            fs_rom=_fs_rom(
+                [_rom_file("game.chd", sha1_hash="abc123")],
+                sha1_hash="abc123",
+                title_id="SCUS-94163",
+            ),
             metadata_sources=[],
             newly_added=True,
         )
 
         assert scanned.title_id == "SCUS-94163"
-
-    @pytest.mark.asyncio
-    async def test_title_id_prefers_primary_over_other_files(
-        self, patched_scan_env, psx_rom
-    ):
-        files = [
-            _rom_file("a.chd", sha1_hash="abc123", title_id="PRIMARY"),
-            _rom_file("d2.chd", title_id="OTHER"),
-        ]
-        scanned = await scan_rom(
-            scan_type=ScanType.QUICK,
-            platform=psx_rom.platform,
-            rom=psx_rom,
-            fs_rom=_fs_rom(files, sha1_hash="abc123"),
-            metadata_sources=[],
-            newly_added=True,
-        )
-
-        assert scanned.title_id == "PRIMARY"
-
-    @pytest.mark.asyncio
-    async def test_title_id_falls_back_to_first_file_with_one(
-        self, patched_scan_env, psx_rom
-    ):
-        # A multi-file rom's hash is a composite no single file matches.
-        files = [
-            _rom_file("disc1.chd", title_id=None),
-            _rom_file("disc2.chd", sha1_hash="def456", title_id="SLPS-91100"),
-        ]
-        scanned = await scan_rom(
-            scan_type=ScanType.QUICK,
-            platform=psx_rom.platform,
-            rom=psx_rom,
-            fs_rom=_fs_rom(files, sha1_hash="composite"),
-            metadata_sources=[],
-            newly_added=True,
-        )
-
-        assert scanned.title_id == "SLPS-91100"
 
     @pytest.mark.asyncio
     async def test_title_id_carried_forward_without_files(
@@ -318,11 +276,36 @@ class TestScanRomTitleId:
             platform=psx_rom.platform,
             rom=psx_rom,
             fs_rom=_fs_rom(
-                [_rom_file("game.chd", sha1_hash="abc123", title_id="SCUS-94163")],
+                [_rom_file("game.chd", sha1_hash="abc123")],
                 sha1_hash="abc123",
+                title_id="SCUS-94163",
             ),
             metadata_sources=[],
             newly_added=True,
         )
 
         assert scanned.title_id == "SCUS-94163"
+
+
+class TestMergedRomTitleId:
+    """Converto-first precedence: converto's file ids win, sigil fills gaps."""
+
+    def test_converto_id_wins_over_sigil(self):
+        files = [_rom_file("game.chd", title_id="CONVERTO-ID")]
+        assert _merged_rom_title_id(files, "SIGIL-ID") == "CONVERTO-ID"
+
+    def test_first_converto_id_in_scan_order_wins(self):
+        files = [
+            _rom_file("disc1.chd", title_id=None),
+            _rom_file("disc2.chd", title_id="FIRST-FOUND"),
+            _rom_file("dlc.chd", title_id="LATER"),
+        ]
+        assert _merged_rom_title_id(files, "SIGIL-ID") == "FIRST-FOUND"
+
+    def test_sigil_fills_when_converto_found_none(self):
+        files = [_rom_file("game.chd"), _rom_file("game2.chd")]
+        assert _merged_rom_title_id(files, "SIGIL-ID") == "SIGIL-ID"
+
+    def test_none_when_neither_extracted(self):
+        files = [_rom_file("game.chd")]
+        assert _merged_rom_title_id(files, None) is None

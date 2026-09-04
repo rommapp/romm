@@ -234,6 +234,19 @@ def _rom_level_title_values(
     return chosen.title_id, chosen.save_target, _parse_save_target_layout(chosen.usage)
 
 
+def _merged_rom_title_id(
+    rom_files: list[RomFile], sigil_title_id: str | None
+) -> str | None:
+    """The rom-level title id under converto-first precedence.
+
+    rom-converto wrote per-file title ids before sigil ran, so its first id
+    in scan order wins; sigil only fills the gap. A sigil follow-up will
+    accept a pre-determined id to derive save targets from converto's value
+    directly.
+    """
+    return next((f.title_id for f in rom_files if f.title_id), None) or sigil_title_id
+
+
 class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=LIBRARY_BASE_PATH)
@@ -396,45 +409,47 @@ class FSRomsHandler(FSHandler):
             archive_members=archive_members,
         )
 
-    async def _extract_title_ids(self, rom: Rom, rom_files: list[RomFile]) -> None:
-        """Read ROM-internal title ids with rom-converto onto the scanned files.
-
-        Best-effort by design: an unrecognized file leaves the columns unset and
-        any failure is logged, never raised into the scan.
-        """
+    async def _converto_active(self, rom: Rom) -> bool:
+        """Whether rom-converto should inspect this rom's files during scan."""
         from adapters.services.rom_converto import (
             CONVERTO_PLATFORM_SLUGS,
             rom_converto_service,
         )
 
-        if (
-            not await rom_converto_service.is_enabled()
-            or not cm.get_config().CONVERTTO.scan_metadata
-            or rom.platform_slug not in CONVERTO_PLATFORM_SLUGS
-        ):
-            return
+        return (
+            await rom_converto_service.is_enabled()
+            and cm.get_config().CONVERTTO.scan_metadata
+            and rom.platform_slug in CONVERTO_PLATFORM_SLUGS
+        )
 
-        for rom_file in rom_files:
+    async def _read_converto_title_id(self, rom_file: RomFile) -> None:
+        """Write rom-converto's title id onto one scanned file.
+
+        Best-effort by design: an unrecognized file leaves the columns unset
+        and any failure is logged, never raised into the scan. Runs before
+        sigil, which then trusts an already-written title id.
+        """
+        from adapters.services.rom_converto import rom_converto_service
+
+        try:
+            info = await rom_converto_service.read_info(
+                self.validate_path(rom_file.full_path)
+            )
+            if info is None:
+                log.debug(f"rom-converto did not recognize {rom_file.full_path}")
+                return
+            rom_file.title_id = info["title_id"] or info["serial"]
             try:
-                info = await rom_converto_service.read_info(
-                    self.validate_path(rom_file.full_path)
+                rom_file.title_version = (
+                    int(info["version"]) if info["version"] else None
                 )
-                if info is None:
-                    log.debug(f"rom-converto did not recognize {rom_file.full_path}")
-                    continue
-                rom_file.title_id = info["title_id"] or info["serial"]
-                try:
-                    rom_file.title_version = (
-                        int(info["version"]) if info["version"] else None
-                    )
-                except ValueError:
-                    rom_file.title_version = None
-            except Exception as exc:  # noqa: BLE001
-                log.warning(
-                    f"rom-converto title id extraction failed for "
-                    f"{rom_file.full_path}: {exc}"
-                )
-                continue
+            except ValueError:
+                rom_file.title_version = None
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                f"rom-converto title id extraction failed for "
+                f"{rom_file.full_path}: {exc}"
+            )
 
     async def get_rom_files(
         self,
@@ -461,6 +476,11 @@ class FSRomsHandler(FSHandler):
         # non-hashable platforms like Switch.
         sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
         is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
+        # rom-converto runs before sigil and writes the per-file title ids;
+        # sigil then trusts those and only fills what it left unset. Unlike
+        # sigil it also reads archives, and it has no save-target guidance,
+        # which stays sigil's job.
+        converto_active = extract_title_ids and await self._converto_active(rom)
         sigil_extractions: list[SigilExtractionResult] = []
         sigil_service = SigilService()
 
@@ -491,8 +511,14 @@ class FSRomsHandler(FSHandler):
             if not (embed_switch and extraction.title_id):
                 return None
 
+            # rom-converto wrote this file's title id first; trust it for the
+            # embedded name too, falling back to sigil's own extraction.
+            embed_title_id = rom_file.title_id or extraction.title_id
+            embed_version = (
+                rom_file.title_version if rom_file.title_id else extraction.version
+            )
             new_name = await self._embed_switch_title_id_in_name(
-                rel_file_path, extraction.title_id, extraction.version
+                rel_file_path, embed_title_id, embed_version
             )
             if new_name is not None:
                 rom_file.file_name = new_name
@@ -605,7 +631,12 @@ class FSRomsHandler(FSHandler):
                     file_hash=file_hash,
                 )
                 # Extract from every ROM file (base, updates and DLC in
-                # subfolders), not just the top-level one.
+                # subfolders), not just the top-level one. rom-converto goes
+                # first and also covers archive files sigil cannot read.
+                if converto_active and rom_file.category not in (
+                    NON_BINARY_FILE_CATEGORIES
+                ):
+                    await self._read_converto_title_id(rom_file)
                 if (
                     abs_file_path.suffix.lower() not in ARCHIVE_READERS
                     and rom_file.category not in NON_BINARY_FILE_CATEGORIES
@@ -685,6 +716,8 @@ class FSRomsHandler(FSHandler):
                         archive_members=members,
                     )
                 )
+                if converto_active:
+                    await self._read_converto_title_id(rom_files[-1])
             else:
                 # Empty, malformed, unreadable, or all-excluded archive: hash the archive
                 # file's raw bytes. We avoid `_calculate_rom_hashes` here because
@@ -709,6 +742,8 @@ class FSRomsHandler(FSHandler):
                         file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
                     )
                 )
+                if converto_active:
+                    await self._read_converto_title_id(rom_files[-1])
         else:
             if hashable_platform:
                 try:
@@ -755,16 +790,17 @@ class FSRomsHandler(FSHandler):
                 file_hash=file_hash,
             )
             rom_files.append(rom_file)
-            # Archives keep hashes only; sigil reads title ids from the ROM
-            # binary itself.
+            # rom-converto inspects every single-file rom, archives included;
+            # sigil then reads what it can, trusting converto's ids.
+            if converto_active:
+                await self._read_converto_title_id(rom_file)
             if rom_ext not in ARCHIVE_READERS:
                 renamed_rom_fs_name = await _extract_title_id(rom_file)
 
-        rom_title_id, rom_save_target, rom_save_target_layout = _rom_level_title_values(
-            rom.platform_slug, sigil_extractions
+        sigil_title_id, rom_save_target, rom_save_target_layout = (
+            _rom_level_title_values(rom.platform_slug, sigil_extractions)
         )
-
-        await self._extract_title_ids(rom, rom_files)
+        rom_title_id = _merged_rom_title_id(rom_files, sigil_title_id)
 
         return ParsedRomFiles(
             rom_files=rom_files,
