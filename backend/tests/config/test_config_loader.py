@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import pytest
+
 from config.config_manager import (
     DEFAULT_EXCLUDED_DIRS,
     DEFAULT_EXCLUDED_EXTENSIONS,
@@ -350,3 +352,41 @@ def test_config_update_preserves_streaming_section(tmp_path):
             "label": "PCSX2",
         }
     ]
+
+
+def _write_config(tmp_path: Path, system_block: str) -> ConfigManager:
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(f"system:\n{system_block}")
+    return ConfigManager(str(config_file))
+
+
+def test_platform_folder_names_are_lowercased(tmp_path):
+    loader = _write_config(
+        tmp_path,
+        '  platforms:\n    GameCube: "ngc"\n  versions:\n    NAOMI: "arcade"\n',
+    )
+
+    assert loader.config.PLATFORMS_BINDING == {"gamecube": "ngc"}
+    assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
+
+
+def test_null_platforms_block_means_empty(tmp_path):
+    loader = _write_config(tmp_path, "  platforms:\n  versions:\n")
+
+    assert loader.config.PLATFORMS_BINDING == {}
+    assert loader.config.PLATFORMS_VERSIONS == {}
+
+
+@pytest.mark.parametrize("value", ['""', "5", "~"])
+def test_platform_binding_must_be_a_non_empty_string(tmp_path, value):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_config(tmp_path, f"  platforms:\n    gamecube: {value}\n")
+
+    assert excinfo.value.code == 3
+
+
+def test_platform_binding_lookup_ignores_case(tmp_path):
+    loader = _write_config(tmp_path, '  platforms:\n    GameCube: "ngc"\n')
+
+    loader.remove_platform_binding("GAMECUBE")
+    assert loader.config.PLATFORMS_BINDING == {}

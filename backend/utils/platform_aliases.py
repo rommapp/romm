@@ -1,9 +1,11 @@
-from typing import Final
+from __future__ import annotations
 
-from config.config_manager import Config
+from typing import TYPE_CHECKING, Final
+
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-_SLUGS: Final = frozenset(slug.value for slug in UPS)
+if TYPE_CHECKING:
+    from config.config_manager import Config
 
 # Folder names used by Batocera, RetroBat and ES-DE that differ from RomM slugs.
 PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
@@ -147,22 +149,50 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
 }
 
 
+def _unambiguous_folders() -> dict[str, str]:
+    folders_by_slug: dict[UPS, list[str]] = {}
+    for fs_slug, slug in PLATFORM_FS_ALIASES.items():
+        folders_by_slug.setdefault(slug, []).append(fs_slug)
+
+    return {
+        slug.value: folders[0]
+        for slug, folders in folders_by_slug.items()
+        if len(folders) == 1
+    }
+
+
+# Only a slug reached by exactly one folder name can be resolved back to it.
+PLATFORM_SLUG_FOLDERS: Final[dict[str, str]] = _unambiguous_folders()
+
+
 def resolve_platform_slug(fs_slug: str, config: Config) -> str:
     """Resolve a platform folder name to a RomM platform slug.
 
-    Args:
-        fs_slug: Platform folder name as found on disk.
-        config: Loaded config, whose bindings and versions take precedence.
-    Returns:
-        The bound slug, the folder name if it already is a slug, the built-in
-        alias, or the folder name unchanged.
+    Config bindings and versions win, then the folder name if it already is a
+    slug, then the built-in alias.
     """
-    bound = config.PLATFORMS_BINDING.get(fs_slug) or config.PLATFORMS_VERSIONS.get(
-        fs_slug
-    )
+    key = fs_slug.lower()
+    bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
     if bound:
         return bound
-    if fs_slug in _SLUGS:
-        return fs_slug
-    alias = PLATFORM_FS_ALIASES.get(fs_slug.lower())
+    if key in UPS:
+        return key
+    alias = PLATFORM_FS_ALIASES.get(key)
     return alias.value if alias else fs_slug
+
+
+def resolve_fs_slug(slug: str, config: Config) -> str | None:
+    """Resolve a RomM platform slug back to the folder name it came from.
+
+    Args:
+        slug: RomM platform slug.
+        config: Loaded config, whose bindings and versions take precedence.
+    Returns:
+        The folder name, or None when none is known or several alias folders
+        collapse onto the slug.
+    """
+    for mapping in (config.PLATFORMS_BINDING, config.PLATFORMS_VERSIONS):
+        for fs_slug, bound in mapping.items():
+            if bound == slug:
+                return fs_slug
+    return PLATFORM_SLUG_FOLDERS.get(slug)

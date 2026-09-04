@@ -5,7 +5,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import pydash
 import yaml
@@ -435,8 +435,10 @@ class ConfigManager:
                     ),
                 }
             ),
-            PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {}),
-            PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {}),
+            PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {})
+            or {},
+            PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {})
+            or {},
             ROMS_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.roms_folder", "roms"
             ),
@@ -596,6 +598,30 @@ class ConfigManager:
 
         return yaml_controls
 
+    def _validated_platform_map(self, raw: Any, config_key: str) -> dict[str, str]:
+        """Check a folder name to slug mapping, lowercasing the folder names.
+
+        Args:
+            raw: Value read from the config file.
+            config_key: Dotted config path, used in error messages.
+        Returns:
+            The mapping with lowercased keys, so lookups can be case-insensitive.
+        """
+        if not isinstance(raw, dict):
+            log.critical(f"Invalid config.yml: {config_key} must be a dictionary")
+            sys.exit(3)
+
+        normalized: dict[str, str] = {}
+        for fs_slug, slug in raw.items():
+            if not isinstance(slug, str) or not slug:
+                log.critical(
+                    f"Invalid config.yml: {config_key}.{fs_slug} must be a non-empty string"
+                )
+                sys.exit(3)
+            normalized[str(fs_slug).lower()] = slug
+
+        return normalized
+
     def _validate_config(self):
         """Validates the config.yml file"""
         if not isinstance(self.config.EXCLUDED_PLATFORMS, list):
@@ -640,27 +666,12 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.pegasus.export must be a boolean")
             sys.exit(3)
 
-        if not isinstance(self.config.PLATFORMS_BINDING, dict):
-            log.critical("Invalid config.yml: system.platforms must be a dictionary")
-            sys.exit(3)
-        else:
-            for fs_slug, slug in self.config.PLATFORMS_BINDING.items():
-                if slug is None:
-                    log.critical(
-                        f"Invalid config.yml: system.platforms.{fs_slug} must be a string"
-                    )
-                    sys.exit(3)
-
-        if not isinstance(self.config.PLATFORMS_VERSIONS, dict):
-            log.critical("Invalid config.yml: system.versions must be a dictionary")
-            sys.exit(3)
-        else:
-            for fs_slug, slug in self.config.PLATFORMS_VERSIONS.items():
-                if slug is None:
-                    log.critical(
-                        f"Invalid config.yml: system.versions.{fs_slug} must be a string"
-                    )
-                    sys.exit(3)
+        self.config.PLATFORMS_BINDING = self._validated_platform_map(
+            self.config.PLATFORMS_BINDING, "system.platforms"
+        )
+        self.config.PLATFORMS_VERSIONS = self._validated_platform_map(
+            self.config.PLATFORMS_VERSIONS, "system.versions"
+        )
 
         if not isinstance(self.config.ROMS_FOLDER_NAME, str):
             log.critical("Invalid config.yml: filesystem.roms_folder must be a string")
@@ -962,6 +973,7 @@ class ConfigManager:
             raise ConfigNotWritableException from exc
 
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
+        fs_slug = fs_slug.lower()
         platform_bindings = self.config.PLATFORMS_BINDING
         if fs_slug in platform_bindings:
             log.warning(f"Binding for {hl(fs_slug)} already exists")
@@ -975,7 +987,7 @@ class ConfigManager:
         platform_bindings = self.config.PLATFORMS_BINDING
 
         try:
-            del platform_bindings[fs_slug]
+            del platform_bindings[fs_slug.lower()]
         except KeyError:
             pass
 
@@ -983,6 +995,7 @@ class ConfigManager:
         self._update_config_file()
 
     def add_platform_version(self, fs_slug: str, slug: str) -> None:
+        fs_slug = fs_slug.lower()
         platform_versions = self.config.PLATFORMS_VERSIONS
         if fs_slug in platform_versions:
             log.warning(f"Version for {hl(fs_slug)} already exists")
@@ -996,7 +1009,7 @@ class ConfigManager:
         platform_versions = self.config.PLATFORMS_VERSIONS
 
         try:
-            del platform_versions[fs_slug]
+            del platform_versions[fs_slug.lower()]
         except KeyError:
             pass
 
