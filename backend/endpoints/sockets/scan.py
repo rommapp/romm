@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from itertools import batched, chain
+from itertools import batched
 from typing import Any, Final
 
 import socketio  # type: ignore
-from rq import Worker, get_current_job
+from redis import Redis
+from rq import get_current_job
+from rq.exceptions import AbandonedJobError
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
@@ -37,7 +39,7 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.roms_handler import FSRom, ParsedRomFiles
 from handler.metadata import (
     meta_gamelist_handler,
     meta_hltb_handler,
@@ -48,11 +50,12 @@ from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
-    get_job_func_name,
-    high_prio_queue,
-    low_prio_queue,
+    cancel_job,
+    get_job_status,
     redis_client,
+    scan_queue,
 )
+from handler.rom_files import loaded_rom_files, refresh_rom_files
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -63,6 +66,12 @@ from handler.scan_handler import (
     scan_platform,
     scan_rom,
 )
+from handler.scan_jobs import (
+    get_blocking_library_scans,
+    get_queued_scan_jobs,
+    get_running_scan_job,
+    get_scheduled_scan_jobs,
+)
 from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
@@ -70,7 +79,7 @@ from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
-from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
+from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
@@ -80,66 +89,55 @@ from utils.pegasus_exporter import PegasusExporter
 STOP_SCAN_FLAG: Final = "scan:stop"
 
 
-def _scan_platforms_func_name() -> str:
-    """Fully qualified name RQ records for a directly enqueued scan.
+def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
+    """What a scan job carries so a client can tell which scan is running."""
+    return {
+        "task_name": f"{scan_type.value.replace('_', ' ').title()} Scan",
+        "task_type": TaskType.SCAN.value,
+    }
 
-    Derived from the function itself so it cannot drift out of sync with the
-    name RQ stores when the job is enqueued.
+
+def report_scan_failure(
+    job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
+) -> None:
+    """Tell the clients a scan is over when the scan could not say so itself.
+
+    A worker killed mid-scan never reaches the handler that emits this, so the
+    clients would keep showing a scan that no longer exists.
     """
-    return f"{scan_platforms.__module__}.{scan_platforms.__name__}"
+    # Every other failure is reported by the scan as it unwinds, and emitting
+    # here too would report it twice.
+    if exc_type is not AbandonedJobError:
+        return
+
+    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} was abandoned by its worker")
+    try:
+        asyncio.run(
+            _get_socket_manager().emit(
+                "scan:done_ko", "the worker running it stopped unexpectedly"
+            )
+        )
+    except Exception:
+        # RQ re-raises out of the registry sweep that calls this, which would
+        # leave the abandoned scans in the registry and stop the worker.
+        log.error(f"Could not report abandoned scan {job.id}", exc_info=True)
 
 
-def _scan_job_func_names() -> frozenset[str]:
-    """Every job function name that ends up running a scan.
-
-    Socket and watcher scans enqueue scan_platforms itself, while the scheduled
-    rescan enqueues its own task and calls scan_platforms in process. Both have
-    to be recognised or an in-flight scan goes unseen.
-    """
-    return frozenset((_scan_platforms_func_name(), SCAN_LIBRARY_TASK_FUNC))
+def _scan_job_label(job: Job) -> str:
+    """How to refer to a scan job when reporting it to a client."""
+    return str(job.meta.get("task_name") or "A scan")
 
 
-def _get_running_scan_job() -> Job | None:
-    """The scan currently executing on a worker, if any.
+def _scan_in_flight_message(running: Job | None, queued: list[Job]) -> str:
+    """Say which scan is in the way, so the client knows what to wait on."""
+    if running is None:
+        return f"{_scan_job_label(queued[0])} is already queued"
 
-    A started job is no longer in the queue, so it can only be found by asking
-    the workers what they are holding.
-    """
-    func_names = _scan_job_func_names()
-    for worker in Worker.all(connection=redis_client):
-        job = worker.get_current_job()
-        if job is not None and get_job_func_name(job) in func_names:
-            return job
+    stopping = (JobStatus.CANCELED, JobStatus.STOPPED)
+    if get_job_status(running, refresh=False) in stopping:
+        return f"{_scan_job_label(running)} is still stopping, try again in a moment"
 
-    return None
-
-
-def _get_queued_scan_jobs() -> list[Job]:
-    """Scans waiting to run, not yet picked up by a worker.
-
-    Socket scans sit in the high priority queue, while watcher scans are delayed
-    through the scheduler before landing in the low priority queue.
-    """
-    func_names = _scan_job_func_names()
-    jobs: dict[str, Job] = {}
-
-    for job in chain(high_prio_queue.get_jobs(), low_prio_queue.get_jobs()):
-        if isinstance(job, Job) and get_job_func_name(job) in func_names:
-            jobs[job.id] = job
-
-    # The scheduler registry also holds the standing cron entry for the
-    # scheduled rescan, which is a schedule rather than a pending scan, so only
-    # delayed scan_platforms jobs count as queued here.
-    scan_platforms_func_name = _scan_platforms_func_name()
-    for job in tasks_scheduler.get_jobs():
-        if (
-            isinstance(job, Job)
-            and get_job_func_name(job) == scan_platforms_func_name
-            and job.get_status() in (JobStatus.SCHEDULED, JobStatus.QUEUED)
-        ):
-            jobs[job.id] = job
-
-    return list(jobs.values())
+    return f"{_scan_job_label(running)} is already running"
 
 
 @dataclass
@@ -154,6 +152,8 @@ class ScanStats:
     identified_roms: int = 0
     scanned_firmware: int = 0
     new_firmware: int = 0
+    updated_roms: int = 0
+    new_files: int = 0
 
     def __post_init__(self):
         # Lock for thread-safe updates
@@ -190,6 +190,8 @@ class ScanStats:
             "identified_roms": self.identified_roms,
             "scanned_firmware": self.scanned_firmware,
             "new_firmware": self.new_firmware,
+            "updated_roms": self.updated_roms,
+            "new_files": self.new_files,
         }
 
 
@@ -251,6 +253,28 @@ async def _identify_firmware(
     return 1 if not firmware else 0
 
 
+# `files` is left out so a scan does not ship every file row of every rom.
+SCANNING_ROM_EXCLUDE: Final = {
+    "created_at",
+    "updated_at",
+    "rom_user",
+    "last_modified",
+    "files",
+    "sibling_roms",
+}
+
+
+async def _emit_scanning_rom(
+    socket_manager: socketio.AsyncRedisManager, rom: Rom
+) -> None:
+    await socket_manager.emit(
+        "scan:scanning_rom",
+        SimpleRomSchema.from_orm_with_factory(rom).model_dump(
+            exclude=SCANNING_ROM_EXCLUDE
+        ),
+    )
+
+
 def should_scan_rom(
     scan_type: ScanType,
     rom: Rom | None,
@@ -272,8 +296,10 @@ def should_scan_rom(
 
     # This logic is tricky so only touch it if you know what you're doing"""
     should_scan = bool(
-        # Any new roms should be scanned
-        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
+        # New platforms only looks for roms it has never seen
+        (scan_type == ScanType.NEW_PLATFORMS and not rom)
+        # Quick adds new roms and reconciles the files of the ones it knows
+        or (scan_type == ScanType.QUICK)
         # Complete rescan should scan all roms
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
@@ -350,6 +376,29 @@ def _should_reparse_tags(
     return bool(scan_type == ScanType.COMPLETE or (rom and rom.id in roms_ids))
 
 
+def _should_hash_incrementally(
+    scan_type: ScanType,
+    rom: Rom | None,
+    roms_ids: list[int],
+) -> bool:
+    """Decide if a selected rom's unchanged files may keep their stored hashes
+
+    Only COMPLETE and HASHES promise to re-read every byte. A quick scan does
+    not reach here: it reconciles an existing rom through `refresh_rom_files`.
+
+    Args:
+        scan_type (ScanType): Type of scan to be performed.
+        rom (Rom | None): The rom whose files are rebuilt.
+        roms_ids (list[int]): List of selected roms to be scanned.
+    """
+
+    return bool(
+        scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
+        and rom
+        and rom.id in roms_ids
+    )
+
+
 def _should_hash_firmware(
     scan_type: ScanType,
     firmware: Firmware | None,
@@ -371,6 +420,23 @@ def _should_hash_firmware(
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
     )
+
+
+def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
+    fs_rom.update(
+        {
+            "files": parsed.rom_files,
+            "crc_hash": parsed.crc_hash,
+            "md5_hash": parsed.md5_hash,
+            "sha1_hash": parsed.sha1_hash,
+            "ra_hash": parsed.ra_hash,
+            "title_id": parsed.title_id,
+            "save_target": parsed.save_target,
+            "save_target_layout": parsed.save_target_layout,
+        }
+    )
+    if parsed.renamed_rom_fs_name:
+        fs_rom["fs_name"] = parsed.renamed_rom_fs_name
 
 
 # There's an order of operations here that is important:
@@ -395,6 +461,27 @@ async def _identify_rom(
     if redis_client.get(STOP_SCAN_FLAG):
         return
 
+    # A quick scan only reconciles an existing entry's files with disk, so it
+    # needs none of the metadata prelude below.
+    if rom is not None and scan_type == ScanType.QUICK:
+        refreshed = await refresh_rom_files(rom)
+        await scan_stats.increment(
+            socket_manager=socket_manager,
+            scanned_roms=1,
+            updated_roms=1 if refreshed.changed else 0,
+            new_files=refreshed.new_files,
+        )
+        if refreshed.changed:
+            log.info(
+                f"Files of {hl(rom.name or rom.fs_name, color=BLUE)} refreshed: "
+                f"{refreshed.new_files} new, {refreshed.updated_files} updated, "
+                f"{refreshed.removed_files} removed"
+            )
+            hydrated_rom = db_rom_handler.get_rom_simple(rom.id)
+            if hydrated_rom is not None:
+                await _emit_scanning_rom(socket_manager, hydrated_rom)
+        return
+
     # Update properties that don't require metadata
     parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
@@ -414,7 +501,10 @@ async def _identify_rom(
         "url_screenshots": [],
     }
 
-    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
+    cnfg = cm.get_config()
+    calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
+    extract_title_ids = not cnfg.SKIP_TITLE_ID_EXTRACTION
+    embed_title_ids = cnfg.EMBED_SWITCH_TITLE_IDS
 
     newly_added: bool = rom is None
     reassociated: bool = False
@@ -431,16 +521,13 @@ async def _identify_rom(
                 platform=platform,
             ),
             calculate_hashes=calculate_hashes,
+            extract_title_ids=extract_title_ids,
+            embed_title_ids=embed_title_ids,
         )
-        fs_rom.update(
-            {
-                "files": parsed_rom_files.rom_files,
-                "crc_hash": parsed_rom_files.crc_hash,
-                "md5_hash": parsed_rom_files.md5_hash,
-                "sha1_hash": parsed_rom_files.sha1_hash,
-                "ra_hash": parsed_rom_files.ra_hash,
-            }
-        )
+        _apply_scanned_values(fs_rom, parsed_rom_files)
+        # The new-entry insert reads its name from rom_attrs, not fs_rom.
+        if parsed_rom_files.renamed_rom_fs_name:
+            rom_attrs["fs_name"] = parsed_rom_files.renamed_rom_fs_name
         files_built = True
 
         missing_match = db_rom_handler.get_matching_missing_rom(
@@ -448,6 +535,7 @@ async def _identify_rom(
             crc_hash=parsed_rom_files.crc_hash,
             md5_hash=parsed_rom_files.md5_hash,
             sha1_hash=parsed_rom_files.sha1_hash,
+            title_id=parsed_rom_files.title_id,
         )
         if missing_match is not None:
             # Move the existing entry onto the new file, clearing its missing state.
@@ -505,17 +593,20 @@ async def _identify_rom(
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
         parsed_rom_files = await fs_rom_handler.get_rom_files(
-            rom, calculate_hashes=calculate_hashes
+            rom,
+            calculate_hashes=calculate_hashes,
+            extract_title_ids=extract_title_ids,
+            embed_title_ids=embed_title_ids,
+            existing_files=(
+                loaded_rom_files(rom)
+                if _should_hash_incrementally(scan_type, rom, roms_ids)
+                else None
+            ),
         )
-        fs_rom.update(
-            {
-                "files": parsed_rom_files.rom_files,
-                "crc_hash": parsed_rom_files.crc_hash,
-                "md5_hash": parsed_rom_files.md5_hash,
-                "sha1_hash": parsed_rom_files.sha1_hash,
-                "ra_hash": parsed_rom_files.ra_hash,
-            }
-        )
+        _apply_scanned_values(fs_rom, parsed_rom_files)
+        # Keep the in-memory rom's identity matching the renamed file.
+        if parsed_rom_files.renamed_rom_fs_name:
+            rom.fs_name = parsed_rom_files.renamed_rom_fs_name
 
     # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
     # stale files (e.g. a cover from the wrong region) can't be reused. The
@@ -570,19 +661,7 @@ async def _identify_rom(
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
     if _added_rom.is_identified:
-        await socket_manager.emit(
-            "scan:scanning_rom",
-            SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                exclude={
-                    "created_at",
-                    "updated_at",
-                    "rom_user",
-                    "last_modified",
-                    "files",
-                    "sibling_roms",
-                }
-            ),
-        )
+        await _emit_scanning_rom(socket_manager, _added_rom)
 
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
@@ -606,19 +685,7 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
     )
 
-    await socket_manager.emit(
-        "scan:scanning_rom",
-        SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-            exclude={
-                "created_at",
-                "updated_at",
-                "rom_user",
-                "last_modified",
-                "files",
-                "sibling_roms",
-            }
-        ),
-    )
+    await _emit_scanning_rom(socket_manager, _added_rom)
 
 
 async def _scan_selected_roms(
@@ -835,6 +902,7 @@ async def _identify_platform(
         roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
+            with_files=scan_type == ScanType.QUICK,
         )
 
         # Separate skipped ROMs from those that need scanning
@@ -844,6 +912,8 @@ async def _identify_platform(
 
         for fs_rom in fs_roms_batch:
             rom = roms_by_fs_name.get(fs_rom["fs_name"])
+            if rom and rom.id in previously_missing_rom_ids:
+                restored_roms.append(rom)
             if should_scan_rom(
                 scan_type=scan_type,
                 rom=rom,
@@ -853,8 +923,6 @@ async def _identify_platform(
                 roms_to_scan.append((fs_rom, rom))
             elif rom:
                 skipped_rom_ids.append(rom.id)
-                if rom.id in previously_missing_rom_ids:
-                    restored_roms.append(rom)
 
         # Bulk update all skipped ROMs in one query instead of per-ROM updates
         if skipped_rom_ids:
@@ -864,31 +932,20 @@ async def _identify_platform(
                 scanned_roms=len(skipped_rom_ids),
             )
 
-        # Skipped ROMs emit nothing, so a ROM whose file came back would keep its
-        # stale "missing" badge in an open gallery until a refetch. Reload with
-        # details since the scan-loop lookup only eager-loads the platform.
+        # A ROM whose file came back would otherwise keep its stale "missing"
+        # badge in an open gallery: a skipped one emits nothing, and a scanned
+        # one only emits when its files changed. Reload since the scan-loop
+        # lookup only eager-loads the platform.
         for restored_rom in restored_roms:
             log.info(
                 f"{hl(restored_rom.fs_name)} is back in the filesystem, "
                 f"no longer {hl('missing', color=LIGHTYELLOW)}"
             )
-            hydrated_rom = db_rom_handler.get_rom(restored_rom.id)
+            hydrated_rom = db_rom_handler.get_rom_simple(restored_rom.id)
             if hydrated_rom is None:
                 continue
 
-            await socket_manager.emit(
-                "scan:scanning_rom",
-                SimpleRomSchema.from_orm_with_factory(hydrated_rom).model_dump(
-                    exclude={
-                        "created_at",
-                        "updated_at",
-                        "rom_user",
-                        "last_modified",
-                        "files",
-                        "sibling_roms",
-                    }
-                ),
-            )
+            await _emit_scanning_rom(socket_manager, hydrated_rom)
 
         # Process only ROMs that actually need scanning
         scan_tasks = [
@@ -947,7 +1004,7 @@ async def scan_platforms(
     # scan that ended first would otherwise stop this one before it began. A
     # scan still on a worker owns the flag though, and clearing it there would
     # let a stopped scan carry on.
-    running_job = _get_running_scan_job()
+    running_job = get_running_scan_job()
     current_job = get_current_job()
     if running_job is None or (
         current_job is not None and running_job.id == current_job.id
@@ -1248,23 +1305,27 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     if await reject_unauthorized_scan(sid):
         return
 
-    # Without this, every request enqueues another full scan behind the running
-    # one, and a client that lost the progress socket has no way to tell.
-    if not DEV_MODE and (_get_running_scan_job() or _get_queued_scan_jobs()):
-        log.info(f"{emoji.EMOJI_STOP_SIGN} Scan already in progress, ignoring request")
-        await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "A scan is already in progress",
-            to=sid,
-        )
-        return
-
-    log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
-
     platform_ids = options.get("platforms", [])
     platform_fs_slugs = options.get("platform_fs_slugs", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
+
+    # Pressing scan again after losing the progress socket would queue a second
+    # pass over the library; a scan of named roms is not that, so it may queue.
+    if not DEV_MODE and not roms_ids:
+        running_job, queued_jobs = get_blocking_library_scans()
+        if running_job is not None or queued_jobs:
+            message = _scan_in_flight_message(running_job, queued_jobs)
+            log.info(f"{emoji.EMOJI_STOP_SIGN} {message}, ignoring request")
+            await socket_handler.socket_server.emit(
+                "scan:done_ko",
+                message,
+                to=sid,
+            )
+            return
+
+    log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
+
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
     playmatch_enabled = bool(options.get("playmatch_enabled", True))
@@ -1280,8 +1341,12 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             platform_fs_slugs=platform_fs_slugs,
         )
 
-    return high_prio_queue.enqueue(
+    return scan_queue.enqueue(
         scan_platforms,
+        # A scan of named roms resolves its work from the database and is done
+        # in seconds, so it goes ahead of any library scan already waiting.
+        at_front=bool(roms_ids),
+        on_failure=report_scan_failure,
         platform_ids=platform_ids,
         metadata_sources=metadata_sources,
         scan_type=scan_type,
@@ -1291,10 +1356,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         platform_fs_slugs=platform_fs_slugs,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": f"{scan_type.value.capitalize()} Scan",
-            "task_type": TaskType.SCAN,
-        },
+        meta=scan_job_meta(scan_type),
     )
 
 
@@ -1309,22 +1371,24 @@ async def stop_scan_handler(sid: str):
 
     # Queued scans have not started, so cancelling them is enough. They have to
     # go too: stopping only the running scan would hand the worker the next one.
-    queued_jobs = _get_queued_scan_jobs()
-    for job in queued_jobs:
-        job.cancel()
+    queued_jobs = get_queued_scan_jobs()
+    scheduled_jobs = get_scheduled_scan_jobs()
+    for job in queued_jobs + scheduled_jobs:
+        cancel_job(job)
 
     # A running scan cannot be interrupted from here, it polls the stop flag
     # between platforms and ROMs and unwinds itself.
-    running_job = _get_running_scan_job()
+    running_job = get_running_scan_job()
     if running_job is not None:
-        running_job.cancel()
+        cancel_job(running_job)
         redis_client.set(STOP_SCAN_FLAG, 1)
 
-    if running_job is None and not queued_jobs:
+    if running_job is None and not queued_jobs and not scheduled_jobs:
         log.info(f"{emoji.EMOJI_STOP_BUTTON} No running scan to stop")
         return
 
     log.info(
         f"{emoji.EMOJI_STOP_BUTTON} Stopping scan "
-        f"({int(running_job is not None)} running, {len(queued_jobs)} queued)"
+        f"({int(running_job is not None)} running, {len(queued_jobs)} queued, "
+        f"{len(scheduled_jobs)} scheduled)"
     )

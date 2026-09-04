@@ -1,4 +1,7 @@
+import asyncio
 import os
+from collections import defaultdict
+from typing import Final
 
 from anyio import Path as AnyioPath
 from fastapi import HTTPException, Request, status
@@ -34,6 +37,8 @@ from handler.database import db_stats_handler, db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.filesystem.base_handler import LibraryStructure
 from handler.metadata import (
+    meta_csdb_handler,
+    meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_gamelist_handler,
     meta_hasheous_handler,
@@ -43,16 +48,32 @@ from handler.metadata import (
     meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
+    meta_pouet_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
+from handler.redis_handler import sync_cache
 from handler.scan_handler import MetadataSource
 from logger.logger import log
 from utils import get_version
 from utils.platforms import get_supported_platforms
+from utils.rate_limit import enforce_rate_limit, get_client_ip
 from utils.router import APIRouter
+
+# The endpoint is unauthenticated, and every probe passes through the provider's
+# process-global outbound limiter, where it competes with scans.
+METADATA_HEARTBEAT_RATE_LIMIT: Final[int] = 20
+METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS: Final[int] = 60
+
+# Holds outbound probes to one per source per window whatever the inbound rate, which
+# the per-IP cap cannot do against a spoofed forwarded header or a distributed flood.
+METADATA_HEARTBEAT_CACHE_TTL_SECONDS: Final[int] = 60
+
+# The key set is the MetadataSource enum, so this cannot grow past a lock per source.
+_probe_locks: defaultdict[MetadataSource, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 router = APIRouter(
     tags=["system"],
@@ -76,6 +97,10 @@ async def heartbeat() -> HeartbeatResponse:
     hasheous_enabled = meta_hasheous_handler.is_enabled()
     playmatch_enabled = meta_playmatch_handler.is_enabled()
     hltb_enabled = meta_hltb_handler.is_enabled()
+    demozoo_enabled = meta_demozoo_handler.is_enabled()
+    pouet_enabled = meta_pouet_handler.is_enabled()
+    csdb_enabled = meta_csdb_handler.is_enabled()
+    steam_enabled = meta_steam_handler.is_enabled()
     tgdb_enabled = meta_tgdb_handler.is_enabled()
     libretro_enabled = meta_libretro_handler.is_enabled()
 
@@ -96,6 +121,10 @@ async def heartbeat() -> HeartbeatResponse:
                 or tgdb_enabled
                 or flashpoint_enabled
                 or hltb_enabled
+                or demozoo_enabled
+                or pouet_enabled
+                or csdb_enabled
+                or steam_enabled
                 or libretro_enabled
             ),
             "IGDB_API_ENABLED": igdb_enabled,
@@ -110,6 +139,10 @@ async def heartbeat() -> HeartbeatResponse:
             "TGDB_API_ENABLED": tgdb_enabled,
             "FLASHPOINT_API_ENABLED": flashpoint_enabled,
             "HLTB_API_ENABLED": hltb_enabled,
+            "DEMOZOO_API_ENABLED": demozoo_enabled,
+            "POUET_API_ENABLED": pouet_enabled,
+            "CSDB_API_ENABLED": csdb_enabled,
+            "STEAM_API_ENABLED": steam_enabled,
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
@@ -145,13 +178,38 @@ async def heartbeat() -> HeartbeatResponse:
 
 
 @router.get("/heartbeat/metadata/{source}")
-async def metadata_heartbeat(source: str) -> bool:
+async def metadata_heartbeat(request: Request, source: str) -> bool:
     """Endpoint to return the heartbeat of the metadata sources"""
     try:
         metadata_source = MetadataSource(source)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid metadata source") from e
 
+    # Keyed on the parsed source, so arbitrary path values can't grow the keyspace.
+    enforce_rate_limit(
+        f"metadata-heartbeat-rate:{get_client_ip(request)}:{metadata_source.value}",
+        max_requests=METADATA_HEARTBEAT_RATE_LIMIT,
+        window_seconds=METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS,
+        detail="Too many metadata heartbeat requests. Try again later.",
+    )
+
+    cache_key = f"metadata-heartbeat:{metadata_source.value}"
+
+    # Callers that arrive while a probe is in flight queue here and read its result,
+    # rather than each starting a probe of their own into an empty cache.
+    async with _probe_locks[metadata_source]:
+        cached = sync_cache.get(cache_key)
+        if cached is not None:
+            return bool(int(cached))
+
+        is_alive = await _probe_metadata_source(metadata_source)
+        sync_cache.set(
+            cache_key, int(is_alive), ex=METADATA_HEARTBEAT_CACHE_TTL_SECONDS
+        )
+        return is_alive
+
+
+async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
     match metadata_source:
         case MetadataSource.IGDB:
             return await meta_igdb_handler.heartbeat()
@@ -175,6 +233,14 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_flashpoint_handler.heartbeat()
         case MetadataSource.HLTB:
             return await meta_hltb_handler.heartbeat()
+        case MetadataSource.DEMOZOO:
+            return await meta_demozoo_handler.heartbeat()
+        case MetadataSource.POUET:
+            return await meta_pouet_handler.heartbeat()
+        case MetadataSource.CSDB:
+            return await meta_csdb_handler.heartbeat()
+        case MetadataSource.STEAM:
+            return await meta_steam_handler.heartbeat()
         case MetadataSource.GAMELIST:
             return await meta_gamelist_handler.heartbeat()
         case MetadataSource.LIBRETRO:

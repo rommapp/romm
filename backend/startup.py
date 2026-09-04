@@ -4,18 +4,11 @@ import asyncio
 
 import sentry_sdk
 from opentelemetry import trace
+from rq.exceptions import DuplicateJobError
 from rq.job import Job
+from rq.utils import as_text
 
-from config import (
-    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
-    ENABLE_SCHEDULED_RESCAN,
-    ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
-    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
-    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
-    ENABLE_SYNC_PUSH_PULL,
-    SENTRY_DSN,
-    TASK_TIMEOUT,
-)
+from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, SENTRY_DSN
 from handler.database import db_save_handler
 from handler.metadata.base_handler import (
     MAME_XML_KEY,
@@ -26,24 +19,17 @@ from handler.metadata.base_handler import (
     PSP_SERIAL_INDEX_KEY,
     SCUMMVM_INDEX_KEY,
 )
-from handler.redis_handler import async_cache, low_prio_queue
+from handler.redis_handler import (
+    async_cache,
+    default_queue,
+    high_prio_queue,
+    low_prio_queue,
+    redis_client,
+)
+from handler.scan_jobs import drop_stale_scheduled_scans
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
-from tasks.manual.recompute_save_content_hashes import (
-    recompute_save_content_hashes_task,
-)
-from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
-from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
-from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
-from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
-from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
-from tasks.scheduled.scan_library import scan_library_task
-from tasks.scheduled.sync_retroachievements_progress import (
-    sync_retroachievements_progress_task,
-)
-from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
-from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
-from tasks.sync_push_pull_task import sync_push_pull_task
+from tasks.registry import enqueue_task
 from utils import get_version
 from utils.cache import conditionally_set_cache
 from utils.context import initialize_context
@@ -54,19 +40,32 @@ RECOMPUTE_SAVE_HASHES_JOB_ID = "recompute_save_content_hashes_bootstrap"
 CONVERT_IMAGES_TO_WEBP_JOB_ID = "convert_images_to_webp_bootstrap"
 
 
+def _enqueue_backfill(task_name: str, job_id: str) -> None:
+    """Hand a backfill to the low-priority worker and move on.
+
+    A fixed id with unique=True settles it in one round trip, so two instances
+    starting together cannot both get past the check.
+    """
+    try:
+        enqueue_task(task_name, job_id=job_id, unique=True)
+        log.info(f"Enqueued {task_name} on the low-priority worker")
+    except DuplicateJobError:
+        log.info(
+            f"{task_name} already queued or running from a previous restart; "
+            "skipping enqueue"
+        )
+    except Exception:
+        log.exception(f"Failed to enqueue {task_name}; admins can run it manually")
+
+
 def _enqueue_recompute_save_hashes_if_needed() -> None:
-    """Backfill content_hash for saves uploaded before the path-resolution
-    fix. Non-blocking: a single COUNT query, then -- only if any Save rows
-    still have NULL content_hash -- enqueue the manual recompute task on
-    the low-priority RQ queue. The worker process picks it up; this
-    process moves on. Once the run completes, future restarts see 0 NULL
-    hashes and skip. Admins can still trigger the manual task explicitly."""
+    """Backfill content_hash for saves uploaded before the path-resolution fix."""
     try:
         missing = db_save_handler.count_saves_missing_content_hash()
     except Exception:
         log.exception(
-            "Failed to count saves with NULL content_hash; "
-            "skipping auto-enqueue of recompute_save_content_hashes (admins can run it manually)"
+            "Failed to count saves with NULL content_hash; skipping auto-enqueue "
+            "of recompute_save_content_hashes (admins can run it manually)"
         )
         return
 
@@ -74,63 +73,57 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
         log.debug("All saves have content_hash; skipping recompute auto-enqueue")
         return
 
-    try:
-        if Job.exists(RECOMPUTE_SAVE_HASHES_JOB_ID, low_prio_queue.connection):
-            log.info(
-                "recompute_save_content_hashes already queued or running from a "
-                "previous restart; skipping enqueue"
-            )
-            return
-
-        low_prio_queue.enqueue(
-            recompute_save_content_hashes_task.run,
-            job_id=RECOMPUTE_SAVE_HASHES_JOB_ID,
-            job_timeout=TASK_TIMEOUT,
-            meta={
-                "task_name": recompute_save_content_hashes_task.title,
-                "task_type": recompute_save_content_hashes_task.task_type.value,
-            },
-        )
-        log.info(
-            f"Enqueued recompute_save_content_hashes ({missing} saves with NULL content_hash); "
-            "running on low-priority worker"
-        )
-    except Exception:
-        log.exception(
-            "Failed to enqueue recompute_save_content_hashes; admins can run it manually"
-        )
+    log.info(f"{missing} save(s) still have a NULL content_hash")
+    _enqueue_backfill("recompute_save_content_hashes", RECOMPUTE_SAVE_HASHES_JOB_ID)
 
 
 def _enqueue_convert_images_to_webp() -> None:
     """Backfill .webp covers when WebP conversion is enabled.
 
-    The frontend rewrites cover URLs to .webp as soon as the feature flag is
-    on, but the scheduled task only runs at its next cron time and the inline
-    conversion in the resources handler only fires for covers fetched after
-    enabling. Without a backfill, existing covers have no .webp sibling and
-    every request 404s until the cron eventually runs."""
-    try:
-        if Job.exists(CONVERT_IMAGES_TO_WEBP_JOB_ID, low_prio_queue.connection):
-            log.info(
-                "convert_images_to_webp already queued or running from a "
-                "previous restart; skipping enqueue"
-            )
-            return
+    The frontend rewrites cover URLs to .webp as soon as the flag is on, so
+    without this every cover fetched before it 404s until the next cron run.
+    """
+    _enqueue_backfill("convert_images_to_webp", CONVERT_IMAGES_TO_WEBP_JOB_ID)
 
-        low_prio_queue.enqueue(
-            convert_images_to_webp_task.run,
-            job_id=CONVERT_IMAGES_TO_WEBP_JOB_ID,
-            job_timeout=TASK_TIMEOUT,
-            meta={
-                "task_name": convert_images_to_webp_task.title,
-                "task_type": convert_images_to_webp_task.task_type.value,
-            },
+
+# Keys the rq-scheduler process left behind, now owned by the cron config.
+LEGACY_SCHEDULED_JOBS_KEY = "rq:scheduler:scheduled_jobs"
+LEGACY_SCHEDULER_KEYS = (
+    LEGACY_SCHEDULED_JOBS_KEY,
+    "rq:scheduler_lock",
+    "rq:scheduler",
+)
+
+
+def _drop_legacy_scheduler_state() -> None:
+    """Clear what the old scheduler left in Redis, jobs included."""
+    try:
+        legacy_job_ids = {
+            as_text(job_id)
+            for job_id in redis_client.zrange(LEGACY_SCHEDULED_JOBS_KEY, 0, -1)
+        }
+
+        if legacy_job_ids:
+            # A cron job the old scheduler had already queued lives in both
+            # places, and it still has to run, so only the orphans are deleted.
+            queued: set[str] = set()
+            for queue in (high_prio_queue, default_queue, low_prio_queue):
+                queued.update(queue.get_job_ids())
+
+            orphans = legacy_job_ids - queued
+            if orphans:
+                redis_client.delete(*(Job.key_for(job_id) for job_id in orphans))
+
+            log.info(f"Cleared {len(orphans)} job(s) left behind by the old scheduler")
+
+        # The registry, the lock and the scheduler's own keys go regardless: an
+        # old scheduler that never held a job still registered itself.
+        instance_keys = list(
+            redis_client.scan_iter("rq:scheduler_instance:*", count=1000)
         )
-        log.info("Enqueued convert_images_to_webp backfill on low-priority worker")
+        redis_client.delete(*LEGACY_SCHEDULER_KEYS, *instance_keys)
     except Exception:
-        log.exception(
-            "Failed to enqueue convert_images_to_webp; admins can run it manually"
-        )
+        log.exception("Failed to clear the old scheduler's leftovers")
 
 
 @tracer.start_as_current_span("main")
@@ -140,31 +133,15 @@ async def main() -> None:
     async with initialize_context():
         log.info("Running startup tasks")
 
-        # Initialize scheduled tasks
-        cleanup_netplay_task.init()
-        cleanup_zip_cache_task.init()
-        cleanup_upload_tmp_task.init()
-        cleanup_orphaned_resources_task.init()
+        try:
+            drop_stale_scheduled_scans()
+        except Exception:
+            log.exception("Failed to check for stale scheduled scans")
 
-        if ENABLE_SCHEDULED_RESCAN:
-            log.info("Starting scheduled rescan")
-            scan_library_task.init()
-        if ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:
-            log.info("Starting scheduled update switch titledb")
-            update_switch_titledb_task.init()
-        if ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:
-            log.info("Starting scheduled update launchbox metadata")
-            update_launchbox_metadata_task.init()
+        _drop_legacy_scheduler_state()
+
         if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-            log.info("Starting scheduled convert images to webp")
-            convert_images_to_webp_task.init()
             _enqueue_convert_images_to_webp()
-        if ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC:
-            log.info("Starting scheduled RetroAchievements progress sync")
-            sync_retroachievements_progress_task.init()
-        if ENABLE_SYNC_PUSH_PULL:
-            log.info("Starting scheduled push-pull sync")
-            sync_push_pull_task.init()
 
         _enqueue_recompute_save_hashes_if_needed()
 

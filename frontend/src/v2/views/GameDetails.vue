@@ -6,6 +6,7 @@
 // orchestrator — data + tab state live here, every visual piece is a
 // sub-component under components/GameDetails/.
 import { RTabNav, type RTabNavItem } from "@v2/lib";
+import { formatReleaseDate } from "@v2/utils/time";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -29,6 +30,7 @@ import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
+import { useRomScanRefresh } from "@/v2/composables/useRomScanRefresh";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
 
@@ -55,6 +57,10 @@ const panelEl = ref<HTMLElement | null>(null);
 // action ribbon, right stick scrolls long tabs (Overview, Achievements)
 // without needing to leave the ribbon focus.
 useRightStickScroll(panelEl);
+
+// The files badge and every tab read `currentRom`, so the view owns the
+// post-scan refetch rather than the Files tab.
+useRomScanRefresh();
 
 onBeforeRouteUpdate(async (to) => {
   const nextId = parseInt(to.params.rom as string);
@@ -107,18 +113,12 @@ const platformLabel = computed(() => {
   return r.platform_custom_name || r.platform_display_name;
 });
 
-const releaseDate = computed(() => {
-  const ts = currentRom.value?.metadatum?.first_release_date;
-  if (!ts) return null;
-  return new Date(Number(ts)).toLocaleDateString(
+const releaseDate = computed(() =>
+  formatReleaseDate(
+    currentRom.value?.metadatum?.first_release_date,
     toBrowserLocale(locale.value),
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    },
-  );
-});
+  ),
+);
 
 const genres = computed(() => currentRom.value?.metadatum?.genres ?? []);
 const franchises = computed(

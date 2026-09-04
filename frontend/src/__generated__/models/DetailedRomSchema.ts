@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ManualMetadata } from './ManualMetadata';
+import type { RomCsdbMetadata } from './RomCsdbMetadata';
+import type { RomDemozooMetadata } from './RomDemozooMetadata';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomGamelistMetadata } from './RomGamelistMetadata';
@@ -12,10 +14,13 @@ import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
+import type { RomPouetMetadata } from './RomPouetMetadata';
 import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
+import type { RomSteamMetadata } from './RomSteamMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SaveSchema } from './SaveSchema';
+import type { SaveTargetLayout } from './SaveTargetLayout';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
@@ -36,6 +41,10 @@ export type DetailedRomSchema = {
     tgdb_id: (number | null);
     flashpoint_id: (string | null);
     hltb_id: (number | null);
+    demozoo_id: (number | null);
+    pouet_id: (number | null);
+    csdb_id: (number | null);
+    steam_id: (number | null);
     gamelist_id: (string | null);
     libretro_id: (string | null);
     platform_id: number;
@@ -63,6 +72,10 @@ export type DetailedRomSchema = {
     hasheous_metadata: (RomHasheousMetadata | null);
     flashpoint_metadata: (RomFlashpointMetadata | null);
     hltb_metadata: (RomHLTBMetadata | null);
+    demozoo_metadata: (RomDemozooMetadata | null);
+    pouet_metadata: (RomPouetMetadata | null);
+    csdb_metadata: (RomCsdbMetadata | null);
+    steam_metadata: (RomSteamMetadata | null);
     gamelist_metadata: (RomGamelistMetadata | null);
     manual_metadata: (ManualMetadata | null);
     path_cover_small: (string | null);
@@ -84,6 +97,9 @@ export type DetailedRomSchema = {
     md5_hash: (string | null);
     sha1_hash: (string | null);
     ra_hash: (string | null);
+    title_id: (string | null);
+    save_target: (string | null);
+    save_target_layout: (SaveTargetLayout | null);
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;

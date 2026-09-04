@@ -76,6 +76,10 @@
 #   roms_folder: 'roms'
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)
 #   skip_hash_calculation: false
+#   # Skip reading platform-native title IDs out of ROM binaries during scans
+#   skip_title_id_extraction: false
+#   # Rename Switch ROMs to embed ` [TITLEID][vVERSION]` in their filename
+#   embed_switch_title_ids: false
 
 # scan:
 #   # Metadata priority during scans
@@ -90,6 +94,7 @@
 #       - gamelist # ES-DE gamelist.xml
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
+#       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat (lowest priority)
 #     artwork: # Cover art and screenshots
 #       - igdb # IGDB
@@ -101,6 +106,7 @@
 #       - gamelist # ES-DE gamelist.xml
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
+#       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat
 #     # Optional per-field overrides, each falls back to "artwork" when omitted
 #     cover: # Cover art only

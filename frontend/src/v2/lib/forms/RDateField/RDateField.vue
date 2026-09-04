@@ -13,7 +13,9 @@
 // Model value accepts whatever the call site already has (Date object,
 // UNIX timestamp in milliseconds, ISO/yyyy-MM-dd string, or null) and
 // emits a `Date | null` anchored at UTC midnight so timezone shifts
-// don't bump the value across day boundaries.
+// don't bump the value across day boundaries. Every read is UTC too --
+// grid, labels and comparisons -- because reading a UTC-midnight
+// instant with local getters lands on the previous day west of UTC.
 import {
   autoUpdate,
   flip,
@@ -55,7 +57,8 @@ interface Props {
   /** Disable opening the picker. RTextField also accepts `disabled` —
    *  we forward it to the field so it gets the muted look too. */
   disabled?: boolean;
-  /** Override the display format. Defaults to `dateStyle: medium`. */
+  /** Override the display format. Defaults to `dateStyle: medium`. The
+   *  timezone is fixed to UTC and can't be overridden here. */
   displayFormat?: Intl.DateTimeFormatOptions;
   /** Render an inline X next to the calendar icon when a date is set.
    *  Mirrors RTextField's clearable affordance so the two primitives
@@ -100,9 +103,12 @@ const maxDate = computed(() => toDate(props.max));
 // = navigator default, same call shape Intl prefers for "user locale".
 const displayValue = computed(() => {
   if (!selectedDate.value) return "";
-  return new Intl.DateTimeFormat(undefined, props.displayFormat).format(
-    selectedDate.value,
-  );
+  // timeZone last: the value is a UTC calendar date, so a caller-supplied
+  // zone would only desync the label from the grid.
+  return new Intl.DateTimeFormat(undefined, {
+    ...props.displayFormat,
+    timeZone: "UTC",
+  }).format(selectedDate.value);
 });
 
 // ── Open state + floating-ui ───────────────────────────────────
@@ -142,25 +148,30 @@ function toggle() {
 // `focusedDay` tracks the keyboard cursor — separate from selection so
 // users can navigate without committing.
 function startOfMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 }
 function sameDay(a: Date | null, b: Date | null): boolean {
   if (!a || !b) return false;
   return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
+    a.getUTCFullYear() === b.getUTCFullYear() &&
+    a.getUTCMonth() === b.getUTCMonth() &&
+    a.getUTCDate() === b.getUTCDate()
   );
 }
+/** The user's local calendar day, re-anchored at UTC midnight. */
+function todayUtc(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+}
 
-const viewMonth = ref<Date>(startOfMonth(selectedDate.value ?? new Date()));
-const focusedDay = ref<Date>(selectedDate.value ?? new Date());
+const viewMonth = ref<Date>(startOfMonth(selectedDate.value ?? todayUtc()));
+const focusedDay = ref<Date>(selectedDate.value ?? todayUtc());
 
 // Whenever the popup opens, snap the view + cursor back to the current
 // selection (or today) so the user never lands on a stale month.
 watch(isOpen, (next) => {
   if (!next) return;
-  const anchor = selectedDate.value ?? new Date();
+  const anchor = selectedDate.value ?? todayUtc();
   viewMonth.value = startOfMonth(anchor);
   focusedDay.value = new Date(anchor);
   nextTick(focusDayCell);
@@ -177,7 +188,7 @@ interface GridCell {
   key: string;
 }
 
-const today = computed(() => new Date());
+const today = computed(() => todayUtc());
 
 function isDisabledDate(d: Date): boolean {
   if (minDate.value && d < startOfDay(minDate.value)) return true;
@@ -185,30 +196,42 @@ function isDisabledDate(d: Date): boolean {
   return false;
 }
 function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+  );
 }
 function endOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+  return new Date(
+    Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      23,
+      59,
+      59,
+      999,
+    ),
+  );
 }
 
 const grid = computed<GridCell[]>(() => {
   const first = startOfMonth(viewMonth.value);
-  const startOffset = (first.getDay() - props.firstDayOfWeek + 7) % 7;
+  const startOffset = (first.getUTCDay() - props.firstDayOfWeek + 7) % 7;
   const gridStart = new Date(first);
-  gridStart.setDate(first.getDate() - startOffset);
+  gridStart.setUTCDate(first.getUTCDate() - startOffset);
 
   const cells: GridCell[] = [];
   for (let i = 0; i < 42; i += 1) {
     const d = new Date(gridStart);
-    d.setDate(gridStart.getDate() + i);
+    d.setUTCDate(gridStart.getUTCDate() + i);
     cells.push({
       date: d,
-      inMonth: d.getMonth() === viewMonth.value.getMonth(),
+      inMonth: d.getUTCMonth() === viewMonth.value.getUTCMonth(),
       isToday: sameDay(d, today.value),
       isSelected: sameDay(d, selectedDate.value),
       isDisabled: isDisabledDate(d),
       isFocused: sameDay(d, focusedDay.value),
-      key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
+      key: `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`,
     });
   }
   return cells;
@@ -218,17 +241,21 @@ const grid = computed<GridCell[]>(() => {
 const monthYearFormat = new Intl.DateTimeFormat(undefined, {
   month: "long",
   year: "numeric",
+  timeZone: "UTC",
 });
 const monthLabel = computed(() => monthYearFormat.format(viewMonth.value));
 
-const weekdayFormat = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+const weekdayFormat = new Intl.DateTimeFormat(undefined, {
+  weekday: "short",
+  timeZone: "UTC",
+});
 const weekdays = computed(() => {
   // Anchor on a known Sunday (2024-01-07) and step `firstDayOfWeek` ahead.
-  const anchor = new Date(2024, 0, 7);
+  const anchor = new Date(Date.UTC(2024, 0, 7));
   const out: string[] = [];
   for (let i = 0; i < 7; i += 1) {
     const d = new Date(anchor);
-    d.setDate(anchor.getDate() + ((i + props.firstDayOfWeek) % 7));
+    d.setUTCDate(anchor.getUTCDate() + ((i + props.firstDayOfWeek) % 7));
     out.push(weekdayFormat.format(d));
   }
   return out;
@@ -237,25 +264,29 @@ const weekdays = computed(() => {
 // ── Month / year navigation ────────────────────────────────────
 function shiftMonth(delta: number) {
   viewMonth.value = new Date(
-    viewMonth.value.getFullYear(),
-    viewMonth.value.getMonth() + delta,
-    1,
+    Date.UTC(
+      viewMonth.value.getUTCFullYear(),
+      viewMonth.value.getUTCMonth() + delta,
+      1,
+    ),
   );
 }
 function shiftYear(delta: number) {
   viewMonth.value = new Date(
-    viewMonth.value.getFullYear() + delta,
-    viewMonth.value.getMonth(),
-    1,
+    Date.UTC(
+      viewMonth.value.getUTCFullYear() + delta,
+      viewMonth.value.getUTCMonth(),
+      1,
+    ),
   );
 }
 
 // ── Selection ──────────────────────────────────────────────────
 function selectDay(d: Date) {
   if (isDisabledDate(d)) return;
-  // Emit UTC midnight so the round-trip survives timezones — matches the
+  // Emit UTC midnight so the round-trip survives timezones, matching the
   // shape callers already store (e.g. `released_at` timestamps in DB).
-  const utc = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const utc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   emit("update:modelValue", new Date(utc));
   close();
 }
@@ -341,13 +372,13 @@ function onPanelKeydown(evt: KeyboardEvent) {
 
 function moveFocus(deltaDays: number) {
   const next = new Date(focusedDay.value);
-  next.setDate(next.getDate() + deltaDays);
+  next.setUTCDate(next.getUTCDate() + deltaDays);
   focusedDay.value = next;
   // If the cursor walked off-month, scroll the view to follow it so the
   // cell stays visible.
   if (
-    next.getFullYear() !== viewMonth.value.getFullYear() ||
-    next.getMonth() !== viewMonth.value.getMonth()
+    next.getUTCFullYear() !== viewMonth.value.getUTCFullYear() ||
+    next.getUTCMonth() !== viewMonth.value.getUTCMonth()
   ) {
     viewMonth.value = startOfMonth(next);
   }
@@ -355,14 +386,14 @@ function moveFocus(deltaDays: number) {
 }
 function moveFocusToWeekEdge(direction: -1 | 1) {
   // -1: Home → start of week. +1: End → end of week.
-  const dow = focusedDay.value.getDay();
+  const dow = focusedDay.value.getUTCDay();
   const fdow = props.firstDayOfWeek;
   const offsetFromStart = (dow - fdow + 7) % 7;
   const next = new Date(focusedDay.value);
   if (direction === -1) {
-    next.setDate(next.getDate() - offsetFromStart);
+    next.setUTCDate(next.getUTCDate() - offsetFromStart);
   } else {
-    next.setDate(next.getDate() + (6 - offsetFromStart));
+    next.setUTCDate(next.getUTCDate() + (6 - offsetFromStart));
   }
   focusedDay.value = next;
   nextTick(focusDayCell);
@@ -370,7 +401,7 @@ function moveFocusToWeekEdge(direction: -1 | 1) {
 
 function focusDayCell() {
   if (!panelRef.value) return;
-  const key = `${focusedDay.value.getFullYear()}-${focusedDay.value.getMonth()}-${focusedDay.value.getDate()}`;
+  const key = `${focusedDay.value.getUTCFullYear()}-${focusedDay.value.getUTCMonth()}-${focusedDay.value.getUTCDate()}`;
   const cell = panelRef.value.querySelector(
     `[data-day-key="${key}"]`,
   ) as HTMLElement | null;
@@ -543,7 +574,7 @@ onBeforeUnmount(() => {
               :disabled="cell.isDisabled"
               @click="selectDay(cell.date)"
             >
-              {{ cell.date.getDate() }}
+              {{ cell.date.getUTCDate() }}
             </button>
           </div>
 

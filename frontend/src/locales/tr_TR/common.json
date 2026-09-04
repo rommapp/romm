@@ -75,6 +75,7 @@
   "in-library": "Kütüphanede",
   "invalid-email": "Geçersiz e-posta",
   "invalid-name": "Geçersiz isim",
+  "invalid-relative-path": "\"..\" bölümleri içermeyen göreli bir klasör yolu girin",
   "jukebox": "Müzik kutusu",
   "kind": "Tür",
   "last-page": "Son sayfa",

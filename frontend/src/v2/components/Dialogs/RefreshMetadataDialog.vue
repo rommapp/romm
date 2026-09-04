@@ -18,12 +18,15 @@ import {
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import socket from "@/services/socket";
 import { type SimpleRom } from "@/stores/roms";
-import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import {
+  scanNeedsMetadataSource,
+  type ScanType as SharedScanType,
+} from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -36,7 +39,7 @@ const show = ref(false);
 // normalise to an array so the scan emit groups by platform without
 // branching on the input shape.
 const roms = ref<SimpleRom[]>([]);
-const scanningStore = storeScanning();
+const { startScan } = useScanTrigger();
 
 const {
   calculateHashes,
@@ -55,13 +58,13 @@ const {
   persistSelection,
 } = useScanProviders();
 
-// Per-ROM scan types — the Scan view's "new platforms" / "quick"
-// options don't apply to an already-ingested ROM. We keep `update`
-// (re-fetch by existing id and repopulate missing fields like summary
-// or cover), `hashes` (recalculate file hashes only — useful when
-// files changed on disk or hashing was disabled at scan time), and
-// `complete` (wipe + rematch from scratch).
-type ScanType = "update" | "hashes" | "complete";
+// Per-ROM scan types. "new platforms" means nothing here and "unmatched" is a
+// library-wide filter; "quick" is offered as "Refresh files", which is all a
+// quick scan does for a ROM that already exists.
+type ScanType = Extract<
+  SharedScanType,
+  "update" | "hashes" | "quick" | "complete"
+>;
 
 const isBulk = computed(() => roms.value.length > 1);
 
@@ -89,6 +92,13 @@ const scanOptions = computed<ScanOption[]>(() => [
     disabled: calculateHashes.value
       ? undefined
       : t("scan.hash-calculation-disabled"),
+  },
+  {
+    title: t("rom.refresh-files"),
+    subtitle: isBulk.value
+      ? t("rom.refresh-files-desc-bulk")
+      : t("rom.refresh-files-desc"),
+    value: "quick",
   },
   {
     title: t("scan.complete-rescan"),
@@ -137,9 +147,6 @@ const singleRomTitle = computed(() => {
 function onScan() {
   if (roms.value.length === 0) return;
 
-  scanningStore.setScanning(true);
-  persistSelection();
-
   // Group rom ids by platform — the scan socket event accepts one
   // platform list + one rom-id list, so a selection that spans
   // multiple platforms is fanned into N events, one per platform.
@@ -150,27 +157,30 @@ function onScan() {
     byPlatform.set(r.platform_id, list);
   }
 
+  const payload = buildScanPayload();
+  const started = startScan(
+    [...byPlatform].map(([platformId, romIds]) => ({
+      platforms: [platformId],
+      roms_ids: romIds,
+      type: scanType.value,
+      ...payload,
+    })),
+  );
+  if (!started) return;
+  persistSelection();
+
   if (isBulk.value) {
     snackbar.info(t("rom.refresh-metadata-bulk", { n: roms.value.length }), {
       icon: "mdi-loading mdi-spin",
     });
   } else {
-    const r = roms.value[0];
-    snackbar.info(t("rom.refreshing-metadata", { name: r.name ?? r.fs_name }), {
-      icon: "mdi-loading mdi-spin",
-    });
-  }
-
-  if (!socket.connected) socket.connect();
-
-  const payload = buildScanPayload();
-  for (const [platformId, romIds] of byPlatform) {
-    socket.emit("scan", {
-      platforms: [platformId],
-      roms_ids: romIds,
-      type: scanType.value,
-      ...payload,
-    });
+    const name = singleRomTitle.value;
+    snackbar.info(
+      scanType.value === "quick"
+        ? t("rom.refreshing-files", { name })
+        : t("rom.refreshing-metadata", { name }),
+      { icon: "mdi-loading mdi-spin" },
+    );
   }
 
   closeDialog();
@@ -482,7 +492,10 @@ function closeDialog() {
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
-        :disabled="effectiveMetadataSources.length === 0"
+        :disabled="
+          effectiveMetadataSources.length === 0 &&
+          scanNeedsMetadataSource(scanType)
+        "
         @click="onScan"
       >
         {{ t("rom.refresh-metadata") }}

@@ -15,6 +15,7 @@ import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
+import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { colorCanvas } from "@/v2/tokens";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
@@ -28,6 +29,8 @@ const playSession = usePlaySession();
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const backgroundColor = ref<string>(DEFAULT_BACKGROUND_COLOR);
+
+useUnloadGuard(gameRunning);
 
 declare global {
   interface Window {
@@ -48,6 +51,12 @@ window.RufflePlayer = window.RufflePlayer || {};
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
+// Nothing is running, so drop the guard and the input mute the launch armed.
+function abortPlay() {
+  gameRunning.value = false;
+  playingStore.setPlaying(false);
+}
+
 function onPlay() {
   gameRunning.value = true;
   // Flash games are keyboard-driven; flag the session so global hotkeys
@@ -55,14 +64,24 @@ function onPlay() {
   playingStore.setPlaying(true);
 
   nextTick(() => {
-    if (!rom.value) return;
+    if (!rom.value) {
+      abortPlay();
+      return;
+    }
 
     const ruffle = window.RufflePlayer.newest();
-    if (!ruffle) return;
+    if (!ruffle) {
+      abortPlay();
+      return;
+    }
 
     const player = ruffle.createPlayer();
     const container = document.getElementById("r-v2-ruffle-stage");
-    container?.appendChild(player);
+    if (!container) {
+      abortPlay();
+      return;
+    }
+    container.appendChild(player);
     player.load({
       allowFullScreen: true,
       autoplay: "on",

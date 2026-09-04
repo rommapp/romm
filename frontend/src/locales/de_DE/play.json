@@ -14,6 +14,7 @@
   "deselect-save": "Speicherstand abwählen",
   "deselect-state": "Speicherstand abwählen",
   "full-screen": "Vollbild",
+  "https-required": "Muss über HTTPS ausgeführt werden. Kontaktiere den Website-Betreiber.",
   "jsdos-browser-save-warning": "js-dos-Spielstände werden nur in diesem Browser gespeichert und nicht mit RomM synchronisiert.",
   "jsdos-quit-without-saving": "Beenden, ohne den letzten Fortschritt zu speichern?",
   "no-save-selected": "Kein Speicherstand ausgewählt",

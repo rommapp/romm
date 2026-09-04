@@ -102,7 +102,6 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
             enabled=ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
             cron_string=SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
             manual_run=True,
-            func="tasks.scheduled.update_launchbox_metadata.update_launchbox_metadata_task.run",
             url="https://gamesdb.launchbox-app.com/Metadata.zip",
             timeout=LAUNCHBOX_TASK_TIMEOUT,
         )
