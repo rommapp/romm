@@ -119,7 +119,6 @@ class ConvertImagesToWebPTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
             manual_run=True,
             cron_string=SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
-            func="tasks.scheduled.convert_images_to_webp.convert_images_to_webp_task.run",
         )
         self.resources_path = Path(RESOURCES_BASE_PATH)
         self.converter = ImageConverter()

@@ -18,6 +18,7 @@ from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
+from handler.metadata.steam_handler import SteamHandler, SteamRom
 from models.collection import Collection, SmartCollection
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -33,6 +34,7 @@ MOCK_FLASHPOINT_ID = 66666
 MOCK_HLTB_ID = 77777
 MOCK_SGDB_ID = 88888
 MOCK_HASHEOUS_ID = 99999
+MOCK_STEAM_ID = 101010
 
 
 def test_get_rom(client: TestClient, access_token: str, rom: Rom):
@@ -1608,6 +1610,87 @@ class TestUpdateMetadataIDs:
         assert body["hltb_id"] == MOCK_HLTB_ID
         assert get_rom_by_id_mock.called
 
+    @patch.object(
+        SteamHandler,
+        "get_rom_by_id",
+        return_value=SteamRom(
+            steam_id=MOCK_STEAM_ID, steam_metadata={"total_rating": "86"}
+        ),
+    )
+    def test_update_rom_steam_id(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A hand-entered Steam app ID has to pull its store payload down with it."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"steam_id": str(MOCK_STEAM_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["steam_id"] == MOCK_STEAM_ID
+        assert body["steam_metadata"]["total_rating"] == "86"
+        assert get_rom_by_id_mock.called
+
+    @patch.object(SteamHandler, "get_rom_by_id", return_value=SteamRom(steam_id=None))
+    def test_update_rom_steam_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that Steam ID persists when handler is disabled or game not found."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"steam_id": str(MOCK_STEAM_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["steam_id"] == MOCK_STEAM_ID
+        assert get_rom_by_id_mock.called
+
+    @patch.object(
+        SteamHandler,
+        "get_rom_by_id",
+        return_value=SteamRom(
+            steam_id=MOCK_STEAM_ID, steam_metadata={"total_rating": "86"}
+        ),
+    )
+    def test_update_rom_clearing_steam_id_drops_its_metadata(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Clearing the ID has to take the stored store payload with it."""
+        matched = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"steam_id": str(MOCK_STEAM_ID)},
+        )
+        assert matched.status_code == status.HTTP_200_OK
+        assert matched.json()["steam_metadata"]["total_rating"] == "86"
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"steam_id": ""},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["steam_id"] is None
+        assert body["steam_metadata"] == {}
+
 
 class TestUpdateRawMetadata:
     @patch.object(
@@ -1838,6 +1921,37 @@ class TestUpdateRawMetadata:
         assert body["hltb_metadata"]["main_story"] == 10000
         assert body["hltb_metadata"]["main_story_count"] == 1
 
+    @patch.object(
+        SteamHandler, "get_rom_by_id", return_value=SteamRom(steam_id=MOCK_STEAM_ID)
+    )
+    def test_update_raw_steam_metadata(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test updating raw Steam metadata."""
+        raw_metadata = {
+            "total_rating": "91",
+            "genres": ["Action"],
+        }
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={
+                "steam_id": str(MOCK_STEAM_ID),
+                "raw_steam_metadata": json.dumps(raw_metadata),
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["steam_metadata"] is not None
+        assert body["steam_metadata"]["total_rating"] == "91"
+        assert body["steam_metadata"]["genres"] == ["Action"]
+
     # Tests for combined updates
     @patch.object(
         IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=MOCK_IGDB_ID)
@@ -2056,6 +2170,7 @@ class TestUnmatchMetadata:
         assert body["tgdb_id"] is None
         assert body["flashpoint_id"] is None
         assert body["hltb_id"] is None
+        assert body["steam_id"] is None
 
         assert body["name"] == rom.fs_name
         assert body["name_sort_key"] == compute_name_sort_key(rom.fs_name)
@@ -2071,6 +2186,7 @@ class TestUnmatchMetadata:
         assert body["hasheous_metadata"] == {}
         assert body["flashpoint_metadata"] == {}
         assert body["hltb_metadata"] == {}
+        assert body["steam_metadata"] == {}
 
     def test_update_rom_unmatch_metadata_with_other_data(
         self, client: TestClient, access_token: str, rom: Rom

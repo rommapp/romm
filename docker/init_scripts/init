@@ -221,51 +221,78 @@ start_bin_valkey-server() {
 	error_log "Internal valkey did not become ready after $((max_retries * 500))ms"
 }
 
-# Commands to start RQ scheduler
-start_bin_rq_scheduler() {
-	info_log "Starting RQ scheduler"
+# The URL carries the password, so it goes through RQ_REDIS_URL rather than
+# --url, which would put it on a world-readable command line. REDIS_SSL is a
+# boolean to the app, so "false" and "0" mean plaintext.
+build_redis_url() {
+	local scheme userinfo="" ssl="${REDIS_SSL-}"
 
-	RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
-		RQ_REDIS_PORT=${REDIS_PORT:-6379} \
-		RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
-		RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
-		RQ_REDIS_DB=${REDIS_DB:-0} \
-		RQ_REDIS_SSL=${REDIS_SSL:-0} \
-		rqscheduler \
+	case "${ssl,,}" in
+	1 | true | yes | on) scheme="rediss" ;;
+	*) scheme="redis" ;;
+	esac
+
+	if [[ -n ${REDIS_PASSWORD-} ]]; then
+		userinfo="${REDIS_USERNAME-}:${REDIS_PASSWORD}@"
+	elif [[ -n ${REDIS_USERNAME-} ]]; then
+		userinfo="${REDIS_USERNAME}@"
+	fi
+
+	echo "${scheme}://${userinfo}${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+}
+
+# Commands to start the RQ cron scheduler, which runs the periodic tasks listed
+# in the cron config. Delayed jobs are released by the worker itself.
+start_bin_rq_cron() {
+	info_log "Starting RQ cron scheduler"
+
+	local redis_url
+	redis_url="$(build_redis_url)"
+
+	PYTHONPATH="/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${redis_url}" \
+		rq cron \
 		--path /backend \
-		--pid /tmp/rq_scheduler.pid &
+		--logging-level "${LOGLEVEL}" \
+		tasks.cron_config &
+	echo "$!" >/tmp/rq_cron.pid
 }
 
 # Commands to start RQ worker
 start_bin_rq_worker() {
 	info_log "Starting RQ worker"
+	start_rq_worker rq_worker high default low
+}
 
-	# Build Redis URL properly
+# Scans get a worker of their own, see SCAN_QUEUE_NAME.
+start_bin_rq_scan_worker() {
+	info_log "Starting RQ scan worker"
+	start_rq_worker rq_scan_worker scans
+}
+
+# Set PYTHONPATH so RQ can find the tasks module.
+# Use a worker class that drops the noisy per-sweep "cleaning registries for
+# queue" log line. The maintenance interval keeps its default (~10 min) so
+# orphaned STARTED jobs and stale workers are still pruned promptly.
+# --with-scheduler releases delayed jobs, which is how the watcher's rescans
+# wait out their delay.
+start_rq_worker() {
+	local name="$1"
+	shift
+
 	local redis_url
-	if [[ -n ${REDIS_PASSWORD-} ]]; then
-		redis_url="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-	elif [[ -n ${REDIS_USERNAME-} ]]; then
-		redis_url="redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-	else
-		redis_url="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-	fi
+	redis_url="$(build_redis_url)"
 
-	# Set PYTHONPATH so RQ can find the tasks module.
-	# The connection URL goes through RQ_REDIS_URL rather than --url, so the
-	# embedded password stays out of the worker's world-readable command line.
-	# Use a worker class that drops the noisy per-sweep "cleaning registries for
-	# queue" log line. The maintenance interval keeps its default (~10 min) so
-	# orphaned STARTED jobs and stale workers are still pruned promptly, which the
-	# watcher's Worker.all() scan dedupe relies on.
 	PYTHONPATH="/backend:${PYTHONPATH-}" \
 		RQ_REDIS_URL="${redis_url}" \
 		rq worker \
 		--path /backend \
 		--worker-class handler.rq_worker.RomMWorker \
-		--pid /tmp/rq_worker.pid \
+		--pid "/tmp/${name}.pid" \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		--logging_level "${LOGLEVEL}" \
-		high default low &
+		--with-scheduler \
+		"$@" &
 }
 
 start_bin_watcher() {
@@ -325,7 +352,8 @@ stop_process_pid() {
 shutdown() {
 	# shutdown in reverse order
 	stop_process_pid rq_worker
-	stop_process_pid rq_scheduler
+	stop_process_pid rq_scan_worker
+	stop_process_pid rq_cron
 	stop_process_pid sync_watcher
 	stop_process_pid watcher
 	stop_process_pid nginx
@@ -380,10 +408,12 @@ run_startup
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
 
-	# always run the scheduler
-	watchdog_process_pid rq_scheduler
+	# always run the cron scheduler
+	watchdog_process_pid rq_cron
 
 	watchdog_process_pid rq_worker
+
+	watchdog_process_pid rq_scan_worker
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then

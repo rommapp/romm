@@ -75,6 +75,7 @@
   "in-library": "In library",
   "invalid-email": "Invalid email",
   "invalid-name": "Invalid name",
+  "invalid-relative-path": "Enter a relative folder path without \"..\" segments",
   "jukebox": "Jukebox",
   "kind": "Kind",
   "last-page": "Last page",

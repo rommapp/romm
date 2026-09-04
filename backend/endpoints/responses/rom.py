@@ -16,6 +16,8 @@ from endpoints.responses.assets import (
     UserScreenshotSchema,
     UserStateSchema,
 )
+from handler.metadata.csdb_handler import CsdbMetadata
+from handler.metadata.demozoo_handler import DemozooMetadata
 from handler.metadata.flashpoint_handler import FlashpointMetadata
 from handler.metadata.gamelist_handler import GamelistMetadata
 from handler.metadata.hasheous_handler import HasheousMetadata
@@ -23,8 +25,10 @@ from handler.metadata.hltb_handler import HLTBMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.launchbox_handler.types import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
+from handler.metadata.pouet_handler import PouetMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
+from handler.metadata.steam_handler import SteamMetadata
 from models.collection import Collection, SmartCollection
 from models.rom import (
     DocSource,
@@ -33,6 +37,7 @@ from models.rom import (
     RomFile,
     RomFileCategory,
     RomUserStatus,
+    SaveTargetLayout,
 )
 
 from .base import BaseModel, UTCDatetime
@@ -95,6 +100,26 @@ RomFlashpointMetadata = TypedDict(  # type: ignore[misc]
 RomHLTBMetadata = TypedDict(  # type: ignore[misc]
     "RomHLTBMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(HLTBMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomDemozooMetadata = TypedDict(  # type: ignore[misc]
+    "RomDemozooMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(DemozooMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomPouetMetadata = TypedDict(  # type: ignore[misc]
+    "RomPouetMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(PouetMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomCsdbMetadata = TypedDict(  # type: ignore[misc]
+    "RomCsdbMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(CsdbMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomSteamMetadata = TypedDict(  # type: ignore[misc]
+    "RomSteamMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(SteamMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 RomGamelistMetadata = TypedDict(  # type: ignore[misc]
@@ -312,6 +337,10 @@ class RomSchema(BaseModel):
     tgdb_id: int | None
     flashpoint_id: str | None
     hltb_id: int | None
+    demozoo_id: int | None
+    pouet_id: int | None
+    csdb_id: int | None
+    steam_id: int | None
     gamelist_id: str | None
     libretro_id: str | None
 
@@ -344,6 +373,10 @@ class RomSchema(BaseModel):
     hasheous_metadata: RomHasheousMetadata | None
     flashpoint_metadata: RomFlashpointMetadata | None
     hltb_metadata: RomHLTBMetadata | None
+    demozoo_metadata: RomDemozooMetadata | None
+    pouet_metadata: RomPouetMetadata | None
+    csdb_metadata: RomCsdbMetadata | None
+    steam_metadata: RomSteamMetadata | None
     gamelist_metadata: RomGamelistMetadata | None
     manual_metadata: ManualMetadata | None
 
@@ -371,6 +404,9 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    title_id: str | None
+    save_target: str | None
+    save_target_layout: SaveTargetLayout | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool

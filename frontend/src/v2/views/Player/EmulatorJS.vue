@@ -57,6 +57,7 @@ import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import {
   resolveBezelHost,
@@ -118,6 +119,8 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const removeIOSFullscreenShim = ref<(() => void) | null>(null);
+
+useUnloadGuard(gameRunning);
 
 // ── Live activity ("now playing") ──────────────────────────────────
 const ACTIVITY_HEARTBEAT_MS = 30_000;
@@ -289,6 +292,11 @@ async function onPlay() {
     removeIOSFullscreenShim.value?.();
     removeIOSFullscreenShim.value = null;
     console.error("[Play] Emulator load failure:", err);
+    // No emulator booted, so drop back to the config screen instead of
+    // leaving the unload guard and the input mute armed.
+    gameRunning.value = false;
+    playing.value = false;
+    fullScreen.value = false;
   }
 }
 
