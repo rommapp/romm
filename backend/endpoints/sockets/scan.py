@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -12,6 +14,7 @@ from rq.exceptions import AbandonedJobError
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
+from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -78,7 +81,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
@@ -140,6 +143,11 @@ def _scan_in_flight_message(running: Job | None, queued: list[Job]) -> str:
     return f"{_scan_job_label(running)} is already running"
 
 
+# A scan reports once per rom, and each report is a synchronous redis write plus
+# a publish. Coalescing keeps that cost off the per-rom path.
+SCAN_STATS_PUBLISH_INTERVAL = 0.25
+
+
 @dataclass
 class ScanStats:
     total_platforms: int = 0
@@ -158,6 +166,28 @@ class ScanStats:
     def __post_init__(self):
         # Lock for thread-safe updates
         self._lock = asyncio.Lock()
+        self._unpublished = False
+        # None until the first report, so a scan never coalesces away its first.
+        self._published_at: float | None = None
+
+    async def _publish(
+        self, socket_manager: socketio.AsyncRedisManager, *, force: bool
+    ) -> None:
+        """Tell the clients where the scan is. The caller holds the lock."""
+        now = time.monotonic()
+        if (
+            not force
+            and self._published_at is not None
+            and now - self._published_at < SCAN_STATS_PUBLISH_INTERVAL
+        ):
+            self._unpublished = True
+            return
+
+        self._unpublished = False
+        self._published_at = now
+        stats = self.to_dict()
+        update_job_meta({"scan_stats": stats})
+        await socket_manager.emit("scan:update_stats", stats)
 
     async def update(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
         async with self._lock:
@@ -165,8 +195,9 @@ class ScanStats:
                 if hasattr(self, key):
                     setattr(self, key, value)
 
-            update_job_meta({"scan_stats": self.to_dict()})
-            await socket_manager.emit("scan:update_stats", self.to_dict())
+            # Totals and platform counts land at phase boundaries, rarely enough
+            # to report as they happen.
+            await self._publish(socket_manager, force=True)
 
     async def increment(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
         async with self._lock:
@@ -175,8 +206,13 @@ class ScanStats:
                     current_value = getattr(self, key)
                     setattr(self, key, current_value + value)
 
-            update_job_meta({"scan_stats": self.to_dict()})
-            await socket_manager.emit("scan:update_stats", self.to_dict())
+            await self._publish(socket_manager, force=False)
+
+    async def flush(self, socket_manager: socketio.AsyncRedisManager) -> None:
+        """Publish counters a coalesced increment left unreported."""
+        async with self._lock:
+            if self._unpublished:
+                await self._publish(socket_manager, force=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -354,6 +390,27 @@ def _should_get_rom_files(
     )
 
 
+def _should_extract_title_ids(scan_type: ScanType, rom: Rom) -> bool:
+    """Decide if a rescan should re-read title ids out of a rom's binaries.
+
+    Extraction is a native parse of every ROM file, so it is not repeated for a
+    rom that already carries an id. A scan that re-reads the bytes refreshes it
+    regardless, since replaced files would otherwise keep the old id next to
+    the new hashes. The Switch family always re-reads because the same parse is
+    what settles its per-file categories.
+
+    Args:
+        scan_type (ScanType): Type of scan to be performed.
+        rom (Rom): The existing rom being rescanned.
+    """
+
+    return bool(
+        scan_type in (ScanType.COMPLETE, ScanType.HASHES)
+        or not rom.title_id
+        or rom.platform_slug in SWITCH_PLATFORM_SLUGS
+    )
+
+
 def _should_reparse_tags(
     scan_type: ScanType,
     rom: Rom,
@@ -422,7 +479,26 @@ def _should_hash_firmware(
     )
 
 
-def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
+async def _rebuild_rom_files(
+    rom: Rom,
+    fs_rom: FSRom,
+    calculate_hashes: bool,
+    extract_title_ids: bool,
+    embed_title_ids: bool,
+    existing_files: Sequence[RomFile] | None = None,
+) -> ParsedRomFiles:
+    """Re-read a rom's files onto `fs_rom`, embedding title ids when enabled."""
+    parsed = await fs_rom_handler.get_rom_files(
+        rom,
+        calculate_hashes=calculate_hashes,
+        extract_title_ids=extract_title_ids,
+        existing_files=existing_files,
+    )
+
+    renamed_rom_fs_name = (
+        await fs_rom_handler.embed_switch_title_ids(parsed) if embed_title_ids else None
+    )
+
     fs_rom.update(
         {
             "files": parsed.rom_files,
@@ -430,13 +506,13 @@ def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
             "md5_hash": parsed.md5_hash,
             "sha1_hash": parsed.sha1_hash,
             "ra_hash": parsed.ra_hash,
-            "title_id": parsed.title_id,
-            "save_target": parsed.save_target,
-            "save_target_layout": parsed.save_target_layout,
+            "identity": parsed.identity,
         }
     )
-    if parsed.renamed_rom_fs_name:
-        fs_rom["fs_name"] = parsed.renamed_rom_fs_name
+    if renamed_rom_fs_name:
+        fs_rom["fs_name"] = renamed_rom_fs_name
+
+    return parsed
 
 
 # There's an order of operations here that is important:
@@ -515,19 +591,18 @@ async def _identify_rom(
         # the files and check whether they belong to an existing entry that went
         # missing (a renamed or moved ROM), so its collections, notes, and
         # uploaded assets carry over instead of being orphaned on a duplicate.
-        parsed_rom_files = await fs_rom_handler.get_rom_files(
+        parsed_rom_files = await _rebuild_rom_files(
             Rom(
                 **rom_attrs,
                 platform=platform,
             ),
+            fs_rom,
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
             embed_title_ids=embed_title_ids,
         )
-        _apply_scanned_values(fs_rom, parsed_rom_files)
         # The new-entry insert reads its name from rom_attrs, not fs_rom.
-        if parsed_rom_files.renamed_rom_fs_name:
-            rom_attrs["fs_name"] = parsed_rom_files.renamed_rom_fs_name
+        rom_attrs["fs_name"] = fs_rom["fs_name"]
         files_built = True
 
         missing_match = db_rom_handler.get_matching_missing_rom(
@@ -535,7 +610,7 @@ async def _identify_rom(
             crc_hash=parsed_rom_files.crc_hash,
             md5_hash=parsed_rom_files.md5_hash,
             sha1_hash=parsed_rom_files.sha1_hash,
-            title_id=parsed_rom_files.title_id,
+            title_id=parsed_rom_files.identity.title_id,
         )
         if missing_match is not None:
             # Move the existing entry onto the new file, clearing its missing state.
@@ -592,10 +667,12 @@ async def _identify_rom(
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
-        parsed_rom_files = await fs_rom_handler.get_rom_files(
+        await _rebuild_rom_files(
             rom,
+            fs_rom,
             calculate_hashes=calculate_hashes,
-            extract_title_ids=extract_title_ids,
+            extract_title_ids=extract_title_ids
+            and _should_extract_title_ids(scan_type, rom),
             embed_title_ids=embed_title_ids,
             existing_files=(
                 loaded_rom_files(rom)
@@ -603,10 +680,8 @@ async def _identify_rom(
                 else None
             ),
         )
-        _apply_scanned_values(fs_rom, parsed_rom_files)
-        # Keep the in-memory rom's identity matching the renamed file.
-        if parsed_rom_files.renamed_rom_fs_name:
-            rom.fs_name = parsed_rom_files.renamed_rom_fs_name
+        # Keep the in-memory rom's name matching the renamed file.
+        rom.fs_name = fs_rom["fs_name"]
 
     # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
     # stale files (e.g. a cover from the wrong region) can't be reused. The
@@ -1020,6 +1095,11 @@ async def scan_platforms(
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
+    async def finish(event: str, payload: Any) -> None:
+        """End the scan, reporting whatever a coalesced increment held back."""
+        await scan_stats.flush(socket_manager)
+        await socket_manager.emit(event, payload)
+
     # A ROM-id-scoped scan resolves its work from the database, so it neither
     # needs nor can afford the filesystem walk a library scan starts with.
     scoped_roms_by_platform: dict[int, list[Rom]] = {}
@@ -1039,7 +1119,7 @@ async def scan_platforms(
             fs_platforms = await fs_platform_handler.get_platforms()
         except FolderStructureNotMatchException as e:
             log.error(e)
-            await socket_manager.emit("scan:done_ko", e.message)
+            await finish("scan:done_ko", e.message)
             return scan_stats
 
     # Clear the gamelist cache to ensure we're using fresh gamelist.xml data
@@ -1145,7 +1225,7 @@ async def scan_platforms(
 
     async def stop_scan():
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
-        await socket_manager.emit("scan:done", scan_stats.to_dict())
+        await finish("scan:done", scan_stats.to_dict())
         redis_client.delete(STOP_SCAN_FLAG)
 
     try:
@@ -1261,13 +1341,13 @@ async def scan_platforms(
                         )
             log.info("Pegasus metadata auto-export completed.")
 
-        await socket_manager.emit("scan:done", scan_stats.to_dict())
+        await finish("scan:done", scan_stats.to_dict())
     except ScanStoppedException:
         await stop_scan()
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client
-        await socket_manager.emit("scan:done_ko", str(e))
+        await finish("scan:done_ko", str(e))
         # Re-raise the exception to be caught by the error handler
         raise e
 

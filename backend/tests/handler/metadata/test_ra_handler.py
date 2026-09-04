@@ -2,8 +2,8 @@
 
 import pytest
 
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAHandler
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 @pytest.fixture

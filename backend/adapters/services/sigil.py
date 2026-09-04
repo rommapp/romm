@@ -2,18 +2,14 @@ import asyncio
 from dataclasses import dataclass
 from typing import Final
 
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 try:
     import sigil
 except ImportError:
     sigil = None  # type: ignore[assignment]
     log.debug("sigil binding not installed, title id extraction disabled")
-
-# The Switch family needs prod.keys to decrypt headers, and is the only family
-# whose files may have their title id embedded in the filename.
-SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
 SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.PSP: "psp",
@@ -31,6 +27,10 @@ SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.XBOX: "xbox",
     UPS.XBOX360: "xbox360",
 }
+
+# The Switch family in RomM's own terms. Its headers need prod.keys to decrypt,
+# and it is the only family whose files may carry their title id in the filename.
+SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
 # Errors that are expected for arbitrary library files (no title id present,
 # format sigil can't parse, missing decryption keys). Logged at debug level.
@@ -51,6 +51,15 @@ class SigilExtractionResult:
 class SigilService:
     """Service to extract platform-native title ids from ROM binaries via the
     optional `sigil` cffi binding."""
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        """Whether this build can read title ids at all.
+
+        The results alone can't say: an absent binding looks like a file with
+        no title id.
+        """
+        return sigil is not None
 
     async def extract_title_id(
         self,

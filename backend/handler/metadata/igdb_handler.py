@@ -23,16 +23,15 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from models.rom import Rom
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
 )
-from .base_handler import UniversalPlatformSlug as UPS
 
 PS1_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PSX]["id"]
 PS2_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PS2]["id"]
@@ -830,10 +829,9 @@ class IGDBHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
-        if platform_igdb_id == SWITCH_IGDB_ID and match:
+        if platform_igdb_id == SWITCH_IGDB_ID:
             search_term, index_entry = await self._switch_productid_format(
-                match, search_term
+                rom, fs_name, search_term
             )
             if index_entry:
                 fallback_rom = IGDBRom(

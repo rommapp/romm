@@ -7,7 +7,7 @@ import re
 import struct
 import zlib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final, NotRequired, TypedDict
 
@@ -30,7 +30,6 @@ from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomsNotFoundException,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.base import compute_file_extension, compute_file_name_no_ext
 from models.platform import Platform
@@ -39,6 +38,7 @@ from models.rom import (
     Rom,
     RomFile,
     RomFileCategory,
+    RomIdentity,
     SaveTargetLayout,
     TrackMeta,
 )
@@ -61,6 +61,7 @@ from utils.archives import (
 )
 from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
@@ -115,9 +116,7 @@ class FSRom(TypedDict):
     md5_hash: str
     sha1_hash: str
     ra_hash: str
-    title_id: NotRequired[str | None]
-    save_target: NotRequired[str | None]
-    save_target_layout: NotRequired[SaveTargetLayout | None]
+    identity: NotRequired[RomIdentity]
 
 
 class FileHash(TypedDict):
@@ -186,6 +185,16 @@ class ParsedTags:
 
 
 @dataclass(frozen=True)
+class TitleIdEmbedCandidate:
+    """A parsed file whose name can carry the Switch title id read from it."""
+
+    rom_file: RomFile
+    extraction: SigilExtractionResult
+    # Renaming this file renames the rom, so the caller reconciles `fs_name`.
+    is_rom_level: bool
+
+
+@dataclass(frozen=True)
 class ParsedRomFiles:
     rom_files: list[RomFile]
     crc_hash: str
@@ -195,12 +204,10 @@ class ParsedRomFiles:
     # False when an incremental listing found the top-level files untouched, in
     # which case the hashes above are the stored ones rather than recomputed.
     top_level_changed: bool = True
-    title_id: str | None = None
-    save_target: str | None = None
-    save_target_layout: SaveTargetLayout | None = None
-    # Set when a single-file rom's file was renamed on disk to embed its title
-    # id, so the caller can reconcile Rom.fs_name.
-    renamed_rom_fs_name: str | None = None
+    identity: RomIdentity = field(default_factory=RomIdentity)
+    # Files whose name can carry their Switch title id. Renaming is a separate
+    # step (`embed_switch_title_ids`) so parsing stays a read.
+    embed_candidates: list[TitleIdEmbedCandidate] = field(default_factory=list)
 
 
 RomFileKey = tuple[str, str]
@@ -280,27 +287,25 @@ def _parse_save_target_layout(usage: str) -> SaveTargetLayout | None:
         return None
 
 
-def _rom_level_title_values(
+def _rom_level_identity(
     platform_slug: str,
     extractions: list[SigilExtractionResult],
-) -> tuple[str | None, str | None, SaveTargetLayout | None]:
+) -> RomIdentity:
+    """The rom's identity, from the base game's file where the family has one."""
     if not extractions:
-        return None, None, None
+        return RomIdentity()
 
-    if platform_slug in SWITCH_PLATFORM_SLUGS:
-        chosen = next(
-            (e for e in extractions if switch.is_base_title_id(e.title_id)), None
-        )
-        if chosen is None:
-            derived = switch.derive_base_title_id(extractions[0].title_id)
-            if derived is None:
-                return None, None, None
-            # Switch saves are keyed by the base title id itself.
-            return derived, derived, SaveTargetLayout.FOLDER_EXACT
-    else:
-        chosen = extractions[0]
-
-    return chosen.title_id, chosen.save_target, _parse_save_target_layout(chosen.usage)
+    chosen = next(
+        (e for e in extractions if switch.is_base_title_id(e.title_id)), extractions[0]
+    )
+    return switch.normalize_identity(
+        platform_slug in SWITCH_PLATFORM_SLUGS,
+        RomIdentity(
+            title_id=chosen.title_id,
+            save_target=chosen.save_target,
+            save_target_layout=_parse_save_target_layout(chosen.usage),
+        ),
+    )
 
 
 class FSRomsHandler(FSHandler):
@@ -497,7 +502,6 @@ class FSRomsHandler(FSHandler):
         rom: Rom,
         calculate_hashes: bool = True,
         extract_title_ids: bool = True,
-        embed_title_ids: bool = False,
         *,
         existing_files: Sequence[RomFile] | None = None,
     ) -> ParsedRomFiles:
@@ -528,41 +532,37 @@ class FSRomsHandler(FSHandler):
         sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
         is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
         sigil_extractions: list[SigilExtractionResult] = []
+        embed_candidates: list[TitleIdEmbedCandidate] = []
         sigil_service = SigilService()
 
-        # Embedding is Switch-only even though sigil covers more platforms.
-        embed_switch = embed_title_ids and is_switch
-        renamed_rom_fs_name: str | None = None
-
-        async def _extract_title_id(rom_file: RomFile) -> str | None:
-            """Populate the file's title id fields, returning its new name if
-            embedding renamed it on disk."""
+        async def _extract_title_id(rom_file: RomFile, is_rom_level: bool) -> None:
+            """Read the file's title id, recording it and any category it settles."""
             # Only Switch needs a per-file content type; one extraction is
             # enough elsewhere.
             if not sigil_platform or (sigil_extractions and not is_switch):
-                return None
+                return
 
-            rel_file_path = Path(rom_file.file_path, rom_file.file_name)
             extraction = await sigil_service.extract_title_id(
-                rom.platform_slug, str(Path(self.base_path, rel_file_path))
+                rom.platform_slug,
+                str(Path(self.base_path, rom_file.file_path, rom_file.file_name)),
             )
             if extraction is None:
-                return None
+                return
             if extraction.content_type is not None:
                 category = switch.CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
                 if category is not None:
                     rom_file.category = category
             sigil_extractions.append(extraction)
 
-            if not (embed_switch and extraction.title_id):
-                return None
-
-            new_name = await self._embed_switch_title_id_in_name(
-                rel_file_path, extraction.title_id, extraction.version
-            )
-            if new_name is not None:
-                rom_file.file_name = new_name
-            return new_name
+            # Embedding is Switch-only even though sigil covers more platforms.
+            if is_switch and extraction.title_id:
+                embed_candidates.append(
+                    TitleIdEmbedCandidate(
+                        rom_file=rom_file,
+                        extraction=extraction,
+                        is_rom_level=is_rom_level,
+                    )
+                )
 
         cnfg = cm.get_config()
         existing_by_key: Mapping[RomFileKey, RomFile] | None = (
@@ -689,7 +689,7 @@ class FSRomsHandler(FSHandler):
                     abs_file_path.suffix.lower() not in ARCHIVE_READERS
                     and rom_file.category not in NON_BINARY_FILE_CATEGORIES
                 ):
-                    await _extract_title_id(rom_file)
+                    await _extract_title_id(rom_file, is_rom_level=False)
                 rom_files.append(rom_file)
         elif (
             existing_by_key is not None
@@ -845,11 +845,7 @@ class FSRomsHandler(FSHandler):
             # Archives keep hashes only; sigil reads title ids from the ROM
             # binary itself.
             if rom_ext not in ARCHIVE_READERS:
-                renamed_rom_fs_name = await _extract_title_id(rom_file)
-
-        rom_title_id, rom_save_target, rom_save_target_layout = _rom_level_title_values(
-            rom.platform_slug, sigil_extractions
-        )
+                await _extract_title_id(rom_file, is_rom_level=True)
 
         if top_level_changed:
             crc_hash = crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else ""
@@ -865,7 +861,7 @@ class FSRomsHandler(FSHandler):
             )
             ra_hash = rom_ra_h
         else:
-            # Nothing was re-read at this level, so the stored identity stands.
+            # Nothing was re-read at this level, so the stored hashes stand.
             crc_hash = rom.crc_hash or ""
             md5_hash = rom.md5_hash or ""
             sha1_hash = rom.sha1_hash or ""
@@ -878,10 +874,8 @@ class FSRomsHandler(FSHandler):
             sha1_hash=sha1_hash,
             ra_hash=ra_hash,
             top_level_changed=top_level_changed,
-            title_id=rom_title_id,
-            save_target=rom_save_target,
-            save_target_layout=rom_save_target_layout,
-            renamed_rom_fs_name=renamed_rom_fs_name,
+            identity=_rom_level_identity(rom.platform_slug, sigil_extractions),
+            embed_candidates=embed_candidates,
         )
 
     def _calculate_rom_hashes(
@@ -1023,6 +1017,30 @@ class FSRomsHandler(FSHandler):
             await self.move_file_or_folder(
                 f"{fs_path}/{old_name}", f"{fs_path}/{new_name}"
             )
+
+    async def embed_switch_title_ids(self, parsed: ParsedRomFiles) -> str | None:
+        """Rename each parsed Switch file to embed the title id read from it.
+
+        Returns:
+            The rom's new `fs_name` when the rom is itself one of the renamed
+            files, else None.
+        """
+        renamed_rom_fs_name: str | None = None
+
+        for candidate in parsed.embed_candidates:
+            rom_file = candidate.rom_file
+            new_name = await self._embed_switch_title_id_in_name(
+                Path(rom_file.file_path, rom_file.file_name),
+                candidate.extraction.title_id,
+                candidate.extraction.version,
+            )
+            if new_name is None:
+                continue
+            rom_file.file_name = new_name
+            if candidate.is_rom_level:
+                renamed_rom_fs_name = new_name
+
+        return renamed_rom_fs_name
 
     async def _embed_switch_title_id_in_name(
         self, rel_file_path: Path, title_id: str, title_version: int | None

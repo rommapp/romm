@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -50,6 +52,17 @@ def test_stores_the_identity_a_client_extracted(
     assert stored.title_id == "0100ABCD12340000"
     assert stored.save_target == "0100ABCD12340000"
     assert stored.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+
+    # The response is serialized from the instance the write was applied to,
+    # so it must match the row rather than the pre-write state.
+    body = response.json()
+    assert body["title_id"] == stored.title_id
+    assert body["save_target"] == stored.save_target
+    assert body["save_target_layout"] == stored.save_target_layout
+    # The schema renders UTC explicitly; the stored value reads back naive.
+    assert datetime.fromisoformat(body["updated_at"]).replace(
+        tzinfo=None
+    ) == stored.updated_at.replace(tzinfo=None)
 
 
 @pytest.mark.parametrize(

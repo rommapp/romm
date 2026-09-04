@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -18,6 +19,7 @@ from endpoints.sockets.scan import (
     ScanStats,
     _identify_rom,
     _scan_selected_roms,
+    _should_extract_title_ids,
     _should_hash_incrementally,
     _should_reparse_tags,
     reject_unauthorized_scan,
@@ -36,13 +38,85 @@ from handler.filesystem.roms_handler import (
     ParsedRomFiles,
     ParsedTags,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.rom_files import RomFilesRefresh
 from handler.scan_handler import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
+from utils.platform_slugs import UniversalPlatformSlug as UPS
+
+
+@pytest.fixture
+def hold_everything_back(mocker):
+    """An interval no test can outrun, so coalescing is what decides."""
+    mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
+
+
+class TestScanStatsPublishing:
+    """Counters are exact on every increment; only the reporting is coalesced."""
+
+    @pytest.fixture
+    def socket_manager(self, mocker):
+        mocker.patch.object(scan_module, "update_job_meta")
+        return AsyncMock()
+
+    async def test_reports_once_for_a_burst_of_increments(
+        self, hold_everything_back, socket_manager
+    ):
+        stats = ScanStats()
+
+        for _ in range(50):
+            await stats.increment(socket_manager=socket_manager, scanned_roms=1)
+
+        # The first increment reports, the rest ride along with it.
+        socket_manager.emit.assert_awaited_once()
+        assert stats.scanned_roms == 50
+
+    async def test_flush_reports_what_a_burst_held_back(
+        self, hold_everything_back, socket_manager
+    ):
+        stats = ScanStats()
+        for _ in range(5):
+            await stats.increment(socket_manager=socket_manager, scanned_roms=1)
+        socket_manager.emit.reset_mock()
+
+        await stats.flush(socket_manager)
+
+        assert socket_manager.emit.await_args.args[1]["scanned_roms"] == 5
+
+    async def test_flush_is_quiet_with_nothing_held_back(self, mocker, socket_manager):
+        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 0)
+        stats = ScanStats()
+        await stats.increment(socket_manager=socket_manager, scanned_roms=1)
+        socket_manager.emit.reset_mock()
+
+        await stats.flush(socket_manager)
+
+        socket_manager.emit.assert_not_awaited()
+
+    async def test_a_phase_boundary_reports_immediately(
+        self, hold_everything_back, socket_manager
+    ):
+        stats = ScanStats()
+        await stats.increment(socket_manager=socket_manager, scanned_roms=1)
+        socket_manager.emit.reset_mock()
+
+        await stats.update(socket_manager=socket_manager, total_roms=12)
+
+        assert socket_manager.emit.await_args.args[1]["total_roms"] == 12
+
+    async def test_the_first_report_survives_a_clock_reading_near_zero(
+        self, mocker, socket_manager
+    ):
+        # A monotonic clock counting from boot can read below the interval, and
+        # the first report must not be coalesced against a scan that never ran.
+        mocker.patch.object(scan_module.time, "monotonic", return_value=0.01)
+        stats = ScanStats()
+
+        await stats.increment(socket_manager=socket_manager, scanned_roms=1)
+
+        socket_manager.emit.assert_awaited_once()
 
 
 def test_scan_stats():
@@ -109,52 +183,72 @@ async def test_merging_scan_stats():
     assert stats.new_firmware == 25
 
 
+@pytest.fixture
+def patched(mocker):
+    """Patch the collaborators of scan_platforms so a scan can be driven whole."""
+    socket_manager = AsyncMock()
+    mocker.patch.object(scan_module, "_get_socket_manager", return_value=socket_manager)
+    mocker.patch.object(
+        scan_module.fs_platform_handler,
+        "get_platforms",
+        AsyncMock(return_value=["existing", "new1", "new2"]),
+    )
+    # Each platform reports 100 roms on disk.
+    mocker.patch.object(
+        scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=100)
+    )
+    mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
+    mocker.patch.object(
+        scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
+    )
+    # The "existing" platform is already in the database; "new1"/"new2" are not.
+    existing_platform = MagicMock(id=1, fs_slug="existing")
+    mocker.patch.object(
+        scan_module.db_platform_handler,
+        "get_platforms",
+        return_value=[existing_platform],
+    )
+    mocker.patch.object(scan_module.db_rom_handler, "invalidate_filter_values_cache")
+    config = MagicMock()
+    config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
+    config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+    mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+    # Skip the actual per-platform scanning, returning the stats unchanged.
+    async def fake_identify(**kwargs):
+        return kwargs["scan_stats"]
+
+    mocker.patch.object(scan_module, "_identify_platform", side_effect=fake_identify)
+    return socket_manager
+
+
+class TestScanFailureReporting:
+    """A failed scan still reports the progress it made before saying it failed."""
+
+    async def test_a_failure_publishes_what_an_increment_held_back(
+        self, patched, hold_everything_back, mocker
+    ):
+        update_job_meta = mocker.patch.object(scan_module, "update_job_meta")
+
+        async def scan_then_fail(**kwargs):
+            await kwargs["scan_stats"].increment(
+                socket_manager=kwargs["socket_manager"], scanned_roms=7
+            )
+            raise RuntimeError("boom")
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=scan_then_fail
+        )
+
+        with pytest.raises(RuntimeError):
+            await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        assert update_job_meta.call_args.args[0]["scan_stats"]["scanned_roms"] == 7
+        assert patched.emit.await_args.args[0] == "scan:done_ko"
+
+
 class TestScanTotals:
     """The scan tracker totals must reflect the platforms/roms actually scanned."""
-
-    @pytest.fixture
-    def patched(self, mocker):
-        """Patch the collaborators of scan_platforms so totals can be inspected."""
-        socket_manager = AsyncMock()
-        mocker.patch.object(
-            scan_module, "_get_socket_manager", return_value=socket_manager
-        )
-        mocker.patch.object(
-            scan_module.fs_platform_handler,
-            "get_platforms",
-            AsyncMock(return_value=["existing", "new1", "new2"]),
-        )
-        # Each platform reports 100 roms on disk.
-        mocker.patch.object(
-            scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=100)
-        )
-        mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
-        mocker.patch.object(
-            scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
-        )
-        # The "existing" platform is already in the database; "new1"/"new2" are not.
-        existing_platform = MagicMock(id=1, fs_slug="existing")
-        mocker.patch.object(
-            scan_module.db_platform_handler,
-            "get_platforms",
-            return_value=[existing_platform],
-        )
-        mocker.patch.object(
-            scan_module.db_rom_handler, "invalidate_filter_values_cache"
-        )
-        config = MagicMock()
-        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
-        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
-        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
-
-        # Skip the actual per-platform scanning, returning the stats unchanged.
-        async def fake_identify(**kwargs):
-            return kwargs["scan_stats"]
-
-        mocker.patch.object(
-            scan_module, "_identify_platform", side_effect=fake_identify
-        )
-        return socket_manager
 
     async def test_new_platforms_total_excludes_existing(self, patched, mocker):
         """NEW_PLATFORMS totals must skip platforms already in the database."""
@@ -204,11 +298,8 @@ class TestScreenScraperScanReporting:
     when the scan actually uses ScreenScraper."""
 
     @pytest.fixture
-    def patched(self, mocker):
-        socket_manager = AsyncMock()
-        mocker.patch.object(
-            scan_module, "_get_socket_manager", return_value=socket_manager
-        )
+    def patched(self, patched, mocker):
+        """The shared harness, narrowed to a single platform with no roms."""
         mocker.patch.object(
             scan_module.fs_platform_handler,
             "get_platforms",
@@ -217,28 +308,10 @@ class TestScreenScraperScanReporting:
         mocker.patch.object(
             scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=0)
         )
-        mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
-        mocker.patch.object(
-            scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
-        )
         mocker.patch.object(
             scan_module.db_platform_handler, "get_platforms", return_value=[]
         )
-        mocker.patch.object(
-            scan_module.db_rom_handler, "invalidate_filter_values_cache"
-        )
-        config = MagicMock()
-        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
-        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
-        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
-
-        async def fake_identify(**kwargs):
-            return kwargs["scan_stats"]
-
-        mocker.patch.object(
-            scan_module, "_identify_platform", side_effect=fake_identify
-        )
-        return socket_manager
+        return patched
 
     async def test_begins_a_screenscraper_scan(self, patched, mocker):
         begin = mocker.patch.object(
@@ -520,6 +593,47 @@ class TestShouldReparseTags:
         assert _should_reparse_tags(ScanType.QUICK, rom, [rom.id + 99]) is False
 
 
+class TestShouldExtractTitleIds:
+    """Which rescans pay for another native parse of a rom's binaries."""
+
+    @staticmethod
+    def _rom(platform_slug: str, title_id: str | None) -> Rom:
+        # Built untyped and cast, since `platform_slug` is a read-only property.
+        rom = Mock(spec=Rom)
+        rom.title_id = title_id
+        rom.platform_slug = platform_slug
+        return cast(Rom, rom)
+
+    def test_a_stored_id_is_not_re_read(self):
+        rom = self._rom("psp", "ULUS-10041")
+
+        assert _should_extract_title_ids(ScanType.UPDATE, rom) is False
+        assert _should_extract_title_ids(ScanType.UNMATCHED, rom) is False
+
+    def test_a_rom_without_an_id_is_read(self):
+        assert (
+            _should_extract_title_ids(ScanType.UPDATE, self._rom("psp", None)) is True
+        )
+
+    @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
+    def test_a_rescan_that_re_reads_the_bytes_re_reads_the_id(
+        self, scan_type: ScanType
+    ):
+        """Replacing a file in place would otherwise leave the old id beside the
+        hashes of the new bytes."""
+        rom = self._rom("psp", "ULUS-10041")
+
+        assert _should_extract_title_ids(scan_type, rom) is True
+
+    @pytest.mark.parametrize("platform_slug", ["switch", "switch-2"])
+    def test_switch_always_re_reads(self, platform_slug: str):
+        """The same parse settles the per-file categories, which a rebuild would
+        otherwise take from the folder names instead."""
+        rom = self._rom(platform_slug, "0100ABCD12340000")
+
+        assert _should_extract_title_ids(ScanType.UPDATE, rom) is True
+
+
 class TestIdentifyRomTagReparse:
     """A complete rescan re-reads filename tags onto an existing entry.
 
@@ -741,6 +855,7 @@ def patch_identify_rom(
     name_with_no_tags: str,
     platform_slug: str,
     embed_switch_title_ids: bool = False,
+    renamed_rom_fs_name: str | None = None,
 ) -> tuple[Mock, Platform]:
     """Stub out everything `_identify_rom` reaches so only the wiring under test
     is exercised, returning the patched db handler and the platform to scan."""
@@ -759,6 +874,11 @@ def patch_identify_rom(
         fs, "get_file_name_with_no_tags", return_value=name_with_no_tags
     )
     mocker.patch.object(fs, "get_rom_files", AsyncMock(return_value=parsed))
+    mocker.patch.object(
+        fs,
+        "embed_switch_title_ids",
+        AsyncMock(return_value=renamed_rom_fs_name),
+    )
 
     config = MagicMock()
     config.SKIP_HASH_CALCULATION = False
@@ -875,7 +995,7 @@ class TestIdentifyRomReassociation:
                     md5_hash="",
                     sha1_hash="",
                     ra_hash="",
-                    title_id="0100ABCD12340000",
+                    identity=RomIdentity(title_id="0100ABCD12340000"),
                 )
             ),
         )
@@ -946,13 +1066,13 @@ class TestIdentifyRomTitleIdEmbedRename:
                 md5_hash="md5",
                 sha1_hash="sha1",
                 ra_hash="",
-                title_id="0100ABCD12340000",
-                renamed_rom_fs_name=self.NEW_NAME,
+                identity=RomIdentity(title_id="0100ABCD12340000"),
             ),
             roms_fs_structure="switch/roms",
             name_with_no_tags="Game",
             platform_slug="switch",
             embed_switch_title_ids=True,
+            renamed_rom_fs_name=self.NEW_NAME,
         )
         db.get_matching_missing_rom.return_value = None
         return db, platform
@@ -992,7 +1112,7 @@ class TestIdentifyRomPersistsFileCategory:
                 md5_hash="md5",
                 sha1_hash="sha1",
                 ra_hash="",
-                title_id=self.UPDATE_TITLE_ID,
+                identity=RomIdentity(title_id=self.UPDATE_TITLE_ID),
             ),
             roms_fs_structure="switch/roms",
             name_with_no_tags="Game",

@@ -39,6 +39,7 @@ const defaultHeartbeat: Heartbeat = {
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],
+    TITLE_ID_EXTRACTION_ENABLED: false,
   },
   EMULATION: {
     DISABLE_EMULATOR_JS: false,
