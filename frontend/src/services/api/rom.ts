@@ -13,6 +13,7 @@ import type {
   SearchRomSchema,
   SimpleRomSchema,
   SoundtrackTrackMetaSchema,
+  UploadTargetPayload,
   UserNoteSchema,
   RomFiltersDict,
 } from "@/__generated__";
@@ -39,14 +40,22 @@ const trackChunkUploadProgress = engineName !== "WebKit";
 async function uploadRomChunked({
   platformId,
   file,
+  romId,
+  folder,
 }: {
   platformId: number;
   file: File;
+  /** Upload into this ROM's folder instead of the platform folder. */
+  romId?: number;
+  /** Subfolder inside the ROM folder; empty or omitted for the root. */
+  folder?: string;
 }): Promise<void> {
   const uploadStore = storeUpload();
   const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
 
-  const { data: startData } = await api.post("/roms/upload/start", null, {
+  const target: UploadTargetPayload | null =
+    romId !== undefined ? { rom_id: romId, ...(folder && { folder }) } : null;
+  const { data: startData } = await api.post("/roms/upload/start", target, {
     headers: {
       "X-Upload-Platform": platformId.toString(),
       "X-Upload-Filename": file.name,
@@ -116,9 +125,13 @@ async function uploadRomChunked({
 async function uploadRoms({
   platformId,
   filesToUpload,
+  romId,
+  folder,
 }: {
   platformId: number;
   filesToUpload: File[];
+  romId?: number;
+  folder?: string;
 }) {
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
@@ -126,7 +139,7 @@ async function uploadRoms({
   const promises = filesToUpload.map((file) => {
     uploadStore.start(file.name);
 
-    return uploadRomChunked({ platformId, file })
+    return uploadRomChunked({ platformId, file, romId, folder })
       .then(() => null as null)
       .catch((error) => {
         uploadStore.fail(

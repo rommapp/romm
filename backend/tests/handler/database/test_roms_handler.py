@@ -5,6 +5,7 @@ the columns derived from `name` / `fs_name` in sync explicitly.
 """
 
 import pytest
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 
 from handler.database import (
@@ -460,3 +461,44 @@ class TestSyncRomFiles:
 
         assert synced.files == []
         assert synced.orphaned_cover_paths == ["covers/track01.png"]
+
+
+class TestScanFileLoaders:
+    """The scan loop reads rows off detached roms, so every relationship it
+    touches has to be eager-loaded by the lookup."""
+
+    def test_get_roms_by_fs_name_with_files_loads_rows_and_backref(
+        self, multi_file_rom: Rom, platform: Platform
+    ):
+        rom = db_rom_handler.get_roms_by_fs_name(
+            platform_id=platform.id, fs_names={multi_file_rom.fs_name}, with_files=True
+        )[multi_file_rom.fs_name]
+
+        assert {f.file_name for f in rom.files} == {"disc1.bin", "disc2.bin"}
+        assert all(f.track_meta is None for f in rom.files)
+        assert all(f.rom.fs_name == rom.fs_name for f in rom.files)
+
+    def test_get_roms_by_fs_name_leaves_files_unloaded_by_default(
+        self, multi_file_rom: Rom, platform: Platform
+    ):
+        rom = db_rom_handler.get_roms_by_fs_name(
+            platform_id=platform.id, fs_names={multi_file_rom.fs_name}
+        )[multi_file_rom.fs_name]
+
+        assert "files" in sa_inspect(rom).unloaded
+
+    def test_rom_files_for_rom_id_loads_track_meta(self, multi_file_rom: Rom):
+        files = db_rom_handler.rom_files_for_rom_id(multi_file_rom.id)
+
+        assert len(files) == 2
+        assert all("track_meta" not in sa_inspect(f).unloaded for f in files)
+
+
+class TestSyncRomFilesWithReusedRows:
+    def test_rows_handed_back_are_a_noop(self, rom: Rom):
+        first = _sync(rom, [_scanned_file(rom, "a.bin")])
+
+        second = db_rom_handler.sync_rom_files(rom.id, first).files
+
+        assert [f.id for f in second] == [f.id for f in first]
+        assert second[0].md5_hash == "md5"

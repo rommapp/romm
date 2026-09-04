@@ -1,8 +1,10 @@
 import hashlib
 import os
 import shutil
+import struct
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -11,12 +13,21 @@ from hypothesis import strategies as st
 from tests._zipfile_shim import reload_zipfile
 
 from adapters.services.sigil import SigilExtractionResult
-from config.config_manager import LIBRARY_BASE_PATH, Config
+from config.config_manager import (
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    LIBRARY_BASE_PATH,
+    Config,
+)
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,
 )
-from handler.filesystem.roms_handler import FileHash, FSRomsHandler
+from handler.filesystem.roms_handler import (
+    FileHash,
+    FSRomsHandler,
+    category_matches,
+    mtime_matches,
+)
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
 from utils.archives import extract_chd_hash
@@ -1704,18 +1715,19 @@ class TestSigilTitleIdExtraction:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("platform", "fs_name", "kwargs"),
+        ("platform", "fs_name", "calculate_hashes", "extract_title_ids"),
         [
             # Not a platform sigil covers.
             (
                 Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
                 "Game.z64",
-                {"calculate_hashes": False},
+                False,
+                True,
             ),
             # Turned off by config.
-            (SWITCH_PLATFORM, "Game.nsp", {"extract_title_ids": False}),
+            (SWITCH_PLATFORM, "Game.nsp", True, False),
             # An archive holds no ROM binary sigil can read.
-            (SWITCH_PLATFORM, "game.zip", {}),
+            (SWITCH_PLATFORM, "game.zip", True, True),
         ],
     )
     async def test_extraction_is_skipped(
@@ -1724,7 +1736,8 @@ class TestSigilTitleIdExtraction:
         sigil_config: Config,
         platform: Platform,
         fs_name: str,
-        kwargs: dict[str, bool],
+        calculate_hashes: bool,
+        extract_title_ids: bool,
     ):
         handler = make_sigil_handler(tmp_path)
         rom = make_single_file_rom(tmp_path, platform, fs_name)
@@ -1732,7 +1745,11 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock()
 
         with patch(SIGIL_PATCH_TARGET, mock_extract):
-            parsed = await handler.get_rom_files(rom, **kwargs)
+            parsed = await handler.get_rom_files(
+                rom,
+                calculate_hashes=calculate_hashes,
+                extract_title_ids=extract_title_ids,
+            )
 
         mock_extract.assert_not_awaited()
         assert parsed.title_id is None
@@ -2468,3 +2485,288 @@ class TestExtractCHDHashProperties:
     @given(data=st.binary())
     def test_never_raises_on_arbitrary_bytes(self, data: bytes):
         _run_extract(data)
+
+
+class TestIncrementalRomFiles:
+    """`existing_files` lets a rescan keep the hashes of files whose size and
+    mtime are unchanged, and only recompute the ROM-level hashes when a
+    top-level file changed."""
+
+    ROM_DIR = "n64/roms/Sonic"
+
+    @pytest.fixture
+    def platform(self):
+        return Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
+
+    @pytest.fixture
+    def handler(self, tmp_path: Path):
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @pytest.fixture(autouse=True)
+    def patched(self, mocker):
+        config = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=["tmp"],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            ROMS_FOLDER_NAME="roms",
+            FIRMWARE_FOLDER_NAME="bios",
+        )
+        mocker.patch(
+            "handler.filesystem.roms_handler.cm.get_config", return_value=config
+        )
+        ra = mocker.patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            AsyncMock(return_value="ra-hash"),
+        )
+        return SimpleNamespace(ra=ra)
+
+    def _rom(self, platform: Platform, fs_name: str = "Sonic", ext: str = "") -> Rom:
+        return Rom(
+            id=7,
+            fs_name=fs_name,
+            fs_path="n64/roms",
+            fs_extension=ext,
+            platform=platform,
+            crc_hash="stored-crc",
+            md5_hash="stored-md5",
+            sha1_hash="stored-sha1",
+            ra_hash="stored-ra",
+        )
+
+    def _write(self, handler: FSRomsHandler, rel: str, data: bytes) -> os.stat_result:
+        path = handler.base_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path.stat()
+
+    def _row(
+        self, rom: Rom, rel_dir: str, name: str, st: os.stat_result, hashed: bool = True
+    ) -> RomFile:
+        return RomFile(
+            rom_id=rom.id,
+            file_name=name,
+            file_path=rel_dir,
+            file_size_bytes=st.st_size,
+            last_modified=st.st_mtime,
+            crc_hash="row-crc" if hashed else "",
+            md5_hash="row-md5" if hashed else "",
+            sha1_hash="row-sha1" if hashed else "",
+        )
+
+    def _folder_rom(self, handler: FSRomsHandler, platform: Platform):
+        rom = self._rom(platform)
+        game = self._write(handler, f"{self.ROM_DIR}/game.n64", b"game bytes")
+        hack = self._write(handler, f"{self.ROM_DIR}/hack/patched.n64", b"hack bytes")
+        rows = [
+            self._row(rom, self.ROM_DIR, "game.n64", game),
+            self._row(rom, f"{self.ROM_DIR}/hack", "patched.n64", hack),
+        ]
+        return rom, rows
+
+    async def test_unchanged_rows_are_reused_without_hashing(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        assert {id(f) for f in parsed.rom_files} == {id(r) for r in rows}
+        assert parsed.top_level_changed is False
+        assert (parsed.crc_hash, parsed.md5_hash, parsed.sha1_hash, parsed.ra_hash) == (
+            "stored-crc",
+            "stored-md5",
+            "stored-sha1",
+            "stored-ra",
+        )
+        hasher.assert_not_called()
+        patched.ra.assert_not_called()
+
+    async def test_new_nested_file_is_hashed_alone(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        self._write(handler, f"{self.ROM_DIR}/hack/v2/new.ips", b"new patch")
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        new = next(f for f in parsed.rom_files if f.file_name == "new.ips")
+        assert new.file_path == f"{self.ROM_DIR}/hack/v2"
+        assert new.category == RomFileCategory.HACK
+        assert (
+            new.md5_hash == hashlib.md5(b"new patch", usedforsecurity=False).hexdigest()
+        )
+        assert all(any(f is row for f in parsed.rom_files) for row in rows)
+        assert parsed.top_level_changed is False
+        assert parsed.md5_hash == "stored-md5"
+        assert hasher.call_count == 1
+        patched.ra.assert_not_called()
+
+    async def test_top_level_addition_recomputes_rom_hashes(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        self._write(handler, f"{self.ROM_DIR}/extra.n64", b"extra bytes")
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        top_level = [f for f in parsed.rom_files if f.file_path == self.ROM_DIR]
+        assert {f.file_name for f in top_level} == {"game.n64", "extra.n64"}
+        expected_md5 = hashlib.md5(usedforsecurity=False)
+        for rom_file in top_level:
+            expected_md5.update(
+                (
+                    handler.base_path / rom_file.file_path / rom_file.file_name
+                ).read_bytes()
+            )
+        assert parsed.top_level_changed is True
+        assert parsed.md5_hash == expected_md5.hexdigest()
+        assert parsed.ra_hash == "ra-hash"
+        patched.ra.assert_awaited_once()
+        # The nested file is untouched, so its row is still reused.
+        assert any(f is rows[1] for f in parsed.rom_files)
+        assert hasher.call_count == 2
+
+    async def test_removed_top_level_file_recomputes_rom_hashes(
+        self, handler, platform, patched
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        gone = self._write(handler, f"{self.ROM_DIR}/gone.n64", b"gone")
+        rows.append(self._row(rom, self.ROM_DIR, "gone.n64", gone))
+        (handler.base_path / self.ROM_DIR / "gone.n64").unlink()
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        assert parsed.top_level_changed is True
+        assert {f.file_name for f in parsed.rom_files} == {"game.n64", "patched.n64"}
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(b"game bytes", usedforsecurity=False).hexdigest()
+        )
+
+    @pytest.mark.parametrize("column", ["file_size_bytes", "last_modified"])
+    async def test_changed_file_is_rehashed(self, handler, platform, column):
+        rom, rows = self._folder_rom(handler, platform)
+        setattr(rows[1], column, getattr(rows[1], column) + 1)
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        hack = next(f for f in parsed.rom_files if f.file_name == "patched.n64")
+        assert hack is not rows[1]
+        assert (
+            hack.md5_hash
+            == hashlib.md5(b"hack bytes", usedforsecurity=False).hexdigest()
+        )
+        assert parsed.top_level_changed is False
+
+    async def test_row_without_hashes_is_rehashed(self, handler, platform):
+        rom, rows = self._folder_rom(handler, platform)
+        rows[1] = self._row(
+            rom,
+            f"{self.ROM_DIR}/hack",
+            "patched.n64",
+            (handler.base_path / self.ROM_DIR / "hack/patched.n64").stat(),
+            hashed=False,
+        )
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        hack = next(f for f in parsed.rom_files if f.file_name == "patched.n64")
+        assert hack is not rows[1]
+        assert (
+            hack.md5_hash
+            == hashlib.md5(b"hack bytes", usedforsecurity=False).hexdigest()
+        )
+
+    async def test_row_without_hashes_is_reused_when_hashing_is_disabled(
+        self, handler, platform, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        rows = [
+            self._row(
+                rom,
+                row.file_path,
+                row.file_name,
+                os.stat(handler.base_path / row.file_path / row.file_name),
+                hashed=False,
+            )
+            for row in rows
+        ]
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(
+            rom, calculate_hashes=False, existing_files=rows
+        )
+
+        assert {id(f) for f in parsed.rom_files} == {id(r) for r in rows}
+        hasher.assert_not_called()
+
+    async def test_flat_rom_reuses_its_row(self, handler, platform, patched, mocker):
+        rom = self._rom(platform, fs_name="Paper Mario (USA).z64", ext="z64")
+        st = self._write(handler, "n64/roms/Paper Mario (USA).z64", b"paper mario")
+        row = self._row(rom, "n64/roms", "Paper Mario (USA).z64", st)
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.rom_files[0] is row
+        assert parsed.top_level_changed is False
+        assert parsed.md5_hash == "stored-md5"
+        hasher.assert_not_called()
+        patched.ra.assert_not_called()
+
+    async def test_replaced_flat_rom_is_rehashed(self, handler, platform):
+        rom = self._rom(platform, fs_name="Paper Mario (USA).z64", ext="z64")
+        st = self._write(handler, "n64/roms/Paper Mario (USA).z64", b"paper mario")
+        row = self._row(rom, "n64/roms", "Paper Mario (USA).z64", st)
+        row.file_size_bytes += 1
+
+        parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.rom_files[0] is not row
+        assert parsed.top_level_changed is True
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(b"paper mario", usedforsecurity=False).hexdigest()
+        )
+
+    async def test_nested_folders_map_to_categories(self, handler, platform):
+        rom = self._rom(platform)
+        self._write(handler, f"{self.ROM_DIR}/game.n64", b"game")
+        self._write(handler, f"{self.ROM_DIR}/hack/part1 (Hack).bin", b"hack")
+        self._write(handler, f"{self.ROM_DIR}/patches/v2/fix.ips", b"patch")
+
+        parsed = await handler.get_rom_files(rom)
+
+        by_name = {f.file_name: f for f in parsed.rom_files}
+        assert by_name["game.n64"].category is None
+        assert by_name["part1 (Hack).bin"].category == RomFileCategory.HACK
+        assert by_name["fix.ips"].category == RomFileCategory.PATCH
+
+    def test_category_matches_plural_forms(self):
+        assert category_matches("patch", ["patches"])
+        assert category_matches("hack", ["hacks"])
+        assert category_matches("cheat", ["n64", "roms", "game", "cheats"])
+        assert not category_matches("patch", ["patched"])
+
+    def test_mtime_matches_accepts_single_precision_rounding(self):
+        actual = 1724500000.123456
+        rounded = struct.unpack("f", struct.pack("f", actual))[0]
+
+        assert rounded != actual
+        assert mtime_matches(actual, actual)
+        assert mtime_matches(rounded, actual)
+        assert not mtime_matches(actual + 1, actual)
+        assert not mtime_matches(None, actual)
+
+    def test_upload_temp_files_are_excluded_by_default(self):
+        assert "assembling" in DEFAULT_EXCLUDED_EXTENSIONS

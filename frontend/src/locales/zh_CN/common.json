@@ -75,6 +75,7 @@
   "in-library": "在游戏库中",
   "invalid-email": "无效的电子邮件",
   "invalid-name": "无效的名称",
+  "invalid-relative-path": "请输入不包含 \"..\" 片段的相对文件夹路径",
   "jukebox": "音乐盒",
   "kind": "种类",
   "last-page": "最后一页",

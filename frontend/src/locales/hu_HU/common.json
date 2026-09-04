@@ -75,6 +75,7 @@
   "in-library": "A könyvtárban",
   "invalid-email": "Érvénytelen e-mail",
   "invalid-name": "Érvénytelen név",
+  "invalid-relative-path": "Adj meg egy relatív mappaútvonalat \"..\" szegmensek nélkül",
   "jukebox": "Zenelejátszó",
   "kind": "Típus",
   "last-page": "Utolsó oldal",

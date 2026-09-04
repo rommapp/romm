@@ -29,6 +29,7 @@ import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
+import { useRomScanRefresh } from "@/v2/composables/useRomScanRefresh";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
 
@@ -55,6 +56,10 @@ const panelEl = ref<HTMLElement | null>(null);
 // action ribbon, right stick scrolls long tabs (Overview, Achievements)
 // without needing to leave the ribbon focus.
 useRightStickScroll(panelEl);
+
+// The files badge and every tab read `currentRom`, so the view owns the
+// post-scan refetch rather than the Files tab.
+useRomScanRefresh();
 
 onBeforeRouteUpdate(async (to) => {
   const nextId = parseInt(to.params.rom as string);

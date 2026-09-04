@@ -40,6 +40,8 @@ export default defineStore("scanning", {
         identified_roms: 0,
         scanned_firmware: 0,
         new_firmware: 0,
+        updated_roms: 0,
+        new_files: 0,
       };
     },
   },

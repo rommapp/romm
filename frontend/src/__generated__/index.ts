@@ -215,6 +215,7 @@ export type { TrackMetaSchema } from './models/TrackMetaSchema';
 export type { UpdateStats } from './models/UpdateStats';
 export type { UpdateTaskMeta } from './models/UpdateTaskMeta';
 export type { UpdateTaskStatusResponse } from './models/UpdateTaskStatusResponse';
+export type { UploadTargetPayload } from './models/UploadTargetPayload';
 export type { UserCollectionSchema } from './models/UserCollectionSchema';
 export type { UserForm } from './models/UserForm';
 export type { UserNoteSchema } from './models/UserNoteSchema';

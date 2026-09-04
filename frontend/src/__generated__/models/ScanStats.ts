@@ -13,5 +13,7 @@ export type ScanStats = {
     identified_roms: number;
     scanned_firmware: number;
     new_firmware: number;
+    updated_roms: number;
+    new_files: number;
 };
 

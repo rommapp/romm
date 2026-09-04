@@ -1876,6 +1876,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_names: Iterable[str],
+        with_files: bool = False,
         session: Session = None,  # type: ignore
     ) -> dict[str, Rom]:
         """Retrieve a dictionary of roms by their filesystem names.
@@ -1883,15 +1884,21 @@ class DBRomsHandler(DBBaseHandler):
         Eager-loads only `platform` (used downstream by the scan loop via
         `rom.platform_slug` / `rom.platform.fs_slug`). This deliberately
         avoids `with_details`, whose full relationship eager-load is
-        wasted work for the scan-skip decision on large platforms.
+        wasted work for the scan-skip decision on large platforms. Scans that
+        reconcile files opt into `with_files` to load them once per batch
+        instead of once per rom.
         """
+        query = select(Rom).options(selectinload(Rom.platform))
+        if with_files:
+            query = query.options(
+                selectinload(Rom.files).options(
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+                    selectinload(RomFile.track_meta),
+                )
+            )
         roms = (
             session.scalars(
-                select(Rom)
-                .options(
-                    selectinload(Rom.platform),
-                )
-                .where(
+                query.where(
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.fs_name.in_(fs_names),
@@ -2367,7 +2374,10 @@ class DBRomsHandler(DBBaseHandler):
             session.scalars(
                 select(RomFile)
                 .filter_by(rom_id=rom_id)
-                .options(joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name))
+                .options(
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+                    selectinload(RomFile.track_meta),
+                )
             )
             .unique()
             .all()

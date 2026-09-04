@@ -172,10 +172,10 @@ export function installScanLifecycle() {
   });
 
   // Stats are the only event a scan emits continuously: `scanning_platform`
-  // fires once per platform, and `scanning_rom` only for ROMs the scan
-  // actually adds, so an update scan over a settled library can go a long
-  // while emitting nothing else. Flipping `scanning` here is what lets a tab
-  // that missed the start of the scan catch up on the next tick.
+  // fires once per platform, and `scanning_rom` only for ROMs the scan adds or
+  // changes, so a scan over a settled library can go a long while emitting
+  // nothing else. Flipping `scanning` here is what lets a tab that missed the
+  // start of the scan catch up on the next tick.
   useSocketEvent<ScanStats>("scan:update_stats", (stats) => {
     scanningStore.setScanning(true);
     scanningStore.setScanStats(stats);
