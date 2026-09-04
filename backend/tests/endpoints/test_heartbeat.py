@@ -6,6 +6,7 @@ from fastapi import status
 from endpoints.heartbeat import METADATA_HEARTBEAT_RATE_LIMIT
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
+from handler.redis_handler import sync_cache
 from utils import get_version
 
 
@@ -72,6 +73,8 @@ def test_heartbeat_metadata(client):
     assert response.status_code == status.HTTP_200_OK
     assert response.json() is False
 
+    sync_cache.flushall()
+
     with patch.object(
         LaunchboxHandler, "is_remote_store_populated", new_callable=AsyncMock
     ) as mock_populated:
@@ -80,6 +83,21 @@ def test_heartbeat_metadata(client):
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() is True
+
+
+def test_heartbeat_metadata_probes_the_provider_once_per_window(client):
+    """A flood of callers must not become a flood of outbound provider probes."""
+    with patch.object(
+        LaunchboxHandler, "is_remote_store_populated", new_callable=AsyncMock
+    ) as mock_populated:
+        mock_populated.return_value = True
+
+        for _ in range(METADATA_HEARTBEAT_RATE_LIMIT):
+            response = client.get("/api/heartbeat/metadata/launchbox")
+            assert response.status_code == status.HTTP_200_OK
+            assert response.json() is True
+
+    assert mock_populated.call_count == 1
 
 
 def test_heartbeat_metadata_unknown_source(client):

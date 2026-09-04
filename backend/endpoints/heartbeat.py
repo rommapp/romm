@@ -53,6 +53,7 @@ from handler.metadata import (
     meta_steam_handler,
     meta_tgdb_handler,
 )
+from handler.redis_handler import sync_cache
 from handler.scan_handler import MetadataSource
 from logger.logger import log
 from utils import get_version
@@ -66,6 +67,11 @@ from utils.router import APIRouter
 # source, and generous enough for the settings page to probe every source per visit.
 METADATA_HEARTBEAT_RATE_LIMIT: Final[int] = 20
 METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS: Final[int] = 60
+
+# The per-IP cap alone is not enough: the client IP comes from a forwarded header
+# the caller controls, and a distributed flood has no single IP anyway. Caching the
+# result caps outbound probes at one per source per window, whatever the inbound rate.
+METADATA_HEARTBEAT_CACHE_TTL_SECONDS: Final[int] = 60
 
 router = APIRouter(
     tags=["system"],
@@ -185,6 +191,17 @@ async def metadata_heartbeat(request: Request, source: str) -> bool:
         detail="Too many metadata heartbeat requests. Try again later.",
     )
 
+    cache_key = f"metadata-heartbeat:{metadata_source.value}"
+    cached = sync_cache.get(cache_key)
+    if cached is not None:
+        return bool(int(cached))
+
+    is_alive = await _probe_metadata_source(metadata_source)
+    sync_cache.set(cache_key, int(is_alive), ex=METADATA_HEARTBEAT_CACHE_TTL_SECONDS)
+    return is_alive
+
+
+async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
     match metadata_source:
         case MetadataSource.IGDB:
             return await meta_igdb_handler.heartbeat()

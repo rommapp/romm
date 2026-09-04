@@ -21,11 +21,12 @@ def enforce_rate_limit(
         window_seconds: Window length.
         detail: Message returned with the 429.
     """
-    count = sync_cache.incr(key)
-
-    # Set the TTL only when the counter is first created so the window actually resets
-    if count == 1:
-        sync_cache.expire(key, window_seconds)
+    pipe = sync_cache.pipeline()
+    pipe.incr(key)
+    # NX in the same transaction as the INCR: the window is only ever set on the
+    # counter that starts it, and a counter can never end up without a TTL.
+    pipe.expire(key, window_seconds, nx=True)
+    count, _ = pipe.execute()
 
     if count > max_requests:
         raise HTTPException(
