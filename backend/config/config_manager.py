@@ -52,7 +52,8 @@ DEFAULT_EXCLUDED_FILES: Final = [
     "gamelist.xml",
     "metadata.pegasus.txt",
 ]
-DEFAULT_EXCLUDED_DIRS: Final = [
+# Library-root folders that are never a platform.
+DEFAULT_EXCLUDED_PLATFORM_DIRS: Final = [
     "@eaDir",
     "assets",
     "__MACOSX",
@@ -84,9 +85,10 @@ GAMELIST_MEDIA_DIRS: Final = {
     "title_screen": "titlescreens",
     "video": "videos",
 }
-# Media folders are scraper output, so they are never multi-file ROMs.
-DEFAULT_EXCLUDED_MULTI_DIRS: Final = sorted(
-    {*DEFAULT_EXCLUDED_DIRS, *GAMELIST_MEDIA_DIRS.values()}
+# Folders inside a platform that are never a multi-file ROM (a ROM whose parts
+# live in a directory). Scraper media output lands here, so it is skipped too.
+DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Final = sorted(
+    {*DEFAULT_EXCLUDED_PLATFORM_DIRS, *GAMELIST_MEDIA_DIRS.values()}
 )
 
 
@@ -398,7 +400,7 @@ class ConfigManager:
             CONFIG_FILE_PARSE_ERROR=self._config_file_parse_error,
             EXCLUDED_PLATFORMS=sorted(
                 {
-                    *DEFAULT_EXCLUDED_DIRS,
+                    *DEFAULT_EXCLUDED_PLATFORM_DIRS,
                     *pydash.get(self._raw_config, "exclude.platforms", []),
                 }
             ),
@@ -427,7 +429,7 @@ class ConfigManager:
             ),
             EXCLUDED_MULTI_FILES=sorted(
                 {
-                    *DEFAULT_EXCLUDED_MULTI_DIRS,
+                    *DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
                     *pydash.get(
                         self._raw_config,
                         "exclude.roms.multi_file.names",
