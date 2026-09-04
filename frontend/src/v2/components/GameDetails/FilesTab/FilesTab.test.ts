@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import FilesTab from "./FilesTab.vue";
 
-const { uploadRoms, getRom, confirmFn, snackbar, routeQuery, grants } =
+const { uploadRoms, refetchRom, confirmFn, snackbar, routeQuery, grants } =
   vi.hoisted(() => ({
     uploadRoms: vi.fn(),
-    getRom: vi.fn(),
+    refetchRom: vi.fn(),
     confirmFn: vi.fn(),
     snackbar: {
       success: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock("vue-router", async (importOriginal) => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 vi.mock("@/services/api/rom", () => ({
-  default: { uploadRoms, getRom, deleteRomFile: vi.fn() },
+  default: { uploadRoms, deleteRomFile: vi.fn() },
 }));
 vi.mock("@/v2/composables/useCan", async () => {
   const { computed } = await import("vue");
@@ -41,7 +41,7 @@ vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirmFn,
 }));
 vi.mock("@/v2/composables/useRomSync", () => ({
-  useRomSync: () => ({ syncCachedRom: vi.fn() }),
+  useRomSync: () => ({ refetchRom }),
 }));
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => snackbar,
@@ -130,7 +130,7 @@ describe("FilesTab uploads", () => {
     routeQuery.subtab = undefined;
     grants.upload = true;
     uploadRoms.mockResolvedValue([{ status: "fulfilled", value: null }]);
-    getRom.mockResolvedValue({ data: rom() });
+
     confirmFn.mockResolvedValue(true);
   });
 
@@ -156,7 +156,7 @@ describe("FilesTab uploads", () => {
       folder: "hack",
       filesToUpload: [expect.objectContaining({ name: "fix.ips" })],
     });
-    expect(getRom).toHaveBeenCalledWith({ romId: 1 });
+    expect(refetchRom).toHaveBeenCalledWith(1);
     expect(snackbar.success).toHaveBeenCalledWith(
       "rom.files-uploaded-n",
       expect.anything(),
@@ -226,6 +226,6 @@ describe("FilesTab uploads", () => {
       "rom.no-files-uploaded",
       expect.anything(),
     );
-    expect(getRom).not.toHaveBeenCalled();
+    expect(refetchRom).not.toHaveBeenCalled();
   });
 });

@@ -71,7 +71,7 @@ const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchRom } = useRomSync();
 
 const canUpload = useCan("rom.upload");
 const hasDeleteGrant = useCan("rom.delete");
@@ -650,13 +650,7 @@ async function uploadFiles(folder: string, picked: File[]) {
 }
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchRom(props.rom.id);
 }
 </script>
 

@@ -7,7 +7,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { useRomSync } from "@/v2/composables/useRomSync";
@@ -18,8 +18,7 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchRom } = useRomSync();
 const uploadStore = storeUpload();
 
 const TARGETS = {
@@ -58,16 +57,6 @@ const handleShow = (payload: Events["showManualUploadTargetDialog"]) => {
 emitter?.on("showManualUploadTargetDialog", handleShow);
 onBeforeUnmount(() => emitter?.off("showManualUploadTargetDialog", handleShow));
 
-async function refreshRom(target: DetailedRom) {
-  try {
-    const { data } = await romApi.getRom({ romId: target.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
 async function handleUploadResult(
   responses: PromiseSettledResult<unknown>[],
   successKey: string,
@@ -84,7 +73,7 @@ async function handleUploadResult(
       icon: "mdi-check-bold",
       timeout: 3000,
     });
-    await refreshRom(target);
+    await refetchRom(target.id);
   } else {
     snackbar.warning(t(skippedKey), {
       icon: "mdi-close-circle",
