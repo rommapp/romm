@@ -139,16 +139,10 @@ const uploadingStates = ref(false);
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchCurrentRom } = useRomSync();
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchCurrentRom(props.rom.id);
 }
 
 async function onSaveUpload(files: File[]) {

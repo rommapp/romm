@@ -2,7 +2,6 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
-import type { RomFileSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
 import { useRomScanRefresh } from "./index";
@@ -19,13 +18,11 @@ vi.mock("@/services/socket", () => ({
   },
 }));
 
-const { getRom, syncCachedRom } = vi.hoisted(() => ({
-  getRom: vi.fn(),
-  syncCachedRom: vi.fn(),
+const { refetchCurrentRom } = vi.hoisted(() => ({
+  refetchCurrentRom: vi.fn(),
 }));
-vi.mock("@/services/api/rom", () => ({ default: { getRom } }));
 vi.mock("@/v2/composables/useRomSync", () => ({
-  useRomSync: () => ({ syncCachedRom }),
+  useRomSync: () => ({ refetchCurrentRom }),
 }));
 
 function rom(overrides: Partial<DetailedRom> = {}): DetailedRom {
@@ -47,39 +44,18 @@ describe("useRomScanRefresh", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     handlers.clear();
-    getRom.mockReset();
-    syncCachedRom.mockClear();
+    refetchCurrentRom.mockClear();
   });
 
   it("refetches the open rom when a scan finishes", async () => {
     const romsStore = storeRoms();
     romsStore.setCurrentRom(rom());
-    const fresh = rom({ files: [{ id: 9 } as RomFileSchema] });
-    getRom.mockResolvedValue({ data: fresh });
     install();
 
     handlers.get("scan:done")?.({});
     await flushPromises();
 
-    expect(getRom).toHaveBeenCalledWith({ romId: 3 });
-    expect(romsStore.currentRom).toStrictEqual(fresh);
-    expect(syncCachedRom).toHaveBeenCalledWith(fresh);
-  });
-
-  it("drops a response for a rom the user already left", async () => {
-    const romsStore = storeRoms();
-    romsStore.setCurrentRom(rom());
-    let resolve: (value: unknown) => void = () => {};
-    getRom.mockReturnValue(new Promise((r) => (resolve = r)));
-    install();
-
-    handlers.get("scan:done")?.({});
-    romsStore.setCurrentRom(rom({ id: 4 }));
-    resolve({ data: { id: 3 } });
-    await flushPromises();
-
-    expect(romsStore.currentRom?.id).toBe(4);
-    expect(syncCachedRom).not.toHaveBeenCalled();
+    expect(refetchCurrentRom).toHaveBeenCalledWith(3);
   });
 
   it("does nothing without an open rom", () => {
@@ -87,6 +63,18 @@ describe("useRomScanRefresh", () => {
 
     handlers.get("scan:done")?.({});
 
-    expect(getRom).not.toHaveBeenCalled();
+    expect(refetchCurrentRom).not.toHaveBeenCalled();
+  });
+
+  it("does nothing once the view is gone", async () => {
+    const romsStore = storeRoms();
+    romsStore.setCurrentRom(rom());
+    const wrapper = install();
+    wrapper.unmount();
+
+    handlers.get("scan:done")?.({});
+    await flushPromises();
+
+    expect(refetchCurrentRom).not.toHaveBeenCalled();
   });
 });

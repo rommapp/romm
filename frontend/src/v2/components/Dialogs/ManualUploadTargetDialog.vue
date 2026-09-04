@@ -19,7 +19,7 @@ const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchCurrentRom } = useRomSync();
 const uploadStore = storeUpload();
 
 const TARGETS = {
@@ -59,13 +59,7 @@ emitter?.on("showManualUploadTargetDialog", handleShow);
 onBeforeUnmount(() => emitter?.off("showManualUploadTargetDialog", handleShow));
 
 async function refreshRom(target: DetailedRom) {
-  try {
-    const { data } = await romApi.getRom({ romId: target.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchCurrentRom(target.id);
 }
 
 async function handleUploadResult(

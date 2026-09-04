@@ -50,7 +50,7 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchCurrentRom } = useRomSync();
 const uploadStore = storeUpload();
 const authStore = storeAuth();
 const { user } = storeToRefs(authStore);
@@ -124,13 +124,7 @@ const communityScreenshots = computed<ScreenshotItem[]>(() =>
 );
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchCurrentRom(props.rom.id);
 }
 
 // ---------- Upload result toast (shared by both upload paths) ----------

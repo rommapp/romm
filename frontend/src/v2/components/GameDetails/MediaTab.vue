@@ -51,7 +51,7 @@ const {
   fallbackArtUrl: soundtrackArtUrl,
 } = useRomSoundtrack(() => props.rom);
 const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchCurrentRom } = useRomSync();
 const uploadStore = storeUpload();
 const { t } = useI18n();
 
@@ -165,13 +165,7 @@ const subtabDefs = computed<SubtabDef[]>(() => [
 const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchCurrentRom(props.rom.id);
 }
 
 // ---------- File handlers (shared by file input + drag-and-drop) ----------

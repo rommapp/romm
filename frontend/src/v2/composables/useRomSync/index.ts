@@ -8,9 +8,10 @@
 // mutate the ROM object in place and the gallery holds that same object
 // reference. Anything that replaces the object with a fresh one from the
 // API response (edit, match, asset upload) needs an explicit sync.
+import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import storeGalleryRoms, {
   type GalleryOrderKey,
 } from "@/v2/stores/galleryRoms";
@@ -56,6 +57,26 @@ export function useRomSync() {
     // (metadatum, screenshots, related games, ...) survive a SimpleRom write.
     if (romsStore.currentRom?.id === rom.id) {
       romsStore.currentRom = { ...romsStore.currentRom, ...rom };
+    }
+  }
+
+  /** Re-read a ROM from the API and apply it everywhere it is cached.
+   *
+   * For the surfaces that write a ROM's assets (saves, screenshots, manuals,
+   * notes, files) and need the detailed record back rather than the row the
+   * write returned. `currentRom` is only replaced when it is still this ROM:
+   * the user can open another game while the request is in flight.
+   *
+   * Returns the fresh ROM, or null when the request failed or landed late. */
+  async function refetchCurrentRom(romId: number): Promise<DetailedRom | null> {
+    try {
+      const { data } = await romApi.getRom({ romId });
+      if (romsStore.currentRom?.id === romId) romsStore.setCurrentRom(data);
+      syncCachedRom(data);
+      return data;
+    } catch (error) {
+      console.error(error);
+      return null;
     }
   }
 
@@ -156,6 +177,7 @@ export function useRomSync() {
 
   return {
     syncCachedRom,
+    refetchCurrentRom,
     removeCachedRoms,
     applyRomWrite,
     refreshAfterUserStateChange,

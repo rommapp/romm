@@ -4,20 +4,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import FilesTab from "./FilesTab.vue";
 
-const { uploadRoms, getRom, confirmFn, snackbar, routeQuery, grants } =
-  vi.hoisted(() => ({
-    uploadRoms: vi.fn(),
-    getRom: vi.fn(),
-    confirmFn: vi.fn(),
-    snackbar: {
-      success: vi.fn(),
-      error: vi.fn(),
-      warning: vi.fn(),
-      info: vi.fn(),
-    },
-    routeQuery: { subtab: undefined as string | undefined },
-    grants: { upload: true, delete: false },
-  }));
+const {
+  uploadRoms,
+  getRom,
+  refetchCurrentRom,
+  confirmFn,
+  snackbar,
+  routeQuery,
+  grants,
+} = vi.hoisted(() => ({
+  uploadRoms: vi.fn(),
+  getRom: vi.fn(),
+  refetchCurrentRom: vi.fn(),
+  confirmFn: vi.fn(),
+  snackbar: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+  routeQuery: { subtab: undefined as string | undefined },
+  grants: { upload: true, delete: false },
+}));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -41,7 +49,7 @@ vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirmFn,
 }));
 vi.mock("@/v2/composables/useRomSync", () => ({
-  useRomSync: () => ({ syncCachedRom: vi.fn() }),
+  useRomSync: () => ({ refetchCurrentRom }),
 }));
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => snackbar,
@@ -130,7 +138,7 @@ describe("FilesTab uploads", () => {
     routeQuery.subtab = undefined;
     grants.upload = true;
     uploadRoms.mockResolvedValue([{ status: "fulfilled", value: null }]);
-    getRom.mockResolvedValue({ data: rom() });
+
     confirmFn.mockResolvedValue(true);
   });
 
@@ -156,7 +164,7 @@ describe("FilesTab uploads", () => {
       folder: "hack",
       filesToUpload: [expect.objectContaining({ name: "fix.ips" })],
     });
-    expect(getRom).toHaveBeenCalledWith({ romId: 1 });
+    expect(refetchCurrentRom).toHaveBeenCalledWith(1);
     expect(snackbar.success).toHaveBeenCalledWith(
       "rom.files-uploaded-n",
       expect.anything(),
@@ -226,6 +234,6 @@ describe("FilesTab uploads", () => {
       "rom.no-files-uploaded",
       expect.anything(),
     );
-    expect(getRom).not.toHaveBeenCalled();
+    expect(refetchCurrentRom).not.toHaveBeenCalled();
   });
 });

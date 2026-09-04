@@ -11,6 +11,7 @@ import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const PdfViewer = defineAsyncComponent(
@@ -45,6 +46,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
+const { refetchCurrentRom } = useRomSync();
 const { t } = useI18n();
 
 // Adding and removing walkthroughs both ride the ROMS write grant, matching
@@ -106,13 +108,7 @@ const selectItems = computed(() =>
 );
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    romsStore.update(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchCurrentRom(props.rom.id);
 }
 
 // ---------- Single-file -> folder conversion ----------

@@ -34,7 +34,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchCurrentRom } = useRomSync();
 const { t } = useI18n();
 
 // Every manual endpoint (upload / redownload / delete) gates on the ROM write
@@ -124,13 +124,7 @@ const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const redownloadingManual = ref(false);
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchCurrentRom(props.rom.id);
 }
 
 function handleManualFiles(files: File[]) {
