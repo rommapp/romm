@@ -46,7 +46,6 @@ from handler.filesystem import fs_rom_handler
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_handler import (
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -225,7 +224,6 @@ async def tinfoil_index_feed(
         titledb: dict[str, dict] = {}
         for rom in roms:
             tdb_match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
-            pid_match = SWITCH_PRODUCT_ID_REGEX.search(rom.fs_name)
             if tdb_match:
                 (
                     _search_term,
@@ -239,12 +237,12 @@ async def tinfoil_index_feed(
                         titledb[key] = TinfoilFeedTitleDBSchema(
                             **index_entry
                         ).model_dump()
-            elif pid_match:
+            else:
                 (
                     _search_term,
                     index_entry,
                 ) = await meta_igdb_handler._switch_productid_format(
-                    pid_match, rom.fs_name
+                    rom, rom.fs_name, rom.fs_name
                 )
                 if index_entry:
                     key = str(index_entry.get("nsuId", None))

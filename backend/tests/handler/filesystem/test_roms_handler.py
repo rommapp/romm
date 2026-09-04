@@ -1904,7 +1904,9 @@ class TestSwitchTitleIdEmbedding:
         assert parsed.rom_files[0].file_name == "Game.nsp"
         assert (tmp_path / "switch/roms/Game.nsp").exists()
         # The rename is offered to the caller, not performed.
-        assert [c.title_id for c in parsed.embed_candidates] == ["0100ABCD12340000"]
+        assert [c.extraction.title_id for c in parsed.embed_candidates] == [
+            "0100ABCD12340000"
+        ]
         assert parsed.embed_candidates[0].is_rom_level
 
     @pytest.mark.asyncio

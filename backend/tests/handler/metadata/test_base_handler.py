@@ -328,7 +328,8 @@ class TestMetadataHandlerMethods:
             mock_exists.return_value = True
             mock_hget.return_value = json.dumps({"name": "Product Game"})
 
-            result = await handler._switch_productid_format(product_id, "original")
+            rom = Rom(fs_name="Game.nsp", title_id=product_id)
+            result = await handler._switch_productid_format(rom, "Game.nsp", "original")
 
             mock_hget.assert_called_once_with(
                 "romm:switch_product_id",  # SWITCH_PRODUCT_ID_KEY
@@ -350,7 +351,8 @@ class TestMetadataHandlerMethods:
             (None, "Game.nsp", None),
         ],
     )
-    def test_switch_product_id_prefers_the_extracted_id(
+    @pytest.mark.asyncio
+    async def test_switch_productid_format_prefers_the_extracted_id(
         self,
         handler: MetadataHandler,
         title_id: str | None,
@@ -359,7 +361,23 @@ class TestMetadataHandlerMethods:
     ):
         rom = Rom(fs_name=fs_name, title_id=title_id)
 
-        assert handler.switch_product_id(rom, fs_name) == expected
+        with patch.object(
+            async_cache, "exists", new_callable=AsyncMock
+        ) as mock_exists, patch.object(
+            async_cache, "hget", new_callable=AsyncMock
+        ) as mock_hget:
+            mock_exists.return_value = True
+            mock_hget.return_value = None
+
+            await handler._switch_productid_format(rom, fs_name, "original")
+
+            if expected is None:
+                mock_hget.assert_not_called()
+            else:
+                mock_hget.assert_called_once_with(
+                    "romm:switch_product_id",  # SWITCH_PRODUCT_ID_KEY
+                    expected,
+                )
 
     @pytest.mark.asyncio
     async def test_mame_format_found(self, handler: MetadataHandler):

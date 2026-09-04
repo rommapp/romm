@@ -1,6 +1,7 @@
 import binascii
 import json
 from base64 import b64encode
+from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
@@ -32,6 +33,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
+from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
@@ -2598,21 +2600,16 @@ async def update_rom_identity(
     cleaned_data = data.model_dump(exclude_unset=True)
 
     if cleaned_data.get("title_id"):
-        normalized = switch.normalize_identity(
-            rom.platform_slug, RomIdentity(**cleaned_data)
-        )
-        # Only the fields the client sent are written, so an omitted one keeps
-        # whatever the rom already has.
-        cleaned_data = {
-            key: value
-            for key, value in normalized.as_rom_attrs().items()
-            if key in cleaned_data
-        }
+        # Normalizing rewrites the whole triple, so it is merged onto the stored
+        # identity first rather than onto an otherwise-empty one.
+        merged = replace(RomIdentity.from_rom(rom), **cleaned_data)
+        cleaned_data = switch.normalize_identity(
+            rom.platform_slug in SWITCH_PLATFORM_SLUGS, merged
+        ).as_rom_attrs()
 
     updated_row = db_rom_handler.update_rom(id, cleaned_data)
 
-    # The rom fetched above is already loaded with the relationships the schema
-    # reads, so the new values are copied onto it rather than loading it again.
+    # The rom is already loaded with the relationships the schema reads.
     for key, value in cleaned_data.items():
         setattr(rom, key, value)
     rom.updated_at = updated_row.updated_at

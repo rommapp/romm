@@ -28,6 +28,10 @@ SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.XBOX360: "xbox360",
 }
 
+# The Switch family in RomM's own terms. Its headers need prod.keys to decrypt,
+# and it is the only family whose files may carry their title id in the filename.
+SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
+
 # Errors that are expected for arbitrary library files (no title id present,
 # format sigil can't parse, missing decryption keys). Logged at debug level.
 ROUTINE_SIGIL_ERROR_CODES: Final = frozenset(
@@ -48,11 +52,12 @@ class SigilService:
     """Service to extract platform-native title ids from ROM binaries via the
     optional `sigil` cffi binding."""
 
-    def is_enabled(self) -> bool:
+    @classmethod
+    def is_enabled(cls) -> bool:
         """Whether this build can read title ids at all.
 
-        An absent binding is indistinguishable from a file with no title id in
-        the results alone, so admins and clients read this instead of guessing.
+        The results alone can't say: an absent binding looks like a file with
+        no title id.
         """
         return sigil is not None
 

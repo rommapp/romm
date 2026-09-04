@@ -4,7 +4,7 @@ import copy
 import enum
 import re
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
@@ -132,9 +132,22 @@ class RomIdentity:
     save_target: str | None = None
     save_target_layout: SaveTargetLayout | None = None
 
+    @classmethod
+    def from_rom(cls, rom: "Rom") -> "RomIdentity":
+        """The identity a ROM already carries."""
+        return cls(
+            title_id=rom.title_id,
+            save_target=rom.save_target,
+            save_target_layout=rom.save_target_layout,
+        )
+
     def as_rom_attrs(self) -> dict[str, Any]:
         """The identity as `Rom` column values, for a scan's attribute merge."""
-        return asdict(self)
+        return {
+            "title_id": self.title_id,
+            "save_target": self.save_target,
+            "save_target_layout": self.save_target_layout,
+        }
 
 
 # Document-category files (manuals, walkthroughs) share one substrate: a

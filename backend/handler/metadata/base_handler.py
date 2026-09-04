@@ -17,6 +17,7 @@ from tasks.scheduled.update_switch_titledb import (
     SWITCH_TITLEDB_INDEX_KEY,
 )
 from utils.context import ctx_httpx_client
+from utils.switch import derive_base_title_id
 
 if TYPE_CHECKING:
     from models.rom import Rom
@@ -276,21 +277,18 @@ class MetadataHandler(abc.ABC):
 
         return search_term, None
 
-    @staticmethod
-    def switch_product_id(rom: "Rom", fs_name: str) -> str | None:
-        """The Switch product id to search by, preferring the one the scan read
-        out of the binary over one scraped from the filename."""
-        if rom.title_id and SWITCH_PRODUCT_ID_REGEX.fullmatch(rom.title_id.upper()):
-            return rom.title_id.upper()
-
-        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
-        return match.group(1) if match else None
-
     async def _switch_productid_format(
-        self, product_id: str, search_term: str
+        self, rom: "Rom", fs_name: str, search_term: str
     ) -> tuple[str, dict | None]:
-        # Imported here because utils.switch imports this module for the slugs.
-        from utils.switch import derive_base_title_id
+        """Match by Switch product id, preferring the one the scan read out of
+        the binary over one scraped from the filename."""
+        if rom.title_id and SWITCH_PRODUCT_ID_REGEX.fullmatch(rom.title_id.upper()):
+            product_id = rom.title_id.upper()
+        else:
+            match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
+            if not match:
+                return search_term, None
+            product_id = match.group(1)
 
         # Updates and DLC share the base application's product ID, off by the
         # low 12 bits, and only the base has a titledb entry.

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import batched
-from collections.abc import Sequence
 from typing import Any, Final
 
 import socketio  # type: ignore
@@ -13,6 +13,7 @@ from rq.exceptions import AbandonedJobError
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
+from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -86,7 +87,6 @@ from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
-from utils.switch import SWITCH_PLATFORM_SLUGS
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 
@@ -451,12 +451,8 @@ async def _rebuild_rom_files(
     extract_title_ids: bool,
     embed_title_ids: bool,
     existing_files: Sequence[RomFile] | None = None,
-) -> tuple[ParsedRomFiles, str | None]:
-    """Re-read a rom's files onto `fs_rom`, embedding title ids when enabled.
-
-    Returns:
-        The parse, and the rom's new `fs_name` when embedding renamed it.
-    """
+) -> ParsedRomFiles:
+    """Re-read a rom's files onto `fs_rom`, embedding title ids when enabled."""
     parsed = await fs_rom_handler.get_rom_files(
         rom,
         calculate_hashes=calculate_hashes,
@@ -481,7 +477,7 @@ async def _rebuild_rom_files(
     if renamed_rom_fs_name:
         fs_rom["fs_name"] = renamed_rom_fs_name
 
-    return parsed, renamed_rom_fs_name
+    return parsed
 
 
 # There's an order of operations here that is important:
@@ -560,7 +556,7 @@ async def _identify_rom(
         # the files and check whether they belong to an existing entry that went
         # missing (a renamed or moved ROM), so its collections, notes, and
         # uploaded assets carry over instead of being orphaned on a duplicate.
-        parsed_rom_files, renamed_rom_fs_name = await _rebuild_rom_files(
+        parsed_rom_files = await _rebuild_rom_files(
             Rom(
                 **rom_attrs,
                 platform=platform,
@@ -571,8 +567,7 @@ async def _identify_rom(
             embed_title_ids=embed_title_ids,
         )
         # The new-entry insert reads its name from rom_attrs, not fs_rom.
-        if renamed_rom_fs_name:
-            rom_attrs["fs_name"] = renamed_rom_fs_name
+        rom_attrs["fs_name"] = fs_rom["fs_name"]
         files_built = True
 
         missing_match = db_rom_handler.get_matching_missing_rom(
@@ -637,7 +632,7 @@ async def _identify_rom(
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
-        _, renamed_rom_fs_name = await _rebuild_rom_files(
+        await _rebuild_rom_files(
             rom,
             fs_rom,
             calculate_hashes=calculate_hashes,
@@ -651,8 +646,7 @@ async def _identify_rom(
             ),
         )
         # Keep the in-memory rom's name matching the renamed file.
-        if renamed_rom_fs_name:
-            rom.fs_name = renamed_rom_fs_name
+        rom.fs_name = fs_rom["fs_name"]
 
     # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
     # stale files (e.g. a cover from the wrong region) can't be reused. The

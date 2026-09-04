@@ -15,6 +15,7 @@ from anyio import Path as AnyioPath
 
 from adapters.services.sigil import (
     SIGIL_PLATFORM_SLUGS,
+    SWITCH_PLATFORM_SLUGS,
     SigilExtractionResult,
     SigilService,
 )
@@ -188,8 +189,7 @@ class TitleIdEmbedCandidate:
     """A parsed file whose name can carry the Switch title id read from it."""
 
     rom_file: RomFile
-    title_id: str
-    version: int | None
+    extraction: SigilExtractionResult
     # Renaming this file renames the rom, so the caller reconciles `fs_name`.
     is_rom_level: bool
 
@@ -295,14 +295,11 @@ def _rom_level_identity(
     if not extractions:
         return RomIdentity()
 
-    chosen = extractions[0]
-    if platform_slug in switch.SWITCH_PLATFORM_SLUGS:
-        chosen = next(
-            (e for e in extractions if switch.is_base_title_id(e.title_id)), chosen
-        )
-
+    chosen = next(
+        (e for e in extractions if switch.is_base_title_id(e.title_id)), extractions[0]
+    )
     return switch.normalize_identity(
-        platform_slug,
+        platform_slug in SWITCH_PLATFORM_SLUGS,
         RomIdentity(
             title_id=chosen.title_id,
             save_target=chosen.save_target,
@@ -533,7 +530,7 @@ class FSRomsHandler(FSHandler):
         # Title id extraction is independent of hashing support: it covers
         # non-hashable platforms like Switch.
         sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
-        is_switch = rom.platform_slug in switch.SWITCH_PLATFORM_SLUGS
+        is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
         sigil_extractions: list[SigilExtractionResult] = []
         embed_candidates: list[TitleIdEmbedCandidate] = []
         sigil_service = SigilService()
@@ -562,8 +559,7 @@ class FSRomsHandler(FSHandler):
                 embed_candidates.append(
                     TitleIdEmbedCandidate(
                         rom_file=rom_file,
-                        title_id=extraction.title_id,
-                        version=extraction.version,
+                        extraction=extraction,
                         is_rom_level=is_rom_level,
                     )
                 )
@@ -1035,8 +1031,8 @@ class FSRomsHandler(FSHandler):
             rom_file = candidate.rom_file
             new_name = await self._embed_switch_title_id_in_name(
                 Path(rom_file.file_path, rom_file.file_name),
-                candidate.title_id,
-                candidate.version,
+                candidate.extraction.title_id,
+                candidate.extraction.version,
             )
             if new_name is None:
                 continue

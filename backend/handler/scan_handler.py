@@ -74,7 +74,7 @@ from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
@@ -519,9 +519,7 @@ async def scan_rom(
         "md5_hash": rom.md5_hash,
         "sha1_hash": rom.sha1_hash,
         "ra_hash": rom.ra_hash,
-        "title_id": rom.title_id,
-        "save_target": rom.save_target,
-        "save_target_layout": rom.save_target_layout,
+        **RomIdentity.from_rom(rom).as_rom_attrs(),
         "fs_size_bytes": rom.fs_size_bytes,
         "is_physical": rom.is_physical,
         "upc": rom.upc,
