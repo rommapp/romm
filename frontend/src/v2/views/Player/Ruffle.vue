@@ -51,6 +51,12 @@ window.RufflePlayer = window.RufflePlayer || {};
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
+// Nothing is running, so drop the guard and the input mute the launch armed.
+function abortPlay() {
+  gameRunning.value = false;
+  playingStore.setPlaying(false);
+}
+
 function onPlay() {
   gameRunning.value = true;
   // Flash games are keyboard-driven; flag the session so global hotkeys
@@ -58,14 +64,24 @@ function onPlay() {
   playingStore.setPlaying(true);
 
   nextTick(() => {
-    if (!rom.value) return;
+    if (!rom.value) {
+      abortPlay();
+      return;
+    }
 
     const ruffle = window.RufflePlayer.newest();
-    if (!ruffle) return;
+    if (!ruffle) {
+      abortPlay();
+      return;
+    }
 
     const player = ruffle.createPlayer();
     const container = document.getElementById("r-v2-ruffle-stage");
-    container?.appendChild(player);
+    if (!container) {
+      abortPlay();
+      return;
+    }
+    container.appendChild(player);
     player.load({
       allowFullScreen: true,
       autoplay: "on",

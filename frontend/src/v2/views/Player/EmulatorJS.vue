@@ -279,6 +279,11 @@ async function onPlay() {
     removeIOSFullscreenShim.value?.();
     removeIOSFullscreenShim.value = null;
     console.error("[Play] Emulator load failure:", err);
+    // No emulator booted, so drop back to the config screen instead of
+    // leaving the unload guard and the input mute armed.
+    gameRunning.value = false;
+    playing.value = false;
+    fullScreen.value = false;
   }
 }
 
