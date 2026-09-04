@@ -167,11 +167,7 @@ PLATFORM_SLUG_FOLDERS: Final[dict[str, str]] = _unambiguous_folders()
 
 
 def resolve_platform_slug(fs_slug: str, config: Config) -> str:
-    """Resolve a platform folder name to a RomM platform slug.
-
-    Config bindings and versions win, then the folder name if it already is a
-    slug, then the built-in alias.
-    """
+    """Resolve a platform folder name to a RomM platform slug."""
     key = fs_slug.lower()
     bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
     if bound:
@@ -185,12 +181,9 @@ def resolve_platform_slug(fs_slug: str, config: Config) -> str:
 def resolve_fs_slug(slug: str, config: Config) -> str | None:
     """Resolve a RomM platform slug back to the folder name it came from.
 
-    Args:
-        slug: RomM platform slug.
-        config: Loaded config, whose bindings and versions take precedence.
     Returns:
-        The folder name, or None when none is known or several alias folders
-        collapse onto the slug.
+        The folder name, or None when no folder maps to the slug or several
+        alias folders collapse onto it.
     """
     for mapping in (config.PLATFORMS_BINDING, config.PLATFORMS_VERSIONS):
         for fs_slug, bound in mapping.items():

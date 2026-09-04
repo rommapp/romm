@@ -85,7 +85,7 @@ def test_slug_reached_by_several_folders_has_no_reverse():
     assert resolve_fs_slug("my-custom-slug", _config()) is None
 
 
-def test_reverse_map_is_unambiguous():
+def test_reverse_map_agrees_with_alias_table():
     for slug, fs_slug in PLATFORM_SLUG_FOLDERS.items():
         assert PLATFORM_FS_ALIASES[fs_slug].value == slug
 

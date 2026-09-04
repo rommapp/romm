@@ -599,13 +599,9 @@ class ConfigManager:
         return yaml_controls
 
     def _validated_platform_map(self, raw: Any, config_key: str) -> dict[str, str]:
-        """Check a folder name to slug mapping, lowercasing the folder names.
+        """Check a folder name to slug mapping.
 
-        Args:
-            raw: Value read from the config file.
-            config_key: Dotted config path, used in error messages.
-        Returns:
-            The mapping with lowercased keys, so lookups can be case-insensitive.
+        Folder names are lowercased so lookups can ignore case.
         """
         if not isinstance(raw, dict):
             log.critical(f"Invalid config.yml: {config_key} must be a dictionary")
