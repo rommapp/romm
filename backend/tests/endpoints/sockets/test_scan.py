@@ -45,6 +45,57 @@ from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 
 
+class TestScanStatsPublishing:
+    """Counters are exact on every increment; only the reporting is coalesced."""
+
+    @pytest.fixture
+    def emit(self, mocker):
+        mocker.patch.object(scan_module, "update_job_meta")
+        return AsyncMock()
+
+    async def test_reports_once_for_a_burst_of_increments(self, mocker, emit):
+        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
+        stats = ScanStats()
+
+        for _ in range(50):
+            await stats.increment(socket_manager=emit, scanned_roms=1)
+
+        # The first increment reports, the rest ride along with it.
+        emit.emit.assert_awaited_once()
+        assert stats.scanned_roms == 50
+
+    async def test_flush_reports_what_a_burst_held_back(self, mocker, emit):
+        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
+        stats = ScanStats()
+        for _ in range(5):
+            await stats.increment(socket_manager=emit, scanned_roms=1)
+        emit.emit.reset_mock()
+
+        await stats.flush(emit)
+
+        assert emit.emit.await_args.args[1]["scanned_roms"] == 5
+
+    async def test_flush_is_quiet_with_nothing_held_back(self, mocker, emit):
+        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 0)
+        stats = ScanStats()
+        await stats.increment(socket_manager=emit, scanned_roms=1)
+        emit.emit.reset_mock()
+
+        await stats.flush(emit)
+
+        emit.emit.assert_not_awaited()
+
+    async def test_a_phase_boundary_reports_immediately(self, mocker, emit):
+        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
+        stats = ScanStats()
+        await stats.increment(socket_manager=emit, scanned_roms=1)
+        emit.emit.reset_mock()
+
+        await stats.update(socket_manager=emit, total_roms=12)
+
+        assert emit.emit.await_args.args[1]["total_roms"] == 12
+
+
 def test_scan_stats():
     stats = ScanStats()
     assert stats.scanned_platforms == 0

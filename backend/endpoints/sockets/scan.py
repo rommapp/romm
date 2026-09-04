@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -140,6 +141,12 @@ def _scan_in_flight_message(running: Job | None, queued: list[Job]) -> str:
     return f"{_scan_job_label(running)} is already running"
 
 
+# A scan reports progress after every rom, and each report is a synchronous
+# redis write plus a publish. Coalescing them keeps a large library from
+# spending longer announcing progress than making it.
+SCAN_STATS_PUBLISH_INTERVAL = 0.25
+
+
 @dataclass
 class ScanStats:
     total_platforms: int = 0
@@ -158,6 +165,23 @@ class ScanStats:
     def __post_init__(self):
         # Lock for thread-safe updates
         self._lock = asyncio.Lock()
+        self._unpublished = False
+        self._published_at = 0.0
+
+    async def _publish(
+        self, socket_manager: socketio.AsyncRedisManager, *, force: bool
+    ) -> None:
+        """Tell the clients where the scan is. The caller holds the lock."""
+        now = time.monotonic()
+        if not force and now - self._published_at < SCAN_STATS_PUBLISH_INTERVAL:
+            self._unpublished = True
+            return
+
+        self._unpublished = False
+        self._published_at = now
+        stats = self.to_dict()
+        update_job_meta({"scan_stats": stats})
+        await socket_manager.emit("scan:update_stats", stats)
 
     async def update(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
         async with self._lock:
@@ -165,8 +189,9 @@ class ScanStats:
                 if hasattr(self, key):
                     setattr(self, key, value)
 
-            update_job_meta({"scan_stats": self.to_dict()})
-            await socket_manager.emit("scan:update_stats", self.to_dict())
+            # Totals and platform counts land at phase boundaries, rarely enough
+            # to report as they happen.
+            await self._publish(socket_manager, force=True)
 
     async def increment(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
         async with self._lock:
@@ -175,8 +200,13 @@ class ScanStats:
                     current_value = getattr(self, key)
                     setattr(self, key, current_value + value)
 
-            update_job_meta({"scan_stats": self.to_dict()})
-            await socket_manager.emit("scan:update_stats", self.to_dict())
+            await self._publish(socket_manager, force=False)
+
+    async def flush(self, socket_manager: socketio.AsyncRedisManager) -> None:
+        """Publish counters a coalesced increment left unreported."""
+        async with self._lock:
+            if self._unpublished:
+                await self._publish(socket_manager, force=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1145,6 +1175,7 @@ async def scan_platforms(
 
     async def stop_scan():
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
+        await scan_stats.flush(socket_manager)
         await socket_manager.emit("scan:done", scan_stats.to_dict())
         redis_client.delete(STOP_SCAN_FLAG)
 
@@ -1261,6 +1292,7 @@ async def scan_platforms(
                         )
             log.info("Pegasus metadata auto-export completed.")
 
+        await scan_stats.flush(socket_manager)
         await socket_manager.emit("scan:done", scan_stats.to_dict())
     except ScanStoppedException:
         await stop_scan()
