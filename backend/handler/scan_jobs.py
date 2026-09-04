@@ -11,11 +11,13 @@ from rq.registry import ScheduledJobRegistry
 from handler.redis_handler import (
     cancel_job,
     get_job_func_name,
+    get_job_kwargs,
     get_job_status,
     get_worker_current_job,
     high_prio_queue,
     low_prio_queue,
     redis_client,
+    scan_queue,
 )
 from logger.logger import log
 from tasks.tasks import TaskType
@@ -41,6 +43,16 @@ def is_scan_job(job: Job) -> bool:
     return job.meta.get("task_type") == TaskType.SCAN
 
 
+def is_scoped_scan_job(job: Job) -> bool:
+    """Whether this scan covers named roms rather than the library.
+
+    A scan that cannot be read is treated as a library scan: the worker will
+    fail it on the next dequeue, so it stops standing in the way by itself.
+    """
+    kwargs = get_job_kwargs(job)
+    return bool(kwargs and kwargs.get("roms_ids"))
+
+
 def get_running_scan_job() -> Job | None:
     """The scan currently executing on a worker, if any.
 
@@ -58,10 +70,14 @@ def get_running_scan_job() -> Job | None:
 def get_queued_scan_jobs() -> list[Job]:
     """Scans sitting on a worker queue, waiting to be picked up.
 
-    Socket scans go to the high priority queue and watcher scans to the low
-    priority one, once their delay is up.
+    A scan enqueued by an older release sits on one of the other queues, where
+    a worker will still run it.
     """
-    job_ids = chain(high_prio_queue.get_job_ids(), low_prio_queue.get_job_ids())
+    job_ids = chain(
+        scan_queue.get_job_ids(),
+        high_prio_queue.get_job_ids(),
+        low_prio_queue.get_job_ids(),
+    )
     jobs = Job.fetch_many(job_ids, connection=redis_client)
 
     return [
@@ -74,9 +90,16 @@ def get_queued_scan_jobs() -> list[Job]:
     ]
 
 
-def _scheduled_scan_registry() -> ScheduledJobRegistry:
-    """Where delayed scans wait, which is only ever the watcher's queue."""
-    return ScheduledJobRegistry(queue=low_prio_queue)
+def _scheduled_scan_registries() -> list[ScheduledJobRegistry]:
+    """Where delayed scans wait until a worker releases them.
+
+    A scan delayed by an older release waits in the low priority queue's
+    registry, where a worker will still release it.
+    """
+    return [
+        ScheduledJobRegistry(queue=scan_queue),
+        ScheduledJobRegistry(queue=low_prio_queue),
+    ]
 
 
 def get_scheduled_scan_jobs() -> list[Job]:
@@ -85,10 +108,27 @@ def get_scheduled_scan_jobs() -> list[Job]:
     These never stand in for a scan in flight: a worker has to be running to
     release them, so counting them would refuse scans on an idle instance.
     """
-    registry = _scheduled_scan_registry()
-    jobs = Job.fetch_many(registry.get_job_ids(), connection=redis_client)
+    job_ids = chain.from_iterable(
+        registry.get_job_ids() for registry in _scheduled_scan_registries()
+    )
+    jobs = Job.fetch_many(job_ids, connection=redis_client)
 
     return [job for job in jobs if job is not None and is_scan_job(job)]
+
+
+def get_blocking_library_scans() -> tuple[Job | None, list[Job]]:
+    """The library scans a second one has to wait for: one running, any queued.
+
+    A scan of named roms is not one of them. It resolves its work from the
+    database and is done in seconds, so nothing has to queue behind it.
+    """
+    running = get_running_scan_job()
+    if running is not None and is_scoped_scan_job(running):
+        running = None
+
+    queued = [job for job in get_queued_scan_jobs() if not is_scoped_scan_job(job)]
+
+    return running, queued
 
 
 def get_pending_scan_jobs() -> list[Job]:
@@ -109,11 +149,13 @@ def drop_stale_scheduled_scans() -> int:
     Returns:
         int: How many scans were dropped.
     """
-    registry = _scheduled_scan_registry()
     cutoff = datetime.now(timezone.utc) - STALE_SCHEDULED_SCAN_AGE
 
-    # The registry is scored by due time, so it can hand back only what is due.
-    stale_ids = registry.get_jobs_to_schedule(int(cutoff.timestamp()))
+    # A registry is scored by due time, so it can hand back only what is due.
+    stale_ids = chain.from_iterable(
+        registry.get_jobs_to_schedule(int(cutoff.timestamp()))
+        for registry in _scheduled_scan_registries()
+    )
     jobs = Job.fetch_many(stale_ids, connection=redis_client)
     dropped = 0
 

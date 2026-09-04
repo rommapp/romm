@@ -14,6 +14,7 @@
   "deselect-save": "Deselect save",
   "deselect-state": "Deselect state",
   "full-screen": "Full screen",
+  "https-required": "Must be run over HTTPS. Contact the site owner.",
   "jsdos-browser-save-warning": "js-dos saves are stored only in this browser and are not synced with RomM.",
   "jsdos-quit-without-saving": "Quit without saving recent progress?",
   "no-save-selected": "No save selected",

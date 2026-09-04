@@ -4,6 +4,7 @@ from rq.job import JobStatus
 from tests.scan_job_stubs import (
     NON_SCAN_FUNC,
     make_job,
+    make_scoped_job,
     make_task_job,
     patch_scan_jobs,
 )
@@ -32,13 +33,33 @@ class TestIsScanJob:
         assert not scan_jobs.is_scan_job(make_job(NON_SCAN_FUNC))
 
 
+class TestIsScopedScanJob:
+    def test_recognises_a_scan_of_named_roms(self):
+        assert scan_jobs.is_scoped_scan_job(make_scoped_job())
+
+    def test_treats_a_library_scan_as_unscoped(self):
+        assert not scan_jobs.is_scoped_scan_job(make_job(SCAN_PLATFORMS_FUNC))
+
+    def test_treats_a_scan_it_cannot_read_as_unscoped(self, mocker):
+        # A payload that will not deserialize fails on the next dequeue, so it
+        # stops standing in the way by itself.
+        mocker.patch.object(scan_jobs, "get_job_kwargs", return_value=None)
+
+        assert not scan_jobs.is_scoped_scan_job(make_scoped_job())
+
+
 class TestGetQueuedScanJobs:
-    def test_collects_scans_from_both_queues(self, mocker):
+    def test_collects_scans_from_every_queue(self, mocker):
+        # A scan enqueued by an older release sits on one of the other queues,
+        # where a worker will still run it.
+        scan = make_job(SCAN_PLATFORMS_FUNC)
         high = make_job(SCAN_PLATFORMS_FUNC)
         low = make_task_job()
-        patch_scan_jobs(mocker, high_queued=[high], low_queued=[low])
+        patch_scan_jobs(
+            mocker, scan_queued=[scan], high_queued=[high], low_queued=[low]
+        )
 
-        assert scan_jobs.get_queued_scan_jobs() == [high, low]
+        assert scan_jobs.get_queued_scan_jobs() == [scan, high, low]
 
     def test_leaves_out_jobs_that_are_not_scans(self, mocker):
         patch_scan_jobs(mocker, high_queued=[make_job(NON_SCAN_FUNC)])
@@ -63,6 +84,25 @@ class TestGetRunningScanJob:
         patch_scan_jobs(mocker, worker_lost=True)
 
         assert scan_jobs.get_running_scan_job() is None
+
+
+class TestGetBlockingLibraryScans:
+    """Only a library scan makes another one wait."""
+
+    def test_reports_the_library_scans_in_flight(self, mocker):
+        running = make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.STARTED)
+        queued = make_job(SCAN_PLATFORMS_FUNC)
+        patch_scan_jobs(mocker, running=running, scan_queued=[queued])
+
+        assert scan_jobs.get_blocking_library_scans() == (running, [queued])
+
+    def test_a_scan_of_named_roms_blocks_nothing(self, mocker):
+        # It resolves its work from the database and is done in seconds.
+        patch_scan_jobs(
+            mocker, running=make_scoped_job(), scan_queued=[make_scoped_job()]
+        )
+
+        assert scan_jobs.get_blocking_library_scans() == (None, [])
 
 
 class TestGetPendingScanJobs:
@@ -119,3 +159,12 @@ class TestDropStaleScheduledScans:
 
         assert scan_jobs.drop_stale_scheduled_scans() == 0
         job.cancel.assert_not_called()
+
+
+class TestScheduledScanRegistries:
+    """A scan delayed by an older release is still in the low priority queue."""
+
+    def test_reads_the_scan_queue_and_the_low_queue(self):
+        names = [registry.name for registry in scan_jobs._scheduled_scan_registries()]
+
+        assert names == [scan_jobs.scan_queue.name, scan_jobs.low_prio_queue.name]

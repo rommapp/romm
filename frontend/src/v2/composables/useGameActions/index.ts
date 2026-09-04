@@ -29,6 +29,7 @@ import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 
@@ -77,6 +78,7 @@ export function useGameActions(
   // delete that 403s.
   const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
+  const { startScan } = useScanTrigger();
   const {
     canPlay: canPlayLocal,
     canPlayEJS,
@@ -402,6 +404,28 @@ export function useGameActions(
     emitter?.emit("showRefreshMetadataDialog", rom);
   }
 
+  // Reconciling one rom's files contacts no provider, so it needs no dialog: it goes
+  // straight to the socket with an empty source list.
+  function refreshFiles() {
+    const rom = getRom();
+    if (!rom) return;
+    const started = startScan([
+      {
+        platforms: [rom.platform_id],
+        roms_ids: [rom.id],
+        type: "quick",
+        apis: [],
+      },
+    ]);
+    if (!started) return;
+    snackbar.info(
+      t("rom.refreshing-files", { name: rom.name ?? rom.fs_name }),
+      {
+        icon: "mdi-loading mdi-spin",
+      },
+    );
+  }
+
   function edit() {
     const rom = getRom();
     if (!rom) return;
@@ -486,6 +510,7 @@ export function useGameActions(
     copyDownloadLink,
     manageCollections,
     refreshMetadata,
+    refreshFiles,
     edit,
     match,
     remove,

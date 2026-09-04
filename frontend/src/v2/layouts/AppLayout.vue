@@ -232,6 +232,10 @@ onBeforeUnmount(() => {
 .r-v2-shell__app {
   position: relative;
   z-index: 2;
+  /* Matches .r-v2-shell so the absolutely-positioned BottomNav anchor
+     spans the viewport even when the content is shorter than the screen. */
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .r-v2-shell__main {

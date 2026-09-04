@@ -15,6 +15,7 @@ import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { isJsResource, loadScript } from "./scriptLoader";
 
 const JSDOS_LOCAL_BASE = "/assets/jsdos";
@@ -151,15 +152,9 @@ function onlyQuit() {
   void leavePlayer(`/rom/${romId}`);
 }
 
-function onBeforeUnload(event: BeforeUnloadEvent) {
-  if (!dos || quitting.value) return;
-  event.preventDefault();
-  event.returnValue = "";
-}
+useUnloadGuard(() => !!dos && !quitting.value);
 
 onMounted(async () => {
-  window.addEventListener("beforeunload", onBeforeUnload);
-
   // The runtime reads nothing from the ROM payload, so let both loads overlap
   // instead of holding the 300 KB bundle behind the API roundtrip.
   void loadRuntime().catch((e) => console.error(e));
@@ -173,10 +168,7 @@ onBeforeRouteLeave((to) => {
   return false;
 });
 
-onBeforeUnmount(() => {
-  window.removeEventListener("beforeunload", onBeforeUnload);
-  teardown();
-});
+onBeforeUnmount(teardown);
 </script>
 
 <template>

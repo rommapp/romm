@@ -20,6 +20,7 @@ from config import (
     DB_QUERY_JSON,
     DB_USER,
     LIBRARY_BASE_PATH,
+    ROM_UPLOAD_ASSEMBLING_EXT,
     ROMM_BASE_PATH,
     ROMM_DB_DRIVER,
 )
@@ -39,6 +40,7 @@ DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     "log",
     "cache",
     "crdownload",
+    ROM_UPLOAD_ASSEMBLING_EXT,
 ]
 DEFAULT_EXCLUDED_FILES: Final = [
     ".DS_Store",

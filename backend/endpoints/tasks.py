@@ -23,11 +23,9 @@ from endpoints.responses import (
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
 from handler.auth.constants import Scope
 from handler.redis_handler import (
-    default_queue,
+    ALL_QUEUES,
     get_job_func_name,
     get_worker_current_job,
-    high_prio_queue,
-    low_prio_queue,
     redis_client,
 )
 from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
@@ -38,7 +36,6 @@ router = APIRouter(
     prefix="/tasks",
     tags=["tasks"],
 )
-
 
 # Scheduled tasks an admin can see and trigger. The rest of the catalog runs on
 # its schedule without being surfaced.
@@ -204,42 +201,18 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
             all_tasks.append(_build_task_status_response(current_job))
 
     # Get all jobs from the queues (including completed ones)
-    low_prio_jobs = low_prio_queue.get_jobs()
-    default_prio_jobs = default_queue.get_jobs()
-    high_prio_jobs = high_prio_queue.get_jobs()
+    for queue in ALL_QUEUES:
+        for job in queue.get_jobs():
+            all_tasks.append(_build_task_status_response(job))
 
-    for job in low_prio_jobs + default_prio_jobs + high_prio_jobs:
-        all_tasks.append(_build_task_status_response(job))
-
-    # Get finished jobs from all queues
-    finished_registries = [
-        FinishedJobRegistry(queue=low_prio_queue),
-        FinishedJobRegistry(queue=default_queue),
-        FinishedJobRegistry(queue=high_prio_queue),
+    # Process finished and failed jobs
+    registries = [
+        registry_class(queue=queue)
+        for registry_class in (FinishedJobRegistry, FailedJobRegistry)
+        for queue in ALL_QUEUES
     ]
 
-    failed_registries = [
-        FailedJobRegistry(queue=low_prio_queue),
-        FailedJobRegistry(queue=default_queue),
-        FailedJobRegistry(queue=high_prio_queue),
-    ]
-
-    # Process finished jobs
-    for registry in finished_registries:
-        for job_id in registry.get_job_ids():
-            try:
-                job = Job.fetch(job_id, connection=redis_client)
-            except NoSuchJobError:
-                registry.remove(job_id)
-                continue
-            all_tasks.append(
-                _build_task_status_response(
-                    job,
-                )
-            )
-
-    # Process failed jobs
-    for registry in failed_registries:
+    for registry in registries:
         for job_id in registry.get_job_ids():
             try:
                 job = Job.fetch(job_id, connection=redis_client)
@@ -267,7 +240,7 @@ async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
         TaskStatusResponse: Task status information
     """
     try:
-        job = Job.fetch(task_id, connection=low_prio_queue.connection)
+        job = Job.fetch(task_id, connection=redis_client)
     except Exception as e:
         raise HTTPException(
             status_code=404,

@@ -2,10 +2,11 @@ import importlib
 
 import pytest
 
-from config import TASK_RESULT_TTL
+from config import TASK_RESULT_TTL, TASK_TIMEOUT
+from handler.redis_handler import QueuePrio
 from tasks import cron_config
-from tasks.registry import SCHEDULED_TASKS
-from tasks.tasks import run_task_by_name
+from tasks.registry import SCHEDULED_TASKS, enqueue_scheduled_scan
+from tasks.tasks import TaskType, run_task_by_name
 
 
 @pytest.fixture
@@ -21,15 +22,20 @@ def registered(mocker):
     return _reload
 
 
-def _task(mocker, *, enabled=True, cron_string="0 4 * * *"):
+def _task(mocker, *, enabled=True, cron_string="0 4 * * *", task_type=TaskType.CLEANUP):
     return mocker.MagicMock(
         enabled=enabled,
         cron_string=cron_string,
         timeout=100,
         title="Test Task",
         description="test task",
-        task_type=mocker.MagicMock(value="cleanup"),
+        task_type=task_type,
+        job_meta={"task_name": "Test Task", "task_type": task_type.value},
     )
+
+
+def _scan_task(mocker, **kwargs):
+    return _task(mocker, task_type=TaskType.SCAN, **kwargs)
 
 
 class TestCronConfig:
@@ -43,6 +49,31 @@ class TestCronConfig:
         assert args[0] is run_task_by_name
         assert kwargs["kwargs"] == {"name": "test_task"}
         assert kwargs["cron"] == "0 4 * * *"
+        assert kwargs["job_timeout"] == 100
+
+    def test_a_scan_is_registered_through_the_dispatch_job(self, mocker, registered):
+        # Cron takes no failure callback, so the scan is enqueued by a job that
+        # can attach one rather than being registered with cron directly.
+        register = registered({"scan_library": _scan_task(mocker)})
+
+        kwargs = register.call_args.kwargs
+        assert register.call_args.args[0] is enqueue_scheduled_scan
+        assert kwargs["job_timeout"] == TASK_TIMEOUT
+        # RQ drops a job whose result_ttl is 0 as soon as it succeeds, so the
+        # dispatch is not listed next to the scan it enqueued.
+        assert kwargs["result_ttl"] == 0
+
+    def test_everything_runs_on_the_low_queue(self, mocker, registered):
+        for tasks in ({"cleanup": _task(mocker)}, {"scan": _scan_task(mocker)}):
+            register = registered(tasks)
+            assert register.call_args.args[1] == QueuePrio.LOW.value
+
+    def test_history_outlives_rq_s_own_result_ttl(self, mocker, registered):
+        # `register()` defaults this, and a default is written onto the job, so
+        # leaving it out would pin every cron job to RQ's 500 seconds.
+        register = registered({"cleanup": _task(mocker)})
+
+        assert register.call_args.kwargs["result_ttl"] == TASK_RESULT_TTL
 
     def test_each_entry_gets_its_own_cron_identity(self, mocker, registered):
         # Every entry runs the same function, so an unnamed one would inherit
@@ -53,13 +84,6 @@ class TestCronConfig:
 
         names = [call.kwargs["name"] for call in register.call_args_list]
         assert names == ["first", "second"]
-
-    def test_a_finished_run_is_kept_as_long_as_a_manual_one(self, mocker, registered):
-        # rq.cron always passes a result_ttl, so leaving it out means its 500s
-        # default rather than the worker's setting.
-        register = registered({"test_task": _task(mocker)})
-
-        assert register.call_args.kwargs["result_ttl"] == TASK_RESULT_TTL
 
     def test_skips_a_disabled_task(self, mocker, registered):
         assert registered({"off": _task(mocker, enabled=False)}).call_count == 0

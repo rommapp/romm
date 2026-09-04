@@ -15,6 +15,8 @@ import { useGameActions } from "./index";
 const push = vi.fn();
 const locationAssign = vi.fn();
 const confirmFn = vi.fn();
+const startScan = vi.fn(() => true);
+const snackbarInfo = vi.fn();
 const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
@@ -82,8 +84,11 @@ vi.mock("@/v2/composables/useRomSync", () => ({
     refreshIfOrderedBy: vi.fn(),
   }),
 }));
+vi.mock("@/v2/composables/useScanTrigger", () => ({
+  useScanTrigger: () => ({ startScan }),
+}));
 vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ success: vi.fn(), error: vi.fn() }),
+  useSnackbar: () => ({ success: vi.fn(), error: vi.fn(), info: snackbarInfo }),
 }));
 vi.mock("@/v2/composables/useViewTransition", () => ({
   useViewTransition: () => ({
@@ -121,6 +126,8 @@ beforeEach(() => {
   push.mockClear();
   locationAssign.mockClear();
   confirmFn.mockClear();
+  startScan.mockClear();
+  snackbarInfo.mockClear();
   confirmProtectedLaunch.value = true;
   canPlayEJS.value = true;
   canPlayJsDos.value = false;
@@ -255,5 +262,31 @@ describe("useGameActions — write/destructive gates", () => {
     grantedActions.value = new Set<ActionKey>(["rom.delete", "rom.edit"]);
     const actions = useGameActions(() => makeRom());
     expect(actions.canDelete.value).toBe(true);
+  });
+});
+
+describe("useGameActions.refreshFiles", () => {
+  it("refreshes the rom files without any provider", () => {
+    const rom = { ...makeRom(null), platform_id: 7 } as SimpleRom;
+    const actions = useGameActions(() => rom);
+
+    actions.refreshFiles();
+
+    expect(startScan).toHaveBeenCalledWith([
+      { platforms: [7], roms_ids: [1], type: "quick", apis: [] },
+    ]);
+    expect(snackbarInfo).toHaveBeenCalledWith(
+      "rom.refreshing-files",
+      expect.anything(),
+    );
+  });
+
+  it("stays quiet when a scan is already running", () => {
+    startScan.mockReturnValueOnce(false);
+    const actions = useGameActions(() => makeRom(null));
+
+    actions.refreshFiles();
+
+    expect(snackbarInfo).not.toHaveBeenCalled();
   });
 });
