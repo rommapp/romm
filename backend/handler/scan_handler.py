@@ -79,6 +79,7 @@ from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
 from utils.filesystem import sanitize_filename
+from utils.platform_aliases import resolve_platform_slug
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -302,15 +303,7 @@ async def scan_platform(
             if platform:
                 platform_attrs["fs_slug"] = swapped_platform_versions[platform.slug]
 
-    try:
-        if fs_slug in cnfg.PLATFORMS_BINDING.keys():
-            platform_attrs["slug"] = cnfg.PLATFORMS_BINDING[fs_slug]
-        elif fs_slug in cnfg.PLATFORMS_VERSIONS.keys():
-            platform_attrs["slug"] = cnfg.PLATFORMS_VERSIONS[fs_slug]
-        else:
-            platform_attrs["slug"] = fs_slug
-    except (KeyError, TypeError, AttributeError):
-        platform_attrs["slug"] = fs_slug
+    platform_attrs["slug"] = resolve_platform_slug(fs_slug, cnfg)
 
     igdb_platform = meta_igdb_handler.get_platform(platform_attrs["slug"])
     moby_platform = meta_moby_handler.get_platform(platform_attrs["slug"])
