@@ -231,14 +231,8 @@ useEventListener(document, "fullscreenchange", () => {
 });
 
 async function onPlay() {
-  // Threaded cores (dosbox_pure, ppsspp, azahar, scummvm) need
-  // SharedArrayBuffer, which browsers only expose on a secure context
-  // (HTTPS, or localhost) -- regardless of what headers the server sends.
-  // Left unchecked, EmulatorJS's own loader still attempts to boot and
-  // fails deep inside its own code with a generic on-canvas
-  // "Error for site owner / Check console" that gives the player no
-  // actionable information. Catch it here instead, before ever loading
-  // the emulator, with a message that says what's actually wrong.
+  // Threaded cores need SharedArrayBuffer, which browsers only expose on a
+  // secure context (HTTPS or localhost), whatever headers the server sends.
   if (
     selectedCore.value &&
     areThreadsRequiredForEJSCore(selectedCore.value) &&
