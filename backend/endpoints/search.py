@@ -220,7 +220,13 @@ async def search_rom(
                 }
 
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:
-        return name, await meta_sgdb_handler.get_details_by_names([name])
+        # Cover art on top of matches the other providers already produced, so
+        # an unreachable SteamGridDB costs a thumbnail rather than the results.
+        try:
+            return name, await meta_sgdb_handler.get_details_by_names([name])
+        except Exception as exc:
+            log.error("Error fetching SteamGridDB covers for '%s': %s", name, exc)
+            return name, SGDBRom(sgdb_id=None)
 
     async def get_libretro_rom(name: str) -> tuple[str, LibretroRom]:
         return name, await meta_libretro_handler.get_rom(name, rom.platform.slug)

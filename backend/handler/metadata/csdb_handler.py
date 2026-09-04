@@ -203,12 +203,9 @@ class CsdbHandler(MetadataHandler):
     async def get_rom_by_id(self, csdb_id: int) -> CsdbRom:
         if not self.is_enabled() or not csdb_id:
             return CsdbRom(csdb_id=None)
-        try:
-            xml = await self._request(
-                f"{CSDB_WEBSERVICE}?type=release&id={int(csdb_id)}&depth=2"
-            )
-        except HTTPException:
-            return CsdbRom(csdb_id=None)
+        xml = await self._request(
+            f"{CSDB_WEBSERVICE}?type=release&id={int(csdb_id)}&depth=2"
+        )
         return production_from_xml(xml)
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> CsdbRom:

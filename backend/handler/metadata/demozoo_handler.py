@@ -545,12 +545,7 @@ class DemozooHandler(MetadataHandler):
     async def get_rom_by_id(self, demozoo_id: int) -> DemozooRom:
         if not self.is_enabled() or not demozoo_id:
             return DemozooRom(demozoo_id=None)
-        try:
-            data = await self._request(
-                f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/"
-            )
-        except HTTPException:
-            return DemozooRom(demozoo_id=None)
+        data = await self._request(f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/")
         if not data.get("id"):
             return DemozooRom(demozoo_id=None)
         return production_to_rom(data)

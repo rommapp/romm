@@ -296,6 +296,18 @@ def production_to_rom(prod: dict[str, Any]) -> PouetRom:
     )
 
 
+def _unavailable() -> HTTPException:
+    """The error every unreachable-Pouët path raises.
+
+    A scan reads an empty match as "this production is gone" and drops the id it
+    had, so a lookup that failed must not answer with one.
+    """
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Can't connect to Pouët API, check your internet connection",
+    )
+
+
 class PouetHandler(MetadataHandler):
     def __init__(self) -> None:
         self.min_similarity_score: Final = 0.88
@@ -314,10 +326,7 @@ class PouetHandler(MetadataHandler):
             body = await self._fetch_capped(url, headers=headers)
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning("Can't connect to Pouët API", extra={"exception": str(exc)})
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Pouët API, check your internet connection",
-            ) from exc
+            raise _unavailable() from exc
         if body is None:
             return {}
         try:
@@ -340,10 +349,7 @@ class PouetHandler(MetadataHandler):
     async def get_rom_by_id(self, pouet_id: int) -> PouetRom:
         if not self.is_enabled() or not pouet_id:
             return PouetRom(pouet_id=None)
-        try:
-            data = await self._request(f"{POUET_API_PROD}?id={int(pouet_id)}")
-        except HTTPException:
-            return PouetRom(pouet_id=None)
+        data = await self._request(f"{POUET_API_PROD}?id={int(pouet_id)}")
         prod = data.get("prod")
         if not data.get("success") or not isinstance(prod, dict) or not prod.get("id"):
             return PouetRom(pouet_id=None)
@@ -375,7 +381,7 @@ class PouetHandler(MetadataHandler):
                 return pouet_id_from_location(res.headers.get("location") or "")
         except (httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning("Pouët title search failed: %s", exc)
-            return None
+            raise _unavailable() from exc
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> PouetRom:
         """Tag first; otherwise unique-title 302. No HTML list parse."""

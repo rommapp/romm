@@ -84,7 +84,7 @@ class SGDBBaseHandler(MetadataHandler):
             return result
         except Exception as e:
             log.warning(f"Failed to fetch ROM by SteamGridDB ID {sgdb_id}: {e}")
-            return SGDBRom(sgdb_id=None)
+            raise
 
     async def get_details(self, search_term: str) -> list[SGDBResult]:
         if not self.is_enabled():
@@ -113,9 +113,9 @@ class SGDBBaseHandler(MetadataHandler):
     async def get_details_by_names(self, game_names: list[str]) -> SGDBRom:
         """Get ROM details by candidate game names.
 
-        Returns an empty match if the lookup fails. The lookup is best-effort
-        and never raises to the caller, so an unreachable SteamGridDB can't
-        abort a scan.
+        Raises when the lookup fails, so a caller can tell an unreachable
+        SteamGridDB from a name it has no art for. Callers that would rather
+        carry on than fail decide that for themselves.
         """
         if not self.is_enabled():
             return SGDBRom(sgdb_id=None)
@@ -168,7 +168,7 @@ class SGDBBaseHandler(MetadataHandler):
             log.error(
                 f"Failed to fetch SteamGridDB details for '{', '.join(game_names)}': {e}"
             )
-            return SGDBRom(sgdb_id=None)
+            raise
 
         log.debug(f"No good match found for '{', '.join(game_names)}' on SteamGridDB")
         return SGDBRom(sgdb_id=None)

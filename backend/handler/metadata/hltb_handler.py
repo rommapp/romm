@@ -527,7 +527,7 @@ class HLTBHandler(MetadataHandler):
 
         except Exception as exc:
             log.error("Error searching HowLongToBeat API: %s", exc)
-            return []
+            raise
 
     def get_platform(self, slug: str) -> HLTBPlatform:
         if slug not in HLTB_PLATFORM_LIST:

@@ -6,7 +6,10 @@ from typing import Any
 import pydash
 import socketio  # type: ignore
 
-from adapters.services.screenscraper import ScreenScraperRateLimitError
+from adapters.services.screenscraper import (
+    ScreenScraperRateLimitError,
+    is_breaker_tripped,
+)
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
@@ -1156,6 +1159,11 @@ async def scan_rom(
         else:
             resolved.append(result)
 
+    # Once a ScreenScraper breaker trips, the remaining lookups answer empty
+    # without asking, so it has ruled nothing out for this rom either.
+    if is_breaker_tripped():
+        attempted_sources.discard(MetadataSource.SS)
+
     (
         igdb_handler_rom,
         moby_handler_rom,
@@ -1518,7 +1526,17 @@ async def scan_rom(
 
         return SGDBRom(sgdb_id=None)
 
-    sgdb_hander_rom = await fetch_sgdb_details(playmatch_hash_match)
+    try:
+        sgdb_hander_rom = await fetch_sgdb_details(playmatch_hash_match)
+    except Exception as exc:
+        # A failure ruled nothing out, so the id the rom already had stands.
+        attempted_sources.discard(MetadataSource.SGDB)
+        log.error(
+            f"Error fetching {hl(MetadataSource.SGDB)} metadata for {hl(rom_attrs['fs_name'])}: {exc}",
+            extra=LOGGER_MODULE_NAME,
+        )
+        sgdb_hander_rom = SGDBRom(sgdb_id=None)
+
     if sgdb_hander_rom.get("sgdb_id"):
         rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
 

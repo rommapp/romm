@@ -218,7 +218,7 @@ class FlashpointHandler(MetadataHandler):
 
         except Exception as exc:
             log.error("Error searching Flashpoint API: %s", exc)
-            return []
+            raise
 
     def get_platform(self, slug: str) -> FlashpointPlatform:
         """
@@ -413,7 +413,7 @@ class FlashpointHandler(MetadataHandler):
 
         except Exception as exc:
             log.error("Error getting ROM by ID from Flashpoint API: %s", exc)
-            return FlashpointRom(flashpoint_id=None)
+            raise
 
 
 class SlugToFlashpointId(TypedDict):

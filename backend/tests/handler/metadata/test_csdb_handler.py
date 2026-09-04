@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from handler.metadata.csdb_handler import (
     CsdbHandler,
@@ -110,3 +111,20 @@ async def test_request_returns_empty_when_over_the_cap():
     handler = CsdbHandler()
     with patch.object(CsdbHandler, "_fetch_capped", AsyncMock(return_value=None)):
         assert await handler._request("https://csdb.dk/webservice/?id=1") == ""
+
+
+@pytest.mark.asyncio
+async def test_get_rom_by_id_propagates_an_unreachable_csdb():
+    """A dead connection has to stay distinguishable from a missing release."""
+    handler = CsdbHandler()
+    with (
+        patch.object(CsdbHandler, "is_enabled", return_value=True),
+        patch.object(
+            CsdbHandler,
+            "_request",
+            new_callable=AsyncMock,
+            side_effect=HTTPException(status_code=503, detail="down"),
+        ),
+        pytest.raises(HTTPException),
+    ):
+        await handler.get_rom_by_id(75330)
