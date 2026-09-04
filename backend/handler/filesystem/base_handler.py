@@ -23,7 +23,12 @@ from models.base import (
     compute_file_name_no_ext,
     compute_file_name_no_tags,
 )
-from utils.filesystem import iter_directories, iter_files, link_or_copy_file
+from utils.filesystem import (
+    SERVED_FILE_MODE,
+    iter_directories,
+    iter_files,
+    link_or_copy_file,
+)
 
 UUID_V4_REGEX = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}",
@@ -305,8 +310,7 @@ class FSHandler:
 
         try:
             yield temp_path
-            # mkstemp creates files with 0600 permissions
-            os.chmod(temp_path, 0o644)
+            os.chmod(temp_path, SERVED_FILE_MODE)
             os.replace(str(temp_path), str(target_path))
 
         # BaseException, not Exception: a cancelled scan raises CancelledError,
