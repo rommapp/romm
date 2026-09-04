@@ -89,11 +89,7 @@ class CachedZip(NamedTuple):
 
 
 def get_cached_zip(namespace: str, cache_key: str) -> CachedZip | None:
-    """Return the cached ZIP and the stat that found it, or None if it is missing.
-
-    Callers get the stat so a hit costs one stat total rather than one per
-    caller that needs the size.
-    """
+    """Return the cached ZIP and the stat that found it, or None if it is missing."""
     path = _cache_file(namespace, cache_key)
     try:
         file_stat = os.stat(path)
@@ -104,7 +100,7 @@ def get_cached_zip(namespace: str, cache_key: str) -> CachedZip | None:
 
 
 def _ensure_nginx_readable(path: Path, mode: int) -> None:
-    """Widen an archive an older build left owner-only, so nginx can read it."""
+    """Widen a legacy owner-only archive so nginx can read it."""
     if mode & SERVED_FILE_MODE == SERVED_FILE_MODE:
         return
     try:
@@ -163,9 +159,8 @@ def build_cached_zip(
 ) -> Path:
     """Build a ZIP_STORED archive on disk and return its path.
 
-    Writes to a temp file in the same directory, then atomically renames to
-    the final path to prevent serving partial files. Concurrent requests for
-    the same namespace wait on one build.
+    Written to a temp file in the same directory and renamed, so a partial
+    file is never served.
     """
     target = _cache_file(namespace, cache_key)
     target.parent.mkdir(parents=True, exist_ok=True)

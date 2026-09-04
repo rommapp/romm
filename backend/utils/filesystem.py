@@ -12,8 +12,7 @@ COMPRESSED_FILE_EXTENSIONS: frozenset[str] = frozenset(
     (".7z", ".bz2", ".gz", ".rar", ".tar", ".zip", ".xz", ".tgz", ".tbz2", ".txz")
 )
 
-# Mode for files nginx serves directly: tempfile.mkstemp creates them 0600,
-# which the unprivileged nginx user cannot read.
+# tempfile.mkstemp creates files 0600, too narrow for the nginx user to read.
 SERVED_FILE_MODE = 0o644
 
 

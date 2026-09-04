@@ -4,6 +4,7 @@ import stat
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
@@ -162,15 +163,16 @@ def library(tmp_path, mocker):
     return lib
 
 
-def build_library_zip(**overrides):
-    kwargs = {
-        "namespace": "42",
-        "entries": [ZipFileEntry("a.bin", "roms/a.bin", 4, 1000.0)],
-        "m3u_content": None,
-        "m3u_filename": None,
-        "cache_key": "key",
-    }
-    return build_cached_zip(**{**kwargs, **overrides})
+def build_library_zip(
+    m3u_content: bytes | None = None, m3u_filename: str | None = None
+) -> Path:
+    return build_cached_zip(
+        namespace="42",
+        entries=[ZipFileEntry("a.bin", "roms/a.bin", 4, 1000.0)],
+        m3u_content=m3u_content,
+        m3u_filename=m3u_filename,
+        cache_key="key",
+    )
 
 
 class TestBuildCachedZip:
@@ -446,7 +448,7 @@ class TestEnsureZipfileWritable:
 
 
 class TestCachedZipReadability:
-    def test_build_leaves_archive_world_readable(self, library):
+    def test_build_leaves_archive_nginx_readable(self, library):
         result = build_library_zip()
         mode = stat.S_IMODE(result.stat().st_mode)
         assert mode & SERVED_FILE_MODE == SERVED_FILE_MODE
@@ -466,12 +468,11 @@ class TestCachedZipReadability:
         assert mode & SERVED_FILE_MODE == SERVED_FILE_MODE
 
     def test_concurrent_builds_share_one_write(self, library, mocker):
-        # Release all three threads at the lock, so they are guaranteed to race
-        # for it rather than relying on a sleep to widen the window.
+        # Hold every thread until all three are at the lock, so the race is certain.
         barrier = threading.Barrier(3, timeout=10)
         original_flock = fcntl.flock
 
-        def synchronized_flock(fd, operation):
+        def synchronized_flock(fd: int, operation: int) -> None:
             barrier.wait()
             return original_flock(fd, operation)
 
