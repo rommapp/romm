@@ -1668,7 +1668,7 @@ filesystem:
   embed_switch_title_ids: false # Rename Switch ROMs to embed their title ID
 
 system:
-  platforms: # fs_slug → slug overrides (frontend folder names resolve automatically)
+  platforms: # fs_slug → slug overrides (Batocera/RetroBat/ES-DE folder names resolve automatically)
     snes: "snes"
   versions:
     snes: "pal" # Platform version overrides
