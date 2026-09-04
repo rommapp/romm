@@ -97,23 +97,28 @@ const exclusionDefs = computed<ExclusionDef[]>(() => [
   },
 ]);
 
-const DEFAULT_LIST_MAP: Record<
-  ExclusionDef["key"],
+type DefaultListKey =
   | "DEFAULT_EXCLUDED_DIRS"
+  | "DEFAULT_EXCLUDED_MEDIA_DIRS"
   | "DEFAULT_EXCLUDED_FILES"
-  | "DEFAULT_EXCLUDED_EXTENSIONS"
-> = {
-  EXCLUDED_PLATFORMS: "DEFAULT_EXCLUDED_DIRS",
-  EXCLUDED_SINGLE_FILES: "DEFAULT_EXCLUDED_FILES",
-  EXCLUDED_SINGLE_EXT: "DEFAULT_EXCLUDED_EXTENSIONS",
-  EXCLUDED_MULTI_FILES: "DEFAULT_EXCLUDED_DIRS",
-  EXCLUDED_MULTI_PARTS_FILES: "DEFAULT_EXCLUDED_FILES",
-  EXCLUDED_MULTI_PARTS_EXT: "DEFAULT_EXCLUDED_EXTENSIONS",
+  | "DEFAULT_EXCLUDED_EXTENSIONS";
+
+const DEFAULT_LIST_MAP: Record<ExclusionDef["key"], DefaultListKey[]> = {
+  EXCLUDED_PLATFORMS: ["DEFAULT_EXCLUDED_DIRS"],
+  EXCLUDED_SINGLE_FILES: ["DEFAULT_EXCLUDED_FILES"],
+  EXCLUDED_SINGLE_EXT: ["DEFAULT_EXCLUDED_EXTENSIONS"],
+  EXCLUDED_MULTI_FILES: [
+    "DEFAULT_EXCLUDED_DIRS",
+    "DEFAULT_EXCLUDED_MEDIA_DIRS",
+  ],
+  EXCLUDED_MULTI_PARTS_FILES: ["DEFAULT_EXCLUDED_FILES"],
+  EXCLUDED_MULTI_PARTS_EXT: ["DEFAULT_EXCLUDED_EXTENSIONS"],
 };
 
 function isDefault(key: ExclusionDef["key"], value: string): boolean {
-  const defaults = config.value[DEFAULT_LIST_MAP[key]] || [];
-  return defaults.includes(value);
+  return DEFAULT_LIST_MAP[key].some((list) =>
+    (config.value[list] || []).includes(value),
+  );
 }
 
 type Row = {

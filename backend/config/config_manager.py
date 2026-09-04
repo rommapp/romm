@@ -71,8 +71,6 @@ GAMELIST_MEDIA_DIRS: Final[dict[str, str]] = {
 DEFAULT_EXCLUDED_DIRS: Final = [
     "@eaDir",
     "assets",
-    *GAMELIST_MEDIA_DIRS.values(),
-    "images",
     "__MACOSX",
     "#recycle",
     "$RECYCLE.BIN",
@@ -83,6 +81,8 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     ".DocumentRevisions-V100",
     "System Volume Information",
 ]
+# Scrapers write these beside the ROMs, so they are never multi-file ROMs.
+DEFAULT_EXCLUDED_MEDIA_DIRS: Final = [*GAMELIST_MEDIA_DIRS.values(), "images"]
 
 
 class EjsControlsButton(TypedDict):
@@ -423,6 +423,7 @@ class ConfigManager:
             EXCLUDED_MULTI_FILES=sorted(
                 {
                     *DEFAULT_EXCLUDED_DIRS,
+                    *DEFAULT_EXCLUDED_MEDIA_DIRS,
                     *pydash.get(
                         self._raw_config,
                         "exclude.roms.multi_file.names",
