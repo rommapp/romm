@@ -52,9 +52,29 @@ DEFAULT_EXCLUDED_FILES: Final = [
     "gamelist.xml",
     "metadata.pegasus.txt",
 ]
+# ES-DE ignores media paths in gamelist.xml and only looks in
+# <MediaDirectory>/<system>/<folder>/, so these folders sit beside the ROMs.
+GAMELIST_MEDIA_DIRS: Final[dict[str, str]] = {
+    "box2d": "covers",
+    "box3d": "3dboxes",
+    "box2d_back": "backcovers",
+    "fanart": "fanart",
+    "marquee": "marquees",
+    "miximage": "miximages",
+    "miximage_v2": "miximages_v2",
+    "physical": "physicalmedia",
+    "screenshot": "screenshots",
+    "title_screen": "titlescreens",
+    "bezel": "bezels",
+    "video": "videos",
+    "manual": "manuals",
+}
 DEFAULT_EXCLUDED_DIRS: Final = [
     "@eaDir",
     "assets",
+    *GAMELIST_MEDIA_DIRS.values(),
+    # RetroBat's scraper writes images/ beside the ROMs.
+    "images",
     "__MACOSX",
     "#recycle",
     "$RECYCLE.BIN",
