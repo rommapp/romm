@@ -647,6 +647,5 @@ def test_export_gamelist_xml_mix_falls_back_to_miximage_v2(platform_with_roms):
 
 
 def test_gamelist_media_dirs_are_excluded_from_scan():
-    """Every folder the exporter writes must be skipped as a multi-file ROM, as must
-    the folders third-party scrapers fill in beside the ROMs."""
+    """Media folders beside the ROMs are never scanned as multi-file ROMs."""
     assert fs_rom_handler.exclude_multi_roms(list(GAMELIST_MEDIA_DIRS.values())) == []

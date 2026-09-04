@@ -66,8 +66,7 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     "System Volume Information",
 ]
 # The per-media-type folders ES-DE and Batocera resolve beside the ROMs, at
-# <platform>/<folder>/<rom>.<ext>. Owned here so the gamelist exporter, the
-# gamelist importer and the scan exclusions share one vocabulary.
+# <platform>/<folder>/<rom>.<ext>.
 GAMELIST_MEDIA_DIRS: Final = {
     "image": "images",
     "box2d": "covers",

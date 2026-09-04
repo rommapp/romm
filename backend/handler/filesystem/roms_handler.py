@@ -397,7 +397,6 @@ class FSRomsHandler(FSHandler):
         normalized_patterns = {
             excluded_name.lower().strip() for excluded_name in excluded_names
         }
-        # Most exclusions are literal names, so only glob the few that need it.
         glob_patterns = [
             pattern for pattern in normalized_patterns if _GLOB_CHARS_RE.search(pattern)
         ]

@@ -20,9 +20,8 @@ from logger.logger import log
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.filesystem import link_or_copy_file
 
-# The gamelist tags each media asset is written under, in the order the tag
-# prefers its candidate assets. RetroBat reads some of the same media under its
-# own names (cartridge, titleshot, mix), so a few assets appear more than once.
+# Each tag maps to the assets it can take, best first. RetroBat reads some of the
+# same media under its own names (cartridge, titleshot, mix), hence the repeats.
 ASSET_TAGS: Final[dict[str, tuple[str, ...]]] = {
     "box3d": ("box3d",),
     "boxback": ("box2d_back",),
