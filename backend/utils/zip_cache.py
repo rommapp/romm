@@ -12,7 +12,7 @@ import time
 import zipfile
 from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import anyio
 
@@ -83,15 +83,24 @@ def _cache_file(namespace: str, cache_key: str) -> Path:
     return _cache_dir(namespace) / f"{cache_key}.zip"
 
 
-def get_cached_zip(namespace: str, cache_key: str) -> Path | None:
-    """Return the cached ZIP path if it exists on disk, else None."""
+class CachedZip(NamedTuple):
+    path: Path
+    stat: os.stat_result
+
+
+def get_cached_zip(namespace: str, cache_key: str) -> CachedZip | None:
+    """Return the cached ZIP and the stat that found it, or None if it is missing.
+
+    Callers get the stat so a hit costs one stat total rather than one per
+    caller that needs the size.
+    """
     path = _cache_file(namespace, cache_key)
     try:
         file_stat = os.stat(path)
     except OSError:
         return None
     _ensure_nginx_readable(path, stat.S_IMODE(file_stat.st_mode))
-    return path
+    return CachedZip(path, file_stat)
 
 
 def _ensure_nginx_readable(path: Path, mode: int) -> None:
@@ -163,7 +172,7 @@ def build_cached_zip(
 
     with _namespace_build_lock(target.parent):
         if cached := get_cached_zip(namespace, cache_key):
-            return cached
+            return cached.path
         _write_cached_zip(target, entries, m3u_content, m3u_filename)
 
     log.info(f"Built cached ZIP in {hl(namespace)}: {hl(target.name)}")

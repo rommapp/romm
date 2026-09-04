@@ -133,14 +133,15 @@ class TestGetCachedZip:
         mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
         assert get_cached_zip("1", "abc123") is None
 
-    def test_returns_path_when_exists(self, tmp_path, mocker):
+    def test_returns_path_and_stat_when_exists(self, tmp_path, mocker):
         ns_dir = tmp_path / "1"
         ns_dir.mkdir()
         (ns_dir / "abc123.zip").write_bytes(b"fake")
         mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
         result = get_cached_zip("1", "abc123")
         assert result is not None
-        assert result.name == "abc123.zip"
+        assert result.path.name == "abc123.zip"
+        assert result.stat.st_size == 4
 
     def test_old_key_not_returned_for_new_key(self, tmp_path, mocker):
         ns_dir = tmp_path / "1"
@@ -461,7 +462,7 @@ class TestCachedZipReadability:
         result = get_cached_zip("42", "key")
 
         assert result is not None
-        mode = stat.S_IMODE(result.stat().st_mode)
+        mode = stat.S_IMODE(result.path.stat().st_mode)
         assert mode & SERVED_FILE_MODE == SERVED_FILE_MODE
 
     def test_concurrent_builds_share_one_write(self, library, mocker):
