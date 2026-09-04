@@ -2,9 +2,10 @@ import os
 from pathlib import Path
 
 from config.config_manager import (
-    DEFAULT_EXCLUDED_DIRS,
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
+    DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
+    DEFAULT_EXCLUDED_PLATFORM_DIRS,
     ConfigManager,
 )
 
@@ -14,7 +15,9 @@ def test_config_loader():
         os.path.join(Path(__file__).resolve().parent, "fixtures", "config/config.yml")
     )
 
-    assert loader.config.EXCLUDED_PLATFORMS == sorted({*DEFAULT_EXCLUDED_DIRS, "romm"})
+    assert loader.config.EXCLUDED_PLATFORMS == sorted(
+        {*DEFAULT_EXCLUDED_PLATFORM_DIRS, "romm"}
+    )
     assert loader.config.EXCLUDED_SINGLE_EXT == sorted(
         {
             *(e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS),
@@ -26,7 +29,7 @@ def test_config_loader():
     )
     assert loader.config.EXCLUDED_MULTI_FILES == sorted(
         {
-            *DEFAULT_EXCLUDED_DIRS,
+            *DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
             "my_multi_file_game",
             "DLC",
         }
@@ -102,13 +105,15 @@ def test_empty_config_loader():
         )
     )
 
-    assert loader.config.EXCLUDED_PLATFORMS == sorted(DEFAULT_EXCLUDED_DIRS)
+    assert loader.config.EXCLUDED_PLATFORMS == sorted(DEFAULT_EXCLUDED_PLATFORM_DIRS)
     assert loader.config.EXCLUDED_SINGLE_EXT == sorted(
         {e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS}
     )
     assert "ini" not in loader.config.EXCLUDED_SINGLE_EXT
     assert loader.config.EXCLUDED_SINGLE_FILES == sorted(DEFAULT_EXCLUDED_FILES)
-    assert loader.config.EXCLUDED_MULTI_FILES == sorted(DEFAULT_EXCLUDED_DIRS)
+    assert loader.config.EXCLUDED_MULTI_FILES == sorted(
+        DEFAULT_EXCLUDED_MULTI_FILE_DIRS
+    )
     assert loader.config.EXCLUDED_MULTI_PARTS_EXT == sorted(
         {e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS}
     )

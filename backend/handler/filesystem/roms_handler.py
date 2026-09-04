@@ -278,6 +278,9 @@ NON_BINARY_FILE_CATEGORIES: Final = DOCUMENT_CATEGORIES | {
     RomFileCategory.CHEAT,
 }
 
+# Exclusion patterns holding one of these need fnmatch; the rest match literally.
+_GLOB_CHARS_RE: Final = re.compile(r"[*?\[]")
+
 
 def _parse_save_target_layout(usage: str) -> SaveTargetLayout | None:
     try:
@@ -391,8 +394,11 @@ class FSRomsHandler(FSHandler):
 
     def exclude_multi_roms(self, roms: list[str]) -> list[str]:
         excluded_names = cm.get_config().EXCLUDED_MULTI_FILES
-        normalized_patterns = [
+        normalized_patterns = {
             excluded_name.lower().strip() for excluded_name in excluded_names
+        }
+        glob_patterns = [
+            pattern for pattern in normalized_patterns if _GLOB_CHARS_RE.search(pattern)
         ]
 
         kept_roms: list[str] = []
@@ -403,7 +409,7 @@ class FSRomsHandler(FSHandler):
 
             if any(
                 fnmatch.fnmatch(normalized_rom_name, pattern)
-                for pattern in normalized_patterns
+                for pattern in glob_patterns
             ):
                 continue
 

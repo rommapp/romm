@@ -52,7 +52,8 @@ DEFAULT_EXCLUDED_FILES: Final = [
     "gamelist.xml",
     "metadata.pegasus.txt",
 ]
-DEFAULT_EXCLUDED_DIRS: Final = [
+# Library-root folders that are never a platform.
+DEFAULT_EXCLUDED_PLATFORM_DIRS: Final = [
     "@eaDir",
     "assets",
     "__MACOSX",
@@ -65,6 +66,30 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     ".DocumentRevisions-V100",
     "System Volume Information",
 ]
+# The per-media-type folders ES-DE and Batocera resolve beside the ROMs, at
+# <platform>/<folder>/<rom>.<ext>.
+GAMELIST_MEDIA_DIRS: Final = {
+    "image": "images",
+    "box2d": "covers",
+    "box2d_back": "backcovers",
+    "box3d": "3dboxes",
+    "bezel": "bezels",
+    "fanart": "fanart",
+    "manual": "manuals",
+    "marquee": "marquees",
+    "miximage": "miximages",
+    "miximage_v2": "miximages_v2",
+    "physical": "physicalmedia",
+    "screenshot": "screenshots",
+    "thumbnail": "thumbnails",
+    "title_screen": "titlescreens",
+    "video": "videos",
+}
+# Folders inside a platform that are never a multi-file ROM (a ROM whose parts
+# live in a directory). Scraper media output lands here, so it is skipped too.
+DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Final = sorted(
+    {*DEFAULT_EXCLUDED_PLATFORM_DIRS, *GAMELIST_MEDIA_DIRS.values()}
+)
 
 
 class EjsControlsButton(TypedDict):
@@ -375,7 +400,7 @@ class ConfigManager:
             CONFIG_FILE_PARSE_ERROR=self._config_file_parse_error,
             EXCLUDED_PLATFORMS=sorted(
                 {
-                    *DEFAULT_EXCLUDED_DIRS,
+                    *DEFAULT_EXCLUDED_PLATFORM_DIRS,
                     *pydash.get(self._raw_config, "exclude.platforms", []),
                 }
             ),
@@ -404,7 +429,7 @@ class ConfigManager:
             ),
             EXCLUDED_MULTI_FILES=sorted(
                 {
-                    *DEFAULT_EXCLUDED_DIRS,
+                    *DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
                     *pydash.get(
                         self._raw_config,
                         "exclude.roms.multi_file.names",
