@@ -44,6 +44,7 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "crvision": UPS.CREATIVISION,
     "dragon32": UPS.DRAGON_32_SLASH_64,
     "dreamcast": UPS.DC,
+    "easyrpg": UPS.RPG_MAKER,
     "electron": UPS.ACORN_ELECTRON,
     "fba": UPS.ARCADE,
     "fbneo": UPS.ARCADE,

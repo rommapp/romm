@@ -1034,6 +1034,14 @@ class TestGetPlatform:
         assert platform["ss_id"] is None
         assert platform["slug"] == "not-a-real-platform"
 
+    def test_rpg_maker_maps_to_the_easyrpg_system(self):
+        """ScreenScraper files RPG Maker games under its EasyRPG system."""
+        handler = SSHandler()
+        platform = handler.get_platform("rpg-maker")
+
+        assert platform["ss_id"] == 231
+        assert platform["name"] == "EasyRPG"
+
 
 class TestGetRomType:
     def _file(self, ext: str, top_level: bool = True) -> MagicMock:

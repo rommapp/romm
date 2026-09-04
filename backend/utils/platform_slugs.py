@@ -336,6 +336,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     RCA_STUDIO_II = "rca-studio-ii"
     RESEARCH_MACHINES_380Z = "research-machines-380z"
     ROKU = "roku"
+    RPG_MAKER = "rpg-maker"
     SAM_COUPE = "sam-coupe"
     SATELLAVIEW = "satellaview"
     SATURN = "saturn"

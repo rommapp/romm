@@ -50,6 +50,12 @@ def test_folder_without_alias_passes_through():
     assert resolve_platform_slug("my-custom-folder", config) == "my-custom-folder"
 
 
+def test_resolves_easyrpg_to_rpg_maker():
+    """Batocera, RetroBat and ES-DE all name the RPG Maker folder after the engine."""
+    assert resolve_platform_slug("easyrpg", _config()) == UPS.RPG_MAKER.value
+    assert resolve_fs_slug(UPS.RPG_MAKER.value, _config()) == "easyrpg"
+
+
 def test_binding_and_version_win_over_alias():
     bound = _config(bindings={"gamecube": "arcade"})
     assert resolve_platform_slug("gamecube", bound) == "arcade"
