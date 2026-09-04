@@ -29,6 +29,7 @@ class MetadataSourcesDict(TypedDict):
 
 class FilesystemDict(TypedDict):
     FS_PLATFORMS: list[str]
+    TITLE_ID_EXTRACTION_ENABLED: bool
 
 
 class EmulationDict(TypedDict):

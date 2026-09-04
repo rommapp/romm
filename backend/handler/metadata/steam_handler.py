@@ -5,8 +5,8 @@ from typing import Final, NotRequired, TypedDict
 from adapters.services.steam import SteamService
 from adapters.services.steam_types import SteamAppDetails, SteamPlatforms
 from config import STEAM_API_ENABLED
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import BaseRom, MetadataHandler
 

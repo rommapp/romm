@@ -11,9 +11,9 @@ from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
 from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
 
 
 class FlashpointPlatform(TypedDict):

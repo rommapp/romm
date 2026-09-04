@@ -20,10 +20,10 @@ from fastapi import HTTPException, status
 from config import DEMOZOO_API_ENABLED
 from logger.logger import log
 from utils import get_version, int_or_none, valid_youtube_id
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
 
 DEMOZOO_TAG_REGEX = re.compile(r"\(demozoo-(\d+)\)", re.IGNORECASE)
 DEMOZOO_PROD_ID_RE = re.compile(

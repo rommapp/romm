@@ -12,7 +12,7 @@ from adapters.services.rahasher import (
     _first_m3u_entry,
     _pick_ra_file,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 class TestRAHasherValidHashRegex:

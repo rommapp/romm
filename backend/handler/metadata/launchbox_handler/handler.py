@@ -5,9 +5,9 @@ from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.database import safe_int
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from ..base_handler import MetadataHandler
-from ..base_handler import UniversalPlatformSlug as UPS
 from .local_source import LocalSource
 from .media import build_rom, local_media_req, remote_media_req
 from .platforms import get_platform

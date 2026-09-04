@@ -74,7 +74,7 @@ from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
@@ -519,9 +519,7 @@ async def scan_rom(
         "md5_hash": rom.md5_hash,
         "sha1_hash": rom.sha1_hash,
         "ra_hash": rom.ra_hash,
-        "title_id": rom.title_id,
-        "save_target": rom.save_target,
-        "save_target_layout": rom.save_target_layout,
+        **RomIdentity.from_rom(rom).as_rom_attrs(),
         "fs_size_bytes": rom.fs_size_bytes,
         "is_physical": rom.is_physical,
         "upc": rom.upc,
@@ -542,14 +540,12 @@ async def scan_rom(
 
         # Only overwrite title id values when extraction produced them, so a
         # hash-only or extraction-disabled rescan can't wipe existing ones.
-        if fs_rom.get("title_id"):
-            rom_attrs.update(
-                {
-                    "title_id": fs_rom.get("title_id"),
-                    "save_target": fs_rom.get("save_target"),
-                    "save_target_layout": fs_rom.get("save_target_layout"),
-                }
-            )
+        identity = fs_rom.get("identity")
+        if identity and identity.title_id:
+            rom_attrs.update(identity.as_rom_attrs())
+            # Metadata matching reads the id off the instance, so a first scan
+            # searches by what was just extracted rather than the old value.
+            rom.title_id = identity.title_id
 
     # Update properties from existing rom if not a complete rescan
     if not newly_added and scan_type != ScanType.COMPLETE:
@@ -922,7 +918,7 @@ async def scan_rom(
                 return await meta_moby_handler.get_rom_by_id(playmatch_rom["moby_id"])
 
             return await meta_moby_handler.get_rom(
-                rom_attrs["fs_name"], platform_moby_id=platform.moby_id
+                rom, rom_attrs["fs_name"], platform_moby_id=platform.moby_id
             )
 
         return MobyGamesRom(moby_id=None)
