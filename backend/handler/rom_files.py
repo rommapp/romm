@@ -12,7 +12,7 @@ from handler.filesystem.roms_handler import RomFileKey, rom_file_key
 from handler.scan_handler import persist_soundtrack_cover
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, RomIdentity
 from utils.audio_tags import remove_persisted_cover
 
 ROM_LEVEL_HASH_COLUMNS = ("crc_hash", "md5_hash", "sha1_hash", "ra_hash")
@@ -104,13 +104,18 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
     fs_size_bytes = sum(f.file_size_bytes for f in parsed.rom_files)
     if fs_size_bytes != rom.fs_size_bytes:
         rom_updates["fs_size_bytes"] = fs_size_bytes
-    # With hashing disabled the listing carries no identity, so the stored
+    # With hashing disabled the listing carries no digests, so the stored
     # hashes outlive it rather than being blanked.
     if parsed.top_level_changed and calculate_hashes:
         for column in ROM_LEVEL_HASH_COLUMNS:
             value = getattr(parsed, column)
             if value != (getattr(rom, column) or ""):
                 rom_updates[column] = value
+    # Only written when the parse actually read an id, so a refresh that read
+    # none (extraction disabled, or every file unchanged) leaves the stored
+    # triple alone rather than blanking it.
+    if parsed.identity.title_id and parsed.identity != RomIdentity.from_rom(rom):
+        rom_updates.update(parsed.identity.as_rom_attrs())
     if rom.missing_from_fs:
         rom_updates["missing_from_fs"] = False
     if rom_updates:

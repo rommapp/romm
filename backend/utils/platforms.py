@@ -15,9 +15,9 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from utils.platform_aliases import resolve_platform_slug
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> PlatformSchema:

@@ -9,7 +9,6 @@ import pydash
 from fastapi import HTTPException, status
 
 from config import HLTB_API_ENABLED
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from utils.context import ctx_httpx_client
 from utils.hltb_search import (
@@ -23,6 +22,7 @@ from utils.hltb_search import (
     search_body,
     search_headers,
 )
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler

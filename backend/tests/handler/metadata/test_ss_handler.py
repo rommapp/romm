@@ -37,6 +37,7 @@ from handler.metadata.ss_handler import (
     reset_rate_limited_roms,
 )
 from handler.redis_handler import async_cache
+from models.rom import Rom
 
 
 def _make_config(
@@ -1880,7 +1881,7 @@ class TestSonySerialFilenames:
                 }
             )
             result = await handler.get_rom(
-                MagicMock(), "70123456789012.nsp", SWITCH_SS_ID
+                Rom(fs_name="70123456789012.nsp"), "70123456789012.nsp", SWITCH_SS_ID
             )
 
         assert result.get("name") == "Switch Game"

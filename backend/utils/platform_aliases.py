@@ -1,7 +1,7 @@
 from typing import Final
 
 from config.config_manager import Config
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 _SLUGS: Final = frozenset(slug.value for slug in UPS)
 

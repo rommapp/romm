@@ -2,8 +2,8 @@ import copy
 
 from config.config_manager import Config
 from config.config_manager import config_manager as cm
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from utils.platform_aliases import PLATFORM_FS_ALIASES, resolve_platform_slug
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 def _config(

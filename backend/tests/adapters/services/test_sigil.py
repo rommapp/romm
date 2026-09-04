@@ -5,7 +5,7 @@ import pytest
 
 import adapters.services.sigil as sigil_adapter
 from adapters.services.sigil import SigilExtractionResult, SigilService
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 class FakeSigilError(Exception):

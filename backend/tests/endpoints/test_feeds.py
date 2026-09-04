@@ -2,9 +2,9 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from handler.database import db_platform_handler, db_rom_handler
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 def test_webrcade_feed(
