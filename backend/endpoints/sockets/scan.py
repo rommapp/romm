@@ -168,14 +168,19 @@ class ScanStats:
         # Lock for thread-safe updates
         self._lock = asyncio.Lock()
         self._unpublished = False
-        self._published_at = 0.0
+        # None until the first report, so a scan never coalesces away its first.
+        self._published_at: float | None = None
 
     async def _publish(
         self, socket_manager: socketio.AsyncRedisManager, *, force: bool
     ) -> None:
         """Tell the clients where the scan is. The caller holds the lock."""
         now = time.monotonic()
-        if not force and now - self._published_at < SCAN_STATS_PUBLISH_INTERVAL:
+        if (
+            not force
+            and self._published_at is not None
+            and now - self._published_at < SCAN_STATS_PUBLISH_INTERVAL
+        ):
             self._unpublished = True
             return
 
@@ -1339,6 +1344,12 @@ async def scan_platforms(
         await stop_scan()
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
+        # What the scan did get through still counts, so report it before saying
+        # it failed; a failure to do so must not replace the error being raised.
+        try:
+            await scan_stats.flush(socket_manager)
+        except Exception:
+            log.error("Could not report the stats of a failed scan", exc_info=True)
         # Catch all exceptions and emit error to the client
         await socket_manager.emit("scan:done_ko", str(e))
         # Re-raise the exception to be caught by the error handler

@@ -97,6 +97,18 @@ class TestScanStatsPublishing:
 
         assert emit.emit.await_args.args[1]["total_roms"] == 12
 
+    async def test_the_first_report_survives_a_clock_reading_near_zero(
+        self, mocker, emit
+    ):
+        # A monotonic clock counting from boot can read below the interval, and
+        # the first report must not be coalesced against a scan that never ran.
+        mocker.patch.object(scan_module.time, "monotonic", return_value=0.01)
+        stats = ScanStats()
+
+        await stats.increment(socket_manager=emit, scanned_roms=1)
+
+        emit.emit.assert_awaited_once()
+
 
 def test_scan_stats():
     stats = ScanStats()
@@ -162,52 +174,92 @@ async def test_merging_scan_stats():
     assert stats.new_firmware == 25
 
 
+@pytest.fixture
+def patched(mocker):
+    """Patch the collaborators of scan_platforms so a scan can be driven whole."""
+    socket_manager = AsyncMock()
+    mocker.patch.object(scan_module, "_get_socket_manager", return_value=socket_manager)
+    mocker.patch.object(
+        scan_module.fs_platform_handler,
+        "get_platforms",
+        AsyncMock(return_value=["existing", "new1", "new2"]),
+    )
+    # Each platform reports 100 roms on disk.
+    mocker.patch.object(
+        scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=100)
+    )
+    mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
+    mocker.patch.object(
+        scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
+    )
+    # The "existing" platform is already in the database; "new1"/"new2" are not.
+    existing_platform = MagicMock(id=1, fs_slug="existing")
+    mocker.patch.object(
+        scan_module.db_platform_handler,
+        "get_platforms",
+        return_value=[existing_platform],
+    )
+    mocker.patch.object(scan_module.db_rom_handler, "invalidate_filter_values_cache")
+    config = MagicMock()
+    config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
+    config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+    mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+    # Skip the actual per-platform scanning, returning the stats unchanged.
+    async def fake_identify(**kwargs):
+        return kwargs["scan_stats"]
+
+    mocker.patch.object(scan_module, "_identify_platform", side_effect=fake_identify)
+    return socket_manager
+
+
+class TestScanFailureReporting:
+    """A failed scan still reports the progress it made before saying it failed."""
+
+    async def test_a_failure_publishes_what_an_increment_held_back(
+        self, patched, mocker
+    ):
+        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
+        update_job_meta = mocker.patch.object(scan_module, "update_job_meta")
+
+        async def scan_then_fail(**kwargs):
+            await kwargs["scan_stats"].increment(
+                socket_manager=kwargs["socket_manager"], scanned_roms=7
+            )
+            raise RuntimeError("boom")
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=scan_then_fail
+        )
+
+        with pytest.raises(RuntimeError):
+            await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        assert update_job_meta.call_args.args[0]["scan_stats"]["scanned_roms"] == 7
+        assert patched.emit.await_args.args[0] == "scan:done_ko"
+
+    async def test_a_failure_to_report_does_not_replace_the_error(
+        self, patched, mocker
+    ):
+        mocker.patch.object(
+            scan_module.ScanStats,
+            "flush",
+            AsyncMock(side_effect=OSError("redis is gone")),
+        )
+
+        async def scan_then_fail(**_kwargs):
+            raise RuntimeError("boom")
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=scan_then_fail
+        )
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await scan_platforms(platform_ids=[], metadata_sources=[])
+
+
 class TestScanTotals:
     """The scan tracker totals must reflect the platforms/roms actually scanned."""
-
-    @pytest.fixture
-    def patched(self, mocker):
-        """Patch the collaborators of scan_platforms so totals can be inspected."""
-        socket_manager = AsyncMock()
-        mocker.patch.object(
-            scan_module, "_get_socket_manager", return_value=socket_manager
-        )
-        mocker.patch.object(
-            scan_module.fs_platform_handler,
-            "get_platforms",
-            AsyncMock(return_value=["existing", "new1", "new2"]),
-        )
-        # Each platform reports 100 roms on disk.
-        mocker.patch.object(
-            scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=100)
-        )
-        mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
-        mocker.patch.object(
-            scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
-        )
-        # The "existing" platform is already in the database; "new1"/"new2" are not.
-        existing_platform = MagicMock(id=1, fs_slug="existing")
-        mocker.patch.object(
-            scan_module.db_platform_handler,
-            "get_platforms",
-            return_value=[existing_platform],
-        )
-        mocker.patch.object(
-            scan_module.db_rom_handler, "invalidate_filter_values_cache"
-        )
-        config = MagicMock()
-        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
-        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
-        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
-
-        # Skip the actual per-platform scanning, returning the stats unchanged.
-        async def fake_identify(**kwargs):
-            return kwargs["scan_stats"]
-
-        mocker.patch.object(
-            scan_module, "_identify_platform", side_effect=fake_identify
-        )
-        return socket_manager
 
     async def test_new_platforms_total_excludes_existing(self, patched, mocker):
         """NEW_PLATFORMS totals must skip platforms already in the database."""
