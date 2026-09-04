@@ -4,6 +4,8 @@ import { useEventListener } from "@vueuse/core";
 import { toValue, type MaybeRefOrGetter } from "vue";
 
 export function useUnloadGuard(armed: MaybeRefOrGetter<boolean>): void {
+  if (typeof window === "undefined") return;
+
   useEventListener(window, "beforeunload", (event: BeforeUnloadEvent) => {
     if (!toValue(armed)) return;
     // preventDefault covers the current spec, returnValue the older browsers.
