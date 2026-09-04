@@ -2,7 +2,7 @@
 
 0115 stored ``steam_metadata`` but left it out of the COALESCE chains behind
 the ``generated_*`` columns, because changing a STORED generated column
-rebuilds the ``roms`` table. 0118 and 0119 already pay that cost, so Steam's
+rebuilds the ``roms`` table. 0120 and 0121 already pay that cost, so Steam's
 genres, companies, developers, publishers, game modes, release date and
 Metacritic score are wired in here rather than in a rebuild of their own.
 Until now they were persisted but surfaced nowhere: the details page, the
@@ -18,8 +18,8 @@ and indexes that depend on them recreated around it. Only rows carrying Steam
 metadata can change value, so the facet and virtual-collection refreshes are
 limited to those.
 
-Revision ID: 0120_steam_facet_sources
-Revises: 0119_rating_count_column
+Revision ID: 0122_steam_facet_sources
+Revises: 0121_rating_count_column
 Create Date: 2026-09-03 00:00:00.000000
 
 """
@@ -30,8 +30,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0120_steam_facet_sources"
-down_revision = "0119_rating_count_column"
+revision = "0122_steam_facet_sources"
+down_revision = "0121_rating_count_column"
 branch_labels = None
 depends_on = None
 
@@ -132,7 +132,7 @@ _VC_TABLE = "virtual_collection_roms"
 _VC_NAME_MAX_LENGTH = 400
 _VC_COLUMNS = "rom_id, type, name, path_cover_s, path_cover_l, created_at, updated_at"
 
-# Restated in full because the view is recreated, in the order 0119 left it.
+# Restated in full because the view is recreated, in the order 0121 left it.
 _VIEW_COLUMNS = [
     ("generated_genres", "genres"),
     ("generated_franchises", "franchises"),

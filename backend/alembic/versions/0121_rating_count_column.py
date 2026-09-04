@@ -12,8 +12,8 @@ mean in proportion to how little evidence backs it.
 Only IGDB reports a count, and `manual_metadata` can override it like every
 other generated facet.
 
-Revision ID: 0119_rating_count_column
-Revises: 0118_igdb_tag_columns
+Revision ID: 0121_rating_count_column
+Revises: 0120_igdb_tag_columns
 Create Date: 2026-08-08 00:00:00.000000
 
 """
@@ -23,8 +23,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0119_rating_count_column"
-down_revision = "0118_igdb_tag_columns"
+revision = "0121_rating_count_column"
+down_revision = "0120_igdb_tag_columns"
 branch_labels = None
 depends_on = None
 
@@ -32,7 +32,7 @@ _COLUMN = "generated_rating_count"
 _SOURCES = ["manual_metadata", "igdb_metadata"]
 
 # Restated in full because CREATE OR REPLACE VIEW rewrites every projection,
-# in the order 0118 left them: PostgreSQL rejects one that moves a column.
+# in the order 0120 left them: PostgreSQL rejects one that moves a column.
 _VIEW_COLUMNS = [
     ("generated_genres", "genres"),
     ("generated_franchises", "franchises"),
