@@ -231,12 +231,6 @@ async def tinfoil_index_feed(
                 ) = await meta_igdb_handler._switch_titledb_format(
                     tdb_match, rom.fs_name
                 )
-                if index_entry:
-                    key = str(index_entry.get("nsuId", None))
-                    if key is not None:  # only store if we have an id
-                        titledb[key] = TinfoilFeedTitleDBSchema(
-                            **index_entry
-                        ).model_dump()
             else:
                 (
                     _search_term,
@@ -244,12 +238,16 @@ async def tinfoil_index_feed(
                 ) = await meta_igdb_handler._switch_productid_format(
                     rom, rom.fs_name, rom.fs_name
                 )
-                if index_entry:
-                    key = str(index_entry.get("nsuId", None))
-                    if key is not None:
-                        titledb[key] = TinfoilFeedTitleDBSchema(
-                            **index_entry
-                        ).model_dump()
+
+            if not index_entry:
+                continue
+
+            # Tinfoil keys the index by nsuId, so an entry without one has no home.
+            nsu_id = index_entry.get("nsuId")
+            if nsu_id is not None:
+                titledb[str(nsu_id)] = TinfoilFeedTitleDBSchema(
+                    **index_entry
+                ).model_dump()
 
         return titledb
 

@@ -536,16 +536,23 @@ class TestShouldExtractTitleIds:
     def test_a_stored_id_is_not_re_read(self):
         rom = self._rom("psp", "ULUS-10041")
 
-        assert _should_extract_title_ids(ScanType.QUICK, rom) is False
-        assert _should_extract_title_ids(ScanType.HASHES, rom) is False
+        assert _should_extract_title_ids(ScanType.UPDATE, rom) is False
+        assert _should_extract_title_ids(ScanType.UNMATCHED, rom) is False
 
     def test_a_rom_without_an_id_is_read(self):
-        assert _should_extract_title_ids(ScanType.QUICK, self._rom("psp", None)) is True
+        assert (
+            _should_extract_title_ids(ScanType.UPDATE, self._rom("psp", None)) is True
+        )
 
-    def test_a_complete_rescan_always_re_reads(self):
+    @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
+    def test_a_rescan_that_re_reads_the_bytes_re_reads_the_id(
+        self, scan_type: ScanType
+    ):
+        """Replacing a file in place would otherwise leave the old id beside the
+        hashes of the new bytes."""
         rom = self._rom("psp", "ULUS-10041")
 
-        assert _should_extract_title_ids(ScanType.COMPLETE, rom) is True
+        assert _should_extract_title_ids(scan_type, rom) is True
 
     @pytest.mark.parametrize("platform_slug", ["switch", "switch-2"])
     def test_switch_always_re_reads(self, platform_slug: str):
@@ -553,7 +560,7 @@ class TestShouldExtractTitleIds:
         otherwise take from the folder names instead."""
         rom = self._rom(platform_slug, "0100ABCD12340000")
 
-        assert _should_extract_title_ids(ScanType.QUICK, rom) is True
+        assert _should_extract_title_ids(ScanType.UPDATE, rom) is True
 
 
 class TestIdentifyRomTagReparse:

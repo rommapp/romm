@@ -360,9 +360,10 @@ def _should_extract_title_ids(scan_type: ScanType, rom: Rom) -> bool:
     """Decide if a rescan should re-read title ids out of a rom's binaries.
 
     Extraction is a native parse of every ROM file, so it is not repeated for a
-    rom that already carries an id. A complete rescan refreshes it regardless,
-    and the Switch family always re-reads because the same parse is what
-    settles its per-file categories.
+    rom that already carries an id. A scan that re-reads the bytes refreshes it
+    regardless, since replaced files would otherwise keep the old id next to
+    the new hashes. The Switch family always re-reads because the same parse is
+    what settles its per-file categories.
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
@@ -370,7 +371,7 @@ def _should_extract_title_ids(scan_type: ScanType, rom: Rom) -> bool:
     """
 
     return bool(
-        scan_type == ScanType.COMPLETE
+        scan_type in (ScanType.COMPLETE, ScanType.HASHES)
         or not rom.title_id
         or rom.platform_slug in SWITCH_PLATFORM_SLUGS
     )
