@@ -38,13 +38,13 @@ from handler.filesystem.roms_handler import (
     ParsedRomFiles,
     ParsedTags,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.rom_files import RomFilesRefresh
 from handler.scan_handler import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 def test_scan_stats():

@@ -48,7 +48,6 @@ from handler.metadata.base_handler import (
     SONY_SERIAL_REGEX,
     SWITCH_TITLEDB_REGEX,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
     Rom,
@@ -56,6 +55,7 @@ from models.rom import (
     RomFileCategory,
 )
 from utils.archives import is_compressed_file
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
 
 

@@ -23,6 +23,7 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from models.rom import Rom
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     PS2_OPL_REGEX,
@@ -31,7 +32,6 @@ from .base_handler import (
     BaseRom,
     MetadataHandler,
 )
-from .base_handler import UniversalPlatformSlug as UPS
 
 PS1_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PSX]["id"]
 PS2_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PS2]["id"]

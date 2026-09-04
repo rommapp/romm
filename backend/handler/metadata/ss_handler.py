@@ -31,6 +31,7 @@ from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     PS2_OPL_REGEX,
@@ -38,9 +39,6 @@ from .base_handler import (
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
-)
-from .base_handler import UniversalPlatformSlug as UPS
-from .base_handler import (
     restore_sensitive_query_params,
     strip_sensitive_query_params,
 )

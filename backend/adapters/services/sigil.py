@@ -2,8 +2,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Final
 
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 try:
     import sigil

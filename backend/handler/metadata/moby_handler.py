@@ -9,6 +9,7 @@ from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from models.rom import Rom
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     PS2_OPL_REGEX,
@@ -17,7 +18,6 @@ from .base_handler import (
     BaseRom,
     MetadataHandler,
 )
-from .base_handler import UniversalPlatformSlug as UPS
 
 PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7

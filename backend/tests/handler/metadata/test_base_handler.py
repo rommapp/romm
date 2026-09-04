@@ -23,7 +23,6 @@ from handler.metadata.base_handler import (
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
-    UniversalPlatformSlug,
     _normalize_search_term,
     restore_sensitive_query_params,
     strip_sensitive_query_params,
@@ -31,6 +30,7 @@ from handler.metadata.base_handler import (
 from handler.redis_handler import async_cache
 from models.rom import Rom
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug
 
 
 class ExampleMetadataHandler(MetadataHandler):

@@ -30,7 +30,6 @@ from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomsNotFoundException,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.base import compute_file_extension, compute_file_name_no_ext
 from models.platform import Platform
@@ -62,6 +61,7 @@ from utils.archives import (
 )
 from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,

@@ -5,11 +5,11 @@ from fastapi import Request
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.platform import Platform
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.filesystem import link_or_copy_file
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
 # Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/

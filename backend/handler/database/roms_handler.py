@@ -49,7 +49,6 @@ from sqlalchemy.sql.selectable import Select
 from config import ROMM_DB_DRIVER
 from config.config_manager import config_manager as cm
 from decorators.database import begin_session
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
 from models.base import PRERELEASE_FILENAME_TAGS, compute_file_name_parts
@@ -79,6 +78,7 @@ from utils.database import (
     json_array_contains_any,
     json_array_contains_value,
 )
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import DBBaseHandler
 
