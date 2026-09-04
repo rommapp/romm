@@ -1,7 +1,10 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi import status
+from main import app
 
 from endpoints.heartbeat import METADATA_HEARTBEAT_RATE_LIMIT
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
@@ -98,6 +101,33 @@ def test_heartbeat_metadata_probes_the_provider_once_per_window(client):
             assert response.status_code == status.HTTP_200_OK
             assert response.json() is True
 
+    assert mock_populated.call_count == 1
+
+
+async def test_heartbeat_metadata_concurrent_misses_probe_once(client):
+    """Requests racing an in-flight probe must wait for it, not launch their own."""
+
+    async def slow_probe() -> bool:
+        await asyncio.sleep(0.05)
+        return True
+
+    with patch.object(
+        LaunchboxHandler,
+        "is_remote_store_populated",
+        new_callable=AsyncMock,
+        side_effect=slow_probe,
+    ) as mock_populated:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as async_client:
+            responses = await asyncio.gather(
+                *(
+                    async_client.get("/api/heartbeat/metadata/launchbox")
+                    for _ in range(5)
+                )
+            )
+
+    assert [r.json() for r in responses] == [True] * 5
     assert mock_populated.call_count == 1
 
 

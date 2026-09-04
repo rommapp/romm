@@ -1,4 +1,6 @@
+import asyncio
 import os
+from collections import defaultdict
 from typing import Final
 
 from anyio import Path as AnyioPath
@@ -69,6 +71,9 @@ METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS: Final[int] = 60
 # Holds outbound probes to one per source per window whatever the inbound rate, which
 # the per-IP cap cannot do against a spoofed forwarded header or a distributed flood.
 METADATA_HEARTBEAT_CACHE_TTL_SECONDS: Final[int] = 60
+
+# The key set is the MetadataSource enum, so this cannot grow past a lock per source.
+_probe_locks: defaultdict[MetadataSource, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 router = APIRouter(
     tags=["system"],
@@ -189,13 +194,19 @@ async def metadata_heartbeat(request: Request, source: str) -> bool:
     )
 
     cache_key = f"metadata-heartbeat:{metadata_source.value}"
-    cached = sync_cache.get(cache_key)
-    if cached is not None:
-        return bool(int(cached))
 
-    is_alive = await _probe_metadata_source(metadata_source)
-    sync_cache.set(cache_key, int(is_alive), ex=METADATA_HEARTBEAT_CACHE_TTL_SECONDS)
-    return is_alive
+    # Callers that arrive while a probe is in flight queue here and read its result,
+    # rather than each starting a probe of their own into an empty cache.
+    async with _probe_locks[metadata_source]:
+        cached = sync_cache.get(cache_key)
+        if cached is not None:
+            return bool(int(cached))
+
+        is_alive = await _probe_metadata_source(metadata_source)
+        sync_cache.set(
+            cache_key, int(is_alive), ex=METADATA_HEARTBEAT_CACHE_TTL_SECONDS
+        )
+        return is_alive
 
 
 async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
