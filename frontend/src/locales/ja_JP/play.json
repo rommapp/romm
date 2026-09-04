@@ -14,6 +14,7 @@
   "deselect-save": "セーブデータを解除",
   "deselect-state": "ステートを解除",
   "full-screen": "全画面",
+  "https-required": "HTTPS で実行する必要があります。サイト管理者に連絡してください。",
   "jsdos-browser-save-warning": "js-dos のセーブデータはこのブラウザーにのみ保存され、RomM とは同期されません。",
   "jsdos-quit-without-saving": "最近の進行状況を保存せずに終了しますか？",
   "no-save-selected": "セーブデータが選択されていません",

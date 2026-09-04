@@ -4,7 +4,6 @@ import shutil
 from dataclasses import dataclass
 
 from anyio import Path as AnyioPath
-from rq.job import Job
 
 from config import (
     ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
@@ -83,17 +82,7 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
             manual_run=True,
             cron_string=SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
-            func="tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run",
         )
-
-    def init(self) -> Job | None:
-        # Without a cron string there is nothing to schedule, so drop any job
-        # left over from a previous configuration.
-        if not self.cron_string:
-            self.unschedule()
-            return None
-
-        return super().init()
 
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, int]:

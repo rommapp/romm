@@ -69,7 +69,7 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
   {
     id: "quick",
     title: t("scan.quick-scan"),
-    desc: "Scans for games that are not in the library yet (fastest).",
+    desc: "Scans for games that are not in the library yet, and picks up files added to the folders of games already in it, at any depth.",
   },
   {
     id: "unmatched",

@@ -112,6 +112,12 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.refreshMetadata)"
   />
   <RMenuItem
+    v-if="actions.canRefresh.value"
+    :label="t('rom.refresh-files')"
+    icon="mdi-file-refresh-outline"
+    @click="run(actions.refreshFiles)"
+  />
+  <RMenuItem
     v-if="actions.canEdit.value"
     :label="t('common.edit')"
     icon="mdi-pencil-outline"

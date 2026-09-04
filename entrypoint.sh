@@ -47,42 +47,57 @@ else
 	uv run python main.py &
 fi
 
-echo "Starting RQ scheduler..."
-RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
-	RQ_REDIS_PORT=${REDIS_PORT:-6379} \
-	RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
-	RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
-	RQ_REDIS_DB=${REDIS_DB:-0} \
-	RQ_REDIS_SSL=${REDIS_SSL:-0} \
-	rqscheduler \
-	--path /app/backend \
-	--pid /tmp/rq_scheduler.pid &
-
-echo "Starting RQ worker..."
-# Build Redis URL properly
+# REDIS_SSL is a boolean to the app, so "false" and "0" mean plaintext.
+REDIS_USERINFO=""
+REDIS_SSL_VALUE="${REDIS_SSL-}"
+case "${REDIS_SSL_VALUE,,}" in
+1 | true | yes | on) REDIS_SCHEME="rediss" ;;
+*) REDIS_SCHEME="redis" ;;
+esac
 if [[ -n ${REDIS_PASSWORD-} ]]; then
-	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	REDIS_USERINFO="${REDIS_USERNAME-}:${REDIS_PASSWORD}@"
 elif [[ -n ${REDIS_USERNAME-} ]]; then
-	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-else
-	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	REDIS_USERINFO="${REDIS_USERNAME}@"
 fi
+REDIS_URL="${REDIS_SCHEME}://${REDIS_USERINFO}${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 
-# Set PYTHONPATH so RQ can find the tasks module.
-# The connection URL goes through RQ_REDIS_URL rather than --url, so the
-# embedded password stays out of the worker's world-readable command line.
-# Use a worker class that drops the noisy per-sweep "cleaning registries for
-# queue" log line. The maintenance interval keeps its default (~10 min) so
-# orphaned STARTED jobs and stale workers are still pruned promptly, which the
-# watcher's Worker.all() scan dedupe relies on.
+echo "Starting RQ cron scheduler..."
+# The URL carries the password, so it goes through RQ_REDIS_URL rather than
+# --url, which would put it on a world-readable command line.
 PYTHONPATH="/app/backend:${PYTHONPATH-}" \
 	RQ_REDIS_URL="${REDIS_URL}" \
-	rq worker \
+	rq cron \
 	--path /app/backend \
-	--worker-class handler.rq_worker.RomMWorker \
-	--pid /tmp/rq_worker.pid \
-	--logging_level "${LOGLEVEL:-INFO}" \
-	high default low &
+	--logging-level "${LOGLEVEL:-INFO}" \
+	tasks.cron_config &
+
+# Set PYTHONPATH so RQ can find the tasks module.
+# Use a worker class that drops the noisy per-sweep "cleaning registries for
+# queue" log line. The maintenance interval keeps its default (~10 min) so
+# orphaned STARTED jobs and stale workers are still pruned promptly.
+# --with-scheduler releases delayed jobs, which is how the watcher's rescans
+# wait out their delay.
+start_rq_worker() {
+	local name="$1"
+	shift
+
+	PYTHONPATH="/app/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${REDIS_URL}" \
+		rq worker \
+		--path /app/backend \
+		--worker-class handler.rq_worker.RomMWorker \
+		--pid "/tmp/${name}.pid" \
+		--logging_level "${LOGLEVEL:-INFO}" \
+		--with-scheduler \
+		"$@" &
+}
+
+echo "Starting RQ worker..."
+start_rq_worker rq_worker high default low
+
+# Scans get a worker of their own, see SCAN_QUEUE_NAME.
+echo "Starting RQ scan worker..."
+start_rq_worker rq_scan_worker scans
 
 echo "Starting watcher..."
 watchfiles \

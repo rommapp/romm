@@ -75,6 +75,7 @@
   "in-library": "In libreria",
   "invalid-email": "Email non valida",
   "invalid-name": "Nome non valido",
+  "invalid-relative-path": "Inserisci un percorso di cartella relativo senza segmenti \"..\"",
   "jukebox": "Jukebox",
   "kind": "Tipo",
   "last-page": "Ultima pagina",

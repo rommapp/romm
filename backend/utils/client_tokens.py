@@ -14,6 +14,7 @@ from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_user_handler
 from handler.redis_handler import sync_cache
 from models.client_token import ClientToken
+from utils.rate_limit import enforce_rate_limit, get_client_ip
 
 PAIR_CODE_LENGTH = 8
 PAIR_CODE_TTL_SECONDS = 60
@@ -57,17 +58,12 @@ def validate_scopes(requested: list[str], user_scopes: list[Scope]) -> None:
 
 
 def check_rate_limit(request: Request) -> None:
-    client_ip = request.client.host if request.client else "unknown"
-    rate_key = f"client-token-rate:{client_ip}"
-    pipe = sync_cache.pipeline()
-    pipe.incr(rate_key)
-    pipe.expire(rate_key, RATE_LIMIT_WINDOW_SECONDS)
-    count, _ = pipe.execute()
-    if count > RATE_LIMIT_MAX_ATTEMPTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many exchange attempts. Try again later.",
-        )
+    enforce_rate_limit(
+        f"client-token-rate:{get_client_ip(request)}",
+        max_requests=RATE_LIMIT_MAX_ATTEMPTS,
+        window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+        detail="Too many exchange attempts. Try again later.",
+    )
 
 
 def build_create_schema(token: ClientToken, raw_token: str) -> ClientTokenCreateSchema:

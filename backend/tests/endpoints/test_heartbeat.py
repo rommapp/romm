@@ -1,10 +1,15 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi import status
+from main import app
 
+from endpoints.heartbeat import METADATA_HEARTBEAT_RATE_LIMIT
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
+from handler.redis_handler import sync_cache
 from utils import get_version
 
 
@@ -71,6 +76,9 @@ def test_heartbeat_metadata(client):
     assert response.status_code == status.HTTP_200_OK
     assert response.json() is False
 
+    # That first answer is cached, so drop it before probing for the other state.
+    sync_cache.flushall()
+
     with patch.object(
         LaunchboxHandler, "is_remote_store_populated", new_callable=AsyncMock
     ) as mock_populated:
@@ -81,9 +89,71 @@ def test_heartbeat_metadata(client):
     assert response.json() is True
 
 
+def test_heartbeat_metadata_probes_the_provider_once_per_window(client):
+    """A flood of callers must not become a flood of outbound provider probes."""
+    with patch.object(
+        LaunchboxHandler, "is_remote_store_populated", new_callable=AsyncMock
+    ) as mock_populated:
+        mock_populated.return_value = True
+
+        for _ in range(METADATA_HEARTBEAT_RATE_LIMIT):
+            response = client.get("/api/heartbeat/metadata/launchbox")
+            assert response.status_code == status.HTTP_200_OK
+            assert response.json() is True
+
+    assert mock_populated.call_count == 1
+
+
+async def test_heartbeat_metadata_concurrent_misses_probe_once(client):
+    """Requests racing an in-flight probe must wait for it, not launch their own."""
+
+    async def slow_probe() -> bool:
+        await asyncio.sleep(0.05)
+        return True
+
+    with patch.object(
+        LaunchboxHandler,
+        "is_remote_store_populated",
+        new_callable=AsyncMock,
+        side_effect=slow_probe,
+    ) as mock_populated:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as async_client:
+            responses = await asyncio.gather(
+                *(
+                    async_client.get("/api/heartbeat/metadata/launchbox")
+                    for _ in range(5)
+                )
+            )
+
+    assert [r.json() for r in responses] == [True] * 5
+    assert mock_populated.call_count == 1
+
+
 def test_heartbeat_metadata_unknown_source(client):
     response = client.get("/api/heartbeat/metadata/unknown")
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_heartbeat_metadata_rate_limit(client):
+    for _ in range(METADATA_HEARTBEAT_RATE_LIMIT):
+        response = client.get("/api/heartbeat/metadata/launchbox")
+        assert response.status_code == status.HTTP_200_OK
+
+    response = client.get("/api/heartbeat/metadata/launchbox")
+    assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+    # The window is per source, so another source is untouched by the flood.
+    response = client.get("/api/heartbeat/metadata/gamelist")
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_heartbeat_metadata_unknown_source_is_not_rate_limited(client):
+    """An unparseable source is rejected before the limiter, so it burns no window."""
+    for _ in range(METADATA_HEARTBEAT_RATE_LIMIT + 1):
+        response = client.get("/api/heartbeat/metadata/unknown")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_get_setup_library_info_structure_a_detected(client, access_token):

@@ -14,6 +14,7 @@
   "deselect-save": "Deseleccionar guardado",
   "deselect-state": "Deseleccionar estado",
   "full-screen": "Pantalla completa",
+  "https-required": "Debe ejecutarse mediante HTTPS. Contacta con el propietario del sitio.",
   "jsdos-browser-save-warning": "Las partidas de js-dos se almacenan solo en este navegador y no se sincronizan con RomM.",
   "jsdos-quit-without-saving": "¿Salir sin guardar el progreso reciente?",
   "no-save-selected": "Ningún guardado seleccionado",

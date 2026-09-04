@@ -75,6 +75,7 @@
   "in-library": "V knihovně",
   "invalid-email": "Neplatný e-mail",
   "invalid-name": "Neplatný název",
+  "invalid-relative-path": "Zadejte relativní cestu ke složce bez segmentů \"..\"",
   "jukebox": "Hudební přehrávač",
   "kind": "Druh",
   "last-page": "Poslední stránka",

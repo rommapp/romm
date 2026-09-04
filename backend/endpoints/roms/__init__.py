@@ -1492,12 +1492,12 @@ async def head_rom_content(
     entries = [ZipFileEntry.from_rom_file(f, hidden_folder) for f in files]
     namespace = str(rom.id)
     cache_key = get_cache_key(namespace, entries, hidden_folder)
-    zip_path = get_cached_zip(namespace, cache_key)
-    if zip_path:
+    cached = get_cached_zip(namespace, cache_key)
+    if cached:
         return Response(
             headers={
                 "Content-Type": "application/zip",
-                "Content-Length": str(zip_path.stat().st_size),
+                "Content-Length": str(cached.stat.st_size),
                 "Accept-Ranges": "bytes",
                 "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
             },
