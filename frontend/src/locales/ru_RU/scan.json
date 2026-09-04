@@ -42,7 +42,6 @@
   "playmatch-requires-igdb": "Выберите IGDB, чтобы включить Playmatch",
   "quick-scan": "Быстрое сканирование",
   "quick-scan-desc": "Сканировать только новые игры",
-  "refresh-files": "Обновить файлы",
   "requires-hashes": "{source} требует хеши файлов",
   "roms-scanned-n": "Ромы: {n} отсканировано",
   "roms-scanned-with-details": "Ромы: {n_scanned_roms} из {n_total_roms} отсканировано, {n_new_roms} новых и {n_identified_roms} опознано",

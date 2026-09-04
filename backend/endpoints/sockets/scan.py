@@ -381,9 +381,10 @@ def _should_hash_incrementally(
     rom: Rom | None,
     roms_ids: list[int],
 ) -> bool:
-    """Decide if an existing rom's unchanged files may keep their stored hashes
+    """Decide if a selected rom's unchanged files may keep their stored hashes
 
-    Only COMPLETE and HASHES promise to re-read every byte.
+    Only COMPLETE and HASHES promise to re-read every byte. A quick scan does
+    not reach here: it reconciles an existing rom through `refresh_rom_files`.
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
@@ -392,12 +393,9 @@ def _should_hash_incrementally(
     """
 
     return bool(
-        scan_type == ScanType.QUICK
-        or (
-            scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
-            and rom
-            and rom.id in roms_ids
-        )
+        scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
+        and rom
+        and rom.id in roms_ids
     )
 
 
@@ -461,6 +459,27 @@ async def _identify_rom(
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
+        return
+
+    # A quick scan only reconciles an existing entry's files with disk, so it
+    # needs none of the metadata prelude below.
+    if rom is not None and scan_type == ScanType.QUICK:
+        refreshed = await refresh_rom_files(rom)
+        await scan_stats.increment(
+            socket_manager=socket_manager,
+            scanned_roms=1,
+            updated_roms=1 if refreshed.changed else 0,
+            new_files=refreshed.new_files,
+        )
+        if refreshed.changed:
+            log.info(
+                f"Files of {hl(rom.name or rom.fs_name, color=BLUE)} refreshed: "
+                f"{refreshed.new_files} new, {refreshed.updated_files} updated, "
+                f"{refreshed.removed_files} removed"
+            )
+            hydrated_rom = db_rom_handler.get_rom_simple(rom.id)
+            if hydrated_rom is not None:
+                await _emit_scanning_rom(socket_manager, hydrated_rom)
         return
 
     # Update properties that don't require metadata
@@ -548,37 +567,6 @@ async def _identify_rom(
                     f"Skipping {hl(fs_rom['fs_name'])}: already created by a concurrent scan"
                 )
                 return
-
-    # A quick scan only reconciles an existing entry's files with disk; the
-    # metadata pipeline below is for new entries and the other scan types.
-    if not newly_added and not reassociated and scan_type == ScanType.QUICK:
-        # `refresh_rom_files` clears the flag, so read it before the call.
-        was_missing = bool(rom.missing_from_fs)
-        refreshed = await refresh_rom_files(rom)
-        await scan_stats.increment(
-            socket_manager=socket_manager,
-            scanned_roms=1,
-            updated_roms=1 if refreshed.changed else 0,
-            new_files=refreshed.new_files,
-        )
-        if refreshed.changed:
-            log.info(
-                f"Files of {hl(rom.name or rom.fs_name, color=BLUE)} refreshed: "
-                f"{refreshed.new_files} new, {refreshed.updated_files} updated, "
-                f"{refreshed.removed_files} removed"
-            )
-        if was_missing:
-            log.info(
-                f"{hl(rom.fs_name)} is back in the filesystem, "
-                f"no longer {hl('missing', color=LIGHTYELLOW)}"
-            )
-        # A rom whose files did not change still needs an emit when it just
-        # stopped being missing, so an open gallery drops the stale badge.
-        if refreshed.changed or was_missing:
-            hydrated_rom = db_rom_handler.get_rom_simple(rom.id)
-            if hydrated_rom is not None:
-                await _emit_scanning_rom(socket_manager, hydrated_rom)
-        return
 
     # Re-read the filename tags onto an existing entry. Written onto the instance
     # rather than through update_rom because scan_rom carries these columns
@@ -924,6 +912,8 @@ async def _identify_platform(
 
         for fs_rom in fs_roms_batch:
             rom = roms_by_fs_name.get(fs_rom["fs_name"])
+            if rom and rom.id in previously_missing_rom_ids:
+                restored_roms.append(rom)
             if should_scan_rom(
                 scan_type=scan_type,
                 rom=rom,
@@ -933,8 +923,6 @@ async def _identify_platform(
                 roms_to_scan.append((fs_rom, rom))
             elif rom:
                 skipped_rom_ids.append(rom.id)
-                if rom.id in previously_missing_rom_ids:
-                    restored_roms.append(rom)
 
         # Bulk update all skipped ROMs in one query instead of per-ROM updates
         if skipped_rom_ids:
@@ -944,15 +932,16 @@ async def _identify_platform(
                 scanned_roms=len(skipped_rom_ids),
             )
 
-        # Skipped ROMs emit nothing, so a ROM whose file came back would keep its
-        # stale "missing" badge in an open gallery until a refetch. Reload with
-        # details since the scan-loop lookup only eager-loads the platform.
+        # A ROM whose file came back would otherwise keep its stale "missing"
+        # badge in an open gallery: a skipped one emits nothing, and a scanned
+        # one only emits when its files changed. Reload since the scan-loop
+        # lookup only eager-loads the platform.
         for restored_rom in restored_roms:
             log.info(
                 f"{hl(restored_rom.fs_name)} is back in the filesystem, "
                 f"no longer {hl('missing', color=LIGHTYELLOW)}"
             )
-            hydrated_rom = db_rom_handler.get_rom(restored_rom.id)
+            hydrated_rom = db_rom_handler.get_rom_simple(restored_rom.id)
             if hydrated_rom is None:
                 continue
 

@@ -156,9 +156,10 @@ def _get_upload_rom(request: Request, rom_id: int, platform_id: int) -> Rom:
     return rom
 
 
-def _rom_destination(rom: Rom, folder: str, filename: str) -> tuple[str, Path]:
-    """The library-relative directory and absolute file path of an upload into
-    a ROM, checked to stay inside the folder a lone file gets promoted into."""
+def _free_rom_destination(rom: Rom, folder: str, filename: str) -> tuple[str, Path]:
+    """The library-relative directory and absolute file path of an upload into a
+    ROM, kept inside the folder a lone file gets promoted into and refused when
+    a file of that name is already there (or will be, once promoted)."""
     root = (
         f"{rom.fs_path}/{rom.fs_name_no_ext}"
         if rom.has_simple_single_file
@@ -177,21 +178,11 @@ def _rom_destination(rom: Rom, folder: str, filename: str) -> tuple[str, Path]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Upload destination must be inside the game folder",
         )
-    return rel_dir, location
 
-
-def _destination_taken(rom: Rom, folder: str, filename: str, location: Path) -> bool:
-    """Whether the upload would land on a file that exists, or that will exist
-    once a lone file is promoted into its folder."""
-    if location.exists():
-        return True
-    return rom.has_simple_single_file and not folder and filename == rom.fs_name
-
-
-def _free_rom_destination(rom: Rom, folder: str, filename: str) -> tuple[str, Path]:
-    """`_rom_destination`, refusing a name the ROM folder already holds."""
-    rel_dir, location = _rom_destination(rom, folder, filename)
-    if _destination_taken(rom, folder, filename, location):
+    promoted_over_itself = (
+        rom.has_simple_single_file and not folder and filename == rom.fs_name
+    )
+    if location.exists() or promoted_over_itself:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"File {filename} already exists in the game folder",
@@ -530,7 +521,7 @@ async def complete_chunked_upload(
             log.error(f"Error registering uploaded file for ROM {rom.id}", exc_info=exc)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="File uploaded but not registered yet, run a files scan",
+                detail="File uploaded but not registered yet, run a quick scan",
             ) from exc
 
     return Response(status_code=status.HTTP_201_CREATED)

@@ -98,13 +98,12 @@ async def test_top_level_addition_updates_rom_hashes_and_size(
     result = await refresh_rom_files(rom)
 
     assert result.new_files == 1
-    expected = hashlib.md5(usedforsecurity=False)
-    for rom_file in result.files:
-        expected.update(
-            (library / rom_file.file_path / rom_file.file_name).read_bytes()
-        )
+    either_order = {
+        hashlib.md5(a + b, usedforsecurity=False).hexdigest()
+        for a, b in ((b"game", b"extra"), (b"extra", b"game"))
+    }
     after = db_rom_handler.get_rom(rom.id)
-    assert after.md5_hash == expected.hexdigest()
+    assert after.md5_hash in either_order
     assert after.fs_size_bytes == len(b"game") + len(b"extra")
     assert (
         _files_by_name(rom.id)["game.bin"].md5_hash
@@ -158,7 +157,6 @@ async def test_empty_folder_keeps_recorded_rows(platform, admin_user, library):
     result = await refresh_rom_files(rom)
 
     assert not result.changed
-    assert result.files == []
     assert set(_files_by_name(rom.id)) == {"game.bin"}
 
 

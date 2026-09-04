@@ -25,7 +25,10 @@ import type { Platform } from "@/stores/platforms";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import type { ScanType as SharedScanType } from "@/v2/types/scan";
+import {
+  scanNeedsMetadataSource,
+  type ScanType as SharedScanType,
+} from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 

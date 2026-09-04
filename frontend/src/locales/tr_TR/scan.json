@@ -42,7 +42,6 @@
   "playmatch-requires-igdb": "Playmatch'i etkinleştirmek için IGDB'yi seçin",
   "quick-scan": "Hızlı tarama",
   "quick-scan-desc": "Yalnızca yeni oyunları tara",
-  "refresh-files": "Dosyaları yenile",
   "requires-hashes": "{source} için hash hesaplamanın etkin olması gerekir",
   "roms-scanned-n": "ROM'lar: {n} tarandı",
   "roms-scanned-with-details": "{n_total_roms} ROM'dan {n_scanned_roms} tarandı, {n_new_roms} yeni ve {n_identified_roms} tanımlandı",

@@ -42,7 +42,6 @@
   "playmatch-requires-igdb": "PlaymatchはIGDBを選択すると有効になります",
   "quick-scan": "クイックスキャン",
   "quick-scan-desc": "新規ゲームのみを検索",
-  "refresh-files": "ファイルを更新",
   "requires-hashes": "{source}はファイルハッシュが必要です",
   "roms-scanned-n": "Rom: {n} スキャン済み",
   "roms-scanned-with-details": "Rom: {n_scanned_roms}/{n_total_roms} スキャン済み 新規: {n_new_roms} 識別済み: {n_identified_roms}",

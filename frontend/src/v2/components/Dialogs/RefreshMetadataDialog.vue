@@ -23,7 +23,10 @@ import type { Events } from "@/types/emitter";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import type { ScanType as SharedScanType } from "@/v2/types/scan";
+import {
+  scanNeedsMetadataSource,
+  type ScanType as SharedScanType,
+} from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -91,7 +94,7 @@ const scanOptions = computed<ScanOption[]>(() => [
       : t("scan.hash-calculation-disabled"),
   },
   {
-    title: t("scan.refresh-files"),
+    title: t("rom.refresh-files"),
     subtitle: isBulk.value
       ? t("rom.refresh-files-desc-bulk")
       : t("rom.refresh-files-desc"),
@@ -490,7 +493,8 @@ function closeDialog() {
         color="primary"
         prepend-icon="mdi-magnify-scan"
         :disabled="
-          effectiveMetadataSources.length === 0 && scanType !== 'quick'
+          effectiveMetadataSources.length === 0 &&
+          scanNeedsMetadataSource(scanType)
         "
         @click="onScan"
       >

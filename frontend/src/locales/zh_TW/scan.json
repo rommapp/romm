@@ -42,7 +42,6 @@
   "playmatch-requires-igdb": "請選擇 IGDB 以啟用 Playmatch",
   "quick-scan": "快速掃描",
   "quick-scan-desc": "只掃描新遊戲",
-  "refresh-files": "重新整理檔案",
   "requires-hashes": "{source} 需要檔案哈希",
   "roms-scanned-n": "已掃描 {n} 個 Rom",
   "roms-scanned-with-details": "Rom：{n_scanned_roms}/{n_total_roms} 已掃描，新增 {n_new_roms}，識別 {n_identified_roms}",

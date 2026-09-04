@@ -23,21 +23,17 @@ ROM_LEVEL_HASH_COLUMNS = ("crc_hash", "md5_hash", "sha1_hash", "ra_hash")
 _refresh_locks: weakref.WeakValueDictionary[int, asyncio.Lock] = (
     weakref.WeakValueDictionary()
 )
-_refresh_locks_guard = asyncio.Lock()
 
 
-async def _refresh_lock(rom_id: int) -> asyncio.Lock:
-    async with _refresh_locks_guard:
-        lock = _refresh_locks.get(rom_id)
-        if lock is None:
-            lock = asyncio.Lock()
-            _refresh_locks[rom_id] = lock
-        return lock
+def _refresh_lock(rom_id: int) -> asyncio.Lock:
+    lock = _refresh_locks.get(rom_id)
+    if lock is None:
+        lock = _refresh_locks[rom_id] = asyncio.Lock()
+    return lock
 
 
 @dataclass(frozen=True)
 class RomFilesRefresh:
-    files: list[RomFile]
     new_files: int
     updated_files: int
     removed_files: int
@@ -61,9 +57,9 @@ async def refresh_rom_files(rom: Rom) -> RomFilesRefresh:
     Args:
         rom: A persisted ROM whose folder or file exists on disk.
     Returns:
-        The persisted rows and what changed, so callers can report it.
+        What changed, so callers can report it.
     """
-    async with await _refresh_lock(rom.id):
+    async with _refresh_lock(rom.id):
         return await _refresh(rom)
 
 
@@ -83,7 +79,7 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
             f"{hl(rom.fs_name)} lists no files on disk, keeping its "
             f"{len(existing)} recorded files"
         )
-        return RomFilesRefresh([], 0, 0, 0)
+        return RomFilesRefresh(0, 0, 0)
 
     existing_keys = {rom_file_key(f) for f in existing}
     reused_ids = {id(f) for f in existing}
@@ -96,7 +92,6 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
         (updated_keys if key in existing_keys else new_keys).add(key)
     removed_keys = existing_keys - {rom_file_key(f) for f in parsed.rom_files}
 
-    files = list(parsed.rom_files)
     if new_keys or updated_keys or removed_keys:
         synced = db_rom_handler.sync_rom_files(rom.id, parsed.rom_files)
         for cover_path in synced.orphaned_cover_paths:
@@ -104,7 +99,6 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
         for saved in synced.files:
             if rom_file_key(saved) in new_keys or rom_file_key(saved) in updated_keys:
                 persist_soundtrack_cover(saved, rom)
-        files = synced.files
 
     rom_updates: dict[str, Any] = {}
     fs_size_bytes = sum(f.file_size_bytes for f in parsed.rom_files)
@@ -123,7 +117,6 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
         db_rom_handler.update_rom(rom.id, rom_updates)
 
     return RomFilesRefresh(
-        files=files,
         new_files=len(new_keys),
         updated_files=len(updated_keys),
         removed_files=len(removed_keys),

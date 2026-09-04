@@ -42,7 +42,6 @@
   "playmatch-requires-igdb": "Sélectionnez IGDB pour activer Playmatch",
   "quick-scan": "Scan rapide",
   "quick-scan-desc": "Scanner uniquement les nouveaux jeux",
-  "refresh-files": "Actualiser les fichiers",
   "requires-hashes": "{source} nécessite que le calcul de hachage soit activé",
   "roms-scanned-n": "ROMs : {n} scannée | ROMs : {n} scannées",
   "roms-scanned-with-details": "ROMs : {n_scanned_roms} scannées sur {n_total_roms}, avec {n_new_roms} nouvelles et {n_identified_roms} identifiées",

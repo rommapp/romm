@@ -48,7 +48,7 @@ import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
-import type { ScanType } from "@/v2/types/scan";
+import { scanNeedsMetadataSource, type ScanType } from "@/v2/types/scan";
 
 const { t } = useI18n();
 const { startScan } = useScanTrigger();
@@ -164,9 +164,9 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
 ];
 const scanType = ref<ScanType>("quick");
 
-// A quick scan reconciles files and registers new entries without contacting
-// a provider; the other types would do nothing useful with no source picked.
-const needsMetadataSource = computed(() => scanType.value !== "quick");
+const needsMetadataSource = computed(() =>
+  scanNeedsMetadataSource(scanType.value),
+);
 const canStartScan = computed(
   () =>
     !scanning.value &&

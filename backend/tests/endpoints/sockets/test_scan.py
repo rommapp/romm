@@ -1167,13 +1167,14 @@ class TestIdentifyPlatformEmitsRestoredRoms:
             "from_orm_with_factory",
             return_value=Mock(model_dump=Mock(return_value={"id": rom.id})),
         )
+        mocker.patch.object(scan_module, "_identify_rom", AsyncMock())
 
         return db_rom
 
-    async def _run(self, socket_manager):
+    async def _run(self, socket_manager, scan_type=ScanType.UPDATE):
         await scan_module._identify_platform(
             platform_slug="test",
-            scan_type=ScanType.UPDATE,
+            scan_type=scan_type,
             fs_platforms=["test"],
             roms_ids=[],
             metadata_sources=[],
@@ -1190,7 +1191,19 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         await self._run(socket_manager)
 
         patched.bulk_mark_present.assert_called_once_with(1, [42])
-        patched.get_rom.assert_called_once_with(42)
+        patched.get_rom_simple.assert_called_once_with(42)
+        assert any(
+            call.args[0] == "scan:scanning_rom"
+            for call in socket_manager.emit.call_args_list
+        )
+
+    async def test_emits_for_a_restored_rom_the_scan_visits(self, patched):
+        patched.get_missing_rom_ids.return_value = {42}
+        socket_manager = AsyncMock()
+
+        await self._run(socket_manager, scan_type=ScanType.QUICK)
+
+        patched.bulk_mark_present.assert_not_called()
         assert any(
             call.args[0] == "scan:scanning_rom"
             for call in socket_manager.emit.call_args_list
@@ -1202,7 +1215,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
 
         await self._run(socket_manager)
 
-        patched.get_rom.assert_not_called()
+        patched.get_rom_simple.assert_not_called()
         assert not any(
             call.args[0] == "scan:scanning_rom"
             for call in socket_manager.emit.call_args_list
@@ -2255,9 +2268,6 @@ class TestQuickScanCoversRomFiles:
 
 
 class TestShouldHashIncrementally:
-    def test_quick_scan_is_incremental(self, rom: Rom):
-        assert _should_hash_incrementally(ScanType.QUICK, rom, []) is True
-
     def test_selected_metadata_scans_are_incremental(self, rom: Rom):
         assert _should_hash_incrementally(ScanType.UPDATE, rom, [rom.id]) is True
         assert _should_hash_incrementally(ScanType.UNMATCHED, rom, [rom.id]) is True
@@ -2323,9 +2333,7 @@ def identify_harness(mocker):
         scan_module,
         "refresh_rom_files",
         AsyncMock(
-            return_value=RomFilesRefresh(
-                files=[], new_files=2, updated_files=0, removed_files=1
-            )
+            return_value=RomFilesRefresh(new_files=2, updated_files=0, removed_files=1)
         ),
     )
 
@@ -2406,7 +2414,7 @@ class TestIdentifyRomFiles:
 
     async def test_unchanged_rom_emits_nothing(self, identify_harness):
         identify_harness.refresh.return_value = RomFilesRefresh(
-            files=[], new_files=0, updated_files=0, removed_files=0
+            new_files=0, updated_files=0, removed_files=0
         )
         socket_manager = AsyncMock()
         scan_stats = AsyncMock()
@@ -2424,24 +2432,6 @@ class TestIdentifyRomFiles:
         )
         identify_harness.db.get_rom_simple.assert_not_called()
         socket_manager.emit.assert_not_awaited()
-
-    async def test_restored_rom_emits_even_when_its_files_did_not_change(
-        self, identify_harness
-    ):
-        identify_harness.refresh.return_value = RomFilesRefresh(
-            files=[], new_files=0, updated_files=0, removed_files=0
-        )
-        rom = identify_harness.existing_rom()
-        rom.missing_from_fs = True
-        socket_manager = AsyncMock()
-
-        await identify_harness.run(
-            rom, ScanType.QUICK, [], socket_manager=socket_manager
-        )
-
-        identify_harness.db.get_rom_simple.assert_called_once_with(rom.id)
-        socket_manager.emit.assert_awaited_once()
-        assert socket_manager.emit.await_args.args[0] == "scan:scanning_rom"
 
     async def test_new_rom_takes_the_regular_path(self, identify_harness):
         await identify_harness.run(None, ScanType.QUICK, [])

@@ -42,7 +42,6 @@
   "playmatch-requires-igdb": "Selectează IGDB pentru a activa Playmatch",
   "quick-scan": "Scanare rapidă",
   "quick-scan-desc": "Scanează doar jocuri noi",
-  "refresh-files": "Actualizează fișierele",
   "requires-hashes": "{source} necesită hash-uri de fișiere",
   "roms-scanned-n": "ROMs: {n} scanată | ROMs: {n} scanate",
   "roms-scanned-with-details": "Rom-uri: {n_scanned_roms} scanate din {n_total_roms}, cu {n_new_roms} noi și {n_identified_roms} identificate",
