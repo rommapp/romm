@@ -19,6 +19,7 @@ export type MetadataSourcesDict = {
     DEMOZOO_API_ENABLED: boolean;
     POUET_API_ENABLED: boolean;
     CSDB_API_ENABLED: boolean;
+    STEAM_API_ENABLED: boolean;
     LIBRETRO_API_ENABLED: boolean;
 };
 

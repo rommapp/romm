@@ -47,10 +47,7 @@ dependencies = [
   "python-magic ~= 0.4",
   "python-socketio ~= 5.16",
   "redis ~= 6.2",
-  "rq ~= 2.7",
-  # TODO: Move back to upstream `rq-scheduler`, when support for username and SSL settings is added.
-  #       Related PR: https://github.com/rq/rq-scheduler/pull/325
-  "rq-scheduler @ git+https://github.com/adamantike/rq-scheduler.git@feat/script-options-username-ssl",
+  "rq ~= 2.11",
   "sentry-sdk ~= 2.32",
   "starlette ~= 1.6.0",
   "streaming-form-data ~= 1.19",
@@ -144,9 +141,6 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
 [tool.uv]
 package = false
 exclude-newer = "7 days"
-# vcrpy >= 8.2.0 is required for aiohttp 3.14 compatibility (the removal of
-# `AsyncStreamReaderMixin`); allow it past the rolling 7-day window.
-exclude-newer-package = { vcrpy = "2026-06-17" }
 
 [tool.ty.environment]
 root = ["./backend"]

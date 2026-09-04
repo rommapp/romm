@@ -17,7 +17,9 @@ import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomPouetMetadata } from './RomPouetMetadata';
 import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
+import type { RomSteamMetadata } from './RomSteamMetadata';
 import type { RomUserSchema } from './RomUserSchema';
+import type { SaveTargetLayout } from './SaveTargetLayout';
 import type { SiblingRomSchema } from './SiblingRomSchema';
 export type SimpleRomSchema = {
     id: number;
@@ -34,6 +36,7 @@ export type SimpleRomSchema = {
     demozoo_id: (number | null);
     pouet_id: (number | null);
     csdb_id: (number | null);
+    steam_id: (number | null);
     gamelist_id: (string | null);
     libretro_id: (string | null);
     platform_id: number;
@@ -64,6 +67,7 @@ export type SimpleRomSchema = {
     demozoo_metadata: (RomDemozooMetadata | null);
     pouet_metadata: (RomPouetMetadata | null);
     csdb_metadata: (RomCsdbMetadata | null);
+    steam_metadata: (RomSteamMetadata | null);
     gamelist_metadata: (RomGamelistMetadata | null);
     manual_metadata: (ManualMetadata | null);
     path_cover_small: (string | null);
@@ -85,6 +89,9 @@ export type SimpleRomSchema = {
     md5_hash: (string | null);
     sha1_hash: (string | null);
     ra_hash: (string | null);
+    title_id: (string | null);
+    save_target: (string | null);
+    save_target_layout: (SaveTargetLayout | null);
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;

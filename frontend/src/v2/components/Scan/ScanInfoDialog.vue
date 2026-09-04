@@ -69,7 +69,7 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
   {
     id: "quick",
     title: t("scan.quick-scan"),
-    desc: "Scans for games that are not in the library yet (fastest).",
+    desc: "Scans for games that are not in the library yet, and picks up files added to the folders of games already in it, at any depth.",
   },
   {
     id: "unmatched",
@@ -180,6 +180,14 @@ const providers: ProviderRow[] = [
     descKey: "setup.provider-csdb-desc",
     setupKey: "setup.provider-csdb-setup",
     caveatKey: "setup.provider-csdb-caveat",
+  },
+  {
+    key: "steam",
+    name: "Steam",
+    logo: `${LOGO_BASE}/steam.png`,
+    descKey: "setup.provider-steam-desc",
+    setupKey: "setup.provider-steam-setup",
+    caveatKey: "setup.provider-steam-caveat",
   },
   {
     key: "ra",

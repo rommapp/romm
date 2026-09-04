@@ -36,12 +36,15 @@ const props = defineProps<{
   showRowIcon: boolean;
   /** Show the trailing category chip (only useful in "All files"). */
   showCategoryBadge: boolean;
+  /** Show the per-row delete button (gated on the caller's grant). */
+  canDelete: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "toggle"): void;
   (e: "download"): void;
   (e: "copyLink"): void;
+  (e: "delete"): void;
 }>();
 
 // Shared category metadata — kept inline (instead of importing from
@@ -219,6 +222,16 @@ const hasAnyHash = computed(
         :tooltip="t('rom.copy-download-link-title')"
         :aria-label="t('rom.copy-link-for', { path: relativePath })"
         @click="emit('copyLink')"
+      />
+      <RBtn
+        v-if="canDelete"
+        icon="mdi-delete-outline"
+        variant="text"
+        color="danger"
+        size="small"
+        :tooltip="t('common.delete')"
+        :aria-label="t('rom.delete-file')"
+        @click="emit('delete')"
       />
     </div>
   </li>

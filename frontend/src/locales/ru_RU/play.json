@@ -14,6 +14,7 @@
   "deselect-save": "Снять выбор сохранения",
   "deselect-state": "Снять выбор состояния",
   "full-screen": "Полный экран",
+  "https-required": "Требуется запуск через HTTPS. Свяжитесь с владельцем сайта.",
   "jsdos-browser-save-warning": "Сохранения js-dos хранятся только в этом браузере и не синхронизируются с RomM.",
   "jsdos-quit-without-saving": "Выйти, не сохраняя недавний прогресс?",
   "no-save-selected": "Сохранение не выбрано",

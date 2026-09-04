@@ -145,6 +145,7 @@ scan:
       - "launchbox" # Launchbox
       - "hasheous" # Hasheous
       - "flashpoint" # Flashpoint Project
+      - "steam" # Steam (PC platforms only)
       - "hltb" # HowLongToBeat (lowest priority)
     artwork: # Cover art and screenshots
       - "gamelist" # ES-DE gamelist.xml
@@ -155,6 +156,7 @@ scan:
       - "launchbox" # Launchbox
       - "hasheous" # Hasheous
       - "flashpoint" # Flashpoint Project
+      - "steam" # Steam (PC platforms only)
       - "hltb" # HowLongToBeat
   # Media assets to download
   media:

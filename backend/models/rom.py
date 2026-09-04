@@ -52,6 +52,8 @@ from utils.database import CustomJSON
 NAME_SORT_KEY_MAX_LENGTH = 500
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
+# Max length for the binary identity columns (title id and save target).
+TITLE_ID_MAX_LENGTH = 100
 # Articles ignored when sorting or bucketing a title, across the languages
 # No-Intro and LaunchBox name games in. Both patterns built from this are
 # anchored on the right, so "la" preceding "las" costs nothing.
@@ -107,6 +109,14 @@ class RomFileCategory(enum.StrEnum):
     CHEAT = "cheat"
     SOUNDTRACK = "soundtrack"
     SCREENSHOT = "screenshot"
+
+
+class SaveTargetLayout(enum.StrEnum):
+    FOLDER_EXACT = "folder-exact"
+    FOLDER_PREFIX = "folder-prefix"
+    FILE_EXACT = "file-exact"
+    FILE_PREFIX = "file-prefix"
+    FOLDER_SPLIT = "folder-split"
 
 
 # Document-category files (manuals, walkthroughs) share one substrate: a
@@ -448,6 +458,7 @@ class RomFacets(BaseModel):
     demozoo_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     pouet_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     csdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
@@ -477,6 +488,7 @@ class Rom(BaseModel):
     demozoo_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     pouet_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     csdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
@@ -520,8 +532,10 @@ class Rom(BaseModel):
         Index("idx_roms_demozoo_id", "demozoo_id"),
         Index("idx_roms_pouet_id", "pouet_id"),
         Index("idx_roms_csdb_id", "csdb_id"),
+        Index("idx_roms_steam_id", "steam_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
         Index("idx_roms_libretro_id", "libretro_id"),
+        Index("idx_roms_title_id", "title_id"),
         # Searching the gallery by a hash digest
         Index("idx_roms_crc_hash", "crc_hash"),
         Index("idx_roms_md5_hash", "md5_hash"),
@@ -573,6 +587,9 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     csdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    steam_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
     gamelist_metadata: Mapped[dict[str, Any] | None] = mapped_column(
@@ -635,6 +652,19 @@ class Rom(BaseModel):
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
     ra_hash: Mapped[str | None] = mapped_column(String(length=100))
+    title_id: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH),
+        doc="Platform-native identity read from the ROM binary, normalized (0100ABCD12340000, SLUS-20152)",
+    )
+    save_target: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH),
+        doc="On-disk name an emulator gives this game's saves; a file stem, a folder, or a nested path",
+    )
+    save_target_layout: Mapped[SaveTargetLayout | None] = mapped_column(
+        Enum(SaveTargetLayout),
+        default=None,
+        doc="How to apply save_target: one folder, a folder prefix, a file prefix, or a nested path",
+    )
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
@@ -825,6 +855,7 @@ class Rom(BaseModel):
             and not self.demozoo_id
             and not self.pouet_id
             and not self.csdb_id
+            and not self.steam_id
             and not self.gamelist_id
             and not self.libretro_id
         )
@@ -990,6 +1021,7 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
     "demozoo": Rom.demozoo_id,
     "pouet": Rom.pouet_id,
     "csdb": Rom.csdb_id,
+    "steam": Rom.steam_id,
     "gamelist": Rom.gamelist_id,
     "libretro": Rom.libretro_id,
 }
@@ -1009,6 +1041,7 @@ METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute] = {
     "demozoo": RomFacets.demozoo_id,
     "pouet": RomFacets.pouet_id,
     "csdb": RomFacets.csdb_id,
+    "steam": RomFacets.steam_id,
     "gamelist": RomFacets.gamelist_id,
     "libretro": RomFacets.libretro_id,
 }

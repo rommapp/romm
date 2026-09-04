@@ -119,6 +119,16 @@ const sources = computed<Source[]>(() => {
       disabled: !m.STEAMGRIDDB_API_ENABLED,
     },
     {
+      key: "steam",
+      name: "Steam",
+      logoPath: "/assets/scrappers/steam.png",
+      descKey: "setup.provider-steam-desc",
+      setupKey: "setup.provider-steam-setup",
+      caveatKey: "setup.provider-steam-caveat",
+      requiresKey: false,
+      disabled: !m.STEAM_API_ENABLED,
+    },
+    {
       key: "hltb",
       name: "HowLongToBeat",
       logoPath: "/assets/scrappers/hltb.png",

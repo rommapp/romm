@@ -33,6 +33,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.metadata.csdb_handler import CsdbRom
@@ -66,6 +67,7 @@ from handler.metadata.ss_handler import (
     get_preferred_media_types,
     note_rate_limited_rom,
 )
+from handler.metadata.steam_handler import STEAM_PLATFORMS, SteamRom
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -106,6 +108,7 @@ class MetadataSource(enum.StrEnum):
     DEMOZOO = "demozoo"  # Demozoo
     POUET = "pouet"  # Pouët
     CSDB = "csdb"  # CSDb (C64)
+    STEAM = "steam"  # Steam storefront
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
     PLAYMATCH = "playmatch"  # Playmatch
@@ -472,6 +475,25 @@ async def resolve_launchbox_rom(
     return launchbox_rom
 
 
+async def resolve_steam_rom(
+    *,
+    rom: Rom,
+    fs_name: str,
+    platform_slug: str,
+    scan_type: ScanType,
+) -> SteamRom:
+    """Resolve a ROM's Steam match, by app ID where one is known, else by filename."""
+    # A stored app ID is often a manual match, so it is never traded for the
+    # filename search, which can land on any app above the similarity floor.
+    if rom.steam_id and (
+        scan_type == ScanType.UPDATE
+        or (scan_type == ScanType.UNMATCHED and not rom.steam_metadata)
+    ):
+        return await meta_steam_handler.get_rom_by_id(rom.steam_id)
+
+    return await meta_steam_handler.get_rom(fs_name, platform_slug)
+
+
 async def scan_rom(
     scan_type: ScanType,
     platform: Platform,
@@ -497,6 +519,9 @@ async def scan_rom(
         "md5_hash": rom.md5_hash,
         "sha1_hash": rom.sha1_hash,
         "ra_hash": rom.ra_hash,
+        "title_id": rom.title_id,
+        "save_target": rom.save_target,
+        "save_target_layout": rom.save_target_layout,
         "fs_size_bytes": rom.fs_size_bytes,
         "is_physical": rom.is_physical,
         "upc": rom.upc,
@@ -514,6 +539,17 @@ async def scan_rom(
                 "fs_size_bytes": filesize,
             }
         )
+
+        # Only overwrite title id values when extraction produced them, so a
+        # hash-only or extraction-disabled rescan can't wipe existing ones.
+        if fs_rom.get("title_id"):
+            rom_attrs.update(
+                {
+                    "title_id": fs_rom.get("title_id"),
+                    "save_target": fs_rom.get("save_target"),
+                    "save_target_layout": fs_rom.get("save_target_layout"),
+                }
+            )
 
     # Update properties from existing rom if not a complete rescan
     if not newly_added and scan_type != ScanType.COMPLETE:
@@ -545,6 +581,7 @@ async def scan_rom(
                 "demozoo_id": rom.demozoo_id,
                 "pouet_id": rom.pouet_id,
                 "csdb_id": rom.csdb_id,
+                "steam_id": rom.steam_id,
                 "libretro_id": rom.libretro_id,
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
@@ -558,6 +595,7 @@ async def scan_rom(
                 "demozoo_metadata": rom.demozoo_metadata,
                 "pouet_metadata": rom.pouet_metadata,
                 "csdb_metadata": rom.csdb_metadata,
+                "steam_metadata": rom.steam_metadata,
             }
         )
 
@@ -834,6 +872,29 @@ async def scan_rom(
             return await meta_csdb_handler.get_rom(rom_attrs["fs_name"], platform.slug)
         return CsdbRom(csdb_id=None)
 
+    async def fetch_steam_rom() -> SteamRom:
+        if (
+            MetadataSource.STEAM in metadata_sources
+            and platform.slug in STEAM_PLATFORMS
+            and (
+                newly_added
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.UPDATE and rom.steam_id)
+                or (
+                    scan_type == ScanType.UNMATCHED
+                    and (not rom.steam_id or not rom.steam_metadata)
+                )
+            )
+        ):
+            return await resolve_steam_rom(
+                rom=rom,
+                fs_name=str(rom_attrs["fs_name"]),
+                platform_slug=platform.slug,
+                scan_type=scan_type,
+            )
+
+        return SteamRom(steam_id=None)
+
     async def fetch_moby_rom(playmatch_rom: PlaymatchRomMatch) -> MobyGamesRom:
         if (
             MetadataSource.MOBY in metadata_sources
@@ -1041,6 +1102,7 @@ async def scan_rom(
         (fetch_demozoo_rom(), DemozooRom(demozoo_id=None)),
         (fetch_pouet_rom(), PouetRom(pouet_id=None)),
         (fetch_csdb_rom(), CsdbRom(csdb_id=None)),
+        (fetch_steam_rom(), SteamRom(steam_id=None)),
         (fetch_gamelist_rom(), GamelistRom(gamelist_id=None)),
         (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
     )
@@ -1074,6 +1136,7 @@ async def scan_rom(
         demozoo_handler_rom,
         pouet_handler_rom,
         csdb_handler_rom,
+        steam_handler_rom,
         gamelist_handler_rom,
         libretro_handler_rom,
     ) = resolved
@@ -1204,6 +1267,11 @@ async def scan_rom(
             "handler": csdb_handler_rom,
             "id_field": "csdb_id",
             "metadata_field": "csdb_metadata",
+        },
+        MetadataSource.STEAM: {
+            "handler": steam_handler_rom,
+            "id_field": "steam_id",
+            "metadata_field": "steam_metadata",
         },
         MetadataSource.GAMELIST: {
             "handler": gamelist_handler_rom,
@@ -1367,6 +1435,7 @@ async def scan_rom(
         and not rom_attrs.get("demozoo_id")
         and not rom_attrs.get("pouet_id")
         and not rom_attrs.get("csdb_id")
+        and not rom_attrs.get("steam_id")
         and not rom_attrs.get("gamelist_id")
     ):
         log.warning(

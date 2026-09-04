@@ -75,6 +75,7 @@
   "in-library": "Dans la bibliothèque",
   "invalid-email": "E-mail invalide",
   "invalid-name": "Nom invalide",
+  "invalid-relative-path": "Saisissez un chemin de dossier relatif sans segments \"..\"",
   "jukebox": "Jukebox",
   "kind": "Type",
   "last-page": "Dernière page",

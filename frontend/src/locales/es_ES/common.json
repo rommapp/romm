@@ -75,6 +75,7 @@
   "in-library": "En biblioteca",
   "invalid-email": "Correo electrónico inválido",
   "invalid-name": "Nombre inválido",
+  "invalid-relative-path": "Introduce una ruta de carpeta relativa sin segmentos \"..\"",
   "jukebox": "Rockola",
   "kind": "Tipo",
   "last-page": "Última página",

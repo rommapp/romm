@@ -13,12 +13,6 @@ class TestCleanupOrphanedResourcesTask:
     def task(self):
         return CleanupOrphanedResourcesTask()
 
-    def test_func_points_at_scheduled_module(self, task):
-        assert (
-            task.func
-            == "tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run"
-        )
-
     def test_disabled_by_default(self, task):
         # The run-task endpoint rejects a task unless both flags are set, so a
         # disabled schedule also means no manual runs.
@@ -40,28 +34,6 @@ class TestCleanupOrphanedResourcesTask:
             mod, "SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON", "30 2 * * *"
         ):
             assert CleanupOrphanedResourcesTask().cron_string == "30 2 * * *"
-
-    def test_init_unschedules_when_no_cron(self, task):
-        task.cron_string = None
-
-        with patch.object(task, "unschedule") as mock_unschedule:
-            assert task.init() is None
-            mock_unschedule.assert_called_once()
-
-    def test_init_schedules_when_enabled(self, task):
-        task.enabled = True
-        task.cron_string = "0 5 * * *"
-
-        with patch.object(task, "_get_existing_job", return_value=None):
-            with patch.object(task, "schedule") as mock_schedule:
-                task.init()
-                mock_schedule.assert_called_once()
-
-    def test_init_does_not_schedule_when_disabled(self, task):
-        with patch.object(task, "_get_existing_job", return_value=None):
-            with patch.object(task, "schedule") as mock_schedule:
-                assert task.init() is None
-                mock_schedule.assert_not_called()
 
 
 class TestCleanupOrphanedResourcesRun:

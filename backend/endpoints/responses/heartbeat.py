@@ -23,6 +23,7 @@ class MetadataSourcesDict(TypedDict):
     DEMOZOO_API_ENABLED: bool
     POUET_API_ENABLED: bool
     CSDB_API_ENABLED: bool
+    STEAM_API_ENABLED: bool
     LIBRETRO_API_ENABLED: bool
 
 

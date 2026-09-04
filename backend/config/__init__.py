@@ -46,6 +46,9 @@ ROM_UPLOAD_TMP_BASE: Final[Path] = (
     Path(ROMM_TMP_PATH) if ROMM_TMP_PATH else Path(RESOURCES_BASE_PATH)
 ) / "tmp/uploads"
 ROM_UPLOAD_TTL: Final[int] = 86400  # 24 hours
+# Extension of the half-written file an upload assembles into. Excluded from
+# scans by DEFAULT_EXCLUDED_EXTENSIONS, so the two must agree.
+ROM_UPLOAD_ASSEMBLING_EXT: Final[str] = "assembling"
 
 # SEVEN ZIP
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
@@ -146,6 +149,9 @@ DEMOZOO_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("DEMOZOO_API_ENABLE
 POUET_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("POUET_API_ENABLED"))
 # CSDb XML webservice, C64 stills
 CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))
+
+# STEAM
+STEAM_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("STEAM_API_ENABLED"))
 
 # UPC LOOKUP (barcode -> title, used when adding physical games by UPC)
 UPC_LOOKUP_ENABLED: Final[bool] = safe_str_to_bool(

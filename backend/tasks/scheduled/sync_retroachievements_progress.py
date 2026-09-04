@@ -94,7 +94,6 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
             cron_string=SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
             manual_run=False,
-            func="tasks.scheduled.sync_retroachievements_progress.sync_retroachievements_progress_task.run",
         )
 
     @initialize_context()

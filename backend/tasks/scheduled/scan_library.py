@@ -1,5 +1,6 @@
 from config import (
     ENABLE_SCHEDULED_RESCAN,
+    SCAN_TIMEOUT,
     SCHEDULED_RESCAN_CRON,
 )
 from endpoints.sockets.scan import ScanStats, scan_platforms
@@ -18,11 +19,12 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.scan_handler import MetadataSource, ScanType
 from logger.logger import log
-from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, PeriodicTask, TaskType
+from tasks.tasks import PeriodicTask, TaskType
 
 
 class ScanLibraryTask(PeriodicTask):
@@ -34,15 +36,15 @@ class ScanLibraryTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_RESCAN,
             manual_run=False,
             cron_string=SCHEDULED_RESCAN_CRON,
-            func=SCAN_LIBRARY_TASK_FUNC,
+            # A library scan is not a five-minute task like the rest.
+            timeout=SCAN_TIMEOUT,
         )
 
     async def run(self) -> dict[str, str]:
         scan_stats = ScanStats()
 
         if not ENABLE_SCHEDULED_RESCAN:
-            log.info("Scheduled library scan not enabled, unscheduling...")
-            self.unschedule()
+            log.info("Scheduled library scan not enabled, skipping...")
             return scan_stats.to_dict()
 
         source_mapping: dict[str, bool] = {
@@ -59,6 +61,7 @@ class ScanLibraryTask(PeriodicTask):
             MetadataSource.DEMOZOO: meta_demozoo_handler.is_enabled(),
             MetadataSource.POUET: meta_pouet_handler.is_enabled(),
             MetadataSource.CSDB: meta_csdb_handler.is_enabled(),
+            MetadataSource.STEAM: meta_steam_handler.is_enabled(),
             MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
             MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
         }

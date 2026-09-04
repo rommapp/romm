@@ -28,6 +28,7 @@ from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.pouet_handler import PouetMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
+from handler.metadata.steam_handler import SteamMetadata
 from models.collection import Collection, SmartCollection
 from models.rom import (
     DocSource,
@@ -36,6 +37,7 @@ from models.rom import (
     RomFile,
     RomFileCategory,
     RomUserStatus,
+    SaveTargetLayout,
 )
 
 from .base import BaseModel, UTCDatetime
@@ -113,6 +115,11 @@ RomPouetMetadata = TypedDict(  # type: ignore[misc]
 RomCsdbMetadata = TypedDict(  # type: ignore[misc]
     "RomCsdbMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(CsdbMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomSteamMetadata = TypedDict(  # type: ignore[misc]
+    "RomSteamMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(SteamMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 RomGamelistMetadata = TypedDict(  # type: ignore[misc]
@@ -333,6 +340,7 @@ class RomSchema(BaseModel):
     demozoo_id: int | None
     pouet_id: int | None
     csdb_id: int | None
+    steam_id: int | None
     gamelist_id: str | None
     libretro_id: str | None
 
@@ -368,6 +376,7 @@ class RomSchema(BaseModel):
     demozoo_metadata: RomDemozooMetadata | None
     pouet_metadata: RomPouetMetadata | None
     csdb_metadata: RomCsdbMetadata | None
+    steam_metadata: RomSteamMetadata | None
     gamelist_metadata: RomGamelistMetadata | None
     manual_metadata: ManualMetadata | None
 
@@ -395,6 +404,9 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    title_id: str | None
+    save_target: str | None
+    save_target_layout: SaveTargetLayout | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool

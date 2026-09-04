@@ -20,6 +20,7 @@ from config import (
     DB_QUERY_JSON,
     DB_USER,
     LIBRARY_BASE_PATH,
+    ROM_UPLOAD_ASSEMBLING_EXT,
     ROMM_BASE_PATH,
     ROMM_DB_DRIVER,
 )
@@ -33,13 +34,13 @@ ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     "db",
-    "ini",
     "tmp",
     "bak",
     "lock",
     "log",
     "cache",
     "crdownload",
+    ROM_UPLOAD_ASSEMBLING_EXT,
 ]
 DEFAULT_EXCLUDED_FILES: Final = [
     ".DS_Store",
@@ -138,6 +139,7 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
         "demozoo",
         "pouet",
         "csdb",
+        "steam",
         "gamelist",
         "libretro",
         "playmatch",
@@ -190,6 +192,8 @@ class Config:
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
     SKIP_HASH_CALCULATION: bool
+    SKIP_TITLE_ID_EXTRACTION: bool
+    EMBED_SWITCH_TITLE_IDS: bool
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
@@ -442,6 +446,12 @@ class ConfigManager:
             SKIP_HASH_CALCULATION=pydash.get(
                 self._raw_config, "filesystem.skip_hash_calculation", False
             ),
+            SKIP_TITLE_ID_EXTRACTION=pydash.get(
+                self._raw_config, "filesystem.skip_title_id_extraction", False
+            ),
+            EMBED_SWITCH_TITLE_IDS=pydash.get(
+                self._raw_config, "filesystem.embed_switch_title_ids", False
+            ),
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_CACHE_LIMIT=pydash.get(
                 self._raw_config, "emulatorjs.cache_limit", None
@@ -473,6 +483,7 @@ class ConfigManager:
                     "hasheous",
                     "tgdb",
                     "flashpoint",
+                    "steam",
                     "hltb",
                     "demozoo",
                     "pouet",
@@ -494,6 +505,7 @@ class ConfigManager:
                     "hasheous",
                     "tgdb",
                     "flashpoint",
+                    "steam",
                     "hltb",
                     "demozoo",
                     "pouet",
@@ -884,6 +896,8 @@ class ConfigManager:
                 "roms_folder": self.config.ROMS_FOLDER_NAME,
                 "firmware_folder": self.config.FIRMWARE_FOLDER_NAME,
                 "skip_hash_calculation": self.config.SKIP_HASH_CALCULATION,
+                "skip_title_id_extraction": self.config.SKIP_TITLE_ID_EXTRACTION,
+                "embed_switch_title_ids": self.config.EMBED_SWITCH_TITLE_IDS,
             },
             "system": {
                 "platforms": self.config.PLATFORMS_BINDING,

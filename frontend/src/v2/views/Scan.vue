@@ -47,8 +47,11 @@ import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
+import { scanNeedsMetadataSource, type ScanType } from "@/v2/types/scan";
 
 const { t } = useI18n();
+const { startScan } = useScanTrigger();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
@@ -127,9 +130,6 @@ function onScroll(e: Event) {
   userScrolledDown = el.scrollTop > 1;
 }
 
-type ScanType =
-  "new_platforms" | "quick" | "unmatched" | "update" | "hashes" | "complete";
-
 const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
   {
     title: t("scan.new-platforms"),
@@ -164,10 +164,13 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
 ];
 const scanType = ref<ScanType>("quick");
 
-// The start button is disabled while a scan runs OR when there's no
-// metadata source picked (the scan wouldn't do anything useful).
+const needsMetadataSource = computed(() =>
+  scanNeedsMetadataSource(scanType.value),
+);
 const canStartScan = computed(
-  () => !scanning.value && effectiveMetadataSources.value.length > 0,
+  () =>
+    !scanning.value &&
+    (!needsMetadataSource.value || effectiveMetadataSources.value.length > 0),
 );
 
 // Live status header — pulled in from the (now retired) floating
@@ -191,6 +194,8 @@ const liveStats = computed(() => {
   );
   const firmwareScanned = scanStats.value.scanned_firmware ?? 0;
   const firmwareNew = scanStats.value.new_firmware ?? 0;
+  const romsUpdated = scanStats.value.updated_roms ?? 0;
+  const filesNew = scanStats.value.new_files ?? 0;
   return {
     platforms: {
       scanned: platformsScanned,
@@ -205,6 +210,7 @@ const liveStats = computed(() => {
       identified: romsIdentified,
     },
     firmware: { scanned: firmwareScanned, new: firmwareNew },
+    files: { new: filesNew, updatedRoms: romsUpdated },
   };
 });
 
@@ -236,19 +242,19 @@ function scan() {
   // bar start at 0 instead of inheriting the previous scan's final
   // counters.
   scanningStore.reset();
-  scanningStore.setScanning(true);
   scanningPlatforms.value = [];
   userScrolledDown = false;
 
-  if (!socket.connected) socket.connect();
+  const started = startScan([
+    {
+      platform_fs_slugs: platformsToScan.value,
+      type: scanType.value,
+      ...buildScanPayload(),
+    },
+  ]);
+  if (!started) return;
 
   persistSelection();
-
-  socket.emit("scan", {
-    platform_fs_slugs: platformsToScan.value,
-    type: scanType.value,
-    ...buildScanPayload(),
-  });
 }
 
 function stopScan() {
@@ -561,7 +567,7 @@ function stopScan() {
       <footer class="r-v2-scan-card__section r-v2-scan-card__cta">
         <div class="r-v2-scan-card__hints">
           <RAlert
-            v-if="effectiveMetadataSources.length === 0"
+            v-if="needsMetadataSource && effectiveMetadataSources.length === 0"
             type="warning"
             density="compact"
             :icon="false"
@@ -705,6 +711,28 @@ function stopScan() {
                 <RIcon icon="mdi-memory" size="14" />
                 <span class="r-v2-scan-live__chip-num">
                   {{ liveStats.firmware.scanned }}
+                </span>
+              </span>
+            </template>
+          </RTooltip>
+          <RTooltip
+            v-if="liveStats.files.new > 0 || liveStats.files.updatedRoms > 0"
+            :text="
+              t('scan.files-scanned-with-details', {
+                n_new_files: liveStats.files.new,
+                n_updated_roms: liveStats.files.updatedRoms,
+              })
+            "
+            location="bottom"
+          >
+            <template #activator="{ props: tipProps }">
+              <span
+                v-bind="tipProps"
+                class="r-v2-scan-live__chip r-v2-scan-live__chip--alt"
+              >
+                <RIcon icon="mdi-file-plus-outline" size="14" />
+                <span class="r-v2-scan-live__chip-num">
+                  {{ liveStats.files.new }}
                 </span>
               </span>
             </template>

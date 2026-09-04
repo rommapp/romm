@@ -83,6 +83,7 @@ describe("GameActionsList — permission gating", () => {
       expect.arrayContaining([
         "rom.match-rom",
         "rom.refresh-metadata",
+        "rom.refresh-files",
         "common.edit",
         "common.delete",
       ]),
@@ -99,6 +100,7 @@ describe("GameActionsList — permission gating", () => {
     const shown = labels(wrapper);
     expect(shown).not.toContain("rom.match-rom");
     expect(shown).not.toContain("rom.refresh-metadata");
+    expect(shown).not.toContain("rom.refresh-files");
     expect(shown).not.toContain("common.edit");
     expect(shown).not.toContain("common.delete");
     // Only the divider between the primary and per-user groups survives.

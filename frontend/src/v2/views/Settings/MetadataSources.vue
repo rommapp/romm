@@ -38,9 +38,8 @@ type SourceStatus = "missing" | "invalid" | "ok" | "pending";
 
 interface Source {
   name: string;
-  /** Optional descriptor under the name — used by specialised sources
-   *  (Achievements, Cover art, Completion times) so the user knows what
-   *  each one contributes without having to recognise the brand. */
+  /** Optional descriptor under the name: what a source contributes, or
+   *  the platforms it covers. */
   subtitle?: string;
   key: MetadataProviderKey;
   logo: string;
@@ -104,6 +103,17 @@ const sources = computed<Source[]>(() => [
     requiresKey: false,
     disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
     heartbeat: heartbeatStatus.value.flashpoint,
+  },
+  {
+    name: "Steam",
+    subtitle: t("settings.metadata-subtitle-pc"),
+    key: "steam",
+    logo: "/assets/scrappers/steam.png",
+    website: "https://store.steampowered.com",
+    docsUrl: "https://store.steampowered.com",
+    requiresKey: false,
+    disabled: !heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED,
+    heartbeat: heartbeatStatus.value.steam,
   },
   {
     name: "RetroAchievements",

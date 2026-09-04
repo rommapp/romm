@@ -75,6 +75,7 @@
   "in-library": "W bibliotece",
   "invalid-email": "Nieprawidłowy email",
   "invalid-name": "Nieprawidłowa nazwa",
+  "invalid-relative-path": "Wprowadź względną ścieżkę folderu bez segmentów \"..\"",
   "jukebox": "Szafa grająca",
   "kind": "Rodzaj",
   "last-page": "Ostatnia strona",
