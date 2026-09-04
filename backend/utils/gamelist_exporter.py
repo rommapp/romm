@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Final
 from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
     Element,
     SubElement,
@@ -18,6 +19,24 @@ from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.filesystem import link_or_copy_file
+
+# The gamelist tags each media asset is written under, in the order the tag
+# prefers its candidate assets. RetroBat reads some of the same media under its
+# own names (cartridge, titleshot, mix), so a few assets appear more than once.
+ASSET_TAGS: Final[dict[str, tuple[str, ...]]] = {
+    "box3d": ("box3d",),
+    "boxback": ("box2d_back",),
+    "fanart": ("fanart",),
+    "marquee": ("marquee",),
+    "miximage": ("miximage",),
+    "miximage_v2": ("miximage_v2",),
+    "mix": ("miximage", "miximage_v2"),
+    "physicalmedia": ("physical",),
+    "cartridge": ("physical",),
+    "title_screen": ("title_screen",),
+    "titleshot": ("title_screen",),
+    "bezel": ("bezel",),
+}
 
 
 def get_media_options_for_export() -> tuple[str, str]:
@@ -251,27 +270,12 @@ class GamelistExporter:
         if rom.gamelist_id:
             SubElement(game, "id").text = str(rom.gamelist_id)
 
-        # RetroBat reads the same media under its own tag names.
-        asset_tags: list[tuple[str, str]] = [
-            ("box3d", "box3d"),
-            ("box2d_back", "boxback"),
-            ("fanart", "fanart"),
-            ("marquee", "marquee"),
-            ("miximage", "miximage"),
-            ("miximage_v2", "miximage_v2"),
-            ("physical", "physicalmedia"),
-            ("physical", "cartridge"),
-            ("title_screen", "title_screen"),
-            ("title_screen", "titleshot"),
-            ("bezel", "bezel"),
-        ]
-        for asset_key, tag in asset_tags:
-            if asset_key in asset_refs:
-                SubElement(game, tag).text = asset_refs[asset_key]
-
-        mix = asset_refs.get("miximage") or asset_refs.get("miximage_v2")
-        if mix:
-            SubElement(game, "mix").text = mix
+        for tag, asset_keys in ASSET_TAGS.items():
+            ref = next(
+                (asset_refs[key] for key in asset_keys if key in asset_refs), None
+            )
+            if ref:
+                SubElement(game, tag).text = ref
 
         # Add scraping info
         scrap = SubElement(game, "scrap")

@@ -10,7 +10,7 @@ from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 import pydash
 from defusedxml import ElementTree as ET
 
-from config.config_manager import MetadataMediaType
+from config.config_manager import GAMELIST_MEDIA_DIRS, MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
@@ -86,20 +86,20 @@ class GamelistRom(BaseRom):
 
 
 ESDE_MEDIA_MAP: Final = {
-    "image_url": "images",
-    "box2d_url": "covers",
-    "box2d_back_url": "backcovers",
-    "box3d_url": "3dboxes",
-    "fanart_url": "fanart",
-    "manual_url": "manuals",
-    "marquee_url": "marquees",
-    "miximage_url": "miximages",
-    "miximage_v2_url": "miximages_v2",
-    "physical_url": "physicalmedia",
-    "screenshot_url": "screenshots",
-    "title_screen_url": "titlescreens",
-    "thumbnail_url": "thumbnails",
-    "video_url": "videos",
+    "image_url": GAMELIST_MEDIA_DIRS["image"],
+    "box2d_url": GAMELIST_MEDIA_DIRS["box2d"],
+    "box2d_back_url": GAMELIST_MEDIA_DIRS["box2d_back"],
+    "box3d_url": GAMELIST_MEDIA_DIRS["box3d"],
+    "fanart_url": GAMELIST_MEDIA_DIRS["fanart"],
+    "manual_url": GAMELIST_MEDIA_DIRS["manual"],
+    "marquee_url": GAMELIST_MEDIA_DIRS["marquee"],
+    "miximage_url": GAMELIST_MEDIA_DIRS["miximage"],
+    "miximage_v2_url": GAMELIST_MEDIA_DIRS["miximage_v2"],
+    "physical_url": GAMELIST_MEDIA_DIRS["physical"],
+    "screenshot_url": GAMELIST_MEDIA_DIRS["screenshot"],
+    "title_screen_url": GAMELIST_MEDIA_DIRS["title_screen"],
+    "thumbnail_url": GAMELIST_MEDIA_DIRS["thumbnail"],
+    "video_url": GAMELIST_MEDIA_DIRS["video"],
 }
 
 XML_TAG_MAP: Final = {

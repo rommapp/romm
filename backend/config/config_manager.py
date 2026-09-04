@@ -52,22 +52,6 @@ DEFAULT_EXCLUDED_FILES: Final = [
     "gamelist.xml",
     "metadata.pegasus.txt",
 ]
-# ES-DE resolves media at <MediaDirectory>/<system>/<folder>/<rom>.<ext>.
-GAMELIST_MEDIA_DIRS: Final[dict[str, str]] = {
-    "box2d": "covers",
-    "box3d": "3dboxes",
-    "box2d_back": "backcovers",
-    "fanart": "fanart",
-    "marquee": "marquees",
-    "miximage": "miximages",
-    "miximage_v2": "miximages_v2",
-    "physical": "physicalmedia",
-    "screenshot": "screenshots",
-    "title_screen": "titlescreens",
-    "bezel": "bezels",
-    "video": "videos",
-    "manual": "manuals",
-}
 DEFAULT_EXCLUDED_DIRS: Final = [
     "@eaDir",
     "assets",
@@ -81,8 +65,30 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     ".DocumentRevisions-V100",
     "System Volume Information",
 ]
-# Scrapers write these beside the ROMs, so they are never multi-file ROMs.
-DEFAULT_EXCLUDED_MEDIA_DIRS: Final = [*GAMELIST_MEDIA_DIRS.values(), "images"]
+# The per-media-type folders ES-DE and Batocera resolve beside the ROMs, at
+# <platform>/<folder>/<rom>.<ext>. Owned here so the gamelist exporter, the
+# gamelist importer and the scan exclusions share one vocabulary.
+GAMELIST_MEDIA_DIRS: Final = {
+    "image": "images",
+    "box2d": "covers",
+    "box2d_back": "backcovers",
+    "box3d": "3dboxes",
+    "bezel": "bezels",
+    "fanart": "fanart",
+    "manual": "manuals",
+    "marquee": "marquees",
+    "miximage": "miximages",
+    "miximage_v2": "miximages_v2",
+    "physical": "physicalmedia",
+    "screenshot": "screenshots",
+    "thumbnail": "thumbnails",
+    "title_screen": "titlescreens",
+    "video": "videos",
+}
+# Media folders are scraper output, so they are never multi-file ROMs.
+DEFAULT_EXCLUDED_MULTI_DIRS: Final = sorted(
+    {*DEFAULT_EXCLUDED_DIRS, *GAMELIST_MEDIA_DIRS.values()}
+)
 
 
 class EjsControlsButton(TypedDict):
@@ -422,8 +428,7 @@ class ConfigManager:
             ),
             EXCLUDED_MULTI_FILES=sorted(
                 {
-                    *DEFAULT_EXCLUDED_DIRS,
-                    *DEFAULT_EXCLUDED_MEDIA_DIRS,
+                    *DEFAULT_EXCLUDED_MULTI_DIRS,
                     *pydash.get(
                         self._raw_config,
                         "exclude.roms.multi_file.names",

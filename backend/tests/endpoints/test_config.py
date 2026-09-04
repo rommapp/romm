@@ -6,7 +6,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_DIRS,
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
-    DEFAULT_EXCLUDED_MEDIA_DIRS,
+    DEFAULT_EXCLUDED_MULTI_DIRS,
 )
 from config.config_manager import config_manager as cm
 
@@ -21,15 +21,13 @@ def test_config(client):
         e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS
     )
     assert config.get("EXCLUDED_SINGLE_FILES") == sorted(DEFAULT_EXCLUDED_FILES)
-    assert config.get("EXCLUDED_MULTI_FILES") == sorted(
-        {*DEFAULT_EXCLUDED_DIRS, *DEFAULT_EXCLUDED_MEDIA_DIRS}
-    )
+    assert config.get("EXCLUDED_MULTI_FILES") == sorted(DEFAULT_EXCLUDED_MULTI_DIRS)
     assert config.get("EXCLUDED_MULTI_PARTS_EXT") == sorted(
         e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS
     )
     assert config.get("EXCLUDED_MULTI_PARTS_FILES") == sorted(DEFAULT_EXCLUDED_FILES)
-    assert config.get("DEFAULT_EXCLUDED_MEDIA_DIRS") == list(
-        DEFAULT_EXCLUDED_MEDIA_DIRS
+    assert config.get("DEFAULT_EXCLUDED_MULTI_DIRS") == list(
+        DEFAULT_EXCLUDED_MULTI_DIRS
     )
     assert config.get("PLATFORMS_BINDING") == {}
     assert not config.get("SKIP_HASH_CALCULATION")

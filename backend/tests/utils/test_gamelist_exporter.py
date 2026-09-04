@@ -1,9 +1,12 @@
+from dataclasses import dataclass
 from os.path import isabs
+from pathlib import Path
 from xml.etree.ElementTree import fromstring
 
 import pytest
 
 from config import FRONTEND_RESOURCES_PATH
+from config.config_manager import GAMELIST_MEDIA_DIRS
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import (
     fs_platform_handler,
@@ -404,6 +407,23 @@ def test_export_gamelist_xml_rejects_path_traversal(platform_with_roms):
         exporter.export_platform_to_xml(platform.id, request=None)
 
 
+@dataclass
+class IsolatedFilesystem:
+    resources_base: Path
+    library_base: Path
+
+    def write_resource(self, rel: str, content: bytes = b"X") -> Path:
+        src = self.resources_base / rel
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(content)
+        return src
+
+    def platform_dir(self, platform: Platform) -> Path:
+        return self.library_base / fs_platform_handler.get_platform_fs_structure(
+            platform.fs_slug
+        )
+
+
 @pytest.fixture
 def isolated_filesystem(tmp_path, monkeypatch):
     """Redirect resource and library base paths to a temp directory so that
@@ -413,7 +433,7 @@ def isolated_filesystem(tmp_path, monkeypatch):
     library_base = tmp_path / "library"
     monkeypatch.setattr(fs_resource_handler, "base_path", resources_base)
     monkeypatch.setattr(fs_platform_handler, "base_path", library_base)
-    return resources_base, library_base
+    return IsolatedFilesystem(resources_base, library_base)
 
 
 async def test_export_platform_to_file_copies_assets(
@@ -421,7 +441,6 @@ async def test_export_platform_to_file_copies_assets(
 ):
     """export_platform_to_file copies each media file into <platform>/<media dir>/
     and writes gamelist.xml referencing those relative paths."""
-    resources_base, library_base = isolated_filesystem
     platform, _ = platform_with_roms
 
     sources = {
@@ -431,16 +450,12 @@ async def test_export_platform_to_file_copies_assets(
         "snes/videos/super-mario-world.mp4": b"video-bytes",
     }
     for rel, content in sources.items():
-        src = resources_base / rel
-        src.parent.mkdir(parents=True, exist_ok=True)
-        src.write_bytes(content)
+        isolated_filesystem.write_resource(rel, content)
 
     exporter = GamelistExporter(local_export=True)
     assert await exporter.export_platform_to_file(platform.id, request=None) is True
 
-    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
-    )
+    platform_dir = isolated_filesystem.platform_dir(platform)
 
     expected_assets = {
         "covers/Super Mario World (USA).jpg": b"cover-bytes",
@@ -467,13 +482,16 @@ async def test_export_platform_to_file_copies_assets(
         elem = game.find(tag)
         assert elem is not None and elem.text == expected
 
+    written_dirs = [p.name for p in platform_dir.iterdir() if p.is_dir()]
+    assert written_dirs
+    assert fs_rom_handler.exclude_multi_roms(written_dirs) == []
+
 
 async def test_export_platform_to_file_keeps_miximage_variants_separate(
     platform_with_roms, isolated_filesystem
 ):
     """The two miximage variants share a file extension, so they must land in
     separate asset directories instead of overwriting each other."""
-    resources_base, library_base = isolated_filesystem
     platform, roms = platform_with_roms
 
     db_rom_handler.update_rom(
@@ -491,16 +509,12 @@ async def test_export_platform_to_file_keeps_miximage_variants_separate(
         "snes-ss/miximage_v2/test.png": b"mix-v2-bytes",
     }
     for rel, content in sources.items():
-        src = resources_base / rel
-        src.parent.mkdir(parents=True, exist_ok=True)
-        src.write_bytes(content)
+        isolated_filesystem.write_resource(rel, content)
 
     exporter = GamelistExporter(local_export=True)
     assert await exporter.export_platform_to_file(platform.id, request=None) is True
 
-    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
-    )
+    platform_dir = isolated_filesystem.platform_dir(platform)
 
     v1 = platform_dir / "miximages/Super Mario World (USA).png"
     v2 = platform_dir / "miximages_v2/Super Mario World (USA).png"
@@ -522,7 +536,6 @@ async def test_export_platform_to_file_omits_tags_when_copy_fails(
     """When a source resource is missing, _copy_asset returns False; the
     corresponding tag must be omitted from gamelist.xml and no asset file
     must be written for it. Other assets still export normally."""
-    resources_base, library_base = isolated_filesystem
     platform, _ = platform_with_roms
 
     # Provide cover and screenshot, deliberately omit manual + video sources.
@@ -530,16 +543,12 @@ async def test_export_platform_to_file_omits_tags_when_copy_fails(
         "snes/covers/super-mario-world.jpg",
         "snes/screenshots/super-mario-world-1.jpg",
     ):
-        src = resources_base / rel
-        src.parent.mkdir(parents=True, exist_ok=True)
-        src.write_bytes(b"X")
+        isolated_filesystem.write_resource(rel)
 
     exporter = GamelistExporter(local_export=True)
     assert await exporter.export_platform_to_file(platform.id, request=None) is True
 
-    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
-    )
+    platform_dir = isolated_filesystem.platform_dir(platform)
 
     # Successful copies present
     assert (platform_dir / "covers/Super Mario World (USA).jpg").is_file()
@@ -563,7 +572,6 @@ async def test_export_platform_to_file_uses_esde_media_dirs(
     platform_with_roms, isolated_filesystem
 ):
     """3D boxes and physical media land in ES-DE's folder names beside the ROMs."""
-    resources_base, library_base = isolated_filesystem
     platform, roms = platform_with_roms
 
     db_rom_handler.update_rom(
@@ -576,19 +584,14 @@ async def test_export_platform_to_file_uses_esde_media_dirs(
         },
     )
     for rel in ("snes-ss/box3d/test.png", "snes-ss/physical/test.png"):
-        src = resources_base / rel
-        src.parent.mkdir(parents=True, exist_ok=True)
-        src.write_bytes(b"X")
+        isolated_filesystem.write_resource(rel)
 
     exporter = GamelistExporter(local_export=True)
     assert await exporter.export_platform_to_file(platform.id, request=None) is True
 
-    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
-    )
+    platform_dir = isolated_filesystem.platform_dir(platform)
     assert (platform_dir / "3dboxes/Super Mario World (USA).png").is_file()
     assert (platform_dir / "physicalmedia/Super Mario World (USA).png").is_file()
-    assert not (platform_dir / "assets").exists()
 
     game = fromstring((platform_dir / "gamelist.xml").read_text()).findall("game")[0]
     box3d = game.find("box3d")
@@ -600,49 +603,20 @@ async def test_export_platform_to_file_uses_esde_media_dirs(
     )
 
 
-async def test_exported_media_dirs_are_excluded_from_scan(
-    platform_with_roms, isolated_filesystem
-):
-    """Media folders written beside the ROMs must not be scanned as multi-file ROMs."""
-    resources_base, library_base = isolated_filesystem
-    platform, _ = platform_with_roms
-
-    for rel in (
-        "snes/covers/super-mario-world.jpg",
-        "snes/screenshots/super-mario-world-1.jpg",
-        "snes/manuals/super-mario-world.pdf",
-        "snes/videos/super-mario-world.mp4",
-    ):
-        src = resources_base / rel
-        src.parent.mkdir(parents=True, exist_ok=True)
-        src.write_bytes(b"X")
-
-    exporter = GamelistExporter(local_export=True)
-    assert await exporter.export_platform_to_file(platform.id, request=None) is True
-
-    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
-    )
-    exported_dirs = [p.name for p in platform_dir.iterdir() if p.is_dir()]
-    assert exported_dirs
-    assert fs_rom_handler.exclude_multi_roms(exported_dirs) == []
-
-
 async def test_export_platform_to_file_reuses_existing_esde_media(
     platform_with_roms, isolated_filesystem
 ):
     """Media already scraped by ES-DE into <platform>/covers/ is left untouched."""
-    resources_base, library_base = isolated_filesystem
     platform, _ = platform_with_roms
 
-    src = resources_base / "snes/covers/super-mario-world.jpg"
-    src.parent.mkdir(parents=True, exist_ok=True)
-    src.write_bytes(b"romm-cover")
-
-    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
+    isolated_filesystem.write_resource(
+        "snes/covers/super-mario-world.jpg", b"romm-cover"
     )
-    existing = platform_dir / "covers/Super Mario World (USA).jpg"
+
+    existing = (
+        isolated_filesystem.platform_dir(platform)
+        / "covers/Super Mario World (USA).jpg"
+    )
     existing.parent.mkdir(parents=True)
     existing.write_bytes(b"esde-cover")
 
@@ -650,7 +624,7 @@ async def test_export_platform_to_file_reuses_existing_esde_media(
     assert await exporter.export_platform_to_file(platform.id, request=None) is True
 
     assert existing.read_bytes() == b"esde-cover"
-    assert [p.name for p in existing.parent.iterdir()] == [existing.name]
+    assert list(existing.parent.iterdir()) == [existing]
 
 
 def test_export_gamelist_xml_mix_falls_back_to_miximage_v2(platform_with_roms):
@@ -672,6 +646,7 @@ def test_export_gamelist_xml_mix_falls_back_to_miximage_v2(platform_with_roms):
     assert mix.text == "./miximages_v2/Super Mario World (USA).png"
 
 
-def test_retrobat_media_dirs_are_excluded_from_scan():
-    """RetroBat's scraper output must not be scanned as multi-file ROMs."""
-    assert fs_rom_handler.exclude_multi_roms(["images", "videos", "manuals"]) == []
+def test_gamelist_media_dirs_are_excluded_from_scan():
+    """Every folder the exporter writes must be skipped as a multi-file ROM, as must
+    the folders third-party scrapers fill in beside the ROMs."""
+    assert fs_rom_handler.exclude_multi_roms(list(GAMELIST_MEDIA_DIRS.values())) == []

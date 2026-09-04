@@ -14,7 +14,7 @@ class ConfigResponse(TypedDict):
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     DEFAULT_EXCLUDED_DIRS: list[str]
-    DEFAULT_EXCLUDED_MEDIA_DIRS: list[str]
+    DEFAULT_EXCLUDED_MULTI_DIRS: list[str]
     DEFAULT_EXCLUDED_FILES: list[str]
     DEFAULT_EXCLUDED_EXTENSIONS: list[str]
     PLATFORMS_BINDING: dict[str, str]

@@ -5,7 +5,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_DIRS,
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
-    DEFAULT_EXCLUDED_MEDIA_DIRS,
+    DEFAULT_EXCLUDED_MULTI_DIRS,
     ConfigManager,
 )
 
@@ -27,8 +27,7 @@ def test_config_loader():
     )
     assert loader.config.EXCLUDED_MULTI_FILES == sorted(
         {
-            *DEFAULT_EXCLUDED_DIRS,
-            *DEFAULT_EXCLUDED_MEDIA_DIRS,
+            *DEFAULT_EXCLUDED_MULTI_DIRS,
             "my_multi_file_game",
             "DLC",
         }
@@ -110,9 +109,7 @@ def test_empty_config_loader():
     )
     assert "ini" not in loader.config.EXCLUDED_SINGLE_EXT
     assert loader.config.EXCLUDED_SINGLE_FILES == sorted(DEFAULT_EXCLUDED_FILES)
-    assert loader.config.EXCLUDED_MULTI_FILES == sorted(
-        {*DEFAULT_EXCLUDED_DIRS, *DEFAULT_EXCLUDED_MEDIA_DIRS}
-    )
+    assert loader.config.EXCLUDED_MULTI_FILES == sorted(DEFAULT_EXCLUDED_MULTI_DIRS)
     assert loader.config.EXCLUDED_MULTI_PARTS_EXT == sorted(
         {e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS}
     )
