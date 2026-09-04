@@ -32,7 +32,7 @@ from handler.scan_handler import (
     scan_rom,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile, SaveTargetLayout
+from models.rom import Rom, RomFile, RomIdentity, SaveTargetLayout
 from utils.context import initialize_context
 
 
@@ -254,10 +254,12 @@ async def test_scan_rom_folds_extracted_title_id_values(
                 "md5_hash": "",
                 "sha1_hash": "",
                 "ra_hash": "",
-                "title_id": extracted_title_id,
-                "save_target": extracted_title_id,
-                "save_target_layout": (
-                    SaveTargetLayout.FOLDER_EXACT if extracted_title_id else None
+                "identity": RomIdentity(
+                    title_id=extracted_title_id,
+                    save_target=extracted_title_id,
+                    save_target_layout=(
+                        SaveTargetLayout.FOLDER_EXACT if extracted_title_id else None
+                    ),
                 ),
             },
             metadata_sources=[],

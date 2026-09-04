@@ -7,6 +7,7 @@
 // server-side, so it costs the same on any library size. The pick is
 // intentionally not cached so each mount re-shuffles.
 import { RBtn, RChip } from "@v2/lib";
+import { releaseYear } from "@v2/utils/time";
 import { computed, nextTick, onMounted, ref } from "vue";
 import type { ComponentPublicInstance } from "vue";
 import { useI18n } from "vue-i18n";
@@ -47,12 +48,9 @@ function rerollEl(): HTMLElement | null {
 
 const title = computed(() => pick.value?.name || pick.value?.fs_name || "");
 
-const releaseYear = computed(() => {
-  const ts = pick.value?.metadatum?.first_release_date;
-  if (!ts) return null;
-  const date = new Date(Number(ts));
-  return Number.isNaN(date.getTime()) ? null : date.getFullYear();
-});
+const pickReleaseYear = computed(() =>
+  releaseYear(pick.value?.metadatum?.first_release_date),
+);
 
 const region = computed(() => pick.value?.regions?.[0] ?? null);
 
@@ -141,8 +139,8 @@ onMounted(() => reroll({ notify: false }));
         </div>
         <!-- Year + region disambiguate the pick when a library holds
              several variations of the same title. -->
-        <div v-if="releaseYear || region" class="r-v2-widget-pick__meta">
-          <span v-if="releaseYear">{{ releaseYear }}</span>
+        <div v-if="pickReleaseYear || region" class="r-v2-widget-pick__meta">
+          <span v-if="pickReleaseYear">{{ pickReleaseYear }}</span>
           <RChip v-if="region" size="x-small" variant="translucent">
             {{ region }}
           </RChip>

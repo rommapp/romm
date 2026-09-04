@@ -4,7 +4,7 @@ update or DLC id, and mapping a content type to a file category."""
 import re
 from typing import Final
 
-from models.rom import RomFileCategory
+from models.rom import RomFileCategory, RomIdentity, SaveTargetLayout
 
 # Maps sigil's Switch CNMT content type to the RomFile category. Authoritative
 # over folder-derived categories when the binary parse succeeds.
@@ -38,3 +38,23 @@ def derive_base_title_id(title_id: str) -> str | None:
 def is_base_title_id(title_id: str) -> bool:
     """A base-game id is its own derived base."""
     return derive_base_title_id(title_id) == title_id
+
+
+def normalize_identity(is_switch: bool, identity: RomIdentity) -> RomIdentity:
+    """Force a Switch identity onto the base game's, leaving others untouched.
+
+    Every writer of `Rom.title_id` goes through here: reassociating a renamed
+    non-hashable ROM matches on that column, which only works while it holds
+    the base game's id. A non-derivable id is left as read rather than dropped.
+    """
+    title_id = identity.title_id
+    derived = derive_base_title_id(title_id) if is_switch and title_id else None
+    if derived is None or derived == title_id:
+        return identity
+
+    # Switch saves are keyed by the base title id itself.
+    return RomIdentity(
+        title_id=derived,
+        save_target=derived,
+        save_target_layout=SaveTargetLayout.FOLDER_EXACT,
+    )

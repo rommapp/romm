@@ -46,10 +46,8 @@ from handler.filesystem import fs_rom_handler
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_handler import (
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
     Rom,
@@ -57,6 +55,7 @@ from models.rom import (
     RomFileCategory,
 )
 from utils.archives import is_compressed_file
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
 
 
@@ -225,7 +224,6 @@ async def tinfoil_index_feed(
         titledb: dict[str, dict] = {}
         for rom in roms:
             tdb_match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
-            pid_match = SWITCH_PRODUCT_ID_REGEX.search(rom.fs_name)
             if tdb_match:
                 (
                     _search_term,
@@ -233,25 +231,23 @@ async def tinfoil_index_feed(
                 ) = await meta_igdb_handler._switch_titledb_format(
                     tdb_match, rom.fs_name
                 )
-                if index_entry:
-                    key = str(index_entry.get("nsuId", None))
-                    if key is not None:  # only store if we have an id
-                        titledb[key] = TinfoilFeedTitleDBSchema(
-                            **index_entry
-                        ).model_dump()
-            elif pid_match:
+            else:
                 (
                     _search_term,
                     index_entry,
                 ) = await meta_igdb_handler._switch_productid_format(
-                    pid_match, rom.fs_name
+                    rom, rom.fs_name, rom.fs_name
                 )
-                if index_entry:
-                    key = str(index_entry.get("nsuId", None))
-                    if key is not None:
-                        titledb[key] = TinfoilFeedTitleDBSchema(
-                            **index_entry
-                        ).model_dump()
+
+            if not index_entry:
+                continue
+
+            # Tinfoil keys the index by nsuId, so an entry without one has no home.
+            nsu_id = index_entry.get("nsuId")
+            if nsu_id is not None:
+                titledb[str(nsu_id)] = TinfoilFeedTitleDBSchema(
+                    **index_entry
+                ).model_dump()
 
         return titledb
 

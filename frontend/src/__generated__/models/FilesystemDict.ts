@@ -4,5 +4,6 @@
 /* eslint-disable */
 export type FilesystemDict = {
     FS_PLATFORMS: Array<string>;
+    TITLE_ID_EXTRACTION_ENABLED: boolean;
 };
 

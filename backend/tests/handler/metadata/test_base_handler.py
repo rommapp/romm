@@ -23,13 +23,14 @@ from handler.metadata.base_handler import (
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
-    UniversalPlatformSlug,
     _normalize_search_term,
     restore_sensitive_query_params,
     strip_sensitive_query_params,
 )
 from handler.redis_handler import async_cache
+from models.rom import Rom
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug
 
 
 class ExampleMetadataHandler(MetadataHandler):
@@ -303,8 +304,22 @@ class TestMetadataHandlerMethods:
             assert result == ("original", None)
 
     @pytest.mark.asyncio
-    async def test_switch_productid_format_found(self, handler: MetadataHandler):
-        """Test Switch Product ID format when found."""
+    @pytest.mark.parametrize(
+        "product_id",
+        [
+            # A base game is looked up as-is.
+            "0100ABCD12340000",
+            # An update carries bitmask 0x800.
+            "0100ABCD12340800",
+            # DLC carries an addon index in the low 12 bits.
+            "0100ABCD12341001",
+        ],
+    )
+    async def test_switch_productid_format_found(
+        self, handler: MetadataHandler, product_id: str
+    ):
+        """Only the base application has a titledb entry, so updates and DLC
+        are resolved to it before the lookup."""
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch.object(
@@ -313,16 +328,56 @@ class TestMetadataHandlerMethods:
             mock_exists.return_value = True
             mock_hget.return_value = json.dumps({"name": "Product Game"})
 
-            match = re.match(SWITCH_PRODUCT_ID_REGEX, "0100ABC123456789")
-            assert match is not None
-            result = await handler._switch_productid_format(match, "original")
+            rom = Rom(fs_name="Game.nsp", title_id=product_id)
+            result = await handler._switch_productid_format(rom, "Game.nsp", "original")
 
-            # Check that bitmask 0x800 was cleared (ABC -> AB0)
             mock_hget.assert_called_once_with(
                 "romm:switch_product_id",  # SWITCH_PRODUCT_ID_KEY
-                "0100ABC123456089",
+                "0100ABCD12340000",
             )
             assert result[0] == "Product Game"
+
+    @pytest.mark.parametrize(
+        ("title_id", "fs_name", "expected"),
+        [
+            # The extracted id wins over whatever the filename says.
+            ("0100ABCD12340000", "Game [0100999988880000].nsp", "0100ABCD12340000"),
+            # sigil reports lowercase; the titledb index is keyed uppercase.
+            ("0100abcd12340000", "Game.nsp", "0100ABCD12340000"),
+            # With nothing extracted, the filename is still scraped.
+            (None, "Game [0100ABCD12340000].nsp", "0100ABCD12340000"),
+            # A non-Switch id is not a product id.
+            ("SLUS-20152", "Game.nsp", None),
+            (None, "Game.nsp", None),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_switch_productid_format_prefers_the_extracted_id(
+        self,
+        handler: MetadataHandler,
+        title_id: str | None,
+        fs_name: str,
+        expected: str | None,
+    ):
+        rom = Rom(fs_name=fs_name, title_id=title_id)
+
+        with patch.object(
+            async_cache, "exists", new_callable=AsyncMock
+        ) as mock_exists, patch.object(
+            async_cache, "hget", new_callable=AsyncMock
+        ) as mock_hget:
+            mock_exists.return_value = True
+            mock_hget.return_value = None
+
+            await handler._switch_productid_format(rom, fs_name, "original")
+
+            if expected is None:
+                mock_hget.assert_not_called()
+            else:
+                mock_hget.assert_called_once_with(
+                    "romm:switch_product_id",  # SWITCH_PRODUCT_ID_KEY
+                    expected,
+                )
 
     @pytest.mark.asyncio
     async def test_mame_format_found(self, handler: MetadataHandler):

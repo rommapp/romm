@@ -1,20 +1,25 @@
 from __future__ import annotations
 
+import contextlib
 import dataclasses
+import fcntl
 import functools
 import hashlib
 import os
+import stat
 import tempfile
 import time
 import zipfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import anyio
 
 from config import LIBRARY_BASE_PATH, ZIP_CACHE_PATH
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.filesystem import SERVED_FILE_MODE
 
 if TYPE_CHECKING:
     from models.rom import RomFile
@@ -78,10 +83,41 @@ def _cache_file(namespace: str, cache_key: str) -> Path:
     return _cache_dir(namespace) / f"{cache_key}.zip"
 
 
-def get_cached_zip(namespace: str, cache_key: str) -> Path | None:
-    """Return the cached ZIP path if it exists on disk, else None."""
+class CachedZip(NamedTuple):
+    path: Path
+    stat: os.stat_result
+
+
+def get_cached_zip(namespace: str, cache_key: str) -> CachedZip | None:
+    """Return the cached ZIP and the stat that found it, or None if it is missing."""
     path = _cache_file(namespace, cache_key)
-    return path if path.exists() else None
+    try:
+        file_stat = os.stat(path)
+    except OSError:
+        return None
+    _ensure_nginx_readable(path, stat.S_IMODE(file_stat.st_mode))
+    return CachedZip(path, file_stat)
+
+
+def _ensure_nginx_readable(path: Path, mode: int) -> None:
+    """Widen a legacy owner-only archive so nginx can read it."""
+    if mode & SERVED_FILE_MODE == SERVED_FILE_MODE:
+        return
+    try:
+        path.chmod(mode | SERVED_FILE_MODE)
+    except OSError as e:
+        log.warning(f"Cached ZIP {hl(path.name)} may be unreadable by nginx: {e}")
+
+
+@contextlib.contextmanager
+def _namespace_build_lock(namespace_dir: Path) -> Generator[None]:
+    """Serialize builds within a namespace across threads and worker processes."""
+    fd = os.open(namespace_dir, os.O_RDONLY)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
 
 
 def ensure_zipfile_writable() -> None:
@@ -123,18 +159,31 @@ def build_cached_zip(
 ) -> Path:
     """Build a ZIP_STORED archive on disk and return its path.
 
-    Writes to a temp file in the same directory, then atomically renames to
-    the final path to prevent serving partial files.
+    Written to a temp file in the same directory and renamed, so a partial
+    file is never served.
     """
     target = _cache_file(namespace, cache_key)
-    if target.exists():
-        return target
-
     target.parent.mkdir(parents=True, exist_ok=True)
 
+    with _namespace_build_lock(target.parent):
+        if cached := get_cached_zip(namespace, cache_key):
+            return cached.path
+        _write_cached_zip(target, entries, m3u_content, m3u_filename)
+
+    log.info(f"Built cached ZIP in {hl(namespace)}: {hl(target.name)}")
+    return target
+
+
+def _write_cached_zip(
+    target: Path,
+    entries: list[ZipFileEntry],
+    m3u_content: bytes | None,
+    m3u_filename: str | None,
+) -> None:
     fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
+    os.close(fd)
     try:
-        os.close(fd)
+        os.chmod(tmp_path, SERVED_FILE_MODE)
         ensure_zipfile_writable()
         with zipfile.ZipFile(tmp_path, "w") as zf:
             for entry in entries:
@@ -149,9 +198,6 @@ def build_cached_zip(
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
         raise
-
-    log.info(f"Built cached ZIP in {hl(namespace)}: {hl(target.name)}")
-    return target
 
 
 def get_zip_redirect_path(namespace: str, cache_key: str) -> Path:
@@ -225,9 +271,9 @@ def cleanup_stale_zips() -> int:
         if not ns_dir.is_dir():
             continue
         for zip_file in ns_dir.glob("*.zip"):
-            stat = zip_file.stat()
-            cutoff = now - (get_ttl_hours(stat.st_size) * SECONDS_PER_HOUR)
-            if stat.st_mtime < cutoff:
+            file_stat = zip_file.stat()
+            cutoff = now - (get_ttl_hours(file_stat.st_size) * SECONDS_PER_HOUR)
+            if file_stat.st_mtime < cutoff:
                 zip_file.unlink()
                 deleted += 1
         if ns_dir.exists() and not any(ns_dir.iterdir()):

@@ -3,13 +3,13 @@ import re
 import tempfile
 from pathlib import Path
 
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.ra_handler import RAGamesPlatform
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.archives import extract_largest_archive_member
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.psp_hasher import calculate_psp_ra_hash, is_psp_native_hash_file
 from utils.rvz_hasher import (
     calculate_gamecube_ra_hash,

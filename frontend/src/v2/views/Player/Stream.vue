@@ -30,6 +30,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
@@ -156,6 +157,10 @@ const sessionActive = computed(
   () => playerState.value === "playing" || playerState.value === "loading",
 );
 watch(sessionActive, (active) => playingStore.setPlaying(active));
+
+// A reload tears the stream down without the save-and-exit handshake, so a
+// claimed session is worth a confirmation prompt too.
+useUnloadGuard(sessionActive);
 
 // Sync volume slider (0-1) and mute button to the broker in real time.
 // Debounced via watch — only fires after the value settles for 150ms.

@@ -9,9 +9,9 @@ from adapters.services.libretro_thumbnails_types import LibretroArtType
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from logger.logger import log
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
 
 _PAREN_TAG_PATTERN = re.compile(r"\([^)]*\)")
 

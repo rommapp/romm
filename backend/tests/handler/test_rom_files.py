@@ -1,14 +1,22 @@
 import hashlib
 import os
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.filesystem.roms_handler import ParsedRomFiles
 from handler.rom_files import refresh_rom_files
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import (
+    Rom,
+    RomFile,
+    RomFileCategory,
+    RomIdentity,
+    SaveTargetLayout,
+)
 from models.user import User
 
 FOLDER = "Multi"
@@ -227,3 +235,55 @@ async def test_disabled_title_id_extraction_is_passed_through(
     await refresh_rom_files(rom)
 
     assert get_rom_files.call_args.kwargs["extract_title_ids"] is False
+
+
+def _unchanged_parse(rom: Rom, identity: RomIdentity) -> ParsedRomFiles:
+    """A listing that found every file untouched, carrying the given identity."""
+    return ParsedRomFiles(
+        rom_files=list(rom.files),
+        crc_hash=rom.crc_hash or "",
+        md5_hash=rom.md5_hash or "",
+        sha1_hash=rom.sha1_hash or "",
+        ra_hash="",
+        top_level_changed=False,
+        identity=identity,
+    )
+
+
+async def test_a_newly_read_identity_is_persisted(platform, admin_user, library):
+    """The refresh pays for the parse, so the id it reads has to land somewhere."""
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+    identity = RomIdentity(
+        title_id="0100ABCD12340000",
+        save_target="0100ABCD12340000",
+        save_target_layout=SaveTargetLayout.FOLDER_EXACT,
+    )
+
+    with patch.object(
+        fs_rom_handler,
+        "get_rom_files",
+        AsyncMock(return_value=_unchanged_parse(rom, identity)),
+    ):
+        await refresh_rom_files(rom)
+
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed.title_id == "0100ABCD12340000"
+    assert refreshed.save_target == "0100ABCD12340000"
+    assert refreshed.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+
+
+async def test_a_stored_identity_survives_a_parse_that_read_none(
+    platform, admin_user, library
+):
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+    db_rom_handler.update_rom(rom.id, {"title_id": "ULUS-10041"})
+    rom = db_rom_handler.get_rom(rom.id)
+
+    with patch.object(
+        fs_rom_handler,
+        "get_rom_files",
+        AsyncMock(return_value=_unchanged_parse(rom, RomIdentity())),
+    ):
+        await refresh_rom_files(rom)
+
+    assert db_rom_handler.get_rom(rom.id).title_id == "ULUS-10041"

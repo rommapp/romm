@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -18,6 +19,7 @@ from endpoints.sockets.scan import (
     ScanStats,
     _identify_rom,
     _scan_selected_roms,
+    _should_extract_title_ids,
     _should_hash_incrementally,
     _should_reparse_tags,
     reject_unauthorized_scan,
@@ -36,13 +38,13 @@ from handler.filesystem.roms_handler import (
     ParsedRomFiles,
     ParsedTags,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.rom_files import RomFilesRefresh
 from handler.scan_handler import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 class TestScanStatsPublishing:
@@ -571,6 +573,47 @@ class TestShouldReparseTags:
         assert _should_reparse_tags(ScanType.QUICK, rom, [rom.id + 99]) is False
 
 
+class TestShouldExtractTitleIds:
+    """Which rescans pay for another native parse of a rom's binaries."""
+
+    @staticmethod
+    def _rom(platform_slug: str, title_id: str | None) -> Rom:
+        # Built untyped and cast, since `platform_slug` is a read-only property.
+        rom = Mock(spec=Rom)
+        rom.title_id = title_id
+        rom.platform_slug = platform_slug
+        return cast(Rom, rom)
+
+    def test_a_stored_id_is_not_re_read(self):
+        rom = self._rom("psp", "ULUS-10041")
+
+        assert _should_extract_title_ids(ScanType.UPDATE, rom) is False
+        assert _should_extract_title_ids(ScanType.UNMATCHED, rom) is False
+
+    def test_a_rom_without_an_id_is_read(self):
+        assert (
+            _should_extract_title_ids(ScanType.UPDATE, self._rom("psp", None)) is True
+        )
+
+    @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
+    def test_a_rescan_that_re_reads_the_bytes_re_reads_the_id(
+        self, scan_type: ScanType
+    ):
+        """Replacing a file in place would otherwise leave the old id beside the
+        hashes of the new bytes."""
+        rom = self._rom("psp", "ULUS-10041")
+
+        assert _should_extract_title_ids(scan_type, rom) is True
+
+    @pytest.mark.parametrize("platform_slug", ["switch", "switch-2"])
+    def test_switch_always_re_reads(self, platform_slug: str):
+        """The same parse settles the per-file categories, which a rebuild would
+        otherwise take from the folder names instead."""
+        rom = self._rom(platform_slug, "0100ABCD12340000")
+
+        assert _should_extract_title_ids(ScanType.UPDATE, rom) is True
+
+
 class TestIdentifyRomTagReparse:
     """A complete rescan re-reads filename tags onto an existing entry.
 
@@ -792,6 +835,7 @@ def patch_identify_rom(
     name_with_no_tags: str,
     platform_slug: str,
     embed_switch_title_ids: bool = False,
+    renamed_rom_fs_name: str | None = None,
 ) -> tuple[Mock, Platform]:
     """Stub out everything `_identify_rom` reaches so only the wiring under test
     is exercised, returning the patched db handler and the platform to scan."""
@@ -810,6 +854,11 @@ def patch_identify_rom(
         fs, "get_file_name_with_no_tags", return_value=name_with_no_tags
     )
     mocker.patch.object(fs, "get_rom_files", AsyncMock(return_value=parsed))
+    mocker.patch.object(
+        fs,
+        "embed_switch_title_ids",
+        AsyncMock(return_value=renamed_rom_fs_name),
+    )
 
     config = MagicMock()
     config.SKIP_HASH_CALCULATION = False
@@ -926,7 +975,7 @@ class TestIdentifyRomReassociation:
                     md5_hash="",
                     sha1_hash="",
                     ra_hash="",
-                    title_id="0100ABCD12340000",
+                    identity=RomIdentity(title_id="0100ABCD12340000"),
                 )
             ),
         )
@@ -997,13 +1046,13 @@ class TestIdentifyRomTitleIdEmbedRename:
                 md5_hash="md5",
                 sha1_hash="sha1",
                 ra_hash="",
-                title_id="0100ABCD12340000",
-                renamed_rom_fs_name=self.NEW_NAME,
+                identity=RomIdentity(title_id="0100ABCD12340000"),
             ),
             roms_fs_structure="switch/roms",
             name_with_no_tags="Game",
             platform_slug="switch",
             embed_switch_title_ids=True,
+            renamed_rom_fs_name=self.NEW_NAME,
         )
         db.get_matching_missing_rom.return_value = None
         return db, platform
@@ -1043,7 +1092,7 @@ class TestIdentifyRomPersistsFileCategory:
                 md5_hash="md5",
                 sha1_hash="sha1",
                 ra_hash="",
-                title_id=self.UPDATE_TITLE_ID,
+                identity=RomIdentity(title_id=self.UPDATE_TITLE_ID),
             ),
             roms_fs_structure="switch/roms",
             name_with_no_tags="Game",

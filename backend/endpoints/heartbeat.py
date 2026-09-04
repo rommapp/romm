@@ -1,8 +1,12 @@
+import asyncio
 import os
+from collections import defaultdict
+from typing import Final
 
 from anyio import Path as AnyioPath
 from fastapi import HTTPException, Request, status
 
+from adapters.services.sigil import SigilService
 from config import (
     DISABLE_EMULATOR_JS,
     DISABLE_JSDOS,
@@ -52,11 +56,25 @@ from handler.metadata import (
     meta_steam_handler,
     meta_tgdb_handler,
 )
+from handler.redis_handler import sync_cache
 from handler.scan_handler import MetadataSource
 from logger.logger import log
 from utils import get_version
 from utils.platforms import get_supported_platforms
+from utils.rate_limit import enforce_rate_limit, get_client_ip
 from utils.router import APIRouter
+
+# The endpoint is unauthenticated, and every probe passes through the provider's
+# process-global outbound limiter, where it competes with scans.
+METADATA_HEARTBEAT_RATE_LIMIT: Final[int] = 20
+METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS: Final[int] = 60
+
+# Holds outbound probes to one per source per window whatever the inbound rate, which
+# the per-IP cap cannot do against a spoofed forwarded header or a distributed flood.
+METADATA_HEARTBEAT_CACHE_TTL_SECONDS: Final[int] = 60
+
+# The key set is the MetadataSource enum, so this cannot grow past a lock per source.
+_probe_locks: defaultdict[MetadataSource, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 router = APIRouter(
     tags=["system"],
@@ -70,6 +88,10 @@ async def heartbeat() -> HeartbeatResponse:
     Returns:
         HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
     """
+    title_id_extraction_enabled = (
+        SigilService.is_enabled() and not cm.get_config().SKIP_TITLE_ID_EXTRACTION
+    )
+
     igdb_enabled = meta_igdb_handler.is_enabled()
     flashpoint_enabled = meta_flashpoint_handler.is_enabled()
     ss_enabled = meta_ss_handler.is_enabled()
@@ -130,6 +152,7 @@ async def heartbeat() -> HeartbeatResponse:
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
+            "TITLE_ID_EXTRACTION_ENABLED": title_id_extraction_enabled,
         },
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
@@ -161,13 +184,38 @@ async def heartbeat() -> HeartbeatResponse:
 
 
 @router.get("/heartbeat/metadata/{source}")
-async def metadata_heartbeat(source: str) -> bool:
+async def metadata_heartbeat(request: Request, source: str) -> bool:
     """Endpoint to return the heartbeat of the metadata sources"""
     try:
         metadata_source = MetadataSource(source)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid metadata source") from e
 
+    # Keyed on the parsed source, so arbitrary path values can't grow the keyspace.
+    enforce_rate_limit(
+        f"metadata-heartbeat-rate:{get_client_ip(request)}:{metadata_source.value}",
+        max_requests=METADATA_HEARTBEAT_RATE_LIMIT,
+        window_seconds=METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS,
+        detail="Too many metadata heartbeat requests. Try again later.",
+    )
+
+    cache_key = f"metadata-heartbeat:{metadata_source.value}"
+
+    # Callers that arrive while a probe is in flight queue here and read its result,
+    # rather than each starting a probe of their own into an empty cache.
+    async with _probe_locks[metadata_source]:
+        cached = sync_cache.get(cache_key)
+        if cached is not None:
+            return bool(int(cached))
+
+        is_alive = await _probe_metadata_source(metadata_source)
+        sync_cache.set(
+            cache_key, int(is_alive), ex=METADATA_HEARTBEAT_CACHE_TTL_SECONDS
+        )
+        return is_alive
+
+
+async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
     match metadata_source:
         case MetadataSource.IGDB:
             return await meta_igdb_handler.heartbeat()

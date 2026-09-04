@@ -8,6 +8,7 @@ import pytest
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.moby_handler import PS1_MOBY_ID, MobyGamesHandler
 from handler.redis_handler import async_cache
+from models.rom import Rom
 
 
 class TestSonySerialFilenames:
@@ -36,7 +37,9 @@ class TestSonySerialFilenames:
             ),
         ):
             mock_hget.return_value = json.dumps({"title": "Gran Turismo"})
-            result = await handler.get_rom("SCUS-94163.bin", PS1_MOBY_ID)
+            result = await handler.get_rom(
+                Rom(fs_name="SCUS-94163.bin"), "SCUS-94163.bin", PS1_MOBY_ID
+            )
 
         mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
         assert result.get("name") == "Gran Turismo"
