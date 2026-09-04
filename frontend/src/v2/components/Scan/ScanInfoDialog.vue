@@ -69,13 +69,8 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
   {
     id: "quick",
     title: t("scan.quick-scan"),
-    desc: "Scans for games that are not in the library yet (fastest).",
-  },
-  {
-    id: "files",
-    title: t("scan.refresh-files"),
     desc:
-      "Scans for games that are not in the library yet and picks up files added to the folders of games already in it, at any depth.\n\n" +
+      "Scans for games that are not in the library yet, and picks up files added to the folders of games already in it, at any depth.\n\n" +
       "Files already known keep their hashes, so only new or changed files are read. Files removed from disk are dropped, and no metadata provider is contacted for existing games.",
   },
   {

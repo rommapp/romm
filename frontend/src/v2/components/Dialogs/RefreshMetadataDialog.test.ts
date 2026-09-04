@@ -115,14 +115,14 @@ describe("RefreshMetadataDialog", () => {
     sources.value = [];
   });
 
-  it("offers the files scan and starts it without any provider", async () => {
+  it("offers the files refresh and starts it without any provider", async () => {
     const wrapper = await openDialog();
     const options = scanTypeSelect(wrapper)
       .findAll("option")
       .map((o) => o.attributes("value"));
-    expect(options).toContain("files");
+    expect(options).toContain("quick");
 
-    await scanTypeSelect(wrapper).setValue("files");
+    await scanTypeSelect(wrapper).setValue("quick");
     expect(scanButton(wrapper).attributes("disabled")).toBeUndefined();
     await scanButton(wrapper).trigger("click");
 
@@ -130,7 +130,7 @@ describe("RefreshMetadataDialog", () => {
       {
         platforms: [2],
         roms_ids: [5],
-        type: "files",
+        type: "quick",
         apis: [],
         launchbox_remote_enabled: false,
         playmatch_enabled: false,
@@ -155,7 +155,7 @@ describe("RefreshMetadataDialog", () => {
     startScan.mockReturnValue(false);
     const wrapper = await openDialog();
 
-    await scanTypeSelect(wrapper).setValue("files");
+    await scanTypeSelect(wrapper).setValue("quick");
     await scanButton(wrapper).trigger("click");
 
     expect(persistSelection).not.toHaveBeenCalled();

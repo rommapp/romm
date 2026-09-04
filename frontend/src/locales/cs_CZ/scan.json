@@ -43,7 +43,6 @@
   "quick-scan": "Rychlý sken",
   "quick-scan-desc": "Skenovat pouze nové hry",
   "refresh-files": "Obnovit soubory",
-  "refresh-files-desc": "Skenovat nové hry a načíst soubory přidané do složek stávajících her bez přepočítání hashů známých souborů",
   "requires-hashes": "{source} vyžaduje povolené počítání hashů",
   "roms-scanned-n": "ROMy: {n} naskenovány",
   "roms-scanned-with-details": "ROMy: {n_scanned_roms} naskenováno z {n_total_roms}, {n_new_roms} nových a {n_identified_roms} identifikovaných",

@@ -27,7 +27,7 @@ def watcher_full_rescan_job() -> MagicMock:
 
 
 def watcher_platform_job(platform_id: int) -> MagicMock:
-    return make_job(platform_ids=[platform_id], scan_type=ScanType.FILES)
+    return make_job(platform_ids=[platform_id], scan_type=ScanType.QUICK)
 
 
 def scheduled_rescan_job() -> MagicMock:
@@ -160,7 +160,7 @@ class TestProcessChanges:
     def platform_dir_change(self, fs_slug: str = "gba"):
         return (EventType.ADDED, f"{LIBRARY_BASE_PATH}/roms/{fs_slug}")
 
-    def test_schedules_a_files_scan_for_the_changed_platform(
+    def test_schedules_a_quick_scan_for_the_changed_platform(
         self, mocker, platform, enqueue_in
     ):
         patch_pending_jobs(mocker)
@@ -170,8 +170,8 @@ class TestProcessChanges:
         enqueue_in.assert_called_once()
         kwargs = enqueue_in.call_args.kwargs
         assert kwargs["platform_ids"] == [platform.id]
-        assert kwargs["scan_type"] == ScanType.FILES
-        assert kwargs["meta"]["task_name"] == "Files Scan"
+        assert kwargs["scan_type"] == ScanType.QUICK
+        assert kwargs["meta"]["task_name"] == "Quick Scan"
 
     def test_a_platform_directory_change_schedules_a_full_rescan(
         self, mocker, platform, enqueue_in

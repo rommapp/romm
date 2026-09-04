@@ -266,14 +266,14 @@ describe("useGameActions — write/destructive gates", () => {
 });
 
 describe("useGameActions.refreshFiles", () => {
-  it("starts a files scan scoped to the rom without any provider", () => {
+  it("refreshes the rom files without any provider", () => {
     const rom = { ...makeRom(null), platform_id: 7 } as SimpleRom;
     const actions = useGameActions(() => rom);
 
     actions.refreshFiles();
 
     expect(startScan).toHaveBeenCalledWith([
-      { platforms: [7], roms_ids: [1], type: "files", apis: [] },
+      { platforms: [7], roms_ids: [1], type: "quick", apis: [] },
     ]);
     expect(snackbarInfo).toHaveBeenCalledWith(
       "rom.refreshing-files",

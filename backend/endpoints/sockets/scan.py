@@ -296,14 +296,14 @@ def should_scan_rom(
 
     # This logic is tricky so only touch it if you know what you're doing"""
     should_scan = bool(
-        # Any new roms should be scanned
-        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
+        # New platforms only looks for roms it has never seen
+        (scan_type == ScanType.NEW_PLATFORMS and not rom)
+        # Quick adds new roms and reconciles the files of the ones it knows
+        or (scan_type == ScanType.QUICK)
         # Complete rescan should scan all roms
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
-        # Files rescan reconciles every existing rom's files with disk
-        or (scan_type == ScanType.FILES)
         or (
             rom
             and (
@@ -392,7 +392,7 @@ def _should_hash_incrementally(
     """
 
     return bool(
-        scan_type == ScanType.FILES
+        scan_type == ScanType.QUICK
         or (
             scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
             and rom
@@ -549,9 +549,9 @@ async def _identify_rom(
                 )
                 return
 
-    # A files scan only reconciles an existing entry's files with disk; the
+    # A quick scan only reconciles an existing entry's files with disk; the
     # metadata pipeline below is for new entries and the other scan types.
-    if not newly_added and not reassociated and scan_type == ScanType.FILES:
+    if not newly_added and not reassociated and scan_type == ScanType.QUICK:
         # `refresh_rom_files` clears the flag, so read it before the call.
         was_missing = bool(rom.missing_from_fs)
         refreshed = await refresh_rom_files(rom)
@@ -914,7 +914,7 @@ async def _identify_platform(
         roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-            with_files=scan_type == ScanType.FILES,
+            with_files=scan_type == ScanType.QUICK,
         )
 
         # Separate skipped ROMs from those that need scanning

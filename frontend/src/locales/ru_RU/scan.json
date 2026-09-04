@@ -43,7 +43,6 @@
   "quick-scan": "Быстрое сканирование",
   "quick-scan-desc": "Сканировать только новые игры",
   "refresh-files": "Обновить файлы",
-  "refresh-files-desc": "Сканировать новые игры и обнаружить файлы, добавленные в папки существующих игр, без пересчёта хешей известных файлов",
   "requires-hashes": "{source} требует хеши файлов",
   "roms-scanned-n": "Ромы: {n} отсканировано",
   "roms-scanned-with-details": "Ромы: {n_scanned_roms} из {n_total_roms} отсканировано, {n_new_roms} новых и {n_identified_roms} опознано",

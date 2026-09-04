@@ -404,7 +404,7 @@ export function useGameActions(
     emitter?.emit("showRefreshMetadataDialog", rom);
   }
 
-  // A files scan contacts no provider, so it needs no dialog: it goes
+  // Reconciling one rom's files contacts no provider, so it needs no dialog: it goes
   // straight to the socket with an empty source list.
   function refreshFiles() {
     const rom = getRom();
@@ -413,7 +413,7 @@ export function useGameActions(
       {
         platforms: [rom.platform_id],
         roms_ids: [rom.id],
-        type: "files",
+        type: "quick",
         apis: [],
       },
     ]);

@@ -250,7 +250,7 @@ def process_changes(changes: Sequence[Change]) -> None:
                 continue
 
             log.info(f"Change detected in {hl(fs_slug)} folder, {rescan_in_msg}")
-            schedule_rescan([db_platform.id], ScanType.FILES)
+            schedule_rescan([db_platform.id], ScanType.QUICK)
 
 
 if __name__ == "__main__":

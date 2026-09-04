@@ -43,7 +43,6 @@
   "quick-scan": "빠른 스캔",
   "quick-scan-desc": "새 게임만 검색",
   "refresh-files": "파일 새로 고침",
-  "refresh-files-desc": "새 게임을 스캔하고 기존 게임 폴더에 추가된 파일을 가져옵니다. 알려진 파일의 해시는 다시 계산하지 않습니다",
   "requires-hashes": "{source}는 파일 해시가 필요합니다",
   "roms-scanned-n": "롬: {n}개 스캔됨",
   "roms-scanned-with-details": "롬: {n_scanned_roms}/{n_total_roms}개 스캔됨, 새로운 롬: {n_new_roms}개, 확인된 롬: {n_identified_roms}개",

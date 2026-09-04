@@ -73,11 +73,6 @@ const scanOptions = computed<
     value: "quick",
   },
   {
-    title: t("scan.refresh-files"),
-    subtitle: t("scan.refresh-files-desc"),
-    value: "files",
-  },
-  {
     title: t("scan.unmatched-games"),
     subtitle: t("scan.unmatched-games-desc"),
     value: "unmatched",
@@ -409,7 +404,7 @@ function onScan() {
         color="primary"
         prepend-icon="mdi-magnify-scan"
         :disabled="
-          effectiveMetadataSources.length === 0 && scanType !== 'files'
+          effectiveMetadataSources.length === 0 && scanType !== 'quick'
         "
         @click="onScan"
       >

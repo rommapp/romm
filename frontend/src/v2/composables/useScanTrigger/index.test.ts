@@ -31,8 +31,8 @@ describe("useScanTrigger", () => {
     const { startScan } = useScanTrigger();
 
     const started = startScan([
-      { platforms: [1], roms_ids: [5], type: "files", apis: [] },
-      { platforms: [2], roms_ids: [6], type: "files", apis: [] },
+      { platforms: [1], roms_ids: [5], type: "quick", apis: [] },
+      { platforms: [2], roms_ids: [6], type: "quick", apis: [] },
     ]);
 
     expect(started).toBe(true);
@@ -42,7 +42,7 @@ describe("useScanTrigger", () => {
     expect(emit).toHaveBeenCalledWith("scan", {
       platforms: [1],
       roms_ids: [5],
-      type: "files",
+      type: "quick",
       apis: [],
     });
   });
@@ -51,7 +51,7 @@ describe("useScanTrigger", () => {
     storeScanning().setScanning(true);
     const { startScan } = useScanTrigger();
 
-    const started = startScan([{ type: "files", roms_ids: [5], apis: [] }]);
+    const started = startScan([{ type: "quick", roms_ids: [5], apis: [] }]);
 
     expect(started).toBe(false);
     expect(emit).not.toHaveBeenCalled();

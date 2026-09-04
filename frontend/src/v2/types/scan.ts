@@ -1,16 +1,10 @@
 // Mirrors `ScanType` in backend/handler/scan_handler.py: scans start over
 // Socket.IO, so the enum never reaches the OpenAPI schema.
 export type ScanType =
-  | "new_platforms"
-  | "quick"
-  | "files"
-  | "unmatched"
-  | "update"
-  | "hashes"
-  | "complete";
+  "new_platforms" | "quick" | "unmatched" | "update" | "hashes" | "complete";
 
-/** One `scan` socket event. The provider flags are optional because a files
- *  scan sends none of them. */
+/** One `scan` socket event. The provider flags are optional because a
+ *  per-rom file refresh sends none of them. */
 export interface ScanRequest {
   type: ScanType;
   platforms?: number[];

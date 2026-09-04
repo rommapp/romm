@@ -313,9 +313,9 @@ class TestShouldScanRom:
         assert result is True
 
     def test_quick_scan_with_existing_rom(self, rom: Rom):
-        """QUICK should not scan when rom exists"""
+        """QUICK should scan an existing rom, to reconcile its files"""
         result = should_scan_rom(ScanType.QUICK, rom, [], ["igdb"])
-        assert result is False
+        assert result is True
 
     # Test COMPLETE scan type
     def test_complete_scan_always_scans(self, rom: Rom):
@@ -443,8 +443,8 @@ class TestShouldScanRom:
             (ScanType.NEW_PLATFORMS, False, None, False, False),
             (ScanType.NEW_PLATFORMS, True, True, False, False),
             (ScanType.NEW_PLATFORMS, True, True, True, True),
-            (ScanType.QUICK, False, None, False, False),
-            (ScanType.QUICK, True, True, False, False),
+            (ScanType.QUICK, False, None, False, True),
+            (ScanType.QUICK, True, True, False, True),
             (ScanType.COMPLETE, False, None, False, True),
             (ScanType.COMPLETE, True, False, False, True),
             (ScanType.HASHES, False, None, False, True),
@@ -1103,9 +1103,9 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
 
 
 class TestIdentifyPlatformEmitsRestoredRoms:
-    """A quick platform scan tells the client about ROMs that came back.
+    """A platform scan tells the client about ROMs that came back.
 
-    Existing entries are skipped by `should_scan_rom`, so nothing else in the
+    An update scan skips the entries it does not match, so nothing else in the
     loop emits for them and an open gallery would keep showing a stale
     "missing" badge until a refetch.
     """
@@ -1173,7 +1173,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
     async def _run(self, socket_manager):
         await scan_module._identify_platform(
             platform_slug="test",
-            scan_type=ScanType.QUICK,
+            scan_type=ScanType.UPDATE,
             fs_platforms=["test"],
             roms_ids=[],
             metadata_sources=[],
@@ -2243,20 +2243,20 @@ def test_scan_stats_reports_file_counters():
     assert stats.to_dict()["new_files"] == 5
 
 
-class TestShouldScanRomFiles:
-    def test_files_scan_covers_new_and_existing_roms(self, rom: Rom):
-        assert should_scan_rom(ScanType.FILES, None, [], []) is True
-        assert should_scan_rom(ScanType.FILES, rom, [], []) is True
+class TestQuickScanCoversRomFiles:
+    def test_quick_scan_covers_new_and_existing_roms(self, rom: Rom):
+        assert should_scan_rom(ScanType.QUICK, None, [], []) is True
+        assert should_scan_rom(ScanType.QUICK, rom, [], []) is True
 
-    def test_scoped_files_scan_respects_roms_ids(self, rom: Rom):
-        assert should_scan_rom(ScanType.FILES, None, [rom.id], []) is False
-        assert should_scan_rom(ScanType.FILES, rom, [rom.id + 99], []) is False
-        assert should_scan_rom(ScanType.FILES, rom, [rom.id], []) is True
+    def test_scoped_quick_scan_respects_roms_ids(self, rom: Rom):
+        assert should_scan_rom(ScanType.QUICK, None, [rom.id], []) is False
+        assert should_scan_rom(ScanType.QUICK, rom, [rom.id + 99], []) is False
+        assert should_scan_rom(ScanType.QUICK, rom, [rom.id], []) is True
 
 
 class TestShouldHashIncrementally:
-    def test_files_scan_is_incremental(self, rom: Rom):
-        assert _should_hash_incrementally(ScanType.FILES, rom, []) is True
+    def test_quick_scan_is_incremental(self, rom: Rom):
+        assert _should_hash_incrementally(ScanType.QUICK, rom, []) is True
 
     def test_selected_metadata_scans_are_incremental(self, rom: Rom):
         assert _should_hash_incrementally(ScanType.UPDATE, rom, [rom.id]) is True
@@ -2378,7 +2378,7 @@ def identify_harness(mocker):
 
 
 class TestIdentifyRomFiles:
-    """A files scan hands an existing rom to `refresh_rom_files` and skips the
+    """A quick scan hands an existing rom to `refresh_rom_files` and skips the
     metadata pipeline; a rom not yet in the database goes the regular way."""
 
     async def test_existing_rom_only_refreshes_its_files(self, identify_harness):
@@ -2388,7 +2388,7 @@ class TestIdentifyRomFiles:
 
         await identify_harness.run(
             rom,
-            ScanType.FILES,
+            ScanType.QUICK,
             [],
             socket_manager=socket_manager,
             scan_stats=scan_stats,
@@ -2413,7 +2413,7 @@ class TestIdentifyRomFiles:
 
         await identify_harness.run(
             identify_harness.existing_rom(),
-            ScanType.FILES,
+            ScanType.QUICK,
             [],
             socket_manager=socket_manager,
             scan_stats=scan_stats,
@@ -2436,7 +2436,7 @@ class TestIdentifyRomFiles:
         socket_manager = AsyncMock()
 
         await identify_harness.run(
-            rom, ScanType.FILES, [], socket_manager=socket_manager
+            rom, ScanType.QUICK, [], socket_manager=socket_manager
         )
 
         identify_harness.db.get_rom_simple.assert_called_once_with(rom.id)
@@ -2444,7 +2444,7 @@ class TestIdentifyRomFiles:
         assert socket_manager.emit.await_args.args[0] == "scan:scanning_rom"
 
     async def test_new_rom_takes_the_regular_path(self, identify_harness):
-        await identify_harness.run(None, ScanType.FILES, [])
+        await identify_harness.run(None, ScanType.QUICK, [])
 
         identify_harness.refresh.assert_not_called()
         identify_harness.scan_rom.assert_awaited_once()
@@ -2474,8 +2474,8 @@ class TestIdentifyRomIncrementalHashing:
         assert kwargs["existing_files"] is None
 
 
-class TestIdentifyPlatformLoadsFilesForFilesScan:
-    """A files scan reconciles every existing rom's files, so their rows are
+class TestIdentifyPlatformLoadsFilesForQuickScan:
+    """A quick scan reconciles every existing rom's files, so their rows are
     loaded with the batch lookup instead of one query per rom."""
 
     @pytest.fixture
@@ -2530,9 +2530,9 @@ class TestIdentifyPlatformLoadsFilesForFilesScan:
         return db_rom
 
     @pytest.mark.parametrize(
-        "scan_type,with_files", [(ScanType.FILES, True), (ScanType.QUICK, False)]
+        "scan_type,with_files", [(ScanType.QUICK, True), (ScanType.COMPLETE, False)]
     )
-    async def test_rows_are_loaded_only_for_files_scans(
+    async def test_rows_are_loaded_only_for_quick_scans(
         self, patched, scan_type, with_files
     ):
         await scan_module._identify_platform(

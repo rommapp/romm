@@ -142,11 +142,6 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
     value: "quick",
   },
   {
-    title: t("scan.refresh-files"),
-    subtitle: t("scan.refresh-files-desc"),
-    value: "files",
-  },
-  {
     title: t("scan.unmatched-games"),
     subtitle: t("scan.unmatched-games-desc"),
     value: "unmatched",
@@ -169,9 +164,9 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
 ];
 const scanType = ref<ScanType>("quick");
 
-// A files scan contacts no provider; every other type needs at least one
-// picked source or it wouldn't do anything useful.
-const needsMetadataSource = computed(() => scanType.value !== "files");
+// A quick scan reconciles files and registers new entries without contacting
+// a provider; the other types would do nothing useful with no source picked.
+const needsMetadataSource = computed(() => scanType.value !== "quick");
 const canStartScan = computed(
   () =>
     !scanning.value &&

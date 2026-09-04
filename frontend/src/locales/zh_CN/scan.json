@@ -43,7 +43,6 @@
   "quick-scan": "快速扫描",
   "quick-scan-desc": "仅扫描新游戏",
   "refresh-files": "刷新文件",
-  "refresh-files-desc": "扫描新游戏并获取已添加到现有游戏文件夹中的文件，不重新计算已知文件的哈希值",
   "requires-hashes": "{source} 需要文件哈希",
   "roms-scanned-n": "ROMs：{n} 已扫描",
   "roms-scanned-with-details": "ROMs：{n_scanned_roms}/{n_total_roms} 已扫描，新增 {n_new_roms}，识别 {n_identified_roms}",

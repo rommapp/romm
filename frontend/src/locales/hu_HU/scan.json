@@ -43,7 +43,6 @@
   "quick-scan": "Gyors szkennelés",
   "quick-scan-desc": "Csak új játékokat szkenneljen",
   "refresh-files": "Fájlok frissítése",
-  "refresh-files-desc": "Új játékok szkennelése és a meglévő játékmappákhoz hozzáadott fájlok felvétele az ismert fájlok hash-értékeinek újraszámítása nélkül",
   "requires-hashes": "A {source}-hez engedélyezni kell a hash-számítást.",
   "roms-scanned-n": "ROM-ok: {n} szkennelve",
   "roms-scanned-with-details": "ROM-ok: {n_scanned_roms} beolvasva a {n_total_roms} közül,ebből {n_new_roms} új és {n_identified_roms} azonosított",

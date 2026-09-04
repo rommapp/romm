@@ -55,11 +55,12 @@ const {
   persistSelection,
 } = useScanProviders();
 
-// Per-ROM scan types: the Scan view's "new platforms" and "quick" only apply
-// to a ROM the library has not ingested yet.
+// Per-ROM scan types. "new platforms" means nothing here and "unmatched" is a
+// library-wide filter; "quick" is offered as "Refresh files", which is all a
+// quick scan does for a ROM that already exists.
 type ScanType = Extract<
   SharedScanType,
-  "update" | "hashes" | "files" | "complete"
+  "update" | "hashes" | "quick" | "complete"
 >;
 
 const isBulk = computed(() => roms.value.length > 1);
@@ -94,7 +95,7 @@ const scanOptions = computed<ScanOption[]>(() => [
     subtitle: isBulk.value
       ? t("rom.refresh-files-desc-bulk")
       : t("rom.refresh-files-desc"),
-    value: "files",
+    value: "quick",
   },
   {
     title: t("scan.complete-rescan"),
@@ -172,7 +173,7 @@ function onScan() {
   } else {
     const name = singleRomTitle.value;
     snackbar.info(
-      scanType.value === "files"
+      scanType.value === "quick"
         ? t("rom.refreshing-files", { name })
         : t("rom.refreshing-metadata", { name }),
       { icon: "mdi-loading mdi-spin" },
@@ -489,7 +490,7 @@ function closeDialog() {
         color="primary"
         prepend-icon="mdi-magnify-scan"
         :disabled="
-          effectiveMetadataSources.length === 0 && scanType !== 'files'
+          effectiveMetadataSources.length === 0 && scanType !== 'quick'
         "
         @click="onScan"
       >

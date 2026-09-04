@@ -91,7 +91,6 @@ class ScanType(enum.StrEnum):
     UNMATCHED = "unmatched"
     COMPLETE = "complete"
     HASHES = "hashes"
-    FILES = "files"
 
 
 @enum.unique

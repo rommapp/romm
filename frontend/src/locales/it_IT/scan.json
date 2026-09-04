@@ -43,7 +43,6 @@
   "quick-scan": "Scansione rapida",
   "quick-scan-desc": "Scansiona solo i nuovi giochi",
   "refresh-files": "Aggiorna file",
-  "refresh-files-desc": "Scansiona i nuovi giochi e rileva i file aggiunti alle cartelle dei giochi esistenti senza ricalcolare gli hash dei file noti",
   "requires-hashes": "{source} richiede che il calcolo degli hash sia abilitato",
   "roms-scanned-n": "Rom: {n} scansionate",
   "roms-scanned-with-details": "Rom: {n_scanned_roms} scansionate su {n_total_roms}, con {n_new_roms} nuove e {n_identified_roms} identificate",
