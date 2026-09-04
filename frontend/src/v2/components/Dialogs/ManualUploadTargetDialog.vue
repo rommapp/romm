@@ -18,7 +18,7 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const { refetchCurrentRom } = useRomSync();
+const { refetchRom } = useRomSync();
 const uploadStore = storeUpload();
 
 const TARGETS = {
@@ -73,7 +73,7 @@ async function handleUploadResult(
       icon: "mdi-check-bold",
       timeout: 3000,
     });
-    await refetchCurrentRom(target.id);
+    await refetchRom(target.id);
   } else {
     snackbar.warning(t(skippedKey), {
       icon: "mdi-close-circle",

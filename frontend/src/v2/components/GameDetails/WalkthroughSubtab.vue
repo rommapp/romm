@@ -45,7 +45,7 @@ type WalkthroughEntry = {
 const props = defineProps<{ rom: DetailedRom }>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const { refetchCurrentRom } = useRomSync();
+const { refetchRom } = useRomSync();
 const { t } = useI18n();
 
 // Adding and removing walkthroughs both ride the ROMS write grant, matching
@@ -107,7 +107,7 @@ const selectItems = computed(() =>
 );
 
 async function refreshRom() {
-  await refetchCurrentRom(props.rom.id);
+  await refetchRom(props.rom.id);
 }
 
 // ---------- Single-file -> folder conversion ----------

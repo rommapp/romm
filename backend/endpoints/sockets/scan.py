@@ -143,9 +143,8 @@ def _scan_in_flight_message(running: Job | None, queued: list[Job]) -> str:
     return f"{_scan_job_label(running)} is already running"
 
 
-# Each report is a synchronous redis write plus a publish, and a scan makes one
-# per rom. Coalescing keeps a large library from spending longer announcing
-# progress than making it.
+# A scan reports once per rom, and each report is a synchronous redis write plus
+# a publish. Coalescing keeps that cost off the per-rom path.
 SCAN_STATS_PUBLISH_INTERVAL = 0.25
 
 

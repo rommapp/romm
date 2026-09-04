@@ -7,7 +7,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -18,7 +18,7 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const { refetchCurrentRom } = useRomSync();
+const { refetchRom } = useRomSync();
 
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
@@ -46,7 +46,7 @@ async function deleteManual() {
     } else if (fileId.value !== undefined) {
       await romApi.deleteManualFile({ romId, fileId: fileId.value });
     }
-    await refetchCurrentRom(romId);
+    await refetchRom(romId);
     snackbar.success(
       t(primary ? "rom.manual-removed" : "rom.manual-file-removed"),
       { icon: "mdi-check-bold" },

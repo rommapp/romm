@@ -136,10 +136,10 @@ const uploadingStates = ref(false);
 
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const { refetchCurrentRom } = useRomSync();
+const { refetchRom } = useRomSync();
 
 async function refreshRom() {
-  await refetchCurrentRom(props.rom.id);
+  await refetchRom(props.rom.id);
 }
 
 async function onSaveUpload(files: File[]) {

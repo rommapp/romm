@@ -20,11 +20,11 @@ vi.mock("@/services/socket", () => ({
   },
 }));
 
-const { refetchCurrentRom } = vi.hoisted(() => ({
-  refetchCurrentRom: vi.fn(),
+const { refetchRom } = vi.hoisted(() => ({
+  refetchRom: vi.fn(),
 }));
 vi.mock("@/v2/composables/useRomSync", () => ({
-  useRomSync: () => ({ refetchCurrentRom }),
+  useRomSync: () => ({ refetchRom }),
 }));
 
 function rom(overrides: Partial<DetailedRom> = {}): DetailedRom {
@@ -46,7 +46,7 @@ describe("useRomScanRefresh", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     handlers.clear();
-    refetchCurrentRom.mockClear();
+    refetchRom.mockClear();
   });
 
   it("refetches the open rom when a scan finishes", async () => {
@@ -57,7 +57,7 @@ describe("useRomScanRefresh", () => {
     handlers.get("scan:done")?.({});
     await flushPromises();
 
-    expect(refetchCurrentRom).toHaveBeenCalledWith(3);
+    expect(refetchRom).toHaveBeenCalledWith(3);
   });
 
   it("does nothing without an open rom", () => {
@@ -65,7 +65,7 @@ describe("useRomScanRefresh", () => {
 
     handlers.get("scan:done")?.({});
 
-    expect(refetchCurrentRom).not.toHaveBeenCalled();
+    expect(refetchRom).not.toHaveBeenCalled();
   });
 
   it("does nothing once the view is gone", async () => {
@@ -77,6 +77,6 @@ describe("useRomScanRefresh", () => {
     handlers.get("scan:done")?.({});
     await flushPromises();
 
-    expect(refetchCurrentRom).not.toHaveBeenCalled();
+    expect(refetchRom).not.toHaveBeenCalled();
   });
 });

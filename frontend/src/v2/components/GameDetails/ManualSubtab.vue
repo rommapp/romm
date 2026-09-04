@@ -33,7 +33,7 @@ const TextViewer = defineAsyncComponent(
 const props = defineProps<{ rom: DetailedRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const { refetchCurrentRom } = useRomSync();
+const { refetchRom } = useRomSync();
 const { t } = useI18n();
 
 // Every manual endpoint (upload / redownload / delete) gates on the ROM write
@@ -132,7 +132,7 @@ async function redownloadManual() {
   redownloadingManual.value = true;
   try {
     await romApi.redownloadManual({ romId: props.rom.id });
-    await refetchCurrentRom(props.rom.id);
+    await refetchRom(props.rom.id);
     snackbar.success(t("rom.manual-redownloaded"), {
       icon: "mdi-check-bold",
     });

@@ -49,7 +49,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const { refetchCurrentRom } = useRomSync();
+const { refetchRom } = useRomSync();
 const uploadStore = storeUpload();
 const authStore = storeAuth();
 const { user } = storeToRefs(authStore);
@@ -123,7 +123,7 @@ const communityScreenshots = computed<ScreenshotItem[]>(() =>
 );
 
 async function refreshRom() {
-  await refetchCurrentRom(props.rom.id);
+  await refetchRom(props.rom.id);
 }
 
 // ---------- Upload result toast (shared by both upload paths) ----------

@@ -37,7 +37,7 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const authStore = storeAuth();
-const { refetchCurrentRom } = useRomSync();
+const { refetchRom } = useRomSync();
 const route = useRoute();
 const router = useRouter();
 const { isLight: isLightTheme } = useThemeMode();
@@ -183,7 +183,7 @@ const canSave = computed(() => {
 });
 
 async function refreshRom() {
-  await refetchCurrentRom(props.rom.id);
+  await refetchRom(props.rom.id);
 }
 
 function startAdd() {

@@ -7,13 +7,13 @@ import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
 export function useRomScanRefresh() {
   const romsStore = storeRoms();
-  const { refetchCurrentRom } = useRomSync();
+  const { refetchRom } = useRomSync();
 
   useSocketEvent<ScanStats>(
     "scan:done",
     async () => {
       const romId = romsStore.currentRom?.id;
-      if (romId !== undefined) await refetchCurrentRom(romId);
+      if (romId !== undefined) await refetchRom(romId);
     },
     { connect: false },
   );

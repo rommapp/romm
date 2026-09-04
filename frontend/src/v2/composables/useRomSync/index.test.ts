@@ -255,7 +255,7 @@ describe("useRomSync", () => {
     expect(getRoms).not.toHaveBeenCalled();
   });
 
-  describe("refetchCurrentRom", () => {
+  describe("refetchRom", () => {
     const detailed = (id: number) =>
       ({ id, name: "Chrono Trigger" }) as unknown as DetailedRom;
 
@@ -266,7 +266,7 @@ describe("useRomSync", () => {
       const fresh = detailed(1);
       getRom.mockResolvedValue({ data: fresh });
 
-      const result = await useRomSync().refetchCurrentRom(1);
+      const result = await useRomSync().refetchRom(1);
 
       expect(getRom).toHaveBeenCalledWith({ romId: 1 });
       expect(result).toBe(fresh);
@@ -280,7 +280,7 @@ describe("useRomSync", () => {
       let resolve: (value: unknown) => void = () => {};
       getRom.mockReturnValue(new Promise((r) => (resolve = r)));
 
-      const pending = useRomSync().refetchCurrentRom(1);
+      const pending = useRomSync().refetchRom(1);
       romsStore.setCurrentRom(detailed(2));
       resolve({ data: detailed(1) });
       await pending;
@@ -292,7 +292,7 @@ describe("useRomSync", () => {
       vi.spyOn(console, "error").mockImplementation(() => {});
       getRom.mockRejectedValue(new Error("offline"));
 
-      await expect(useRomSync().refetchCurrentRom(1)).resolves.toBeNull();
+      await expect(useRomSync().refetchRom(1)).resolves.toBeNull();
     });
   });
 });
