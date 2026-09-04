@@ -16,7 +16,7 @@ import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
@@ -50,7 +50,6 @@ const {
   loading: soundtrackLoading,
   fallbackArtUrl: soundtrackArtUrl,
 } = useRomSoundtrack(() => props.rom);
-const romsStore = storeRoms();
 const { refetchCurrentRom } = useRomSync();
 const uploadStore = storeUpload();
 const { t } = useI18n();

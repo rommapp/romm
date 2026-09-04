@@ -14,7 +14,9 @@ vi.mock("@/services/socket", () => ({
     on: (event: string, handler: (payload: unknown) => void) => {
       handlers.set(event, handler);
     },
-    off: vi.fn(),
+    off: (event: string) => {
+      handlers.delete(event);
+    },
   },
 }));
 

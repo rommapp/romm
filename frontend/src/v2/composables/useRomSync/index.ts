@@ -60,18 +60,16 @@ export function useRomSync() {
     }
   }
 
-  /** Re-read a ROM from the API and apply it everywhere it is cached.
+  /** Re-read a ROM from the API and apply it everywhere it is cached, for the
+   * surfaces that write a ROM's assets and need the detailed record back
+   * rather than the row the write returned.
    *
-   * For the surfaces that write a ROM's assets (saves, screenshots, manuals,
-   * notes, files) and need the detailed record back rather than the row the
-   * write returned. `currentRom` is only replaced when it is still this ROM:
-   * the user can open another game while the request is in flight.
-   *
-   * Returns the fresh ROM, or null when the request failed or landed late. */
+   * `syncCachedRom` owns the `currentRom` write, so a response that lands
+   * after the user opened another game updates the caches and leaves the
+   * open ROM alone. Returns null when the request failed. */
   async function refetchCurrentRom(romId: number): Promise<DetailedRom | null> {
     try {
       const { data } = await romApi.getRom({ romId });
-      if (romsStore.currentRom?.id === romId) romsStore.setCurrentRom(data);
       syncCachedRom(data);
       return data;
     } catch (error) {

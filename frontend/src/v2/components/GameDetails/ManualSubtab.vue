@@ -12,7 +12,7 @@ import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
@@ -33,7 +33,6 @@ const TextViewer = defineAsyncComponent(
 const props = defineProps<{ rom: DetailedRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const romsStore = storeRoms();
 const { refetchCurrentRom } = useRomSync();
 const { t } = useI18n();
 
@@ -123,10 +122,6 @@ const manualItems = computed(() =>
 const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const redownloadingManual = ref(false);
 
-async function refreshRom() {
-  await refetchCurrentRom(props.rom.id);
-}
-
 function handleManualFiles(files: File[]) {
   if (files.length === 0) return;
   emitter?.emit("showManualUploadTargetDialog", { rom: props.rom, files });
@@ -137,7 +132,7 @@ async function redownloadManual() {
   redownloadingManual.value = true;
   try {
     await romApi.redownloadManual({ romId: props.rom.id });
-    await refreshRom();
+    await refetchCurrentRom(props.rom.id);
     snackbar.success(t("rom.manual-redownloaded"), {
       icon: "mdi-check-bold",
     });

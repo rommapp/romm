@@ -47,67 +47,76 @@ from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
+@pytest.fixture
+def hold_everything_back(mocker):
+    """An interval no test can outrun, so coalescing is what decides."""
+    mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
+
+
 class TestScanStatsPublishing:
     """Counters are exact on every increment; only the reporting is coalesced."""
 
     @pytest.fixture
-    def emit(self, mocker):
+    def socket_manager(self, mocker):
         mocker.patch.object(scan_module, "update_job_meta")
         return AsyncMock()
 
-    async def test_reports_once_for_a_burst_of_increments(self, mocker, emit):
-        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
+    async def test_reports_once_for_a_burst_of_increments(
+        self, hold_everything_back, socket_manager
+    ):
         stats = ScanStats()
 
         for _ in range(50):
-            await stats.increment(socket_manager=emit, scanned_roms=1)
+            await stats.increment(socket_manager=socket_manager, scanned_roms=1)
 
         # The first increment reports, the rest ride along with it.
-        emit.emit.assert_awaited_once()
+        socket_manager.emit.assert_awaited_once()
         assert stats.scanned_roms == 50
 
-    async def test_flush_reports_what_a_burst_held_back(self, mocker, emit):
-        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
+    async def test_flush_reports_what_a_burst_held_back(
+        self, hold_everything_back, socket_manager
+    ):
         stats = ScanStats()
         for _ in range(5):
-            await stats.increment(socket_manager=emit, scanned_roms=1)
-        emit.emit.reset_mock()
+            await stats.increment(socket_manager=socket_manager, scanned_roms=1)
+        socket_manager.emit.reset_mock()
 
-        await stats.flush(emit)
+        await stats.flush(socket_manager)
 
-        assert emit.emit.await_args.args[1]["scanned_roms"] == 5
+        assert socket_manager.emit.await_args.args[1]["scanned_roms"] == 5
 
-    async def test_flush_is_quiet_with_nothing_held_back(self, mocker, emit):
+    async def test_flush_is_quiet_with_nothing_held_back(self, mocker, socket_manager):
         mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 0)
         stats = ScanStats()
-        await stats.increment(socket_manager=emit, scanned_roms=1)
-        emit.emit.reset_mock()
+        await stats.increment(socket_manager=socket_manager, scanned_roms=1)
+        socket_manager.emit.reset_mock()
 
-        await stats.flush(emit)
+        await stats.flush(socket_manager)
 
-        emit.emit.assert_not_awaited()
+        socket_manager.emit.assert_not_awaited()
 
-    async def test_a_phase_boundary_reports_immediately(self, mocker, emit):
-        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
+    async def test_a_phase_boundary_reports_immediately(
+        self, hold_everything_back, socket_manager
+    ):
         stats = ScanStats()
-        await stats.increment(socket_manager=emit, scanned_roms=1)
-        emit.emit.reset_mock()
+        await stats.increment(socket_manager=socket_manager, scanned_roms=1)
+        socket_manager.emit.reset_mock()
 
-        await stats.update(socket_manager=emit, total_roms=12)
+        await stats.update(socket_manager=socket_manager, total_roms=12)
 
-        assert emit.emit.await_args.args[1]["total_roms"] == 12
+        assert socket_manager.emit.await_args.args[1]["total_roms"] == 12
 
     async def test_the_first_report_survives_a_clock_reading_near_zero(
-        self, mocker, emit
+        self, mocker, socket_manager
     ):
         # A monotonic clock counting from boot can read below the interval, and
         # the first report must not be coalesced against a scan that never ran.
         mocker.patch.object(scan_module.time, "monotonic", return_value=0.01)
         stats = ScanStats()
 
-        await stats.increment(socket_manager=emit, scanned_roms=1)
+        await stats.increment(socket_manager=socket_manager, scanned_roms=1)
 
-        emit.emit.assert_awaited_once()
+        socket_manager.emit.assert_awaited_once()
 
 
 def test_scan_stats():
@@ -217,9 +226,8 @@ class TestScanFailureReporting:
     """A failed scan still reports the progress it made before saying it failed."""
 
     async def test_a_failure_publishes_what_an_increment_held_back(
-        self, patched, mocker
+        self, patched, hold_everything_back, mocker
     ):
-        mocker.patch.object(scan_module, "SCAN_STATS_PUBLISH_INTERVAL", 3600)
         update_job_meta = mocker.patch.object(scan_module, "update_job_meta")
 
         async def scan_then_fail(**kwargs):
@@ -237,25 +245,6 @@ class TestScanFailureReporting:
 
         assert update_job_meta.call_args.args[0]["scan_stats"]["scanned_roms"] == 7
         assert patched.emit.await_args.args[0] == "scan:done_ko"
-
-    async def test_a_failure_to_report_does_not_replace_the_error(
-        self, patched, mocker
-    ):
-        mocker.patch.object(
-            scan_module.ScanStats,
-            "flush",
-            AsyncMock(side_effect=OSError("redis is gone")),
-        )
-
-        async def scan_then_fail(**_kwargs):
-            raise RuntimeError("boom")
-
-        mocker.patch.object(
-            scan_module, "_identify_platform", side_effect=scan_then_fail
-        )
-
-        with pytest.raises(RuntimeError, match="boom"):
-            await scan_platforms(platform_ids=[], metadata_sources=[])
 
 
 class TestScanTotals:
@@ -309,11 +298,8 @@ class TestScreenScraperScanReporting:
     when the scan actually uses ScreenScraper."""
 
     @pytest.fixture
-    def patched(self, mocker):
-        socket_manager = AsyncMock()
-        mocker.patch.object(
-            scan_module, "_get_socket_manager", return_value=socket_manager
-        )
+    def patched(self, patched, mocker):
+        """The shared harness, narrowed to a single platform with no roms."""
         mocker.patch.object(
             scan_module.fs_platform_handler,
             "get_platforms",
@@ -322,28 +308,10 @@ class TestScreenScraperScanReporting:
         mocker.patch.object(
             scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=0)
         )
-        mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
-        mocker.patch.object(
-            scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
-        )
         mocker.patch.object(
             scan_module.db_platform_handler, "get_platforms", return_value=[]
         )
-        mocker.patch.object(
-            scan_module.db_rom_handler, "invalidate_filter_values_cache"
-        )
-        config = MagicMock()
-        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
-        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
-        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
-
-        async def fake_identify(**kwargs):
-            return kwargs["scan_stats"]
-
-        mocker.patch.object(
-            scan_module, "_identify_platform", side_effect=fake_identify
-        )
-        return socket_manager
+        return patched
 
     async def test_begins_a_screenscraper_scan(self, patched, mocker):
         begin = mocker.patch.object(

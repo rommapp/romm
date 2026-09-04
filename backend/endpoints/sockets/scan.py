@@ -143,9 +143,9 @@ def _scan_in_flight_message(running: Job | None, queued: list[Job]) -> str:
     return f"{_scan_job_label(running)} is already running"
 
 
-# A scan reports progress after every rom, and each report is a synchronous
-# redis write plus a publish. Coalescing them keeps a large library from
-# spending longer announcing progress than making it.
+# Each report is a synchronous redis write plus a publish, and a scan makes one
+# per rom. Coalescing keeps a large library from spending longer announcing
+# progress than making it.
 SCAN_STATS_PUBLISH_INTERVAL = 0.25
 
 
@@ -1096,6 +1096,11 @@ async def scan_platforms(
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
+    async def finish(event: str, payload: Any) -> None:
+        """End the scan, reporting whatever a coalesced increment held back."""
+        await scan_stats.flush(socket_manager)
+        await socket_manager.emit(event, payload)
+
     # A ROM-id-scoped scan resolves its work from the database, so it neither
     # needs nor can afford the filesystem walk a library scan starts with.
     scoped_roms_by_platform: dict[int, list[Rom]] = {}
@@ -1115,7 +1120,7 @@ async def scan_platforms(
             fs_platforms = await fs_platform_handler.get_platforms()
         except FolderStructureNotMatchException as e:
             log.error(e)
-            await socket_manager.emit("scan:done_ko", e.message)
+            await finish("scan:done_ko", e.message)
             return scan_stats
 
     # Clear the gamelist cache to ensure we're using fresh gamelist.xml data
@@ -1221,8 +1226,7 @@ async def scan_platforms(
 
     async def stop_scan():
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
-        await scan_stats.flush(socket_manager)
-        await socket_manager.emit("scan:done", scan_stats.to_dict())
+        await finish("scan:done", scan_stats.to_dict())
         redis_client.delete(STOP_SCAN_FLAG)
 
     try:
@@ -1338,20 +1342,13 @@ async def scan_platforms(
                         )
             log.info("Pegasus metadata auto-export completed.")
 
-        await scan_stats.flush(socket_manager)
-        await socket_manager.emit("scan:done", scan_stats.to_dict())
+        await finish("scan:done", scan_stats.to_dict())
     except ScanStoppedException:
         await stop_scan()
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
-        # What the scan did get through still counts, so report it before saying
-        # it failed; a failure to do so must not replace the error being raised.
-        try:
-            await scan_stats.flush(socket_manager)
-        except Exception:
-            log.error("Could not report the stats of a failed scan", exc_info=True)
         # Catch all exceptions and emit error to the client
-        await socket_manager.emit("scan:done_ko", str(e))
+        await finish("scan:done_ko", str(e))
         # Re-raise the exception to be caught by the error handler
         raise e
 

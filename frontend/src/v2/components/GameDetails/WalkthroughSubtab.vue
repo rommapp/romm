@@ -8,7 +8,7 @@ import axios from "axios";
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
@@ -45,7 +45,6 @@ type WalkthroughEntry = {
 const props = defineProps<{ rom: DetailedRom }>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const romsStore = storeRoms();
 const { refetchCurrentRom } = useRomSync();
 const { t } = useI18n();
 

@@ -6,7 +6,6 @@ import FilesTab from "./FilesTab.vue";
 
 const {
   uploadRoms,
-  getRom,
   refetchCurrentRom,
   confirmFn,
   snackbar,
@@ -14,7 +13,6 @@ const {
   grants,
 } = vi.hoisted(() => ({
   uploadRoms: vi.fn(),
-  getRom: vi.fn(),
   refetchCurrentRom: vi.fn(),
   confirmFn: vi.fn(),
   snackbar: {
@@ -36,7 +34,7 @@ vi.mock("vue-router", async (importOriginal) => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 vi.mock("@/services/api/rom", () => ({
-  default: { uploadRoms, getRom, deleteRomFile: vi.fn() },
+  default: { uploadRoms, deleteRomFile: vi.fn() },
 }));
 vi.mock("@/v2/composables/useCan", async () => {
   const { computed } = await import("vue");
