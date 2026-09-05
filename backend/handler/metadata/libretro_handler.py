@@ -238,6 +238,7 @@ LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.VIRTUALBOY: "Nintendo - Virtual Boy",
     UPS.WII: "Nintendo - Wii",
     UPS.WIIU: "Nintendo - Wii U",
+    UPS.RPG_MAKER: "RPG Maker",
     UPS.SCUMMVM: "ScummVM",
     UPS.SEGA32: "Sega - 32X",
     UPS.DC: "Sega - Dreamcast",

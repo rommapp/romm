@@ -1194,6 +1194,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.PS4: {"id": 60, "name": "Playstation 4"},
     UPS.PS5: {"id": 284, "name": "Playstation 5"},
     UPS.POKEMON_MINI: {"id": 211, "name": "Pokémon mini"},
+    UPS.RPG_MAKER: {"id": 231, "name": "EasyRPG"},
     UPS.SAM_COUPE: {"id": 213, "name": "MGT SAM Coupé"},
     UPS.SCUMMVM: {"id": 123, "name": "ScummVM"},
     UPS.SEGA32: {"id": 19, "name": "Megadrive 32X"},

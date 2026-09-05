@@ -329,6 +329,7 @@ backend/
 │   ├── nginx.py               # X-Accel-Redirect responses
 │   ├── router.py              # Custom APIRouter
 │   ├── gamelist_exporter.py   # ES-DE gamelist.xml generation
+│   ├── platform_aliases.py    # Batocera/RetroBat/ES-DE folder name → slug
 │   ├── archive_7zip.py        # 7-Zip archive handling
 │   ├── platforms.py           # Platform management
 │   └── emoji.py               # Emoji utilities
@@ -1667,8 +1668,8 @@ filesystem:
   embed_switch_title_ids: false # Rename Switch ROMs to embed their title ID
 
 system:
-  platforms:
-    snes: "snes" # fs_slug → canonical slug mappings
+  platforms: # fs_slug → slug overrides (Batocera/RetroBat/ES-DE folder names resolve automatically)
+    snes: "snes"
   versions:
     snes: "pal" # Platform version overrides
 

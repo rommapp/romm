@@ -79,6 +79,7 @@ from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
 from utils.filesystem import sanitize_filename
+from utils.platform_aliases import resolve_fs_slug, resolve_platform_slug
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -180,8 +181,8 @@ def build_hashless_fs_rom(fs_name: str, *, flat: bool) -> FSRom:
 def get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
-    if platform.fs_slug in cnfg.PLATFORMS_VERSIONS.keys():
-        main_platform_slug = cnfg.PLATFORMS_VERSIONS[platform.fs_slug]
+    main_platform_slug = cnfg.PLATFORMS_VERSIONS.get(platform.fs_slug.lower())
+    if main_platform_slug:
         main_platform = db_platform_handler.get_platform_by_fs_slug(main_platform_slug)
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
@@ -284,8 +285,6 @@ async def scan_platform(
     platform_attrs["fs_slug"] = fs_slug
 
     cnfg = cm.get_config()
-    swapped_platform_bindings = {v: k for k, v in cnfg.PLATFORMS_BINDING.items()}
-    swapped_platform_versions = {v: k for k, v in cnfg.PLATFORMS_VERSIONS.items()}
 
     # Sometimes users change the name of the folder, so we try to match it with the config
     if fs_slug not in fs_platforms:
@@ -293,24 +292,13 @@ async def scan_platform(
             f"{hl(fs_slug)} not found in file system, trying to match via config",
             extra=LOGGER_MODULE_NAME,
         )
-        if fs_slug in swapped_platform_bindings.keys():
-            platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
-            if platform:
-                platform_attrs["fs_slug"] = swapped_platform_bindings[platform.slug]
-        elif fs_slug in swapped_platform_versions.keys():
-            platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
-            if platform:
-                platform_attrs["fs_slug"] = swapped_platform_versions[platform.slug]
+        platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
+        if platform:
+            known_fs_slug = resolve_fs_slug(platform.slug, cnfg)
+            if known_fs_slug:
+                platform_attrs["fs_slug"] = known_fs_slug
 
-    try:
-        if fs_slug in cnfg.PLATFORMS_BINDING.keys():
-            platform_attrs["slug"] = cnfg.PLATFORMS_BINDING[fs_slug]
-        elif fs_slug in cnfg.PLATFORMS_VERSIONS.keys():
-            platform_attrs["slug"] = cnfg.PLATFORMS_VERSIONS[fs_slug]
-        else:
-            platform_attrs["slug"] = fs_slug
-    except (KeyError, TypeError, AttributeError):
-        platform_attrs["slug"] = fs_slug
+    platform_attrs["slug"] = resolve_platform_slug(fs_slug, cnfg)
 
     igdb_platform = meta_igdb_handler.get_platform(platform_attrs["slug"])
     moby_platform = meta_moby_handler.get_platform(platform_attrs["slug"])
