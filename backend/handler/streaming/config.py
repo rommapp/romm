@@ -8,6 +8,7 @@ changes, so an unusable container is reported once rather than once per lookup.
 from __future__ import annotations
 
 import json
+import secrets
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse, urlunparse
@@ -155,10 +156,15 @@ class ResolvedContainer:
         """Whether two containers serving a platform are a pool rather than two
         different setups. The emulator names the state and card namespace, and
         whole-card sync decides whether cards are synced at all, so a player
-        landing on either has to find their saves in the same place."""
+        landing on either has to find their saves in the same place. The
+        protocol decides which controls exist at all (disc swap, joining), and
+        those are advertised from the head of the pool, so a member that
+        disagrees would offer a control that 502s on half the claims."""
         return (
             self.emulator == other.emulator
             and self.memory_card_sync == other.memory_card_sync
+            # Protocols are interned per subfolder, so identity is equality.
+            and self.protocol is other.protocol
         )
 
     def memory_card_route(self) -> str:
@@ -407,8 +413,10 @@ def _fingerprint(raw: Any) -> str:
         return json.dumps(raw, sort_keys=True, default=str)
     except (TypeError, ValueError):
         # Unserializable config: never matches, so it re-resolves every time
-        # rather than serving a record built from something else.
-        return repr(object())
+        # rather than serving a record built from something else. A fresh
+        # random value rather than an object's repr, which CPython happily
+        # repeats when the address is reused.
+        return f"unserializable:{secrets.token_hex(8)}"
 
 
 def resolve_containers() -> tuple[ResolvedContainer, ...]:
@@ -459,8 +467,8 @@ def containers_for_platform(platform: str) -> list[ResolvedContainer]:
         if candidates and not candidates[0].interchangeable_with(container):
             log.warning(
                 "container for platform '%s' disagrees with the first one on "
-                "emulator or memory card sync, so it is not a pool member, "
-                "skipping: %s",
+                "emulator, memory card sync or protocol, so it is not a pool "
+                "member, skipping: %s",
                 platform,
                 container.key,
             )

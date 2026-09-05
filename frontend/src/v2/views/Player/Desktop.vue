@@ -8,7 +8,7 @@
 // so opening a desktop blocks players and a running game blocks the admin.
 // Nothing here belongs to a ROM: no cover art, no save states, no resume.
 import { RAlert, RBtn, RSpinner } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { isAxiosError } from "axios";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -88,6 +88,21 @@ async function release(): Promise<boolean> {
     return false;
   }
 }
+
+// The backend counts a session whose liveness stamp goes stale as abandoned
+// and lets the next claimant tear the container down, so a desktop has to beat
+// like the player does: configuring an emulator takes far longer than the
+// stale window, and nothing else here touches the claim.
+const HEARTBEAT_MS = 30_000;
+
+useIntervalFn(() => {
+  if (!holdsClaim.value || !platform.value) return;
+  void streamingApi
+    .heartbeatSession(platform.value)
+    .catch((err) =>
+      console.warn("[streaming] Could not heartbeat the desktop session:", err),
+    );
+}, HEARTBEAT_MS);
 
 function backToAdministration(): void {
   router.push({ name: ROUTES.ADMINISTRATION, query: { tab: "streaming" } });

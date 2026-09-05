@@ -60,13 +60,6 @@ async def device_heartbeat(
     activity state to Redis and broadcasts an ``activity:update`` event over
     the main Socket.IO namespace.
     """
-    rom = db_rom_handler.get_rom(payload.rom_id)
-    if rom is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ROM {payload.rom_id} not found",
-        )
-
     device = db_device_handler.get_device(
         device_id=payload.device_id, user_id=request.user.id
     )
@@ -76,10 +69,12 @@ async def device_heartbeat(
             detail=f"Device {payload.device_id} not found for this user",
         )
 
+    # build_entry does the ROM lookup, so a check here would only be the same
+    # query twice; None back from it is the missing ROM.
     entry = await activity_handler.build_entry(
         user_id=request.user.id,
         device_id=device.id,
-        rom_id=rom.id,
+        rom_id=payload.rom_id,
         preserve_started_at=True,
         device_type=device.client or "unknown",
     )

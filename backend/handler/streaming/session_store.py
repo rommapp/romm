@@ -379,16 +379,23 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
             return
 
 
-async def stamp_launched(session_key: str) -> None:
+async def stamp_launched(session_key: str, claim: dict[str, Any]) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
+
+    Guarded on the claim it was made for, like `set_session_disc`: an activate
+    outlives the claim when a release lands while it runs, and an unguarded
+    write would stamp a stranger's session or bring a short drain marker back
+    with a six-hour TTL that no release path owns.
 
     Best-effort: a stamp that never lands only costs a few redundant broker
     round trips, and failing a session that is already up would be worse.
     """
     try:
         await mutate_session(
-            session_key, {"launched_at": datetime.now(timezone.utc).isoformat()}
+            session_key,
+            {"launched_at": datetime.now(timezone.utc).isoformat()},
+            require=lambda current: same_claim(current, claim),
         )
     except StreamingSessionContended:
         log.warning("could not stamp the launch on session %s", session_key)

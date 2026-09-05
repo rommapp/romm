@@ -71,9 +71,6 @@ const generationLabel = computed(() =>
 );
 
 const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
-// PlayModeBadge covers every mode where the platform is playable; this
-// label only ever renders in the v-else "not playable" branch below.
-const playableLabel = computed(() => t("platform.playable-none"));
 
 function onRowClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
@@ -137,10 +134,14 @@ function onRowClick(e: MouseEvent) {
         v-else
         class="plat-list-row__playable plat-list-row__playable--off"
         role="img"
-        :aria-label="playableLabel"
+        :aria-label="t('platform.playable-none')"
       >
         <RIcon icon="mdi-cancel" size="18" />
-        <RTooltip activator="parent" :text="playableLabel" location="top" />
+        <RTooltip
+          activator="parent"
+          :text="t('platform.playable-none')"
+          location="top"
+        />
       </span>
     </div>
 

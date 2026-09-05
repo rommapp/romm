@@ -167,6 +167,17 @@ async def _session_status(platform: str, request: Request) -> dict[str, Any]:
     }
 
 
+def _session_owner_id(session: dict[str, Any], request: Request) -> int:
+    """Whose library a session's states and saves belong to.
+
+    An admin may drive a session they do not own, and what it writes is still
+    the player's, so the acting user only stands in for a record that names
+    nobody.
+    """
+    user_id = session.get("user_id")
+    return user_id if isinstance(user_id, int) else request.user.id
+
+
 def _assert_session_owner(session: dict[str, Any], request: Request) -> None:
     """Only the user who claimed a session (or an admin) may control it."""
     if session.get("user_id") == request.user.id:
@@ -253,8 +264,6 @@ class DesktopStreamingSessionRequest(BaseModel):
     container: Annotated[str, Field(min_length=1, max_length=300)]
 
 
-# Keys a platform block may set for itself. Everything else on a container
-# describes the container, not one platform it serves.
 def _swappable_disc_file_ids(rom: Rom) -> set[int]:
     """The rom files that are valid swap targets: the ROM's playlist entries."""
     return {f.id for f in playlist_files(rom.files)}
@@ -1796,14 +1805,23 @@ async def _discard_blank_card(card_id: int) -> None:
             log.warning("could not remove card archive %s, %s", path, exc)
 
 
-async def _abort_claim(session_key: str, blank_card_id: int | None = None) -> None:
+async def _abort_claim(
+    session_key: str,
+    claim: dict[str, Any],
+    blank_card_id: int | None = None,
+) -> None:
     """Undo a claim that will not become a session.
 
     Every exit from `claim_session` that is not a started session goes through
     here: leaving the key behind wedges the container until the TTL lapses, and
     leaving an auto-created blank card behind orphans a row nobody asked for.
+
+    Guarded like every other release: a card probe or an activate blocks for
+    minutes, and an unguarded delete would free a container an admin release
+    and a fresh claim had already handed to somebody else.
     """
-    await async_cache.delete(session_redis_key(session_key))
+    if not await release_own_session(session_key, claim):
+        log.warning("aborted claim on %s was no longer ours", session_key)
     if blank_card_id is not None:
         await _discard_blank_card(blank_card_id)
 
@@ -1916,6 +1934,30 @@ async def _quiesce_container(
     if await _evacuate_session_card(session, container):
         await _wipe_session_card(container)
     return state_slot
+
+
+def _collect_exit_saves(container: ResolvedContainer, session: dict[str, Any]) -> None:
+    """Start pulling the in-game save archive a stopped session left behind.
+
+    Fire and forget: the broker keeps the archive after the emulator dies, so
+    no teardown has to wait on it. Whole-card sync containers evacuate the card
+    instead and have no archive, and a session that ran no ROM (the admin
+    desktop) has nowhere to file one, so neither schedules anything.
+
+    One home for the rule: every teardown path files a session's saves the same
+    way, and under the session's owner rather than whoever ended it.
+    """
+    rom_id = session.get("rom_id")
+    user_id = session.get("user_id")
+    if (
+        container.memory_card_sync
+        or not isinstance(rom_id, int)
+        or not isinstance(user_id, int)
+    ):
+        return
+    _spawn_sync_task(
+        _pull_saves_to_library(user_id, rom_id, container, broker_session_id(session))
+    )
 
 
 async def _collect_exit_state(
@@ -2110,6 +2152,7 @@ async def _teardown_abandoned_session(
             session, session_key, ended_by=None, reason="abandoned"
         )
         await _collect_exit_state(container, session, state_slot)
+        _collect_exit_saves(container, session)
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)
     finally:
@@ -2369,7 +2412,7 @@ async def _run_launch(
             )
     except Exception as exc:
         log.exception("launch failed, platform=%s", platform)
-        await _abort_claim(session_key, blank_card_id)
+        await _abort_claim(session_key, session, blank_card_id)
         await push_to_user(
             session.get("user_id"),
             "streaming:launch-failed",
@@ -2385,7 +2428,7 @@ async def _run_launch(
         claim_hold.cancel()
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
-    await stamp_launched(session_key)
+    await stamp_launched(session_key, session)
     await _publish_session_activity(session_key, session)
 
     # The webstation broker's deferred load waits for its emulator to report
@@ -2542,6 +2585,10 @@ async def claim_session(
             req.memory_card_id,
         )
 
+    # A broker with no join route cannot seat a second viewer, so recording
+    # the flag there would advertise a session every Join would 409 on.
+    multiplayer = req.multiplayer and reference.protocol.supports_join
+
     rom_name = rom.name or rom.fs_name_no_ext
     # A launcher whose games ship several languages in one folder (ScummVM
     # detects one target per language) picks the variant that boots from these.
@@ -2571,7 +2618,7 @@ async def claim_session(
         # Read by GET /sessions/joinable and enforced by POST
         # /sessions/{platform}/join, so it has to survive on the record rather
         # than living only on the broker.
-        "multiplayer": req.multiplayer,
+        "multiplayer": multiplayer,
         # Carried so every teardown path (owner release, save-and-exit, admin
         # force-release) can evacuate the right card before stopping the game.
         "memory_card_id": memory_card.id if memory_card is not None else None,
@@ -2692,7 +2739,7 @@ async def claim_session(
             # cannot be adopted, and pretending otherwise destroys it.
             log.warning("could not read the container memory card, %s", exc)
             if req.card_import != "discard":
-                await _abort_claim(session_key)
+                await _abort_claim(session_key, session)
                 if req.card_import is None:
                     raise HTTPException(
                         status_code=428,
@@ -2710,10 +2757,10 @@ async def claim_session(
             # The slot is empty now, so the import the user asked for cannot
             # happen. Abort without recording so the prompt fires again.
             log.warning("adopt requested but the container slot is empty")
-            await _abort_claim(session_key)
+            await _abort_claim(session_key, session)
             raise HTTPException(status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL)
         if adoption_content is not None and req.card_import is None:
-            await _abort_claim(session_key)
+            await _abort_claim(session_key, session)
             raise HTTPException(
                 status_code=428,
                 detail=MemoryCardImportRequired(
@@ -2728,8 +2775,12 @@ async def claim_session(
             adoption_content = None
 
     # The player is back in a session, so any note about their previous one
-    # being force-released has served its purpose.
-    await clear_termination(session_key, request.user.id)
+    # being force-released has served its purpose. Cleared across the whole
+    # pool, not just the container just won: the notice is keyed by container,
+    # and one left on a sibling would be reported as the reason this session
+    # ended when it finally does.
+    for candidate in candidates:
+        await clear_termination(candidate.key, request.user.id)
 
     # Auto-create the blank card only after the claim is won, so a lost race
     # (409) never leaves an orphan card behind. If a later step fails and aborts
@@ -2771,7 +2822,7 @@ async def claim_session(
                 # Hydrate would wipe the container next, so a failed import must
                 # abort rather than destroy the card it was asked to keep.
                 log.exception("could not adopt the container memory card")
-                await _abort_claim(session_key, created_blank_card_id)
+                await _abort_claim(session_key, session, created_blank_card_id)
                 raise HTTPException(
                     status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL
                 ) from exc
@@ -2785,7 +2836,7 @@ async def claim_session(
                     "adopted memory card matched an existing version of card %d",
                     memory_card.id,
                 )
-                await _abort_claim(session_key, created_blank_card_id)
+                await _abort_claim(session_key, session, created_blank_card_id)
                 raise HTTPException(status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL)
         db_container_adoption_handler.add_adoption(
             container_key=container.key,
@@ -2818,7 +2869,7 @@ async def claim_session(
             log.exception("memory card hydration failed")
             hydrated = False
         if not hydrated:
-            await _abort_claim(session_key, created_blank_card_id)
+            await _abort_claim(session_key, session, created_blank_card_id)
             raise HTTPException(
                 status_code=502, detail="Could not prepare the memory card"
             )
@@ -2862,7 +2913,7 @@ async def claim_session(
         resume_pushed=resume_pushed,
         resume_after_launch=resume_after_launch,
         memory_card_synced=memory_card is not None,
-        multiplayer=req.multiplayer,
+        multiplayer=multiplayer,
         blank_card_id=created_blank_card_id,
     )
 
@@ -2916,7 +2967,7 @@ async def save_and_exit_session(
     rom_id = session.get("rom_id")
     pull_state = (
         _pull_state_to_library(
-            request.user.id,
+            _session_owner_id(session, request),
             rom_id,
             container,
             effective_slot,
@@ -2970,17 +3021,7 @@ async def save_and_exit_session(
         except StreamingSessionContended:
             released = False
 
-    # Legacy per-file in-game save pull, only for containers not on whole-card
-    # sync (those were evacuated above, independent of any savestate).
-    if isinstance(rom_id, int) and not card_sync:
-        _spawn_sync_task(
-            _pull_saves_to_library(
-                request.user.id,
-                rom_id,
-                container,
-                broker_session_id(session),
-            )
-        )
+    _collect_exit_saves(container, session)
 
     if not released:
         log.error("save-and-exit could not give up session %s", session_key)
@@ -3166,7 +3207,7 @@ async def save_state(
     if isinstance(rom_id, int):
         _spawn_sync_task(
             _pull_state_to_library(
-                request.user.id,
+                _session_owner_id(session, request),
                 rom_id,
                 container,
                 req.slot,
@@ -3215,7 +3256,7 @@ async def put_state_frame(request: Request, platform: str) -> StateFrameResponse
     if not isinstance(rom_id, int):
         raise HTTPException(status_code=409, detail="Session has no rom")
 
-    await _stash_state_frame(request.user.id, rom_id, image)
+    await _stash_state_frame(_session_owner_id(session, request), rom_id, image)
     await refresh_session(session_key)
     return StateFrameResponse(status="ok", platform=platform)
 
@@ -3400,20 +3441,7 @@ async def _teardown_released_session(
 
         # Awaited, not spawned: the claim is released below.
         await _collect_exit_state(container, session, state_slot)
-
-        rom_id = session.get("rom_id")
-        # Legacy per-file save pull, only for containers not on whole-card sync.
-        # Fire and forget: it reads files the broker keeps after the emulator
-        # dies, so it does not gate the claim release above it.
-        if isinstance(rom_id, int) and not container.memory_card_sync:
-            _spawn_sync_task(
-                _pull_saves_to_library(
-                    session["user_id"],
-                    rom_id,
-                    container,
-                    broker_session_id(session),
-                )
-            )
+        _collect_exit_saves(container, session)
 
         log.info("session released, platform=%s", platform)
     except Exception:
@@ -3560,7 +3588,7 @@ async def claim_desktop_session(
         )
     except Exception:
         # Activation failed, free the claim so the container isn't wedged.
-        await _abort_claim(session_key)
+        await _abort_claim(session_key, session)
         raise
 
     host = container.host
@@ -3568,7 +3596,7 @@ async def claim_desktop_session(
     if room_url:
         host = urljoin(host, room_url)
 
-    await stamp_launched(session_key)
+    await stamp_launched(session_key, session)
     log.info("desktop session claimed, container=%s", session_key)
     return DesktopSessionSchema(
         container=session_key,
@@ -3713,6 +3741,7 @@ async def force_release_all(
                     await _record_play_session(session)
                     await _clear_session_activity(container_key, session)
                     await _collect_exit_state(container, session, state_slot)
+                    _collect_exit_saves(container, session)
 
             # Note who ended it before the key goes, so the player's next poll
             # can explain the stream vanishing.
@@ -3731,6 +3760,12 @@ async def force_release_all(
     released = []
     teardowns = []
     async for container_key in iter_session_keys():
+        # A drain marker is a teardown already running: it hands the container
+        # back once the exit state is out of it, and cutting that short would
+        # lose the state and free the container mid-pull.
+        marker = await get_session(container_key)
+        if marker is not None and marker.get("draining"):
+            continue
         released.append(container_key)
         teardowns.append(_teardown(session_redis_key(container_key), container_key))
 
