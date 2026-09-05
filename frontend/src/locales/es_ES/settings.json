@@ -440,7 +440,7 @@
   "show-status": "Mostrar estado",
   "show-status-desc": "Mostrar icono de estado en la galería (backlogged, playing, completed, etc)",
   "show-virtual-collections": "Mostrar colecciones generadas automáticamente",
-  "show-virtual-collections-desc": "Mostrado en la página principal y en la barra lateral de colecciones.",
+  "show-virtual-collections-desc": "Mostrado en la página principal, en la página de colecciones y en la barra lateral de colecciones.",
   "sort-by-game-count": "Por cantidad de juegos",
   "sort-by-name": "Por nombre",
   "sort-by-size": "Por tamaño",

@@ -440,7 +440,7 @@
   "show-status": "显示状态",
   "show-status-desc": "在游戏库中显示状态标识（积压、游玩中、已完成等）",
   "show-virtual-collections": "显示自动生成的收藏",
-  "show-virtual-collections-desc": "在主页和收藏侧边栏中显示",
+  "show-virtual-collections-desc": "在主页、收藏页面和收藏侧边栏中显示",
   "sort-by-game-count": "按游戏数量排序",
   "sort-by-name": "按名称排序",
   "sort-by-size": "按容量排序",
