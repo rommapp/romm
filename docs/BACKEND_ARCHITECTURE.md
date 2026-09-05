@@ -31,7 +31,7 @@ Comprehensive documentation of the RomM backend: a FastAPI-based server powering
 | Property           | Value                            |
 | ------------------ | -------------------------------- |
 | **Framework**      | FastAPI 0.121.1                  |
-| **Language**       | Python 3.13+                     |
+| **Language**       | Python 3.14+                     |
 | **ORM**            | SQLAlchemy 2.0                   |
 | **Migrations**     | Alembic                          |
 | **Databases**      | MariaDB, MySQL, PostgreSQL       |
