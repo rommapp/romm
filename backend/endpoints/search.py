@@ -46,10 +46,10 @@ router = APIRouter(
 )
 
 
-def _fetched_covers(
+def _without_failures(
     results: list[tuple[str, _CoverRomT] | BaseException], provider: str
 ) -> list[tuple[str, _CoverRomT]]:
-    """Drop the cover lookups that failed, keeping the ones that answered."""
+    """Drop the cover lookups that failed."""
     fetched = []
     for result in results:
         if isinstance(result, BaseException):
@@ -253,7 +253,7 @@ async def search_rom(
         ),
     )
 
-    for name, sgdb_rom in _fetched_covers(sgdb_roms, "SteamGridDB"):
+    for name, sgdb_rom in _without_failures(sgdb_roms, "SteamGridDB"):
         if sgdb_rom["sgdb_id"]:
             merged_dict[name] = {
                 **merged_dict[name],
@@ -261,7 +261,7 @@ async def search_rom(
                 "sgdb_url_cover": sgdb_rom.get("url_cover", ""),
             }
 
-    for name, libretro_rom in _fetched_covers(libretro_roms, "Libretro"):
+    for name, libretro_rom in _without_failures(libretro_roms, "Libretro"):
         if libretro_rom["libretro_id"]:
             merged_dict[name] = {
                 **merged_dict[name],

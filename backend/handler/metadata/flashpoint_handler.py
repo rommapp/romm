@@ -5,7 +5,6 @@ from typing import Final, NotRequired, TypedDict
 import httpx
 import pydash
 import yarl
-from fastapi import HTTPException, status
 
 from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
@@ -13,7 +12,7 @@ from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import MetadataHandler
+from .base_handler import MetadataHandler, unavailable
 
 
 class FlashpointPlatform(TypedDict):
@@ -147,10 +146,7 @@ class FlashpointHandler(MetadataHandler):
             log.warning(
                 "Connection error: can't connect to Flashpoint API", exc_info=True
             )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Flashpoint API, check your internet connection",
-            ) from exc
+            raise unavailable("Flashpoint API") from exc
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from Flashpoint API: %s", exc)
             return {}

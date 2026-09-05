@@ -4,6 +4,7 @@ A complete rescan clears every ID it could rematch; a provider that failed
 answered nothing, so the ID it could not check has to survive.
 """
 
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -32,7 +33,7 @@ MATCH = IGDBRom(igdb_id=9999, name="A Real Game")
 UNREACHABLE = HTTPException(status_code=503, detail="provider is down")
 
 
-def _lookup(result):
+def _lookup(result: Any) -> AsyncMock:
     """A provider lookup that answers with `result`, or fails when it is one."""
     if isinstance(result, Exception):
         return AsyncMock(side_effect=result)

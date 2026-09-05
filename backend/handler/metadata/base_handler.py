@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final, Mapping, NotRequired, TypedDict
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
+from fastapi import HTTPException, status
 from strsimpy.jaro_winkler import JaroWinkler
 
 from handler.redis_handler import async_cache
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
     from models.rom import Rom
 
 jarowinkler = JaroWinkler()
-
 
 METADATA_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
 
@@ -56,6 +56,14 @@ LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b", re.IGNORECASE)
 COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b(?=\s*[^\w\s]|$)", re.IGNORECASE)
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
+
+
+def unavailable(provider: str) -> HTTPException:
+    """The error a provider raises when it can't be reached."""
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"Can't connect to {provider}, check your internet connection",
+    )
 
 
 class BaseRom(TypedDict):

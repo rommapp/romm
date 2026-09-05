@@ -6,10 +6,10 @@ from typing import Final, NotRequired, TypedDict
 
 import httpx
 import yarl
-from fastapi import HTTPException, status
+from fastapi import status
 
 from config import PLAYMATCH_API_ENABLED, PLAYMATCH_API_URL
-from handler.metadata.base_handler import MetadataHandler
+from handler.metadata.base_handler import MetadataHandler, unavailable
 from logger.logger import log
 from models.rom import Rom, RomFile
 from utils import get_version
@@ -201,10 +201,7 @@ class PlaymatchHandler(MetadataHandler):
                 log.warning(
                     "Connection error: can't connect to Playmatch", exc_info=True
                 )
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Can't connect to Playmatch, check your internet connection",
-                ) from exc
+                raise unavailable("Playmatch") from exc
             except json.JSONDecodeError as exc:
                 log.error("Error decoding JSON response from Playmatch: %s", exc)
                 return {}

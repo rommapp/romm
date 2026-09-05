@@ -14,14 +14,13 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 from defusedxml import ElementTree as ET
-from fastapi import HTTPException, status
 
 from config import CSDB_API_ENABLED
 from logger.logger import log
 from utils import get_version, int_or_none
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, MetadataHandler, unavailable
 from .demozoo_handler import build_scene_summary, http_url
 
 CSDB_TAG_REGEX = re.compile(r"\(csdb-(\d+)\)", re.IGNORECASE)
@@ -180,10 +179,7 @@ class CsdbHandler(MetadataHandler):
             log.warning(
                 "Can't connect to CSDb webservice", extra={"exception": str(exc)}
             )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to CSDb, check your internet connection",
-            ) from exc
+            raise unavailable("CSDb") from exc
         if body is None:
             return ""
         return body.decode("utf-8", errors="replace")
