@@ -175,9 +175,7 @@ const preset = computed<Preset>(() => {
   if (props.action === "stream") {
     return {
       icon: "mdi-play-network",
-      label: actions.streamLabel.value
-        ? t("rom.stream-on", { container: actions.streamLabel.value })
-        : t("rom.stream"),
+      label: actions.streamActionLabel.value,
       activeIcon: null,
       onClick: () => actions.play("stream"),
       active: false,
@@ -186,9 +184,7 @@ const preset = computed<Preset>(() => {
   if (props.action === "join") {
     return {
       icon: "mdi-account-multiple-plus",
-      label: actions.joinHostLabel.value
-        ? t("rom.join-session-of", { user: actions.joinHostLabel.value })
-        : t("rom.join-session"),
+      label: actions.joinActionLabel.value,
       activeIcon: null,
       onClick: () => void actions.joinStream(),
       active: false,

@@ -7,9 +7,10 @@
 // It claims the same container key under the same lock as a game session,
 // so opening a desktop blocks players and a running game blocks the admin.
 // Nothing here belongs to a ROM: no cover art, no save states, no resume.
-import { RAlert, RBtn } from "@v2/lib";
+import { RAlert, RBtn, RSpinner } from "@v2/lib";
+import { useEventListener } from "@vueuse/core";
 import { isAxiosError } from "axios";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -137,13 +138,10 @@ function onPageHide(): void {
   streamingApi.releaseSessionKeepalive(platform.value, containerKey.value);
 }
 
-onMounted(() => {
-  window.addEventListener("pagehide", onPageHide);
-  void openDesktop();
-});
+useEventListener(window, "pagehide", onPageHide);
 
-onBeforeUnmount(() => {
-  window.removeEventListener("pagehide", onPageHide);
+onMounted(() => {
+  void openDesktop();
 });
 </script>
 
@@ -163,9 +161,10 @@ onBeforeUnmount(() => {
       </template>
     </RAlert>
 
-    <div
+    <RSpinner
       v-else-if="state === 'loading'"
       class="r-v2-desktop__spinner"
+      :size="40"
       :aria-label="t('common.loading')"
     />
 
@@ -219,19 +218,8 @@ onBeforeUnmount(() => {
 }
 
 .r-v2-desktop__spinner {
-  width: 40px;
-  height: 40px;
+  display: block;
   margin: 64px auto;
-  border-radius: 50%;
-  border: 2px solid var(--r-color-surface-hover);
-  border-top-color: var(--r-color-brand-primary);
-  animation: r-v2-desktop-spin 0.8s linear infinite;
-}
-
-@keyframes r-v2-desktop-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .r-v2-desktop__bar-title {

@@ -10,12 +10,12 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
-from collections.abc import Callable, Coroutine
+from collections.abc import AsyncIterator, Callable, Coroutine
 from datetime import datetime, timezone
 from email.message import Message
 from enum import Enum, auto
 from pathlib import PurePosixPath
-from typing import Annotated, Any, Literal, NamedTuple, TypedDict
+from typing import Annotated, Any, Literal, NamedTuple, NoReturn, TypedDict
 from urllib.parse import quote, urljoin, urlparse, urlunparse
 
 from fastapi import Body, HTTPException, Query, Request
@@ -56,6 +56,7 @@ from models.assets import MemoryCard, MemoryCardVersion, State
 from models.rom import Rom
 from models.user import Role, User
 from utils.filesystem import sanitize_filename
+from utils.m3u import playlist_files
 from utils.memory_cards import (
     MEMORY_CARD_MAX_BYTES,
     content_hash_of_bytes,
@@ -129,6 +130,36 @@ async def _get_session(session_key: str) -> dict[str, Any] | None:
         # Corrupt entry, drop it rather than wedging the container forever.
         await async_cache.delete(_session_redis_key(session_key))
         return None
+
+
+async def _get_live_session(session_key: str) -> dict[str, Any] | None:
+    """The session occupying a container, or None when nobody holds it.
+
+    A drain marker holds the key while a teardown finishes: it has no owner and
+    nothing to release, so every reader that asks "who is on this container"
+    wants it treated as absent.
+    """
+    session = await _get_session(session_key)
+    if session is None or session.get("draining"):
+        return None
+    return session
+
+
+async def _iter_session_keys() -> AsyncIterator[str]:
+    """Every container key with a session row in the cache."""
+    async for key in async_cache.scan_iter(match=f"{_STREAMING_SESSION_KEY_PREFIX}*"):
+        # scan_iter yields bytes unless the client decodes responses.
+        key_str = key.decode() if isinstance(key, bytes) else key
+        yield key_str.removeprefix(_STREAMING_SESSION_KEY_PREFIX)
+
+
+async def _iter_live_sessions() -> AsyncIterator[tuple[str, dict[str, Any]]]:
+    """Every occupied container, as (container key, session). Unreadable rows
+    and drain markers are skipped, so listing routes never re-decide either."""
+    async for container_key in _iter_session_keys():
+        session = await _get_live_session(container_key)
+        if session is not None:
+            yield container_key, session
 
 
 async def _refresh_session(session_key: str) -> None:
@@ -1224,17 +1255,31 @@ def _containers_by_key() -> dict[str, list[dict[str, Any]]]:
     return grouped
 
 
-def _container_label(container_key: str, entries: list[dict[str, Any]]) -> str | None:
-    """The container's own default label, ignoring any per-platform override.
+def _container_labels() -> dict[str, str | None]:
+    """Each container's own default label by key, ignoring per-platform
+    overrides.
 
-    `label` is a PLATFORM_OVERRIDE_KEYS entry, so `entries[0]` may carry a
-    platform-specific override rather than the container's default. Look it
-    up on the raw, pre-expansion config entry instead.
+    `label` is a PLATFORM_OVERRIDE_KEYS entry, so an expanded entry may carry a
+    platform-specific override rather than the container's default. Built from
+    the raw, pre-expansion config, once per request rather than per row.
     """
+    labels: dict[str, str | None] = {}
     raw_containers: Any = cm.get_config().STREAMING_CONTAINERS or []
     for raw in raw_containers:
-        if isinstance(raw, dict) and _container_key(raw) == container_key:
-            return raw.get("label")
+        if isinstance(raw, dict):
+            labels.setdefault(_container_key(raw), raw.get("label"))
+    return labels
+
+
+def _container_label(
+    labels: dict[str, str | None],
+    container_key: str,
+    entries: list[dict[str, Any]],
+) -> str | None:
+    """A container's label, falling back to an expanded entry's when the
+    container is not in the raw config at all."""
+    if container_key in labels:
+        return labels[container_key]
     return entries[0].get("label") if entries else None
 
 
@@ -1256,32 +1301,29 @@ def _container_for_session(
 
 
 def _swappable_disc_file_ids(rom: Rom) -> set[int]:
-    """The rom files that are valid swap targets.
-
-    Mirrors the playlist filtering the client and the download endpoint use:
-    the .m3u is never a target, and when .cue files are present the raw tracks
-    they reference are not either.
-    """
-    files = [f for f in rom.files if f.file_extension.lower() != "m3u"]
-    cues = [f for f in files if f.file_extension.lower() == "cue"]
-    return {f.id for f in (cues or files)}
+    """The rom files that are valid swap targets: the ROM's playlist entries."""
+    return {f.id for f in playlist_files(rom.files)}
 
 
-def _session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
-    """Can the caller see the ROM a session is running?
+def _rom_is_visible(request: Request, rom: Rom | None) -> bool:
+    """Can the caller see this ROM?
 
     Sessions outlive nothing but the cache, so a rom_id that no longer
     resolves is treated as visible: there is no hidden ROM left to protect.
     """
-    rom_id = session.get("rom_id")
-    if rom_id is None:
-        return True
-    rom = db_rom_handler.get_rom(rom_id)
     if rom is None:
         return True
     if not request.user.is_authenticated:
         return True
     return get_permissions(request).can_see_rom(rom.id, rom.platform_id)
+
+
+def _session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
+    """Can the caller see the ROM a session is running?"""
+    rom_id = session.get("rom_id")
+    if rom_id is None:
+        return True
+    return _rom_is_visible(request, db_rom_handler.get_rom_simple(rom_id))
 
 
 def _assert_session_rom_visible(
@@ -1321,15 +1363,12 @@ async def _find_session_for_user(
     """The candidate holding this user's session, as (container, key, session).
 
     With a pool the platform no longer identifies the container, the session
-    does. A container being drained is nobody's, whether the marker replaced
-    the session (release) or was set on it (teardown): its emulator is already
-    being killed, so treating it as held would report a live stream and let
-    control routes act on it.
+    does.
     """
     for candidate in candidates:
         session_key = _container_key(candidate)
-        session = await _get_session(session_key)
-        if session is None or session.get("draining"):
+        session = await _get_live_session(session_key)
+        if session is None:
             continue
         if session.get("user_id") == user_id:
             return candidate, session_key, session
@@ -1349,10 +1388,7 @@ async def _resolve_named_container(
         session_key = _container_key(candidate)
         if session_key != container_key:
             continue
-        session = await _get_session(session_key)
-        if session is not None and session.get("draining"):
-            session = None
-        return candidate, session_key, session
+        return candidate, session_key, await _get_live_session(session_key)
     raise HTTPException(
         status_code=404,
         detail=f"No streaming container '{container_key}' for platform '{platform}'",
@@ -1378,8 +1414,8 @@ async def _resolve_owned_session(
     others: list[tuple[dict[str, Any], str, dict[str, Any]]] = []
     for candidate in candidates:
         session_key = _container_key(candidate)
-        session = await _get_session(session_key)
-        if session is None or session.get("draining"):
+        session = await _get_live_session(session_key)
+        if session is None:
             continue
         if session.get("user_id") == request.user.id:
             return candidate, session_key, session
@@ -1719,6 +1755,29 @@ def _gui_language(user: User) -> str | None:
     return _language_code((user.ui_settings or {}).get("locale"))
 
 
+def _raise_broker_http_error(exc: urllib.error.HTTPError) -> NoReturn:
+    """Translate a broker error response into the 502 the frontend parses."""
+    error_body = _broker_error_body(exc)
+    log.error("broker HTTP error %d: %s", exc.code, error_body)
+    try:
+        detail = json.loads(error_body)
+    except Exception:
+        detail = error_body
+    raise HTTPException(
+        status_code=502, detail=f"Broker returned {exc.code}: {detail}"
+    ) from exc
+
+
+def _raise_broker_unreachable(
+    exc: BaseException, subject: str, url: str, hint: str
+) -> NoReturn:
+    """Translate a transport failure into a 503 naming what to check."""
+    log.error("broker unreachable at %s: %s", url, exc)
+    raise HTTPException(
+        status_code=503, detail=f"Could not reach {subject} at {url}. {hint}"
+    ) from exc
+
+
 def _call_broker(
     container: dict[str, Any],
     rom_path: str,
@@ -1744,26 +1803,15 @@ def _call_broker(
         log.info("broker launched ROM, %s", resp)
         return resp if isinstance(resp, dict) else {}
     except urllib.error.HTTPError as exc:
-        error_body = _broker_error_body(exc)
-        log.error("broker HTTP error %d: %s", exc.code, error_body)
-        try:
-            detail = json.loads(error_body)
-        except Exception:
-            detail = error_body
-        raise HTTPException(
-            status_code=502,
-            detail=f"Broker returned {exc.code}: {detail}",
-        ) from exc
+        _raise_broker_http_error(exc)
     except (urllib.error.URLError, OSError) as exc:
-        log.error("broker unreachable at %s: %s", url, exc)
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                f"Could not reach ROM broker at {url}. "
-                "Check that broker.py is running inside the emulator container "
-                "and that port 8000 is reachable from the RomM host."
-            ),
-        ) from exc
+        _raise_broker_unreachable(
+            exc,
+            "ROM broker",
+            url,
+            "Check that broker.py is running inside the emulator container "
+            "and that port 8000 is reachable from the RomM host.",
+        )
 
 
 def _save_and_exit_broker(
@@ -1859,21 +1907,14 @@ def _save_state_broker(container: dict[str, Any], slot: int) -> bool:
 
 
 def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
-    """POST /load-state to the broker. Returns True if broker confirmed success."""
-    if _is_webstation(container):
-        body = _broker_request_safe(
-            container,
-            _webstation_path(container, "/load-state"),
-            "load-state",
-            body={"slot": slot},
-            timeout=_BROKER_LOAD_STATE_TIMEOUT,
-        )
-        return bool(body and body.get("loaded", False))
+    """POST /load-state to the broker. Returns True if broker confirmed success.
 
-    # Timeout covers the worst case: 9 slot cycles x ~5s xdotool timeout.
+    Both protocols answer the same way here, so only the route differs. The
+    timeout covers the worst case: 9 slot cycles x ~5s xdotool timeout.
+    """
     body = _broker_request_safe(
         container,
-        "/load-state",
+        _transfer_route(container, "/load-state"),
         "load-state",
         body={"slot": slot},
         timeout=_BROKER_LOAD_STATE_TIMEOUT,
@@ -2027,26 +2068,15 @@ def _webstation_activate(
             container, path, body=body, timeout=STREAMING_LAUNCH_TIMEOUT
         )
     except urllib.error.HTTPError as exc:
-        error_body = _broker_error_body(exc)
-        log.error("broker HTTP error %d: %s", exc.code, error_body)
-        try:
-            detail = json.loads(error_body)
-        except Exception:
-            detail = error_body
-        raise HTTPException(
-            status_code=502, detail=f"Broker returned {exc.code}: {detail}"
-        ) from exc
+        _raise_broker_http_error(exc)
     except (urllib.error.URLError, OSError) as exc:
-        url = _broker_url(container, path)
-        log.error("broker unreachable at %s: %s", url, exc)
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                f"Could not reach the webstation broker at {url}. "
-                "Check that the container is running and its broker port is "
-                "reachable from the RomM host."
-            ),
-        ) from exc
+        _raise_broker_unreachable(
+            exc,
+            "the webstation broker",
+            _broker_url(container, path),
+            "Check that the container is running and its broker port is "
+            "reachable from the RomM host.",
+        )
 
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)
@@ -2455,16 +2485,23 @@ async def _remove_pruned_file(path: str) -> None:
         log.error("could not remove pruned file %s, leaving it orphaned: %s", path, exc)
 
 
-async def _prune_state_history(user: User, rom: Rom, emulator: str) -> int:
+async def _prune_state_history(
+    user: User, rom: Rom, emulator: str, history: list[State] | None = None
+) -> int:
     """Delete the oldest states past the retention limit. Returns how many went.
 
     A file already gone from disk still loses its row, since a stale entry that
-    no longer opens is worse than a missing file.
+    no longer opens is worse than a missing file. `history` is the newest-first
+    list a caller already holds, saving a second fetch and sort of the same rows.
     """
     limit = STREAMING_STATE_HISTORY_LIMIT
     if limit <= 0:
         return 0
-    states = _user_states_for_emulator(user.id, rom.id, emulator)
+    states = (
+        history
+        if history is not None
+        else _user_states_for_emulator(user.id, rom.id, emulator)
+    )
     stale = states[limit:]
     for state in stale:
         screenshot = state.screenshot
@@ -2537,7 +2574,8 @@ async def _store_state_asset(
         scanned_state.user_id = user.id
         scanned_state.emulator = emulator
         scanned_state.disc_file_id = disc_file_id
-        db_state_handler.add_state(state=scanned_state)
+        # The capture is the newest, so it heads the list the prune below reads.
+        history.insert(0, db_state_handler.add_state(state=scanned_state))
 
     # Bind a thumbnail to the state so the resume picker shows the right frame.
     # Best-effort: a missing or unreadable screenshot must not fail the sync.
@@ -2547,7 +2585,7 @@ async def _store_state_asset(
         except Exception:
             log.exception("failed to store state screenshot for %s", stamped)
 
-    await _prune_state_history(user, rom, emulator)
+    await _prune_state_history(user, rom, emulator, history=history)
 
 
 async def _restore_session_disc(
@@ -2583,41 +2621,52 @@ async def _restore_session_disc(
     return True
 
 
-async def _release_after_state_pull(
-    session_key: str, pull: Coroutine[Any, Any, Any], token: str
-) -> None:
-    """Run the exit state pull, then drop the drain marker it was holding behind.
+def _hold_reservation(
+    session_key: str, token: str | None, claim: dict[str, Any]
+) -> asyncio.Future:
+    """Keep a container reserved while a teardown runs.
 
-    The marker goes even when the pull raised: the state is recoverable from the
-    container on the next claim, a container nothing releases is not. `token`
-    keeps that release aimed at this drain, so an overrun that outlived its own
-    marker cannot free whoever took the container afterwards.
+    The drain marker holds it where one landed; where it did not, nothing took
+    the container over and the claim itself still reserves it. Either way the
+    stamp is kept current, since the player who owned it has left and an
+    unrefreshed reservation reads as abandoned to the next claimant.
     """
-    keepalive = asyncio.ensure_future(_hold_drain_marker(session_key, token))
-    try:
-        await pull
-    finally:
-        keepalive.cancel()
+    return asyncio.ensure_future(
+        _hold_drain_marker(session_key, token)
+        if token is not None
+        else _hold_session_claim(session_key, claim)
+    )
+
+
+async def _drop_reservation(
+    session_key: str, token: str | None, claim: dict[str, Any]
+) -> None:
+    """Free whatever `_hold_reservation` was holding. `token` keeps the release
+    aimed at this drain, so an overrun that outlived its own marker cannot free
+    whoever took the container afterwards."""
+    if token is not None:
         await _drop_drain_marker(session_key, token)
+    elif not await _release_own_session(session_key, claim):
+        log.error("session %s survived its own exit", session_key)
 
 
-async def _release_claim_after_state_pull(
-    session_key: str, pull: Coroutine[Any, Any, Any], claim: dict[str, Any]
+async def _release_after_state_pull(
+    session_key: str,
+    pull: Coroutine[Any, Any, Any],
+    token: str | None,
+    claim: dict[str, Any],
 ) -> None:
-    """The same, for an exit whose drain marker never landed.
+    """Run the exit state pull, then free the container it was holding.
 
-    Nothing took the container over in that case, so the claim itself is what
-    still reserves it: the pull runs under it and the claim goes afterwards. The
-    stamp is kept current meanwhile, since the player who owned it has left and
-    an unrefreshed claim reads as abandoned to the next claimant.
+    The reservation goes even when the pull raised: the state is recoverable
+    from the container on the next claim, a container nothing releases is not.
     """
-    keepalive = asyncio.ensure_future(_hold_session_claim(session_key, claim))
+    keepalive = _hold_reservation(session_key, token, claim)
     try:
         await pull
     finally:
         keepalive.cancel()
-        if not await _release_own_session(session_key, claim):
-            log.error("session %s survived its own exit", session_key)
+        await _drop_reservation(session_key, token, claim)
 
 
 async def _pull_state_to_library(
@@ -3238,6 +3287,18 @@ async def _discard_blank_card(card_id: int) -> None:
             log.warning("could not remove card archive %s, %s", path, exc)
 
 
+async def _abort_claim(session_key: str, blank_card_id: int | None = None) -> None:
+    """Undo a claim that will not become a session.
+
+    Every exit from `claim_session` that is not a started session goes through
+    here: leaving the key behind wedges the container until the TTL lapses, and
+    leaving an auto-created blank card behind orphans a row nobody asked for.
+    """
+    await async_cache.delete(_session_redis_key(session_key))
+    if blank_card_id is not None:
+        await _discard_blank_card(blank_card_id)
+
+
 async def _evacuate_memory_card(
     user_id: int, card_id: int, container: dict[str, Any]
 ) -> bool:
@@ -3327,6 +3388,47 @@ async def _wipe_session_card(container: dict[str, Any]) -> None:
         log.info("wiped broker memory-card slot after evacuation")
     else:
         log.warning("memory-card slot wipe failed, relying on next-claim wipe")
+
+
+async def _quiesce_container(
+    container: dict[str, Any], session: dict[str, Any], *, save: bool = True
+) -> int | None:
+    """Stop the emulator, then evacuate and wipe its memory card.
+
+    Every teardown path opens this way, and the order is load-bearing: stopping
+    first is what makes the card quiescent, and the wipe runs only where the
+    evacuation captured the card. Returns the slot the stop wrote an exit state
+    to, if any.
+    """
+    state_slot = await asyncio.to_thread(_stop_broker, container, save)
+    if await _evacuate_session_card(session, container):
+        await _wipe_session_card(container)
+    return state_slot
+
+
+async def _collect_exit_state(
+    container: dict[str, Any], session: dict[str, Any], state_slot: int | None
+) -> None:
+    """File the state the stop wrote, while the claim still guards the container.
+
+    The broker keeps an exited session's state only until the next activate, and
+    dropping the claim is what lets that activate happen.
+    """
+    rom_id = session.get("rom_id")
+    user_id = session.get("user_id")
+    if (
+        state_slot is None
+        or not isinstance(rom_id, int)
+        or not isinstance(user_id, int)
+    ):
+        return
+    await _pull_state_to_library(
+        user_id,
+        rom_id,
+        container,
+        state_slot,
+        disc_file_id=_session_disc_id(session),
+    )
 
 
 # Streaming sessions shorter than this are treated as accidental (a claim that
@@ -3488,10 +3590,7 @@ async def _teardown_abandoned_session(
 
     keepalive = asyncio.ensure_future(_hold_drain_marker(session_key, token))
     try:
-        state_slot = await asyncio.to_thread(_stop_broker, container)
-        safe_to_wipe = await _evacuate_session_card(session, container)
-        if safe_to_wipe:
-            await _wipe_session_card(container)
+        state_slot = await _quiesce_container(container, session)
         await _record_play_session(session)
         await _clear_session_activity(session_key, session)
         # That tab may still be showing the stream, so leave the same note an
@@ -3499,24 +3598,7 @@ async def _teardown_abandoned_session(
         await _record_termination(
             session, session_key, ended_by=None, reason="abandoned"
         )
-
-        rom_id = session.get("rom_id")
-        user_id = session.get("user_id")
-        # The stop wrote an exit state the broker keeps only until the next
-        # activate, and dropping the claim below is what lets that activate
-        # happen, so it is collected here rather than left to be overwritten.
-        if (
-            state_slot is not None
-            and isinstance(rom_id, int)
-            and isinstance(user_id, int)
-        ):
-            await _pull_state_to_library(
-                user_id,
-                rom_id,
-                container,
-                state_slot,
-                disc_file_id=_session_disc_id(session),
-            )
+        await _collect_exit_state(container, session, state_slot)
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)
     finally:
@@ -3930,7 +4012,7 @@ async def claim_session(
             # cannot be adopted, and pretending otherwise destroys it.
             log.warning("could not read the container memory card, %s", exc)
             if req.card_import != "discard":
-                await async_cache.delete(_session_redis_key(session_key))
+                await _abort_claim(session_key)
                 if req.card_import is None:
                     raise HTTPException(
                         status_code=428,
@@ -3948,10 +4030,10 @@ async def claim_session(
             # The slot is empty now, so the import the user asked for cannot
             # happen. Abort without recording so the prompt fires again.
             log.warning("adopt requested but the container slot is empty")
-            await async_cache.delete(_session_redis_key(session_key))
+            await _abort_claim(session_key)
             raise HTTPException(status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL)
         if adoption_content is not None and req.card_import is None:
-            await async_cache.delete(_session_redis_key(session_key))
+            await _abort_claim(session_key)
             raise HTTPException(
                 status_code=428,
                 detail={
@@ -4007,9 +4089,7 @@ async def claim_session(
                 # Hydrate would wipe the container next, so a failed import must
                 # abort rather than destroy the card it was asked to keep.
                 log.exception("could not adopt the container memory card")
-                await async_cache.delete(_session_redis_key(session_key))
-                if created_blank_card_id is not None:
-                    await _discard_blank_card(created_blank_card_id)
+                await _abort_claim(session_key, created_blank_card_id)
                 raise HTTPException(
                     status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL
                 ) from exc
@@ -4023,9 +4103,7 @@ async def claim_session(
                     "adopted memory card matched an existing version of card %d",
                     memory_card.id,
                 )
-                await async_cache.delete(_session_redis_key(session_key))
-                if created_blank_card_id is not None:
-                    await _discard_blank_card(created_blank_card_id)
+                await _abort_claim(session_key, created_blank_card_id)
                 raise HTTPException(status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL)
         db_container_adoption_handler.add_adoption(
             container_key=_container_key(container),
@@ -4058,9 +4136,7 @@ async def claim_session(
             log.exception("memory card hydration failed")
             hydrated = False
         if not hydrated:
-            await async_cache.delete(_session_redis_key(session_key))
-            if created_blank_card_id is not None:
-                await _discard_blank_card(created_blank_card_id)
+            await _abort_claim(session_key, created_blank_card_id)
             raise HTTPException(
                 status_code=502, detail="Could not prepare the memory card"
             )
@@ -4124,9 +4200,7 @@ async def claim_session(
             )
     except Exception:
         # Launch failed, free the claim so the container isn't wedged.
-        await async_cache.delete(_session_redis_key(session_key))
-        if created_blank_card_id is not None:
-            await _discard_blank_card(created_blank_card_id)
+        await _abort_claim(session_key, created_blank_card_id)
         raise
     finally:
         claim_hold.cancel()
@@ -4266,7 +4340,7 @@ async def save_and_exit_session(
             token = await _claim_drain_marker(session_key, session)
         except StreamingSessionContended:
             _spawn_sync_task(
-                _release_claim_after_state_pull(session_key, pull_state, session)
+                _release_after_state_pull(session_key, pull_state, None, session)
             )
         else:
             if token is None:
@@ -4280,7 +4354,7 @@ async def save_and_exit_session(
                 )
             else:
                 _spawn_sync_task(
-                    _release_after_state_pull(session_key, pull_state, token)
+                    _release_after_state_pull(session_key, pull_state, token, session)
                 )
     elif effective_wait:
         # Broker confirmed the save+kill is done and there is no state coming
@@ -4397,8 +4471,8 @@ async def join_session(
     else:
         found = None
         for candidate in _containers_for_platform(platform):
-            session = await _get_session(_container_key(candidate))
-            if session is None or session.get("draining"):
+            session = await _get_live_session(_container_key(candidate))
+            if session is None:
                 continue
             if session.get("multiplayer"):
                 found = (candidate, session)
@@ -4709,25 +4783,11 @@ async def _teardown_released_session(
             log.warning("skipping teardown, session %s was taken over", session_key)
             return
 
-    keepalive = asyncio.ensure_future(
-        _hold_drain_marker(session_key, token)
-        if token is not None
-        else _hold_session_claim(session_key, session)
-    )
+    keepalive = _hold_reservation(session_key, token, session)
     try:
-        # Stop the emulator first so the card is quiescent before evacuation: a
-        # running game's exit flush could otherwise re-lay a card over the wipe,
-        # and reading a live card risks a torn snapshot. The marker, or the
-        # claim it could not replace, holds the container throughout, so no
-        # concurrent claim can interleave.
-        state_slot = await asyncio.to_thread(_stop_broker, container, save)
-
-        # Evacuate the whole card, then wipe the slot, both before releasing the
-        # claim so a concurrent claim cannot clobber the fresh card or inherit
-        # the old one. Wipe runs only when evacuation captured the card.
-        safe_to_wipe = await _evacuate_session_card(session, container)
-        if safe_to_wipe:
-            await _wipe_session_card(container)
+        # The marker, or the claim it could not replace, holds the container
+        # throughout, so no concurrent claim can interleave.
+        state_slot = await _quiesce_container(container, session, save=save)
 
         # Leave a note when this is a force-release rather than a player closing
         # their own game. A different user is the obvious case; a reason covers
@@ -4748,19 +4808,10 @@ async def _teardown_released_session(
         await _record_play_session(session)
         await _clear_session_activity(session_key, session)
 
-        rom_id = session.get("rom_id")
-        # Awaited, not spawned: the broker holds the exited session's state only
-        # until the next activate, and releasing the claim below is what lets
-        # that activate happen.
-        if isinstance(rom_id, int) and state_slot is not None:
-            await _pull_state_to_library(
-                session["user_id"],
-                rom_id,
-                container,
-                state_slot,
-                disc_file_id=_session_disc_id(session),
-            )
+        # Awaited, not spawned: the claim is released below.
+        await _collect_exit_state(container, session, state_slot)
 
+        rom_id = session.get("rom_id")
         # Legacy per-file save pull, only for containers not on whole-card sync.
         # Fire and forget: it reads files the broker keeps after the emulator
         # dies, so it does not gate the claim release above it.
@@ -4784,10 +4835,7 @@ async def _teardown_released_session(
         # un-evacuated is recoverable, since the next claim prompts to adopt
         # whatever is still on the container; a phantom claim is not.
         keepalive.cancel()
-        if token is not None:
-            await _drop_drain_marker(session_key, token)
-        else:
-            await _release_own_session(session_key, session)
+        await _drop_reservation(session_key, token, session)
 
 
 def _container_by_key(container_key: str) -> tuple[dict[str, Any], str]:
@@ -4818,21 +4866,17 @@ async def list_containers(request: Request) -> JSONResponse:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     cfg = _get_streaming_config()
+    labels = _container_labels()
     containers: list[dict[str, Any]] = []
     for container_key, entries in _containers_by_key().items():
         first = entries[0]
-        session = await _get_session(container_key) if container_key else None
-        # A drain marker is a container on its way to idle, not an occupant:
-        # reporting it would put an all-null session row in the fleet view and
-        # offer a force-release for a teardown that is already running.
-        if session and session.get("draining"):
-            session = None
+        session = await _get_live_session(container_key) if container_key else None
         user_id = session.get("user_id") if session else None
         user = db_user_handler.get_user(user_id) if isinstance(user_id, int) else None
         containers.append(
             {
                 "container": container_key,
-                "label": _container_label(container_key, entries),
+                "label": _container_label(labels, container_key, entries),
                 "host": first.get("host"),
                 "platforms": [e.get("platform") for e in entries if e.get("platform")],
                 # The desktop emulator lives on the webstation broker only; the
@@ -4932,7 +4976,7 @@ async def claim_desktop_session(
         )
     except Exception:
         # Activation failed, free the claim so the container isn't wedged.
-        await async_cache.delete(_session_redis_key(session_key))
+        await _abort_claim(session_key)
         raise
 
     host = container.get("host", "")
@@ -4964,41 +5008,32 @@ async def list_joinable_sessions(
     a Join button needs. Sessions the caller is already hosting are left out.
     """
     grouped = _containers_by_key()
+    labels = _container_labels()
 
     sessions: list[dict[str, Any]] = []
-    async for key in async_cache.scan_iter(match=f"{_STREAMING_SESSION_KEY_PREFIX}*"):
-        raw = await async_cache.get(key)
-        if raw is None:
-            continue
-        try:
-            s = json.loads(raw)
-        except (TypeError, json.JSONDecodeError):
-            continue
-        if not s.get("multiplayer") or s.get("draining"):
+    async for container_key, s in _iter_live_sessions():
+        if not s.get("multiplayer"):
             continue
         if s.get("user_id") == request.user.id:
             continue
         if rom_id is not None and s.get("rom_id") != rom_id:
             continue
-        if not _session_rom_is_visible(request, s):
-            continue
-
-        # scan_iter yields bytes unless the client decodes responses.
-        key_str = key.decode() if isinstance(key, bytes) else key
-        container_key = key_str.removeprefix(_STREAMING_SESSION_KEY_PREFIX)
-        user_id = s.get("user_id")
-        host = db_user_handler.get_user(user_id) if user_id is not None else None
         session_rom_id = s.get("rom_id")
         rom = (
-            db_rom_handler.get_rom(session_rom_id)
+            db_rom_handler.get_rom_simple(session_rom_id)
             if session_rom_id is not None
             else None
         )
+        if not _rom_is_visible(request, rom):
+            continue
+
+        user_id = s.get("user_id")
+        host = db_user_handler.get_user(user_id) if user_id is not None else None
         sessions.append(
             {
                 "container": container_key,
                 "label": _container_label(
-                    container_key, grouped.get(container_key, [])
+                    labels, container_key, grouped.get(container_key, [])
                 ),
                 "platform": s.get("platform"),
                 "rom_id": session_rom_id,
@@ -5030,21 +5065,7 @@ async def list_sessions(request: Request) -> JSONResponse:
     grouped = _containers_by_key()
 
     sessions: list[dict[str, Any]] = []
-    async for key in async_cache.scan_iter(match=f"{_STREAMING_SESSION_KEY_PREFIX}*"):
-        raw = await async_cache.get(key)
-        if raw is None:
-            continue
-        try:
-            s = json.loads(raw)
-        except (TypeError, json.JSONDecodeError):
-            continue
-        # A drain marker holds the key while a teardown finishes; it has no
-        # owner and nothing to release, so it is not an active session.
-        if s.get("draining"):
-            continue
-        # scan_iter yields bytes unless the client decodes responses.
-        key_str = key.decode() if isinstance(key, bytes) else key
-        container_key = key_str.removeprefix(_STREAMING_SESSION_KEY_PREFIX)
+    async for container_key, s in _iter_live_sessions():
         container = (
             _container_for_session(grouped, container_key, s.get("platform")) or {}
         )
@@ -5089,37 +5110,21 @@ async def force_release_all(
             grouped, container_key, session.get("platform") if session else None
         )
 
-        # Stop the emulator, then evacuate and wipe the card, all while the claim
-        # still guards the container and before deleting the key. Stopping first
-        # quiesces the card so an exit flush cannot undo the wipe.
+        # All of it runs while the claim still guards the container and before
+        # the key is deleted.
         try:
             if container is not None:
-                # Best-effort stop; a broker error must not abort the sweep.
-                state_slot = await asyncio.to_thread(_stop_broker, container)
-                if session is not None:
-                    safe_to_wipe = await _evacuate_session_card(session, container)
-                    if safe_to_wipe:
-                        await _wipe_session_card(container)
+                # Best-effort; a broker error must not abort the sweep.
+                if session is None:
+                    # The row went between the scan and the read; stop the
+                    # emulator anyway rather than leave it running.
+                    await asyncio.to_thread(_stop_broker, container)
+                else:
+                    state_slot = await _quiesce_container(container, session)
                     # Credit playtime to the session's owner, not the admin.
                     await _record_play_session(session)
                     await _clear_session_activity(container_key, session)
-
-                    rom_id = session.get("rom_id")
-                    user_id = session.get("user_id")
-                    # The next claim's activate overwrites the exit state, so a
-                    # displaced player only keeps it if it is collected here.
-                    if (
-                        state_slot is not None
-                        and isinstance(rom_id, int)
-                        and isinstance(user_id, int)
-                    ):
-                        await _pull_state_to_library(
-                            user_id,
-                            rom_id,
-                            container,
-                            state_slot,
-                            disc_file_id=_session_disc_id(session),
-                        )
+                    await _collect_exit_state(container, session, state_slot)
 
             # Note who ended it before the key goes, so the player's next poll
             # can explain the stream vanishing.
@@ -5137,12 +5142,9 @@ async def force_release_all(
 
     released = []
     teardowns = []
-    async for key in async_cache.scan_iter(match=f"{_STREAMING_SESSION_KEY_PREFIX}*"):
-        # scan_iter yields bytes unless the client decodes responses.
-        key_str = key.decode() if isinstance(key, bytes) else key
-        container_key = key_str.removeprefix(_STREAMING_SESSION_KEY_PREFIX)
+    async for container_key in _iter_session_keys():
         released.append(container_key)
-        teardowns.append(_teardown(key, container_key))
+        teardowns.append(_teardown(_session_redis_key(container_key), container_key))
 
     # Tear down concurrently so one slow or stuck broker cannot serialize the
     # whole sweep behind its timeout.

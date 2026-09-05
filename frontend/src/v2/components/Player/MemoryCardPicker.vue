@@ -13,14 +13,15 @@
 // Cards key HARD on `emulator` (that is what claim-time lookup uses); the
 // optional `platformId` is a display/creation hint only and never scopes the
 // fetch.
-import { RBtn, RDialog, RForm, RIcon, RSelect, RTextField } from "@v2/lib";
+import { RBtn, RDialog, RIcon, RSelect } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { MemoryCardSchema } from "@/__generated__";
 import memoryCardApi from "@/services/api/memory-card";
 import MemoryCardManager from "@/v2/components/Player/MemoryCardManager.vue";
+import MemoryCardNameDialog from "@/v2/components/Player/MemoryCardNameDialog.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { required } from "@/v2/utils/validation";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 const props = defineProps<{
   emulator: string;
@@ -87,15 +88,6 @@ function onSelect(value: unknown): void {
 // ── Create dialog ───────────────────────────────────────────────────
 const showCreate = ref(false);
 const creating = ref(false);
-const formValid = ref(true);
-const newName = ref("");
-
-const nameRules = [required(t("common.required"))];
-
-function openCreate(): void {
-  newName.value = "";
-  showCreate.value = true;
-}
 
 // ── Manage dialog ───────────────────────────────────────────────────
 const showManage = ref(false);
@@ -106,9 +98,8 @@ function onManaged(): void {
   void loadCards(props.emulator);
 }
 
-async function submitCreate(): Promise<void> {
-  const name = newName.value.trim();
-  if (!name || creating.value) return;
+async function submitCreate(name: string): Promise<void> {
+  if (creating.value) return;
   creating.value = true;
   try {
     const { data } = await memoryCardApi.createMemoryCard({
@@ -122,18 +113,11 @@ async function submitCreate(): Promise<void> {
     showCreate.value = false;
     snackbar.success(t("play.memory-card-created"), { icon: "mdi-check-bold" });
   } catch (err) {
-    const e = err as {
-      response?: { data?: { msg?: string; detail?: string } };
-      message?: string;
-    };
     snackbar.error(
-      `${t("play.memory-card-create-failed")}: ${
-        e?.response?.data?.msg ||
-        e?.response?.data?.detail ||
-        e?.message ||
-        t("common.unknown-error")
-      }`,
-      { icon: "mdi-close-circle" },
+      `${t("play.memory-card-create-failed")}: ${errorMessage(err)}`,
+      {
+        icon: "mdi-close-circle",
+      },
     );
   } finally {
     creating.value = false;
@@ -165,7 +149,7 @@ async function submitCreate(): Promise<void> {
         variant="text"
         :tooltip="t('play.new-memory-card')"
         :disabled="loading"
-        @click="openCreate"
+        @click="showCreate = true"
       />
       <RBtn
         icon="mdi-cog-outline"
@@ -176,51 +160,14 @@ async function submitCreate(): Promise<void> {
       />
     </div>
 
-    <RDialog
+    <MemoryCardNameDialog
       v-model="showCreate"
-      icon="mdi-sd"
-      :width="420"
-      @close="showCreate = false"
-    >
-      <template #header>
-        <span>{{ t("play.create-memory-card") }}</span>
-      </template>
-
-      <template #content>
-        <RForm v-model="formValid" @submit="submitCreate">
-          <!-- eslint-disable vuejs-accessibility/no-autofocus -- autofocusing the first field on dialog open is intentional modal UX -->
-          <RTextField
-            v-model="newName"
-            :placeholder="t('common.name')"
-            prefix-label="stacked"
-            :rules="nameRules"
-            required
-            autofocus
-          >
-            <template #prefix-label>
-              {{ t("common.name") }}
-            </template>
-          </RTextField>
-          <!-- eslint-enable vuejs-accessibility/no-autofocus -->
-        </RForm>
-      </template>
-
-      <template #footer>
-        <RBtn variant="text" :disabled="creating" @click="showCreate = false">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn
-          variant="flat"
-          color="primary"
-          prepend-icon="mdi-plus"
-          :disabled="!newName.trim() || creating"
-          :loading="creating"
-          @click="submitCreate"
-        >
-          {{ t("common.create") }}
-        </RBtn>
-      </template>
-    </RDialog>
+      :title="t('play.create-memory-card')"
+      :confirm-label="t('common.create')"
+      confirm-icon="mdi-plus"
+      :busy="creating"
+      @submit="submitCreate"
+    />
 
     <RDialog
       v-model="showManage"

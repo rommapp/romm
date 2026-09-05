@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useEventListener } from "@vueuse/core";
+import { onBeforeUnmount, ref, watch } from "vue";
 
 // The surface a streaming session renders into: the container's iframe, the
 // auto-hiding control bar over it, and the focus handling the emulator needs
@@ -81,10 +82,18 @@ function revealNearTop(offsetY: number): void {
   showUI();
 }
 
+// The stage is fixed to the viewport, so its top only moves on a resize or a
+// fullscreen transition. Measuring it per mousemove would force a layout read
+// on the thread compositing the stream.
+let stageTop: number | null = null;
+
 function handleStageMouseMove(event: MouseEvent): void {
-  const rect = stageRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  revealNearTop(event.clientY - rect.top);
+  if (stageTop === null) {
+    const rect = stageRef.value?.getBoundingClientRect();
+    if (!rect) return;
+    stageTop = rect.top;
+  }
+  revealNearTop(event.clientY - stageTop);
 }
 
 // Coordinates are measured against the viewport of whichever document the
@@ -186,9 +195,10 @@ async function captureFrame(): Promise<Blob | null> {
 // nothing are left to the broker fallback, which is all they ever had.
 // Returns whether there was anything to post to.
 function postToStream(message: unknown): boolean {
-  const frames = sameOriginFrames(streamFrame.value?.contentWindow ?? null);
-  frames.forEach((win) => win.postMessage(message, window.location.origin));
-  if (frames.length > 0) return true;
+  attachedFrames.forEach((win) =>
+    win.postMessage(message, window.location.origin),
+  );
+  if (attachedFrames.length > 0) return true;
   const room = streamFrame.value?.contentWindow;
   if (!room || !roomOrigin.value) return false;
   room.postMessage(message, roomOrigin.value);
@@ -203,9 +213,16 @@ function onFrameAnnounce(event: MessageEvent): void {
   roomOrigin.value = event.origin;
 }
 
+// The same-origin frames the last attach pass found. Held so a volume drag
+// does not re-walk the whole tree (a SecurityError per cross-origin frame) on
+// every slider step; a frame navigating re-runs the attach, which is what
+// keeps this current.
+let attachedFrames: Window[] = [];
+
 function detachFrameListeners(): void {
   frameCleanups.forEach((off) => off());
   frameCleanups = [];
+  attachedFrames = [];
 }
 
 // Listen in every frame, so the top edge of the stream itself raises the bar
@@ -223,6 +240,7 @@ function attachIframeListeners(): void {
   focusStream();
 
   const frames = sameOriginFrames(frame.contentWindow);
+  attachedFrames = frames;
   sameOrigin.value = frames.length > 0;
 
   frames.forEach((win) => {
@@ -312,30 +330,28 @@ async function toggleFullscreen(): Promise<void> {
 
 function onFullscreenChange(): void {
   isFullscreen.value = !!document.fullscreenElement;
+  stageTop = null;
 }
-onMounted(() => {
-  document.addEventListener("fullscreenchange", onFullscreenChange);
-  window.addEventListener("message", onFrameAnnounce);
+useEventListener(document, "fullscreenchange", onFullscreenChange);
+useEventListener(window, "resize", () => {
+  stageTop = null;
 });
+useEventListener(window, "message", onFrameAnnounce);
 
 onBeforeUnmount(() => {
-  document.removeEventListener("fullscreenchange", onFullscreenChange);
-  window.removeEventListener("message", onFrameAnnounce);
   if (uiTimeout) clearTimeout(uiTimeout);
   clearAttachTimeouts();
   detachFrameListeners();
 });
 
+// Fullscreen state and its toggle reach the bar as slot props, so only what a
+// parent drives imperatively is exposed here.
 defineExpose({
-  isUIVisible,
-  isFullscreen,
-  showUI,
   focusStream,
   captureFrame,
   postToStream,
   enterFullscreen,
   leaveFullscreen,
-  toggleFullscreen,
 });
 </script>
 
@@ -363,14 +379,12 @@ defineExpose({
     <div
       v-if="!sameOrigin"
       class="r-v2-stage__edge"
-      @mousemove="handleStageMouseMove"
       @touchstart="handleTouchStart"
     />
 
     <div
       class="r-v2-stage__bar"
       :class="{ 'r-v2-stage__bar--visible': isUIVisible }"
-      @mousemove="handleStageMouseMove"
     >
       <slot
         name="bar"

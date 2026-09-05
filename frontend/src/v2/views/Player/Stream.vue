@@ -23,10 +23,11 @@ import {
   RSelect,
   RSlider,
   RSliderBtnGroup,
+  RSpinner,
   RSwitch,
   RTooltip,
 } from "@v2/lib";
-import { useLocalStorage } from "@vueuse/core";
+import { useEventListener, useLocalStorage } from "@vueuse/core";
 import { isAxiosError } from "axios";
 import {
   computed,
@@ -46,7 +47,6 @@ import streamingApi, {
   type MemoryCardImport,
   type MemoryCardImportDetail,
 } from "@/services/api/streaming";
-import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
@@ -64,6 +64,7 @@ import AssetStrip, {
   type AssetLayout,
 } from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import { useActivityPresence } from "@/v2/composables/useActivityPresence";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
@@ -434,39 +435,20 @@ function focusPlayButton() {
 }
 
 // ── Live activity ("now playing") ──────────────────────────────────
-const ACTIVITY_HEARTBEAT_MS = 30_000;
-let activityHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
-function activityDeviceId(): string {
-  return auth.user?.current_device_id ?? "web";
-}
-
-function emitActivityStart() {
-  if (!auth.user || !rom.value) return;
-  if (!socket.connected) socket.connect();
-  socket.emit("activity:start", {
-    rom_id: rom.value.id,
-    device_id: activityDeviceId(),
-  });
-}
-
+// Each beat also refreshes the backend claim's liveness stamp: a session whose
+// heartbeat stops long enough counts as abandoned and can be taken over. The
+// same reply reports whether the claim is still ours, which is how an admin
+// force-release reaches this tab.
 let heartbeatInFlight = false;
 
-async function emitActivityHeartbeat() {
-  if (!auth.user || !rom.value) return;
-  socket.emit("activity:heartbeat", {
-    rom_id: rom.value.id,
-    device_id: activityDeviceId(),
-  });
-  // Also refresh the backend claim's liveness stamp: a session whose
-  // heartbeat stops long enough counts as abandoned and can be taken over.
-  // The same reply reports whether the claim is still ours, which is how an
-  // admin force-release reaches this tab.
-  // A joiner holds no claim, so the stamp is not theirs to refresh and the
-  // route would 403 on every tick. The socket beat above still runs: they
-  // are playing, and the activity panel should say so.
-  // A slow round-trip must not let the next tick stack a second request.
-  if (sessionActive.value && !isJoining && !heartbeatInFlight) {
+const presence = useActivityPresence(
+  () => rom.value?.id,
+  async () => {
+    // A joiner holds no claim, so the stamp is not theirs to refresh and the
+    // route would 403 on every tick. A slow round-trip must not let the next
+    // tick stack a second request.
+    if (!rom.value || !sessionActive.value || isJoining || heartbeatInFlight)
+      return;
     heartbeatInFlight = true;
     try {
       await handleSessionStatus(
@@ -475,8 +457,8 @@ async function emitActivityHeartbeat() {
     } finally {
       heartbeatInFlight = false;
     }
-  }
-}
+  },
+);
 
 // ── Force-release handling ─────────────────────────────────────────
 // An admin can end this session from the activity panel. Nothing about the
@@ -523,7 +505,7 @@ async function handleSessionStatus(
   // release path, since the claim is already gone server-side.
   playerState.value = "exited";
   containerHost.value = "";
-  stopActivityHeartbeat();
+  presence.stopHeartbeat();
 
   endedNotice.value = status.termination ?? null;
   endedDialogOpen.value = true;
@@ -622,37 +604,14 @@ async function onVisibilityChange(): Promise<void> {
   await pollSessionStatus();
 }
 
-function emitActivityStop() {
-  if (!auth.user) return;
-  socket.emit("activity:stop", {
-    device_id: activityDeviceId(),
-  });
-}
-
-function startActivityHeartbeat() {
-  if (activityHeartbeatTimer) return;
-  activityHeartbeatTimer = setInterval(
-    emitActivityHeartbeat,
-    ACTIVITY_HEARTBEAT_MS,
-  );
-}
-
-function stopActivityHeartbeat() {
-  if (activityHeartbeatTimer) {
-    clearInterval(activityHeartbeatTimer);
-    activityHeartbeatTimer = null;
-  }
-}
-
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
-    emitActivityStart();
-    startActivityHeartbeat();
+    presence.start();
     nextTick(focusStream);
   }
   if (prev && !running) {
-    stopActivityHeartbeat();
-    emitActivityStop();
+    presence.stopHeartbeat();
+    presence.emitStop();
     nextTick(focusPlayButton);
   }
 });
@@ -1161,10 +1120,13 @@ function onExitDialogKeydown(event: KeyboardEvent): void {
 // Only standard-mapped pads participate: elsewhere indices 8/9 are not
 // guaranteed to be Select+Start.
 const EXIT_CHORD_HOLD_MS = 1500;
-let chordRaf = 0;
+// A 1.5s hold needs nowhere near frame resolution, and this runs on the thread
+// compositing the stream for as long as the session lasts.
+const EXIT_CHORD_POLL_MS = 100;
+let chordTimer: ReturnType<typeof setInterval> | null = null;
 let chordHeldSince = 0;
 
-function pollExitChord(now: number): void {
+function pollExitChord(): void {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   const held = Array.from(pads).some(
     (pad) =>
@@ -1173,6 +1135,7 @@ function pollExitChord(now: number): void {
       pad.buttons[8]?.pressed &&
       pad.buttons[9]?.pressed,
   );
+  const now = performance.now();
   if (!held) {
     chordHeldSince = 0;
   } else if (!chordHeldSince) {
@@ -1181,16 +1144,21 @@ function pollExitChord(now: number): void {
     chordHeldSince = 0;
     if (!exitDialogOpen.value) void openExitDialog();
   }
-  chordRaf = requestAnimationFrame(pollExitChord);
+}
+
+function stopExitChordPoll(): void {
+  if (chordTimer) {
+    clearInterval(chordTimer);
+    chordTimer = null;
+  }
+  chordHeldSince = 0;
 }
 
 watch(sessionActive, (active) => {
-  if (active && !chordRaf) {
-    chordRaf = requestAnimationFrame(pollExitChord);
-  } else if (!active && chordRaf) {
-    cancelAnimationFrame(chordRaf);
-    chordRaf = 0;
-    chordHeldSince = 0;
+  if (active && !chordTimer) {
+    chordTimer = setInterval(pollExitChord, EXIT_CHORD_POLL_MS);
+  } else if (!active) {
+    stopExitChordPoll();
   }
 });
 
@@ -1232,10 +1200,10 @@ function onPageHide(): void {
   playerState.value = "exited";
 }
 
-onMounted(async () => {
-  document.addEventListener("visibilitychange", onVisibilityChange);
-  window.addEventListener("pagehide", onPageHide);
+useEventListener(document, "visibilitychange", onVisibilityChange);
+useEventListener(window, "pagehide", onPageHide);
 
+onMounted(async () => {
   try {
     const { data } = await romApi.getRom({
       romId: parseInt(route.params.rom as string),
@@ -1272,17 +1240,12 @@ onBeforeUnmount(() => {
   // is the single choke point for recording the session.
   playSession.flush();
   playingStore.setPlaying(false);
-  document.removeEventListener("visibilitychange", onVisibilityChange);
-  window.removeEventListener("pagehide", onPageHide);
   if (volumeDebounce) clearTimeout(volumeDebounce);
-  if (chordRaf) {
-    cancelAnimationFrame(chordRaf);
-    chordRaf = 0;
-  }
-  stopActivityHeartbeat();
+  stopExitChordPoll();
+  presence.stopHeartbeat();
   stopSessionPoll();
   stopLaunchPoll();
-  emitActivityStop();
+  presence.emitStop();
   // The claim, not the player state, says whether anything is still held:
   // an exit whose release failed leaves it standing, and this is its retry.
   if (!holdsClaim.value) return;
@@ -1807,7 +1770,7 @@ onBeforeUnmount(() => {
   </section>
 
   <section v-else class="r-v2-stream__loading">
-    <div class="r-v2-stream__spinner" :aria-label="t('common.loading')" />
+    <RSpinner :size="40" :aria-label="t('common.loading')" />
   </section>
 </template>
 
@@ -1932,7 +1895,12 @@ onBeforeUnmount(() => {
     color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
 }
 .r-v2-stream__play--launching :deep(.v-icon) {
-  animation: r-stream-spin 0.8s linear infinite;
+  animation: r-v2-stream-spin 0.8s linear infinite;
+}
+@keyframes r-v2-stream-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .r-v2-stream__hero-links {
   display: flex;
@@ -2133,19 +2101,6 @@ onBeforeUnmount(() => {
   min-height: calc(100vh - var(--r-nav-h));
   display: grid;
   place-items: center;
-}
-.r-v2-stream__spinner {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid var(--r-color-surface-hover);
-  border-top-color: var(--r-color-brand-primary);
-  animation: r-stream-spin 0.8s linear infinite;
-}
-@keyframes r-stream-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* ── Responsive ──────────────────────────────────────────── */

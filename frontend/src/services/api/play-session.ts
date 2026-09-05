@@ -1,5 +1,4 @@
-import Cookies from "js-cookie";
-import api from "@/services/api";
+import api, { keepaliveHeaders } from "@/services/api";
 
 interface PlaySessionEntry {
   rom_id: number;
@@ -32,10 +31,7 @@ function ingestPlaySessionsKeepalive({
     method: "POST",
     keepalive: true,
     credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "x-csrftoken": Cookies.get("romm_csrftoken") ?? "",
-    },
+    headers: keepaliveHeaders(),
     body: JSON.stringify({ device_id: deviceId, sessions }),
   }).catch((err) => console.error("Failed to submit play session:", err));
 }

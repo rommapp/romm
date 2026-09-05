@@ -202,15 +202,3 @@ class DBMemoryCardsHandler(DBBaseHandler):
             .values(missing_from_fs=missing)
             .execution_options(synchronize_session="evaluate")
         )
-
-    @begin_session
-    def delete_version(
-        self,
-        id: int,
-        session: Session = None,  # type: ignore
-    ) -> None:
-        session.execute(
-            delete(MemoryCardVersion)
-            .where(MemoryCardVersion.id == id)
-            .execution_options(synchronize_session="evaluate")
-        )

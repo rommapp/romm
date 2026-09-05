@@ -51,13 +51,6 @@ _ZIP_MODE_SHIFT = 16
 _S_IFMT = 0o170000
 _S_IFLNK = 0o120000
 
-# What a card archive may add up to once unpacked, over the whole archive rather
-# than per entry: a card set is several files and the container's disk pays for
-# the total. The archive's own size says nothing about it, since a few hundred
-# compressed megabytes of zeros expand to hundreds of gigabytes. Held to the
-# transfer cap, which a real card of a few megabytes comes nowhere near.
-_CARD_MAX_UNPACKED_BYTES = MEMORY_CARD_MAX_BYTES
-
 # Enough that a card-sized entry is a handful of reads, small enough that the
 # check never holds much more than this per entry.
 _UNPACK_CHUNK_BYTES = 1024 * 1024
@@ -79,7 +72,7 @@ def _assert_entry_fits(zf: zipfile.ZipFile, entry: zipfile.ZipInfo, budget: int)
             read += len(chunk)
             if read > budget:
                 raise UnsafeCardArchive(
-                    f"unpacks to over {_CARD_MAX_UNPACKED_BYTES} bytes"
+                    f"unpacks to over {MEMORY_CARD_MAX_BYTES} bytes"
                 )
 
 
@@ -91,7 +84,11 @@ def assert_card_archive_safe(content: bytes) -> None:
     """
     try:
         with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
-            budget = _CARD_MAX_UNPACKED_BYTES
+            # Budgeted over the whole archive, not per entry: a card set is
+            # several files and the container's disk pays for the total. The
+            # archive's own size says nothing about it, since a few hundred
+            # compressed megabytes of zeros expand to hundreds of gigabytes.
+            budget = MEMORY_CARD_MAX_BYTES
             for entry in zf.infolist():
                 name = entry.filename
                 # Zip names are meant to be slash-separated, so a hand-written
@@ -166,10 +163,11 @@ async def store_memory_card_version(
     snapshot where it is and the newer one still at the head, so the card the
     next claim hydrates would not be the one that was just uploaded.
     """
-    # Most exits leave the card unchanged, so check the hash in memory first
-    # and skip the disk round-trip for a card that already has this content.
-    content_hash = content_hash_of_bytes(content) if deduplicate else None
-    if content_hash:
+    # Hashed once here, in memory: it answers the dedup precheck below and is
+    # handed to the scan, which would otherwise read the whole archive back off
+    # disk and decompress every entry to reach the same value.
+    content_hash = content_hash_of_bytes(content)
+    if deduplicate and content_hash:
         existing = db_memory_card_handler.get_version_by_content_hash(
             card_id=card.id, content_hash=content_hash
         )
@@ -188,7 +186,11 @@ async def store_memory_card_version(
 
     try:
         version = await scan_memory_card_version(
-            file_name=filename, user=user, emulator=card.emulator, card_id=card.id
+            file_name=filename,
+            user=user,
+            emulator=card.emulator,
+            card_id=card.id,
+            content_hash=content_hash,
         )
 
         # Fallback dedup on the scanned hash, for when the in-memory hash could

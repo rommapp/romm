@@ -56,6 +56,13 @@ vi.mock("@/stores/roms", () => ({
 vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     containerForPlatform: () => streamContainer.value,
+    containerLabelForPlatform: () => {
+      const c = streamContainer.value as {
+        label?: string;
+        emulator?: string;
+      } | null;
+      return c ? c.label || c.emulator || null : null;
+    },
     joinableForRom: () => joinableSession.value,
     fetchJoinableSessions: vi.fn(),
   }),
@@ -207,6 +214,40 @@ describe("useGameActions.joinStream", () => {
 
     expect(confirmFn).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+describe("useGameActions — stream and join action labels", () => {
+  // Both the action button and the overflow menu render these verbatim, so the
+  // fallback rule is tested once here rather than in each surface.
+  it("names the container a stream would run on", () => {
+    streamContainer.value = { label: "Dreamcast box", emulator: "flycast" };
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.streamActionLabel.value).toBe("rom.stream-on");
+  });
+
+  it("says only 'stream' when no container is configured", () => {
+    streamContainer.value = null;
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.streamActionLabel.value).toBe("rom.stream");
+  });
+
+  it("names the host of a session that advertises one", () => {
+    streamContainer.value = { host: "http://stream" };
+    joinableSession.value = { host_username: "ada" };
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.joinActionLabel.value).toBe("rom.join-session-of");
+  });
+
+  it("falls back to the plain join label when the host is unknown", () => {
+    streamContainer.value = { host: "http://stream" };
+    joinableSession.value = { host_username: null };
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.joinActionLabel.value).toBe("rom.join-session");
   });
 });
 

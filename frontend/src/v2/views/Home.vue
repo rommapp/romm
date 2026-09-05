@@ -8,6 +8,7 @@
 // or pressed) we autofocus the first cell so the synthetic keys
 // dispatched by `useGamepad` have somewhere to go.
 import { RChip, RDivider, RIcon, RSkeletonBlock } from "@v2/lib";
+import { useEventListener } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -76,8 +77,15 @@ let liveSessionsTimer: ReturnType<typeof setInterval> | null = null;
 
 function refreshLiveSessions(force = false): void {
   if (!streamingEnabled.value) return;
+  // A backgrounded tab shows nobody the row, and the request costs a Redis
+  // scan plus a ROM lookup per session. The visibility handler catches up.
+  if (document.hidden && !force) return;
   void streamingStore.fetchJoinableSessions(force);
 }
+
+useEventListener(document, "visibilitychange", () => {
+  if (!document.hidden) refreshLiveSessions();
+});
 
 watch(
   streamingEnabled,

@@ -73,6 +73,16 @@ def _owned_card_or_404(card_id: int, user_id: int) -> MemoryCard:
     return card
 
 
+def _apply_card_update(card_id: int, data: dict) -> MemoryCard:
+    """Write a field update, treating a card deleted underneath us as a 404."""
+    updated = db_memory_card_handler.update_card(card_id, data)
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Memory card not found"
+        )
+    return updated
+
+
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 def add_memory_card(
     request: Request,
@@ -345,12 +355,7 @@ def rename_memory_card(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Name cannot be empty",
         )
-    updated = db_memory_card_handler.update_card(id, {"name": cleaned})
-    if updated is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Memory card not found"
-        )
-    return MemoryCardSchema.model_validate(updated)
+    return MemoryCardSchema.model_validate(_apply_card_update(id, {"name": cleaned}))
 
 
 @protected_route(
@@ -367,12 +372,9 @@ def update_memory_card_visibility(
     """Toggle a card's public/private visibility (owner only). Sharing is
     one-way: a recipient's writes go to their own card, never back to this one."""
     _owned_card_or_404(id, request.user.id)
-    updated = db_memory_card_handler.update_card(id, {"is_public": is_public})
-    if updated is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Memory card not found"
-        )
-    return MemoryCardSchema.model_validate(updated)
+    return MemoryCardSchema.model_validate(
+        _apply_card_update(id, {"is_public": is_public})
+    )
 
 
 @protected_route(

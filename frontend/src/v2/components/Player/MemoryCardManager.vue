@@ -9,17 +9,8 @@
 // All routes here are `me`-scoped (own cards), so no permission gating beyond
 // being signed in. Deleting a card also removes its version archives from the
 // filesystem, so delete is a typed-confirm destructive action.
-import {
-  RBtn,
-  RChip,
-  RDialog,
-  REmptyState,
-  RForm,
-  RIcon,
-  RSwitch,
-  RTextField,
-} from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { RBtn, RChip, REmptyState, RIcon, RSpinner, RSwitch } from "@v2/lib";
+import { computed, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   MemoryCardSchema,
@@ -27,9 +18,10 @@ import type {
 } from "@/__generated__";
 import memoryCardApi from "@/services/api/memory-card";
 import { formatBytes, formatRelativeDate } from "@/utils";
+import MemoryCardNameDialog from "@/v2/components/Player/MemoryCardNameDialog.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { required } from "@/v2/utils/validation";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 const props = defineProps<{
   emulator: string;
@@ -64,35 +56,12 @@ async function load(emulator: string): Promise<void> {
 
 watch(() => props.emulator, load, { immediate: true });
 
-function errorText(err: unknown, fallbackKey: string): string {
-  const e = err as {
-    response?: { data?: { msg?: string; detail?: string } };
-    message?: string;
-  };
-  return `${t(fallbackKey)}: ${
-    e?.response?.data?.msg ||
-    e?.response?.data?.detail ||
-    e?.message ||
-    t("common.unknown-error")
-  }`;
-}
-
-const nameRules = [required(t("common.required"))];
-
 // ── Create ──────────────────────────────────────────────────────────
 const showCreate = ref(false);
-const createName = ref("");
 const creating = ref(false);
-const createValid = ref(true);
 
-function openCreate(): void {
-  createName.value = "";
-  showCreate.value = true;
-}
-
-async function submitCreate(): Promise<void> {
-  const name = createName.value.trim();
-  if (!name || creating.value) return;
+async function submitCreate(name: string): Promise<void> {
+  if (creating.value) return;
   creating.value = true;
   try {
     const { data } = await memoryCardApi.createMemoryCard({
@@ -105,9 +74,12 @@ async function submitCreate(): Promise<void> {
     emit("changed");
     snackbar.success(t("play.memory-card-created"), { icon: "mdi-check-bold" });
   } catch (err) {
-    snackbar.error(errorText(err, "play.memory-card-create-failed"), {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      `${t("play.memory-card-create-failed")}: ${errorMessage(err)}`,
+      {
+        icon: "mdi-close-circle",
+      },
+    );
   } finally {
     creating.value = false;
   }
@@ -115,19 +87,11 @@ async function submitCreate(): Promise<void> {
 
 // ── Rename ──────────────────────────────────────────────────────────
 const renameTarget = ref<MemoryCardSchema | null>(null);
-const renameName = ref("");
 const renaming = ref(false);
-const renameValid = ref(true);
 
-function openRename(card: MemoryCardSchema): void {
-  renameTarget.value = card;
-  renameName.value = card.name;
-}
-
-async function submitRename(): Promise<void> {
+async function submitRename(name: string): Promise<void> {
   const card = renameTarget.value;
-  const name = renameName.value.trim();
-  if (!card || !name || renaming.value) return;
+  if (!card || renaming.value) return;
   renaming.value = true;
   try {
     const { data } = await memoryCardApi.renameMemoryCard({
@@ -139,23 +103,26 @@ async function submitRename(): Promise<void> {
     emit("changed");
     snackbar.success(t("play.memory-card-renamed"), { icon: "mdi-check-bold" });
   } catch (err) {
-    snackbar.error(errorText(err, "play.memory-card-rename-failed"), {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      `${t("play.memory-card-rename-failed")}: ${errorMessage(err)}`,
+      {
+        icon: "mdi-close-circle",
+      },
+    );
   } finally {
     renaming.value = false;
   }
 }
 
 // ── Share (public toggle) ───────────────────────────────────────────
-const sharing = ref<Set<number>>(new Set());
+const sharing = reactive(new Set<number>());
 
 async function toggleShare(
   card: MemoryCardSchema,
   next: boolean,
 ): Promise<void> {
-  if (sharing.value.has(card.id)) return;
-  sharing.value = new Set(sharing.value).add(card.id);
+  if (sharing.has(card.id)) return;
+  sharing.add(card.id);
   try {
     const { data } = await memoryCardApi.setMemoryCardVisibility({
       id: card.id,
@@ -164,24 +131,25 @@ async function toggleShare(
     cards.value = cards.value.map((c) => (c.id === data.id ? data : c));
     emit("changed");
   } catch (err) {
-    snackbar.error(errorText(err, "play.memory-card-share-failed"), {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      `${t("play.memory-card-share-failed")}: ${errorMessage(err)}`,
+      {
+        icon: "mdi-close-circle",
+      },
+    );
   } finally {
-    const s = new Set(sharing.value);
-    s.delete(card.id);
-    sharing.value = s;
+    sharing.delete(card.id);
   }
 }
 
 // ── Delete ──────────────────────────────────────────────────────────
-const deleting = ref<Set<number>>(new Set());
+const deleting = reactive(new Set<number>());
 
 async function confirmDelete(card: MemoryCardSchema): Promise<void> {
   // The confirmation is awaited, so without this a second press stacks a
   // second dialog behind the first and deletes a card that is already gone.
-  if (deleting.value.has(card.id)) return;
-  deleting.value = new Set(deleting.value).add(card.id);
+  if (deleting.has(card.id)) return;
+  deleting.add(card.id);
   const ok = await confirm({
     title: t("play.delete-memory-card"),
     body: t("play.delete-memory-card-body", { name: card.name }),
@@ -193,71 +161,63 @@ async function confirmDelete(card: MemoryCardSchema): Promise<void> {
     if (!ok) return;
     await memoryCardApi.deleteMemoryCards({ cards: [card] });
     cards.value = cards.value.filter((c) => c.id !== card.id);
-    versions.value.delete(card.id);
+    versions.delete(card.id);
     emit("changed");
     snackbar.success(t("play.memory-card-deleted"), {
       icon: "mdi-check-circle",
     });
   } catch (err) {
-    snackbar.error(errorText(err, "play.memory-card-delete-failed"), {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      `${t("play.memory-card-delete-failed")}: ${errorMessage(err)}`,
+      {
+        icon: "mdi-close-circle",
+      },
+    );
   } finally {
-    const s = new Set(deleting.value);
-    s.delete(card.id);
-    deleting.value = s;
+    deleting.delete(card.id);
   }
 }
 
 // ── Version history (lazy per card) ─────────────────────────────────
 type VersionState = "loading" | MemoryCardVersionSchema[];
-const versions = ref<Map<number, VersionState>>(new Map());
-const expanded = ref<Set<number>>(new Set());
+const versions = reactive(new Map<number, VersionState>());
+const expanded = reactive(new Set<number>());
 
 function isExpanded(id: number): boolean {
-  return expanded.value.has(id);
+  return expanded.has(id);
 }
 
 async function loadVersions(cardId: number): Promise<void> {
-  const next = new Map(versions.value);
-  next.set(cardId, "loading");
-  versions.value = next;
+  versions.set(cardId, "loading");
   try {
     const { data } = await memoryCardApi.getMemoryCardVersions({ id: cardId });
-    const done = new Map(versions.value);
-    done.set(cardId, data);
-    versions.value = done;
+    versions.set(cardId, data);
   } catch (err) {
     console.warn("[memory-cards] Could not fetch versions:", err);
-    const done = new Map(versions.value);
-    done.set(cardId, []);
-    versions.value = done;
+    versions.set(cardId, []);
   }
 }
 
 async function toggleVersions(card: MemoryCardSchema): Promise<void> {
-  const open = new Set(expanded.value);
-  if (open.has(card.id)) {
-    open.delete(card.id);
-    expanded.value = open;
+  if (expanded.has(card.id)) {
+    expanded.delete(card.id);
     return;
   }
-  open.add(card.id);
-  expanded.value = open;
-  if (versions.value.has(card.id)) return;
+  expanded.add(card.id);
+  if (versions.has(card.id)) return;
   await loadVersions(card.id);
 }
 
 function versionList(id: number): MemoryCardVersionSchema[] {
-  const v = versions.value.get(id);
+  const v = versions.get(id);
   return Array.isArray(v) ? v : [];
 }
 function versionsLoading(id: number): boolean {
-  return versions.value.get(id) === "loading";
+  return versions.get(id) === "loading";
 }
 
 // ── Download / upload ───────────────────────────────────────────────
-const downloading = ref<Set<number>>(new Set());
+const downloading = reactive(new Set<number>());
 const uploading = ref(false);
 const uploadInput = ref<HTMLInputElement | null>(null);
 
@@ -267,8 +227,8 @@ function filenameFromResponse(disposition: unknown, fallback: string): string {
 }
 
 async function downloadCard(card: MemoryCardSchema): Promise<void> {
-  if (downloading.value.has(card.id)) return;
-  downloading.value = new Set(downloading.value).add(card.id);
+  if (downloading.has(card.id)) return;
+  downloading.add(card.id);
   try {
     const response = await memoryCardApi.downloadMemoryCard({ id: card.id });
     const url = URL.createObjectURL(response.data);
@@ -294,9 +254,7 @@ async function downloadCard(card: MemoryCardSchema): Promise<void> {
       { icon: "mdi-close-circle" },
     );
   } finally {
-    const s = new Set(downloading.value);
-    s.delete(card.id);
-    downloading.value = s;
+    downloading.delete(card.id);
   }
 }
 
@@ -343,9 +301,12 @@ async function onUploadPicked(event: Event): Promise<void> {
           void load(props.emulator);
         });
     }
-    snackbar.error(errorText(err, "play.memory-card-upload-failed"), {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      `${t("play.memory-card-upload-failed")}: ${errorMessage(err)}`,
+      {
+        icon: "mdi-close-circle",
+      },
+    );
   } finally {
     uploading.value = false;
   }
@@ -373,7 +334,7 @@ const hasCards = computed(() => cards.value.length > 0);
         variant="text"
         size="small"
         prepend-icon="mdi-plus"
-        @click="openCreate"
+        @click="showCreate = true"
       >
         {{ t("play.new-memory-card") }}
       </RBtn>
@@ -437,7 +398,7 @@ const hasCards = computed(() => cards.value.length > 0);
               icon="mdi-pencil-outline"
               :aria-label="t('play.rename-memory-card')"
               :title="t('play.rename-memory-card')"
-              @click="openRename(card)"
+              @click="renameTarget = card"
             />
             <RBtn
               variant="text"
@@ -455,7 +416,7 @@ const hasCards = computed(() => cards.value.length > 0);
         <!-- Version history (lazy) -->
         <div v-if="isExpanded(card.id)" class="r-mc-mgr__versions">
           <div v-if="versionsLoading(card.id)" class="r-mc-mgr__versions-empty">
-            <RIcon icon="mdi-loading" size="14" class="r-mc-mgr__spin" />
+            <RSpinner :size="14" />
             <span>{{ t("play.memory-card-versions") }}</span>
           </div>
           <p
@@ -506,7 +467,7 @@ const hasCards = computed(() => cards.value.length > 0);
           variant="flat"
           color="primary"
           prepend-icon="mdi-plus"
-          @click="openCreate"
+          @click="showCreate = true"
         >
           {{ t("play.new-memory-card") }}
         </RBtn>
@@ -530,99 +491,29 @@ const hasCards = computed(() => cards.value.length > 0);
       @change="onUploadPicked"
     />
 
-    <!-- Create dialog -->
-    <RDialog
+    <MemoryCardNameDialog
       v-model="showCreate"
-      icon="mdi-sd"
-      :width="420"
-      @close="showCreate = false"
-    >
-      <template #header>
-        <span>{{ t("play.create-memory-card") }}</span>
-      </template>
-      <template #content>
-        <RForm v-model="createValid" @submit="submitCreate">
-          <!-- eslint-disable vuejs-accessibility/no-autofocus -- autofocusing the first field on dialog open is intentional modal UX -->
-          <RTextField
-            v-model="createName"
-            :placeholder="t('common.name')"
-            prefix-label="stacked"
-            :rules="nameRules"
-            required
-            autofocus
-          >
-            <template #prefix-label>
-              {{ t("common.name") }}
-            </template>
-          </RTextField>
-          <!-- eslint-enable vuejs-accessibility/no-autofocus -->
-        </RForm>
-      </template>
-      <template #footer>
-        <RBtn variant="text" :disabled="creating" @click="showCreate = false">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn
-          variant="flat"
-          color="primary"
-          prepend-icon="mdi-plus"
-          :disabled="!createName.trim() || creating"
-          :loading="creating"
-          @click="submitCreate"
-        >
-          {{ t("common.create") }}
-        </RBtn>
-      </template>
-    </RDialog>
+      :title="t('play.create-memory-card')"
+      :confirm-label="t('common.create')"
+      confirm-icon="mdi-plus"
+      :busy="creating"
+      @submit="submitCreate"
+    />
 
-    <!-- Rename dialog -->
-    <RDialog
+    <MemoryCardNameDialog
       :model-value="renameTarget !== null"
       icon="mdi-pencil-outline"
-      :width="420"
+      :title="t('play.rename-memory-card')"
+      :confirm-label="t('common.save')"
+      :initial-name="renameTarget?.name ?? ''"
+      :busy="renaming"
       @update:model-value="
         (v) => {
           if (!v) renameTarget = null;
         }
       "
-      @close="renameTarget = null"
-    >
-      <template #header>
-        <span>{{ t("play.rename-memory-card") }}</span>
-      </template>
-      <template #content>
-        <RForm v-model="renameValid" @submit="submitRename">
-          <!-- eslint-disable vuejs-accessibility/no-autofocus -- autofocusing the first field on dialog open is intentional modal UX -->
-          <RTextField
-            v-model="renameName"
-            :placeholder="t('common.name')"
-            prefix-label="stacked"
-            :rules="nameRules"
-            required
-            autofocus
-          >
-            <template #prefix-label>
-              {{ t("common.name") }}
-            </template>
-          </RTextField>
-          <!-- eslint-enable vuejs-accessibility/no-autofocus -->
-        </RForm>
-      </template>
-      <template #footer>
-        <RBtn variant="text" :disabled="renaming" @click="renameTarget = null">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn
-          variant="flat"
-          color="primary"
-          :disabled="!renameName.trim() || renaming"
-          :loading="renaming"
-          @click="submitRename"
-        >
-          {{ t("common.save") }}
-        </RBtn>
-      </template>
-    </RDialog>
+      @submit="submitRename"
+    />
   </div>
 </template>
 
@@ -765,14 +656,5 @@ const hasCards = computed(() => cards.value.length > 0);
 }
 .r-mc-mgr__version-dl:hover {
   color: var(--r-color-brand-primary);
-}
-
-.r-mc-mgr__spin {
-  animation: r-mc-spin 1s linear infinite;
-}
-@keyframes r-mc-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>

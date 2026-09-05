@@ -28,7 +28,7 @@ import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useConfirm } from "@/v2/composables/useConfirm";
-import { useJoinStreamConfirm } from "@/v2/composables/useJoinStreamConfirm";
+import { confirmJoinStream } from "@/v2/composables/useJoinStreamConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -99,11 +99,10 @@ export function useGameActions(
 
   // Names the box the session runs on, so a library served by more than one
   // container says which the button reaches.
-  const streamLabel = computed(() => {
-    const rom = getRom();
-    if (!rom) return "";
-    return streamingStore.containerForPlatform(rom.platform_slug)?.label ?? "";
-  });
+  const streamLabel = computed(
+    () =>
+      streamingStore.containerLabelForPlatform(getRom()?.platform_slug) ?? "",
+  );
 
   // Asked for here so every surface offering Join has the list, not just the
   // game details page. The store collapses concurrent callers into one request
@@ -132,6 +131,21 @@ export function useGameActions(
 
   const joinHostLabel = computed(
     () => joinableSession.value?.host_username ?? "",
+  );
+
+  // The wording every surface offering these actions uses. Held here so the
+  // action button and the overflow menu cannot name the same action
+  // differently.
+  const streamActionLabel = computed(() =>
+    streamLabel.value
+      ? t("rom.stream-on", { container: streamLabel.value })
+      : t("rom.stream"),
+  );
+
+  const joinActionLabel = computed(() =>
+    joinHostLabel.value
+      ? t("rom.join-session-of", { user: joinHostLabel.value })
+      : t("rom.join-session"),
   );
 
   const isFavorited = computed(() => {
@@ -342,15 +356,17 @@ export function useGameActions(
   // opens normally, so the join intent has to reach it in the URL. Confirming
   // first is what stands in for the start page, which a joiner never sees:
   // they land in someone else's running game with no settings of their own.
-  const { joinStream: confirmAndJoinStream } = useJoinStreamConfirm();
   async function joinStream() {
     const rom = getRom();
     if (!rom || !canJoinStream.value) return;
-    await confirmAndJoinStream({
-      romId: rom.id,
-      romName: rom.name ?? rom.fs_name_no_ext ?? "",
-      hostUsername: joinHostLabel.value || null,
-    });
+    await confirmJoinStream(
+      { t, router, confirm },
+      {
+        romId: rom.id,
+        romName: rom.name ?? rom.fs_name_no_ext ?? "",
+        hostUsername: joinHostLabel.value || null,
+      },
+    );
   }
 
   const platformPath = computed(() => {
@@ -546,8 +562,10 @@ export function useGameActions(
     canPlayStream,
     canPlayInBrowser,
     streamLabel,
+    streamActionLabel,
     canJoinStream,
     joinHostLabel,
+    joinActionLabel,
     joinStream,
     canRemoveFromContinuePlaying,
     canEdit,

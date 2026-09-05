@@ -72,6 +72,19 @@ export const useStreamingStore = defineStore("streaming", () => {
   }
 
   /**
+   * What to call the container serving a platform, for any surface that names
+   * where a stream runs. Unlabelled containers fall back to the emulator,
+   * which the backend always fills in.
+   */
+  function containerLabelForPlatform(
+    slug: string | null | undefined,
+  ): string | null {
+    const container = containerForPlatform(slug);
+    if (!container) return null;
+    return container.label || container.emulator || null;
+  }
+
+  /**
    * Returns per-platform save-state capabilities for the streaming player UI,
    * sourced from the container config the backend ships in /config (the single
    * source of truth). Platforms with no configured container, or none the
@@ -357,6 +370,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     error,
     isEnabled,
     containerForPlatform,
+    containerLabelForPlatform,
     platformCapabilities,
     fetchConfig,
     claimSession,

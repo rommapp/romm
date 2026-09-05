@@ -51,21 +51,13 @@ function run(fn: () => void | Promise<void>) {
   />
   <RMenuItem
     v-if="actions.canPlayStream.value"
-    :label="
-      actions.streamLabel.value
-        ? t('rom.stream-on', { container: actions.streamLabel.value })
-        : t('rom.stream')
-    "
+    :label="actions.streamActionLabel.value"
     icon="mdi-play-network"
     @click="run(() => actions.play('stream'))"
   />
   <RMenuItem
     v-if="actions.canJoinStream.value"
-    :label="
-      actions.joinHostLabel.value
-        ? t('rom.join-session-of', { user: actions.joinHostLabel.value })
-        : t('rom.join-session')
-    "
+    :label="actions.joinActionLabel.value"
     icon="mdi-account-multiple-plus"
     @click="run(actions.joinStream)"
   />

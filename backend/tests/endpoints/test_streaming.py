@@ -4206,8 +4206,8 @@ def _adoption_storage(card_bytes: bytes):
     """Run the real store-then-hydrate round trip against stubbed disk I/O, so
     the assertion is on what actually gets pushed back to the container."""
 
-    async def _scan(file_name, user, emulator, card_id):
-        return _card_version(card_id, file_name, "adopted-hash")
+    async def _scan(file_name, user, emulator, card_id, content_hash=None):
+        return _card_version(card_id, file_name, content_hash or "adopted-hash")
 
     with (
         patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),

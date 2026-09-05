@@ -22,10 +22,11 @@ type Flags = {
   canDownload: boolean;
 };
 
-// Not flags: the Join and Stream items pick their labels off these, so they
-// are held apart from the booleans rather than squeezed into them.
-let joinHostLabel = "";
-let streamLabel = "";
+// Not flags: the Join and Stream items render these labels verbatim, so they
+// are held apart from the booleans rather than squeezed into them. How the
+// labels themselves are chosen is useGameActions' own test.
+let joinActionLabel = "";
+let streamActionLabel = "";
 
 const flags: Flags = {
   canPlayInBrowser: true,
@@ -56,8 +57,8 @@ vi.mock("@/v2/composables/useGameActions", () => ({
             };
           }
           if (prop === "isFavorited") return { value: false };
-          if (prop === "joinHostLabel") return { value: joinHostLabel };
-          if (prop === "streamLabel") return { value: streamLabel };
+          if (prop === "joinActionLabel") return { value: joinActionLabel };
+          if (prop === "streamActionLabel") return { value: streamActionLabel };
           return vi.fn();
         },
       },
@@ -72,12 +73,12 @@ const RDivider = { template: `<hr class="divider" />` };
 
 function mountList(
   overrides: Partial<Flags> = {},
-  hostLabel = "",
-  stream = "",
+  joinLabel = "rom.join-session",
+  streamLabel = "rom.stream",
 ) {
   Object.assign(flags, overrides);
-  joinHostLabel = hostLabel;
-  streamLabel = stream;
+  joinActionLabel = joinLabel;
+  streamActionLabel = streamLabel;
   return mount(GameActionsList, {
     props: { rom: { id: 1 } as SimpleRom },
     global: { stubs: { RMenuItem, RDivider } },
@@ -154,11 +155,11 @@ describe("GameActionsList: playing", () => {
     expect(shown).toContain("rom.stream");
   });
 
-  it("names the container when the platform's stream has a label", () => {
+  it("renders the stream label the composable resolved", () => {
     const wrapper = mountList(
       { canPlayInBrowser: false, canPlayStream: true },
-      "",
-      "Dreamcast box",
+      "rom.join-session",
+      "rom.stream-on",
     );
     const shown = labels(wrapper);
     expect(shown).toContain("rom.stream-on");
@@ -176,14 +177,9 @@ describe("GameActionsList: playing", () => {
 });
 
 describe("GameActionsList: joining someone else's session", () => {
-  it("names the host when the session advertises one", () => {
-    const wrapper = mountList({ canJoinStream: true }, "ana");
+  it("renders the join label the composable resolved", () => {
+    const wrapper = mountList({ canJoinStream: true }, "rom.join-session-of");
     expect(labels(wrapper)).toContain("rom.join-session-of");
-  });
-
-  it("falls back to the plain label when the host is unknown", () => {
-    const wrapper = mountList({ canJoinStream: true }, "");
-    expect(labels(wrapper)).toContain("rom.join-session");
   });
 
   it("offers nothing to join when no session is open", () => {

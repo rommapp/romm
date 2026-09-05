@@ -32,13 +32,20 @@ vi.mock("@/stores/config", () => ({
 }));
 // A Pinia setup store unwraps its refs on the instance, so `config` here is
 // the plain object the composable reads, not a ref.
+function mockContainerFor(slug: string | null | undefined) {
+  return streamingEnabled.value && slug
+    ? (streamContainers.get(slug) ?? null)
+    : null;
+}
+
 vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     config: { enabled: streamingEnabled.value, containers: [] },
-    containerForPlatform: (slug: string | null | undefined) =>
-      streamingEnabled.value && slug
-        ? (streamContainers.get(slug) ?? null)
-        : null,
+    containerForPlatform: mockContainerFor,
+    containerLabelForPlatform: (slug: string | null | undefined) => {
+      const container = mockContainerFor(slug);
+      return container ? container.label || container.emulator || null : null;
+    },
   }),
 }));
 // storeToRefs would reject the plain objects above; the composable only needs

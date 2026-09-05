@@ -1,5 +1,4 @@
-import { default as Cookies } from "js-cookie";
-import api from "@/services/api";
+import api, { keepaliveHeaders } from "@/services/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -302,13 +301,6 @@ async function claimDesktop(container: string) {
 // fetch keepalive, which the browser completes after the page is gone.
 // sendBeacon cannot carry the CSRF header, so the cookie-sourced header is
 // set by hand (mirrors the axios interceptor).
-
-function keepaliveHeaders(): Record<string, string> {
-  return {
-    "Content-Type": "application/json",
-    "x-csrftoken": Cookies.get("romm_csrftoken") ?? "",
-  };
-}
 
 function saveAndExitKeepalive(platform: string, slot = 0): Promise<Response> {
   return fetch(`/api/streaming/sessions/${platform}/save-and-exit`, {

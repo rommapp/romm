@@ -86,13 +86,10 @@ export function usePlatformPlayable(getSlug: () => string | null | undefined): {
   const streamable = computed(() => streamContainer.value !== null);
 
   // The container's label is what the Play button says, so the tooltip says
-  // the same. Unlabelled containers fall back to the emulator, which the
-  // backend always fills in.
-  const streamLabel = computed(() => {
-    const container = streamContainer.value;
-    if (!container) return null;
-    return container.label || container.emulator || null;
-  });
+  // the same.
+  const streamLabel = computed(() =>
+    streamingStore.containerLabelForPlatform(getSlug()),
+  );
 
   const mode = computed<PlatformPlayMode>(() =>
     resolveMode(playable.value, streamable.value),

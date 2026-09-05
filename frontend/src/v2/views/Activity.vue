@@ -15,6 +15,7 @@ import {
   RTextField,
   RTooltip,
 } from "@v2/lib";
+import { useEventListener } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -54,6 +55,10 @@ const releasingContainer = ref<string | null>(null);
 
 async function refreshStreamingSessions() {
   if (!isAdmin.value) return;
+  // A backgrounded tab is showing nobody the board, and this request costs a
+  // Redis scan plus a user lookup per session. The visibility handler below
+  // catches up on the way back.
+  if (document.hidden) return;
   try {
     const { data } = await streamingApi.adminListSessions();
     streamingSessions.value = data.sessions ?? [];
@@ -71,6 +76,10 @@ onMounted(async () => {
     now.value = Date.now();
     refreshStreamingSessions();
   }, 30_000);
+});
+
+useEventListener(document, "visibilitychange", () => {
+  if (!document.hidden) void refreshStreamingSessions();
 });
 
 onBeforeUnmount(() => {
