@@ -1,13 +1,14 @@
 """Filing a state or screenshot: write the bytes, scan them, upsert the row.
 
-Both the upload routes and the streaming sync produce the same assets and have
-to file them the same way, so the write-scan-upsert sequence lives here rather
-than once per caller. What differs between them (dedup, retention, where the
-bytes came from) stays with the caller.
+Shared by the upload routes and the streaming sync. What differs between them
+(dedup, retention, where the bytes came from) stays with the caller.
 """
 
-import logging
-from typing import Any
+from io import BytesIO
+from tempfile import SpooledTemporaryFile
+from typing import Any, BinaryIO, TypeAlias
+
+from fastapi import UploadFile
 
 from handler.database import db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
@@ -16,14 +17,16 @@ from models.assets import Screenshot, State
 from models.rom import Rom
 from models.user import User
 
-log = logging.getLogger("romm")
+# What `fs_asset_handler.write_file` accepts: an upload straight off a request,
+# or bytes a sync already holds.
+AssetContent: TypeAlias = UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile
 
 
 async def store_state_file(
     user: User,
     rom: Rom,
     emulator: str | None,
-    content: Any,
+    content: AssetContent,
     filename: str,
     fields: dict[str, Any] | None = None,
 ) -> State:
@@ -78,7 +81,7 @@ async def store_state_file(
 
 
 async def store_screenshot(
-    user: User, rom: Rom, content: Any, filename: str
+    user: User, rom: Rom, content: AssetContent, filename: str
 ) -> Screenshot:
     """Write a screenshot and file its row, updating one already at that name.
 

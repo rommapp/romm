@@ -1,10 +1,8 @@
 """Save-state and disc capabilities per platform and per emulator.
 
-The single source of truth for how many save slots each emulator exposes. The
-broker enforces its own ceiling; these tables let RomM reject an out-of-range
-slot before calling it (a clean 422 instead of a broker 502) and ship the same
-numbers to the frontend via /config, so the slot selector is not a second
-hardcoded copy.
+The broker enforces its own slot ceiling; these tables are what refuse an
+out-of-range slot before the call, and they ship to the frontend via /config so
+the slot selector holds no second copy.
 """
 
 from typing import TypedDict

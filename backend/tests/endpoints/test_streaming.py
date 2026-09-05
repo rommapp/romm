@@ -5,6 +5,7 @@ import logging
 import re
 import time
 import zipfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, NamedTuple
@@ -40,6 +41,7 @@ from handler.streaming.capabilities import (
     state_transfer_limits,
 )
 from handler.streaming.config import (
+    ResolvedContainer,
     _derive_broker_host,
     emulator_display_label,
     reset_cache,
@@ -143,10 +145,9 @@ def _container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
     }
 
 
-def _resolved(entry):
-    """The record the resolver builds for one raw entry, for the unit tests
-    that call an internal directly rather than going through a route. Passes a
-    record straight through, so a call site need not know which it holds."""
+def _resolved(entry: dict | ResolvedContainer) -> ResolvedContainer:
+    """The record the resolver builds for one raw entry, for a unit test that
+    calls an internal directly. A record passes straight through."""
     if not isinstance(entry, dict):
         return entry
     container = resolve_entry(entry)
@@ -203,40 +204,27 @@ def _claim(client, token, rom_id, state_id=None):
 
 
 @contextmanager
-def _pushes():
-    """Collect what the backend pushed to the claiming user's tabs.
+def _pushes() -> Iterator[list[tuple[str, dict[str, Any]]]]:
+    """Collect what the backend pushed to the claiming user's tabs, which is
+    where a launch's own result lands now that the claim answers before it."""
+    sent: list[tuple[str, dict[str, Any]]] = []
 
-    The claim answers 202 and the room URL follows over the socket, so the
-    launch's own result is read here rather than off the response.
-    """
-    sent: list[tuple[str, dict]] = []
-
-    async def _capture(user_id, event, payload):
+    async def _capture(user_id: Any, event: str, payload: dict[str, Any]) -> None:
         sent.append((event, payload))
 
     with patch("endpoints.streaming.push_to_user", new=_capture):
         yield sent
 
 
-def _launch_ready(sent) -> dict:
+def _launch_ready(sent: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
     """The `streaming:launch-ready` payload, or {} if the launch never got there."""
-    return next(
-        (p for event, p in sent if event == "streaming:launch-ready"),
-        {},
-    )
+    return next((p for event, p in sent if event == "streaming:launch-ready"), {})
 
 
 def _claim_ok(client, token, rom_id):
     """Claim with the broker launch stubbed, the common happy-path setup."""
     with patch("endpoints.streaming._call_broker"):
         return _claim(client, token, rom_id)
-
-
-def _claim_ready(client, token, rom_id):
-    """Claim and return (response, launch-ready payload)."""
-    with _pushes() as sent:
-        response = _claim_ok(client, token, rom_id)
-    return response, _launch_ready(sent)
 
 
 # ── /config ───────────────────────────────────────────────────────────────────
@@ -3426,11 +3414,11 @@ def test_stamped_state_filename_round_trips_for_retroarch():
 
 
 class _ResumeClaim(NamedTuple):
-    response: Any
-    ready: dict
-    push: Any
-    call_broker: Any
-    hydrate: Any
+    response: httpx.Response
+    ready: dict[str, Any]
+    push: MagicMock
+    call_broker: MagicMock
+    hydrate: MagicMock
 
 
 def _resume_claim(client, token, rom, state_id, push_ok=True) -> _ResumeClaim:
@@ -5449,7 +5437,7 @@ def test_joining_requires_auth(client, rom: Rom):
 # ── Container expansion ───────────────────────────────────────────────────────
 
 
-def _expand(entry: dict):
+def _expand(entry: dict) -> list[ResolvedContainer]:
     """The records the resolver builds for one raw config entry."""
     with _streaming(entry):
         return list(streaming.resolve_containers())

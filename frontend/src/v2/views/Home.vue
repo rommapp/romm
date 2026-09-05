@@ -8,9 +8,9 @@
 // or pressed) we autofocus the first cell so the synthetic keys
 // dispatched by `useGamepad` have somewhere to go.
 import { RChip, RDivider, RIcon, RSkeletonBlock } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
@@ -73,7 +73,6 @@ const liveSessions = computed(() =>
   joinableSessions.value.filter((s) => s.rom_id != null),
 );
 const LIVE_SESSIONS_POLL_MS = 30_000;
-let liveSessionsTimer: ReturnType<typeof setInterval> | null = null;
 
 function refreshLiveSessions(force = false): void {
   if (!streamingEnabled.value) return;
@@ -87,25 +86,24 @@ useEventListener(document, "visibilitychange", () => {
   if (!document.hidden) refreshLiveSessions();
 });
 
+const liveSessionsPoll = useIntervalFn(
+  () => refreshLiveSessions(),
+  LIVE_SESSIONS_POLL_MS,
+  { immediate: false },
+);
+
 watch(
   streamingEnabled,
   (enabled) => {
-    if (liveSessionsTimer) clearInterval(liveSessionsTimer);
-    liveSessionsTimer = null;
-    if (!enabled) return;
+    if (!enabled) {
+      liveSessionsPoll.pause();
+      return;
+    }
     refreshLiveSessions(true);
-    liveSessionsTimer = setInterval(
-      () => refreshLiveSessions(),
-      LIVE_SESSIONS_POLL_MS,
-    );
+    liveSessionsPoll.resume();
   },
   { immediate: true },
 );
-
-onUnmounted(() => {
-  if (liveSessionsTimer) clearInterval(liveSessionsTimer);
-  liveSessionsTimer = null;
-});
 
 const gridRoot = ref<HTMLElement | null>(null);
 useGridNav(gridRoot);

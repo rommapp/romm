@@ -1,11 +1,8 @@
-"""The two shapes of streaming broker RomM talks to.
+"""The two broker shapes: the webstation one, and the deprecated per-emulator mods.
 
-A container runs either the webstation broker (one container hosting several
-emulators, everything under a subfolder) or one of the older per-emulator
-broker mods. They differ in where their routes live, how long each verb may
-take, what an accepted call looks like in the reply, and which verbs exist at
-all. Resolving that once, at the config boundary, is what keeps the difference
-out of every call site: see docs/STREAMING_MIGRATION.md for the config shapes.
+They differ in route prefixes, timeouts, what an accepted call looks like in the
+reply, and which verbs exist at all. See docs/STREAMING_MIGRATION.md for the
+config each one takes.
 """
 
 from __future__ import annotations
@@ -18,10 +15,7 @@ from config import STREAMING_SAVE_TIMEOUT
 
 # A verb the broker only acknowledges: it answers as soon as it has accepted
 # the request, not when the emulator is done.
-BROKER_ACK_TIMEOUT = 5
-# A load-state cycles up to 9 slots at ~5s of xdotool each on the slowest
-# broker, so the worst case is minutes rather than seconds.
-BROKER_LOAD_STATE_TIMEOUT = 60
+ACK_TIMEOUT = 5
 
 
 class BrokerProtocol:
@@ -61,20 +55,16 @@ class BrokerProtocol:
         return bool(body and body.get(self._save_state_key, False))
 
     def stream_url(self, host: str, launch_result: Any) -> str:
-        """The browser-facing URL for a session this broker just started.
-
-        Both protocols hand back the caller's own credential in the launch
-        reply, but in different shapes, so each builds its own iframe URL.
-        """
+        """The iframe URL for a session this broker just started, carrying
+        whatever credential its launch reply handed back."""
         raise NotImplementedError
 
 
 class LegacyBrokerProtocol(BrokerProtocol):
     """A per-emulator broker mod, serving one emulator off the container root.
 
-    Deprecated in favour of the webstation shape; kept working for one more
-    release. Its save-state is asynchronous, so it reports that it has started
-    rather than that it has finished.
+    Deprecated, kept working for one more release. Its save-state is
+    asynchronous: the reply says the write started, not that it finished.
     """
 
     name = "legacy"
@@ -83,7 +73,7 @@ class LegacyBrokerProtocol(BrokerProtocol):
     supports_desktop = False
     supports_background_exit = True
     reports_launch_phase = False
-    save_state_timeout = BROKER_ACK_TIMEOUT
+    save_state_timeout = ACK_TIMEOUT
     _save_state_key = "status"
 
     def session_route(self, path: str) -> str:

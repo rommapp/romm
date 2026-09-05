@@ -2,7 +2,6 @@ import asyncio
 import base64
 import io
 import json
-import logging
 import os
 import re
 import secrets
@@ -83,6 +82,7 @@ from handler.streaming.config import (
     resolve_containers,
     streaming_enabled,
 )
+from handler.streaming.protocol import ACK_TIMEOUT
 from handler.streaming.session_store import (
     DRAIN_MARKER_TTL,
     STREAMING_SESSION_DRAIN_SECONDS,
@@ -113,6 +113,7 @@ from handler.streaming.session_store import (
     set_session_disc,
     stamp_launched,
 )
+from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion, State
 from models.rom import Rom
 from models.user import Role, User
@@ -124,8 +125,6 @@ from utils.memory_cards import (
     store_memory_card_version,
 )
 from utils.router import APIRouter
-
-log = logging.getLogger("romm")
 
 router = APIRouter(prefix="/streaming", tags=["streaming"])
 
@@ -515,7 +514,7 @@ def _save_and_exit_broker(
         "/save-and-exit",
         "save-and-exit",
         body={"slot": slot, "wait": wait},
-        timeout=STREAMING_SAVE_TIMEOUT if wait else broker.ACK_TIMEOUT,
+        timeout=STREAMING_SAVE_TIMEOUT if wait else ACK_TIMEOUT,
     )
     saved = bool(body and body.get("saved", False))
     effective_slot = slot
@@ -534,7 +533,7 @@ def _volume_broker(container: ResolvedContainer, level: int) -> bool:
         "/volume",
         "volume",
         body={"level": level},
-        timeout=broker.ACK_TIMEOUT,
+        timeout=ACK_TIMEOUT,
     )
     return bool(body and body.get("status") == "ok")
 
@@ -546,7 +545,7 @@ def _mute_broker(container: ResolvedContainer, mute: bool | None) -> bool | None
         "/mute",
         "mute",
         body={} if mute is None else {"mute": mute},
-        timeout=broker.ACK_TIMEOUT,
+        timeout=ACK_TIMEOUT,
     )
     return body.get("mute") if body is not None else None
 
@@ -621,7 +620,7 @@ def _stop_broker(container: ResolvedContainer, save: bool = True) -> int | None:
             return slot if isinstance(slot, int) else None
         return None
     broker.request_safe(
-        container, "/launch", "stop", method="DELETE", timeout=broker.ACK_TIMEOUT
+        container, "/launch", "stop", method="DELETE", timeout=ACK_TIMEOUT
     )
     return None
 
@@ -729,7 +728,7 @@ def _webstation_launch_phase(container: ResolvedContainer) -> str | None:
         container.protocol.session_route("/status"),
         "status",
         method="GET",
-        timeout=broker.ACK_TIMEOUT,
+        timeout=ACK_TIMEOUT,
     )
     if not isinstance(body, dict):
         return None
@@ -756,7 +755,7 @@ def _webstation_join(container: ResolvedContainer, user: User) -> dict[str, Any]
             },
             "permission": "participant",
         },
-        timeout=broker.ACK_TIMEOUT,
+        timeout=ACK_TIMEOUT,
     )
     return body if isinstance(body, dict) else None
 
@@ -804,7 +803,7 @@ def _webstation_exports(container: ResolvedContainer) -> list[dict[str, Any]]:
         container.protocol.session_route("/exports"),
         "export list",
         method="GET",
-        timeout=broker.ACK_TIMEOUT,
+        timeout=ACK_TIMEOUT,
     )
     exports = body.get("exports") if isinstance(body, dict) else None
     return exports if isinstance(exports, list) else []
@@ -830,7 +829,7 @@ def _webstation_collect_export(container: ResolvedContainer, name: str) -> bytes
         container.protocol.session_route(f"/exports/{quote(name, safe='')}"),
         "export delete",
         method="DELETE",
-        timeout=broker.ACK_TIMEOUT,
+        timeout=ACK_TIMEOUT,
     )
     return result[1]
 
@@ -2326,12 +2325,8 @@ async def _run_launch(
 ) -> None:
     """Start the game, then tell the player's tabs where to find it.
 
-    Runs detached from the claim request: a webstation activate blocks through
-    pkg and archive extraction, minutes on a large title, and a request held
-    open that long cannot be cancelled by a player who changes their mind. The
-    claim is already won when this starts, so the container is reserved
-    throughout; a failure here frees it exactly as a failed synchronous launch
-    used to.
+    The claim is already won, so the container stays reserved throughout and a
+    failure here is what frees it again.
     """
     # Nothing beats for the player until the stream is up, so without this the
     # next claimant reads the record as abandoned and tears the container down
@@ -2442,8 +2437,8 @@ def _launch_failure_detail(exc: BaseException) -> str:
     return "The container could not start the game"
 
 
-# How often the backend asks a launching broker how far it has got. The player
-# sees nothing until the stream is up, so this is the only progress there is.
+# The player sees nothing until the stream is up, so this is the only progress
+# there is.
 _LAUNCH_PHASE_POLL_SECONDS = 3.0
 
 
@@ -2455,9 +2450,7 @@ async def _watch_launch_phase(
 ) -> None:
     """Push the broker's extraction phase while a launch is still running.
 
-    The client used to poll for this itself, on a route that had to reach the
-    broker to answer. Asking once here and pushing the answer costs one round
-    trip however many tabs are watching.
+    Asked once here rather than per watching tab, and only changes are sent.
     """
     if not container.protocol.reports_launch_phase:
         return
@@ -2849,11 +2842,8 @@ async def claim_session(
         except Exception:
             log.exception("save hydration failed, continuing launch")
 
-    # The launch runs detached: a webstation activate blocks through pkg and
-    # archive extraction, minutes on a large title, and a request held open
-    # that long cannot be cancelled by a player who changes their mind. The
-    # claim is already won, so the container is reserved either way, and the
-    # room URL reaches the player over the socket when the game is up.
+    # Detached because an activate blocks through pkg and archive extraction,
+    # minutes on a large title, which no player can cancel out of.
     background_tasks.add_task(
         _run_launch,
         container=container,

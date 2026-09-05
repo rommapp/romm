@@ -1,21 +1,13 @@
-"""Streaming containers, resolved once from config.yml.
+"""Streaming containers, resolved once from config.yml into frozen records.
 
-The raw YAML is a loose shape: a container may serve one platform or a map of
-them, may name its broker or leave it to be derived, may declare a protocol or
-imply the deprecated one. Every consumer used to re-derive all of that from the
-raw dict on every call, which meant re-parsing hosts per lookup and re-emitting
-the operator's misconfiguration warnings on every request.
-
-`resolve_containers` turns the raw list into frozen `ResolvedContainer` records
-with everything already decided, and caches them until the config changes. A
-container that cannot be used is dropped here, once, with the warning that says
-why.
+The raw YAML is loose: a container may serve one platform or a map of them, and
+may leave its broker host to be derived. Resolution is memoized until the config
+changes, so an unusable container is reported once rather than once per lookup.
 """
 
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse, urlunparse
@@ -30,8 +22,7 @@ from handler.streaming.capabilities import (
     state_transfer_limits,
 )
 from handler.streaming.protocol import BrokerProtocol, protocol_for
-
-log = logging.getLogger("romm")
+from logger.logger import log
 
 # Keys a `platforms:` block may override for the one platform it names.
 PLATFORM_OVERRIDE_KEYS = ("emulator", "label", "memory_card_sync")
@@ -130,14 +121,14 @@ def emulator_display_label(emulator: str, platform: str) -> str:
 class ResolvedContainer:
     """One (container, platform) pair, with every question already answered.
 
-    Containers serving several platforms yield one record each, all sharing a
-    `key`, because they are one container and can hold only one session.
+    A container serving several platforms yields one record each, all sharing a
+    `key`: it is one container and can hold one session.
     """
 
     key: str
     """Stable identity, derived from the broker host. Empty is unclaimable."""
     host: str
-    """Browser-facing stream URL, or a path when reverse proxied onto RomM."""
+    """Browser-facing stream URL, or a path when reverse proxied onto the app."""
     broker_host: str | None
     """Server-to-server API base, or None when nothing reachable was named."""
     protocol: BrokerProtocol
@@ -202,11 +193,9 @@ def parse_stream_host(host: str) -> str | None:
 def _derive_broker_host(entry: dict[str, Any], protocol: BrokerProtocol) -> str | None:
     """Resolve the broker API host for a raw entry.
 
-    `broker_host` wins when set. Otherwise a webstation container serves the
-    broker on the same origin as the stream (the protocol adds the subfolder),
-    while the per-emulator mods serve it on port 8000. None when neither
-    resolves to a usable scheme-bearing URL, which is the case for a container
-    proxied onto a bare path.
+    A webstation container serves the broker on the stream's own origin; the
+    per-emulator mods serve it on port 8000. None for a container proxied onto
+    a bare path, which carries no address to dial.
     """
     broker_host = parse_host_url(str(entry.get("broker_host", "")))
     if broker_host:
@@ -221,9 +210,8 @@ def _derive_broker_host(entry: dict[str, Any], protocol: BrokerProtocol) -> str 
 
 
 def _emulator_namespace(entry: dict[str, Any]) -> str:
-    """Namespace for stored states, e.g. 'pcsx2'. An explicit `emulator` wins;
-    otherwise the label (or platform slug), lowercased. Keeps streaming states
-    separate from EmulatorJS states for the same ROM."""
+    """Namespace for stored states, e.g. 'pcsx2'. Keeps streaming states apart
+    from the EmulatorJS states of the same ROM."""
     value = entry.get("emulator") or entry.get("label") or entry.get("platform") or ""
     return str(value).strip().lower()
 
@@ -233,11 +221,8 @@ def _resolve_one(
 ) -> ResolvedContainer:
     """One resolved record for a (container, platform) pair.
 
-    A container RomM cannot dial still resolves, with an empty `key`: it is
-    unclaimable, and `containers_for_platform` leaves it out, but the admin
-    fleet view lists it so the misconfiguration is visible rather than silent.
-    Every reason it is unusable is reported here, once per config, rather than
-    on every lookup that walks past it.
+    An unreachable container still resolves, with an empty `key`: it cannot be
+    claimed, but the fleet view lists it so the misconfiguration is visible.
     """
     protocol = protocol_for(entry.get("protocol"), entry.get("subfolder"))
 
@@ -410,8 +395,8 @@ _cached: tuple[ResolvedContainer, ...] = ()
 
 
 def reset_cache() -> None:
-    """Drop the memoized resolution. For tests that swap the config underneath
-    a fingerprint they have already resolved."""
+    """Drop the memoized resolution, for a caller swapping the config under a
+    fingerprint already resolved."""
     global _cache_fingerprint, _cached
     _cache_fingerprint = None
     _cached = ()

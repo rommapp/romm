@@ -14,7 +14,6 @@ wedged until its TTL lapses.
 
 import asyncio
 import json
-import logging
 import secrets
 import time
 from collections.abc import AsyncIterator, Callable
@@ -26,8 +25,7 @@ from redis.exceptions import WatchError
 
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
-
-log = logging.getLogger("romm")
+from logger.logger import log
 
 # Sessions are stored in Redis so they are shared across uvicorn workers and
 # survive backend restarts (the emulator container keeps running either way).

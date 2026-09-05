@@ -1,10 +1,7 @@
 """Response shapes for the streaming routes.
 
-The frontend used to hand-maintain a parallel copy of every one of these,
-because the routes returned bare `JSONResponse`s that never reached the OpenAPI
-schema. Declaring them here puts them through `npm run generate` like every
-other endpoint, so a shape change breaks the frontend typecheck instead of the
-frontend at runtime.
+Declared rather than returned as bare dicts, so they reach the OpenAPI schema
+and generate into the frontend's types.
 """
 
 from typing import Literal

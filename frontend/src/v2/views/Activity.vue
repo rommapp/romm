@@ -15,9 +15,9 @@ import {
   RTextField,
   RTooltip,
 } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import type { ActivityEntry } from "@/services/api/activity";
@@ -42,7 +42,6 @@ const { toWebp } = useWebpSupport();
 const { activities: rawActivities, initialized } = storeToRefs(activityStore);
 
 const now = ref(Date.now());
-let tickTimer: ReturnType<typeof setInterval> | null = null;
 
 const gridRoot = ref<HTMLElement | null>(null);
 useWrapGridNav(gridRoot, { cellSelector: ".activity-card" });
@@ -70,23 +69,17 @@ async function refreshStreamingSessions() {
 onMounted(async () => {
   activityStore.initSocket();
   await Promise.all([activityStore.fetchAll(), refreshStreamingSessions()]);
-  // Refresh the elapsed-time labels every 30 seconds. Streaming sessions
-  // have no socket events, so they piggyback on the same tick.
-  tickTimer = setInterval(() => {
-    now.value = Date.now();
-    refreshStreamingSessions();
-  }, 30_000);
 });
+
+// Refresh the elapsed-time labels every 30 seconds. Streaming sessions have no
+// socket events, so they piggyback on the same tick.
+useIntervalFn(() => {
+  now.value = Date.now();
+  void refreshStreamingSessions();
+}, 30_000);
 
 useEventListener(document, "visibilitychange", () => {
   if (!document.hidden) void refreshStreamingSessions();
-});
-
-onBeforeUnmount(() => {
-  if (tickTimer) {
-    clearInterval(tickTimer);
-    tickTimer = null;
-  }
 });
 
 // Oldest session first so the longest-running players lead the board.

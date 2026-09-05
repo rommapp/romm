@@ -11,7 +11,6 @@ and the byte caps are what keep a misbehaving broker from filling memory.
 """
 
 import json
-import logging
 import time
 import urllib.error
 import urllib.request
@@ -21,19 +20,16 @@ from typing import Any, NoReturn
 from fastapi import HTTPException
 
 from handler.streaming.config import ResolvedContainer
-
-log = logging.getLogger("romm")
+from logger.logger import log
 
 # Broker HTTP deadlines, grouped by what the call actually waits on:
-#   ACK        - the broker only acknowledges; the work runs async on its side
 #   LAUNCH     - process spawn + config patch + window setup
 #   LOAD_STATE - worst case 9 slot cycles x ~5s xdotool timeout
 #   TRANSFER   - save archive and memory card transfers; state transfers use
-#     their own per-emulator deadline, see _STATE_TRANSFER_LIMITS
+#     their own per-emulator deadline, see capabilities.state_transfer_limits
 #   CARD_HYDRATE / CARD_TEARDOWN - whole-card push at claim / pull at exit;
 #     hydration may wait on a slow first-run card format, teardown must not
 #     hold a closing session hostage for two minutes
-ACK_TIMEOUT = 5
 LAUNCH_TIMEOUT = 10
 LOAD_STATE_TIMEOUT = 60
 TRANSFER_TIMEOUT = 60

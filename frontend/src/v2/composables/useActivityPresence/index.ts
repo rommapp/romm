@@ -1,14 +1,13 @@
-// useActivityPresence — the "now playing" presence beat a player view sends
-// while a game is up, feeding the activity board and the home page's live
-// cards. Every player (EmulatorJS, streaming) reports it the same way, so the
-// device id, the emit shapes and the timer live here rather than once per view.
+// useActivityPresence — the "now playing" beat a player view sends while a
+// game is up, feeding the activity board and the home page's live cards.
 //
 // Fire-and-forget: presence is cosmetic and must never block or fail a launch.
+import { useIntervalFn } from "@vueuse/core";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 
-// The backend expires a presence record a little past this, so a beat slower
-// than the expiry would blink the player off the board between ticks.
+// A beat slower than the backend's presence TTL would blink the player off the
+// board between ticks.
 const HEARTBEAT_MS = 30_000;
 
 export function useActivityPresence(
@@ -21,7 +20,6 @@ export function useActivityPresence(
   emitStop: () => void;
 } {
   const auth = storeAuth();
-  let timer: ReturnType<typeof setInterval> | null = null;
 
   function deviceId(): string {
     return auth.user?.current_device_id ?? "web";
@@ -34,19 +32,18 @@ export function useActivityPresence(
     await onHeartbeat?.();
   }
 
+  // Auto-cleared on scope dispose, so a view unmounting mid-session leaves no
+  // timer behind whichever way it left.
+  const { pause, resume } = useIntervalFn(beat, HEARTBEAT_MS, {
+    immediate: false,
+  });
+
   function start(): void {
     const romId = getRomId();
     if (!auth.user || romId == null) return;
     if (!socket.connected) socket.connect();
     socket.emit("activity:start", { rom_id: romId, device_id: deviceId() });
-    if (!timer) timer = setInterval(() => void beat(), HEARTBEAT_MS);
-  }
-
-  function stopHeartbeat(): void {
-    if (timer) {
-      clearInterval(timer);
-      timer = null;
-    }
+    resume();
   }
 
   function emitStop(): void {
@@ -54,5 +51,5 @@ export function useActivityPresence(
     socket.emit("activity:stop", { device_id: deviceId() });
   }
 
-  return { start, stopHeartbeat, emitStop };
+  return { start, stopHeartbeat: pause, emitStop };
 }

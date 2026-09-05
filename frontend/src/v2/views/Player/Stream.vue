@@ -27,7 +27,7 @@ import {
   RSwitch,
   RTooltip,
 } from "@v2/lib";
-import { useEventListener, useLocalStorage } from "@vueuse/core";
+import { useEventListener, useIntervalFn, useLocalStorage } from "@vueuse/core";
 import { isAxiosError } from "axios";
 import {
   computed,
@@ -527,7 +527,6 @@ useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
     termination: notice,
   });
 });
-let sessionPollTimer: ReturnType<typeof setInterval> | null = null;
 let sessionPollInFlight = false;
 
 async function pollSessionStatus(): Promise<void> {
@@ -543,30 +542,32 @@ async function pollSessionStatus(): Promise<void> {
   }
 }
 
+const sessionPoll = useIntervalFn(pollSessionStatus, SESSION_POLL_MS, {
+  immediate: false,
+});
+
 function startSessionPoll() {
   // The status route belongs to the claim holder; a joiner would only
   // collect 403s and then be thrown out of a session that is still running.
-  if (isJoining) return;
-  if (sessionPollTimer) return;
-  sessionPollTimer = setInterval(pollSessionStatus, SESSION_POLL_MS);
+  if (!isJoining) sessionPoll.resume();
 }
 
-function stopSessionPoll() {
-  if (sessionPollTimer) {
-    clearInterval(sessionPollTimer);
-    sessionPollTimer = null;
-  }
-}
+const stopSessionPoll = sessionPoll.pause;
 
 // ── Launch ─────────────────────────────────────────────────────────
 // The claim only reserves the container; the backend runs the launch detached
 // and pushes what happened. A launch can take minutes on a title the broker
 // has to unpack, and these are the only progress the player sees.
 //
-// Every push is scoped to this platform: the room is per-user, so a second tab
-// streaming something else receives them too.
-function isOurLaunch(payload: { platform?: string }): boolean {
-  return payload.platform === rom.value?.platform_slug;
+// The room is per-user, so a second tab streaming something else receives
+// these too. The container is what identifies a launch: a pool can serve one
+// platform from more than one, and the claim's 202 said which we got.
+// Which container the claim won, so a launch push can be told from another
+// tab's. Null until the 202 lands, which is before any push can arrive.
+const claimedContainer = ref<string | null>(null);
+
+function isOurLaunch(payload: { container?: string }): boolean {
+  return payload.container === claimedContainer.value;
 }
 
 useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
@@ -580,6 +581,7 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
   // The player left while the game was coming up. The claim is theirs and
   // still held, so hand the container back rather than entering the stream.
   if ((playerState.value as PlayerState) === "exited") {
+    claimedContainer.value = null;
     void streamingStore.releaseSession(payload.platform, false);
     return;
   }
@@ -596,6 +598,7 @@ useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   if (!isOurLaunch(payload)) return;
   // The backend already released the claim, so there is nothing to hand back.
   holdsClaim.value = false;
+  claimedContainer.value = null;
   launchPhase.value = null;
   if ((playerState.value as PlayerState) === "exited") return;
   errorType.value = "server";
@@ -739,7 +742,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       // The backend derives the ROM's filesystem path and platform from the id.
       // It answers as soon as the container is reserved; the room URL follows
       // on the socket, so the state stays "loading" until launch-ready lands.
-      await streamingStore.claimSession(
+      const launching = await streamingStore.claimSession(
         rom.value.id,
         selectedState.value?.id,
         container.value?.supports_memory_cards
@@ -748,6 +751,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         cardImport,
         multiplayerOnPlay.value,
       );
+      claimedContainer.value = launching.container;
       holdsClaim.value = true;
       await flourish;
     }
@@ -1104,7 +1108,6 @@ const EXIT_CHORD_HOLD_MS = 1500;
 // A 1.5s hold needs nowhere near frame resolution, and this runs on the thread
 // compositing the stream for as long as the session lasts.
 const EXIT_CHORD_POLL_MS = 100;
-let chordTimer: ReturnType<typeof setInterval> | null = null;
 let chordHeldSince = 0;
 
 function pollExitChord(): void {
@@ -1127,20 +1130,18 @@ function pollExitChord(): void {
   }
 }
 
+const exitChordPoll = useIntervalFn(pollExitChord, EXIT_CHORD_POLL_MS, {
+  immediate: false,
+});
+
 function stopExitChordPoll(): void {
-  if (chordTimer) {
-    clearInterval(chordTimer);
-    chordTimer = null;
-  }
+  exitChordPoll.pause();
   chordHeldSince = 0;
 }
 
 watch(sessionActive, (active) => {
-  if (active && !chordTimer) {
-    chordTimer = setInterval(pollExitChord, EXIT_CHORD_POLL_MS);
-  } else if (!active) {
-    stopExitChordPoll();
-  }
+  if (active) exitChordPoll.resume();
+  else stopExitChordPoll();
 });
 
 function formatTime(iso: string): string {
@@ -1222,9 +1223,8 @@ onBeforeUnmount(() => {
   playSession.flush();
   playingStore.setPlaying(false);
   if (volumeDebounce) clearTimeout(volumeDebounce);
-  stopExitChordPoll();
-  presence.stopHeartbeat();
-  stopSessionPoll();
+  // The polls clear themselves with the scope; the presence board does not
+  // know the player has gone until it is told.
   presence.emitStop();
   // The claim, not the player state, says whether anything is still held:
   // an exit whose release failed leaves it standing, and this is its retry.
