@@ -1,20 +1,17 @@
 <script setup lang="ts">
-// ConversionSettings — v2-native editor for the convertto.* section of
-// config.yml (download-time conversion, scan metadata extraction, cache TTL
-// and the platform → target-format mapping). Persists via
-// PUT /config/convertto_settings.
-//
-// Platform and format identifiers are proper nouns / file formats, so they
-// stay as data constants; only descriptive prose goes through i18n.
+// Editor for the converto.* section of config.yml: download-time
+// conversion, scan metadata extraction, cache TTL and the platform to
+// target-format mapping.
 import { RAlert, RIcon, RSelect, RTextField, RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
-import type { ConverttoSettingsPayload } from "@/__generated__";
+import type { ConvertoSettingsPayload } from "@/__generated__";
 import configApi from "@/services/api/config";
 import storeAuth from "@/stores/auth";
 import storeConfig, { type Config } from "@/stores/config";
+import storePlatforms from "@/stores/platforms";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
@@ -25,73 +22,71 @@ const confirm = useConfirm();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
+const platformsStore = storePlatforms();
 const snackbar = useSnackbar();
 
-const PLATFORMS: { slug: string; label: string }[] = [
-  { slug: "3ds", label: "Nintendo 3DS" },
-  { slug: "psp", label: "PlayStation Portable" },
-  { slug: "psx", label: "PlayStation" },
-  { slug: "ps2", label: "PlayStation 2" },
-  { slug: "ngc", label: "GameCube" },
-  { slug: "wii", label: "Wii" },
-  { slug: "switch", label: "Nintendo Switch" },
-  { slug: "ps3", label: "PlayStation 3" },
-];
-const TARGET_FORMATS = [
-  "cia-decrypted",
-  "iso",
-  "chd",
-  "rvz",
-  "nsp",
-  "iso-decrypted",
-];
+// Platforms and their targets come from the backend, which owns the
+// rom-converto operation table.
+const platforms = computed(() =>
+  Object.keys(config.value.CONVERTO_TARGETS)
+    .sort()
+    .map((slug) => ({
+      slug,
+      label:
+        platformsStore.allPlatforms.find((p) => p.slug === slug)
+          ?.display_name ?? slug,
+    })),
+);
 
-const formatItems = TARGET_FORMATS.map((value) => ({ title: value, value }));
-const formatItemsWithOriginal = computed(() => [
-  { title: t("settings.conversion-platform-formats-original"), value: "" },
-  ...formatItems,
-]);
+function formatItems(slug: string) {
+  return [
+    { title: t("settings.conversion-platform-formats-original"), value: "" },
+    ...(config.value.CONVERTO_TARGETS[slug] ?? []).map((value) => ({
+      title: value,
+      value,
+    })),
+  ];
+}
 
-// ── Editable form model ────────────────────────────────────────────
 interface ConversionForm {
   downloadConversionEnabled: boolean;
   scanMetadata: boolean;
   cacheTtlHours: number | null;
-  // One select per allowed platform slug; empty string = keep original.
+  // Platform slug to target; empty string keeps the original file.
   formats: Record<string, string>;
 }
 
 function configToForm(cfg: Config): ConversionForm {
-  const saved = cfg.CONVERTTO?.platform_formats ?? {};
+  const saved = cfg.CONVERTO.platform_formats;
   const formats: Record<string, string> = {};
-  for (const { slug } of PLATFORMS) {
+  for (const [slug, targets] of Object.entries(cfg.CONVERTO_TARGETS)) {
     const target = saved[slug];
-    formats[slug] =
-      target && TARGET_FORMATS.includes(target) ? target : "";
+    formats[slug] = target && targets.includes(target) ? target : "";
   }
   return {
-    downloadConversionEnabled: cfg.CONVERTTO?.download_conversion_enabled ?? false,
-    scanMetadata: cfg.CONVERTTO?.scan_metadata ?? true,
-    cacheTtlHours: cfg.CONVERTTO?.cache_ttl_hours ?? 24,
+    downloadConversionEnabled: cfg.CONVERTO.download_conversion_enabled,
+    scanMetadata: cfg.CONVERTO.scan_metadata,
+    cacheTtlHours: cfg.CONVERTO.cache_ttl_hours,
     formats,
   };
 }
 
-function formToPayload(f: ConversionForm): ConverttoSettingsPayload {
+function formToPayload(f: ConversionForm): ConvertoSettingsPayload {
   const platformFormats: Record<string, string> = {};
-  for (const { slug } of PLATFORMS) {
-    const target = f.formats[slug];
-    if (target && TARGET_FORMATS.includes(target)) {
-      platformFormats[slug] = target;
-    }
+  for (const [slug, target] of Object.entries(f.formats)) {
+    if (target) platformFormats[slug] = target;
   }
   return {
     download_conversion_enabled: f.downloadConversionEnabled,
     scan_metadata: f.scanMetadata,
-    cache_ttl_hours: f.cacheTtlHours ?? 0,
+    cache_ttl_hours: f.cacheTtlHours ?? 1,
     platform_formats: platformFormats,
   };
 }
+
+const form = reactive<ConversionForm>(configToForm(config.value));
+// Snapshot of the last-saved payload, for dirty detection.
+const savedSnapshot = ref(JSON.stringify(formToPayload(form)));
 
 const cacheTtlValid = computed(
   () =>
@@ -99,10 +94,6 @@ const cacheTtlValid = computed(
     Number.isInteger(form.cacheTtlHours) &&
     form.cacheTtlHours >= 1,
 );
-
-const form = reactive<ConversionForm>(configToForm(config.value));
-// Snapshot of the last-saved payload, for dirty detection.
-const savedSnapshot = ref(JSON.stringify(formToPayload(form)));
 
 function resetForm(cfg: Config) {
   Object.assign(form, configToForm(cfg));
@@ -135,8 +126,6 @@ async function loadConfig() {
   }
 }
 
-onMounted(loadConfig);
-
 function onReset() {
   resetForm(config.value);
 }
@@ -144,10 +133,9 @@ function onReset() {
 async function onSave() {
   saving.value = true;
   try {
-    const payload = formToPayload(form);
-    await configApi.updateConverttoSettings(payload);
-    savedSnapshot.value = JSON.stringify(payload);
-    await configStore.fetchConfig();
+    await configApi.updateConvertoSettings(formToPayload(form));
+    // The backend normalizes slugs and targets; snapshot what it stored.
+    resetForm(await configStore.fetchConfig({ rethrow: true }));
     snackbar.success(t("settings.conversion-settings-saved"));
   } catch (err) {
     const e = err as {
@@ -155,7 +143,10 @@ async function onSave() {
       message?: string;
     };
     const detail =
-      e?.response?.data?.detail || e?.response?.statusText || e?.message;
+      e.response?.data?.detail ||
+      e.response?.statusText ||
+      e.message ||
+      t("common.unknown-error");
     snackbar.error(t("settings.conversion-settings-save-error", { detail }));
   } finally {
     saving.value = false;
@@ -167,7 +158,6 @@ function setCacheTtl(value: unknown) {
   form.cacheTtlHours = Number.isNaN(parsed) ? null : parsed;
 }
 
-// ── Unsaved-changes guard ───────────────────────────────────────────
 const hasPendingEdits = () => dirty.value && canEdit.value;
 
 onBeforeRouteLeave(async () => {
@@ -187,7 +177,10 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
   e.returnValue = "";
 }
 
-onMounted(() => window.addEventListener("beforeunload", onBeforeUnload));
+onMounted(() => {
+  window.addEventListener("beforeunload", onBeforeUnload);
+  void loadConfig();
+});
 onBeforeUnmount(() =>
   window.removeEventListener("beforeunload", onBeforeUnload),
 );
@@ -203,7 +196,7 @@ onBeforeUnmount(() =>
         {{ t("settings.conversion-settings-load-error-title") }}
       </template>
       {{ t("settings.conversion-settings-load-error-desc") }}
-      <template #actions>
+      <template #append>
         <RBtn variant="text" :loading="loading" @click="loadConfig">
           {{ t("common.try-again") }}
         </RBtn>
@@ -293,7 +286,7 @@ onBeforeUnmount(() =>
       </p>
       <div class="r-v2-conversion-settings__formats">
         <div
-          v-for="platform in PLATFORMS"
+          v-for="platform in platforms"
           :key="platform.slug"
           class="r-v2-conversion-settings__format-row"
         >
@@ -302,7 +295,8 @@ onBeforeUnmount(() =>
           </span>
           <RSelect
             v-model="form.formats[platform.slug]"
-            :items="formatItemsWithOriginal"
+            :items="formatItems(platform.slug)"
+            :label="platform.label"
             :disabled="!canEdit"
             hide-details
           />
@@ -310,8 +304,6 @@ onBeforeUnmount(() =>
       </div>
     </SettingsSection>
 
-    <!-- Sticky save bar — appears once the form diverges from the saved
-         config. Hidden entirely when the user can't edit. -->
     <Transition name="r-v2-conversion-settings__bar">
       <div
         v-if="dirty && canEdit"

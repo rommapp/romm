@@ -62,6 +62,8 @@ function manualFile(): NonNullable<DetailedRom["files"]>[number] {
     sha1_hash: null,
     ra_hash: null,
     chd_sha1_hash: null,
+    title_id: null,
+    title_version: null,
     archive_members: null,
     category: "manual",
   };

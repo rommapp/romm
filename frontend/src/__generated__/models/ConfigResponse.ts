@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ConverttoConfig } from './ConverttoConfig';
+import type { ConvertoConfig } from './ConvertoConfig';
 import type { EjsControls } from './EjsControls';
 import type { MetadataMediaType } from './MetadataMediaType';
 import type { NetplayICEServer } from './NetplayICEServer';
@@ -41,6 +41,7 @@ export type ConfigResponse = {
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType;
     GAMELIST_MEDIA_IMAGE: MetadataMediaType;
     PEGASUS_AUTO_EXPORT_ON_SCAN: boolean;
-    CONVERTTO: ConverttoConfig;
+    CONVERTO: ConvertoConfig;
+    CONVERTO_TARGETS: Record<string, Array<string>>;
 };
 

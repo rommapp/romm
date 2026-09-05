@@ -2,10 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Full replacement of the convertto.* config section.
- */
-export type ConverttoSettingsPayload = {
+export type ConvertoConfig = {
     download_conversion_enabled: boolean;
     scan_metadata: boolean;
     cache_ttl_hours: number;
