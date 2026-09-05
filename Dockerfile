@@ -68,7 +68,7 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /uvx /usr/local/bin/
 
 # Install Python
-RUN uv python install 3.13
+RUN uv python install 3.14
 
 # Copy project files (including pyproject.toml and uv.lock)
 COPY pyproject.toml uv.lock* .python-version /app/
@@ -82,7 +82,7 @@ ENV PATH="/app/.venv/bin:${PATH}"
 # Placed after `uv sync` because the extension is compiled with the venv's
 # Python so the ABI matches. Keep the pin in sync with docker/Dockerfile.
 ARG SIGIL_VERSION=9665f03c04d0f547ed38dd5e5e31916c1da5f2e9
-ARG PYTHON_VERSION=3.13
+ARG PYTHON_VERSION=3.14
 # One layer, so the clone and the cmake tree never reach the image.
 # trunk-ignore(hadolint/DL3003)
 RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git /tmp/argosy-sigil \
