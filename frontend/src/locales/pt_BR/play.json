@@ -44,6 +44,7 @@
   "exit-full-screen": "Sair da tela cheia",
   "exit-without-saving": "Sair sem salvar",
   "full-screen": "Tela cheia",
+  "https-required": "Deve ser executado via HTTPS. Entre em contato com o proprietário do site.",
   "join-closed": "Essa sessão não está mais aberta a outros jogadores.",
   "join-ended": "Essa sessão foi encerrada.",
   "jsdos-browser-save-warning": "Os saves do js-dos são armazenados apenas neste navegador e não são sincronizados com o RomM.",

@@ -1,4 +1,5 @@
 import asyncio
+from typing import TypeVar
 
 from fastapi import HTTPException, Request, status
 
@@ -9,6 +10,7 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_rom_handler
 from handler.metadata import (
+    meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
@@ -17,6 +19,7 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_ss_handler,
 )
+from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler.types import LaunchboxRom
@@ -35,10 +38,25 @@ from logger.logger import log
 from utils import emoji
 from utils.router import APIRouter
 
+_CoverRomT = TypeVar("_CoverRomT", SGDBRom, LibretroRom)
+
 router = APIRouter(
     prefix="/search",
     tags=["search"],
 )
+
+
+def _without_failures(
+    results: list[tuple[str, _CoverRomT] | BaseException], provider: str
+) -> list[tuple[str, _CoverRomT]]:
+    """Drop the cover lookups that failed."""
+    fetched = []
+    for result in results:
+        if isinstance(result, BaseException):
+            log.error("Error fetching %s covers: %s", provider, result)
+        else:
+            fetched.append(result)
+    return fetched
 
 
 @protected_route(router.get, "/roms", [Scope.ROMS_READ])
@@ -68,6 +86,7 @@ async def search_rom(
         and not meta_moby_handler.is_enabled()
         and not meta_flashpoint_handler.is_enabled()
         and not meta_launchbox_handler.is_cloud_enabled()
+        and not meta_demozoo_handler.is_enabled()
     ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
@@ -103,14 +122,16 @@ async def search_rom(
     ss_matched_roms: list[SSRom] = []
     flashpoint_matched_roms: list[FlashpointRom] = []
     launchbox_matched_roms: list[LaunchboxRom] = []
+    demozoo_matched_roms: list[DemozooRom] = []
 
     if search_by.lower() == "id":
         try:
-            igdb_rom, moby_rom, ss_rom, lb_rom = await asyncio.gather(
+            igdb_rom, moby_rom, ss_rom, lb_rom, dz_rom = await asyncio.gather(
                 meta_igdb_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_moby_handler.get_matched_rom_by_id(int(search_term)),
                 meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
+                meta_demozoo_handler.get_rom_by_id(int(search_term)),
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -123,6 +144,9 @@ async def search_rom(
             moby_matched_roms = [moby_rom] if moby_rom else []
             ss_matched_roms = [ss_rom] if ss_rom else []
             launchbox_matched_roms = [lb_rom] if lb_rom else []
+            demozoo_matched_roms = (
+                [dz_rom] if dz_rom and dz_rom.get("demozoo_id") else []
+            )
     elif search_by.lower() == "name":
         (
             igdb_matched_roms,
@@ -130,6 +154,7 @@ async def search_rom(
             ss_matched_roms,
             flashpoint_matched_roms,
             launchbox_matched_roms,
+            demozoo_matched_roms,
         ) = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
                 rom, search_term, get_main_platform_igdb_id(rom.platform)
@@ -144,6 +169,9 @@ async def search_rom(
                 search_term, rom.platform.slug
             ),
             meta_launchbox_handler.get_matched_roms_by_name(
+                search_term, rom.platform.slug
+            ),
+            meta_demozoo_handler.get_matched_roms_by_name(
                 search_term, rom.platform.slug
             ),
         )
@@ -176,6 +204,12 @@ async def search_rom(
             "launchbox_url_cover",
         ),
         MetadataSource.SS: (ss_matched_roms, meta_ss_handler, "ss_id", "ss_url_cover"),
+        MetadataSource.DEMOZOO: (
+            demozoo_matched_roms,
+            meta_demozoo_handler,
+            "demozoo_id",
+            "demozoo_url_cover",
+        ),
     }
 
     ordered_sources = get_priority_ordered_metadata_sources(
@@ -207,13 +241,19 @@ async def search_rom(
     async def get_libretro_rom(name: str) -> tuple[str, LibretroRom]:
         return name, await meta_libretro_handler.get_rom(name, rom.platform.slug)
 
+    # These two only add cover art to matches the other providers already
+    # produced, so an unreachable one costs a thumbnail rather than the results.
     merged_names = list(merged_dict.keys())
     sgdb_roms, libretro_roms = await asyncio.gather(
-        asyncio.gather(*[get_sgdb_rom(name) for name in merged_names]),
-        asyncio.gather(*[get_libretro_rom(name) for name in merged_names]),
+        asyncio.gather(
+            *[get_sgdb_rom(name) for name in merged_names], return_exceptions=True
+        ),
+        asyncio.gather(
+            *[get_libretro_rom(name) for name in merged_names], return_exceptions=True
+        ),
     )
 
-    for name, sgdb_rom in sgdb_roms:
+    for name, sgdb_rom in _without_failures(sgdb_roms, "SteamGridDB"):
         if sgdb_rom["sgdb_id"]:
             merged_dict[name] = {
                 **merged_dict[name],
@@ -221,7 +261,7 @@ async def search_rom(
                 "sgdb_url_cover": sgdb_rom.get("url_cover", ""),
             }
 
-    for name, libretro_rom in libretro_roms:
+    for name, libretro_rom in _without_failures(libretro_roms, "Libretro"):
         if libretro_rom["libretro_id"]:
             merged_dict[name] = {
                 **merged_dict[name],

@@ -12,11 +12,10 @@ import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
-import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
@@ -34,9 +33,7 @@ const TextViewer = defineAsyncComponent(
 const props = defineProps<{ rom: DetailedRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const confirm = useConfirm();
-const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchRom } = useRomSync();
 const { t } = useI18n();
 
 // Every manual endpoint (upload / redownload / delete) gates on the ROM write
@@ -119,41 +116,14 @@ const manualItems = computed(() =>
   manualEntries.value.map((e) => ({ title: e.label, value: e.id })),
 );
 
-// ---------- Single-file -> folder conversion ----------
-// Manuals live inside the ROM folder, so uploading one to a single-file ROM
-// promotes it to a folder ROM in place (the backend does this automatically on
-// upload). Warn first since it is not reversible.
-async function confirmFolderConversionIfNeeded(): Promise<boolean> {
-  if (!props.rom.has_simple_single_file) return true;
-  return confirm({
-    title: t("rom.convert-to-folder-title"),
-    body: t("rom.convert-to-folder-body"),
-    tone: "warning",
-  });
-}
-
 // ---------- Upload / refresh plumbing ----------
 // The filled viewer is wrapped in an overlay RDropzone (drag files onto the
 // manual to add another); the header's Upload button opens its picker.
 const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const redownloadingManual = ref(false);
 
-async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-// Manual upload routes through the target-selection dialog (mounted in
-// AppLayout): the user picks which platform/folder the manual belongs to, so
-// we hand off rather than uploading inline.
-async function handleManualFiles(files: File[]) {
+function handleManualFiles(files: File[]) {
   if (files.length === 0) return;
-  if (!(await confirmFolderConversionIfNeeded())) return;
   emitter?.emit("showManualUploadTargetDialog", { rom: props.rom, files });
 }
 
@@ -162,7 +132,7 @@ async function redownloadManual() {
   redownloadingManual.value = true;
   try {
     await romApi.redownloadManual({ romId: props.rom.id });
-    await refreshRom();
+    await refetchRom(props.rom.id);
     snackbar.success(t("rom.manual-redownloaded"), {
       icon: "mdi-check-bold",
     });

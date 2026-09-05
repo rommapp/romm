@@ -44,6 +44,7 @@
   "exit-full-screen": "Zamknij tryb pełnoekranowy",
   "exit-without-saving": "Wyjdź bez zapisywania",
   "full-screen": "Pełny ekran",
+  "https-required": "Musi być uruchomione przez HTTPS. Skontaktuj się z właścicielem strony.",
   "join-closed": "Ta sesja nie jest już otwarta dla innych graczy.",
   "join-ended": "Ta sesja się zakończyła.",
   "jsdos-browser-save-warning": "Zapisy js-dos są przechowywane tylko w tej przeglądarce i nie są synchronizowane z RomM.",

@@ -4,16 +4,17 @@ from typing import Any, NotRequired, TypedDict
 
 import httpx
 import pydash
-from fastapi import HTTPException, status
+import yarl
+from fastapi import status
 
-from config import DEV_MODE, HASHEOUS_API_ENABLED
+from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import BaseRom, MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler, unavailable
 from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,
@@ -127,11 +128,16 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
 
 class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.BASE_URL = (
-            "https://beta.hasheous.org/api/v1"
-            if DEV_MODE
-            else "https://hasheous.org/api/v1"
-        )
+        self.BASE_URL = HASHEOUS_API_URL
+        # Cover art is linked relative to the site root, not the API path.
+        try:
+            self.BASE_ORIGIN = str(yarl.URL(self.BASE_URL).origin())
+        except ValueError:
+            log.warning(
+                "Invalid HASHEOUS_API_URL %r, cover art URLs may be wrong",
+                self.BASE_URL,
+            )
+            self.BASE_ORIGIN = ""
         self.healthcheck_endpoint = f"{self.BASE_URL}/HealthCheck"
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
@@ -216,21 +222,17 @@ class HasheousHandler(MetadataHandler):
                 exc.response.status_code,
                 exc.response.text,
             )
-            pass
+            raise unavailable("Hasheous") from exc
         except httpx.NetworkError as exc:
             log.critical("Connection error: can't connect to Hasheous")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Hasheous, check your internet connection",
-            ) from exc
+            raise unavailable("Hasheous") from exc
         except json.decoder.JSONDecodeError as exc:
             # Log the error and return an empty dict if the response is not valid JSON
             log.error(exc)
             return {}
-        except httpx.TimeoutException:
-            pass
-
-        return {}
+        except httpx.TimeoutException as exc:
+            log.error("Hasheous API timed out: %s", exc)
+            raise unavailable("Hasheous") from exc
 
     def get_platform(self, slug: str) -> HasheousPlatform:
         if slug not in HASHEOUS_PLATFORM_LIST:
@@ -345,7 +347,7 @@ class HasheousHandler(MetadataHandler):
         url_cover = ""
         for attr in attributes:
             if attr["attributeName"] == "Logo":
-                url_cover = f"https://hasheous.org{attr['link']}"
+                url_cover = f"{self.BASE_ORIGIN}{attr['link']}"
                 break
 
         return (

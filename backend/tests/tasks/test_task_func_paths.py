@@ -1,34 +1,26 @@
 import os
-import pkgutil
 import subprocess
 import sys
-from importlib import import_module
 from pathlib import Path
 
 import pytest
 
-import tasks
-from tasks.tasks import PeriodicTask
-
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
-
-def _periodic_task_funcs() -> list[str]:
-    funcs = set()
-    for module_info in pkgutil.walk_packages(tasks.__path__, prefix="tasks."):
-        module = import_module(module_info.name)
-        for value in vars(module).values():
-            if isinstance(value, PeriodicTask):
-                funcs.add(value.func)
-    return sorted(funcs)
+# The only callables a job payload names. Everything else runs through
+# run_task_by_name, which resolves it from the registry.
+JOB_FUNC_PATHS = (
+    "tasks.tasks.run_task_by_name",
+    "endpoints.sockets.scan.scan_platforms",
+    "tasks.registry.enqueue_scheduled_scan",
+)
 
 
-@pytest.mark.parametrize("func", _periodic_task_funcs())
+@pytest.mark.parametrize("func", JOB_FUNC_PATHS)
 def test_task_func_resolves_in_a_fresh_interpreter(func):
     """The RQ worker resolves a job by importing its func path into a process
-    where the task module is the first application module imported. An import
-    cycle that stays hidden in the web process breaks the job there, so resolve
-    each func the way the worker does, in a clean interpreter."""
+    where that module is the first application module imported. An import cycle
+    that stays hidden in the web process breaks the job there."""
     result = subprocess.run(
         [
             sys.executable,

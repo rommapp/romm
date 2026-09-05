@@ -1,4 +1,13 @@
-from handler.metadata.hasheous_handler import extract_metadata_from_igdb_rom
+from unittest.mock import AsyncMock, patch
+
+import httpx
+import pytest
+from fastapi import HTTPException
+
+from handler.metadata.hasheous_handler import (
+    HasheousHandler,
+    extract_metadata_from_igdb_rom,
+)
 
 # The proxy keys expanded collections by id and returns `company` as a bare id,
 # unlike IGDB's own list-of-objects shape.
@@ -37,3 +46,32 @@ def test_involvements_are_optional():
 
     assert metadata["publishers"] == []
     assert metadata["developers"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure",
+    [
+        httpx.HTTPStatusError(
+            "boom",
+            request=httpx.Request("POST", "https://hasheous.org/api"),
+            response=httpx.Response(
+                500, request=httpx.Request("POST", "https://hasheous.org/api")
+            ),
+        ),
+        httpx.TimeoutException("too slow"),
+    ],
+    ids=["server_error", "timeout"],
+)
+async def test_request_propagates_an_unreachable_hasheous(failure: Exception):
+    """A failed request has to stay distinguishable from a game Hasheous lacks."""
+    handler = HasheousHandler()
+    client = AsyncMock()
+    client.request = AsyncMock(side_effect=failure)
+
+    with (
+        patch("handler.metadata.hasheous_handler.ctx_httpx_client") as ctx,
+        pytest.raises(HTTPException),
+    ):
+        ctx.get.return_value = client
+        await handler._request("https://hasheous.org/api")

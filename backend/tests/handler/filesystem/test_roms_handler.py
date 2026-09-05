@@ -1,16 +1,23 @@
 import hashlib
 import os
 import shutil
+import struct
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 from tests._zipfile_shim import reload_zipfile
 
-from config.config_manager import LIBRARY_BASE_PATH, Config
+from adapters.services.sigil import SigilExtractionResult
+from config.config_manager import (
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    LIBRARY_BASE_PATH,
+    Config,
+)
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,
@@ -18,9 +25,11 @@ from handler.filesystem.base_handler import (
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
+    category_matches,
+    mtime_matches,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
 from utils.archives import extract_chd_hash
 
 
@@ -1371,6 +1380,623 @@ class TestFSRomsHandler:
         assert parsed.ra_hash == ""
 
 
+SIGIL_PATCH_TARGET = "adapters.services.sigil.SigilService.extract_title_id"
+
+SWITCH_PLATFORM = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+
+
+@pytest.fixture
+def sigil_config(monkeypatch):
+    cnfg = Config(
+        EXCLUDED_PLATFORMS=[],
+        EXCLUDED_SINGLE_EXT=[],
+        EXCLUDED_SINGLE_FILES=[],
+        EXCLUDED_MULTI_FILES=[],
+        EXCLUDED_MULTI_PARTS_EXT=[],
+        EXCLUDED_MULTI_PARTS_FILES=[],
+        PLATFORMS_BINDING={},
+        PLATFORMS_VERSIONS={},
+        ROMS_FOLDER_NAME="roms",
+        FIRMWARE_FOLDER_NAME="bios",
+    )
+    cnfg.has_structure_path_b = True
+    monkeypatch.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
+    return cnfg
+
+
+@pytest.fixture
+def stub_ra_hasher(monkeypatch):
+    """Keep the hashable-platform cases off the real RAHasher binary."""
+    monkeypatch.setattr(
+        "adapters.services.rahasher.RAHasherService.calculate_hash",
+        AsyncMock(return_value=""),
+    )
+
+
+def make_sigil_handler(tmp_path: Path) -> FSRomsHandler:
+    handler = FSRomsHandler()
+    handler.base_path = tmp_path
+    return handler
+
+
+def make_single_file_rom(tmp_path: Path, platform: Platform, fs_name: str) -> Rom:
+    roms_path = tmp_path / platform.fs_slug / "roms"
+    roms_path.mkdir(parents=True, exist_ok=True)
+    (roms_path / fs_name).write_bytes(b"rom-bytes")
+    return Rom(
+        id=1,
+        fs_name=fs_name,
+        fs_path=f"{platform.fs_slug}/roms",
+        platform=platform,
+    )
+
+
+def make_multi_part_rom(
+    tmp_path: Path, platform: Platform, fs_name: str, file_names: list[str]
+) -> Rom:
+    rom_dir = tmp_path / platform.fs_slug / "roms" / fs_name
+    rom_dir.mkdir(parents=True, exist_ok=True)
+    for file_name in file_names:
+        file_path = rom_dir / file_name
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(b"rom-bytes")
+    return Rom(
+        id=1,
+        fs_name=fs_name,
+        fs_extension="",
+        fs_path=f"{platform.fs_slug}/roms",
+        platform=platform,
+    )
+
+
+async def switch_family_extract(
+    platform_slug: str, file_path: str
+) -> SigilExtractionResult:
+    """Stand in for sigil over a base/update/DLC folder, keyed by file name."""
+    if "update" in file_path:
+        return SigilExtractionResult(
+            title_id="0100ABCD12340800",
+            save_target="0100ABCD12340800",
+            usage="folder-exact",
+            content_type="patch",
+            version=196608,
+        )
+    if "dlc" in file_path:
+        return SigilExtractionResult(
+            title_id="0100ABCD12341001",
+            save_target="0100ABCD12341001",
+            usage="folder-exact",
+            content_type="addon",
+            version=0,
+        )
+    return SigilExtractionResult(
+        title_id="0100ABCD12340000",
+        save_target="0100ABCD12340000",
+        usage="folder-exact",
+        content_type="application",
+        version=0,
+    )
+
+
+class TestSigilTitleIdExtraction:
+    """Title id extraction via the sigil adapter during get_rom_files."""
+
+    @pytest.mark.asyncio
+    async def test_single_file_extraction_attaches_values(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, "Game.nsp")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
+            usage="folder-exact",
+        )
+        mock_extract = AsyncMock(return_value=extraction)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        assert len(parsed.rom_files) == 1
+        assert parsed.identity.title_id == "0100ABCD12340000"
+        assert parsed.identity.save_target == "0100ABCD12340000"
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+        mock_extract.assert_awaited_once_with(
+            "switch",
+            str(tmp_path / "switch/roms/Game.nsp"),
+        )
+
+    @pytest.mark.asyncio
+    async def test_multi_part_extraction_covers_nested_files(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            SWITCH_PLATFORM,
+            "Zelda",
+            [
+                "Zelda [base].nsp",
+                "updates/Zelda [update].nsp",
+                "dlc/Zelda [dlc].nsp",
+            ],
+        )
+
+        mock_extract = AsyncMock(side_effect=switch_family_extract)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        by_name = {rf.file_name: rf for rf in parsed.rom_files}
+
+        assert by_name["Zelda [base].nsp"].category == RomFileCategory.GAME
+        assert by_name["Zelda [update].nsp"].category == RomFileCategory.UPDATE
+        assert by_name["Zelda [dlc].nsp"].category == RomFileCategory.DLC
+
+        # All three files, including the nested update/DLC, are extracted.
+        assert mock_extract.await_count == 3
+
+        # The base game is still selected for the rom-level values.
+        assert parsed.identity.title_id == "0100ABCD12340000"
+        assert parsed.identity.save_target == "0100ABCD12340000"
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+
+    @pytest.mark.asyncio
+    async def test_content_type_overrides_folder_category(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        # Folder name "dlc" would otherwise derive category DLC, but the binary
+        # content type says this is the base application.
+        rom = make_multi_part_rom(
+            tmp_path, SWITCH_PLATFORM, "Zelda", ["dlc/Zelda [base].nsp"]
+        )
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0100ABCD12340000",
+                save_target="0100ABCD12340000",
+                usage="folder-exact",
+                content_type="application",
+                version=0,
+            )
+        )
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].category == RomFileCategory.GAME
+
+    @pytest.mark.asyncio
+    async def test_folder_category_preserved_when_content_type_absent(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path, SWITCH_PLATFORM, "Zelda", ["dlc/Zelda [addon].nsp"]
+        )
+
+        # CNMT miss: title id is present but content type is None.
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0100ABCD12341001",
+                save_target="0100ABCD12341001",
+                usage="folder-exact",
+                content_type=None,
+                version=None,
+            )
+        )
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        # The folder-derived category survives when the binary offers none.
+        assert parsed.rom_files[0].category == RomFileCategory.DLC
+
+    @pytest.mark.asyncio
+    async def test_non_rom_files_are_not_read(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            SWITCH_PLATFORM,
+            "Zelda",
+            [
+                "Zelda [base].nsp",
+                "manuals/Zelda.pdf",
+                "soundtracks/Zelda.mp3",
+                "screenshots/Zelda.png",
+            ],
+        )
+
+        mock_extract = AsyncMock(side_effect=switch_family_extract)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            await handler.get_rom_files(rom)
+
+        # Only the ROM file itself is worth a native parse.
+        assert mock_extract.await_count == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("fs_name", "title_id", "expected"),
+        [
+            # A patch id carries bitmask 0x800.
+            ("Zelda [update].nsp", "0100ABCD12340800", "0100ABCD12340000"),
+            # A DLC id carries an odd program-index nibble.
+            ("Game [DLC].nsp", "0100ABCD12351064", "0100ABCD12350000"),
+        ],
+    )
+    async def test_switch_base_id_is_derived_when_no_base_file_is_present(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        fs_name: str,
+        title_id: str,
+        expected: str,
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, fs_name)
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id=title_id,
+                save_target=title_id,
+                usage="folder-exact",
+            )
+        )
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        # Switch saves are keyed by the base title id itself.
+        assert parsed.identity.title_id == expected
+        assert parsed.identity.save_target == expected
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("platform", "fs_name", "extraction", "expected_layout"),
+        [
+            (
+                Platform(name="PlayStation Portable", slug="psp", fs_slug="psp"),
+                "Game.iso",
+                SigilExtractionResult(
+                    title_id="ULUS-10041",
+                    save_target="ULUS10041",
+                    usage="folder-prefix",
+                ),
+                SaveTargetLayout.FOLDER_PREFIX,
+            ),
+            (
+                Platform(name="Nintendo 3DS", slug="3ds", fs_slug="3ds"),
+                "Game.3ds",
+                SigilExtractionResult(
+                    title_id="0004000E0011C500",
+                    # The split path in the emulator's case, not the flat id.
+                    save_target="0004000e/0011c500",
+                    usage="folder-split",
+                ),
+                SaveTargetLayout.FOLDER_SPLIT,
+            ),
+            (
+                Platform(name="Dreamcast", slug="dc", fs_slug="dc"),
+                "Game.chd",
+                SigilExtractionResult(
+                    title_id="MK-51035",
+                    save_target="MK-51035",
+                    usage="file-prefix",
+                ),
+                SaveTargetLayout.FILE_PREFIX,
+            ),
+        ],
+    )
+    async def test_non_switch_platform_uses_first_extraction_verbatim(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        stub_ra_hasher: None,
+        platform: Platform,
+        fs_name: str,
+        extraction: SigilExtractionResult,
+        expected_layout: SaveTargetLayout,
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, platform, fs_name)
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.identity.title_id == extraction.title_id
+        assert parsed.identity.save_target == extraction.save_target
+        assert parsed.identity.save_target_layout == expected_layout
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("platform", "fs_name", "calculate_hashes", "extract_title_ids"),
+        [
+            # Not a platform sigil covers.
+            (
+                Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
+                "Game.z64",
+                False,
+                True,
+            ),
+            # Turned off by config.
+            (SWITCH_PLATFORM, "Game.nsp", True, False),
+            # An archive holds no ROM binary sigil can read.
+            (SWITCH_PLATFORM, "game.zip", True, True),
+        ],
+    )
+    async def test_extraction_is_skipped(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        platform: Platform,
+        fs_name: str,
+        calculate_hashes: bool,
+        extract_title_ids: bool,
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, platform, fs_name)
+
+        mock_extract = AsyncMock()
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(
+                rom,
+                calculate_hashes=calculate_hashes,
+                extract_title_ids=extract_title_ids,
+            )
+
+        mock_extract.assert_not_awaited()
+        assert parsed.identity.title_id is None
+        assert parsed.identity.save_target_layout is None
+
+    @pytest.mark.asyncio
+    async def test_hashable_archive_rom_skips_extraction(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        import io
+        import zipfile
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("game.bin", b"fake PSX disc content")
+
+        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+        handler = make_sigil_handler(tmp_path)
+        roms_path = tmp_path / "psx" / "roms"
+        roms_path.mkdir(parents=True)
+        (roms_path / "game.zip").write_bytes(buf.getvalue())
+        rom = Rom(
+            id=1,
+            fs_name="game.zip",
+            fs_path="psx/roms",
+            platform=platform,
+        )
+
+        mock_extract = AsyncMock()
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_not_awaited()
+        assert parsed.identity.title_id is None
+
+
+class TestEmbedSwitchTitleIdInName:
+    """The rename helper that embeds a Switch title id into a filename."""
+
+    @pytest.fixture
+    def handler(self, tmp_path: Path) -> FSRomsHandler:
+        (tmp_path / "switch/roms").mkdir(parents=True)
+        return make_sigil_handler(tmp_path)
+
+    @staticmethod
+    def _write(handler: FSRomsHandler, name: str, content: bytes = b"rom") -> Path:
+        path = handler.base_path / "switch/roms" / name
+        path.write_bytes(content)
+        return path
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("name", "title_id", "version", "expected"),
+        [
+            (
+                "Moonlighter.xci",
+                "0100f4700b2e0000",
+                3,
+                "Moonlighter [0100F4700B2E0000][v3].xci",
+            ),
+            # A missing version is a base game's version 0.
+            (
+                "Game.nsp",
+                "0100ABCD12340000",
+                None,
+                "Game [0100ABCD12340000][v0].nsp",
+            ),
+            (
+                "Game (USA) (Rev 1).xci",
+                "0100ABCD12340000",
+                0,
+                "Game (USA) (Rev 1) [0100ABCD12340000][v0].xci",
+            ),
+        ],
+    )
+    async def test_embeds_id_and_version(
+        self,
+        handler: FSRomsHandler,
+        name: str,
+        title_id: str,
+        version: int | None,
+        expected: str,
+    ):
+        src = self._write(handler, name)
+
+        new_name = await handler._embed_switch_title_id_in_name(
+            Path("switch/roms", name), title_id, version
+        )
+
+        assert new_name == expected
+        assert (handler.base_path / "switch/roms" / expected).exists()
+        assert not src.exists()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("name", "title_id"),
+        [
+            # Already embedded, so renaming again would stack the tags.
+            ("Game [0100ABCD12340000][v0].nsp", "0100ABCD12340000"),
+            ("Game.nsp", "NOT-A-TITLE-ID"),
+        ],
+    )
+    async def test_file_is_left_alone(
+        self, handler: FSRomsHandler, name: str, title_id: str
+    ):
+        src = self._write(handler, name)
+
+        assert (
+            await handler._embed_switch_title_id_in_name(
+                Path("switch/roms", name), title_id, 0
+            )
+            is None
+        )
+        assert src.exists()
+
+    @pytest.mark.asyncio
+    async def test_collision_skips_and_leaves_both_files(self, handler: FSRomsHandler):
+        src = self._write(handler, "Game.nsp", b"original")
+        target = self._write(handler, "Game [0100ABCD12340000][v0].nsp", b"existing")
+
+        assert (
+            await handler._embed_switch_title_id_in_name(
+                Path("switch/roms/Game.nsp"), "0100ABCD12340000", 0
+            )
+            is None
+        )
+        assert src.read_bytes() == b"original"
+        assert target.read_bytes() == b"existing"
+
+
+class TestSwitchTitleIdEmbedding:
+    """`embed_switch_title_ids`, the rename step the scan runs after parsing."""
+
+    @pytest.mark.asyncio
+    async def test_parsing_alone_leaves_the_file_unchanged(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, "Game.nsp")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
+            usage="folder-exact",
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].file_name == "Game.nsp"
+        assert (tmp_path / "switch/roms/Game.nsp").exists()
+        # The rename is offered to the caller, not performed.
+        assert [c.extraction.title_id for c in parsed.embed_candidates] == [
+            "0100ABCD12340000"
+        ]
+        assert parsed.embed_candidates[0].is_rom_level
+
+    @pytest.mark.asyncio
+    async def test_single_file_renamed_and_reconciled(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, "Moonlighter.xci")
+
+        extraction = SigilExtractionResult(
+            title_id="0100F4700B2E0000",
+            save_target="0100F4700B2E0000",
+            usage="folder-exact",
+            version=0,
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+            parsed = await handler.get_rom_files(rom)
+        renamed_rom_fs_name = await handler.embed_switch_title_ids(parsed)
+
+        new_name = "Moonlighter [0100F4700B2E0000][v0].xci"
+        assert renamed_rom_fs_name == new_name
+        assert parsed.rom_files[0].file_name == new_name
+        assert parsed.rom_files[0].file_path == "switch/roms"
+        assert (tmp_path / "switch/roms" / new_name).exists()
+        assert not (tmp_path / "switch/roms/Moonlighter.xci").exists()
+
+    @pytest.mark.asyncio
+    async def test_non_switch_platform_offers_no_candidates(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        platform = Platform(name="PlayStation Portable", slug="psp", fs_slug="psp")
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, platform, "Game.iso")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
+            usage="folder-exact",
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.embed_candidates == []
+        assert await handler.embed_switch_title_ids(parsed) is None
+        assert (tmp_path / "psp/roms/Game.iso").exists()
+
+    @pytest.mark.asyncio
+    async def test_no_title_id_not_renamed(self, tmp_path: Path, sigil_config: Config):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, "Game.nsp")
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=None)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.embed_candidates == []
+        assert await handler.embed_switch_title_ids(parsed) is None
+        assert parsed.rom_files[0].file_name == "Game.nsp"
+        assert (tmp_path / "switch/roms/Game.nsp").exists()
+
+    @pytest.mark.asyncio
+    async def test_multi_part_nested_files_renamed(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            SWITCH_PLATFORM,
+            "Zelda",
+            ["Zelda base.nsp", "updates/Zelda update.nsp", "dlc/Zelda dlc.nsp"],
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=switch_family_extract)):
+            parsed = await handler.get_rom_files(rom)
+        renamed_rom_fs_name = await handler.embed_switch_title_ids(parsed)
+
+        names = {rf.file_name for rf in parsed.rom_files}
+        assert "Zelda base [0100ABCD12340000][v0].nsp" in names
+        assert "Zelda update [0100ABCD12340800][v196608].nsp" in names
+        assert "Zelda dlc [0100ABCD12341001][v0].nsp" in names
+        # A multi-part rom's folder name is not changed by inner-file renames.
+        assert renamed_rom_fs_name is None
+        rom_dir = tmp_path / "switch/roms/Zelda"
+        assert (rom_dir / "Zelda base [0100ABCD12340000][v0].nsp").exists()
+        assert (
+            rom_dir / "updates/Zelda update [0100ABCD12340800][v196608].nsp"
+        ).exists()
+
+
 class TestExtractCHDHash:
     """Test suite for extract_chd_hash function"""
 
@@ -1866,3 +2492,288 @@ class TestExtractCHDHashProperties:
     @given(data=st.binary())
     def test_never_raises_on_arbitrary_bytes(self, data: bytes):
         _run_extract(data)
+
+
+class TestIncrementalRomFiles:
+    """`existing_files` lets a rescan keep the hashes of files whose size and
+    mtime are unchanged, and only recompute the ROM-level hashes when a
+    top-level file changed."""
+
+    ROM_DIR = "n64/roms/Sonic"
+
+    @pytest.fixture
+    def platform(self):
+        return Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
+
+    @pytest.fixture
+    def handler(self, tmp_path: Path):
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @pytest.fixture(autouse=True)
+    def patched(self, mocker):
+        config = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=["tmp"],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            ROMS_FOLDER_NAME="roms",
+            FIRMWARE_FOLDER_NAME="bios",
+        )
+        mocker.patch(
+            "handler.filesystem.roms_handler.cm.get_config", return_value=config
+        )
+        ra = mocker.patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            AsyncMock(return_value="ra-hash"),
+        )
+        return SimpleNamespace(ra=ra)
+
+    def _rom(self, platform: Platform, fs_name: str = "Sonic", ext: str = "") -> Rom:
+        return Rom(
+            id=7,
+            fs_name=fs_name,
+            fs_path="n64/roms",
+            fs_extension=ext,
+            platform=platform,
+            crc_hash="stored-crc",
+            md5_hash="stored-md5",
+            sha1_hash="stored-sha1",
+            ra_hash="stored-ra",
+        )
+
+    def _write(self, handler: FSRomsHandler, rel: str, data: bytes) -> os.stat_result:
+        path = handler.base_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path.stat()
+
+    def _row(
+        self, rom: Rom, rel_dir: str, name: str, st: os.stat_result, hashed: bool = True
+    ) -> RomFile:
+        return RomFile(
+            rom_id=rom.id,
+            file_name=name,
+            file_path=rel_dir,
+            file_size_bytes=st.st_size,
+            last_modified=st.st_mtime,
+            crc_hash="row-crc" if hashed else "",
+            md5_hash="row-md5" if hashed else "",
+            sha1_hash="row-sha1" if hashed else "",
+        )
+
+    def _folder_rom(self, handler: FSRomsHandler, platform: Platform):
+        rom = self._rom(platform)
+        game = self._write(handler, f"{self.ROM_DIR}/game.n64", b"game bytes")
+        hack = self._write(handler, f"{self.ROM_DIR}/hack/patched.n64", b"hack bytes")
+        rows = [
+            self._row(rom, self.ROM_DIR, "game.n64", game),
+            self._row(rom, f"{self.ROM_DIR}/hack", "patched.n64", hack),
+        ]
+        return rom, rows
+
+    async def test_unchanged_rows_are_reused_without_hashing(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        assert {id(f) for f in parsed.rom_files} == {id(r) for r in rows}
+        assert parsed.top_level_changed is False
+        assert (parsed.crc_hash, parsed.md5_hash, parsed.sha1_hash, parsed.ra_hash) == (
+            "stored-crc",
+            "stored-md5",
+            "stored-sha1",
+            "stored-ra",
+        )
+        hasher.assert_not_called()
+        patched.ra.assert_not_called()
+
+    async def test_new_nested_file_is_hashed_alone(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        self._write(handler, f"{self.ROM_DIR}/hack/v2/new.ips", b"new patch")
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        new = next(f for f in parsed.rom_files if f.file_name == "new.ips")
+        assert new.file_path == f"{self.ROM_DIR}/hack/v2"
+        assert new.category == RomFileCategory.HACK
+        assert (
+            new.md5_hash == hashlib.md5(b"new patch", usedforsecurity=False).hexdigest()
+        )
+        assert all(any(f is row for f in parsed.rom_files) for row in rows)
+        assert parsed.top_level_changed is False
+        assert parsed.md5_hash == "stored-md5"
+        assert hasher.call_count == 1
+        patched.ra.assert_not_called()
+
+    async def test_top_level_addition_recomputes_rom_hashes(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        self._write(handler, f"{self.ROM_DIR}/extra.n64", b"extra bytes")
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        top_level = [f for f in parsed.rom_files if f.file_path == self.ROM_DIR]
+        assert {f.file_name for f in top_level} == {"game.n64", "extra.n64"}
+        expected_md5 = hashlib.md5(usedforsecurity=False)
+        for rom_file in top_level:
+            expected_md5.update(
+                (
+                    handler.base_path / rom_file.file_path / rom_file.file_name
+                ).read_bytes()
+            )
+        assert parsed.top_level_changed is True
+        assert parsed.md5_hash == expected_md5.hexdigest()
+        assert parsed.ra_hash == "ra-hash"
+        patched.ra.assert_awaited_once()
+        # The nested file is untouched, so its row is still reused.
+        assert any(f is rows[1] for f in parsed.rom_files)
+        assert hasher.call_count == 2
+
+    async def test_removed_top_level_file_recomputes_rom_hashes(
+        self, handler, platform, patched
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        gone = self._write(handler, f"{self.ROM_DIR}/gone.n64", b"gone")
+        rows.append(self._row(rom, self.ROM_DIR, "gone.n64", gone))
+        (handler.base_path / self.ROM_DIR / "gone.n64").unlink()
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        assert parsed.top_level_changed is True
+        assert {f.file_name for f in parsed.rom_files} == {"game.n64", "patched.n64"}
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(b"game bytes", usedforsecurity=False).hexdigest()
+        )
+
+    @pytest.mark.parametrize("column", ["file_size_bytes", "last_modified"])
+    async def test_changed_file_is_rehashed(self, handler, platform, column):
+        rom, rows = self._folder_rom(handler, platform)
+        setattr(rows[1], column, getattr(rows[1], column) + 1)
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        hack = next(f for f in parsed.rom_files if f.file_name == "patched.n64")
+        assert hack is not rows[1]
+        assert (
+            hack.md5_hash
+            == hashlib.md5(b"hack bytes", usedforsecurity=False).hexdigest()
+        )
+        assert parsed.top_level_changed is False
+
+    async def test_row_without_hashes_is_rehashed(self, handler, platform):
+        rom, rows = self._folder_rom(handler, platform)
+        rows[1] = self._row(
+            rom,
+            f"{self.ROM_DIR}/hack",
+            "patched.n64",
+            (handler.base_path / self.ROM_DIR / "hack/patched.n64").stat(),
+            hashed=False,
+        )
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        hack = next(f for f in parsed.rom_files if f.file_name == "patched.n64")
+        assert hack is not rows[1]
+        assert (
+            hack.md5_hash
+            == hashlib.md5(b"hack bytes", usedforsecurity=False).hexdigest()
+        )
+
+    async def test_row_without_hashes_is_reused_when_hashing_is_disabled(
+        self, handler, platform, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        rows = [
+            self._row(
+                rom,
+                row.file_path,
+                row.file_name,
+                os.stat(handler.base_path / row.file_path / row.file_name),
+                hashed=False,
+            )
+            for row in rows
+        ]
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(
+            rom, calculate_hashes=False, existing_files=rows
+        )
+
+        assert {id(f) for f in parsed.rom_files} == {id(r) for r in rows}
+        hasher.assert_not_called()
+
+    async def test_flat_rom_reuses_its_row(self, handler, platform, patched, mocker):
+        rom = self._rom(platform, fs_name="Paper Mario (USA).z64", ext="z64")
+        st = self._write(handler, "n64/roms/Paper Mario (USA).z64", b"paper mario")
+        row = self._row(rom, "n64/roms", "Paper Mario (USA).z64", st)
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.rom_files[0] is row
+        assert parsed.top_level_changed is False
+        assert parsed.md5_hash == "stored-md5"
+        hasher.assert_not_called()
+        patched.ra.assert_not_called()
+
+    async def test_replaced_flat_rom_is_rehashed(self, handler, platform):
+        rom = self._rom(platform, fs_name="Paper Mario (USA).z64", ext="z64")
+        st = self._write(handler, "n64/roms/Paper Mario (USA).z64", b"paper mario")
+        row = self._row(rom, "n64/roms", "Paper Mario (USA).z64", st)
+        row.file_size_bytes += 1
+
+        parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.rom_files[0] is not row
+        assert parsed.top_level_changed is True
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(b"paper mario", usedforsecurity=False).hexdigest()
+        )
+
+    async def test_nested_folders_map_to_categories(self, handler, platform):
+        rom = self._rom(platform)
+        self._write(handler, f"{self.ROM_DIR}/game.n64", b"game")
+        self._write(handler, f"{self.ROM_DIR}/hack/part1 (Hack).bin", b"hack")
+        self._write(handler, f"{self.ROM_DIR}/patches/v2/fix.ips", b"patch")
+
+        parsed = await handler.get_rom_files(rom)
+
+        by_name = {f.file_name: f for f in parsed.rom_files}
+        assert by_name["game.n64"].category is None
+        assert by_name["part1 (Hack).bin"].category == RomFileCategory.HACK
+        assert by_name["fix.ips"].category == RomFileCategory.PATCH
+
+    def test_category_matches_plural_forms(self):
+        assert category_matches("patch", ["patches"])
+        assert category_matches("hack", ["hacks"])
+        assert category_matches("cheat", ["n64", "roms", "game", "cheats"])
+        assert not category_matches("patch", ["patched"])
+
+    def test_mtime_matches_accepts_single_precision_rounding(self):
+        actual = 1724500000.123456
+        rounded = struct.unpack("f", struct.pack("f", actual))[0]
+
+        assert rounded != actual
+        assert mtime_matches(actual, actual)
+        assert mtime_matches(rounded, actual)
+        assert not mtime_matches(actual + 1, actual)
+        assert not mtime_matches(None, actual)
+
+    def test_upload_temp_files_are_excluded_by_default(self):
+        assert "assembling" in DEFAULT_EXCLUDED_EXTENSIONS

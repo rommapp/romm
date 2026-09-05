@@ -17,6 +17,10 @@ export type ProviderIdKey =
   | "ra_id"
   | "flashpoint_id"
   | "hltb_id"
+  | "demozoo_id"
+  | "pouet_id"
+  | "csdb_id"
+  | "steam_id"
   | "gamelist_id"
   | "libretro_id";
 
@@ -79,6 +83,25 @@ export const METADATA_PROVIDERS: readonly MetadataProvider[] = [
     title: "HowLongToBeat match",
     logo: "hltb.png",
   },
+  {
+    key: "demozoo_id",
+    name: "Demozoo",
+    title: "Demozoo match",
+    logo: "demozoo.png?v=2",
+  },
+  {
+    key: "pouet_id",
+    name: "Pouët",
+    title: "Pouët match",
+    logo: "pouet.png?v=2",
+  },
+  {
+    key: "csdb_id",
+    name: "CSDb",
+    title: "CSDb match",
+    logo: "csdb.png",
+  },
+  { key: "steam_id", name: "Steam", title: "Steam match", logo: "steam.png" },
   { key: "gamelist_id", name: "ES-DE", title: "ES-DE match", logo: "esde.png" },
   {
     key: "libretro_id",

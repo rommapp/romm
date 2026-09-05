@@ -63,9 +63,13 @@ def test_get_platform_unsupported_platform(handler: LibretroHandler):
     assert handler.get_platform("not-a-real-platform")["libretro_slug"] is None
 
 
+def test_get_platform_rpg_maker(handler: LibretroHandler):
+    assert handler.get_platform("rpg-maker")["libretro_slug"] == "RPG Maker"
+
+
 def test_platform_list_uses_ups_keys():
     """Every entry in LIBRETRO_PLATFORM_LIST should be a UniversalPlatformSlug."""
-    from handler.metadata.base_handler import UniversalPlatformSlug
+    from utils.platform_slugs import UniversalPlatformSlug
 
     for key in LIBRETRO_PLATFORM_LIST.keys():
         assert isinstance(key, UniversalPlatformSlug)

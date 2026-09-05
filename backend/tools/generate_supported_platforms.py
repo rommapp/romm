@@ -24,7 +24,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug
+from utils.platform_slugs import UniversalPlatformSlug
 
 
 class SupportedPlatform(TypedDict):

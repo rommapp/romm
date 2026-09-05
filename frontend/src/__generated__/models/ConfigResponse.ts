@@ -15,7 +15,8 @@ export type ConfigResponse = {
     EXCLUDED_MULTI_FILES: Array<string>;
     EXCLUDED_MULTI_PARTS_EXT: Array<string>;
     EXCLUDED_MULTI_PARTS_FILES: Array<string>;
-    DEFAULT_EXCLUDED_DIRS: Array<string>;
+    DEFAULT_EXCLUDED_PLATFORM_DIRS: Array<string>;
+    DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Array<string>;
     DEFAULT_EXCLUDED_FILES: Array<string>;
     DEFAULT_EXCLUDED_EXTENSIONS: Array<string>;
     PLATFORMS_BINDING: Record<string, string>;

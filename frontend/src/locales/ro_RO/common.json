@@ -75,6 +75,7 @@
   "in-library": "În bibliotecă",
   "invalid-email": "Email invalid",
   "invalid-name": "Nume invalid",
+  "invalid-relative-path": "Introdu o cale relativă de folder fără segmente \"..\"",
   "jukebox": "Tonomat",
   "kind": "Tip",
   "last-page": "Ultima pagină",

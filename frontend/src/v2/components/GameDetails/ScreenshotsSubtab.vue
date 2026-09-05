@@ -19,7 +19,7 @@ import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import screenshotApi from "@/services/api/screenshot";
 import storeAuth from "@/stores/auth";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { ScreenshotItem } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
@@ -49,8 +49,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchRom } = useRomSync();
 const uploadStore = storeUpload();
 const authStore = storeAuth();
 const { user } = storeToRefs(authStore);
@@ -124,13 +123,7 @@ const communityScreenshots = computed<ScreenshotItem[]>(() =>
 );
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchRom(props.rom.id);
 }
 
 // ---------- Upload result toast (shared by both upload paths) ----------

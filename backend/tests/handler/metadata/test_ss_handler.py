@@ -37,6 +37,7 @@ from handler.metadata.ss_handler import (
     reset_rate_limited_roms,
 )
 from handler.redis_handler import async_cache
+from models.rom import Rom
 
 
 def _make_config(
@@ -1033,6 +1034,14 @@ class TestGetPlatform:
         assert platform["ss_id"] is None
         assert platform["slug"] == "not-a-real-platform"
 
+    def test_rpg_maker_maps_to_the_easyrpg_system(self):
+        """ScreenScraper files RPG Maker games under its EasyRPG system."""
+        handler = SSHandler()
+        platform = handler.get_platform("rpg-maker")
+
+        assert platform["ss_id"] == 231
+        assert platform["name"] == "EasyRPG"
+
 
 class TestGetRomType:
     def _file(self, ext: str, top_level: bool = True) -> MagicMock:
@@ -1880,7 +1889,7 @@ class TestSonySerialFilenames:
                 }
             )
             result = await handler.get_rom(
-                MagicMock(), "70123456789012.nsp", SWITCH_SS_ID
+                Rom(fs_name="70123456789012.nsp"), "70123456789012.nsp", SWITCH_SS_ID
             )
 
         assert result.get("name") == "Switch Game"

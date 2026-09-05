@@ -21,11 +21,14 @@ import {
 } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import socket from "@/services/socket";
 import type { Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import {
+  scanNeedsMetadataSource,
+  type ScanType as SharedScanType,
+} from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -40,7 +43,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
-const scanningStore = storeScanning();
+const { startScan } = useScanTrigger();
 
 const {
   calculateHashes,
@@ -62,7 +65,7 @@ const {
 // Per-platform scan types — the full Scan-view list minus
 // `new_platforms` (a discovery scan against fs_slugs not yet in the
 // DB, which can't be scoped to a known platform).
-type ScanType = "quick" | "unmatched" | "update" | "hashes" | "complete";
+type ScanType = Exclude<SharedScanType, "new_platforms">;
 
 const scanOptions = computed<
   { title: string; subtitle: string; value: ScanType }[]
@@ -100,15 +103,15 @@ function closeDialog() {
 }
 
 function onScan() {
-  scanningStore.setScanning(true);
+  const started = startScan([
+    {
+      platforms: [props.platform.id],
+      type: scanType.value,
+      ...buildScanPayload(),
+    },
+  ]);
+  if (!started) return;
   persistSelection();
-
-  if (!socket.connected) socket.connect();
-  socket.emit("scan", {
-    platforms: [props.platform.id],
-    type: scanType.value,
-    ...buildScanPayload(),
-  });
 
   snackbar.info(`Scanning ${props.platform.display_name}…`, {
     icon: "mdi-loading mdi-spin",
@@ -403,7 +406,9 @@ function onScan() {
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
-        :disabled="effectiveMetadataSources.length === 0"
+        :disabled="
+          effectiveMetadataSources.length === 0 && scanType !== 'quick'
+        "
         @click="onScan"
       >
         {{ t("scan.scan", "Scan") }}

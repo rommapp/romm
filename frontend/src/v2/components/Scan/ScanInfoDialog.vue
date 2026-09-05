@@ -69,7 +69,7 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
   {
     id: "quick",
     title: t("scan.quick-scan"),
-    desc: "Scans for games that are not in the library yet (fastest).",
+    desc: "Scans for games that are not in the library yet, and picks up files added to the folders of games already in it, at any depth.",
   },
   {
     id: "unmatched",
@@ -156,6 +156,38 @@ const providers: ProviderRow[] = [
     logo: `${LOGO_BASE}/flashpoint.png`,
     descKey: "setup.provider-flashpoint-desc",
     setupKey: "setup.provider-flashpoint-setup",
+  },
+  {
+    key: "demozoo",
+    name: "Demozoo",
+    logo: `${LOGO_BASE}/demozoo.png`,
+    descKey: "setup.provider-demozoo-desc",
+    setupKey: "setup.provider-demozoo-setup",
+    caveatKey: "setup.provider-demozoo-caveat",
+  },
+  {
+    key: "pouet",
+    name: "Pouët",
+    logo: `${LOGO_BASE}/pouet.png`,
+    descKey: "setup.provider-pouet-desc",
+    setupKey: "setup.provider-pouet-setup",
+    caveatKey: "setup.provider-pouet-caveat",
+  },
+  {
+    key: "csdb",
+    name: "CSDb",
+    logo: `${LOGO_BASE}/csdb.png`,
+    descKey: "setup.provider-csdb-desc",
+    setupKey: "setup.provider-csdb-setup",
+    caveatKey: "setup.provider-csdb-caveat",
+  },
+  {
+    key: "steam",
+    name: "Steam",
+    logo: `${LOGO_BASE}/steam.png`,
+    descKey: "setup.provider-steam-desc",
+    setupKey: "setup.provider-steam-setup",
+    caveatKey: "setup.provider-steam-caveat",
   },
   {
     key: "ra",

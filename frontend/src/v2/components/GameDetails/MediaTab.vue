@@ -16,7 +16,7 @@ import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
@@ -50,8 +50,7 @@ const {
   loading: soundtrackLoading,
   fallbackArtUrl: soundtrackArtUrl,
 } = useRomSoundtrack(() => props.rom);
-const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchRom } = useRomSync();
 const uploadStore = storeUpload();
 const { t } = useI18n();
 
@@ -165,13 +164,7 @@ const subtabDefs = computed<SubtabDef[]>(() => [
 const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchRom(props.rom.id);
 }
 
 // ---------- File handlers (shared by file input + drag-and-drop) ----------

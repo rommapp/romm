@@ -44,6 +44,7 @@
   "exit-full-screen": "Salir de pantalla completa",
   "exit-without-saving": "Salir sin guardar",
   "full-screen": "Pantalla completa",
+  "https-required": "Debe ejecutarse mediante HTTPS. Contacta con el propietario del sitio.",
   "join-closed": "Esa sesión ya no está abierta a otros jugadores.",
   "join-ended": "Esa sesión ha terminado.",
   "jsdos-browser-save-warning": "Las partidas de js-dos se almacenan solo en este navegador y no se sincronizan con RomM.",

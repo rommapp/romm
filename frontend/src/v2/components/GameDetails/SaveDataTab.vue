@@ -27,11 +27,9 @@ import type {
   UserSaveSchema,
   UserStateSchema,
 } from "@/__generated__";
-import romApi from "@/services/api/rom";
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
@@ -138,17 +136,10 @@ const uploadingStates = ref(false);
 
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const romsStore = storeRoms();
-const { syncCachedRom } = useRomSync();
+const { refetchRom } = useRomSync();
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    syncCachedRom(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchRom(props.rom.id);
 }
 
 async function onSaveUpload(files: File[]) {

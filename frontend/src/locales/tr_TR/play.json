@@ -44,6 +44,7 @@
   "exit-full-screen": "Tam ekrandan çık",
   "exit-without-saving": "Kaydetmeden çık",
   "full-screen": "Tam ekran",
+  "https-required": "HTTPS üzerinden çalıştırılmalıdır. Site sahibiyle iletişime geçin.",
   "join-closed": "Bu oturum artık diğer oyunculara açık değil.",
   "join-ended": "Bu oturum sona erdi.",
   "jsdos-browser-save-warning": "js-dos kayıtları yalnızca bu tarayıcıda saklanır ve RomM ile eşitlenmez.",

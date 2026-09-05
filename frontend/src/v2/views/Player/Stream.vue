@@ -73,6 +73,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -144,6 +145,10 @@ watch(sessionActive, (active) => {
   if (active) startSessionPoll();
   else stopSessionPoll();
 });
+
+// A reload tears the stream down without the save-and-exit handshake, so a
+// claimed session is worth a confirmation prompt too.
+useUnloadGuard(sessionActive);
 
 watch(
   () => playerState.value === "loading",

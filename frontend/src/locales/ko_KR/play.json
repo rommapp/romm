@@ -44,6 +44,7 @@
   "exit-full-screen": "전체 화면 종료",
   "exit-without-saving": "저장하지 않고 종료",
   "full-screen": "전체 화면",
+  "https-required": "HTTPS로 실행해야 합니다. 사이트 관리자에게 문의하세요.",
   "join-closed": "이 세션은 더 이상 다른 플레이어에게 열려 있지 않습니다.",
   "join-ended": "이 세션은 종료되었습니다.",
   "jsdos-browser-save-warning": "js-dos 저장 데이터는 이 브라우저에만 저장되며 RomM과 동기화되지 않습니다.",

@@ -19,9 +19,9 @@ from config import (
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import BaseRom, MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
 
 # Regex to detect RetroAchievements ID tags in filenames like (ra-12345)
 RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)
@@ -132,7 +132,7 @@ def extract_metadata_from_rom_details(
 class RAHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ra_service = RetroAchievementsService()
-        self.HASHES_FILE_NAME = "ra_hashes_v2.json"
+        self.HASHES_FILE_NAME = "ra_hashes_v3.json"
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -189,10 +189,10 @@ class RAHandler(MetadataHandler):
             <= await self._days_since_last_cache_file_update(rom.platform.id)
             or not await self._exists_cache_file(rom.platform.id)
         ):
-            # Fetch all games (including those without achievements) and build index
+            # An RA match should mean a set exists, so skip games without one
             roms = await self.ra_service.get_game_list(
                 system_id=rom.platform.ra_id,
-                only_games_with_achievements=False,
+                only_games_with_achievements=True,
                 include_hashes=True,
             )
 

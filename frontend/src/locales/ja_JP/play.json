@@ -44,6 +44,7 @@
   "exit-full-screen": "全画面表示を終了",
   "exit-without-saving": "保存せずに終了",
   "full-screen": "全画面",
+  "https-required": "HTTPS で実行する必要があります。サイト管理者に連絡してください。",
   "join-closed": "このセッションは他のプレイヤーに開放されていません。",
   "join-ended": "このセッションは終了しました。",
   "jsdos-browser-save-warning": "js-dos のセーブデータはこのブラウザーにのみ保存され、RomM とは同期されません。",

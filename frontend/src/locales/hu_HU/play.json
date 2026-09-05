@@ -44,6 +44,7 @@
   "exit-full-screen": "Kilépés a teljes képernyőből",
   "exit-without-saving": "Kilépés mentés nélkül",
   "full-screen": "Teljes képernyő",
+  "https-required": "HTTPS-en keresztül kell futtatni. Vedd fel a kapcsolatot az oldal tulajdonosával.",
   "join-closed": "Ez a munkamenet már nem áll nyitva más játékosok előtt.",
   "join-ended": "Ez a munkamenet véget ért.",
   "jsdos-browser-save-warning": "A js-dos mentések csak ebben a böngészőben tárolódnak, és nem szinkronizálódnak a RomM-mal.",

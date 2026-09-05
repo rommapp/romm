@@ -13,6 +13,7 @@ import type {
   SearchRomSchema,
   SimpleRomSchema,
   SoundtrackTrackMetaSchema,
+  UploadTargetPayload,
   UserNoteSchema,
   RomFiltersDict,
 } from "@/__generated__";
@@ -39,14 +40,22 @@ const trackChunkUploadProgress = engineName !== "WebKit";
 async function uploadRomChunked({
   platformId,
   file,
+  romId,
+  folder,
 }: {
   platformId: number;
   file: File;
+  /** Upload into this ROM's folder instead of the platform folder. */
+  romId?: number;
+  /** Subfolder inside the ROM folder; empty or omitted for the root. */
+  folder?: string;
 }): Promise<void> {
   const uploadStore = storeUpload();
   const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
 
-  const { data: startData } = await api.post("/roms/upload/start", null, {
+  const target: UploadTargetPayload | null =
+    romId !== undefined ? { rom_id: romId, ...(folder && { folder }) } : null;
+  const { data: startData } = await api.post("/roms/upload/start", target, {
     headers: {
       "X-Upload-Platform": platformId.toString(),
       "X-Upload-Filename": file.name,
@@ -116,9 +125,13 @@ async function uploadRomChunked({
 async function uploadRoms({
   platformId,
   filesToUpload,
+  romId,
+  folder,
 }: {
   platformId: number;
   filesToUpload: File[];
+  romId?: number;
+  folder?: string;
 }) {
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
@@ -126,7 +139,7 @@ async function uploadRoms({
   const promises = filesToUpload.map((file) => {
     uploadStore.start(file.name);
 
-    return uploadRomChunked({ platformId, file })
+    return uploadRomChunked({ platformId, file, romId, folder })
       .then(() => null as null)
       .catch((error) => {
         uploadStore.fail(
@@ -590,6 +603,7 @@ export type UpdateRom = SimpleRom & {
     hasheous_metadata?: string;
     flashpoint_metadata?: string;
     hltb_metadata?: string;
+    steam_metadata?: string;
   };
 };
 
@@ -620,6 +634,10 @@ async function updateRom({
     ["hasheous_id", toFormIdValue(rom.hasheous_id)],
     ["tgdb_id", toFormIdValue(rom.tgdb_id)],
     ["hltb_id", toFormIdValue(rom.hltb_id)],
+    ["demozoo_id", toFormIdValue(rom.demozoo_id)],
+    ["pouet_id", toFormIdValue(rom.pouet_id)],
+    ["csdb_id", toFormIdValue(rom.csdb_id)],
+    ["steam_id", toFormIdValue(rom.steam_id)],
     ["libretro_id", toFormIdValue(rom.libretro_id)],
   ];
 
@@ -627,32 +645,10 @@ async function updateRom({
     fields.push(["raw_manual_metadata", JSON.stringify(rom.manual_metadata)]);
   }
 
-  if (rom.raw_metadata?.igdb_metadata) {
-    fields.push(["raw_igdb_metadata", rom.raw_metadata.igdb_metadata]);
-  }
-  if (rom.raw_metadata?.moby_metadata) {
-    fields.push(["raw_moby_metadata", rom.raw_metadata.moby_metadata]);
-  }
-  if (rom.raw_metadata?.ss_metadata) {
-    fields.push(["raw_ss_metadata", rom.raw_metadata.ss_metadata]);
-  }
-  if (rom.raw_metadata?.launchbox_metadata) {
-    fields.push([
-      "raw_launchbox_metadata",
-      rom.raw_metadata.launchbox_metadata,
-    ]);
-  }
-  if (rom.raw_metadata?.hasheous_metadata) {
-    fields.push(["raw_hasheous_metadata", rom.raw_metadata.hasheous_metadata]);
-  }
-  if (rom.raw_metadata?.flashpoint_metadata) {
-    fields.push([
-      "raw_flashpoint_metadata",
-      rom.raw_metadata.flashpoint_metadata,
-    ]);
-  }
-  if (rom.raw_metadata?.hltb_metadata) {
-    fields.push(["raw_hltb_metadata", rom.raw_metadata.hltb_metadata]);
+  for (const [provider, raw] of Object.entries(rom.raw_metadata ?? {})) {
+    if (raw) {
+      fields.push([`raw_${provider}` as keyof UpdateRomInput, raw]);
+    }
   }
 
   // Don't set url_cover on manual artwork upload

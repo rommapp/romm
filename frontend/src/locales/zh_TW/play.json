@@ -44,6 +44,7 @@
   "exit-full-screen": "結束全螢幕",
   "exit-without-saving": "不儲存退出",
   "full-screen": "全螢幕",
+  "https-required": "必須透過 HTTPS 執行。請聯絡網站擁有者。",
   "join-closed": "該工作階段不再對其他玩家開放。",
   "join-ended": "該工作階段已結束。",
   "jsdos-browser-save-warning": "js-dos 存檔僅保存在此瀏覽器中，不會與 RomM 同步。",

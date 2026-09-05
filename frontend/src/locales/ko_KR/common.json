@@ -75,6 +75,7 @@
   "in-library": "라이브러리에 있음",
   "invalid-email": "유효하지 않은 이메일",
   "invalid-name": "유효하지 않은 이름",
+  "invalid-relative-path": "\"..\" 구간이 없는 상대 폴더 경로를 입력하세요",
   "jukebox": "주크박스",
   "kind": "종류",
   "last-page": "마지막 페이지",

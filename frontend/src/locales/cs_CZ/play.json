@@ -44,6 +44,7 @@
   "exit-full-screen": "Ukončit celou obrazovku",
   "exit-without-saving": "Ukončit bez uložení",
   "full-screen": "Celá obrazovka",
+  "https-required": "Musí být spuštěno přes HTTPS. Kontaktujte vlastníka webu.",
   "join-closed": "Tato relace už není otevřená dalším hráčům.",
   "join-ended": "Tato relace skončila.",
   "jsdos-browser-save-warning": "Pozice js-dos se ukládají pouze v tomto prohlížeči a nesynchronizují se s RomM.",

@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 from rq.exceptions import NoSuchJobError
 
+from handler.redis_handler import redis_client
 from tasks.tasks import Task, TaskType
 
 
@@ -81,44 +82,36 @@ class TestListTasks:
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", True)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)
     @patch(
-        "endpoints.tasks.manual_tasks",
-        [
-            {
-                "name": "test_manual",
-                "type": TaskType.CLEANUP,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.CLEANUP,
-                    title="Manual Task",
-                    description="Manual task",
-                    enabled=True,
-                    manual_run=True,
-                    can_run_manually=True,
-                    timeout=300,
-                    cron_string=None,
-                ),
-            }
-        ],
+        "endpoints.tasks.MANUAL_TASKS",
+        {
+            "test_manual": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Manual Task",
+                description="Manual task",
+                enabled=True,
+                manual_run=True,
+                can_run_manually=True,
+                timeout=300,
+                cron_string=None,
+            ),
+        },
     )
     @patch(
-        "endpoints.tasks.scheduled_tasks",
-        [
-            {
-                "name": "test_scheduled",
-                "type": TaskType.UPDATE,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.UPDATE,
-                    title="Scheduled Task",
-                    description="Scheduled task",
-                    enabled=True,
-                    manual_run=False,
-                    can_run_manually=False,
-                    timeout=300,
-                    cron_string="0 0 * * *",
-                ),
-            }
-        ],
+        "endpoints.tasks.VISIBLE_SCHEDULED_TASKS",
+        {
+            "test_scheduled": Mock(
+                spec=Task,
+                task_type=TaskType.UPDATE,
+                title="Scheduled Task",
+                description="Scheduled task",
+                enabled=True,
+                manual_run=False,
+                can_run_manually=False,
+                timeout=300,
+                cron_string="0 0 * * *",
+            ),
+        },
     )
     def test_list_tasks_success(self, client, access_token):
         """Test successful listing of all tasks"""
@@ -166,8 +159,8 @@ class TestListTasks:
 
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", False)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 10)
-    @patch("endpoints.tasks.manual_tasks", [])
-    @patch("endpoints.tasks.scheduled_tasks", [])
+    @patch("endpoints.tasks.MANUAL_TASKS", {})
+    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", {})
     def test_list_tasks_empty(self, client, access_token):
         """Test listing tasks when no tasks are available"""
         response = client.get(
@@ -227,29 +220,24 @@ class TestListTasks:
 class TestRunSingleTask:
     """Test suite for the run_single_task endpoint"""
 
-    @patch("endpoints.tasks.low_prio_queue.enqueue", return_value=create_mock_job())
+    @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
     @patch(
-        "endpoints.tasks.manual_tasks",
-        [
-            {
-                "name": "test_task",
-                "type": TaskType.CLEANUP,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.CLEANUP,
-                    title="Test Task",
-                    description="Test Description",
-                    enabled=True,
-                    manual_run=True,
-                    can_run_manually=True,
-                    timeout=300,
-                    run=Mock(),
-                ),
-            }
-        ],
+        "endpoints.tasks.RUNNABLE_TASKS",
+        {
+            "test_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Test Task",
+                description="Test Description",
+                enabled=True,
+                manual_run=True,
+                can_run_manually=True,
+                timeout=300,
+                run=Mock(),
+            ),
+        },
     )
-    @patch("endpoints.tasks.scheduled_tasks", [])
-    def test_run_single_task_success(self, mock_queue, client, access_token):
+    def test_run_single_task_success(self, mock_enqueue, client, access_token):
         """Test successful running of a single task"""
         response = client.post(
             "/api/tasks/run/test_task",
@@ -265,10 +253,9 @@ class TestRunSingleTask:
         assert "created_at" in data
         assert "enqueued_at" in data
 
-        mock_queue.assert_called_once()
+        mock_enqueue.assert_called_once()
 
-    @patch("endpoints.tasks.manual_tasks", [])
-    @patch("endpoints.tasks.scheduled_tasks", [])
+    @patch("endpoints.tasks.RUNNABLE_TASKS", {})
     def test_run_single_task_not_found(self, client, access_token):
         """Test running a non-existent task"""
         response = client.post(
@@ -280,29 +267,24 @@ class TestRunSingleTask:
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.enqueue_task")
     @patch(
-        "endpoints.tasks.manual_tasks",
-        [
-            {
-                "name": "disabled_task",
-                "type": TaskType.CLEANUP,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.CLEANUP,
-                    title="Disabled Task",
-                    description="Disabled Description",
-                    enabled=False,
-                    manual_run=True,
-                    can_run_manually=False,
-                    timeout=300,
-                    run=Mock(),
-                ),
-            }
-        ],
+        "endpoints.tasks.RUNNABLE_TASKS",
+        {
+            "disabled_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Disabled Task",
+                description="Disabled Description",
+                enabled=False,
+                manual_run=True,
+                can_run_manually=False,
+                timeout=300,
+                run=Mock(),
+            ),
+        },
     )
-    @patch("endpoints.tasks.scheduled_tasks", [])
-    def test_run_single_task_disabled(self, mock_queue, client, access_token):
+    def test_run_single_task_disabled(self, mock_enqueue, client, access_token):
         """Test running a disabled task"""
         response = client.post(
             "/api/tasks/run/disabled_task",
@@ -313,29 +295,24 @@ class TestRunSingleTask:
         data = response.json()
         assert "cannot be run" in data["detail"].lower()
 
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.enqueue_task")
     @patch(
-        "endpoints.tasks.manual_tasks",
-        [
-            {
-                "name": "non_manual_task",
-                "type": TaskType.CLEANUP,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.CLEANUP,
-                    title="Non-Manual Task",
-                    description="Non-Manual Description",
-                    enabled=True,
-                    manual_run=False,
-                    can_run_manually=False,
-                    timeout=300,
-                    run=Mock(),
-                ),
-            }
-        ],
+        "endpoints.tasks.RUNNABLE_TASKS",
+        {
+            "non_manual_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Non-Manual Task",
+                description="Non-Manual Description",
+                enabled=True,
+                manual_run=False,
+                can_run_manually=False,
+                timeout=300,
+                run=Mock(),
+            ),
+        },
     )
-    @patch("endpoints.tasks.scheduled_tasks", [])
-    def test_run_single_task_non_manual(self, mock_queue, client, access_token):
+    def test_run_single_task_non_manual(self, mock_enqueue, client, access_token):
         """Test running a task that cannot be run manually"""
         response = client.post(
             "/api/tasks/run/non_manual_task",
@@ -356,25 +333,12 @@ class TestGetTasksStatus:
     """Test suite for the get_tasks_status endpoint"""
 
     @patch("endpoints.tasks.Worker.all", return_value=[])
-    @patch("endpoints.tasks.low_prio_queue")
-    @patch("endpoints.tasks.default_queue")
-    @patch("endpoints.tasks.high_prio_queue")
+    @patch("endpoints.tasks.ALL_QUEUES", new=())
     @patch("endpoints.tasks.Job.fetch")
     def test_get_tasks_status_skips_expired_jobs(
-        self,
-        mock_job_fetch,
-        mock_high_queue,
-        mock_default_queue,
-        mock_low_queue,
-        mock_worker_all,
-        client,
-        access_token,
+        self, mock_job_fetch, mock_worker_all, client, access_token
     ):
         """Test that get_tasks_status skips jobs that have expired from Redis"""
-        mock_low_queue.get_jobs.return_value = []
-        mock_default_queue.get_jobs.return_value = []
-        mock_high_queue.get_jobs.return_value = []
-
         mock_finished_registry = Mock()
         mock_finished_registry.get_job_ids.return_value = ["expired-job-id"]
         mock_failed_registry = Mock()
@@ -402,11 +366,8 @@ class TestGetTasksStatus:
 class TestGetTaskById:
     """Test suite for the get_task_by_id endpoint"""
 
-    @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.Job.fetch")
-    def test_get_task_by_id_success(
-        self, mock_job_fetch, mock_queue, client, access_token
-    ):
+    def test_get_task_by_id_success(self, mock_job_fetch, client, access_token):
         """Test successful retrieval of a task by job ID"""
         # Mock job object with all necessary attributes
         mock_job = Mock()
@@ -446,14 +407,11 @@ class TestGetTaskById:
         assert data["ended_at"] == "2023-01-01T00:02:00"
 
         mock_job_fetch.assert_called_once_with(
-            "test-job-id-123", connection=mock_queue.connection
+            "test-job-id-123", connection=redis_client
         )
 
-    @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.Job.fetch")
-    def test_get_task_by_id_not_found(
-        self, mock_job_fetch, mock_queue, client, access_token
-    ):
+    def test_get_task_by_id_not_found(self, mock_job_fetch, client, access_token):
         """Test retrieval of a non-existent task by job ID"""
         mock_job_fetch.side_effect = Exception("Job not found")
 
@@ -466,10 +424,9 @@ class TestGetTaskById:
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_with_exception_info(
-        self, mock_job_fetch, mock_queue, client, access_token
+        self, mock_job_fetch, client, access_token
     ):
         """Test retrieval of a task that failed with exception"""
         mock_job = Mock()
@@ -528,25 +485,21 @@ class TestTaskInfoBuilding:
         }
 
         with patch(
-            "endpoints.tasks.manual_tasks",
-            [
-                {
-                    "name": "test_task",
-                    "type": TaskType.CLEANUP,
-                    "task": Mock(
-                        spec=Task,
-                        title="Test Task",
-                        description="Test Description",
-                        enabled=True,
-                        manual_run=True,
-                        can_run_manually=True,
-                        timeout=300,
-                        cron_string="0 0 * * *",
-                    ),
-                }
-            ],
+            "endpoints.tasks.MANUAL_TASKS",
+            {
+                "test_task": Mock(
+                    spec=Task,
+                    title="Test Task",
+                    description="Test Description",
+                    enabled=True,
+                    manual_run=True,
+                    can_run_manually=True,
+                    timeout=300,
+                    cron_string="0 0 * * *",
+                ),
+            },
         ):
-            with patch("endpoints.tasks.scheduled_tasks", []):
+            with patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", {}):
                 response = client.get(
                     "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
                 )
@@ -560,11 +513,8 @@ class TestIntegration:
 
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", True)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)
-    @patch(
-        "endpoints.tasks.low_prio_queue.enqueue",
-        return_value=create_mock_job(),
-    )
-    def test_full_workflow(self, mock_queue, client, access_token):
+    @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
+    def test_full_workflow(self, mock_enqueue, client, access_token):
         """Test a complete workflow: list tasks, then run a specific task"""
         # First, list all tasks
         list_response = client.get(
@@ -574,32 +524,27 @@ class TestIntegration:
 
         # Then run a specific task (if any exist)
         with patch(
-            "endpoints.tasks.manual_tasks",
-            [
-                {
-                    "name": "workflow_task",
-                    "type": TaskType.CLEANUP,
-                    "task": Mock(
-                        spec=Task,
-                        task_type=TaskType.CLEANUP,
-                        title="Workflow Task",
-                        description="Workflow Description",
-                        enabled=True,
-                        manual_run=True,
-                        can_run_manually=True,
-                        timeout=300,
-                        run=Mock(),
-                    ),
-                }
-            ],
+            "endpoints.tasks.RUNNABLE_TASKS",
+            {
+                "workflow_task": Mock(
+                    spec=Task,
+                    task_type=TaskType.CLEANUP,
+                    title="Workflow Task",
+                    description="Workflow Description",
+                    enabled=True,
+                    manual_run=True,
+                    can_run_manually=True,
+                    timeout=300,
+                    run=Mock(),
+                ),
+            },
         ):
-            with patch("endpoints.tasks.scheduled_tasks", []):
-                run_response = client.post(
-                    "/api/tasks/run/workflow_task",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-                assert run_response.status_code == status.HTTP_200_OK
-                assert mock_queue.called
+            run_response = client.post(
+                "/api/tasks/run/workflow_task",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert run_response.status_code == status.HTTP_200_OK
+            assert mock_enqueue.called
 
     def test_error_handling(self, client, access_token):
         """Test error handling for various scenarios"""
@@ -609,3 +554,38 @@ class TestIntegration:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestRunSingleTaskArgumentHandling:
+    """A request body must not be able to choose which task runs."""
+
+    @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
+    @patch(
+        "endpoints.tasks.RUNNABLE_TASKS",
+        {
+            "allowed_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Allowed Task",
+                description="Allowed",
+                enabled=True,
+                manual_run=True,
+                can_run_manually=True,
+                timeout=300,
+            ),
+        },
+    )
+    def test_body_cannot_override_the_task_name(
+        self, mock_enqueue, client, access_token
+    ):
+        response = client.post(
+            "/api/tasks/run/allowed_task",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"name": "sync_push_pull"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert mock_enqueue.call_args.args == ("allowed_task",)
+        assert mock_enqueue.call_args.kwargs["task_kwargs"] == {
+            "name": "sync_push_pull"
+        }

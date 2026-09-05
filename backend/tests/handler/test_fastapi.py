@@ -7,14 +7,18 @@ from adapters.services.screenscraper import ScreenScraperRateLimitError
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
+    meta_demozoo_handler,
     meta_hasheous_handler,
+    meta_igdb_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
 )
+from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.hasheous_handler import HasheousMetadata, HasheousRom
+from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.ss_handler import (
     SSRom,
@@ -28,7 +32,7 @@ from handler.scan_handler import (
     scan_rom,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, RomIdentity, SaveTargetLayout
 from utils.context import initialize_context
 
 
@@ -195,6 +199,76 @@ async def test_scan_rom_complete_clears_unselected_metadata(
     assert result.ra_metadata == {}
     # Hasheous is still selected and should remain populated.
     assert result.hasheous_id == 999
+
+
+@pytest.mark.parametrize(
+    ("stored_title_id", "extracted_title_id"),
+    [
+        # A first extraction lands on a rom that has no identity yet.
+        (None, "0100ABCD12340000"),
+        # A hash-only or extraction-disabled rescan must not wipe what is there.
+        ("0100ABCD12340000", None),
+    ],
+)
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+async def test_scan_rom_folds_extracted_title_id_values(
+    mock_playmatch_enabled,
+    stored_title_id: str | None,
+    extracted_title_id: str | None,
+):
+    platform = Platform(id=1, slug="switch", fs_slug="switch", name="Nintendo Switch")
+    platform = db_platform_handler.add_platform(platform)
+
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Game.nsp",
+        fs_path="switch/roms",
+        name="Game",
+        fs_size_bytes=1024,
+        tags=[],
+        title_id=stored_title_id,
+        save_target=stored_title_id,
+        save_target_layout=(SaveTargetLayout.FOLDER_EXACT if stored_title_id else None),
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Game.nsp",
+                "flat": True,
+                "nested": False,
+                "files": [
+                    RomFile(
+                        rom=rom,
+                        file_name="Game.nsp",
+                        file_path="switch/roms",
+                        file_size_bytes=1024,
+                        last_modified=1620000000,
+                    )
+                ],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+                "identity": RomIdentity(
+                    title_id=extracted_title_id,
+                    save_target=extracted_title_id,
+                    save_target_layout=(
+                        SaveTargetLayout.FOLDER_EXACT if extracted_title_id else None
+                    ),
+                ),
+            },
+            metadata_sources=[],
+            newly_added=False,
+        )
+
+    assert result.title_id == "0100ABCD12340000"
+    assert result.save_target == "0100ABCD12340000"
+    assert result.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
@@ -1214,3 +1288,114 @@ async def test_scan_rom_ss_rate_limit_skips_the_rom_without_further_lookups(
     assert get_rate_limited_rom_names() == ["game.sfc"]
 
     reset_rate_limited_roms()
+
+
+def _amiga_platform() -> Platform:
+    return db_platform_handler.add_platform(
+        Platform(
+            id=1,
+            slug="amiga",
+            fs_slug="amiga",
+            name="Commodore Amiga",
+            igdb_id=16,
+        )
+    )
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_sgdb_handler, "get_details_by_names", new_callable=AsyncMock)
+@patch.object(meta_igdb_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_demozoo_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_scene_match_ignores_similar_game_cover(
+    mock_demozoo_get_rom, mock_igdb_get_rom, mock_sgdb_names, mock_playmatch_enabled
+):
+    """A Demozoo hit must not pick up IGDB/SGDB art for a similarly named game."""
+    mock_demozoo_get_rom.return_value = DemozooRom(
+        demozoo_id=2,
+        name="State of the Art",
+        summary="Demo by Spaceballs (1992)",
+        url_cover="https://demozoo.org/media/sota.png",
+        url_screenshots=["https://demozoo.org/media/sota.png"],
+    )
+    mock_igdb_get_rom.return_value = IGDBRom(
+        igdb_id=99901,
+        name="State of the Art",
+        summary="A skateboarding game",
+        url_cover="https://images.igdb.com/skate.jpg",
+    )
+    mock_sgdb_names.return_value = {
+        "sgdb_id": 42,
+        "url_cover": "https://cdn.steamgriddb.com/skate.png",
+    }
+
+    platform = _amiga_platform()
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="State of the Art (demozoo-2).adf",
+            fs_path="amiga",
+            tags=[],
+        )
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("State of the Art (demozoo-2).adf"),
+            metadata_sources=[
+                MetadataSource.DEMOZOO,
+                MetadataSource.IGDB,
+                MetadataSource.SGDB,
+            ],
+            newly_added=True,
+        )
+
+    assert result.demozoo_id == 2
+    assert result.name == "State of the Art"
+    assert result.summary == "Demo by Spaceballs (1992)"
+    assert result.url_cover == "https://demozoo.org/media/sota.png"
+    assert result.igdb_id is None
+    assert result.sgdb_id is None
+    mock_sgdb_names.assert_not_awaited()
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_igdb_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_demozoo_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_games_still_use_fuzzy_catalog_covers(
+    mock_demozoo_get_rom, mock_igdb_get_rom, mock_playmatch_enabled
+):
+    """Retail games with no scene id keep IGDB-style similar-title covers."""
+    mock_demozoo_get_rom.return_value = DemozooRom(demozoo_id=None)
+    mock_igdb_get_rom.return_value = IGDBRom(
+        igdb_id=3340,
+        name="Paper Mario",
+        url_cover="https://images.igdb.com/paper-mario.jpg",
+    )
+
+    platform = _amiga_platform()
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="Paper Mario (USA).z64",
+            fs_path="amiga",
+            tags=[],
+        )
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("Paper Mario (USA).z64"),
+            metadata_sources=[MetadataSource.DEMOZOO, MetadataSource.IGDB],
+            newly_added=True,
+        )
+
+    assert result.demozoo_id is None
+    assert result.igdb_id == 3340
+    assert result.name == "Paper Mario"
+    assert result.url_cover == "https://images.igdb.com/paper-mario.jpg"

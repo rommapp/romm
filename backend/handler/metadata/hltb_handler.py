@@ -9,7 +9,6 @@ import pydash
 from fastapi import HTTPException, status
 
 from config import HLTB_API_ENABLED
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from utils.context import ctx_httpx_client
 from utils.hltb_search import (
@@ -23,9 +22,10 @@ from utils.hltb_search import (
     search_body,
     search_headers,
 )
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, MetadataHandler, unavailable
 
 # Regex to detect HLTB ID tags in filenames like (hltb-12345)
 HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)
@@ -483,10 +483,7 @@ class HLTBHandler(MetadataHandler):
                     "Connection error: can't connect to HowLongToBeat API",
                     exc_info=True,
                 )
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Can't connect to HowLongToBeat API, check your internet connection",
-                ) from exc
+                raise unavailable("HowLongToBeat API") from exc
             except json.JSONDecodeError as exc:
                 log.error(
                     "Error decoding JSON response from HowLongToBeat API: %s", exc
@@ -527,7 +524,7 @@ class HLTBHandler(MetadataHandler):
 
         except Exception as exc:
             log.error("Error searching HowLongToBeat API: %s", exc)
-            return []
+            raise
 
     def get_platform(self, slug: str) -> HLTBPlatform:
         if slug not in HLTB_PLATFORM_LIST:
@@ -728,10 +725,7 @@ class HLTBHandler(MetadataHandler):
             log.warning(
                 "Connection error: can't connect to HowLongToBeat", exc_info=True
             )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to HowLongToBeat API, check your internet connection",
-            ) from exc
+            raise unavailable("HowLongToBeat API") from exc
 
         match = NEXT_DATA_REGEX.search(res.text)
         if not match:

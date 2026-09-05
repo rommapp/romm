@@ -44,6 +44,7 @@
   "exit-full-screen": "Vollbild beenden",
   "exit-without-saving": "Beenden ohne Speichern",
   "full-screen": "Vollbild",
+  "https-required": "Muss über HTTPS ausgeführt werden. Kontaktiere den Website-Betreiber.",
   "join-closed": "Diese Sitzung ist nicht mehr für andere Spieler offen.",
   "join-ended": "Diese Sitzung ist beendet.",
   "jsdos-browser-save-warning": "js-dos-Spielstände werden nur in diesem Browser gespeichert und nicht mit RomM synchronisiert.",

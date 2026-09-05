@@ -1,7 +1,7 @@
 """add disc_file_id to states
 
-Revision ID: 0116_state_disc_file
-Revises: 0115_container_adoptions
+Revision ID: 0121_state_disc_file
+Revises: 0120_container_adoptions
 Create Date: 2026-08-14 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0116_state_disc_file"
-down_revision = "0115_container_adoptions"
+revision = "0121_state_disc_file"
+down_revision = "0120_container_adoptions"
 branch_labels = None
 depends_on = None
 

@@ -8,13 +8,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from tests.handler.scan_stubs import add_n64_platform, add_rom, run_scan
 
-from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata.hltb_handler import HLTBMetadata, HLTBRom
-from handler.scan_handler import MetadataSource, ScanType, scan_rom
-from models.platform import Platform
+from handler.scan_handler import MetadataSource, ScanType
 from models.rom import Rom
-from utils.context import initialize_context
 
 FS_NAME = "Mario Kart 64 (USA).z64"
 PINNED = HLTBRom(hltb_id=2255, name="Mario Kart 64")
@@ -43,43 +41,18 @@ async def _scan(
     hltb_id: int | None = None,
     hltb_metadata: HLTBMetadata | None = None,
 ) -> Rom:
-    platform = db_platform_handler.add_platform(
-        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64")
-    )
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            fs_name=FS_NAME,
-            fs_name_no_tags="Mario Kart 64",
-            fs_name_no_ext="Mario Kart 64 (USA)",
-            fs_extension="z64",
-            fs_path="n64",
-            name="Mario Kart 64",
-            hltb_id=hltb_id,
-            hltb_metadata=dict(hltb_metadata or {}),
-            fs_size_bytes=1024,
-            tags=[],
-        )
+    platform = add_n64_platform()
+    rom = add_rom(
+        platform,
+        FS_NAME,
+        "Mario Kart 64",
+        hltb_id=hltb_id,
+        hltb_metadata=dict(hltb_metadata or {}),
     )
 
-    async with initialize_context():
-        return await scan_rom(
-            platform=platform,
-            scan_type=scan_type,
-            rom=rom,
-            fs_rom={
-                "fs_name": FS_NAME,
-                "flat": True,
-                "nested": False,
-                "files": [],
-                "crc_hash": "",
-                "md5_hash": "",
-                "sha1_hash": "",
-                "ra_hash": "",
-            },
-            metadata_sources=[MetadataSource.HLTB],
-            newly_added=False,
-        )
+    return await run_scan(
+        platform, rom, scan_type=scan_type, metadata_sources=[MetadataSource.HLTB]
+    )
 
 
 async def test_no_stored_id_uses_the_file_name_lookup(lookups):

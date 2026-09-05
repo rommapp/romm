@@ -20,11 +20,16 @@ class MetadataSourcesDict(TypedDict):
     TGDB_API_ENABLED: bool
     FLASHPOINT_API_ENABLED: bool
     HLTB_API_ENABLED: bool
+    DEMOZOO_API_ENABLED: bool
+    POUET_API_ENABLED: bool
+    CSDB_API_ENABLED: bool
+    STEAM_API_ENABLED: bool
     LIBRETRO_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):
     FS_PLATFORMS: list[str]
+    TITLE_ID_EXTRACTION_ENABLED: bool
 
 
 class EmulationDict(TypedDict):

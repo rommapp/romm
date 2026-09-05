@@ -75,6 +75,7 @@
   "in-library": "ライブラリ内",
   "invalid-email": "無効なメールアドレス",
   "invalid-name": "無効な名前",
+  "invalid-relative-path": "\"..\" を含まない相対フォルダパスを入力してください",
   "jukebox": "ジュークボックス",
   "kind": "種類",
   "last-page": "最後のページ",

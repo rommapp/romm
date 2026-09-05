@@ -9,9 +9,9 @@ from adapters.services.libretro_thumbnails_types import LibretroArtType
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from logger.logger import log
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
 
 _PAREN_TAG_PATTERN = re.compile(r"\([^)]*\)")
 
@@ -238,6 +238,7 @@ LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.VIRTUALBOY: "Nintendo - Virtual Boy",
     UPS.WII: "Nintendo - Wii",
     UPS.WIIU: "Nintendo - Wii U",
+    UPS.RPG_MAKER: "RPG Maker",
     UPS.SCUMMVM: "ScummVM",
     UPS.SEGA32: "Sega - 32X",
     UPS.DC: "Sega - Dreamcast",

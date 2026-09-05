@@ -2,9 +2,9 @@ from typing import Annotated, Any, Final, NotRequired, TypedDict
 
 from pydantic import BaseModel, BeforeValidator, Field, field_validator
 
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from tasks.scheduled.update_switch_titledb import TITLEDB_REGION_LIST
 from utils.database import safe_int
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
     (

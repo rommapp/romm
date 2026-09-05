@@ -8,10 +8,13 @@ import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import { useRomSync } from "./index";
 
-const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
+const { getRoms, getRom } = vi.hoisted(() => ({
+  getRoms: vi.fn(),
+  getRom: vi.fn(),
+}));
 
 vi.mock("@/services/api/rom", () => ({
-  default: { getRoms },
+  default: { getRoms, getRom },
 }));
 
 function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
@@ -38,6 +41,7 @@ describe("useRomSync", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     getRoms.mockReset();
+    getRom.mockReset();
     getRoms.mockResolvedValue({
       data: { total: 0, items: [], char_index: {}, rom_id_index: [] },
     });
@@ -249,5 +253,46 @@ describe("useRomSync", () => {
 
     expect(gallery.byPosition.size).toBe(1);
     expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  describe("refetchRom", () => {
+    const detailed = (id: number) =>
+      ({ id, name: "Chrono Trigger" }) as unknown as DetailedRom;
+
+    it("applies the fresh rom to the open view and the caches", async () => {
+      const romsStore = storeRoms();
+      romsStore.setCurrentRom(detailed(1));
+      const gallery = seedGallery(makeRom());
+      const fresh = detailed(1);
+      getRom.mockResolvedValue({ data: fresh });
+
+      const result = await useRomSync().refetchRom(1);
+
+      expect(getRom).toHaveBeenCalledWith({ romId: 1 });
+      expect(result).toBe(fresh);
+      expect(romsStore.currentRom).toStrictEqual(fresh);
+      expect(gallery.getRomById(1)).toStrictEqual(fresh);
+    });
+
+    it("leaves a rom the user opened meanwhile alone", async () => {
+      const romsStore = storeRoms();
+      romsStore.setCurrentRom(detailed(1));
+      let resolve: (value: unknown) => void = () => {};
+      getRom.mockReturnValue(new Promise((r) => (resolve = r)));
+
+      const pending = useRomSync().refetchRom(1);
+      romsStore.setCurrentRom(detailed(2));
+      resolve({ data: detailed(1) });
+      await pending;
+
+      expect(romsStore.currentRom?.id).toBe(2);
+    });
+
+    it("reports a failed request rather than throwing at the caller", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      getRom.mockRejectedValue(new Error("offline"));
+
+      await expect(useRomSync().refetchRom(1)).resolves.toBeNull();
+    });
   });
 });

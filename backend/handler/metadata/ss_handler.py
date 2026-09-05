@@ -31,17 +31,14 @@ from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
-)
-from .base_handler import UniversalPlatformSlug as UPS
-from .base_handler import (
     restore_sensitive_query_params,
     strip_sensitive_query_params,
 )
@@ -958,10 +955,9 @@ class SSHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
-        if platform_ss_id == SWITCH_SS_ID and match:
+        if platform_ss_id == SWITCH_SS_ID:
             search_term, index_entry = await self._switch_productid_format(
-                match, search_term
+                rom, file_name, search_term
             )
             if index_entry:
                 fallback_rom = SSRom(
@@ -1198,6 +1194,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.PS4: {"id": 60, "name": "Playstation 4"},
     UPS.PS5: {"id": 284, "name": "Playstation 5"},
     UPS.POKEMON_MINI: {"id": 211, "name": "Pokémon mini"},
+    UPS.RPG_MAKER: {"id": 231, "name": "EasyRPG"},
     UPS.SAM_COUPE: {"id": 213, "name": "MGT SAM Coupé"},
     UPS.SCUMMVM: {"id": 123, "name": "ScummVM"},
     UPS.SEGA32: {"id": 19, "name": "Megadrive 32X"},
