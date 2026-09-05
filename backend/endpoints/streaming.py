@@ -31,6 +31,7 @@ from config import (
 )
 from decorators.auth import protected_route
 from handler.activity_handler import activity_handler
+from handler.asset_store import store_screenshot, store_state_file
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import (
@@ -47,7 +48,7 @@ from handler.filesystem import fs_asset_handler
 from handler.filesystem.base_handler import LANGUAGES
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import async_cache
-from handler.scan_handler import scan_save, scan_screenshot, scan_state
+from handler.scan_handler import scan_save
 from handler.socket_handler import socket_handler
 from handler.streaming.capabilities import (
     MAX_SLOT,
@@ -1757,12 +1758,11 @@ def _fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | 
 async def _store_state_screenshot(
     user: User, rom: Rom, state_filename: str, image: bytes
 ) -> None:
-    """Store a state screenshot so it binds to the state as its
-    thumbnail. State.screenshot matches by filename stem, so the image reuses
-    the state's stem with a .png extension. is_gallery stays False (the default)
-    so it never shows in the user's screenshot gallery - it only helps the
-    resume picker show the right frame. Mirrors the POST /api/states thumbnail
-    path so streaming and in-browser states share one screenshots directory.
+    """Bind a thumbnail to a state so the resume picker shows the right frame.
+
+    `State.screenshot` matches by filename stem, so the image reuses the state's
+    stem with a .png extension. is_gallery stays False (the default) so it never
+    shows in the user's screenshot gallery.
     """
     # Both sources are unverified bytes: a zip entry that only claims to be a
     # PNG, or whatever the broker returned. Guard here so one check covers both.
@@ -1770,30 +1770,12 @@ async def _store_state_screenshot(
         log.warning("state screenshot for %s is not a PNG, skipping", state_filename)
         return
 
-    filename = sanitize_filename(f"{os.path.splitext(state_filename)[0]}.png")
-    screenshots_path = fs_asset_handler.build_screenshots_file_path(
-        user=user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
+    await store_screenshot(
+        user,
+        rom,
+        image,
+        sanitize_filename(f"{os.path.splitext(state_filename)[0]}.png"),
     )
-    await fs_asset_handler.write_file(
-        file=image, path=screenshots_path, filename=filename
-    )
-    scanned = await scan_screenshot(
-        file_name=filename,
-        user=user,
-        platform_fs_slug=rom.platform_slug,
-        rom_id=rom.id,
-    )
-    existing = db_screenshot_handler.get_screenshot(
-        file_name=filename, rom_id=rom.id, user_id=user.id
-    )
-    if existing:
-        db_screenshot_handler.update_screenshot(
-            existing.id, {"file_size_bytes": scanned.file_size_bytes}
-        )
-    else:
-        scanned.rom_id = rom.id
-        scanned.user_id = user.id
-        db_screenshot_handler.add_screenshot(screenshot=scanned)
 
 
 def _user_states_for_emulator(user_id: int, rom_id: int, emulator: str) -> list[State]:
@@ -1896,41 +1878,13 @@ async def _store_state_asset(
         return
 
     stamped = _stamped_state_filename(emulator, filename, datetime.now(timezone.utc))
-    states_path = fs_asset_handler.build_states_file_path(
-        user=user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
+    existing_names = {state.file_name for state in history}
+    stored = await store_state_file(
+        user, rom, emulator, content, stamped, fields={"disc_file_id": disc_file_id}
     )
-    await fs_asset_handler.write_file(file=content, path=states_path, filename=stamped)
-
-    scanned_state = await scan_state(
-        file_name=stamped,
-        user=user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
-    )
-    db_state = db_state_handler.get_state_by_filename(
-        user_id=user.id, rom_id=rom.id, file_name=stamped
-    )
-    if db_state:
-        # Only reachable when the stamp collides, so the file on disk was just
-        # overwritten and the row needs to agree with it, disc included.
-        db_state_handler.update_state(
-            db_state.id,
-            {
-                "file_size_bytes": scanned_state.file_size_bytes,
-                "disc_file_id": disc_file_id,
-            },
-        )
-    else:
-        scanned_state.rom_id = rom.id
-        scanned_state.user_id = user.id
-        scanned_state.emulator = emulator
-        scanned_state.disc_file_id = disc_file_id
+    if stamped not in existing_names:
         # The capture is the newest, so it heads the list the prune below reads.
-        history.insert(0, db_state_handler.add_state(state=scanned_state))
+        history.insert(0, stored)
 
     # Bind a thumbnail to the state so the resume picker shows the right frame.
     # Best-effort: a missing or unreadable screenshot must not fail the sync.

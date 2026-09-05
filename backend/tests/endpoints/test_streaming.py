@@ -2507,8 +2507,8 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
             return_value=("Game.03.p2s", b"state-bytes"),
         ),
         patch("endpoints.streaming._fetch_state_screenshot", return_value=None),
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
-        patch("endpoints.streaming.scan_state", new=AsyncMock(return_value=scanned)),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
     ):
         ok = asyncio.run(
             streaming._pull_state_to_library(
@@ -2549,10 +2549,10 @@ def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
         patch(
             "endpoints.streaming._fetch_state_screenshot", return_value=_PNG
         ) as fetch_shot,
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
-        patch("endpoints.streaming.scan_state", new=AsyncMock(return_value=scanned)),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
         patch(
-            "endpoints.streaming.scan_screenshot",
+            "handler.asset_store.scan_screenshot",
             new=AsyncMock(return_value=scanned_shot),
         ) as scan_shot,
     ):
@@ -2593,10 +2593,10 @@ def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
             new=AsyncMock(return_value=_PNG),
         ),
         patch("endpoints.streaming._fetch_state_screenshot") as fetch_shot,
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
-        patch("endpoints.streaming.scan_state", new=AsyncMock(return_value=scanned)),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
         patch(
-            "endpoints.streaming.scan_screenshot",
+            "handler.asset_store.scan_screenshot",
             new=AsyncMock(return_value=scanned_shot),
         ),
     ):
@@ -2642,7 +2642,7 @@ def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
     """A broker filename that sanitizes to nothing must be dropped, not stored."""
     with (
         patch("endpoints.streaming._fetch_state_file", return_value=("***", b"bytes")),
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
     ):
         ok = asyncio.run(
             streaming._pull_state_to_library(
@@ -2765,7 +2765,7 @@ def test_pull_state_skips_capture_identical_to_previous(rom: Rom, admin_user: Us
             "endpoints.streaming.fs_asset_handler.read_file",
             new=AsyncMock(return_value=content),
         ),
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
     ):
         ok = asyncio.run(
             streaming._pull_state_to_library(
@@ -2937,9 +2937,9 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
         file_size_bytes=7,
     )
     with (
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch(
-            "endpoints.streaming.scan_screenshot",
+            "handler.asset_store.scan_screenshot",
             new=AsyncMock(return_value=scanned),
         ),
     ):
@@ -2960,8 +2960,8 @@ def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
     """A broker error page must never be written out as a thumbnail."""
     db_state_handler.add_state(_state_for(rom, admin_user, "Game.05.p2s", "pcsx2"))
     with (
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
-        patch("endpoints.streaming.scan_screenshot", new=AsyncMock()) as scan,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.scan_screenshot", new=AsyncMock()) as scan,
     ):
         asyncio.run(
             streaming._store_state_screenshot(
@@ -2988,13 +2988,13 @@ def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
         file_size_bytes=7,
     )
     with (
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
-            "endpoints.streaming.scan_state",
+            "handler.asset_store.scan_state",
             new=AsyncMock(return_value=scanned_state),
         ),
         patch(
-            "endpoints.streaming.scan_screenshot",
+            "handler.asset_store.scan_screenshot",
             new=AsyncMock(return_value=scanned_shot),
         ) as scan_shot,
     ):
@@ -3018,12 +3018,12 @@ def test_store_state_asset_without_screenshot_still_stores_state(
     must not fail the state sync."""
     scanned_state = _state_for(rom, admin_user, "Game.04.p2s", "pcsx2")
     with (
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
-            "endpoints.streaming.scan_state",
+            "handler.asset_store.scan_state",
             new=AsyncMock(return_value=scanned_state),
         ),
-        patch("endpoints.streaming.scan_screenshot", new=AsyncMock()) as scan_shot,
+        patch("handler.asset_store.scan_screenshot", new=AsyncMock()) as scan_shot,
     ):
         asyncio.run(
             streaming._store_state_asset(
@@ -3051,9 +3051,9 @@ def test_store_state_asset_collision_keeps_disc_file_id_in_sync(
     scanned_state = _state_for(rom, admin_user, stamped, "pcsx2")
     scanned_state.file_size_bytes = 999
     with (
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
-            "endpoints.streaming.scan_state",
+            "handler.asset_store.scan_state",
             new=AsyncMock(return_value=scanned_state),
         ),
         patch("endpoints.streaming.datetime") as mock_dt,
@@ -3102,7 +3102,7 @@ def test_pull_saves_stores_new_archive(rom: Rom, admin_user: User):
     scanned = _save_for(rom, admin_user, "Game [pcsx2].saves.zip", "pcsx2", "hash-a")
     with (
         patch("endpoints.streaming._fetch_save_archive", return_value=b"zip-bytes"),
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch("endpoints.streaming.scan_save", new=AsyncMock(return_value=scanned)),
     ):
         ok = asyncio.run(
@@ -3128,7 +3128,7 @@ def test_pull_saves_dedups_identical_archive(rom: Rom, admin_user: User):
     )
     with (
         patch("endpoints.streaming._fetch_save_archive", return_value=b"zip-bytes"),
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch("endpoints.streaming.scan_save", new=AsyncMock(return_value=scanned)),
         patch(
             "endpoints.streaming.fs_asset_handler.remove_file", new=AsyncMock()
@@ -3151,7 +3151,7 @@ def test_pull_saves_no_changes_returns_false(rom: Rom, admin_user: User):
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
         patch("endpoints.streaming._fetch_save_archive", return_value=None),
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
     ):
         ok = asyncio.run(
             streaming._pull_saves_to_library(
@@ -3447,8 +3447,8 @@ def test_pull_state_to_library_runs_for_a_webstation_container(
             return_value=("Game.03.p2s", b"state-bytes"),
         ),
         patch("endpoints.streaming._fetch_state_screenshot", return_value=None),
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
-        patch("endpoints.streaming.scan_state", new=AsyncMock(return_value=scanned)),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
     ):
         ok = asyncio.run(
             streaming._pull_state_to_library(
@@ -4275,7 +4275,7 @@ def _adoption_storage(card_bytes: bytes):
         return _card_version(card_id, file_name, content_hash or "adopted-hash")
 
     with (
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
             "endpoints.streaming.fs_asset_handler.read_file",
             new=AsyncMock(return_value=card_bytes),
