@@ -592,6 +592,11 @@ async def scan_rom(
     # no id for it never enters the set, so a rescan can't clear what it can't redo.
     attempted_sources: set[MetadataSource] = set()
 
+    # Sampled where ScreenScraper is consulted, because its breaker re-checks the
+    # account and can clear itself while this rom is still gathering the other
+    # providers.
+    ss_breaker_tripped = False
+
     def resolve_fetch(source: MetadataSource, result: Any, fallback: Any) -> Any:
         """Unwrap a gathered lookup, falling back to an empty match when it failed."""
         if not isinstance(result, BaseException):
@@ -947,6 +952,8 @@ async def scan_rom(
         return MobyGamesRom(moby_id=None)
 
     async def fetch_ss_rom(playmatch_rom: PlaymatchRomMatch) -> SSRom:
+        nonlocal ss_breaker_tripped
+
         if (
             MetadataSource.SS in metadata_sources
             and platform.ss_id
@@ -962,6 +969,7 @@ async def scan_rom(
             )
         ):
             attempted_sources.add(MetadataSource.SS)
+            ss_breaker_tripped = ss_breaker_tripped or is_breaker_tripped()
             # One refusal means the per-minute budget is already spent, so give
             # up on this ROM rather than spending another retried request (and
             # its backoff) on the fallback lookups.
@@ -996,6 +1004,8 @@ async def scan_rom(
                 note_rate_limited_rom(rom_attrs["fs_name"])
                 attempted_sources.discard(MetadataSource.SS)
                 return SSRom(ss_id=None)
+            finally:
+                ss_breaker_tripped = ss_breaker_tripped or is_breaker_tripped()
 
         return SSRom(ss_id=None)
 
@@ -1154,7 +1164,7 @@ async def scan_rom(
 
     # Once a ScreenScraper breaker trips, the remaining lookups answer empty
     # without asking, so it has ruled nothing out for this rom either.
-    if is_breaker_tripped():
+    if ss_breaker_tripped or is_breaker_tripped():
         attempted_sources.discard(MetadataSource.SS)
 
     (

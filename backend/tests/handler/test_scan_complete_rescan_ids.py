@@ -4,6 +4,7 @@ A complete rescan clears every ID it could rematch; a provider that failed
 answered nothing, so the ID it could not check has to survive.
 """
 
+from collections.abc import Callable
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -48,7 +49,8 @@ async def _rescan(
     sgdb_result: SGDBRom | Exception = SGDB_MISS,
     pouet_result: PouetRom | Exception = POUET_MISS,
     platform_igdb_id: int | None = 4,
-    ss_breaker_tripped: bool = False,
+    ss_breaker_tripped: bool | Callable[[], bool] = False,
+    ss_lookup_mock: AsyncMock | None = None,
 ) -> Rom:
     """Rescan a ROM carrying hand-set IDs, and persist the result."""
     platform = add_n64_platform(igdb_id=platform_igdb_id, ss_id=14)
@@ -78,7 +80,7 @@ async def _rescan(
         patch("handler.scan_handler.meta_pouet_handler.get_rom_by_id", new=pouet_mock),
         patch(
             "handler.scan_handler.meta_ss_handler.lookup_rom",
-            new=AsyncMock(return_value=(SSRom(ss_id=None), False)),
+            new=ss_lookup_mock or AsyncMock(return_value=(SSRom(ss_id=None), False)),
         ),
         patch(
             "handler.scan_handler.meta_ss_handler.get_rom",
@@ -86,7 +88,11 @@ async def _rescan(
         ),
         patch(
             "handler.scan_handler.is_breaker_tripped",
-            return_value=ss_breaker_tripped,
+            new=(
+                ss_breaker_tripped
+                if callable(ss_breaker_tripped)
+                else lambda: ss_breaker_tripped
+            ),
         ),
     ):
         scanned = await run_scan(
@@ -137,6 +143,26 @@ async def test_a_screenscraper_breaker_keeps_its_id():
     """An exhausted quota answers empty for every remaining ROM."""
     saved = await _rescan(
         [MetadataSource.IGDB, MetadataSource.SS], ss_breaker_tripped=True
+    )
+
+    assert saved.ss_id == STALE_SS_ID
+
+
+async def test_a_screenscraper_breaker_that_recovers_mid_rom_keeps_its_id():
+    """The breaker re-checks the account and can clear itself while a rom is
+    still gathering its other providers. ScreenScraper still refused *this*
+    rom, so its id must survive the rescan."""
+    recovered = False
+
+    async def refuse_then_recover(*args: Any, **kwargs: Any):
+        nonlocal recovered
+        recovered = True
+        return (SSRom(ss_id=None), False)
+
+    saved = await _rescan(
+        [MetadataSource.IGDB, MetadataSource.SS],
+        ss_breaker_tripped=lambda: not recovered,
+        ss_lookup_mock=AsyncMock(side_effect=refuse_then_recover),
     )
 
     assert saved.ss_id == STALE_SS_ID

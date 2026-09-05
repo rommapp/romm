@@ -1435,6 +1435,45 @@ class TestScreenScraperQuotaFallback:
         mock_search.assert_awaited()
         assert result["ss_id"] is None
 
+    @pytest.mark.asyncio
+    async def test_matching_by_name_returns_empty_on_daily_quota(self):
+        """The manual-match search gathers every provider without
+        return_exceptions, so a raised ScreenScraper error takes the whole dialog
+        down with it."""
+        handler = SSHandler()
+        mock_search = AsyncMock(
+            side_effect=HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="quota"
+            )
+        )
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(handler.ss_service, "search_games", mock_search),
+        ):
+            result = await handler.get_matched_roms_by_name(MagicMock(), "Sonic", 3)
+        mock_search.assert_awaited_once()
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_matching_by_name_reraises_non_quota_error(self):
+        handler = SSHandler()
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "search_games",
+                AsyncMock(
+                    side_effect=HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="down"
+                    )
+                ),
+            ),
+        ):
+            with pytest.raises(HTTPException):
+                await handler.get_matched_roms_by_name(MagicMock(), "Sonic", 3)
+
 
 class TestScreenScraperCredentialFallback:
     """Rejected credentials are a configuration problem, not a scan failure: the

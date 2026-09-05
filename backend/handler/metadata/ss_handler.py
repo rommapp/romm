@@ -1040,10 +1040,17 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return []
 
-        matched_games = await self.ss_service.search_games(
-            term=uc(search_term),
-            system_id=platform_ss_id,
-        )
+        try:
+            matched_games = await self.ss_service.search_games(
+                term=uc(search_term),
+                system_id=platform_ss_id,
+            )
+        except HTTPException as exc:
+            # The caller gathers every provider without return_exceptions, so
+            # raising here would lose the other providers' matches too.
+            if not _is_provider_exhausted(exc):
+                raise
+            return []
 
         def _is_ss_region(game: SSGame) -> bool:
             return any(name.get("region") == "ss" for name in game.get("noms", []))
