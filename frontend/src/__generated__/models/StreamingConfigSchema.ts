@@ -6,6 +6,5 @@ import type { StreamingContainerSchema } from './StreamingContainerSchema';
 export type StreamingConfigSchema = {
     enabled: boolean;
     containers: Array<StreamingContainerSchema>;
-    launch_timeout: number;
 };
 

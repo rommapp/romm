@@ -46,7 +46,6 @@ export type { Body_update_state_api_states__id__put } from './models/Body_update
 export type { Body_update_state_visibility_api_states__id__visibility_put } from './models/Body_update_state_visibility_api_states__id__visibility_put';
 export type { Body_upload_memory_card_version_api_memory_cards__id__versions_post } from './models/Body_upload_memory_card_version_api_memory_cards__id__versions_post';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
-export type { ClaimedSessionSchema } from './models/ClaimedSessionSchema';
 export type { ClaimStreamingSessionRequest } from './models/ClaimStreamingSessionRequest';
 export type { CleanupTaskMeta } from './models/CleanupTaskMeta';
 export type { CleanupTaskStatusResponse } from './models/CleanupTaskStatusResponse';
@@ -115,6 +114,7 @@ export type { JoinableSessionSchema } from './models/JoinableSessionSchema';
 export type { JoinableSessionsResponse } from './models/JoinableSessionsResponse';
 export type { JoinedSessionSchema } from './models/JoinedSessionSchema';
 export type { LaunchboxImage } from './models/LaunchboxImage';
+export type { LaunchingSessionSchema } from './models/LaunchingSessionSchema';
 export type { LoadStateRequest } from './models/LoadStateRequest';
 export type { LoadStateResponse } from './models/LoadStateResponse';
 export type { LogEntrySchema } from './models/LogEntrySchema';

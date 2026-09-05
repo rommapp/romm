@@ -7,6 +7,7 @@ import time
 import zipfile
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from typing import Any, NamedTuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -201,10 +202,41 @@ def _claim(client, token, rom_id, state_id=None):
     return client.post("/api/streaming/sessions", json=body, headers=_auth(token))
 
 
+@contextmanager
+def _pushes():
+    """Collect what the backend pushed to the claiming user's tabs.
+
+    The claim answers 202 and the room URL follows over the socket, so the
+    launch's own result is read here rather than off the response.
+    """
+    sent: list[tuple[str, dict]] = []
+
+    async def _capture(user_id, event, payload):
+        sent.append((event, payload))
+
+    with patch("endpoints.streaming.push_to_user", new=_capture):
+        yield sent
+
+
+def _launch_ready(sent) -> dict:
+    """The `streaming:launch-ready` payload, or {} if the launch never got there."""
+    return next(
+        (p for event, p in sent if event == "streaming:launch-ready"),
+        {},
+    )
+
+
 def _claim_ok(client, token, rom_id):
     """Claim with the broker launch stubbed, the common happy-path setup."""
     with patch("endpoints.streaming._call_broker"):
         return _claim(client, token, rom_id)
+
+
+def _claim_ready(client, token, rom_id):
+    """Claim and return (response, launch-ready payload)."""
+    with _pushes() as sent:
+        response = _claim_ok(client, token, rom_id)
+    return response, _launch_ready(sent)
 
 
 # ── /config ───────────────────────────────────────────────────────────────────
@@ -248,15 +280,6 @@ def test_get_config_ships_platform_capabilities(client, access_token):
         "supports_disc_swap": False,
         "has_manual_disc_swap": True,
     }
-
-
-def test_get_config_ships_the_launch_timeout(client, access_token):
-    """The claim blocks for as long as an extraction takes, and the client sets
-    its own request ceiling from this rather than keeping a second copy that an
-    operator raising the limit would silently invalidate."""
-    with _streaming({"platform": "ps2", "host": "http://192.168.1.10:3000"}):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
-    assert r.json()["launch_timeout"] == streaming.STREAMING_LAUNCH_TIMEOUT
 
 
 def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_token):
@@ -520,7 +543,7 @@ def test_nested_platforms_reject_a_second_claim_across_platforms(
     with _streaming(_nested()):
         first = _claim_ok(client, access_token, ps2_rom.id)
         second = _claim_ok(client, access_token, ngc_rom.id)
-    assert first.status_code == 200
+    assert first.status_code == 202
     assert second.status_code == 409
 
 
@@ -635,7 +658,7 @@ def test_claim_derives_rom_path_server_side(client, access_token, rom: Rom):
     with _streaming(_container_for(rom)):
         with patch("endpoints.streaming._call_broker") as call_broker:
             r = _claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     assert r.json()["rom_name"] == rom.name
     _, rom_path, _, _ = call_broker.call_args[0]
     assert rom_path == f"{LIBRARY_BASE_PATH}/{rom.full_path}"
@@ -648,7 +671,7 @@ def test_claim_honors_container_library_path(client, access_token, rom: Rom):
     with _streaming(container):
         with patch("endpoints.streaming._call_broker") as call_broker:
             r = _claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     _, rom_path, _, _ = call_broker.call_args[0]
     assert rom_path == f"/mnt/games/{rom.full_path}"
 
@@ -664,9 +687,13 @@ def test_claim_appends_stream_token_to_host(client, access_token, rom: Rom):
                 "status": "launching",
                 "stream_token": "tok-abc",
             }
-            r = _claim(client, access_token, rom.id)
-    assert r.status_code == 200
-    assert r.json()["host"] == "https://stream.example:3001?stream_token=tok-abc"
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id)
+    assert r.status_code == 202
+    assert (
+        _launch_ready(sent)["host"]
+        == "https://stream.example:3001?stream_token=tok-abc"
+    )
 
 
 def test_claim_appends_stream_token_with_ampersand_when_host_has_query(
@@ -682,10 +709,12 @@ def test_claim_appends_stream_token_with_ampersand_when_host_has_query(
                 "status": "launching",
                 "stream_token": "tok-abc",
             }
-            r = _claim(client, access_token, rom.id)
-    assert r.status_code == 200
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id)
+    assert r.status_code == 202
     assert (
-        r.json()["host"] == "https://stream.example:3001/?path=abc&stream_token=tok-abc"
+        _launch_ready(sent)["host"]
+        == "https://stream.example:3001/?path=abc&stream_token=tok-abc"
     )
 
 
@@ -698,9 +727,84 @@ def test_claim_leaves_host_unchanged_when_broker_returns_no_token(
     with _streaming(container):
         with patch("endpoints.streaming._call_broker") as call_broker:
             call_broker.return_value = {"status": "launching"}
-            r = _claim(client, access_token, rom.id)
-    assert r.status_code == 200
-    assert r.json()["host"] == "https://stream.example:3001"
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id)
+    assert r.status_code == 202
+    assert _launch_ready(sent)["host"] == "https://stream.example:3001"
+
+
+def test_claim_answers_before_the_launch_and_pushes_the_room_url(
+    client, access_token, rom: Rom
+):
+    """The claim reserves the container and returns; the URL follows.
+
+    A launch blocks through pkg and archive extraction, so a request held open
+    for it could not be cancelled by a player who changed their mind.
+    """
+    with _streaming(_container_for(rom)):
+        with _pushes() as sent:
+            r = _claim_ok(client, access_token, rom.id)
+
+    assert r.status_code == 202
+    body = r.json()
+    assert body["container"] == _key_of(_container_for(rom))
+    assert body["platform"] == rom.platform_slug
+    # The room URL is the launch's answer, so it is not in the claim's.
+    assert "host" not in body
+    assert [event for event, _ in sent] == ["streaming:launch-ready"]
+    assert _launch_ready(sent)["host"] == "http://192.168.1.10:3000"
+
+
+def test_a_failed_launch_pushes_the_reason_and_frees_the_container(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        with patch(
+            "endpoints.streaming._call_broker",
+            side_effect=HTTPException(status_code=502, detail="broker said no"),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id)
+
+    assert r.status_code == 202
+    event, payload = sent[0]
+    assert event == "streaming:launch-failed"
+    assert payload["detail"] == "broker said no"
+    assert payload["container"] == _key_of(_container_for(rom))
+    assert _session_raw(_container_for(rom)) is None
+
+
+def test_launch_phase_is_pushed_while_a_webstation_unpacks(
+    client, access_token, rom: Rom
+):
+    """The client used to poll a route that had to reach the broker to answer.
+    Asking once here costs one round trip however many tabs are watching."""
+    phases = ["unpacking", "unpacking", "installing"]
+
+    def _activate(*args, **kwargs):
+        # Long enough for the phase watcher to tick twice.
+        time.sleep(0.25)
+        return {"url": "/room/x"}
+
+    with _streaming(_webstation_for(rom)):
+        with (
+            patch("endpoints.streaming._LAUNCH_PHASE_POLL_SECONDS", 0.05),
+            patch(
+                "endpoints.streaming._webstation_launch_phase",
+                side_effect=phases + ["installing"] * 20,
+            ),
+            patch("endpoints.streaming._webstation_activate", _activate),
+            patch("endpoints.streaming._spawn_sync_task"),
+            patch("endpoints.streaming._hydrate_saves_to_webstation", new=AsyncMock()),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id)
+
+    assert r.status_code == 202
+    pushed = [p["phase"] for event, p in sent if event == "streaming:launch-phase"]
+    # Only changes are pushed, so a repeated phase is not re-sent.
+    assert pushed == ["unpacking", "installing"]
+    assert sent[-1][0] == "streaming:launch-ready"
 
 
 def test_claim_unknown_rom_returns_404(client, access_token):
@@ -792,7 +896,7 @@ async def test_claim_sets_session_ttl(access_token, rom: Rom):
                     json={"rom_id": rom.id},
                     headers=_auth(access_token),
                 )
-    assert r.status_code == 200
+    assert r.status_code == 202
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
     ttl = await async_cache.ttl(key)
     assert ttl > 0
@@ -804,7 +908,7 @@ def test_second_claim_on_same_container_rejected(client, access_token, rom: Rom)
     with _streaming(_container_for(rom)):
         r1 = _claim_ok(client, access_token, rom.id)
         r2 = _claim_ok(client, access_token, rom.id)
-    assert r1.status_code == 200
+    assert r1.status_code == 202
     assert r2.status_code == 409
     assert r2.json()["detail"]["rom_name"] == rom.name
 
@@ -835,21 +939,27 @@ def test_claim_session_same_container_two_platforms_rejected(
     ):
         r1 = _claim_ok(client, access_token, rom.id)
         r2 = _claim_ok(client, access_token, rom2.id)
-    assert r1.status_code == 200
+    assert r1.status_code == 202
     assert r2.status_code == 409
 
 
 def test_failed_broker_launch_frees_the_claim(client, access_token, rom: Rom):
-    """If the broker rejects the launch, the container must not stay claimed."""
+    """If the broker rejects the launch, the container must not stay claimed.
+
+    The claim itself is already answered by then, so the failure reaches the
+    player as a push rather than as the claim's own status."""
     with _streaming(_container_for(rom)):
         with patch(
             "endpoints.streaming._call_broker",
             side_effect=HTTPException(status_code=503, detail="unreachable"),
         ):
-            r1 = _claim(client, access_token, rom.id)
+            with _pushes() as sent:
+                r1 = _claim(client, access_token, rom.id)
         r2 = _claim_ok(client, access_token, rom.id)
-    assert r1.status_code == 503
-    assert r2.status_code == 200
+    assert r1.status_code == 202
+    assert [event for event, _ in sent] == ["streaming:launch-failed"]
+    assert sent[0][1]["detail"] == "unreachable"
+    assert r2.status_code == 202
 
 
 @pytest.mark.asyncio
@@ -873,7 +983,7 @@ async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
                         headers=headers,
                     ),
                 )
-    assert sorted([r1.status_code, r2.status_code]) == [200, 409]
+    assert sorted([r1.status_code, r2.status_code]) == [202, 409]
 
 
 # ── Container pool ────────────────────────────────────────────────────────────
@@ -908,10 +1018,10 @@ def test_pool_claim_falls_through_to_a_free_container(client, access_token, rom:
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         r1 = _claim_ok(client, access_token, rom.id)
         r2 = _claim_ok(client, access_token, rom.id)
-    assert [r1.status_code, r2.status_code] == [200, 200]
+    assert [r1.status_code, r2.status_code] == [202, 202]
     # Config order, so the head of the pool stays warm.
-    assert r1.json()["host"] == "http://192.168.1.10:3000"
-    assert r2.json()["host"] == "http://192.168.1.11:3000"
+    assert r1.json()["container"] == _key_of(_pool_member(rom, 0))
+    assert r2.json()["container"] == _key_of(_pool_member(rom, 1))
 
 
 def test_pool_409s_only_once_every_container_is_held(client, access_token, rom: Rom):
@@ -937,8 +1047,8 @@ def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
             "endpoints.streaming._stop_broker", return_value=None
         ) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
-    assert r2.status_code == 200
-    assert r2.json()["host"] == "http://192.168.1.11:3000"
+    assert r2.status_code == 202
+    assert r2.json()["container"] == _key_of(_pool_member(rom, 1))
     stop_broker.assert_not_called()
     assert _session_raw(_pool_member(rom, 0)) is not None
 
@@ -956,8 +1066,8 @@ def test_pool_takes_over_a_stale_session_once_every_container_is_held(
             "endpoints.streaming._stop_broker", return_value=None
         ) as stop_broker:
             r3 = _claim_ok(client, viewer_access_token, rom.id)
-    assert r3.status_code == 200
-    assert r3.json()["host"] == "http://192.168.1.11:3000"
+    assert r3.status_code == 202
+    assert r3.json()["container"] == _key_of(_pool_member(rom, 1))
     stop_broker.assert_called_once()
 
 
@@ -1194,7 +1304,7 @@ def test_containers_reports_a_container_that_can_never_be_claimed(client, access
 def test_containers_shows_what_is_running(client, access_token):
     ps2_rom = _rom_on("ps2")
     with _streaming(_nested()):
-        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 200
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
         response = _containers(client, access_token)
     session = response.json()["containers"][0]["session"]
     assert session["rom_name"] == ps2_rom.name
@@ -1236,7 +1346,7 @@ def test_desktop_and_a_game_block_each_other(client, access_token):
 
     with _streaming(_webstation()):
         key = _key_of(_first_container("ps2"))
-        assert _claim_webstation_ok(client, access_token, ps2_rom.id).status_code == 200
+        assert _claim_webstation_ok(client, access_token, ps2_rom.id).status_code == 202
         assert _desktop(client, access_token, key)[0].status_code == 409
 
 
@@ -1467,8 +1577,8 @@ def test_stale_session_taken_over_on_claim(
             "endpoints.streaming._stop_broker", return_value=None
         ) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
-    assert r1.status_code == 200
-    assert r2.status_code == 200
+    assert r1.status_code == 202
+    assert r2.status_code == 202
     stop_broker.assert_called_once()
 
 
@@ -1539,7 +1649,7 @@ def test_fresh_session_not_taken_over(
             "endpoints.streaming._stop_broker", return_value=None
         ) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
-    assert r1.status_code == 200
+    assert r1.status_code == 202
     assert r2.status_code == 409
     stop_broker.assert_not_called()
 
@@ -1956,7 +2066,7 @@ def test_a_slow_launch_keeps_its_own_claim_fresh(client, access_token):
         patch.object(session_store, "_STREAMING_SESSION_STALE_SECONDS", 0.2),
         patch("endpoints.streaming._webstation_activate", slow_activate),
     ):
-        assert _claim(client, access_token, ps2_rom.id).status_code == 200
+        assert _claim(client, access_token, ps2_rom.id).status_code == 202
         key = session_store.session_redis_key(_key_of(_first_container("ps2")))
         session = json.loads(asyncio.run(async_cache.get(key)))
         # Read under the shrunk window: outside it every stamp looks fresh.
@@ -1990,7 +2100,7 @@ def test_release_by_other_user_is_forbidden(
             f"/api/streaming/sessions/{rom.platform_slug}",
             headers=_auth(viewer_access_token),
         )
-    assert r_claim.status_code == 200
+    assert r_claim.status_code == 202
     assert r.status_code == 403
 
 
@@ -2042,7 +2152,7 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
     assert r.status_code == 200
     assert r.json()["saved"] is True
     assert held.status_code == 409
-    assert r2.status_code == 200
+    assert r2.status_code == 202
 
 
 def test_save_and_exit_failure_still_releases_session(client, access_token, rom: Rom):
@@ -2061,7 +2171,7 @@ def test_save_and_exit_failure_still_releases_session(client, access_token, rom:
         r2 = _claim_ok(client, access_token, rom.id)
     assert r.status_code == 200
     assert r.json()["saved"] is False
-    assert r2.status_code == 200
+    assert r2.status_code == 202
 
 
 def test_save_and_exit_rejects_a_slot_the_platform_lacks(client, access_token):
@@ -2181,7 +2291,7 @@ def test_claim_spawns_state_hydration(client, access_token, rom: Rom):
             ) as hydrate,
         ):
             r = _claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     spawn.assert_called_once()
     assert hydrate.call_args[0][1] == rom.id
 
@@ -3251,7 +3361,7 @@ def test_claim_hydrates_saves_before_launch(client, access_token, rom: Rom):
             patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
         ):
             r = _claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     hydrate_saves.assert_awaited_once()
     assert call_order == ["saves", "launch"]
 
@@ -3315,9 +3425,20 @@ def test_stamped_state_filename_round_trips_for_retroarch():
     assert streaming._container_state_filename(stamped) == "Super Mario.state"
 
 
-def _resume_claim(client, token, rom, state_id, push_ok=True):
-    """Claim with a resume state and full launch-path mocks. Returns
-    (response, push mock, call_broker mock, hydrate mock)."""
+class _ResumeClaim(NamedTuple):
+    response: Any
+    ready: dict
+    push: Any
+    call_broker: Any
+    hydrate: Any
+
+
+def _resume_claim(client, token, rom, state_id, push_ok=True) -> _ResumeClaim:
+    """Claim with a resume state and full launch-path mocks.
+
+    `ready` is the launch-ready push, which is where the resume outcome lands
+    now that the claim answers before the launch runs.
+    """
     container = {**_container_for(rom), "label": "PCSX2"}
     with _streaming(container):
         with (
@@ -3332,8 +3453,9 @@ def _resume_claim(client, token, rom, state_id, push_ok=True):
                 "endpoints.streaming._hydrate_states_to_broker", new=MagicMock()
             ) as hydrate,
         ):
-            r = _claim(client, token, rom.id, state_id=state_id)
-    return r, push, call_broker, hydrate
+            with _pushes() as sent:
+                r = _claim(client, token, rom.id, state_id=state_id)
+    return _ResumeClaim(r, _launch_ready(sent), push, call_broker, hydrate)
 
 
 def test_claim_with_own_state_pushes_file_and_slot(
@@ -3344,9 +3466,11 @@ def test_claim_with_own_state_pushes_file_and_slot(
     state = db_state_handler.add_state(
         _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
     )
-    r, push, call_broker, hydrate = _resume_claim(client, access_token, rom, state.id)
-    assert r.status_code == 200
-    assert r.json()["resume"] is True
+    r, ready, push, call_broker, hydrate = _resume_claim(
+        client, access_token, rom, state.id
+    )
+    assert r.status_code == 202
+    assert ready["resume"] is True
     push.assert_called_once()
     assert push.call_args[0][1] == "Game.03.p2s"
     assert push.call_args[0][2] == b"state-bytes"
@@ -3361,9 +3485,9 @@ def test_claim_with_other_users_public_state_allowed(
     shared = _state_for(rom, viewer_user, "Game.02.p2s", "pcsx2")
     shared.is_public = True
     state = db_state_handler.add_state(shared)
-    r, push, call_broker, _ = _resume_claim(client, access_token, rom, state.id)
-    assert r.status_code == 200
-    assert r.json()["resume"] is True
+    r, ready, push, call_broker, _ = _resume_claim(client, access_token, rom, state.id)
+    assert r.status_code == 202
+    assert ready["resume"] is True
     assert call_broker.call_args[0][3] == 2
 
 
@@ -3374,11 +3498,11 @@ def test_claim_with_other_users_private_state_404(
     state = db_state_handler.add_state(
         _state_for(rom, viewer_user, "Game.02.p2s", "pcsx2")
     )
-    r, _, _, _ = _resume_claim(client, access_token, rom, state.id)
+    r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 404
     # The rejected pick must not have claimed the container.
     with _streaming(_container_for(rom)):
-        assert _claim_ok(client, access_token, rom.id).status_code == 200
+        assert _claim_ok(client, access_token, rom.id).status_code == 202
 
 
 def test_claim_with_wrong_emulator_state_400(
@@ -3387,7 +3511,7 @@ def test_claim_with_wrong_emulator_state_400(
     state = db_state_handler.add_state(
         _state_for(rom, admin_user, "Game.state", "retroarch")
     )
-    r, _, _, _ = _resume_claim(client, access_token, rom, state.id)
+    r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
 
 
@@ -3395,7 +3519,7 @@ def test_claim_with_unparseable_slot_400(
     client, access_token, rom: Rom, admin_user: User
 ):
     state = db_state_handler.add_state(_state_for(rom, admin_user, "Game.p2s", "pcsx2"))
-    r, _, _, _ = _resume_claim(client, access_token, rom, state.id)
+    r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
 
 
@@ -3407,20 +3531,21 @@ def test_claim_failed_push_launches_fresh(
     state = db_state_handler.add_state(
         _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
     )
-    r, _, call_broker, hydrate = _resume_claim(
+    r, ready, _, call_broker, hydrate = _resume_claim(
         client, access_token, rom, state.id, push_ok=False
     )
-    assert r.status_code == 200
-    assert r.json()["resume"] is False
+    assert r.status_code == 202
+    assert ready["resume"] is False
     assert call_broker.call_args[0][3] is None
     assert hydrate.call_args.kwargs["resume_pushed"] is False
 
 
 def test_claim_without_state_reports_no_resume(client, access_token, rom: Rom):
     with _streaming(_container_for(rom)):
-        r = _claim_ok(client, access_token, rom.id)
-    assert r.status_code == 200
-    assert r.json()["resume"] is None
+        with _pushes() as sent:
+            r = _claim_ok(client, access_token, rom.id)
+    assert r.status_code == 202
+    assert _launch_ready(sent)["resume"] is None
 
 
 # ── Webstation state sync ─────────────────────────────────────────────────────
@@ -3514,9 +3639,10 @@ def test_webstation_resume_state_is_pushed_after_activate(
             patch("endpoints.streaming._spawn_sync_task"),
             patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
         ):
-            r = _claim(client, access_token, rom.id, state_id=state.id)
-    assert r.status_code == 200
-    assert r.json()["resume"] is True
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 202
+    assert _launch_ready(sent)["resume"] is True
     assert [c[0] for c in order.mock_calls if c[0] in ("activate", "push")] == [
         "activate",
         "push",
@@ -3541,7 +3667,7 @@ def test_webstation_claim_without_a_state_boots_clean(client, access_token, rom:
             patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
         ):
             r = _claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     assert activate.call_args.kwargs["archive_path"] == "/romm/saves/archive.tar"
     assert activate.call_args.kwargs["resume_slot"] is None
 
@@ -4084,7 +4210,7 @@ def test_claim_hydrates_memory_card_before_launch(client, access_token, rom: Rom
             patch("endpoints.streaming._spawn_sync_task"),
         ):
             r = _mc_claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     hydrate_card.assert_awaited_once()
     legacy.assert_not_awaited()
     assert call_order == ["card", "launch"]
@@ -4270,7 +4396,7 @@ def test_lost_claim_race_does_not_create_blank_card(
             ),
             patch("endpoints.streaming._spawn_sync_task"),
         ):
-            assert _mc_claim(client, access_token, rom.id).status_code == 200
+            assert _mc_claim(client, access_token, rom.id).status_code == 202
             assert db_memory_card_handler.get_cards(viewer_user.id, "pcsx2") == []
             r = _mc_claim(client, viewer_access_token, rom.id)
     assert r.status_code == 409
@@ -4374,7 +4500,7 @@ def test_absent_card_claims_without_prompting(client, access_token, rom: Rom):
         patch("endpoints.streaming._spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     # The absent answer is recorded too, so the probe never runs again here.
     adoption = db_container_adoption_handler.get_adoption(_key_of(container))
     assert adoption is not None and adoption.outcome == "discard"
@@ -4398,7 +4524,7 @@ def test_decided_container_does_not_probe_again(
         patch("endpoints.streaming._spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     fetch.assert_not_called()
 
 
@@ -4412,7 +4538,7 @@ def test_sync_disabled_container_does_not_probe(client, access_token, rom: Rom):
         patch("endpoints.streaming._spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     fetch.assert_not_called()
 
 
@@ -4431,7 +4557,7 @@ def test_adopt_stores_the_container_card_as_version_one(
         patch("endpoints.streaming._spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
-    assert r.status_code == 200
+    assert r.status_code == 202
     # The card pushed back down is the adopted one, not a blank.
     assert push.call_args[0][1] == card_bytes
     assert push.call_args[0][1] != streaming._EMPTY_MEMORY_CARD
@@ -4453,7 +4579,7 @@ def test_discard_wipes_and_records_the_decision(client, access_token, rom: Rom):
         patch("endpoints.streaming._spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="discard")
-    assert r.status_code == 200
+    assert r.status_code == 202
     assert push.call_args[0][1] == streaming._EMPTY_MEMORY_CARD
     adoption = db_container_adoption_handler.get_adoption(_key_of(container))
     assert adoption is not None and adoption.outcome == "discard"
@@ -4473,7 +4599,7 @@ def test_unreadable_card_with_override_starts_fresh(client, access_token, rom: R
         patch("endpoints.streaming._spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="discard")
-    assert r.status_code == 200
+    assert r.status_code == 202
     assert push.call_args[0][1] == streaming._EMPTY_MEMORY_CARD
     adoption = db_container_adoption_handler.get_adoption(_key_of(container))
     assert adoption is not None and adoption.outcome == "discard"
@@ -4532,7 +4658,7 @@ def test_adopt_retry_recovers_when_the_version_was_already_stored(
         patch("endpoints.streaming._spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
-    assert r.status_code == 200
+    assert r.status_code == 202
     adoption = db_container_adoption_handler.get_adoption(_key_of(container))
     assert adoption is not None and adoption.outcome == "adopt"
     # Dedup still holds: the retry adds no second copy of the same content.
@@ -4705,7 +4831,7 @@ def test_webstation_claim_hydrates_the_card_and_the_states(
             patch("endpoints.streaming._spawn_sync_task"),
         ):
             r = _mc_claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     card.assert_awaited_once()
     # The state hydrate is spawned rather than awaited inline, so the claim can
     # return while the push is still in flight.
@@ -4732,7 +4858,7 @@ def test_webstation_claim_tells_the_broker_the_card_is_synced(
             patch("endpoints.streaming._spawn_sync_task"),
         ):
             r = _mc_claim(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     assert activate.call_args.kwargs["memory_card_synced"] is True
 
 
@@ -4843,7 +4969,7 @@ def test_a_broken_activity_board_does_not_fail_the_launch(
             activity_handler, "publish_active", side_effect=RuntimeError("redis gone")
         ):
             r = _claim_ok(client, access_token, rom.id)
-    assert r.status_code == 200
+    assert r.status_code == 202
     assert _session_raw(container) is not None
     assert _activity_entry(container, admin_user) is None
 
@@ -5651,7 +5777,7 @@ def test_resuming_a_state_puts_its_disc_back(client, access_token, admin_user: U
 
     r, restore = _retroarch_resume(client, access_token, rom, state.id)
 
-    assert r.status_code == 200
+    assert r.status_code == 202
     assert restore.call_args.kwargs["file_id"] == disc.id
 
 
@@ -5665,7 +5791,7 @@ def test_resuming_a_state_with_no_disc_swaps_nothing(
 
     r, restore = _retroarch_resume(client, access_token, rom, state.id)
 
-    assert r.status_code == 200
+    assert r.status_code == 202
     restore.assert_not_called()
 
 

@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import streamingApi from "@/services/api/streaming";
 import type {
-  ActiveSession,
+  LaunchingSession,
   JoinableSession,
   JoinedSession,
   MemoryCardImport,
@@ -12,7 +12,7 @@ import type {
 } from "@/services/api/streaming";
 
 export type {
-  ActiveSession,
+  LaunchingSession,
   AdminStreamingSession,
   JoinableSession,
   JoinedSession,
@@ -36,16 +36,11 @@ const NO_CAPABILITIES = {
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useStreamingStore = defineStore("streaming", () => {
-  // The launch timeout stands in until /config answers, and covers a backend
-  // too old to ship one. It matches that route's own default.
-  const DEFAULT_LAUNCH_TIMEOUT_SECONDS = 600;
-
   const config = ref<StreamingConfig>({
     enabled: false,
     containers: [],
-    launch_timeout: DEFAULT_LAUNCH_TIMEOUT_SECONDS,
   });
-  const activeSession = ref<ActiveSession | null>(null);
+  const launchingSession = ref<LaunchingSession | null>(null);
   const loading = ref(false);
   // `loading` is false both before and after the fetch, so consumers that must
   // not act on an unresolved config need this instead.
@@ -126,7 +121,6 @@ export const useStreamingStore = defineStore("streaming", () => {
       config.value = {
         enabled: data.enabled ?? false,
         containers: data.containers ?? [],
-        launch_timeout: data.launch_timeout ?? DEFAULT_LAUNCH_TIMEOUT_SECONDS,
       };
     } catch (err) {
       error.value = String(err);
@@ -161,16 +155,15 @@ export const useStreamingStore = defineStore("streaming", () => {
     memoryCardId?: number,
     cardImport?: MemoryCardImport,
     multiplayer?: boolean,
-  ): Promise<ActiveSession> {
+  ): Promise<LaunchingSession> {
     const { data } = await streamingApi.claimSession(
       romId,
-      config.value.launch_timeout,
       stateId,
       memoryCardId,
       cardImport,
       multiplayer,
     );
-    activeSession.value = data;
+    launchingSession.value = data;
     return data;
   }
 
@@ -259,7 +252,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     if (!platform) return false;
     try {
       await streamingApi.releaseSession(platform, undefined, undefined, save);
-      activeSession.value = null;
+      launchingSession.value = null;
       return true;
     } catch (err) {
       console.warn("[streaming] Could not release session:", err);
@@ -286,7 +279,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     try {
       const { data } = await streamingApi.saveAndExit(platform, slot, wait);
       const released = data.released ?? true;
-      if (released) activeSession.value = null;
+      if (released) launchingSession.value = null;
       return { released, saved: data.saved ?? false };
     } catch (err) {
       console.warn("[streaming] Could not save-and-exit:", err);
@@ -342,7 +335,7 @@ export const useStreamingStore = defineStore("streaming", () => {
    */
   function saveAndExitKeepalive(platform: string, slot = 0): void {
     if (!platform) return;
-    activeSession.value = null;
+    launchingSession.value = null;
     // The caller is unloading and cannot await, so the rejection is caught on
     // the promise itself; try/catch here would only see a synchronous throw.
     streamingApi.saveAndExitKeepalive(platform, slot).catch((err) => {
@@ -356,7 +349,7 @@ export const useStreamingStore = defineStore("streaming", () => {
    */
   function releaseSessionKeepalive(platform: string): void {
     if (!platform) return;
-    activeSession.value = null;
+    launchingSession.value = null;
     streamingApi.releaseSessionKeepalive(platform).catch((err) => {
       console.warn("[streaming] Could not release session (keepalive):", err);
     });
@@ -364,7 +357,7 @@ export const useStreamingStore = defineStore("streaming", () => {
 
   return {
     config,
-    activeSession,
+    launchingSession,
     loading,
     configLoaded,
     error,

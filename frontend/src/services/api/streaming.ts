@@ -1,7 +1,7 @@
 import type {
   AdminContainerSchema,
   AdminSessionSchema,
-  ClaimedSessionSchema,
+  LaunchingSessionSchema,
   DesktopSessionSchema,
   JoinableSessionSchema,
   JoinedSessionSchema,
@@ -24,7 +24,36 @@ import api, { keepaliveHeaders } from "@/services/api";
 export type PlatformCapabilities = SlotCapabilitiesSchema;
 export type StreamingContainer = StreamingContainerSchema;
 export type StreamingConfig = StreamingConfigSchema;
-export type ActiveSession = ClaimedSessionSchema;
+export type LaunchingSession = LaunchingSessionSchema;
+
+// The launch's own result arrives on the socket, and socket payloads reach no
+// route so they are not in the OpenAPI schema (constitution SS X.10, backend
+// debt). The backend builds each of these from a model of the same name in
+// endpoints/responses/streaming.py, so the shapes stay tied.
+
+/** `streaming:launch-ready`: the game is up, and `host` is the iframe URL. */
+export interface LaunchReady {
+  platform: string;
+  container: string;
+  host: string;
+  /** null when no resume was asked for; false means the state could not be
+   *  pushed and the session started fresh. */
+  resume: boolean | null;
+}
+
+/** `streaming:launch-failed`. The claim is already released. */
+export interface LaunchFailed {
+  platform: string;
+  container: string;
+  detail: string;
+}
+
+/** `streaming:launch-phase`, while a broker unpacks a large title. */
+export interface LaunchPhase {
+  platform: string;
+  container: string;
+  phase: string | null;
+}
 export type AdminStreamingSession = AdminSessionSchema;
 export type AdminStreamingContainer = AdminContainerSchema;
 export type DesktopSession = DesktopSessionSchema;
@@ -59,34 +88,23 @@ async function fetchConfig() {
   });
 }
 
-/** Grace added to the backend's launch timeout, so a claim that runs the full
- *  server-side budget still returns the server's own error rather than dying
- *  on a bare client timeout first. */
-const CLAIM_TIMEOUT_GRACE_MS = 60_000;
-
-/** The claim blocks until the container has the game up, and a webstation
- *  broker unpacks pkg and archive ROMs before it can start the emulator. That
- *  runs far past the client default, so this one call carries its own ceiling,
- *  built from the launch_timeout /config ships. */
+/** Answers 202 as soon as the container is reserved. The room URL arrives on
+ *  the socket as `streaming:launch-ready`, so this needs no ceiling of its own
+ *  beyond the client default. */
 async function claimSession(
   romId: number,
-  launchTimeoutSeconds: number,
   stateId?: number,
   memoryCardId?: number,
   cardImport?: MemoryCardImport,
   multiplayer?: boolean,
 ) {
-  return api.post<ActiveSession>(
-    "/streaming/sessions",
-    {
-      rom_id: romId,
-      ...(stateId !== undefined ? { state_id: stateId } : {}),
-      ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
-      ...(cardImport !== undefined ? { card_import: cardImport } : {}),
-      ...(multiplayer !== undefined ? { multiplayer } : {}),
-    },
-    { timeout: launchTimeoutSeconds * 1_000 + CLAIM_TIMEOUT_GRACE_MS },
-  );
+  return api.post<LaunchingSession>("/streaming/sessions", {
+    rom_id: romId,
+    ...(stateId !== undefined ? { state_id: stateId } : {}),
+    ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
+    ...(cardImport !== undefined ? { card_import: cardImport } : {}),
+    ...(multiplayer !== undefined ? { multiplayer } : {}),
+  });
 }
 
 async function releaseSession(

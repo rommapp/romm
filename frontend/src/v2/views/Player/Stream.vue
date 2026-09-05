@@ -44,6 +44,9 @@ import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import streamingApi, {
   isMemoryCardImportDetail,
+  type LaunchFailed,
+  type LaunchPhase,
+  type LaunchReady,
   type MemoryCardImport,
   type MemoryCardImportDetail,
 } from "@/services/api/streaming";
@@ -150,14 +153,6 @@ watch(sessionActive, (active) => {
 // A reload tears the stream down without the save-and-exit handshake, so a
 // claimed session is worth a confirmation prompt too.
 useUnloadGuard(sessionActive);
-
-watch(
-  () => playerState.value === "loading",
-  (launching) => {
-    if (launching) startLaunchPoll();
-    else stopLaunchPoll();
-  },
-);
 
 // What the play button says while the claim is in flight. The phase only
 // arrives once the broker has started unpacking, so the generic line covers
@@ -563,38 +558,51 @@ function stopSessionPoll() {
   }
 }
 
-// The claim request blocks until the game is up, and a webstation broker
-// unpacks pkg and archive ROMs before it can start the emulator. Minutes can
-// pass with nothing to show, so the phase comes from a second request running
-// alongside the claim.
-const LAUNCH_POLL_MS = 3_000;
-let launchPollTimer: ReturnType<typeof setInterval> | null = null;
-
-async function pollLaunchPhase(): Promise<void> {
-  if (!rom.value) return;
-  const status = await streamingStore.fetchSessionStatus(
-    rom.value.platform_slug,
-  );
-  // Only the phase is read here. The claim is not recorded until the request
-  // this runs beside has reached the backend, so an early poll reports the
-  // session as ended, and acting on that would tear down a live launch.
-  if (playerState.value !== "loading") return;
-  launchPhase.value = status?.extraction_phase ?? null;
+// ── Launch ─────────────────────────────────────────────────────────
+// The claim only reserves the container; the backend runs the launch detached
+// and pushes what happened. A launch can take minutes on a title the broker
+// has to unpack, and these are the only progress the player sees.
+//
+// Every push is scoped to this platform: the room is per-user, so a second tab
+// streaming something else receives them too.
+function isOurLaunch(payload: { platform?: string }): boolean {
+  return payload.platform === rom.value?.platform_slug;
 }
 
-function startLaunchPoll() {
-  // A joiner does not own the claim, so the status route only gives it 403s.
-  if (launchPollTimer || isJoining) return;
-  launchPollTimer = setInterval(() => void pollLaunchPhase(), LAUNCH_POLL_MS);
-}
+useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
+  if (!isOurLaunch(payload) || playerState.value !== "loading") return;
+  launchPhase.value = payload.phase;
+});
 
-function stopLaunchPoll() {
-  if (launchPollTimer) {
-    clearInterval(launchPollTimer);
-    launchPollTimer = null;
-  }
+useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
+  if (!isOurLaunch(payload)) return;
   launchPhase.value = null;
-}
+  // The player left while the game was coming up. The claim is theirs and
+  // still held, so hand the container back rather than entering the stream.
+  if ((playerState.value as PlayerState) === "exited") {
+    void streamingStore.releaseSession(payload.platform, false);
+    return;
+  }
+  if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
+  containerHost.value = payload.host;
+  playerState.value = "playing";
+  if (fullscreenOnPlay.value) {
+    await nextTick();
+    await stage.value?.enterFullscreen();
+  }
+});
+
+useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
+  if (!isOurLaunch(payload)) return;
+  // The backend already released the claim, so there is nothing to hand back.
+  holdsClaim.value = false;
+  launchPhase.value = null;
+  if ((playerState.value as PlayerState) === "exited") return;
+  errorType.value = "server";
+  errorMessage.value = t("play.stream-error-generic");
+  errorHint.value = payload.detail;
+  playerState.value = "error";
+});
 
 // A background tab's timers are throttled, so the poll may not have run for
 // minutes. Re-check on the way back rather than leaving a dead stream on
@@ -729,9 +737,9 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       }
     } else {
       // The backend derives the ROM's filesystem path and platform from the id.
-      // A selected state rides along: its file is pushed to the broker and the
-      // emulator loads it once the game is up.
-      const session = await streamingStore.claimSession(
+      // It answers as soon as the container is reserved; the room URL follows
+      // on the socket, so the state stays "loading" until launch-ready lands.
+      await streamingStore.claimSession(
         rom.value.id,
         selectedState.value?.id,
         container.value?.supports_memory_cards
@@ -740,35 +748,8 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         cardImport,
         multiplayerOnPlay.value,
       );
-      if (session.resume === false) {
-        snackbar.warning(t("play.resume-failed"));
-      }
-      await flourish;
-      // Widen past TS's "loading" narrowing: the exit dialog can flip the
-      // state to "exited" while the claim is awaited.
-      const stateAfterClaim = playerState.value as PlayerState;
-      if (stateAfterClaim === "exited") {
-        // The launch was cancelled from the exit dialog while the claim was
-        // in flight; the claim that just resolved re-acquired the session,
-        // so release it again instead of entering the playing state. Nobody
-        // played anything, so there is nothing worth saving over their pick.
-        const released = await streamingStore.releaseSession(
-          rom.value.platform_slug,
-          false,
-        );
-        if (!released) {
-          snackbar.error(t("play.stream-release-failed"), { timeout: 6000 });
-        }
-        return;
-      }
       holdsClaim.value = true;
-      containerHost.value = session.host;
-      playerState.value = "playing";
-
-      if (fullscreenOnPlay.value) {
-        await nextTick();
-        await stage.value?.enterFullscreen();
-      }
+      await flourish;
     }
   } catch (err: unknown) {
     // Same race the success path guards: the user can leave via the exit
@@ -1244,7 +1225,6 @@ onBeforeUnmount(() => {
   stopExitChordPoll();
   presence.stopHeartbeat();
   stopSessionPoll();
-  stopLaunchPoll();
   presence.emitStop();
   // The claim, not the player state, says whether anything is still held:
   // an exit whose release failed leaves it standing, and this is its retry.

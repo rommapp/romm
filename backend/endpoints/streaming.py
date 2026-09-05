@@ -28,11 +28,14 @@ from decorators.auth import protected_route
 from endpoints.responses.streaming import (
     AdminContainersResponse,
     AdminSessionsResponse,
-    ClaimedSessionSchema,
     DesktopSessionSchema,
     ForceReleaseResponse,
     JoinableSessionsResponse,
     JoinedSessionSchema,
+    LaunchFailedPayload,
+    LaunchingSessionSchema,
+    LaunchPhasePayload,
+    LaunchReadyPayload,
     LoadStateResponse,
     MemoryCardImportRequired,
     MemoryCardSummarySchema,
@@ -98,6 +101,7 @@ from handler.streaming.session_store import (
     iter_live_sessions,
     iter_session_keys,
     mutate_session,
+    push_to_user,
     record_termination,
     refresh_session,
     release_own_session,
@@ -2295,10 +2299,182 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         }
 
     return StreamingConfigSchema(
-        enabled=streaming_enabled(),
-        containers=list(safe_containers.values()),
-        launch_timeout=STREAMING_LAUNCH_TIMEOUT,
+        enabled=streaming_enabled(), containers=list(safe_containers.values())
     )
+
+
+async def _run_launch(
+    *,
+    container: ResolvedContainer,
+    session_key: str,
+    session: dict[str, Any],
+    user: User,
+    rom: Rom,
+    platform: str,
+    rom_name: str,
+    rom_path: str,
+    rom_language: str | None,
+    gui_language: str | None,
+    archive_path: str | None,
+    resume_state: State | None,
+    resume_slot: int | None,
+    resume_pushed: bool,
+    resume_after_launch: bool,
+    memory_card_synced: bool,
+    multiplayer: bool,
+    blank_card_id: int | None,
+) -> None:
+    """Start the game, then tell the player's tabs where to find it.
+
+    Runs detached from the claim request: a webstation activate blocks through
+    pkg and archive extraction, minutes on a large title, and a request held
+    open that long cannot be cancelled by a player who changes their mind. The
+    claim is already won when this starts, so the container is reserved
+    throughout; a failure here frees it exactly as a failed synchronous launch
+    used to.
+    """
+    # Nothing beats for the player until the stream is up, so without this the
+    # next claimant reads the record as abandoned and tears the container down
+    # mid-extraction.
+    claim_hold = asyncio.create_task(hold_session_claim(session_key, session))
+    phase_watch = asyncio.create_task(
+        _watch_launch_phase(container, session_key, session, platform)
+    )
+    try:
+        # Wrapped in asyncio.to_thread because urllib is synchronous.
+        if container.is_webstation:
+            launch_result = await asyncio.to_thread(
+                _webstation_activate,
+                container,
+                session_id=str(session["broker_session_id"]),
+                user=user,
+                emulator=container.emulator,
+                rom={
+                    "id": rom.id,
+                    "name": rom_name,
+                    "platform": platform,
+                    "language": rom_language,
+                    "path": rom_path,
+                },
+                gui_language=gui_language,
+                archive_path=archive_path,
+                resume_slot=(
+                    resume_slot if resume_pushed or resume_after_launch else None
+                ),
+                memory_card_synced=memory_card_synced,
+                multiplayer=multiplayer,
+            )
+        else:
+            launch_result = await asyncio.to_thread(
+                _call_broker,
+                container,
+                rom_path,
+                rom_name,
+                resume_slot if resume_pushed else None,
+            )
+    except Exception as exc:
+        log.exception("launch failed, platform=%s", platform)
+        await _abort_claim(session_key, blank_card_id)
+        await push_to_user(
+            session.get("user_id"),
+            "streaming:launch-failed",
+            LaunchFailedPayload(
+                platform=platform,
+                container=session_key,
+                detail=_launch_failure_detail(exc),
+            ).model_dump(),
+        )
+        return
+    finally:
+        phase_watch.cancel()
+        claim_hold.cancel()
+
+    log.info("session claimed, platform=%s rom=%s", platform, rom_name)
+    await stamp_launched(session_key)
+    await _publish_session_activity(session_key, session)
+
+    # The webstation broker's deferred load waits for its emulator to report
+    # the game running, and holds off further until the state file is there, so
+    # this push lands ahead of it even though it runs after activate.
+    if resume_after_launch and resume_state is not None:
+        resume_pushed = await _push_resume_state(container, resume_state)
+
+    await push_to_user(
+        session.get("user_id"),
+        "streaming:launch-ready",
+        LaunchReadyPayload(
+            platform=platform,
+            container=session_key,
+            host=container.protocol.stream_url(container.host, launch_result),
+            resume=resume_pushed if resume_state is not None else None,
+        ).model_dump(),
+    )
+
+    # Hydrate the container with the user's newest stored state in the
+    # background, the stream should not wait on file transfers.
+    _spawn_sync_task(
+        _hydrate_states_to_broker(
+            user.id, rom.id, container, resume_pushed=resume_pushed
+        )
+    )
+
+    # A resumed state remembers which disc it was captured on. The launch
+    # always starts on the playlist's first disc, so put the right one back.
+    resume_disc_id = (
+        resume_state.disc_file_id if resume_pushed and resume_state else None
+    )
+    if isinstance(resume_disc_id, int):
+        _spawn_sync_task(
+            _restore_session_disc(
+                rom.id,
+                container,
+                session_key,
+                file_id=resume_disc_id,
+                broker_session_id=session["broker_session_id"],
+            )
+        )
+
+
+def _launch_failure_detail(exc: BaseException) -> str:
+    """What to tell the player about a launch that never came up."""
+    if isinstance(exc, HTTPException):
+        return str(exc.detail)
+    return "The container could not start the game"
+
+
+# How often the backend asks a launching broker how far it has got. The player
+# sees nothing until the stream is up, so this is the only progress there is.
+_LAUNCH_PHASE_POLL_SECONDS = 3.0
+
+
+async def _watch_launch_phase(
+    container: ResolvedContainer,
+    session_key: str,
+    session: dict[str, Any],
+    platform: str,
+) -> None:
+    """Push the broker's extraction phase while a launch is still running.
+
+    The client used to poll for this itself, on a route that had to reach the
+    broker to answer. Asking once here and pushing the answer costs one round
+    trip however many tabs are watching.
+    """
+    if not container.protocol.reports_launch_phase:
+        return
+    last: str | None = None
+    while True:
+        await asyncio.sleep(_LAUNCH_PHASE_POLL_SECONDS)
+        phase = await asyncio.to_thread(_webstation_launch_phase, container)
+        if phase == last:
+            continue
+        last = phase
+        await push_to_user(
+            session.get("user_id"),
+            "streaming:launch-phase",
+            LaunchPhasePayload(
+                platform=platform, container=session_key, phase=phase
+            ).model_dump(),
+        )
 
 
 @protected_route(
@@ -2308,19 +2484,28 @@ async def get_config(request: Request) -> StreamingConfigSchema:
     # The prompt for a card the container still holds is a real body the client
     # parses, so it is declared rather than left as an undocumented `detail`.
     responses={428: {"model": MemoryCardImportRequired}},
+    status_code=202,
 )
 async def claim_session(
-    request: Request, req: Annotated[ClaimStreamingSessionRequest, Body()]
-) -> ClaimedSessionSchema:
+    request: Request,
+    req: Annotated[ClaimStreamingSessionRequest, Body()],
+    background_tasks: BackgroundTasks,
+) -> LaunchingSessionSchema:
     """
-    Claim a streaming session and tell the broker to load the ROM.
+    Reserve a container for a ROM and start loading it.
+
+    Answers 202 as soon as the container is reserved and everything that can
+    fail synchronously has: the launch itself runs detached, and the room URL
+    arrives over the socket as `streaming:launch-ready` (or
+    `streaming:launch-failed`, with `streaming:launch-phase` while a broker
+    unpacks a large title). `GET /sessions/{platform}/status` is the fallback
+    for a tab that missed the push.
 
     The ROM's filesystem path is derived server-side from its database row -
     the client only supplies a ROM id, never a path.
     Returns 404 if the ROM doesn't exist or no container serves its platform.
     Returns 409 if every container serving the platform is occupied.
     Returns 428 if the container's pre-existing memory card needs a decision.
-    Returns 502/503 if the broker rejects the launch or is unreachable.
     """
     rom = db_rom_handler.get_rom(req.rom_id)
     if rom is None:
@@ -2664,97 +2849,39 @@ async def claim_session(
         except Exception:
             log.exception("save hydration failed, continuing launch")
 
-    # A webstation activate blocks through pkg/archive extraction, which runs
-    # well past _STREAMING_SESSION_STALE_SECONDS. Nothing beats for the player until the
-    # stream is up, so without this refresh the next claimant reads the record
-    # as abandoned and tears the container down mid-extraction.
-    claim_hold = asyncio.create_task(hold_session_claim(session_key, session))
-    try:
-        # Tell the broker to load the ROM, raises HTTPException on failure.
-        # Wrapped in asyncio.to_thread because urllib is synchronous.
-        if container.is_webstation:
-            launch_result = await asyncio.to_thread(
-                _webstation_activate,
-                container,
-                session_id=str(session["broker_session_id"]),
-                user=request.user,
-                emulator=container.emulator,
-                rom={
-                    "id": rom.id,
-                    "name": rom_name,
-                    "platform": platform,
-                    "language": rom_language,
-                    "path": rom_path,
-                },
-                gui_language=gui_language,
-                archive_path=archive_path,
-                resume_slot=(
-                    resume_slot if resume_pushed or resume_after_launch else None
-                ),
-                memory_card_synced=memory_card is not None,
-                multiplayer=req.multiplayer,
-            )
-        else:
-            launch_result = await asyncio.to_thread(
-                _call_broker,
-                container,
-                rom_path,
-                rom_name,
-                resume_slot if resume_pushed else None,
-            )
-    except Exception:
-        # Launch failed, free the claim so the container isn't wedged.
-        await _abort_claim(session_key, created_blank_card_id)
-        raise
-    finally:
-        claim_hold.cancel()
-
-    log.info("session claimed, platform=%s rom=%s", platform, rom_name)
-    await stamp_launched(session_key)
-    await _publish_session_activity(session_key, session)
-
-    # The webstation broker's deferred load waits for its emulator to report
-    # the game running, and holds off further until the state file is there, so
-    # this push lands ahead of it even though it runs after activate.
-    if resume_after_launch and resume_state is not None:
-        resume_pushed = await _push_resume_state(container, resume_state)
-
-    # Hydrate the container with the user's newest stored state in the
-    # background, the stream should not wait on file transfers.
-    _spawn_sync_task(
-        _hydrate_states_to_broker(
-            request.user.id,
-            rom.id,
-            container,
-            resume_pushed=resume_pushed,
-        )
-    )
-
-    # A resumed state remembers which disc it was captured on. The launch
-    # always starts on the playlist's first disc, so put the right one back.
-    resume_disc_id = (
-        resume_state.disc_file_id if resume_pushed and resume_state else None
-    )
-    if isinstance(resume_disc_id, int):
-        _spawn_sync_task(
-            _restore_session_disc(
-                rom.id,
-                container,
-                session_key,
-                file_id=resume_disc_id,
-                broker_session_id=session["broker_session_id"],
-            )
-        )
-
-    host = container.protocol.stream_url(container.host, launch_result)
-
-    return ClaimedSessionSchema(
+    # The launch runs detached: a webstation activate blocks through pkg and
+    # archive extraction, minutes on a large title, and a request held open
+    # that long cannot be cancelled by a player who changes their mind. The
+    # claim is already won, so the container is reserved either way, and the
+    # room URL reaches the player over the socket when the game is up.
+    background_tasks.add_task(
+        _run_launch,
+        container=container,
+        session_key=session_key,
+        session=session,
+        user=request.user,
+        rom=rom,
         platform=platform,
-        host=host,
+        rom_name=rom_name,
+        rom_path=rom_path,
+        rom_language=rom_language,
+        gui_language=gui_language,
+        archive_path=archive_path,
+        resume_state=resume_state,
+        resume_slot=resume_slot,
+        resume_pushed=resume_pushed,
+        resume_after_launch=resume_after_launch,
+        memory_card_synced=memory_card is not None,
+        multiplayer=req.multiplayer,
+        blank_card_id=created_blank_card_id,
+    )
+
+    return LaunchingSessionSchema(
+        platform=platform,
+        container=session_key,
         label=container.label,
         rom_name=rom_name,
         claimed_at=now,
-        resume=resume_pushed if req.state_id is not None else None,
     )
 
 

@@ -536,14 +536,21 @@ async def record_termination(
         json.dumps(notice),
         ex=_TERMINATION_TTL_SECONDS,
     )
-    # Best-effort: the poll is the source of truth and covers a missed or
-    # dropped push, so a socket error here must not fail the release itself.
+    await push_to_user(user_id, "streaming:session-ended", notice)
+
+
+async def push_to_user(user_id: Any, event: str, payload: dict[str, Any]) -> None:
+    """Tell one user's open tabs something happened to their session.
+
+    Best-effort by design: every event pushed here also has a poll behind it,
+    so a dropped socket costs latency rather than correctness.
+    """
+    if not isinstance(user_id, int):
+        return
     try:
-        await socket_handler.socket_server.emit(
-            "streaming:session-ended", notice, room=f"user:{user_id}"
-        )
+        await socket_handler.socket_server.emit(event, payload, room=f"user:{user_id}")
     except Exception:  # noqa: BLE001
-        log.warning("Failed to push session-ended notice", exc_info=True)
+        log.warning("Failed to push %s", event, exc_info=True)
 
 
 async def get_termination(session_key: str, user_id: int) -> dict[str, Any] | None:

@@ -37,9 +37,6 @@ class StreamingContainerSchema(BaseModel):
 class StreamingConfigSchema(BaseModel):
     enabled: bool
     containers: list[StreamingContainerSchema]
-    launch_timeout: int
-    """How long a claim may block, so the client sizes its own request ceiling
-    from this rather than keeping a copy that goes stale."""
 
 
 class SessionTerminationSchema(BaseModel):
@@ -66,15 +63,43 @@ class SessionStatusSchema(BaseModel):
     termination: SessionTerminationSchema | None = None
 
 
-class ClaimedSessionSchema(BaseModel):
+class LaunchingSessionSchema(BaseModel):
+    """The 202 a claim answers with: the container is reserved and the game is
+    on its way up. The room URL follows over the socket, since only the
+    broker's launch reply carries it."""
+
     platform: str
-    host: str
+    container: str
     label: str
     rom_name: str
     claimed_at: str
+
+
+class LaunchReadyPayload(BaseModel):
+    """`streaming:launch-ready`, pushed once the game is up."""
+
+    platform: str
+    container: str
+    host: str
     resume: bool | None = None
     """None when no resume was asked for; False means the state could not be
     pushed and the session started fresh."""
+
+
+class LaunchFailedPayload(BaseModel):
+    """`streaming:launch-failed`. The claim is already released."""
+
+    platform: str
+    container: str
+    detail: str
+
+
+class LaunchPhasePayload(BaseModel):
+    """`streaming:launch-phase`, while a broker unpacks a large title."""
+
+    platform: str
+    container: str
+    phase: str | None = None
 
 
 class DesktopSessionSchema(BaseModel):
