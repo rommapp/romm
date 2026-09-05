@@ -32,6 +32,7 @@ from handler.database import (
 )
 from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache
+from handler.streaming import session_store
 from handler.streaming.capabilities import (
     DEFAULT_STATE_TRANSFER,
     NO_CAPABILITIES,
@@ -792,7 +793,7 @@ async def test_claim_sets_session_ttl(access_token, rom: Rom):
                     headers=_auth(access_token),
                 )
     assert r.status_code == 200
-    key = streaming._session_redis_key(_key_of(_container_for(rom)))
+    key = session_store.session_redis_key(_key_of(_container_for(rom)))
     ttl = await async_cache.ttl(key)
     assert ttl > 0
     assert ttl <= streaming.STREAMING_SESSION_TTL_SECONDS
@@ -898,7 +899,7 @@ def _volume(client, token, platform: str, level: int = 42):
 
 
 def _session_raw(container: dict):
-    key = streaming._session_redis_key(_key_of(container))
+    key = session_store.session_redis_key(_key_of(container))
     return asyncio.run(async_cache.get(key))
 
 
@@ -930,7 +931,7 @@ def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
         _age_session_on(
-            _pool_member(rom, 0), streaming._STREAMING_SESSION_STALE_SECONDS + 60
+            _pool_member(rom, 0), session_store._STREAMING_SESSION_STALE_SECONDS + 60
         )
         with patch(
             "endpoints.streaming._stop_broker", return_value=None
@@ -949,7 +950,7 @@ def test_pool_takes_over_a_stale_session_once_every_container_is_held(
         _claim_ok(client, access_token, rom.id)
         _claim_ok(client, access_token, rom.id)
         _age_session_on(
-            _pool_member(rom, 1), streaming._STREAMING_SESSION_STALE_SECONDS + 60
+            _pool_member(rom, 1), session_store._STREAMING_SESSION_STALE_SECONDS + 60
         )
         with patch(
             "endpoints.streaming._stop_broker", return_value=None
@@ -1428,7 +1429,7 @@ def test_swap_disc_broker_has_nothing_to_call_on_a_legacy_container():
 
 def _age_session_on(container: dict, seconds: int) -> None:
     """Rewrite one container's stored session last_seen to `seconds` ago."""
-    key = streaming._session_redis_key(_key_of(container))
+    key = session_store.session_redis_key(_key_of(container))
     raw = asyncio.run(async_cache.get(key))
     session = json.loads(raw)
     session["last_seen"] = (
@@ -1443,15 +1444,15 @@ def _age_session(rom: Rom, seconds: int) -> None:
 
 def test_session_is_stale_handles_bad_stamps():
     """Missing or corrupt stamps must count as stale, not wedge the container."""
-    assert streaming._session_is_stale({}) is True
-    assert streaming._session_is_stale({"last_seen": "not-a-date"}) is True
+    assert session_store.session_is_stale({}) is True
+    assert session_store.session_is_stale({"last_seen": "not-a-date"}) is True
     fresh = datetime.now(timezone.utc).isoformat()
-    assert streaming._session_is_stale({"last_seen": fresh}) is False
+    assert session_store.session_is_stale({"last_seen": fresh}) is False
     old = (
         datetime.now(timezone.utc)
-        - timedelta(seconds=streaming._STREAMING_SESSION_STALE_SECONDS + 1)
+        - timedelta(seconds=session_store._STREAMING_SESSION_STALE_SECONDS + 1)
     ).isoformat()
-    assert streaming._session_is_stale({"last_seen": old}) is True
+    assert session_store.session_is_stale({"last_seen": old}) is True
 
 
 def test_stale_session_taken_over_on_claim(
@@ -1461,7 +1462,7 @@ def test_stale_session_taken_over_on_claim(
     session down (broker stop included) and win the container."""
     with _streaming(_container_for(rom)):
         r1 = _claim_ok(client, access_token, rom.id)
-        _age_session(rom, streaming._STREAMING_SESSION_STALE_SECONDS + 60)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
         with patch(
             "endpoints.streaming._stop_broker", return_value=None
         ) as stop_broker:
@@ -1481,14 +1482,14 @@ def test_takeover_leaves_the_displaced_owner_a_notice(
         _claim_ok(client, access_token, rom.id)
         owner = json.loads(
             asyncio.run(
-                async_cache.get(streaming._session_redis_key(_key_of(container)))
+                async_cache.get(session_store.session_redis_key(_key_of(container)))
             )
         )["user_id"]
-        _age_session(rom, streaming._STREAMING_SESSION_STALE_SECONDS + 60)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
         with patch("endpoints.streaming._stop_broker", return_value=None):
             _claim_ok(client, viewer_access_token, rom.id)
 
-        notice = asyncio.run(streaming._get_termination(_key_of(container), owner))
+        notice = asyncio.run(session_store.get_termination(_key_of(container), owner))
 
     assert notice is not None
     assert notice["reason"] == "abandoned"
@@ -1503,9 +1504,9 @@ def test_takeover_aborts_when_the_owner_comes_back_first(
     container = _container_for(rom)
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        _age_session(rom, streaming._STREAMING_SESSION_STALE_SECONDS + 60)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
 
-        real_stale = streaming._session_is_stale
+        real_stale = session_store.session_is_stale
         checked = False
 
         def stale_then_fresh(session):
@@ -1517,7 +1518,7 @@ def test_takeover_aborts_when_the_owner_comes_back_first(
             checked = True
             return real_stale(session)
 
-        with patch.object(streaming, "_session_is_stale", stale_then_fresh):
+        with patch.object(streaming, "session_is_stale", stale_then_fresh):
             with patch(
                 "endpoints.streaming._stop_broker", return_value=None
             ) as stop_broker:
@@ -1548,16 +1549,16 @@ def test_heartbeat_refreshes_last_seen(client, access_token, rom: Rom):
     rival claim no longer takes it over."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        _age_session(rom, streaming._STREAMING_SESSION_STALE_SECONDS + 60)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
             headers=_auth(access_token),
         )
     assert r.status_code == 200
     assert r.json()["status"] == "active"
-    key = streaming._session_redis_key(_key_of(_container_for(rom)))
+    key = session_store.session_redis_key(_key_of(_container_for(rom)))
     session = json.loads(asyncio.run(async_cache.get(key)))
-    assert not streaming._session_is_stale(session)
+    assert not session_store.session_is_stale(session)
 
 
 def test_heartbeat_racing_a_teardown_reports_ended(client, access_token, rom: Rom):
@@ -1567,7 +1568,7 @@ def test_heartbeat_racing_a_teardown_reports_ended(client, access_token, rom: Ro
     container = _container_for(rom)
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        key = streaming._session_redis_key(_key_of(container))
+        key = session_store.session_redis_key(_key_of(container))
 
         real_find = streaming._find_session_for_user
 
@@ -1591,7 +1592,7 @@ def test_heartbeat_does_not_revive_a_draining_session(client, access_token, rom:
     container = _container_for(rom)
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        key = streaming._session_redis_key(_key_of(container))
+        key = session_store.session_redis_key(_key_of(container))
         session = json.loads(asyncio.run(async_cache.get(key)))
         session["draining"] = True
         asyncio.run(async_cache.set(key, json.dumps(session)))
@@ -1611,14 +1612,14 @@ def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         session_key = _key_of(container)
-        key = streaming._session_redis_key(session_key)
+        key = session_store.session_redis_key(session_key)
 
         real_find = streaming._find_session_for_user
 
         async def find_then_swap(*args, **kwargs):
             # The swap lands after the heartbeat read its copy of the session.
             found = await real_find(*args, **kwargs)
-            await streaming._set_session_disc(session_key, 4242)
+            await session_store.set_session_disc(session_key, 4242)
             return found
 
         with patch.object(streaming, "_find_session_for_user", find_then_swap):
@@ -1630,7 +1631,7 @@ def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom
 
     assert r.json()["status"] == "active"
     assert session["disc_file_id"] == 4242
-    assert not streaming._session_is_stale(session)
+    assert not session_store.session_is_stale(session)
 
 
 def test_heartbeat_without_session_reports_ended(client, access_token, rom: Rom):
@@ -1689,14 +1690,14 @@ def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
     background tab could keep a container hostage without playing."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        _age_session(rom, streaming._STREAMING_SESSION_STALE_SECONDS + 60)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
         client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
             headers=_auth(access_token),
         )
-    key = streaming._session_redis_key(_key_of(_container_for(rom)))
+    key = session_store.session_redis_key(_key_of(_container_for(rom)))
     session = json.loads(asyncio.run(async_cache.get(key)))
-    assert streaming._session_is_stale(session)
+    assert session_store.session_is_stale(session)
 
 
 def test_admin_release_leaves_termination_notice(
@@ -1850,7 +1851,7 @@ def test_reclaim_clears_termination_notice(
 def _unstamp_launch(container: dict) -> None:
     """Drop the launched_at stamp, leaving the record in the state a claim
     holds while its activate is still running."""
-    key = streaming._session_redis_key(_key_of(container))
+    key = session_store.session_redis_key(_key_of(container))
     session = json.loads(asyncio.run(async_cache.get(key)))
     session.pop("launched_at", None)
     asyncio.run(async_cache.set(key, json.dumps(session)))
@@ -1864,7 +1865,7 @@ def test_status_reports_the_extraction_phase_during_a_launch(client, access_toke
         _claim_webstation_ok(client, access_token, ps2_rom.id)
         _unstamp_launch(_first_container("ps2"))
         with patch(
-            "endpoints.streaming._broker_request_safe",
+            "handler.streaming.broker.request_safe",
             return_value={"extraction_phase": "extracting_pkg"},
         ):
             r = client.get(
@@ -1884,7 +1885,7 @@ def test_status_reports_no_phase_before_the_broker_starts_unpacking(
         _claim_webstation_ok(client, access_token, ps2_rom.id)
         _unstamp_launch(_first_container("ps2"))
         with patch(
-            "endpoints.streaming._broker_request_safe", return_value={"active": True}
+            "handler.streaming.broker.request_safe", return_value={"active": True}
         ):
             r = client.get(
                 "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
@@ -1898,7 +1899,7 @@ def test_status_stops_asking_the_broker_once_the_launch_returned(client, access_
     ps2_rom = _rom_on("ps2")
     with _streaming(_webstation()):
         _claim_webstation_ok(client, access_token, ps2_rom.id)
-        with patch("endpoints.streaming._broker_request_safe") as broker:
+        with patch("handler.streaming.broker.request_safe") as broker:
             r = client.get(
                 "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
             )
@@ -1914,7 +1915,7 @@ def test_status_on_a_legacy_container_never_asks_for_a_phase(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         _unstamp_launch(_container_for(rom))
-        with patch("endpoints.streaming._broker_request_safe") as broker:
+        with patch("handler.streaming.broker.request_safe") as broker:
             r = client.get(
                 f"/api/streaming/sessions/{rom.platform_slug}/status",
                 headers=_auth(access_token),
@@ -1936,15 +1937,15 @@ def test_a_slow_launch_keeps_its_own_claim_fresh(client, access_token):
 
     with (
         _streaming(_webstation()),
-        patch.object(streaming, "_CLAIM_REFRESH_SECONDS", 0.05),
-        patch.object(streaming, "_STREAMING_SESSION_STALE_SECONDS", 0.2),
+        patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0.05),
+        patch.object(session_store, "_STREAMING_SESSION_STALE_SECONDS", 0.2),
         patch("endpoints.streaming._webstation_activate", slow_activate),
     ):
         assert _claim(client, access_token, ps2_rom.id).status_code == 200
-        key = streaming._session_redis_key(_key_of(_first_container("ps2")))
+        key = session_store.session_redis_key(_key_of(_first_container("ps2")))
         session = json.loads(asyncio.run(async_cache.get(key)))
         # Read under the shrunk window: outside it every stamp looks fresh.
-        assert streaming._session_is_stale(session) is False
+        assert session_store.session_is_stale(session) is False
 
 
 # ── Release / ownership ───────────────────────────────────────────────────────
@@ -2279,14 +2280,16 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
     # holder it does not have.
     assert r2.json()["detail"]["draining"] is True
     container = _container_for(rom)
-    key = streaming._session_redis_key(_key_of(container))
+    key = session_store.session_redis_key(_key_of(container))
     ttl = asyncio.run(async_cache.ttl(key))
     # Long enough that a refresh has room to land, short enough that a backend
     # dying mid-pull does not park the container for the length of a transfer
     # nobody is doing.
-    assert streaming._DRAIN_MARKER_TTL > 2 * streaming._DRAIN_MARKER_REFRESH
+    assert session_store.DRAIN_MARKER_TTL > 2 * session_store._DRAIN_MARKER_REFRESH
     assert (
-        streaming.STREAMING_SESSION_DRAIN_SECONDS < ttl <= streaming._DRAIN_MARKER_TTL
+        streaming.STREAMING_SESSION_DRAIN_SECONDS
+        < ttl
+        <= session_store.DRAIN_MARKER_TTL
     )
 
 
@@ -2297,7 +2300,7 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     wait=false leaves the short marker that keeps a new launch off a not-yet-dead
     emulator, not the long one that guards a pull."""
     container = _container_for(rom)
-    key = streaming._session_redis_key(_key_of(container))
+    key = session_store.session_redis_key(_key_of(container))
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         session = json.loads(asyncio.run(async_cache.get(key)))
@@ -2337,11 +2340,13 @@ def test_drain_marker_is_not_claimed_over_a_takeover():
     """Save-and-exit blocks on the broker for as long as the emulator takes to
     die, and a force-release plus a fresh claim fit in that window. The marker
     would bury a session somebody is playing."""
-    key = streaming._session_redis_key("cas-takeover")
+    key = session_store.session_redis_key("cas-takeover")
     claim = _session_at(key)
     _session_at(key, claimed_at="2026-01-01T00:05:00+00:00")
     try:
-        assert asyncio.run(streaming._claim_drain_marker("cas-takeover", claim)) is None
+        assert (
+            asyncio.run(session_store.claim_drain_marker("cas-takeover", claim)) is None
+        )
         # The claim that took over is still there, untouched.
         current = json.loads(asyncio.run(async_cache.get(key)))
         assert current["claimed_at"] == "2026-01-01T00:05:00+00:00"
@@ -2353,25 +2358,25 @@ def test_drain_marker_is_not_claimed_over_a_takeover():
 def test_a_stale_drain_token_frees_nobody():
     """A pull that outlived its own marker must not release whoever holds the
     container now."""
-    key = streaming._session_redis_key("cas-stale-token")
+    key = session_store.session_redis_key("cas-stale-token")
     token = asyncio.run(
-        streaming._claim_drain_marker("cas-stale-token", _session_at(key))
+        session_store.claim_drain_marker("cas-stale-token", _session_at(key))
     )
     assert token is not None
     try:
         # The marker expired and a new claim took the container.
         _session_at(key, claimed_at="2026-01-01T00:05:00+00:00")
-        asyncio.run(streaming._drop_drain_marker("cas-stale-token", token))
+        asyncio.run(session_store.drop_drain_marker("cas-stale-token", token))
         assert asyncio.run(async_cache.get(key)) is not None
         # The drain that owns the marker still clears it.
         retaken = asyncio.run(
-            streaming._claim_drain_marker(
+            session_store.claim_drain_marker(
                 "cas-stale-token",
                 {"user_id": 1, "claimed_at": "2026-01-01T00:05:00+00:00"},
             )
         )
         assert retaken is not None
-        asyncio.run(streaming._drop_drain_marker("cas-stale-token", retaken))
+        asyncio.run(session_store.drop_drain_marker("cas-stale-token", retaken))
         assert asyncio.run(async_cache.get(key)) is None
     finally:
         asyncio.run(async_cache.delete(key))
@@ -2380,12 +2385,13 @@ def test_a_stale_drain_token_frees_nobody():
 def test_releasing_a_session_somebody_else_holds_reports_failure():
     """The container is not this claim's to give back, and a release that says
     otherwise ends a session that had just begun."""
-    key = streaming._session_redis_key("cas-release")
+    key = session_store.session_redis_key("cas-release")
     claim = _session_at(key)
     _session_at(key, claimed_at="2026-01-01T00:05:00+00:00")
     try:
         assert (
-            asyncio.run(streaming._release_own_session("cas-release", claim)) is False
+            asyncio.run(session_store.release_own_session("cas-release", claim))
+            is False
         )
         assert asyncio.run(async_cache.get(key)) is not None
     finally:
@@ -2424,7 +2430,7 @@ def test_a_write_that_lands_on_nothing_is_contention_not_success():
     with patch.object(async_cache, "pipeline", lambda: _NoOpPipe()):
         with pytest.raises(streaming.StreamingSessionContended):
             asyncio.run(
-                streaming._claim_drain_marker(
+                session_store.claim_drain_marker(
                     "cas-noop", {"user_id": 1, "claimed_at": "x"}
                 )
             )
@@ -2434,16 +2440,18 @@ def test_a_corrupt_session_key_is_dropped_rather_than_wedging_the_container():
     """A key holding something that is not a session can never be reconciled,
     and leaving it parks the container until the TTL runs out. Both CAS paths
     drop it and report no session."""
-    key = streaming._session_redis_key("cas-corrupt")
+    key = session_store.session_redis_key("cas-corrupt")
     try:
         asyncio.run(async_cache.set(key, "not a session"))
-        assert asyncio.run(streaming._mutate_session("cas-corrupt", {"a": 1})) is None
+        assert (
+            asyncio.run(session_store.mutate_session("cas-corrupt", {"a": 1})) is None
+        )
         assert asyncio.run(async_cache.get(key)) is None
 
         asyncio.run(async_cache.set(key, "not a session"))
         assert (
             asyncio.run(
-                streaming._replace_session_if("cas-corrupt", lambda _: True, None)
+                session_store.replace_session_if("cas-corrupt", lambda _: True, None)
             )
             is False
         )
@@ -2457,20 +2465,20 @@ def test_work_running_under_a_claim_keeps_it_off_the_stale_list():
     itself, and the player whose heartbeat kept it fresh is gone: an unrefreshed
     claim reads as abandoned and the next claimant tears the container down. The
     refresh stops at the ceiling, so a wedged step cannot hold it forever."""
-    key = streaming._session_redis_key("cas-hold-claim")
+    key = session_store.session_redis_key("cas-hold-claim")
     claim = _session_at(key, last_seen="2026-01-01T00:00:00+00:00")
 
     try:
         # A zero ceiling ends the loop on the first pass, so exactly one refresh
         # runs and the test never waits on a clock.
         with (
-            patch.object(streaming, "_CLAIM_REFRESH_SECONDS", 0),
-            patch.object(streaming, "_HOLD_CEILING_SECONDS", 0),
+            patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0),
+            patch.object(session_store, "_HOLD_CEILING_SECONDS", 0),
         ):
-            asyncio.run(streaming._hold_session_claim("cas-hold-claim", claim))
+            asyncio.run(session_store.hold_session_claim("cas-hold-claim", claim))
         current = json.loads(asyncio.run(async_cache.get(key)))
         assert current["last_seen"] != "2026-01-01T00:00:00+00:00"
-        assert not streaming._session_is_stale(current)
+        assert not session_store.session_is_stale(current)
     finally:
         asyncio.run(async_cache.delete(key))
 
@@ -2478,15 +2486,15 @@ def test_work_running_under_a_claim_keeps_it_off_the_stale_list():
 def test_holding_a_claim_stops_once_it_is_somebody_else_s():
     """Refreshing past a takeover would keep another player's session alive on
     a stamp nobody is producing."""
-    key = streaming._session_redis_key("cas-hold-lost")
+    key = session_store.session_redis_key("cas-hold-lost")
     claim = _session_at(key)
     _session_at(key, claimed_at="2026-01-01T00:05:00+00:00")
     try:
-        with patch.object(streaming, "_CLAIM_REFRESH_SECONDS", 0):
+        with patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0):
             # Returns rather than looping forever against a claim it lost.
             asyncio.run(
                 asyncio.wait_for(
-                    streaming._hold_session_claim("cas-hold-lost", claim), 5
+                    session_store.hold_session_claim("cas-hold-lost", claim), 5
                 )
             )
         current = json.loads(asyncio.run(async_cache.get(key)))
@@ -3557,7 +3565,7 @@ def test_a_webstation_exit_carries_slot_zero_rather_than_dropping_it(rom: Rom):
     """Slot 0 is this broker's working slot, so it has to reach the request:
     omitting it would silently fall back to the broker's own default."""
     container = _webstation_for(rom)
-    with patch("endpoints.streaming._broker_request_safe", return_value={}) as req:
+    with patch("handler.streaming.broker.request_safe", return_value={}) as req:
         streaming._webstation_exit(_resolved(container), slot=0)
         assert "slot=0" in req.call_args[0][1]
         assert "save=0" not in req.call_args[0][1]
@@ -3567,7 +3575,7 @@ def test_a_webstation_exit_carries_slot_zero_rather_than_dropping_it(rom: Rom):
 
 def test_stopping_a_legacy_broker_reports_no_state(rom: Rom):
     """The per-emulator brokers stop without saving, so nothing is pulled."""
-    with patch("endpoints.streaming._broker_request_safe", return_value={}):
+    with patch("handler.streaming.broker.request_safe", return_value={}):
         assert streaming._stop_broker(_resolved(_container_for(rom))) is None
 
 
@@ -4088,7 +4096,9 @@ def test_claim_aborts_when_card_hydration_fails(
     assert r.status_code == 502
     launch.assert_not_called()
     # The claim must be released so the container is not wedged.
-    assert asyncio.run(streaming._get_session(_key_of(_mc_container_for(rom)))) is None
+    assert (
+        asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
+    )
     # No orphan blank card survives the aborted claim.
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
 
@@ -4190,7 +4200,7 @@ def test_release_frees_the_claim_when_teardown_raises(client, access_token, rom:
                 headers=_auth(access_token),
             )
     assert r.status_code == 200
-    assert asyncio.run(streaming._get_session(_key_of(container))) is None
+    assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
 def test_save_and_exit_wait_false_forces_blocking_on_card_sync(
@@ -4308,7 +4318,9 @@ def test_first_claim_with_existing_card_asks_before_wiping(
     push.assert_not_called()
     launch.assert_not_called()
     # The prompt is not a session: an abandoned dialog must leave no claim.
-    assert asyncio.run(streaming._get_session(_key_of(_mc_container_for(rom)))) is None
+    assert (
+        asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
+    )
 
 
 def test_unreadable_card_blocks_the_claim(client, access_token, rom: Rom):
@@ -4331,7 +4343,9 @@ def test_unreadable_card_blocks_the_claim(client, access_token, rom: Rom):
     assert "broker exploded" not in detail["reason"]
     assert detail["reason"] == streaming._CARD_UNREADABLE_REASON
     push.assert_not_called()
-    assert asyncio.run(streaming._get_session(_key_of(_mc_container_for(rom)))) is None
+    assert (
+        asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
+    )
 
 
 def test_absent_card_claims_without_prompting(client, access_token, rom: Rom):
@@ -4473,7 +4487,7 @@ def test_failed_adopt_aborts_the_claim_without_wiping(
     # Nothing is recorded, so the next claim asks again instead of wiping.
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
-    assert asyncio.run(streaming._get_session(_key_of(container))) is None
+    assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
 def test_adopt_retry_recovers_when_the_version_was_already_stored(
@@ -4543,7 +4557,7 @@ def test_adopt_aborts_when_dedup_matches_an_older_version(
     push.assert_not_called()
     launch.assert_not_called()
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
-    assert asyncio.run(streaming._get_session(_key_of(container))) is None
+    assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
 def test_adopt_with_unreadable_card_aborts_without_recording(
@@ -4569,7 +4583,7 @@ def test_adopt_with_unreadable_card_aborts_without_recording(
     # No decision recorded, so the next claim asks again instead of wiping.
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
-    assert asyncio.run(streaming._get_session(_key_of(container))) is None
+    assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
 def test_adopt_with_absent_card_aborts_without_recording(
@@ -4591,7 +4605,7 @@ def test_adopt_with_absent_card_aborts_without_recording(
     launch.assert_not_called()
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
-    assert asyncio.run(streaming._get_session(_key_of(container))) is None
+    assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
 def test_occupied_undecided_container_returns_409_not_428(
@@ -4600,7 +4614,7 @@ def test_occupied_undecided_container_returns_409_not_428(
     """The probe belongs to the claim winner: a second player must not be shown
     a prompt describing the card of whoever is playing right now."""
     container = _mc_container_for(rom)
-    key = streaming._session_redis_key(_key_of(container))
+    key = session_store.session_redis_key(_key_of(container))
     asyncio.run(
         async_cache.set(
             key,
@@ -4900,7 +4914,7 @@ def test_the_activate_body_carries_the_multiplayer_flag(client, access_token, ro
     rather than the activate helper: the body itself is what matters."""
     with _streaming(_ws_for(rom)):
         with patch(
-            "endpoints.streaming._broker_request", return_value={"url": "/room/x"}
+            "handler.streaming.broker.request", return_value={"url": "/room/x"}
         ) as request:
             client.post(
                 "/api/streaming/sessions",
@@ -4915,7 +4929,7 @@ def _activate_body(client, token, rom: Rom) -> dict:
     """Claim through the webstation protocol and return the activate body."""
     with _streaming(_ws_for(rom)):
         with patch(
-            "endpoints.streaming._broker_request", return_value={"url": "/room/x"}
+            "handler.streaming.broker.request", return_value={"url": "/room/x"}
         ) as request:
             client.post(
                 "/api/streaming/sessions",
@@ -5649,7 +5663,7 @@ def _session_for(container: dict, rom: Rom, user: User) -> str:
     session_key = _key_of(container)
     asyncio.run(
         async_cache.set(
-            streaming._session_redis_key(session_key),
+            session_store.session_redis_key(session_key),
             json.dumps(
                 {
                     "rom_id": rom.id,
