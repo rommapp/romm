@@ -1,8 +1,8 @@
 /* eslint-disable vue/one-component-per-file */
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, nextTick, ref } from "vue";
+import { defineComponent, ref } from "vue";
 import storeCollections, {
   type Collection,
   type SmartCollection,
@@ -16,14 +16,11 @@ vi.mock("vue-i18n", () => ({
 
 // Plain object rather than a reactive route: every test sets the query
 // before mounting, which is when the view reads it.
-const { routeState, routerState, searchState, settingsState } = vi.hoisted(
-  () => ({
-    routeState: { query: {} as Record<string, string> },
-    routerState: { replace: vi.fn() },
-    searchState: { term: "" },
-    settingsState: { showVirtualCollections: false },
-  }),
-);
+const { routeState, routerState, searchState } = vi.hoisted(() => ({
+  routeState: { query: {} as Record<string, string> },
+  routerState: { replace: vi.fn() },
+  searchState: { term: "" },
+}));
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -125,9 +122,12 @@ vi.mock("@/v2/composables/useWrapGridNav", () => ({
   useWrapGridNav: vi.fn(),
 }));
 
+// Live ref rather than a per-call snapshot, so a test can flip the
+// preference after mount the way the settings toggle does.
+const showVirtualCollections = ref(false);
 vi.mock("@/composables/useUISettings", () => ({
   useUISettings: () => ({
-    showVirtualCollections: ref(settingsState.showVirtualCollections),
+    showVirtualCollections,
     virtualCollectionType: ref("collection"),
   }),
 }));
@@ -158,7 +158,7 @@ describe("CollectionsIndex", () => {
     routeState.query = {};
     routerState.replace = vi.fn();
     searchState.term = "";
-    settingsState.showVirtualCollections = false;
+    showVirtualCollections.value = false;
     segmentFilterIds.value = [];
   });
 
@@ -174,7 +174,7 @@ describe("CollectionsIndex", () => {
   });
 
   it("shows virtual collections when the setting is on", () => {
-    settingsState.showVirtualCollections = true;
+    showVirtualCollections.value = true;
     seed();
 
     const wrapper = mount(CollectionsIndex);
@@ -196,7 +196,7 @@ describe("CollectionsIndex", () => {
   });
 
   it("fetches virtual collections on mount when the setting is on", () => {
-    settingsState.showVirtualCollections = true;
+    showVirtualCollections.value = true;
     const collections = seed();
     collections.virtualCollections = [];
     const fetchVirtual = vi
@@ -217,7 +217,7 @@ describe("CollectionsIndex", () => {
   });
 
   it("keeps the virtual option in the kind filter when the setting is on", () => {
-    settingsState.showVirtualCollections = true;
+    showVirtualCollections.value = true;
     seed();
 
     mount(CollectionsIndex);
@@ -235,15 +235,34 @@ describe("CollectionsIndex", () => {
     seed();
 
     const wrapper = mount(CollectionsIndex);
-    await nextTick();
+    await flushPromises();
 
     expect(wrapper.text()).toContain("Favourites");
     expect(wrapper.text()).toContain("Recently Added");
     expect(wrapper.text()).not.toContain("Nintendo");
+    expect(routerState.replace).toHaveBeenCalledWith({ query: {} });
+  });
+
+  it("drops ?kind=virtual when the setting is turned off after mount", async () => {
+    showVirtualCollections.value = true;
+    routeState.query = { kind: "virtual" };
+    seed();
+
+    const wrapper = mount(CollectionsIndex);
+    await flushPromises();
+    expect(wrapper.text()).toContain("Nintendo");
+    expect(routerState.replace).not.toHaveBeenCalled();
+
+    showVirtualCollections.value = false;
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("Nintendo");
+    expect(wrapper.text()).toContain("Favourites");
+    expect(routerState.replace).toHaveBeenCalledWith({ query: {} });
   });
 
   it("honors ?kind=virtual when the setting is on", () => {
-    settingsState.showVirtualCollections = true;
+    showVirtualCollections.value = true;
     routeState.query = { kind: "virtual" };
     seed();
 
