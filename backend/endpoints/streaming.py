@@ -16,7 +16,7 @@ from email.message import Message
 from enum import Enum, auto
 from pathlib import PurePosixPath
 from typing import Annotated, Any, Literal, NamedTuple, NoReturn, TypedDict
-from urllib.parse import quote, urljoin, urlparse, urlunparse
+from urllib.parse import quote, urljoin
 
 from fastapi import Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -25,13 +25,10 @@ from redis.exceptions import WatchError
 from starlette.background import BackgroundTask
 
 from config import (
-    LIBRARY_BASE_PATH,
-    STREAMING_BROKER_SECRET,
     STREAMING_LAUNCH_TIMEOUT,
     STREAMING_SAVE_TIMEOUT,
     STREAMING_STATE_HISTORY_LIMIT,
 )
-from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from handler.activity_handler import activity_handler
 from handler.auth.constants import Scope
@@ -52,6 +49,20 @@ from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save, scan_screenshot, scan_state
 from handler.socket_handler import socket_handler
+from handler.streaming.capabilities import (
+    MAX_SLOT,
+    PlatformCapabilities,
+    slot_capabilities,
+)
+from handler.streaming.config import (
+    ResolvedContainer,
+    configured_emulator,
+    container_for_session,
+    containers_by_key,
+    containers_for_platform,
+    resolve_containers,
+    streaming_enabled,
+)
 from models.assets import MemoryCard, MemoryCardVersion, State
 from models.rom import Rom
 from models.user import Role, User
@@ -597,7 +608,7 @@ async def _clear_termination(session_key: str, user_id: int) -> None:
 async def _session_status(platform: str, request: Request) -> dict[str, Any]:
     """Whether the caller still holds this platform's session, and if not, why
     it ended. Read-only, so it is safe to poll."""
-    candidates = _containers_for_platform(platform)
+    candidates = containers_for_platform(platform)
     if not candidates:
         raise HTTPException(
             status_code=404,
@@ -610,7 +621,10 @@ async def _session_status(platform: str, request: Request) -> dict[str, Any]:
         # An activate that has not returned yet leaves no launched_at behind.
         # Gating the broker round trip on it keeps this route pure Redis for
         # the rest of the session, which is the part that gets polled forever.
-        if session.get("launched_at") is None and _is_webstation(container):
+        if (
+            session.get("launched_at") is None
+            and container.protocol.reports_launch_phase
+        ):
             status["extraction_phase"] = await asyncio.to_thread(
                 _webstation_launch_phase, container
             )
@@ -619,7 +633,7 @@ async def _session_status(platform: str, request: Request) -> dict[str, Any]:
     # can sit under any of them.
     termination = None
     for candidate in candidates:
-        termination = await _get_termination(_container_key(candidate), request.user.id)
+        termination = await _get_termination(candidate.key, request.user.id)
         if termination is not None:
             break
     return {
@@ -638,272 +652,10 @@ def _assert_session_owner(session: dict[str, Any], request: Request) -> None:
     raise HTTPException(status_code=403, detail="Session is claimed by another user")
 
 
-def _parse_host_url(host: str) -> str | None:
-    """Validate a configured host/broker_host string and return it stripped,
-    or None when it has no scheme (urlparse yields hostname=None for a bare
-    'host:port', which would produce the broken '//None:8000/...' string).
-    Operators must write a scheme, matching the documented config examples."""
-    host = host.strip().rstrip("/")
-    if not host:
-        return None
-    parsed = urlparse(host)
-    if not parsed.scheme or not parsed.hostname:
-        return None
-    return host
-
-
-def _parse_stream_host(host: str) -> str | None:
-    """Validate a configured stream host: an absolute URL, or a path when the
-    container is reverse proxied onto RomM's own origin (`/streaming`). The
-    browser resolves a path against whatever origin it is already on, which is
-    what makes the iframe same origin and its pointer events reachable."""
-    host = host.strip()
-    if host.startswith("/"):
-        return host.rstrip("/") or "/"
-    return _parse_host_url(host)
-
-
-def _derive_broker_host(container: dict[str, Any]) -> str | None:
-    """Resolve the broker API host for a container.
-
-    `broker_host` wins when set. Otherwise a webstation container serves the
-    broker on the same origin as the stream (`_webstation_path` adds the
-    subfolder), while the per-emulator mods serve it on port 8000. Returns None
-    when neither resolves to a usable scheme-bearing URL, which is the case for
-    a container proxied onto a bare path.
-    """
-    broker_host = _parse_host_url(container.get("broker_host", ""))
-    if broker_host:
-        return broker_host.rstrip("/")
-    stream_host = _parse_host_url(container.get("host", ""))
-    if not stream_host:
-        return None
-    if _is_webstation(container):
-        return stream_host.rstrip("/")
-    parsed = urlparse(stream_host)
-    return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
-
-
-def _container_key(container: dict[str, Any]) -> str:
-    """Stable unique key for a container, derived the same way as the broker URL."""
-    return _derive_broker_host(container) or ""
-
-
-# Per-platform save-state capabilities, the single source of truth for how
-# many save slots each emulator exposes. The broker enforces its own ceiling;
-# this table lets RomM reject an out-of-range slot before calling the broker
-# (a clean 422 instead of a broker 502) and ships the same numbers to the
-# frontend via /config, so the slot selector is not a second hardcoded copy.
-
-
-class _SlotCapabilities(TypedDict):
-    max_slots: int  # manual save slots, selectable as 1..max_slots
-    has_autosave: bool  # whether a dedicated autosave slot can be loaded
-    autosave_slot: int  # that slot's index, 0 if none
-    has_memory_card: bool  # whether the broker serves a whole-card /memory-card
-
-
-class PlatformCapabilities(_SlotCapabilities):
-    supports_disc_swap: bool  # a live swap route exists for this platform
-    has_manual_disc_swap: bool  # no route, but the emulator's own UI can do it
-
-
-# Keyed by platform slug (lowercase). A platform absent here gets no save-state
-# UI until its broker's slot semantics are known.
-_PLATFORM_CAPABILITIES: dict[str, _SlotCapabilities] = {
-    # Dolphin (ngc, wii): slots 1-7 manual, slot 8 autosave. Only the
-    # GameCube side has a memory card; Wii saves live in NAND and round-trip
-    # through /save-file instead.
-    "ngc": {
-        "max_slots": 7,
-        "has_autosave": True,
-        "autosave_slot": 8,
-        "has_memory_card": True,
-    },
-    "wii": {
-        "max_slots": 7,
-        "has_autosave": True,
-        "autosave_slot": 8,
-        "has_memory_card": False,
-    },
-    # PCSX2 (ps2): slots 1-9 manual, slot 10 autosave.
-    "ps2": {
-        "max_slots": 9,
-        "has_autosave": True,
-        "autosave_slot": 10,
-        "has_memory_card": True,
-    },
-    # xemu (xbox) keeps the emulated HDD in raw format so its FATX partition
-    # can be read directly, and a raw image cannot hold QEMU snapshots. No
-    # states at all, so the launch screen reports the save instead of
-    # offering slots. Saves round-trip through /save-file, not /memory-card.
-    "xbox": {
-        "max_slots": 0,
-        "has_autosave": False,
-        "autosave_slot": 0,
-        "has_memory_card": False,
-    },
-    # Cemu (wiiu) has no control API and no save states at all; persistence
-    # is the game's own save data under the emulated MLC, round-tripped
-    # through /save-file.
-    "wiiu": {
-        "max_slots": 0,
-        "has_autosave": False,
-        "autosave_slot": 0,
-        "has_memory_card": False,
-    },
-    # DuckStation (psx) has no runtime control channel. SIGTERM triggers a
-    # graceful shutdown that writes one resume state, which doubles as the
-    # only save the broker can produce; the slot number is carried only for
-    # API symmetry, so it normalizes to the shared autosave slot like
-    # RetroArch below.
-    "psx": {
-        "max_slots": 0,
-        "has_autosave": True,
-        "autosave_slot": 10,
-        "has_memory_card": False,
-    },
-    # RPCS3 (ps3) follows DuckStation's model, not PCSX2's: the save-state
-    # hotkey always terminates the process once written, and loading one
-    # means booting straight into the .SAVESTAT file instead of the ROM. No
-    # live slots, one resume state.
-    "ps3": {
-        "max_slots": 0,
-        "has_autosave": True,
-        "autosave_slot": 10,
-        "has_memory_card": False,
-    },
-    # Azahar (3ds) has no control API and no save states; persistence is the
-    # game's own save data under the emulated SD card and NAND.
-    "3ds": {
-        "max_slots": 0,
-        "has_autosave": False,
-        "autosave_slot": 0,
-        "has_memory_card": False,
-    },
-    # shadPS4 (ps4) has no save states; persistence is the game's own save
-    # data under the emulated user savedata tree.
-    "ps4": {
-        "max_slots": 0,
-        "has_autosave": False,
-        "autosave_slot": 0,
-        "has_memory_card": False,
-    },
-    # Xenia (xbox360) has no save states and no external control API;
-    # persistence is the game's own save data under the emulated content
-    # tree, written through on every guest save.
-    "xbox360": {
-        "max_slots": 0,
-        "has_autosave": False,
-        "autosave_slot": 0,
-        "has_memory_card": False,
-    },
-    # Eden (switch) has no save states and no external control API;
-    # persistence is the game's own save data under the emulated NAND.
-    "switch": {
-        "max_slots": 0,
-        "has_autosave": False,
-        "autosave_slot": 0,
-        "has_memory_card": False,
-    },
-}
-
-_NO_CAPABILITIES: _SlotCapabilities = {
-    "max_slots": 0,
-    "has_autosave": False,
-    "autosave_slot": 0,
-    "has_memory_card": False,
-}
-
-# Keyed by emulator, consulted when the platform itself is not listed above.
-# RetroArch serves dozens of platforms from one container and the operator
-# picks which in their config, so enumerating them here would be a second copy
-# of the broker's core table that goes stale the moment the broker gains a
-# platform.
-_EMULATOR_CAPABILITIES: dict[str, _SlotCapabilities] = {
-    # The webstation broker resolves every state route to a single working
-    # slot, since RomM is the library of states. There is no grid to pick
-    # from, just the one slot save and resume both land in.
-    "retroarch": {
-        "max_slots": 0,
-        "has_autosave": True,
-        "autosave_slot": 10,
-        "has_memory_card": False,
-    },
-    # ScummVM saves are its states, so the broker's one working slot is both
-    # what a save-state writes and what a resume loads. No memory card exists,
-    # and its own slot 0 autosave rides the save archive rather than the state
-    # routes.
-    "scummvm": {
-        "max_slots": 0,
-        "has_autosave": True,
-        "autosave_slot": 10,
-        "has_memory_card": False,
-    },
-}
-
-
-# Platforms whose emulator can change discs on a running game. Kept apart from
-# the tables above because those are keyed by platform or by emulator and this
-# is neither: RetroArch serves dozens of platforms and only these five load a
-# playlist its tray commands can step through.
-_DISC_SWAP_PLATFORMS = frozenset({"dc", "saturn", "segacd", "turbografx-cd", "dos"})
-
-# Platforms with no swap route but a working manual swap inside the emulator's
-# own UI. The frontend shows this as a static hint, not a control.
-_MANUAL_DISC_SWAP_PLATFORMS = frozenset({"ps2"})
-
-
-def _configured_emulator(platform: str) -> str:
-    """The emulator a configured container serves this platform with, if any."""
-    for container in _get_streaming_config().get("containers", []):
-        if str(container.get("platform", "")).lower() == platform:
-            return _emulator_for_container(container)
-    return ""
-
-
 def platform_capabilities(platform: str) -> PlatformCapabilities:
-    """Save-state and disc capabilities for a platform slug, or a no-slots
-    default.
-
-    A platform listed explicitly wins, so a platform served by more than one
-    emulator keeps the semantics its own entry describes. The disc flags are an
-    overlay on top of that, keyed only by platform.
-    """
-    platform = platform.lower()
-    base = _PLATFORM_CAPABILITIES.get(platform) or _EMULATOR_CAPABILITIES.get(
-        _configured_emulator(platform), _NO_CAPABILITIES
-    )
-    return {
-        "max_slots": base["max_slots"],
-        "has_autosave": base["has_autosave"],
-        "autosave_slot": base["autosave_slot"],
-        "has_memory_card": base["has_memory_card"],
-        "supports_disc_swap": platform in _DISC_SWAP_PLATFORMS,
-        "has_manual_disc_swap": platform in _MANUAL_DISC_SWAP_PLATFORMS,
-    }
-
-
-def _known_to_lack_memory_card(platform: str) -> bool:
-    """True only for a platform listed above as having no memory card.
-
-    An unlisted platform is unknown, not cardless. The operator opted in and
-    their broker may well serve /memory-card, so the flag is honoured there.
-    """
-    capabilities = _PLATFORM_CAPABILITIES.get(platform.lower())
-    return capabilities is not None and not capabilities["has_memory_card"]
-
-
-# Coarse request-body bound, derived from the table so the slot range lives in
-# exactly one place. The per-platform check in the routes is the tighter,
-# authoritative guard; this just rejects obviously out-of-range input up front.
-_MAX_SLOT = max(
-    (
-        max(c["max_slots"], c["autosave_slot"])
-        for c in (*_PLATFORM_CAPABILITIES.values(), *_EMULATOR_CAPABILITIES.values())
-    ),
-    default=1,
-)
+    """Save-state and disc capabilities for a platform, resolved through
+    whichever emulator a container is configured to serve it with."""
+    return slot_capabilities(platform, configured_emulator(platform))
 
 
 def _assert_valid_slot(platform: str, slot: int) -> None:
@@ -942,7 +694,7 @@ class ClaimStreamingSessionRequest(BaseModel):
 class SaveAndExitRequest(BaseModel):
     # 0 leaves the slot to the broker's own exit save. Anything else is a
     # coarse union bound here and the exact per-platform ceiling in the route.
-    slot: Annotated[int, Field(ge=0, le=_MAX_SLOT)] = 0
+    slot: Annotated[int, Field(ge=0, le=MAX_SLOT)] = 0
     wait: bool = True
 
 
@@ -957,7 +709,7 @@ class MuteRequest(BaseModel):
 class SaveStateRequest(BaseModel):
     # Coarse union bound (widest is the autosave slot); the route validates the
     # exact per-platform ceiling against _PLATFORM_CAPABILITIES.
-    slot: Annotated[int, Field(ge=1, le=_MAX_SLOT)] = 1
+    slot: Annotated[int, Field(ge=1, le=MAX_SLOT)] = 1
 
 
 class SwapDiscRequest(BaseModel):
@@ -967,7 +719,7 @@ class SwapDiscRequest(BaseModel):
 class LoadStateRequest(BaseModel):
     # Coarse union bound (widest is the autosave slot); the route validates the
     # exact per-platform ceiling against _PLATFORM_CAPABILITIES.
-    slot: Annotated[int, Field(ge=1, le=_MAX_SLOT)] = 1
+    slot: Annotated[int, Field(ge=1, le=MAX_SLOT)] = 1
 
 
 class DesktopStreamingSessionRequest(BaseModel):
@@ -979,327 +731,6 @@ class DesktopStreamingSessionRequest(BaseModel):
 
 # Keys a platform block may set for itself. Everything else on a container
 # describes the container, not one platform it serves.
-PLATFORM_OVERRIDE_KEYS = ("emulator", "label", "memory_card_sync")
-
-# Play-button text per emulator, used when a platform block sets no `label`
-# of its own. Keyed by emulator name as the broker registers it (lowercase).
-_EMULATOR_DISPLAY_NAMES: dict[str, str] = {
-    "azahar": "Azahar",
-    "cemu": "Cemu",
-    "desktop": "Desktop",
-    "dolphin": "Dolphin",
-    "duckstation": "DuckStation",
-    "eden": "Eden",
-    "flycast": "Flycast",
-    "pcsx2": "PCSX2",
-    "ppsspp": "PPSSPP",
-    "rpcs3": "RPCS3",
-    "shadps4": "shadPS4",
-    "xemu": "xemu",
-    "xenia": "Xenia",
-}
-
-# Display name of the libretro core the broker's RetroArch launcher picks for
-# each platform (its retroarch_platforms.json). Display only: RomM never
-# selects cores. A platform missing here is labelled by its slug instead.
-_RETROARCH_CORE_NAMES: dict[str, str] = {
-    "3do": "Opera",
-    "3ds": "Azahar",
-    "amiga": "PUAE",
-    "arcade": "FinalBurn Neo",
-    "atari-st": "Hatari",
-    "atari2600": "Stella",
-    "atari5200": "a5200",
-    "atari7800": "ProSystem",
-    "c64": "VICE",
-    "colecovision": "Gearcoleco",
-    "cps1": "FinalBurn Neo",
-    "cps2": "FinalBurn Neo",
-    "cps3": "FinalBurn Neo",
-    "dc": "Flycast",
-    "dos": "DOSBox Pure",
-    "famicom": "Mesen",
-    "fds": "Mesen",
-    "gamegear": "Genesis Plus GX",
-    "gb": "Gambatte",
-    "gba": "mGBA",
-    "gbc": "Gambatte",
-    "genesis": "Genesis Plus GX",
-    "intellivision": "FreeIntv",
-    "jaguar": "Virtual Jaguar",
-    "lynx": "Handy",
-    "msx": "blueMSX",
-    "msx2": "blueMSX",
-    "n64": "Mupen64Plus-Next",
-    "nds": "melonDS",
-    "neo-geo-cd": "NeoCD",
-    "neo-geo-pocket": "Beetle NGP",
-    "neo-geo-pocket-color": "Beetle NGP",
-    "neogeoaes": "FinalBurn Neo",
-    "neogeomvs": "FinalBurn Neo",
-    "nes": "Mesen",
-    "ngc": "Dolphin",
-    "odyssey-2": "O2EM",
-    "psp": "PPSSPP",
-    "psx": "SwanStation",
-    "saturn": "Yaba Sanshiro",
-    "sega32": "PicoDrive",
-    "segacd": "Genesis Plus GX",
-    "sfam": "Snes9x",
-    "sg1000": "Genesis Plus GX",
-    "sms": "Genesis Plus GX",
-    "snes": "Snes9x",
-    "supergrafx": "Beetle SuperGrafx",
-    "tg16": "Beetle PCE",
-    "turbografx-cd": "Beetle PCE",
-    "vectrex": "vecx",
-    "virtualboy": "Beetle VB",
-    "wii": "Dolphin",
-    "wonderswan": "Beetle WonderSwan",
-    "wonderswan-color": "Beetle WonderSwan",
-    "zxs": "Fuse",
-}
-
-
-def _emulator_display_label(emulator: str, platform: str) -> str:
-    """Play-button text for an emulator serving a platform, e.g. "PCSX2" or
-    "RA PPSSPP". Unknown emulators fall back to their configured name."""
-    key = emulator.strip().lower()
-    if key == "retroarch":
-        core = _RETROARCH_CORE_NAMES.get(platform.lower(), platform.upper())
-        return f"RA {core}"
-    return _EMULATOR_DISPLAY_NAMES.get(key, emulator.strip())
-
-
-def _platform_row(
-    base: dict[str, Any], platform: str, options: Any
-) -> dict[str, Any] | None:
-    """One expanded row for a platform, or None when the entry is unusable.
-
-    `options` is either the emulator name or a block overriding container keys.
-    """
-    if isinstance(options, str):
-        emulator = options.strip()
-        overrides: dict[str, Any] = {}
-    elif isinstance(options, dict):
-        raw = options.get("emulator")
-        emulator = raw.strip() if isinstance(raw, str) else ""
-        overrides = {
-            k: v
-            for k, v in options.items()
-            if k in PLATFORM_OVERRIDE_KEYS and k != "emulator"
-        }
-        for key in options:
-            if key not in PLATFORM_OVERRIDE_KEYS:
-                log.warning(
-                    "container platform '%s' sets unknown option '%s', ignoring",
-                    platform,
-                    key,
-                )
-    else:
-        log.warning(
-            "container platform '%s' must name an emulator or set a block of "
-            "options, skipping",
-            platform,
-        )
-        return None
-
-    if not emulator:
-        # The emulator names the state and card namespace, so guessing one
-        # would file this platform's saves under another container.
-        log.warning("container platform '%s' has no emulator, skipping", platform)
-        return None
-
-    # A platform block's own `label` wins; otherwise the emulator names the
-    # button, not the container, so "Stream on PCSX2" rather than the box.
-    label = overrides.get("label") or _emulator_display_label(emulator, platform)
-    return {
-        **base,
-        **overrides,
-        "platform": platform,
-        "emulator": emulator,
-        "label": label,
-    }
-
-
-def _expand_containers(entries: Any) -> list[dict[str, Any]]:
-    """One entry per (container, platform).
-
-    A container declaring `platforms` yields a copy per platform with
-    `platform` and `emulator` filled in; a flat entry yields itself. A map
-    value is either the emulator name or a block overriding container keys for
-    that one platform. Every copy keeps the same host, so `_container_key`
-    collapses them back into the one session the container can actually serve.
-    """
-    expanded: list[dict[str, Any]] = []
-    for entry in entries or []:
-        if not isinstance(entry, dict):
-            continue
-
-        platforms = entry.get("platforms")
-        if platforms is None:
-            expanded.append(entry)
-            continue
-        if not isinstance(platforms, dict):
-            log.warning(
-                "container `platforms` must be a map of platform to emulator, "
-                "skipping: %s",
-                entry,
-            )
-            continue
-        if entry.get("platform"):
-            log.warning(
-                "container declares both `platform` and `platforms`, "
-                "serving `platforms` only: %s",
-                entry,
-            )
-
-        base = {k: v for k, v in entry.items() if k != "platforms"}
-        for platform, options in platforms.items():
-            if not isinstance(platform, str) or not platform.strip():
-                log.warning(
-                    "container platform key is not a name, skipping: %r", platform
-                )
-                continue
-            row = _platform_row(base, platform.strip(), options)
-            if row is not None:
-                expanded.append(row)
-    return expanded
-
-
-def _get_streaming_config() -> dict[str, Any]:
-    """Extract streaming config from the parsed Config object"""
-    cfg = cm.get_config()
-
-    return {
-        "enabled": cfg.STREAMING_ENABLED,
-        "containers": _expand_containers(cfg.STREAMING_CONTAINERS),
-    }
-
-
-def _interchangeable(first: dict[str, Any], other: dict[str, Any]) -> bool:
-    """Whether two containers serving a platform are a pool rather than two
-    different setups. The emulator names the state and card namespace, and
-    whole-card sync decides whether cards are synced at all, so a player landing
-    on either container has to find their saves in the same place."""
-    return _emulator_for_container(first) == _emulator_for_container(
-        other
-    ) and _memory_card_sync_enabled(first) == _memory_card_sync_enabled(other)
-
-
-def _containers_for_platform(platform: str) -> list[dict[str, Any]]:
-    """Every container serving a platform, in config order.
-
-    More than one entry is a pool and the claim takes the first free one.
-    Config order is deliberate: the head of the list stays warm (shader caches,
-    BIOS, memory cards) instead of players spreading across cold containers.
-    """
-    cfg = _get_streaming_config()
-    if not cfg.get("enabled", False):
-        return []
-    lower = platform.lower()
-    candidates: list[dict[str, Any]] = []
-    for entry in cfg.get("containers", []):
-        if not isinstance(entry, dict):
-            continue
-        # An entry needs a platform and a host that is either scheme bearing
-        # or a proxied path. Skipping a malformed entry here means claim /
-        # control routes raise a clean 404 instead of a 500 on container["host"].
-        if entry.get("platform", "").lower() != lower:
-            continue
-        if not _parse_stream_host(entry.get("host", "")):
-            log.warning(
-                "container for platform '%s' missing a scheme-bearing host "
-                "or a proxied path, skipping: %s",
-                platform,
-                entry,
-            )
-            continue
-        if not _derive_broker_host(entry):
-            # A proxied host carries no address RomM can call, so the broker
-            # is only reachable if the operator named it.
-            log.warning(
-                "container for platform '%s' has no reachable broker, set "
-                "broker_host, skipping: %s",
-                platform,
-                entry,
-            )
-            continue
-        if entry.get("memory_card_sync", False) and _known_to_lack_memory_card(lower):
-            log.warning(
-                "container for platform '%s' sets memory_card_sync but that "
-                "platform has no memory card, ignoring the flag and syncing "
-                "individual save files instead",
-                platform,
-            )
-        if candidates and not _interchangeable(candidates[0], entry):
-            log.warning(
-                "container for platform '%s' disagrees with the first one on "
-                "emulator or memory card sync, so it is not a pool member, "
-                "skipping: %s",
-                platform,
-                entry,
-            )
-            continue
-        candidates.append(entry)
-    return candidates
-
-
-def _containers_by_key() -> dict[str, list[dict[str, Any]]]:
-    """Configured containers grouped by key. A container serving several
-    platforms expands into one entry per platform, all sharing one key."""
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for entry in _get_streaming_config().get("containers", []):
-        if isinstance(entry, dict):
-            grouped.setdefault(_container_key(entry), []).append(entry)
-    return grouped
-
-
-def _container_labels() -> dict[str, str | None]:
-    """Each container's own default label by key, ignoring per-platform
-    overrides.
-
-    `label` is a PLATFORM_OVERRIDE_KEYS entry, so an expanded entry may carry a
-    platform-specific override rather than the container's default. Built from
-    the raw, pre-expansion config, once per request rather than per row.
-    """
-    labels: dict[str, str | None] = {}
-    raw_containers: Any = cm.get_config().STREAMING_CONTAINERS or []
-    for raw in raw_containers:
-        if isinstance(raw, dict):
-            labels.setdefault(_container_key(raw), raw.get("label"))
-    return labels
-
-
-def _container_label(
-    labels: dict[str, str | None],
-    container_key: str,
-    entries: list[dict[str, Any]],
-) -> str | None:
-    """A container's label, falling back to an expanded entry's when the
-    container is not in the raw config at all."""
-    if container_key in labels:
-        return labels[container_key]
-    return entries[0].get("label") if entries else None
-
-
-def _container_for_session(
-    grouped: dict[str, list[dict[str, Any]]], container_key: str, platform: Any
-) -> dict[str, Any] | None:
-    """The config entry a session was claimed under. Entries sharing a key
-    differ in the platform-keyed fields (emulator, card sync), so picking an
-    arbitrary one would file the session's saves under another platform."""
-    entries = grouped.get(container_key)
-    if not entries:
-        return None
-    if isinstance(platform, str):
-        lower = platform.lower()
-        for entry in entries:
-            if entry.get("platform", "").lower() == lower:
-                return entry
-    return entries[0]
-
-
 def _swappable_disc_file_ids(rom: Rom) -> set[int]:
     """The rom files that are valid swap targets: the ROM's playlist entries."""
     return {f.id for f in playlist_files(rom.files)}
@@ -1358,15 +789,15 @@ def _platform_is_visible(request: Request, platform_slug: str) -> bool:
 
 
 async def _find_session_for_user(
-    candidates: list[dict[str, Any]], user_id: int
-) -> tuple[dict[str, Any], str, dict[str, Any]] | None:
+    candidates: list[ResolvedContainer], user_id: int
+) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
     """The candidate holding this user's session, as (container, key, session).
 
     With a pool the platform no longer identifies the container, the session
     does.
     """
     for candidate in candidates:
-        session_key = _container_key(candidate)
+        session_key = candidate.key
         session = await _get_live_session(session_key)
         if session is None:
             continue
@@ -1377,15 +808,15 @@ async def _find_session_for_user(
 
 async def _resolve_named_container(
     platform: str, container_key: str
-) -> tuple[dict[str, Any], str, dict[str, Any] | None]:
+) -> tuple[ResolvedContainer, str, dict[str, Any] | None]:
     """One named container serving a platform, plus whatever session it holds.
 
     Returns (container, session_key, session), the session being None when the
     container is free or draining. Raises 404 when the key names no container
     serving this platform.
     """
-    for candidate in _containers_for_platform(platform):
-        session_key = _container_key(candidate)
+    for candidate in containers_for_platform(platform):
+        session_key = candidate.key
         if session_key != container_key:
             continue
         return candidate, session_key, await _get_live_session(session_key)
@@ -1397,23 +828,23 @@ async def _resolve_named_container(
 
 async def _resolve_owned_session(
     platform: str, request: Request
-) -> tuple[dict[str, Any], str, dict[str, Any]]:
+) -> tuple[ResolvedContainer, str, dict[str, Any]]:
     """Find the caller's session among the platform's containers.
 
     Returns (container, session_key, session). Raises 404 when the platform has
     no configured container or nothing is active, 403 when every active session
     belongs to someone else, 409 when an admin's fallback is ambiguous.
     """
-    candidates = _containers_for_platform(platform)
+    candidates = containers_for_platform(platform)
     if not candidates:
         raise HTTPException(
             status_code=404,
             detail=f"No streaming container configured for platform '{platform}'",
         )
 
-    others: list[tuple[dict[str, Any], str, dict[str, Any]]] = []
+    others: list[tuple[ResolvedContainer, str, dict[str, Any]]] = []
     for candidate in candidates:
-        session_key = _container_key(candidate)
+        session_key = candidate.key
         session = await _get_live_session(session_key)
         if session is None:
             continue
@@ -1465,7 +896,7 @@ _CARD_HYDRATE_TIMEOUT = 120
 _CARD_TEARDOWN_TIMEOUT = 30
 
 
-def _broker_url(container: dict[str, Any], path: str) -> str:
+def _broker_url(container: ResolvedContainer, path: str) -> str:
     """
     Build the URL for the ROM broker API.
 
@@ -1478,7 +909,7 @@ def _broker_url(container: dict[str, Any], path: str) -> str:
       host:         http://192.168.1.51:3000   (Selkies web UI, browser-facing)
       broker_host:  http://192.168.1.51:8000   (broker API, server-to-server)
     """
-    broker_host = _derive_broker_host(container)
+    broker_host = container.broker_host
     if not broker_host:
         # No usable broker host, raise a 502 with a clear cause so the
         # operator sees the misconfiguration instead of an opaque KeyError.
@@ -1494,14 +925,10 @@ def _broker_url(container: dict[str, Any], path: str) -> str:
     return f"{broker_host}{path}"
 
 
-def _broker_secret(container: dict[str, Any]) -> str:
-    return STREAMING_BROKER_SECRET or container.get("broker_secret", "")
-
-
-def _broker_headers(container: dict[str, Any]) -> dict[str, str]:
+def _broker_headers(container: ResolvedContainer) -> dict[str, str]:
     """Auth headers for a broker call, empty when no secret is configured.
     Returns a fresh dict so callers can add their own headers to it."""
-    secret = _broker_secret(container)
+    secret = container.broker_secret
     return {"X-Broker-Secret": secret} if secret else {}
 
 
@@ -1550,7 +977,7 @@ def _read_bounded(resp: Any, max_bytes: int, deadline: float) -> bytes:
 
 
 def _broker_request(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     path: str,
     *,
     method: str = "POST",
@@ -1580,7 +1007,7 @@ def _broker_request(
 
 
 def _broker_request_safe(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     path: str,
     label: str,
     *,
@@ -1606,7 +1033,7 @@ def _broker_request_safe(
 
 
 def _broker_get_binary(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     path: str,
     *,
     max_bytes: int,
@@ -1634,7 +1061,7 @@ def _broker_get_binary(
 
 
 def _broker_get_binary_safe(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     path: str,
     label: str,
     *,
@@ -1660,7 +1087,7 @@ def _broker_get_binary_safe(
 
 
 def _broker_put_binary_json(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     path: str,
     content: bytes,
     label: str,
@@ -1695,7 +1122,7 @@ def _broker_put_binary_json(
 
 
 def _broker_put_binary(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     path: str,
     content: bytes,
     label: str,
@@ -1779,7 +1206,7 @@ def _raise_broker_unreachable(
 
 
 def _call_broker(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     rom_path: str,
     rom_name: str,
     load_slot: int | None = None,
@@ -1815,7 +1242,7 @@ def _call_broker(
 
 
 def _save_and_exit_broker(
-    container: dict[str, Any], slot: int = 0, wait: bool = True
+    container: ResolvedContainer, slot: int = 0, wait: bool = True
 ) -> tuple[bool, int]:
     """
     POST /save-and-exit to the broker. Best-effort, logs but never raises.
@@ -1830,7 +1257,7 @@ def _save_and_exit_broker(
     # save + reset path can approach that too. Time out past the slowest
     # broker so a slow-but-successful save is not reported as saved=False.
     # Overridable for operators who raise SAVE_WAIT on a broker.
-    if _is_webstation(container):
+    if container.is_webstation:
         # No background variant on this protocol: exit always runs the save,
         # the teardown and the save dump together before it answers.
         report = _webstation_exit(container, slot)
@@ -1858,7 +1285,7 @@ def _save_and_exit_broker(
     return saved, effective_slot
 
 
-def _volume_broker(container: dict[str, Any], level: int) -> bool:
+def _volume_broker(container: ResolvedContainer, level: int) -> bool:
     """POST /volume to the broker. Best-effort, logs but never raises."""
     body = _broker_request_safe(
         container,
@@ -1870,7 +1297,7 @@ def _volume_broker(container: dict[str, Any], level: int) -> bool:
     return bool(body and body.get("status") == "ok")
 
 
-def _mute_broker(container: dict[str, Any], mute: bool | None) -> bool | None:
+def _mute_broker(container: ResolvedContainer, mute: bool | None) -> bool | None:
     """POST /mute to the broker. Returns confirmed mute state, or None on error."""
     body = _broker_request_safe(
         container,
@@ -1882,31 +1309,25 @@ def _mute_broker(container: dict[str, Any], mute: bool | None) -> bool | None:
     return body.get("mute") if body is not None else None
 
 
-def _save_state_broker(container: dict[str, Any], slot: int) -> bool:
-    """POST /save-state to the broker. Returns True if the request was accepted."""
-    if _is_webstation(container):
-        # Synchronous on this protocol: the broker answers once the emulator
-        # acked the write, so it needs the same budget as the exit save.
-        body = _broker_request_safe(
-            container,
-            _webstation_path(container, "/save-state"),
-            "save-state",
-            body={"slot": slot},
-            timeout=STREAMING_SAVE_TIMEOUT,
-        )
-        return bool(body and body.get("saved", False))
+def _save_state_broker(container: ResolvedContainer, slot: int) -> bool:
+    """POST /save-state to the broker. Returns True if the request was accepted.
 
+    One protocol answers once the emulator acked the write and the other as
+    soon as it has started, so both the budget and the key that reports success
+    come from the protocol.
+    """
+    protocol = container.protocol
     body = _broker_request_safe(
         container,
-        "/save-state",
+        protocol.session_route("/save-state"),
         "save-state",
         body={"slot": slot},
-        timeout=_BROKER_ACK_TIMEOUT,
+        timeout=protocol.save_state_timeout,
     )
-    return bool(body and body.get("status") == "saving")
+    return protocol.save_state_accepted(body)
 
 
-def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
+def _load_state_broker(container: ResolvedContainer, slot: int) -> bool:
     """POST /load-state to the broker. Returns True if broker confirmed success.
 
     Both protocols answer the same way here, so only the route differs. The
@@ -1914,7 +1335,7 @@ def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
     """
     body = _broker_request_safe(
         container,
-        _transfer_route(container, "/load-state"),
+        container.protocol.transfer_route("/load-state"),
         "load-state",
         body={"slot": slot},
         timeout=_BROKER_LOAD_STATE_TIMEOUT,
@@ -1922,23 +1343,24 @@ def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
     return bool(body and body.get("loaded", False))
 
 
-def _swap_disc_broker(container: dict[str, Any], disc_path: str) -> bool:
-    """POST /swap-disc to the broker. True once the disc is mounted."""
-    if _is_webstation(container):
-        body = _broker_request_safe(
-            container,
-            _webstation_path(container, "/swap-disc"),
-            "swap-disc",
-            body={"path": disc_path},
-            timeout=_BROKER_SWAP_DISC_TIMEOUT,
-        )
-        return bool(body and body.get("status") == "ok")
-    # Only the webstation broker has a tray protocol; the legacy per-emulator
-    # brokers have no route to call.
-    return False
+def _swap_disc_broker(container: ResolvedContainer, disc_path: str) -> bool:
+    """POST /swap-disc to the broker. True once the disc is mounted.
+
+    A protocol without a tray has no route to call, so there is nothing to try.
+    """
+    if not container.protocol.supports_disc_swap:
+        return False
+    body = _broker_request_safe(
+        container,
+        container.protocol.session_route("/swap-disc"),
+        "swap-disc",
+        body={"path": disc_path},
+        timeout=_BROKER_SWAP_DISC_TIMEOUT,
+    )
+    return bool(body and body.get("status") == "ok")
 
 
-def _stop_broker(container: dict[str, Any], save: bool = True) -> int | None:
+def _stop_broker(container: ResolvedContainer, save: bool = True) -> int | None:
     """Tell the broker to stop emulator. Best-effort, don't raise on failure.
 
     Returns the slot a state was captured in, or None when none was. With
@@ -1950,7 +1372,7 @@ def _stop_broker(container: dict[str, Any], save: bool = True) -> int | None:
     one stop and it writes no state, so they are already what `save` off asks
     for and there is nothing to pass them.
     """
-    if _is_webstation(container):
+    if container.is_webstation:
         report = _webstation_exit(container, slot=0, save=save)
         if save and report and report.get("state_saved"):
             slot = report.get("state_slot")
@@ -1985,39 +1407,14 @@ def _stop_broker(container: dict[str, Any], save: bool = True) -> int | None:
 # missing here is volume, mute and whole-card sync.
 
 
-def _is_webstation(container: dict[str, Any]) -> bool:
-    return str(container.get("protocol", "")).strip().lower() == "webstation"
-
-
 def _broker_session_id(session: dict[str, Any]) -> str | None:
     """The id activate gave the broker, absent on sessions claimed before it."""
     value = session.get("broker_session_id")
     return str(value) if value else None
 
 
-def _webstation_path(container: dict[str, Any], path: str) -> str:
-    """Prefix a session route with the container's SUBFOLDER."""
-    subfolder = str(container.get("subfolder", "/streaming")).strip()
-    if not subfolder.startswith("/"):
-        subfolder = f"/{subfolder}"
-    return f"{subfolder.rstrip('/')}/api/session{path}"
-
-
-def _container_capabilities(container: dict[str, Any]) -> PlatformCapabilities:
-    """The save-state controls the frontend may offer for this container.
-
-    Disc swap is keyed by platform, but only the webstation broker has a tray
-    route, so it is cleared here rather than in `platform_capabilities`: a
-    legacy container must not advertise a control whose every use 502s.
-    """
-    capabilities = platform_capabilities(str(container.get("platform", "")))
-    if not _is_webstation(container):
-        capabilities = {**capabilities, "supports_disc_swap": False}
-    return capabilities
-
-
 def _webstation_activate(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     *,
     session_id: str,
     user: User,
@@ -2062,7 +1459,7 @@ def _webstation_activate(
     if save:
         body["save"] = save
 
-    path = _webstation_path(container, "/activate")
+    path = container.protocol.session_route("/activate")
     try:
         resp = _broker_request(
             container, path, body=body, timeout=STREAMING_LAUNCH_TIMEOUT
@@ -2083,7 +1480,7 @@ def _webstation_activate(
     return resp
 
 
-def _webstation_launch_phase(container: dict[str, Any]) -> str | None:
+def _webstation_launch_phase(container: ResolvedContainer) -> str | None:
     """GET /api/session/status, reduced to the extraction phase it reports.
 
     The broker sets this while it unpacks a pkg or archive, which is the part
@@ -2093,7 +1490,7 @@ def _webstation_launch_phase(container: dict[str, Any]) -> str | None:
     """
     body = _broker_request_safe(
         container,
-        _webstation_path(container, "/status"),
+        container.protocol.session_route("/status"),
         "status",
         method="GET",
         timeout=_BROKER_ACK_TIMEOUT,
@@ -2104,7 +1501,7 @@ def _webstation_launch_phase(container: dict[str, Any]) -> str | None:
     return phase if isinstance(phase, str) else None
 
 
-def _webstation_join(container: dict[str, Any], user: User) -> dict[str, Any] | None:
+def _webstation_join(container: ResolvedContainer, user: User) -> dict[str, Any] | None:
     """POST /api/session/join. The broker's answer, or None if it refused.
 
     The broker mints the seat and replies with a landing URL carrying the new
@@ -2113,7 +1510,7 @@ def _webstation_join(container: dict[str, Any], user: User) -> dict[str, Any] | 
     """
     body = _broker_request_safe(
         container,
-        _webstation_path(container, "/join"),
+        container.protocol.session_route("/join"),
         "join",
         body={
             "user": {
@@ -2129,7 +1526,7 @@ def _webstation_join(container: dict[str, Any], user: User) -> dict[str, Any] | 
 
 
 def _webstation_exit(
-    container: dict[str, Any], slot: int, save: bool = True
+    container: ResolvedContainer, slot: int, save: bool = True
 ) -> dict[str, Any] | None:
     """POST /exit. Best-effort, the caller is already tearing the session down.
 
@@ -2140,7 +1537,7 @@ def _webstation_exit(
     query = f"?slot={slot}" + ("" if save else "&save=0")
     body = _broker_request_safe(
         container,
-        _webstation_path(container, f"/exit{query}"),
+        container.protocol.session_route(f"/exit{query}"),
         "exit",
         timeout=STREAMING_SAVE_TIMEOUT,
     )
@@ -2148,12 +1545,12 @@ def _webstation_exit(
 
 
 def _webstation_upload_archive(
-    container: dict[str, Any], name: str, content: bytes
+    container: ResolvedContainer, name: str, content: bytes
 ) -> str | None:
     """PUT a save archive and return the container path activate wants."""
     body = _broker_put_binary_json(
         container,
-        _webstation_path(container, f"/imports/{quote(name, safe='')}"),
+        container.protocol.session_route(f"/imports/{quote(name, safe='')}"),
         content,
         "archive upload",
         content_type="application/zip",
@@ -2164,11 +1561,11 @@ def _webstation_upload_archive(
     return str(body["path"])
 
 
-def _webstation_exports(container: dict[str, Any]) -> list[dict[str, Any]]:
+def _webstation_exports(container: ResolvedContainer) -> list[dict[str, Any]]:
     """Save archives waiting on the container, newest first."""
     body = _broker_request_safe(
         container,
-        _webstation_path(container, "/exports"),
+        container.protocol.session_route("/exports"),
         "export list",
         method="GET",
         timeout=_BROKER_ACK_TIMEOUT,
@@ -2177,7 +1574,7 @@ def _webstation_exports(container: dict[str, Any]) -> list[dict[str, Any]]:
     return exports if isinstance(exports, list) else []
 
 
-def _webstation_collect_export(container: dict[str, Any], name: str) -> bytes | None:
+def _webstation_collect_export(container: ResolvedContainer, name: str) -> bytes | None:
     """Download one archive and drop the container's copy once it is in hand.
 
     The name comes from the broker's own listing, so it is escaped whole: a
@@ -2185,7 +1582,7 @@ def _webstation_collect_export(container: dict[str, Any], name: str) -> bytes | 
     """
     result = _broker_get_binary_safe(
         container,
-        _webstation_path(container, f"/exports/{quote(name, safe='')}"),
+        container.protocol.session_route(f"/exports/{quote(name, safe='')}"),
         "export download",
         max_bytes=_SAVE_FILE_MAX_BYTES,
         timeout=_BROKER_TRANSFER_TIMEOUT,
@@ -2194,7 +1591,7 @@ def _webstation_collect_export(container: dict[str, Any], name: str) -> bytes | 
         return None
     _broker_request_safe(
         container,
-        _webstation_path(container, f"/exports/{quote(name, safe='')}"),
+        container.protocol.session_route(f"/exports/{quote(name, safe='')}"),
         "export delete",
         method="DELETE",
         timeout=_BROKER_ACK_TIMEOUT,
@@ -2223,30 +1620,6 @@ def _webstation_collect_export(container: dict[str, Any], name: str) -> bytes | 
 # a state that clears one is not rejected by the other.
 
 
-class StateTransferLimits(TypedDict):
-    max_bytes: int  # largest state body exchanged with the broker
-    timeout: int  # seconds allowed for that body, in either direction
-
-
-_DEFAULT_STATE_TRANSFER: StateTransferLimits = {
-    "max_bytes": 256 * 1024 * 1024,
-    "timeout": _BROKER_TRANSFER_TIMEOUT,
-}
-
-# Keyed by emulator name as _emulator_for_container returns it (lowercase).
-_STATE_TRANSFER_LIMITS: dict[str, StateTransferLimits] = {
-    # The xemu broker caps its expanded hard disk image at 2 GiB, and transfers
-    # run around 18 MB/s, so a full-size archive needs minutes, not seconds.
-    "xemu": {"max_bytes": 2 * 1024 * 1024 * 1024, "timeout": 240},
-}
-
-
-def _state_transfer_limits(container: dict[str, Any]) -> StateTransferLimits:
-    return _STATE_TRANSFER_LIMITS.get(
-        _emulator_for_container(container), _DEFAULT_STATE_TRANSFER
-    )
-
-
 # Pull retries cover the window between the broker accepting a save and the
 # emulator finishing the write (PINE/xdotool waits run up to ~15s per broker).
 _STATE_PULL_ATTEMPTS = 5
@@ -2265,40 +1638,18 @@ def _spawn_sync_task(coro: Any) -> asyncio.Task:
     return task
 
 
-def _emulator_for_container(container: dict[str, Any]) -> str:
-    """Namespace for stored states, e.g. 'pcsx2'.
-
-    An explicit `emulator` key on the container config wins; otherwise the
-    label (or platform slug) lowercased. Keeps streaming states separate from
-    EmulatorJS states for the same ROM.
-    """
-    emulator = (
-        container.get("emulator")
-        or container.get("label")
-        or container.get("platform")
-        or ""
-    )
-    return str(emulator).strip().lower()
-
-
-def _transfer_route(container: dict[str, Any], path: str) -> str:
-    """Where a state or memory card transfer lives on this container's broker.
-
-    The webstation broker serves the same routes, only under its subfolder.
-    """
-    return _webstation_path(container, path) if _is_webstation(container) else path
-
-
-def _fetch_state_file(container: dict[str, Any], slot: int) -> tuple[str, bytes] | None:
+def _fetch_state_file(
+    container: ResolvedContainer, slot: int
+) -> tuple[str, bytes] | None:
     """GET /state-file from the broker. Returns (filename, content) or None.
 
     The broker blocks while a save is in flight, so a generous timeout stands
     in for save-completion polling. 404 means no state exists for the slot.
     """
-    limits = _state_transfer_limits(container)
+    limits = container.state_transfer
     result = _broker_get_binary_safe(
         container,
-        _transfer_route(container, f"/state-file?slot={slot}"),
+        container.protocol.transfer_route(f"/state-file?slot={slot}"),
         "state-file GET",
         max_bytes=limits["max_bytes"],
         timeout=limits["timeout"],
@@ -2313,15 +1664,19 @@ def _fetch_state_file(container: dict[str, Any], slot: int) -> tuple[str, bytes]
     return filename, content
 
 
-def _push_state_file(container: dict[str, Any], filename: str, content: bytes) -> bool:
+def _push_state_file(
+    container: ResolvedContainer, filename: str, content: bytes
+) -> bool:
     """PUT /state-file to the broker. Best-effort, logs but never raises."""
     return _broker_put_binary(
         container,
-        _transfer_route(container, f"/state-file?filename={quote(filename, safe='')}"),
+        container.protocol.transfer_route(
+            f"/state-file?filename={quote(filename, safe='')}"
+        ),
         content,
         "state-file PUT",
         content_type="application/octet-stream",
-        timeout=_state_transfer_limits(container)["timeout"],
+        timeout=container.state_transfer["timeout"],
     )
 
 
@@ -2385,13 +1740,13 @@ async def _take_state_frame(user_id: int, rom_id: int) -> bytes | None:
         return None
 
 
-def _fetch_state_screenshot(container: dict[str, Any], slot: int) -> bytes | None:
+def _fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | None:
     """GET /state-screenshot from the broker, for emulators whose state files
     carry no frame of their own. A 404 is the normal "this broker does not
     capture frames" answer, so it is not logged."""
     result = _broker_get_binary_safe(
         container,
-        _transfer_route(container, f"/state-screenshot?slot={slot}"),
+        container.protocol.transfer_route(f"/state-screenshot?slot={slot}"),
         "state-screenshot GET",
         max_bytes=_STATE_SCREENSHOT_MAX_BYTES,
         timeout=_BROKER_TRANSFER_TIMEOUT,
@@ -2590,7 +1945,7 @@ async def _store_state_asset(
 
 async def _restore_session_disc(
     rom_id: int,
-    container: dict[str, Any],
+    container: ResolvedContainer,
     session_key: str,
     file_id: int,
     broker_session_id: str | None = None,
@@ -2611,7 +1966,7 @@ async def _restore_session_disc(
             "resume: could not restore disc, file %s is not in the library", file_id
         )
         return False
-    library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
+    library_base = container.library_path
     disc_path = f"{library_base}/{rom_file.full_path}"
     if not await asyncio.to_thread(_swap_disc_broker, container, disc_path):
         log.warning("resume: could not restore disc %s", rom_file.file_name)
@@ -2672,7 +2027,7 @@ async def _release_after_state_pull(
 async def _pull_state_to_library(
     user_id: int,
     rom_id: int,
-    container: dict[str, Any],
+    container: ResolvedContainer,
     slot: int,
     disc_file_id: int | None = None,
 ) -> bool:
@@ -2685,7 +2040,7 @@ async def _pull_state_to_library(
     rom = db_rom_handler.get_rom(rom_id)
     if user is None or rom is None:
         return False
-    emulator = _emulator_for_container(container)
+    emulator = container.emulator
 
     for attempt in range(_STATE_PULL_ATTEMPTS):
         if attempt > 0:
@@ -2729,7 +2084,7 @@ async def _pull_state_to_library(
     return False
 
 
-async def _push_resume_state(container: dict[str, Any], resume_state: State) -> bool:
+async def _push_resume_state(container: ResolvedContainer, resume_state: State) -> bool:
     """Send the state a player picked to resume from down to the container.
 
     Best-effort: a failure means the session just starts fresh, which the claim
@@ -2756,7 +2111,7 @@ async def _push_resume_state(container: dict[str, Any], resume_state: State) -> 
 async def _hydrate_states_to_broker(
     user_id: int,
     rom_id: int,
-    container: dict[str, Any],
+    container: ResolvedContainer,
     resume_pushed: bool = False,
 ) -> int:
     """Background task: push the newest stored state for this ROM down to the
@@ -2778,7 +2133,7 @@ async def _hydrate_states_to_broker(
     rom = db_rom_handler.get_rom(rom_id)
     if user is None or rom is None:
         return 0
-    emulator = _emulator_for_container(container)
+    emulator = container.emulator
 
     states = _user_states_for_emulator(user_id, rom_id, emulator)
     if not states:
@@ -2816,14 +2171,14 @@ _SAVE_FILE_MAX_BYTES = 256 * 1024 * 1024
 
 
 def _fetch_save_archive(
-    container: dict[str, Any], broker_session_id: str | None = None
+    container: ResolvedContainer, broker_session_id: str | None = None
 ) -> bytes | None:
     """GET /save-file from the broker. Returns the zip bytes or None.
 
     404 means nothing changed since the game launched (the normal "no new
     saves" case); any other failure is logged and treated the same way.
     """
-    if _is_webstation(container):
+    if container.is_webstation:
         # Exit already built the delta archive and left it on the container,
         # named after the session that produced it. Matching on that name is
         # what keeps an archive a previous pull failed to collect from being
@@ -2847,7 +2202,7 @@ def _fetch_save_archive(
     return result[1] if result else None
 
 
-def _push_save_archive(container: dict[str, Any], content: bytes) -> bool:
+def _push_save_archive(container: ResolvedContainer, content: bytes) -> bool:
     """PUT /save-file to the broker. Best-effort, logs but never raises."""
     return _broker_put_binary(
         container,
@@ -2909,7 +2264,7 @@ async def _store_save_asset(
 async def _pull_saves_to_library(
     user_id: int,
     rom_id: int,
-    container: dict[str, Any],
+    container: ResolvedContainer,
     broker_session_id: str | None = None,
 ) -> bool:
     """Background task: pull in-game saves from the broker and store them.
@@ -2921,7 +2276,7 @@ async def _pull_saves_to_library(
     rom = db_rom_handler.get_rom(rom_id)
     if user is None or rom is None:
         return False
-    emulator = _emulator_for_container(container)
+    emulator = container.emulator
 
     for attempt in range(_STATE_PULL_ATTEMPTS):
         if attempt > 0:
@@ -2974,7 +2329,7 @@ async def _newest_save_archive(
 
 
 async def _hydrate_saves_to_broker(
-    user_id: int, rom_id: int, container: dict[str, Any]
+    user_id: int, rom_id: int, container: ResolvedContainer
 ) -> bool:
     """Push the user's newest stored save archive down to the freshly claimed
     container BEFORE the game launches. Games read saves at boot, so this must
@@ -2984,9 +2339,7 @@ async def _hydrate_saves_to_broker(
     if db_user_handler.get_user(user_id) is None or rom is None:
         return False
 
-    newest = await _newest_save_archive(
-        user_id, rom_id, _emulator_for_container(container)
-    )
+    newest = await _newest_save_archive(user_id, rom_id, container.emulator)
     if newest is None:
         return False
     file_name, content = newest
@@ -2998,7 +2351,7 @@ async def _hydrate_saves_to_broker(
 
 
 async def _hydrate_saves_to_webstation(
-    user_id: int, rom_id: int, container: dict[str, Any]
+    user_id: int, rom_id: int, container: ResolvedContainer
 ) -> str | None:
     """Upload the newest stored save archive and return the container path.
 
@@ -3006,9 +2359,7 @@ async def _hydrate_saves_to_webstation(
     push of its own, so hydration here only gets the bytes into place and
     hands back the path activate names.
     """
-    newest = await _newest_save_archive(
-        user_id, rom_id, _emulator_for_container(container)
-    )
+    newest = await _newest_save_archive(user_id, rom_id, container.emulator)
     if newest is None:
         return None
     file_name, content = newest
@@ -3043,38 +2394,6 @@ def _empty_zip_bytes() -> bytes:
 _EMPTY_MEMORY_CARD = _empty_zip_bytes()
 
 
-def _memory_card_sync_enabled(container: dict[str, Any]) -> bool:
-    """Whether whole-card sync is both requested and possible for a container.
-
-    Honouring `memory_card_sync` on a platform with no memory card would be
-    silent data loss: whole-card sync REPLACES /save-file, so the per-file
-    saves that platform actually uses (Wii NAND, xemu HDD) would stop syncing
-    while RomM shuttled an empty card around. The flag is ignored instead, and
-    _containers_for_platform warns the operator once per lookup.
-    """
-    if not container.get("memory_card_sync", False):
-        return False
-    return not _known_to_lack_memory_card(container.get("platform", ""))
-
-
-def _memory_card_route(container: dict[str, Any]) -> str:
-    """Where this container's broker serves the whole Slot-1 card.
-
-    The webstation broker hosts several emulators off one container and the
-    card belongs to the emulator, not to a session, so it takes the name and
-    platform in the query: an emulator that only has a card on some of the
-    platforms it serves (Dolphin: GC, not Wii) needs the platform to tell
-    which. The per-emulator brokers serve the one card they have and ignore
-    the platform.
-    """
-    path = "/memory-card"
-    if _is_webstation(container):
-        emulator = quote(_emulator_for_container(container), safe="")
-        platform = quote(container.get("platform", ""), safe="")
-        path = f"{path}?emulator={emulator}&platform={platform}"
-    return _transfer_route(container, path)
-
-
 class MemoryCardUnavailable(Exception):
     """The broker's Slot-1 card could not be read (endpoint missing, wrong card
     type, oversize, or a transport error). Distinct from a broker-confirmed
@@ -3089,7 +2408,7 @@ _CARD_IMPORT_FAILED_DETAIL = "Could not import the memory card"
 
 
 def _fetch_memory_card(
-    container: dict[str, Any], timeout: float = _CARD_HYDRATE_TIMEOUT
+    container: ResolvedContainer, timeout: float = _CARD_HYDRATE_TIMEOUT
 ) -> bytes | None:
     """GET /memory-card from the broker. Tri-state:
 
@@ -3103,7 +2422,7 @@ def _fetch_memory_card(
     try:
         _, content = _broker_get_binary(
             container,
-            _memory_card_route(container),
+            container.memory_card_route(),
             max_bytes=MEMORY_CARD_MAX_BYTES,
             timeout=timeout,
         )
@@ -3128,13 +2447,13 @@ def _fetch_memory_card(
 
 
 def _push_memory_card(
-    container: dict[str, Any], content: bytes, timeout: float = _CARD_HYDRATE_TIMEOUT
+    container: ResolvedContainer, content: bytes, timeout: float = _CARD_HYDRATE_TIMEOUT
 ) -> bool:
     """PUT /memory-card to the broker (wipe-then-replace). Best-effort, logs
     but never raises. The caller decides whether a failure aborts the claim."""
     return _broker_put_binary(
         container,
-        _memory_card_route(container),
+        container.memory_card_route(),
         content,
         "memory-card PUT",
         content_type="application/zip",
@@ -3226,7 +2545,7 @@ def _create_blank_memory_card(
 
 
 async def _hydrate_memory_card_to_broker(
-    user_id: int, card: MemoryCard, container: dict[str, Any]
+    user_id: int, card: MemoryCard, container: ResolvedContainer
 ) -> bool:
     """Push the card's newest version down to a freshly claimed container BEFORE
     launch (games read the card at boot). A blank card, or one whose stored file
@@ -3300,7 +2619,7 @@ async def _abort_claim(session_key: str, blank_card_id: int | None = None) -> No
 
 
 async def _evacuate_memory_card(
-    user_id: int, card_id: int, container: dict[str, Any]
+    user_id: int, card_id: int, container: ResolvedContainer
 ) -> bool:
     """Pull the whole Slot-1 card off the broker and store it as a new version.
 
@@ -3343,7 +2662,7 @@ async def _evacuate_memory_card(
 
 
 async def _evacuate_session_card(
-    session: dict[str, Any], container: dict[str, Any]
+    session: dict[str, Any], container: ResolvedContainer
 ) -> bool:
     """Evacuate a whole-card-sync session's card before its container is freed.
 
@@ -3354,7 +2673,7 @@ async def _evacuate_session_card(
     False for containers without memory_card_sync or sessions that never
     resolved a card, so those are never wiped.
     """
-    if not _memory_card_sync_enabled(container):
+    if not container.memory_card_sync:
         return False
     card_id = session.get("memory_card_id")
     user_id = session.get("user_id")
@@ -3367,7 +2686,7 @@ async def _evacuate_session_card(
         return False
 
 
-async def _wipe_session_card(container: dict[str, Any]) -> None:
+async def _wipe_session_card(container: ResolvedContainer) -> None:
     """Blank the broker's Slot-1 card after a confirmed evacuation.
 
     Defense in depth for pooled hosts: hydrate already wipes-then-replaces on
@@ -3378,7 +2697,7 @@ async def _wipe_session_card(container: dict[str, Any]) -> None:
     released (so a concurrent claimant's fresh card is never clobbered).
     Best-effort: a failed wipe is logged, not fatal, since the next claim wipes.
     """
-    if not _memory_card_sync_enabled(container):
+    if not container.memory_card_sync:
         return
     # Teardown path, so a tighter bound than hydrate-on-claim.
     ok = await asyncio.to_thread(
@@ -3391,7 +2710,7 @@ async def _wipe_session_card(container: dict[str, Any]) -> None:
 
 
 async def _quiesce_container(
-    container: dict[str, Any], session: dict[str, Any], *, save: bool = True
+    container: ResolvedContainer, session: dict[str, Any], *, save: bool = True
 ) -> int | None:
     """Stop the emulator, then evacuate and wipe its memory card.
 
@@ -3407,7 +2726,7 @@ async def _quiesce_container(
 
 
 async def _collect_exit_state(
-    container: dict[str, Any], session: dict[str, Any], state_slot: int | None
+    container: ResolvedContainer, session: dict[str, Any], state_slot: int | None
 ) -> None:
     """File the state the stop wrote, while the claim still guards the container.
 
@@ -3555,7 +2874,7 @@ async def _record_play_session(session: dict[str, Any]) -> None:
 
 
 async def _teardown_abandoned_session(
-    container: dict[str, Any], session_key: str, session: dict[str, Any]
+    container: ResolvedContainer, session_key: str, session: dict[str, Any]
 ) -> bool:
     """Free a container whose owner vanished without releasing (heartbeat went
     stale). Same order as an owner release: stop the emulator so the card is
@@ -3620,7 +2939,7 @@ _ABANDONED_TEARDOWN_WAIT = 30.0
 
 
 async def _await_teardown_within_budget(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     session_key: str,
     session: dict[str, Any],
     budget: float,
@@ -3709,7 +3028,7 @@ def _container_state_filename(filename: str) -> str:
 
 
 def _resolve_resume_state(
-    user_id: int, rom: Rom, container: dict[str, Any], state_id: int
+    user_id: int, rom: Rom, container: ResolvedContainer, state_id: int
 ) -> tuple[State, int]:
     """Validate a resume-from-state pick and return (state, slot).
 
@@ -3731,7 +3050,7 @@ def _resolve_resume_state(
     if state is None:
         raise HTTPException(status_code=404, detail="State not found")
 
-    emulator = _emulator_for_container(container)
+    emulator = container.emulator
     if (state.emulator or "").lower() != emulator:
         raise HTTPException(
             status_code=400,
@@ -3761,41 +3080,34 @@ def _resolve_resume_state(
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
 async def get_config(request: Request) -> JSONResponse:
     """Return streaming configuration to the frontend"""
-    cfg = _get_streaming_config()
-
     # Keyed by platform: a pool is a backend concern, the frontend picks a
     # platform and the claim decides which container serves it.
     safe_containers: dict[str, dict[str, Any]] = {}
-    for c in cfg.get("containers", []):
-        if not c.get("platform") or not c.get("host"):
-            log.warning("container missing platform/host, skipping: %s", c)
+    for c in resolve_containers():
+        if c.platform in safe_containers:
             continue
-
-        platform = c.get("platform", "")
-        if platform in safe_containers:
-            continue
-        # The entry carries the platform's label and capabilities, so a
+        # The record carries the platform's label and capabilities, so a
         # platform hidden from this caller must not be listed here either.
-        if not _platform_is_visible(request, platform):
+        if not _platform_is_visible(request, c.platform):
             continue
-        safe_containers[platform] = {
-            "platform": platform,
-            "host": c.get("host"),
-            "label": c.get("label") or platform.upper(),
+        safe_containers[c.platform] = {
+            "platform": c.platform,
+            "host": c.host,
+            "label": c.label,
             # Ship slot capabilities so the frontend selector reads them
             # instead of keeping its own hardcoded per-platform copy.
-            "capabilities": _container_capabilities(c),
+            "capabilities": c.capabilities,
             # State namespace for this container, so the frontend can
             # filter the resume picker the same way hydration filters.
-            "emulator": _emulator_for_container(c),
+            "emulator": c.emulator,
             # Whether this container syncs whole memory cards, so the
             # frontend only offers the card picker where it applies.
-            "supports_memory_cards": _memory_card_sync_enabled(c),
+            "supports_memory_cards": c.memory_card_sync,
         }
 
     return JSONResponse(
         {
-            "enabled": cfg.get("enabled", False),
+            "enabled": streaming_enabled(),
             "containers": list(safe_containers.values()),
             # How long a claim is allowed to block, so the client derives its
             # own request ceiling from this rather than keeping a copy that
@@ -3829,7 +3141,7 @@ async def claim_session(
     assert_rom_visible(request, rom, not_found_detail="ROM not found")
 
     platform = rom.platform_slug
-    candidates = _containers_for_platform(platform)
+    candidates = containers_for_platform(platform)
     if not candidates:
         raise HTTPException(
             status_code=404,
@@ -3854,10 +3166,10 @@ async def claim_session(
     # fails cleanly (whole-card-sync containers only). May be None on first
     # play; the blank card is created only after the claim is won.
     memory_card = None
-    if _memory_card_sync_enabled(reference):
+    if reference.memory_card_sync:
         memory_card = _resolve_memory_card(
             request.user.id,
-            _emulator_for_container(reference),
+            reference.emulator,
             req.memory_card_id,
         )
 
@@ -3896,13 +3208,13 @@ async def claim_session(
         "memory_card_id": memory_card.id if memory_card is not None else None,
     }
 
-    async def _try_claim(candidate: dict[str, Any]) -> bool:
+    async def _try_claim(candidate: ResolvedContainer) -> bool:
         # SET NX is atomic: exactly one concurrent claim wins the key. The TTL
         # bounds how long an abandoned session (broker dead / backend crashed)
         # can hold the container; control calls and heartbeats refresh it.
         return bool(
             await async_cache.set(
-                _session_redis_key(_container_key(candidate)),
+                _session_redis_key(candidate.key),
                 json.dumps(session),
                 nx=True,
                 ex=STREAMING_SESSION_TTL_SECONDS,
@@ -3910,7 +3222,7 @@ async def claim_session(
         )
 
     # Config order, first free wins.
-    container: dict[str, Any] | None = None
+    container: ResolvedContainer | None = None
     for candidate in candidates:
         if await _try_claim(candidate):
             container = candidate
@@ -3929,7 +3241,7 @@ async def claim_session(
         # refreshes it.
         deadline = time.monotonic() + _ABANDONED_TEARDOWN_WAIT
         for candidate in candidates:
-            existing = await _get_session(_container_key(candidate))
+            existing = await _get_session(candidate.key)
             if (
                 existing is None
                 or existing.get("draining")
@@ -3943,7 +3255,7 @@ async def claim_session(
             )
             if not await _await_teardown_within_budget(
                 candidate,
-                _container_key(candidate),
+                candidate.key,
                 existing,
                 max(0.0, deadline - time.monotonic()),
             ):
@@ -3956,7 +3268,7 @@ async def claim_session(
         # Report the head of the pool as the holder: with one container that is
         # the only holder, and with several the player just needs to know the
         # platform is busy.
-        existing = await _get_session(_container_key(candidates[0])) or {}
+        existing = await _get_session(candidates[0].key) or {}
         # A drain marker belongs to nobody: the previous session is over and its
         # exit state is still coming out of the container, so rom_name and
         # claimed_at are both blank and "in use" would name no one. The player
@@ -3979,7 +3291,7 @@ async def claim_session(
             },
         )
 
-    session_key = _container_key(container)
+    session_key = container.key
 
     # The emulator containers mount the RomM library at the same path the
     # backend uses (LIBRARY_BASE_PATH, /romm/library by default), so the
@@ -3987,7 +3299,7 @@ async def claim_session(
     # container mounts the library at a different path, `library_path` on
     # its config entry overrides the prefix so the broker receives a path
     # that is valid inside that container.
-    library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
+    library_base = container.library_path
     rom_path = f"{library_base}/{rom.full_path}"
 
     # A container that still holds someone's pre-existing card must not be
@@ -3999,9 +3311,8 @@ async def claim_session(
     adoption_content: bytes | None = None
     adoption_undecided = False
     if (
-        _memory_card_sync_enabled(container)
-        and db_container_adoption_handler.get_adoption(_container_key(container))
-        is None
+        container.memory_card_sync
+        and db_container_adoption_handler.get_adoption(container.key) is None
     ):
         adoption_undecided = True
         try:
@@ -4053,9 +3364,9 @@ async def claim_session(
     # (409) never leaves an orphan card behind. If a later step fails and aborts
     # the claim, delete the blank we just made so an aborted claim leaks nothing.
     created_blank_card_id: int | None = None
-    if _memory_card_sync_enabled(container) and memory_card is None:
+    if container.memory_card_sync and memory_card is None:
         memory_card = _create_blank_memory_card(
-            request.user.id, _emulator_for_container(container), rom.platform_id
+            request.user.id, container.emulator, rom.platform_id
         )
         created_blank_card_id = memory_card.id
         session["memory_card_id"] = memory_card.id
@@ -4073,7 +3384,7 @@ async def claim_session(
     # the hydrate that follows pushes the adopted card back rather than a blank.
     # An absent or discarded card is recorded too, so the prompt fires once and
     # a card that shows up later is treated as the container's, not the user's.
-    if _memory_card_sync_enabled(container) and adoption_undecided:
+    if container.memory_card_sync and adoption_undecided:
         # Resolved above or freshly created as a blank, never None on this path.
         assert memory_card is not None
         adopted = req.card_import == "adopt" and adoption_content is not None
@@ -4106,7 +3417,7 @@ async def claim_session(
                 await _abort_claim(session_key, created_blank_card_id)
                 raise HTTPException(status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL)
         db_container_adoption_handler.add_adoption(
-            container_key=_container_key(container),
+            container_key=container.key,
             outcome="adopt" if adopted else "discard",
             user_id=request.user.id,
         )
@@ -4117,7 +3428,7 @@ async def claim_session(
     # The webstation broker only takes a state while a session is up, and its
     # session starts at activate, so that push has to happen after launch.
     resume_pushed = False
-    resume_after_launch = _is_webstation(container) and resume_state is not None
+    resume_after_launch = container.is_webstation and resume_state is not None
     if resume_state is not None and not resume_after_launch:
         resume_pushed = await _push_resume_state(container, resume_state)
 
@@ -4140,7 +3451,7 @@ async def claim_session(
             raise HTTPException(
                 status_code=502, detail="Could not prepare the memory card"
             )
-    if _is_webstation(container):
+    if container.is_webstation:
         # Restore runs inside activate on this protocol, so hydration only gets
         # the bytes onto the container and names the path activate restores.
         # Still runs under whole-card sync: the archive carries the state the
@@ -4168,13 +3479,13 @@ async def claim_session(
     try:
         # Tell the broker to load the ROM, raises HTTPException on failure.
         # Wrapped in asyncio.to_thread because urllib is synchronous.
-        if _is_webstation(container):
+        if container.is_webstation:
             launch_result = await asyncio.to_thread(
                 _webstation_activate,
                 container,
                 session_id=str(session["broker_session_id"]),
                 user=request.user,
-                emulator=_emulator_for_container(container),
+                emulator=container.emulator,
                 rom={
                     "id": rom.id,
                     "name": rom_name,
@@ -4242,35 +3553,13 @@ async def claim_session(
             )
         )
 
-    host = container.get("host", "")
-    if _is_webstation(container):
-        # Activate answers with the room URL carrying the claiming user's
-        # token, relative to the container root. An absolute path replaces
-        # whatever path the configured host carries.
-        room_url = (
-            str(launch_result.get("url", "")) if isinstance(launch_result, dict) else ""
-        )
-        if room_url:
-            host = urljoin(host, room_url)
-    else:
-        # The broker mints a stream token bound to this session and returns it
-        # in the launch body. Append it so the iframe URL carries it, the broker
-        # swaps it for a cookie on first load. No token means the gate is not
-        # deployed on that container, so leave host untouched.
-        stream_token = (
-            launch_result.get("stream_token", "")
-            if isinstance(launch_result, dict)
-            else ""
-        )
-        if stream_token:
-            sep = "&" if "?" in host else "?"
-            host = f"{host}{sep}stream_token={stream_token}"
+    host = container.protocol.stream_url(container.host, launch_result)
 
     return JSONResponse(
         {
             "platform": platform,
             "host": host,
-            "label": container.get("label", platform.upper()),
+            "label": container.label,
             "rom_name": rom_name,
             "claimed_at": now,
             # None when no resume was requested; False signals the frontend
@@ -4299,7 +3588,7 @@ async def save_and_exit_session(
     # save+kill for these containers even on the navigate-away (wait=false)
     # path. Otherwise the evacuate below can read a card the emulator is
     # still writing, and the wipe can race its exit flush.
-    card_sync = _memory_card_sync_enabled(container)
+    card_sync = container.memory_card_sync
     effective_wait = True if card_sync else req.wait
     saved, effective_slot = await asyncio.to_thread(
         _save_and_exit_broker, container, slot=req.slot, wait=effective_wait
@@ -4409,7 +3698,7 @@ async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
     session, so a force-released player learns why on the poll they are already
     making rather than watching a dead stream.
     """
-    candidates = _containers_for_platform(platform)
+    candidates = containers_for_platform(platform)
     if not candidates:
         raise HTTPException(
             status_code=404,
@@ -4470,8 +3759,8 @@ async def join_session(
         found = (candidate, session) if session is not None else None
     else:
         found = None
-        for candidate in _containers_for_platform(platform):
-            session = await _get_live_session(_container_key(candidate))
+        for candidate in containers_for_platform(platform):
+            session = await _get_live_session(candidate.key)
             if session is None:
                 continue
             if session.get("multiplayer"):
@@ -4496,7 +3785,7 @@ async def join_session(
         request, session, not_found_detail=f"No active session on platform '{platform}'"
     )
 
-    if not _is_webstation(candidate):
+    if not candidate.protocol.supports_join:
         raise HTTPException(
             status_code=409, detail="That container does not support joining"
         )
@@ -4509,8 +3798,8 @@ async def join_session(
     return JSONResponse(
         {
             "platform": platform,
-            "host": urljoin(candidate.get("host", ""), room_url),
-            "label": candidate.get("label", platform.upper()),
+            "host": urljoin(candidate.host, room_url),
+            "label": candidate.label,
             "rom_id": session.get("rom_id"),
             "rom_name": session.get("rom_name"),
         }
@@ -4656,7 +3945,7 @@ async def swap_disc(
     # Container-scoped, not platform-scoped: only the webstation broker has a
     # tray route, so a legacy container serving this platform gets the same
     # refusal the frontend was told to expect rather than a 502 from the broker.
-    if not _container_capabilities(container)["supports_disc_swap"]:
+    if not container.capabilities["supports_disc_swap"]:
         raise HTTPException(
             status_code=400, detail=f"Platform '{platform}' cannot swap discs"
         )
@@ -4677,7 +3966,7 @@ async def swap_disc(
     if req.file_id not in _swappable_disc_file_ids(rom):
         raise HTTPException(status_code=400, detail="File is not a swappable disc")
 
-    library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
+    library_base = container.library_path
     disc_path = f"{library_base}/{rom_file.full_path}"
     ok = await asyncio.to_thread(_swap_disc_broker, container, disc_path)
     if not ok:
@@ -4750,7 +4039,7 @@ async def release_session(
 
 
 async def _teardown_released_session(
-    container: dict[str, Any],
+    container: ResolvedContainer,
     session: dict[str, Any],
     session_key: str,
     platform: str,
@@ -4815,7 +4104,7 @@ async def _teardown_released_session(
         # Legacy per-file save pull, only for containers not on whole-card sync.
         # Fire and forget: it reads files the broker keeps after the emulator
         # dies, so it does not gate the claim release above it.
-        if isinstance(rom_id, int) and not _memory_card_sync_enabled(container):
+        if isinstance(rom_id, int) and not container.memory_card_sync:
             _spawn_sync_task(
                 _pull_saves_to_library(
                     session["user_id"],
@@ -4838,20 +4127,20 @@ async def _teardown_released_session(
         await _drop_reservation(session_key, token, session)
 
 
-def _container_by_key(container_key: str) -> tuple[dict[str, Any], str]:
+def _container_by_key(container_key: str) -> tuple[ResolvedContainer, str]:
     """A configured container named by its key, plus the platform to file its
     sessions under.
 
     The session routes are platform-keyed, so a container serving several gets
-    the first, which `_container_for_session` resolves back to this entry.
+    the first, which `container_for_session` resolves back to this entry.
     Raises 404 when the key names no container.
     """
-    entries = _containers_by_key().get(container_key) if container_key else None
-    if not entries or not _get_streaming_config().get("enabled", False):
+    entries = containers_by_key().get(container_key) if container_key else None
+    if not entries:
         raise HTTPException(
             status_code=404, detail=f"No streaming container '{container_key}'"
         )
-    return entries[0], str(entries[0].get("platform", ""))
+    return entries[0], entries[0].platform
 
 
 @protected_route(router.get, "/containers", [Scope.ROMS_READ])
@@ -4865,10 +4154,8 @@ async def list_containers(request: Request) -> JSONResponse:
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    cfg = _get_streaming_config()
-    labels = _container_labels()
     containers: list[dict[str, Any]] = []
-    for container_key, entries in _containers_by_key().items():
+    for container_key, entries in containers_by_key().items():
         first = entries[0]
         session = await _get_live_session(container_key) if container_key else None
         user_id = session.get("user_id") if session else None
@@ -4876,12 +4163,10 @@ async def list_containers(request: Request) -> JSONResponse:
         containers.append(
             {
                 "container": container_key,
-                "label": _container_label(labels, container_key, entries),
-                "host": first.get("host"),
-                "platforms": [e.get("platform") for e in entries if e.get("platform")],
-                # The desktop emulator lives on the webstation broker only; the
-                # per-emulator mods have no activate route to ask for it.
-                "supports_desktop": _is_webstation(first),
+                "label": first.container_label or first.label,
+                "host": first.host,
+                "platforms": [e.platform for e in entries],
+                "supports_desktop": first.protocol.supports_desktop,
                 # A container whose host has no scheme has an empty key and can
                 # never be claimed, so surface it rather than listing it as idle.
                 "configured": bool(container_key),
@@ -4900,9 +4185,7 @@ async def list_containers(request: Request) -> JSONResponse:
                 ),
             }
         )
-    return JSONResponse(
-        {"enabled": cfg.get("enabled", False), "containers": containers}
-    )
+    return JSONResponse({"enabled": streaming_enabled(), "containers": containers})
 
 
 @protected_route(router.post, "/desktop", [Scope.ROMS_USER_WRITE])
@@ -4923,13 +4206,13 @@ async def claim_desktop_session(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     container, platform = _container_by_key(req.container)
-    if not _is_webstation(container):
+    if not container.protocol.supports_desktop:
         raise HTTPException(
             status_code=400,
             detail="This container's broker does not serve a desktop session",
         )
 
-    session_key = _container_key(container)
+    session_key = container.key
     now = datetime.now(timezone.utc).isoformat()
     session = {
         "user_id": request.user.id,
@@ -4979,7 +4262,7 @@ async def claim_desktop_session(
         await _abort_claim(session_key)
         raise
 
-    host = container.get("host", "")
+    host = container.host
     room_url = str(launch_result.get("url", "")) if launch_result else ""
     if room_url:
         host = urljoin(host, room_url)
@@ -4991,10 +4274,21 @@ async def claim_desktop_session(
             "container": session_key,
             "platform": platform,
             "host": host,
-            "label": container.get("label", platform.upper()),
+            "label": container.label,
             "claimed_at": now,
         }
     )
+
+
+def _joinable_container_label(
+    grouped: dict[str, list[ResolvedContainer]], container_key: str
+) -> str | None:
+    """What to call the box a joinable session runs on. The container's own
+    label, not the per-platform one: the row names a container, not a game."""
+    entries = grouped.get(container_key)
+    if not entries:
+        return None
+    return entries[0].container_label or entries[0].label
 
 
 @protected_route(router.get, "/sessions/joinable", [Scope.ROMS_READ])
@@ -5007,8 +4301,7 @@ async def list_joinable_sessions(
     sessions whose host opted into multiplayer at launch, and only the fields
     a Join button needs. Sessions the caller is already hosting are left out.
     """
-    grouped = _containers_by_key()
-    labels = _container_labels()
+    grouped = containers_by_key()
 
     sessions: list[dict[str, Any]] = []
     async for container_key, s in _iter_live_sessions():
@@ -5032,9 +4325,7 @@ async def list_joinable_sessions(
         sessions.append(
             {
                 "container": container_key,
-                "label": _container_label(
-                    labels, container_key, grouped.get(container_key, [])
-                ),
+                "label": _joinable_container_label(grouped, container_key),
                 "platform": s.get("platform"),
                 "rom_id": session_rom_id,
                 "rom_name": s.get("rom_name"),
@@ -5062,19 +4353,17 @@ async def list_sessions(request: Request) -> JSONResponse:
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    grouped = _containers_by_key()
+    grouped = containers_by_key()
 
     sessions: list[dict[str, Any]] = []
     async for container_key, s in _iter_live_sessions():
-        container = (
-            _container_for_session(grouped, container_key, s.get("platform")) or {}
-        )
+        container = container_for_session(grouped, container_key, s.get("platform"))
         user_id = s.get("user_id")
         user = db_user_handler.get_user(user_id) if user_id is not None else None
         sessions.append(
             {
                 "container": container_key,
-                "label": container.get("label"),
+                "label": container.label if container else None,
                 "platform": s.get("platform"),
                 "rom_id": s.get("rom_id"),
                 "rom_name": s.get("rom_name"),
@@ -5100,13 +4389,13 @@ async def force_release_all(
 
     # Map container keys back to configs so each broker can be told to stop -
     # deleting only the Redis keys would leave the games running.
-    grouped = _containers_by_key()
+    grouped = containers_by_key()
 
     async def _teardown(key: str | bytes, container_key: str) -> None:
         # Read before the teardown so the displaced player can be identified
         # even when the container config has since been removed.
         session = await _get_session(container_key)
-        container = _container_for_session(
+        container = container_for_session(
             grouped, container_key, session.get("platform") if session else None
         )
 

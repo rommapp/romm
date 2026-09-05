@@ -1,0 +1,180 @@
+"""The two shapes of streaming broker RomM talks to.
+
+A container runs either the webstation broker (one container hosting several
+emulators, everything under a subfolder) or one of the older per-emulator
+broker mods. They differ in where their routes live, how long each verb may
+take, what an accepted call looks like in the reply, and which verbs exist at
+all. Resolving that once, at the config boundary, is what keeps the difference
+out of every call site: see docs/STREAMING_MIGRATION.md for the config shapes.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from typing import Any
+from urllib.parse import quote, urljoin
+
+from config import STREAMING_SAVE_TIMEOUT
+
+# A verb the broker only acknowledges: it answers as soon as it has accepted
+# the request, not when the emulator is done.
+BROKER_ACK_TIMEOUT = 5
+# A load-state cycles up to 9 slots at ~5s of xdotool each on the slowest
+# broker, so the worst case is minutes rather than seconds.
+BROKER_LOAD_STATE_TIMEOUT = 60
+
+
+class BrokerProtocol:
+    """Where a broker's routes live and what its answers mean."""
+
+    name: str
+    # Whether the broker has a tray route that can change discs on a running
+    # game. Without it the frontend must not offer the control at all.
+    supports_disc_swap: bool
+    # Whether a second viewer can be given a seat on a running session.
+    supports_join: bool
+    # Whether the container can run a bare desktop rather than an emulator.
+    supports_desktop: bool
+    # Whether save-and-exit can be told not to wait for the save to land.
+    supports_background_exit: bool
+    # Whether the broker reports how far a long launch has got. Without it a
+    # launch is opaque until it finishes.
+    reports_launch_phase: bool
+    # What save-state may take, and the key its reply reports success under.
+    save_state_timeout: int
+    _save_state_key: str
+
+    def session_route(self, path: str) -> str:
+        """A session control verb (`/launch`, `/save-state`, `/stop`, ...)."""
+        raise NotImplementedError
+
+    def transfer_route(self, path: str) -> str:
+        """A state or memory card body transfer."""
+        raise NotImplementedError
+
+    def memory_card_route(self, emulator: str, platform: str) -> str:
+        """Where this broker serves the whole Slot-1 card."""
+        raise NotImplementedError
+
+    def save_state_accepted(self, body: dict[str, Any] | None) -> bool:
+        """Whether a /save-state reply means the save is under way."""
+        return bool(body and body.get(self._save_state_key, False))
+
+    def stream_url(self, host: str, launch_result: Any) -> str:
+        """The browser-facing URL for a session this broker just started.
+
+        Both protocols hand back the caller's own credential in the launch
+        reply, but in different shapes, so each builds its own iframe URL.
+        """
+        raise NotImplementedError
+
+
+class LegacyBrokerProtocol(BrokerProtocol):
+    """A per-emulator broker mod, serving one emulator off the container root.
+
+    Deprecated in favour of the webstation shape; kept working for one more
+    release. Its save-state is asynchronous, so it reports that it has started
+    rather than that it has finished.
+    """
+
+    name = "legacy"
+    supports_disc_swap = False
+    supports_join = False
+    supports_desktop = False
+    supports_background_exit = True
+    reports_launch_phase = False
+    save_state_timeout = BROKER_ACK_TIMEOUT
+    _save_state_key = "status"
+
+    def session_route(self, path: str) -> str:
+        return path
+
+    def transfer_route(self, path: str) -> str:
+        return path
+
+    def memory_card_route(self, emulator: str, platform: str) -> str:
+        # It serves the one card it has, and ignores which emulator asked.
+        return "/memory-card"
+
+    def save_state_accepted(self, body: dict[str, Any] | None) -> bool:
+        return bool(body and body.get("status") == "saving")
+
+    def stream_url(self, host: str, launch_result: Any) -> str:
+        # The broker mints a stream token bound to this session and returns it
+        # in the launch body. Appended so the iframe URL carries it; the broker
+        # swaps it for a cookie on first load. No token means the gate is not
+        # deployed on that container, so the host is left untouched.
+        token = (
+            launch_result.get("stream_token", "")
+            if isinstance(launch_result, dict)
+            else ""
+        )
+        if not token:
+            return host
+        separator = "&" if "?" in host else "?"
+        return f"{host}{separator}stream_token={token}"
+
+
+class WebstationProtocol(BrokerProtocol):
+    """The webstation broker: several emulators behind one subfolder.
+
+    Its save-state is synchronous (it answers once the emulator acked the
+    write), so it needs the same budget as an exit save.
+    """
+
+    name = "webstation"
+    supports_disc_swap = True
+    supports_join = True
+    supports_desktop = True
+    supports_background_exit = False
+    reports_launch_phase = True
+    save_state_timeout = STREAMING_SAVE_TIMEOUT
+    _save_state_key = "saved"
+
+    def __init__(self, subfolder: str = "/streaming") -> None:
+        cleaned = subfolder.strip() or "/streaming"
+        if not cleaned.startswith("/"):
+            cleaned = f"/{cleaned}"
+        self.subfolder = cleaned.rstrip("/")
+
+    def session_route(self, path: str) -> str:
+        return f"{self.subfolder}/api/session{path}"
+
+    def transfer_route(self, path: str) -> str:
+        return self.session_route(path)
+
+    def memory_card_route(self, emulator: str, platform: str) -> str:
+        # One container hosts several emulators and the card belongs to the
+        # emulator, not the session. The platform disambiguates an emulator
+        # that only has a card on some of what it serves (Dolphin: GC, not Wii).
+        query = (
+            f"emulator={quote(emulator, safe='')}&platform={quote(platform, safe='')}"
+        )
+        return self.transfer_route(f"/memory-card?{query}")
+
+    def stream_url(self, host: str, launch_result: Any) -> str:
+        # Activate answers with the room URL carrying the claiming user's
+        # token, relative to the container root. An absolute path replaces
+        # whatever path the configured host carries.
+        room_url = (
+            str(launch_result.get("url", "")) if isinstance(launch_result, dict) else ""
+        )
+        return urljoin(host, room_url) if room_url else host
+
+
+LEGACY_PROTOCOL = LegacyBrokerProtocol()
+
+
+# Interned per subfolder, so two containers configured the same way share one
+# protocol object and the records holding them compare equal.
+@lru_cache(maxsize=None)
+def _webstation_protocol(subfolder: str) -> WebstationProtocol:
+    return WebstationProtocol(subfolder)
+
+
+def protocol_for(protocol_name: Any, subfolder: Any) -> BrokerProtocol:
+    """The protocol a raw container entry declares. Anything but an explicit
+    `protocol: webstation` is the deprecated per-emulator shape."""
+    if str(protocol_name or "").strip().lower() != "webstation":
+        return LEGACY_PROTOCOL
+    return _webstation_protocol(str(subfolder or "/streaming"))
