@@ -1,5 +1,8 @@
+import hashlib
 import io
+import shutil
 import struct
+import subprocess
 import tarfile
 import time
 import zipfile
@@ -679,3 +682,43 @@ class TestZipUndecodableCompression:
             ]
 
         assert result == [("game.bin", 64, b"B" * 64)]
+
+
+_SEVEN_ZIP = shutil.which("7zz") or archives.SEVEN_ZIP_PATH
+
+
+@pytest.mark.skipif(not shutil.which(_SEVEN_ZIP), reason="7zz not installed")
+def test_real_ppmd_zip_hashes_through_7zz(tmp_path):
+    """End-to-end on a zip 7zz itself wrote: a PPMd .bin next to a stored .cue."""
+    source = tmp_path / "src"
+    source.mkdir()
+    # Random bytes don't compress, so 7zz would silently store them instead.
+    track = (b"sector data track audio pregap index " * 4000)[:150000]
+    cue = b'FILE "Game (USA) (Track 01).cue" BINARY\n  TRACK 01 MODE2/2352\n'
+    (source / "Game (USA) (Track 01).bin").write_bytes(track)
+    (source / "Game (USA).cue").write_bytes(cue)
+    zip_path = tmp_path / "Game (USA).zip"
+    for member, method in (
+        ("Game (USA) (Track 01).bin", "PPMd"),
+        ("Game (USA).cue", "Copy"),
+    ):
+        subprocess.run(
+            [_SEVEN_ZIP, "a", "-tzip", f"-mm={method}", str(zip_path), member],
+            cwd=source,
+            check=True,
+            capture_output=True,
+        )
+
+    with zipfile.ZipFile(zip_path) as z, pytest.raises(NotImplementedError):
+        z.open("Game (USA) (Track 01).bin").close()
+
+    with patch.object(archives, "SEVEN_ZIP_PATH", _SEVEN_ZIP):
+        result = [
+            (name, size, hashlib.sha1(b"".join(chunks)).hexdigest())
+            for name, size, chunks in archives.read_zip_archive_files(zip_path, [], [])
+        ]
+
+    assert result == [
+        ("Game (USA) (Track 01).bin", len(track), hashlib.sha1(track).hexdigest()),
+        ("Game (USA).cue", len(cue), hashlib.sha1(cue).hexdigest()),
+    ]
