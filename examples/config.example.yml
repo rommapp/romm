@@ -195,11 +195,9 @@
 #       3: # Player 4
 
 # Emulator streaming: play a ROM through a real emulator in a webstation
-# container, streamed to the browser instead of RomM's built-in web cores.
+# container, streamed to the browser.
 # Supported platforms, emulators and BIOS requirements:
 # https://docs.romm.app/latest/using/emulator-streaming/
-# Migrating off the deprecated per-emulator broker mods (containers with a
-# bare `platform:` key and no `protocol`): docs/STREAMING_MIGRATION.md
 #
 # streaming:
 #   enabled: true
