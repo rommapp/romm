@@ -754,13 +754,13 @@ class ScreenScraperService:
             log.debug("ScreenScraper: could not re-check the daily quota (%s)", exc)
             return False
 
-        # Only a reading this probe brought back is evidence. A body with no
-        # ssuser block leaves the module's limits at their pre-wall value, which
-        # still shows the headroom the account had before it ran out.
+        # Only a readable reading this probe brought back is evidence. A body
+        # with no ssuser block leaves the module's limits at their pre-wall
+        # value, which still shows the headroom the account had before it ran
+        # out; one whose counters are missing or unparseable reports nothing.
         limits = _state.account_limits
-        if limits is limits_before or (
-            limits is not None and limits.remaining_requests == 0
-        ):
+        remaining = limits.remaining_requests if limits is not None else None
+        if limits is limits_before or not remaining:
             return False
 
         log.info("ScreenScraper: the daily scrape quota is available again, resuming")

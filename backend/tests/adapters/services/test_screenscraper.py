@@ -1866,6 +1866,30 @@ class TestDailyQuotaBreaker:
         assert session.get.call_count == 1
 
     @pytest.mark.asyncio
+    async def test_a_re_check_with_no_usable_counters_stays_armed(self, service):
+        """An ssuser block with nothing readable in it is a reading in name only:
+        it replaces the limits, so an identity check calls it fresh evidence,
+        while it says nothing about whether the allowance came back."""
+        _, context = self._session(
+            self._account(maxrequestsperday="20000", requeststoday="10"),
+            *(self._refused() for _ in range(SS_QUOTA_TRIP_THRESHOLD)),
+        )
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+            await self._arm(service, context)
+
+        session, context = self._session(self._account())
+        self._due_for_a_recheck()
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(HTTPException):
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert is_daily_quota_exhausted() is True
+        assert session.get.call_count == 1
+
+    @pytest.mark.asyncio
     async def test_a_refusal_that_keeps_not_sticking_is_reported_once(
         self, service, monkeypatch
     ):
