@@ -13,7 +13,7 @@ from collections.abc import Coroutine
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import Annotated, Any, Literal, TypedDict
-from urllib.parse import quote, urljoin
+from urllib.parse import quote
 
 from fastapi import BackgroundTasks, Body, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -82,7 +82,7 @@ from handler.streaming.config import (
     resolve_containers,
     streaming_enabled,
 )
-from handler.streaming.protocol import ACK_TIMEOUT
+from handler.streaming.protocol import ACK_TIMEOUT, room_url_on
 from handler.streaming.session_store import (
     DRAIN_MARKER_TTL,
     STREAMING_SESSION_DRAIN_SECONDS,
@@ -3144,7 +3144,7 @@ async def join_session(
 
     return JoinedSessionSchema(
         platform=platform,
-        host=urljoin(candidate.host, room_url),
+        host=room_url_on(candidate.host, room_url),
         label=candidate.label,
         rom_id=session.get("rom_id"),
         rom_name=session.get("rom_name"),
@@ -3591,10 +3591,8 @@ async def claim_desktop_session(
         await _abort_claim(session_key, session)
         raise
 
-    host = container.host
     room_url = str(launch_result.get("url", "")) if launch_result else ""
-    if room_url:
-        host = urljoin(host, room_url)
+    host = room_url_on(container.host, room_url)
 
     await stamp_launched(session_key, session)
     log.info("desktop session claimed, container=%s", session_key)

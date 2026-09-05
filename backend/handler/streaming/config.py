@@ -171,6 +171,19 @@ class ResolvedContainer:
         return self.protocol.memory_card_route(self.emulator, self.platform)
 
 
+def _loggable(entry: dict[str, Any]) -> dict[str, Any]:
+    """A raw config entry without its shared secret, so a warning can name the
+    container it means without printing the secret into the log."""
+    redacted = {k: v for k, v in entry.items() if k != "broker_secret"}
+    platforms = redacted.get("platforms")
+    if isinstance(platforms, dict):
+        redacted["platforms"] = {
+            platform: _loggable(options) if isinstance(options, dict) else options
+            for platform, options in platforms.items()
+        }
+    return redacted
+
+
 def parse_host_url(host: str) -> str | None:
     """Validate a configured host/broker_host and return it stripped, or None
     when it has no scheme (urlparse yields hostname=None for a bare
@@ -238,7 +251,7 @@ def _resolve_one(
             "container for platform '%s' missing a scheme-bearing host or a "
             "proxied path, it cannot be claimed: %s",
             platform,
-            entry,
+            _loggable(entry),
         )
     else:
         broker_host = _derive_broker_host(entry, protocol)
@@ -249,7 +262,7 @@ def _resolve_one(
                 "container for platform '%s' has no reachable broker, set "
                 "broker_host, it cannot be claimed: %s",
                 platform,
-                entry,
+                _loggable(entry),
             )
 
     emulator = _emulator_namespace(entry)
@@ -302,7 +315,9 @@ def _platform_entries(entry: dict[str, Any]) -> list[tuple[dict[str, Any], str]]
     if platforms is None:
         platform = str(entry.get("platform", "")).strip()
         if not platform:
-            log.warning("container missing platform/host, skipping: %s", entry)
+            log.warning(
+                "container missing platform/host, skipping: %s", _loggable(entry)
+            )
             return []
         return [(entry, platform)]
 
@@ -310,14 +325,14 @@ def _platform_entries(entry: dict[str, Any]) -> list[tuple[dict[str, Any], str]]
         log.warning(
             "container `platforms` must be a map of platform to emulator, "
             "skipping: %s",
-            entry,
+            _loggable(entry),
         )
         return []
     if entry.get("platform"):
         log.warning(
             "container declares both `platform` and `platforms`, "
             "serving `platforms` only: %s",
-            entry,
+            _loggable(entry),
         )
 
     base = {k: v for k, v in entry.items() if k != "platforms"}

@@ -9,13 +9,38 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Any
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlparse
 
 from config import STREAMING_SAVE_TIMEOUT
+from logger.logger import log
 
 # A verb the broker only acknowledges: it answers as soon as it has accepted
 # the request, not when the emulator is done.
 ACK_TIMEOUT = 5
+
+
+def room_url_on(host: str, room_url: str) -> str:
+    """A broker's room URL resolved against the container it came from.
+
+    The reply is the broker's own, and urljoin keeps an absolute URL (or an
+    opaque `javascript:`) verbatim, so an answer that leaves the configured
+    host is dropped rather than handed to a browser as an iframe source.
+    """
+    if not room_url:
+        return host
+    resolved = urljoin(host, room_url)
+    base, target = urlparse(host), urlparse(resolved)
+    # A container reverse proxied onto RomM's own origin is configured as a
+    # bare path, and its rooms stay paths.
+    on_host = (
+        (target.scheme, target.netloc) == (base.scheme, base.netloc)
+        if base.scheme
+        else not target.scheme and not target.netloc
+    )
+    if not on_host:
+        log.warning("broker answered with a room URL off its own host, ignoring it")
+        return host
+    return resolved
 
 
 class BrokerProtocol:
@@ -149,7 +174,7 @@ class WebstationProtocol(BrokerProtocol):
         room_url = (
             str(launch_result.get("url", "")) if isinstance(launch_result, dict) else ""
         )
-        return urljoin(host, room_url) if room_url else host
+        return room_url_on(host, room_url)
 
 
 LEGACY_PROTOCOL = LegacyBrokerProtocol()

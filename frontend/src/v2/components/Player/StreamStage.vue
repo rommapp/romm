@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useEventListener } from "@vueuse/core";
-import { onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 
 // The surface a streaming session renders into: the container's iframe, the
 // auto-hiding control bar over it, and the focus handling the emulator needs
@@ -30,6 +30,21 @@ const BAR_REVEAL_BAND_PX = 6;
 const FRAME_LISTENER_OPTS = { capture: true, passive: true } as const;
 
 const hotEdgeHeight = `${BAR_REVEAL_BAND_PX}px`;
+
+// The container URL is the broker's own answer, relayed by the backend, so
+// only an ordinary web URL may reach the iframe: a `javascript:` source would
+// run in RomM's origin rather than the container's.
+const frameSrc = computed(() => {
+  if (!props.src) return "";
+  try {
+    const { protocol } = new URL(props.src, window.location.origin);
+    if (protocol === "http:" || protocol === "https:") return props.src;
+  } catch {
+    // Unparseable, so there is nothing safe to render.
+  }
+  console.warn("Refusing to render a container URL that is not http(s)");
+  return "";
+});
 
 const stageRef = ref<HTMLElement | null>(null);
 const streamFrame = ref<HTMLIFrameElement | null>(null);
@@ -287,7 +302,7 @@ function clearAttachTimeouts(): void {
 }
 
 watch(
-  () => props.src,
+  frameSrc,
   (src) => {
     clearAttachTimeouts();
     sameOrigin.value = false;
@@ -363,14 +378,17 @@ defineExpose({
     role="presentation"
     @mousemove="handleStageMouseMove"
   >
+    <!-- No allow-top-navigation: a container page must not be able to steer
+         the tab it is embedded in. -->
     <iframe
-      v-if="src"
+      v-if="frameSrc"
       ref="streamFrame"
-      :src="src"
+      :src="frameSrc"
       class="r-v2-stage__frame"
       allow="gamepad *; fullscreen *; autoplay *"
       allowfullscreen
       referrerpolicy="no-referrer"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-pointer-lock allow-downloads"
       :title="frameTitle"
     />
 

@@ -253,6 +253,30 @@ def test_get_config_warns_on_missing_platform(client, access_token, caplog):
     assert "missing platform/host" in caplog.text
 
 
+def test_a_config_warning_does_not_print_the_broker_secret(
+    client, access_token, caplog
+):
+    """A misconfigured container is named in the log so the operator can find
+    it, and the entry naming it carries the shared secret."""
+    bad_container = {
+        "host": "192.168.1.10:3000",  # no scheme
+        "platforms": {"ps2": {"emulator": "pcsx2", "broker_secret": "nested"}},
+        "broker_secret": "hunter2",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(bad_container):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                client.get("/api/streaming/config", headers=_auth(access_token))
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+    assert "it cannot be claimed" in caplog.text
+    assert "hunter2" not in caplog.text
+    assert "nested" not in caplog.text
+
+
 def test_get_config_ships_platform_capabilities(client, access_token):
     """The slot capabilities the frontend selector reads come from /config, so
     they are not a second hardcoded copy."""
@@ -1319,6 +1343,22 @@ def test_desktop_claims_the_named_container(client, access_token):
     # No ROM: the broker registers the desktop with requires_rom False, and
     # sending one would make exit try to sync saves that do not exist.
     assert "rom" not in activate.call_args.kwargs
+
+
+@pytest.mark.parametrize(
+    "room_url",
+    ["javascript:alert(1)", "https://evil.example/room", "data:text/html,x"],
+)
+def test_desktop_ignores_a_room_url_that_leaves_the_container(
+    client, access_token, room_url
+):
+    """The URL is the broker's answer and the browser renders it in an iframe,
+    so one that is not on the configured host must not reach the player."""
+    with _streaming(_webstation()):
+        key = _key_of(_first_container("ps2"))
+        response, _ = _desktop(client, access_token, key, url=room_url)
+
+    assert response.json()["host"] == "http://192.168.1.10:3000"
 
 
 def test_desktop_and_a_game_block_each_other(client, access_token):
@@ -5360,6 +5400,21 @@ def test_joining_a_multiplayer_session_returns_its_room_url(
 
     assert response.status_code == 200
     assert response.json()["host"] == "http://192.168.1.10:3000/webstation/?token=abc"
+
+
+def test_joining_ignores_a_room_url_that_leaves_the_container(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Same guard as a claim: a joiner's iframe stays on the configured host."""
+    with _streaming(_ws_for(rom)):
+        _claim_multiplayer(client, access_token, rom.id)
+        with patch(
+            "endpoints.streaming._webstation_join",
+            return_value={"url": "https://evil.example/room"},
+        ):
+            response = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert response.json()["host"] == "http://192.168.1.10:3000"
 
 
 def test_joining_a_hidden_rom_is_404_masked(
