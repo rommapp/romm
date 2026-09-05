@@ -1,14 +1,11 @@
 import type { AxiosResponse } from "axios";
 import type {
-  ConverttoConfig,
-  ConverttoSettingsPayload,
+  ConvertoSettingsPayload,
   ExclusionPayload,
   PlatformBindingPayload,
   ScanSettingsPayload,
 } from "@/__generated__";
 import api from "@/services/api";
-
-export type { ConverttoConfig };
 
 export const configApi = api;
 
@@ -81,9 +78,9 @@ async function updateScanSettings(payload: ScanSettingsPayload) {
   );
 }
 
-async function updateConverttoSettings(payload: ConverttoSettingsPayload) {
-  return api.put<void, AxiosResponse<void>, ConverttoSettingsPayload>(
-    "/config/convertto_settings",
+async function updateConvertoSettings(payload: ConvertoSettingsPayload) {
+  return api.put<void, AxiosResponse<void>, ConvertoSettingsPayload>(
+    "/config/converto_settings",
     payload,
   );
 }
@@ -96,5 +93,5 @@ export default {
   addExclusion,
   deleteExclusion,
   updateScanSettings,
-  updateConverttoSettings,
+  updateConvertoSettings,
 };
