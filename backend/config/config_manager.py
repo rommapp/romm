@@ -927,8 +927,8 @@ class ConfigManager:
                 "config.yml has %d streaming container(s) still using the "
                 "per-emulator broker mods (no `protocol: webstation`). That "
                 "protocol is deprecated and support for it will be removed "
-                "in a future release. See docs/STREAMING_MIGRATION.md to "
-                "move to a webstation container.",
+                "in a future release. See https://docs.romm.app/latest/using/emulator-streaming-migration/ "
+                "to move to a webstation container.",
                 len(legacy_containers),
             )
 

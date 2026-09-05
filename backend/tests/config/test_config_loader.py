@@ -386,7 +386,7 @@ def test_legacy_streaming_container_logs_deprecation_warning(caplog, tmp_path):
 
     assert loader.config.STREAMING_CONTAINERS
     assert "deprecated" in caplog.text
-    assert "STREAMING_MIGRATION" in caplog.text
+    assert "emulator-streaming-migration" in caplog.text
 
 
 def test_webstation_streaming_container_does_not_warn(caplog, tmp_path):

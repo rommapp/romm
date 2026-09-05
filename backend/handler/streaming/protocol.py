@@ -1,8 +1,8 @@
 """The two broker shapes: the webstation one, and the deprecated per-emulator mods.
 
 They differ in route prefixes, timeouts, what an accepted call looks like in the
-reply, and which verbs exist at all. See docs/STREAMING_MIGRATION.md for the
-config each one takes.
+reply, and which verbs exist at all. See https://docs.romm.app/latest/using/emulator-streaming-migration/
+for the config each one takes.
 """
 
 from __future__ import annotations
