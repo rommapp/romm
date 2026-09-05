@@ -440,7 +440,7 @@
   "show-status": "Durumu göster",
   "show-status-desc": "Galeride durum ikonlarını göster (beklemede, oynanıyor, tamamlandı vb.)",
   "show-virtual-collections": "Otomatik koleksiyonları göster",
-  "show-virtual-collections-desc": "Ana sayfada ve koleksiyonlar kenar çubuğunda görüntülenir.",
+  "show-virtual-collections-desc": "Ana sayfada, koleksiyonlar sayfasında ve koleksiyonlar kenar çubuğunda görüntülenir.",
   "sort-by-game-count": "Oyun sayısına göre sırala",
   "sort-by-name": "Ada göre sırala",
   "sort-by-size": "Boyuta göre sırala",
