@@ -225,11 +225,7 @@ def is_daily_quota_exhausted() -> bool:
 
 
 def is_breaker_tripped() -> bool:
-    """Whether a breaker has taken ScreenScraper out for the rest of this scan.
-
-    The lookups answer empty once one trips, which a caller must not read as
-    "ScreenScraper has nothing for this ROM".
-    """
+    """Whether a breaker has taken ScreenScraper out for the rest of this scan."""
     return _state.daily_quota_exhausted or _state.credentials_rejected is not None
 
 

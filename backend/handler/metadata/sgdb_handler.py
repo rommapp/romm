@@ -111,12 +111,7 @@ class SGDBBaseHandler(MetadataHandler):
         return list(filter(None, results))
 
     async def get_details_by_names(self, game_names: list[str]) -> SGDBRom:
-        """Get ROM details by candidate game names.
-
-        Raises when the lookup fails, so a caller can tell an unreachable
-        SteamGridDB from a name it has no art for. Callers that would rather
-        carry on than fail decide that for themselves.
-        """
+        """Get ROM details by candidate game names, raising when the lookup fails."""
         if not self.is_enabled():
             return SGDBRom(sgdb_id=None)
 

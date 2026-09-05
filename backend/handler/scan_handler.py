@@ -604,6 +604,22 @@ async def scan_rom(
     # no id for it never enters the set, so a rescan can't clear what it can't redo.
     attempted_sources: set[MetadataSource] = set()
 
+    def resolve_fetch(source: MetadataSource, result: Any, fallback: Any) -> Any:
+        """Unwrap a gathered lookup, falling back to an empty match when it failed."""
+        if not isinstance(result, BaseException):
+            return result
+        if not isinstance(result, Exception):
+            raise result
+
+        # A provider that blew up ruled nothing out, so it no longer counts as
+        # attempted and a complete rescan keeps the id it already had.
+        attempted_sources.discard(source)
+        log.error(
+            f"Error fetching {hl(source)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
+            extra=LOGGER_MODULE_NAME,
+        )
+        return fallback
+
     @functools.cache
     def get_match_files() -> list[RomFile]:
         """Files used for hash-based metadata matching, fetched at most once."""
@@ -1141,23 +1157,12 @@ async def scan_rom(
         *(coro for _, coro, _ in provider_fetches), return_exceptions=True
     )
 
-    resolved: list[Any] = []
-    for (source, _, fallback), result in zip(
-        provider_fetches, fetch_results, strict=True
-    ):
-        if isinstance(result, BaseException):
-            if not isinstance(result, Exception):
-                raise result
-            # A provider that blew up ruled nothing out, so it no longer counts
-            # as attempted and a complete rescan keeps the id it already had.
-            attempted_sources.discard(source)
-            log.error(
-                f"Error fetching {hl(source)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
-                extra=LOGGER_MODULE_NAME,
-            )
-            resolved.append(fallback)
-        else:
-            resolved.append(result)
+    resolved: list[Any] = [
+        resolve_fetch(source, result, fallback)
+        for (source, _, fallback), result in zip(
+            provider_fetches, fetch_results, strict=True
+        )
+    ]
 
     # Once a ScreenScraper breaker trips, the remaining lookups answer empty
     # without asking, so it has ruled nothing out for this rom either.
@@ -1526,16 +1531,18 @@ async def scan_rom(
 
         return SGDBRom(sgdb_id=None)
 
-    try:
-        sgdb_hander_rom = await fetch_sgdb_details(playmatch_hash_match)
-    except Exception as exc:
-        # A failure ruled nothing out, so the id the rom already had stands.
-        attempted_sources.discard(MetadataSource.SGDB)
-        log.error(
-            f"Error fetching {hl(MetadataSource.SGDB)} metadata for {hl(rom_attrs['fs_name'])}: {exc}",
-            extra=LOGGER_MODULE_NAME,
-        )
-        sgdb_hander_rom = SGDBRom(sgdb_id=None)
+    # SteamGridDB searches on the names the other providers just produced, so it
+    # can't join the gather above, but it resolves the same way.
+    (sgdb_result,) = await asyncio.gather(
+        fetch_sgdb_details(playmatch_hash_match), return_exceptions=True
+    )
+    sgdb_hander_rom = resolve_fetch(
+        MetadataSource.SGDB, sgdb_result, SGDBRom(sgdb_id=None)
+    )
+
+    # Resolving this late means missing the reset block above, so clear its id here.
+    if is_complete_rescan and MetadataSource.SGDB in attempted_sources:
+        rom_attrs["sgdb_id"] = None
 
     if sgdb_hander_rom.get("sgdb_id"):
         rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
@@ -1555,10 +1562,6 @@ async def scan_rom(
             )
             if ranked[0] == MetadataSource.SGDB:
                 rom_attrs["url_cover"] = sgdb_cover
-    elif is_complete_rescan and MetadataSource.SGDB in attempted_sources:
-        # SteamGridDB resolves after the reset block above, so it has to clear
-        # its own stale id when its lookup came back empty.
-        rom_attrs["sgdb_id"] = None
 
     log.info(
         f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",

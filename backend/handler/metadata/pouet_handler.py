@@ -297,11 +297,7 @@ def production_to_rom(prod: dict[str, Any]) -> PouetRom:
 
 
 def _unavailable() -> HTTPException:
-    """The error every unreachable-Pouët path raises.
-
-    A scan reads an empty match as "this production is gone" and drops the id it
-    had, so a lookup that failed must not answer with one.
-    """
+    """The error every unreachable-Pouët path raises."""
     return HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Can't connect to Pouët API, check your internet connection",

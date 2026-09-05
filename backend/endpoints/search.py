@@ -1,4 +1,5 @@
 import asyncio
+from typing import TypeVar
 
 from fastapi import HTTPException, Request, status
 
@@ -37,10 +38,25 @@ from logger.logger import log
 from utils import emoji
 from utils.router import APIRouter
 
+_CoverRomT = TypeVar("_CoverRomT", SGDBRom, LibretroRom)
+
 router = APIRouter(
     prefix="/search",
     tags=["search"],
 )
+
+
+def _fetched_covers(
+    results: list[tuple[str, _CoverRomT] | BaseException], provider: str
+) -> list[tuple[str, _CoverRomT]]:
+    """Drop the cover lookups that failed, keeping the ones that answered."""
+    fetched = []
+    for result in results:
+        if isinstance(result, BaseException):
+            log.error("Error fetching %s covers: %s", provider, result)
+        else:
+            fetched.append(result)
+    return fetched
 
 
 @protected_route(router.get, "/roms", [Scope.ROMS_READ])
@@ -220,24 +236,24 @@ async def search_rom(
                 }
 
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:
-        # Cover art on top of matches the other providers already produced, so
-        # an unreachable SteamGridDB costs a thumbnail rather than the results.
-        try:
-            return name, await meta_sgdb_handler.get_details_by_names([name])
-        except Exception as exc:
-            log.error("Error fetching SteamGridDB covers for '%s': %s", name, exc)
-            return name, SGDBRom(sgdb_id=None)
+        return name, await meta_sgdb_handler.get_details_by_names([name])
 
     async def get_libretro_rom(name: str) -> tuple[str, LibretroRom]:
         return name, await meta_libretro_handler.get_rom(name, rom.platform.slug)
 
+    # These two only add cover art to matches the other providers already
+    # produced, so an unreachable one costs a thumbnail rather than the results.
     merged_names = list(merged_dict.keys())
     sgdb_roms, libretro_roms = await asyncio.gather(
-        asyncio.gather(*[get_sgdb_rom(name) for name in merged_names]),
-        asyncio.gather(*[get_libretro_rom(name) for name in merged_names]),
+        asyncio.gather(
+            *[get_sgdb_rom(name) for name in merged_names], return_exceptions=True
+        ),
+        asyncio.gather(
+            *[get_libretro_rom(name) for name in merged_names], return_exceptions=True
+        ),
     )
 
-    for name, sgdb_rom in sgdb_roms:
+    for name, sgdb_rom in _fetched_covers(sgdb_roms, "SteamGridDB"):
         if sgdb_rom["sgdb_id"]:
             merged_dict[name] = {
                 **merged_dict[name],
@@ -245,7 +261,7 @@ async def search_rom(
                 "sgdb_url_cover": sgdb_rom.get("url_cover", ""),
             }
 
-    for name, libretro_rom in libretro_roms:
+    for name, libretro_rom in _fetched_covers(libretro_roms, "Libretro"):
         if libretro_rom["libretro_id"]:
             merged_dict[name] = {
                 **merged_dict[name],
