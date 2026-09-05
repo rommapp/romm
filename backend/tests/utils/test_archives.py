@@ -575,7 +575,8 @@ class TestZipUndecodableCompression:
     """Zips using a method zipfile can't decode must be read through 7zz, not
     hashed as a container (GitHub issue #4159)."""
 
-    ZIP_PPMD = 98
+    # An id the zip spec never assigned, so no Python release can learn to decode it.
+    UNASSIGNED_METHOD = 0xFFFF
 
     def _write_zip(
         self, path: Path, members: dict[str, bytes], stamped: frozenset[str]
@@ -590,9 +591,9 @@ class TestZipUndecodableCompression:
             encoded = name.encode()
             # The name follows a 30-byte local header and a 46-byte central one.
             local = raw.index(encoded, raw.index(b"PK\x03\x04")) - 30
-            struct.pack_into("<H", raw, local + 8, self.ZIP_PPMD)
+            struct.pack_into("<H", raw, local + 8, self.UNASSIGNED_METHOD)
             central = raw.index(encoded, raw.index(b"PK\x01\x02")) - 46
-            struct.pack_into("<H", raw, central + 10, self.ZIP_PPMD)
+            struct.pack_into("<H", raw, central + 10, self.UNASSIGNED_METHOD)
         path.write_bytes(bytes(raw))
 
     def test_stamped_zip_is_rejected_by_zipfile(self, tmp_path):
