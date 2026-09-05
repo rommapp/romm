@@ -9,7 +9,7 @@ RomM is a self-hosted ROM manager and player: scan a game library off disk, enri
 |           | Backend                                     | Frontend                                  |
 | --------- | ------------------------------------------- | ----------------------------------------- |
 | Path      | `backend/`                                  | `frontend/`                               |
-| Language  | Python 3.13+                                | TypeScript 5.7 (Vue 3)                    |
+| Language  | Python 3.14+                                | TypeScript 5.7 (Vue 3)                    |
 | Framework | FastAPI, SQLAlchemy 2.0, Alembic            | Vue 3 + Vite, Vuetify, Pinia, Vue Router  |
 | Infra     | Redis + RQ (jobs/cache/sessions), Socket.IO | vue-i18n, Socket.IO client                |
 | DB        | MariaDB (default), MySQL, PostgreSQL        | -                                         |

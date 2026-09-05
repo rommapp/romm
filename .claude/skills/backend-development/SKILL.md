@@ -5,7 +5,7 @@ description: Working on the RomM Python backend (backend/) — a FastAPI app wit
 
 # RomM Backend — FastAPI / SQLAlchemy
 
-Python 3.13+, FastAPI, SQLAlchemy 2.0 (MariaDB default; MySQL/PostgreSQL supported), Alembic, Redis + RQ for jobs/cache/sessions, Socket.IO for real-time. Managed with **uv**.
+Python 3.14+, FastAPI, SQLAlchemy 2.0 (MariaDB default; MySQL/PostgreSQL supported), Alembic, Redis + RQ for jobs/cache/sessions, Socket.IO for real-time. Managed with **uv**.
 
 Full reference: **`docs/BACKEND_ARCHITECTURE.md`** (directory map, ER diagram, every endpoint, auth flows). Read it before non-trivial changes.
 
