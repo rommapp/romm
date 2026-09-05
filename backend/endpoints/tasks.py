@@ -45,6 +45,7 @@ VISIBLE_SCHEDULED_TASKS: Final[dict[str, Task]] = {
         "scan_library",
         "update_launchbox_metadata",
         "update_switch_titledb",
+        "build_recommendations",
         "convert_images_to_webp",
         "cleanup_zip_cache",
         "cleanup_orphaned_resources",

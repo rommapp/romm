@@ -429,6 +429,8 @@
   "show-platforms-desc": "在主页上显示平台部分",
   "show-recently-added": "显示最近添加的 Rom 文件",
   "show-recently-added-desc": "在主页上显示最近添加的 Rom 文件部分",
+  "show-recommendations": "显示推荐",
+  "show-recommendations-desc": "在主页和游戏详情页显示推荐",
   "show-regions": "显示区域",
   "show-regions-desc": "在游戏库中显示区域标识",
   "show-siblings": "显示版本",

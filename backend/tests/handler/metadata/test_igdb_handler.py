@@ -1,11 +1,18 @@
 """Tests for the IGDB metadata handler."""
 
 import json
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.services.igdb_types import GameType
+from adapters.services.igdb_types import (
+    AlternativeName,
+    ExpandableField,
+    Game,
+    GameLocalization,
+    GameType,
+)
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.igdb_handler import (
     FAMICOM_IGDB_ID,
@@ -14,8 +21,10 @@ from handler.metadata.igdb_handler import (
     SNES_IGDB_ID,
     SUPER_FAMICOM_IGDB_ID,
     IGDBHandler,
+    IGDBMetadata,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    extract_metadata_from_igdb_rom,
     get_igdb_preferred_locale,
 )
 from handler.redis_handler import async_cache
@@ -28,12 +37,20 @@ def _make_game(
     name: str,
     alternative_names: list[str] | None = None,
     game_localizations: list[str] | None = None,
-) -> dict:
-    """Build a minimal IGDB Game dict for testing.
+) -> Game:
+    """Build a minimal IGDB Game for testing.
 
     ``alternative_names`` and ``game_localizations`` accept plain title strings
     and are wrapped into the ``{"name": ...}`` shape IGDB returns.
     """
+    alt_names: list[ExpandableField[AlternativeName]] = [
+        AlternativeName(id=i, name=n)
+        for i, n in enumerate(alternative_names or [], start=1)
+    ]
+    localizations: list[ExpandableField[GameLocalization]] = [
+        GameLocalization(id=i, name=n)
+        for i, n in enumerate(game_localizations or [], start=1)
+    ]
     return {
         "id": game_id,
         "name": name,
@@ -41,14 +58,11 @@ def _make_game(
         "summary": "",
         "total_rating": 0.0,
         "aggregated_rating": 0.0,
-        "first_release_date": None,
         "artworks": [],
-        "cover": None,
         "screenshots": [],
         "platforms": [{"id": GENESIS_IGDB_ID, "name": "Sega Mega Drive/Genesis"}],
-        "alternative_names": [{"name": n} for n in (alternative_names or [])],
+        "alternative_names": alt_names,
         "genres": [],
-        "franchise": None,
         "franchises": [],
         "collections": [],
         "game_modes": [],
@@ -63,7 +77,7 @@ def _make_game(
         "videos": [],
         "age_ratings": [],
         "multiplayer_modes": [],
-        "game_localizations": [{"name": n} for n in (game_localizations or [])],
+        "game_localizations": localizations,
     }
 
 
@@ -879,3 +893,83 @@ class TestSearchRomPrefixSupersetVariant:
         assert result is not None
         assert result["id"] == 42
         search_mock.assert_not_awaited()
+
+
+def _extract_metadata(**overrides: Any) -> IGDBMetadata:
+    """Run the extractor over a minimal game with the given fields overridden."""
+    game = _make_game(1, "Test Game")
+    game.update(cast("Game", overrides))
+    return extract_metadata_from_igdb_rom(IGDBHandler(), game, GENESIS_IGDB_ID)
+
+
+class TestFranchiseDeduplication:
+    """IGDB sends the main franchise both on its own and inside `franchises`.
+
+    Measured on a 14,952-game library: 1,080 of 8,788 games carrying a
+    franchise carried it twice (12.3%), reaching the details page as
+    "Happy Feet, Happy Feet".
+    """
+
+    def test_the_main_franchise_is_not_repeated_inside_the_list(self):
+        metadata = _extract_metadata(
+            franchise={"name": "Happy Feet"},
+            franchises=[{"name": "Happy Feet"}, {"name": "Mumble"}],
+        )
+
+        assert metadata["franchises"] == ["Happy Feet", "Mumble"]
+
+    def test_the_main_franchise_stays_first(self):
+        """`gamelist` exports `franchises[0]` as <family>, so order matters."""
+        metadata = _extract_metadata(
+            franchise={"name": "Metroid"},
+            franchises=[{"name": "Metroid"}, {"name": "Super Metroid"}],
+        )
+
+        assert metadata["franchises"][0] == "Metroid"
+
+    def test_distinct_franchises_are_both_kept(self):
+        metadata = _extract_metadata(
+            franchise={"name": "Madden"},
+            franchises=[{"name": "NFL"}],
+        )
+
+        assert metadata["franchises"] == ["Madden", "NFL"]
+
+
+class TestCompanyRoleDeduplication:
+    """`involved_companies` carries one entry per involvement, not per company.
+
+    A studio credited as both developer and publisher therefore appears twice
+    in its role list. Measured on a 14,952-game library: 235 developer lists
+    and 131 publisher lists repeated a name.
+    """
+
+    def test_a_studio_credited_twice_in_one_role_is_listed_once(self):
+        involved = [
+            {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
+            {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
+        ]
+
+        assert _extract_metadata(involved_companies=involved)["developers"] == ["Cavia"]
+
+    def test_a_studio_that_both_made_and_shipped_a_game_holds_both_roles(self):
+        """The two lists legitimately overlap; neither may repeat internally."""
+        involved = [
+            {"company": {"name": "Nintendo"}, "developer": True, "publisher": True},
+        ]
+
+        metadata = _extract_metadata(involved_companies=involved)
+
+        assert metadata["developers"] == ["Nintendo"]
+        assert metadata["publishers"] == ["Nintendo"]
+
+    def test_distinct_developers_keep_their_order(self):
+        involved = [
+            {"company": {"name": "Crystal Dynamics"}, "developer": True},
+            {"company": {"name": "Nixxes Software"}, "developer": True},
+        ]
+
+        assert _extract_metadata(involved_companies=involved)["developers"] == [
+            "Crystal Dynamics",
+            "Nixxes Software",
+        ]

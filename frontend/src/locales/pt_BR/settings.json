@@ -429,6 +429,8 @@
   "show-platforms-desc": "Mostrar seção de plataformas na página inicial",
   "show-recently-added": "Mostrar ROMs adicionados recentemente",
   "show-recently-added-desc": "Mostrar seção de ROMs adicionados recentemente na página inicial",
+  "show-recommendations": "Mostrar recomendações",
+  "show-recommendations-desc": "Mostrar as recomendações na página inicial e na página de detalhes de um jogo",
   "show-regions": "Mostrar regiões",
   "show-regions-desc": "Mostrar bandeiras de regiões na galeria",
   "show-siblings": "Mostrar versões",

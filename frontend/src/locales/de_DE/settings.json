@@ -429,6 +429,8 @@
   "show-platforms-desc": "Plattformen werden auf der Startseite dargestellt",
   "show-recently-added": "Zeige kürzlich hinzugefügte ROMs",
   "show-recently-added-desc": "Kürzlich hinzugefügte ROMs werden auf der Startseite dargestellt",
+  "show-recommendations": "Zeige Empfehlungen",
+  "show-recommendations-desc": "Empfehlungen auf der Startseite und auf der Detailseite eines Spiels anzeigen",
   "show-regions": "Zeige Regionen",
   "show-regions-desc": "Zeige die Regionen des ROMs als Flaggen in der Galerie",
   "show-siblings": "Zeige Versionen",

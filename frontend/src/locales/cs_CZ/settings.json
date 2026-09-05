@@ -429,6 +429,8 @@
   "show-platforms-desc": "Zobrazit sekci platforem na hlavní stránce",
   "show-recently-added": "Zobrazit nedávno přidané ROM",
   "show-recently-added-desc": "Zobrazit sekci nedávno přidaných ROM na hlavní stránce",
+  "show-recommendations": "Zobrazit doporučení",
+  "show-recommendations-desc": "Zobrazit doporučení na domovské stránce a na stránce s detaily hry",
   "show-regions": "Zobrazit regiony",
   "show-regions-desc": "Zobrazit vlajky regionů v galerii",
   "show-siblings": "Zobrazit verze",

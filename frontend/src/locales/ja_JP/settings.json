@@ -429,6 +429,8 @@
   "show-platforms-desc": "ホームにプラットフォームを表示",
   "show-recently-added": "最近追加されたromを表示",
   "show-recently-added-desc": "ホームに最近追加されたromセクションを表示",
+  "show-recommendations": "おすすめを表示",
+  "show-recommendations-desc": "ホーム画面とゲームの詳細ページにおすすめを表示します",
   "show-regions": "リージョンを表示",
   "show-regions-desc": "ギャラリーにリージョンを表示",
   "show-siblings": "バージョンを表示",
