@@ -39,6 +39,16 @@ SWAP_DISC_TIMEOUT = 120
 CARD_HYDRATE_TIMEOUT = 120
 CARD_TEARDOWN_TIMEOUT = 30
 
+# A pulled save archive can be large (PCSX2 ships whole 8 MB memory cards, a
+# Wii NAND can hold many titles); 256 MB is generous for every emulator that
+# separates its saves from its states.
+SAVE_FILE_MAX_BYTES = 256 * 1024 * 1024
+
+# Pull retries cover the window between the broker accepting a save and the
+# emulator finishing the write (PINE/xdotool waits run up to ~15s per broker).
+PULL_ATTEMPTS = 5
+PULL_RETRY_DELAY = 3.0
+
 
 def broker_url(container: ResolvedContainer, path: str) -> str:
     """

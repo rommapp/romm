@@ -34,7 +34,16 @@ from handler.database import (
 )
 from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache
-from handler.streaming import session_store
+from handler.streaming import (
+    access,
+    commands,
+    lifecycle,
+    memory_cards,
+    saves,
+    session_store,
+    states,
+    webstation,
+)
 from handler.streaming.capabilities import (
     DEFAULT_STATE_TRANSFER,
     NO_CAPABILITIES,
@@ -53,6 +62,7 @@ from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.user import User
+from utils.memory_cards import content_hash_of_bytes
 
 # ── Fixtures / helpers ────────────────────────────────────────────────────────
 
@@ -212,7 +222,7 @@ def _pushes() -> Iterator[list[tuple[str, dict[str, Any]]]]:
     async def _capture(user_id: Any, event: str, payload: dict[str, Any]) -> None:
         sent.append((event, payload))
 
-    with patch("endpoints.streaming.push_to_user", new=_capture):
+    with patch("handler.streaming.launch.push_to_user", new=_capture):
         yield sent
 
 
@@ -223,7 +233,7 @@ def _launch_ready(sent: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
 
 def _claim_ok(client, token, rom_id):
     """Claim with the broker launch stubbed, the common happy-path setup."""
-    with patch("endpoints.streaming._call_broker"):
+    with patch("handler.streaming.commands.launch"):
         return _claim(client, token, rom_id)
 
 
@@ -502,8 +512,8 @@ def test_get_config_offers_disc_swap_only_on_a_webstation_container(
             "/api/streaming/config", headers=_auth(access_token)
         ).json()["containers"][0]["capabilities"]
 
-    webstation = {**legacy, "protocol": "webstation"}
-    with _streaming(webstation):
+    tray = {**legacy, "protocol": "webstation"}
+    with _streaming(tray):
         ws_caps = client.get(
             "/api/streaming/config", headers=_auth(access_token)
         ).json()["containers"][0]["capabilities"]
@@ -668,7 +678,7 @@ def test_platforms_that_is_not_a_map_skips_the_container(caplog):
 def test_claim_derives_rom_path_server_side(client, access_token, rom: Rom):
     """The broker must receive a path built from the DB row, not client input."""
     with _streaming(_container_for(rom)):
-        with patch("endpoints.streaming._call_broker") as call_broker:
+        with patch("handler.streaming.commands.launch") as call_broker:
             r = _claim(client, access_token, rom.id)
     assert r.status_code == 202
     assert r.json()["rom_name"] == rom.name
@@ -681,7 +691,7 @@ def test_claim_honors_container_library_path(client, access_token, rom: Rom):
     broker gets a path valid inside a container with a different mount."""
     container = {**_container_for(rom), "library_path": "/mnt/games/"}
     with _streaming(container):
-        with patch("endpoints.streaming._call_broker") as call_broker:
+        with patch("handler.streaming.commands.launch") as call_broker:
             r = _claim(client, access_token, rom.id)
     assert r.status_code == 202
     _, rom_path, _, _ = call_broker.call_args[0]
@@ -694,7 +704,7 @@ def test_claim_appends_stream_token_to_host(client, access_token, rom: Rom):
     launch response."""
     container = {**_container_for(rom), "host": "https://stream.example:3001"}
     with _streaming(container):
-        with patch("endpoints.streaming._call_broker") as call_broker:
+        with patch("handler.streaming.commands.launch") as call_broker:
             call_broker.return_value = {
                 "status": "launching",
                 "stream_token": "tok-abc",
@@ -716,7 +726,7 @@ def test_claim_appends_stream_token_with_ampersand_when_host_has_query(
         "host": "https://stream.example:3001/?path=abc",
     }
     with _streaming(container):
-        with patch("endpoints.streaming._call_broker") as call_broker:
+        with patch("handler.streaming.commands.launch") as call_broker:
             call_broker.return_value = {
                 "status": "launching",
                 "stream_token": "tok-abc",
@@ -737,7 +747,7 @@ def test_claim_leaves_host_unchanged_when_broker_returns_no_token(
     not inject a token, its .get(...) is truthy but is not a real dict."""
     container = {**_container_for(rom), "host": "https://stream.example:3001"}
     with _streaming(container):
-        with patch("endpoints.streaming._call_broker") as call_broker:
+        with patch("handler.streaming.commands.launch") as call_broker:
             call_broker.return_value = {"status": "launching"}
             with _pushes() as sent:
                 r = _claim(client, access_token, rom.id)
@@ -772,7 +782,7 @@ def test_a_failed_launch_pushes_the_reason_and_frees_the_container(
 ):
     with _streaming(_container_for(rom)):
         with patch(
-            "endpoints.streaming._call_broker",
+            "handler.streaming.commands.launch",
             side_effect=HTTPException(status_code=502, detail="broker said no"),
         ):
             with _pushes() as sent:
@@ -800,14 +810,16 @@ def test_launch_phase_is_pushed_while_a_webstation_unpacks(
 
     with _streaming(_webstation_for(rom)):
         with (
-            patch("endpoints.streaming._LAUNCH_PHASE_POLL_SECONDS", 0.05),
+            patch("handler.streaming.launch.PHASE_POLL_SECONDS", 0.05),
             patch(
-                "endpoints.streaming._webstation_launch_phase",
+                "handler.streaming.webstation.launch_phase",
                 side_effect=phases + ["installing"] * 20,
             ),
-            patch("endpoints.streaming._webstation_activate", _activate),
-            patch("endpoints.streaming._spawn_sync_task"),
-            patch("endpoints.streaming._hydrate_saves_to_webstation", new=AsyncMock()),
+            patch("handler.streaming.webstation.activate", _activate),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation", new=AsyncMock()
+            ),
         ):
             with _pushes() as sent:
                 r = _claim(client, access_token, rom.id)
@@ -833,7 +845,7 @@ def test_claim_hidden_rom_is_404_masked(
     _hide(PermEntity.ROMS, rom.id, viewer_user.id)
     with _streaming(_container_for(rom)):
         # If the visibility check were missing this would 200 and launch.
-        with patch("endpoints.streaming._call_broker") as call_broker:
+        with patch("handler.streaming.commands.launch") as call_broker:
             r = _claim(client, viewer_access_token, rom.id)
     assert r.status_code == 404
     call_broker.assert_not_called()
@@ -845,7 +857,7 @@ def test_claim_rom_on_hidden_platform_is_404_masked(
     """Hiding the parent platform cascades: its ROMs cannot be streamed either."""
     _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
     with _streaming(_container_for(rom)):
-        with patch("endpoints.streaming._call_broker") as call_broker:
+        with patch("handler.streaming.commands.launch") as call_broker:
             r = _claim(client, viewer_access_token, rom.id)
     assert r.status_code == 404
     call_broker.assert_not_called()
@@ -899,7 +911,7 @@ async def test_claim_sets_session_ttl(access_token, rom: Rom):
     """A claimed session must carry a TTL so an abandoned one eventually frees
     the container instead of wedging it forever."""
     with _streaming(_container_for(rom)):
-        with patch("endpoints.streaming._call_broker"):
+        with patch("handler.streaming.commands.launch"):
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app), base_url="http://test"
             ) as ac:
@@ -962,7 +974,7 @@ def test_failed_broker_launch_frees_the_claim(client, access_token, rom: Rom):
     player as a push rather than as the claim's own status."""
     with _streaming(_container_for(rom)):
         with patch(
-            "endpoints.streaming._call_broker",
+            "handler.streaming.commands.launch",
             side_effect=HTTPException(status_code=503, detail="unreachable"),
         ):
             with _pushes() as sent:
@@ -978,7 +990,7 @@ def test_failed_broker_launch_frees_the_claim(client, access_token, rom: Rom):
 async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
     """Two concurrent claims on one container: exactly one 200 and one 409."""
     with _streaming(_container_for(rom)):
-        with patch("endpoints.streaming._call_broker"):
+        with patch("handler.streaming.commands.launch"):
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app), base_url="http://test"
             ) as ac:
@@ -1055,9 +1067,7 @@ def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
         _age_session_on(
             _pool_member(rom, 0), session_store._STREAMING_SESSION_STALE_SECONDS + 60
         )
-        with patch(
-            "endpoints.streaming._stop_broker", return_value=None
-        ) as stop_broker:
+        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r2.status_code == 202
     assert r2.json()["container"] == _key_of(_pool_member(rom, 1))
@@ -1074,9 +1084,7 @@ def test_pool_takes_over_a_stale_session_once_every_container_is_held(
         _age_session_on(
             _pool_member(rom, 1), session_store._STREAMING_SESSION_STALE_SECONDS + 60
         )
-        with patch(
-            "endpoints.streaming._stop_broker", return_value=None
-        ) as stop_broker:
+        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
             r3 = _claim_ok(client, viewer_access_token, rom.id)
     assert r3.status_code == 202
     assert r3.json()["container"] == _key_of(_pool_member(rom, 1))
@@ -1091,7 +1099,9 @@ def test_control_routes_follow_the_session_not_the_platform(
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("endpoints.streaming._volume_broker", return_value=True) as volume:
+        with patch(
+            "handler.streaming.commands.set_volume", return_value=True
+        ) as volume:
             r = _volume(client, viewer_access_token, rom.platform_slug)
     assert r.status_code == 200
     assert volume.call_args[0][0].host == "http://192.168.1.11:3000"
@@ -1114,7 +1124,9 @@ def test_an_admin_controls_the_pools_one_active_session(
     theirs and falls back to the session that is actually running."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("endpoints.streaming._volume_broker", return_value=True) as volume:
+        with patch(
+            "handler.streaming.commands.set_volume", return_value=True
+        ) as volume:
             r = _volume(client, access_token, rom.platform_slug)
     assert r.status_code == 200
     assert volume.call_args[0][0].host == "http://192.168.1.10:3000"
@@ -1139,7 +1151,7 @@ def test_admin_release_names_the_container(
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, viewer_access_token, rom.id)
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker", return_value=None):
+        with patch("handler.streaming.commands.stop", return_value=None):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 params={"container": _key_of(_pool_member(rom, 1))},
@@ -1171,7 +1183,7 @@ def test_status_finds_the_termination_on_whichever_container_held_it(
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker", return_value=None):
+        with patch("handler.streaming.commands.stop", return_value=None):
             client.delete(
                 "/api/streaming/sessions",
                 params={"reason": "maintenance"},
@@ -1260,7 +1272,7 @@ def _containers(client, token):
 def _desktop(client, token, container_key: str, url="/streaming/room/abc"):
     """Open a desktop with the broker activation stubbed."""
     with patch(
-        "endpoints.streaming._webstation_activate", return_value={"url": url}
+        "handler.streaming.webstation.activate", return_value={"url": url}
     ) as activate:
         response = client.post(
             "/api/streaming/desktop",
@@ -1283,7 +1295,7 @@ def _claim_webstation_ok(client, token, rom_id):
     """Claim a game on a webstation container, whose launch goes through
     activate rather than the per-emulator mods' /launch."""
     with patch(
-        "endpoints.streaming._webstation_activate", return_value={"url": "/room/x"}
+        "handler.streaming.webstation.activate", return_value={"url": "/room/x"}
     ):
         return _claim(client, token, rom_id)
 
@@ -1406,7 +1418,7 @@ def test_desktop_frees_the_claim_when_activation_fails(client, access_token):
         container = _first_container("ps2")
         key = _key_of(container)
         with patch(
-            "endpoints.streaming._webstation_activate",
+            "handler.streaming.webstation.activate",
             side_effect=HTTPException(status_code=503, detail="down"),
         ):
             response = client.post(
@@ -1425,8 +1437,8 @@ def test_releasing_a_desktop_session_syncs_nothing_to_the_library(client, access
         container = _first_container("ps2")
         assert _desktop(client, access_token, _key_of(container))[0].status_code == 200
         with (
-            patch("endpoints.streaming._stop_broker", return_value=None) as stop,
-            patch("endpoints.streaming._spawn_sync_task") as spawn,
+            patch("handler.streaming.commands.stop", return_value=None) as stop,
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             response = client.delete(
                 f"/api/streaming/sessions/{container.platform}",
@@ -1478,10 +1490,10 @@ def test_webstation_save_state_posts_under_the_subfolder():
     not at the bare paths the per-emulator mods serve."""
     container = _webstation_ps2()
     with patch(
-        "endpoints.streaming.urllib.request.urlopen",
+        "handler.streaming.broker.urllib.request.urlopen",
         return_value=_webstation_json({"status": "saved", "slot": 10, "saved": True}),
     ) as urlopen:
-        assert streaming._save_state_broker(_resolved(container), 10) is True
+        assert commands.save_state(_resolved(container), 10) is True
     assert urlopen.call_args.args[0].full_url.endswith(
         "/streaming/api/session/save-state"
     )
@@ -1492,19 +1504,19 @@ def test_webstation_save_state_reports_a_refused_save():
     so the status field is what decides, not the HTTP code."""
     container = _webstation_ps2()
     with patch(
-        "endpoints.streaming.urllib.request.urlopen",
+        "handler.streaming.broker.urllib.request.urlopen",
         return_value=_webstation_json({"status": "failed", "slot": 10, "saved": False}),
     ):
-        assert streaming._save_state_broker(_resolved(container), 10) is False
+        assert commands.save_state(_resolved(container), 10) is False
 
 
 def test_webstation_load_state_posts_under_the_subfolder():
     container = _webstation_ps2()
     with patch(
-        "endpoints.streaming.urllib.request.urlopen",
+        "handler.streaming.broker.urllib.request.urlopen",
         return_value=_webstation_json({"status": "loaded", "slot": 3, "loaded": True}),
     ) as urlopen:
-        assert streaming._load_state_broker(_resolved(container), 3) is True
+        assert commands.load_state(_resolved(container), 3) is True
     assert urlopen.call_args.args[0].full_url.endswith(
         "/streaming/api/session/load-state"
     )
@@ -1514,22 +1526,19 @@ def test_webstation_load_state_reports_an_empty_slot():
     """Loading a slot that holds no state file is a failed load, not an error."""
     container = _webstation_ps2()
     with patch(
-        "endpoints.streaming.urllib.request.urlopen",
+        "handler.streaming.broker.urllib.request.urlopen",
         return_value=_webstation_json({"status": "failed", "slot": 3, "loaded": False}),
     ):
-        assert streaming._load_state_broker(_resolved(container), 3) is False
+        assert commands.load_state(_resolved(container), 3) is False
 
 
 def test_webstation_swap_disc_posts_under_the_subfolder():
     container = _webstation_ps2()
     with patch(
-        "endpoints.streaming.urllib.request.urlopen",
+        "handler.streaming.broker.urllib.request.urlopen",
         return_value=_webstation_json({"status": "ok", "path": "/library/disc2.chd"}),
     ) as urlopen:
-        assert (
-            streaming._swap_disc_broker(_resolved(container), "/library/disc2.chd")
-            is True
-        )
+        assert commands.swap_disc(_resolved(container), "/library/disc2.chd") is True
     assert urlopen.call_args.args[0].full_url.endswith(
         "/streaming/api/session/swap-disc"
     )
@@ -1541,24 +1550,18 @@ def test_webstation_swap_disc_reports_a_broker_refusal():
     failed swap, not an error."""
     container = _webstation_ps2()
     with patch(
-        "endpoints.streaming.urllib.request.urlopen",
+        "handler.streaming.broker.urllib.request.urlopen",
         return_value=_webstation_json({"status": "error", "detail": "no session"}),
     ):
-        assert (
-            streaming._swap_disc_broker(_resolved(container), "/library/disc2.chd")
-            is False
-        )
+        assert commands.swap_disc(_resolved(container), "/library/disc2.chd") is False
 
 
 def test_swap_disc_broker_has_nothing_to_call_on_a_legacy_container():
     """Only the webstation broker speaks the tray protocol; the per-emulator
     brokers this replaced never learned it."""
     container = _container_for(_rom_on("dc"), broker_host="http://192.168.1.10:8000")
-    with patch("endpoints.streaming.urllib.request.urlopen") as urlopen:
-        assert (
-            streaming._swap_disc_broker(_resolved(container), "/library/disc2.chd")
-            is False
-        )
+    with patch("handler.streaming.broker.urllib.request.urlopen") as urlopen:
+        assert commands.swap_disc(_resolved(container), "/library/disc2.chd") is False
     urlopen.assert_not_called()
 
 
@@ -1601,9 +1604,7 @@ def test_stale_session_taken_over_on_claim(
     with _streaming(_container_for(rom)):
         r1 = _claim_ok(client, access_token, rom.id)
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
-        with patch(
-            "endpoints.streaming._stop_broker", return_value=None
-        ) as stop_broker:
+        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r1.status_code == 202
     assert r2.status_code == 202
@@ -1624,7 +1625,7 @@ def test_takeover_leaves_the_displaced_owner_a_notice(
             )
         )["user_id"]
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
-        with patch("endpoints.streaming._stop_broker", return_value=None):
+        with patch("handler.streaming.commands.stop", return_value=None):
             _claim_ok(client, viewer_access_token, rom.id)
 
         notice = asyncio.run(session_store.get_termination(_key_of(container), owner))
@@ -1656,11 +1657,14 @@ def test_takeover_aborts_when_the_owner_comes_back_first(
             checked = True
             return real_stale(session)
 
-        with patch.object(streaming, "session_is_stale", stale_then_fresh):
-            with patch(
-                "endpoints.streaming._stop_broker", return_value=None
-            ) as stop_broker:
-                r = _claim_ok(client, viewer_access_token, rom.id)
+        # Both callers hold their own reference: the claim route runs the scan,
+        # lifecycle re-checks under the marker.
+        with (
+            patch.object(streaming, "session_is_stale", stale_then_fresh),
+            patch.object(lifecycle, "session_is_stale", stale_then_fresh),
+            patch("handler.streaming.commands.stop", return_value=None) as stop_broker,
+        ):
+            r = _claim_ok(client, viewer_access_token, rom.id)
 
     assert r.status_code == 409
     stop_broker.assert_not_called()
@@ -1673,9 +1677,7 @@ def test_fresh_session_not_taken_over(
     and the running emulator is never stopped."""
     with _streaming(_container_for(rom)):
         r1 = _claim_ok(client, access_token, rom.id)
-        with patch(
-            "endpoints.streaming._stop_broker", return_value=None
-        ) as stop_broker:
+        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r1.status_code == 202
     assert r2.status_code == 409
@@ -1708,14 +1710,14 @@ def test_heartbeat_racing_a_teardown_reports_ended(client, access_token, rom: Ro
         _claim_ok(client, access_token, rom.id)
         key = session_store.session_redis_key(_key_of(container))
 
-        real_find = streaming._find_session_for_user
+        real_find = access.find_session_for_user
 
         async def find_then_drop(*args, **kwargs):
             found = await real_find(*args, **kwargs)
             await async_cache.delete(key)
             return found
 
-        with patch.object(streaming, "_find_session_for_user", find_then_drop):
+        with patch.object(access, "find_session_for_user", find_then_drop):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
                 headers=_auth(access_token),
@@ -1752,7 +1754,7 @@ def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom
         session_key = _key_of(container)
         key = session_store.session_redis_key(session_key)
 
-        real_find = streaming._find_session_for_user
+        real_find = access.find_session_for_user
 
         async def find_then_swap(*args, **kwargs):
             # The swap lands after the heartbeat read its copy of the session.
@@ -1760,7 +1762,7 @@ def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom
             await session_store.set_session_disc(session_key, 4242)
             return found
 
-        with patch.object(streaming, "_find_session_for_user", find_then_swap):
+        with patch.object(access, "find_session_for_user", find_then_swap):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
                 headers=_auth(access_token),
@@ -2092,7 +2094,7 @@ def test_a_slow_launch_keeps_its_own_claim_fresh(client, access_token):
         _streaming(_webstation()),
         patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0.05),
         patch.object(session_store, "_STREAMING_SESSION_STALE_SECONDS", 0.2),
-        patch("endpoints.streaming._webstation_activate", slow_activate),
+        patch("handler.streaming.webstation.activate", slow_activate),
     ):
         assert _claim(client, access_token, ps2_rom.id).status_code == 202
         key = session_store.session_redis_key(_key_of(_first_container("ps2")))
@@ -2108,7 +2110,7 @@ def test_release_uses_container_key_not_platform(client, access_token, rom: Rom)
     """release_session must find the session by broker_host, not platform string."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker", return_value=None):
+        with patch("handler.streaming.commands.stop", return_value=None):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
@@ -2161,12 +2163,15 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._save_and_exit_broker", return_value=(True, 10)),
-            patch("endpoints.streaming._pull_state_to_library", new=AsyncMock()),
+            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch("handler.streaming.states.pull_state_to_library", new=AsyncMock()),
             # Plain MagicMock: the async original would auto-mock to AsyncMock,
             # whose call handed to the mocked spawn is a never-awaited coroutine.
-            patch("endpoints.streaming._pull_saves_to_library", new=MagicMock()),
-            patch("endpoints.streaming._spawn_sync_task", side_effect=spawned.append),
+            patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
+            patch(
+                "handler.streaming.background.spawn_sync_task",
+                side_effect=spawned.append,
+            ),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -2189,7 +2194,7 @@ def test_save_and_exit_failure_still_releases_session(client, access_token, rom:
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with patch(
-            "endpoints.streaming._save_and_exit_broker", return_value=(False, 10)
+            "handler.streaming.commands.save_and_exit", return_value=(False, 10)
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -2209,7 +2214,7 @@ def test_save_and_exit_rejects_a_slot_the_platform_lacks(client, access_token):
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with patch(
-            "endpoints.streaming._save_and_exit_broker", return_value=(True, 9)
+            "handler.streaming.commands.save_and_exit", return_value=(True, 9)
         ) as broker:
             r = client.post(
                 "/api/streaming/sessions/ngc/save-and-exit",
@@ -2224,9 +2229,7 @@ def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
     """Force-release must tell each broker to stop, not just clear Redis."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch(
-            "endpoints.streaming._stop_broker", return_value=None
-        ) as stop_broker:
+        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
             r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
     assert r.status_code == 200
     assert stop_broker.call_count == 1
@@ -2254,7 +2257,7 @@ def test_save_state_allows_platform_autosave_slot(client, access_token):
     rom = _rom_on("ngc")
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._save_state_broker", return_value=True):
+        with patch("handler.streaming.commands.save_state", return_value=True):
             r = client.post(
                 "/api/streaming/sessions/ngc/save-state",
                 json={"slot": 8},
@@ -2269,7 +2272,7 @@ def test_load_state_allows_platform_autosave_slot(client, access_token):
     rom = _rom_on("wii")
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._load_state_broker", return_value=True):
+        with patch("handler.streaming.commands.load_state", return_value=True):
             r = client.post(
                 "/api/streaming/sessions/wii/load-state",
                 json={"slot": 8},
@@ -2312,10 +2315,10 @@ def test_claim_spawns_state_hydration(client, access_token, rom: Rom):
     container's save-state slots from the user's stored states."""
     with _streaming(_container_for(rom)):
         with (
-            patch("endpoints.streaming._call_broker"),
-            patch("endpoints.streaming._spawn_sync_task") as spawn,
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
-                "endpoints.streaming._hydrate_states_to_broker", new=MagicMock()
+                "handler.streaming.states.hydrate_states_to_broker", new=MagicMock()
             ) as hydrate,
         ):
             r = _claim(client, access_token, rom.id)
@@ -2330,10 +2333,10 @@ def test_save_state_spawns_library_pull(client, access_token):
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._save_state_broker", return_value=True),
-            patch("endpoints.streaming._spawn_sync_task") as spawn,
+            patch("handler.streaming.commands.save_state", return_value=True),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
-                "endpoints.streaming._pull_state_to_library", new=MagicMock()
+                "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as pull,
         ):
             r = client.post(
@@ -2355,12 +2358,12 @@ def test_save_and_exit_pulls_broker_effective_slot(client, access_token, rom: Ro
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._save_and_exit_broker", return_value=(True, 10)),
-            patch("endpoints.streaming._spawn_sync_task") as spawn,
+            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
-                "endpoints.streaming._pull_state_to_library", new=MagicMock()
+                "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as pull,
-            patch("endpoints.streaming._pull_saves_to_library", new=MagicMock()),
+            patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -2381,15 +2384,13 @@ def test_save_and_exit_failed_blocking_save_skips_state_pull(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
+            patch("handler.streaming.commands.save_and_exit", return_value=(False, 10)),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
-                "endpoints.streaming._save_and_exit_broker", return_value=(False, 10)
-            ),
-            patch("endpoints.streaming._spawn_sync_task") as spawn,
-            patch(
-                "endpoints.streaming._pull_state_to_library", new=MagicMock()
+                "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as state_pull,
             patch(
-                "endpoints.streaming._pull_saves_to_library", new=MagicMock()
+                "handler.streaming.saves.pull_saves_to_library", new=MagicMock()
             ) as save_pull,
         ):
             r = client.post(
@@ -2414,10 +2415,10 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._save_and_exit_broker", return_value=(True, 10)),
-            patch("endpoints.streaming._pull_state_to_library", new=MagicMock()),
-            patch("endpoints.streaming._pull_saves_to_library", new=MagicMock()),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch("handler.streaming.states.pull_state_to_library", new=MagicMock()),
+            patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -2464,8 +2465,8 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
             )
         )
         with (
-            patch("endpoints.streaming._save_and_exit_broker", return_value=(True, 10)),
-            patch("endpoints.streaming._spawn_sync_task") as spawn,
+            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -2664,17 +2665,15 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
     scanned = _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
     with (
         patch(
-            "endpoints.streaming._fetch_state_file",
+            "handler.streaming.states.fetch_state_file",
             return_value=("Game.03.p2s", b"state-bytes"),
         ),
-        patch("endpoints.streaming._fetch_state_screenshot", return_value=None),
+        patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
     ):
         ok = asyncio.run(
-            streaming._pull_state_to_library(
-                admin_user.id, rom.id, _resolved(container), 3
-            )
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 3)
         )
     assert ok is True
     wf.assert_awaited_once()
@@ -2682,7 +2681,7 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
     # the slot token; the container-side name is recovered by dropping it.
     stored_name = wf.await_args_list[0].kwargs["filename"]
     assert re.fullmatch(r"Game\.\d{8}-\d{12}\.03\.p2s", stored_name)
-    assert streaming._container_state_filename(stored_name) == "Game.03.p2s"
+    assert states.container_state_filename(stored_name) == "Game.03.p2s"
     db_state = db_state_handler.get_state_by_filename(
         user_id=admin_user.id, rom_id=rom.id, file_name="Game.03.p2s"
     )
@@ -2704,11 +2703,11 @@ def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
     )
     with (
         patch(
-            "endpoints.streaming._fetch_state_file",
+            "handler.streaming.states.fetch_state_file",
             return_value=("Game.s03", b"state-bytes"),
         ),
         patch(
-            "endpoints.streaming._fetch_state_screenshot", return_value=_PNG
+            "handler.streaming.states.fetch_state_screenshot", return_value=_PNG
         ) as fetch_shot,
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
@@ -2718,9 +2717,7 @@ def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
         ) as scan_shot,
     ):
         ok = asyncio.run(
-            streaming._pull_state_to_library(
-                admin_user.id, rom.id, _resolved(container), 3
-            )
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 3)
         )
     assert ok is True
     fetch_shot.assert_called_once()
@@ -2746,14 +2743,14 @@ def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
     )
     with (
         patch(
-            "endpoints.streaming._fetch_state_file",
+            "handler.streaming.states.fetch_state_file",
             return_value=("Game.s04", b"state-bytes"),
         ),
         patch(
-            "endpoints.streaming._take_state_frame",
+            "handler.streaming.states.take_state_frame",
             new=AsyncMock(return_value=_PNG),
         ),
-        patch("endpoints.streaming._fetch_state_screenshot") as fetch_shot,
+        patch("handler.streaming.states.fetch_state_screenshot") as fetch_shot,
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
         patch(
@@ -2762,9 +2759,7 @@ def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
         ),
     ):
         ok = asyncio.run(
-            streaming._pull_state_to_library(
-                admin_user.id, rom.id, _resolved(container), 4
-            )
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 4)
         )
     assert ok is True
     fetch_shot.assert_not_called()
@@ -2775,7 +2770,9 @@ def test_state_frame_stashes_capture(client, access_token):
     rom = _rom_on("ps2")
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._stash_state_frame", new=AsyncMock()) as stash:
+        with patch(
+            "handler.streaming.states.stash_state_frame", new=AsyncMock()
+        ) as stash:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/state-frame",
                 content=_PNG,
@@ -2802,11 +2799,13 @@ def test_state_frame_rejects_non_png(client, access_token):
 def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
     """A broker filename that sanitizes to nothing must be dropped, not stored."""
     with (
-        patch("endpoints.streaming._fetch_state_file", return_value=("***", b"bytes")),
+        patch(
+            "handler.streaming.states.fetch_state_file", return_value=("***", b"bytes")
+        ),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
     ):
         ok = asyncio.run(
-            streaming._pull_state_to_library(
+            states.pull_state_to_library(
                 admin_user.id, rom.id, _resolved(_container_for(rom)), 1
             )
         )
@@ -2822,15 +2821,13 @@ def test_hydrate_pushes_only_matching_emulator_states(rom: Rom, admin_user: User
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
         patch(
-            "endpoints.streaming.fs_asset_handler.read_file",
+            "handler.filesystem.fs_asset_handler.read_file",
             new=AsyncMock(return_value=b"state-bytes"),
         ),
-        patch("endpoints.streaming._push_state_file", return_value=True) as push,
+        patch("handler.streaming.states.push_state_file", return_value=True) as push,
     ):
         pushed = asyncio.run(
-            streaming._hydrate_states_to_broker(
-                admin_user.id, rom.id, _resolved(container)
-            )
+            states.hydrate_states_to_broker(admin_user.id, rom.id, _resolved(container))
         )
     assert pushed == 1
     push.assert_called_once()
@@ -2843,15 +2840,13 @@ def test_hydrate_skips_states_missing_on_disk(rom: Rom, admin_user: User):
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
         patch(
-            "endpoints.streaming.fs_asset_handler.read_file",
+            "handler.filesystem.fs_asset_handler.read_file",
             new=AsyncMock(side_effect=FileNotFoundError),
         ),
-        patch("endpoints.streaming._push_state_file", return_value=True) as push,
+        patch("handler.streaming.states.push_state_file", return_value=True) as push,
     ):
         pushed = asyncio.run(
-            streaming._hydrate_states_to_broker(
-                admin_user.id, rom.id, _resolved(container)
-            )
+            states.hydrate_states_to_broker(admin_user.id, rom.id, _resolved(container))
         )
     assert pushed == 0
     push.assert_not_called()
@@ -2872,9 +2867,9 @@ def test_hydrate_skipped_when_resume_state_already_pushed(rom: Rom, admin_user: 
     anything here would overwrite the state the player picked to resume from."""
     db_state_handler.add_state(_state_for(rom, admin_user, "Game.01.p2s", "pcsx2"))
     container = {**_container_for(rom), "label": "PCSX2"}
-    with patch("endpoints.streaming._push_state_file", return_value=True) as push:
+    with patch("handler.streaming.states.push_state_file", return_value=True) as push:
         pushed = asyncio.run(
-            streaming._hydrate_states_to_broker(
+            states.hydrate_states_to_broker(
                 admin_user.id, rom.id, _resolved(container), resume_pushed=True
             )
         )
@@ -2892,15 +2887,13 @@ def test_hydrate_pushes_newest_state_under_container_name(rom: Rom, admin_user: 
         # Both stamps collapse to the same destination name, so only the bytes
         # say which source was read; a constant here would pass either way.
         patch(
-            "endpoints.streaming.fs_asset_handler.read_file",
+            "handler.filesystem.fs_asset_handler.read_file",
             new=AsyncMock(side_effect=lambda path: path.encode()),
         ),
-        patch("endpoints.streaming._push_state_file", return_value=True) as push,
+        patch("handler.streaming.states.push_state_file", return_value=True) as push,
     ):
         pushed = asyncio.run(
-            streaming._hydrate_states_to_broker(
-                admin_user.id, rom.id, _resolved(container)
-            )
+            states.hydrate_states_to_broker(admin_user.id, rom.id, _resolved(container))
         )
     assert pushed == 1
     push.assert_called_once()
@@ -2918,20 +2911,18 @@ def test_pull_state_skips_capture_identical_to_previous(rom: Rom, admin_user: Us
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
         patch(
-            "endpoints.streaming._fetch_state_file",
+            "handler.streaming.states.fetch_state_file",
             return_value=("Game.03.p2s", content),
         ),
-        patch("endpoints.streaming._fetch_state_screenshot", return_value=None),
+        patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
         patch(
-            "endpoints.streaming.fs_asset_handler.read_file",
+            "handler.filesystem.fs_asset_handler.read_file",
             new=AsyncMock(return_value=content),
         ),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
     ):
         ok = asyncio.run(
-            streaming._pull_state_to_library(
-                admin_user.id, rom.id, _resolved(container), 3
-            )
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 3)
         )
     assert ok is True
     wf.assert_not_awaited()
@@ -2943,12 +2934,12 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
     for day in range(1, 4):
         _add_state_at(rom, admin_user, f"Game.2026010{day}-000000000000.01.p2s", day)
     with (
-        patch("endpoints.streaming.STREAMING_STATE_HISTORY_LIMIT", 2),
+        patch("handler.streaming.states.STREAMING_STATE_HISTORY_LIMIT", 2),
         patch(
-            "endpoints.streaming.fs_asset_handler.remove_file", new=AsyncMock()
+            "handler.filesystem.fs_asset_handler.remove_file", new=AsyncMock()
         ) as remove,
     ):
-        pruned = asyncio.run(streaming._prune_state_history(admin_user, rom, "pcsx2"))
+        pruned = asyncio.run(states.prune_state_history(admin_user, rom, "pcsx2"))
     assert pruned == 1
     remove.assert_awaited_once()
     remaining = {
@@ -2981,24 +2972,24 @@ def _p2s_bytes(screenshot: bytes | None = _PNG) -> bytes:
 
 
 def test_extract_state_screenshot_pcsx2_returns_png():
-    assert streaming._extract_state_screenshot("pcsx2", _p2s_bytes(_PNG)) == _PNG
+    assert states.extract_state_screenshot("pcsx2", _p2s_bytes(_PNG)) == _PNG
 
 
 def test_extract_state_screenshot_non_pcsx2_returns_none():
     # Dolphin states embed no frame; its broker serves one from /state-screenshot.
-    assert streaming._extract_state_screenshot("dolphin", _p2s_bytes()) is None
+    assert states.extract_state_screenshot("dolphin", _p2s_bytes()) is None
 
 
 def test_extract_state_screenshot_missing_entry_returns_none():
-    assert streaming._extract_state_screenshot("pcsx2", _p2s_bytes(None)) is None
+    assert states.extract_state_screenshot("pcsx2", _p2s_bytes(None)) is None
 
 
 def test_extract_state_screenshot_empty_entry_returns_none():
-    assert streaming._extract_state_screenshot("pcsx2", _p2s_bytes(b"")) is None
+    assert states.extract_state_screenshot("pcsx2", _p2s_bytes(b"")) is None
 
 
 def test_extract_state_screenshot_not_a_zip_returns_none():
-    assert streaming._extract_state_screenshot("pcsx2", b"not-a-zip") is None
+    assert states.extract_state_screenshot("pcsx2", b"not-a-zip") is None
 
 
 def test_state_transfer_limits_default_for_an_unlisted_emulator():
@@ -3022,9 +3013,9 @@ def test_fetch_state_file_reads_and_waits_to_the_emulator_limits(rom: Rom):
     container = dict(_container_for(rom), emulator="xemu")
 
     with patch(
-        "endpoints.streaming.urllib.request.urlopen", return_value=resp
+        "handler.streaming.broker.urllib.request.urlopen", return_value=resp
     ) as urlopen:
-        assert streaming._fetch_state_file(_resolved(container), 1) == (
+        assert states.fetch_state_file(_resolved(container), 1) == (
             "game.xemu.state",
             b"state-bytes",
         )
@@ -3043,11 +3034,9 @@ def test_push_state_file_waits_to_the_emulator_limits(rom: Rom):
     container = dict(_container_for(rom), emulator="xemu")
 
     with patch(
-        "endpoints.streaming.urllib.request.urlopen", return_value=resp
+        "handler.streaming.broker.urllib.request.urlopen", return_value=resp
     ) as urlopen:
-        assert streaming._push_state_file(
-            _resolved(container), "game.xemu.state", b"bytes"
-        )
+        assert states.push_state_file(_resolved(container), "game.xemu.state", b"bytes")
 
     assert (
         urlopen.call_args.kwargs["timeout"] == state_transfer_limits("xemu")["timeout"]
@@ -3057,32 +3046,26 @@ def test_push_state_file_waits_to_the_emulator_limits(rom: Rom):
 def test_fetch_state_screenshot_returns_png(rom: Rom):
     resp = MagicMock()
     resp.__enter__.return_value.read.side_effect = _reads(_PNG)
-    with patch("endpoints.streaming.urllib.request.urlopen", return_value=resp):
-        assert (
-            streaming._fetch_state_screenshot(_resolved(_container_for(rom)), 1) == _PNG
-        )
+    with patch("handler.streaming.broker.urllib.request.urlopen", return_value=resp):
+        assert states.fetch_state_screenshot(_resolved(_container_for(rom)), 1) == _PNG
 
 
 def test_fetch_state_screenshot_404_returns_none(rom: Rom):
     """A broker that captures no frames answers 404; that is not an error."""
     with patch(
-        "endpoints.streaming.urllib.request.urlopen", side_effect=_http_error(404)
+        "handler.streaming.broker.urllib.request.urlopen", side_effect=_http_error(404)
     ):
-        assert (
-            streaming._fetch_state_screenshot(_resolved(_container_for(rom)), 1) is None
-        )
+        assert states.fetch_state_screenshot(_resolved(_container_for(rom)), 1) is None
 
 
 def test_fetch_state_screenshot_transport_error_returns_none(rom: Rom):
     import urllib.error
 
     with patch(
-        "endpoints.streaming.urllib.request.urlopen",
+        "handler.streaming.broker.urllib.request.urlopen",
         side_effect=urllib.error.URLError("broker down"),
     ):
-        assert (
-            streaming._fetch_state_screenshot(_resolved(_container_for(rom)), 1) is None
-        )
+        assert states.fetch_state_screenshot(_resolved(_container_for(rom)), 1) is None
 
 
 def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
@@ -3104,9 +3087,7 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
             new=AsyncMock(return_value=scanned),
         ),
     ):
-        asyncio.run(
-            streaming._store_state_screenshot(admin_user, rom, "Game.03.p2s", _PNG)
-        )
+        asyncio.run(states.store_state_screenshot(admin_user, rom, "Game.03.p2s", _PNG))
     wf.assert_awaited_once()
     assert wf.await_args_list[0].kwargs["filename"] == "Game.03.png"
     state = db_state_handler.get_state_by_filename(
@@ -3125,7 +3106,7 @@ def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
         patch("handler.asset_store.scan_screenshot", new=AsyncMock()) as scan,
     ):
         asyncio.run(
-            streaming._store_state_screenshot(
+            states.store_state_screenshot(
                 admin_user, rom, "Game.05.p2s", b"<html>404</html>"
             )
         )
@@ -3160,7 +3141,7 @@ def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
         ) as scan_shot,
     ):
         asyncio.run(
-            streaming._store_state_asset(
+            states.store_state_asset(
                 admin_user, rom, "pcsx2", "Game.03.p2s", _p2s_bytes(_PNG), _PNG
             )
         )
@@ -3187,7 +3168,7 @@ def test_store_state_asset_without_screenshot_still_stores_state(
         patch("handler.asset_store.scan_screenshot", new=AsyncMock()) as scan_shot,
     ):
         asyncio.run(
-            streaming._store_state_asset(
+            states.store_state_asset(
                 admin_user, rom, "pcsx2", "Game.04.p2s", _p2s_bytes(None)
             )
         )
@@ -3207,7 +3188,7 @@ def test_store_state_asset_collision_keeps_disc_file_id_in_sync(
     on, not just the file size."""
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
     when = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    stamped = streaming._stamped_state_filename("pcsx2", "Game.03.p2s", when)
+    stamped = states.stamped_state_filename("pcsx2", "Game.03.p2s", when)
     existing = db_state_handler.add_state(_state_for(rom, admin_user, stamped, "pcsx2"))
     scanned_state = _state_for(rom, admin_user, stamped, "pcsx2")
     scanned_state.file_size_bytes = 999
@@ -3217,11 +3198,11 @@ def test_store_state_asset_collision_keeps_disc_file_id_in_sync(
             "handler.asset_store.scan_state",
             new=AsyncMock(return_value=scanned_state),
         ),
-        patch("endpoints.streaming.datetime") as mock_dt,
+        patch("handler.streaming.states.datetime") as mock_dt,
     ):
         mock_dt.now.return_value = when
         asyncio.run(
-            streaming._store_state_asset(
+            states.store_state_asset(
                 admin_user,
                 rom,
                 "pcsx2",
@@ -3262,19 +3243,17 @@ def test_pull_saves_stores_new_archive(rom: Rom, admin_user: User):
     container = {**_container_for(rom), "label": "PCSX2"}
     scanned = _save_for(rom, admin_user, "Game [pcsx2].saves.zip", "pcsx2", "hash-a")
     with (
-        patch("endpoints.streaming._fetch_save_archive", return_value=b"zip-bytes"),
+        patch("handler.streaming.saves.fetch_save_archive", return_value=b"zip-bytes"),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
-        patch("endpoints.streaming.scan_save", new=AsyncMock(return_value=scanned)),
+        patch("handler.streaming.saves.scan_save", new=AsyncMock(return_value=scanned)),
     ):
         ok = asyncio.run(
-            streaming._pull_saves_to_library(
-                admin_user.id, rom.id, _resolved(container)
-            )
+            saves.pull_saves_to_library(admin_user.id, rom.id, _resolved(container))
         )
     assert ok is True
     wf.assert_awaited_once()
-    saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
-    assert any(s.emulator == "pcsx2" and s.content_hash == "hash-a" for s in saves)
+    stored = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+    assert any(s.emulator == "pcsx2" and s.content_hash == "hash-a" for s in stored)
 
 
 def test_pull_saves_dedups_identical_archive(rom: Rom, admin_user: User):
@@ -3288,22 +3267,18 @@ def test_pull_saves_dedups_identical_archive(rom: Rom, admin_user: User):
         rom, admin_user, "Game [pcsx2 new].saves.zip", "pcsx2", "dup-hash"
     )
     with (
-        patch("endpoints.streaming._fetch_save_archive", return_value=b"zip-bytes"),
+        patch("handler.streaming.saves.fetch_save_archive", return_value=b"zip-bytes"),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
-        patch("endpoints.streaming.scan_save", new=AsyncMock(return_value=scanned)),
-        patch(
-            "endpoints.streaming.fs_asset_handler.remove_file", new=AsyncMock()
-        ) as rm,
+        patch("handler.streaming.saves.scan_save", new=AsyncMock(return_value=scanned)),
+        patch("handler.filesystem.fs_asset_handler.remove_file", new=AsyncMock()) as rm,
     ):
         ok = asyncio.run(
-            streaming._pull_saves_to_library(
-                admin_user.id, rom.id, _resolved(container)
-            )
+            saves.pull_saves_to_library(admin_user.id, rom.id, _resolved(container))
         )
     assert ok is True
     rm.assert_awaited_once()
-    saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
-    hashes = [s.content_hash for s in saves if s.emulator == "pcsx2"]
+    stored = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+    hashes = [s.content_hash for s in stored if s.emulator == "pcsx2"]
     assert hashes == ["dup-hash"]
 
 
@@ -3311,13 +3286,11 @@ def test_pull_saves_no_changes_returns_false(rom: Rom, admin_user: User):
     """A 404 from the broker (nothing changed) yields no stored save."""
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
-        patch("endpoints.streaming._fetch_save_archive", return_value=None),
+        patch("handler.streaming.saves.fetch_save_archive", return_value=None),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
     ):
         ok = asyncio.run(
-            streaming._pull_saves_to_library(
-                admin_user.id, rom.id, _resolved(container)
-            )
+            saves.pull_saves_to_library(admin_user.id, rom.id, _resolved(container))
         )
     assert ok is False
     wf.assert_not_awaited()
@@ -3341,15 +3314,13 @@ def test_hydrate_saves_pushes_newest_matching_zip(rom: Rom, admin_user: User):
         # Path-derived bytes, so the assertion below names which of the four
         # saves was actually read rather than just that something was pushed.
         patch(
-            "endpoints.streaming.fs_asset_handler.read_file",
+            "handler.filesystem.fs_asset_handler.read_file",
             new=AsyncMock(side_effect=lambda path: path.encode()),
         ),
-        patch("endpoints.streaming._push_save_archive", return_value=True) as push,
+        patch("handler.streaming.saves.push_save_archive", return_value=True) as push,
     ):
         ok = asyncio.run(
-            streaming._hydrate_saves_to_broker(
-                admin_user.id, rom.id, _resolved(container)
-            )
+            saves.hydrate_saves_to_broker(admin_user.id, rom.id, _resolved(container))
         )
     assert ok is True
     push.assert_called_once()
@@ -3361,11 +3332,9 @@ def test_hydrate_saves_no_matching_save_returns_false(rom: Rom, admin_user: User
     """No stored zip save for the emulator means nothing to hydrate."""
     db_save_handler.add_save(_save_for(rom, admin_user, "loose.mcr", "pcsx2", "h1"))
     container = {**_container_for(rom), "label": "PCSX2"}
-    with patch("endpoints.streaming._push_save_archive", return_value=True) as push:
+    with patch("handler.streaming.saves.push_save_archive", return_value=True) as push:
         ok = asyncio.run(
-            streaming._hydrate_saves_to_broker(
-                admin_user.id, rom.id, _resolved(container)
-            )
+            saves.hydrate_saves_to_broker(admin_user.id, rom.id, _resolved(container))
         )
     assert ok is False
     push.assert_not_called()
@@ -3378,15 +3347,15 @@ def test_claim_hydrates_saves_before_launch(client, access_token, rom: Rom):
     with _streaming(_container_for(rom)):
         with (
             patch(
-                "endpoints.streaming._call_broker",
+                "handler.streaming.commands.launch",
                 side_effect=lambda *a, **k: call_order.append("launch"),
             ),
             patch(
-                "endpoints.streaming._hydrate_saves_to_broker",
+                "handler.streaming.saves.hydrate_saves_to_broker",
                 new=AsyncMock(side_effect=lambda *a, **k: call_order.append("saves")),
             ) as hydrate_saves,
-            patch("endpoints.streaming._spawn_sync_task"),
-            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
         ):
             r = _claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -3399,10 +3368,10 @@ def test_release_spawns_saves_pull(client, access_token, rom: Rom):
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._stop_broker", return_value=None),
-            patch("endpoints.streaming._spawn_sync_task") as spawn,
+            patch("handler.streaming.commands.stop", return_value=None),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
-                "endpoints.streaming._pull_saves_to_library", new=MagicMock()
+                "handler.streaming.saves.pull_saves_to_library", new=MagicMock()
             ) as pull,
         ):
             r = client.delete(
@@ -3418,39 +3387,37 @@ def test_release_spawns_saves_pull(client, access_token, rom: Rom):
 
 
 def test_slot_from_state_filename():
-    assert streaming._slot_from_state_filename("pcsx2", "SLUS (A1B2).3.p2s") == 3
-    assert streaming._slot_from_state_filename("pcsx2", "SLUS (A1B2).10.p2s") == 10
-    assert streaming._slot_from_state_filename("dolphin", "GALE01.s02") == 2
-    assert streaming._slot_from_state_filename("pcsx2", "Game.p2s") is None
-    assert streaming._slot_from_state_filename("dolphin", "GALE01.gci") is None
-    assert streaming._slot_from_state_filename("pcsx2", "Game.0.p2s") is None
-    assert streaming._slot_from_state_filename("xemu", "MechAssault (USA).x03") == 3
-    assert streaming._slot_from_state_filename("xemu", "MechAssault (USA).x10") == 10
-    assert (
-        streaming._slot_from_state_filename("xemu", "MechAssault (USA).qcow2") is None
-    )
+    assert states.slot_from_state_filename("pcsx2", "SLUS (A1B2).3.p2s") == 3
+    assert states.slot_from_state_filename("pcsx2", "SLUS (A1B2).10.p2s") == 10
+    assert states.slot_from_state_filename("dolphin", "GALE01.s02") == 2
+    assert states.slot_from_state_filename("pcsx2", "Game.p2s") is None
+    assert states.slot_from_state_filename("dolphin", "GALE01.gci") is None
+    assert states.slot_from_state_filename("pcsx2", "Game.0.p2s") is None
+    assert states.slot_from_state_filename("xemu", "MechAssault (USA).x03") == 3
+    assert states.slot_from_state_filename("xemu", "MechAssault (USA).x10") == 10
+    assert states.slot_from_state_filename("xemu", "MechAssault (USA).qcow2") is None
     # RetroArch leaves the number off its default slot, and unlike the others
     # it really does work in slot 0, so an empty token resolves rather than
     # reading as an unrecognizable name.
-    assert streaming._slot_from_state_filename("retroarch", "Game.state") == 0
-    assert streaming._slot_from_state_filename("retroarch", "Game.state7") == 7
-    assert streaming._slot_from_state_filename("retroarch", "Game.srm") is None
+    assert states.slot_from_state_filename("retroarch", "Game.state") == 0
+    assert states.slot_from_state_filename("retroarch", "Game.state7") == 7
+    assert states.slot_from_state_filename("retroarch", "Game.srm") is None
 
 
 def test_stamped_state_filename_round_trips_for_xemu():
     when = datetime(2026, 7, 21, 4, 56, 45, 123456, tzinfo=timezone.utc)
-    stamped = streaming._stamped_state_filename("xemu", "MechAssault.x03", when)
+    stamped = states.stamped_state_filename("xemu", "MechAssault.x03", when)
     assert re.fullmatch(r"MechAssault\.\d{8}-\d{12}\.x03", stamped)
-    assert streaming._container_state_filename(stamped) == "MechAssault.x03"
+    assert states.container_state_filename(stamped) == "MechAssault.x03"
 
 
 def test_stamped_state_filename_round_trips_for_retroarch():
     """The stamp goes before the slot token even when the token is empty, so
     every capture is its own file and the container name is still recoverable."""
     when = datetime(2026, 7, 21, 4, 56, 45, 123456, tzinfo=timezone.utc)
-    stamped = streaming._stamped_state_filename("retroarch", "Super Mario.state", when)
+    stamped = states.stamped_state_filename("retroarch", "Super Mario.state", when)
     assert re.fullmatch(r"Super Mario\.\d{8}-\d{12}\.state", stamped)
-    assert streaming._container_state_filename(stamped) == "Super Mario.state"
+    assert states.container_state_filename(stamped) == "Super Mario.state"
 
 
 class _ResumeClaim(NamedTuple):
@@ -3470,15 +3437,17 @@ def _resume_claim(client, token, rom, state_id, push_ok=True) -> _ResumeClaim:
     container = {**_container_for(rom), "label": "PCSX2"}
     with _streaming(container):
         with (
-            patch("endpoints.streaming._call_broker") as call_broker,
-            patch("endpoints.streaming._push_state_file", return_value=push_ok) as push,
+            patch("handler.streaming.commands.launch") as call_broker,
             patch(
-                "endpoints.streaming.fs_asset_handler.read_file",
+                "handler.streaming.states.push_state_file", return_value=push_ok
+            ) as push,
+            patch(
+                "handler.filesystem.fs_asset_handler.read_file",
                 new=AsyncMock(return_value=b"state-bytes"),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
             patch(
-                "endpoints.streaming._hydrate_states_to_broker", new=MagicMock()
+                "handler.streaming.states.hydrate_states_to_broker", new=MagicMock()
             ) as hydrate,
         ):
             with _pushes() as sent:
@@ -3593,14 +3562,14 @@ def test_state_transfers_reach_the_webstation_broker_under_its_subfolder(rom: Ro
     inner.headers = {"X-State-Filename": "Game.03.p2s"}
 
     with patch(
-        "endpoints.streaming.urllib.request.urlopen", return_value=resp
+        "handler.streaming.broker.urllib.request.urlopen", return_value=resp
     ) as urlopen:
         inner.read.side_effect = _reads(b"state-bytes")
-        streaming._fetch_state_file(_resolved(container), 3)
+        states.fetch_state_file(_resolved(container), 3)
         inner.read.side_effect = _reads(_PNG)
-        streaming._fetch_state_screenshot(_resolved(container), 3)
+        states.fetch_state_screenshot(_resolved(container), 3)
         inner.read.side_effect = _reads(b'{"status": "ok"}')
-        streaming._push_state_file(_resolved(container), "Game.03.p2s", b"bytes")
+        states.push_state_file(_resolved(container), "Game.03.p2s", b"bytes")
 
     root = "http://192.168.1.10:8000/streaming/api/session"
     assert [call.args[0].full_url for call in urlopen.call_args_list] == [
@@ -3619,17 +3588,15 @@ def test_pull_state_to_library_runs_for_a_webstation_container(
     scanned = _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
     with (
         patch(
-            "endpoints.streaming._fetch_state_file",
+            "handler.streaming.states.fetch_state_file",
             return_value=("Game.03.p2s", b"state-bytes"),
         ),
-        patch("endpoints.streaming._fetch_state_screenshot", return_value=None),
+        patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
     ):
         ok = asyncio.run(
-            streaming._pull_state_to_library(
-                admin_user.id, rom.id, _resolved(container), 3
-            )
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 3)
         )
     assert ok is True
     assert (
@@ -3654,18 +3621,18 @@ def test_webstation_resume_state_is_pushed_after_activate(
     order.push.return_value = True
     with _streaming(_webstation_for(rom)):
         with (
-            patch("endpoints.streaming._webstation_activate", order.activate),
-            patch("endpoints.streaming._push_state_file", order.push),
+            patch("handler.streaming.webstation.activate", order.activate),
+            patch("handler.streaming.states.push_state_file", order.push),
             patch(
-                "endpoints.streaming._hydrate_saves_to_webstation",
+                "handler.streaming.saves.hydrate_saves_to_webstation",
                 new=AsyncMock(return_value=None),
             ),
             patch(
-                "endpoints.streaming.fs_asset_handler.read_file",
+                "handler.filesystem.fs_asset_handler.read_file",
                 new=AsyncMock(return_value=b"state-bytes"),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
-            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
         ):
             with _pushes() as sent:
                 r = _claim(client, access_token, rom.id, state_id=state.id)
@@ -3686,13 +3653,13 @@ def test_webstation_claim_without_a_state_boots_clean(client, access_token, rom:
     activate = MagicMock(return_value={"url": "/room/x"})
     with _streaming(_webstation_for(rom)):
         with (
-            patch("endpoints.streaming._webstation_activate", activate),
+            patch("handler.streaming.webstation.activate", activate),
             patch(
-                "endpoints.streaming._hydrate_saves_to_webstation",
+                "handler.streaming.saves.hydrate_saves_to_webstation",
                 new=AsyncMock(return_value="/romm/saves/archive.tar"),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
-            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
         ):
             r = _claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -3705,17 +3672,17 @@ def test_stopping_a_webstation_broker_reports_the_state_it_captured(rom: Rom):
     come back out: the caller is the only one who can file that state."""
     container = _webstation_for(rom)
     with patch(
-        "endpoints.streaming._webstation_exit",
+        "handler.streaming.webstation.exit_session",
         return_value={"state_saved": True, "state_slot": 10},
     ):
-        assert streaming._stop_broker(_resolved(container)) == 10
+        assert commands.stop(_resolved(container)) == 10
     with patch(
-        "endpoints.streaming._webstation_exit",
+        "handler.streaming.webstation.exit_session",
         return_value={"state_saved": False, "state_slot": 10},
     ):
-        assert streaming._stop_broker(_resolved(container)) is None
-    with patch("endpoints.streaming._webstation_exit", return_value=None):
-        assert streaming._stop_broker(_resolved(container)) is None
+        assert commands.stop(_resolved(container)) is None
+    with patch("handler.streaming.webstation.exit_session", return_value=None):
+        assert commands.stop(_resolved(container)) is None
 
 
 def test_stopping_without_saving_asks_the_broker_to_write_no_state(rom: Rom):
@@ -3723,10 +3690,10 @@ def test_stopping_without_saving_asks_the_broker_to_write_no_state(rom: Rom):
     and nothing comes back for the caller to file."""
     container = _webstation_for(rom)
     with patch(
-        "endpoints.streaming._webstation_exit",
+        "handler.streaming.webstation.exit_session",
         return_value={"state_saved": False, "state_slot": None},
     ) as exit_call:
-        assert streaming._stop_broker(_resolved(container), save=False) is None
+        assert commands.stop(_resolved(container), save=False) is None
     assert exit_call.call_args.kwargs["save"] is False
 
 
@@ -3735,17 +3702,17 @@ def test_a_webstation_exit_carries_slot_zero_rather_than_dropping_it(rom: Rom):
     omitting it would silently fall back to the broker's own default."""
     container = _webstation_for(rom)
     with patch("handler.streaming.broker.request_safe", return_value={}) as req:
-        streaming._webstation_exit(_resolved(container), slot=0)
+        webstation.exit_session(_resolved(container), slot=0)
         assert "slot=0" in req.call_args[0][1]
         assert "save=0" not in req.call_args[0][1]
-        streaming._webstation_exit(_resolved(container), slot=0, save=False)
+        webstation.exit_session(_resolved(container), slot=0, save=False)
         assert "save=0" in req.call_args[0][1]
 
 
 def test_stopping_a_legacy_broker_reports_no_state(rom: Rom):
     """The per-emulator brokers stop without saving, so nothing is pulled."""
     with patch("handler.streaming.broker.request_safe", return_value={}):
-        assert streaming._stop_broker(_resolved(_container_for(rom))) is None
+        assert commands.stop(_resolved(_container_for(rom))) is None
 
 
 def test_releasing_a_webstation_session_pulls_the_exit_state(
@@ -3758,24 +3725,24 @@ def test_releasing_a_webstation_session_pulls_the_exit_state(
     with _streaming(_webstation_for(rom)):
         with (
             patch(
-                "endpoints.streaming._webstation_activate",
+                "handler.streaming.webstation.activate",
                 return_value={"url": "/room/x"},
             ),
             patch(
-                "endpoints.streaming._hydrate_saves_to_webstation",
+                "handler.streaming.saves.hydrate_saves_to_webstation",
                 new=AsyncMock(return_value=None),
             ),
-            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             _claim_ok(client, access_token, rom.id)
         with (
             patch(
-                "endpoints.streaming._webstation_exit",
+                "handler.streaming.webstation.exit_session",
                 return_value={"state_saved": True, "state_slot": 10},
             ),
-            patch("endpoints.streaming._pull_state_to_library", pull),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.states.pull_state_to_library", pull),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
@@ -3795,21 +3762,21 @@ def test_releasing_without_saving_files_no_state(client, access_token, rom: Rom)
     with _streaming(_webstation_for(rom)):
         with (
             patch(
-                "endpoints.streaming._webstation_activate",
+                "handler.streaming.webstation.activate",
                 return_value={"url": "/room/x"},
             ),
             patch(
-                "endpoints.streaming._hydrate_saves_to_webstation",
+                "handler.streaming.saves.hydrate_saves_to_webstation",
                 new=AsyncMock(return_value=None),
             ),
-            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             _claim_ok(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._stop_broker", stop),
-            patch("endpoints.streaming._pull_state_to_library", pull),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.commands.stop", stop),
+            patch("handler.streaming.states.pull_state_to_library", pull),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}?save=false",
@@ -3868,7 +3835,7 @@ def test_admin_can_release_other_users_session(
     """An admin may release a session claimed by someone else."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker", return_value=None) as stop:
+        with patch("handler.streaming.commands.stop", return_value=None) as stop:
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
@@ -3928,7 +3895,7 @@ def _card_version(card_id: int, file_name: str, content_hash: str | None):
 
 def test_resolve_memory_card_explicit_owned(admin_user: User):
     card = _make_card(admin_user)
-    resolved = streaming._resolve_memory_card(admin_user.id, "pcsx2", card.id)
+    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", card.id)
     assert resolved is not None
     assert resolved.id == card.id
 
@@ -3936,7 +3903,7 @@ def test_resolve_memory_card_explicit_owned(admin_user: User):
 def test_resolve_memory_card_wrong_emulator_404(admin_user: User):
     card = _make_card(admin_user, emulator="dolphin")
     with pytest.raises(HTTPException) as exc:
-        streaming._resolve_memory_card(admin_user.id, "pcsx2", card.id)
+        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id)
     assert exc.value.status_code == 404
 
 
@@ -3944,7 +3911,7 @@ def test_resolve_memory_card_foreign_id_404(admin_user: User, viewer_user: User)
     """An id owned by another user is not resolvable, even if public."""
     card = _make_card(viewer_user, is_public=True)
     with pytest.raises(HTTPException) as exc:
-        streaming._resolve_memory_card(admin_user.id, "pcsx2", card.id)
+        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id)
     assert exc.value.status_code == 404
 
 
@@ -3958,7 +3925,7 @@ def test_resolve_memory_card_default_most_recent(admin_user: User):
     db_memory_card_handler.update_card(
         newer.id, {"updated_at": datetime(2026, 6, 1, tzinfo=timezone.utc)}
     )
-    resolved = streaming._resolve_memory_card(admin_user.id, "pcsx2", None)
+    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", None)
     assert resolved is not None
     assert resolved.id == newer.id
 
@@ -3967,15 +3934,13 @@ def test_resolve_memory_card_none_when_user_has_no_card(admin_user: User):
     """Resolution never creates rows; a cardless user resolves to None so the
     claim path can defer creation until the claim is won."""
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
-    assert streaming._resolve_memory_card(admin_user.id, "pcsx2", None) is None
+    assert memory_cards.resolve_card(admin_user.id, "pcsx2", None) is None
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
 
 
 def test_create_blank_memory_card(admin_user: User, rom: Rom):
     """First play on an emulator with no card creates a blank owned card."""
-    created = streaming._create_blank_memory_card(
-        admin_user.id, "pcsx2", rom.platform_id
-    )
+    created = memory_cards.create_blank_card(admin_user.id, "pcsx2", rom.platform_id)
     assert created.id is not None
     assert created.user_id == admin_user.id
     assert created.emulator == "pcsx2"
@@ -3991,13 +3956,13 @@ def test_hydrate_memory_card_pushes_latest_version(admin_user: User, rom: Rom):
     )
     with (
         patch(
-            "endpoints.streaming.fs_asset_handler.read_file",
+            "handler.filesystem.fs_asset_handler.read_file",
             new=AsyncMock(return_value=b"card-bytes"),
         ),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
     ):
         ok = asyncio.run(
-            streaming._hydrate_memory_card_to_broker(
+            memory_cards.hydrate_card_to_broker(
                 admin_user.id, card, _mc_container_for(rom)
             )
         )
@@ -4008,14 +3973,14 @@ def test_hydrate_memory_card_pushes_latest_version(admin_user: User, rom: Rom):
 def test_hydrate_blank_card_wipes_container(admin_user: User, rom: Rom):
     """A card with no version pushes the empty zip so the container is wiped."""
     card = _make_card(admin_user)
-    with patch("endpoints.streaming._push_memory_card", return_value=True) as push:
+    with patch("handler.streaming.memory_cards.push_card", return_value=True) as push:
         ok = asyncio.run(
-            streaming._hydrate_memory_card_to_broker(
+            memory_cards.hydrate_card_to_broker(
                 admin_user.id, card, _mc_container_for(rom)
             )
         )
     assert ok is True
-    assert push.call_args[0][1] == streaming._EMPTY_MEMORY_CARD
+    assert push.call_args[0][1] == memory_cards.EMPTY_CARD
 
 
 def test_hydrate_missing_file_wipes_to_blank(admin_user: User, rom: Rom):
@@ -4026,25 +3991,25 @@ def test_hydrate_missing_file_wipes_to_blank(admin_user: User, rom: Rom):
     )
     with (
         patch(
-            "endpoints.streaming.fs_asset_handler.read_file",
+            "handler.filesystem.fs_asset_handler.read_file",
             new=AsyncMock(side_effect=FileNotFoundError),
         ),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
     ):
         ok = asyncio.run(
-            streaming._hydrate_memory_card_to_broker(
+            memory_cards.hydrate_card_to_broker(
                 admin_user.id, card, _mc_container_for(rom)
             )
         )
     assert ok is True
-    assert push.call_args[0][1] == streaming._EMPTY_MEMORY_CARD
+    assert push.call_args[0][1] == memory_cards.EMPTY_CARD
 
 
 def test_hydrate_returns_false_on_push_failure(admin_user: User, rom: Rom):
     card = _make_card(admin_user)
-    with patch("endpoints.streaming._push_memory_card", return_value=False):
+    with patch("handler.streaming.memory_cards.push_card", return_value=False):
         ok = asyncio.run(
-            streaming._hydrate_memory_card_to_broker(
+            memory_cards.hydrate_card_to_broker(
                 admin_user.id, card, _mc_container_for(rom)
             )
         )
@@ -4062,7 +4027,7 @@ def test_store_memory_card_version_stores_new(admin_user: User):
         ),
     ):
         stored = asyncio.run(
-            streaming.store_memory_card_version(admin_user, card, b"card-bytes")
+            memory_cards.store_memory_card_version(admin_user, card, b"card-bytes")
         )
     assert stored is not None
     wf.assert_awaited_once()
@@ -4084,7 +4049,7 @@ def test_store_memory_card_version_dedups_identical(admin_user: User):
         patch("utils.memory_cards.fs_asset_handler.remove_file", new=AsyncMock()) as rm,
     ):
         stored = asyncio.run(
-            streaming.store_memory_card_version(admin_user, card, b"card-bytes")
+            memory_cards.store_memory_card_version(admin_user, card, b"card-bytes")
         )
     assert stored is None
     rm.assert_awaited_once()
@@ -4094,16 +4059,14 @@ def test_store_memory_card_version_dedups_identical(admin_user: User):
 def test_evacuate_memory_card_stores_snapshot(admin_user: User, rom: Rom):
     card = _make_card(admin_user)
     with (
-        patch("endpoints.streaming._fetch_memory_card", return_value=b"card-bytes"),
+        patch("handler.streaming.memory_cards.fetch_card", return_value=b"card-bytes"),
         patch(
-            "endpoints.streaming.store_memory_card_version",
+            "handler.streaming.memory_cards.store_memory_card_version",
             new=AsyncMock(return_value=True),
         ) as store,
     ):
         ok = asyncio.run(
-            streaming._evacuate_memory_card(
-                admin_user.id, card.id, _mc_container_for(rom)
-            )
+            memory_cards.evacuate_card(admin_user.id, card.id, _mc_container_for(rom))
         )
     assert ok is True
     store.assert_awaited_once()
@@ -4116,15 +4079,13 @@ def test_evacuate_memory_card_confirmed_empty_is_safe_to_wipe(
     safe to wipe, so evacuation reports True."""
     card = _make_card(admin_user)
     with (
-        patch("endpoints.streaming._fetch_memory_card", return_value=None),
+        patch("handler.streaming.memory_cards.fetch_card", return_value=None),
         patch(
-            "endpoints.streaming.store_memory_card_version", new=AsyncMock()
+            "handler.streaming.memory_cards.store_memory_card_version", new=AsyncMock()
         ) as store,
     ):
         ok = asyncio.run(
-            streaming._evacuate_memory_card(
-                admin_user.id, card.id, _mc_container_for(rom)
-            )
+            memory_cards.evacuate_card(admin_user.id, card.id, _mc_container_for(rom))
         )
     assert ok is True
     store.assert_not_awaited()
@@ -4138,17 +4099,15 @@ def test_evacuate_memory_card_unavailable_is_not_safe_to_wipe(
     card = _make_card(admin_user)
     with (
         patch(
-            "endpoints.streaming._fetch_memory_card",
-            side_effect=streaming.MemoryCardUnavailable("boom"),
+            "handler.streaming.memory_cards.fetch_card",
+            side_effect=memory_cards.MemoryCardUnavailable("boom"),
         ),
         patch(
-            "endpoints.streaming.store_memory_card_version", new=AsyncMock()
+            "handler.streaming.memory_cards.store_memory_card_version", new=AsyncMock()
         ) as store,
     ):
         ok = asyncio.run(
-            streaming._evacuate_memory_card(
-                admin_user.id, card.id, _mc_container_for(rom)
-            )
+            memory_cards.evacuate_card(admin_user.id, card.id, _mc_container_for(rom))
         )
     assert ok is False
     store.assert_not_awaited()
@@ -4167,49 +4126,48 @@ def _http_error(code: int, headers: dict[str, str] | None = None):
 def test_fetch_memory_card_returns_bytes(rom: Rom):
     resp = MagicMock()
     resp.__enter__.return_value.read.side_effect = _reads(b"card-bytes")
-    with patch("endpoints.streaming.urllib.request.urlopen", return_value=resp):
+    with patch("handler.streaming.broker.urllib.request.urlopen", return_value=resp):
         assert (
-            streaming._fetch_memory_card(_resolved(_mc_container_for(rom)))
-            == b"card-bytes"
+            memory_cards.fetch_card(_resolved(_mc_container_for(rom))) == b"card-bytes"
         )
 
 
 def test_fetch_memory_card_absent_header_returns_none(rom: Rom):
     """A 404 tagged X-Memory-Card: absent means the slot is genuinely empty."""
     with patch(
-        "endpoints.streaming.urllib.request.urlopen",
+        "handler.streaming.broker.urllib.request.urlopen",
         side_effect=_http_error(404, {"X-Memory-Card": "absent"}),
     ):
-        assert streaming._fetch_memory_card(_resolved(_mc_container_for(rom))) is None
+        assert memory_cards.fetch_card(_resolved(_mc_container_for(rom))) is None
 
 
 def test_fetch_memory_card_unmarked_404_raises(rom: Rom):
     """An untagged 404 (endpoint missing on an old broker) must NOT be mistaken
     for an empty slot; it raises so the card is never wiped."""
     with patch(
-        "endpoints.streaming.urllib.request.urlopen", side_effect=_http_error(404)
+        "handler.streaming.broker.urllib.request.urlopen", side_effect=_http_error(404)
     ):
-        with pytest.raises(streaming.MemoryCardUnavailable):
-            streaming._fetch_memory_card(_resolved(_mc_container_for(rom)))
+        with pytest.raises(memory_cards.MemoryCardUnavailable):
+            memory_cards.fetch_card(_resolved(_mc_container_for(rom)))
 
 
 def test_fetch_memory_card_file_card_409_raises(rom: Rom):
     with patch(
-        "endpoints.streaming.urllib.request.urlopen", side_effect=_http_error(409)
+        "handler.streaming.broker.urllib.request.urlopen", side_effect=_http_error(409)
     ):
-        with pytest.raises(streaming.MemoryCardUnavailable):
-            streaming._fetch_memory_card(_resolved(_mc_container_for(rom)))
+        with pytest.raises(memory_cards.MemoryCardUnavailable):
+            memory_cards.fetch_card(_resolved(_mc_container_for(rom)))
 
 
 def test_fetch_memory_card_transport_error_raises(rom: Rom):
     import urllib.error
 
     with patch(
-        "endpoints.streaming.urllib.request.urlopen",
+        "handler.streaming.broker.urllib.request.urlopen",
         side_effect=urllib.error.URLError("broker down"),
     ):
-        with pytest.raises(streaming.MemoryCardUnavailable):
-            streaming._fetch_memory_card(_resolved(_mc_container_for(rom)))
+        with pytest.raises(memory_cards.MemoryCardUnavailable):
+            memory_cards.fetch_card(_resolved(_mc_container_for(rom)))
 
 
 def test_claim_hydrates_memory_card_before_launch(client, access_token, rom: Rom):
@@ -4226,16 +4184,16 @@ def test_claim_hydrates_memory_card_before_launch(client, access_token, rom: Rom
 
     with _streaming(_mc_container_for(rom)):
         with (
-            patch("endpoints.streaming._call_broker", side_effect=_note_launch),
-            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch("handler.streaming.commands.launch", side_effect=_note_launch),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
             patch(
-                "endpoints.streaming._hydrate_memory_card_to_broker",
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(side_effect=_note_card),
             ) as hydrate_card,
             patch(
-                "endpoints.streaming._hydrate_saves_to_broker", new=AsyncMock()
+                "handler.streaming.saves.hydrate_saves_to_broker", new=AsyncMock()
             ) as legacy,
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4253,13 +4211,13 @@ def test_claim_aborts_when_card_hydration_fails(
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
     with _streaming(_mc_container_for(rom)):
         with (
-            patch("endpoints.streaming._call_broker") as launch,
-            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch("handler.streaming.commands.launch") as launch,
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
             patch(
-                "endpoints.streaming._hydrate_memory_card_to_broker",
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=False),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 502
@@ -4275,24 +4233,26 @@ def test_claim_aborts_when_card_hydration_fails(
 def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
     with _streaming(_mc_container_for(rom)):
         with (
-            patch("endpoints.streaming._call_broker"),
-            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
             patch(
-                "endpoints.streaming._hydrate_memory_card_to_broker",
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             _mc_claim(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._save_and_exit_broker", return_value=(True, 1)),
+            patch("handler.streaming.commands.save_and_exit", return_value=(True, 1)),
             patch(
-                "endpoints.streaming._evacuate_memory_card",
+                "handler.streaming.memory_cards.evacuate_card",
                 new=AsyncMock(return_value=True),
             ) as evac,
-            patch("endpoints.streaming._wipe_session_card", new=AsyncMock()) as wipe,
-            patch("endpoints.streaming._pull_saves_to_library") as legacy,
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch(
+                "handler.streaming.memory_cards.wipe_session_card", new=AsyncMock()
+            ) as wipe,
+            patch("handler.streaming.saves.pull_saves_to_library") as legacy,
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -4309,23 +4269,25 @@ def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
 def test_release_evacuates_card(client, access_token, rom: Rom):
     with _streaming(_mc_container_for(rom)):
         with (
-            patch("endpoints.streaming._call_broker"),
-            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
             patch(
-                "endpoints.streaming._hydrate_memory_card_to_broker",
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             _mc_claim(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._stop_broker", return_value=None) as stop,
+            patch("handler.streaming.commands.stop", return_value=None) as stop,
             patch(
-                "endpoints.streaming._evacuate_memory_card",
+                "handler.streaming.memory_cards.evacuate_card",
                 new=AsyncMock(return_value=True),
             ) as evac,
-            patch("endpoints.streaming._wipe_session_card", new=AsyncMock()) as wipe,
-            patch("endpoints.streaming._spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.memory_cards.wipe_session_card", new=AsyncMock()
+            ) as wipe,
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
@@ -4347,22 +4309,22 @@ def test_release_frees_the_claim_when_teardown_raises(client, access_token, rom:
     container = _mc_container_for(rom)
     with _streaming(container):
         with (
-            patch("endpoints.streaming._call_broker"),
-            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
             patch(
-                "endpoints.streaming._hydrate_memory_card_to_broker",
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             _mc_claim(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._stop_broker", return_value=None),
+            patch("handler.streaming.commands.stop", return_value=None),
             patch(
-                "endpoints.streaming._evacuate_session_card",
+                "handler.streaming.memory_cards.evacuate_session_card",
                 new=AsyncMock(side_effect=OSError("broker went away")),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
@@ -4379,25 +4341,25 @@ def test_save_and_exit_wait_false_forces_blocking_on_card_sync(
     wait=false request still runs a blocking save+kill."""
     with _streaming(_mc_container_for(rom)):
         with (
-            patch("endpoints.streaming._call_broker"),
-            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
             patch(
-                "endpoints.streaming._hydrate_memory_card_to_broker",
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             _mc_claim(client, access_token, rom.id)
         with (
             patch(
-                "endpoints.streaming._save_and_exit_broker", return_value=(True, 1)
+                "handler.streaming.commands.save_and_exit", return_value=(True, 1)
             ) as save,
             patch(
-                "endpoints.streaming._evacuate_memory_card",
+                "handler.streaming.memory_cards.evacuate_card",
                 new=AsyncMock(return_value=True),
             ) as evac,
-            patch("endpoints.streaming._wipe_session_card", new=AsyncMock()),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.memory_cards.wipe_session_card", new=AsyncMock()),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -4416,13 +4378,13 @@ def test_lost_claim_race_does_not_create_blank_card(
     card behind for a user who had none."""
     with _streaming(_mc_container_for(rom)):
         with (
-            patch("endpoints.streaming._call_broker"),
-            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
             patch(
-                "endpoints.streaming._hydrate_memory_card_to_broker",
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             assert _mc_claim(client, access_token, rom.id).status_code == 202
             assert db_memory_card_handler.get_cards(viewer_user.id, "pcsx2") == []
@@ -4456,7 +4418,7 @@ def _adoption_storage(card_bytes: bytes):
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
-            "endpoints.streaming.fs_asset_handler.read_file",
+            "handler.filesystem.fs_asset_handler.read_file",
             new=AsyncMock(return_value=card_bytes),
         ),
         patch(
@@ -4473,10 +4435,12 @@ def test_first_claim_with_existing_card_asks_before_wiping(
     """An unadopted container card must never be wiped without an answer."""
     with (
         _streaming(_mc_container_for(rom)),
-        patch("endpoints.streaming._fetch_memory_card", return_value=_gci_card_bytes()),
-        patch("endpoints.streaming._push_memory_card") as push,
-        patch("endpoints.streaming._call_broker") as launch,
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch(
+            "handler.streaming.memory_cards.fetch_card", return_value=_gci_card_bytes()
+        ),
+        patch("handler.streaming.memory_cards.push_card") as push,
+        patch("handler.streaming.commands.launch") as launch,
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 428
@@ -4497,12 +4461,12 @@ def test_unreadable_card_blocks_the_claim(client, access_token, rom: Rom):
     with (
         _streaming(_mc_container_for(rom)),
         patch(
-            "endpoints.streaming._fetch_memory_card",
-            side_effect=streaming.MemoryCardUnavailable("broker exploded"),
+            "handler.streaming.memory_cards.fetch_card",
+            side_effect=memory_cards.MemoryCardUnavailable("broker exploded"),
         ),
-        patch("endpoints.streaming._push_memory_card") as push,
-        patch("endpoints.streaming._call_broker"),
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.push_card") as push,
+        patch("handler.streaming.commands.launch"),
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 428
@@ -4510,7 +4474,7 @@ def test_unreadable_card_blocks_the_claim(client, access_token, rom: Rom):
     assert detail["outcome"] == "unreadable"
     # The broker host and port must not leak to the client.
     assert "broker exploded" not in detail["reason"]
-    assert detail["reason"] == streaming._CARD_UNREADABLE_REASON
+    assert detail["reason"] == memory_cards.CARD_UNREADABLE_REASON
     push.assert_not_called()
     assert (
         asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
@@ -4522,10 +4486,10 @@ def test_absent_card_claims_without_prompting(client, access_token, rom: Rom):
     container = _mc_container_for(rom)
     with (
         _streaming(container),
-        patch("endpoints.streaming._fetch_memory_card", return_value=None),
-        patch("endpoints.streaming._push_memory_card", return_value=True),
-        patch("endpoints.streaming._call_broker"),
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.fetch_card", return_value=None),
+        patch("handler.streaming.memory_cards.push_card", return_value=True),
+        patch("handler.streaming.commands.launch"),
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4546,10 +4510,10 @@ def test_decided_container_does_not_probe_again(
     )
     with (
         _streaming(container),
-        patch("endpoints.streaming._fetch_memory_card") as fetch,
-        patch("endpoints.streaming._push_memory_card", return_value=True),
-        patch("endpoints.streaming._call_broker"),
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.fetch_card") as fetch,
+        patch("handler.streaming.memory_cards.push_card", return_value=True),
+        patch("handler.streaming.commands.launch"),
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4560,10 +4524,10 @@ def test_sync_disabled_container_does_not_probe(client, access_token, rom: Rom):
     """Containers without whole-card sync are untouched by any of this."""
     with (
         _streaming(_container_for(rom)),
-        patch("endpoints.streaming._fetch_memory_card") as fetch,
-        patch("endpoints.streaming._call_broker"),
-        patch("endpoints.streaming._hydrate_saves_to_broker", new=AsyncMock()),
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.fetch_card") as fetch,
+        patch("handler.streaming.commands.launch"),
+        patch("handler.streaming.saves.hydrate_saves_to_broker", new=AsyncMock()),
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4579,16 +4543,16 @@ def test_adopt_stores_the_container_card_as_version_one(
     with (
         _streaming(container),
         _adoption_storage(card_bytes),
-        patch("endpoints.streaming._fetch_memory_card", return_value=card_bytes),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
-        patch("endpoints.streaming._call_broker"),
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.fetch_card", return_value=card_bytes),
+        patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
+        patch("handler.streaming.commands.launch"),
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 202
     # The card pushed back down is the adopted one, not a blank.
     assert push.call_args[0][1] == card_bytes
-    assert push.call_args[0][1] != streaming._EMPTY_MEMORY_CARD
+    assert push.call_args[0][1] != memory_cards.EMPTY_CARD
     adoption = db_container_adoption_handler.get_adoption(_key_of(container))
     assert adoption is not None and adoption.outcome == "adopt"
     cards = db_memory_card_handler.get_cards(admin_user.id, "pcsx2")
@@ -4601,14 +4565,16 @@ def test_discard_wipes_and_records_the_decision(client, access_token, rom: Rom):
     container = _mc_container_for(rom)
     with (
         _streaming(container),
-        patch("endpoints.streaming._fetch_memory_card", return_value=_gci_card_bytes()),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
-        patch("endpoints.streaming._call_broker"),
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch(
+            "handler.streaming.memory_cards.fetch_card", return_value=_gci_card_bytes()
+        ),
+        patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
+        patch("handler.streaming.commands.launch"),
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="discard")
     assert r.status_code == 202
-    assert push.call_args[0][1] == streaming._EMPTY_MEMORY_CARD
+    assert push.call_args[0][1] == memory_cards.EMPTY_CARD
     adoption = db_container_adoption_handler.get_adoption(_key_of(container))
     assert adoption is not None and adoption.outcome == "discard"
 
@@ -4619,16 +4585,16 @@ def test_unreadable_card_with_override_starts_fresh(client, access_token, rom: R
     with (
         _streaming(container),
         patch(
-            "endpoints.streaming._fetch_memory_card",
-            side_effect=streaming.MemoryCardUnavailable("broker exploded"),
+            "handler.streaming.memory_cards.fetch_card",
+            side_effect=memory_cards.MemoryCardUnavailable("broker exploded"),
         ),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
-        patch("endpoints.streaming._call_broker"),
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
+        patch("handler.streaming.commands.launch"),
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="discard")
     assert r.status_code == 202
-    assert push.call_args[0][1] == streaming._EMPTY_MEMORY_CARD
+    assert push.call_args[0][1] == memory_cards.EMPTY_CARD
     adoption = db_container_adoption_handler.get_adoption(_key_of(container))
     assert adoption is not None and adoption.outcome == "discard"
 
@@ -4640,14 +4606,16 @@ def test_failed_adopt_aborts_the_claim_without_wiping(
     container = _mc_container_for(rom)
     with (
         _streaming(container),
-        patch("endpoints.streaming._fetch_memory_card", return_value=_gci_card_bytes()),
         patch(
-            "endpoints.streaming.store_memory_card_version",
+            "handler.streaming.memory_cards.fetch_card", return_value=_gci_card_bytes()
+        ),
+        patch(
+            "handler.streaming.memory_cards.store_memory_card_version",
             new=AsyncMock(side_effect=OSError("disk full")),
         ),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
-        patch("endpoints.streaming._call_broker") as launch,
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
+        patch("handler.streaming.commands.launch") as launch,
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 502
@@ -4674,16 +4642,16 @@ def test_adopt_retry_recovers_when_the_version_was_already_stored(
         _card_version(
             card.id,
             "My PS2 card [stored].card.zip",
-            streaming.content_hash_of_bytes(card_bytes),
+            content_hash_of_bytes(card_bytes),
         )
     )
     with (
         _streaming(container),
         _adoption_storage(card_bytes),
-        patch("endpoints.streaming._fetch_memory_card", return_value=card_bytes),
-        patch("endpoints.streaming._push_memory_card", return_value=True),
-        patch("endpoints.streaming._call_broker"),
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.fetch_card", return_value=card_bytes),
+        patch("handler.streaming.memory_cards.push_card", return_value=True),
+        patch("handler.streaming.commands.launch"),
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 202
@@ -4704,7 +4672,7 @@ def test_adopt_aborts_when_dedup_matches_an_older_version(
     older = _card_version(
         card.id,
         "My PS2 card [old].card.zip",
-        streaming.content_hash_of_bytes(card_bytes),
+        content_hash_of_bytes(card_bytes),
     )
     older.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     newer = _card_version(card.id, "My PS2 card [newer].card.zip", "newer-hash")
@@ -4714,10 +4682,10 @@ def test_adopt_aborts_when_dedup_matches_an_older_version(
     with (
         _streaming(container),
         _adoption_storage(card_bytes),
-        patch("endpoints.streaming._fetch_memory_card", return_value=card_bytes),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
-        patch("endpoints.streaming._call_broker") as launch,
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.fetch_card", return_value=card_bytes),
+        patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
+        patch("handler.streaming.commands.launch") as launch,
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(
             client, access_token, rom.id, memory_card_id=card.id, card_import="adopt"
@@ -4738,12 +4706,12 @@ def test_adopt_with_unreadable_card_aborts_without_recording(
     with (
         _streaming(container),
         patch(
-            "endpoints.streaming._fetch_memory_card",
-            side_effect=streaming.MemoryCardUnavailable("broker exploded"),
+            "handler.streaming.memory_cards.fetch_card",
+            side_effect=memory_cards.MemoryCardUnavailable("broker exploded"),
         ),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
-        patch("endpoints.streaming._call_broker") as launch,
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
+        patch("handler.streaming.commands.launch") as launch,
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 502
@@ -4763,10 +4731,10 @@ def test_adopt_with_absent_card_aborts_without_recording(
     container = _mc_container_for(rom)
     with (
         _streaming(container),
-        patch("endpoints.streaming._fetch_memory_card", return_value=None),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
-        patch("endpoints.streaming._call_broker") as launch,
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.fetch_card", return_value=None),
+        patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
+        patch("handler.streaming.commands.launch") as launch,
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 502
@@ -4803,11 +4771,11 @@ def test_occupied_undecided_container_returns_409_not_428(
     with (
         _streaming(container),
         patch(
-            "endpoints.streaming._fetch_memory_card", return_value=_gci_card_bytes()
+            "handler.streaming.memory_cards.fetch_card", return_value=_gci_card_bytes()
         ) as fetch,
-        patch("endpoints.streaming._push_memory_card") as push,
-        patch("endpoints.streaming._call_broker") as launch,
-        patch("endpoints.streaming._spawn_sync_task"),
+        patch("handler.streaming.memory_cards.push_card") as push,
+        patch("handler.streaming.commands.launch") as launch,
+        patch("handler.streaming.background.spawn_sync_task"),
     ):
         r = _mc_claim(client, viewer_access_token, rom.id)
     assert r.status_code == 409
@@ -4844,19 +4812,19 @@ def test_webstation_claim_hydrates_the_card_and_the_states(
     own saves, the archive carries the state the last session ended on."""
     with _streaming(_mc_webstation_for(rom)):
         with (
-            patch("endpoints.streaming._webstation_activate", return_value={}),
-            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch("handler.streaming.webstation.activate", return_value={}),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
             patch(
-                "endpoints.streaming._hydrate_memory_card_to_broker",
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ) as card,
             patch(
-                "endpoints.streaming._hydrate_states_to_broker", new=AsyncMock()
+                "handler.streaming.states.hydrate_states_to_broker", new=AsyncMock()
             ) as states,
             patch(
-                "endpoints.streaming._hydrate_saves_to_broker", new=AsyncMock()
+                "handler.streaming.saves.hydrate_saves_to_broker", new=AsyncMock()
             ) as legacy,
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4874,16 +4842,14 @@ def test_webstation_claim_tells_the_broker_the_card_is_synced(
     save archive too, fighting the image the card routes just laid down."""
     with _streaming(_mc_webstation_for(rom)):
         with (
+            patch("handler.streaming.webstation.activate", return_value={}) as activate,
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
             patch(
-                "endpoints.streaming._webstation_activate", return_value={}
-            ) as activate,
-            patch("endpoints.streaming._fetch_memory_card", return_value=None),
-            patch(
-                "endpoints.streaming._hydrate_memory_card_to_broker",
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("endpoints.streaming._hydrate_states_to_broker", new=AsyncMock()),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=AsyncMock()),
+            patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4916,7 +4882,7 @@ def test_record_play_session_stores_duration(admin_user: User, rom: Rom):
         "rom_id": rom.id,
         "claimed_at": start.isoformat(),
     }
-    asyncio.run(streaming._record_play_session(session))
+    asyncio.run(lifecycle.record_play_session(session))
 
     total_ms = db_play_session_handler.get_total_play_time(admin_user.id, rom.id)
     # ~10 minutes, allow slack for wall-clock drift between claim and record.
@@ -4932,15 +4898,15 @@ def test_record_play_session_skips_accidental_short_session(admin_user: User, ro
         "rom_id": rom.id,
         "claimed_at": datetime.now(timezone.utc).isoformat(),
     }
-    asyncio.run(streaming._record_play_session(session))
+    asyncio.run(lifecycle.record_play_session(session))
     assert db_play_session_handler.get_total_play_time(admin_user.id, rom.id) == 0
 
 
 def test_record_play_session_ignores_malformed_session(admin_user: User, rom: Rom):
     """Missing rom_id / claimed_at must be a no-op, never an error."""
-    asyncio.run(streaming._record_play_session({"user_id": admin_user.id}))
+    asyncio.run(lifecycle.record_play_session({"user_id": admin_user.id}))
     asyncio.run(
-        streaming._record_play_session(
+        lifecycle.record_play_session(
             {"user_id": admin_user.id, "rom_id": rom.id, "claimed_at": "not-a-date"}
         )
     )
@@ -4978,7 +4944,7 @@ def test_releasing_a_session_takes_it_off_the_activity_board(
     container = _container_for(rom)
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker", return_value=None):
+        with patch("handler.streaming.commands.stop", return_value=None):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
@@ -5011,7 +4977,7 @@ def test_summarize_memory_card_reports_files_and_game_codes():
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("01-GXCE-CustomRobo-BattleRevolution.gci", b"x" * 100)
         zf.writestr("01-GALE-SuperSmashBros.gci", b"y" * 50)
-    summary = streaming._summarize_memory_card(buf.getvalue())
+    summary = memory_cards.summarize_card(buf.getvalue())
     assert summary["file_count"] == 2
     assert summary["total_bytes"] == 150
     assert summary["game_codes"] == ["GALE", "GXCE"]
@@ -5019,7 +4985,7 @@ def test_summarize_memory_card_reports_files_and_game_codes():
 
 def test_summarize_memory_card_handles_unparsable_content():
     """A card we cannot parse describes nothing, and never raises into the claim."""
-    summary = streaming._summarize_memory_card(b"not a zip")
+    summary = memory_cards.summarize_card(b"not a zip")
     assert summary["file_count"] == 0
     assert summary["total_bytes"] == 0
     assert summary["game_codes"] == []
@@ -5070,10 +5036,8 @@ def _claim_multiplayer(client, token, rom_id, multiplayer=True):
     """Claim with multiplayer requested and whichever broker the container
     speaks stubbed out."""
     with (
-        patch("endpoints.streaming._call_broker"),
-        patch(
-            "endpoints.streaming._webstation_activate", return_value={"url": "/room/x"}
-        ),
+        patch("handler.streaming.commands.launch"),
+        patch("handler.streaming.webstation.activate", return_value={"url": "/room/x"}),
     ):
         return client.post(
             "/api/streaming/sessions",
@@ -5393,7 +5357,7 @@ def test_joining_a_multiplayer_session_returns_its_room_url(
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         with patch(
-            "endpoints.streaming._webstation_join",
+            "handler.streaming.webstation.join",
             return_value={"url": "/webstation/?token=abc"},
         ):
             response = _join(client, viewer_access_token, rom.platform_slug)
@@ -5409,7 +5373,7 @@ def test_joining_ignores_a_room_url_that_leaves_the_container(
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         with patch(
-            "endpoints.streaming._webstation_join",
+            "handler.streaming.webstation.join",
             return_value={"url": "https://evil.example/room"},
         ):
             response = _join(client, viewer_access_token, rom.platform_slug)
@@ -5425,7 +5389,7 @@ def test_joining_a_hidden_rom_is_404_masked(
     _hide(PermEntity.ROMS, rom.id, viewer_user.id)
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
-        with patch("endpoints.streaming._webstation_join") as join_broker:
+        with patch("handler.streaming.webstation.join") as join_broker:
             response = _join(client, viewer_access_token, rom.platform_slug)
 
     assert response.status_code == 404
@@ -5438,7 +5402,7 @@ def test_joining_a_rom_on_a_hidden_platform_is_404_masked(
     _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
-        with patch("endpoints.streaming._webstation_join") as join_broker:
+        with patch("handler.streaming.webstation.join") as join_broker:
             response = _join(client, viewer_access_token, rom.platform_slug)
 
     assert response.status_code == 404
@@ -5486,7 +5450,7 @@ def test_a_joiner_cannot_drive_the_session(
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         with patch(
-            "endpoints.streaming._webstation_join",
+            "handler.streaming.webstation.join",
             return_value={"url": "/webstation/?token=abc"},
         ):
             assert (
@@ -5501,7 +5465,7 @@ def test_a_refused_mint_is_a_502(client, access_token, viewer_access_token, rom:
     """The broker answering with no URL must not read as a successful join."""
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
-        with patch("endpoints.streaming._webstation_join", return_value=None):
+        with patch("handler.streaming.webstation.join", return_value=None):
             response = _join(client, viewer_access_token, rom.platform_slug)
 
     assert response.status_code == 502
@@ -5646,7 +5610,7 @@ def test_swap_disc_calls_the_broker_and_records_the_disc(client, access_token):
     container = _tray_container(rom)
     with _streaming(container):
         _claim_webstation_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._swap_disc_broker", return_value=True) as swap:
+        with patch("handler.streaming.commands.swap_disc", return_value=True) as swap:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": disc.id},
@@ -5669,7 +5633,7 @@ def test_swap_disc_reports_a_broker_failure(client, access_token):
     container = _tray_container(rom)
     with _streaming(container):
         _claim_webstation_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._swap_disc_broker", return_value=False):
+        with patch("handler.streaming.commands.swap_disc", return_value=False):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": disc.id},
@@ -5701,7 +5665,7 @@ def test_swap_disc_refuses_the_m3u_playlist(client, access_token):
     _add_rom_file(rom, "Game (Disc 2).chd")
     with _streaming(_tray_container(rom)):
         _claim_webstation_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._swap_disc_broker") as swap:
+        with patch("handler.streaming.commands.swap_disc") as swap:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": playlist.id},
@@ -5719,7 +5683,7 @@ def test_swap_disc_refuses_a_raw_track_when_cues_are_present(client, access_toke
     track = _add_rom_file(rom, "Game (Disc 2) (Track 01).bin")
     with _streaming(_tray_container(rom)):
         _claim_webstation_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._swap_disc_broker") as swap:
+        with patch("handler.streaming.commands.swap_disc") as swap:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": track.id},
@@ -5777,7 +5741,7 @@ def test_swap_disc_rejects_a_container_with_no_tray_route(client, access_token):
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._swap_disc_broker") as swap:
+        with patch("handler.streaming.commands.swap_disc") as swap:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": disc.id},
@@ -5795,17 +5759,17 @@ def test_a_state_captured_after_a_swap_records_the_disc(client, access_token):
     container = _tray_container(rom, emulator="retroarch")
     with _streaming(container):
         _claim_webstation_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._swap_disc_broker", return_value=True):
+        with patch("handler.streaming.commands.swap_disc", return_value=True):
             client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": disc.id},
                 headers=_auth(access_token),
             )
         with (
-            patch("endpoints.streaming._save_state_broker", return_value=True),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("handler.streaming.commands.save_state", return_value=True),
+            patch("handler.streaming.background.spawn_sync_task"),
             patch(
-                "endpoints.streaming._pull_state_to_library", new=MagicMock()
+                "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as pull,
         ):
             client.post(
@@ -5822,12 +5786,12 @@ def _retroarch_resume(client, token, rom, state_id):
     container = {**_container_for(rom), "emulator": "retroarch"}
     with _streaming(container):
         with (
-            patch("endpoints.streaming._call_broker"),
-            patch("endpoints.streaming._push_resume_state", return_value=True),
-            patch("endpoints.streaming._spawn_sync_task"),
-            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.states.push_resume_state", return_value=True),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
             patch(
-                "endpoints.streaming._restore_session_disc", new=MagicMock()
+                "handler.streaming.states.restore_session_disc", new=MagicMock()
             ) as restore,
         ):
             r = _claim(client, token, rom.id, state_id=state_id)
@@ -5892,9 +5856,9 @@ def test_restore_session_disc_swaps_and_records_the_disc(admin_user: User):
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
     container = _container_for(rom)
     session_key = _session_for(container, rom, admin_user)
-    with patch("endpoints.streaming._swap_disc_broker", return_value=True) as swap:
+    with patch("handler.streaming.commands.swap_disc", return_value=True) as swap:
         ok = asyncio.run(
-            streaming._restore_session_disc(
+            states.restore_session_disc(
                 rom.id, _resolved(container), session_key, file_id=disc.id
             )
         )
@@ -5911,9 +5875,9 @@ def test_restore_session_disc_refuses_a_file_from_another_rom(
     stranger = _add_rom_file(rom, "Other.chd")
     container = _container_for(streamed)
     session_key = _session_for(container, streamed, admin_user)
-    with patch("endpoints.streaming._swap_disc_broker") as swap:
+    with patch("handler.streaming.commands.swap_disc") as swap:
         ok = asyncio.run(
-            streaming._restore_session_disc(
+            states.restore_session_disc(
                 streamed.id, container, session_key, file_id=stranger.id
             )
         )
@@ -5931,11 +5895,11 @@ def test_restore_session_disc_bails_out_when_the_file_is_gone(admin_user: User, 
     romm_logger.addHandler(caplog.handler)
     try:
         with (
-            patch("endpoints.streaming._swap_disc_broker") as swap,
+            patch("handler.streaming.commands.swap_disc") as swap,
             caplog.at_level(logging.WARNING, logger="romm"),
         ):
             ok = asyncio.run(
-                streaming._restore_session_disc(
+                states.restore_session_disc(
                     rom.id, container, session_key, file_id=999999
                 )
             )
@@ -5951,9 +5915,9 @@ def test_restore_session_disc_does_not_record_on_broker_failure(admin_user: User
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
     container = _container_for(rom)
     session_key = _session_for(container, rom, admin_user)
-    with patch("endpoints.streaming._swap_disc_broker", return_value=False):
+    with patch("handler.streaming.commands.swap_disc", return_value=False):
         ok = asyncio.run(
-            streaming._restore_session_disc(
+            states.restore_session_disc(
                 rom.id, _resolved(container), session_key, file_id=disc.id
             )
         )
