@@ -828,3 +828,20 @@ async def test_an_unrelated_json_script_is_not_mistaken_for_the_payload(
         await handler.get_rom_by_id(7169)
 
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+@pytest.mark.asyncio
+async def test_search_games_propagates_an_unreachable_hltb():
+    """A failed search has to stay distinguishable from a term with no hits."""
+    handler = _handler()
+
+    with (
+        patch.object(
+            handler,
+            "_request",
+            new_callable=AsyncMock,
+            side_effect=HTTPException(status_code=503, detail="down"),
+        ),
+        pytest.raises(HTTPException),
+    ):
+        await handler.search_games("Chrono Trigger", "snes")

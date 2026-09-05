@@ -224,6 +224,11 @@ def is_daily_quota_exhausted() -> bool:
     return _state.daily_quota_exhausted
 
 
+def is_breaker_tripped() -> bool:
+    """Whether a breaker has taken ScreenScraper out for the rest of this scan."""
+    return _state.daily_quota_exhausted or _state.credentials_rejected is not None
+
+
 def _trip_daily_quota(reason: str) -> None:
     """Trip the daily-quota breaker, logging a single clear notice the first time."""
     if not _state.daily_quota_exhausted:

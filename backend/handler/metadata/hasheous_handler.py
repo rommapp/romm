@@ -5,7 +5,7 @@ from typing import Any, NotRequired, TypedDict
 import httpx
 import pydash
 import yarl
-from fastapi import HTTPException, status
+from fastapi import status
 
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
 from logger.logger import log
@@ -14,7 +14,7 @@ from utils import get_version
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, MetadataHandler, unavailable
 from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,
@@ -222,21 +222,17 @@ class HasheousHandler(MetadataHandler):
                 exc.response.status_code,
                 exc.response.text,
             )
-            pass
+            raise unavailable("Hasheous") from exc
         except httpx.NetworkError as exc:
             log.critical("Connection error: can't connect to Hasheous")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Hasheous, check your internet connection",
-            ) from exc
+            raise unavailable("Hasheous") from exc
         except json.decoder.JSONDecodeError as exc:
             # Log the error and return an empty dict if the response is not valid JSON
             log.error(exc)
             return {}
-        except httpx.TimeoutException:
-            pass
-
-        return {}
+        except httpx.TimeoutException as exc:
+            log.error("Hasheous API timed out: %s", exc)
+            raise unavailable("Hasheous") from exc
 
     def get_platform(self, slug: str) -> HasheousPlatform:
         if slug not in HASHEOUS_PLATFORM_LIST:

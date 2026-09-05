@@ -15,7 +15,6 @@ from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
-from fastapi import HTTPException, status
 
 from config import DEMOZOO_API_ENABLED
 from logger.logger import log
@@ -23,7 +22,7 @@ from utils import get_version, int_or_none, valid_youtube_id
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, MetadataHandler, unavailable
 
 DEMOZOO_TAG_REGEX = re.compile(r"\(demozoo-(\d+)\)", re.IGNORECASE)
 DEMOZOO_PROD_ID_RE = re.compile(
@@ -517,10 +516,7 @@ class DemozooHandler(MetadataHandler):
             body = await self._fetch_capped(url, headers=headers)
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Demozoo API, check your internet connection",
-            ) from exc
+            raise unavailable("Demozoo API") from exc
         if body is None:
             return {}
         try:
@@ -545,12 +541,7 @@ class DemozooHandler(MetadataHandler):
     async def get_rom_by_id(self, demozoo_id: int) -> DemozooRom:
         if not self.is_enabled() or not demozoo_id:
             return DemozooRom(demozoo_id=None)
-        try:
-            data = await self._request(
-                f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/"
-            )
-        except HTTPException:
-            return DemozooRom(demozoo_id=None)
+        data = await self._request(f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/")
         if not data.get("id"):
             return DemozooRom(demozoo_id=None)
         return production_to_rom(data)

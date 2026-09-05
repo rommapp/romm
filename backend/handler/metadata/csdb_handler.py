@@ -14,14 +14,13 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 from defusedxml import ElementTree as ET
-from fastapi import HTTPException, status
 
 from config import CSDB_API_ENABLED
 from logger.logger import log
 from utils import get_version, int_or_none
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, MetadataHandler, unavailable
 from .demozoo_handler import build_scene_summary, http_url
 
 CSDB_TAG_REGEX = re.compile(r"\(csdb-(\d+)\)", re.IGNORECASE)
@@ -180,10 +179,7 @@ class CsdbHandler(MetadataHandler):
             log.warning(
                 "Can't connect to CSDb webservice", extra={"exception": str(exc)}
             )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to CSDb, check your internet connection",
-            ) from exc
+            raise unavailable("CSDb") from exc
         if body is None:
             return ""
         return body.decode("utf-8", errors="replace")
@@ -203,12 +199,9 @@ class CsdbHandler(MetadataHandler):
     async def get_rom_by_id(self, csdb_id: int) -> CsdbRom:
         if not self.is_enabled() or not csdb_id:
             return CsdbRom(csdb_id=None)
-        try:
-            xml = await self._request(
-                f"{CSDB_WEBSERVICE}?type=release&id={int(csdb_id)}&depth=2"
-            )
-        except HTTPException:
-            return CsdbRom(csdb_id=None)
+        xml = await self._request(
+            f"{CSDB_WEBSERVICE}?type=release&id={int(csdb_id)}&depth=2"
+        )
         return production_from_xml(xml)
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> CsdbRom:

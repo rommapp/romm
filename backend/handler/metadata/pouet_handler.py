@@ -13,7 +13,6 @@ from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
-from fastapi import HTTPException, status
 
 from config import POUET_API_ENABLED
 from logger.logger import log
@@ -21,7 +20,7 @@ from utils import get_version, int_or_none
 from utils.context import ctx_httpx_client
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, MetadataHandler, unavailable
 from .demozoo_handler import (
     DEMOZOO_PROD_PAGE,
     _append_unique,
@@ -314,10 +313,7 @@ class PouetHandler(MetadataHandler):
             body = await self._fetch_capped(url, headers=headers)
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning("Can't connect to Pouët API", extra={"exception": str(exc)})
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Pouët API, check your internet connection",
-            ) from exc
+            raise unavailable("Pouët API") from exc
         if body is None:
             return {}
         try:
@@ -340,10 +336,7 @@ class PouetHandler(MetadataHandler):
     async def get_rom_by_id(self, pouet_id: int) -> PouetRom:
         if not self.is_enabled() or not pouet_id:
             return PouetRom(pouet_id=None)
-        try:
-            data = await self._request(f"{POUET_API_PROD}?id={int(pouet_id)}")
-        except HTTPException:
-            return PouetRom(pouet_id=None)
+        data = await self._request(f"{POUET_API_PROD}?id={int(pouet_id)}")
         prod = data.get("prod")
         if not data.get("success") or not isinstance(prod, dict) or not prod.get("id"):
             return PouetRom(pouet_id=None)
@@ -375,7 +368,7 @@ class PouetHandler(MetadataHandler):
                 return pouet_id_from_location(res.headers.get("location") or "")
         except (httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning("Pouët title search failed: %s", exc)
-            return None
+            raise unavailable("Pouët API") from exc
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> PouetRom:
         """Tag first; otherwise unique-title 302. No HTML list parse."""

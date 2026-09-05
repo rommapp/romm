@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from handler.metadata.pouet_handler import (
     PouetHandler,
@@ -143,3 +144,20 @@ async def test_get_rom_uses_filename_tag():
     assert "id=99" in req.await_args_list[0].args[0]
     assert result["pouet_id"] == 99
     assert result["name"] == "State of the Art"
+
+
+@pytest.mark.asyncio
+async def test_get_rom_by_id_propagates_an_unreachable_pouet():
+    """A dead connection has to stay distinguishable from a missing production."""
+    handler = PouetHandler()
+    with (
+        patch.object(PouetHandler, "is_enabled", return_value=True),
+        patch.object(
+            PouetHandler,
+            "_request",
+            new_callable=AsyncMock,
+            side_effect=HTTPException(status_code=503, detail="down"),
+        ),
+        pytest.raises(HTTPException),
+    ):
+        await handler.get_rom_by_id(99)
