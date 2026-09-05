@@ -1,152 +1,45 @@
+import type {
+  AdminContainerSchema,
+  AdminSessionSchema,
+  ClaimedSessionSchema,
+  DesktopSessionSchema,
+  JoinableSessionSchema,
+  JoinedSessionSchema,
+  MemoryCardImportRequired,
+  SessionStatusSchema,
+  SessionTerminationSchema,
+  SlotCapabilitiesSchema,
+  StreamingConfigSchema,
+  StreamingContainerSchema,
+} from "@/__generated__";
 import api, { keepaliveHeaders } from "@/services/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+//
+// The shapes themselves are generated from the backend's OpenAPI schema. These
+// aliases give each one the name the frontend already calls it by, so a route's
+// response cannot drift from what the components consume without the typecheck
+// saying so.
 
-export interface PlatformCapabilities {
-  max_slots: number; // manual save slots, selectable as 1..max_slots
-  has_autosave: boolean; // whether a dedicated autosave slot can be loaded
-  autosave_slot: number; // that slot's index, where exit saves land, 0 if none
-  supports_disc_swap?: boolean; // a live swap route exists for this platform
-  has_manual_disc_swap?: boolean; // no route, but the emulator's own UI can do it
-}
-
-export interface StreamingContainer {
-  platform: string; // "ps2"
-  host: string; // "http://192.168.1.50:3000"
-  label: string; // "PCSX2"
-  emulator: string; // state namespace, e.g. "pcsx2", matches State.emulator
-  capabilities: PlatformCapabilities;
-  // Whether this container syncs whole memory cards (whole-card sync). Gates
-  // the memory-card picker; false/absent for containers without it.
-  supports_memory_cards?: boolean;
-}
-
-export interface StreamingConfig {
-  enabled: boolean;
-  containers: StreamingContainer[];
-  // Seconds the backend gives a claim before it gives up on the broker. The
-  // claim request's own ceiling is derived from this.
-  launch_timeout: number;
-}
-
-export interface ActiveSession {
-  platform: string;
-  host: string;
-  label: string;
-  rom_name: string;
-  claimed_at: string;
-  // true: resume state delivered to the broker; false: resume requested but
-  // the push failed (fresh launch); null: no resume requested.
-  resume: boolean | null;
-}
-
-// Entry of the admin-only GET /streaming/sessions list. Nullable fields
-// cover sessions claimed before a config change (container removed) or
-// records written by an older backend (no platform stored).
-export interface AdminStreamingSession {
-  container: string;
-  label: string | null;
-  platform: string | null;
-  rom_id: number | null;
-  rom_name: string | null;
-  // A desktop session runs no game, so rom_name is null and the row has to
-  // say what it is rather than showing an empty cell.
-  desktop: boolean;
-  claimed_at: string | null;
-  user_id: number | null;
-  username: string | null;
-}
-
-// Row of the admin-only GET /streaming/containers list, one per container
-// rather than per platform: a container serves many platforms but hosts one
-// session, so the fleet view counts containers.
-export interface AdminStreamingContainer {
-  container: string; // the key release and desktop calls name
-  label: string | null;
-  host: string | null;
-  platforms: string[];
-  supports_desktop: boolean;
-  // False when the configured host carries no scheme, so no broker URL can be
-  // derived and the container can never be claimed.
-  configured: boolean;
-  session: Omit<AdminStreamingSession, "container" | "label"> | null;
-}
-
-export interface DesktopSession {
-  container: string;
-  platform: string;
-  host: string;
-  label: string;
-  claimed_at: string;
-}
-
-/** Why a session the caller used to hold is gone. Present only when an admin
- *  ended it; an expired or self-released session carries no notice. */
-export interface SessionTermination {
-  ended_by: string | null;
-  reason: string | null;
-  ended_at: string | null;
-  platform: string | null;
-  rom_id: number | null;
-  rom_name: string | null;
-}
-
-export interface SessionStatus {
-  status: "active" | "ended";
-  platform: string;
-  termination?: SessionTermination | null;
-  /** What the broker is unpacking, while a claim is still in flight. Absent
-   *  once the launch has returned, and on brokers with no extraction step. */
-  extraction_phase?: string | null;
-}
+export type PlatformCapabilities = SlotCapabilitiesSchema;
+export type StreamingContainer = StreamingContainerSchema;
+export type StreamingConfig = StreamingConfigSchema;
+export type ActiveSession = ClaimedSessionSchema;
+export type AdminStreamingSession = AdminSessionSchema;
+export type AdminStreamingContainer = AdminContainerSchema;
+export type DesktopSession = DesktopSessionSchema;
+export type SessionTermination = SessionTerminationSchema;
+export type SessionStatus = SessionStatusSchema;
+export type JoinableSession = JoinableSessionSchema;
+export type JoinedSession = JoinedSessionSchema;
 
 /** Body of the 428 a claim returns when the container still holds a memory
- *  card nobody has decided about. Hand-written: FastAPI serves it as a bare
- *  `detail` dict, so it never reaches the OpenAPI schema. */
-export interface MemoryCardImportDetail {
-  code: "memory_card_import_required";
-  outcome: "found" | "unreadable";
-  /** Why the card could not be read. Present on "unreadable" only. */
-  reason?: string;
-  /** What the card holds. Present on "found" only. */
-  summary?: {
-    file_count: number;
-    total_bytes: number;
-    game_codes: string[];
-  };
-}
+ *  card nobody has decided about. */
+export type MemoryCardImportDetail = MemoryCardImportRequired;
 
 /** The answer to that prompt, replayed on the retried claim. "discard" erases
  *  the card currently on the container. */
 export type MemoryCardImport = "adopt" | "discard";
-
-/** Entry of GET /streaming/sessions/joinable. Nullable fields cover a session
- *  claimed before a config change removed its container. */
-export interface JoinableSession {
-  container: string;
-  label: string | null;
-  platform: string | null;
-  rom_id: number | null;
-  rom_name: string | null;
-  host_username: string | null;
-  claimed_at: string | null;
-  // Cover and platform of the ROM, so a tile needs no second request.
-  platform_id: number | null;
-  platform_display_name: string | null;
-  path_cover_small: string | null;
-  path_cover_large: string | null;
-  url_cover: string | null;
-}
-
-/** Answer to POST /streaming/sessions/{platform}/join. `host` is the room URL
- *  the joiner's iframe loads; no control route accepts them. */
-export interface JoinedSession {
-  platform: string;
-  host: string;
-  label: string;
-  rom_id: number | null;
-  rom_name: string | null;
-}
 
 export function isMemoryCardImportDetail(
   value: unknown,

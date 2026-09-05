@@ -1682,7 +1682,12 @@ def test_status_reports_active_for_owner(client, access_token, rom: Rom):
             headers=_auth(access_token),
         )
     assert r.status_code == 200
-    assert r.json() == {"status": "active", "platform": rom.platform_slug}
+    assert r.json() == {
+        "status": "active",
+        "platform": rom.platform_slug,
+        "extraction_phase": None,
+        "termination": None,
+    }
 
 
 def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
@@ -1903,7 +1908,12 @@ def test_status_stops_asking_the_broker_once_the_launch_returned(client, access_
             r = client.get(
                 "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
             )
-    assert r.json() == {"status": "active", "platform": "ps2"}
+    assert r.json() == {
+        "status": "active",
+        "platform": "ps2",
+        "extraction_phase": None,
+        "termination": None,
+    }
     broker.assert_not_called()
 
 
@@ -1920,7 +1930,12 @@ def test_status_on_a_legacy_container_never_asks_for_a_phase(
                 f"/api/streaming/sessions/{rom.platform_slug}/status",
                 headers=_auth(access_token),
             )
-    assert r.json() == {"status": "active", "platform": rom.platform_slug}
+    assert r.json() == {
+        "status": "active",
+        "platform": rom.platform_slug,
+        "extraction_phase": None,
+        "termination": None,
+    }
     broker.assert_not_called()
 
 

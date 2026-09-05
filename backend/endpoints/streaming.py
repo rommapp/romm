@@ -16,10 +16,8 @@ from pathlib import PurePosixPath
 from typing import Annotated, Any, Literal, TypedDict
 from urllib.parse import quote, urljoin
 
-from fastapi import Body, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi import BackgroundTasks, Body, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from starlette.background import BackgroundTask
 
 from config import (
     STREAMING_LAUNCH_TIMEOUT,
@@ -27,6 +25,27 @@ from config import (
     STREAMING_STATE_HISTORY_LIMIT,
 )
 from decorators.auth import protected_route
+from endpoints.responses.streaming import (
+    AdminContainersResponse,
+    AdminSessionsResponse,
+    ClaimedSessionSchema,
+    DesktopSessionSchema,
+    ForceReleaseResponse,
+    JoinableSessionsResponse,
+    JoinedSessionSchema,
+    LoadStateResponse,
+    MemoryCardImportRequired,
+    MemoryCardSummarySchema,
+    MuteResponse,
+    ReleaseSessionResponse,
+    SaveAndExitResponse,
+    SaveStateResponse,
+    SessionStatusSchema,
+    StateFrameResponse,
+    StreamingConfigSchema,
+    SwapDiscResponse,
+    VolumeResponse,
+)
 from handler.activity_handler import activity_handler
 from handler.asset_store import store_screenshot, store_state_file
 from handler.auth.constants import Scope
@@ -2248,7 +2267,7 @@ def _resolve_resume_state(
 
 
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
-async def get_config(request: Request) -> JSONResponse:
+async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
     # Keyed by platform: a pool is a backend concern, the frontend picks a
     # platform and the claim decides which container serves it.
@@ -2275,22 +2294,24 @@ async def get_config(request: Request) -> JSONResponse:
             "supports_memory_cards": c.memory_card_sync,
         }
 
-    return JSONResponse(
-        {
-            "enabled": streaming_enabled(),
-            "containers": list(safe_containers.values()),
-            # How long a claim is allowed to block, so the client derives its
-            # own request ceiling from this rather than keeping a copy that
-            # goes stale the moment an operator raises the limit.
-            "launch_timeout": STREAMING_LAUNCH_TIMEOUT,
-        }
+    return StreamingConfigSchema(
+        enabled=streaming_enabled(),
+        containers=list(safe_containers.values()),
+        launch_timeout=STREAMING_LAUNCH_TIMEOUT,
     )
 
 
-@protected_route(router.post, "/sessions", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.post,
+    "/sessions",
+    [Scope.ROMS_USER_WRITE],
+    # The prompt for a card the container still holds is a real body the client
+    # parses, so it is declared rather than left as an undocumented `detail`.
+    responses={428: {"model": MemoryCardImportRequired}},
+)
 async def claim_session(
     request: Request, req: Annotated[ClaimStreamingSessionRequest, Body()]
-) -> JSONResponse:
+) -> ClaimedSessionSchema:
     """
     Claim a streaming session and tell the broker to load the ROM.
 
@@ -2497,11 +2518,11 @@ async def claim_session(
                 if req.card_import is None:
                     raise HTTPException(
                         status_code=428,
-                        detail={
-                            "code": "memory_card_import_required",
-                            "outcome": "unreadable",
-                            "reason": _CARD_UNREADABLE_REASON,
-                        },
+                        detail=MemoryCardImportRequired(
+                            code="memory_card_import_required",
+                            outcome="unreadable",
+                            reason=_CARD_UNREADABLE_REASON,
+                        ).model_dump(),
                     ) from exc
                 raise HTTPException(
                     status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL
@@ -2517,11 +2538,13 @@ async def claim_session(
             await _abort_claim(session_key)
             raise HTTPException(
                 status_code=428,
-                detail={
-                    "code": "memory_card_import_required",
-                    "outcome": "found",
-                    "summary": _summarize_memory_card(adoption_content),
-                },
+                detail=MemoryCardImportRequired(
+                    code="memory_card_import_required",
+                    outcome="found",
+                    summary=MemoryCardSummarySchema(
+                        **_summarize_memory_card(adoption_content)
+                    ),
+                ).model_dump(),
             )
         if req.card_import == "discard":
             adoption_content = None
@@ -2725,17 +2748,13 @@ async def claim_session(
 
     host = container.protocol.stream_url(container.host, launch_result)
 
-    return JSONResponse(
-        {
-            "platform": platform,
-            "host": host,
-            "label": container.label,
-            "rom_name": rom_name,
-            "claimed_at": now,
-            # None when no resume was requested; False signals the frontend
-            # to tell the player the session started fresh.
-            "resume": resume_pushed if req.state_id is not None else None,
-        }
+    return ClaimedSessionSchema(
+        platform=platform,
+        host=host,
+        label=container.label,
+        rom_name=rom_name,
+        claimed_at=now,
+        resume=resume_pushed if req.state_id is not None else None,
     )
 
 
@@ -2744,7 +2763,7 @@ async def claim_session(
 )
 async def save_and_exit_session(
     request: Request, platform: str, req: Annotated[SaveAndExitRequest, Body()]
-) -> JSONResponse:
+) -> SaveAndExitResponse:
     """
     Save game state then release the session.
     wait=true (default): blocks until broker confirms save+kill complete.
@@ -2851,13 +2870,13 @@ async def save_and_exit_session(
     log.info("save-and-exit, platform=%s saved=%s", platform, saved)
     # `released` false means the container is still on this claim, so the client
     # is still the one holding it and has to try again.
-    return JSONResponse(
-        {"status": "ok", "saved": saved, "platform": platform, "released": released}
+    return SaveAndExitResponse(
+        status="ok", saved=saved, platform=platform, released=released
     )
 
 
 @protected_route(router.post, "/sessions/{platform}/heartbeat", [Scope.ROMS_USER_WRITE])
-async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
+async def heartbeat_session(request: Request, platform: str) -> SessionStatusSchema:
     """Refresh the session's liveness stamp and report whether it still exists.
 
     The frontend calls this every ~30s while a session is active. A session
@@ -2876,7 +2895,7 @@ async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
         )
     found = await _find_session_for_user(candidates, request.user.id)
     if found is None:
-        return JSONResponse(await _session_status(platform, request))
+        return SessionStatusSchema(**await _session_status(platform, request))
     _, session_key, _ = found
 
     # Merging rather than writing the copy read above keeps a swap that landed
@@ -2894,21 +2913,21 @@ async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
         # A key too busy to write is a key that exists, so the session is live
         # and the missed stamp is covered by the next beat.
         log.warning("heartbeat could not stamp contended session %s", session_key)
-        return JSONResponse({"status": "active", "platform": platform})
+        return SessionStatusSchema(status="active", platform=platform)
     if refreshed is None:
-        return JSONResponse(await _session_status(platform, request))
+        return SessionStatusSchema(**await _session_status(platform, request))
     await _refresh_session_activity(session_key, refreshed)
-    return JSONResponse({"status": "active", "platform": platform})
+    return SessionStatusSchema(status="active", platform=platform)
 
 
 @protected_route(router.get, "/sessions/{platform}/status", [Scope.ROMS_READ])
-async def session_status(request: Request, platform: str) -> JSONResponse:
+async def session_status(request: Request, platform: str) -> SessionStatusSchema:
     """Does the caller still hold this platform's session?
 
     Unlike the heartbeat this has no side effects, so a client can call it on
     mount or after a reconnect without extending a claim it may not own.
     """
-    return JSONResponse(await _session_status(platform, request))
+    return SessionStatusSchema(**await _session_status(platform, request))
 
 
 @protected_route(router.post, "/sessions/{platform}/join", [Scope.ROMS_READ])
@@ -2916,7 +2935,7 @@ async def join_session(
     request: Request,
     platform: str,
     container: str | None = Query(default=None),
-) -> JSONResponse:
+) -> JoinedSessionSchema:
     """Join a multiplayer session someone else is hosting.
 
     The caller gets a room URL and nothing else. Note the scope: ROMS_READ,
@@ -2965,21 +2984,19 @@ async def join_session(
     if not room_url:
         raise HTTPException(status_code=502, detail="The session refused the join")
 
-    return JSONResponse(
-        {
-            "platform": platform,
-            "host": urljoin(candidate.host, room_url),
-            "label": candidate.label,
-            "rom_id": session.get("rom_id"),
-            "rom_name": session.get("rom_name"),
-        }
+    return JoinedSessionSchema(
+        platform=platform,
+        host=urljoin(candidate.host, room_url),
+        label=candidate.label,
+        rom_id=session.get("rom_id"),
+        rom_name=session.get("rom_name"),
     )
 
 
 @protected_route(router.post, "/sessions/{platform}/volume", [Scope.ROMS_USER_WRITE])
 async def set_volume(
     request: Request, platform: str, req: Annotated[VolumeRequest, Body()]
-) -> JSONResponse:
+) -> VolumeResponse:
     """Set emulator audio volume (0-100)."""
     container, session_key, _ = await _resolve_owned_session(platform, request)
 
@@ -2988,13 +3005,13 @@ async def set_volume(
         raise HTTPException(status_code=502, detail="Broker failed to set volume")
 
     await refresh_session(session_key)
-    return JSONResponse({"status": "ok", "level": req.level, "platform": platform})
+    return VolumeResponse(status="ok", level=req.level, platform=platform)
 
 
 @protected_route(router.post, "/sessions/{platform}/mute", [Scope.ROMS_USER_WRITE])
 async def set_mute(
     request: Request, platform: str, req: Annotated[MuteRequest, Body()]
-) -> JSONResponse:
+) -> MuteResponse:
     """Toggle or explicitly set mute state. Omit body to toggle."""
     container, session_key, _ = await _resolve_owned_session(platform, request)
 
@@ -3003,7 +3020,7 @@ async def set_mute(
         raise HTTPException(status_code=502, detail="Broker failed to set mute state")
 
     await refresh_session(session_key)
-    return JSONResponse({"status": "ok", "mute": confirmed, "platform": platform})
+    return MuteResponse(status="ok", mute=confirmed, platform=platform)
 
 
 @protected_route(
@@ -3011,7 +3028,7 @@ async def set_mute(
 )
 async def save_state(
     request: Request, platform: str, req: Annotated[SaveStateRequest, Body()]
-) -> JSONResponse:
+) -> SaveStateResponse:
     """Save game state to a slot without stopping the emulator.
 
     The autosave slot is a valid target: the library keeps every capture, so
@@ -3040,7 +3057,7 @@ async def save_state(
             )
         )
 
-    return JSONResponse({"status": "saving", "slot": req.slot, "platform": platform})
+    return SaveStateResponse(status="saving", slot=req.slot, platform=platform)
 
 
 async def _read_capped_body(request: Request, max_bytes: int) -> bytes | None:
@@ -3066,7 +3083,7 @@ async def _read_capped_body(request: Request, max_bytes: int) -> bytes | None:
 @protected_route(
     router.post, "/sessions/{platform}/state-frame", [Scope.ROMS_USER_WRITE]
 )
-async def put_state_frame(request: Request, platform: str) -> JSONResponse:
+async def put_state_frame(request: Request, platform: str) -> StateFrameResponse:
     """Stash a frame the browser grabbed off the stream canvas, for the state
     save that follows it to pick up as its thumbnail."""
     _, session_key, session = await _resolve_owned_session(platform, request)
@@ -3083,7 +3100,7 @@ async def put_state_frame(request: Request, platform: str) -> JSONResponse:
 
     await _stash_state_frame(request.user.id, rom_id, image)
     await refresh_session(session_key)
-    return JSONResponse({"status": "ok", "platform": platform})
+    return StateFrameResponse(status="ok", platform=platform)
 
 
 @protected_route(
@@ -3091,7 +3108,7 @@ async def put_state_frame(request: Request, platform: str) -> JSONResponse:
 )
 async def load_state(
     request: Request, platform: str, req: Annotated[LoadStateRequest, Body()]
-) -> JSONResponse:
+) -> LoadStateResponse:
     """Load game state from a manual slot or the platform's autosave slot."""
     container, session_key, _ = await _resolve_owned_session(platform, request)
     _assert_valid_slot(platform, req.slot)
@@ -3101,15 +3118,13 @@ async def load_state(
         raise HTTPException(status_code=502, detail="Broker failed to load state")
 
     await refresh_session(session_key)
-    return JSONResponse(
-        {"status": "ok", "loaded": True, "slot": req.slot, "platform": platform}
-    )
+    return LoadStateResponse(status="ok", loaded=True, slot=req.slot, platform=platform)
 
 
 @protected_route(router.post, "/sessions/{platform}/swap-disc", [Scope.ROMS_USER_WRITE])
 async def swap_disc(
     request: Request, platform: str, req: Annotated[SwapDiscRequest, Body()]
-) -> JSONResponse:
+) -> SwapDiscResponse:
     """Change the mounted disc without restarting the emulator."""
     container, session_key, session = await _resolve_owned_session(platform, request)
     # Container-scoped, not platform-scoped: only the webstation broker has a
@@ -3144,17 +3159,18 @@ async def swap_disc(
 
     # Resets the TTL as part of the same write.
     await set_session_disc(session_key, req.file_id, session.get("broker_session_id"))
-    return JSONResponse({"status": "ok", "file_id": req.file_id, "platform": platform})
+    return SwapDiscResponse(status="ok", file_id=req.file_id, platform=platform)
 
 
 @protected_route(router.delete, "/sessions/{platform}", [Scope.ROMS_USER_WRITE])
 async def release_session(
     request: Request,
     platform: str,
+    background_tasks: BackgroundTasks,
     reason: str | None = Query(default=None, max_length=200),
     container_key: str | None = Query(default=None, alias="container", max_length=300),
     save: bool = Query(default=True),
-) -> JSONResponse:
+) -> ReleaseSessionResponse:
     """Release a session and tell the broker to stop the emulator.
 
     `reason` is only meaningful when an admin ends someone else's session; it
@@ -3171,7 +3187,7 @@ async def release_session(
             platform, container_key
         )
         if session is None:
-            return JSONResponse({"status": "not_found", "platform": platform})
+            return ReleaseSessionResponse(status="not_found", platform=platform)
         _assert_session_owner(session, request)
     else:
         try:
@@ -3183,7 +3199,7 @@ async def release_session(
             # than an error, matching a repeated release from the same tab.
             if exc.status_code != 404:
                 raise
-            return JSONResponse({"status": "not_found", "platform": platform})
+            return ReleaseSessionResponse(status="not_found", platform=platform)
 
     # Teardown pulls the whole card off the broker and pushes a blank one back,
     # several seconds of broker round-trips. The player who quit does not need
@@ -3191,7 +3207,7 @@ async def release_session(
     # sent. The Redis claim stays held until teardown deletes it, so a re-launch
     # or concurrent claim is still blocked throughout, preserving the
     # evacuate-before-release invariant.
-    teardown = BackgroundTask(
+    background_tasks.add_task(
         _teardown_released_session,
         container,
         session,
@@ -3203,9 +3219,7 @@ async def release_session(
         save=save,
     )
     log.info("session releasing, platform=%s save=%s", platform, save)
-    return JSONResponse(
-        {"status": "released", "platform": platform}, background=teardown
-    )
+    return ReleaseSessionResponse(status="released", platform=platform)
 
 
 async def _teardown_released_session(
@@ -3314,7 +3328,7 @@ def _container_by_key(container_key: str) -> tuple[ResolvedContainer, str]:
 
 
 @protected_route(router.get, "/containers", [Scope.ROMS_READ])
-async def list_containers(request: Request) -> JSONResponse:
+async def list_containers(request: Request) -> AdminContainersResponse:
     """Admin view, one row per configured container with whatever it is running.
 
     One row per container rather than per platform: a container serves many
@@ -3355,13 +3369,13 @@ async def list_containers(request: Request) -> JSONResponse:
                 ),
             }
         )
-    return JSONResponse({"enabled": streaming_enabled(), "containers": containers})
+    return AdminContainersResponse(enabled=streaming_enabled(), containers=containers)
 
 
 @protected_route(router.post, "/desktop", [Scope.ROMS_USER_WRITE])
 async def claim_desktop_session(
     request: Request, req: Annotated[DesktopStreamingSessionRequest, Body()]
-) -> JSONResponse:
+) -> DesktopSessionSchema:
     """Admin, open a container's desktop with no game running.
 
     This is how an operator configures an emulator (BIOS, controllers, paths)
@@ -3439,14 +3453,12 @@ async def claim_desktop_session(
 
     await stamp_launched(session_key)
     log.info("desktop session claimed, container=%s", session_key)
-    return JSONResponse(
-        {
-            "container": session_key,
-            "platform": platform,
-            "host": host,
-            "label": container.label,
-            "claimed_at": now,
-        }
+    return DesktopSessionSchema(
+        container=session_key,
+        platform=platform,
+        host=host,
+        label=container.label,
+        claimed_at=now,
     )
 
 
@@ -3464,7 +3476,7 @@ def _joinable_container_label(
 @protected_route(router.get, "/sessions/joinable", [Scope.ROMS_READ])
 async def list_joinable_sessions(
     request: Request, rom_id: int | None = Query(default=None, ge=1)
-) -> JSONResponse:
+) -> JoinableSessionsResponse:
     """Active multiplayer sessions any user may ask to join.
 
     Deliberately not admin-gated, unlike GET /sessions: it exposes only
@@ -3510,11 +3522,11 @@ async def list_joinable_sessions(
                 "url_cover": rom.url_cover if rom else None,
             }
         )
-    return JSONResponse({"sessions": sessions})
+    return JoinableSessionsResponse(sessions=sessions)
 
 
 @protected_route(router.get, "/sessions", [Scope.ROMS_READ])
-async def list_sessions(request: Request) -> JSONResponse:
+async def list_sessions(request: Request) -> AdminSessionsResponse:
     """Admin view, active sessions across all configured containers.
 
     Entries carry the platform the session was claimed under so an admin
@@ -3543,13 +3555,13 @@ async def list_sessions(request: Request) -> JSONResponse:
                 "username": user.username if user else None,
             }
         )
-    return JSONResponse({"sessions": sessions})
+    return AdminSessionsResponse(sessions=sessions)
 
 
 @protected_route(router.delete, "/sessions", [Scope.ROMS_USER_WRITE])
 async def force_release_all(
     request: Request, reason: str | None = Query(default=None, max_length=200)
-) -> JSONResponse:
+) -> ForceReleaseResponse:
     """Admin, force-release all active sessions.
 
     `reason` is surfaced to every displaced player alongside the admin's name.
@@ -3613,4 +3625,4 @@ async def force_release_all(
             log.warning("force-release failed for %s, %s", container_key, result)
 
     log.info("all sessions force-released by admin, %s", released)
-    return JSONResponse({"status": "released", "platforms": released})
+    return ForceReleaseResponse(status="released", platforms=released)

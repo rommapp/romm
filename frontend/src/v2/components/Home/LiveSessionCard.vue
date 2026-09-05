@@ -56,7 +56,7 @@ async function join(): Promise<void> {
   await joinStream({
     romId,
     romName: title.value,
-    hostUsername: props.session.host_username,
+    hostUsername: props.session.host_username ?? null,
   });
 }
 </script>

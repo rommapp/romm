@@ -21,10 +21,12 @@ describe("platformCapabilities disc flags", () => {
           host: "http://x",
           label: "RetroArch",
           emulator: "retroarch",
+          supports_memory_cards: false,
           capabilities: {
             max_slots: 0,
             has_autosave: true,
             autosave_slot: 10,
+            has_memory_card: false,
             supports_disc_swap: true,
             has_manual_disc_swap: false,
           },
