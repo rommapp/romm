@@ -126,6 +126,14 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
     )
 
 
+def _unavailable() -> HTTPException:
+    """The error every unreachable-Hasheous path raises."""
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Can't connect to Hasheous, check your internet connection",
+    )
+
+
 class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = HASHEOUS_API_URL
@@ -222,21 +230,17 @@ class HasheousHandler(MetadataHandler):
                 exc.response.status_code,
                 exc.response.text,
             )
-            pass
+            raise _unavailable() from exc
         except httpx.NetworkError as exc:
             log.critical("Connection error: can't connect to Hasheous")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Hasheous, check your internet connection",
-            ) from exc
+            raise _unavailable() from exc
         except json.decoder.JSONDecodeError as exc:
             # Log the error and return an empty dict if the response is not valid JSON
             log.error(exc)
             return {}
-        except httpx.TimeoutException:
-            pass
-
-        return {}
+        except httpx.TimeoutException as exc:
+            log.error("Hasheous API timed out: %s", exc)
+            raise _unavailable() from exc
 
     def get_platform(self, slug: str) -> HasheousPlatform:
         if slug not in HASHEOUS_PLATFORM_LIST:
