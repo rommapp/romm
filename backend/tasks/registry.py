@@ -10,10 +10,12 @@ from exceptions.task_exceptions import TaskNotFoundException
 from handler.redis_handler import low_prio_queue, scan_queue
 from tasks.manual.cleanup_missing_firmware import cleanup_missing_firmware_task
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
+from tasks.manual.convert_library import convert_library_task
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
+from tasks.scheduled.cleanup_conversion_cache import cleanup_conversion_cache_task
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
 from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
@@ -39,6 +41,7 @@ SCHEDULED_TASKS: Final[dict[str, PeriodicTask]] = {
     "convert_images_to_webp": convert_images_to_webp_task,
     "cleanup_zip_cache": cleanup_zip_cache_task,
     "cleanup_orphaned_resources": cleanup_orphaned_resources_task,
+    "cleanup_conversion_cache": cleanup_conversion_cache_task,
     "cleanup_netplay": cleanup_netplay_task,
     "cleanup_upload_tmp": cleanup_upload_tmp_task,
     "sync_retroachievements_progress": sync_retroachievements_progress_task,
@@ -50,6 +53,7 @@ MANUAL_TASKS: Final[dict[str, Task]] = {
     "cleanup_missing_firmware": cleanup_missing_firmware_task,
     "sync_folder_scan": sync_folder_scan_task,
     "recompute_save_content_hashes": recompute_save_content_hashes_task,
+    "convert_library": convert_library_task,
 }
 
 

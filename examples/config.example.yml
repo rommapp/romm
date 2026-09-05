@@ -217,3 +217,25 @@
 #         ps2:                            # ...or a block overriding container keys
 #           emulator: pcsx2
 #           memory_card_sync: true
+
+# converto:
+#   # Serve single-file downloads converted by rom-converto (needs ROM_CONVERTO_ENABLED)
+#   download_conversion_enabled: false
+#   # Read title ids and serials with rom-converto during scans
+#   scan_metadata: true
+#   # Hours a converted download stays cached
+#   cache_ttl_hours: 24
+#   # Platform slug -> target format. Targets per platform:
+#   #   3ds: cci, cia, decrypted, encrypted, z3ds
+#   #   nds: decrypted, encrypted
+#   #   ps3: decrypted
+#   #   psp, ps2: chd, cso, iso, zso
+#   #   psx, saturn, segacd, dc: chd, iso
+#   #   ngc: iso, rvz
+#   #   wii: iso, rvz, wbfs
+#   #   switch, switch-2: nsp, nsz, xci, xcz
+#   #   xbox: xiso
+#   #   xbox360: zar
+#   platform_formats:
+#     psp: cso
+#     ngc: rvz

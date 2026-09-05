@@ -1,6 +1,7 @@
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, field_validator
 
+from adapters.services.rom_converto import TARGETS_BY_PLATFORM
 from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
@@ -103,6 +104,34 @@ class ScanSettingsPayload(BaseModel):
         return value
 
 
+class ConvertoSettingsPayload(BaseModel):
+    """Full replacement of the converto.* config section."""
+
+    download_conversion_enabled: bool
+    scan_metadata: bool
+    cache_ttl_hours: int
+    platform_formats: dict[str, str]
+
+    @field_validator("cache_ttl_hours")
+    @classmethod
+    def validate_cache_ttl(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("cache_ttl_hours must be an integer >= 1")
+        return value
+
+    @field_validator("platform_formats")
+    @classmethod
+    def validate_platform_formats(cls, value: dict[str, str]) -> dict[str, str]:
+        cleaned = {
+            slug.strip().lower(): target.strip().lower()
+            for slug, target in value.items()
+        }
+        for slug, target in cleaned.items():
+            if target not in TARGETS_BY_PLATFORM.get(slug, ()):
+                raise ValueError(f"{target!r} is not a conversion target for {slug}")
+        return cleaned
+
+
 @router.get("")
 def get_config(request: Request) -> ConfigResponse:
     """Get config endpoint
@@ -153,6 +182,10 @@ def get_config(request: Request) -> ConfigResponse:
         GAMELIST_MEDIA_THUMBNAIL=cfg.GAMELIST_MEDIA_THUMBNAIL,
         GAMELIST_MEDIA_IMAGE=cfg.GAMELIST_MEDIA_IMAGE,
         PEGASUS_AUTO_EXPORT_ON_SCAN=cfg.PEGASUS_AUTO_EXPORT_ON_SCAN,
+        CONVERTO=cfg.CONVERTO,
+        CONVERTO_TARGETS={
+            slug: sorted(targets) for slug, targets in TARGETS_BY_PLATFORM.items()
+        },
     )
 
 
@@ -287,3 +320,23 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
     # cached gallery sidecar is stale the moment the order changes.
     if region_priority_changed:
         db_rom_handler.invalidate_filter_values_cache()
+
+
+@protected_route(router.put, "/converto_settings", [Scope.PLATFORMS_WRITE])
+async def update_converto_settings(
+    request: Request, payload: ConvertoSettingsPayload
+) -> None:
+    """Replace the converto.* section of the configuration"""
+
+    try:
+        cm.update_converto_settings(
+            download_conversion_enabled=payload.download_conversion_enabled,
+            scan_metadata=payload.scan_metadata,
+            cache_ttl_hours=payload.cache_ttl_hours,
+            platform_formats=payload.platform_formats,
+        )
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
