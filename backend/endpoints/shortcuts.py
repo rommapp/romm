@@ -1,7 +1,8 @@
 from typing import Annotated
 
-from fastapi import HTTPException, Query, Request, status
+from fastapi import HTTPException
 from fastapi import Path as PathVar
+from fastapi import Query, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.shortcut import (

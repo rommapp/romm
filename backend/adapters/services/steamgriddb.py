@@ -84,8 +84,10 @@ class SteamGridDBService:
         asset: Literal["grids", "heroes", "logos"],
         game_id: int,
         *,
-        styles: Collection[SGDBStyle] | None = None,
-        dimensions: Collection[SGDBDimension] | None = None,
+        # Each artwork kind has its own style and dimension vocabulary, so the
+        # shared builder takes the string form all three enums share.
+        styles: Collection[str] | None = None,
+        dimensions: Collection[str] | None = None,
         mimes: Collection[SGDBMime] | None = None,
         types: Collection[SGDBType] | None = None,
         any_of_tags: Collection[SGDBTag] | None = None,
