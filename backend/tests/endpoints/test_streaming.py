@@ -36,6 +36,7 @@ from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache
 from handler.streaming import (
     access,
+    broker,
     commands,
     lifecycle,
     memory_cards,
@@ -97,6 +98,12 @@ def clear_streaming_sessions():
     """Streaming sessions live in Redis (fakeredis under pytest), start clean."""
     asyncio.run(async_cache.flushall())
     yield
+
+
+@pytest.fixture(autouse=True)
+def no_pull_backoff(monkeypatch):
+    """The pull tests assert on how many attempts happen, not on the wait."""
+    monkeypatch.setattr(broker, "PULL_RETRY_DELAY", 0)
 
 
 def _access_token(user: User):

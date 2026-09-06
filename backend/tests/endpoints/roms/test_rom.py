@@ -637,9 +637,16 @@ def test_get_romfile_hidden_rom_returns_404(
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+@patch.object(
+    FSResourcesHandler,
+    "get_cover",
+    new_callable=AsyncMock,
+    return_value=("path/to/small.png", "path/to/big.png"),
+)
 def test_update_rom(
-    rename_fs_rom_mock: AsyncMock,
+    get_cover_mock: AsyncMock,
     get_rom_by_id_mock: AsyncMock,
+    rename_fs_rom_mock: AsyncMock,
     client: TestClient,
     access_token: str,
     rom: Rom,
@@ -861,12 +868,19 @@ def test_remove_cover_releases_the_lock(
 
 @patch.object(
     FSResourcesHandler,
+    "get_manual",
+    new_callable=AsyncMock,
+    return_value="path/to/manual.pdf",
+)
+@patch.object(
+    FSResourcesHandler,
     "get_cover",
     new_callable=AsyncMock,
     return_value=("path/to/small.png", "path/to/big.png"),
 )
 def test_saving_without_changing_urls_keeps_locks(
     get_cover_mock: AsyncMock,
+    get_manual_mock: AsyncMock,
     client: TestClient,
     access_token: str,
     rom: Rom,
@@ -877,7 +891,7 @@ def test_saving_without_changing_urls_keeps_locks(
         rom.id,
         {
             "url_cover": "",
-            "url_manual": "https://ss.fr/manual?id=1",
+            "url_manual": "https://www.screenscraper.fr/manual?id=1",
             "locked_fields": ["url_cover", "url_manual"],
         },
     )
@@ -885,7 +899,10 @@ def test_saving_without_changing_urls_keeps_locks(
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
-        data={"url_cover": "", "url_manual": "https://ss.fr/manual?id=1"},
+        data={
+            "url_cover": "",
+            "url_manual": "https://www.screenscraper.fr/manual?id=1",
+        },
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -920,7 +937,7 @@ def test_naming_new_source_urls_releases_both_locks(
         rom.id,
         {
             "url_cover": "",
-            "url_manual": "https://ss.fr/manual?id=1",
+            "url_manual": "https://www.screenscraper.fr/manual?id=1",
             "locked_fields": ["url_cover", "url_manual"],
         },
     )
@@ -929,8 +946,8 @@ def test_naming_new_source_urls_releases_both_locks(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
         data={
-            "url_cover": "https://ss.fr/cover?id=2",
-            "url_manual": "https://ss.fr/manual?id=2",
+            "url_cover": "https://www.screenscraper.fr/cover?id=2",
+            "url_manual": "https://www.screenscraper.fr/manual?id=2",
         },
     )
     assert response.status_code == status.HTTP_200_OK

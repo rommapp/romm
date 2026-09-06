@@ -594,7 +594,7 @@ def _scraped_cover_rom(platform: Platform, **overrides) -> Rom:
         "tags": [],
         "ss_id": 321,
         "name": "Game",
-        "url_cover": "https://ss.fr/media?media=box-2D&id=old",
+        "url_cover": "https://www.screenscraper.fr/media?media=box-2D&id=old",
         "path_cover_s": "roms/1/1/cover/small.png",
         "path_cover_l": "roms/1/1/cover/big.png",
     }
@@ -602,7 +602,7 @@ def _scraped_cover_rom(platform: Platform, **overrides) -> Rom:
     return db_rom_handler.add_rom(Rom(**attrs))
 
 
-NEW_COVER_URL = "https://ss.fr/media?media=box-2D&id=new"
+NEW_COVER_URL = "https://www.screenscraper.fr/media?media=box-2D&id=new"
 
 
 def _ss_returns_new_cover(mock_ss_get_by_id: AsyncMock) -> None:
@@ -693,19 +693,19 @@ async def test_update_scan_replaces_screenshot_urls(
     mock_ss_get_by_id.return_value = SSRom(
         ss_id=321,
         name="Game",
-        url_screenshots=["https://ss.fr/ss?id=new"],
+        url_screenshots=["https://www.screenscraper.fr/ss?id=new"],
     )
 
     platform = _ss_quota_platform()
     rom = _scraped_cover_rom(
         platform,
-        url_screenshots=["https://ss.fr/ss?id=old"],
+        url_screenshots=["https://www.screenscraper.fr/ss?id=old"],
         path_screenshots=["roms/1/1/screenshots/0.png"],
     )
 
     result = await _update_scan(platform, rom)
 
-    assert result.url_screenshots == ["https://ss.fr/ss?id=new"]
+    assert result.url_screenshots == ["https://www.screenscraper.fr/ss?id=new"]
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
@@ -720,7 +720,7 @@ async def test_update_scan_keeps_name_summary_and_manual(
         ss_id=321,
         name="Provider Name",
         summary="Provider summary",
-        url_manual="https://ss.fr/manual?id=new",
+        url_manual="https://www.screenscraper.fr/manual?id=new",
     )
 
     platform = _ss_quota_platform()
@@ -728,7 +728,7 @@ async def test_update_scan_keeps_name_summary_and_manual(
         platform,
         name="My Title",
         summary="My summary",
-        url_manual="https://ss.fr/manual?id=old",
+        url_manual="https://www.screenscraper.fr/manual?id=old",
         path_manual="roms/1/1/manual/1.pdf",
     )
 
@@ -736,7 +736,7 @@ async def test_update_scan_keeps_name_summary_and_manual(
 
     assert result.name == "My Title"
     assert result.summary == "My summary"
-    assert result.url_manual == "https://ss.fr/manual?id=old"
+    assert result.url_manual == "https://www.screenscraper.fr/manual?id=old"
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)

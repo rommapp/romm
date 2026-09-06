@@ -120,6 +120,11 @@ XML_TAG_MAP: Final = {
 }
 
 
+def gamelist_path_to_filename(raw_path: str) -> str:
+    """Return the filename a gamelist <path> refers to, without the `./` prefix."""
+    return os.path.basename(raw_path.removeprefix("./"))
+
+
 def _make_file_uri(platform_dir: str, raw_text: str) -> str:
     cleaned_text = raw_text.replace("./", "")
     joined_path = Path(platform_dir, cleaned_text)
@@ -421,13 +426,7 @@ class GamelistHandler(MetadataHandler):
                 if path_elem is None or path_elem.text is None:
                     continue
 
-                # Handle relative paths
-                rom_path = path_elem.text
-                if rom_path.startswith("./"):
-                    rom_path = rom_path[2:]
-
-                # Extract filename for matching
-                rom_filename = os.path.basename(rom_path)
+                rom_filename = gamelist_path_to_filename(path_elem.text)
 
                 # Extract metadata
                 name_elem = game.find("name")
