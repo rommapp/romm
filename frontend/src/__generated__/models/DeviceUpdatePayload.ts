@@ -14,5 +14,6 @@ export type DeviceUpdatePayload = {
     sync_enabled?: (boolean | null);
     sync_mode?: (SyncMode | null);
     sync_config?: (Record<string, any> | null);
+    launch_capabilities?: (Record<string, (string | null)> | null);
 };
 

@@ -51,6 +51,7 @@ class DeviceUpdatePayload(BaseModel):
     sync_enabled: bool | None = None
     sync_mode: SyncMode | None = None
     sync_config: dict | None = None
+    launch_capabilities: dict[str, str | None] | None = None
 
 
 @protected_route(router.post, "", [Scope.DEVICES_WRITE])

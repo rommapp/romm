@@ -36,6 +36,9 @@ KNOWN_DEVICES: dict[str, DeviceType] = {
     "argosy-launcher": DeviceType(
         platform="Android", client="argosy-launcher", sync_mode=SyncMode.API
     ),
+    "steam-companion": DeviceType(
+        platform="Desktop", client="steam-companion", sync_mode=SyncMode.API
+    ),
 }
 
 
@@ -62,6 +65,11 @@ class Device(BaseModel):
     sync_mode: Mapped[SyncMode] = mapped_column(Enum(SyncMode), default=SyncMode.API)
     sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sync_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Platform slug -> launch descriptor ("retroarch:snes9x", "web_player"), or
+    # null when the device cannot play that platform; reported by launchers.
+    launch_capabilities: Mapped[dict[str, str | None] | None] = mapped_column(
+        JSON, nullable=True
+    )
 
     last_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 

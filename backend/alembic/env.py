@@ -19,6 +19,7 @@ from models.firmware import Firmware  # noqa
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
 from models.platform import Platform  # noqa
 from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
+from models.shortcut import Shortcut  # noqa
 from models.user import User  # noqa
 
 # this is the Alembic Config object, which provides

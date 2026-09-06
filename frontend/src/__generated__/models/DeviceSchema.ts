@@ -17,6 +17,7 @@ export type DeviceSchema = {
     sync_mode: SyncMode;
     sync_enabled: boolean;
     sync_config: (Record<string, any> | null);
+    launch_capabilities: (Record<string, (string | null)> | null);
     last_seen: (string | null);
     created_at: string;
     updated_at: string;

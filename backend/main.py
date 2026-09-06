@@ -53,6 +53,7 @@ from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
 from endpoints.screenshots import router as screenshots_router
 from endpoints.search import router as search_router
+from endpoints.shortcuts import router as shortcuts_router
 from endpoints.states import router as states_router
 from endpoints.stats import router as stats_router
 from endpoints.streaming import router as streaming_router
@@ -191,6 +192,7 @@ app.include_router(rom_router, prefix="/api")
 app.include_router(music_router, prefix="/api")
 app.include_router(music_playlists_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
+app.include_router(shortcuts_router, prefix="/api")
 app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")

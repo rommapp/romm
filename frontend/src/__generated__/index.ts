@@ -115,6 +115,7 @@ export type { JoinableSessionsResponse } from './models/JoinableSessionsResponse
 export type { JoinedSessionSchema } from './models/JoinedSessionSchema';
 export type { LaunchboxImage } from './models/LaunchboxImage';
 export type { LaunchingSessionSchema } from './models/LaunchingSessionSchema';
+export type { LaunchMode } from './models/LaunchMode';
 export type { LoadStateRequest } from './models/LoadStateRequest';
 export type { LoadStateResponse } from './models/LoadStateResponse';
 export type { LogEntrySchema } from './models/LogEntrySchema';
@@ -212,6 +213,10 @@ export type { SearchRomSchema } from './models/SearchRomSchema';
 export type { SessionStatusSchema } from './models/SessionStatusSchema';
 export type { SessionTerminationSchema } from './models/SessionTerminationSchema';
 export type { SGDBResource } from './models/SGDBResource';
+export type { ShortcutAckStatus } from './models/ShortcutAckStatus';
+export type { ShortcutCreatePayload } from './models/ShortcutCreatePayload';
+export type { ShortcutSchema } from './models/ShortcutSchema';
+export type { ShortcutStatus } from './models/ShortcutStatus';
 export type { SiblingRomSchema } from './models/SiblingRomSchema';
 export type { SimpleRomSchema } from './models/SimpleRomSchema';
 export type { SlotCapabilitiesSchema } from './models/SlotCapabilitiesSchema';

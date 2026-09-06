@@ -35,6 +35,7 @@ class DeviceSchema(BaseModel):
     sync_mode: SyncMode
     sync_enabled: bool
     sync_config: dict | None
+    launch_capabilities: dict[str, str | None] | None
     last_seen: UTCDatetime | None
     created_at: UTCDatetime
     updated_at: UTCDatetime

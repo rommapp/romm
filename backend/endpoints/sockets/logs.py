@@ -19,6 +19,7 @@ import socketio  # type: ignore
 
 from config import DISABLE_LOGS_VIEWER, REDIS_URL
 from endpoints.sockets.activity import store_authenticated_user
+from endpoints.sockets.shortcuts import device_room
 from handler.database import db_user_handler
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
@@ -26,7 +27,7 @@ from logger.log_stream_handler import LOG_BUFFER_KEY, LOG_CHANNEL
 from logger.logger import log
 from models.user import Role
 from utils import json_module
-from utils.auth import get_session_from_environ
+from utils.auth import get_client_token_from_handshake, get_session_from_environ
 
 ADMIN_ROOM: Final = "admin"
 FORWARDER_LOCK_KEY: Final = "romm:logs:forwarder"
@@ -37,29 +38,37 @@ FORWARDER_LOCK_TTL: Final = 30  # seconds
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     """Resolve the authenticated user on socket connect.
 
-    Stores the user id in the socket session so activity events can trust the
-    server-resolved identity instead of a client-supplied ``user_id``, joins
-    every authenticated user to their own ``user:{id}`` room (the target for
-    sync and streaming push notifications), and joins admins to the
-    log-streaming room. Always returns ``None`` (accepts the connection):
-    only identity storage and room membership are gated, so the existing
-    scan/sync sockets keep working for everyone.
+    Identity comes from the browser session or, for launcher clients, a client
+    API token on the handshake. Stores the user id in the socket session so
+    activity events can trust the server-resolved identity instead of a
+    client-supplied ``user_id``, joins every authenticated user to their own
+    ``user:{id}`` room (the target for sync, streaming and shortcut push
+    notifications), joins device-bound launcher tokens to their ``device:{id}``
+    room, and joins admins to the log-streaming room. Always returns ``None``
+    (accepts the connection): only identity storage and room membership are
+    gated, so the existing scan/sync sockets keep working for everyone.
     """
     try:
-        session = await get_session_from_environ(environ)
-        if session.get("iss") != "romm:auth":
-            return
-
-        username = session.get("sub")
-        if not username:
-            return
-
-        user = db_user_handler.get_user_by_username(username)
+        user = None
+        client_token = get_client_token_from_handshake(environ, auth)
+        if client_token is not None:
+            user = db_user_handler.get_user(client_token.user_id)
+        else:
+            session = await get_session_from_environ(environ)
+            if session.get("iss") == "romm:auth" and session.get("sub"):
+                user = db_user_handler.get_user_by_username(session["sub"])
         if not user or not user.enabled:
             return
 
         await store_authenticated_user(sid, user.id)
         await socket_handler.socket_server.enter_room(sid, f"user:{user.id}")
+
+        # A device-bound client token is a launcher: give it the room its
+        # shortcut queue notifications are sent to.
+        if client_token is not None and client_token.device_id:
+            await socket_handler.socket_server.enter_room(
+                sid, device_room(client_token.device_id)
+            )
 
         if not DISABLE_LOGS_VIEWER and user.role == Role.ADMIN:
             await socket_handler.socket_server.enter_room(sid, ADMIN_ROOM)

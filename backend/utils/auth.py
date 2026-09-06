@@ -7,15 +7,18 @@ from fastapi import Request
 from ua_parser import Result as UAResult
 from ua_parser import parse as parse_ua
 
+from handler.auth import auth_handler
 from handler.auth.constants import SESSION_COOKIE_NAME
-from handler.database import db_device_handler
+from handler.database import db_client_token_handler, db_device_handler
 from handler.redis_handler import async_cache
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.client_token import ClientToken
 from models.device import KNOWN_DEVICES, Device
 from models.user import User
 from utils import json_module
+from utils.datetime import to_utc
 
 
 async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
@@ -48,6 +51,40 @@ async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
         return json_module.loads(session_data)
     except Exception:  # noqa: BLE001 - malformed session is "no session"
         return {}
+
+
+def get_client_token_from_handshake(
+    environ: dict[str, Any], auth: Any
+) -> ClientToken | None:
+    """Resolve a live client API token from a socket handshake.
+
+    Args:
+        environ: WSGI-style handshake environ; a bearer Authorization header is read.
+        auth: Socket.IO auth payload; ``{"token": "rmm_..."}`` takes precedence.
+    Returns:
+        The token row, or None when absent, unknown or expired.
+    """
+    token: str | None = None
+    if isinstance(auth, dict):
+        token = auth.get("token")
+    if not token:
+        header = environ.get("HTTP_AUTHORIZATION", "")
+        parts = header.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            token = parts[1]
+    if not token or not token.startswith("rmm_"):
+        return None
+
+    client_token = db_client_token_handler.get_token_by_hash(
+        auth_handler.hash_client_token(token)
+    )
+    if client_token is None:
+        return None
+    if client_token.expires_at and to_utc(client_token.expires_at) < datetime.now(
+        timezone.utc
+    ):
+        return None
+    return client_token
 
 
 def _get_device_name(user_agent: UAResult) -> str | None:
