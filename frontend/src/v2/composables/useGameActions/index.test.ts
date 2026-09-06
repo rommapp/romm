@@ -53,6 +53,19 @@ vi.mock("@/stores/auth", () => ({
 vi.mock("@/stores/roms", () => ({
   default: () => ({ update: vi.fn(), removeFromContinuePlaying: vi.fn() }),
 }));
+vi.mock("@/stores/shortcuts", () => ({
+  launcherDeviceName: (d: { name: string | null; id: string }) =>
+    d.name ?? d.id,
+  useShortcutsStore: () => ({
+    hasLauncherDevices: false,
+    launcherDevices: [],
+    shortcutsForRom: () => [],
+    deviceSupports: () => null,
+    ensureLoaded: vi.fn(),
+    add: vi.fn(),
+    remove: vi.fn(),
+  }),
+}));
 vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     containerForPlatform: () => streamContainer.value,

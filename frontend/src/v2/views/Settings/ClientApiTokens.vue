@@ -28,6 +28,7 @@ import clientTokenApi, {
 import type { Events } from "@/types/emitter";
 import { formatTimestamp } from "@/utils";
 import CreateClientTokenDialog from "@/v2/components/Settings/CreateClientTokenDialog.vue";
+import LauncherDevicesSection from "@/v2/components/Settings/LauncherDevicesSection.vue";
 import ScopeCell from "@/v2/components/Settings/ScopeCell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -298,6 +299,8 @@ onMounted(() => {
         {{ t("common.create") }}
       </RBtn>
     </div>
+
+    <LauncherDevicesSection />
 
     <CreateClientTokenDialog @created="fetchTokens" />
   </div>

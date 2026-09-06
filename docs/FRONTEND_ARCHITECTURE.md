@@ -249,7 +249,9 @@ frontend/
     │   │   ├── sgdb.ts            # SteamGridDB covers
     │   │   ├── export.ts          # Gamelist.xml + Pegasus exports
     │   │   ├── play-session.ts    # Play session tracking
-    │   │   └── client-token.ts    # API token management
+    │   │   ├── client-token.ts    # API token management
+    │   │   ├── device.ts          # Paired devices
+    │   │   └── shortcut.ts        # Launcher shortcut queue (Add to Steam)
     │   ├── cache/                 # Experimental response cache
     │   │   ├── index.ts           # Browser Cache API wrapper
     │   │   └── api.ts             # Cached API service
@@ -568,6 +570,8 @@ const api = axios.create({
 | `export.ts`       | Gamelist.xml export, Pegasus export              |
 | `play-session.ts` | Play session ingestion & listing                 |
 | `client-token.ts` | Token CRUD, pair, exchange                       |
+| `device.ts`       | List paired devices                              |
+| `shortcut.ts`     | Launcher shortcut queue: list, add, remove       |
 
 ### Chunked Upload System (`rom.ts`)
 

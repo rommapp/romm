@@ -20,6 +20,7 @@ type Flags = {
   canDelete: boolean;
   canJoinStream: boolean;
   canDownload: boolean;
+  canAddToSteam: boolean;
 };
 
 // Not flags: the Join and Stream items render these labels verbatim, so they
@@ -41,6 +42,7 @@ const flags: Flags = {
   canEdit: true,
   canDelete: true,
   canJoinStream: false,
+  canAddToSteam: false,
 };
 
 vi.mock("@/v2/composables/useGameActions", () => ({
@@ -57,6 +59,7 @@ vi.mock("@/v2/composables/useGameActions", () => ({
             };
           }
           if (prop === "isFavorited") return { value: false };
+          if (prop === "steamTargets") return { value: [] };
           if (prop === "joinActionLabel") return { value: joinActionLabel };
           if (prop === "streamActionLabel") return { value: streamActionLabel };
           return vi.fn();

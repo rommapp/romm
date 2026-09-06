@@ -14,6 +14,8 @@
 //   collection  → open ManageCollectionsDialog; hidden if no collections
 //   status      → open status-enum picker (RMenu); icon swaps to the
 //                 current status icon when set, dashed border when empty
+//   steam       → queue the rom for Steam on a paired desktop companion;
+//                 one device toggles directly, several open a picker
 //   more        → open MoreMenu (GameActionsList dropdown)
 //
 // Sizes (controls diameter + icon size + padding) — same vocabulary as
@@ -49,6 +51,7 @@ import GameMetricsSections from "@/v2/components/GameActions/GameMetricsSections
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   GAME_ACTIONS_KEY,
+  type SteamTarget,
   useGameActions,
 } from "@/v2/composables/useGameActions";
 import {
@@ -76,6 +79,7 @@ export type GameAction =
   | "favorite"
   | "collection"
   | "status"
+  | "steam"
   | "more";
 
 interface Props {
@@ -238,6 +242,16 @@ const preset = computed<Preset>(() => {
       active: actions.isFavorited.value,
     };
   }
+  if (props.action === "steam") {
+    const single = steamSingleTarget.value;
+    return {
+      icon: "mdi-steam",
+      activeIcon: null,
+      label: actions.steamActionLabel.value,
+      onClick: single ? () => void actions.toggleSteam(single) : null,
+      active: actions.steamAdded.value,
+    };
+  }
   if (props.action === "collection") {
     return {
       icon: "mdi-bookmark-outline",
@@ -292,6 +306,36 @@ const displayedIcon = computed(
 
 const moreOpen = ref(false);
 const statusOpen = ref(false);
+const steamOpen = ref(false);
+
+// With one companion the button acts on it directly; with several the
+// RMenu branch lists them and owns the click.
+const steamSingleTarget = computed<SteamTarget | null>(() =>
+  actions.steamTargets.value.length === 1
+    ? (actions.steamTargets.value[0] ?? null)
+    : null,
+);
+const steamUsesMenu = computed(
+  () => props.action === "steam" && actions.steamTargets.value.length > 1,
+);
+const steamDisabled = computed(() => {
+  const single = steamSingleTarget.value;
+  return props.action === "steam" && single !== null
+    ? actions.steamTargetDisabled(single)
+    : false;
+});
+
+const STEAM_STATE_ICONS: Record<string, string> = {
+  pending_add: "mdi-clock-outline",
+  staged: "mdi-restart",
+  added: "mdi-check-circle",
+  pending_remove: "mdi-clock-outline",
+  failed: "mdi-alert-circle-outline",
+};
+function steamTargetIcon(target: SteamTarget): string {
+  const status = target.shortcut?.status;
+  return (status && STEAM_STATE_ICONS[status]) || "mdi-plus";
+}
 // The `collection` action opens a global dialog via emitter rather than a
 // local RMenu, so we track its "pinned" lifecycle by hand: flip true on
 // click, flip false when the dialog notifies it has closed.
@@ -311,6 +355,7 @@ onBeforeUnmount(() =>
 const pinned = computed(() => {
   if (props.action === "more") return moreOpen.value;
   if (props.action === "status") return statusOpen.value;
+  if (props.action === "steam") return steamOpen.value;
   if (props.action === "collection") return collectionOpen.value;
   return false;
 });
@@ -341,6 +386,7 @@ function onClick(e: MouseEvent) {
   if (props.action === "more" || props.action === "status") return;
   e.preventDefault();
   e.stopPropagation();
+  if (steamDisabled.value) return;
   if (props.action === "collection") collectionOpen.value = true;
   preset.value.onClick?.();
 }
@@ -507,6 +553,57 @@ function onClick(e: MouseEvent) {
     </template>
   </RMenu>
 
+  <!-- Steam with several companions — a picker naming each device and
+       where the rom stands on it. One companion skips the menu and lands
+       in the plain-action branch below. -->
+  <RMenu
+    v-else-if="steamUsesMenu"
+    v-model="steamOpen"
+    :offset="8"
+    width="280px"
+    sheet-on-mobile
+  >
+    <template #activator="{ props: activatorProps }">
+      <button
+        v-bind="activatorProps"
+        type="button"
+        class="r-v2-game-btn r-v2-game-btn--action-steam"
+        :class="[
+          `r-v2-game-btn--${size}`,
+          `r-v2-game-btn--${variant}`,
+          {
+            'r-v2-game-btn--labelled': withLabel,
+            'r-v2-game-btn--active': preset.active,
+            'r-v2-game-btn--active-steam': preset.active,
+            'r-v2-game-btn--pinned': pinned,
+          },
+        ]"
+        :aria-label="preset.label"
+        @click.prevent.stop
+      >
+        <RIcon :icon="displayedIcon" />
+        <span v-if="withLabel" class="r-v2-game-btn__label">
+          {{ preset.label }}
+        </span>
+        <RTooltip
+          v-if="!withLabel"
+          activator="parent"
+          :text="preset.label"
+          location="top"
+        />
+      </button>
+    </template>
+    <RMenuItem
+      v-for="target in actions.steamTargets.value"
+      :key="target.device.id"
+      :icon="steamTargetIcon(target)"
+      :label="actions.steamTargetLabel(target)"
+      :disabled="actions.steamTargetDisabled(target)"
+      :variant="target.shortcut?.status === 'added' ? 'active' : 'default'"
+      @click="void actions.toggleSteam(target)"
+    />
+  </RMenu>
+
   <!-- Plain action — direct click. -->
   <button
     v-else
@@ -521,9 +618,11 @@ function onClick(e: MouseEvent) {
         'r-v2-game-btn--active': preset.active,
         [`r-v2-game-btn--active-${action}`]: preset.active,
         'r-v2-game-btn--pinned': pinned,
+        'r-v2-game-btn--disabled': steamDisabled,
       },
     ]"
     :aria-label="preset.label"
+    :aria-disabled="steamDisabled ? 'true' : undefined"
     @click="onClick"
   >
     <img
@@ -729,6 +828,19 @@ function onClick(e: MouseEvent) {
 /* Active-state colour swaps per action. */
 .r-v2-game-btn--active-favorite {
   color: var(--r-color-brand-primary) !important;
+}
+.r-v2-game-btn--active-steam {
+  color: var(--r-color-brand-primary) !important;
+}
+
+/* Disabled stays focusable so its tooltip can explain why (no emulator
+   on the device), hence aria-disabled rather than the disabled attribute. */
+.r-v2-game-btn--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.r-v2-game-btn--disabled:active {
+  transform: none;
 }
 
 /* Status — dashed border when no status is set, signals "click to
