@@ -1,6 +1,11 @@
 from typing import TypedDict
 
-from config.config_manager import EjsControls, MetadataMediaType, NetplayICEServer
+from config.config_manager import (
+    ConvertoConfig,
+    EjsControls,
+    MetadataMediaType,
+    NetplayICEServer,
+)
 
 
 class ConfigResponse(TypedDict):
@@ -38,3 +43,6 @@ class ConfigResponse(TypedDict):
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     PEGASUS_AUTO_EXPORT_ON_SCAN: bool
+    CONVERTO: ConvertoConfig
+    # Platform slug -> the targets rom-converto can convert it to.
+    CONVERTO_TARGETS: dict[str, list[str]]

@@ -245,6 +245,8 @@ class RomFileSchema(BaseModel):
     sha1_hash: str | None
     ra_hash: str | None
     chd_sha1_hash: str | None
+    title_id: str | None
+    title_version: int | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
     track_meta: TrackMetaSchema | None = None
