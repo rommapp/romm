@@ -290,6 +290,7 @@ async function installAutoSaveSync() {
   if (!emulator?.gameManager) return;
   const tracker = createSaveSyncTracker();
   // getSaveFile() dumps the core's SRAM first, so the seed is what it holds now.
+  // That dump fires a saveSaveFiles tick, so the subscription must stay below it.
   tracker.seed(await hashSaveFile(emulator.gameManager.getSaveFile()));
   let uploading = false;
   autoSaveSyncActive = true;
