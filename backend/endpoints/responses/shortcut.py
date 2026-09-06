@@ -36,3 +36,14 @@ class ShortcutAckStatus(BaseModel):
     )
     steam_app_id: int | None = Field(default=None, ge=0, le=0xFFFFFFFF)
     error: str | None = Field(default=None, max_length=2000)
+
+
+class SteamArtworkSchema(BaseModel):
+    """The Steam library art a launcher client writes beside RomM's cover."""
+
+    url_hero: str | None = Field(
+        default=None, description="Wide banner for the game's Steam page."
+    )
+    url_logo: str | None = Field(
+        default=None, description="Transparent title treatment drawn over the hero."
+    )

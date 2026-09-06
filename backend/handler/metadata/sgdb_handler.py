@@ -2,11 +2,28 @@ import asyncio
 from typing import Final, Literal, NotRequired, TypedDict
 
 from adapters.services.steamgriddb import SteamGridDBService
-from adapters.services.steamgriddb_types import SGDBDimension, SGDBGame, SGDBType
+from adapters.services.steamgriddb_types import (
+    SGDBDimension,
+    SGDBGame,
+    SGDBGrid,
+    SGDBHeroDimension,
+    SGDBType,
+)
 from config import STEAMGRIDDB_API_KEY
 from logger.logger import log
 
 from .base_handler import MetadataHandler
+
+# SteamGridDB orders by score, so a short page is enough to pick a winner.
+SGDB_ARTWORK_CANDIDATES: Final = 10
+
+
+def _best_asset(assets: list[SGDBGrid]) -> str | None:
+    """Pick the highest-scoring unlocked asset, which SGDB serves for real."""
+    unlocked = [a for a in assets if a["url"] and not a.get("lock")]
+    if not unlocked:
+        return None
+    return max(unlocked, key=lambda a: a.get("score") or 0)["url"]
 
 
 class SGDBResource(TypedDict):
@@ -31,6 +48,13 @@ class SGDBResult(TypedDict):
 class SGDBRom(TypedDict):
     sgdb_id: int | None
     url_cover: NotRequired[str]
+
+
+class SGDBSteamArtwork(TypedDict):
+    """The two Steam library slots RomM's own cover cannot fill."""
+
+    url_hero: str | None
+    url_logo: str | None
 
 
 class SGDBBaseHandler(MetadataHandler):
@@ -167,6 +191,46 @@ class SGDBBaseHandler(MetadataHandler):
 
         log.debug(f"No good match found for '{', '.join(game_names)}' on SteamGridDB")
         return SGDBRom(sgdb_id=None)
+
+    async def get_steam_artwork(self, sgdb_id: int) -> SGDBSteamArtwork:
+        """Get the highest-scoring hero and logo for a SteamGridDB game."""
+        empty = SGDBSteamArtwork(url_hero=None, url_logo=None)
+        if not self.is_enabled():
+            return empty
+
+        try:
+            heroes, logos = await asyncio.gather(
+                self.sgdb_service.get_heroes_for_game(
+                    sgdb_id,
+                    dimensions=(
+                        SGDBHeroDimension.STEAM_HERO,
+                        SGDBHeroDimension.STEAM_HERO_2X,
+                    ),
+                    types=(SGDBType.STATIC,),
+                    is_nsfw=False,
+                    is_humor=False,
+                    is_epilepsy=False,
+                    limit=SGDB_ARTWORK_CANDIDATES,
+                ),
+                self.sgdb_service.get_logos_for_game(
+                    sgdb_id,
+                    types=(SGDBType.STATIC,),
+                    is_nsfw=False,
+                    is_humor=False,
+                    is_epilepsy=False,
+                    limit=SGDB_ARTWORK_CANDIDATES,
+                ),
+            )
+        except Exception as e:
+            log.warning(
+                f"Failed to fetch Steam artwork for SteamGridDB ID {sgdb_id}: {e}"
+            )
+            return empty
+
+        return SGDBSteamArtwork(
+            url_hero=_best_asset(heroes["data"]),
+            url_logo=_best_asset(logos["data"]),
+        )
 
     async def _get_game_covers(
         self,

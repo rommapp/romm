@@ -24,6 +24,21 @@ class SGDBDimension(enum.StrEnum):
 
 
 @enum.unique
+class SGDBHeroDimension(enum.StrEnum):
+    STEAM_HERO = "1920x620"
+    STEAM_HERO_2X = "3840x1240"
+    GOG_GALAXY_HERO = "1600x650"
+
+
+@enum.unique
+class SGDBLogoStyle(enum.StrEnum):
+    OFFICIAL = "official"
+    WHITE = "white"
+    BLACK = "black"
+    CUSTOM = "custom"
+
+
+@enum.unique
 class SGDBMime(enum.StrEnum):
     PNG = "image/png"
     JPEG = "image/jpeg"
