@@ -153,7 +153,6 @@ async def ack_shortcut(
         shortcut_id=shortcut.id,
         status=ShortcutStatus(payload.status),
         steam_app_id=payload.steam_app_id,
-        external_id=payload.external_id,
         error=payload.error,
     )
     await emit_shortcuts_changed(shortcut.device_id, request.user.id)

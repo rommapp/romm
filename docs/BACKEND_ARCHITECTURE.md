@@ -742,13 +742,13 @@ Saves additionally link to `device_save_sync` for cross-device tracking.
 
 **Table:** `shortcuts` (unique on `device_id` + `rom_id`)
 
-| Column                           | Type        | Notes                                                        |
-| -------------------------------- | ----------- | ------------------------------------------------------------ |
-| `user_id`, `device_id`, `rom_id` | FK          | All cascade on delete                                        |
-| `status`                         | Enum        | `pending_add`, `staged`, `added`, `pending_remove`, `failed` |
-| `launch_mode`                    | Enum, null  | `emulator` or `web_player`; null means device default        |
-| `steam_app_id`                   | BigInteger  | Steam's unsigned 32-bit non-Steam app id, set on ack         |
-| `external_id`, `error`           | String/Text | Reported by the device                                       |
+| Column                           | Type       | Notes                                                        |
+| -------------------------------- | ---------- | ------------------------------------------------------------ |
+| `user_id`, `device_id`, `rom_id` | FK         | All cascade on delete                                        |
+| `status`                         | Enum       | `pending_add`, `staged`, `added`, `pending_remove`, `failed` |
+| `launch_mode`                    | Enum, null | `emulator` or `web_player`; null means device default        |
+| `steam_app_id`                   | BigInteger | Steam's unsigned 32-bit non-Steam app id, set on ack         |
+| `error`                          | Text       | Reported by the device                                       |
 
 `devices.launch_capabilities` (JSON) maps platform slug to a launch descriptor or null.
 

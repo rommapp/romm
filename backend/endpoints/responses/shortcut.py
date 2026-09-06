@@ -17,7 +17,6 @@ class ShortcutSchema(BaseModel):
     status: ShortcutStatus
     launch_mode: LaunchMode | None
     steam_app_id: int | None
-    external_id: str | None
     error: str | None
     created_at: UTCDatetime
     updated_at: UTCDatetime
@@ -36,5 +35,4 @@ class ShortcutAckStatus(BaseModel):
         description="Lifecycle outcome; removed deletes the row."
     )
     steam_app_id: int | None = Field(default=None, ge=0, le=0xFFFFFFFF)
-    external_id: str | None = Field(default=None, max_length=255)
     error: str | None = Field(default=None, max_length=2000)

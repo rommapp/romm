@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Enum, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Enum, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
@@ -54,8 +54,6 @@ class Shortcut(BaseModel):
     # Steam's non-Steam app id is an unsigned 32-bit value, above int32 range.
     steam_app_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Sent by the companion on ack; opaque to the server.
-    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     user: Mapped[User] = relationship(lazy="select")
     device: Mapped[Device] = relationship(lazy="joined")

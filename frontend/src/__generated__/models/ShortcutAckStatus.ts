@@ -11,7 +11,6 @@ export type ShortcutAckStatus = {
      */
     status: 'staged' | 'added' | 'failed' | 'removed';
     steam_app_id?: (number | null);
-    external_id?: (string | null);
     error?: (string | null);
 };
 

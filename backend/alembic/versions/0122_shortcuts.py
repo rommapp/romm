@@ -46,7 +46,6 @@ def upgrade() -> None:
         ),
         sa.Column("steam_app_id", sa.BigInteger(), nullable=True),
         sa.Column("error", sa.Text(), nullable=True),
-        sa.Column("external_id", sa.String(length=255), nullable=True),
         sa.Column(
             "created_at",
             sa.TIMESTAMP(timezone=True),

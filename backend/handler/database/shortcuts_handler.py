@@ -81,15 +81,12 @@ class DBShortcutsHandler(DBBaseHandler):
         *,
         status: ShortcutStatus,
         steam_app_id: int | None = None,
-        external_id: str | None = None,
         error: str | None = None,
         session: Session = None,  # type: ignore
     ) -> Shortcut | None:
         values: dict = {"status": status, "error": error}
         if steam_app_id is not None:
             values["steam_app_id"] = steam_app_id
-        if external_id is not None:
-            values["external_id"] = external_id
         session.execute(
             update(Shortcut)
             .where(Shortcut.id == shortcut_id)

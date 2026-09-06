@@ -12,7 +12,6 @@ export type ShortcutSchema = {
     status: ShortcutStatus;
     launch_mode: (LaunchMode | null);
     steam_app_id: (number | null);
-    external_id: (string | null);
     error: (string | null);
     created_at: string;
     updated_at: string;
