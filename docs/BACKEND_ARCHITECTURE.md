@@ -742,13 +742,13 @@ Saves additionally link to `device_save_sync` for cross-device tracking.
 
 **Table:** `shortcuts` (unique on `device_id` + `rom_id`)
 
-| Column                      | Type        | Notes                                                    |
-| --------------------------- | ----------- | -------------------------------------------------------- |
-| `user_id`, `device_id`, `rom_id` | FK     | All cascade on delete                                    |
-| `status`                    | Enum        | `pending_add`, `staged`, `added`, `pending_remove`, `failed` |
-| `launch_mode`               | Enum, null  | `emulator` or `web_player`; null means device default    |
-| `steam_app_id`              | BigInteger  | Steam's unsigned 32-bit non-Steam app id, set on ack     |
-| `external_id`, `error`      | String/Text | Reported by the device                                   |
+| Column                           | Type        | Notes                                                        |
+| -------------------------------- | ----------- | ------------------------------------------------------------ |
+| `user_id`, `device_id`, `rom_id` | FK          | All cascade on delete                                        |
+| `status`                         | Enum        | `pending_add`, `staged`, `added`, `pending_remove`, `failed` |
+| `launch_mode`                    | Enum, null  | `emulator` or `web_player`; null means device default        |
+| `steam_app_id`                   | BigInteger  | Steam's unsigned 32-bit non-Steam app id, set on ack         |
+| `external_id`, `error`           | String/Text | Reported by the device                                       |
 
 `devices.launch_capabilities` (JSON) maps platform slug to a launch descriptor or null.
 
@@ -788,19 +788,19 @@ Token format: `rmm_` + 64 hex chars (32-byte random)
 
 80+ migration scripts in `alembic/versions/`. Key milestones:
 
-| Migration      | Description                               |
-| -------------- | ----------------------------------------- |
-| `0009`         | Models refactor                           |
-| `0014`, `0019` | Asset filesystem refactoring              |
-| `0020`         | Added created_at/updated_at to all tables |
-| `0021`         | ROM user associations                     |
-| `0022`         | Collection system                         |
-| `0023`         | Column nullability constraints            |
-| `0024`         | Sibling ROM database views                |
-| `0025`         | ROM hash tracking                         |
-| `0064`         | Performance indexes on updated_at         |
-| `0068`         | Device + device_save_sync tables          |
-| `0072`         | Client tokens table                       |
+| Migration      | Description                                  |
+| -------------- | -------------------------------------------- |
+| `0009`         | Models refactor                              |
+| `0014`, `0019` | Asset filesystem refactoring                 |
+| `0020`         | Added created_at/updated_at to all tables    |
+| `0021`         | ROM user associations                        |
+| `0022`         | Collection system                            |
+| `0023`         | Column nullability constraints               |
+| `0024`         | Sibling ROM database views                   |
+| `0025`         | ROM hash tracking                            |
+| `0064`         | Performance indexes on updated_at            |
+| `0068`         | Device + device_save_sync tables             |
+| `0072`         | Client tokens table                          |
 | `0122`         | Shortcuts table, devices.launch_capabilities |
 
 Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/PostgreSQL.
@@ -960,24 +960,24 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 
 ### 6.11 Devices (`/api/devices`)
 
-| Method | Path    | Scope         | Description                         |
-| ------ | ------- | ------------- | ----------------------------------- |
-| POST   | `/`     | DEVICES_WRITE | Register device (fingerprint dedup) |
-| GET    | `/`     | DEVICES_READ  | List devices                        |
-| GET    | `/{id}` | DEVICES_READ  | Get device                          |
+| Method | Path    | Scope         | Description                                 |
+| ------ | ------- | ------------- | ------------------------------------------- |
+| POST   | `/`     | DEVICES_WRITE | Register device (fingerprint dedup)         |
+| GET    | `/`     | DEVICES_READ  | List devices                                |
+| GET    | `/{id}` | DEVICES_READ  | Get device                                  |
 | PUT    | `/{id}` | DEVICES_WRITE | Update device (incl. `launch_capabilities`) |
-| DELETE | `/{id}` | DEVICES_WRITE | Delete device                       |
+| DELETE | `/{id}` | DEVICES_WRITE | Delete device                               |
 
 ### 6.11a Shortcuts (`/api/shortcuts`)
 
 Queue of games a user wants in a launcher (Steam via the desktop companion) on one paired device. The web UI writes intent; the device-bound client token reads its queue and acks.
 
-| Method | Path         | Scope           | Description                                                        |
-| ------ | ------------ | --------------- | ------------------------------------------------------------------ |
-| GET    | `/`          | ROMS_USER_READ  | List shortcuts; filter by `rom_id`, `device_id` (`me` = token's device), `status` (comma list) |
-| PUT    | `/`          | ROMS_USER_WRITE | Upsert `{device_id, rom_id, launch_mode?}` to `pending_add`        |
-| DELETE | `/{id}`      | ROMS_USER_WRITE | Delete if still `pending_add`, otherwise mark `pending_remove`     |
-| POST   | `/{id}/ack`  | DEVICES_WRITE   | Device reports `staged`, `added`, `failed` (+ `steam_app_id`, `error`) or `removed` (deletes) |
+| Method | Path        | Scope           | Description                                                                                    |
+| ------ | ----------- | --------------- | ---------------------------------------------------------------------------------------------- |
+| GET    | `/`         | ROMS_USER_READ  | List shortcuts; filter by `rom_id`, `device_id` (`me` = token's device), `status` (comma list) |
+| PUT    | `/`         | ROMS_USER_WRITE | Upsert `{device_id, rom_id, launch_mode?}` to `pending_add`                                    |
+| DELETE | `/{id}`     | ROMS_USER_WRITE | Delete if still `pending_add`, otherwise mark `pending_remove`                                 |
+| POST   | `/{id}/ack` | DEVICES_WRITE   | Device reports `staged`, `added`, `failed` (+ `steam_app_id`, `error`) or `removed` (deletes)  |
 
 Socket event on `/ws`: `shortcuts:changed {device_id}`, sent to the `device:<id>` room a device-bound client token joins on connect and to the owner's `user:<id>` room.
 
