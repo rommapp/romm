@@ -202,6 +202,7 @@ class RomFile(BaseModel):
         Index("idx_rom_files_sha1_hash", "sha1_hash"),
         Index("idx_rom_files_ra_hash", "ra_hash"),
         Index("idx_rom_files_chd_sha1_hash", "chd_sha1_hash"),
+        Index("idx_rom_files_title_id", "title_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -215,6 +216,9 @@ class RomFile(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    title_id: Mapped[str | None] = mapped_column(String(length=100))
+    # BigInteger because Switch title versions exceed int32
+    title_version: Mapped[int | None] = mapped_column(BigInteger, default=None)
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )

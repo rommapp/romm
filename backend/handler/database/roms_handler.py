@@ -212,6 +212,8 @@ ROM_FILE_SCANNED_COLUMNS = (
     "sha1_hash",
     "ra_hash",
     "chd_sha1_hash",
+    "title_id",
+    "title_version",
     "archive_members",
     "category",
 )

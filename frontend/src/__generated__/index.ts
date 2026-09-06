@@ -60,6 +60,8 @@ export type { CollectionRomsPayload } from './models/CollectionRomsPayload';
 export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { ContainerSessionSchema } from './models/ContainerSessionSchema';
+export type { ConvertoConfig } from './models/ConvertoConfig';
+export type { ConvertoSettingsPayload } from './models/ConvertoSettingsPayload';
 export type { ConversionStats } from './models/ConversionStats';
 export type { ConversionTaskMeta } from './models/ConversionTaskMeta';
 export type { ConversionTaskStatusResponse } from './models/ConversionTaskStatusResponse';
