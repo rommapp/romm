@@ -4,7 +4,7 @@ import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
-import type { Config } from "@/stores/config";
+import storeConfig, { type Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
@@ -459,132 +459,6 @@ export function languageToEmoji(language: string) {
 }
 
 /**
- * Map of supported EJS cores for each platform.
- */
-const _EJS_CORES_MAP: Record<string, string[]> = {
-  "3do": ["opera"],
-  acpc: ["cap32", "crocods"],
-  amiga: ["puae"],
-  "amiga-cd32": ["puae"],
-  arcade: [
-    "mame2003",
-    "mame2003_plus",
-    "fbneo",
-    "fbalpha2012_cps1",
-    "fbalpha2012_cps2",
-  ],
-  neogeoaes: ["fbneo"],
-  neogeomvs: ["fbneo"],
-  atari2600: ["stella2014"],
-  "atari-2600-plus": ["stella2014"],
-  atari5200: ["a5200"],
-  atari7800: ["prosystem"],
-  "c-plus-4": ["vice_xplus4"],
-  c64: ["vice_x64sc", "vice_x64"],
-  cpet: ["vice_xpet"],
-  "commodore-64c": ["vice_x64sc", "vice_x64"],
-  c128: ["vice_x128"],
-  "commmodore-128": ["vice_x128"],
-  colecovision: ["gearcoleco"],
-  doom: ["prboom"],
-  dos: ["dosbox_pure"],
-  jaguar: ["virtualjaguar"],
-  lynx: ["handy"],
-  "atari-lynx-mkii": ["handy"],
-  "neo-geo-pocket": ["mednafen_ngp"],
-  "neo-geo-pocket-color": ["mednafen_ngp"],
-  nes: ["fceumm", "nestopia"],
-  famicom: ["fceumm", "nestopia"],
-  fds: ["fceumm", "nestopia"],
-  "game-televisison": ["fceumm"],
-  "new-style-nes": ["fceumm"],
-  n64: ["mupen64plus_next", "parallel_n64"],
-  "ique-player": ["mupen64plus_next"],
-  nds: ["melonds", "desmume", "desmume2015"],
-  "nintendo-ds-lite": ["melonds", "desmume", "desmume2015"],
-  "nintendo-dsi": ["melonds", "desmume", "desmume2015"],
-  "nintendo-dsi-xl": ["melonds", "desmume", "desmume2015"],
-  gb: ["gambatte", "mgba"],
-  "game-boy-pocket": ["gambatte", "mgba"],
-  "game-boy-light": ["gambatte", "mgba"],
-  gba: ["mgba"],
-  "game-boy-adavance-sp": ["mgba"],
-  "game-boy-micro": ["mgba"],
-  gbc: ["gambatte", "mgba"],
-  "pc-fx": ["mednafen_pcfx"],
-  psx: ["pcsx_rearmed", "mednafen_psx_hw"],
-  "philips-cd-i": ["same_cdi"],
-  psp: ["ppsspp"],
-  segacd: ["genesis_plus_gx", "picodrive"],
-  sega32: ["picodrive"],
-  gamegear: ["genesis_plus_gx"],
-  sms: ["genesis_plus_gx"],
-  "sega-mark-iii": ["genesis_plus_gx"],
-  "sega-game-box-9": ["genesis_plus_gx"],
-  "sega-master-system-ii": ["genesis_plus_gx", "smsplus"],
-  "master-system-super-compact": ["genesis_plus_gx"],
-  "master-system-girl": ["genesis_plus_gx"],
-  genesis: ["genesis_plus_gx"],
-  "sega-mega-drive-2-slash-genesis": ["genesis_plus_gx"],
-  "sega-mega-jet": ["genesis_plus_gx"],
-  "mega-pc": ["genesis_plus_gx"],
-  "tera-drive": ["genesis_plus_gx"],
-  "sega-nomad": ["genesis_plus_gx"],
-  saturn: ["yabause"],
-  snes: ["snes9x"],
-  sfam: ["snes9x"],
-  "super-nintendo-original-european-version": ["snes9x"],
-  "super-famicom-shvc-001": ["snes9x"],
-  "super-famicom-jr-model-shvc-101": ["snes9x"],
-  "new-style-super-nes-model-sns-101": ["snes9x"],
-  tg16: ["mednafen_pce"],
-  "turbografx-cd": ["mednafen_pce"],
-  supergrafx: ["mednafen_pce"],
-  "vic-20": ["vice_xvic"],
-  virtualboy: ["beetle_vb"],
-  wonderswan: ["mednafen_wswan"],
-  swancrystal: ["mednafen_wswan"],
-  "wonderswan-color": ["mednafen_wswan"],
-  zxs: ["fuse"],
-} as const;
-
-// TODO: Merge with _EJS_CORES_MAP next emukatorjs release (post 4.2.3)
-const _EJS_NIGHTLY_CORES_MAP: Record<string, string[]> = {
-  "3ds": ["azahar"],
-  "new-nintendo-3ds": ["azahar"],
-  intellivision: ["freeintv"],
-  segacd: ["genesis_plus_gx", "genesis_plus_gx_wide", "picodrive"],
-  gamegear: ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  sms: ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-mark-iii": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-game-box-9": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-master-system-ii": [
-    "genesis_plus_gx",
-    "genesis_plus_gx_wide",
-    "smsplus",
-  ],
-  "master-system-super-compact": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "master-system-girl": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  genesis: ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-mega-drive-2-slash-genesis": [
-    "genesis_plus_gx",
-    "genesis_plus_gx_wide",
-  ],
-  "sega-mega-jet": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "mega-pc": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "tera-drive": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-nomad": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  snes: ["snes9x", "bsnes"],
-  sfam: ["snes9x", "bsnes"],
-  "super-nintendo-original-european-version": ["snes9x", "bsnes"],
-  "super-famicom-shvc-001": ["snes9x", "bsnes"],
-  "super-famicom-jr-model-shvc-101": ["snes9x", "bsnes"],
-  "new-style-super-nes-model-sns-101": ["snes9x", "bsnes"],
-};
-
-export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
-
-/**
  * Get the supported EJS cores for a given platform.
  *
  * @param platformSlug The platform slug.
@@ -595,10 +469,13 @@ export function getSupportedEJSCores(
   platformSlug: string,
   netplayEnabled: boolean = false,
 ): string[] {
+  // Served by /api/config, which main.ts awaits before mounting, so the map is
+  // always populated by the time any player or gallery asks for it.
+  const { config } = storeConfig();
   const coresMap = netplayEnabled
-    ? { ..._EJS_CORES_MAP, ..._EJS_NIGHTLY_CORES_MAP }
-    : _EJS_CORES_MAP;
-  return coresMap[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+    ? { ...config.EJS_CORES, ...config.EJS_NIGHTLY_CORES }
+    : config.EJS_CORES;
+  return coresMap[platformSlug.toLowerCase()] ?? [];
 }
 
 /**

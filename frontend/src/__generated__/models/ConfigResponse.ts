@@ -27,6 +27,8 @@ export type ConfigResponse = {
     EJS_DISABLE_AUTO_UNLOAD: boolean;
     EJS_DISABLE_BATCH_BOOTUP: boolean;
     EJS_NETPLAY_ENABLED: boolean;
+    EJS_CORES: Record<string, Array<string>>;
+    EJS_NIGHTLY_CORES: Record<string, Array<string>>;
     EJS_NETPLAY_ICE_SERVERS: Array<NetplayICEServer>;
     EJS_SETTINGS: Record<string, Record<string, string>>;
     EJS_CONTROLS: Record<string, EjsControls>;

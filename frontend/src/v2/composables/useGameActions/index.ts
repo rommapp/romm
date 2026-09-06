@@ -13,13 +13,19 @@ import type { Emitter } from "mitt";
 import { computed, inject, type InjectionKey, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import type { RomUserData, RomUserStatus } from "@/__generated__";
+import type {
+  DeviceSchema,
+  RomUserData,
+  RomUserStatus,
+  ShortcutSchema,
+} from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
+import { launcherDeviceName, useShortcutsStore } from "@/stores/shortcuts";
 import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
@@ -46,6 +52,16 @@ export interface GameActionsOptions {
 
 /** Which player a launch is asking for. "auto" lets availability decide. */
 export type PlayTarget = "auto" | "local" | "stream";
+
+/** One paired desktop companion as an Add to Steam destination for a rom. */
+export interface SteamTarget {
+  device: DeviceSchema;
+  /** The rom's row on that device, or null when it has never been queued. */
+  shortcut: ShortcutSchema | null;
+  /** Whether the device reported an emulator for the rom's platform; null
+   *  while it has not reported at all. */
+  supported: boolean | null;
+}
 
 // Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
@@ -86,6 +102,9 @@ export function useGameActions(
   const { canPlay, canPlayEJS, canPlayJsDos, canPlayRuffle, canPlayStream } =
     useCanPlay(getRom);
   const streamingStore = useStreamingStore();
+  const shortcutsStore = useShortcutsStore();
+  // One load per app; the store dedupes and no-ops without the read scopes.
+  void shortcutsStore.ensureLoaded();
 
   // Streaming is offered as its own action rather than as the winner of a
   // precedence rule, so each player needs a gate of its own.
@@ -269,6 +288,119 @@ export function useGameActions(
     const rom = getRom();
     return Boolean(rom && rom.has_file_on_disk && isNintendoDSRom(rom));
   });
+
+  // Steam needs a paired companion, a file to hand it, and the write scope
+  // the queue routes gate on.
+  const canAddToSteam = computed(
+    () =>
+      Boolean(getRom()?.has_file_on_disk) &&
+      shortcutsStore.hasLauncherDevices &&
+      auth.scopes.includes("roms.user.write"),
+  );
+
+  const steamTargets = computed<SteamTarget[]>(() => {
+    const rom = getRom();
+    if (!rom) return [];
+    const rows = shortcutsStore.shortcutsForRom(rom.id);
+    return shortcutsStore.launcherDevices.map((device) => ({
+      device,
+      shortcut: rows.find((s) => s.device_id === device.id) ?? null,
+      supported: shortcutsStore.deviceSupports(device, rom.platform_slug),
+    }));
+  });
+
+  const steamAdded = computed(() =>
+    steamTargets.value.some((tgt) => tgt.shortcut?.status === "added"),
+  );
+
+  // Nothing to press while a removal is in flight, or when the device cannot
+  // play the platform and there is no row to remove.
+  function steamTargetDisabled(target: SteamTarget): boolean {
+    const status = target.shortcut?.status;
+    if (status === "pending_remove") return true;
+    return !target.shortcut && target.supported === false;
+  }
+
+  function steamTargetLabel(target: SteamTarget): string {
+    const rom = getRom();
+    const device = launcherDeviceName(target.device);
+    const status = target.shortcut?.status;
+    if (status === "pending_add") return t("rom.steam-queued-on", { device });
+    if (status === "staged") return t("rom.steam-restart-on", { device });
+    if (status === "added") return t("rom.steam-in-library-on", { device });
+    if (status === "pending_remove")
+      return t("rom.steam-removing-on", { device });
+    if (status === "failed") return t("rom.steam-failed-on", { device });
+    if (target.supported === false) {
+      return t("rom.steam-unsupported", {
+        platform: rom?.platform_display_name ?? rom?.platform_slug ?? "",
+        device,
+      });
+    }
+    return t("rom.steam-add-on", { device });
+  }
+
+  // The ribbon button speaks for one device when there is one, and for the
+  // set when a picker sits behind it.
+  const steamActionLabel = computed(() => {
+    const targets = steamTargets.value;
+    if (targets.length === 1) return steamTargetLabel(targets[0]!);
+    return steamAdded.value ? t("rom.steam-in-library") : t("rom.steam-add");
+  });
+
+  async function addToSteam(target: SteamTarget) {
+    const rom = getRom();
+    if (!rom) return;
+    const device = launcherDeviceName(target.device);
+    try {
+      await shortcutsStore.add(rom.id, target.device.id);
+      snackbar.success(t("rom.snackbar-steam-queued", { device }), {
+        icon: "mdi-steam",
+      });
+    } catch {
+      snackbar.error(t("rom.snackbar-steam-queue-failed"), {
+        icon: "mdi-alert-circle-outline",
+      });
+    }
+  }
+
+  async function removeFromSteam(target: SteamTarget) {
+    const rom = getRom();
+    if (!rom || !target.shortcut) return;
+    const device = launcherDeviceName(target.device);
+    // A row the device has not applied yet just disappears; only a game that
+    // is in Steam asks first.
+    if (target.shortcut.status !== "pending_add") {
+      const ok = await confirm({
+        title: t("rom.steam-confirm-remove-title"),
+        body: t("rom.steam-confirm-remove-body", {
+          name: rom.name ?? rom.fs_name_no_ext ?? "",
+          device,
+        }),
+        confirmText: t("rom.steam-remove"),
+        tone: "danger",
+      });
+      if (!ok) return;
+    }
+    try {
+      await shortcutsStore.remove(target.shortcut);
+      snackbar.success(t("rom.snackbar-steam-remove-queued", { device }), {
+        icon: "mdi-steam",
+      });
+    } catch {
+      snackbar.error(t("rom.snackbar-steam-remove-failed"), {
+        icon: "mdi-alert-circle-outline",
+      });
+    }
+  }
+
+  /** Add, retry a failed add, or remove, depending on where the row is. */
+  async function toggleSteam(target: SteamTarget) {
+    if (steamTargetDisabled(target)) return;
+    const status = target.shortcut?.status;
+    if (!status || status === "failed") await addToSteam(target);
+    else await removeFromSteam(target);
+  }
 
   const canOpenInFlashpoint = computed(() => {
     const rom = getRom();
@@ -557,6 +689,13 @@ export function useGameActions(
     canManageCollections,
     canShareQR,
     canOpenInFlashpoint,
+    canAddToSteam,
+    steamTargets,
+    steamAdded,
+    steamActionLabel,
+    steamTargetLabel,
+    steamTargetDisabled,
+    toggleSteam,
     canDownload,
     canPlay,
     canPlayStream,

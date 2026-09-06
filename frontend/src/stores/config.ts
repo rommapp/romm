@@ -30,6 +30,8 @@ const defaultConfig = {
   SKIP_HASH_CALCULATION: false,
   EJS_DEBUG: false,
   EJS_NETPLAY_ENABLED: false,
+  EJS_CORES: {},
+  EJS_NIGHTLY_CORES: {},
   EJS_CACHE_LIMIT: null,
   EJS_DISABLE_AUTO_UNLOAD: false,
   EJS_DISABLE_BATCH_BOOTUP: false,

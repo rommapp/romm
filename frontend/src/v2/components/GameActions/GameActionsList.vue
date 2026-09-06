@@ -85,6 +85,19 @@ function run(fn: () => void | Promise<void>) {
     icon="mdi-rocket-launch-outline"
     @click="run(actions.openInFlashpoint)"
   />
+  <!-- One row per paired companion, so a phone reaches every desktop
+       without a nested picker. -->
+  <template v-if="actions.canAddToSteam.value">
+    <RMenuItem
+      v-for="target in actions.steamTargets.value"
+      :key="target.device.id"
+      :label="actions.steamTargetLabel(target)"
+      icon="mdi-steam"
+      :disabled="actions.steamTargetDisabled(target)"
+      :variant="target.shortcut?.status === 'added' ? 'active' : 'default'"
+      @click="run(() => actions.toggleSteam(target))"
+    />
+  </template>
 
   <RDivider />
 
