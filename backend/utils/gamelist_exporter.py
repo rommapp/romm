@@ -1,13 +1,18 @@
+import re
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
     Element,
+    ParseError,
     SubElement,
+    TreeBuilder,
     indent,
     tostring,
 )
 
+from defusedxml import ElementTree as ET
 from fastapi import Request
 from starlette.datastructures import URLPath
 
@@ -16,6 +21,7 @@ from config.config_manager import PLATFORM_MEDIA_DIRS
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.metadata.gamelist_handler import gamelist_path_to_filename
 from logger.logger import log
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.filesystem import link_or_copy_file
@@ -43,6 +49,69 @@ def get_media_options_for_export() -> tuple[str, str]:
     config = cm.get_config()
 
     return config.GAMELIST_MEDIA_IMAGE, config.GAMELIST_MEDIA_THUMBNAIL
+
+
+XML_DECLARATION_RE: Final = re.compile(r"^\s*<\?xml\b[^>]*\?>")
+
+
+@dataclass
+class ExistingGamelist:
+    """What an on-disk gamelist.xml holds that RomM did not generate."""
+
+    games: dict[str, Element] = field(default_factory=dict)
+    others: list[Element] = field(default_factory=list)
+    root_siblings: list[Element] = field(default_factory=list)
+
+
+def parse_existing_gamelist(content: str) -> ExistingGamelist:
+    """Index a gamelist.xml by ROM filename, keeping every element RomM does not own.
+
+    ES-DE writes <alternativeEmulator> beside <gameList>, so the document is
+    parsed under a wrapper root to accept those siblings.
+
+    Raises:
+        ParseError: when the content is not well-formed XML.
+    """
+    existing = ExistingGamelist()
+    if not content.strip():
+        return existing
+
+    body = XML_DECLARATION_RE.sub("", content, count=1)
+    parser = ET.XMLParser(target=TreeBuilder(insert_comments=True, insert_pis=True))
+    parser.feed(f"<romm>{body}</romm>")
+    wrapper = parser.close()
+
+    gamelist = wrapper.find("gameList")
+    for elem in wrapper:
+        if elem is not gamelist:
+            elem.tail = None
+            existing.root_siblings.append(elem)
+    if gamelist is None:
+        return existing
+
+    for elem in gamelist:
+        path_elem = elem.find("path") if elem.tag == "game" else None
+        filename = (
+            gamelist_path_to_filename(path_elem.text)
+            if path_elem is not None and path_elem.text
+            else None
+        )
+        # A second entry with the same filename is carried over, not dropped.
+        if filename and filename not in existing.games:
+            existing.games[filename] = elem
+        else:
+            existing.others.append(elem)
+
+    return existing
+
+
+def merge_existing_game(game: Element, existing: Element) -> None:
+    """Carry attributes and children RomM did not emit over from the old entry."""
+    for name, value in existing.attrib.items():
+        game.attrib.setdefault(name, value)
+
+    emitted_tags = {child.tag for child in game}
+    game.extend(child for child in existing if child.tag not in emitted_tags)
 
 
 class GamelistExporter:
@@ -288,8 +357,13 @@ class GamelistExporter:
         platform_id: int,
         request: Request | None,
         platform_dir: Path | None,
+        existing: ExistingGamelist | None = None,
     ) -> tuple[str, int]:
-        """Build gamelist XML, optionally copying media into ``platform_dir``."""
+        """Build gamelist XML, optionally copying media into ``platform_dir``.
+
+        Entries in ``existing`` keep whatever RomM does not emit itself, and
+        entries with no ROM in the database are carried over untouched.
+        """
         platform = db_platform_handler.get_platform(platform_id)
         if not platform:
             raise ValueError(f"Platform with ID {platform_id} not found")
@@ -298,7 +372,11 @@ class GamelistExporter:
             platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
         )
 
+        existing = existing or ExistingGamelist()
+        unmatched_games = dict(existing.games)
+
         root = Element("gameList")
+        root.extend(existing.others)
         media_image, media_thumbnail = get_media_options_for_export()
 
         count = 0
@@ -318,13 +396,33 @@ class GamelistExporter:
                 media_image=media_image,
                 media_thumbnail=media_thumbnail,
             )
+            existing_game = unmatched_games.pop(rom.fs_name, None)
+            if existing_game is not None:
+                merge_existing_game(game_element, existing_game)
             root.append(game_element)
             count += 1
 
+        root.extend(unmatched_games.values())
+
         indent(root, space="  ", level=0)
         xml_str = tostring(root, encoding="unicode", xml_declaration=True)
+        if existing.root_siblings:
+            declaration, body = xml_str.split("\n", 1)
+            siblings = [
+                tostring(elem, encoding="unicode") for elem in existing.root_siblings
+            ]
+            xml_str = "\n".join([declaration, *siblings, body])
+
         log.info(f"Exported {count} ROMs for platform {platform.name}")
         return xml_str, count
+
+    async def _read_existing_gamelist(self, gamelist_path: str) -> ExistingGamelist:
+        """Load the gamelist.xml at ``gamelist_path``, or an empty one if absent."""
+        if not await fs_platform_handler.file_exists(gamelist_path):
+            return ExistingGamelist()
+
+        content = await fs_platform_handler.read_file(gamelist_path)
+        return parse_existing_gamelist(content.decode("utf-8-sig"))
 
     def export_platform_to_xml(self, platform_id: int, request: Request | None) -> str:
         """Export a platform's ROMs to gamelist.xml format (no asset files copied)."""
@@ -338,7 +436,7 @@ class GamelistExporter:
         platform_id: int,
         request: Request | None,
     ) -> bool:
-        """Export platform ROMs to gamelist.xml in the platform's directory,
+        """Merge platform ROMs into the gamelist.xml in the platform's directory,
         copying media into ES-DE's per-type folders when local_export=True.
 
         Returns:
@@ -358,15 +456,26 @@ class GamelistExporter:
                 if self.local_export
                 else None
             )
+            gamelist_path = f"{platform_fs_structure}/gamelist.xml"
+
+            # A file we cannot read is left alone rather than replaced.
+            try:
+                existing = await self._read_existing_gamelist(gamelist_path)
+            except (ParseError, UnicodeDecodeError) as e:
+                log.error(f"Not overwriting unreadable {gamelist_path}: {e}")
+                return False
 
             xml_content, _ = self._build_gamelist_xml(
-                platform_id, request=request, platform_dir=platform_dir
+                platform_id,
+                request=request,
+                platform_dir=platform_dir,
+                existing=existing,
             )
             await fs_platform_handler.write_file(
                 xml_content.encode("utf-8"), platform_fs_structure, "gamelist.xml"
             )
 
-            log.info(f"Exported gamelist.xml to {platform_fs_structure}/gamelist.xml")
+            log.info(f"Exported gamelist.xml to {gamelist_path}")
             return True
         except Exception as e:
             log.error(f"Failed to export gamelist.xml for platform {platform_id}: {e}")
