@@ -282,29 +282,24 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 // frames rendered before loadState takes cleanly.
 const STATE_APPLY_SETTLE_MS = 500;
 
-// Periodic upload of the in-game save on EmulatorJS' own "System Save
-// interval" tick, when EJS_AUTO_SAVE_SYNC is on. The decision of what to
-// upload lives in createSaveSyncTracker (utils.ts). Turned off before Save &
-// Quit and Quit run their own upload, and on unmount — EmulatorJS has no
-// `off`, so the handler checks the flag instead.
+// Periodic save upload on EmulatorJS' "System Save interval" tick (see
+// createSaveSyncTracker). EmulatorJS has no `off`, so a flag gates the handler.
 let autoSaveSyncActive = false;
 async function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
   if (!emulator?.gameManager) return;
   const tracker = createSaveSyncTracker();
-  // getSaveFile() with no argument has the core dump its SRAM first, so the
-  // seed is what the core holds now — the server save just applied, or a
-  // fresh game's blank SRAM — and only a later change is ever uploaded.
+  // getSaveFile() dumps the core's SRAM first, so the seed is what it holds now.
   tracker.seed(await hashSaveFile(emulator.gameManager.getSaveFile()));
   let uploading = false;
   autoSaveSyncActive = true;
   emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
     if (!autoSaveSyncActive || uploading || !saveFile) return;
-    const bytes = toArrayBuffer(saveFile);
-    const hash = await hashSaveFile(bytes);
-    if (!hash || !tracker.shouldUpload(hash)) return;
     uploading = true;
     try {
+      const bytes = toArrayBuffer(saveFile);
+      const hash = await hashSaveFile(bytes);
+      if (!hash || !tracker.shouldUpload(hash)) return;
       const save = await saveSave({
         rom: romRef.value,
         save: saveRef.value,
@@ -320,6 +315,8 @@ async function installAutoSaveSync() {
           icon: "mdi-cloud-sync",
         });
       }
+    } catch (error) {
+      console.error("Periodic save sync failed", error);
     } finally {
       uploading = false;
     }
@@ -491,7 +488,11 @@ window.EJS_onGameStart = async () => {
       } else if (props.save) {
         await loadSave(props.save);
       }
-      if (EJS_AUTO_SAVE_SYNC) await installAutoSaveSync();
+      if (EJS_AUTO_SAVE_SYNC) {
+        await installAutoSaveSync().catch((error) =>
+          console.error("Failed to enable periodic save sync", error),
+        );
+      }
     }
 
     if (window.EJS_emulator) {

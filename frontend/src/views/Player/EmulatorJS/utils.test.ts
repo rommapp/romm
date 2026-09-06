@@ -186,6 +186,25 @@ describe("hashSaveFile", () => {
     expect(await hashSaveFile(new Uint8Array(0))).toBeNull();
   });
 
+  it("falls back to a JS hash when WebCrypto is unavailable", async () => {
+    // subtle lives on the prototype; an own property shadows it, delete restores it.
+    Object.defineProperty(globalThis.crypto, "subtle", {
+      value: undefined,
+      configurable: true,
+    });
+    try {
+      const a = await hashSaveFile(new Uint8Array([1, 2, 3]));
+      const b = await hashSaveFile(new Uint8Array([1, 2, 3]));
+      const c = await hashSaveFile(new Uint8Array([1, 2, 4]));
+      expect(a).toBe(b);
+      expect(a).not.toBe(c);
+      expect(a).toMatch(/^[0-9a-f]{16}$/);
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis.crypto as any).subtle;
+    }
+  });
+
   it("hashes content, not identity", async () => {
     const a = await hashSaveFile(new Uint8Array([1, 2, 3]));
     const b = await hashSaveFile(new Uint8Array([1, 2, 3]).buffer);
