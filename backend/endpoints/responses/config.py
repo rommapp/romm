@@ -25,6 +25,8 @@ class ConfigResponse(TypedDict):
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
     EJS_NETPLAY_ENABLED: bool
+    EJS_CORES: dict[str, list[str]]
+    EJS_NIGHTLY_CORES: dict[str, list[str]]
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, dict[str, str]]
     EJS_CONTROLS: dict[str, EjsControls]
