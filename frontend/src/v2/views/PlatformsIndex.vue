@@ -49,7 +49,7 @@ const { allPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
 const searchTerm = useTileSearchUrl();
-const { isPlayable } = usePlatformPlayableChecker();
+const { isPlayable, isStreamable } = usePlatformPlayableChecker();
 
 // Empty (0-game) platforms are leftovers: rows whose folder vanished from
 // disk, whose ROMs were all deleted, or that a config exclusion keeps out
@@ -103,13 +103,18 @@ const visiblePlatforms = computed<Platform[]>(() =>
 const gridRoot = ref<HTMLElement | null>(null);
 useWrapGridNav(gridRoot, { cellSelector: ".plat-tile" });
 
-// Pre-compute the playable flag per platform — sort comparator and
-// every row read this map so the column, the badge on the tile, and
-// the playable bucket all agree on a single source of truth.
+// Pre-compute the play flag per platform: sort comparator and every row
+// read this map so the column, the badge on the tile, and the playable
+// bucket all agree on a single source of truth. "Playable" here means by
+// any means: in this tab through EmulatorJS or Ruffle, or on a configured
+// streaming container.
 const playableById = computed(() => {
-  const fn = isPlayable.value;
+  const playableFn = isPlayable.value;
+  const streamableFn = isStreamable.value;
   const map = new Map<number | string, boolean>();
-  for (const p of allPlatforms.value) map.set(p.id, fn(p.slug));
+  for (const p of allPlatforms.value) {
+    map.set(p.id, playableFn(p.slug) || streamableFn(p.slug));
+  }
   return map;
 });
 

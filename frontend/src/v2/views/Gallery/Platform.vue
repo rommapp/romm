@@ -26,6 +26,7 @@ import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import FirmwareTab from "@/v2/components/Gallery/FirmwareTab.vue";
@@ -33,6 +34,7 @@ import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import PlatformHead from "@/v2/components/Gallery/PlatformHead.vue";
 import ScanPlatformDialog from "@/v2/components/Gallery/ScanPlatformDialog.vue";
 import SettingsTab from "@/v2/components/Gallery/SettingsTab.vue";
+import MemoryCardManager from "@/v2/components/Player/MemoryCardManager.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
@@ -47,6 +49,7 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const streamingStore = useStreamingStore();
 const emitter = inject<Emitter<Events>>("emitter");
 const { currentPlatform, total } = storeToRefs(galleryRoms);
 
@@ -69,14 +72,27 @@ const canDownload = useCan("rom.download");
 // ── Tabs ─────────────────────────────────────────────────────────
 // URL-persistent via `?tab=` (mirrors the GameDetails pattern). The
 // default tab is `library`.
-type TabId = "library" | "firmware" | "settings";
-const VALID_TABS = new Set<TabId>(["library", "firmware", "settings"]);
+type TabId = "library" | "firmware" | "settings" | "memory-cards";
+const VALID_TABS = new Set<TabId>([
+  "library",
+  "firmware",
+  "settings",
+  "memory-cards",
+]);
 
 function parseTab(v: unknown): TabId {
   return typeof v === "string" && VALID_TABS.has(v as TabId)
     ? (v as TabId)
     : "library";
 }
+
+// The memory-card tab only exists for platforms whose streaming container
+// syncs whole cards (PCSX2 today). `emulator` is the hard key the manager
+// fetches by; null means "no card tab for this platform".
+const memoryCardEmulator = computed<string | null>(() => {
+  const c = streamingStore.containerForPlatform(currentPlatform.value?.slug);
+  return c?.supports_memory_cards ? c.emulator : null;
+});
 
 const tab = ref<TabId>(parseTab(route.query.tab));
 watch(tab, (value) => {
@@ -98,8 +114,26 @@ watch(
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "library", label: t("common.library") },
   { id: "firmware", label: t("platform.firmware-bios") },
+  ...(memoryCardEmulator.value
+    ? [{ id: "memory-cards", label: t("play.memory-cards") }]
+    : []),
   { id: "settings", label: t("platform.settings") },
 ]);
+
+// Guard a stale `?tab=memory-cards` deep link on a platform that doesn't
+// support cards (or once its container is removed): fall back to library.
+// Both the container config and the platform itself have to have landed:
+// either one still missing reads as "no cards here" and would bounce a deep
+// link that is about to turn out valid.
+watch(
+  [tab, memoryCardEmulator, () => streamingStore.configLoaded, currentPlatform],
+  ([current, emulator, loadedConfig, platform]) => {
+    if (loadedConfig && platform && current === "memory-cards" && !emulator) {
+      tab.value = "library";
+    }
+  },
+  { immediate: true },
+);
 
 const headLabels = computed(() => ({
   upload: t("platform.upload-roms"),
@@ -489,6 +523,11 @@ async function onDelete() {
       <RDivider class="r-v2-plat-tabs__divider" />
       <div v-if="currentPlatform" class="r-v2-plat-tabs__panel">
         <FirmwareTab v-if="tab === 'firmware'" :platform="currentPlatform" />
+        <MemoryCardManager
+          v-else-if="tab === 'memory-cards' && memoryCardEmulator"
+          :emulator="memoryCardEmulator"
+          :platform-id="currentPlatform.id"
+        />
         <SettingsTab
           v-else-if="tab === 'settings'"
           :platform="currentPlatform"

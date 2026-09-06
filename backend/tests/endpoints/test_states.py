@@ -156,8 +156,10 @@ def test_add_state_rejects_oversized_uploads(
     assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
 
 
-@mock.patch("endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
-@mock.patch("endpoints.states.scan_state", new_callable=mock.AsyncMock)
+@mock.patch(
+    "handler.asset_store.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+)
+@mock.patch("handler.asset_store.scan_state", new_callable=mock.AsyncMock)
 def test_hidden_rom_masks_state_upload(
     _mock_scan,
     mock_write,
@@ -180,8 +182,10 @@ def test_hidden_rom_masks_state_upload(
     mock_write.assert_not_awaited()
 
 
-@mock.patch("endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
-@mock.patch("endpoints.states.scan_state", new_callable=mock.AsyncMock)
+@mock.patch(
+    "handler.asset_store.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+)
+@mock.patch("handler.asset_store.scan_state", new_callable=mock.AsyncMock)
 def test_hidden_platform_masks_state_upload(
     _mock_scan,
     mock_write,
@@ -205,10 +209,12 @@ def test_hidden_platform_masks_state_upload(
 
 
 @mock.patch(
-    "endpoints.states.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    "handler.asset_store.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
 )
-@mock.patch("endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
-@mock.patch("endpoints.states.scan_state", new_callable=mock.AsyncMock)
+@mock.patch(
+    "handler.asset_store.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+)
+@mock.patch("handler.asset_store.scan_state", new_callable=mock.AsyncMock)
 def test_reupload_updates_file_path_and_emulator(
     mock_scan,
     _mock_write,
@@ -277,8 +283,8 @@ def _kiosk_mode():
         yield
 
 
-@mock.patch("endpoints.states.scan_state")
-@mock.patch("endpoints.states.fs_asset_handler.write_file")
+@mock.patch("handler.asset_store.scan_state")
+@mock.patch("handler.asset_store.fs_asset_handler.write_file")
 def test_kiosk_mode_lets_logged_in_user_upload_state(
     mock_write_file,
     mock_scan_state,

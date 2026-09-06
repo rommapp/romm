@@ -112,7 +112,7 @@ from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
-from utils.m3u import generate_m3u_content
+from utils.m3u import generate_m3u_content, playlist_files
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.screenshots import continue_playing_screenshot
@@ -1572,10 +1572,7 @@ async def get_rom_content(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
 
-    # If .cue files are present, only list those in the M3U
-    # (avoids invalid entries like raw .bin tracks)
-    cue_files = [f for f in files if f.file_extension.lower() == "cue"]
-    m3u_files = cue_files if cue_files else files
+    m3u_files = playlist_files(files)
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:

@@ -23,6 +23,39 @@ from .base_handler import FSHandler
 _MIME_DETECTOR = magic.Magic(mime=True)
 _MIME_DETECTOR_LOCK = threading.Lock()
 
+# A zip entry's declared size is attacker-controlled, so entries are hashed in
+# chunks against this ceiling rather than read whole. Sized well above any real
+# memory card or save archive.
+MAX_DECOMPRESSED_ENTRY_BYTES = 512 * 1024 * 1024
+
+
+def hash_zip_entry(zf: zipfile.ZipFile, name: str) -> str:
+    """md5 of one zip entry, streamed so a compression bomb cannot exhaust memory."""
+    hash_obj = hashlib.md5(usedforsecurity=False)
+    read = 0
+    with zf.open(name, "r") as entry:
+        while chunk := entry.read(8192):
+            read += len(chunk)
+            if read > MAX_DECOMPRESSED_ENTRY_BYTES:
+                raise ValueError(
+                    f"zip entry {name} exceeds the decompressed size limit"
+                )
+            hash_obj.update(chunk)
+    return hash_obj.hexdigest()
+
+
+def hash_zip_contents(zf: zipfile.ZipFile) -> str:
+    """md5 of a zip archive's contents, keyed by sorted entry name and each
+    entry's own hash. Shared by disk-path and in-memory hashing so both agree
+    on a card or save archive's dedup hash."""
+    file_hashes = []
+    for name in sorted(zf.namelist()):
+        if not name.endswith("/"):
+            file_hash = hash_zip_entry(zf, name)
+            file_hashes.append(f"{name}:{file_hash}")
+    combined = "\n".join(file_hashes)
+    return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
+
 
 def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
     """Validate that an uploaded file is one of the safe image types.
@@ -142,6 +175,15 @@ class FSAssetsHandler(FSHandler):
             user, "screenshots", platform_fs_slug, rom_id
         )
 
+    # /users/557365723a31/memory_cards/pcsx2/{card_id}
+    def build_memory_cards_file_path(self, user: User, emulator: str, card_id: int):
+        # Not scoped by rom/platform: a memory card is per (user, emulator) and
+        # holds every game's saves. Versions share the folder, distinguished by
+        # their timestamped file names.
+        return os.path.join(
+            self.user_folder_path(user), "memory_cards", emulator, str(card_id)
+        )
+
     async def _compute_file_hash(self, file_path: str) -> str:
         hash_obj = hashlib.md5(usedforsecurity=False)
         async with await self.stream_file(file_path=file_path) as f:
@@ -151,14 +193,7 @@ class FSAssetsHandler(FSHandler):
 
     async def _compute_zip_hash(self, zip_path: str) -> str:
         with zipfile.ZipFile(self.base_path / zip_path, "r") as zf:
-            file_hashes = []
-            for name in sorted(zf.namelist()):
-                if not name.endswith("/"):
-                    content = zf.read(name)
-                    file_hash = hashlib.md5(content, usedforsecurity=False).hexdigest()
-                    file_hashes.append(f"{name}:{file_hash}")
-            combined = "\n".join(file_hashes)
-            return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
+            return hash_zip_contents(zf)
 
     async def compute_content_hash(self, file_path: str) -> str | None:
         try:

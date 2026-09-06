@@ -7,45 +7,79 @@
 // Elapsed-time labels are recomputed off a `now` ref that ticks every
 // 30s, so "5m ago" advances without a full refetch. The grid is wired
 // to `useWrapGridNav` so arrow keys / gamepad move across the cards.
-import { RIcon, RSkeletonBlock, RTooltip } from "@v2/lib";
+import {
+  RBtn,
+  RDialog,
+  RIcon,
+  RSkeletonBlock,
+  RTextField,
+  RTooltip,
+} from "@v2/lib";
+import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import type { ActivityEntry } from "@/services/api/activity";
+import streamingApi, {
+  type AdminStreamingSession,
+} from "@/services/api/streaming";
 import storeActivity from "@/stores/activity";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import ActivityCard from "@/v2/components/Activity/ActivityCard.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import { useCan } from "@/v2/composables/useCan";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 const { t } = useI18n();
 const activityStore = storeActivity();
+const snackbar = useSnackbar();
+const isAdmin = useCan("app.admin");
 const { toWebp } = useWebpSupport();
 const { activities: rawActivities, initialized } = storeToRefs(activityStore);
 
 const now = ref(Date.now());
-let tickTimer: ReturnType<typeof setInterval> | null = null;
 
 const gridRoot = ref<HTMLElement | null>(null);
 useWrapGridNav(gridRoot, { cellSelector: ".activity-card" });
 
+// Emulator streaming sessions live in Redis, not the activity presence
+// board, so a session survives the player closing their tab. This panel
+// lets an admin see and force-release those held containers.
+const streamingSessions = ref<AdminStreamingSession[]>([]);
+const releasingContainer = ref<string | null>(null);
+
+async function refreshStreamingSessions() {
+  if (!isAdmin.value) return;
+  // A backgrounded tab is showing nobody the board, and this request costs a
+  // Redis scan plus a user lookup per session. The visibility handler below
+  // catches up on the way back.
+  if (document.hidden) return;
+  try {
+    const { data } = await streamingApi.adminListSessions();
+    streamingSessions.value = data.sessions ?? [];
+  } catch (err) {
+    console.warn("[streaming] Could not list sessions:", err);
+  }
+}
+
 onMounted(async () => {
   activityStore.initSocket();
-  await activityStore.fetchAll();
-  // Refresh the elapsed-time labels every 30 seconds.
-  tickTimer = setInterval(() => {
-    now.value = Date.now();
-  }, 30_000);
+  await Promise.all([activityStore.fetchAll(), refreshStreamingSessions()]);
 });
 
-onBeforeUnmount(() => {
-  if (tickTimer) {
-    clearInterval(tickTimer);
-    tickTimer = null;
-  }
+// Refresh the elapsed-time labels every 30 seconds. Streaming sessions have no
+// socket events, so they piggyback on the same tick.
+useIntervalFn(() => {
+  now.value = Date.now();
+  void refreshStreamingSessions();
+}, 30_000);
+
+useEventListener(document, "visibilitychange", () => {
+  if (!document.hidden) void refreshStreamingSessions();
 });
 
 // Oldest session first so the longest-running players lead the board.
@@ -55,6 +89,57 @@ const activities = computed(() =>
       new Date(a.started_at).getTime() - new Date(b.started_at).getTime(),
   ),
 );
+
+// Matches the backend's device_type for streaming presence entries
+// (endpoints/streaming.py `_STREAMING_DEVICE_TYPE`).
+const STREAMING_DEVICE_TYPE = "streaming";
+
+interface MergedActivity {
+  entry: ActivityEntry;
+  streaming: AdminStreamingSession | null;
+}
+
+// A streaming session's player shell also emits its own generic "web"
+// presence heartbeat alongside the backend's synthesized "streaming" entry,
+// so the same session would otherwise show as two cards. Drop the duplicate
+// and attach the matching Redis session (container === device_id) to the
+// streaming entry so its card can carry the core and a release control.
+const mergedActivities = computed<MergedActivity[]>(() => {
+  const streamingByContainer = new Map(
+    streamingSessions.value.map((s) => [s.container, s] as const),
+  );
+  const streamingUserRoms = new Set(
+    activities.value
+      .filter((e) => e.device_type === STREAMING_DEVICE_TYPE)
+      .map((e) => `${e.user_id}:${e.rom_id}`),
+  );
+  return activities.value
+    .filter(
+      (entry) =>
+        entry.device_type === STREAMING_DEVICE_TYPE ||
+        !streamingUserRoms.has(`${entry.user_id}:${entry.rom_id}`),
+    )
+    .map((entry) => ({
+      entry,
+      streaming:
+        entry.device_type === STREAMING_DEVICE_TYPE
+          ? (streamingByContainer.get(entry.device_id) ?? null)
+          : null,
+    }));
+});
+
+// Streaming sessions with no presence entry at all (desktop sessions, which
+// run no ROM and so never publish one, or a timing race right after claim).
+const orphanStreamingSessions = computed(() => {
+  const matchedContainers = new Set(
+    activities.value
+      .filter((e) => e.device_type === STREAMING_DEVICE_TYPE)
+      .map((e) => e.device_id),
+  );
+  return streamingSessions.value.filter(
+    (s) => !matchedContainers.has(s.container),
+  );
+});
 
 const loading = computed(() => !initialized.value);
 
@@ -91,6 +176,63 @@ function avatarSrc(entry: ActivityEntry): string {
   });
 }
 
+function sessionTitle(session: AdminStreamingSession): string {
+  return session.label ?? session.platform ?? session.container;
+}
+
+// Releasing kicks someone out of a running game, so the admin gets a
+// dedicated dialog rather than a plain confirm: the optional reason is
+// shown to the displaced player alongside the admin's name.
+const releaseTarget = ref<AdminStreamingSession | null>(null);
+const releaseReason = ref("");
+
+const releaseBody = computed(() => {
+  const session = releaseTarget.value;
+  if (!session) return "";
+  return t("activity.release-session-body", {
+    game: session.rom_name ?? sessionTitle(session),
+    user: session.username ?? t("activity.unknown-user"),
+  });
+});
+
+function promptRelease(session: AdminStreamingSession) {
+  // The DELETE route is platform-keyed; sessions without a stored platform
+  // (pre-upgrade records) can only be cleared with a backend force-release.
+  if (!session.platform) return;
+  releaseReason.value = "";
+  releaseTarget.value = session;
+}
+
+async function confirmRelease() {
+  const session = releaseTarget.value;
+  if (!session?.platform) return;
+  // Always passed, even blank, so the backend records a notice for the
+  // displaced player rather than treating this as a self-release.
+  const reason = releaseReason.value.trim();
+  releaseTarget.value = null;
+  releasingContainer.value = session.container;
+  try {
+    // Another user's session, so nothing local tracks it: the panel is
+    // refreshed off the backend afterwards either way.
+    await streamingApi.releaseSession(
+      session.platform,
+      reason,
+      session.container,
+    );
+    snackbar.success(t("activity.session-released"), {
+      icon: "mdi-check-bold",
+    });
+  } catch (err) {
+    console.warn("[streaming] Could not release session:", err);
+    snackbar.error(t("activity.release-failed"), {
+      icon: "mdi-close-circle",
+    });
+  } finally {
+    await refreshStreamingSessions();
+    releasingContainer.value = null;
+  }
+}
+
 function elapsedLabel(startedAt: string): string {
   const started = new Date(startedAt).getTime();
   if (Number.isNaN(started)) return "";
@@ -119,14 +261,16 @@ function elapsedLabel(startedAt: string): string {
     <div class="r-v2-activity__head">
       <div
         class="r-v2-activity__total"
-        :class="{ 'r-v2-activity__total--live': activities.length > 0 }"
+        :class="{ 'r-v2-activity__total--live': mergedActivities.length > 0 }"
       >
         <RIcon
           icon="mdi-access-point"
           size="16"
           class="r-v2-activity__total-icon"
         />
-        <span class="r-v2-activity__total-count">{{ activities.length }}</span>
+        <span class="r-v2-activity__total-count">{{
+          mergedActivities.length
+        }}</span>
         <RTooltip activator="parent" :text="t('activity.total-sessions')" />
       </div>
     </div>
@@ -142,7 +286,7 @@ function elapsedLabel(startedAt: string): string {
     </div>
 
     <EmptyState
-      v-else-if="activities.length === 0"
+      v-else-if="mergedActivities.length === 0"
       variant="boxed"
       icon="mdi-access-point-off"
       :message="t('activity.no-activity')"
@@ -150,7 +294,7 @@ function elapsedLabel(startedAt: string): string {
 
     <div v-else ref="gridRoot" class="r-v2-activity__grid">
       <ActivityCard
-        v-for="(entry, i) in activities"
+        v-for="({ entry, streaming }, i) in mergedActivities"
         :key="`${entry.user_id}-${entry.device_id}`"
         class="r-v2-card-fade"
         :style="{ '--card-fade-i': i }"
@@ -163,8 +307,89 @@ function elapsedLabel(startedAt: string): string {
         :avatar-src="avatarSrc(entry)"
         :elapsed-label="elapsedLabel(entry.started_at)"
         :device-type="entry.device_type"
+        :emulator-label="streaming?.label ?? null"
+        :can-release="isAdmin && !!streaming?.platform"
+        :releasing="!!streaming && releasingContainer === streaming.container"
+        @release="streaming && promptRelease(streaming)"
       />
     </div>
+
+    <!-- Admin-only: streaming sessions with no matching presence entry, e.g.
+         a container's desktop session (runs no ROM, so never publishes one).
+         These persist after the player closes their tab, which is exactly
+         when an admin needs to free the container. -->
+    <section
+      v-if="isAdmin && orphanStreamingSessions.length > 0"
+      class="r-v2-activity__streaming"
+    >
+      <h2 class="r-v2-activity__streaming-title">
+        {{ t("activity.streaming-sessions") }}
+      </h2>
+      <ul class="r-v2-activity__streaming-list">
+        <li
+          v-for="session in orphanStreamingSessions"
+          :key="session.container"
+          class="r-v2-activity__session"
+        >
+          <div class="r-v2-activity__session-info">
+            <span class="r-v2-activity__session-title">
+              {{ sessionTitle(session) }}
+            </span>
+            <span v-if="session.rom_name" class="r-v2-activity__session-rom">
+              {{ session.rom_name }}
+            </span>
+            <span class="r-v2-activity__session-meta">
+              {{ session.username ?? t("activity.unknown-user") }}
+              <template v-if="session.claimed_at">
+                &middot; {{ elapsedLabel(session.claimed_at) }}
+              </template>
+            </span>
+          </div>
+          <RBtn
+            variant="outlined"
+            size="small"
+            color="danger"
+            :disabled="!session.platform"
+            :loading="releasingContainer === session.container"
+            @click="promptRelease(session)"
+          >
+            {{ t("activity.release-session") }}
+          </RBtn>
+        </li>
+      </ul>
+    </section>
+
+    <RDialog
+      :model-value="releaseTarget !== null"
+      icon="mdi-account-cancel"
+      :width="440"
+      @close="releaseTarget = null"
+      @update:model-value="releaseTarget = null"
+    >
+      <template #header>
+        <span>{{ t("activity.release-session-title") }}</span>
+      </template>
+      <template #content>
+        <p class="r-v2-activity__release-body">{{ releaseBody }}</p>
+        <RTextField
+          v-model="releaseReason"
+          :placeholder="t('activity.release-reason-placeholder')"
+          prefix-label="stacked"
+        >
+          <template #prefix-label>
+            {{ t("activity.release-reason") }}
+          </template>
+        </RTextField>
+      </template>
+      <template #footer>
+        <RBtn variant="text" @click="releaseTarget = null">
+          {{ t("common.cancel") }}
+        </RBtn>
+        <RBtn variant="flat" color="danger" @click="confirmRelease">
+          {{ t("activity.release-session") }}
+        </RBtn>
+      </template>
+    </RDialog>
   </div>
 </template>
 
@@ -174,6 +399,11 @@ function elapsedLabel(startedAt: string): string {
 .r-v2-activity {
   display: flex;
   flex-direction: column;
+}
+
+.r-v2-activity__release-body {
+  margin: 0 0 14px;
+  color: var(--r-color-fg-muted);
 }
 
 /* Counter row — left-aligned stat replacing the page header. */
@@ -242,5 +472,62 @@ function elapsedLabel(startedAt: string): string {
 
 html[data-bp~="xs"] .r-v2-activity__grid {
   gap: 16px 10px;
+}
+
+/* Admin streaming-session panel: plain rows, not cards; these are
+   operational controls, not part of the presence board. */
+.r-v2-activity__streaming {
+  margin-top: 32px;
+}
+
+.r-v2-activity__streaming-title {
+  margin-bottom: 12px;
+  font-size: var(--r-font-size-md);
+  font-weight: var(--r-font-weight-bold);
+  color: var(--r-color-fg);
+}
+
+.r-v2-activity__streaming-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.r-v2-activity__session {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--r-radius-card);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+}
+
+.r-v2-activity__session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.r-v2-activity__session-title {
+  font-weight: var(--r-font-weight-bold);
+  color: var(--r-color-fg);
+}
+
+.r-v2-activity__session-rom {
+  color: var(--r-color-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.r-v2-activity__session-meta {
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-faint);
 }
 </style>

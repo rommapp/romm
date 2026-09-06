@@ -37,6 +37,7 @@ export const ROUTES = {
   JSDOS: "jsdos",
   RUFFLE: "ruffle",
   STREAM: "stream",
+  STREAM_DESKTOP: "stream-desktop",
   SCAN: "scan",
   UPLOAD: "upload",
   ACTIVITY: "activity",
@@ -295,6 +296,16 @@ const routes = [
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.STREAM),
+        },
+      },
+      {
+        // No :rom, unlike the player route: a desktop session runs no game.
+        // The container is a query param because its key is a URL.
+        path: "stream/desktop",
+        name: ROUTES.STREAM_DESKTOP,
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.STREAM_DESKTOP),
         },
       },
       // Settings group — every settings route shares the same v2

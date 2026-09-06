@@ -164,6 +164,16 @@ api.interceptors.response.use(
 
 export default api;
 
+// `fetch(..., { keepalive: true })` is the only way to reach the backend from a
+// page that is going away, and it does not run the request interceptor above,
+// so the CSRF header that interceptor sets has to be built by hand here.
+export function keepaliveHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "x-csrftoken": Cookies.get("romm_csrftoken") ?? "",
+  };
+}
+
 export async function refetchCSRFToken() {
   Cookies.remove("romm_csrftoken");
 

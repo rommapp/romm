@@ -8,7 +8,8 @@ vi.mock("vue-i18n", () => ({
 }));
 
 type Flags = {
-  canPlay: boolean;
+  canPlayInBrowser: boolean;
+  canPlayStream: boolean;
   canShareQR: boolean;
   canOpenInFlashpoint: boolean;
   canManageCollections: boolean;
@@ -17,11 +18,19 @@ type Flags = {
   canRefresh: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canJoinStream: boolean;
   canDownload: boolean;
 };
 
+// Not flags: the Join and Stream items render these labels verbatim, so they
+// are held apart from the booleans rather than squeezed into them. How the
+// labels themselves are chosen is useGameActions' own test.
+let joinActionLabel = "";
+let streamActionLabel = "";
+
 const flags: Flags = {
-  canPlay: true,
+  canPlayInBrowser: true,
+  canPlayStream: false,
   canDownload: true,
   canShareQR: false,
   canOpenInFlashpoint: false,
@@ -31,6 +40,7 @@ const flags: Flags = {
   canRefresh: true,
   canEdit: true,
   canDelete: true,
+  canJoinStream: false,
 };
 
 vi.mock("@/v2/composables/useGameActions", () => ({
@@ -47,6 +57,8 @@ vi.mock("@/v2/composables/useGameActions", () => ({
             };
           }
           if (prop === "isFavorited") return { value: false };
+          if (prop === "joinActionLabel") return { value: joinActionLabel };
+          if (prop === "streamActionLabel") return { value: streamActionLabel };
           return vi.fn();
         },
       },
@@ -59,8 +71,14 @@ const RMenuItem = {
 };
 const RDivider = { template: `<hr class="divider" />` };
 
-function mountList(overrides: Partial<Flags> = {}) {
+function mountList(
+  overrides: Partial<Flags> = {},
+  joinLabel = "rom.join-session",
+  streamLabel = "rom.stream",
+) {
   Object.assign(flags, overrides);
+  joinActionLabel = joinLabel;
+  streamActionLabel = streamLabel;
   return mount(GameActionsList, {
     props: { rom: { id: 1 } as SimpleRom },
     global: { stubs: { RMenuItem, RDivider } },
@@ -71,7 +89,7 @@ function labels(wrapper: ReturnType<typeof mountList>) {
   return wrapper.findAll(".item").map((w) => w.text());
 }
 
-describe("GameActionsList — permission gating", () => {
+describe("GameActionsList: permission gating", () => {
   it("offers the write and destructive actions to a user who holds them", () => {
     const wrapper = mountList({
       canMatch: true,
@@ -126,5 +144,47 @@ describe("GameActionsList — permission gating", () => {
     });
     expect(labels(wrapper)).toContain("common.edit");
     expect(wrapper.findAll(".divider")).toHaveLength(2);
+  });
+});
+
+describe("GameActionsList: playing", () => {
+  it("offers each way to play the caller is allowed", () => {
+    const wrapper = mountList({ canPlayInBrowser: true, canPlayStream: true });
+    const shown = labels(wrapper);
+    expect(shown).toContain("rom.play");
+    expect(shown).toContain("rom.stream");
+  });
+
+  it("renders the stream label the composable resolved", () => {
+    const wrapper = mountList(
+      { canPlayInBrowser: false, canPlayStream: true },
+      "rom.join-session",
+      "rom.stream-on",
+    );
+    const shown = labels(wrapper);
+    expect(shown).toContain("rom.stream-on");
+    expect(shown).not.toContain("rom.play");
+  });
+
+  it("offers neither when the ROM cannot be played", () => {
+    const shown = labels(
+      mountList({ canPlayInBrowser: false, canPlayStream: false }),
+    );
+    expect(shown).not.toContain("rom.play");
+    expect(shown).not.toContain("rom.stream");
+    expect(shown).not.toContain("rom.stream-on");
+  });
+});
+
+describe("GameActionsList: joining someone else's session", () => {
+  it("renders the join label the composable resolved", () => {
+    const wrapper = mountList({ canJoinStream: true }, "rom.join-session-of");
+    expect(labels(wrapper)).toContain("rom.join-session-of");
+  });
+
+  it("offers nothing to join when no session is open", () => {
+    const shown = labels(mountList({ canJoinStream: false }, "ana"));
+    expect(shown).not.toContain("rom.join-session");
+    expect(shown).not.toContain("rom.join-session-of");
   });
 });

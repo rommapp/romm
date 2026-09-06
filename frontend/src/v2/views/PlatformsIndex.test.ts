@@ -86,10 +86,16 @@ vi.mock("@/v2/components/shared/PageHeader.vue", () => ({
   }),
 }));
 
+// Mutable so a test can select a non-default groupBy/layout before
+// mounting, mirroring how routeState works for the route query above.
+const { galleryModeState } = vi.hoisted(() => ({
+  galleryModeState: { groupBy: "none", layout: "grid" },
+}));
+
 vi.mock("@/v2/composables/useGalleryMode", () => ({
   useGalleryMode: () => ({
-    groupBy: ref("none"),
-    layout: ref("grid"),
+    groupBy: ref(galleryModeState.groupBy),
+    layout: ref(galleryModeState.layout),
   }),
 }));
 
@@ -97,9 +103,17 @@ vi.mock("@/v2/composables/useGalleryViewModeUrl", () => ({
   useGalleryViewModeUrl: vi.fn(),
 }));
 
+// Slugs the mocked composable treats as streaming-capable.
+const { streamableSlugs } = vi.hoisted(() => ({
+  streamableSlugs: new Set<string>(),
+}));
+
 vi.mock("@/v2/composables/usePlatformPlayable", () => ({
   usePlatformPlayableChecker: () => ({
     isPlayable: ref(() => false),
+    isStreamable: ref((slug: string | null | undefined) =>
+      slug ? streamableSlugs.has(slug) : false,
+    ),
   }),
 }));
 
@@ -132,6 +146,9 @@ describe("PlatformsIndex", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     routeState.query = {};
+    galleryModeState.groupBy = "none";
+    galleryModeState.layout = "grid";
+    streamableSlugs.clear();
     searchState.term = "";
   });
 
@@ -165,6 +182,21 @@ describe("PlatformsIndex", () => {
     const wrapper = mount(PlatformsIndex);
 
     expect(wrapper.text()).toContain("platform.no-platforms-with-games");
+  });
+
+  it("counts a streaming-only platform as playable when grouping by playable", () => {
+    galleryModeState.groupBy = "playable";
+    streamableSlugs.add("dreamcast");
+    const platforms = storePlatforms();
+    platforms.set([platform(1, "Dreamcast", 5)]);
+
+    const wrapper = mount(PlatformsIndex);
+
+    const headings = wrapper
+      .findAll(".r-v2-pidx__group-heading")
+      .map((h) => h.text());
+    expect(headings).toContain("Playable");
+    expect(headings).not.toContain("Not playable");
   });
 
   describe("search", () => {
