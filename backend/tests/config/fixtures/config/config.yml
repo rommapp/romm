@@ -68,6 +68,7 @@ emulatorjs:
   cache_limit: 1000
   disable_auto_unload: true
   disable_batch_bootup: true
+  auto_save_sync: true
   netplay:
     enabled: true
     ice_servers:

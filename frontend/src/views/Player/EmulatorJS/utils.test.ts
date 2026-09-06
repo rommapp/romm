@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { installEJSDefaultOptionsTrap } from "./utils";
+import {
+  createSaveSyncTracker,
+  hashSaveFile,
+  installEJSDefaultOptionsTrap,
+} from "./utils";
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -131,5 +135,63 @@ describe("installEJSDefaultOptionsTrap", () => {
     const patched = emulator.preGetSetting;
     window.EJS_emulator = emulator;
     expect(emulator.preGetSetting).toBe(patched);
+  });
+});
+
+describe("createSaveSyncTracker", () => {
+  it("uploads only once the bytes have been stable for two ticks", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed("server");
+    // The first tick with new bytes may be a save the core is mid-write on.
+    expect(tracker.shouldUpload("a")).toBe(false);
+    // The second identical tick proves it settled.
+    expect(tracker.shouldUpload("a")).toBe(true);
+  });
+
+  it("uploads nothing while the save is unchanged from the last upload", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed("server");
+    expect(tracker.shouldUpload("server")).toBe(false);
+    expect(tracker.shouldUpload("server")).toBe(false);
+    expect(tracker.shouldUpload("a")).toBe(false);
+    expect(tracker.shouldUpload("a")).toBe(true);
+    tracker.markUploaded("a");
+    expect(tracker.shouldUpload("a")).toBe(false);
+    expect(tracker.shouldUpload("a")).toBe(false);
+  });
+
+  it("never uploads a value that keeps changing between ticks", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(null);
+    expect(tracker.shouldUpload("a")).toBe(false);
+    expect(tracker.shouldUpload("b")).toBe(false);
+    expect(tracker.shouldUpload("c")).toBe(false);
+    expect(tracker.shouldUpload("c")).toBe(true);
+  });
+
+  it("re-offers a save whose upload failed", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed("server");
+    tracker.shouldUpload("a");
+    expect(tracker.shouldUpload("a")).toBe(true);
+    // No markUploaded: the upload failed. The next stable tick tries again.
+    expect(tracker.shouldUpload("a")).toBe(true);
+  });
+});
+
+describe("hashSaveFile", () => {
+  it("returns null for missing or empty bytes", async () => {
+    expect(await hashSaveFile(null)).toBeNull();
+    expect(await hashSaveFile(undefined)).toBeNull();
+    expect(await hashSaveFile(new Uint8Array(0))).toBeNull();
+  });
+
+  it("hashes content, not identity", async () => {
+    const a = await hashSaveFile(new Uint8Array([1, 2, 3]));
+    const b = await hashSaveFile(new Uint8Array([1, 2, 3]).buffer);
+    const c = await hashSaveFile(new Uint8Array([1, 2, 4]));
+    expect(a).toBe(b);
+    expect(a).not.toBe(c);
+    expect(a).toMatch(/^[0-9a-f]{64}$/);
   });
 });

@@ -135,6 +135,63 @@ export async function saveSave({
   return null;
 }
 
+// Periodic upload of the in-game save, behind the EJS_AUTO_SAVE_SYNC config
+// flag (config.yml `emulatorjs.auto_save_sync`).
+//
+// EmulatorJS' "System Save interval" setting (default 300 s) calls
+// gameManager.saveSaveFiles() on a timer, which has the core flush SRAM to
+// the emulator FS and then fires a "saveSaveFiles" event carrying the bytes.
+// Nothing listens to that event, so without this the in-game save reaches
+// the server only on Save & Quit or the Export Save File button (#4201).
+//
+// The tracker decides, tick by tick, whether the bytes are worth uploading:
+// only when they are unchanged since the previous tick — so a save the core
+// is still writing never goes up, which is the corruption the earlier
+// automatic upload was removed for (#2349) — and differ from what was last
+// uploaded, so an idle session uploads nothing.
+export function createSaveSyncTracker() {
+  let lastUploaded: string | null = null;
+  let previousTick: string | null = null;
+  return {
+    // Start from what is in the emulator FS at launch (the server save just
+    // applied, or nothing) so a launch never uploads the server's file back.
+    seed(hash: string | null) {
+      lastUploaded = hash;
+      previousTick = hash;
+    },
+    shouldUpload(hash: string): boolean {
+      const stable = hash === previousTick;
+      previousTick = hash;
+      return stable && hash !== lastUploaded;
+    },
+    markUploaded(hash: string) {
+      lastUploaded = hash;
+    },
+  };
+}
+
+// The bytes EmulatorJS hands out are views onto the emulator's heap, which
+// is a SharedArrayBuffer on threaded cores. Copy them into a plain
+// ArrayBuffer before hashing or uploading, so the core cannot change them
+// underneath us and the Web APIs accept them.
+export function toArrayBuffer(view: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy.buffer;
+}
+
+export async function hashSaveFile(
+  bytes: Uint8Array | ArrayBuffer | null | undefined,
+): Promise<string | null> {
+  if (!bytes) return null;
+  const buffer = bytes instanceof Uint8Array ? toArrayBuffer(bytes) : bytes;
+  if (buffer.byteLength === 0) return null;
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
 export function loadEmulatorJSSave(save: Uint8Array) {
   const FS = window.EJS_emulator.gameManager.FS;
   const path = window.EJS_emulator.gameManager.getSaveFilePath();

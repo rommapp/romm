@@ -251,6 +251,7 @@ class Config:
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
+    EJS_AUTO_SAVE_SYNC: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
@@ -517,6 +518,9 @@ class ConfigManager:
             EJS_DISABLE_BATCH_BOOTUP=pydash.get(
                 self._raw_config, "emulatorjs.disable_batch_bootup", False
             ),
+            EJS_AUTO_SAVE_SYNC=pydash.get(
+                self._raw_config, "emulatorjs.auto_save_sync", False
+            ),
             EJS_NETPLAY_ENABLED=pydash.get(
                 self._raw_config, "emulatorjs.netplay.enabled", False
             ),
@@ -774,6 +778,12 @@ class ConfigManager:
             )
             sys.exit(3)
 
+        if not isinstance(self.config.EJS_AUTO_SAVE_SYNC, bool):
+            log.critical(
+                "Invalid config.yml: emulatorjs.auto_save_sync must be a boolean"
+            )
+            sys.exit(3)
+
         if not isinstance(self.config.EJS_NETPLAY_ICE_SERVERS, list):
             log.critical(
                 "Invalid config.yml: emulatorjs.netplay.ice_servers must be a list"
@@ -984,6 +994,7 @@ class ConfigManager:
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
                 "disable_auto_unload": self.config.EJS_DISABLE_AUTO_UNLOAD,
                 "disable_batch_bootup": self.config.EJS_DISABLE_BATCH_BOOTUP,
+                "auto_save_sync": self.config.EJS_AUTO_SAVE_SYNC,
                 "netplay": {
                     "enabled": self.config.EJS_NETPLAY_ENABLED,
                     "ice_servers": self.config.EJS_NETPLAY_ICE_SERVERS,

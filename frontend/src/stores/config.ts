@@ -33,6 +33,7 @@ const defaultConfig = {
   EJS_CACHE_LIMIT: null,
   EJS_DISABLE_AUTO_UNLOAD: false,
   EJS_DISABLE_BATCH_BOOTUP: false,
+  EJS_AUTO_SAVE_SYNC: false,
   EJS_NETPLAY_ICE_SERVERS: [],
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},

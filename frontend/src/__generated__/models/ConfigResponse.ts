@@ -26,6 +26,7 @@ export type ConfigResponse = {
     EJS_CACHE_LIMIT: (number | null);
     EJS_DISABLE_AUTO_UNLOAD: boolean;
     EJS_DISABLE_BATCH_BOOTUP: boolean;
+    EJS_AUTO_SAVE_SYNC: boolean;
     EJS_NETPLAY_ENABLED: boolean;
     EJS_NETPLAY_ICE_SERVERS: Array<NetplayICEServer>;
     EJS_SETTINGS: Record<string, Record<string, string>>;
