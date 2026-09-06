@@ -1,18 +1,21 @@
 from typing import Annotated
 
 from fastapi import HTTPException, Query, Request, status
+from fastapi import Path as PathVar
 
 from decorators.auth import protected_route
 from endpoints.responses.shortcut import (
     ShortcutAckStatus,
     ShortcutCreatePayload,
     ShortcutSchema,
+    SteamArtworkSchema,
 )
 from endpoints.sockets.shortcuts import emit_shortcuts_changed
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_device_handler, db_rom_handler, db_shortcut_handler
+from handler.metadata.sgdb_handler import sgdb_handler
 from logger.logger import log
 from models.shortcut import ShortcutStatus
 from utils.router import APIRouter
@@ -157,3 +160,28 @@ async def ack_shortcut(
     )
     await emit_shortcuts_changed(shortcut.device_id, request.user.id)
     return ShortcutSchema.model_validate(updated)
+
+
+@protected_route(router.get, "/artwork/{rom_id}", [Scope.ROMS_READ])
+async def get_steam_artwork(
+    request: Request,
+    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> SteamArtworkSchema:
+    """Steam library art for a rom, so a launcher client needs no SteamGridDB key.
+
+    Both slots are optional: a rom with no SteamGridDB match, or a server with
+    no API key, gets nulls rather than an error, and the client keeps the
+    cover-only shortcut it would have written anyway.
+    """
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+    assert_rom_visible(request, rom)
+
+    if not rom.sgdb_id:
+        return SteamArtworkSchema()
+
+    artwork = await sgdb_handler.get_steam_artwork(rom.sgdb_id)
+    return SteamArtworkSchema(
+        url_hero=artwork["url_hero"], url_logo=artwork["url_logo"]
+    )

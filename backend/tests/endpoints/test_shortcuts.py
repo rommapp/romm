@@ -7,6 +7,7 @@ from fastapi import status
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
+    db_rom_handler,
     db_shortcut_handler,
 )
 from models.client_token import ClientToken
@@ -344,3 +345,41 @@ class TestDeviceCapabilities:
             "snes": "retroarch:snes9x",
             "switch": None,
         }
+
+
+class TestSteamArtwork:
+    def test_rom_without_a_steamgriddb_match_returns_nulls(
+        self, client, access_token: str, rom: Rom
+    ):
+        response = client.get(
+            f"/api/shortcuts/artwork/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"url_hero": None, "url_logo": None}
+
+    def test_artwork_comes_from_the_rom_steamgriddb_id(
+        self, client, access_token: str, rom: Rom, monkeypatch
+    ):
+        db_rom_handler.update_rom(rom.id, {"sgdb_id": 4242})
+        artwork = AsyncMock(
+            return_value={"url_hero": "hero.png", "url_logo": "logo.png"}
+        )
+        monkeypatch.setattr(
+            "endpoints.shortcuts.sgdb_handler.get_steam_artwork", artwork
+        )
+
+        response = client.get(
+            f"/api/shortcuts/artwork/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"url_hero": "hero.png", "url_logo": "logo.png"}
+        artwork.assert_awaited_once_with(4242)
+
+    def test_unknown_rom_is_404(self, client, access_token: str):
+        response = client.get(
+            "/api/shortcuts/artwork/999999",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND

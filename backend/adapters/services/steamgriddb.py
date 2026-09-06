@@ -14,6 +14,8 @@ from adapters.services.steamgriddb_types import (
     SGDBGame,
     SGDBGrid,
     SGDBGridList,
+    SGDBHeroDimension,
+    SGDBLogoStyle,
     SGDBMime,
     SGDBStyle,
     SGDBTag,
@@ -77,8 +79,9 @@ class SteamGridDBService:
             )
             return {}
 
-    async def get_grids_for_game(
+    async def _get_assets_for_game(
         self,
+        asset: Literal["grids", "heroes", "logos"],
         game_id: int,
         *,
         styles: Collection[SGDBStyle] | None = None,
@@ -92,9 +95,11 @@ class SteamGridDBService:
         limit: int | None = None,
         page_number: int | None = None,
     ) -> SGDBGridList:
-        """Retrieve grids by game ID.
+        """Retrieve one artwork kind by game ID.
 
-        Reference: https://www.steamgriddb.com/api/v2#tag/GRIDS/operation/getGridsByGameId
+        The three artwork endpoints share a response shape and every filter.
+
+        Reference: https://www.steamgriddb.com/api/v2
         """
         params: dict[str, list[str]] = {}
         if styles:
@@ -118,7 +123,7 @@ class SteamGridDBService:
         if page_number is not None:
             params["page"] = [str(page_number)]
 
-        base_url = self.url.joinpath("grids/game", str(game_id))
+        base_url = self.url.joinpath(asset, "game", str(game_id))
         url = base_url.with_query(**params) if params else base_url
         response = await self._request(str(url))
         if not response:
@@ -129,6 +134,92 @@ class SteamGridDBService:
                 data=[],
             )
         return cast(SGDBGridList, response)
+
+    async def get_grids_for_game(
+        self,
+        game_id: int,
+        *,
+        styles: Collection[SGDBStyle] | None = None,
+        dimensions: Collection[SGDBDimension] | None = None,
+        mimes: Collection[SGDBMime] | None = None,
+        types: Collection[SGDBType] | None = None,
+        any_of_tags: Collection[SGDBTag] | None = None,
+        is_nsfw: bool | Literal["any"] | None = None,
+        is_humor: bool | Literal["any"] | None = None,
+        is_epilepsy: bool | Literal["any"] | None = None,
+        limit: int | None = None,
+        page_number: int | None = None,
+    ) -> SGDBGridList:
+        """Retrieve grids by game ID.
+
+        Reference: https://www.steamgriddb.com/api/v2#tag/GRIDS/operation/getGridsByGameId
+        """
+        return await self._get_assets_for_game(
+            "grids",
+            game_id,
+            styles=styles,
+            dimensions=dimensions,
+            mimes=mimes,
+            types=types,
+            any_of_tags=any_of_tags,
+            is_nsfw=is_nsfw,
+            is_humor=is_humor,
+            is_epilepsy=is_epilepsy,
+            limit=limit,
+            page_number=page_number,
+        )
+
+    async def get_heroes_for_game(
+        self,
+        game_id: int,
+        *,
+        dimensions: Collection[SGDBHeroDimension] | None = None,
+        types: Collection[SGDBType] | None = None,
+        is_nsfw: bool | Literal["any"] | None = None,
+        is_humor: bool | Literal["any"] | None = None,
+        is_epilepsy: bool | Literal["any"] | None = None,
+        limit: int | None = None,
+    ) -> SGDBGridList:
+        """Retrieve heroes, the wide banner art, by game ID.
+
+        Reference: https://www.steamgriddb.com/api/v2#tag/HEROES/operation/getHeroesByGameId
+        """
+        return await self._get_assets_for_game(
+            "heroes",
+            game_id,
+            dimensions=dimensions,
+            types=types,
+            is_nsfw=is_nsfw,
+            is_humor=is_humor,
+            is_epilepsy=is_epilepsy,
+            limit=limit,
+        )
+
+    async def get_logos_for_game(
+        self,
+        game_id: int,
+        *,
+        styles: Collection[SGDBLogoStyle] | None = None,
+        types: Collection[SGDBType] | None = None,
+        is_nsfw: bool | Literal["any"] | None = None,
+        is_humor: bool | Literal["any"] | None = None,
+        is_epilepsy: bool | Literal["any"] | None = None,
+        limit: int | None = None,
+    ) -> SGDBGridList:
+        """Retrieve logos, the transparent title treatment, by game ID.
+
+        Reference: https://www.steamgriddb.com/api/v2#tag/LOGOS/operation/getLogosByGameId
+        """
+        return await self._get_assets_for_game(
+            "logos",
+            game_id,
+            styles=styles,
+            types=types,
+            is_nsfw=is_nsfw,
+            is_humor=is_humor,
+            is_epilepsy=is_epilepsy,
+            limit=limit,
+        )
 
     async def iter_grids_for_game(
         self,

@@ -167,3 +167,96 @@ class TestLookupFailures:
             pytest.raises(RuntimeError),
         ):
             await handler.get_rom_by_id(7)
+
+
+def _page(*grids):
+    return {"page": 0, "total": len(grids), "limit": 10, "data": list(grids)}
+
+
+class TestGetSteamArtwork:
+    @pytest.mark.asyncio
+    async def test_picks_the_highest_scoring_unlocked_asset(self):
+        handler = SGDBBaseHandler()
+        heroes = _page(
+            _make_grid(score=10, url="https://cdn.example.com/hero/low.png"),
+            _make_grid(score=99, url="https://cdn.example.com/hero/best.png"),
+            # A locked asset serves a takedown placeholder, whatever it scores.
+            _make_grid(
+                score=100, lock=True, url="https://cdn.example.com/hero/locked.png"
+            ),
+        )
+        logos = _page(_make_grid(score=5, url="https://cdn.example.com/logo/a.png"))
+
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.sgdb_service,
+                "get_heroes_for_game",
+                AsyncMock(return_value=heroes),
+            ),
+            patch.object(
+                handler.sgdb_service,
+                "get_logos_for_game",
+                AsyncMock(return_value=logos),
+            ),
+        ):
+            result = await handler.get_steam_artwork(1)
+
+        assert result["url_hero"] == "https://cdn.example.com/hero/best.png"
+        assert result["url_logo"] == "https://cdn.example.com/logo/a.png"
+
+    @pytest.mark.asyncio
+    async def test_missing_artwork_is_null_not_an_error(self):
+        handler = SGDBBaseHandler()
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.sgdb_service,
+                "get_heroes_for_game",
+                AsyncMock(return_value=_page()),
+            ),
+            patch.object(
+                handler.sgdb_service,
+                "get_logos_for_game",
+                AsyncMock(return_value=_page()),
+            ),
+        ):
+            assert await handler.get_steam_artwork(1) == {
+                "url_hero": None,
+                "url_logo": None,
+            }
+
+    @pytest.mark.asyncio
+    async def test_a_failed_lookup_degrades_to_null(self):
+        handler = SGDBBaseHandler()
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.sgdb_service,
+                "get_heroes_for_game",
+                AsyncMock(side_effect=RuntimeError("SteamGridDB is down")),
+            ),
+            patch.object(
+                handler.sgdb_service,
+                "get_logos_for_game",
+                AsyncMock(return_value=_page()),
+            ),
+        ):
+            assert await handler.get_steam_artwork(1) == {
+                "url_hero": None,
+                "url_logo": None,
+            }
+
+    @pytest.mark.asyncio
+    async def test_without_an_api_key_nothing_is_requested(self):
+        handler = SGDBBaseHandler()
+        heroes = AsyncMock()
+        with (
+            patch.object(handler, "is_enabled", return_value=False),
+            patch.object(handler.sgdb_service, "get_heroes_for_game", heroes),
+        ):
+            assert await handler.get_steam_artwork(1) == {
+                "url_hero": None,
+                "url_logo": None,
+            }
+        heroes.assert_not_awaited()
