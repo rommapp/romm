@@ -88,4 +88,4 @@ jobs:
         run: |
           cd backend
           # GitHub-hosted Linux runners have 4 vCPUs; run one worker per core.
-          uv run pytest -n 4 -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
+          uv run pytest -n 4 -vv --maxfail=10 --durations=25 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .

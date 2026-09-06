@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import time
+import urllib.error
 import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -97,6 +98,23 @@ def clear_streaming_sessions():
     """Streaming sessions live in Redis (fakeredis under pytest), start clean."""
     asyncio.run(async_cache.flushall())
     yield
+
+
+@pytest.fixture(autouse=True)
+def unreachable_broker():
+    """Refuse every broker connection at once instead of after the socket timeout.
+
+    The fixture containers point at a host nothing answers, so an unpatched
+    call would otherwise block for its full timeout (60s for a save pull, and
+    the detached teardown tasks hold the client's shutdown for that long).
+    Tests that need a broker reply patch urlopen themselves; inner patches win.
+    """
+    refused = urllib.error.URLError(ConnectionRefusedError("broker unreachable"))
+    with (
+        patch("handler.streaming.broker.urllib.request.urlopen", side_effect=refused),
+        patch("handler.streaming.broker.PULL_RETRY_DELAY", 0),
+    ):
+        yield
 
 
 def _access_token(user: User):

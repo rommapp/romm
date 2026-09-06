@@ -15,6 +15,7 @@ from handler.database import (
     db_state_handler,
     db_user_handler,
 )
+from handler.database.base_handler import sync_session
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom, compute_name_sort_key
@@ -796,29 +797,31 @@ def test_bulk_mark_present_empty_list(platform: Platform):
 
 def test_bulk_mark_present_chunking(platform: Platform):
     """bulk_mark_present handles >1000 IDs via internal chunking."""
-    roms = []
-    for i in range(1050):
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=f"rom_{i}",
-                slug=f"rom-{i}",
-                fs_name=f"rom_{i}.zip",
-                fs_name_no_tags=f"rom_{i}",
-                fs_name_no_ext=f"rom_{i}",
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-                missing_from_fs=True,
-            )
+    roms = [
+        Rom(
+            platform_id=platform.id,
+            name=f"rom_{i}",
+            slug=f"rom-{i}",
+            fs_name=f"rom_{i}.zip",
+            fs_name_no_tags=f"rom_{i}",
+            fs_name_no_ext=f"rom_{i}",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            missing_from_fs=True,
         )
-        roms.append(rom)
+        for i in range(1050)
+    ]
+    # One transaction for the seed rows; a commit per ROM takes tens of seconds.
+    with sync_session.begin() as s:
+        s.add_all(roms)
+        s.flush()
+        all_ids = [r.id for r in roms]
 
-    all_ids = [r.id for r in roms]
     db_rom_handler.bulk_mark_present(platform.id, all_ids)
 
     # Spot-check a few across chunk boundaries
     for idx in [0, 999, 1000, 1049]:
-        updated = db_rom_handler.get_rom(roms[idx].id)
+        updated = db_rom_handler.get_rom(all_ids[idx])
         assert updated is not None
         assert updated.missing_from_fs is False
 
