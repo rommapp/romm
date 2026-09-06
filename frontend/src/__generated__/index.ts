@@ -227,6 +227,7 @@ export type { SSAgeRating } from './models/SSAgeRating';
 export type { StateFrameResponse } from './models/StateFrameResponse';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
+export type { SteamArtworkSchema } from './models/SteamArtworkSchema';
 export type { SteamPlatforms } from './models/SteamPlatforms';
 export type { StreamingConfigSchema } from './models/StreamingConfigSchema';
 export type { StreamingContainerSchema } from './models/StreamingContainerSchema';
