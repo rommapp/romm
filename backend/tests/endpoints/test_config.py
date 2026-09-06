@@ -9,6 +9,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
 )
 from config.config_manager import config_manager as cm
+from utils.emulator_cores import EJS_CORES, EJS_NIGHTLY_CORES
 
 
 def test_config(client):
@@ -190,3 +191,12 @@ def test_update_scan_settings_normalizes_codes(client, access_token: str):
     _, kwargs = update_scan_settings.call_args
     assert kwargs["region_priority"] == ["us", "eu"]
     assert kwargs["language_priority"] == ["en"]
+
+
+def test_config_serves_emulator_cores(client):
+    response = client.get("/api/config")
+    assert response.status_code == status.HTTP_200_OK
+
+    config = response.json()
+    assert config.get("EJS_CORES") == EJS_CORES
+    assert config.get("EJS_NIGHTLY_CORES") == EJS_NIGHTLY_CORES

@@ -18,6 +18,7 @@ from exceptions.config_exceptions import ConfigNotWritableException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from logger.logger import log
+from utils.emulator_cores import EJS_CORES, EJS_NIGHTLY_CORES
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -137,6 +138,8 @@ def get_config(request: Request) -> ConfigResponse:
         EJS_DISABLE_AUTO_UNLOAD=cfg.EJS_DISABLE_AUTO_UNLOAD,
         EJS_DISABLE_BATCH_BOOTUP=cfg.EJS_DISABLE_BATCH_BOOTUP,
         EJS_NETPLAY_ENABLED=cfg.EJS_NETPLAY_ENABLED,
+        EJS_CORES=EJS_CORES,
+        EJS_NIGHTLY_CORES=EJS_NIGHTLY_CORES,
         # Contains credentials, so only send when authenticated
         EJS_NETPLAY_ICE_SERVERS=(
             cfg.EJS_NETPLAY_ICE_SERVERS if request.user.is_authenticated else []
