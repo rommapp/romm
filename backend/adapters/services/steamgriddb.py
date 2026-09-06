@@ -99,8 +99,6 @@ class SteamGridDBService:
     ) -> SGDBGridList:
         """Retrieve one artwork kind by game ID.
 
-        The three artwork endpoints share a response shape and every filter.
-
         Reference: https://www.steamgriddb.com/api/v2
         """
         params: dict[str, list[str]] = {}

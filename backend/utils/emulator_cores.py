@@ -1,9 +1,7 @@
 """EmulatorJS cores, keyed by platform slug.
 
-The single source of truth for which cores can run a platform. The web player
-reads it from ``/api/config`` and so do launcher clients such as RomM
-Companion, which map the same core names onto a desktop RetroArch install.
-Keeping one copy on the server is what stops the two from drifting.
+Served over ``/api/config`` to the web player and to launcher clients, which
+map the same core names onto a desktop RetroArch install.
 """
 
 from typing import Final
