@@ -14,12 +14,11 @@ from logger.logger import log
 
 from .base_handler import MetadataHandler
 
-# SteamGridDB orders by score, so a short page is enough to pick a winner.
 SGDB_ARTWORK_CANDIDATES: Final = 10
 
 
 def _best_asset(assets: list[SGDBGrid]) -> str | None:
-    """Pick the highest-scoring unlocked asset, which SGDB serves for real."""
+    """Pick the highest-scoring asset that is not a locked DMCA placeholder."""
     unlocked = [a for a in assets if a["url"] and not a.get("lock")]
     if not unlocked:
         return None
@@ -51,7 +50,7 @@ class SGDBRom(TypedDict):
 
 
 class SGDBSteamArtwork(TypedDict):
-    """The two Steam library slots RomM's own cover cannot fill."""
+    """The two Steam library slots a ROM cover cannot fill."""
 
     url_hero: str | None
     url_logo: str | None

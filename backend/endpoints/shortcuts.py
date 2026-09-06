@@ -168,12 +168,7 @@ async def get_steam_artwork(
     request: Request,
     rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
 ) -> SteamArtworkSchema:
-    """Steam library art for a rom, so a launcher client needs no SteamGridDB key.
-
-    Both slots are optional: a rom with no SteamGridDB match, or a server with
-    no API key, gets nulls rather than an error, and the client keeps the
-    cover-only shortcut it would have written anyway.
-    """
+    """Steam library art for a rom, so a launcher client needs no SteamGridDB key."""
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
