@@ -67,7 +67,7 @@ const processRomUpdates = debounce(() => {
         fs_slug: rom.platform_fs_slug,
         is_identified: true,
         roms: [],
-        firmware_count: 0,
+        new_firmware_count: 0,
       });
       scannedPlatform = scanningPlatforms.value.at(-1)!;
     }
@@ -95,7 +95,7 @@ socket.on(
     id,
     fs_slug,
     is_identified,
-    firmware_count,
+    new_firmware_count,
   }: ScanningPlatform) => {
     scanningStore.setScanning(true);
     scanningPlatforms.value = scanningPlatforms.value.filter(
@@ -108,7 +108,7 @@ socket.on(
       id,
       fs_slug,
       roms: [],
-      firmware_count,
+      new_firmware_count,
       is_identified,
     });
   },

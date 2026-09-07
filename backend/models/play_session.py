@@ -10,7 +10,6 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,12 +25,13 @@ if TYPE_CHECKING:
 class PlaySession(BaseModel):
     __tablename__ = "play_sessions"
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "uq_play_session_identity",
             "user_id",
             "device_id",
             "rom_id",
             "start_time",
-            name="uq_play_session_identity",
+            unique=True,
         ),
         Index("ix_play_sessions_user_rom", "user_id", "rom_id"),
         Index("ix_play_sessions_user_time", "user_id", "start_time"),

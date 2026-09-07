@@ -1,20 +1,40 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from itertools import chain
 from typing import Any
 
 import httpx
 from rq import get_current_job
-from rq.job import Job
-from rq_scheduler import Scheduler
 
 from config import TASK_TIMEOUT
-from exceptions.task_exceptions import SchedulerException
-from handler.redis_handler import get_job_func_name, low_prio_queue
+from exceptions.task_exceptions import TaskNotFoundException
 from logger.logger import log
 from utils.context import ctx_httpx_client
 
-tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
+
+async def run_task_by_name(name: str, task_kwargs: dict[str, Any] | None = None) -> Any:
+    """Run the task registered under ``name``.
+
+    Every scheduled and manually triggered task is enqueued through here, so a
+    job payload holds a name rather than a pickled task, and nothing in Redis
+    depends on where the code that runs it lives.
+
+    Args:
+        name: The key the task is registered under.
+        task_kwargs: Forwarded to the task's ``run``, nested so that they cannot
+            collide with the name of the task to run.
+
+    Returns:
+        Whatever the task returns.
+    """
+    # Imported here because the registry imports every task module, and those
+    # modules import this one.
+    from tasks.registry import get_task
+
+    task = get_task(name)
+    if task is None:
+        raise TaskNotFoundException(name)
+
+    return await task.run(**(task_kwargs or {}))
 
 
 def update_job_meta(metadata: dict[str, Any]) -> None:
@@ -50,6 +70,7 @@ class Task(ABC):
     manual_run: bool
     cron_string: str | None = None
     task_type: TaskType
+    timeout: int
 
     def __init__(
         self,
@@ -59,6 +80,7 @@ class Task(ABC):
         enabled: bool = False,
         manual_run: bool = False,
         cron_string: str | None = None,
+        timeout: int = TASK_TIMEOUT,
     ):
         self.title = title
         self.description = description or title
@@ -66,80 +88,24 @@ class Task(ABC):
         self.enabled = enabled
         self.manual_run = manual_run
         self.cron_string = cron_string
+        self.timeout = timeout
+
+    @property
+    def can_run_manually(self) -> bool:
+        """Whether an admin can trigger this task on demand."""
+        return self.manual_run and self.enabled
+
+    @property
+    def job_meta(self) -> dict[str, Any]:
+        """What a job of this task carries so the API can describe it."""
+        return {"task_name": self.title, "task_type": self.task_type.value}
 
     @abstractmethod
     async def run(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class PeriodicTask(Task, ABC):
-    """Base class for periodic tasks that can be scheduled."""
-
-    def __init__(self, *args: Any, func: str, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.func = func
-
-    def _get_existing_job(self) -> Job | None:
-        existing_jobs = chain(tasks_scheduler.get_jobs(), low_prio_queue.get_jobs())
-        for job in existing_jobs:
-            if isinstance(job, Job) and get_job_func_name(job) == self.func:
-                return job
-
-        return None
-
-    def init(self) -> Job | None:
-        """Initialize the task by scheduling or unscheduling it based on its state.
-
-        Returns the scheduled job if it was successfully scheduled, or None if it was already
-        scheduled or unscheduled.
-        """
-        job = self._get_existing_job()
-
-        if self.enabled and not job:
-            return self.schedule()
-        elif job and not self.enabled:
-            self.unschedule()
-            return None
-        return None
-
-    def schedule(self) -> Job | None:
-        """Schedule the task if it is enabled and not already scheduled.
-
-        Returns the scheduled job if successful, or None otherwise.
-        """
-        if not self.enabled:
-            raise SchedulerException(f"Scheduled {self.description} is not enabled.")
-
-        if self._get_existing_job():
-            log.info(f"{self.description.capitalize()} is already scheduled.")
-            return None
-
-        if self.cron_string:
-            return tasks_scheduler.cron(
-                self.cron_string,
-                func=self.func,
-                repeat=None,
-                timeout=TASK_TIMEOUT,
-                meta={
-                    "task_name": self.title,
-                    "task_type": self.task_type.value,
-                },
-            )
-
-        return None
-
-    def unschedule(self) -> bool:
-        """Unschedule the task if it is currently scheduled.
-
-        Returns whether the unscheduling was successful.
-        """
-        job = self._get_existing_job()
-        if not job:
-            log.info(f"{self.description.capitalize()} is not scheduled.")
-            return False
-
-        tasks_scheduler.cancel(job)
-        log.info(f"{self.description.capitalize()} unscheduled.")
-        return True
+    """Base class for tasks the cron scheduler runs on a schedule."""
 
 
 class RemoteFilePullTask(PeriodicTask, ABC):
@@ -151,8 +117,7 @@ class RemoteFilePullTask(PeriodicTask, ABC):
 
     async def run(self, force: bool = False) -> Any:
         if not self.enabled and not force:
-            log.info(f"Scheduled {self.description} not enabled, unscheduling...")
-            self.unschedule()
+            log.info(f"Scheduled {self.description} not enabled, skipping...")
             return None
 
         log.info(f"Scheduled {self.description} started...")

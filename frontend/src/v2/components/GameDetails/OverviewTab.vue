@@ -7,13 +7,13 @@
 //      characteristics, rendered as semantic badges rather than chips)
 //   4. RomM Collections — the user's personal collections this ROM
 //      lives in, rendered as bookmark-icon chip RouterLinks
-//   5. Info grid (Genres / Companies / Franchises / Collections —
-//      "Companies" is the API field for merged developer + publisher)
+//   5. Info grid (Genres / Developers / Publishers / Companies /
+//      Franchises / Collections)
 //   6. Screenshots (also reachable via the Media tab's Screenshots subtab,
 //      which is where uploads will live)
 //   7. HLTB strip
 //   8. Related games — a single RCollapsible collapsing all of:
-//      Expansions, DLC, Remakes, Remasters, Similar games.
+//      Expansions, DLC, Remakes, Remasters, Ports, Similar games.
 //
 // Status enum + flags (now_playing / backlogged / hidden) and personal
 // metrics (rating / difficulty / completion) live in the action ribbon
@@ -24,11 +24,15 @@ import { useI18n } from "vue-i18n";
 import type {
   IGDBRelatedGame,
   RomHLTBMetadata,
+  SimilarRomSchema,
   UserCollectionSchema,
 } from "@/__generated__";
+import { useUISettings } from "@/composables/useUISettings";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
-import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
+import CollectionTile, {
+  type Kind,
+} from "@/v2/components/Collections/CollectionTile.vue";
 import AgeRatingBadges from "@/v2/components/GameDetails/AgeRatingBadges.vue";
 import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
@@ -36,9 +40,11 @@ import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
 import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import SimilarGamesGrid from "@/v2/components/GameDetails/SimilarGamesGrid.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
+import { resolveRomArtwork } from "@/v2/utils/romArtwork";
 
 defineOptions({ inheritAttrs: false });
 
@@ -50,13 +56,23 @@ const props = defineProps<{
   userCollections: UserCollectionSchema[];
   hltb: RomHLTBMetadata | null | undefined;
   lastPlayed: string | null;
+  revision: string | null;
   screenshots: string[];
   expansions: IGDBRelatedGame[];
   dlcs: IGDBRelatedGame[];
   remakes: IGDBRelatedGame[];
   remasters: IGDBRelatedGame[];
-  similarGames: IGDBRelatedGame[];
+  ports: IGDBRelatedGame[];
+  similarRoms: SimilarRomSchema[];
 }>();
+
+// The same preference hides the "Recommended for you" row on Home: the
+// feature is switched off everywhere at once, not per surface.
+const { showRecommendations } = useUISettings();
+
+const visibleSimilarRoms = computed(() =>
+  showRecommendations.value ? props.similarRoms : [],
+);
 
 const hasAgeRatings = computed(
   () => (props.rom.metadatum?.age_ratings?.length ?? 0) > 0,
@@ -75,32 +91,48 @@ const hasHltb = computed(() => {
   );
 });
 
-// Enrich the slim `{ id, name }` user_collections payload from the
-// ROM with the full Collection record (cover paths, rom_count) the
-// store already holds — so we can render real CollectionTile mosaics
-// instead of stripped chips. Falls back to a bare entry if the store
-// is empty (e.g. deep-link before the AppLayout fetch resolves).
+// Enrich the slim `{ id, name, is_smart }` user_collections payload from
+// the ROM with the full record (cover paths, rom_count) the store already
+// holds — so we can render real CollectionTile mosaics instead of stripped
+// chips. Smart collections (#3934) resolve from their own store slice and
+// route, and carry the "smart" kind so the tile shows its flash badge.
+// Falls back to a bare entry if the store is empty (e.g. deep-link before
+// the AppLayout fetch resolves).
 const { t } = useI18n();
 const collectionsStore = storeCollections();
-const { toWebp } = useWebpSupport();
+const { supportsWebp, toWebp } = useWebpSupport();
+
+// Videos surface on the overview (the rest of the art lives in the Media tab's
+// Artwork subtab). Same resolver, filtered to videos: scraped clips plus any
+// video files in the game folder.
+const videos = computed(() =>
+  resolveRomArtwork(props.rom).filter((a) => a.isVideo),
+);
 
 type CollectionTileEntry = {
   id: number;
+  key: string;
   name: string;
   rom_count: number;
   covers: string[];
   link: string;
+  kind: Kind;
 };
 
 const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
   props.userCollections.map((c) => {
-    const full = collectionsStore.getCollection(c.id);
+    const full = c.is_smart
+      ? collectionsStore.getSmartCollection(c.id)
+      : collectionsStore.getCollection(c.id);
+
     return {
       id: c.id,
+      key: c.is_smart ? `smart-${c.id}` : `regular-${c.id}`,
       name: full?.name ?? c.name,
       rom_count: full?.rom_count ?? 0,
       covers: full ? collectionCoverList(full, toWebp) : [],
-      link: `/collection/${c.id}`,
+      link: c.is_smart ? `/collection/smart/${c.id}` : `/collection/${c.id}`,
+      kind: c.is_smart ? "smart" : "regular",
     };
   }),
 );
@@ -112,7 +144,8 @@ const hasRelated = computed(
       props.dlcs.length +
       props.remakes.length +
       props.remasters.length +
-      props.similarGames.length >
+      props.ports.length +
+      visibleSimilarRoms.value.length >
     0,
 );
 
@@ -124,7 +157,7 @@ const dataProviders = computed(() =>
   PROVIDERS.map((p) => {
     const id = providerId(props.rom, p);
     if (id === null) return null;
-    return { name: p.name, href: p.url ? p.url(id) : null };
+    return { name: p.name, href: p.url ? p.url(id, props.rom) : null };
   }).filter((e): e is { name: string; href: string | null } => e !== null),
 );
 
@@ -162,14 +195,21 @@ const coverSource = computed(() => {
     <!-- 1. Summary -->
     <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
 
-    <!-- 2. Per-ROM fact rows (left-labelled). Last played + the
-         per-game characteristics — Players, Age rating, RomM
+    <!-- 2. Per-ROM fact rows (left-labelled). Revision, Last played +
+         the per-game characteristics — Players, Age rating, RomM
          collections — get a row each so each fact can render its own
          semantic widget instead of being flattened to a chip list. -->
     <div
-      v-if="lastPlayed || hasQuickFacts || userCollectionTiles.length"
+      v-if="
+        revision || lastPlayed || hasQuickFacts || userCollectionTiles.length
+      "
       class="overview-tab__facts"
     >
+      <div v-if="revision" class="overview-tab__row">
+        <div class="overview-tab__label">{{ t("rom.revision") }}</div>
+        <div class="overview-tab__field">{{ revision }}</div>
+      </div>
+
       <div v-if="lastPlayed" class="overview-tab__row">
         <div class="overview-tab__label">{{ t("rom.last-played") }}</div>
         <div class="overview-tab__field">{{ lastPlayed }}</div>
@@ -198,12 +238,12 @@ const coverSource = computed(() => {
           <CollectionTile
             v-for="c in userCollectionTiles"
             :id="c.id"
-            :key="c.id"
+            :key="c.key"
             :to="c.link"
             :name="c.name"
             :rom-count="c.rom_count"
             :covers="c.covers"
-            kind="regular"
+            :kind="c.kind"
             variant="row"
           />
         </div>
@@ -220,6 +260,27 @@ const coverSource = computed(() => {
         {{ t("rom.screenshots") }}
       </h4>
       <ScreenshotsTab :screenshots="screenshots.map((url) => ({ url }))" />
+    </div>
+
+    <!-- 4b. Videos — scraped preview clips. The rest of the art assets
+         live in the Media tab's Artwork subtab. -->
+    <div v-if="videos.length" class="overview-tab__section">
+      <h4 class="overview-tab__section-heading">
+        <RIcon icon="mdi-play-circle-outline" size="14" />
+        {{ t("rom.media-video") }}
+      </h4>
+      <div class="overview-tab__videos">
+        <!-- Scraped preview clips ship no caption track. -->
+        <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
+        <video
+          v-for="video in videos"
+          :key="video.key"
+          class="overview-tab__video"
+          :src="video.url"
+          controls
+          preload="metadata"
+        />
+      </div>
     </div>
 
     <!-- 5. HLTB -->
@@ -241,37 +302,44 @@ const coverSource = computed(() => {
       <div v-if="expansions.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-puzzle-outline" size="14" />
-          Expansions
+          {{ t("rom.related-expansions") }}
         </h4>
         <RelatedGamesGrid title="" :items="expansions" />
       </div>
       <div v-if="dlcs.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-package-variant-closed" size="14" />
-          DLC
+          {{ t("rom.related-dlc") }}
         </h4>
         <RelatedGamesGrid title="" :items="dlcs" />
       </div>
       <div v-if="remakes.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-refresh" size="14" />
-          Remakes
+          {{ t("rom.related-remakes") }}
         </h4>
         <RelatedGamesGrid title="" :items="remakes" />
       </div>
       <div v-if="remasters.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-image-auto-adjust" size="14" />
-          Remasters
+          {{ t("rom.related-remasters") }}
         </h4>
         <RelatedGamesGrid title="" :items="remasters" />
       </div>
-      <div v-if="similarGames.length" class="overview-tab__section">
+      <div v-if="ports.length" class="overview-tab__section">
+        <h4 class="overview-tab__section-heading">
+          <RIcon icon="mdi-swap-horizontal" size="14" />
+          {{ t("rom.related-ports") }}
+        </h4>
+        <RelatedGamesGrid title="" :items="ports" />
+      </div>
+      <div v-if="visibleSimilarRoms.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-shape-outline" size="14" />
-          Similar games
+          {{ t("recommendations.similar-games") }}
         </h4>
-        <RelatedGamesGrid title="" :items="similarGames" />
+        <SimilarGamesGrid :items="visibleSimilarRoms" :webp="supportsWebp" />
       </div>
     </template>
 
@@ -301,19 +369,9 @@ const coverSource = computed(() => {
           >
         </template>
       </i18n-t>
-      <i18n-t
-        v-if="coverSource && rom.url_cover"
-        keypath="rom.cover-art-provided-by"
-        tag="div"
-      >
+      <i18n-t v-if="coverSource" keypath="rom.cover-art-provided-by" tag="div">
         <template #source>
-          <a
-            class="overview-tab__attribution-link"
-            :href="rom.url_cover"
-            target="_blank"
-            rel="noopener"
-            >{{ coverSource }}</a
-          >
+          <span>{{ coverSource }}</span>
         </template>
       </i18n-t>
     </div>
@@ -426,6 +484,22 @@ const coverSource = computed(() => {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--r-color-fg-faint);
+}
+
+/* Scraped preview videos — a responsive grid mirroring the screenshot
+   thumbnails; clips are contained so wide/tall sources aren't cropped. */
+.overview-tab__videos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.overview-tab__video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  border-radius: var(--r-radius-md);
+  background: var(--r-color-cover-placeholder);
+  border: 1px solid var(--r-color-border);
 }
 
 /* Attribution — a quiet, italic credits footer for the metadata and

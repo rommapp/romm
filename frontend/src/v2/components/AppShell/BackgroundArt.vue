@@ -14,23 +14,19 @@ defineProps<{
 
 <template>
   <div class="r-v2-bg">
+    <!-- Fallback art (no cover) comes from the CSS `background-image` on
+         `.r-v2-bg__layer` so Firefox can swap it for the static variant via
+         `@-moz-document`; an inline style here would win over that override.
+         A real cover URL still sets the inline background-image. -->
     <div
       class="r-v2-bg__layer r-v2-bg__layer--a"
       :class="{ 'r-v2-bg__layer--active': activeLayer === 'a' }"
-      :style="
-        layerA
-          ? { backgroundImage: `url('${layerA}')` }
-          : { backgroundImage: `url('/assets/auth_background.svg')` }
-      "
+      :style="layerA ? { backgroundImage: `url('${layerA}')` } : {}"
     />
     <div
       class="r-v2-bg__layer r-v2-bg__layer--b"
       :class="{ 'r-v2-bg__layer--active': activeLayer === 'b' }"
-      :style="
-        layerB
-          ? { backgroundImage: `url('${layerB}')` }
-          : { backgroundImage: `url('/assets/auth_background.svg')` }
-      "
+      :style="layerB ? { backgroundImage: `url('${layerB}')` } : {}"
     />
   </div>
   <div class="r-v2-bg__overlay" />

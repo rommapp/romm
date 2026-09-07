@@ -40,7 +40,7 @@ class TestDBSavesHandlerPlatformFiltering:
     ):
         """Test that get_saves works with both rom_id and platform_id filters."""
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_id=rom.id, platform_id=platform.id
+            user_id=admin_user.id, rom_ids=[rom.id], platform_id=platform.id
         )
 
         assert len(saves) == 1
@@ -107,12 +107,85 @@ class TestDBSavesHandlerPlatformFiltering:
     ):
         """Test that get_save_by_filename works correctly with platform filtering."""
         retrieved_save = db_save_handler.get_save_by_filename(
-            user_id=admin_user.id, rom_id=rom.id, file_name=save.file_name
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_name=save.file_name,
+            slot=save.slot,
         )
 
         assert retrieved_save is not None
         assert retrieved_save.id == save.id
         assert retrieved_save.file_name == save.file_name
+
+    def test_get_save_by_filename_slotless_ignores_slotted_save(
+        self, admin_user: User, rom: Rom
+    ):
+        """A slot-less lookup must not match a same-named save in a named slot."""
+        slotted = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="shared.sav",
+            file_name_no_tags="shared",
+            file_name_no_ext="shared",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="Slot A",
+        )
+        slotted = db_save_handler.add_save(slotted)
+
+        # No null-slot save exists, so a slot-less lookup should find nothing.
+        assert (
+            db_save_handler.get_save_by_filename(
+                user_id=admin_user.id, rom_id=rom.id, file_name="shared.sav", slot=None
+            )
+            is None
+        )
+
+        # The named-slot lookup still resolves the slotted save.
+        found = db_save_handler.get_save_by_filename(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_name="shared.sav",
+            slot="Slot A",
+        )
+        assert found is not None
+        assert found.id == slotted.id
+
+    def test_get_save_by_filename_slotted_ignores_slotless_save(
+        self, admin_user: User, rom: Rom
+    ):
+        """A named-slot lookup must not match a same-named null-slot save."""
+        slotless = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="shared.sav",
+            file_name_no_tags="shared",
+            file_name_no_ext="shared",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot=None,
+        )
+        slotless = db_save_handler.add_save(slotless)
+
+        assert (
+            db_save_handler.get_save_by_filename(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                file_name="shared.sav",
+                slot="Slot A",
+            )
+            is None
+        )
+
+        found = db_save_handler.get_save_by_filename(
+            user_id=admin_user.id, rom_id=rom.id, file_name="shared.sav", slot=None
+        )
+        assert found is not None
+        assert found.id == slotless.id
 
     def test_platform_filtering_with_different_emulators(
         self, admin_user: User, platform: Platform, rom: Rom
@@ -212,13 +285,13 @@ class TestDBSavesHandlerSlotFiltering:
         db_save_handler.add_save(save3)
 
         slot_a_saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_id=rom.id, slot="Slot A"
+            user_id=admin_user.id, rom_ids=[rom.id], slot="Slot A"
         )
         assert len(slot_a_saves) == 2
         assert all(s.slot == "Slot A" for s in slot_a_saves)
 
         slot_b_saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_id=rom.id, slot="Slot B"
+            user_id=admin_user.id, rom_ids=[rom.id], slot="Slot B"
         )
         assert len(slot_b_saves) == 1
         assert slot_b_saves[0].slot == "Slot B"
@@ -252,7 +325,7 @@ class TestDBSavesHandlerSlotFiltering:
         db_save_handler.add_save(save_with_slot)
         db_save_handler.add_save(save_without_slot)
 
-        all_saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
+        all_saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert len(all_saves) >= 2
 
     def test_get_saves_order_by(self, admin_user: User, rom: Rom):
@@ -297,7 +370,7 @@ class TestDBSavesHandlerSlotFiltering:
 
         ordered_saves_desc = db_save_handler.get_saves(
             user_id=admin_user.id,
-            rom_id=rom.id,
+            rom_ids=[rom.id],
             slot="order_test",
             order_by="updated_at",
         )
@@ -308,7 +381,7 @@ class TestDBSavesHandlerSlotFiltering:
 
         ordered_saves_asc = db_save_handler.get_saves(
             user_id=admin_user.id,
-            rom_id=rom.id,
+            rom_ids=[rom.id],
             slot="order_test",
             order_by="updated_at",
             order_dir="asc",
@@ -478,7 +551,7 @@ class TestDBSavesHandlerSlotNotNullFilter:
         db_save_handler.add_save(slot_save)
         db_save_handler.add_save(archival_save)
 
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
 
         names = {s.file_name for s in saves}
         assert "slotted.sav" in names
@@ -513,7 +586,7 @@ class TestDBSavesHandlerSlotNotNullFilter:
         db_save_handler.add_save(archival_save)
 
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_id=rom.id, slot_not_null=True
+            user_id=admin_user.id, rom_ids=[rom.id], slot_not_null=True
         )
 
         names = {s.file_name for s in saves}
@@ -558,7 +631,7 @@ class TestDBSavesHandlerSlotNotNullFilter:
         )
 
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_id=rom.id, slot="A", slot_not_null=True
+            user_id=admin_user.id, rom_ids=[rom.id], slot="A", slot_not_null=True
         )
 
         assert len(saves) == 1
@@ -828,3 +901,45 @@ class TestDBSavesHandlerGetLatestSavesForRoms:
         )
 
         assert latest == {}
+
+
+class TestGetSavesRomIdsScope:
+    """Test suite for the `rom_ids` scope on DBSavesHandler.get_saves."""
+
+    def test_scopes_to_listed_roms(
+        self, admin_user: User, rom: Rom, save: Save, second_save: Save
+    ):
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+
+        assert [s.id for s in saves] == [save.id]
+
+    def test_scopes_to_multiple_roms(
+        self,
+        admin_user: User,
+        rom: Rom,
+        second_rom: Rom,
+        save: Save,
+        second_save: Save,
+    ):
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id, second_rom.id]
+        )
+
+        assert {s.id for s in saves} == {save.id, second_save.id}
+
+    def test_empty_scope_returns_nothing(self, admin_user: User, save: Save):
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[]) == []
+
+    def test_omitted_scope_returns_everything(self, admin_user: User, save: Save):
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=None)
+
+        assert save.id in [s.id for s in saves]
+
+    def test_combines_with_slot_filter(
+        self, admin_user: User, rom: Rom, save: Save, archival_save: Save
+    ):
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], slot_not_null=True
+        )
+
+        assert [s.id for s in saves] == [save.id]

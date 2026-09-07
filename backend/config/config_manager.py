@@ -6,7 +6,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import pydash
 import yaml
@@ -21,6 +21,7 @@ from config import (
     DB_QUERY_JSON,
     DB_USER,
     LIBRARY_BASE_PATH,
+    ROM_UPLOAD_ASSEMBLING_EXT,
     ROMM_BASE_PATH,
     ROMM_DB_DRIVER,
 )
@@ -145,13 +146,13 @@ ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     "db",
-    "ini",
     "tmp",
     "bak",
     "lock",
     "log",
     "cache",
     "crdownload",
+    ROM_UPLOAD_ASSEMBLING_EXT,
 ]
 DEFAULT_EXCLUDED_FILES: Final = [
     ".DS_Store",
@@ -159,13 +160,16 @@ DEFAULT_EXCLUDED_FILES: Final = [
     ".Trashes",
     ".stfolder",
     "@SynoResource",
+    "*:Zone.Identifier",
     "gamelist.xml",
     "metadata.pegasus.txt",
 ]
-DEFAULT_EXCLUDED_DIRS: Final = [
+# Library-root folders that are never a platform.
+DEFAULT_EXCLUDED_PLATFORM_DIRS: Final = [
     "@eaDir",
     "assets",
     "__MACOSX",
+    "#recycle",
     "$RECYCLE.BIN",
     ".Trash-*",
     ".stfolder",
@@ -174,6 +178,30 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     ".DocumentRevisions-V100",
     "System Volume Information",
 ]
+# The per-media-type folders beside the ROMs, at <platform>/<folder>/<rom>.<ext>.
+# ES-DE and Batocera resolve media here by name; the Pegasus export shares them.
+PLATFORM_MEDIA_DIRS: Final = {
+    "image": "images",
+    "box2d": "covers",
+    "box2d_back": "backcovers",
+    "box3d": "3dboxes",
+    "bezel": "bezels",
+    "fanart": "fanart",
+    "manual": "manuals",
+    "marquee": "marquees",
+    "miximage": "miximages",
+    "miximage_v2": "miximages_v2",
+    "physical": "physicalmedia",
+    "screenshot": "screenshots",
+    "thumbnail": "thumbnails",
+    "title_screen": "titlescreens",
+    "video": "videos",
+}
+# Folders inside a platform that are never a multi-file ROM (a ROM whose parts
+# live in a directory). Scraper media output lands here, so it is skipped too.
+DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Final = sorted(
+    {*DEFAULT_EXCLUDED_PLATFORM_DIRS, *PLATFORM_MEDIA_DIRS.values()}
+)
 
 
 class EjsControlsButton(TypedDict):
@@ -200,6 +228,67 @@ class MetadataMediaType(enum.StrEnum):
     MANUAL = "manual"
 
 
+# User-facing scan.priority.* keys that each override SCAN_ARTWORK_PRIORITY for a
+# single artwork field. Maps the config key to the Rom field it controls.
+ARTWORK_PRIORITY_KEYS = {
+    "cover": "url_cover",
+    "screenshot": "url_screenshots",
+    "manual": "url_manual",
+}
+
+# Valid MetadataMediaType values for the gamelist <thumbnail> and <image>
+# tags. Kept as module constants so the config loader and the scan-settings
+# endpoint validate against the same sets.
+VALID_GAMELIST_THUMBNAIL_TYPES = frozenset(
+    {
+        MetadataMediaType.BOX2D,
+        MetadataMediaType.BOX3D,
+        MetadataMediaType.MIXIMAGE,
+        MetadataMediaType.MIXIMAGE_V2,
+        MetadataMediaType.PHYSICAL,
+    }
+)
+VALID_GAMELIST_IMAGE_TYPES = frozenset(
+    {
+        MetadataMediaType.TITLE_SCREEN,
+        MetadataMediaType.MIXIMAGE,
+        MetadataMediaType.MIXIMAGE_V2,
+        MetadataMediaType.BOX2D,
+        MetadataMediaType.SCREENSHOT,
+    }
+)
+
+# Valid provider slugs for scan.priority.* lists. Mirrors
+# handler.scan_handler.MetadataSource, which can't be imported here without a
+# circular import; test_config_loader guards against drift.
+VALID_SCAN_PRIORITY_SOURCES = frozenset(
+    {
+        "igdb",
+        "moby",
+        "ss",
+        "ra",
+        "launchbox",
+        "hasheous",
+        "tgdb",
+        "sgdb",
+        "flashpoint",
+        "hltb",
+        "demozoo",
+        "pouet",
+        "csdb",
+        "steam",
+        "gamelist",
+        "libretro",
+        "playmatch",
+    }
+)
+
+# Valid values for scan.priority.region_mode. "prefer_rom_tags" keeps the
+# rom's filename region tags authoritative for media selection;
+# "prefer_config" makes scan.priority.region win over the rom's own tags.
+VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
+
+
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
     _1: dict[int, EjsControlsButton]
@@ -216,9 +305,45 @@ class NetplayICEServer(TypedDict):
     credential: NotRequired[str]
 
 
+class StreamingPlatformOverride(TypedDict):
+    # Names the state and card namespace, so it has no container-level default.
+    emulator: str
+    # Anything set here wins over the same key on the container.
+    label: NotRequired[str]
+    memory_card_sync: NotRequired[bool]
+
+
+class StreamingContainer(TypedDict):
+    # A container declares either one platform (the per-emulator mods) or a
+    # `platforms` map (one webstation serving many). Exactly one of the two.
+    platform: NotRequired[str]
+    # Platform slug to the emulator that serves it, or to a block of options
+    # overriding container keys for that platform, replacing platform +
+    # emulator on a container that hosts more than one.
+    platforms: NotRequired[dict[str, str | StreamingPlatformOverride]]
+    host: str
+    # Optional under `protocol: webstation`, which derives the broker host from
+    # `host` and `subfolder` when it is omitted.
+    broker_host: NotRequired[str]
+    label: str
+    library_path: NotRequired[str]
+    # Namespace for stored states/cards; defaults to label (or platform)
+    # lowercased when omitted.
+    emulator: NotRequired[str]
+    # Opt in to whole memory-card sync (broker /memory-card). When true, the
+    # legacy per-file /save-file in-game-save path is skipped for this container.
+    memory_card_sync: NotRequired[bool]
+    # Broker dialect. Omitted (or "broker") is the per-emulator mod contract;
+    # "webstation" is the LSIO webstation container's activate/exit contract.
+    protocol: NotRequired[str]
+    # URL prefix the webstation broker is served under, matching its SUBFOLDER.
+    subfolder: NotRequired[str]
+
+
 class Config:
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
+    CONFIG_FILE_PARSE_ERROR: str | None
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
     EXCLUDED_SINGLE_FILES: list[str]
@@ -233,21 +358,28 @@ class Config:
     FIRMWARE_FOLDER_NAME: str
     STRUCTURE_TEMPLATES: dict[str, str | list[str]]
     SKIP_HASH_CALCULATION: bool
+    SKIP_TITLE_ID_EXTRACTION: bool
+    EMBED_SWITCH_TITLE_IDS: bool
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
+    EJS_ENABLE_AUTO_SAVE_SYNC: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
+    SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
     SCAN_REGION_PRIORITY: list[str]
+    SCAN_REGION_MODE: str
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
+    STREAMING_ENABLED: bool
+    STREAMING_CONTAINERS: list[StreamingContainer]
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -302,6 +434,7 @@ class ConfigManager:
     _raw_config: dict = {}
     _config_file_mounted: bool = False
     _config_file_writable: bool = False
+    _config_file_parse_error: str | None = None
 
     def __new__(cls, *args, **kwargs):
         if cls._self is None:
@@ -336,13 +469,18 @@ class ConfigManager:
         """Load YAML, falling back to an empty config on syntax errors so the
         app can still boot with defaults rather than crashing."""
         try:
-            return yaml.load(cf, Loader=SafeLoader) or {}
+            config = yaml.load(cf, Loader=SafeLoader) or {}
+            self._config_file_parse_error = None
+            return config
         except yaml.YAMLError as exc:
             log.critical(
                 f"Failed to parse {hl(self.config_file, BLUE)}: {exc}. "
                 "Falling back to default configuration, fix the YAML "
                 "syntax to apply your settings."
             )
+            # Keep the error around so it can be surfaced in the UI, since the
+            # whole config (not just the broken part) is discarded here.
+            self._config_file_parse_error = str(exc)
             return {}
 
     def _create_missing_config_file(self) -> None:
@@ -358,6 +496,7 @@ class ConfigManager:
             # Reset any previously loaded singleton state so parsing reflects
             # the newly created empty config file.
             self._raw_config = {}
+            self._config_file_parse_error = None
             self._config_file_mounted = True
             self._config_file_writable = os.access(self.config_file, os.W_OK)
         except PermissionError:
@@ -415,9 +554,10 @@ class ConfigManager:
         self.config = Config(
             CONFIG_FILE_MOUNTED=self._config_file_mounted,
             CONFIG_FILE_WRITABLE=self._config_file_writable,
+            CONFIG_FILE_PARSE_ERROR=self._config_file_parse_error,
             EXCLUDED_PLATFORMS=sorted(
                 {
-                    *DEFAULT_EXCLUDED_DIRS,
+                    *DEFAULT_EXCLUDED_PLATFORM_DIRS,
                     *pydash.get(self._raw_config, "exclude.platforms", []),
                 }
             ),
@@ -446,7 +586,7 @@ class ConfigManager:
             ),
             EXCLUDED_MULTI_FILES=sorted(
                 {
-                    *DEFAULT_EXCLUDED_DIRS,
+                    *DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
                     *pydash.get(
                         self._raw_config,
                         "exclude.roms.multi_file.names",
@@ -477,8 +617,10 @@ class ConfigManager:
                     ),
                 }
             ),
-            PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {}),
-            PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {}),
+            PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {})
+            or {},
+            PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {})
+            or {},
             ROMS_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.roms_folder", "roms"
             ),
@@ -487,6 +629,12 @@ class ConfigManager:
             ),
             SKIP_HASH_CALCULATION=pydash.get(
                 self._raw_config, "filesystem.skip_hash_calculation", False
+            ),
+            SKIP_TITLE_ID_EXTRACTION=pydash.get(
+                self._raw_config, "filesystem.skip_title_id_extraction", False
+            ),
+            EMBED_SWITCH_TITLE_IDS=pydash.get(
+                self._raw_config, "filesystem.embed_switch_title_ids", False
             ),
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_CACHE_LIMIT=pydash.get(
@@ -497,6 +645,9 @@ class ConfigManager:
             ),
             EJS_DISABLE_BATCH_BOOTUP=pydash.get(
                 self._raw_config, "emulatorjs.disable_batch_bootup", False
+            ),
+            EJS_ENABLE_AUTO_SAVE_SYNC=pydash.get(
+                self._raw_config, "emulatorjs.auto_save_sync", False
             ),
             EJS_NETPLAY_ENABLED=pydash.get(
                 self._raw_config, "emulatorjs.netplay.enabled", False
@@ -519,7 +670,11 @@ class ConfigManager:
                     "hasheous",
                     "tgdb",
                     "flashpoint",
+                    "steam",
                     "hltb",
+                    "demozoo",
+                    "pouet",
+                    "csdb",
                 ],
             ),
             SCAN_ARTWORK_PRIORITY=pydash.get(
@@ -537,18 +692,33 @@ class ConfigManager:
                     "hasheous",
                     "tgdb",
                     "flashpoint",
+                    "steam",
                     "hltb",
+                    "demozoo",
+                    "pouet",
+                    "csdb",
                 ],
             ),
+            SCAN_ARTWORK_PRIORITY_OVERRIDES={
+                field: override
+                for key, field in ARTWORK_PRIORITY_KEYS.items()
+                if (override := pydash.get(self._raw_config, f"scan.priority.{key}"))
+                is not None
+            },
             SCAN_REGION_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.region",
                 ["us", "wor", "ss", "eu", "jp"],
             ),
+            SCAN_REGION_MODE=pydash.get(
+                self._raw_config,
+                "scan.priority.region_mode",
+                "prefer_rom_tags",
+            ),
             SCAN_LANGUAGE_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.language",
-                ["en", "fr"],
+                ["en"],
             ),
             SCAN_MEDIA=pydash.get(
                 self._raw_config,
@@ -574,6 +744,10 @@ class ConfigManager:
             ),
             PEGASUS_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.pegasus.export", False
+            ),
+            STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
+            STREAMING_CONTAINERS=pydash.get(
+                self._raw_config, "streaming.containers", []
             ),
             STRUCTURE_TEMPLATES=pydash.get(
                 self._raw_config, "filesystem.structure", {}
@@ -611,6 +785,26 @@ class ConfigManager:
             }
 
         return yaml_controls
+
+    def _validated_platform_map(self, raw: Any, config_key: str) -> dict[str, str]:
+        """Check a folder name to slug mapping.
+
+        Folder names are lowercased so lookups can ignore case.
+        """
+        if not isinstance(raw, dict):
+            log.critical(f"Invalid config.yml: {config_key} must be a dictionary")
+            sys.exit(3)
+
+        normalized: dict[str, str] = {}
+        for fs_slug, slug in raw.items():
+            if not isinstance(slug, str) or not slug:
+                log.critical(
+                    f"Invalid config.yml: {config_key}.{fs_slug} must be a non-empty string"
+                )
+                sys.exit(3)
+            normalized[str(fs_slug).lower()] = slug
+
+        return normalized
 
     def _validate_config(self):
         """Validates the config.yml file"""
@@ -656,27 +850,12 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.pegasus.export must be a boolean")
             sys.exit(3)
 
-        if not isinstance(self.config.PLATFORMS_BINDING, dict):
-            log.critical("Invalid config.yml: system.platforms must be a dictionary")
-            sys.exit(3)
-        else:
-            for fs_slug, slug in self.config.PLATFORMS_BINDING.items():
-                if slug is None:
-                    log.critical(
-                        f"Invalid config.yml: system.platforms.{fs_slug} must be a string"
-                    )
-                    sys.exit(3)
-
-        if not isinstance(self.config.PLATFORMS_VERSIONS, dict):
-            log.critical("Invalid config.yml: system.versions must be a dictionary")
-            sys.exit(3)
-        else:
-            for fs_slug, slug in self.config.PLATFORMS_VERSIONS.items():
-                if slug is None:
-                    log.critical(
-                        f"Invalid config.yml: system.versions.{fs_slug} must be a string"
-                    )
-                    sys.exit(3)
+        self.config.PLATFORMS_BINDING = self._validated_platform_map(
+            self.config.PLATFORMS_BINDING, "system.platforms"
+        )
+        self.config.PLATFORMS_VERSIONS = self._validated_platform_map(
+            self.config.PLATFORMS_VERSIONS, "system.versions"
+        )
 
         if not isinstance(self.config.ROMS_FOLDER_NAME, str):
             log.critical("Invalid config.yml: filesystem.roms_folder must be a string")
@@ -730,6 +909,12 @@ class ConfigManager:
             )
             sys.exit(3)
 
+        if not isinstance(self.config.EJS_ENABLE_AUTO_SAVE_SYNC, bool):
+            log.critical(
+                "Invalid config.yml: emulatorjs.auto_save_sync must be a boolean"
+            )
+            sys.exit(3)
+
         if not isinstance(self.config.EJS_NETPLAY_ICE_SERVERS, list):
             log.critical(
                 "Invalid config.yml: emulatorjs.netplay.ice_servers must be a list"
@@ -780,9 +965,37 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.artwork must be a list")
             sys.exit(3)
 
+        for key, field in ARTWORK_PRIORITY_KEYS.items():
+            override = self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(field)
+            if override is None:
+                continue
+
+            if not isinstance(override, list):
+                log.critical(f"Invalid config.yml: scan.priority.{key} must be a list")
+                sys.exit(3)
+
+            # Unknown sources are dropped downstream
+            unknown = [s for s in override if s not in VALID_SCAN_PRIORITY_SOURCES]
+            if unknown:
+                log.warning(
+                    f"Ignoring unknown values in scan.priority.{key}: {unknown}. "
+                    "Check for typos, or update if these are newer sources."
+                )
+
         if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.region must be a list")
             sys.exit(3)
+
+        if (
+            not isinstance(self.config.SCAN_REGION_MODE, str)
+            or self.config.SCAN_REGION_MODE not in VALID_SCAN_REGION_MODES
+        ):
+            log.warning(
+                f"Unknown scan.priority.region_mode value "
+                f"{self.config.SCAN_REGION_MODE!r}; falling back to "
+                f"'prefer_rom_tags'. Valid options: {sorted(VALID_SCAN_REGION_MODES)}."
+            )
+            self.config.SCAN_REGION_MODE = "prefer_rom_tags"
 
         if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.language must be a list")
@@ -808,7 +1021,7 @@ class ConfigManager:
                     "template string or a list of template strings"
                 )
                 sys.exit(3)
-            templates = [value] if is_str else value
+            templates: list[str] = [value] if isinstance(value, str) else value
             for template in templates:
                 try:
                     parse_library_structure(template)
@@ -833,13 +1046,7 @@ class ConfigManager:
                 m for m in self.config.SCAN_MEDIA if m in MetadataMediaType
             ]
 
-        valid_thumbnail_options = {
-            MetadataMediaType.BOX2D,
-            MetadataMediaType.BOX3D,
-            MetadataMediaType.MIXIMAGE,
-            MetadataMediaType.MIXIMAGE_V2,
-            MetadataMediaType.PHYSICAL,
-        }
+        valid_thumbnail_options = VALID_GAMELIST_THUMBNAIL_TYPES
         if not isinstance(self.config.GAMELIST_MEDIA_THUMBNAIL, str):
             log.critical(
                 "Invalid config.yml: scan.gamelist.media.thumbnail must be a string"
@@ -853,13 +1060,7 @@ class ConfigManager:
             )
             self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType.BOX2D
 
-        valid_image_options = {
-            MetadataMediaType.TITLE_SCREEN,
-            MetadataMediaType.MIXIMAGE,
-            MetadataMediaType.MIXIMAGE_V2,
-            MetadataMediaType.BOX2D,
-            MetadataMediaType.SCREENSHOT,
-        }
+        valid_image_options = VALID_GAMELIST_IMAGE_TYPES
 
         if not isinstance(self.config.GAMELIST_MEDIA_IMAGE, str):
             log.critical(
@@ -875,12 +1076,38 @@ class ConfigManager:
             )
             self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType.SCREENSHOT
 
+        if not isinstance(self.config.STREAMING_ENABLED, bool):
+            log.critical("Invalid config.yml: streaming.enabled must be a boolean")
+            sys.exit(3)
+
+        if not isinstance(self.config.STREAMING_CONTAINERS, list):
+            log.critical("Invalid config.yml: streaming.containers must be a list")
+            sys.exit(3)
+
+        legacy_containers = [
+            container
+            for container in self.config.STREAMING_CONTAINERS
+            if isinstance(container, dict)
+            and str(container.get("protocol", "")).strip().lower() != "webstation"
+        ]
+        if legacy_containers:
+            log.warning(
+                "config.yml has %d streaming container(s) still using the "
+                "per-emulator broker mods (no `protocol: webstation`). That "
+                "protocol is deprecated and support for it will be removed "
+                "in a future release. See https://docs.romm.app/latest/using/emulator-streaming-migration/ "
+                "to move to a webstation container.",
+                len(legacy_containers),
+            )
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
                 self._raw_config = self._safe_load_yaml(config_file)
         except FileNotFoundError:
             log.debug("Config file not found!")
+            # No file to parse, so clear any stale parse error from a prior load.
+            self._config_file_parse_error = None
 
         self._parse_config()
         self._validate_config()
@@ -914,6 +1141,8 @@ class ConfigManager:
                 "firmware_folder": self.config.FIRMWARE_FOLDER_NAME,
                 "structure": self.config.STRUCTURE_TEMPLATES,
                 "skip_hash_calculation": self.config.SKIP_HASH_CALCULATION,
+                "skip_title_id_extraction": self.config.SKIP_TITLE_ID_EXTRACTION,
+                "embed_switch_title_ids": self.config.EMBED_SWITCH_TITLE_IDS,
             },
             "system": {
                 "platforms": self.config.PLATFORMS_BINDING,
@@ -924,6 +1153,7 @@ class ConfigManager:
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
                 "disable_auto_unload": self.config.EJS_DISABLE_AUTO_UNLOAD,
                 "disable_batch_bootup": self.config.EJS_DISABLE_BATCH_BOOTUP,
+                "auto_save_sync": self.config.EJS_ENABLE_AUTO_SAVE_SYNC,
                 "netplay": {
                     "enabled": self.config.EJS_NETPLAY_ENABLED,
                     "ice_servers": self.config.EJS_NETPLAY_ICE_SERVERS,
@@ -935,7 +1165,13 @@ class ConfigManager:
                 "priority": {
                     "metadata": self.config.SCAN_METADATA_PRIORITY,
                     "artwork": self.config.SCAN_ARTWORK_PRIORITY,
+                    **{
+                        key: self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES[field]
+                        for key, field in ARTWORK_PRIORITY_KEYS.items()
+                        if field in self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES
+                    },
                     "region": self.config.SCAN_REGION_PRIORITY,
+                    "region_mode": self.config.SCAN_REGION_MODE,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,
@@ -952,6 +1188,15 @@ class ConfigManager:
             },
         }
 
+        # The streaming section isn't editable at runtime, but it must survive
+        # a rewrite triggered by any other setter. Only emit it when non-default
+        # so we don't add empty keys to configs that never used streaming.
+        if self.config.STREAMING_ENABLED or self.config.STREAMING_CONTAINERS:
+            self._raw_config["streaming"] = {
+                "enabled": self.config.STREAMING_ENABLED,
+                "containers": self.config.STREAMING_CONTAINERS,
+            }
+
         try:
             # Ensure the config directory exists
             os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
@@ -963,6 +1208,7 @@ class ConfigManager:
             raise ConfigNotWritableException from exc
 
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
+        fs_slug = fs_slug.lower()
         platform_bindings = self.config.PLATFORMS_BINDING
         if fs_slug in platform_bindings:
             log.warning(f"Binding for {hl(fs_slug)} already exists")
@@ -976,7 +1222,7 @@ class ConfigManager:
         platform_bindings = self.config.PLATFORMS_BINDING
 
         try:
-            del platform_bindings[fs_slug]
+            del platform_bindings[fs_slug.lower()]
         except KeyError:
             pass
 
@@ -984,6 +1230,7 @@ class ConfigManager:
         self._update_config_file()
 
     def add_platform_version(self, fs_slug: str, slug: str) -> None:
+        fs_slug = fs_slug.lower()
         platform_versions = self.config.PLATFORMS_VERSIONS
         if fs_slug in platform_versions:
             log.warning(f"Version for {hl(fs_slug)} already exists")
@@ -997,7 +1244,7 @@ class ConfigManager:
         platform_versions = self.config.PLATFORMS_VERSIONS
 
         try:
-            del platform_versions[fs_slug]
+            del platform_versions[fs_slug.lower()]
         except KeyError:
             pass
 
@@ -1025,6 +1272,44 @@ class ConfigManager:
             pass
 
         self.config.__setattr__(exclusion_type, config_item)
+        self._update_config_file()
+
+    def update_scan_settings(
+        self,
+        *,
+        metadata_priority: list[str],
+        artwork_priority: list[str],
+        artwork_overrides: dict[str, list[str] | None],
+        region_priority: list[str],
+        language_priority: list[str],
+        media: list[str],
+        gamelist_export: bool,
+        gamelist_thumbnail: str,
+        gamelist_image: str,
+        pegasus_export: bool,
+    ) -> None:
+        """Replace the whole scan.* section and persist it to config.yml.
+
+        `artwork_overrides` is keyed by the user-facing config key
+        (cover/screenshot/manual); a None value clears that override.
+        """
+        self.config.SCAN_METADATA_PRIORITY = metadata_priority
+        self.config.SCAN_ARTWORK_PRIORITY = artwork_priority
+
+        overrides: dict[str, list[str]] = {}
+        for key, field in ARTWORK_PRIORITY_KEYS.items():
+            value = artwork_overrides.get(key)
+            if value is not None:
+                overrides[field] = value
+        self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES = overrides
+
+        self.config.SCAN_REGION_PRIORITY = region_priority
+        self.config.SCAN_LANGUAGE_PRIORITY = language_priority
+        self.config.SCAN_MEDIA = media
+        self.config.GAMELIST_AUTO_EXPORT_ON_SCAN = gamelist_export
+        self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
+        self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
+        self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
         self._update_config_file()
 
 

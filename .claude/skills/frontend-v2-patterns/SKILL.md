@@ -41,7 +41,19 @@ How v2 features behave. Each pattern has one canonical mechanism — don't inven
 2. **Bookmarkable session state** (active filters, search query, sort, current tab in detail views) → **URL query params**. Anyone copying the link reproduces what they see. **Active gallery filter must be in URL.**
 3. **Ephemeral session state** (open dialog, hover, expansion) → `ref` if local, Pinia store if cross-component within the session.
 
-Don't push state into `useUISettings` "so it persists" — follow the rule above.
+Don't push state into `useUISettings` "so it persists", follow the rule above. Layer 3 never touches `localStorage`: if a value has to survive a reload, it is layer 1 or the per-entity variant below, not ephemeral state.
+
+**Per-entity device preferences** (a bezel hidden for one game, the core picked for one game) are a narrow variant of layer 1: they persist per device but stay out of `useUISettings`, because they are keyed by entity rather than global and must not sync to `user.ui_settings`. Use `useLocalStorage` from VueUse with `writeDefaults: false` and a `serializer`, not a `ref` plus a `watch` plus `localStorage.setItem`. Key it off the route param so it binds before the entity resolves, and make the read fail safe to the default so a stale value can't wedge the view.
+
+## D2. Async and reactive lifecycle
+
+Three mistakes that keep reaching review:
+
+1. **Snapshot before the first `await`.** Any reactive value a decision depends on can move while requests are in flight. Read it into a local before the call, not between calls: `const wasAllFavorited = allFavorited.value` goes above `await ensureFavoriteCollection()`, because the response replaces the very `rom_ids` that `allFavorited` derives from.
+2. **Watch the narrowest source.** `watch(() => authStore.user, ...)` refires on every unrelated profile update, which then needs a manual "already ran for this id" flag. Watch a derived primitive instead so the watch is self-guarding: `() => user?.oauth_scopes.includes("tasks.run") ? user.id : null`.
+3. **Guard late resolutions with `useIsAlive()`** (`src/v2/composables/useIsAlive/`), not a local `unmounted` flag plus `onBeforeUnmount`. It uses `onScopeDispose`, so it also works inside another composable. VueUse's `useMounted` is not a substitute.
+
+Name a helper for what it touches: `syncCachedRom`, not `syncRom`, when it updates the cache and does not fetch.
 
 ## E. Pagination & infinite scroll
 

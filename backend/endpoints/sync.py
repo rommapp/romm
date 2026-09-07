@@ -32,6 +32,7 @@ from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
 from utils.datetime import to_utc
 from utils.router import APIRouter
+from utils.validation import MAX_ROM_IDS_PER_QUERY, RomIdScope
 
 router = APIRouter(
     prefix="/sync",
@@ -40,18 +41,55 @@ router = APIRouter(
 
 
 class ClientSaveState(BaseModel):
-    rom_id: int
-    file_name: str
-    slot: str | None = None
-    emulator: str | None = None
-    content_hash: str | None = None
-    updated_at: datetime
-    file_size_bytes: int
+    rom_id: int = Field(description="ID of the ROM this save belongs to.")
+    file_name: str = Field(description="Name of the save file on the client.")
+    slot: str | None = Field(
+        default=None,
+        description=(
+            "Save slot name. Saves are paired between client and server on "
+            "(rom_id, slot), so provide a stable slot name (e.g. 'autosave') to "
+            "keep a save in sync across negotiations. A null slot is treated as "
+            "an archival, manual-upload save: it is never paired with slotted "
+            "server saves, so a null-slot client save always negotiates as an "
+            "'upload' even when an identical file already exists on the server "
+            "under a slot."
+        ),
+    )
+    emulator: str | None = Field(
+        default=None, description="Emulator that produced the save, if known."
+    )
+    content_hash: str | None = Field(
+        default=None,
+        description="Hash of the save contents, used to detect identical saves.",
+    )
+    updated_at: datetime = Field(
+        description="Last-modified timestamp of the save on the client."
+    )
+    file_size_bytes: int = Field(description="Size of the save file in bytes.")
 
 
 class SyncNegotiatePayload(BaseModel):
-    device_id: str | None = None
-    saves: list[ClientSaveState]
+    device_id: str | None = Field(
+        default=None,
+        description=(
+            "ID of the syncing device. Optional when the request uses a "
+            "device-bound client token, in which case the device is inferred "
+            "from the token."
+        ),
+    )
+    saves: list[ClientSaveState] = Field(
+        description="Current save state on the client."
+    )
+    rom_ids: RomIdScope = Field(
+        default=None,
+        description=(
+            "IDs of the ROMs installed on the device. When provided, downloads "
+            "are offered only for these ROMs (plus any ROM the client sent a "
+            "save for) instead of the user's whole save library. This is a "
+            "read-only scope: omitting a ROM never deletes or unlinks its "
+            f"saves. At most {MAX_ROM_IDS_PER_QUERY} IDs per request."
+        ),
+    )
 
 
 class SyncPlaySessionEntry(BaseModel):
@@ -85,6 +123,19 @@ def negotiate_sync(
 
     The client sends its current save state, and the server returns a list of
     operations (upload, download, conflict, no_op) to bring both sides in sync.
+
+    A client that only holds part of the library can send `rom_ids` to scope the
+    negotiation to the ROMs installed on the device, which keeps the response
+    from listing downloads for ROMs it cannot play. The scope is read-only: a
+    ROM left out is simply outside this negotiation, never a deletion signal.
+
+    Saves are paired on (rom_id, slot). Clients that want a save to stay in sync
+    should send a stable, non-null slot name (e.g. "autosave"). Null-slot saves
+    are treated as archival, manual uploads: they are excluded from pairing, so a
+    null-slot client save always negotiates as an "upload" even when an identical
+    file (same content_hash) already exists on the server under a slot. This is
+    intentional, since saves can be cloned across slots and null slots overlap
+    with manual uploads.
     """
     device_id: str | None = payload.device_id or getattr(
         request.state, "device_id", None
@@ -125,9 +176,17 @@ def negotiate_sync(
 
     operations: list[SyncOperationSchema] = []
 
+    # Widen an explicit ROM scope with the ROMs the client sent saves for, so a
+    # client save is never misread as an upload just because its ROM was omitted.
+    rom_id_scope = (
+        payload.rom_ids + [s.rom_id for s in payload.saves]
+        if payload.rom_ids is not None
+        else None
+    )
+
     # Pair on (rom_id, slot), keeping the newest row per slot: slot uploads are datetime-tagged (spec) so tagged filenames never equal the client's untagged name, and a slot accrues many rows over time. Null-slot rows stay archival-only.
     server_saves = db_save_handler.get_saves(
-        user_id=request.user.id, slot_not_null=True
+        user_id=request.user.id, slot_not_null=True, rom_ids=rom_id_scope
     )
     server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
@@ -136,10 +195,10 @@ def negotiate_sync(
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
 
-    # Get all sync records for this device
-    all_save_ids = [s.id for s in server_saves]
+    # Only the newest row per slot is ever looked up, so superseded rows stay out.
+    current_save_ids = [s.id for s in server_save_map.values()]
     device_syncs = db_device_save_sync_handler.get_syncs_for_device_and_saves(
-        device_id=device.id, save_ids=all_save_ids
+        device_id=device.id, save_ids=current_save_ids
     )
     sync_by_save_id = {s.save_id: s for s in device_syncs}
 

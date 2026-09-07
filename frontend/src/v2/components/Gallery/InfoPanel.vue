@@ -59,13 +59,14 @@ withDefaults(
 <style scoped>
 .info-panel {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 40px;
   padding: 28px 0;
 }
 
 .info-panel__cover {
   flex-shrink: 0;
+  align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -152,5 +153,8 @@ html[data-bp~="xs"] .info-panel__providers {
 }
 html[data-bp~="xs"] .info-panel__stats {
   gap: 16px;
+}
+html[data-bp~="xs"] .info-panel__cover {
+  align-self: center;
 }
 </style>

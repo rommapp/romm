@@ -34,6 +34,9 @@ interface LogRow extends LogEntry {
   // stable key keeps virtual-scroller rows from re-patching on front
   // eviction.
   seq: number;
+  // The message as emitted, before newline folding. What the tooltip,
+  // the clipboard and the downloaded file use.
+  raw: string;
 }
 
 // Cap the in-memory buffer so a long-lived view holds memory flat.
@@ -58,11 +61,18 @@ const search = ref("");
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 
+// A record can carry embedded newlines: a provider logging a formatted JSON
+// body, a traceback. Rows are one line tall, so a message rendered with
+// `white-space: pre` painted over the rows the scroller placed after it.
+const NEWLINE_RE = /\r?\n\s*/g;
+
 let seqCounter = 0;
 function toRow(entry: LogEntry): LogRow {
+  const raw = entry.message.replace(ANSI_RE, "");
   return {
     ...entry,
-    message: entry.message.replace(ANSI_RE, ""),
+    message: raw.trim().replace(NEWLINE_RE, " ⏎ "),
+    raw,
     seq: seqCounter++,
   };
 }
@@ -108,7 +118,7 @@ const filtered = computed<LogRow[]>(() => {
     if (mod !== "ALL" && e.module !== mod) return false;
     if (
       q &&
-      !e.message.toLowerCase().includes(q) &&
+      !e.raw.toLowerCase().includes(q) &&
       !e.module.toLowerCase().includes(q)
     ) {
       return false;
@@ -204,7 +214,7 @@ function formatTime(ts: number) {
 }
 
 function asLine(e: LogRow) {
-  return `[${new Date(e.ts).toISOString()}] ${e.level} [${e.module}] ${e.message}`;
+  return `[${new Date(e.ts).toISOString()}] ${e.level} [${e.module}] ${e.raw}`;
 }
 
 async function copyLogs() {
@@ -276,42 +286,44 @@ function downloadLogs() {
         :aria-label="t('logs.search-placeholder')"
       />
       <div class="r-v2-logs__spacer" />
-      <RBtn
-        :icon="paused ? 'mdi-play' : 'mdi-pause'"
-        variant="text"
-        density="compact"
-        :color="paused ? 'primary' : undefined"
-        :tooltip="paused ? t('logs.resume') : t('logs.pause')"
-        :aria-label="paused ? t('logs.resume') : t('logs.pause')"
-        @click="togglePause"
-      />
-      <RBtn
-        icon="mdi-content-copy"
-        variant="text"
-        density="compact"
-        :disabled="filtered.length === 0"
-        :tooltip="t('logs.copy')"
-        :aria-label="t('logs.copy')"
-        @click="copyLogs"
-      />
-      <RBtn
-        icon="mdi-download"
-        variant="text"
-        density="compact"
-        :disabled="filtered.length === 0"
-        :tooltip="t('logs.download')"
-        :aria-label="t('logs.download')"
-        @click="downloadLogs"
-      />
-      <RBtn
-        icon="mdi-notification-clear-all"
-        variant="text"
-        density="compact"
-        :disabled="entries.length === 0"
-        :tooltip="t('logs.clear')"
-        :aria-label="t('logs.clear')"
-        @click="clearLogs"
-      />
+      <div class="r-v2-logs__actions">
+        <RBtn
+          :icon="paused ? 'mdi-play' : 'mdi-pause'"
+          variant="text"
+          density="compact"
+          :color="paused ? 'primary' : undefined"
+          :tooltip="paused ? t('logs.resume') : t('logs.pause')"
+          :aria-label="paused ? t('logs.resume') : t('logs.pause')"
+          @click="togglePause"
+        />
+        <RBtn
+          icon="mdi-content-copy"
+          variant="text"
+          density="compact"
+          :disabled="filtered.length === 0"
+          :tooltip="t('logs.copy')"
+          :aria-label="t('logs.copy')"
+          @click="copyLogs"
+        />
+        <RBtn
+          icon="mdi-download"
+          variant="text"
+          density="compact"
+          :disabled="filtered.length === 0"
+          :tooltip="t('logs.download')"
+          :aria-label="t('logs.download')"
+          @click="downloadLogs"
+        />
+        <RBtn
+          icon="mdi-notification-clear-all"
+          variant="text"
+          density="compact"
+          :disabled="entries.length === 0"
+          :tooltip="t('logs.clear')"
+          :aria-label="t('logs.clear')"
+          @click="clearLogs"
+        />
+      </div>
     </div>
 
     <div class="r-v2-logs__panel">
@@ -332,7 +344,7 @@ function downloadLogs() {
               location="top start"
               max-width="min(80vw, 900px)"
               hint-icon="mdi-content-copy"
-              :text="(item as LogRow).message"
+              :text="(item as LogRow).raw"
               :hint="t('logs.click-to-copy')"
             />
             <span class="r-v2-logs__time">{{
@@ -410,6 +422,38 @@ function downloadLogs() {
   flex: 1 1 auto;
 }
 
+.r-v2-logs__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+/* Phones: the single control row overflows off the right edge. Wrap it into
+   two: the level + module selectors share the first row; the search field and
+   the action buttons share the second. */
+html[data-bp~="sm-and-down"] .r-v2-logs__toolbar {
+  flex-wrap: wrap;
+}
+html[data-bp~="sm-and-down"] .r-v2-logs__level-select,
+html[data-bp~="sm-and-down"] .r-v2-logs__module-select {
+  width: auto;
+  flex: 1 1 calc(50% - 5px);
+  min-width: 0;
+}
+html[data-bp~="sm-and-down"] .r-v2-logs__search {
+  width: auto;
+  /* Small, non-zero basis: >0 so it wraps off the (full) first row, small
+     enough that it + the action cluster still share the second row on a 320px
+     screen. It grows to fill the leftover width. */
+  flex: 1 1 110px;
+  min-width: 0;
+}
+/* Search grows to fill the second row; the action cluster sits to its right. */
+html[data-bp~="sm-and-down"] .r-v2-logs__spacer {
+  display: none;
+}
+
 .r-v2-logs__panel {
   position: relative;
   flex: 1;
@@ -440,6 +484,9 @@ function downloadLogs() {
   font-size: var(--r-font-size-sm);
   line-height: 24px;
   white-space: nowrap;
+  /* Structural guard: the row is one line tall, so anything taller would
+     paint over the rows the scroller placed after it. */
+  overflow: hidden;
   color: var(--r-color-fg-secondary);
   cursor: pointer;
 }

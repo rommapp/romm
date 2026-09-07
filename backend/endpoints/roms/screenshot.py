@@ -11,18 +11,21 @@ from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile, RomFileCategory
-from utils.router import APIRouter
-from utils.screenshots import (
-    ALLOWED_SCREENSHOT_EXTENSIONS,
-    is_allowed_screenshot_file,
+from utils.media_types import (
+    ALLOWED_IMAGE_EXTENSIONS,
+    is_allowed_image_file,
 )
+from utils.router import APIRouter
 
 router = APIRouter()
 
@@ -53,11 +56,15 @@ async def add_rom_screenshots(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    assert_rom_visible(request, rom)
+
     if rom.has_simple_single_file:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Screenshots can only be uploaded to folder-based ROMs",
-        )
+        try:
+            rom = await promote_single_file_to_folder(rom)
+        except RomAlreadyExistsException as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            ) from exc
 
     try:
         safe_filename = fs_rom_handler._sanitize_filename(filename)
@@ -75,12 +82,12 @@ async def add_rom_screenshots(
             detail="Upload filename must be a plain file name, not a path",
         )
 
-    if not is_allowed_screenshot_file(safe_filename):
+    if not is_allowed_image_file(safe_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Unsupported image file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_SCREENSHOT_EXTENSIONS))}"
+                f"{', '.join(sorted(ALLOWED_IMAGE_EXTENSIONS))}"
             ),
         )
 
@@ -159,6 +166,8 @@ async def delete_rom_screenshot(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (

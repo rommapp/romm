@@ -56,6 +56,7 @@ onMounted(async () => {
     ref="shellRef"
     :has-header="true"
     :search-placeholder="t('rom.search-placeholder')"
+    autofocus-search
     :empty-message="emptyMessage"
     :skeleton-row-count="4"
   >

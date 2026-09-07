@@ -6,5 +6,13 @@ export type SGDBResource = {
     thumb: string;
     url: string;
     type: string;
+    width: number;
+    height: number;
+    style: string;
+    author: string;
+    score: number;
+    nsfw: boolean;
+    humor: boolean;
+    epilepsy: boolean;
 };
 

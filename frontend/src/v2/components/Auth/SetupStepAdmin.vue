@@ -212,6 +212,7 @@ const abilities = [
         :label="t('settings.repeat-password')"
         autocomplete="new-password"
         :rules="repeatPasswordRules"
+        class="r-setup-admin__repeat"
         @update:model-value="(v: string) => (draft.repeatPassword = v)"
       />
     </RForm>
@@ -228,11 +229,17 @@ const abilities = [
   align-items: center;
 }
 
-@media (max-width: 800px) {
-  .r-setup-admin {
-    grid-template-columns: 1fr;
-    gap: var(--r-space-5);
-  }
+html[data-bp~="sm-and-down"] .r-setup-admin {
+  grid-template-columns: 1fr;
+  gap: var(--r-space-5);
+  /* The body clips (overflow: hidden) so this step scrolls its own content,
+     like the other steps — otherwise the stacked intro + form overflow and
+     the last field (with its bottom margin) gets cut off. Align to the top so
+     the scroll starts at the first row; the layer promotion keeps the region
+     from collapsing when the form re-renders on input. */
+  align-content: start;
+  overflow-y: auto;
+  transform: translateZ(0);
 }
 
 /* ── Left intro panel ────────────────────────────────────────────── */
@@ -244,13 +251,11 @@ const abilities = [
   justify-self: end;
 }
 
-@media (max-width: 800px) {
-  .r-setup-admin__intro {
-    justify-self: stretch;
-    max-width: none;
-    align-items: center;
-    text-align: center;
-  }
+html[data-bp~="sm-and-down"] .r-setup-admin__intro {
+  justify-self: stretch;
+  max-width: none;
+  align-items: center;
+  text-align: center;
 }
 
 /* Avatar — clickable round button sits next to a small trash icon that
@@ -265,10 +270,8 @@ const abilities = [
   align-self: flex-start;
 }
 
-@media (max-width: 800px) {
-  .r-setup-admin__avatar-row {
-    align-self: center;
-  }
+html[data-bp~="sm-and-down"] .r-setup-admin__avatar-row {
+  align-self: center;
 }
 
 .r-setup-admin__avatar-trash {
@@ -394,10 +397,14 @@ const abilities = [
   justify-self: start;
 }
 
-@media (max-width: 800px) {
-  .r-setup-admin__form {
-    justify-self: stretch;
-    max-width: none;
-  }
+html[data-bp~="sm-and-down"] .r-setup-admin__form {
+  justify-self: stretch;
+  max-width: none;
+}
+
+/* A little breathing room under the last field so it doesn't sit flush
+   against the card footer / scroll edge. */
+.r-setup-admin__repeat {
+  margin-bottom: var(--r-space-4);
 }
 </style>

@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:11.3.2
         ports:
           - 3306:3306
         env:
           MYSQL_ROOT_PASSWORD: passwd
-        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=2s --health-retries=3
       valkey:
         image: valkey/valkey:7.2
         ports:
@@ -24,13 +24,13 @@ jobs:
         options: --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.3.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6.7.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Install Python
-        run: uv python install 3.13
+        run: uv python install
 
       - name: Install system dependencies
         run: sudo apt-get install -y libmariadb3 libmariadb-dev libpq-dev
@@ -39,7 +39,7 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: frontend/.nvmrc
 

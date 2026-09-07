@@ -33,8 +33,10 @@ import {
   getMatchSources,
   type MatchedSource,
 } from "@/v2/components/MatchRom/types";
+import { useCoverFilters } from "@/v2/composables/useCoverFilters";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RSelect from "@/v2/lib/forms/RSelect/RSelect.vue";
+import RSwitch from "@/v2/lib/forms/RSwitch/RSwitch.vue";
 import RTextField from "@/v2/lib/forms/RTextField/RTextField.vue";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
@@ -49,12 +51,9 @@ const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 
-type CoverType = "all" | "static" | "animated";
-
 const show = ref(false);
 const searching = ref(false);
 const searchText = ref("");
-const coverType = ref<CoverType>("all");
 const covers = ref<SearchCoverSchema[]>([]);
 // Source rom for the in-flight search — drives the optional
 // `/search/roms` companion call. Reset on close so a follow-up open
@@ -63,27 +62,43 @@ const covers = ref<SearchCoverSchema[]>([]);
 const sourceRom = ref<SimpleRom | null>(null);
 const providerCovers = ref<MatchedSource[]>([]);
 
-const coverTypeItems = computed(() => [
-  { title: t("rom.cover-type-all"), value: "all" },
-  { title: t("rom.cover-type-static"), value: "static" },
-  { title: t("rom.cover-type-animated"), value: "animated" },
-]);
+// Client-side filtering + sorting over the two fetched lists. The
+// backend returns every content variant (NSFW / humor / epilepsy) with
+// its per-cover metadata in one call, so the controls just narrow the
+// already-loaded results — no re-fetch.
+const {
+  coverType,
+  resolutionFilter,
+  styleFilter,
+  uploaderFilter,
+  uploaderSearch,
+  showNsfw,
+  showHumor,
+  showEpilepsy,
+  sortMode,
+  resetFilters,
+  coverTypeItems,
+  resolutionItems,
+  resolutionValues,
+  styleItems,
+  styleValues,
+  uploaderItems,
+  uploaderValues,
+  filteredCovers,
+  visibleProviderCovers,
+  hasSgdbCovers,
+  showProviderCovers,
+  hasRawResults,
+  hasResults,
+} = useCoverFilters(covers, providerCovers);
 
-// Filter happens after the search returns — splitting the source list
-// and the visible list keeps the type-filter snappy without re-hitting
-// the API for every flip. SGDB sometimes returns a game entry with an
-// empty `resources` array (matched the title but no covers in the
-// requested set); we drop those unconditionally so the accordion
-// doesn't render an empty section.
-const filteredCovers = computed<SearchCoverSchema[]>(() => {
-  const base =
-    coverType.value === "all"
-      ? covers.value
-      : covers.value.map((game) => ({
-          ...game,
-          resources: game.resources.filter((r) => r.type === coverType.value),
-        }));
-  return base.filter((g) => g.resources.length > 0);
+// `sortMode` is a two-value enum; expose it to the toggle as a boolean —
+// on sorts by votes, off falls back to relevance.
+const sortByVotes = computed({
+  get: () => sortMode.value === "votes",
+  set: (v) => {
+    sortMode.value = v ? "votes" : "relevance";
+  },
 });
 
 // SGDB animated covers ship their `thumb` as a `.webm` clip — an `<img>`
@@ -96,19 +111,13 @@ function isAnimated(resource: SGDBResource): boolean {
   );
 }
 
-const hasSgdbResults = computed(() => filteredCovers.value.length > 0);
-const hasProviderCovers = computed(() => providerCovers.value.length > 0);
-// Provider covers (IGDB / Moby / SS / …) are static artwork only — they
-// don't carry an animated variant. Hide the panel when the user filters
-// to "animated" so it doesn't leak through and break the filter promise.
-const showProviderCovers = computed(
-  () => hasProviderCovers.value && coverType.value !== "animated",
+// A search ran and the server returned nothing at all.
+const showNoServerResults = computed(
+  () => !searching.value && searchText.value.length > 0 && !hasRawResults.value,
 );
-const hasResults = computed(
-  () => hasSgdbResults.value || showProviderCovers.value,
-);
-const showEmpty = computed(
-  () => !searching.value && searchText.value.length > 0 && !hasResults.value,
+// The server returned covers but the active filters exclude them all.
+const showNoFilterMatch = computed(
+  () => !searching.value && hasRawResults.value && !hasResults.value,
 );
 
 function openHandler({
@@ -122,6 +131,7 @@ function openHandler({
   searchText.value = term;
   covers.value = [];
   providerCovers.value = [];
+  resetFilters();
   sourceRom.value = rom ?? null;
   show.value = true;
   if (searchText.value) doSearch();
@@ -241,7 +251,7 @@ function closeDialog() {
   providerCovers.value = [];
   sourceRom.value = null;
   searchText.value = "";
-  coverType.value = "all";
+  resetFilters();
 }
 </script>
 
@@ -273,13 +283,6 @@ function closeDialog() {
             <RIcon icon="mdi-magnify" size="16" />
           </template>
         </RTextField>
-        <RSelect
-          v-model="coverType"
-          :items="coverTypeItems"
-          density="comfortable"
-          hide-details
-          class="r-v2-sgdb__type"
-        />
         <RBtn
           variant="flat"
           color="primary"
@@ -292,17 +295,76 @@ function closeDialog() {
         </RBtn>
       </div>
 
+      <!-- Filter bar -->
+      <div v-if="hasRawResults" class="r-v2-sgdb__filters">
+        <RSelect
+          v-model="coverType"
+          :items="coverTypeItems"
+          density="comfortable"
+          hide-details
+          class="r-v2-sgdb__filter"
+          :aria-label="t('rom.cover-type-all')"
+        />
+        <template v-if="hasSgdbCovers">
+          <RSelect
+            v-if="resolutionValues.length > 1"
+            v-model="resolutionFilter"
+            :items="resolutionItems"
+            density="comfortable"
+            hide-details
+            class="r-v2-sgdb__filter"
+            :aria-label="t('rom.cover-filter-resolution-all')"
+          />
+          <RSelect
+            v-if="styleValues.length > 1"
+            v-model="styleFilter"
+            :items="styleItems"
+            density="comfortable"
+            hide-details
+            class="r-v2-sgdb__filter"
+            :aria-label="t('rom.cover-filter-style-all')"
+          />
+          <RSelect
+            v-if="uploaderValues.length > 1"
+            v-model="uploaderFilter"
+            v-model:search="uploaderSearch"
+            :items="uploaderItems"
+            density="comfortable"
+            hide-details
+            searchable
+            :search-placeholder="t('common.search')"
+            class="r-v2-sgdb__filter"
+            :aria-label="t('rom.cover-filter-uploader-all')"
+          />
+        </template>
+      </div>
+
+      <template v-if="hasSgdbCovers">
+        <div class="r-v2-sgdb__toggles">
+          <div class="r-v2-sgdb__sort">
+            <span class="r-v2-sgdb__sort-label">
+              {{ t("rom.cover-sort-relevance") }}
+            </span>
+            <RSwitch v-model="sortByVotes" :label="t('rom.cover-sort-votes')" />
+          </div>
+          <div class="r-v2-sgdb__content-toggles">
+            <RSwitch v-model="showNsfw" :label="t('rom.cover-content-nsfw')" />
+            <RSwitch
+              v-model="showHumor"
+              :label="t('rom.cover-content-humor')"
+            />
+            <RSwitch
+              v-model="showEpilepsy"
+              :label="t('rom.cover-content-epilepsy')"
+            />
+          </div>
+        </div>
+      </template>
+
       <div class="r-v2-sgdb__body">
         <div v-if="searching" class="r-v2-sgdb__loading">
           <RSpinner :size="36" />
         </div>
-
-        <REmptyState
-          v-else-if="showEmpty"
-          variant="boxed"
-          icon="mdi-emoticon-confused-outline"
-          :message="t('rom.no-covers-found')"
-        />
 
         <div v-else-if="hasResults" class="r-v2-sgdb__results">
           <!-- Provider covers — one card per metadata source that
@@ -312,12 +374,11 @@ function closeDialog() {
                glance whose artwork they're picking. -->
           <RCollapsible
             v-if="showProviderCovers"
-            :title="t('rom.providers-covers')"
-            default-open
+            :title="t('rom.metadata-providers')"
           >
             <div class="r-v2-sgdb__grid">
               <button
-                v-for="src in providerCovers"
+                v-for="src in visibleProviderCovers"
                 :key="`${src.name}-${src.url_cover}`"
                 type="button"
                 class="r-v2-sgdb__cover"
@@ -378,6 +439,20 @@ function closeDialog() {
         </div>
 
         <REmptyState
+          v-else-if="showNoFilterMatch"
+          variant="boxed"
+          icon="mdi-filter-remove-outline"
+          :message="t('rom.no-covers-match-filters')"
+        />
+
+        <REmptyState
+          v-else-if="showNoServerResults"
+          variant="boxed"
+          icon="mdi-emoticon-confused-outline"
+          :message="t('rom.no-covers-found')"
+        />
+
+        <REmptyState
           v-else
           variant="boxed"
           icon="mdi-image-search-outline"
@@ -399,8 +474,45 @@ function closeDialog() {
   flex: 1 1 auto;
   min-width: 0;
 }
-.r-v2-sgdb__type {
-  flex: 0 0 140px;
+
+/* Filter bar — wraps onto multiple rows on narrow dialogs so no control
+   is ever clipped. Each select takes a comfortable fixed width; the
+   content toggles group flows to the end. */
+.r-v2-sgdb__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+}
+.r-v2-sgdb__filter {
+  flex: 0 1 160px;
+  min-width: 130px;
+}
+.r-v2-sgdb__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+/* Sort control floats left; its "off" option label sits to the left of
+   the switch so the toggle reads Relevance ↔ Most votes. */
+.r-v2-sgdb__sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.r-v2-sgdb__sort-label {
+  font-size: 13px;
+  font-weight: var(--r-font-weight-medium);
+  color: var(--r-color-fg);
+}
+/* Content toggles group flows to the end of the row. */
+.r-v2-sgdb__content-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
 }
 
 .r-v2-sgdb__body {

@@ -52,7 +52,12 @@ const mosaicSlots = computed(() => {
       </div>
     </template>
     <template v-else-if="displayCovers.length === 1">
-      <img :src="displayCovers[0] ?? undefined" alt="" />
+      <img
+        :src="displayCovers[0] ?? undefined"
+        alt=""
+        loading="lazy"
+        decoding="async"
+      />
     </template>
     <template v-else>
       <img
@@ -60,6 +65,8 @@ const mosaicSlots = computed(() => {
         :key="`m-${i}`"
         :src="cover"
         alt=""
+        loading="lazy"
+        decoding="async"
       />
     </template>
   </div>

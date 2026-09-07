@@ -3,6 +3,7 @@
 #   - backend-build: Build backend environment
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
+#   - sigil-build: Build sigil Python bindings (title ID extraction)
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -15,14 +16,15 @@
 # ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.23
 ARG ALPINE_SHA256=25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
-ARG PYTHON_VERSION=3.13
-ARG PYTHON_ALPINE_SHA256=bb1f2fdb1065c85468775c9d680dcd344f6442a2d1181ef7916b60a623f11d40
+# Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
+ARG PYTHON_VERSION=3.14
+ARG PYTHON_ALPINE_SHA256=8caa2adfeb414dfe68d8b257f7aea9e205a400521c2b13b2d2e5e731fb8e70e5
 ARG NODE_VERSION=24.16
 ARG NODE_ALPINE_SHA256=2bdb65ed1dab192432bc31c95f94155ca5ad7fc1392fb7eb7526ab682fa5bf14
 ARG NGINX_VERSION=1.29.5
 ARG NGINX_SHA256=1d13701a5f9f3fb01aaa88cef2344d65b6b5bf6b7d9fa4cf0dca557a8d7702ba
 ARG UV_VERSION=0.11.2
-ARG UV_SHA256=db7642df9c7e6214d4d7df81cfc3e8327768dd15565b1eb414bb83004f64d463
+ARG UV_SHA256=f661eb5c4ea5aae705674c4bc5052a4a0b5148db95452395dbececa1e9e7a1ec
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -40,6 +42,13 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 
 COPY ./frontend ./
 RUN npm run build
+
+
+# BACKEND NODE HELPERS BUILD (server-side ROM patching via RomPatcher.js)
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS backend-node-build
+WORKDIR /backend-node/rom_patcher
+COPY ./backend/utils/rom_patcher/package*.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
 
 
 # https://github.com/astral-sh/uv/pkgs/container/uv/452595714
@@ -97,7 +106,34 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
-# FETCH EMULATORJS AND RUFFLE
+# SIGIL TITLE ID EXTRACTION LIBRARY
+# Built from python-alias (not plain alpine) so the cffi extension matches the
+# CPython ABI of the venv produced in backend-build.
+FROM python-alias AS sigil-build
+RUN apk add --no-cache \
+    cmake \
+    g++ \
+    git \
+    make \
+    musl-dev
+
+# Keep this pin in sync with the dev image's SIGIL_VERSION in ../Dockerfile.
+ARG SIGIL_VERSION=9665f03c04d0f547ed38dd5e5e31916c1da5f2e9
+
+RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git && \
+    cd ./argosy-sigil && \
+    git checkout "${SIGIL_VERSION}" && \
+    git submodule update --init --recursive && \
+    cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
+    cmake --build ./build-python --target sigil && \
+    pip install --no-cache-dir cffi setuptools && \
+    cd ./bindings/python && \
+    python build_sigil.py && \
+    mkdir /sigil-pkg && \
+    cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
+
+
+# FETCH EMULATORJS, RUFFLE AND JS-DOS
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \
@@ -121,6 +157,18 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
     echo "${RUFFLE_SHA256}  ${RUFFLE_FILE}" | sha256sum -c - && \
     unzip -o "${RUFFLE_FILE}" -d /ruffle && \
     rm -f "${RUFFLE_FILE}"
+
+ARG JSDOS_VERSION=8.4.1
+ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
+
+# The bundled index.html is a js-dos demo page that would be served unauthenticated;
+# source maps, Emscripten symbol files and type declarations are unused at runtime.
+RUN wget "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" -O jsdos.zip && \
+    echo "${JSDOS_SHA256}  jsdos.zip" | sha256sum -c - && \
+    unzip -o jsdos.zip -d /jsdos && \
+    rm -f jsdos.zip && \
+    rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
+    find /jsdos/dist \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
@@ -160,12 +208,15 @@ ARG WEBSERVER_FOLDER=/var/www/html
 
 RUN apk add --no-cache \
     bash \
+    libarchive-tools \
     libmagic \
     mariadb-connector-c \
     libpq \
+    nodejs \
     7zip \
     tzdata \
-    valkey
+    valkey \
+    valkey-cli
 
 # Add Python by copying it from the official Docker image. This way, we don't rely on Alpine's
 # Python version, which could not be the same as the one used in the backend build stage.
@@ -181,6 +232,7 @@ COPY --from=python-alias /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/p
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
+COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
@@ -213,7 +265,19 @@ COPY --from=production-stage / /
 
 COPY --from=backend-build /src/.venv /src/.venv
 
+# Optional sigil bindings for title ID extraction; the backend feature
+# no-ops when the package is absent.
+ARG PYTHON_VERSION
+COPY --from=sigil-build /sigil-pkg /src/.venv/lib/python${PYTHON_VERSION}/site-packages/sigil
+
 ENV PATH="/src/.venv/bin:${PATH}"
+
+# ScreenScraper developer (application) credentials, injected at build time from
+# CI secrets. Kept out of the source tree; empty when not supplied at build.
+ARG SCREENSCRAPER_DEV_ID
+ARG SCREENSCRAPER_DEV_PASSWORD
+ENV SCREENSCRAPER_DEV_ID=${SCREENSCRAPER_DEV_ID}
+ENV SCREENSCRAPER_DEV_PASSWORD=${SCREENSCRAPER_DEV_PASSWORD}
 
 # Security: Set security-focused environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -237,6 +301,7 @@ FROM slim-image AS full-image
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
+COPY --from=emulator-stage /jsdos/dist ${WEBSERVER_FOLDER}/assets/jsdos
 
 
 FROM slim-image AS dev-slim

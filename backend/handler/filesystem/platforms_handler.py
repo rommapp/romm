@@ -1,3 +1,4 @@
+import fnmatch
 import os
 
 from anyio import Path as AnyioPath
@@ -19,7 +20,10 @@ class FSPlatformsHandler(FSHandler):
         return [
             platform
             for platform in platforms
-            if platform not in cnfg.EXCLUDED_PLATFORMS
+            if not any(
+                platform == excluded or fnmatch.fnmatch(platform, excluded)
+                for excluded in cnfg.EXCLUDED_PLATFORMS
+            )
         ]
 
     def create_library_structure(self) -> None:
@@ -114,6 +118,10 @@ class FSPlatformsHandler(FSHandler):
                 log.error("Failed to create default library structure", exc_info=True)
             return []
 
+        # Exclude before touching the directories so unreadable system folders
+        # (e.g. Synology's #recycle) are never stat'ed
+        platforms = self._exclude_platforms(platforms)
+
         # For Structure B, only include directories that have a roms subfolder
         structure = self.detect_library_structure()
         if structure == LibraryStructure.B:
@@ -122,8 +130,16 @@ class FSPlatformsHandler(FSHandler):
                 roms_path = AnyioPath(
                     os.path.join(LIBRARY_BASE_PATH, platform, cnfg.ROMS_FOLDER_NAME)
                 )
-                if await roms_path.exists():
+                try:
+                    has_roms_folder = await roms_path.exists()
+                except OSError:
+                    log.warning(
+                        f"Skipping unreadable library directory: {platform}",
+                        exc_info=True,
+                    )
+                    continue
+                if has_roms_folder:
                     filtered_platforms.append(platform)
             platforms = filtered_platforms
 
-        return self._exclude_platforms(platforms)
+        return platforms

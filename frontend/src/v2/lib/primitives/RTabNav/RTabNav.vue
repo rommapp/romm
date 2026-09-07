@@ -161,7 +161,7 @@ onBeforeUnmount(() => {
       <RImg
         v-if="t.image"
         :src="t.image"
-        :alt="t.label"
+        alt=""
         width="1em"
         height="1em"
         contain
@@ -199,7 +199,18 @@ onBeforeUnmount(() => {
 }
 .r-tab-nav--horizontal {
   flex-direction: row;
+  /* Scroll horizontally to reach overflowing tabs, but stay OUT of the
+     vertical axis: `overflow-y: hidden` (not the `auto` that `overflow-x`
+     would otherwise force) means the strip isn't a vertical scroll
+     container, so a vertical-dominant touch swipe isn't latched here — it
+     chains to the page scroller and the view still scrolls when the swipe
+     starts on the tabs. (`touch-action: pan-x` can't do this: per spec it
+     removes vertical panning from the whole gesture, freezing the page.)
+     `overscroll-behavior-x: contain` stops the horizontal overscroll from
+     chaining / rubber-banding. */
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
 .r-tab-nav--horizontal::-webkit-scrollbar {
@@ -215,6 +226,11 @@ onBeforeUnmount(() => {
   border: none;
   cursor: pointer;
   white-space: nowrap;
+  /* Anchor + own stacking context for the contained focus highlight
+     (below), so its `z-index: -1` pseudo stays behind the label but above
+     the button's own background. The underlined variant raises this to 1. */
+  position: relative;
+  z-index: 0;
   /* Keep natural width so the horizontal nav scrolls on overflow
      (`.r-tab-nav--horizontal { overflow-x: auto }`) instead of squishing
      the tabs below their content on narrow viewports. */
@@ -252,6 +268,32 @@ onBeforeUnmount(() => {
 .r-tab-nav__label {
   flex: 1;
   text-align: left;
+}
+
+/* ---------- Focus ----------
+   The global modality-gated ring (global.css) is an `outline`, which the
+   nav's `overflow-y: hidden` clip slices into two vertical slivers on
+   either side of the focused tab. Suppress it and paint a contained,
+   rounded highlight that lives INSIDE the button (a pseudo-element, so
+   nothing can be clipped away). Gated to keyboard / pad exactly like the
+   global rule. The `::before` sits behind the label (z-index: -1) and
+   leaves the bottom edge clear so the active tab's underline still reads. */
+html:not([data-input]) .r-tab-nav__btn:focus-visible,
+html[data-input="key"] .r-tab-nav__btn:focus-visible,
+html[data-input="pad"] .r-tab-nav__btn:focus-visible {
+  outline: none;
+}
+html:not([data-input]) .r-tab-nav__btn:focus-visible::before,
+html[data-input="key"] .r-tab-nav__btn:focus-visible::before,
+html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
+  content: "";
+  position: absolute;
+  inset: 3px 3px 5px;
+  z-index: -1;
+  border-radius: var(--r-radius-sm);
+  background: var(--r-color-surface-hover);
+  box-shadow: inset 0 0 0 2px var(--r-color-focus);
+  pointer-events: none;
 }
 
 /* ---------- Underlined variant (horizontal only) ---------- */
@@ -376,10 +418,10 @@ onBeforeUnmount(() => {
   color: var(--r-color-brand-primary);
 }
 
-@media (max-width: 768px) {
-  .r-tab-nav--underlined.r-tab-nav--default .r-tab-nav__btn {
-    padding: 8px 14px;
-    font-size: 12px;
-  }
+html[data-bp~="sm-and-down"]
+  .r-tab-nav--underlined.r-tab-nav--default
+  .r-tab-nav__btn {
+  padding: 8px 14px;
+  font-size: 12px;
 }
 </style>

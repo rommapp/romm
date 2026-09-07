@@ -2,6 +2,10 @@ name: Update HowLongToBeat API URL
 
 on:
   workflow_dispatch:
+  schedule:
+    # HLTB rotates the endpoint without notice, and the fixture is served to
+    # every install from master, so check weekly rather than on someone noticing.
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: write
@@ -12,26 +16,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6.7.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Install python
         run: |
-          uv python install 3.13
+          uv python install
 
       - name: Install dependencies
         run: |
           uv sync
 
       - name: Run HLTB API URL discovery script
+        # Only satisfies the backend config import; discovery authenticates nothing.
+        env:
+          # trunk-ignore(checkov/CKV_SECRET_6): placeholder, not a credential
+          ROMM_AUTH_SECRET_KEY: unused-by-endpoint-discovery
         run: |
           cd backend
           uv run python -m utils.update_hltb_api_url
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           add-paths: |
             backend/handler/metadata/fixtures/hltb_api_url

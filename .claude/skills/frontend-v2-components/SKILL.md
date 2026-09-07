@@ -9,7 +9,7 @@ This governs work inside `frontend/src/v2/`. **v1 is frozen** (`src/views/`, `sr
 
 > Official language for all code, comments, identifiers, `.md`, and commit/PR messages: **English**.
 
-Related skills: `frontend-v2-theming` (tokens/colors), `frontend-v2-input` (focus/gamepad/responsive), `frontend-v2-patterns` (errors/loading/forms/permissions/confirmations), `frontend-i18n`, `pre-pr-verification`.
+Related skills: `frontend-v2-theming` (tokens/colors), `frontend-v2-input` (focus/gamepad/responsive), `frontend-v2-patterns` (errors/loading/forms/permissions/confirmations), `frontend-i18n`, `review-polish`.
 
 ---
 

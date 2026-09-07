@@ -4,12 +4,13 @@
 // Writes `data-input` on <html> so CSS can adapt focus rings, hit targets,
 // and hint visibility per modality. A single shared instance is enough —
 // install() from the root layout mounts listeners once.
-import { onBeforeUnmount, readonly, ref } from "vue";
+import { readonly, ref } from "vue";
 
 export type InputModality = "mouse" | "touch" | "key" | "pad";
 
 const modality = ref<InputModality>("mouse");
 let installed = false;
+let teardown: (() => void) | null = null;
 
 function applyAttribute(next: InputModality) {
   if (typeof document === "undefined") return;
@@ -64,6 +65,11 @@ export function useInputModality() {
     // type takes over.
     const onGamepad = () => setModality("pad");
 
+    // App-lifetime singleton listeners — installed from whichever top-level
+    // layout mounts first (AppLayout or AuthLayout) and intentionally never
+    // removed, so the modality keeps tracking across a layout swap. Tearing
+    // them down on the first installer's unmount would drop `data-input`
+    // during the auth ↔ app transition.
     window.addEventListener("mousemove", onMouseMove, { passive: true });
     window.addEventListener("mousedown", onMouseDown, { passive: true });
     window.addEventListener("wheel", onWheel, { passive: true });
@@ -71,7 +77,10 @@ export function useInputModality() {
     window.addEventListener("keydown", onKey);
     window.addEventListener("gamepadconnected", onGamepad);
 
-    onBeforeUnmount(() => {
+    // Retained only so HMR can drop the listeners on a hot update instead of
+    // stacking a second set. In production this is never invoked — the
+    // listeners are app-lifetime by design (see the note above).
+    teardown = () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("wheel", onWheel);
@@ -79,7 +88,8 @@ export function useInputModality() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("gamepadconnected", onGamepad);
       installed = false;
-    });
+      teardown = null;
+    };
   }
 
   return {
@@ -87,4 +97,9 @@ export function useInputModality() {
     install,
     setModality,
   };
+}
+
+// Dev-only: remove the global listeners on hot update. No-op in production.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => teardown?.());
 }

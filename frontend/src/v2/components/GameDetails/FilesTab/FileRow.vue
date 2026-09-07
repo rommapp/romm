@@ -36,12 +36,15 @@ const props = defineProps<{
   showRowIcon: boolean;
   /** Show the trailing category chip (only useful in "All files"). */
   showCategoryBadge: boolean;
+  /** Show the per-row delete button (gated on the caller's grant). */
+  canDelete: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "toggle"): void;
   (e: "download"): void;
   (e: "copyLink"): void;
+  (e: "delete"): void;
 }>();
 
 // Shared category metadata — kept inline (instead of importing from
@@ -67,6 +70,10 @@ const CATEGORY_META = computed<
     label: t("rom.manual"),
     icon: "mdi-book-open-page-variant-outline",
   },
+  walkthrough: {
+    label: t("rom.walkthrough"),
+    icon: "mdi-map-legend",
+  },
   soundtrack: {
     label: t("rom.soundtrack"),
     icon: "mdi-music-note-outline",
@@ -90,7 +97,7 @@ function formatDuration(seconds: number | null | undefined): string | null {
 }
 
 const audioDuration = computed(() =>
-  formatDuration(props.file.audio_meta?.duration_seconds),
+  formatDuration(props.file.track_meta?.duration_seconds),
 );
 
 const hasAnyHash = computed(
@@ -154,12 +161,12 @@ const hasAnyHash = computed(
           <span class="r-v2-file-row__sep">·</span>
           <span class="r-v2-file-row__duration">{{ audioDuration }}</span>
         </template>
-        <template v-if="file.audio_meta?.title">
+        <template v-if="file.track_meta?.title">
           <span class="r-v2-file-row__sep">·</span>
           <span class="r-v2-file-row__track-title">
-            {{ file.audio_meta.title }}
-            <template v-if="file.audio_meta.artist">
-              — {{ file.audio_meta.artist }}
+            {{ file.track_meta.title }}
+            <template v-if="file.track_meta.artist">
+              — {{ file.track_meta.artist }}
             </template>
           </span>
         </template>
@@ -215,6 +222,16 @@ const hasAnyHash = computed(
         :tooltip="t('rom.copy-download-link-title')"
         :aria-label="t('rom.copy-link-for', { path: relativePath })"
         @click="emit('copyLink')"
+      />
+      <RBtn
+        v-if="canDelete"
+        icon="mdi-delete-outline"
+        variant="text"
+        color="danger"
+        size="small"
+        :tooltip="t('common.delete')"
+        :aria-label="t('rom.delete-file')"
+        @click="emit('delete')"
       />
     </div>
   </li>

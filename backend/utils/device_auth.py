@@ -10,11 +10,12 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Final
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request
 from yarl import URL
 
 from handler.redis_handler import sync_cache
 from utils.client_tokens import PAIR_ALPHABET
+from utils.rate_limit import enforce_rate_limit, get_client_ip
 
 DEVICE_CODE_BYTES: Final[int] = 32  # -> 64 hex chars
 USER_CODE_LENGTH: Final[int] = 8
@@ -71,35 +72,21 @@ def build_verification_paths(user_code: str) -> tuple[str, str]:
 
 
 def check_authorize_rate_limit(request: Request) -> None:
-    client_ip = request.client.host if request.client else "unknown"
-    key = _KEY_AUTHORIZE_RATE.format(client_ip)
-    count = sync_cache.incr(key)
-
-    # Set the TTL only when the counter is first created so the window actually resets
-    if count == 1:
-        sync_cache.expire(key, RATE_LIMIT_WINDOW_SECONDS)
-
-    if count > AUTHORIZE_RATE_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many authorize attempts. Try again later.",
-        )
+    enforce_rate_limit(
+        _KEY_AUTHORIZE_RATE.format(get_client_ip(request)),
+        max_requests=AUTHORIZE_RATE_LIMIT,
+        window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+        detail="Too many authorize attempts. Try again later.",
+    )
 
 
 def check_token_poll_rate_limit(request: Request) -> None:
-    client_ip = request.client.host if request.client else "unknown"
-    key = _KEY_TOKEN_RATE.format(client_ip)
-    count = sync_cache.incr(key)
-
-    # Set the TTL only when the counter is first created so the polling window actually resets
-    if count == 1:
-        sync_cache.expire(key, RATE_LIMIT_WINDOW_SECONDS)
-
-    if count > TOKEN_POLL_RATE_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many polling attempts. Try again later.",
-        )
+    enforce_rate_limit(
+        _KEY_TOKEN_RATE.format(get_client_ip(request)),
+        max_requests=TOKEN_POLL_RATE_LIMIT,
+        window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+        detail="Too many polling attempts. Try again later.",
+    )
 
 
 def polled_too_fast(device_code: str, interval_seconds: int) -> bool:

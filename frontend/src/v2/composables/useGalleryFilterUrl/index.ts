@@ -15,18 +15,26 @@
 //   ?filterDuplicates=true|false
 //   ?filterPlayables=true|false
 //   ?filterMissing=true|false
+//   ?filterPhysical=true|false
 //   ?filterVerified=true|false
 //   ?filterRA=true|false
+//   ?filterSaves=true|false
+//   ?filterStates=true|false
+//   ?filterSoundtrack=true|false
 //   ?platforms=1,2,3                  (selectedPlatforms IDs)
 //   ?genres=a,b&genresLogic=any|all|none
 //   ?franchises=…&franchisesLogic=…
 //   ?collections=…&collectionsLogic=…
 //   ?companies=…&companiesLogic=…
+//   ?publishers=…&publishersLogic=…
+//   ?developers=…&developersLogic=…
 //   ?ageRatings=…&ageRatingsLogic=…
 //   ?regions=…&regionsLogic=…
 //   ?languages=…&languagesLogic=…
 //   ?statuses=…&statusesLogic=…
 //   ?playerCounts=…&playerCountsLogic=…
+//   ?metadataProviders=…&metadataProvidersLogic=…
+//   ?tags=…&tagsLogic=…
 //
 // Direction notes:
 //   * URL → store fires on every `route.query` change (browser back /
@@ -99,26 +107,38 @@ export function useGalleryFilterUrl() {
     filterDuplicates,
     filterPlayables,
     filterMissing,
+    filterPhysical,
     filterVerified,
     filterRA,
+    filterSaves,
+    filterStates,
+    filterSoundtrack,
     selectedPlatforms,
     selectedGenres,
     selectedFranchises,
     selectedCollections,
     selectedCompanies,
+    selectedPublishers,
+    selectedDevelopers,
     selectedAgeRatings,
     selectedRegions,
     selectedLanguages,
     selectedPlayerCounts,
+    selectedMetadataProviders,
+    selectedTags,
     selectedStatuses,
     genresLogic,
     franchisesLogic,
     collectionsLogic,
     companiesLogic,
+    publishersLogic,
+    developersLogic,
     ageRatingsLogic,
     regionsLogic,
     languagesLogic,
     playerCountsLogic,
+    metadataProvidersLogic,
+    tagsLogic,
     statusesLogic,
   } = storeToRefs(filter);
 
@@ -136,8 +156,12 @@ export function useGalleryFilterUrl() {
       filterDuplicates: qBool(q.filterDuplicates),
       filterPlayables: qBool(q.filterPlayables),
       filterMissing: qBool(q.filterMissing),
+      filterPhysical: qBool(q.filterPhysical),
       filterVerified: qBool(q.filterVerified),
       filterRA: qBool(q.filterRA),
+      filterSaves: qBool(q.filterSaves),
+      filterStates: qBool(q.filterStates),
+      filterSoundtrack: qBool(q.filterSoundtrack),
       platformIds: qList(q.platforms)
         .map((s) => Number(s))
         .filter((n) => !Number.isNaN(n)),
@@ -149,6 +173,10 @@ export function useGalleryFilterUrl() {
       collectionsLogic: qLogic(q.collectionsLogic),
       companies: qList(q.companies),
       companiesLogic: qLogic(q.companiesLogic),
+      publishers: qList(q.publishers),
+      publishersLogic: qLogic(q.publishersLogic),
+      developers: qList(q.developers),
+      developersLogic: qLogic(q.developersLogic),
       ageRatings: qList(q.ageRatings),
       ageRatingsLogic: qLogic(q.ageRatingsLogic),
       regions: qList(q.regions),
@@ -157,6 +185,10 @@ export function useGalleryFilterUrl() {
       languagesLogic: qLogic(q.languagesLogic),
       playerCounts: qList(q.playerCounts),
       playerCountsLogic: qLogic(q.playerCountsLogic),
+      metadataProviders: qList(q.metadataProviders),
+      metadataProvidersLogic: qLogic(q.metadataProvidersLogic),
+      tags: qList(q.tags),
+      tagsLogic: qLogic(q.tagsLogic),
       statuses: qList(q.statuses),
       statusesLogic: qLogic(q.statusesLogic),
     };
@@ -172,9 +204,17 @@ export function useGalleryFilterUrl() {
       filterPlayables.value = url.filterPlayables;
     if (url.filterMissing !== filterMissing.value)
       filterMissing.value = url.filterMissing;
+    if (url.filterPhysical !== filterPhysical.value)
+      filterPhysical.value = url.filterPhysical;
     if (url.filterVerified !== filterVerified.value)
       filterVerified.value = url.filterVerified;
     if (url.filterRA !== filterRA.value) filterRA.value = url.filterRA;
+    if (url.filterSaves !== filterSaves.value)
+      filterSaves.value = url.filterSaves;
+    if (url.filterStates !== filterStates.value)
+      filterStates.value = url.filterStates;
+    if (url.filterSoundtrack !== filterSoundtrack.value)
+      filterSoundtrack.value = url.filterSoundtrack;
 
     // Platforms — lookup objects from IDs. If the platform store hasn't
     // hydrated yet, the watch below retries when it does.
@@ -215,6 +255,16 @@ export function useGalleryFilterUrl() {
     if (url.companiesLogic && url.companiesLogic !== companiesLogic.value)
       filter.setCompaniesLogic(url.companiesLogic);
 
+    if (!eqStrArr(url.publishers, selectedPublishers.value))
+      filter.setSelectedFilterPublishers(url.publishers);
+    if (url.publishersLogic && url.publishersLogic !== publishersLogic.value)
+      filter.setPublishersLogic(url.publishersLogic);
+
+    if (!eqStrArr(url.developers, selectedDevelopers.value))
+      filter.setSelectedFilterDevelopers(url.developers);
+    if (url.developersLogic && url.developersLogic !== developersLogic.value)
+      filter.setDevelopersLogic(url.developersLogic);
+
     if (!eqStrArr(url.ageRatings, selectedAgeRatings.value))
       filter.setSelectedFilterAgeRatings(url.ageRatings);
     if (url.ageRatingsLogic && url.ageRatingsLogic !== ageRatingsLogic.value)
@@ -237,6 +287,19 @@ export function useGalleryFilterUrl() {
       url.playerCountsLogic !== playerCountsLogic.value
     )
       filter.setPlayerCountsLogic(url.playerCountsLogic);
+
+    if (!eqStrArr(url.metadataProviders, selectedMetadataProviders.value))
+      filter.setSelectedFilterMetadataProviders(url.metadataProviders);
+    if (
+      url.metadataProvidersLogic &&
+      url.metadataProvidersLogic !== metadataProvidersLogic.value
+    )
+      filter.setMetadataProvidersLogic(url.metadataProvidersLogic);
+
+    if (!eqStrArr(url.tags, selectedTags.value))
+      filter.setSelectedFilterTags(url.tags);
+    if (url.tagsLogic && url.tagsLogic !== tagsLogic.value)
+      filter.setTagsLogic(url.tagsLogic);
 
     if (!eqStrArr(url.statuses, selectedStatuses.value))
       filter.setSelectedFilterStatuses(url.statuses);
@@ -291,8 +354,12 @@ export function useGalleryFilterUrl() {
     setBool("filterDuplicates", filterDuplicates.value);
     setBool("filterPlayables", filterPlayables.value);
     setBool("filterMissing", filterMissing.value);
+    setBool("filterPhysical", filterPhysical.value);
     setBool("filterVerified", filterVerified.value);
     setBool("filterRA", filterRA.value);
+    setBool("filterSaves", filterSaves.value);
+    setBool("filterStates", filterStates.value);
+    setBool("filterSoundtrack", filterSoundtrack.value);
 
     setList(
       "platforms",
@@ -319,6 +386,16 @@ export function useGalleryFilterUrl() {
       "companiesLogic",
       selectedCompanies.value.length > 0 ? companiesLogic.value : null,
     );
+    setList("publishers", selectedPublishers.value);
+    setOrDelete(
+      "publishersLogic",
+      selectedPublishers.value.length > 0 ? publishersLogic.value : null,
+    );
+    setList("developers", selectedDevelopers.value);
+    setOrDelete(
+      "developersLogic",
+      selectedDevelopers.value.length > 0 ? developersLogic.value : null,
+    );
     setList("ageRatings", selectedAgeRatings.value);
     setOrDelete(
       "ageRatingsLogic",
@@ -338,6 +415,18 @@ export function useGalleryFilterUrl() {
     setOrDelete(
       "playerCountsLogic",
       selectedPlayerCounts.value.length > 0 ? playerCountsLogic.value : null,
+    );
+    setList("metadataProviders", selectedMetadataProviders.value);
+    setOrDelete(
+      "metadataProvidersLogic",
+      selectedMetadataProviders.value.length > 0
+        ? metadataProvidersLogic.value
+        : null,
+    );
+    setList("tags", selectedTags.value);
+    setOrDelete(
+      "tagsLogic",
+      selectedTags.value.length > 0 ? tagsLogic.value : null,
     );
     setList("statuses", selectedStatuses.value);
     setOrDelete(
@@ -373,8 +462,12 @@ export function useGalleryFilterUrl() {
       filterDuplicates,
       filterPlayables,
       filterMissing,
+      filterPhysical,
       filterVerified,
       filterRA,
+      filterSaves,
+      filterStates,
+      filterSoundtrack,
       selectedPlatforms,
       selectedGenres,
       genresLogic,
@@ -384,6 +477,10 @@ export function useGalleryFilterUrl() {
       collectionsLogic,
       selectedCompanies,
       companiesLogic,
+      selectedPublishers,
+      publishersLogic,
+      selectedDevelopers,
+      developersLogic,
       selectedAgeRatings,
       ageRatingsLogic,
       selectedRegions,
@@ -392,6 +489,10 @@ export function useGalleryFilterUrl() {
       languagesLogic,
       selectedPlayerCounts,
       playerCountsLogic,
+      selectedMetadataProviders,
+      metadataProvidersLogic,
+      selectedTags,
+      tagsLogic,
       selectedStatuses,
       statusesLogic,
     ],

@@ -17,22 +17,28 @@
 // Action ribbon (Upload / Scan) lives inside the head component;
 // Edit (custom_name) and Delete moved inline into the Settings tab.
 import { RDivider, type RTabNavItem } from "@v2/lib";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import { useStreamingStore } from "@/stores/streaming";
+import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import FirmwareTab from "@/v2/components/Gallery/FirmwareTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import PlatformHead from "@/v2/components/Gallery/PlatformHead.vue";
 import ScanPlatformDialog from "@/v2/components/Gallery/ScanPlatformDialog.vue";
 import SettingsTab from "@/v2/components/Gallery/SettingsTab.vue";
+import MemoryCardManager from "@/v2/components/Player/MemoryCardManager.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -43,10 +49,16 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const streamingStore = useStreamingStore();
+const emitter = inject<Emitter<Events>>("emitter");
 const { currentPlatform, total } = storeToRefs(galleryRoms);
 
 const notFound = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
+
+usePageTitle(() =>
+  notFound.value ? null : (currentPlatform.value?.display_name ?? null),
+);
 const deleting = ref(false);
 const scanOpen = ref(false);
 const randomLoading = ref(false);
@@ -55,18 +67,32 @@ const randomLoading = ref(false);
 // ribbon buttons hide automatically when the user's role changes.
 const canEditPlatform = useCan("platform.edit");
 const canScan = useCan("library.scan");
+const canDownload = useCan("rom.download");
 
 // ── Tabs ─────────────────────────────────────────────────────────
 // URL-persistent via `?tab=` (mirrors the GameDetails pattern). The
 // default tab is `library`.
-type TabId = "library" | "firmware" | "settings";
-const VALID_TABS = new Set<TabId>(["library", "firmware", "settings"]);
+type TabId = "library" | "firmware" | "settings" | "memory-cards";
+const VALID_TABS = new Set<TabId>([
+  "library",
+  "firmware",
+  "settings",
+  "memory-cards",
+]);
 
 function parseTab(v: unknown): TabId {
   return typeof v === "string" && VALID_TABS.has(v as TabId)
     ? (v as TabId)
     : "library";
 }
+
+// The memory-card tab only exists for platforms whose streaming container
+// syncs whole cards (PCSX2 today). `emulator` is the hard key the manager
+// fetches by; null means "no card tab for this platform".
+const memoryCardEmulator = computed<string | null>(() => {
+  const c = streamingStore.containerForPlatform(currentPlatform.value?.slug);
+  return c?.supports_memory_cards ? c.emulator : null;
+});
 
 const tab = ref<TabId>(parseTab(route.query.tab));
 watch(tab, (value) => {
@@ -88,18 +114,42 @@ watch(
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "library", label: t("common.library") },
   { id: "firmware", label: t("platform.firmware-bios") },
+  ...(memoryCardEmulator.value
+    ? [{ id: "memory-cards", label: t("play.memory-cards") }]
+    : []),
   { id: "settings", label: t("platform.settings") },
 ]);
+
+// Guard a stale `?tab=memory-cards` deep link on a platform that doesn't
+// support cards (or once its container is removed): fall back to library.
+// Both the container config and the platform itself have to have landed:
+// either one still missing reads as "no cards here" and would bounce a deep
+// link that is about to turn out valid.
+watch(
+  [tab, memoryCardEmulator, () => streamingStore.configLoaded, currentPlatform],
+  ([current, emulator, loadedConfig, platform]) => {
+    if (loadedConfig && platform && current === "memory-cards" && !emulator) {
+      tab.value = "library";
+    }
+  },
+  { immediate: true },
+);
 
 const headLabels = computed(() => ({
   upload: t("platform.upload-roms"),
   scan: t("platform.scan-platform"),
   random: t("platform.random-rom"),
+  download: t("platform.download-platform"),
+  addPhysical: t("rom.add-physical-game"),
 }));
 
 function onTabChange(next: string) {
   tab.value = next as TabId;
 }
+
+const platformDescription = computed(
+  () => currentPlatform.value?.description ?? "",
+);
 
 const tags = computed<string[]>(() => {
   const p = currentPlatform.value;
@@ -123,10 +173,12 @@ const platformStats = computed<StatRow[]>(() => {
     },
     { label: t("platform.on-disk"), value: formatBytes(p.fs_size_bytes ?? 0) },
   ];
-  if (p.firmware_count) {
+  // Firmware whose file is gone can't be booted, so it isn't worth a stat.
+  const usableFirmware = (p.firmware ?? []).filter((f) => !f.missing_from_fs);
+  if (usableFirmware.length) {
     rows.push({
       label: t("common.firmware"),
-      value: String(p.firmware_count),
+      value: String(usableFirmware.length),
     });
   }
   return rows;
@@ -260,7 +312,6 @@ async function loadForId(platformId: number) {
     galleryRoms.resetGallery();
     galleryRoms.setCurrentPlatform(cached);
   }
-  document.title = cached.display_name;
   // Bootstrap metadata only; grid (shell viewport-sync) and list
   // (GameListRow's onMounted) both hydrate rows per-position from here.
   await galleryRoms.fetchInitialMetadata();
@@ -315,42 +366,52 @@ function onScan() {
   scanOpen.value = true;
 }
 
+function onAddPhysical() {
+  if (!currentPlatform.value) return;
+  emitter?.emit("showAddPhysicalGameDialog", currentPlatform.value);
+}
+
+// Leaving for anything that isn't another gallery keeps the store's platform
+// in place, so the id check in `onRandomGame` can't see the user walked away.
+const alive = useIsAlive();
+
 // Random ROM — pick one game from this platform and jump to its
-// details. Mirrors the Home RandomPickWidget approach: a cheap
-// count-only fetch gives the `total`, then a single-item fetch at a
-// random offset resolves the ROM. Scoped to the current platform via
-// `platformIds`.
+// details. Mirrors the Home RandomPickWidget: `/roms/random` samples the
+// pick server-side, so one request resolves it whatever the platform
+// holds. `null` means the platform holds no roms.
 async function onRandomGame() {
   const p = currentPlatform.value;
   if (!p || randomLoading.value) return;
   randomLoading.value = true;
+  const scopeId = p.id;
+  // The pick belongs to the platform that was on screen when the button was
+  // clicked; following it after the user moved on would drop them into a
+  // game from a gallery they already left.
+  const stale = () => !alive.value || currentPlatform.value?.id !== scopeId;
   try {
-    const { data: head } = await romApi.getRoms({
-      platformIds: [p.id],
-      limit: 1,
-      offset: 0,
-    });
-    if (!head.total) {
+    const { data } = await romApi.getRandomRom({ platformIds: [scopeId] });
+    if (stale()) return;
+    if (!data) {
       snackbar.info(t("platform.random-rom-empty"));
       return;
     }
-    const randomOffset = Math.floor(Math.random() * head.total);
-    const { data } = await romApi.getRoms({
-      platformIds: [p.id],
-      limit: 1,
-      offset: randomOffset,
-    });
-    const pick = data.items[0];
-    if (!pick) {
-      snackbar.info(t("platform.random-rom-empty"));
-      return;
-    }
-    router.push({ name: ROUTES.ROM, params: { rom: pick.id } });
+    router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
-    snackbar.error(t("platform.random-rom-error"));
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }
+}
+
+// Download all
+function onDownload() {
+  const p = currentPlatform.value;
+  if (!p || !p.rom_count) return;
+  void romApi.bulkDownloadRoms({
+    platformId: p.id,
+    filename: `${p.display_name}.zip`,
+  });
+  snackbar.info(t("gallery.selection-download-many", { n: p.rom_count }));
 }
 
 async function onDelete() {
@@ -372,7 +433,7 @@ async function onDelete() {
     snackbar.success(`Platform "${p.display_name}" deleted`, {
       icon: "mdi-check-bold",
     });
-    router.push({ name: "platforms" });
+    router.push({ name: ROUTES.PLATFORMS_INDEX });
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string } };
@@ -414,16 +475,20 @@ async function onDelete() {
         :tab="tab"
         :tabs="tabs"
         :tags="tags"
+        :description="platformDescription"
         :stats="platformStats"
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :can-download="canDownload"
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @add-physical="onAddPhysical"
         @random="onRandomGame"
+        @download="onDownload"
       />
     </template>
   </GalleryShell>
@@ -440,20 +505,29 @@ async function onDelete() {
         :tab="tab"
         :tabs="tabs"
         :tags="tags"
+        :description="platformDescription"
         :stats="platformStats"
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :can-download="canDownload"
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @add-physical="onAddPhysical"
         @random="onRandomGame"
+        @download="onDownload"
       />
       <RDivider class="r-v2-plat-tabs__divider" />
       <div v-if="currentPlatform" class="r-v2-plat-tabs__panel">
         <FirmwareTab v-if="tab === 'firmware'" :platform="currentPlatform" />
+        <MemoryCardManager
+          v-else-if="tab === 'memory-cards' && memoryCardEmulator"
+          :emulator="memoryCardEmulator"
+          :platform-id="currentPlatform.id"
+        />
         <SettingsTab
           v-else-if="tab === 'settings'"
           :platform="currentPlatform"
@@ -480,15 +554,35 @@ async function onDelete() {
    one surface, so the user gets the same natural scroll feel as the
    Library tab (where GalleryShell handles it). */
 .r-v2-plat-tabs {
+  /* `dvh` (not `vh`) so the section matches the mobile visible viewport
+     instead of the larger address-bar-hidden one — otherwise it spills below
+     the fold and stacks a second, document-level scroll on the internal one
+     ("double scroll"). Same rationale as GalleryShell / IndexShell. */
   height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
   overflow: hidden;
   position: relative;
+}
+/* On sm-and-down the layout <main> reserves the bottom tab bar's height; this
+   full-height section would otherwise sit on top of that padding and push the
+   document past one viewport. Cancel it with a matching negative margin so the
+   section extends under the (translucent) bar with a single scroll — the inner
+   scroll's bottom spacer lifts the last content (danger zone) clear of it. */
+html[data-bp~="sm-and-down"] .r-v2-plat-tabs {
+  margin-bottom: calc(
+    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
+  );
 }
 
 .r-v2-plat-tabs__scroll {
   height: 100%;
   overflow-y: auto;
   padding: 32px var(--r-row-pad) 60px;
+}
+html[data-bp~="sm-and-down"] .r-v2-plat-tabs__scroll {
+  padding-bottom: calc(
+    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
+  );
 }
 
 .r-v2-plat-tabs__divider {

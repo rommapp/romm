@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import mimetypes
 import os
-from typing import TypedDict
+import re
+from typing import Any, TypedDict
 
 import mutagen
 from mutagen.flac import FLAC, Picture
@@ -12,6 +13,7 @@ from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
 from logger.logger import log
+from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
 
 ALLOWED_AUDIO_EXTENSIONS = frozenset(
     {".mp3", ".ogg", ".oga", ".opus", ".m4a", ".aac", ".wav", ".flac"}
@@ -22,7 +24,7 @@ ALLOWED_AUDIO_EXTENSIONS = frozenset(
 MAX_AUDIO_PARSE_BYTES = 512 * 1024 * 1024  # 512 MiB
 
 
-class AudioMeta(TypedDict, total=False):
+class AudioTags(TypedDict, total=False):
     title: str | None
     artist: str | None
     album: str | None
@@ -35,6 +37,55 @@ class AudioMeta(TypedDict, total=False):
     cover_path: str | None
     file_mtime: float
     file_size: int
+
+
+_YEAR_RE = re.compile(r"\d{4}")
+_LEADING_INT_RE = re.compile(r"\s*(\d+)")
+_SMALLINT_MAX = 32767
+
+
+def _parse_year(value: str | None) -> int | None:
+    if not value:
+        return None
+    match = _YEAR_RE.search(value)
+    return int(match.group()) if match else None
+
+
+def _parse_leading_int(value: str | None) -> int | None:
+    """First integer before any separator: '3/12' -> 3, 'A1' -> None."""
+    if not value:
+        return None
+    match = _LEADING_INT_RE.match(value)
+    if not match:
+        return None
+    parsed = int(match.group(1))
+    return parsed if 0 <= parsed <= _SMALLINT_MAX else None
+
+
+def _truncate(value: str | None, length: int) -> str | None:
+    return value[:length] if value is not None else None
+
+
+def track_meta_columns(tags: AudioTags) -> dict[str, Any]:
+    """Map raw AudioTags onto TrackMeta column values (year/track/disc -> int).
+
+    Free-text year/track/disc tags are parsed to ints here so the upload path,
+    the scanner, and the migration backfill stay identical. Lengths mirror the
+    TrackMeta columns. Only known keys are read, so transient keys such as
+    file_mtime/file_size are dropped.
+    """
+    return {
+        "title": _truncate(tags.get("title"), 512),
+        "artist": _truncate(tags.get("artist"), 512),
+        "album": _truncate(tags.get("album"), 512),
+        "genre": _truncate(tags.get("genre"), 255),
+        "year": _parse_year(tags.get("year")),
+        "track": _parse_leading_int(tags.get("track")),
+        "disc": _parse_leading_int(tags.get("disc")),
+        "duration_seconds": tags.get("duration_seconds"),
+        "has_embedded_cover": bool(tags.get("has_embedded_cover", False)),
+        "cover_path": _truncate(tags.get("cover_path"), 1024),
+    }
 
 
 def is_allowed_audio_file(file_name: str) -> bool:
@@ -87,6 +138,15 @@ def _mp4_track_tuple(value: object) -> str | None:
     if isinstance(first, tuple):
         return str(first[0]) if first and first[0] else None
     return str(first)
+
+
+def _allowed_mime_types(data: bytes) -> str:
+    """Return MIME type for embedded cover bytes; only JPEG and PNG are allowed."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    raise ValueError("embedded cover is not JPEG or PNG")
 
 
 # NOTE: the per-format tag and embedded-cover handling below (ID3 / MP4 /
@@ -170,7 +230,7 @@ def _open_mutagen(full_path: str) -> mutagen.FileType | None:
         return None
 
 
-def extract_audio_meta(full_path: str) -> AudioMeta | None:
+def extract_audio_meta(full_path: str) -> AudioTags | None:
     """Read tags + duration + embedded-cover presence from an audio file.
 
     Returns None if the file cannot be parsed. Never raises — on any failure
@@ -189,7 +249,7 @@ def extract_audio_meta(full_path: str) -> AudioMeta | None:
     if audio is None:
         return None
 
-    meta: AudioMeta = {
+    meta: AudioTags = {
         "file_mtime": stat.st_mtime,
         "file_size": stat.st_size,
     }
@@ -210,14 +270,14 @@ def extract_audio_meta(full_path: str) -> AudioMeta | None:
 def _extract_picture_from_id3(tags: ID3) -> tuple[bytes, str] | None:
     for frame in tags.values():
         if isinstance(frame, APIC):
-            return frame.data, frame.mime or "image/jpeg"
+            return frame.data, _allowed_mime_types(frame.data)
     return None
 
 
 def _extract_picture_from_flac(audio: FLAC) -> tuple[bytes, str] | None:
     if audio.pictures:
         pic = audio.pictures[0]
-        return pic.data, pic.mime or "image/jpeg"
+        return pic.data, _allowed_mime_types(pic.data)
     return None
 
 
@@ -231,7 +291,7 @@ def _extract_picture_from_ogg(audio: OggVorbis | OggOpus) -> tuple[bytes, str] |
         except Exception as exc:
             log.debug(f"[audio_tags] ogg picture decode failed: {exc}")
             continue
-        return pic.data, pic.mime or "image/jpeg"
+        return pic.data, _allowed_mime_types(pic.data)
     return None
 
 
@@ -240,22 +300,12 @@ def _extract_picture_from_mp4(audio: MP4) -> tuple[bytes, str] | None:
     if not covers:
         return None
     cover = covers[0]
-    fmt = getattr(cover, "imageformat", None)
-    mime = "image/png" if fmt == MP4.Cover.FORMAT_PNG else "image/jpeg"
-    return bytes(cover), mime
-
-
-_COVER_EXT_BY_MIME = {
-    "image/jpeg": "jpg",
-    "image/jpg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-}
+    data = bytes(cover)
+    return data, _allowed_mime_types(data)
 
 
 def _ext_for_mime(mime: str) -> str:
-    return _COVER_EXT_BY_MIME.get(mime.lower().split(";")[0].strip(), "bin")
+    return IMAGE_EXT_BY_MIME_TYPE.get(mime.lower().split(";")[0].strip(), "bin")
 
 
 def soundtrack_cover_dir(platform_id: int, rom_id: int) -> str:
@@ -272,10 +322,14 @@ def persist_embedded_cover(
 ) -> str | None:
     """Extract the embedded cover from `audio_full_path` and write it under
     RESOURCES_BASE_PATH. Returns the relative path (suitable for storing in
-    audio_meta.cover_path), or None if no cover or write failed."""
+    track_meta.cover_path), or None if no cover or write failed."""
     from config import RESOURCES_BASE_PATH
 
-    cover = extract_embedded_cover(audio_full_path)
+    try:
+        cover = extract_embedded_cover(audio_full_path)
+    except Exception as exc:
+        log.error(f"[audio_tags] cover extract failed for {audio_full_path}: {exc}")
+        return None
     if cover is None:
         return None
 
@@ -296,48 +350,36 @@ def persist_embedded_cover(
     return rel_path
 
 
-def persist_cover_and_build_meta(
-    audio_full_path: str,
-    platform_id: int,
-    rom_id: int,
-    file_id: int,
-    audio_meta: AudioMeta | dict,
-) -> dict | None:
-    """Persist the embedded cover for a saved soundtrack file and return a copy
-    of `audio_meta` with `cover_path` populated. Returns None when no cover was
-    written so callers can skip the DB update."""
-    cover_path = persist_embedded_cover(
-        audio_full_path=audio_full_path,
-        platform_id=platform_id,
-        rom_id=rom_id,
-        file_id=file_id,
-    )
-    if not cover_path:
-        return None
-
-    persisted_meta = dict(audio_meta)
-    persisted_meta["cover_path"] = cover_path
-    return persisted_meta
-
-
-def remove_persisted_cover(cover_path: str | None) -> None:
+def remove_persisted_cover(cover_path: str | None) -> bool:
     """Delete a persisted soundtrack cover (relative path under
-    RESOURCES_BASE_PATH). Silently ignores missing files."""
+    RESOURCES_BASE_PATH). Silently ignores missing files.
+
+    Returns whether the file is gone, so a caller that is about to drop the
+    only reference to it can keep that reference and retry later instead.
+    """
     if not cover_path:
-        return
+        return True
     from config import RESOURCES_BASE_PATH
 
     abs_path = os.path.join(RESOURCES_BASE_PATH, cover_path)
     try:
         os.unlink(abs_path)
     except FileNotFoundError:
-        return
+        return True
     except OSError as exc:
         log.warning(f"[audio_tags] cover delete failed for {abs_path}: {exc}")
+        return False
+
+    return True
 
 
 def extract_embedded_cover(full_path: str) -> tuple[bytes, str] | None:
-    """Return (image_bytes, mime_type) for the first embedded picture, or None."""
+    """Return (image_bytes, mime_type) for the first embedded picture, or None
+    if the file has no embedded cover.
+
+    Raises if a cover is present but cannot be read (e.g. an unsupported
+    image format) so callers can tell that failure apart from "no cover".
+    """
     audio = _open_mutagen(full_path)
     if audio is None:
         return None

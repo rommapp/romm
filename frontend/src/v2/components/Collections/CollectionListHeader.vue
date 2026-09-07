@@ -86,7 +86,6 @@ function handleClick(col: CollectionListColumn) {
   background: var(--r-color-bg-elevated);
   border-bottom: 1px solid var(--r-color-border);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .coll-list-header__cell {

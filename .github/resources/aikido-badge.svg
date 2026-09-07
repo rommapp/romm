@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288.99" height="67">
+  <g fill="none" fill-rule="evenodd">
+    <rect width="286.99" height="65" x="1" y="1" fill="#5948e9" stroke="#5948e9" stroke-width="2" rx="8" />
+    <g fill="#fff" transform="translate(17, 14) scale(2.2222)">
+      <path d="M15.9961 0H0V5.65188H15.9961V0Z" />
+      <path d="M0 10.953C4.5507 6.83365 11.4453 6.83364 15.9961 10.953V17.9968L15.9929 18L7.99803 9.88536L0.00313606 18L0 17.9968V10.953Z" />
+    </g>
+    <!--  -->
+    <text fill="#fff" font-family="Arial" font-size="21" font-weight="bold">
+      <tspan x="70" y="51">Secured with Aikido</tspan>
+    </text>
+    <text fill="#fff" font-family="Arial" font-size="12" font-weight="bold">
+      <tspan x="70" y="26">OPEN SOURCE SECURITY</tspan>
+    </text>
+  </g>
+</svg>

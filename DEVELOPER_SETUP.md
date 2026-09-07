@@ -44,6 +44,17 @@ docker compose up -d
 
 And you're done! You can access the app at `http://localhost:3000`. Any changes made to the code will be automatically reflected in the app thanks to the volume mounts.
 
+#### Optional stacks
+
+Two extra stacks sit in their own files, since most work needs neither. Both join the dev stack's network, so bring `docker compose up -d` up first.
+
+```sh
+docker compose -f docker-compose.oidc.yml up -d       # Authentik, for OIDC work
+docker compose -f docker-compose.streaming.yml up -d  # webstation, for streaming work
+```
+
+Authentik listens on `http://localhost:9001`; point RomM at it with the `OIDC_*` variables in `.env`. The webstation image is amd64-only and several GB; it reads `romm_mock/webstation` for emulator configs and BIOS, and its `BROKER_SECRET` follows `STREAMING_BROKER_SECRET` from `.env`.
+
 ## Option 2: Manual setup
 
 ### Environment setup

@@ -1,14 +1,15 @@
 import asyncio
 import json
+from collections.abc import Iterable
 from enum import Enum
 from typing import Final, NotRequired, TypedDict
 
 import httpx
 import yarl
-from fastapi import HTTPException, status
+from fastapi import status
 
-from config import PLAYMATCH_API_ENABLED
-from handler.metadata.base_handler import MetadataHandler
+from config import PLAYMATCH_API_ENABLED, PLAYMATCH_API_URL
+from handler.metadata.base_handler import MetadataHandler, unavailable
 from logger.logger import log
 from models.rom import Rom, RomFile
 from utils import get_version
@@ -64,10 +65,26 @@ PLAYMATCH_SUPPORTED_SOURCES: frozenset[str] = frozenset(
 )
 
 
+def _select_lookup_file(files: Iterable[RomFile]) -> RomFile | None:
+    """The single file a ROM is identified by: the biggest top-level one, which
+    is how Hasheous and ScreenScraper choose theirs.
+
+    Equally sized files break the tie on path, so a two-disc set resolves to
+    disc 1. The scanner walks the filesystem unsorted, so without that two
+    machines scanning the same library ask about different files.
+    """
+    return min(
+        (file for file in files if file.file_size_bytes > 0 and file.is_top_level),
+        key=lambda file: (-file.file_size_bytes, file.full_path),
+        default=None,
+    )
+
+
 class GameMatchType(str, Enum):
     SHA256 = "SHA256"
     SHA1 = "SHA1"
     MD5 = "MD5"
+    CRC = "CRC"
     FILE_NAME_AND_SIZE = "FileNameAndSize"
     NO_MATCH = "NoMatch"
 
@@ -103,7 +120,7 @@ class PlaymatchHandler(MetadataHandler):
     """
 
     def __init__(self):
-        self.base_url = "https://playmatch.retrorealm.dev/api"
+        self.base_url = PLAYMATCH_API_URL
         self.identify_url = f"{self.base_url}/identify/ids"
         self.healthcheck_url = f"{self.base_url}/health"
         self.suggestion_url = f"{self.base_url}/suggestion/external/game"
@@ -116,13 +133,22 @@ class PlaymatchHandler(MetadataHandler):
         if not self.is_enabled():
             return False
 
+        # The /health endpoint returns a plain-text body ("Healthy"), not
+        # JSON, so any 2xx response is enough to consider the service up.
+        httpx_client = ctx_httpx_client.get()
         try:
-            response = await self._request(self.healthcheck_url, {})
+            await _rate_limiter.acquire()
+            res = await httpx_client.get(
+                self.healthcheck_url,
+                headers={"user-agent": f"RomM/{get_version()}"},
+                timeout=60,
+            )
+            res.raise_for_status()
         except Exception as e:
             log.error("Error checking Playmatch API: %s", e)
             return False
 
-        return bool(response)
+        return True
 
     async def _request(self, url: str, query: dict) -> dict:
         """
@@ -141,7 +167,7 @@ class PlaymatchHandler(MetadataHandler):
             if value is not None and value != ""  # drop None and ""
         }
 
-        url_with_query = yarl.URL(url).update_query(**filtered_query)
+        url_with_query = yarl.URL(url).update_query(filtered_query)
 
         log.debug(
             "API request: URL=%s, Timeout=%s",
@@ -175,10 +201,7 @@ class PlaymatchHandler(MetadataHandler):
                 log.warning(
                     "Connection error: can't connect to Playmatch", exc_info=True
                 )
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Can't connect to Playmatch, check your internet connection",
-                ) from exc
+                raise unavailable("Playmatch") from exc
             except json.JSONDecodeError as exc:
                 log.error("Error decoding JSON response from Playmatch: %s", exc)
                 return {}
@@ -211,21 +234,21 @@ class PlaymatchHandler(MetadataHandler):
         if not self.is_enabled():
             return fallback_rom
 
-        first_file = next(
-            (file for file in files if file.file_size_bytes > 0),
-            None,
-        )
-        if first_file is None:
+        match_file = _select_lookup_file(files)
+        if match_file is None:
             return fallback_rom
+
+        hashes = match_file.lookup_hashes
 
         try:
             response = await self._request(
                 self.identify_url,
                 {
-                    "fileName": first_file.file_name,
-                    "fileSize": first_file.file_size_bytes,
-                    "md5": first_file.md5_hash,
-                    "sha1": first_file.sha1_hash,
+                    "fileName": match_file.file_name,
+                    "fileSize": match_file.file_size_bytes,
+                    "md5": hashes.md5,
+                    "sha1": hashes.sha1,
+                    "crc": hashes.crc,
                 },
             )
         except Exception as exc:
@@ -291,27 +314,21 @@ class PlaymatchHandler(MetadataHandler):
             if not mappings:
                 return
 
-            first_file = next(
-                (f for f in rom.files if f.file_size_bytes > 0),
-                None,
-            )
-            if first_file is not None:
-                md5 = first_file.md5_hash
-                sha1 = first_file.sha1_hash
-                file_name = first_file.file_name
-                file_size: int | None = first_file.file_size_bytes
-            else:
-                md5 = rom.md5_hash
-                sha1 = rom.sha1_hash
-                file_name = rom.fs_name
-                file_size = rom.fs_size_bytes or None
+            # A suggestion writes a hash-to-game mapping into a public index.
+            # With no file to take one from, the ROM-level hash is a composite
+            # spanning every file or archive member, so there is nothing here
+            # worth contributing.
+            match_file = _select_lookup_file(rom.files)
+            if match_file is None:
+                return
 
+            hashes = match_file.lookup_hashes
             payload = {
-                "md5": md5,
-                "sha1": sha1,
+                "md5": hashes.md5,
+                "sha1": hashes.sha1,
                 "sha256": None,
-                "fileName": file_name,
-                "fileSize": file_size,
+                "fileName": match_file.file_name,
+                "fileSize": match_file.file_size_bytes,
                 "mappings": mappings,
             }
 

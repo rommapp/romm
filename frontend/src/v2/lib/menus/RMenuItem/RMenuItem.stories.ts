@@ -83,9 +83,10 @@ export const WithNavigation: Story = {
   render: () => ({
     components: { RMenuItem },
     setup: () => ({ panelStyle: PANEL_STYLE }),
+    // Link items get role="menuitem", which needs a role="menu" parent.
     template: `
       <div style="padding:40px">
-        <div :style="panelStyle">
+        <div :style="panelStyle" role="menu" aria-label="Navigation">
           <RMenuItem to="/platforms" icon="mdi-gamepad-variant-outline" label="Platforms" />
           <RMenuItem href="https://romm.app" icon="mdi-open-in-new" label="External link" />
         </div>
@@ -111,7 +112,7 @@ export const NewTabGesture: Story = {
     setup: () => ({ args, panelStyle: PANEL_STYLE }),
     template: `
       <div style="padding:40px">
-        <div :style="panelStyle">
+        <div :style="panelStyle" role="menu" aria-label="Actions">
           <RMenuItem v-bind="args" @click="args.onClick" />
         </div>
       </div>

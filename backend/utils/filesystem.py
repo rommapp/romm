@@ -12,6 +12,9 @@ COMPRESSED_FILE_EXTENSIONS: frozenset[str] = frozenset(
     (".7z", ".bz2", ".gz", ".rar", ".tar", ".zip", ".xz", ".tgz", ".tbz2", ".txz")
 )
 
+# tempfile.mkstemp creates files 0600, too narrow for the nginx user to read.
+SERVED_FILE_MODE = 0o644
+
 
 def iter_files(path: str, recursive: bool = False) -> Iterator[tuple[Path, str]]:
     """List files in a directory.
@@ -94,15 +97,22 @@ INVALID_CHARS_EMPTY = re.compile(r'[*?"<>+]')
 def sanitize_filename(filename: str) -> str:
     """
     Replace invalid characters in the filename to make it valid across common filesystems
+    and prevent path-traversal attacks.
 
     Args:
     - filename (str): The filename to sanitize.
 
     Returns:
-    - str: The sanitized filename.
+    - str: The sanitized filename (always a bare name, never a path).
+
+    Raises:
+    - ValueError: If the filename is empty or a reserved traversal name.
     """
+    # Strip directory components first to neutralise path-traversal payloads
+    sanitized_filename = os.path.basename(filename)
+
     # Replace some invalid characters with hyphen
-    sanitized_filename = INVALID_CHARS_HYPHENS.sub("-", filename)
+    sanitized_filename = INVALID_CHARS_HYPHENS.sub("-", sanitized_filename)
 
     # Remove other invalid characters
     sanitized_filename = INVALID_CHARS_EMPTY.sub("", sanitized_filename)
@@ -113,8 +123,8 @@ def sanitize_filename(filename: str) -> str:
     # Remove leading/trailing whitespace
     sanitized_filename = sanitized_filename.strip()
 
-    # Ensure the filename is not empty
-    if not sanitized_filename:
+    # Reject empty, current-directory, or parent-directory names
+    if not sanitized_filename or sanitized_filename in (".", ".."):
         raise ValueError("Filename cannot be empty after sanitization")
 
     return sanitized_filename

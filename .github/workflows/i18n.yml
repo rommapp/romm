@@ -13,12 +13,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.3.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v6.0.0
-        with:
-          python-version: "3.13"
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
+      - name: Install python
+        run: uv python install
+
+      # Both checks are stdlib-only, so skip resolving the backend project.
       - name: Run localization check
-        run: python frontend/src/locales/check_i18n_locales.py
+        run: uv run --no-project python frontend/src/locales/check_i18n_locales.py
+
+      - name: Check locale files are sorted
+        run: uv run --no-project python frontend/src/locales/check_i18n_sorted.py

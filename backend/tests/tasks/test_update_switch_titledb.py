@@ -54,10 +54,6 @@ class TestUpdateSwitchTitleDBTask:
 
     def test_init(self, task):
         """Test task initialization"""
-        assert (
-            task.func
-            == "tasks.scheduled.update_switch_titledb.update_switch_titledb_task.run"
-        )
         assert task.description == "Updates the Nintendo Switch TitleDB file"
         assert (
             task.url

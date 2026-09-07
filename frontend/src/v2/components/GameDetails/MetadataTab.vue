@@ -1,11 +1,11 @@
 <script setup lang="ts">
 // MetadataTab — four sections, top to bottom:
-//   1. File info — name + size only.
-//   2. Hashes — CRC, MD5, SHA1, all mono. RTag with eyebrow label.
+//   1. File info — name, size, and the platform-native ids when present.
+//   2. Hashes — SHA-1, MD5, CRC, RA, all mono. RTag with eyebrow label.
+//      Same order as the files list so the two tabs read alike.
 //   3. Verification — RTag per database; tone="success" for match,
-//      neutral for miss. Independent from the "Verified" pill in the
-//      title header which only checks `crc_hash`. RA match comes from
-//      `rom.ra_id`.
+//      neutral for miss. Same source of truth (Hasheous match flags) as
+//      the "Verified" badge in the header, via `VERIFICATION_DATABASES`.
 //   4. Metadata sources — ProviderGrid (linked + unlinked).
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
@@ -14,6 +14,10 @@ import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import ProviderGrid from "@/v2/components/GameDetails/ProviderGrid.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
+import {
+  matchesDatabase,
+  VERIFICATION_DATABASES,
+} from "@/v2/utils/romVerification";
 
 defineOptions({ inheritAttrs: false });
 
@@ -26,10 +30,14 @@ type Row = { label: string; value: string };
 const fileRows = computed<Row[]>(() => {
   const r = props.rom;
   const size = r.fs_size_bytes != null ? formatBytes(r.fs_size_bytes) : "—";
-  return [
+  const rows: Row[] = [
     { label: t("rom.filename"), value: r.fs_name },
     { label: t("common.size"), value: size },
   ];
+  if (r.title_id) rows.push({ label: t("rom.title-id"), value: r.title_id });
+  if (r.save_target)
+    rows.push({ label: t("rom.save-target"), value: r.save_target });
+  return rows;
 });
 
 // Hash rows accept `value: string | null` because HashChip's click-to-
@@ -44,34 +52,48 @@ const hashRows = computed<{ label: string; value: string | null }[]>(() => {
     ? (r.files[0]?.chd_sha1_hash ?? null)
     : null;
   const rows: { label: string; value: string | null }[] = [
-    { label: "CRC", value: r.crc_hash },
+    { label: "SHA-1", value: r.sha1_hash },
     { label: "MD5", value: r.md5_hash },
-    { label: "SHA1", value: r.sha1_hash },
+    { label: "CRC", value: r.crc_hash },
     { label: "RA", value: r.ra_hash },
   ];
-  if (chdSha1) rows.splice(3, 0, { label: "CHD SHA-1", value: chdSha1 });
+  if (chdSha1) rows.splice(1, 0, { label: "CHD SHA-1", value: chdSha1 });
   return rows;
 });
 
 type Verification = { label: string; match: boolean };
 
-// Per-database match badges. Hasheous covers TOSEC / No-Intro / Redump
-// / FBNeo / MAME (either Arcade or MESS counts). RA is independent —
-// the rom is "verified as RA" when it has an `ra_id` linked.
-const verifications = computed<Verification[]>(() => {
-  const r = props.rom;
-  const h = r.hasheous_metadata ?? null;
-  return [
-    { label: "TOSEC", match: Boolean(h?.tosec_match) },
-    { label: "No-Intro", match: Boolean(h?.nointro_match) },
-    { label: "Redump", match: Boolean(h?.redump_match) },
-    { label: "FBNeo", match: Boolean(h?.fbneo_match) },
-    {
-      label: "MAME",
-      match: Boolean(h?.mame_arcade_match || h?.mame_mess_match),
-    },
-    { label: "RA", match: Boolean(r.ra_id) },
-  ];
+// Per-database match badges, driven by the shared VERIFICATION_DATABASES
+// so this list stays in lockstep with the header badge and the backend
+// filter. A match means the ROM's hash was found in that database (via
+// Hasheous), which is what "verified" communicates.
+const verifications = computed<Verification[]>(() =>
+  VERIFICATION_DATABASES.map((db) => ({
+    label: db.label,
+    match: matchesDatabase(props.rom, db.keys),
+  })),
+);
+
+function urlsFrom(meta: Record<string, unknown> | null | undefined): string[] {
+  const raw = meta?.download_urls;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (u): u is string => typeof u === "string" && /^https?:\/\//i.test(u),
+  );
+}
+
+const downloadUrls = computed(() => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of [
+    ...urlsFrom(props.rom.demozoo_metadata),
+    ...urlsFrom(props.rom.pouet_metadata),
+  ]) {
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
 });
 </script>
 
@@ -120,6 +142,15 @@ const verifications = computed<Verification[]>(() => {
         {{ t("rom.metadata-sources-label") }}
       </h3>
       <ProviderGrid :rom="rom" />
+    </section>
+
+    <section v-if="downloadUrls.length" class="metadata-tab__section">
+      <h3 class="metadata-tab__heading">{{ t("rom.download") }}</h3>
+      <ul class="metadata-tab__downloads">
+        <li v-for="url in downloadUrls" :key="url">
+          <a :href="url" target="_blank" rel="noopener noreferrer">{{ url }}</a>
+        </li>
+      </ul>
     </section>
   </div>
 </template>
@@ -175,5 +206,22 @@ const verifications = computed<Verification[]>(() => {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.metadata-tab__downloads {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.metadata-tab__downloads a {
+  color: var(--r-color-fg-secondary);
+  font-size: 13px;
+  word-break: break-all;
+}
+.metadata-tab__downloads a:hover {
+  color: var(--r-color-fg);
 }
 </style>

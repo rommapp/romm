@@ -1,6 +1,6 @@
 from typing import Literal, TypedDict, Union
 
-from rq_scheduler.scheduler import JobStatus
+from rq.job import JobStatus
 
 from tasks.tasks import TaskType
 
@@ -16,6 +16,8 @@ class ScanStats(TypedDict):
     identified_roms: int
     scanned_firmware: int
     new_firmware: int
+    updated_roms: int
+    new_files: int
 
 
 class ScanTaskMeta(TypedDict):
@@ -149,5 +151,5 @@ TaskStatusResponse = Union[
 
 class BulkOperationResponse(TypedDict):
     successful_items: int
-    failed_items: int
+    failed_ids: list[int]
     errors: list[str]

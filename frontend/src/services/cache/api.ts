@@ -9,6 +9,32 @@ import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "
 import type { GetRomsParams } from "@/services/api/rom";
 import cacheService from "@/services/cache";
 
+// The home rows render a fixed number of covers and never show a total, so they
+// opt out of the whole-library count. Each map is shared by the request and its
+// cache-clear pattern: the pattern is matched against the cache key by
+// substring, so a parameter present on one side but not the other would leave
+// the row permanently stale.
+const RECENT_ROMS_PARAMS = {
+  order_by: "id",
+  order_dir: "desc",
+  limit: 15,
+  with_char_index: false,
+  with_filter_values: false,
+  with_rom_id_index: false,
+  with_total: false,
+} as const;
+
+const RECENT_PLAYED_ROMS_PARAMS = {
+  order_by: "last_played",
+  order_dir: "desc",
+  limit: 15,
+  with_char_index: false,
+  with_filter_values: false,
+  with_rom_id_index: false,
+  with_total: false,
+  last_played: true,
+} as const;
+
 class CachedApiService {
   private createRequestConfig(
     method: Method,
@@ -78,6 +104,15 @@ class CachedApiService {
         params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
           ? params.selectedPlayerCounts
           : undefined,
+      metadata_providers:
+        params.selectedMetadataProviders &&
+        params.selectedMetadataProviders.length > 0
+          ? params.selectedMetadataProviders
+          : undefined,
+      tags:
+        params.selectedTags && params.selectedTags.length > 0
+          ? params.selectedTags
+          : undefined,
       // Logic operators
       genres_logic:
         params.selectedGenres && params.selectedGenres.length > 0
@@ -115,6 +150,15 @@ class CachedApiService {
         params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
           ? params.playerCountsLogic || "any"
           : undefined,
+      metadata_providers_logic:
+        params.selectedMetadataProviders &&
+        params.selectedMetadataProviders.length > 0
+          ? params.metadataProvidersLogic || "any"
+          : undefined,
+      tags_logic:
+        params.selectedTags && params.selectedTags.length > 0
+          ? params.tagsLogic || "any"
+          : undefined,
       ...(params.filterMatched !== null
         ? { matched: params.filterMatched }
         : {}),
@@ -131,6 +175,10 @@ class CachedApiService {
         ? { missing: params.filterMissing }
         : {}),
       ...(params.filterRA !== null ? { has_ra: params.filterRA } : {}),
+      ...(params.filterSaves !== null ? { has_saves: params.filterSaves } : {}),
+      ...(params.filterStates !== null
+        ? { has_states: params.filterStates }
+        : {}),
       ...(params.filterVerified !== null
         ? { verified: params.filterVerified }
         : {}),
@@ -142,13 +190,7 @@ class CachedApiService {
   async getRecentRoms(
     onBackgroundUpdate: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
-    const config = this.createRequestConfig("GET", "/roms", {
-      order_by: "id",
-      order_dir: "desc",
-      limit: 15,
-      with_char_index: false,
-      with_filter_values: false,
-    });
+    const config = this.createRequestConfig("GET", "/roms", RECENT_ROMS_PARAMS);
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
   }
@@ -156,14 +198,11 @@ class CachedApiService {
   async getRecentPlayedRoms(
     onBackgroundUpdate: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
-    const config = this.createRequestConfig("GET", "/roms", {
-      order_by: "last_played",
-      order_dir: "desc",
-      limit: 15,
-      with_char_index: false,
-      with_filter_values: false,
-      last_played: true,
-    });
+    const config = this.createRequestConfig(
+      "GET",
+      "/roms",
+      RECENT_PLAYED_ROMS_PARAMS,
+    );
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
   }
@@ -174,24 +213,11 @@ class CachedApiService {
   }
 
   async clearRecentRomsCache() {
-    await this.clearRomsCache({
-      order_by: "id",
-      order_dir: "desc",
-      limit: 15,
-      with_char_index: false,
-      with_filter_values: false,
-    });
+    await this.clearRomsCache(RECENT_ROMS_PARAMS);
   }
 
   async clearRecentPlayedRomsCache() {
-    await this.clearRomsCache({
-      order_by: "last_played",
-      order_dir: "desc",
-      limit: 15,
-      with_char_index: false,
-      with_filter_values: false,
-      last_played: true,
-    });
+    await this.clearRomsCache(RECENT_PLAYED_ROMS_PARAMS);
   }
 
   // Cache management methods

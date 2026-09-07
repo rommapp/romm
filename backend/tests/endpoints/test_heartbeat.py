@@ -1,9 +1,15 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi import status
+from main import app
 
+from endpoints.heartbeat import METADATA_HEARTBEAT_RATE_LIMIT
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from handler.metadata.launchbox_handler.handler import LaunchboxHandler
+from handler.redis_handler import sync_cache
 from utils import get_version
 
 
@@ -24,6 +30,7 @@ def test_heartbeat(client):
     assert isinstance(metadata["IGDB_API_ENABLED"], bool)
     assert isinstance(metadata["MOBY_API_ENABLED"], bool)
     assert isinstance(metadata["SS_API_ENABLED"], bool)
+    assert isinstance(metadata["SS_DEV_CREDENTIALS_SET"], bool)
     assert isinstance(metadata["STEAMGRIDDB_API_ENABLED"], bool)
     assert isinstance(metadata["RA_API_ENABLED"], bool)
     assert isinstance(metadata["LAUNCHBOX_API_ENABLED"], bool)
@@ -40,6 +47,7 @@ def test_heartbeat(client):
     emulation = heartbeat["EMULATION"]
     assert isinstance(emulation["DISABLE_EMULATOR_JS"], bool)
     assert isinstance(emulation["DISABLE_RUFFLE_RS"], bool)
+    assert isinstance(emulation["DISABLE_JSDOS"], bool)
 
     assert "FRONTEND" in heartbeat
     frontend = heartbeat["FRONTEND"]
@@ -63,16 +71,89 @@ def test_heartbeat_with_malformed_authorization_header(
 
 
 def test_heartbeat_metadata(client):
+    """LaunchBox is only healthy once its metadata store has been populated."""
     response = client.get("/api/heartbeat/metadata/launchbox")
     assert response.status_code == status.HTTP_200_OK
+    assert response.json() is False
 
-    heartbeat = response.json()
-    assert heartbeat
+    # That first answer is cached, so drop it before probing for the other state.
+    sync_cache.flushall()
+
+    with patch.object(
+        LaunchboxHandler, "is_remote_store_populated", new_callable=AsyncMock
+    ) as mock_populated:
+        mock_populated.return_value = True
+        response = client.get("/api/heartbeat/metadata/launchbox")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() is True
+
+
+def test_heartbeat_metadata_probes_the_provider_once_per_window(client):
+    """A flood of callers must not become a flood of outbound provider probes."""
+    with patch.object(
+        LaunchboxHandler, "is_remote_store_populated", new_callable=AsyncMock
+    ) as mock_populated:
+        mock_populated.return_value = True
+
+        for _ in range(METADATA_HEARTBEAT_RATE_LIMIT):
+            response = client.get("/api/heartbeat/metadata/launchbox")
+            assert response.status_code == status.HTTP_200_OK
+            assert response.json() is True
+
+    assert mock_populated.call_count == 1
+
+
+async def test_heartbeat_metadata_concurrent_misses_probe_once(client):
+    """Requests racing an in-flight probe must wait for it, not launch their own."""
+
+    async def slow_probe() -> bool:
+        await asyncio.sleep(0.05)
+        return True
+
+    with patch.object(
+        LaunchboxHandler,
+        "is_remote_store_populated",
+        new_callable=AsyncMock,
+        side_effect=slow_probe,
+    ) as mock_populated:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as async_client:
+            responses = await asyncio.gather(
+                *(
+                    async_client.get("/api/heartbeat/metadata/launchbox")
+                    for _ in range(5)
+                )
+            )
+
+    assert [r.json() for r in responses] == [True] * 5
+    assert mock_populated.call_count == 1
 
 
 def test_heartbeat_metadata_unknown_source(client):
     response = client.get("/api/heartbeat/metadata/unknown")
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_heartbeat_metadata_rate_limit(client):
+    for _ in range(METADATA_HEARTBEAT_RATE_LIMIT):
+        response = client.get("/api/heartbeat/metadata/launchbox")
+        assert response.status_code == status.HTTP_200_OK
+
+    response = client.get("/api/heartbeat/metadata/launchbox")
+    assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+    # The window is per source, so another source is untouched by the flood.
+    response = client.get("/api/heartbeat/metadata/gamelist")
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_heartbeat_metadata_unknown_source_is_not_rate_limited(client):
+    """An unparseable source is rejected before the limiter, so it burns no window."""
+    for _ in range(METADATA_HEARTBEAT_RATE_LIMIT + 1):
+        response = client.get("/api/heartbeat/metadata/unknown")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_get_setup_library_info_structure_a_detected(client, access_token):
@@ -228,6 +309,72 @@ def test_get_setup_library_info_handles_errors(client, admin_user, access_token)
 
             # Should return empty platforms list on error
             assert data["existing_platforms"] == []
+
+
+def test_get_setup_library_info_skips_filesystem_walk_when_roms_exist(
+    client, rom, access_token
+):
+    """A library with scanned ROMs never needs the on-disk hint, so skip the walk."""
+    with (
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
+        ) as mock_detect,
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.get_platforms"
+        ) as mock_get_platforms,
+    ):
+        mock_detect.return_value = "struct_a"
+        mock_get_platforms.return_value = ["n64"]
+
+        response = client.get(
+            "/api/setup/library",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+
+    assert data["detected_structure"] == "struct_a"
+    assert data["existing_platforms"] == []
+    assert len(data["supported_platforms"]) > 0
+    mock_get_platforms.assert_not_called()
+
+
+def test_get_setup_library_info_walks_when_platforms_have_no_roms(
+    client, platform, access_token
+):
+    """Platform rows without ROMs still need the hint: that is the case it exists for."""
+    with (
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
+        ) as mock_detect,
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.get_platforms"
+        ) as mock_get_platforms,
+        patch("endpoints.heartbeat.AnyioPath") as mock_anyio_path,
+    ):
+        mock_detect.return_value = "struct_a"
+        mock_get_platforms.return_value = ["n64"]
+
+        async def mock_iterdir():
+            entry = MagicMock()
+            entry.name = "game1.z64"
+            yield entry
+
+        mock_path = AsyncMock()
+        mock_path.exists = AsyncMock(return_value=True)
+        mock_path.iterdir = mock_iterdir
+        mock_anyio_path.return_value = mock_path
+
+        response = client.get(
+            "/api/setup/library",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+
+    assert data["existing_platforms"] == [{"fs_slug": "n64", "rom_count": 1}]
 
 
 def test_create_setup_platforms_success(client, admin_user, access_token):

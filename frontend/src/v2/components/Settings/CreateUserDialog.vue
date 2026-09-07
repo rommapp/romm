@@ -1,16 +1,16 @@
 <script setup lang="ts">
-// CreateUserDialog — v2-native rebuild of v1
-// `Settings/Administration/Users/Dialog/CreateUser.vue`. Single dialog
-// with username + password + email + role select; validates against
-// the existing `usersStore` rule arrays.
-import { RBtn, RIcon, RSelect, RTextField } from "@v2/lib";
+// CreateUserDialog — create a user with profile fields plus access: an Admin
+// toggle and, for non-admins, an initial permission group. Replaces the old
+// role select (roles are superseded by admin-vs-user + groups).
+import { RBtn, RIcon, RSelect, RSwitch, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import permissionsApi from "@/services/api/permissions";
 import userApi from "@/services/api/user";
+import storePermissionGroups from "@/stores/permissionGroups";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
-import { getRoleIcon } from "@/utils";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
@@ -19,30 +19,30 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const usersStore = storeUsers();
+const groupsStore = storePermissionGroups();
 const snackbar = useSnackbar();
 
 const show = ref(false);
 const submitting = ref(false);
 
-const user = ref({
-  username: "",
-  password: "",
-  email: "",
-  role: "viewer",
-});
+const user = ref({ username: "", password: "", email: "", role: "user" });
 const confirmPassword = ref("");
+const isAdmin = ref(false);
+const groupId = ref<number | null>(null);
 
-emitter?.on("showCreateUserDialog", () => {
+const groupItems = computed(() =>
+  groupsStore.groups.map((g) => ({ title: g.name, value: g.id })),
+);
+
+const defaultGroupId = computed(() => groupsStore.defaultGroup?.id ?? null);
+
+emitter?.on("showCreateUserDialog", async () => {
   reset();
   show.value = true;
+  await groupsStore.ensureLoaded();
+  // Pre-select the server default group so new users start where they land.
+  groupId.value = defaultGroupId.value;
 });
-
-const roleItems = computed(() =>
-  ["viewer", "editor", "admin"].map((role) => ({
-    title: t(`settings.role-${role}`),
-    value: role,
-  })),
-);
 
 const confirmPasswordRules = computed(() => [
   (v: string) => !!v || t("settings.repeat-password-required"),
@@ -59,15 +59,49 @@ const formValid = computed(
 );
 
 function reset() {
-  user.value = { username: "", password: "", email: "", role: "viewer" };
+  user.value = { username: "", password: "", email: "", role: "user" };
   confirmPassword.value = "";
+  isAdmin.value = false;
+  groupId.value = null;
 }
 
 async function createUser() {
   if (!formValid.value) return;
   submitting.value = true;
   try {
+    user.value.role = isAdmin.value ? "admin" : "user";
     const { data } = await userApi.createUser(user.value);
+    // The user now exists. Pinning a non-default group is a follow-up call, so
+    // its failure must not discard the already-created user (orphan); surface
+    // it as a non-fatal warning instead. Leaving the default selected lets the
+    // user follow the server default.
+    if (
+      !isAdmin.value &&
+      groupId.value !== null &&
+      groupId.value !== defaultGroupId.value
+    ) {
+      try {
+        await permissionsApi.updateUserPermissions(data.id, {
+          set_group: true,
+          permission_group_id: groupId.value,
+        });
+        data.permission_group_id = groupId.value;
+      } catch (groupErr) {
+        const ge = groupErr as {
+          response?: { data?: { detail?: string }; statusText?: string };
+          message?: string;
+        };
+        snackbar.warning(
+          t("settings.group-save-failed", {
+            detail:
+              ge?.response?.data?.detail ||
+              ge?.response?.statusText ||
+              ge?.message,
+          }),
+          { icon: "mdi-alert" },
+        );
+      }
+    }
     usersStore.add(data);
     snackbar.success(t("settings.user-created", { username: data.username }), {
       icon: "mdi-check-bold",
@@ -156,27 +190,26 @@ function close() {
           {{ t("settings.email") }}
         </template>
       </RTextField>
-      <RSelect
-        v-model="user.role"
-        variant="outlined"
-        :items="roleItems"
-        :label="t('settings.role')"
-        required
-        hide-details
-      >
-        <template #selection="{ item }">
-          <div class="r-v2-user-dialog__role-line">
-            <RIcon :icon="getRoleIcon(item.value)" size="16" />
-            {{ item.title }}
-          </div>
-        </template>
-        <template #item="{ props: itemProps, item }">
-          <li v-bind="itemProps">
-            <RIcon :icon="getRoleIcon(item.value)" size="16" />
-            <span class="r-select__item-title">{{ item.title }}</span>
-          </li>
-        </template>
-      </RSelect>
+
+      <div class="r-v2-user-dialog__admin">
+        <RSwitch v-model="isAdmin" :label="t('settings.administrator')" />
+        <span class="r-v2-user-dialog__hint">
+          {{ t("settings.administrator-hint") }}
+        </span>
+      </div>
+      <div v-if="!isAdmin" class="r-v2-user-dialog__field">
+        <span class="r-v2-user-dialog__field-label">
+          {{ t("settings.permission-group") }}
+        </span>
+        <RSelect
+          v-model="groupId"
+          variant="outlined"
+          :items="groupItems"
+          item-title="title"
+          item-value="value"
+          hide-details
+        />
+      </div>
     </template>
     <template #footer>
       <RBtn variant="text" @click="close">
@@ -200,10 +233,24 @@ function close() {
 .r-v2-user-dialog__title {
   font-weight: var(--r-font-weight-semibold);
 }
-.r-v2-user-dialog__role-line {
-  display: inline-flex;
+.r-v2-user-dialog__admin {
+  display: flex;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.r-v2-user-dialog__field {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  text-transform: capitalize;
+}
+.r-v2-user-dialog__field-label {
+  font-size: 12px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg-secondary);
+}
+.r-v2-user-dialog__hint {
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
 }
 </style>

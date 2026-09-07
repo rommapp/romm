@@ -110,15 +110,24 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
               >
                 <RAvatar
                   :image="
-                    userAvatarUrl(
-                      ownerOf(asset)!.user_avatar_path,
-                      ownerOf(asset)!.user_updated_at,
-                    )
+                    userAvatarUrl({
+                      userId: ownerOf(asset)!.user_id,
+                      avatarPath: ownerOf(asset)!.user_avatar_path,
+                      updatedAt: ownerOf(asset)!.user_updated_at,
+                    })
                   "
                   :size="16"
                 />
                 <span>{{ ownerOf(asset)!.username }}</span>
               </span>
+              <RTag
+                v-if="'slot' in asset && asset.slot"
+                tone="brand"
+                size="x-small"
+                prepend-icon="mdi-bookmark-outline"
+                :label="t('play.slot')"
+                :text="asset.slot"
+              />
               <RTag
                 v-if="asset.emulator"
                 tone="warning"

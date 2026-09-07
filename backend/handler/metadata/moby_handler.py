@@ -1,6 +1,5 @@
 import re
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote
 
 import pydash
 from unidecode import unidecode as uc
@@ -9,16 +8,16 @@ from adapters.services.mobygames import MobyGamesService
 from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
+from models.rom import Rom
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
 )
-from .base_handler import UniversalPlatformSlug as UPS
 
 PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
@@ -110,7 +109,8 @@ class MobyGamesHandler(MetadataHandler):
 
         roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(uc(search_term), safe="/ "),
+            # Pass the raw term to prevent double-encoding
+            title=uc(search_term),
         )
         if not roms:
             return None
@@ -150,7 +150,9 @@ class MobyGamesHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, fs_name: str, platform_moby_id: int) -> MobyGamesRom:
+    async def get_rom(
+        self, rom: Rom, fs_name: str, platform_moby_id: int
+    ) -> MobyGamesRom:
         from handler.filesystem import fs_rom_handler
 
         if not self.is_enabled():
@@ -184,7 +186,7 @@ class MobyGamesHandler(MetadataHandler):
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(fs_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(fs_name)
         if platform_moby_id == PS1_MOBY_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
@@ -213,10 +215,9 @@ class MobyGamesHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
-        if platform_moby_id == SWITCH_MOBY_ID and match:
+        if platform_moby_id == SWITCH_MOBY_ID:
             search_term, index_entry = await self._switch_productid_format(
-                match, search_term
+                rom, fs_name, search_term
             )
             if index_entry:
                 fallback_rom = MobyGamesRom(
@@ -250,7 +251,7 @@ class MobyGamesHandler(MetadataHandler):
         if not res:
             return fallback_rom
 
-        rom = {
+        moby_rom = {
             "moby_id": res["game_id"],
             "name": res["title"],
             "summary": res.get("description", ""),
@@ -259,7 +260,7 @@ class MobyGamesHandler(MetadataHandler):
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
 
-        return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+        return MobyGamesRom({k: v for k, v in moby_rom.items() if v})  # type: ignore[misc]
 
     async def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
         if not self.is_enabled():
@@ -299,7 +300,7 @@ class MobyGamesHandler(MetadataHandler):
 
         matched_roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(uc(search_term), safe="/ "),
+            title=uc(search_term),
         )
 
         return [

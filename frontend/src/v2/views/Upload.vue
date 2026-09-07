@@ -41,7 +41,7 @@ const uploadStore = storeUpload();
 const files = ref<File[]>([]);
 const supportedPlatforms = ref<Platform[]>([]);
 const platformsLoading = ref(false);
-const selectedPlatformId = ref<number | null>(null);
+const selectedPlatformSlug = ref<string | null>(null);
 const uploading = ref(false);
 
 const uploadDz = ref<InstanceType<typeof RDropzone> | null>(null);
@@ -54,6 +54,7 @@ async function loadPlatforms() {
     supportedPlatforms.value = data
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name));
+    applyPreselectFromQuery();
   } catch (err) {
     const e = err as {
       response?: { data?: { detail?: string } };
@@ -79,25 +80,30 @@ function applyPreselectFromQuery() {
   const raw = route.query.platform;
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (!value) {
+    selectedPlatformSlug.value = null;
     return;
   }
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return;
-  selectedPlatformId.value = parsed;
+  if (!Number.isFinite(parsed)) {
+    selectedPlatformSlug.value = null;
+    return;
+  }
+  selectedPlatformSlug.value =
+    supportedPlatforms.value.find((p) => p.id === parsed)?.slug ?? null;
 }
 
 onMounted(() => {
   loadPlatforms();
-  applyPreselectFromQuery();
 });
 
 watch(() => route.query.platform, applyPreselectFromQuery);
 
 const selectedPlatform = computed<Platform | null>(() => {
-  if (selectedPlatformId.value === null) return null;
+  if (selectedPlatformSlug.value === null) return null;
   return (
-    supportedPlatforms.value.find((p) => p.id === selectedPlatformId.value) ??
-    null
+    supportedPlatforms.value.find(
+      (p) => p.slug === selectedPlatformSlug.value,
+    ) ?? null
   );
 });
 
@@ -199,8 +205,9 @@ async function upload() {
   <div class="r-v2-upload r-v2-section-stack">
     <!-- Platform picker -->
     <PlatformSelect
-      v-model="selectedPlatformId"
+      v-model="selectedPlatformSlug"
       :items="supportedPlatforms"
+      item-key="slug"
       :placeholder="t('common.select-platform')"
       density="comfortable"
       prefix-label="stacked"

@@ -12,12 +12,10 @@ class CleanupNetplayTask(PeriodicTask):
             enabled=True,
             manual_run=False,
             cron_string="*/30 * * * *",  # Every 30 minutes
-            func="tasks.scheduled.cleanup_netplay.cleanup_netplay_task.run",
         )
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         netplay_rooms = await netplay_handler.get_all()

@@ -10,9 +10,14 @@ import axios from "axios";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
+import { useClipboard } from "@/v2/composables/useClipboard";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 
 const { t } = useI18n();
 const route = useRoute();
+const clipboard = useClipboard();
+
+usePageTitle(() => t("settings.pair-device"));
 
 const code = computed(() => (route.query.code as string) || "");
 const callback = computed(() => (route.query.callback as string) || "");
@@ -77,11 +82,11 @@ const formattedCode = computed(() => {
 });
 
 async function copyCode() {
-  try {
-    await navigator.clipboard.writeText(formattedCode.value);
-  } catch {
-    // no-op: clipboard access may be denied
-  }
+  await clipboard.copy(formattedCode.value, {
+    successMessage: t("common.clipboard-copied", {
+      label: t("common.copy-code"),
+    }),
+  });
 }
 </script>
 
@@ -142,7 +147,6 @@ async function copyCode() {
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
   padding: 40px 32px;
   box-shadow:
     0 22px 60px color-mix(in srgb, black 55%, transparent),

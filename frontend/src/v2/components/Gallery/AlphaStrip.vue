@@ -88,7 +88,10 @@ function isActive(letter: string): boolean {
 
 <style scoped>
 .alpha-strip {
-  width: 24px;
+  /* Width + edge gap come from the section (`--r-alpha-strip-*`) so the
+     stuck-toolbar overlay, which insets by the same footprint, stays in
+     lockstep with the strip at every breakpoint. */
+  width: var(--r-alpha-strip-w, 24px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -97,7 +100,7 @@ function isActive(letter: string): boolean {
   padding: 8px 0;
   /* Breathe away from the viewport edge — the strip shouldn't touch the
      right border of the gallery section. */
-  margin-right: 12px;
+  margin-right: var(--r-alpha-strip-gap, 12px);
   user-select: none;
 }
 
@@ -142,18 +145,24 @@ function isActive(letter: string): boolean {
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 
-/* Phones: keep the strip narrow enough to leave the grid room, but bump
-   the 7px letters up to something legible/tappable. Font + spacing are
-   capped so all 26 letters still fit the available height without
-   clipping on a short screen (a proper drag-scrubber is a separate
-   redesign). */
-html[data-bp~="xs"] .alpha-strip {
-  width: 20px;
-  margin-right: 6px;
+/* On phones the gallery section extends UNDER the translucent bottom tab bar
+   (the glass effect), so centring the strip in the section drops the letters
+   low — nearer the bottom bar than the top nav. Reserve the bar's height as
+   bottom padding so the letters centre in the VISIBLE content band instead. */
+html[data-bp~="sm-and-down"] .alpha-strip {
+  padding-bottom: calc(
+    var(--r-space-2) + var(--r-bottom-nav-h) + env(safe-area-inset-bottom)
+  );
 }
+
+/* Phones: the column width / edge gap come from the section vars (see
+   `.alpha-strip`), which are widened on `xs`. Here we just bump the letters
+   up to something more legible / tappable. Font + spacing stay capped so all
+   26 letters still fit the available height without clipping on a short screen
+   (a proper drag-scrubber is a separate redesign). */
 html[data-bp~="xs"] .alpha-strip__btn {
-  font-size: 9px;
-  padding: 1.5px 0;
+  font-size: 11px;
+  padding: 2px 0;
   margin-top: 2px;
 }
 </style>

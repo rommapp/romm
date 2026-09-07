@@ -6,6 +6,38 @@ from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
 
+# Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL
+# does not, so 0124 creates them there only and no model declares them.
+POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
+    ("collections", "ix_collections_user_id", "user_id"),
+    ("smart_collections", "ix_smart_collections_user_id", "user_id"),
+    ("rom_notes", "ix_rom_notes_user_id", "user_id"),
+    ("firmware", "ix_firmware_platform_id", "platform_id"),
+    ("collections_roms", "ix_collections_roms_rom_id", "rom_id"),
+    ("music_playlist_tracks", "ix_music_playlist_tracks_rom_file_id", "rom_file_id"),
+    ("music_favorite_tracks", "ix_music_favorite_tracks_rom_file_id", "rom_file_id"),
+    ("play_sessions", "ix_play_sessions_rom_id", "rom_id"),
+    ("play_sessions", "ix_play_sessions_device_id", "device_id"),
+    ("play_sessions", "ix_play_sessions_sync_session_id", "sync_session_id"),
+    ("saves", "ix_saves_user_id", "user_id"),
+    ("states", "ix_states_user_id", "user_id"),
+    ("screenshots", "ix_screenshots_user_id", "user_id"),
+    ("rom_file_user", "ix_rom_file_user_user_id", "user_id"),
+    ("memory_cards", "ix_memory_cards_platform_id", "platform_id"),
+    (
+        "streaming_container_adoptions",
+        "ix_streaming_container_adoptions_decided_by_user_id",
+        "decided_by_user_id",
+    ),
+)
+
+# Indexes that exist in some databases but cannot be declared on a model.
+AUTOGENERATE_EXEMPT_INDEX_NAMES = frozenset(
+    # Search indexes built per dialect in 0084: FULLTEXT on MySQL/MariaDB,
+    # pg_trgm GIN on PostgreSQL. No portable model declaration exists.
+    {"idx_roms_name_fs_name_fulltext", "idx_roms_name_trgm", "idx_roms_fs_name_trgm"}
+) | frozenset(name for _, name, _ in POSTGRESQL_FK_INDEXES)
+
 
 def CustomJSON(**kwargs: Any) -> sa.JSON:
     """Custom SQLAlchemy JSON type that uses JSONB on PostgreSQL."""
@@ -128,11 +160,23 @@ def json_array_contains_all(
     )
 
 
+LIKE_ESCAPE_CHAR = "\\"
+
+
+def escape_like(term: str) -> str:
+    """Escape LIKE wildcards so a search term matches literally (pass escape=LIKE_ESCAPE_CHAR to like())."""
+    return (
+        term.replace(LIKE_ESCAPE_CHAR, LIKE_ESCAPE_CHAR * 2)
+        .replace("%", f"{LIKE_ESCAPE_CHAR}%")
+        .replace("_", f"{LIKE_ESCAPE_CHAR}_")
+    )
+
+
 def safe_str_to_bool(value: Any, default: bool = False) -> bool:
     """Safely convert a value to bool, returning default if conversion fails."""
     try:
         return value.strip().lower() in ("1", "true", "yes", "on")
-    except (ValueError, TypeError, AttributeError):
+    except ValueError, TypeError, AttributeError:
         return default
 
 
@@ -140,7 +184,7 @@ def safe_float(value: Any, default: float = 0.0) -> float:
     """Safely convert a value to float, returning default if conversion fails."""
     try:
         return float(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return default
 
 
@@ -148,5 +192,5 @@ def safe_int(value: Any, default: int = 0) -> int:
     """Safely convert a value to int, returning default if conversion fails."""
     try:
         return int(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return default

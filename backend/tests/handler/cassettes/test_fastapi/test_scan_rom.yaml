@@ -13,7 +13,7 @@ interactions:
         user-agent:
           - RomM/development (https://github.com/rommapp/romm)
       method: GET
-      uri: https://playmatch.retrorealm.dev/api/identify/ids?fileName=Paper+Mario+(USA).z64&fileSize=1024
+      uri: https://playmatch.retrorealm.dev/api/v2/identify/ids?fileName=Paper+Mario+(USA).z64&fileSize=1024
     response:
       body:
         string: '{"gameMatchType":"NoMatch","id":null}'

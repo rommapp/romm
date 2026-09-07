@@ -20,12 +20,7 @@
 import { useLocalStorage, type RemovableRef } from "@vueuse/core";
 
 export type GroupByMode =
-  | "letter"
-  | "family"
-  | "category"
-  | "generation"
-  | "playable"
-  | "none";
+  "letter" | "family" | "category" | "generation" | "playable" | "none";
 export type LayoutMode = "grid" | "list";
 export type ToolbarPosition = "header" | "floating";
 

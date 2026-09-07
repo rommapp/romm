@@ -2,17 +2,19 @@
 // (front / back / spine) for a rom, and reports whether the full set is
 // available.
 //
-//   * front  — the rom's own cover chain (the ScreenScraper box-2D front
-//              becomes the cover on match), webp-rewritten like everywhere
-//              else.
+//   * front  — ss_metadata.box2d_path, falling back to the rom's own cover
+//              chain (webp-rewritten like everywhere else). The stored SS
+//              front comes from the same scan set as the back and spine, so
+//              preferring it keeps the three faces visually consistent even
+//              when another provider won the cover.
 //   * back   — ss_metadata.box2d_back_path
 //   * spine  — ss_metadata.box2d_side_path
 //
-// Back and spine are persisted locally only when the user enabled the
-// `box2d_back` / `box2d_side` media types in `scan.media`, so `complete`
-// is false for most libraries until they opt in and re-scan. RBox3D is
-// only mounted when `complete` is true; otherwise the surface keeps the
-// flat cover.
+// Each face is persisted locally only when the user enabled the matching
+// `box2d` / `box2d_back` / `box2d_side` media type in `scan.media`, so
+// `complete` is false for most libraries until they opt in and re-scan.
+// RBox3D is only mounted when `complete` is true; otherwise the surface
+// keeps the flat cover.
 import {
   computed,
   toValue,
@@ -50,11 +52,12 @@ export function computeBoxFaces(
   supportsWebp: boolean,
 ): BoxFaces {
   const localCover = rom.path_cover_large ?? rom.path_cover_small ?? null;
-  const front =
+  const cover =
     localCover && supportsWebp
       ? localCover.replace(RASTER_EXT, ".webp")
       : localCover;
 
+  const front = resourceUrl(rom.ss_metadata?.box2d_path) ?? cover;
   const back = resourceUrl(rom.ss_metadata?.box2d_back_path);
   const spine = resourceUrl(rom.ss_metadata?.box2d_side_path);
 

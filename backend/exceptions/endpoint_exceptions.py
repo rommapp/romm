@@ -56,6 +56,38 @@ class CollectionAlreadyExistsException(Exception):
         return self.message
 
 
+class MusicPlaylistNotFoundException(Exception):
+    def __init__(self, id):
+        self.message = f"Playlist with id '{id}' not found"
+        super().__init__(self.message)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=self.message)
+
+    def __repr__(self) -> str:
+        return self.message
+
+
+class MusicPlaylistPermissionError(Exception):
+    def __init__(self, id):
+        self.message = f"Permission denied for playlist with id '{id}'"
+        super().__init__(self.message)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=self.message)
+
+    def __repr__(self) -> str:
+        return self.message
+
+
+class MusicPlaylistAlreadyExistsException(Exception):
+    def __init__(self, name):
+        self.message = f"Playlist with name '{name}' already exists"
+        super().__init__(self.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=self.message
+        )
+
+    def __repr__(self) -> str:
+        return self.message
+
+
 class RomNotFoundInRetroAchievementsException(Exception):
     def __init__(self, id):
         self.message = f"Rom with id '{id}' does not exist on RetroAchievements"

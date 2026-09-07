@@ -5,7 +5,7 @@ import { computeBoxFaces, type BoxFacesRom } from "./index";
 const RES = "/assets/romm/resources";
 
 // Minimal rom factory — computeBoxFaces only reads the cover chain and the
-// two ss_metadata path fields. Single cast scoped to the test.
+// three ss_metadata box-face path fields. Single cast scoped to the test.
 function rom(over: Partial<SimpleRom>): BoxFacesRom {
   const base: Partial<SimpleRom> = {
     path_cover_large: null,
@@ -69,6 +69,38 @@ describe("computeBoxFaces", () => {
     );
     expect(faces.front).toBe("roms/1/1/cover/l.webp");
     expect(faces.back).toBe(`${RES}/roms/1/1/box2d_back/box2d_back.png`);
+  });
+
+  it("prefers the stored ScreenScraper front over the rom cover", () => {
+    const faces = computeBoxFaces(
+      rom({
+        path_cover_large: "roms/1/1/cover/l.png",
+        ss_metadata: {
+          box2d_path: "roms/1/1/box2d/box2d.png",
+          box2d_back_path: "roms/1/1/box2d_back/box2d_back.png",
+          box2d_side_path: "roms/1/1/box2d_side/box2d_side.png",
+        },
+      }),
+      true,
+    );
+    // No webp rewrite: only the cover chain has webp variants on disk.
+    expect(faces.front).toBe(`${RES}/roms/1/1/box2d/box2d.png`);
+    expect(faces.complete).toBe(true);
+  });
+
+  it("resolves the front from the box front alone, without a cover", () => {
+    const faces = computeBoxFaces(
+      rom({
+        ss_metadata: {
+          box2d_path: "roms/1/1/box2d/box2d.png",
+          box2d_back_path: "roms/1/1/box2d_back/box2d_back.png",
+          box2d_side_path: "roms/1/1/box2d_side/box2d_side.png",
+        },
+      }),
+      false,
+    );
+    expect(faces.front).toBe(`${RES}/roms/1/1/box2d/box2d.png`);
+    expect(faces.complete).toBe(true);
   });
 
   it("falls back to the small cover when the large one is absent", () => {

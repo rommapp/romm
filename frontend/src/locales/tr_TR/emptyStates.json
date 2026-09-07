@@ -1,0 +1,11 @@
+{
+  "404-subtitle": "Aradığınız sayfa mevcut değil",
+  "404-title": "Sayfa bulunamadı",
+  "firmware-text": "Aradığınız firmware/BIOS mevcut değil",
+  "firmware-title": "Gösterilecek firmware/BIOS yok",
+  "home-headline": "Kütüphanenizde oyun yok",
+  "home-text": "Oynamaya hazır mısınız?",
+  "home-title": "Sisteminizdeki oyunları otomatik algılamak için hızlı tarama başlatın",
+  "manual-match": "Tüm meta veri sağlayıcılarında oyun ara",
+  "search-for-games": "Tüm platformlarda oyun ara"
+}

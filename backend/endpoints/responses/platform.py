@@ -17,6 +17,7 @@ class PlatformSchema(BaseModel):
     hltb_slug: str | None
     libretro_slug: str | None
     custom_name: str | None = None
+    description: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
     moby_id: int | None = None
@@ -45,6 +46,8 @@ class PlatformSchema(BaseModel):
     def display_name(self) -> str:
         return self.custom_name or self.name
 
+    # Counts every row like `rom_count` does; callers wanting only usable
+    # BIOS filter the `firmware` list that ships alongside it.
     @computed_field  # type: ignore
     @property
     def firmware_count(self) -> int:

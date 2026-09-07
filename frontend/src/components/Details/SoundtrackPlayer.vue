@@ -5,7 +5,7 @@ import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
-  RomFileAudioMetaSchema,
+  TrackMetaSchema,
   SoundtrackTrackMetaSchema,
 } from "@/__generated__";
 import VolumeControl from "@/components/common/VolumeControl.vue";
@@ -75,7 +75,7 @@ const folderCoverUrl = computed(() => {
   return cover ? fileUrl(cover.id, cover.file_name) : null;
 });
 
-const tracksMeta = ref<Map<number, RomFileAudioMetaSchema>>(new Map());
+const tracksMeta = ref<Map<number, TrackMetaSchema>>(new Map());
 const isLoadingMeta = ref(false);
 let metaAbort: AbortController | null = null;
 
@@ -89,13 +89,13 @@ const activeTrack = computed(() =>
   tracks.value.find((t) => t.id === activeTrackId.value),
 );
 
-const activeMeta = computed<RomFileAudioMetaSchema | undefined>(() =>
+const activeMeta = computed<TrackMetaSchema | undefined>(() =>
   activeTrackId.value != null
     ? tracksMeta.value.get(activeTrackId.value)
     : undefined,
 );
 
-function coverUrlForMeta(m: RomFileAudioMetaSchema | undefined): string | null {
+function coverUrlForMeta(m: TrackMetaSchema | undefined): string | null {
   if (m?.cover_path) return `${FRONTEND_RESOURCES_PATH}/${m.cover_path}`;
   return null;
 }
@@ -152,9 +152,9 @@ async function loadAllMetadata() {
       romId: props.rom.id,
       signal: metaAbort.signal,
     });
-    const next = new Map<number, RomFileAudioMetaSchema>();
+    const next = new Map<number, TrackMetaSchema>();
     for (const row of data as SoundtrackTrackMetaSchema[]) {
-      if (row.audio_meta) next.set(row.file_id, row.audio_meta);
+      if (row.track_meta) next.set(row.file_id, row.track_meta);
     }
     tracksMeta.value = next;
     syncStorePlaylist();
@@ -172,7 +172,7 @@ async function loadAllMetadata() {
   }
 }
 
-function toPlayerMeta(m: RomFileAudioMetaSchema | undefined): PlayerMeta {
+function toPlayerMeta(m: TrackMetaSchema | undefined): PlayerMeta {
   return {
     title: m?.title ?? undefined,
     artist: m?.artist ?? undefined,
@@ -208,7 +208,7 @@ onMounted(() => {
 
 // Refetch metadata whenever the rom is updated server-side — covers both the
 // "new track added" case (IDs grow) and the "same track re-uploaded" case
-// (same IDs, new audio_meta) which a track-IDs diff would miss.
+// (same IDs, new track_meta) which a track-IDs diff would miss.
 watch(
   () => props.rom.updated_at,
   () => void loadAllMetadata(),
@@ -244,13 +244,13 @@ function onDelete(fileId: number) {
   emit("delete-track", fileId);
 }
 
-function chips(meta: RomFileAudioMetaSchema | undefined) {
+function chips(meta: TrackMetaSchema | undefined) {
   if (!meta) return [];
   const items: { icon: string; label: string }[] = [];
   if (meta.album) items.push({ icon: "mdi-album", label: meta.album });
   if (meta.artist)
     items.push({ icon: "mdi-account-music", label: meta.artist });
-  if (meta.year) items.push({ icon: "mdi-calendar", label: meta.year });
+  if (meta.year) items.push({ icon: "mdi-calendar", label: String(meta.year) });
   if (meta.genre)
     items.push({ icon: "mdi-music-clef-treble", label: meta.genre });
   if (meta.track) items.push({ icon: "mdi-numeric", label: `#${meta.track}` });

@@ -10,14 +10,24 @@ from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import (
+    assert_can,
+    assert_platform_visible,
+    get_permissions,
+)
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.platform import Platform
-from utils.platforms import get_supported_platforms
+from models.permission import PermAction, PermEntity
+from models.platform import (
+    CUSTOM_NAME_MAX_LENGTH,
+    DESCRIPTION_MAX_LENGTH,
+    Platform,
+)
+from utils.platforms import get_filesystem_platforms, get_supported_platforms
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -61,9 +71,13 @@ def get_platforms(
 ) -> list[PlatformSchema]:
     """Retrieve platforms."""
 
+    perms = get_permissions(request)
     return [
         PlatformSchema.model_validate(p)
-        for p in db_platform_handler.get_platforms(updated_after=updated_after)
+        for p in db_platform_handler.get_platforms(
+            updated_after=updated_after,
+            hidden_platform_ids=perms.hidden_platform_ids,
+        )
     ]
 
 
@@ -73,8 +87,10 @@ def get_platform_identifiers(
 ) -> list[int]:
     """Retrieve platform identifiers."""
 
+    perms = get_permissions(request)
     platforms = db_platform_handler.get_platforms(
         only_fields=[Platform.id],
+        hidden_platform_ids=perms.hidden_platform_ids,
     )
     return [p.id for p in platforms]
 
@@ -84,6 +100,13 @@ def get_supported_platforms_endpoint(request: Request) -> list[PlatformSchema]:
     """Retrieve the list of supported platforms."""
 
     return get_supported_platforms()
+
+
+@protected_route(router.get, "/filesystem", [Scope.PLATFORMS_READ])
+async def get_filesystem_platforms_endpoint(request: Request) -> list[PlatformSchema]:
+    """Retrieve platform folders on disk that have no database row yet."""
+
+    return await get_filesystem_platforms()
 
 
 @protected_route(
@@ -101,6 +124,7 @@ def get_platform(
     platform = db_platform_handler.get_platform(id)
     if not platform:
         raise PlatformNotFoundInDatabaseException(id)
+    assert_platform_visible(request, platform)
     return PlatformSchema.model_validate(platform)
 
 
@@ -114,7 +138,20 @@ async def update_platform(
     request: Request,
     id: Annotated[int, PathVar(description="Platform id.", ge=1)],
     custom_name: Annotated[
-        str | None, Body(description="Custom platform name.")
+        str | None,
+        Body(
+            embed=True,
+            max_length=CUSTOM_NAME_MAX_LENGTH,
+            description="Custom platform name.",
+        ),
+    ] = None,
+    description: Annotated[
+        str | None,
+        Body(
+            embed=True,
+            max_length=DESCRIPTION_MAX_LENGTH,
+            description="Custom platform description.",
+        ),
     ] = None,
 ) -> PlatformSchema:
     """Update a platform."""
@@ -122,9 +159,12 @@ async def update_platform(
     platform_db = db_platform_handler.get_platform(id)
     if not platform_db:
         raise PlatformNotFoundInDatabaseException(id)
+    assert_platform_visible(request, platform_db)
 
     if custom_name is not None:
         platform_db.custom_name = custom_name
+    if description is not None:
+        platform_db.description = description
     platform_db = db_platform_handler.add_platform(platform_db)
 
     return PlatformSchema.model_validate(platform_db)
@@ -142,9 +182,12 @@ async def delete_platform(
 ) -> None:
     """Delete a platform by ID."""
 
+    perms = get_permissions(request)
     platform = db_platform_handler.get_platform(id)
     if not platform:
         raise PlatformNotFoundInDatabaseException(id)
+    assert_platform_visible(request, platform)
+    assert_can(perms, PermEntity.PLATFORMS, PermAction.DELETE)
 
     log.info(
         f"Deleting {hl(platform.name, color=BLUE)} [{hl(platform.fs_slug)}] from database"

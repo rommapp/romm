@@ -74,13 +74,14 @@ function activeScrappers(p: Platform) {
 
 defineOptions({ inheritAttrs: false });
 
-type PlatformKey = "id" | "slug";
+type PlatformKey = "id" | "slug" | "fs_slug";
 
 interface Props {
   modelValue?: number | string | number[] | string[] | null;
   items: Platform[];
   /** Which Platform field the v-model binds to. Default `id`.
-   *  `slug` is used by FolderMapping (the table works in slug space). */
+   *  `slug` is used by FolderMapping (the table works in slug space)
+   *  `fs_slug` is used by Scan (mixes database platforms and folders) */
   itemKey?: PlatformKey;
   multiple?: boolean;
   searchable?: boolean;
@@ -103,6 +104,10 @@ interface Props {
   prependInnerIcon?: string;
   /** Scan-style rich row — category icon, family, missing-fs, rom-count. */
   showMeta?: boolean;
+  /** Never-scanned folders. */
+  markUnscanned?: boolean;
+  /** Label for the never-scanned marker */
+  unscannedLabel?: string;
   /** Icon size inside list rows. Defaults to 28 (Scan uses 32, dialogs 22-24). */
   iconSize?: number;
 }
@@ -126,6 +131,8 @@ const props = withDefaults(defineProps<Props>(), {
   prefixLabel: undefined,
   prependInnerIcon: undefined,
   showMeta: false,
+  markUnscanned: false,
+  unscannedLabel: undefined,
   iconSize: 28,
 });
 
@@ -231,7 +238,7 @@ function onUpdate(v: unknown) {
     <!-- Item — consumer slot wins; otherwise icon + name (+ meta). -->
     <template #item="slotProps">
       <slot name="item" v-bind="slotProps">
-        <li v-bind="slotProps.props">
+        <li v-bind="slotProps.props" class="r-v2-platsel__row">
           <RPlatformIcon
             :key="(slotProps.item.raw as Platform).slug"
             :slug="(slotProps.item.raw as Platform).slug"
@@ -247,6 +254,18 @@ function onUpdate(v: unknown) {
                 size="x-small"
                 class="r-v2-platsel__fs-slug"
                 :text="(slotProps.item.raw as Platform).fs_slug"
+              />
+              <RTag
+                v-if="
+                  markUnscanned &&
+                  unscannedLabel &&
+                  (slotProps.item.raw as Platform).id < 0
+                "
+                size="x-small"
+                tone="info"
+                prepend-icon="mdi-folder-plus-outline"
+                class="r-v2-platsel__unscanned"
+                :text="unscannedLabel"
               />
               <RIcon
                 v-if="(slotProps.item.raw as Platform).category"
@@ -337,12 +356,31 @@ function onUpdate(v: unknown) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.r-v2-platsel__row {
+  container-name: r-v2-platsel__row;
+  container-type: inline-size;
+}
 .r-v2-platsel__meta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-left: auto;
   color: var(--r-color-fg-muted);
+}
+
+/* Narrow: shed the low-priority descriptors. */
+@container r-v2-platsel__row (max-width: 560px) {
+  .r-v2-platsel__fs-slug,
+  .r-v2-platsel__family,
+  .r-v2-platsel__meta-icon {
+    display: none;
+  }
+}
+/* Narrower still: drop the scrapper match strip too. */
+@container r-v2-platsel__row (max-width: 400px) {
+  .r-v2-platsel__scrappers {
+    display: none;
+  }
 }
 .r-v2-platsel__meta-icon {
   flex-shrink: 0;
@@ -361,6 +399,9 @@ function onUpdate(v: unknown) {
   font-family: var(--r-font-family-mono);
   font-size: 10.5px;
   text-transform: lowercase;
+}
+.r-v2-platsel__unscanned {
+  flex-shrink: 0;
 }
 .r-v2-platsel__scrappers {
   display: inline-flex;

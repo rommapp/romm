@@ -7,7 +7,12 @@
 // hover affordance so they read as candidates for click-to-filter.
 // Sections with no items are omitted so the grid doesn't show empty
 // columns.
+//
+// A section carrying a `filter` renders its chips as `searchLocation`
+// links, pivoting into the global search scoped to that value.
 import { RIcon } from "@v2/lib";
+import type { FilterType } from "@/stores/galleryFilter";
+import { searchLocation } from "@/v2/utils/searchLocation";
 
 defineOptions({ inheritAttrs: false });
 
@@ -17,6 +22,9 @@ export type InfoGridSection = {
   /** Leading icon for the section header — gives each category a
    *  semantic cue (e.g. tags for genres, building for companies). */
   icon?: string;
+  /** Gallery filter these items map to. Set it to make the chips
+   *  clickable pivots into a filtered search. */
+  filter?: FilterType;
 };
 
 const props = defineProps<{ sections: InfoGridSection[] }>();
@@ -41,13 +49,16 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
         <span>{{ section.label }}</span>
       </div>
       <div class="r-v2-det-infogrid__chips">
-        <span
-          v-for="item in section.items"
-          :key="item"
-          class="r-v2-det-infogrid__chip"
-        >
-          {{ item }}
-        </span>
+        <template v-for="item in section.items" :key="item">
+          <router-link
+            v-if="section.filter"
+            :to="searchLocation(section.filter, item)"
+            class="r-v2-det-infogrid__chip r-v2-det-infogrid__chip--link"
+          >
+            {{ item }}
+          </router-link>
+          <span v-else class="r-v2-det-infogrid__chip">{{ item }}</span>
+        </template>
       </div>
     </div>
   </div>
@@ -105,5 +116,10 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
   color: var(--r-color-fg);
   border-color: var(--r-color-brand-primary);
   background: var(--r-color-surface-hover);
+}
+
+.r-v2-det-infogrid__chip--link {
+  cursor: pointer;
+  text-decoration: none;
 }
 </style>

@@ -141,8 +141,15 @@ interface Options {
   /** Horizontal gap between cards in px (default 12). */
   gap?: MaybeRefOrGetter<number>;
   /** Natural cover ratio (w / h) for a position (card width =
-   *  `cardHeight * ratioAt(p)`). Defaults to 2/3 until the image is measured. */
+   *  `cardHeight * ratioAt(p)`). Falls back to `fallbackRatio` until the
+   *  image is measured. */
   ratioAt?: (position: number) => number;
+  /** Ratio to pack an unmeasured position at — must be the ratio its card
+   *  actually paints, which is the active boxart style's box ratio: a card
+   *  with no artwork paints its placeholder at that ratio and never
+   *  measures, and one waiting on its image paints there until it loads.
+   *  Defaults to box art (2/3). */
+  fallbackRatio?: MaybeRefOrGetter<number>;
   /** Bump to force a re-pack when measured ratios change (Vue tracks it). */
   ratioVersion?: Ref<number> | ComputedRef<number>;
 }
@@ -225,9 +232,19 @@ export function useGalleryVirtualItems(opts: Options) {
   // exact-offset regardless of how many variable-width cards a row holds.
   const rowHeightPx = computed(() => cardHeightPx() + ROW_CHROME_PX);
 
-  const ratioAt = (position: number): number => {
-    const r = opts.ratioAt?.(position);
-    return r != null && r > 0 ? r : DEFAULT_COVER_RATIO;
+  const fallbackRatio = () => {
+    const r = opts.fallbackRatio != null ? toValue(opts.fallbackRatio) : 0;
+    return r > 0 ? r : DEFAULT_COVER_RATIO;
+  };
+
+  /** Per-build ratio lookup — resolves the fallback once so the packer's
+   *  hot path (one call per position) stays a single map read. */
+  const makeRatioAt = () => {
+    const fallback = fallbackRatio();
+    return (position: number): number => {
+      const r = opts.ratioAt?.(position);
+      return r != null && r > 0 ? r : fallback;
+    };
   };
 
   // `unknown` matches RVirtualScroller's generic prop. Row / skeleton-row
@@ -379,6 +396,7 @@ export function useGalleryVirtualItems(opts: Options) {
     );
     // Track the version so a measured-ratio change re-runs the pack.
     void (opts.ratioVersion ? opts.ratioVersion.value : 0);
+    const ratioAt = makeRatioAt();
 
     if (opts.groupBy.value === "letter") {
       // Header + own flow-packed rows per letter (rows restart per letter).

@@ -5,5 +5,6 @@
 export type UserCollectionSchema = {
     id: number;
     name: string;
+    is_smart?: boolean;
 };
 

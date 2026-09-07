@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288.99" height="67">
+  <defs>
+    <pattern id="greptile-grid" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path d="M8 6v4M6 8h4" stroke="#3d3b4f" stroke-opacity="0.25" stroke-width="1" />
+    </pattern>
+    <filter id="greptile-glow" x="-10%" y="-100%" width="120%" height="300%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#28e99f" flood-opacity="0.85" />
+    </filter>
+  </defs>
+  <g fill="none" fill-rule="evenodd">
+    <rect width="286.99" height="65" x="1" y="1" fill="#e6e6e6" stroke="#e6e6e6" stroke-width="2" rx="8" />
+    <rect width="286.99" height="65" x="1" y="1" fill="url(#greptile-grid)" rx="8" />
+    <g fill="#3d3b4f" transform="translate(17, 14) scale(0.0952)">
+      <path d="M240.269 49.8154L166.804 115.963L115.966 159.44L181.335 220.585L249.784 162.048L196.78 112.47L253.068 61.7881L362.605 164.246L178.739 321.489L3.14502 157.242L187.011 0L240.269 49.8154Z" />
+      <rect width="236.453" height="83.4566" transform="matrix(0.75471 -0.656059 0 1 188.017 336.544)" />
+      <rect width="236.453" height="83.4566" transform="matrix(0.731354 0.681998 0 1 0 174.962)" />
+    </g>
+    <!--  -->
+    <text fill="#3d3b4f" font-family="Arial" font-size="21" font-weight="bold">
+      <tspan x="70" y="51">Reviewed by Greptile</tspan>
+    </text>
+    <text fill="#3d3b4f" font-family="Arial" font-size="12" font-weight="bold" filter="url(#greptile-glow)">
+      <tspan x="70" y="26">THE WAR ON BUGS</tspan>
+    </text>
+  </g>
+</svg>

@@ -428,7 +428,11 @@ const spinnerSize = computed(() => {
   /* Suppress native button defaults. */
   background: transparent;
   color: inherit;
-  outline: none;
+  /* No blanket `outline: none` here — Vue's scope attribute would raise
+     its specificity above the `:where()`-wrapped global focus ring
+     (global.css), swallowing the keyboard / pad ring. The focus rules
+     below defer to that global ring and only clear the native UA outline
+     for the mouse (non-focus-visible) case. */
   /* Smooth tone / theme / state changes — RSwitch motion language. */
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
@@ -455,6 +459,16 @@ const spinnerSize = computed(() => {
 }
 .r-btn:active:not(.r-btn--disabled, :disabled)::before {
   opacity: 0.18;
+}
+
+/* ── Focus ─────────────────────────────────────────────────────────
+   Keyboard / pad focus rings come from the global modality-gated rule
+   in global.css (branded outline for `key`, outline + bloom for `pad`).
+   We only need to clear the native UA outline for a pointer focus that
+   isn't `:focus-visible` (a mouse click), so it doesn't leak a grey
+   rectangle on press. */
+.r-btn:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* ── Ripple — circular wave from the activation point ─────────── */

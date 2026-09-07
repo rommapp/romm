@@ -1,7 +1,7 @@
 import shutil
 import time
 
-from endpoints.roms.upload import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
+from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 
@@ -15,12 +15,10 @@ class CleanupUploadTmpTask(PeriodicTask):
             enabled=True,
             manual_run=False,
             cron_string="0 * * * *",  # Every hour
-            func="tasks.scheduled.cleanup_upload_tmp.cleanup_upload_tmp_task.run",
         )
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         if not ROM_UPLOAD_TMP_BASE.exists():

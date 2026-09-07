@@ -23,6 +23,7 @@ export type RomSSMetadata = {
     video_url?: (string | null);
     video_normalized_url?: (string | null);
     bezel_path?: (string | null);
+    box2d_path?: (string | null);
     box2d_back_path?: (string | null);
     box2d_side_path?: (string | null);
     box3d_path?: (string | null);
@@ -40,6 +41,8 @@ export type RomSSMetadata = {
     alternative_names?: Array<string>;
     age_ratings?: Array<SSAgeRating>;
     companies?: Array<string>;
+    publishers?: Array<string>;
+    developers?: Array<string>;
     franchises?: Array<string>;
     game_modes?: Array<string>;
     genres?: Array<string>;

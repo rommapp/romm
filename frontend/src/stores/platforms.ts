@@ -8,6 +8,7 @@ export type Platform = PlatformSchema;
 export default defineStore("platforms", {
   state: () => ({
     allPlatforms: [] as Platform[],
+    filesystemPlatforms: [] as Platform[],
     filterText: "" as string,
     fetchingPlatforms: false as boolean,
   }),
@@ -27,12 +28,17 @@ export default defineStore("platforms", {
             p.display_name.toLowerCase().includes(filterText.toLowerCase()),
         )
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
+    // Existing database platforms + unscanned folders on disk
+    scannablePlatforms: ({ allPlatforms: all, filesystemPlatforms: fs }) =>
+      uniqBy([...all, ...fs], "fs_slug").sort((a, b) =>
+        a.display_name.localeCompare(b.display_name),
+      ),
   },
 
   actions: {
     _reorder() {
       this.allPlatforms = uniqBy(this.allPlatforms, "id").sort((a, b) => {
-        return a.name.localeCompare(b.name);
+        return a.display_name.localeCompare(b.display_name);
       });
     },
     fetchPlatforms(): Promise<Platform[]> {
@@ -52,6 +58,20 @@ export default defineStore("platforms", {
           })
           .finally(() => {
             this.fetchingPlatforms = false;
+          });
+      });
+    },
+    fetchFilesystemPlatforms(): Promise<Platform[]> {
+      return new Promise((resolve, reject) => {
+        platformApi
+          .getFilesystemPlatforms()
+          .then(({ data: platforms }) => {
+            this.filesystemPlatforms = platforms;
+            resolve(platforms);
+          })
+          .catch((error) => {
+            console.error(error);
+            reject(error);
           });
       });
     },
@@ -80,6 +100,7 @@ export default defineStore("platforms", {
     },
     reset() {
       this.allPlatforms = [] as Platform[];
+      this.filesystemPlatforms = [] as Platform[];
       this.filterText = "";
     },
   },

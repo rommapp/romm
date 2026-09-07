@@ -24,6 +24,7 @@ export type ScreenshotItem = {
   isOwn?: boolean;
   isPublic?: boolean;
   username?: string;
+  userId?: number | null;
   userAvatarPath?: string | null;
   userUpdatedAt?: string | null;
 };
@@ -88,7 +89,13 @@ function canToggle(shot: ScreenshotItem): boolean {
       <!-- Owner chip for community (others' public) screenshots -->
       <div v-if="shot.username" class="r-v2-det-shots__owner">
         <RAvatar
-          :image="userAvatarUrl(shot.userAvatarPath, shot.userUpdatedAt)"
+          :image="
+            userAvatarUrl({
+              userId: shot.userId,
+              avatarPath: shot.userAvatarPath,
+              updatedAt: shot.userUpdatedAt,
+            })
+          "
           size="16"
         />
         <span>{{ shot.username }}</span>
@@ -146,16 +153,10 @@ function canToggle(shot: ScreenshotItem): boolean {
     @close="close"
   >
     <template #default="{ item, index }">
-      <img
-        :src="item as string"
-        :alt="t('rom.screenshot-num', { n: index + 1 })"
-      />
+      <img :src="item" :alt="t('rom.screenshot-num', { n: index + 1 })" />
     </template>
     <template #thumbnail="{ item, index }">
-      <img
-        :src="item as string"
-        :alt="t('rom.screenshot-num-thumb', { n: index + 1 })"
-      />
+      <img :src="item" :alt="t('rom.screenshot-num-thumb', { n: index + 1 })" />
     </template>
   </RCarousel>
 </template>

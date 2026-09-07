@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Role = 'viewer' | 'editor' | 'admin';
+export type Role = 'user' | 'admin';

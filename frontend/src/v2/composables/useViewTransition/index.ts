@@ -19,10 +19,12 @@
 // so two visible cards with the same ROM never collide.
 //
 // Graceful degradation:
-//   * `prefers-reduced-motion: reduce` → no transition, just navigate.
+//   * reduced-motion mode (OS setting or user override) → no transition,
+//     just navigate.
 //   * Browser without `document.startViewTransition` → just navigate.
 import { nextTick, ref } from "vue";
 import type { RouteLocationNormalized, Router } from "vue-router";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 export interface MorphSource {
   el: HTMLElement;
@@ -52,19 +54,14 @@ function isSupported(): boolean {
   );
 }
 
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
-
 export function useViewTransition() {
+  const { enabled: reducedMotion } = useReducedMotion();
+
   function morphTransition(
     source: MorphSource,
     navigate: () => void | Promise<void>,
   ): void {
-    if (!isSupported() || prefersReducedMotion()) {
+    if (!isSupported() || reducedMotion.value) {
       void navigate();
       return;
     }
@@ -146,7 +143,7 @@ function morphNameForRoute(route: RouteLocationNormalized): string | null {
 export function installBackMorph(router: Router): () => void {
   const removeGuard = router.beforeResolve(async (to, from) => {
     if (forwardTransitionActive) return true;
-    if (!isSupported() || prefersReducedMotion()) return true;
+    if (!isSupported() || useReducedMotion().enabled.value) return true;
     // No morph between two views of the same kind (e.g. /platform/A →
     // /platform/B) — that would compete with the in-route transition
     // and there's no shared element to pair anyway.

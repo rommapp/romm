@@ -65,6 +65,20 @@ class TestFSPlatformsHandler:
             assert "romm" not in result
             assert "excluded_platform" not in result
 
+    def test_exclude_platforms_supports_glob_patterns(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Glob patterns in the exclusion list (e.g. .Trash-*) match directories"""
+        platforms = ["n64", ".Trash-1000", "#recycle", "psx"]
+        config.EXCLUDED_PLATFORMS = [".Trash-*", "#recycle"]
+
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            result = handler._exclude_platforms(platforms)
+
+            assert result == ["n64", "psx"]
+
     def test_exclude_platforms_empty_list(self, handler: FSPlatformsHandler, config):
         """Test that _exclude_platforms handles empty list"""
         with patch(
@@ -270,6 +284,34 @@ class TestFSPlatformsHandler:
                     result = await handler.get_platforms()
 
                     assert result == []
+
+    async def test_get_platforms_skips_unreadable_directories(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Structure B: directories that raise PermissionError on stat are skipped
+        instead of crashing platform discovery (and the heartbeat with it)."""
+        config.has_structure_path_a = False
+        config.has_structure_path_b = True
+
+        class FakePath:
+            def __init__(self, path: str):
+                self._path = str(path)
+
+            async def exists(self) -> bool:
+                if "locked" in self._path:
+                    raise PermissionError(13, "Permission denied", self._path)
+                return True
+
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch.object(
+                handler, "list_directories", return_value=["n64", "locked", "psx"]
+            ):
+                with patch("handler.filesystem.platforms_handler.AnyioPath", FakePath):
+                    result = await handler.get_platforms()
+
+                    assert result == ["n64", "psx"]
 
     def test_integration_with_base_handler_methods(self, handler: FSPlatformsHandler):
         """Test that FSPlatformsHandler properly inherits from FSHandler"""

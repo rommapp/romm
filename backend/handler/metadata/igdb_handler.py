@@ -1,5 +1,6 @@
 import re
-from typing import Final, NotRequired, TypedDict
+from collections.abc import Sequence
+from typing import Any, Final, NotRequired, TypedDict
 
 import httpx
 import pydash
@@ -23,16 +24,15 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from models.rom import Rom
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
 )
-from .base_handler import UniversalPlatformSlug as UPS
 
 PS1_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PSX]["id"]
 PS2_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PS2]["id"]
@@ -63,6 +63,10 @@ IGDB_REGIONAL_TWIN_PLATFORMS: Final[dict[int, int]] = {
 
 # Regex to detect IGDB ID tags in filenames like (igdb-12345)
 IGDB_TAG_REGEX = re.compile(r"\(igdb-(\d+)\)", re.IGNORECASE)
+
+# Jaro-Winkler score of an exact (post-normalization) title match. Only a first
+# pass hitting this may be trusted without widening the search.
+EXACT_MATCH_SCORE: Final = 1.0
 
 
 class IGDBPlatform(TypedDict):
@@ -114,14 +118,21 @@ class IGDBMetadataMultiplayerMode(TypedDict):
 
 class IGDBMetadata(TypedDict):
     total_rating: str | None
+    # 9/10 from a thousand > 10/10 from one
+    total_rating_count: int | None
     aggregated_rating: str | None
     first_release_date: int | None
     youtube_video_id: str | None
     genres: list[str]
+    keywords: list[str]
+    themes: list[str]
+    player_perspectives: list[str]
     franchises: list[str]
     alternative_names: list[str]
     collections: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     game_modes: list[str]
     age_ratings: list[IGDBAgeRating]
     platforms: list[IGDBMetadataPlatform]
@@ -158,6 +169,19 @@ def build_related_game(
     )
 
 
+def _expanded_names(entries: Sequence[Any]) -> list[str]:
+    """Names from an IGDB expandable field.
+
+    A field requested without `.name` comes back as a bare id, so non-dict
+    entries are skipped rather than raising.
+    """
+    return [
+        name
+        for entry in entries
+        if isinstance(entry, dict) and (name := entry.get("name"))
+    ]
+
+
 def extract_metadata_from_igdb_rom(
     self: MetadataHandler, rom: Game, platform_igdb_id: int | None
 ) -> IGDBMetadata:
@@ -171,6 +195,9 @@ def extract_metadata_from_igdb_rom(
     franchises = rom.get("franchises", [])
     game_modes = rom.get("game_modes", [])
     genres = rom.get("genres", [])
+    keywords = rom.get("keywords", [])
+    themes = rom.get("themes", [])
+    player_perspectives = rom.get("player_perspectives", [])
     involved_companies = rom.get("involved_companies", [])
     platforms = rom.get("platforms", [])
     multiplayer_modes = rom.get("multiplayer_modes", [])
@@ -234,21 +261,45 @@ def extract_metadata_from_igdb_rom(
         {
             "youtube_video_id": videos[0].get("video_id") if videos else None,
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
+            "total_rating_count": rom.get("total_rating_count", 0),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),
-            "genres": [g.get("name", "") for g in genres if g.get("name")],
-            "franchises": pydash.compact(
-                [franchise.get("name") if franchise else None]
-                + [f.get("name", "") for f in franchises if f.get("name")]
+            "genres": _expanded_names(genres),
+            # Community tags ("metroidvania", "roguelike") describing how a game
+            # plays, which the coarse genre list does not capture.
+            "keywords": _expanded_names(keywords),
+            "themes": _expanded_names(themes),
+            "player_perspectives": _expanded_names(player_perspectives),
+            # IGDB reports the main franchise both on its own and inside the
+            # list, so the two sources overlap for most games that have one.
+            "franchises": pydash.uniq(
+                pydash.compact(
+                    [franchise.get("name") if franchise else None]
+                    + _expanded_names(franchises)
+                )
             ),
-            "alternative_names": [
-                n.get("name", "") for n in alternative_names if n.get("name")
-            ],
-            "collections": [c.get("name", "") for c in collections if c.get("name")],
-            "game_modes": [g.get("name", "") for g in game_modes if g.get("name")],
+            "alternative_names": _expanded_names(alternative_names),
+            "collections": _expanded_names(collections),
+            "game_modes": _expanded_names(game_modes),
             "companies": [
                 c["company"]["name"] for c in involved_companies if c.get("company")
             ],
+            # One entry per involvement, not per company, so a studio credited
+            # twice in a role would otherwise be listed twice.
+            "publishers": pydash.uniq(
+                [
+                    c["company"]["name"]
+                    for c in involved_companies
+                    if c.get("company") and c.get("publisher")
+                ]
+            ),
+            "developers": pydash.uniq(
+                [
+                    c["company"]["name"]
+                    for c in involved_companies
+                    if c.get("company") and c.get("developer")
+                ]
+            ),
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p["id"], name=p.get("name", ""))
                 for p in platforms
@@ -353,22 +404,37 @@ REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
 
 
 def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
-    """Get IGDB locale, preferring the rom's own region tag when available.
+    """Get IGDB locale from the ROM's prioritized regions when available.
 
     Maps region priority codes to IGDB's game_localizations region identifiers.
-    Checks the rom's tagged regions first, then falls back to scan.priority.region.
+    Prioritizes the ROM's tagged regions by scan.priority.region, then falls
+    back to scan.priority.region.
 
     Returns:
         IGDB region identifier (e.g., "ja-JP", "EU") or None for default
     """
+    config = cm.get_config()
+    priority = config.SCAN_REGION_PRIORITY
+    normalized_priority = [region.lower() for region in priority]
+
     if rom is not None and isinstance(rom.regions, list):
+        rom_codes: list[str] = []
         for region_name in rom.regions:
             code = region_name_to_provider_shortcode(region_name)
             if code and code in REGION_TO_IGDB_LOCALE:
-                return REGION_TO_IGDB_LOCALE[code]
+                rom_codes.append(code)
 
-    config = cm.get_config()
-    for region in config.SCAN_REGION_PRIORITY:
+        rom_codes.sort(
+            key=lambda code: (
+                normalized_priority.index(code)
+                if code in normalized_priority
+                else len(normalized_priority)
+            )
+        )
+        if rom_codes:
+            return REGION_TO_IGDB_LOCALE[rom_codes[0]]
+
+    for region in priority:
         if region.lower() in REGION_TO_IGDB_LOCALE:
             return REGION_TO_IGDB_LOCALE[region.lower()]
 
@@ -543,6 +609,23 @@ class IGDBHandler(MetadataHandler):
             return int(match.group(1))
         return None
 
+    def _is_prefix_superset_match(self, search_term: str, candidate_name: str) -> bool:
+        """Whether one title's words are a proper prefix of the other's.
+
+        Jaro-Winkler scores a base title and a longer variant that starts with
+        it (e.g. "Portable Ops" vs "Portable Ops Plus") well above the match
+        threshold, so a fuzzy pass can settle for the base when the variant is
+        simply absent from that pass's candidates. Detecting this prefix/superset
+        ambiguity lets the caller widen the search before committing. (#3805)
+        """
+        search_tokens = self.normalize_search_term(search_term).split()
+        candidate_tokens = self.normalize_search_term(candidate_name).split()
+        if not search_tokens or not candidate_tokens:
+            return False
+
+        shorter, longer = sorted((search_tokens, candidate_tokens), key=len)
+        return len(shorter) < len(longer) and longer[: len(shorter)] == shorter
+
     async def _search_rom(
         self, search_term: str, platform_igdb_id: int, with_game_type: bool = False
     ) -> Game | None:
@@ -563,18 +646,18 @@ class IGDBHandler(MetadataHandler):
             game_type_filter = ""
 
         log.debug("Searching in games endpoint with game_type %s", game_type_filter)
-        where_filter = f"{_build_platforms_where(platform_igdb_id)} {game_type_filter}"
+        base_where = _build_platforms_where(platform_igdb_id)
 
         # Special case for ScummVM games
         # https://github.com/rommapp/romm/issues/2424
         scummvm_platform = self.get_platform(UPS.SCUMMVM)
         if scummvm_platform["igdb_id"] == platform_igdb_id:
-            where_filter = f"keywords=[{platform_igdb_id}] {game_type_filter}"
+            base_where = f"keywords=[{platform_igdb_id}]"
 
         roms = await self.igdb_service.list_games(
             search_term=search_term,
             fields=GAMES_FIELDS,
-            where=where_filter,
+            where=f"{base_where} {game_type_filter}",
             limit=self.pagination_limit,
         )
 
@@ -584,11 +667,36 @@ class IGDBHandler(MetadataHandler):
             search_term,
             list(games_by_name.keys()),
         )
-        if best_match:
+
+        # Trust an exact first-pass hit outright. A non-exact hit that is only a
+        # prefix/superset of the search term (e.g. matching "Portable Ops" for a
+        # "Portable Ops Plus" search) may be a near-miss for a more specific
+        # variant this pass never saw, so widen the search and re-rank across
+        # every candidate before committing. (#3805)
+        if best_match is not None and (
+            best_score >= EXACT_MATCH_SCORE
+            or not self._is_prefix_superset_match(search_term, best_match)
+        ):
             log.debug(
                 f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
             )
             return games_by_name[best_match]
+
+        extra_roms: list[Game] = []
+
+        # The game_type filter can hide a more specific variant that IGDB
+        # classifies as an excluded type (e.g. an expansion). Re-query without
+        # it so such variants become candidates.
+        if game_type_filter:
+            log.debug("Searching in games endpoint without game_type")
+            extra_roms.extend(
+                await self.igdb_service.list_games(
+                    search_term=search_term,
+                    fields=GAMES_FIELDS,
+                    where=base_where,
+                    limit=self.pagination_limit,
+                )
+            )
 
         log.debug("Searching expanded in search endpoint")
         roms_expanded = await self.igdb_service.search(
@@ -614,25 +722,30 @@ class IGDBHandler(MetadataHandler):
                 unique_game_ids,
             )
             id_filter = " | ".join(f"id={gid}" for gid in unique_game_ids)
-            extra_roms = await self.igdb_service.list_games(
-                fields=GAMES_FIELDS,
-                where=f"({id_filter})",
-                limit=self.pagination_limit,
+            extra_roms.extend(
+                await self.igdb_service.list_games(
+                    fields=GAMES_FIELDS,
+                    where=f"({id_filter})",
+                    limit=self.pagination_limit,
+                )
             )
 
-            extra_games_by_name = _index_games_by_searchable_name(extra_roms)
-
+        if extra_roms:
+            # Re-rank across the union of every pass so an exact variant surfaced
+            # only after widening can outrank the first-pass near-miss on the
+            # base title. The base stays in the pool, so it remains the fallback
+            # when no better match exists.
+            games_by_name = _index_games_by_searchable_name(roms + extra_roms)
             best_match, best_score = self.find_best_match(
                 search_term,
-                list(extra_games_by_name.keys()),
+                list(games_by_name.keys()),
             )
-            if best_match:
-                log.debug(
-                    f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
-                )
-                return extra_games_by_name[best_match]
 
-            roms.extend(extra_roms)
+        if best_match:
+            log.debug(
+                f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+            )
+            return games_by_name[best_match]
 
         return None
 
@@ -723,7 +836,7 @@ class IGDBHandler(MetadataHandler):
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS2, PSP)
-        match = SONY_SERIAL_REGEX.search(fs_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(fs_name)
         if platform_igdb_id == PS1_IGDB_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
@@ -752,10 +865,9 @@ class IGDBHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
-        if platform_igdb_id == SWITCH_IGDB_ID and match:
+        if platform_igdb_id == SWITCH_IGDB_ID:
             search_term, index_entry = await self._switch_productid_format(
-                match, search_term
+                rom, fs_name, search_term
             )
             if index_entry:
                 fallback_rom = IGDBRom(
@@ -969,6 +1081,8 @@ GAMES_FIELDS = (
     "collections.name",
     "game_modes.name",
     "involved_companies.company.name",
+    "involved_companies.developer",
+    "involved_companies.publisher",
     "expansions.id",
     "expansions.slug",
     "expansions.name",
@@ -993,6 +1107,10 @@ GAMES_FIELDS = (
     "ports.slug",
     "ports.name",
     "ports.cover.url",
+    "total_rating_count",
+    "keywords.name",
+    "themes.name",
+    "player_perspectives.name",
     "similar_games.id",
     "similar_games.slug",
     "similar_games.name",

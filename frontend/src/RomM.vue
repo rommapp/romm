@@ -24,16 +24,18 @@ const BackendStatusBanner = defineAsyncComponent(
   () => import("@/v2/components/AppShell/BackendStatusBanner.vue"),
 );
 
-const { locale } = useI18n();
+// Global scope is explicit because this write switches the whole app:
+// an <i18n> block in this SFC would otherwise flip it to component-local.
+const { locale } = useI18n({ useScope: "global" });
 const languageStore = storeLanguage();
 const consoleStore = storeConsole();
 const vuetifyTheme = useTheme();
 const { consoleMode } = storeToRefs(consoleStore);
-const { defaultLanguage, languages } = storeToRefs(languageStore);
+const { languages } = storeToRefs(languageStore);
 const storedLocale = useLocalStorage("settings.locale", "");
 const selectedLanguage = ref(
   languages.value.find((lang) => lang.value === storedLocale.value) ||
-    defaultLanguage.value,
+    languageStore.detectBrowserLanguage(),
 );
 locale.value = selectedLanguage.value.value;
 languageStore.setLanguage(selectedLanguage.value);

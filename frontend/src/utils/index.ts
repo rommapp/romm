@@ -63,6 +63,9 @@ export function getRoleIcon(role: string) {
   switch (role) {
     case "admin":
       return "mdi-shield-crown-outline";
+    case "user":
+      return "mdi-account-outline";
+    // Legacy roles, kept so any lingering value still renders an icon.
     case "editor":
       return "mdi-file-edit-outline";
     case "viewer":
@@ -123,7 +126,24 @@ export function getDownloadPath({
     queryParams.append("file_ids", fileIDs.join(","));
   }
   const queryString = queryParams.toString();
-  return `/api/roms/${rom.id}/content/${rom.fs_name}${
+
+  // If a single file is selected, use its name for the download path
+  const selectedFile =
+    fileIDs.length === 1
+      ? rom.files?.find((f) => f.id === fileIDs[0])
+      : undefined;
+  const nestedFile =
+    fileIDs.length === 0 &&
+    rom.has_nested_single_file &&
+    rom.files?.length === 1
+      ? rom.files[0]
+      : undefined;
+  const contentFile = selectedFile ?? nestedFile;
+  const contentName = contentFile
+    ? encodeURIComponent(contentFile.file_name)
+    : rom.fs_name;
+
+  return `/api/roms/${rom.id}/content/${contentName}${
     queryString ? `?${queryString}` : ""
   }`;
 }
@@ -200,10 +220,10 @@ export function formatRelativeDate(date: string | Date) {
  */
 export function regionToEmoji(region: string) {
   switch (region.toLowerCase()) {
-    case "as":
+    case "a":
     case "australia":
       return "🇦🇺";
-    case "a":
+    case "as":
     case "asia":
       return "🌏";
     case "b":
@@ -256,9 +276,6 @@ export function regionToEmoji(region: string) {
     case "no":
     case "norway":
       return "🇳🇴";
-    case "pd":
-    case "public domain":
-      return "🇵🇱";
     case "r":
     case "russia":
       return "🇷🇺";
@@ -528,7 +545,7 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   wonderswan: ["mednafen_wswan"],
   swancrystal: ["mednafen_wswan"],
   "wonderswan-color": ["mednafen_wswan"],
-  zsx: ["fuse"],
+  zxs: ["fuse"],
 } as const;
 
 // TODO: Merge with _EJS_CORES_MAP next emukatorjs release (post 4.2.3)
@@ -599,6 +616,17 @@ const gl =
   canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
 
 /**
+ * Resolve a platform slug through the configured version remap.
+ *
+ * @param platformSlug The platform slug.
+ * @param config Optional configuration object.
+ * @returns The remapped slug, or the original when no remap applies.
+ */
+export function resolvePlatformSlug(platformSlug: string, config?: Config) {
+  return config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+}
+
+/**
  * Check if EJS emulation is supported for a given platform.
  *
  * @param platformSlug The platform slug.
@@ -613,7 +641,7 @@ export function isEJSEmulationSupported(
 ) {
   if (heartbeat.EMULATION.DISABLE_EMULATOR_JS) return false;
 
-  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  const slug = resolvePlatformSlug(platformSlug, config);
   return (
     getSupportedEJSCores(slug, config?.EJS_NETPLAY_ENABLED).length > 0 &&
     gl instanceof WebGLRenderingContext
@@ -670,15 +698,44 @@ export function isRuffleEmulationSupported(
 ) {
   if (heartbeat.EMULATION.DISABLE_RUFFLE_RS) return false;
 
-  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  const slug = resolvePlatformSlug(platformSlug, config);
   return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
+/**
+ * Check if js-dos emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isJsDosEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_JSDOS) return false;
+
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return ["win3x", "win9x"].includes(slug.toLowerCase());
+}
+
+/**
+ * Check if a ROM file is a js-dos bundle.
+ *
+ * js-dos panics on anything that is not an archive carrying
+ * `.jsdos/dosbox.conf`.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the file is a js-dos bundle, false otherwise.
+ */
+export function isJsDosBundle(rom: SimpleRom | null | undefined) {
+  return rom?.fs_extension.toLowerCase() === "jsdos";
+}
+
 export type PlayingStatus =
-  | RomUserStatus
-  | "backlogged"
-  | "now_playing"
-  | "hidden";
+  RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
 /**
  * Map of ROM statuses to their corresponding emoji, text, and i18n key.
@@ -880,4 +937,18 @@ export const ARCADE_SYSTEMS = new Set(["arcade", "neogeoaes", "neogeomvs"]);
 
 export function isArcadeSystem(platformSlug: string): boolean {
   return ARCADE_SYSTEMS.has(platformSlug.toLowerCase());
+}
+
+/** Fisher-Yates shuffle returning a new array. `random` is injectable so
+ *  callers can make shuffled output deterministic under test. */
+export function shuffled<T>(
+  items: T[],
+  random: () => number = Math.random,
+): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(random() * (index + 1));
+    [result[index], result[target]] = [result[target], result[index]];
+  }
+  return result;
 }

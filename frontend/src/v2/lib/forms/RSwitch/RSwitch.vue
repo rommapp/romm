@@ -156,7 +156,9 @@ function toggle() {
   top: 3px;
   left: 3px;
   border-radius: 50%;
-  background: var(--r-color-fg);
+  /* Default knob is white. The ON state uses --r-color-switch-knob-on so it can be
+     dark on dark theme’s bright track and white on light theme’s deep-purple track. */
+  background: var(--r-color-overlay-fg);
   transform: translateX(0) scaleX(1);
   /* Origin sits on the outer edge of the knob in each state (left when
      off, right when on — see `.r-switch--on .r-switch__knob`) so the
@@ -200,7 +202,10 @@ function toggle() {
 
 /* ── On state ───────────────────────────────────────────────────── */
 .r-switch--on .r-switch__knob {
-  background: var(--r-color-overlay-emphasis-fg);
+  /* Theme-aware ink: dark knob on dark theme's bright track, white knob on
+     light theme's deep-purple track. Driven by a token so it flips cleanly
+     per theme instead of a fixed-dark value that sank into the light track. */
+  background: var(--r-color-switch-knob-on);
   transform: translateX(var(--r-switch-travel)) scaleX(1);
   transform-origin: right center;
 }

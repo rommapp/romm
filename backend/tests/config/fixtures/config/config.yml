@@ -44,10 +44,16 @@ scan:
     artwork:
       - "igdb" # IGDB
       - "ss" # Screenscraper
+    cover:
+      - "ss"
+      - "tgdb"
+    screenshot:
+      - "igdb"
     region:
       - jp
       - eu
       - wor
+    region_mode: prefer_config
     language:
       - jp
       - es
@@ -67,6 +73,7 @@ emulatorjs:
   cache_limit: 1000
   disable_auto_unload: true
   disable_batch_bootup: true
+  auto_save_sync: true
   netplay:
     enabled: true
     ice_servers:

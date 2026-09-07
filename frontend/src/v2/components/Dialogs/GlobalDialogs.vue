@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // GlobalDialogs — the stack of emitter-driven dialogs + notification
 // mount-points that need to live at the layout level so they overlay
-// every route. All surfaces here are v2-native.
+// every route.
 import AboutDialog from "@/v2/components/Dialogs/AboutDialog.vue";
+import AddPhysicalGameDialog from "@/v2/components/Dialogs/AddPhysicalGameDialog.vue";
 import ChangelogDialog from "@/v2/components/Dialogs/ChangelogDialog.vue";
 import CopyDownloadLinkDialog from "@/v2/components/Dialogs/CopyDownloadLinkDialog.vue";
 import CreateSmartCollectionDialog from "@/v2/components/Dialogs/CreateSmartCollectionDialog.vue";
@@ -42,6 +43,7 @@ defineOptions({ inheritAttrs: false });
   <CopyDownloadLinkDialog />
   <ManageCollectionsDialog />
   <CreateSmartCollectionDialog />
+  <AddPhysicalGameDialog />
   <AboutDialog />
   <ChangelogDialog />
   <SelectSaveDialog />

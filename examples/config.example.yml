@@ -76,6 +76,10 @@
 #   roms_folder: 'roms'
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)
 #   skip_hash_calculation: false
+#   # Skip reading platform-native title IDs out of ROM binaries during scans
+#   skip_title_id_extraction: false
+#   # Rename Switch ROMs to embed ` [TITLEID][vVERSION]` in their filename
+#   embed_switch_title_ids: false
 #   # Custom library structure, per platform. By default a platform's ROM folder
 #   # is scanned one level deep: each top-level file is a game and each top-level
 #   # folder is a single multi-file game. A template lets you describe a deeper /
@@ -137,6 +141,7 @@
 #       - gamelist # ES-DE gamelist.xml
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
+#       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat (lowest priority)
 #     artwork: # Cover art and screenshots
 #       - igdb # IGDB
@@ -148,18 +153,29 @@
 #       - gamelist # ES-DE gamelist.xml
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
+#       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat
+#     # Optional per-field overrides, each falls back to "artwork" when omitted
+#     cover: # Cover art only
+#       - igdb
+#       - ss
+#     screenshot: # Screenshots only
+#       - ss
+#       - igdb
+#     manual: # Game manuals only
+#       - launchbox
 #     region: # Used by IGDB and ScreenScraper for regional variants
 #       - us
 #       - wor
 #       - ss
 #       - eu
 #       - jp
+#     region_mode: prefer_rom_tags # Region tags win over priority list
 #     language: # Used by ScreenScraper for descriptions
 #       - en
 #       - fr
-#     # Media assets to download
-#     # Only used by Screenscraper and ES-DE gamelist.xml
+#   # Media assets to download
+#   # Only used by Screenscraper and ES-DE gamelist.xml
 #   media:
 #     # Used as alternative cover art
 #     - box2d  # Normal cover art (always enabled)
@@ -169,6 +185,7 @@
 #     - physical  # Disc, cartridge, etc.
 #     # Added to the screenshots carousel
 #     - screenshot  # Screenshot (enabled by default)
+#     # Shown in the artwork gallery
 #     - title_screen  # Title screen
 #     - fanart  # User uploaded artwork
 #     # Bezel displayed around the emulatorjs window
@@ -186,13 +203,13 @@
 #     - marquee  # Custom marquee
 #   # Auto-export metadata files after scan completes
 #   gamelist:
-#     export: false # Whether to export gamelist.xml for ES-DE/Batocera/RetroBAT
+#     export: false # Whether to export gamelist.xml for ES-DE/Batocera/RetroBAT (merged into an existing file)
 #     media:
 #       # Select a media type from the list above (eg. box2d, screenshot, etc.)
 #       thumbnail: box2d # Use as the <thumbnail> tag in the exported gamelist.xml
 #       image: screenshot  # Use as the <image> tag in the exported gamelist.xml
 #   pegasus:
-#     export: false # Whether to export metadata.pegasus.txt for Pegasus
+#     export: false # Whether to export metadata.pegasus.txt for Pegasus (merged into an existing file)
 
 # EmulatorJS per-core options
 # emulatorjs:
@@ -200,6 +217,7 @@
 #   cache_limit: null # Cache limit per ROM (in bytes)
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
+#   auto_save_sync: false # Upload the save to the server whenever it changes, without Save & Quit
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled
@@ -223,3 +241,27 @@
 #       1: # Player 2
 #       2: # Player 3
 #       3: # Player 4
+
+# Emulator streaming: play a ROM through a real emulator in a webstation
+# container, streamed to the browser.
+# Supported platforms, emulators and BIOS requirements:
+# https://docs.romm.app/latest/using/emulator-streaming/
+#
+# streaming:
+#   enabled: true
+#   containers:
+#     # One container can serve many platforms. Container keys are defaults
+#     # for every platform it serves; a platform block may override emulator,
+#     # label, and memory_card_sync.
+#     - protocol: webstation
+#       host: https://192.168.1.56:3010  # browser-facing UI, must be https
+#       subfolder: /streaming            # matches the container's SUBFOLDER
+#       library_path: /romm              # where it mounts your ROM library
+#       broker_secret: change-me         # matches the container's BROKER_SECRET
+#       label: Emulation station
+#       broker_host: http://192.168.1.56:3010  # server-to-broker URL, when RomM can't dial `host` itself
+#       platforms:
+#         snes: retroarch                 # the emulator name directly...
+#         ps2:                            # ...or a block overriding container keys
+#           emulator: pcsx2
+#           memory_card_sync: true

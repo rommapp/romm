@@ -113,6 +113,15 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
   return cols;
 }
 
+// Fixed track widths (px) — kept as data so the grid template AND the row's
+// natural min-width (below) derive from the same numbers.
+const LIST_SELECT_TRACK_PX = 36;
+const LIST_PLATFORM_TRACK_PX = 200;
+const LIST_METRIC_TRACKS_PX = [88, 96, 84, 56, 110, 110, 88];
+/** Minimum width of the title column so it stays readable when the row is
+ *  scrolled horizontally on a narrow viewport (instead of collapsing to 0). */
+export const LIST_TITLE_MIN_PX = 200;
+
 /** CSS-grid template paired with `getListColumns`. The `platform` slot
  * is inserted between `name` and `fs_size_bytes` when present so column
  * order matches the array. */
@@ -120,12 +129,40 @@ export function getListGridTemplate(
   showPlatform: boolean,
   coverWidthPx = 48,
 ): string {
-  const platformTrack = showPlatform ? " 200px" : "";
+  const platformTrack = showPlatform ? ` ${LIST_PLATFORM_TRACK_PX}px` : "";
+  const metrics = LIST_METRIC_TRACKS_PX.map((w) => `${w}px`).join(" ");
   // Cover track widens to the widest cover in the gallery (set by the
   // shell from measured ratios), so landscape covers show whole instead of
   // being clipped, while portrait-only lists stay tight. The title column
   // starts at a fixed x because every row shares this width.
-  return `36px ${coverWidthPx}px minmax(0, 1.6fr)${platformTrack} 88px 96px 84px 56px 110px 110px 88px`;
+  return `${LIST_SELECT_TRACK_PX}px ${coverWidthPx}px minmax(${LIST_TITLE_MIN_PX}px, 1.6fr)${platformTrack} ${metrics}`;
+}
+
+// The row/header grids also carry a `--r-space-3` column gap and a
+// `--r-space-3` inline padding on each side (see GameListRow / GameListHeader),
+// which add to the natural width alongside the tracks.
+const LIST_GRID_GAP_PX = 12; // --r-space-3
+const LIST_ROW_PAD_X_PX = 12; // --r-space-3 (each side)
+
+/** The row's natural (minimum) width = every fixed track + the title's floor +
+ *  the inter-column gaps + the row's inline padding. The shell hands this to
+ *  the virtual scroller as its `minContentWidth`, so a viewport narrower than
+ *  this scrolls the list horizontally instead of squashing / clipping the
+ *  columns (and it sizes the sticky column header to match). */
+export function getListMinWidth(
+  showPlatform: boolean,
+  coverWidthPx = 48,
+): number {
+  const metrics = LIST_METRIC_TRACKS_PX.reduce((a, b) => a + b, 0);
+  // Columns: select + cover + title (+ platform) + every metric.
+  const columnCount = 3 + LIST_METRIC_TRACKS_PX.length + (showPlatform ? 1 : 0);
+  const tracks =
+    LIST_SELECT_TRACK_PX +
+    coverWidthPx +
+    LIST_TITLE_MIN_PX +
+    (showPlatform ? LIST_PLATFORM_TRACK_PX : 0) +
+    metrics;
+  return tracks + (columnCount - 1) * LIST_GRID_GAP_PX + 2 * LIST_ROW_PAD_X_PX;
 }
 
 /** Default exports — the cross-platform variant. Used by the bootstrap-

@@ -13,18 +13,20 @@
 // Both uploadable sections use RDropzone (CTA when empty, overlay over the
 // grid when filled).
 import { RBtn, RDropzone } from "@v2/lib";
-import axios from "axios";
 import { storeToRefs } from "pinia";
 import { computed, defineAsyncComponent, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import screenshotApi from "@/services/api/screenshot";
 import storeAuth from "@/stores/auth";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { ScreenshotItem } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 const ScreenshotsTab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
@@ -42,28 +44,30 @@ const IMAGE_EXTENSIONS = new Set([
   "avif",
 ]);
 
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : String(err);
-}
-
 const props = defineProps<{ rom: DetailedRom }>();
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const romsStore = storeRoms();
+const { refetchRom } = useRomSync();
 const uploadStore = storeUpload();
 const authStore = storeAuth();
 const { user } = storeToRefs(authStore);
 
-// Per-ROM screenshots require a folder (single-file ROMs have nowhere to put a
-// `screenshots/` dir).
-const romSupported = computed(() => !props.rom.has_simple_single_file);
+// The shared ROM section writes to the ROM itself (roms.write); the "Mine"
+// section writes per-user assets and stays available to everyone.
+const canEditRom = useCan("rom.edit");
+
+// Uploading per-ROM screenshots to a single-file ROM promotes it to a folder
+// ROM in place (the backend converts on upload); warn before that happens.
+async function confirmFolderConversionIfNeeded(): Promise<boolean> {
+  if (!props.rom.has_simple_single_file) return true;
+  return confirm({
+    title: t("rom.convert-to-folder-title"),
+    body: t("rom.convert-to-folder-body"),
+    tone: "warning",
+  });
+}
 
 // ---------- ROM (shared) screenshots — RomFile-backed ----------
 const romScreenshots = computed<ScreenshotItem[]>(() => {
@@ -112,19 +116,14 @@ const communityScreenshots = computed<ScreenshotItem[]>(() =>
       isOwn: false,
       isPublic: true,
       username: s.username,
+      userId: s.user_id,
       userAvatarPath: s.user_avatar_path,
       userUpdatedAt: s.user_updated_at,
     })),
 );
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    romsStore.update(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchRom(props.rom.id);
 }
 
 // ---------- Upload result toast (shared by both upload paths) ----------
@@ -156,7 +155,8 @@ const romDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const myDz = ref<InstanceType<typeof RDropzone> | null>(null);
 
 async function handleRomFiles(files: File[]) {
-  if (files.length === 0 || !romSupported.value) return;
+  if (files.length === 0) return;
+  if (!(await confirmFolderConversionIfNeeded())) return;
   const responses = await romApi.uploadScreenshots({
     romId: props.rom.id,
     filesToUpload: files,
@@ -241,8 +241,13 @@ async function toggleVisibility(id: number, isPublic: boolean) {
 
 <template>
   <div class="r-v2-shots">
-    <!-- ROM (shared) screenshots — multi-file ROMs only -->
-    <section v-if="romSupported" class="r-v2-shots__section">
+    <!-- ROM (shared) screenshots — the whole section drops away for a
+         read-only user with nothing to show, since there is neither art to
+         look at nor an upload they're allowed to make. -->
+    <section
+      v-if="canEditRom || romScreenshots.length > 0"
+      class="r-v2-shots__section"
+    >
       <header class="r-v2-shots__head">
         <div class="r-v2-shots__head-text">
           <h3 class="r-v2-shots__title">
@@ -253,7 +258,7 @@ async function toggleVisibility(id: number, isPublic: boolean) {
           </p>
         </div>
         <RBtn
-          v-if="romScreenshots.length > 0"
+          v-if="romScreenshots.length > 0 && canEditRom"
           variant="outlined"
           size="small"
           prepend-icon="mdi-cloud-upload-outline"
@@ -277,6 +282,7 @@ async function toggleVisibility(id: number, isPublic: boolean) {
         v-else
         ref="romDz"
         overlay
+        :disabled="!canEditRom"
         :release-label="t('common.dropzone-drag-over')"
         :input-label="t('rom.upload-screenshots')"
         accept="image/*"
@@ -285,7 +291,7 @@ async function toggleVisibility(id: number, isPublic: boolean) {
       >
         <ScreenshotsTab
           :screenshots="romScreenshots"
-          deletable
+          :deletable="canEditRom"
           @delete="deleteRomScreenshot"
         />
       </RDropzone>

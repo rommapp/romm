@@ -6,13 +6,15 @@ from config.config_manager import EjsControls, MetadataMediaType, NetplayICEServ
 class ConfigResponse(TypedDict):
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
+    CONFIG_FILE_PARSE_ERROR: str | None
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
     EXCLUDED_SINGLE_FILES: list[str]
     EXCLUDED_MULTI_FILES: list[str]
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
-    DEFAULT_EXCLUDED_DIRS: list[str]
+    DEFAULT_EXCLUDED_PLATFORM_DIRS: list[str]
+    DEFAULT_EXCLUDED_MULTI_FILE_DIRS: list[str]
     DEFAULT_EXCLUDED_FILES: list[str]
     DEFAULT_EXCLUDED_EXTENSIONS: list[str]
     PLATFORMS_BINDING: dict[str, str]
@@ -22,14 +24,18 @@ class ConfigResponse(TypedDict):
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
+    EJS_ENABLE_AUTO_SAVE_SYNC: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, dict[str, str]]
     EJS_CONTROLS: dict[str, EjsControls]
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
+    SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
+    GAMELIST_AUTO_EXPORT_ON_SCAN: bool
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
+    PEGASUS_AUTO_EXPORT_ON_SCAN: bool

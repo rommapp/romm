@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import inspect as sa_inspect
@@ -14,6 +16,7 @@ from handler.database import (
     db_state_handler,
     db_user_handler,
 )
+from handler.database.base_handler import sync_session
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom, compute_name_sort_key
@@ -36,6 +39,58 @@ def test_platforms():
     db_platform_handler.mark_missing_platforms([])
     platforms = db_platform_handler.get_platforms()
     assert len(platforms) == 1
+
+
+def _add_physical_rom(platform: Platform, name: str = "Physical Game") -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=name,
+            fs_name=name,
+            fs_path=f"{platform.slug}/roms/.physical",
+            fs_size_bytes=0,
+            is_physical=True,
+        )
+    )
+
+
+def test_mark_missing_roms_skips_physical(rom: Rom, platform: Platform):
+    physical = _add_physical_rom(platform)
+
+    # An empty keep-list would normally flag every rom on the platform as missing.
+    still_missing = db_rom_handler.mark_missing_roms(platform.id, [])
+
+    missing_ids = {r.id for r in still_missing}
+    assert rom.id in missing_ids
+    assert physical.id not in missing_ids
+
+    refreshed = db_rom_handler.get_rom(physical.id)
+    assert refreshed is not None
+    assert refreshed.missing_from_fs is False
+
+
+def test_get_roms_scalar_missing_excludes_physical(platform: Platform):
+    physical = _add_physical_rom(platform)
+    # Even if a physical rom is erroneously flagged, it must not be returned as
+    # missing (the cleanup task hard-deletes whatever this query returns).
+    db_rom_handler.update_rom(physical.id, {"missing_from_fs": True})
+
+    missing = db_rom_handler.get_roms_scalar(platform_ids=[platform.id], missing=True)
+    assert physical.id not in {r.id for r in missing}
+
+
+def test_get_roms_scalar_physical_filter(rom: Rom, platform: Platform):
+    physical = _add_physical_rom(platform)
+
+    only_physical = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], physical=True
+    )
+    assert {r.id for r in only_physical} == {physical.id}
+
+    no_physical = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], physical=False
+    )
+    assert {r.id for r in no_physical} == {rom.id}
 
 
 def test_roms(rom: Rom, platform: Platform):
@@ -388,6 +443,159 @@ def test_group_by_meta_id_with_empty_fs_name_no_tags(platform: Platform):
     assert len(roms) == len(rom_names)
 
 
+def test_group_by_meta_id_prefers_full_release_over_prerelease(platform: Platform):
+    """A pre-release must not represent its group just by sorting first.
+
+    "(Demo)" sorts ahead of "(USA)", so the filename tiebreaker alone hands the
+    gallery entry to the demo.
+    """
+    for tag in ["(Demo)", "(USA)"]:
+        name = f"Sonic {tag}"
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                igdb_id=1234,
+                name=name,
+                slug=f"sonic-{tag.strip('()').lower()}",
+                fs_name=f"{name}.zip",
+                fs_name_no_tags="Sonic",
+                fs_name_no_ext=name,
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+            )
+        )
+
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id],
+        order_by="name",
+        order_dir="asc",
+        group_by_meta_id=True,
+    )
+
+    assert [r.fs_name_no_ext for r in roms] == ["Sonic (USA)"]
+
+
+def _add_sibling(platform: Platform, tag: str, igdb_id: int, regions: list[str]):
+    name = f"Sonic {tag}"
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            igdb_id=igdb_id,
+            name=name,
+            slug=f"sonic-{tag.strip('()').lower()}",
+            fs_name=f"{name}.zip",
+            fs_name_no_tags="Sonic",
+            fs_name_no_ext=name,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            regions=regions,
+        )
+    )
+
+
+def _grouped_names(platform: Platform) -> list[str]:
+    return [
+        rom.fs_name_no_ext
+        for rom in db_rom_handler.get_roms_scalar(
+            platform_ids=[platform.id],
+            order_by="name",
+            order_dir="asc",
+            group_by_meta_id=True,
+        )
+    ]
+
+
+def test_primary_region_mirrors_the_first_parsed_region(platform: Platform):
+    """The generated column tracks regions[0] without the scan writing it."""
+    rom = _add_sibling(platform, "(USA, Europe)", 4321, ["USA", "Europe"])
+
+    assert db_rom_handler.get_rom(rom.id).generated_primary_region == "USA"
+
+
+def test_primary_region_is_null_without_region_tags(platform: Platform):
+    rom = _add_sibling(platform, "(Unknown)", 4322, [])
+
+    assert db_rom_handler.get_rom(rom.id).generated_primary_region is None
+
+
+def test_group_by_meta_id_prefers_the_higher_priority_region(platform: Platform):
+    """The default priority puts USA ahead of Japan.
+
+    "(Japan)" sorts before "(USA)", so the filename tiebreaker alone hands the
+    gallery entry to the Japanese release.
+    """
+    _add_sibling(platform, "(Japan)", 2345, ["Japan"])
+    _add_sibling(platform, "(USA)", 2345, ["USA"])
+
+    assert _grouped_names(platform) == ["Sonic (USA)"]
+
+
+def test_group_by_meta_id_keeps_an_unprioritized_region_group(platform: Platform):
+    """A region absent from the priority list still represents a group of one."""
+    _add_sibling(platform, "(Korea)", 3456, ["Korea"])
+
+    assert _grouped_names(platform) == ["Sonic (Korea)"]
+
+
+def test_group_by_meta_id_ranks_region_below_release_status(platform: Platform):
+    """A demo of the preferred region loses to a full release of any region.
+
+    A pre-release is not a substitute for the game, so release status outranks
+    region rather than the other way round.
+    """
+    _add_sibling(platform, "(USA) (Demo)", 4567, ["USA"])
+    _add_sibling(platform, "(Japan)", 4567, ["Japan"])
+
+    assert _grouped_names(platform) == ["Sonic (Japan)"]
+
+
+def test_group_by_meta_id_ties_names_sharing_a_region_shortcode(
+    platform: Platform,
+):
+    """Holland and Netherlands both configure as "nl", so neither outranks the
+    other and the filename tiebreak decides.
+
+    The filenames deliberately sort opposite to the order the reverse shortcode
+    map emits those two names in, so ranking them separately picks the Holland
+    rom and ranking them equally picks the alphabetically first one.
+    """
+    _add_sibling(platform, "(NL-a)", 5678, ["Netherlands"])
+    _add_sibling(platform, "(NL-b)", 5678, ["Holland"])
+
+    with patch(
+        "handler.database.roms_handler.cm.get_config",
+        return_value=SimpleNamespace(SCAN_REGION_PRIORITY=["nl"]),
+    ):
+        assert _grouped_names(platform) == ["Sonic (NL-a)"]
+
+
+def test_group_by_meta_id_keeps_a_prerelease_only_group(platform: Platform):
+    """A game that exists only as a pre-release still gets a gallery entry."""
+    name = "Unreleased Game (Proto)"
+    db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            igdb_id=5678,
+            name=name,
+            slug="unreleased-game-proto",
+            fs_name=f"{name}.zip",
+            fs_name_no_tags="Unreleased Game",
+            fs_name_no_ext=name,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id],
+        order_by="name",
+        order_dir="asc",
+        group_by_meta_id=True,
+    )
+
+    assert [r.fs_name_no_ext for r in roms] == [name]
+
+
 def test_natural_sort_order(platform: Platform):
     """Numbers in names should sort numerically, not lexicographically."""
     for name in ["Game 10", "Game 2", "Game 1"]:
@@ -460,6 +668,31 @@ def test_custom_name_sort_key_overrides_name_sort_order(platform: Platform):
     assert [r.name for r in roms] == ["Display Z", "Display M", "Display A"]
 
 
+def test_get_missing_rom_ids(platform: Platform):
+    """get_missing_rom_ids returns only the platform's flagged ROMs."""
+    roms = []
+    for i in range(4):
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=f"missing_rom_{i}",
+                slug=f"missing-rom-{i}",
+                fs_name=f"missing_rom_{i}.zip",
+                fs_name_no_tags=f"missing_rom_{i}",
+                fs_name_no_ext=f"missing_rom_{i}",
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+                missing_from_fs=i < 2,
+            )
+        )
+        roms.append(rom)
+
+    assert db_rom_handler.get_missing_rom_ids(platform.id) == {
+        roms[0].id,
+        roms[1].id,
+    }
+
+
 def test_bulk_mark_present(platform: Platform):
     """bulk_mark_present sets missing_from_fs=False for the given ROM IDs."""
     roms = []
@@ -493,6 +726,53 @@ def test_bulk_mark_present(platform: Platform):
         assert updated.missing_from_fs is True
 
 
+def test_bulk_mark_present_skips_already_present(platform: Platform):
+    """bulk_mark_present leaves updated_at untouched for already-present ROMs.
+
+    Regression: an unchanged (already present) ROM must not be re-stamped on
+    each scan, so `updated_after`-based incremental consumers stay usable.
+    """
+    present = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="rom_present",
+            slug="rom-present",
+            fs_name="rom_present.zip",
+            fs_name_no_tags="rom_present",
+            fs_name_no_ext="rom_present",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            missing_from_fs=False,
+        )
+    )
+    missing = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="rom_missing",
+            slug="rom-missing",
+            fs_name="rom_missing.zip",
+            fs_name_no_tags="rom_missing",
+            fs_name_no_ext="rom_missing",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            missing_from_fs=True,
+        )
+    )
+
+    present_updated_at = db_rom_handler.get_rom(present.id).updated_at
+
+    db_rom_handler.bulk_mark_present(platform.id, [present.id, missing.id])
+
+    # Already-present ROM is not re-stamped.
+    present_after = db_rom_handler.get_rom(present.id)
+    assert present_after.missing_from_fs is False
+    assert present_after.updated_at == present_updated_at
+
+    # Actually-missing ROM is flipped to present.
+    missing_after = db_rom_handler.get_rom(missing.id)
+    assert missing_after.missing_from_fs is False
+
+
 def test_bulk_mark_present_empty_list(platform: Platform):
     """bulk_mark_present with an empty list is a no-op."""
     rom = db_rom_handler.add_rom(
@@ -518,9 +798,10 @@ def test_bulk_mark_present_empty_list(platform: Platform):
 
 def test_bulk_mark_present_chunking(platform: Platform):
     """bulk_mark_present handles >1000 IDs via internal chunking."""
-    roms = []
-    for i in range(1050):
-        rom = db_rom_handler.add_rom(
+    # One transaction rather than a thousand round trips through add_rom: the
+    # chunking is what's under test, not the insert path.
+    with sync_session.begin() as s:
+        roms = [
             Rom(
                 platform_id=platform.id,
                 name=f"rom_{i}",
@@ -532,15 +813,17 @@ def test_bulk_mark_present_chunking(platform: Platform):
                 fs_path=f"{platform.slug}/roms",
                 missing_from_fs=True,
             )
-        )
-        roms.append(rom)
+            for i in range(1050)
+        ]
+        s.add_all(roms)
+        s.flush()
+        all_ids = [r.id for r in roms]
 
-    all_ids = [r.id for r in roms]
     db_rom_handler.bulk_mark_present(platform.id, all_ids)
 
     # Spot-check a few across chunk boundaries
     for idx in [0, 999, 1000, 1049]:
-        updated = db_rom_handler.get_rom(roms[idx].id)
+        updated = db_rom_handler.get_rom(all_ids[idx])
         assert updated is not None
         assert updated.missing_from_fs is False
 
@@ -796,6 +1079,201 @@ def test_mark_missing_roms_does_not_affect_other_platforms(platform: Platform):
     assert updated_other.missing_from_fs is False
 
 
+def _add_missing_rom(platform: Platform, name: str, **hashes) -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=name,
+            slug=name,
+            fs_name=f"{name}.zip",
+            fs_name_no_tags=name,
+            fs_name_no_ext=name,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            missing_from_fs=True,
+            **hashes,
+        )
+    )
+
+
+def test_get_matching_missing_rom_all_hashes_match(platform: Platform):
+    """A missing ROM is matched when CRC, MD5, and SHA1 all match."""
+    missing = _add_missing_rom(
+        platform, "renamed", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+    assert match is not None
+    assert match.id == missing.id
+
+
+def test_get_matching_missing_rom_partial_hash_does_not_match(platform: Platform):
+    """A shared CRC32 must not match when MD5/SHA1 differ (collision guard)."""
+    _add_missing_rom(
+        platform, "other", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="different",
+        sha1_hash="different",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_ambiguous_match_returns_none(platform: Platform):
+    """When several missing entries share the same hashes, none is chosen.
+
+    Reassociation must not move user data onto an arbitrary row, so an
+    ambiguous set falls back to creating a new entry.
+    """
+    _add_missing_rom(
+        platform, "dup_a", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+    _add_missing_rom(
+        platform, "dup_b", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_requires_all_three_hashes(platform: Platform):
+    """A partial hash set yields no match when there is no title id either."""
+    _add_missing_rom(
+        platform, "renamed", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id, crc_hash="aabbccdd", md5_hash="md5val"
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_matches_title_id_without_hashes(platform: Platform):
+    """A non-hashable platform reassociates on the binary title id.
+
+    Switch ROMs are never hashed, so a renamed file would otherwise be
+    unrecoverable and land as a duplicate entry.
+    """
+    missing = _add_missing_rom(platform, "renamed", title_id="0100ABCD12340000")
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id, title_id="0100ABCD12340000"
+    )
+    assert match is not None
+    assert match.id == missing.id
+
+
+def test_get_matching_missing_rom_hashes_take_precedence_over_title_id(
+    platform: Platform,
+):
+    """A hashed file is matched on its hashes, not on a shared title id."""
+    _add_missing_rom(
+        platform,
+        "other",
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+        title_id="0100ABCD12340000",
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="different",
+        md5_hash="different",
+        sha1_hash="different",
+        title_id="0100ABCD12340000",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_ambiguous_title_id_returns_none(platform: Platform):
+    """Two missing entries sharing a title id leave the choice to a new entry."""
+    _add_missing_rom(platform, "dup_a", title_id="0100ABCD12340000")
+    _add_missing_rom(platform, "dup_b", title_id="0100ABCD12340000")
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id, title_id="0100ABCD12340000"
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_ignores_present_roms(platform: Platform):
+    """Only ROMs marked missing are eligible for reassociation."""
+    db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="present_game",
+            slug="present-game",
+            fs_name="present.zip",
+            fs_name_no_tags="present",
+            fs_name_no_ext="present",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            crc_hash="aabbccdd",
+            md5_hash="md5val",
+            sha1_hash="sha1val",
+            missing_from_fs=False,
+        )
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_scoped_to_platform(platform: Platform):
+    """A missing ROM on another platform must not be matched."""
+    other_platform = db_platform_handler.add_platform(
+        Platform(
+            name="other_platform",
+            slug="other_platform_slug",
+            fs_slug="other_platform_slug",
+        )
+    )
+    _add_missing_rom(
+        other_platform,
+        "elsewhere",
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_ignores_empty_hashes(platform: Platform):
+    """Empty hashes must not match, so non-hashable platforms never reassociate."""
+    _add_missing_rom(platform, "no_hash", crc_hash="", md5_hash="", sha1_hash="")
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id, crc_hash="", md5_hash="", sha1_hash=""
+    )
+    assert match is None
+
+
 def test_users(admin_user):
     db_user_handler.add_user(
         User(
@@ -810,14 +1288,14 @@ def test_users(admin_user):
     new_user = db_user_handler.get_user_by_username("new_user")
     assert new_user is not None
     assert new_user.username == "new_user"
-    assert new_user.role == Role.VIEWER
+    assert new_user.role == Role.USER
     assert new_user.enabled
 
-    db_user_handler.update_user(new_user.id, {"role": Role.EDITOR})
+    db_user_handler.update_user(new_user.id, {"role": Role.ADMIN})
 
     new_user = db_user_handler.get_user(new_user.id)
     assert new_user is not None
-    assert new_user.role == Role.EDITOR
+    assert new_user.role == Role.ADMIN
 
     db_user_handler.delete_user(new_user.id)
 
@@ -921,9 +1399,9 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
     assert rom is not None
     assert len(rom.screenshots) == 2
 
-    new_screenshot = db_screenshot_handler.get_screenshot_by_id(
-        id=rom.screenshots[0].id
-    )
+    # Fetch the original screenshot by its known id; rom.screenshots has no
+    # guaranteed order, so indexing into it is nondeterministic across backends.
+    new_screenshot = db_screenshot_handler.get_screenshot_by_id(id=screenshot.id)
     assert new_screenshot is not None
     assert new_screenshot.file_name == "test_screenshot.png"
 
@@ -939,3 +1417,120 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
     rom = db_rom_handler.get_rom(id=screenshot.rom_id)
     assert rom is not None
     assert len(rom.screenshots) == 1
+
+
+def _add_rom_with_providers(platform: Platform, slug: str, **provider_ids) -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=slug,
+            slug=slug,
+            fs_name=f"{slug}.zip",
+            fs_name_no_tags=slug,
+            fs_name_no_ext=slug,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            **provider_ids,
+        )
+    )
+
+
+def test_filter_by_metadata_providers(rom: Rom, platform: Platform):
+    # `rom` fixture has no provider ids (unmatched).
+    rom_igdb = _add_rom_with_providers(platform, "rom_igdb", igdb_id=1)
+    rom_moby = _add_rom_with_providers(platform, "rom_moby", moby_id=2)
+    rom_both = _add_rom_with_providers(platform, "rom_both", igdb_id=3, moby_id=4)
+
+    # "any" (OR): matched to at least one of the selected providers.
+    any_igdb = db_rom_handler.get_roms_scalar(metadata_providers=["igdb"])
+    assert {r.id for r in any_igdb} == {rom_igdb.id, rom_both.id}
+
+    any_either = db_rom_handler.get_roms_scalar(
+        metadata_providers=["igdb", "moby"], metadata_providers_logic="any"
+    )
+    assert {r.id for r in any_either} == {rom_igdb.id, rom_moby.id, rom_both.id}
+
+    # "all" (AND): matched to every selected provider.
+    all_both = db_rom_handler.get_roms_scalar(
+        metadata_providers=["igdb", "moby"], metadata_providers_logic="all"
+    )
+    assert {r.id for r in all_both} == {rom_both.id}
+
+    # "none" (NOT): matched to none of the selected providers.
+    none_igdb = db_rom_handler.get_roms_scalar(
+        metadata_providers=["igdb"], metadata_providers_logic="none"
+    )
+    assert {r.id for r in none_igdb} == {rom.id, rom_moby.id}
+
+
+def test_filter_by_metadata_providers_unknown_value_is_ignored(
+    rom: Rom, platform: Platform
+):
+    """Unknown provider slugs are dropped so the filter is a no-op rather than
+    raising, keeping a stale bookmark or hand-edited URL from 500-ing."""
+    rom_igdb = _add_rom_with_providers(platform, "rom_igdb", igdb_id=1)
+
+    only_unknown = db_rom_handler.get_roms_scalar(metadata_providers=["bogus"])
+    assert {r.id for r in only_unknown} == {rom.id, rom_igdb.id}
+
+    known_and_unknown = db_rom_handler.get_roms_scalar(
+        metadata_providers=["igdb", "bogus"]
+    )
+    assert {r.id for r in known_and_unknown} == {rom_igdb.id}
+
+
+def _add_rom_with_tags(platform: Platform, slug: str, tags: list[str]) -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=slug,
+            slug=slug,
+            fs_name=f"{slug}.zip",
+            fs_name_no_tags=slug,
+            fs_name_no_ext=slug,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            tags=tags,
+        )
+    )
+
+
+def test_filter_by_tags(rom: Rom, platform: Platform):
+    # `rom` fixture has no tags (untagged).
+    rom_proto = _add_rom_with_tags(platform, "rom_proto", ["Proto"])
+    rom_beta = _add_rom_with_tags(platform, "rom_beta", ["Beta"])
+    rom_both = _add_rom_with_tags(platform, "rom_both", ["Proto", "Beta"])
+
+    # "any" (OR): carries at least one of the selected tags.
+    any_proto = db_rom_handler.get_roms_scalar(tags=["Proto"])
+    assert {r.id for r in any_proto} == {rom_proto.id, rom_both.id}
+
+    any_either = db_rom_handler.get_roms_scalar(
+        tags=["Proto", "Beta"], tags_logic="any"
+    )
+    assert {r.id for r in any_either} == {rom_proto.id, rom_beta.id, rom_both.id}
+
+    # "all" (AND): carries every selected tag.
+    all_both = db_rom_handler.get_roms_scalar(tags=["Proto", "Beta"], tags_logic="all")
+    assert {r.id for r in all_both} == {rom_both.id}
+
+    # "none" (NOT): carries none of the selected tags.
+    none_proto = db_rom_handler.get_roms_scalar(tags=["Proto"], tags_logic="none")
+    assert {r.id for r in none_proto} == {rom.id, rom_beta.id}
+
+
+def test_filter_by_tags_unknown_value_returns_no_matches(rom: Rom, platform: Platform):
+    """A tag that no ROM carries simply matches nothing under "any" logic
+    (free-form text match), rather than erroring."""
+    _add_rom_with_tags(platform, "rom_proto", ["Proto"])
+
+    only_unknown = db_rom_handler.get_roms_scalar(tags=["Nonexistent"])
+    assert list(only_unknown) == []
+
+
+def test_get_rom_filters_includes_tags(rom: Rom, platform: Platform):
+    _add_rom_with_tags(platform, "rom_proto", ["Proto"])
+    _add_rom_with_tags(platform, "rom_beta", ["Beta", "Demo"])
+
+    filters = db_rom_handler.get_rom_filters()
+    assert filters["tags"] == ["Beta", "Demo", "Proto"]

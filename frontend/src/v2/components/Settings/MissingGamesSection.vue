@@ -25,7 +25,7 @@ import {
   RVirtualScroller,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import taskApi from "@/services/api/task";
 import storeGalleryFilter from "@/stores/galleryFilter";
@@ -40,14 +40,24 @@ import {
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, { type SidecarOptions } from "@/v2/stores/galleryRoms";
 
 interface PlatformItem {
   id: number;
   slug: string;
   name: string;
 }
+
+// This tab renders no filter drawer and no AlphaStrip, and sizes its
+// scroller off `total` alone, so all three whole-library aggregates are
+// scans whose results it would discard.
+const NO_SIDECARS: SidecarOptions = {
+  withCharIndex: false,
+  withFilterValues: false,
+  withRomIdIndex: false,
+};
 
 defineOptions({ inheritAttrs: false });
 
@@ -57,6 +67,7 @@ const galleryFilter = storeGalleryFilter();
 const platformsStore = storePlatforms();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const { awaitTask } = useTaskCompletion();
 const { supportsWebp } = useWebpSupport();
 
 const { allPlatforms } = storeToRefs(platformsStore);
@@ -94,7 +105,7 @@ const selectedPlatformIds = computed<number[]>({
       .filter((p): p is Platform => !!p);
     galleryFilter.setSelectedFilterPlatforms(next);
     galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata();
+    void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
   },
 });
 
@@ -120,8 +131,7 @@ const listSortKey = computed<ListSortKey | null>(() => {
 // table never collapses to "empty" between the fetch firing and total
 // resolving.
 type VItem =
-  | { kind: "list-row"; position: number }
-  | { kind: "skeleton"; key: number };
+  { kind: "list-row"; position: number } | { kind: "skeleton"; key: number };
 
 const virtualItems = computed<VItem[]>(() => {
   if (!metadataLoaded.value) {
@@ -163,8 +173,59 @@ function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(key);
   galleryRoms.setOrderDir(dir);
   galleryRoms.invalidateWindows();
-  void galleryRoms.fetchInitialMetadata();
+  void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
 }
+
+// Viewport-driven windowed fetch. Unlike the real gallery this section
+// owns the scroller directly (no GalleryShell), so it must translate the
+// scroller's visible range into window fetches itself — otherwise every
+// row's `getRomAt(position)` stays null and the list shows skeletons
+// forever. Mirrors GalleryShell's debounced sync + re-sync-on-items-change.
+const FETCH_DEBOUNCE_MS = 80;
+let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const viewportRange = ref<{ first: number; last: number }>({
+  first: 0,
+  last: -1,
+});
+
+function collectVisiblePositions(range: {
+  first: number;
+  last: number;
+}): Set<number> {
+  const out = new Set<number>();
+  if (range.last < range.first) return out;
+  const items = virtualItems.value;
+  for (let i = range.first; i <= range.last; i++) {
+    const it = items[i];
+    if (it && it.kind === "list-row") out.add(it.position);
+  }
+  return out;
+}
+
+function syncFetches(range: { first: number; last: number }) {
+  galleryRoms.syncVisibleWindows(collectVisiblePositions(range));
+}
+
+function onViewportRange(range: { first: number; last: number }) {
+  viewportRange.value = range;
+  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+  fetchDebounceTimer = setTimeout(() => {
+    fetchDebounceTimer = null;
+    syncFetches(range);
+  }, FETCH_DEBOUNCE_MS);
+}
+
+// Metadata resolving flips `virtualItems` from skeleton placeholders to
+// real list-rows without necessarily changing the visible index range
+// (rows 0..N are visible in both), so the scroller may not re-emit. Sync
+// immediately against the current viewport so the first window loads.
+watch(virtualItems, () => {
+  if (fetchDebounceTimer) {
+    clearTimeout(fetchDebounceTimer);
+    fetchDebounceTimer = null;
+  }
+  syncFetches(viewportRange.value);
+});
 
 const selectedPlatformsLabel = computed(() =>
   selectedPlatforms.value.map((p) => p.name).join(", "),
@@ -184,20 +245,15 @@ async function cleanupAll() {
   if (!ok) return;
   cleaningUp.value = true;
   try {
-    // The task API takes a single `platform_id`. With multi-select on,
-    // we forward the id only when exactly one platform is picked; for
-    // 0 or >1 platforms we run the unscoped cleanup so the result
-    // matches what the table is currently showing.
-    const body =
-      selectedPlatforms.value.length === 1
-        ? { platform_id: selectedPlatforms.value[0].id }
-        : {};
-    await taskApi.runTask("cleanup_missing_roms", body);
+    const body = selectedPlatforms.value.length
+      ? { platform_ids: selectedPlatforms.value.map((p) => p.id) }
+      : {};
+    const { data } = await taskApi.runTask("cleanup_missing_roms", body);
     snackbar.success(t("settings.cleanup-queued"));
-    setTimeout(() => {
+    if (await awaitTask(data.task_id)) {
       galleryRoms.invalidateWindows();
-      void galleryRoms.fetchInitialMetadata();
-    }, 1500);
+      await galleryRoms.fetchInitialMetadata(NO_SIDECARS);
+    }
   } catch (err) {
     snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
   } finally {
@@ -213,10 +269,11 @@ onMounted(() => {
   galleryFilter.setSelectedFilterPlatforms([]);
   galleryRoms.setOrderBy("name");
   galleryRoms.setOrderDir("asc");
-  void galleryRoms.fetchInitialMetadata();
+  void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
 });
 
 onBeforeUnmount(() => {
+  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
   galleryFilter.setFilterMissing(prevFilterMissing);
   galleryFilter.setSelectedFilterPlatforms(prevSelectedPlatforms);
   galleryRoms.resetGallery();
@@ -318,6 +375,7 @@ onBeforeUnmount(() => {
         :get-item-height="vItemHeight"
         :overscan="25"
         class="r-v2-missing__scroller"
+        @update:viewport-range="onViewportRange"
       >
         <template #default="{ item }">
           <GameListRow

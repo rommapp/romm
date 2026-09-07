@@ -10,20 +10,27 @@
 //   actions.isFavorite     // reactive Ref<boolean>
 //   actions.canManageCollections  // reactive Ref<boolean>
 import type { Emitter } from "mitt";
-import { computed, inject, type InjectionKey } from "vue";
+import { computed, inject, type InjectionKey, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
+import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
+import { useClipboard } from "@/v2/composables/useClipboard";
+import { useConfirm } from "@/v2/composables/useConfirm";
+import { confirmJoinStream } from "@/v2/composables/useJoinStreamConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 
@@ -37,6 +44,13 @@ export interface GameActionsOptions {
   coverEl?: () => HTMLElement | null;
 }
 
+/** Which player a launch is asking for. "auto" lets availability decide. */
+export type PlayTarget = "auto" | "local" | "stream";
+
+// Validate flashpoint game IDs are UUIDs
+const FLASHPOINT_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function useGameActions(
   getRom: () => SimpleRom | null | undefined,
   options: GameActionsOptions = {},
@@ -46,12 +60,93 @@ export function useGameActions(
   const { morphTransition } = useViewTransition();
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
+  const confirm = useConfirm();
+  const { confirmProtectedLaunch } = useUISettings();
+  const clipboard = useClipboard();
   const romsStore = storeRoms();
+  const { syncCachedRom, refreshAfterUserStateChange, refreshIfOrderedBy } =
+    useRomSync();
   const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
+  // Write/destructive gates, mirroring the backend grants. Surfaces that
+  // offer these actions hide them outright rather than letting the request
+  // 403 and surface a permission error the user can't act on.
+  const canEdit = useCan("rom.edit");
+  const canMatch = useCan("rom.match");
+  const canRefresh = useCan("rom.refresh");
+  const hasDeleteGrant = useCan("rom.delete");
+  // `POST /roms/delete` gates on ROMS_WRITE, and a bare DELETE grant projects
+  // to no scope at all, so the delete grant alone can't authorise the call.
+  // Require the write grant too (`rom.edit` is its proxy) or the menu offers a
+  // delete that 403s.
+  const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
-  const { canPlay, canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const { startScan } = useScanTrigger();
+  const { canPlay, canPlayEJS, canPlayJsDos, canPlayRuffle, canPlayStream } =
+    useCanPlay(getRom);
+  const streamingStore = useStreamingStore();
+
+  // Streaming is offered as its own action rather than as the winner of a
+  // precedence rule, so each player needs a gate of its own.
+  const canPlayInBrowser = computed(
+    () => canPlayEJS.value || canPlayJsDos.value || canPlayRuffle.value,
+  );
+
+  // Download, the copied link and the QR code all resolve to the download
+  // endpoint, which has nothing to serve without a file behind the rom.
+  const canDownload = computed(() => Boolean(getRom()?.has_file_on_disk));
+
+  // Names the box the session runs on, so a library served by more than one
+  // container says which the button reaches.
+  const streamLabel = computed(
+    () =>
+      streamingStore.containerLabelForPlatform(getRom()?.platform_slug) ?? "",
+  );
+
+  // Asked for here so every surface offering Join has the list, not just the
+  // game details page. The store collapses concurrent callers into one request
+  // and holds the answer for a freshness window, so a gallery of cards costs
+  // what a single card costs.
+  watch(
+    canPlayStream,
+    (can) => {
+      if (can) void streamingStore.fetchJoinableSessions();
+    },
+    { immediate: true },
+  );
+
+  // A session someone else opened to other players on this exact ROM. Read
+  // from the store, never fetched here: this composable is instantiated once
+  // per GameActionBtn, and a fetch per instance would be a request storm.
+  const joinableSession = computed(() => {
+    const rom = getRom();
+    if (!rom) return null;
+    return streamingStore.joinableForRom(rom.id);
+  });
+
+  const canJoinStream = computed(
+    () => canPlayStream.value && joinableSession.value !== null,
+  );
+
+  const joinHostLabel = computed(
+    () => joinableSession.value?.host_username ?? "",
+  );
+
+  // The wording every surface offering these actions uses. Held here so the
+  // action button and the overflow menu cannot name the same action
+  // differently.
+  const streamActionLabel = computed(() =>
+    streamLabel.value
+      ? t("rom.stream-on", { container: streamLabel.value })
+      : t("rom.stream"),
+  );
+
+  const joinActionLabel = computed(() =>
+    joinHostLabel.value
+      ? t("rom.join-session-of", { user: joinHostLabel.value })
+      : t("rom.join-session"),
+  );
 
   const isFavorited = computed(() => {
     const rom = getRom();
@@ -80,16 +175,17 @@ export function useGameActions(
     const data: Partial<RomUserData> = { status: value };
     const before = { ...rom.rom_user };
     rom.rom_user.status = value;
-    romsStore.update(rom);
+    syncCachedRom(rom);
     try {
       await romApi.updateUserRomProps({ romId: rom.id, data });
     } catch {
       Object.assign(rom.rom_user, before);
-      romsStore.update(rom);
+      syncCachedRom(rom);
       snackbar.error(t("rom.snackbar-update-status-failed"), {
         icon: "mdi-alert-circle-outline",
       });
     }
+    refreshAfterUserStateChange();
   }
 
   // Toggle semantics match v1's Personal tab: booleans flip independently,
@@ -118,17 +214,18 @@ export function useGameActions(
 
     const before = { ...rom.rom_user };
     Object.assign(rom.rom_user, data);
-    romsStore.update(rom);
+    syncCachedRom(rom);
 
     try {
       await romApi.updateUserRomProps({ romId: rom.id, data });
     } catch {
       Object.assign(rom.rom_user, before);
-      romsStore.update(rom);
+      syncCachedRom(rom);
       snackbar.error(t("rom.snackbar-update-status-failed"), {
         icon: "mdi-alert-circle-outline",
       });
     }
+    refreshAfterUserStateChange();
   }
 
   // Optimistic write of a numeric per-user field (rating | difficulty
@@ -146,13 +243,13 @@ export function useGameActions(
     const data: Partial<RomUserData> = { [field]: next };
     const before = { ...rom.rom_user };
     rom.rom_user[field] = next;
-    romsStore.update(rom);
+    syncCachedRom(rom);
 
     try {
       await romApi.updateUserRomProps({ romId: rom.id, data });
     } catch {
       Object.assign(rom.rom_user, before);
-      romsStore.update(rom);
+      syncCachedRom(rom);
       snackbar.error(t("rom.snackbar-update-field-failed", { field }), {
         icon: "mdi-alert-circle-outline",
       });
@@ -170,18 +267,72 @@ export function useGameActions(
 
   const canShareQR = computed(() => {
     const rom = getRom();
-    return rom ? isNintendoDSRom(rom) : false;
+    return Boolean(rom && rom.has_file_on_disk && isNintendoDSRom(rom));
   });
 
-  function play() {
+  const canOpenInFlashpoint = computed(() => {
+    const rom = getRom();
+    return Boolean(
+      rom?.flashpoint_id && FLASHPOINT_ID_RE.test(rom.flashpoint_id),
+    );
+  });
+
+  async function play(player: PlayTarget = "auto") {
     const rom = getRom();
     if (!rom) return;
+
+    // Guard launching a game the user deliberately shelved. `retired` /
+    // `never_playing` encode an opt-in "don't play" intent, so confirm
+    // before booting one. Gated by a per-user preference (on by default).
+    const status = rom.rom_user?.status;
+    if (
+      confirmProtectedLaunch.value &&
+      (status === "retired" || status === "never_playing")
+    ) {
+      const ok = await confirm({
+        title: t("rom.confirm-launch-protected-title"),
+        body: t("rom.confirm-launch-protected-body", {
+          name: rom.name ?? rom.fs_name_no_ext ?? "",
+          status: t(
+            status === "retired"
+              ? "rom.status-retired"
+              : "rom.status-never-playing",
+          ),
+        }),
+        confirmText: t("play.play"),
+        tone: "warning",
+      });
+      if (!ok) return;
+    }
+
+    // A platform can be served by both an in-browser core and a streaming
+    // container, and they are different products (local latency versus the
+    // container's own emulator and save library). The caller says which it
+    // wants; "auto" keeps the single-button surfaces working by preferring
+    // the stream, as they did before either could be asked for by name.
+    const streaming =
+      player === "stream" || (player === "auto" && canPlayStream.value);
+    const inBrowser = player === "local" || player === "auto";
+
+    // EmulatorJS and js-dos need SharedArrayBuffer. Nginx only attaches the
+    // necessary COOP/COEP headers to the player document, so an SPA navigation
+    // cannot enable cross-origin isolation. Load the document directly instead.
+    const isolated = canPlayJsDos.value
+      ? "jsdos"
+      : canPlayEJS.value
+        ? "ejs"
+        : null;
+    if (!streaming && inBrowser && isolated) {
+      window.location.assign(`/rom/${rom.id}/${isolated}`);
+      return;
+    }
+
     // The launch "load" flourish (disc/cartridge insert) lives on the
     // player view itself — see EmulatorJS's onPlay — so navigation is
     // immediate here.
     let path: string | null = null;
-    if (canPlayEJS.value) path = `/rom/${rom.id}/ejs`;
-    else if (canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
+    if (streaming && canPlayStream.value) path = `/rom/${rom.id}/stream`;
+    else if (inBrowser && canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
     if (!path) return;
     const target = path;
     // When the caller supplies a cover element (the gallery card / detail
@@ -199,6 +350,23 @@ export function useGameActions(
     } else {
       router.push(target);
     }
+  }
+
+  // Joining is its own navigation: the stream view claims a container when it
+  // opens normally, so the join intent has to reach it in the URL. Confirming
+  // first is what stands in for the start page, which a joiner never sees:
+  // they land in someone else's running game with no settings of their own.
+  async function joinStream() {
+    const rom = getRom();
+    if (!rom || !canJoinStream.value) return;
+    await confirmJoinStream(
+      { t, router, confirm },
+      {
+        romId: rom.id,
+        romName: rom.name ?? rom.fs_name_no_ext ?? "",
+        hostUsername: joinHostLabel.value || null,
+      },
+    );
   }
 
   const platformPath = computed(() => {
@@ -227,6 +395,7 @@ export function useGameActions(
     const rom = getRom();
     if (!rom) return;
     await toggleFavorite(rom);
+    refreshAfterUserStateChange();
   }
 
   async function share() {
@@ -238,24 +407,36 @@ export function useGameActions(
     const nav = navigator as Navigator & {
       share?: (data: typeof shareData) => Promise<void>;
     };
-    try {
-      if (typeof nav.share === "function") {
+    if (typeof nav.share === "function") {
+      try {
         await nav.share(shareData);
-        return;
+      } catch {
+        // user cancelled the native share sheet — nothing to do
       }
-      await navigator.clipboard.writeText(url);
-      snackbar.success(t("rom.snackbar-link-copied"), {
-        icon: "mdi-link-variant",
-      });
-    } catch {
-      // user cancelled or clipboard denied — nothing to do
+      return;
     }
+    await clipboard.copy(url, {
+      successMessage: t("rom.snackbar-link-copied"),
+      successIcon: "mdi-link-variant",
+    });
   }
 
   function shareQR() {
     const rom = getRom();
     if (!rom) return;
     emitter?.emit("showQRCodeDialog", rom);
+  }
+
+  // Launch the game in installed Flashpoint
+  function openInFlashpoint() {
+    const rom = getRom();
+    if (!rom?.flashpoint_id || !FLASHPOINT_ID_RE.test(rom.flashpoint_id))
+      return;
+    const a = document.createElement("a");
+    a.href = `flashpoint://${rom.flashpoint_id}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   // Copies the API download URL (origin + /api/roms/.../content/...) so
@@ -291,6 +472,28 @@ export function useGameActions(
     const rom = getRom();
     if (!rom) return;
     emitter?.emit("showRefreshMetadataDialog", rom);
+  }
+
+  // Reconciling one rom's files contacts no provider, so it needs no dialog: it goes
+  // straight to the socket with an empty source list.
+  function refreshFiles() {
+    const rom = getRom();
+    if (!rom) return;
+    const started = startScan([
+      {
+        platforms: [rom.platform_id],
+        roms_ids: [rom.id],
+        type: "quick",
+        apis: [],
+      },
+    ]);
+    if (!started) return;
+    snackbar.info(
+      t("rom.refreshing-files", { name: rom.name ?? rom.fs_name }),
+      {
+        icon: "mdi-loading mdi-spin",
+      },
+    );
   }
 
   function edit() {
@@ -333,7 +536,11 @@ export function useGameActions(
         removeLastPlayed: true,
       });
       if (rom.rom_user) rom.rom_user.last_played = null;
-      romsStore.update(rom);
+      syncCachedRom(rom);
+      // Clearing the timestamp moves the card in a last-played-ordered
+      // gallery, and the in-place mutation above leaves nothing for
+      // `applyRomWrite` to diff against.
+      refreshIfOrderedBy("last_played");
       romsStore.removeFromContinuePlaying(rom);
       snackbar.success(t("rom.snackbar-removed-from-playing"), {
         icon: "mdi-check-bold",
@@ -349,8 +556,22 @@ export function useGameActions(
     isFavorited,
     canManageCollections,
     canShareQR,
+    canOpenInFlashpoint,
+    canDownload,
     canPlay,
+    canPlayStream,
+    canPlayInBrowser,
+    streamLabel,
+    streamActionLabel,
+    canJoinStream,
+    joinHostLabel,
+    joinActionLabel,
+    joinStream,
     canRemoveFromContinuePlaying,
+    canEdit,
+    canDelete,
+    canMatch,
+    canRefresh,
     currentStatusKey,
     setStatus,
     setStatusEnum,
@@ -362,9 +583,11 @@ export function useGameActions(
     favorite,
     share,
     shareQR,
+    openInFlashpoint,
     copyDownloadLink,
     manageCollections,
     refreshMetadata,
+    refreshFiles,
     edit,
     match,
     remove,

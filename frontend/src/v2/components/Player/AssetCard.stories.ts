@@ -20,6 +20,7 @@ function makeSave(overrides: Partial<SaveSchema> = {}): SaveSchema {
     created_at: "2026-03-14T10:12:00Z",
     updated_at: "2026-05-10T18:45:00Z",
     emulator: "snes9x",
+    slot: "slot1",
     screenshot: null,
     ...overrides,
   } as SaveSchema;

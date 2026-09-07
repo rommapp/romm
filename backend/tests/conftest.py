@@ -1,6 +1,10 @@
+import errno
+import functools
 import os
 import re
+import socket
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import alembic.config
 import pytest
@@ -14,6 +18,9 @@ from config.config_manager import ConfigManager
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import (
+    db_firmware_handler,
+    db_memory_card_handler,
+    db_permission_handler,
     db_platform_handler,
     db_rom_handler,
     db_save_handler,
@@ -21,10 +28,12 @@ from handler.database import (
     db_state_handler,
     db_user_handler,
 )
-from models.assets import Save, Screenshot, State
+from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.client_token import ClientToken
+from models.container_adoption import StreamingContainerAdoption
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from models.firmware import Firmware
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -37,6 +46,37 @@ session = sessionmaker(bind=engine, expire_on_commit=False)
 settings.register_profile("ci", max_examples=200, deadline=None)
 settings.register_profile("dev", max_examples=50, deadline=None)
 settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev"))
+
+# The test suite talks to nothing but the database; a connection anywhere else
+# means a mock was missed. A workstation answers those instantly, a CI runner
+# silently drops the packets and the test burns its whole socket timeout (up to
+# two minutes for a broker transfer), so refuse them outright.
+_ALLOWED_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+_real_connect = socket.socket.connect
+_real_connect_ex = socket.socket.connect_ex
+
+
+def _blocked(address: Any) -> bool:
+    # Non-tuple addresses are unix sockets, which never leave the machine.
+    return isinstance(address, tuple) and address[0] not in _ALLOWED_HOSTS
+
+
+def _guarded_connect(sock: socket.socket, address: Any) -> None:
+    if _blocked(address):
+        raise OSError(
+            errno.ENETUNREACH, f"outbound network blocked in tests: {address}"
+        )
+    _real_connect(sock, address)
+
+
+def _guarded_connect_ex(sock: socket.socket, address: Any) -> int:
+    if _blocked(address):
+        return errno.ENETUNREACH
+    return _real_connect_ex(sock, address)
+
+
+socket.socket.connect = _guarded_connect  # type: ignore[method-assign,assignment]
+socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign,assignment]
 
 
 def _ensure_database_exists() -> None:
@@ -94,11 +134,15 @@ def clear_database():
         s.query(SyncSession).delete(synchronize_session="evaluate")
         s.query(DeviceSaveSync).delete(synchronize_session="evaluate")
         s.query(Device).delete(synchronize_session="evaluate")
+        s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
+        s.query(MemoryCard).delete(synchronize_session="evaluate")
+        s.query(StreamingContainerAdoption).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
         s.query(RomFile).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
+        s.query(Firmware).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
 
@@ -124,6 +168,45 @@ def platform():
 
 
 @pytest.fixture
+def other_platform():
+    platform = Platform(name="other", slug="other_slug", fs_slug="other_slug")
+    return db_platform_handler.add_platform(platform)
+
+
+@pytest.fixture
+def add_firmware():
+    """Factory for firmware rows, defaulting to a file still on disk."""
+
+    def _add(platform: Platform, file_name: str, missing: bool = False) -> Firmware:
+        return db_firmware_handler.add_firmware(
+            Firmware(
+                platform_id=platform.id,
+                file_name=file_name,
+                file_path=f"{platform.fs_slug}/bios",
+                file_size_bytes=1024,
+                crc_hash="crc",
+                md5_hash="md5",
+                sha1_hash="sha1",
+                missing_from_fs=missing,
+            )
+        )
+
+    return _add
+
+
+@pytest.fixture
+def firmware(platform: Platform, add_firmware):
+    """Firmware whose file is still on disk."""
+    return add_firmware(platform, "present.bin")
+
+
+@pytest.fixture
+def missing_firmware(platform: Platform, add_firmware):
+    """Firmware flagged by a scan as gone from the filesystem."""
+    return add_firmware(platform, "gone.bin", missing=True)
+
+
+@pytest.fixture
 def rom(admin_user: User, platform: Platform):
     rom = Rom(
         platform_id=platform.id,
@@ -132,6 +215,26 @@ def rom(admin_user: User, platform: Platform):
         fs_name="test_rom.zip",
         fs_name_no_tags="test_rom",
         fs_name_no_ext="test_rom",
+        fs_extension="zip",
+        fs_path=f"{platform.slug}/roms",
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+    return rom
+
+
+@pytest.fixture
+def second_rom(admin_user: User, platform: Platform):
+    """A second ROM on the same platform, for tests that scope by ROM."""
+    rom = Rom(
+        platform_id=platform.id,
+        name="test_rom_2",
+        slug="test_rom_slug_2",
+        fs_name="test_rom_2.zip",
+        fs_name_no_tags="test_rom_2",
+        fs_name_no_ext="test_rom_2",
         fs_extension="zip",
         fs_path=f"{platform.slug}/roms",
     )
@@ -213,6 +316,24 @@ def save(rom: Rom, platform: Platform, admin_user: User):
 
 
 @pytest.fixture
+def second_save(second_rom: Rom, platform: Platform, admin_user: User):
+    """Slot-bound save on `second_rom`, to check ROM-scoped queries exclude it."""
+    save = Save(
+        rom_id=second_rom.id,
+        user_id=admin_user.id,
+        file_name="test_save_2.sav",
+        file_name_no_tags="test_save_2",
+        file_name_no_ext="test_save_2",
+        file_extension="sav",
+        emulator="test_emulator",
+        slot="autosave",
+        file_path=f"{platform.slug}/saves/test_emulator",
+        file_size_bytes=1.0,
+    )
+    return db_save_handler.add_save(save)
+
+
+@pytest.fixture
 def archival_save(rom: Rom, platform: Platform, admin_user: User):
     """Null-slot save representing a web-UI / archival upload.
 
@@ -250,6 +371,23 @@ def state(rom: Rom, platform: Platform, admin_user: User):
 
 
 @pytest.fixture
+def second_state(second_rom: Rom, platform: Platform, admin_user: User):
+    """State on `second_rom`, to check ROM-scoped queries exclude it."""
+    state = State(
+        rom_id=second_rom.id,
+        user_id=admin_user.id,
+        file_name="test_state_2.state",
+        file_name_no_tags="test_state_2",
+        file_name_no_ext="test_state_2",
+        file_extension="state",
+        emulator="test_emulator",
+        file_path=f"{platform.slug}/states/test_emulator",
+        file_size_bytes=2.0,
+    )
+    return db_state_handler.add_state(state)
+
+
+@pytest.fixture
 def screenshot(rom: Rom, platform: Platform, admin_user: User):
     screenshot = Screenshot(
         rom_id=rom.id,
@@ -265,10 +403,47 @@ def screenshot(rom: Rom, platform: Platform, admin_user: User):
 
 
 @pytest.fixture
+def memory_card(admin_user: User, platform: Platform):
+    """A private PCSX2 memory card owned by the admin user, no versions yet."""
+    card = MemoryCard(
+        user_id=admin_user.id,
+        emulator="pcsx2",
+        platform_id=platform.id,
+        name="test_card",
+        slot=1,
+        is_public=False,
+    )
+    return db_memory_card_handler.add_card(card)
+
+
+@pytest.fixture
+def memory_card_version(memory_card: MemoryCard, platform: Platform):
+    """A single snapshot attached to the `memory_card` fixture."""
+    version = MemoryCardVersion(
+        memory_card_id=memory_card.id,
+        file_name="test_card.zip",
+        file_name_no_tags="test_card",
+        file_name_no_ext="test_card",
+        file_extension="zip",
+        file_path=f"{platform.slug}/memory_cards/pcsx2",
+        file_size_bytes=4.0,
+        content_hash="0123456789abcdef0123456789abcdef",
+    )
+    return db_memory_card_handler.add_version(version)
+
+
+@functools.cache
+def _password_hash(password: str) -> str:
+    """Memoized: bcrypt costs a quarter-second and the user fixtures below hash
+    the same three passwords for well over a thousand tests."""
+    return auth_handler.get_password_hash(password)
+
+
+@pytest.fixture
 def admin_user():
     user = User(
         username="test_admin",
-        hashed_password=auth_handler.get_password_hash("test_admin_password"),
+        hashed_password=_password_hash("test_admin_password"),
         role=Role.ADMIN,
     )
     return db_user_handler.add_user(user)
@@ -276,20 +451,25 @@ def admin_user():
 
 @pytest.fixture
 def editor_user():
+    # role collapses to `user`; editor-level access now comes from the group.
+    group = db_permission_handler.get_group_by_name("Editor (legacy)")
     user = User(
         username="test_editor",
-        hashed_password=auth_handler.get_password_hash("test_editor_password"),
-        role=Role.EDITOR,
+        hashed_password=_password_hash("test_editor_password"),
+        role=Role.USER,
+        permission_group_id=group.id if group else None,
     )
     return db_user_handler.add_user(user)
 
 
 @pytest.fixture
 def viewer_user():
+    group = db_permission_handler.get_group_by_name("Viewer (legacy)")
     user = User(
         username="test_viewer",
-        hashed_password=auth_handler.get_password_hash("test_viewer_password"),
-        role=Role.VIEWER,
+        hashed_password=_password_hash("test_viewer_password"),
+        role=Role.USER,
+        permission_group_id=group.id if group else None,
     )
     return db_user_handler.add_user(user)
 

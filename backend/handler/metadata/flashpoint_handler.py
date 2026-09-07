@@ -5,15 +5,14 @@ from typing import Final, NotRequired, TypedDict
 import httpx
 import pydash
 import yarl
-from fastapi import HTTPException, status
 
 from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
 from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
+from .base_handler import MetadataHandler, unavailable
 
 
 class FlashpointPlatform(TypedDict):
@@ -46,6 +45,8 @@ class FlashpointGame(TypedDict):
 class FlashpointMetadata(TypedDict):
     franchises: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     source: str | None
     genres: list[str]
     first_release_date: str
@@ -75,9 +76,14 @@ def extract_flashpoint_metadata(game: FlashpointGame) -> FlashpointMetadata:
         except (ValueError, TypeError):
             first_release_date = ""
 
+    publishers = pydash.compact([game["publisher"]])
+    developers = pydash.compact([game["developer"]])
+
     return FlashpointMetadata(
         franchises=pydash.compact([game["series"]]),
-        companies=pydash.uniq(pydash.compact([game["developer"], game["publisher"]])),
+        companies=pydash.uniq([*developers, *publishers]),
+        publishers=publishers,
+        developers=developers,
         source=game["source"],
         genres=game["tags"],
         first_release_date=first_release_date,
@@ -140,10 +146,7 @@ class FlashpointHandler(MetadataHandler):
             log.warning(
                 "Connection error: can't connect to Flashpoint API", exc_info=True
             )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Flashpoint API, check your internet connection",
-            ) from exc
+            raise unavailable("Flashpoint API") from exc
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from Flashpoint API: %s", exc)
             return {}
@@ -211,7 +214,7 @@ class FlashpointHandler(MetadataHandler):
 
         except Exception as exc:
             log.error("Error searching Flashpoint API: %s", exc)
-            return []
+            raise
 
     def get_platform(self, slug: str) -> FlashpointPlatform:
         """
@@ -406,7 +409,7 @@ class FlashpointHandler(MetadataHandler):
 
         except Exception as exc:
             log.error("Error getting ROM by ID from Flashpoint API: %s", exc)
-            return FlashpointRom(flashpoint_id=None)
+            raise
 
 
 class SlugToFlashpointId(TypedDict):

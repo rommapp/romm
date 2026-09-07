@@ -1,5 +1,7 @@
 import csv
 import io
+import re
+from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated
@@ -7,7 +9,7 @@ from urllib.parse import quote
 
 from fastapi import HTTPException
 from fastapi import Path as PathVar
-from fastapi import Request
+from fastapi import Query, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import URLPath
 
@@ -38,17 +40,22 @@ from endpoints.responses.feeds import (
     WebrcadeFeedSchema,
 )
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_handler import (
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import (
+    HAS_FILE_ON_DISK_FILTERS,
+    Rom,
+    RomFile,
+    RomFileCategory,
+)
 from utils.archives import is_compressed_file
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
 
 
@@ -78,6 +85,34 @@ router = APIRouter(
 )
 
 
+def _hidden_ids(request: Request) -> tuple[list[int], list[int]]:
+    """Hidden (platform_ids, rom_ids) for the caller; empty when unauthenticated.
+
+    Feeds run unauthenticated under DISABLE_DOWNLOAD_ENDPOINT_AUTH, so there is
+    no caller to scope visibility to in that mode.
+    """
+    if not request.user.is_authenticated:
+        return [], []
+    perms = get_permissions(request)
+    return list(perms.hidden_platform_ids), list(perms.hidden_rom_ids)
+
+
+def _platform_roms(
+    request: Request, platform_id: int, *, include_files: bool = False
+) -> Sequence[Rom]:
+    """Roms of a platform a feed can serve: nothing hidden from the caller, and
+    nothing file-less (every feed entry carries a download URL)."""
+    hidden_platforms, hidden_roms = _hidden_ids(request)
+    if platform_id in hidden_platforms:
+        return []
+    return db_rom_handler.get_roms_scalar(
+        platform_ids=[platform_id],
+        include_files=include_files,
+        hidden_rom_ids=hidden_roms,
+        **HAS_FILE_ON_DISK_FILTERS,
+    )
+
+
 @protected_route(
     router.get,
     "/webrcade",
@@ -94,7 +129,8 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         WebrcadeFeedSchema: Webrcade feed object schema
     """
 
-    platforms = db_platform_handler.get_platforms()
+    hidden_platforms, hidden_roms = _hidden_ids(request)
+    platforms = db_platform_handler.get_platforms(hidden_platform_ids=hidden_platforms)
 
     categories = []
     for p in platforms:
@@ -102,7 +138,12 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             continue
 
         category_items = []
-        roms = db_rom_handler.get_roms_scalar(platform_ids=[p.id])
+        roms = db_rom_handler.get_roms_scalar(
+            platform_ids=[p.id],
+            hidden_platform_ids=hidden_platforms,
+            hidden_rom_ids=hidden_roms,
+            **HAS_FILE_ON_DISK_FILTERS,
+        )
         for rom in roms:
             download_url = generate_rom_download_url(request, rom)
             category_item = WebrcadeFeedItemSchema(
@@ -183,7 +224,6 @@ async def tinfoil_index_feed(
         titledb: dict[str, dict] = {}
         for rom in roms:
             tdb_match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
-            pid_match = SWITCH_PRODUCT_ID_REGEX.search(rom.fs_name)
             if tdb_match:
                 (
                     _search_term,
@@ -191,29 +231,34 @@ async def tinfoil_index_feed(
                 ) = await meta_igdb_handler._switch_titledb_format(
                     tdb_match, rom.fs_name
                 )
-                if index_entry:
-                    key = str(index_entry.get("nsuId", None))
-                    if key is not None:  # only store if we have an id
-                        titledb[key] = TinfoilFeedTitleDBSchema(
-                            **index_entry
-                        ).model_dump()
-            elif pid_match:
+            else:
                 (
                     _search_term,
                     index_entry,
                 ) = await meta_igdb_handler._switch_productid_format(
-                    pid_match, rom.fs_name
+                    rom, rom.fs_name, rom.fs_name
                 )
-                if index_entry:
-                    key = str(index_entry.get("nsuId", None))
-                    if key is not None:
-                        titledb[key] = TinfoilFeedTitleDBSchema(
-                            **index_entry
-                        ).model_dump()
+
+            if not index_entry:
+                continue
+
+            # Tinfoil keys the index by nsuId, so an entry without one has no home.
+            nsu_id = index_entry.get("nsuId")
+            if nsu_id is not None:
+                titledb[str(nsu_id)] = TinfoilFeedTitleDBSchema(
+                    **index_entry
+                ).model_dump()
 
         return titledb
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[switch.id], include_files=True)
+    hidden_platforms, hidden_roms = _hidden_ids(request)
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[switch.id],
+        include_files=True,
+        hidden_platform_ids=hidden_platforms,
+        hidden_rom_ids=hidden_roms,
+        **HAS_FILE_ON_DISK_FILTERS,
+    )
 
     return TinfoilFeedSchema(
         files=[
@@ -329,9 +374,7 @@ def pkgi_ps3_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[ps3_platform.id], include_files=True
-    )
+    roms = _platform_roms(request, ps3_platform.id, include_files=True)
     txt_lines = []
 
     for rom in roms:
@@ -407,9 +450,7 @@ def pkgi_psvita_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[psvita_platform.id], include_files=True
-    )
+    roms = _platform_roms(request, psvita_platform.id, include_files=True)
     txt_lines = []
 
     for rom in roms:
@@ -484,9 +525,7 @@ def pkgi_psp_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[psp_platform.id], include_files=True
-    )
+    roms = _platform_roms(request, psp_platform.id, include_files=True)
     txt_lines = []
 
     for rom in roms:
@@ -538,18 +577,91 @@ def format_release_date(timestamp: int | None) -> str | None:
     return datetime.fromtimestamp(timestamp / 1000).strftime("%m-%d-%Y")
 
 
+FPKGI_CATEGORY_LABELS: dict[RomFileCategory, str] = {
+    RomFileCategory.GAME: "Game",
+    RomFileCategory.DLC: "DLC",
+    RomFileCategory.UPDATE: "Update",
+    RomFileCategory.PATCH: "Patch",
+    RomFileCategory.DEMO: "Demo",
+}
+
+
+# PS4/PS5 title ids as they appear in package file names, e.g. CUSA12345
+FPKGI_TITLE_ID_REGEX = re.compile(r"(?:CUSA|PPSA)\d{5}", re.IGNORECASE)
+
+
+def fpkgi_name_candidates(rom_name: str, file: RomFile) -> list[str]:
+    """Names for a package, from the most readable to the most specific."""
+    label = FPKGI_CATEGORY_LABELS.get(file.category) if file.category else None
+    stem = file.file_name_no_ext
+
+    candidates = []
+    if label:
+        candidates.append(f"{rom_name} - {label}")
+    candidates.append(f"{rom_name} - {stem}")
+    if label:
+        candidates.append(f"{rom_name} - {label} - {stem}")
+    # Last resort: two categories can hold packages with the same file name
+    candidates.append(f"{rom_name} - {stem} ({file.id})")
+    return candidates
+
+
+def fpkgi_item_names(rom: Rom, files: list[RomFile]) -> dict[int, str]:
+    """Name shown in FPKGi per package, keyed by rom file id.
+
+    FPKGi downloads to `[<title_id>] <name>.pkg`, and packages of a rom share a
+    title id, so two of them sharing a name overwrite each other on the console.
+    Each package therefore takes the first of its candidate names that no other
+    package in the rom lays claim to.
+    """
+    rom_name = rom.name or rom.fs_name
+    if len(files) == 1:
+        return {files[0].id: rom_name}
+
+    candidates = {f.id: fpkgi_name_candidates(rom_name, f) for f in files}
+    claimed = Counter(name for names in candidates.values() for name in names)
+    return {
+        file_id: next(name for name in names if claimed[name] == 1)
+        for file_id, names in candidates.items()
+    }
+
+
+def fpkgi_title_id(rom: Rom, files: list[RomFile]) -> str:
+    """The game's real title id when a file name carries one, else a RomM one.
+
+    Resolved per rom so a base game and its updates/DLC stay grouped, the way
+    FPKGi searches and sorts content.
+    """
+    for name in (rom.fs_name, *(file.file_name for file in files)):
+        match = FPKGI_TITLE_ID_REGEX.search(name)
+        if match:
+            return match.group(0).upper()
+
+    return f"ROMM{str(rom.id)[-5:].zfill(5)}"
+
+
 @protected_route(
     router.get,
     "/fpkgi/{platform_slug}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
-def fpkgi_feed(request: Request, platform_slug: str) -> Response:
+def fpkgi_feed(
+    request: Request,
+    platform_slug: str,
+    content_type: Annotated[
+        str | None,
+        Query(
+            description="Only list packages of this category (game, dlc, update, patch, demo)"
+        ),
+    ] = None,
+) -> Response:
     """
     https://github.com/ItsJokerZz/FPKGi
 
     Args:
         request (Request): Fastapi Request object
         platform_slug (str): Platform slug (ps4, ps5)
+        content_type (str | None): Optional rom file category filter
 
     Returns:
         Response: JSON file in FPKGi format
@@ -560,23 +672,50 @@ def fpkgi_feed(request: Request, platform_slug: str) -> Response:
             status_code=404, detail=f"Platform {platform_slug} not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    try:
+        category_filter = RomFileCategory(content_type) if content_type else None
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid content type: {content_type}"
+        ) from e
+
+    roms = _platform_roms(request, platform.id, include_files=True)
     response_data = {}
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
-        response_data[download_url] = FPKGiFeedItemSchema(
-            name=rom.name or rom.fs_name,
-            size=rom.fs_size_bytes,
-            title_id=f"ROMM{str(rom.id)[-5:].zfill(5)}",
-            region=rom.regions[0] if rom.regions else None,
-            version=rom.revision or None,
-            release=format_release_date(rom.metadatum.first_release_date),
-            min_fw=None,
-            cover_url=str(
-                URLPath(rom.path_cover_large).make_absolute_url(request.base_url)
-            ),
-        ).model_dump()
+        # FPKGi installs one package per entry, so each .pkg is listed on its own
+        pkg_files = [
+            f
+            for f in rom.files
+            if f.file_extension.lower() == "pkg" and not f.missing_from_fs
+        ]
+        title_id = fpkgi_title_id(rom, pkg_files)
+        # Named over every package of the rom, not just the filtered ones, so a
+        # name means the same thing whichever CONTENT_URLS slot serves it
+        item_names = fpkgi_item_names(rom, pkg_files)
+        cover_url = (
+            str(URLPath(rom.path_cover_large).make_absolute_url(request.base_url))
+            if rom.path_cover_large
+            else None
+        )
+
+        for file in pkg_files:
+            # Files without a category folder are treated as the base game
+            category = file.category or RomFileCategory.GAME
+            if category_filter and category != category_filter:
+                continue
+
+            download_url = generate_romfile_download_url(request, file)
+            response_data[download_url] = FPKGiFeedItemSchema(
+                name=item_names[file.id],
+                size=file.file_size_bytes,
+                title_id=title_id,
+                region=rom.regions[0] if rom.regions else None,
+                version=rom.revision or None,
+                release=format_release_date(rom.metadatum.first_release_date),
+                min_fw=None,
+                cover_url=cover_url,
+            ).model_dump()
 
     return JSONResponse(
         content={"DATA": response_data},
@@ -606,7 +745,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
             status_code=404, detail=f"Platform {platform_slug} not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    roms = _platform_roms(request, platform.id)
 
     txt_lines = []
     txt_lines.append("1")  # Database version
@@ -669,9 +808,7 @@ def pkgj_psp_games_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Portable platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tType\tName\tPKG direct link\tContent ID\tLast Modification Date\tRAP\tDownload .RAP file\tFile Size\tSHA256"
@@ -735,9 +872,7 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Portable platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tContent ID\tLast Modification Date\tRAP\tDownload .RAP file\tFile Size\tSHA256"
@@ -799,9 +934,7 @@ def pkgj_psv_games_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Vita platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tzRIF\tContent ID\tLast Modification Date\tOriginal Name\tFile Size\tSHA256\tRequired FW\tApp Version"
@@ -866,9 +999,7 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Vita platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tzRIF\tContent ID\tLast Modification Date\tFile Size\tSHA256"
@@ -925,9 +1056,7 @@ def pkgj_psx_games_feed(request: Request) -> Response:
     if not platform:
         raise HTTPException(status_code=404, detail="PlayStation platform not found")
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tContent ID\tLast Modification Date\tOriginal Name\tFile Size\tSHA256"

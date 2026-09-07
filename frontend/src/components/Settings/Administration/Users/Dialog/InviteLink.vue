@@ -12,7 +12,7 @@ const show = ref(false);
 const fullInviteLink = ref("");
 const selectedRole = ref("");
 const selectedExpiration = ref<number>(86400);
-const roles = ["viewer", "editor", "admin"];
+const roles = ["admin", "user"];
 const expirationOptions = [
   { label: "1 hour", value: 3600 },
   { label: "6 hours", value: 21600 },
@@ -40,7 +40,8 @@ function createInviteLink() {
         color: "green",
         timeout: 5000,
       });
-      fullInviteLink.value = `${window.location.origin}/register?token=${data.token}`;
+      fullInviteLink.value =
+        data.url ?? `${window.location.origin}/register?token=${data.token}`;
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {

@@ -4,13 +4,14 @@
 //
 // Surface area (matches v1 1:1 so URLs stay compatible):
 //   • Tri-state boolean filters: matched / favourites / duplicates /
-//     playables / missing / verified / RA. Each maps null → "all",
+//     playables / missing / physical / verified / RA. Each maps null → "all",
 //     true → positive, false → negative.
 //   • Optional platform multi-select (only on Search / Collection views
 //     where you can mix platforms).
-//   • 9 multi-select filter groups (genres / franchises / collections /
-//     companies / age-ratings / regions / languages / player-counts /
-//     statuses) — each paired with an AND/OR/NONE logic toggle.
+//   • 11 multi-select filter groups (genres / franchises / collections /
+//     companies / age-ratings / regions / languages / tags /
+//     player-counts / metadata-providers / statuses) — each paired with
+//     an AND/OR/NONE logic toggle.
 //   • Reset button at the bottom.
 //
 // Apply is implicit — the URL composable + galleryRoms watcher refresh
@@ -32,6 +33,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap, type PlayingStatus } from "@/utils";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import { METADATA_PROVIDER_FILTER_OPTIONS } from "@/v2/utils/metadataProviders";
 
 defineOptions({ inheritAttrs: false });
 
@@ -59,8 +61,12 @@ const {
   filterDuplicates,
   filterPlayables,
   filterMissing,
+  filterPhysical,
   filterVerified,
   filterRA,
+  filterSaves,
+  filterStates,
+  filterSoundtrack,
   selectedPlatforms,
   filterGenres,
   selectedGenres,
@@ -74,6 +80,12 @@ const {
   filterCompanies,
   selectedCompanies,
   companiesLogic,
+  filterPublishers,
+  selectedPublishers,
+  publishersLogic,
+  filterDevelopers,
+  selectedDevelopers,
+  developersLogic,
   filterAgeRatings,
   selectedAgeRatings,
   ageRatingsLogic,
@@ -86,11 +98,28 @@ const {
   filterPlayerCounts,
   selectedPlayerCounts,
   playerCountsLogic,
+  selectedMetadataProviders,
+  metadataProvidersLogic,
+  filterTags,
+  selectedTags,
+  tagsLogic,
   filterStatuses,
   selectedStatuses,
   statusesLogic,
 } = storeToRefs(filter);
 const { allPlatforms } = storeToRefs(platformsStore);
+
+// Provider options are a fixed registry (not data-derived like the other
+// lists). Items are the provider slugs; `providerTitle` maps each to its
+// brand name for display.
+const providerItems = computed(() =>
+  METADATA_PROVIDER_FILTER_OPTIONS.map((p) => p.value),
+);
+const providerLabels = new Map(
+  METADATA_PROVIDER_FILTER_OPTIONS.map((p) => [p.value, p.title]),
+);
+const providerTitle = (slug: string): string =>
+  providerLabels.get(slug) ?? slug;
 
 // ── Tri-state mapping helpers ──────────────────────────────────
 // The RSliderBtnGroup speaks string ids; the store speaks `boolean | null`.
@@ -165,6 +194,15 @@ const boolFilters: BoolFilterConfig[] = [
     value: filterMissing,
   },
   {
+    label: t("platform.show-physical"),
+    icon: "mdi-cube-outline",
+    yesIcon: "mdi-cube-outline",
+    noIcon: "mdi-cube-off-outline",
+    yesAria: t("platform.show-physical-only"),
+    noAria: t("platform.show-not-physical-only"),
+    value: filterPhysical,
+  },
+  {
     label: t("platform.show-verified"),
     icon: "mdi-check-decagram",
     yesIcon: "mdi-check-decagram",
@@ -181,6 +219,33 @@ const boolFilters: BoolFilterConfig[] = [
     yesAria: t("platform.show-ra-only"),
     noAria: t("platform.show-not-ra-only"),
     value: filterRA,
+  },
+  {
+    label: t("platform.has-saves"),
+    icon: "mdi-content-save-outline",
+    yesIcon: "mdi-content-save-outline",
+    noIcon: "mdi-content-save-off-outline",
+    yesAria: t("platform.show-saves-only"),
+    noAria: t("platform.show-not-saves-only"),
+    value: filterSaves,
+  },
+  {
+    label: t("platform.has-states"),
+    icon: "mdi-camera-outline",
+    yesIcon: "mdi-camera-outline",
+    noIcon: "mdi-camera-off-outline",
+    yesAria: t("platform.show-states-only"),
+    noAria: t("platform.show-not-states-only"),
+    value: filterStates,
+  },
+  {
+    label: t("platform.has-soundtrack"),
+    icon: "mdi-music-note",
+    yesIcon: "mdi-music-note",
+    noIcon: "mdi-music-note-off",
+    yesAria: t("platform.show-soundtrack-only"),
+    noAria: t("platform.show-no-soundtrack-only"),
+    value: filterSoundtrack,
   },
 ];
 
@@ -263,6 +328,22 @@ const multiSections = computed<MultiConfig[]>(() => [
     setLogic: (l) => filter.setCompaniesLogic(l),
   },
   {
+    label: t("platform.publisher"),
+    icon: "mdi-bank-outline",
+    items: filterPublishers,
+    selected: selectedPublishers,
+    logic: publishersLogic,
+    setLogic: (l) => filter.setPublishersLogic(l),
+  },
+  {
+    label: t("platform.developer"),
+    icon: "mdi-code-tags",
+    items: filterDevelopers,
+    selected: selectedDevelopers,
+    logic: developersLogic,
+    setLogic: (l) => filter.setDevelopersLogic(l),
+  },
+  {
     label: t("platform.age-rating"),
     icon: "mdi-account-child",
     items: filterAgeRatings,
@@ -287,12 +368,29 @@ const multiSections = computed<MultiConfig[]>(() => [
     setLogic: (l) => filter.setLanguagesLogic(l),
   },
   {
+    label: t("platform.tag"),
+    icon: "mdi-tag-outline",
+    items: filterTags,
+    selected: selectedTags,
+    logic: tagsLogic,
+    setLogic: (l) => filter.setTagsLogic(l),
+  },
+  {
     label: t("platform.player-count"),
     icon: "mdi-account-group",
     items: filterPlayerCounts,
     selected: selectedPlayerCounts,
     logic: playerCountsLogic,
     setLogic: (l) => filter.setPlayerCountsLogic(l),
+  },
+  {
+    label: t("platform.metadata-provider"),
+    icon: "mdi-database-outline",
+    items: providerItems,
+    selected: selectedMetadataProviders,
+    logic: metadataProvidersLogic,
+    setLogic: (l) => filter.setMetadataProvidersLogic(l),
+    toTitle: providerTitle,
   },
   {
     label: t("platform.status"),
@@ -398,7 +496,7 @@ function saveAsSmartCollection() {
     <!-- ── Boolean tri-state filters ────────────────────────── -->
     <section class="r-v2-fd__section">
       <h3 class="r-v2-fd__heading">
-        {{ t("platform.show") }}
+        {{ t("platform.properties") }}
       </h3>
       <div class="r-v2-fd__bool-rows">
         <div

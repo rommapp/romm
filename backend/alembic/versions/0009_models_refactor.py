@@ -1,7 +1,7 @@
 """Refactor platforms and roms tables
 
 Revision ID: 0009_models_refactor
-Revises: 2.0.0
+Revises: 0001_initial_models
 Create Date: 2023-09-12 18:18:27.158732
 
 """
@@ -14,7 +14,7 @@ from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0009_models_refactor"
-down_revision = "2.0.0"
+down_revision = "0001_initial_models"
 branch_labels = None
 depends_on = None
 

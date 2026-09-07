@@ -47,12 +47,18 @@ def upgrade() -> None:
 
     # 1. DB-specific search indexes on roms.name and roms.fs_name.
     if is_mysql(bind) or is_mariadb(bind):
-        op.execute(
-            sa.text(
-                f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
-                "ON roms (name, fs_name)"
+        # MySQL/MariaDB have no portable "IF NOT EXISTS" for FULLTEXT indexes, so
+        # guard the create to stay idempotent if a prior run partially applied.
+        existing_indexes = {
+            index["name"] for index in sa.inspect(bind).get_indexes("roms")
+        }
+        if FULLTEXT_INDEX_NAME not in existing_indexes:
+            op.execute(
+                sa.text(
+                    f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
+                    "ON roms (name, fs_name)"
+                )
             )
-        )
     elif is_postgresql(bind):
         # pg_trgm is a trusted extension since PostgreSQL 13, so a non-superuser
         # with CREATE on the database can install it.
@@ -130,7 +136,12 @@ def downgrade() -> None:
 
     # 1. DB-specific search indexes.
     if is_mysql(bind) or is_mariadb(bind):
-        op.execute(sa.text(f"DROP INDEX {FULLTEXT_INDEX_NAME} ON roms"))
+        # MySQL has no portable "IF EXISTS" for DROP INDEX, so guard the drop.
+        existing_indexes = {
+            index["name"] for index in sa.inspect(bind).get_indexes("roms")
+        }
+        if FULLTEXT_INDEX_NAME in existing_indexes:
+            op.execute(sa.text(f"DROP INDEX {FULLTEXT_INDEX_NAME} ON roms"))
     elif is_postgresql(bind):
         # Leave the pg_trgm extension in place; other objects may depend on it.
         op.execute(sa.text(f"DROP INDEX IF EXISTS {PG_FS_NAME_INDEX}"))

@@ -1,49 +1,14 @@
-// ActionKey — canonical vocabulary of permission-gated actions in v2.
+// Permission vocabulary for v2.
 //
-// This list is authored by hand today. It mirrors the backend's permission
-// guards by convention. When the backend exposes its action catalog in
-// OpenAPI (debt — see CLAUDE.md), this file is replaced by a generated
-// type and the manual review checklist disappears.
-//
-// Naming convention: `domain.action`. Domains are nouns (rom, platform,
-// collection, user, library); actions are verbs (view, create, edit,
-// delete, upload, scan, …).
+// `ActionKey` is generated from the backend OpenAPI schema (the source of
+// truth) — the catalogue of permission-gated actions, named `domain.action`
+// (rom.upload, rom.delete, library.scan, user.create, app.admin, …). The
+// scope and grant shapes below are frontend-local: `PermissionScope` is a
+// discriminated union (tighter than the generated optional-field schema) so
+// `useCan`'s scope matching is exhaustive.
+import type { ActionKey } from "@/__generated__";
 
-export const ACTIONS = [
-  // ROMs
-  "rom.view",
-  "rom.play",
-  "rom.download",
-  "rom.upload",
-  "rom.edit",
-  "rom.delete",
-  "rom.match",
-  "rom.refresh",
-  "rom.favorite",
-  // Platforms
-  "platform.view",
-  "platform.create",
-  "platform.edit",
-  "platform.delete",
-  // Collections
-  "collection.view",
-  "collection.create",
-  "collection.edit",
-  "collection.delete",
-  // Library
-  "library.scan",
-  // Users
-  "user.view",
-  "user.create",
-  "user.edit",
-  "user.delete",
-  // App-wide — generic "is admin" hatch for surfaces that don't map to a
-  // specific resource action (server stats, About, debug panels). Prefer
-  // a more specific action when one fits.
-  "app.admin",
-] as const;
-
-export type ActionKey = (typeof ACTIONS)[number];
+export type { ActionKey };
 
 export type PermissionScope =
   | { kind: "global" }

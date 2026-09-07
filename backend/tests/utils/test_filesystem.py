@@ -216,3 +216,22 @@ class TestSanitizeFilename:
         assume(once is not None)
         assert once is not None
         assert sanitize_filename(once) == once
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            ("save.sav", "save.sav"),
+            ("../save.sav", "save.sav"),
+            ("../../../etc/passwd", "passwd"),
+            ("/etc/passwd", "passwd"),
+            ("dir/../save.sav", "save.sav"),
+            (r"..\..\windows\system32", "..-..-windows-system32"),
+        ],
+    )
+    def test_strips_directory_components(self, name: str, expected: str):
+        assert sanitize_filename(name) == expected
+
+    @pytest.mark.parametrize("name", ["", ".", "..", "../", "some/dir/"])
+    def test_rejects_names_without_a_basename(self, name: str):
+        with pytest.raises(ValueError):
+            sanitize_filename(name)

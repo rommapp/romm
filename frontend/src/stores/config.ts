@@ -14,13 +14,15 @@ type ExclusionTypes =
 const defaultConfig = {
   CONFIG_FILE_MOUNTED: false,
   CONFIG_FILE_WRITABLE: false,
+  CONFIG_FILE_PARSE_ERROR: null,
   EXCLUDED_PLATFORMS: [],
   EXCLUDED_SINGLE_EXT: [],
   EXCLUDED_SINGLE_FILES: [],
   EXCLUDED_MULTI_FILES: [],
   EXCLUDED_MULTI_PARTS_EXT: [],
   EXCLUDED_MULTI_PARTS_FILES: [],
-  DEFAULT_EXCLUDED_DIRS: [],
+  DEFAULT_EXCLUDED_PLATFORM_DIRS: [],
+  DEFAULT_EXCLUDED_MULTI_FILE_DIRS: [],
   DEFAULT_EXCLUDED_FILES: [],
   DEFAULT_EXCLUDED_EXTENSIONS: [],
   PLATFORMS_BINDING: {},
@@ -31,16 +33,20 @@ const defaultConfig = {
   EJS_CACHE_LIMIT: null,
   EJS_DISABLE_AUTO_UNLOAD: false,
   EJS_DISABLE_BATCH_BOOTUP: false,
+  EJS_ENABLE_AUTO_SAVE_SYNC: false,
   EJS_NETPLAY_ICE_SERVERS: [],
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
   SCAN_METADATA_PRIORITY: [],
   SCAN_ARTWORK_PRIORITY: [],
+  SCAN_ARTWORK_PRIORITY_OVERRIDES: {},
   SCAN_REGION_PRIORITY: [],
   SCAN_LANGUAGE_PRIORITY: [],
   SCAN_MEDIA: [],
+  GAMELIST_AUTO_EXPORT_ON_SCAN: false,
   GAMELIST_MEDIA_THUMBNAIL: "box2d",
   GAMELIST_MEDIA_IMAGE: "screenshot",
+  PEGASUS_AUTO_EXPORT_ON_SCAN: false,
 } as ConfigResponse;
 
 export default defineStore("config", {
@@ -49,13 +55,16 @@ export default defineStore("config", {
   }),
 
   actions: {
-    async fetchConfig(): Promise<ConfigResponse> {
+    async fetchConfig({
+      rethrow = false,
+    }: { rethrow?: boolean } = {}): Promise<ConfigResponse> {
       try {
         const response = await api.get("/config");
         this.config = response.data;
         return this.config;
       } catch (error) {
         console.error("Error fetching config: ", error);
+        if (rethrow) throw error;
         return this.config;
       }
     },

@@ -10,14 +10,15 @@ import { useRoute, useRouter } from "vue-router";
 import storeConfig from "@/stores/config";
 import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
 import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
+import MissingFirmwareSection from "@/v2/components/Settings/MissingFirmwareSection.vue";
 import MissingGamesSection from "@/v2/components/Settings/MissingGamesSection.vue";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
-type Tab = "mapping" | "excluded" | "missing";
-const validTabs: Tab[] = ["mapping", "excluded", "missing"];
+type Tab = "mapping" | "excluded" | "missing" | "missing-firmware";
+const validTabs: Tab[] = ["mapping", "excluded", "missing", "missing-firmware"];
 
 const tab = ref<Tab>(
   (validTabs as string[]).includes(route.query.tab as string)
@@ -64,6 +65,11 @@ const tabs = computed<RTabNavItem[]>(() => [
     label: t("settings.missing-games-tab"),
     icon: "mdi-folder-question-outline",
   },
+  {
+    id: "missing-firmware",
+    label: t("settings.missing-firmware-tab"),
+    icon: "mdi-memory",
+  },
 ]);
 
 // Bridge between RTabNav's string modelValue and our Tab union.
@@ -83,7 +89,23 @@ const tabModel = computed<string>({
       </template>
       {{ t("settings.config-file-not-mounted-desc") }}
     </RAlert>
-    <RAlert v-else-if="!config.CONFIG_FILE_WRITABLE" type="warning">
+    <RAlert
+      v-if="config.CONFIG_FILE_MOUNTED && config.CONFIG_FILE_PARSE_ERROR"
+      type="error"
+    >
+      <template #title>
+        {{ t("settings.config-file-parse-error-title") }}
+      </template>
+      {{
+        t("settings.config-file-parse-error-desc", {
+          error: config.CONFIG_FILE_PARSE_ERROR,
+        })
+      }}
+    </RAlert>
+    <RAlert
+      v-if="config.CONFIG_FILE_MOUNTED && !config.CONFIG_FILE_WRITABLE"
+      type="warning"
+    >
       <template #title>
         {{ t("settings.config-file-not-writable-title") }}
       </template>
@@ -95,6 +117,7 @@ const tabModel = computed<string>({
     <FolderMappingsSection v-if="tab === 'mapping'" />
     <ExcludedSection v-else-if="tab === 'excluded'" />
     <MissingGamesSection v-else-if="tab === 'missing'" />
+    <MissingFirmwareSection v-else-if="tab === 'missing-firmware'" />
   </div>
 </template>
 

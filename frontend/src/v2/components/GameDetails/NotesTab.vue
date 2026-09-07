@@ -23,8 +23,8 @@ import type { UserNoteSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
-import storeRoms from "@/stores/roms";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
@@ -37,7 +37,7 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const authStore = storeAuth();
-const romsStore = storeRoms();
+const { refetchRom } = useRomSync();
 const route = useRoute();
 const router = useRouter();
 const { isLight: isLightTheme } = useThemeMode();
@@ -183,8 +183,7 @@ const canSave = computed(() => {
 });
 
 async function refreshRom() {
-  const { data } = await romApi.getRom({ romId: props.rom.id });
-  romsStore.setCurrentRom(data);
+  await refetchRom(props.rom.id);
 }
 
 function startAdd() {
@@ -377,7 +376,11 @@ function fmtDate(iso: string): string {
                 <span class="r-v2-notes__nav-author">
                   <RAvatar
                     :image="
-                      userAvatarUrl(n.user_avatar_path, n.user_updated_at)
+                      userAvatarUrl({
+                        userId: n.user_id,
+                        avatarPath: n.user_avatar_path,
+                        updatedAt: n.user_updated_at,
+                      })
                     "
                     size="18"
                   />
@@ -471,10 +474,11 @@ function fmtDate(iso: string): string {
               <div v-if="!isSelectedOwn" class="r-v2-notes__author">
                 <RAvatar
                   :image="
-                    userAvatarUrl(
-                      selectedNote.user_avatar_path,
-                      selectedNote.user_updated_at,
-                    )
+                    userAvatarUrl({
+                      userId: selectedNote.user_id,
+                      avatarPath: selectedNote.user_avatar_path,
+                      updatedAt: selectedNote.user_updated_at,
+                    })
                   "
                   size="20"
                 />

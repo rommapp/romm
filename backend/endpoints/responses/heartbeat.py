@@ -10,6 +10,7 @@ class MetadataSourcesDict(TypedDict):
     ANY_SOURCE_ENABLED: bool
     IGDB_API_ENABLED: bool
     SS_API_ENABLED: bool
+    SS_DEV_CREDENTIALS_SET: bool
     MOBY_API_ENABLED: bool
     STEAMGRIDDB_API_ENABLED: bool
     RA_API_ENABLED: bool
@@ -19,16 +20,22 @@ class MetadataSourcesDict(TypedDict):
     TGDB_API_ENABLED: bool
     FLASHPOINT_API_ENABLED: bool
     HLTB_API_ENABLED: bool
+    DEMOZOO_API_ENABLED: bool
+    POUET_API_ENABLED: bool
+    CSDB_API_ENABLED: bool
+    STEAM_API_ENABLED: bool
     LIBRETRO_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):
     FS_PLATFORMS: list[str]
+    TITLE_ID_EXTRACTION_ENABLED: bool
 
 
 class EmulationDict(TypedDict):
     DISABLE_EMULATOR_JS: bool
     DISABLE_RUFFLE_RS: bool
+    DISABLE_JSDOS: bool
 
 
 class FrontendDict(TypedDict):

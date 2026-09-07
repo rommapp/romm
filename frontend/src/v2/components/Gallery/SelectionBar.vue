@@ -14,12 +14,15 @@
 //   * favorite / unfavorite — direct collectionApi bulk call against
 //     the favorite collection. The Card/Row's per-rom favourite
 //     toggle still routes through `useGameActions` per-rom; here we
-//     bypass it to issue a single add/remove call for the whole set.
+//     bypass only its per-rom write to issue a single add/remove call
+//     for the whole set, while still reusing its
+//     `ensureFavoriteCollection` so a fresh instance gets one.
 //   * manage collections — re-uses the existing
 //     `ManageCollectionsDialog` (already accepts SimpleRom[]) via
 //     the `showManageCollectionsDialog` emitter event.
-//   * download — iterates selected ROMs and triggers one anchor
-//     download per item. Same pattern as `useGameActions.download`.
+//   * download — a single selected ROM downloads directly (like the
+//     per-rom `useGameActions.download`); multi-selections go through
+//     the bulk endpoint so the server bundles them into one zip.
 //   * refresh metadata — emits `showRefreshMetadataDialog` for each
 //     ROM in turn. (Phase-2 follow-up: the dialog will accept arrays
 //     so the user only sees the scan-type picker once for the whole
@@ -41,18 +44,20 @@ import {
   RDivider,
 } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
+import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
-import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getDownloadPath, romStatusMap } from "@/utils";
+import { romStatusMap } from "@/utils";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   ENUM_KEYS,
@@ -73,11 +78,17 @@ const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const selection = storeGallerySelection();
 const collectionsStore = storeCollections();
-const romsStore = storeRoms();
+const galleryRomsStore = storeGalleryRoms();
+const { ensureFavoriteCollection } = useFavoriteToggle();
+const { syncCachedRom, removeCachedRoms, refreshAfterUserStateChange } =
+  useRomSync();
 
 const canRefresh = useCan("rom.refresh");
-const canDelete = useCan("rom.delete");
 const canDownload = useCan("rom.download");
+const hasDeleteGrant = useCan("rom.delete");
+const canEditRom = useCan("rom.edit");
+// Bulk delete hits `POST /roms/delete`, which gates on ROMS_WRITE
+const canDelete = computed(() => hasDeleteGrant.value && canEditRom.value);
 
 // `favorite` is the favourite collection — used to compute "are all
 // selected ROMs in favorites?" so the button can toggle between
@@ -102,29 +113,45 @@ const favoriteLabel = computed(() =>
     : t("gallery.selection-favorite"),
 );
 
+// Guards the create-if-missing call below.
+const favoritePending = ref(false);
+
 async function bulkFavorite() {
-  const fav = collectionsStore.favoriteCollection;
   const ids = selection.ids;
-  if (!fav || ids.length === 0) return;
+  const roms = selection.roms;
+  if (ids.length === 0 || favoritePending.value) return;
+  // `allFavorited` tracks the live selection and the collection's rom_ids,
+  // both of which can move while the calls below are in flight, so the
+  // direction has to be snapshotted alongside the ids it applies to.
+  const wasAllFavorited = allFavorited.value;
+  favoritePending.value = true;
   try {
-    const { data } = allFavorited.value
+    // A fresh instance has no favourites collection until something is
+    // favourited.
+    const fav = await ensureFavoriteCollection();
+    const { data } = wasAllFavorited
       ? await collectionApi.removeRomsFromCollection(fav.id, ids)
       : await collectionApi.addRomsToCollection(fav.id, ids);
     collectionsStore.updateCollection(data);
     collectionsStore.setFavoriteCollection(data);
-    if (allFavorited.value && romsStore.currentCollection?.id === fav.id) {
+    if (wasAllFavorited && galleryRomsStore.currentCollection?.id === fav.id) {
       // We were on the favourites collection view and just removed
       // every selected rom from it — drop them from the visible
       // roms so the UI reflects the new membership immediately.
-      romsStore.remove(selection.roms);
+      removeCachedRoms(roms);
     }
+    // The branch above only covers the Favourites collection view; a
+    // favourites filter moves membership just as much.
+    refreshAfterUserStateChange();
     snackbar.success(
-      allFavorited.value
+      wasAllFavorited
         ? t("gallery.selection-unfavorite-success", { n: ids.length })
         : t("gallery.selection-favorite-success", { n: ids.length }),
     );
   } catch {
     snackbar.error(t("gallery.selection-favorite-fail"));
+  } finally {
+    favoritePending.value = false;
   }
 }
 
@@ -174,7 +201,7 @@ async function applyStatus(data: Partial<RomUserData>) {
     if (!rom.rom_user) continue;
     before.set(rom.id, { ...rom.rom_user });
     Object.assign(rom.rom_user, data);
-    romsStore.update(rom);
+    syncCachedRom(rom);
   }
 
   const results = await Promise.allSettled(
@@ -185,9 +212,12 @@ async function applyStatus(data: Partial<RomUserData>) {
     const snapshot = before.get(rom.id);
     if (rom.rom_user && snapshot) {
       Object.assign(rom.rom_user, snapshot);
-      romsStore.update(rom);
+      syncCachedRom(rom);
     }
   }
+
+  // Once for the whole batch, after the reverts are in.
+  refreshAfterUserStateChange();
 
   const ok = roms.length - failed.length;
   if (failed.length === 0) {
@@ -226,18 +256,14 @@ function manageCollections() {
 function bulkDownload() {
   const roms = selection.roms;
   if (roms.length === 0) return;
-  for (const rom of roms) {
-    const href = getDownloadPath({ rom });
-    const a = document.createElement("a");
-    a.href = href;
-    a.download = rom.fs_name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  if (roms.length === 1) {
+    void romApi.downloadRom({ rom: roms[0] });
+    return;
   }
-  if (roms.length > 1) {
-    snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
-  }
+  // Bundle multi-selections into a single zip server-side; firing one
+  // anchor download per ROM trips browser multi-download blocking.
+  void romApi.bulkDownloadRoms({ romIDs: roms.map((r) => r.id) });
+  snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
 }
 
 function bulkRefresh() {
@@ -515,7 +541,6 @@ html[data-bp~="sm-and-down"] .selection-bar--visible {
     0 12px 32px color-mix(in srgb, black 32%, transparent),
     0 0 0 1px color-mix(in srgb, white 4%, transparent) inset;
   backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
 .selection-bar__count {

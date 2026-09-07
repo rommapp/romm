@@ -13,6 +13,7 @@ import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -22,6 +23,7 @@ const router = useRouter();
 const route = useRoute();
 const show = ref(false);
 const romsStore = storeRoms();
+const { removeCachedRoms } = useRomSync();
 const roms = ref<SimpleRom[]>([]);
 const romsToDeleteFromFs = ref<number[]>([]);
 const excludeOnDelete = ref(false);
@@ -71,13 +73,27 @@ async function deleteRoms() {
   if (deleting.value) return;
   deleting.value = true;
 
+  // Snapshot the dialog state up front: the dialog is a singleton, so a
+  // fresh `showDeleteRomDialog` event could replace these refs while the
+  // request is in flight. Acting on the snapshot keeps the response tied
+  // to the ROMs it actually processed.
+  const targetRoms = roms.value;
+  const targetPlatformId = platformId.value;
+  const deleteFromFs = romsToDeleteFromFs.value;
+  const exclude = excludeOnDelete.value;
+
   try {
     const response = await romApi.deleteRoms({
-      roms: roms.value,
-      deleteFromFs: romsToDeleteFromFs.value,
+      roms: targetRoms,
+      deleteFromFs,
     });
+    // The backend deletes per-ROM and can partially fail; only prune the
+    // ROMs it actually removed so a failed subset stays visible and
+    // selected for the user to retry.
+    const failedIds = new Set(response.data.failed_ids);
+    const deletedRoms = targetRoms.filter((rom) => !failedIds.has(rom.id));
     snackbar.success(
-      fsCount.value > 0
+      deleteFromFs.length > 0
         ? t("rom.deleted-from-filesystem", {
             count: response.data.successful_items,
           })
@@ -86,8 +102,8 @@ async function deleteRoms() {
           }),
       { icon: "mdi-check-bold" },
     );
-    if (excludeOnDelete.value) {
-      for (const rom of roms.value) {
+    if (exclude) {
+      for (const rom of deletedRoms) {
         const type = rom.has_simple_single_file
           ? "EXCLUDED_SINGLE_FILES"
           : "EXCLUDED_MULTI_FILES";
@@ -99,23 +115,26 @@ async function deleteRoms() {
       }
     }
     romsStore.resetSelection();
-    romsStore.remove(roms.value);
+    removeCachedRoms(deletedRoms);
+    // Deletion is permanent, so unlike the other `removeCachedRoms` callers
+    // this one also takes the ROMs out of Home's rows.
     romsStore.setRecentRoms(
       romsStore.recentRoms.filter(
-        (r) => !roms.value.some((rom) => rom.id === r.id),
+        (r) => !deletedRoms.some((rom) => rom.id === r.id),
       ),
     );
     romsStore.setContinuePlayingRoms(
       romsStore.continuePlayingRoms.filter(
-        (r) => !roms.value.some((rom) => rom.id === r.id),
+        (r) => !deletedRoms.some((rom) => rom.id === r.id),
       ),
     );
     emitter?.emit("refreshDrawer", null);
     closeDialog();
-    if (route.name === "rom") {
+    // Only leave the single-ROM route when that ROM was actually deleted.
+    if (route.name === "rom" && deletedRoms.length > 0) {
       router.push({
         name: ROUTES.PLATFORM,
-        params: { platform: platformId.value },
+        params: { platform: targetPlatformId },
       });
     }
   } catch (error: unknown) {

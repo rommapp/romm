@@ -168,7 +168,7 @@ onUnmounted(() => {
           v-model="userToEdit.role"
           class="ma-4"
           variant="outlined"
-          :items="['viewer', 'editor', 'admin']"
+          :items="['admin', 'user']"
           :label="t('settings.role')"
           required
           hide-details

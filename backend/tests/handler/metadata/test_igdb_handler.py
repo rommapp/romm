@@ -1,19 +1,33 @@
 """Tests for the IGDB metadata handler."""
 
-from unittest.mock import AsyncMock, patch
+import json
+from typing import Any, cast
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.services.igdb_types import GameType
+from adapters.services.igdb_types import (
+    AlternativeName,
+    ExpandableField,
+    Game,
+    GameLocalization,
+    GameType,
+)
+from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.igdb_handler import (
     FAMICOM_IGDB_ID,
     NES_IGDB_ID,
+    PS1_IGDB_ID,
     SNES_IGDB_ID,
     SUPER_FAMICOM_IGDB_ID,
     IGDBHandler,
+    IGDBMetadata,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    extract_metadata_from_igdb_rom,
+    get_igdb_preferred_locale,
 )
+from handler.redis_handler import async_cache
 
 GENESIS_IGDB_ID = 29
 
@@ -23,12 +37,20 @@ def _make_game(
     name: str,
     alternative_names: list[str] | None = None,
     game_localizations: list[str] | None = None,
-) -> dict:
-    """Build a minimal IGDB Game dict for testing.
+) -> Game:
+    """Build a minimal IGDB Game for testing.
 
     ``alternative_names`` and ``game_localizations`` accept plain title strings
     and are wrapped into the ``{"name": ...}`` shape IGDB returns.
     """
+    alt_names: list[ExpandableField[AlternativeName]] = [
+        AlternativeName(id=i, name=n)
+        for i, n in enumerate(alternative_names or [], start=1)
+    ]
+    localizations: list[ExpandableField[GameLocalization]] = [
+        GameLocalization(id=i, name=n)
+        for i, n in enumerate(game_localizations or [], start=1)
+    ]
     return {
         "id": game_id,
         "name": name,
@@ -36,14 +58,11 @@ def _make_game(
         "summary": "",
         "total_rating": 0.0,
         "aggregated_rating": 0.0,
-        "first_release_date": None,
         "artworks": [],
-        "cover": None,
         "screenshots": [],
         "platforms": [{"id": GENESIS_IGDB_ID, "name": "Sega Mega Drive/Genesis"}],
-        "alternative_names": [{"name": n} for n in (alternative_names or [])],
+        "alternative_names": alt_names,
         "genres": [],
-        "franchise": None,
         "franchises": [],
         "collections": [],
         "game_modes": [],
@@ -58,8 +77,21 @@ def _make_game(
         "videos": [],
         "age_ratings": [],
         "multiplayer_modes": [],
-        "game_localizations": [{"name": n} for n in (game_localizations or [])],
+        "game_localizations": localizations,
     }
+
+
+class TestGetIGDBPreferredLocale:
+    def test_multi_region_rom_respects_user_priority(self):
+        """The configured priority wins over filename tag order."""
+        rom = MagicMock()
+        rom.regions = ["Japan", "USA"]
+        config = MagicMock(SCAN_REGION_PRIORITY=["JP", "us"])
+
+        with patch("handler.metadata.igdb_handler.cm.get_config", return_value=config):
+            locale = get_igdb_preferred_locale(rom)
+
+        assert locale == "ja-JP"
 
 
 class TestSearchRomGameTypeFilter:
@@ -657,3 +689,287 @@ class TestSearchRomRegionalTwinPlatforms:
         assert any(
             f"platforms=[{GENESIS_IGDB_ID}]" in w for w in captured_wheres
         ), captured_wheres
+
+
+class TestSonySerialFilenames:
+    """Tests for Sony serial resolution in get_rom."""
+
+    @pytest.mark.asyncio
+    async def test_serial_at_filename_start_resolves_title(self):
+        """A serial in the first two characters of the filename must still hit
+        the serial index. Regression: re.IGNORECASE was passed as the ``pos``
+        argument of ``Pattern.search()``, skipping the first two characters,
+        so files named by their serial (e.g. ``SCUS-94163.bin``) were never
+        resolved."""
+        handler = IGDBHandler()
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+            patch.object(
+                IGDBHandler, "_search_rom", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            mock_hget.return_value = json.dumps({"title": "Gran Turismo"})
+            result = await handler.get_rom(MagicMock(), "SCUS-94163.bin", PS1_IGDB_ID)
+
+        mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
+        assert result.get("name") == "Gran Turismo"
+        assert result["igdb_id"] is None
+
+
+class TestIsPrefixSupersetMatch:
+    """Unit tests for the prefix/superset title heuristic (issue #3805)."""
+
+    @pytest.mark.parametrize(
+        ("search_term", "candidate", "expected"),
+        [
+            # A more specific variant's search term extends the base title.
+            (
+                "metal gear solid portable ops plus",
+                "Metal Gear Solid: Portable Ops",
+                True,
+            ),
+            # Reversed: the base term is a prefix of the variant candidate.
+            (
+                "Metal Gear Solid: Portable Ops",
+                "Metal Gear Solid: Portable Ops Plus",
+                True,
+            ),
+            ("pokemon ranger shadows of almia", "Pokemon Ranger", True),
+            # Extra word is not a trailing suffix, so not a prefix relationship.
+            ("sonic hedgehog", "Sonic the Hedgehog", False),
+            # Identical titles are an exact match, not a prefix ambiguity.
+            ("Metal Gear Solid", "metal gear solid", False),
+            # Unrelated titles.
+            ("contra", "Probotector", False),
+        ],
+    )
+    def test_prefix_superset_detection(self, search_term, candidate, expected):
+        handler = IGDBHandler()
+        assert handler._is_prefix_superset_match(search_term, candidate) is expected
+
+
+class TestSearchRomPrefixSupersetVariant:
+    """A base title that is a prefix of the searched variant must not be
+    accepted when the more specific variant exists (issue #3805).
+
+    'Metal Gear Solid - Portable Ops Plus' and 'Portable Ops' (and the Pokemon
+    Ranger series) scored the same IGDB id because the first search pass only
+    returned the base game and its ~0.99 Jaro-Winkler score cleared the match
+    threshold.
+    """
+
+    BASE_ID = 1001
+    VARIANT_ID = 1002
+    BASE_NAME = "Metal Gear Solid: Portable Ops"
+    VARIANT_NAME = "Metal Gear Solid: Portable Ops Plus"
+
+    @pytest.mark.asyncio
+    async def test_variant_excluded_by_game_type_is_recovered(self):
+        """When the game_type filter hides the variant (IGDB classifies it as an
+        expansion), dropping the filter must surface it so the exact match wins
+        over the base near-miss."""
+        handler = IGDBHandler()
+
+        base = _make_game(self.BASE_ID, self.BASE_NAME)
+        variant = _make_game(self.VARIANT_ID, self.VARIANT_NAME)
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            # game_type-filtered pass excludes the variant (an expansion type).
+            if where and "game_type" in where:
+                return [base]
+            # Re-query without the game_type filter surfaces both.
+            return [base, variant]
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "search",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await handler._search_rom(
+                "metal gear solid portable ops plus",
+                GENESIS_IGDB_ID,
+                with_game_type=True,
+            )
+
+        assert result is not None
+        assert result["id"] == self.VARIANT_ID, (
+            f"Expected the '{self.VARIANT_NAME}' variant (id={self.VARIANT_ID}), "
+            f"got {result.get('name')} (id={result.get('id')}). The base title is "
+            "only a prefix near-miss and must not win over the exact variant."
+        )
+
+    @pytest.mark.asyncio
+    async def test_base_title_still_matches_when_it_is_the_target(self):
+        """Scanning the base game itself must return the base on the first pass
+        without any widening (exact match short-circuits)."""
+        handler = IGDBHandler()
+
+        base = _make_game(self.BASE_ID, self.BASE_NAME)
+        variant = _make_game(self.VARIANT_ID, self.VARIANT_NAME)
+
+        search_mock = AsyncMock(return_value=[])
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            # First pass includes both; the base is an exact match.
+            if where and "game_type" in where:
+                return [base, variant]
+            raise AssertionError("widening should not run for an exact match")
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(handler.igdb_service, "search", search_mock),
+        ):
+            result = await handler._search_rom(
+                "metal gear solid portable ops",
+                GENESIS_IGDB_ID,
+                with_game_type=True,
+            )
+
+        assert result is not None
+        assert result["id"] == self.BASE_ID
+        search_mock.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_non_prefix_fuzzy_match_does_not_widen(self):
+        """A benign non-exact match that is not a prefix/superset must be
+        returned from the first pass without extra queries."""
+        handler = IGDBHandler()
+
+        game = _make_game(42, "Sonic the Hedgehog")
+        search_mock = AsyncMock(return_value=[])
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            if where and "game_type" in where:
+                return [game]
+            raise AssertionError("widening should not run for a non-prefix match")
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(handler.igdb_service, "search", search_mock),
+        ):
+            result = await handler._search_rom(
+                "sonic hedgehog", GENESIS_IGDB_ID, with_game_type=True
+            )
+
+        assert result is not None
+        assert result["id"] == 42
+        search_mock.assert_not_awaited()
+
+
+def _extract_metadata(**overrides: Any) -> IGDBMetadata:
+    """Run the extractor over a minimal game with the given fields overridden."""
+    game = _make_game(1, "Test Game")
+    game.update(cast("Game", overrides))
+    return extract_metadata_from_igdb_rom(IGDBHandler(), game, GENESIS_IGDB_ID)
+
+
+class TestFranchiseDeduplication:
+    """IGDB sends the main franchise both on its own and inside `franchises`.
+
+    Measured on a 14,952-game library: 1,080 of 8,788 games carrying a
+    franchise carried it twice (12.3%), reaching the details page as
+    "Happy Feet, Happy Feet".
+    """
+
+    def test_the_main_franchise_is_not_repeated_inside_the_list(self):
+        metadata = _extract_metadata(
+            franchise={"name": "Happy Feet"},
+            franchises=[{"name": "Happy Feet"}, {"name": "Mumble"}],
+        )
+
+        assert metadata["franchises"] == ["Happy Feet", "Mumble"]
+
+    def test_the_main_franchise_stays_first(self):
+        """`gamelist` exports `franchises[0]` as <family>, so order matters."""
+        metadata = _extract_metadata(
+            franchise={"name": "Metroid"},
+            franchises=[{"name": "Metroid"}, {"name": "Super Metroid"}],
+        )
+
+        assert metadata["franchises"][0] == "Metroid"
+
+    def test_distinct_franchises_are_both_kept(self):
+        metadata = _extract_metadata(
+            franchise={"name": "Madden"},
+            franchises=[{"name": "NFL"}],
+        )
+
+        assert metadata["franchises"] == ["Madden", "NFL"]
+
+
+class TestCompanyRoleDeduplication:
+    """`involved_companies` carries one entry per involvement, not per company.
+
+    A studio credited as both developer and publisher therefore appears twice
+    in its role list. Measured on a 14,952-game library: 235 developer lists
+    and 131 publisher lists repeated a name.
+    """
+
+    def test_a_studio_credited_twice_in_one_role_is_listed_once(self):
+        involved = [
+            {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
+            {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
+        ]
+
+        assert _extract_metadata(involved_companies=involved)["developers"] == ["Cavia"]
+
+    def test_a_studio_that_both_made_and_shipped_a_game_holds_both_roles(self):
+        """The two lists legitimately overlap; neither may repeat internally."""
+        involved = [
+            {"company": {"name": "Nintendo"}, "developer": True, "publisher": True},
+        ]
+
+        metadata = _extract_metadata(involved_companies=involved)
+
+        assert metadata["developers"] == ["Nintendo"]
+        assert metadata["publishers"] == ["Nintendo"]
+
+    def test_distinct_developers_keep_their_order(self):
+        involved = [
+            {"company": {"name": "Crystal Dynamics"}, "developer": True},
+            {"company": {"name": "Nixxes Software"}, "developer": True},
+        ]
+
+        assert _extract_metadata(involved_companies=involved)["developers"] == [
+            "Crystal Dynamics",
+            "Nixxes Software",
+        ]

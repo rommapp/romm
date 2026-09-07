@@ -14,12 +14,20 @@
   "error-no-platform": "Veuillez sélectionner une plateforme pour le téléversement.",
   "error-no-rom": "Veuillez sélectionner un fichier ROM.",
   "error-upload-failed": "Impossible de téléverser la ROM : {error}",
+  "missing-from-fs": "Absent du système de fichiers",
+  "no-files": "Cette ROM n'a aucun fichier.",
   "output-filename": "Nom du fichier de sortie (optionnel)",
   "patch-file": "Fichier de patch",
   "powered-by": "Propulsé par patcherjs",
   "replace": "Remplacer",
   "rom-file": "Fichier ROM",
+  "search-patch-library": "Rechercher des patchs dans la bibliothèque",
+  "search-rom-library": "Rechercher des ROMs dans la bibliothèque",
+  "select-file": "Sélectionner un fichier",
+  "select-patch-file": "Sélectionner un fichier de patch",
+  "start-typing": "Commencez à taper pour rechercher...",
   "status-downloading": "Téléchargement de la ROM patchée...",
+  "status-patching": "Application du patch sur le serveur...",
   "status-preparing": "Préparation des fichiers...",
   "status-uploading": "Téléversement vers RomM...",
   "subtitle": "Choisissez une ROM de base et un fichier de patch, puis appliquez pour télécharger la ROM patchée.",
@@ -30,5 +38,6 @@
   "title": "Patcheur de ROM",
   "upload-errors": " (avec quelques erreurs)",
   "upload-success": "ROM patchée téléversée avec succès{errors}. Démarrage de l'analyse...",
-  "upload-to-romm": "Téléverser vers RomM"
+  "upload-to-romm": "Téléverser vers RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }
