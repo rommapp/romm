@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import enum
+import hashlib
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -51,6 +52,8 @@ from utils.database import CustomJSON
 
 # Max length of the precomputed natural-sort key column.
 NAME_SORT_KEY_MAX_LENGTH = 500
+# Length of the sha256 hex digest stored in `Rom.full_path_hash`.
+FULL_PATH_HASH_LENGTH = 64
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
@@ -86,6 +89,13 @@ def compute_name_sort_key(name: str | None) -> str:
     value = ARTICLE_PREFIX_RE.sub("", value).strip()
     value = DIGIT_RUN_RE.sub(lambda m: m.group(0).zfill(12), value)
     return value[:NAME_SORT_KEY_MAX_LENGTH]
+
+
+def compute_full_path_hash(fs_path: str | None, fs_name: str | None) -> str:
+    """Precompute the digest stored in `Rom.full_path_hash`"""
+    return hashlib.sha256(
+        f"{fs_path or ''}/{fs_name or ''}".encode(), usedforsecurity=False
+    ).hexdigest()
 
 
 if TYPE_CHECKING:
@@ -562,14 +572,18 @@ class Rom(BaseModel):
     __table_args__ = (
         # Enforce a unique full path per platform to avoid duplicates. A custom
         # library structure can hold the same file name in two folders, so the
-        # path is part of the identity.
+        # path is part of the identity. Indexed through the digest because
+        # fs_path + fs_name is 5804 bytes of utf8mb4, well over InnoDB's
+        # 3072-byte key limit.
         Index(
-            "idx_roms_platform_id_fs_path_fs_name",
+            "idx_roms_platform_id_full_path_hash",
             "platform_id",
-            "fs_path",
-            "fs_name",
+            "full_path_hash",
             unique=True,
         ),
+        # The digest is opaque to a range scan, so the scan loop's
+        # (platform_id, fs_name) batch lookup needs an index of its own.
+        Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
         # Covers the sibling_roms view self-join and the group_by_meta_id dedup
         # window. Both read only these columns, so the index has to carry every
         # one of them: a single missing column (flashpoint_id or fs_name_no_ext,
@@ -629,6 +643,7 @@ class Rom(BaseModel):
     fs_name_no_ext: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
     fs_extension: Mapped[str] = mapped_column(String(length=FILE_EXTENSION_MAX_LENGTH))
     fs_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
+    full_path_hash: Mapped[str] = mapped_column(String(length=FULL_PATH_HASH_LENGTH))
     fs_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     name: Mapped[str | None] = mapped_column(String(length=350))
@@ -808,20 +823,26 @@ class Rom(BaseModel):
 
         return value
 
-    @validates("fs_name")
-    def _sync_fs_name_parts(self, _key: str, fs_name: str) -> str:
+    @validates("fs_name", "fs_path")
+    def _sync_fs_derived_columns(self, key: str, value: str) -> str:
         """Derive the stored `fs_name_no_tags` / `fs_name_no_ext` /
-        `fs_extension` columns whenever `fs_name` is assigned.
+        `fs_extension` / `full_path_hash` columns from the file's name and path.
 
         Fires on attribute set (ORM construction and mutation) only. Bulk
         `update()` statements bypass the ORM and set these explicitly (see
-        `update_rom`).
+        `update_rom`). The hook runs before the value lands, so the incoming one
+        is passed to the digest rather than read back off the instance.
         """
-        parts = compute_file_name_parts(fs_name)
+        if key == "fs_path":
+            self.full_path_hash = compute_full_path_hash(value, self.fs_name)
+            return value
+
+        parts = compute_file_name_parts(value)
         self.fs_name_no_tags = parts.no_tags
         self.fs_name_no_ext = parts.no_ext
         self.fs_extension = parts.extension
-        return fs_name
+        self.full_path_hash = compute_full_path_hash(self.fs_path, value)
+        return value
 
     @property
     def platform_slug(self) -> str:

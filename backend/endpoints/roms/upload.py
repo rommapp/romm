@@ -210,8 +210,8 @@ async def _resolve_destination(
     filename = session["filename"]
     rom_id = session.get("rom_id")
     if rom_id is None:
-        roms_path = fs_rom_handler.get_roms_fs_structure(session["platform_fs_slug"])
         try:
+            roms_path = fs_rom_handler.get_roms_upload_path(session["platform_fs_slug"])
             return (
                 roms_path,
                 fs_rom_handler.validate_path(f"{roms_path}/{filename}"),
@@ -286,7 +286,12 @@ async def start_chunked_upload(
     rel_folder = ""
 
     if target is None:
-        roms_path = fs_rom_handler.get_roms_fs_structure(platform_fs_slug)
+        try:
+            roms_path = fs_rom_handler.get_roms_upload_path(platform_fs_slug)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
         if await fs_rom_handler.file_exists(f"{roms_path}/{safe_filename}"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

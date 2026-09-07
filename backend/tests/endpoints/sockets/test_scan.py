@@ -1,5 +1,3 @@
-import hashlib
-from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -20,7 +18,6 @@ from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanStats,
     _identify_rom,
-    _reconcile_relocated_roms,
     _scan_selected_roms,
     _should_extract_title_ids,
     _should_hash_incrementally,
@@ -34,9 +31,7 @@ from endpoints.sockets.scan import (
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from exceptions.socket_exceptions import ScanStoppedException
 from handler.auth.constants import Scope
-from handler.database import db_rom_handler
 from handler.database.roms_handler import SyncedRomFiles
-from handler.filesystem import fs_rom_handler
 from handler.filesystem.roms_handler import (
     FSRom,
     FSRomsHandler,
@@ -982,6 +977,23 @@ class TestIdentifyRomReassociation:
         assert data["missing_from_fs"] is False
         assert data["fs_name"] == "New Name.zip"
         # No brand-new row is inserted; add_rom only persists the scan result.
+        assert db.add_rom.call_count == 1
+
+    async def test_a_file_that_moved_folders_is_relocated_in_place(self, patched):
+        """Enabling a custom structure (or dropping one) moves every rom. The
+        entry follows its file, keeping the saves and collections attached to
+        it, rather than being re-imported and orphaned as missing."""
+        db, platform = patched
+        moved = MagicMock(id=42, name="Mover", fs_name="Mover.zip")
+        db.get_matching_missing_rom.return_value = moved
+        db.update_rom.return_value = moved
+
+        await run_identify_rom(platform, make_fs_rom("Mover.zip", "test/roms/Hacks"))
+
+        rom_id, data = db.update_rom.call_args.args
+        assert rom_id == 42
+        assert data["fs_path"] == "test/roms/Hacks"
+        assert data["missing_from_fs"] is False
         assert db.add_rom.call_count == 1
 
     async def test_title_id_is_offered_when_the_platform_is_not_hashed(
@@ -2716,165 +2728,3 @@ class TestIdentifyPlatformLoadsFilesForQuickScan:
         )
 
         assert patched.get_roms_by_fs_name.call_args.kwargs["with_files"] is with_files
-
-
-def _fs_rom(fs_name: str, fs_path: str) -> FSRom:
-    return FSRom(
-        fs_name=fs_name,
-        fs_path=fs_path,
-        flat=True,
-        nested=False,
-        files=[],
-        crc_hash="",
-        md5_hash="",
-        sha1_hash="",
-        ra_hash="",
-    )
-
-
-class TestReconcileRelocatedRoms:
-    """A rom whose on-disk path changed (custom library structure) is relocated
-    in place by content hash instead of being re-imported as new, so its DB row
-    (and the saves/history/favorites/collections attached to it) survives."""
-
-    @pytest.mark.asyncio
-    async def test_moved_file_is_relocated_not_reimported(
-        self, platform: Platform, tmp_path: Path, monkeypatch
-    ):
-        content = b"relocate me please"
-        sha1 = hashlib.sha1(content, usedforsecurity=False).hexdigest()
-        base = f"{platform.fs_slug}/roms"
-
-        # An existing rom recorded at the platform root, with its content hash.
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Mover",
-                slug="mover",
-                fs_name="Mover.bin",
-                fs_path=base,
-                sha1_hash=sha1,
-                fs_size_bytes=len(content),
-            )
-        )
-
-        # On disk the file now lives inside a nested folder (same bytes).
-        sub = tmp_path / base / "Hacks"
-        sub.mkdir(parents=True)
-        (sub / "Mover.bin").write_bytes(content)
-        monkeypatch.setattr(fs_rom_handler, "base_path", tmp_path)
-
-        fs_roms = [_fs_rom("Mover.bin", f"{base}/Hacks")]
-        handled = await _reconcile_relocated_roms(platform, fs_roms)
-
-        # The moved file is reported handled, so the scan loop skips it.
-        assert handled == {f"{base}/Hacks/Mover.bin"}
-
-        # Same row, new path, present again, not a fresh import.
-        all_roms = db_rom_handler.get_roms_for_relocation(platform.id)
-        assert len(all_roms) == 1
-        updated = db_rom_handler.get_rom(rom.id)
-        assert updated is not None
-        assert updated.id == rom.id
-        assert updated.fs_path == f"{base}/Hacks"
-        assert updated.fs_name == "Mover.bin"
-        assert updated.missing_from_fs is False
-
-    @pytest.mark.asyncio
-    async def test_revert_to_the_default_layout_relocates_rather_than_reimports(
-        self, platform: Platform, tmp_path: Path, monkeypatch
-    ):
-        """Dropping a platform's custom structure moves every rom back to the
-        platform root. That is a relocation, not a library of new games."""
-        content = b"back to the root"
-        sha1 = hashlib.sha1(content, usedforsecurity=False).hexdigest()
-        base = f"{platform.fs_slug}/roms"
-
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Reverter",
-                slug="reverter",
-                fs_name="Reverter.bin",
-                fs_path=f"{base}/Hacks",
-                sha1_hash=sha1,
-                fs_size_bytes=len(content),
-            )
-        )
-
-        root = tmp_path / base
-        root.mkdir(parents=True)
-        (root / "Reverter.bin").write_bytes(content)
-        monkeypatch.setattr(fs_rom_handler, "base_path", tmp_path)
-
-        handled = await _reconcile_relocated_roms(
-            platform, [_fs_rom("Reverter.bin", base)]
-        )
-
-        assert handled == {f"{base}/Reverter.bin"}
-        updated = db_rom_handler.get_rom(rom.id)
-        assert updated is not None
-        assert updated.id == rom.id
-        assert updated.fs_path == base
-        assert updated.missing_from_fs is False
-
-    @pytest.mark.asyncio
-    async def test_physical_games_are_never_relocation_candidates(
-        self, platform: Platform, tmp_path: Path, monkeypatch
-    ):
-        """A physical game has no file, so it reads as having disappeared from
-        its path on every scan and must not be matched onto a real one."""
-        base = f"{platform.fs_slug}/roms"
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Boxed Copy",
-                slug="boxed-copy",
-                fs_name="Boxed Copy",
-                fs_path=f"{base}/physical",
-                is_physical=True,
-                fs_size_bytes=0,
-            )
-        )
-
-        (tmp_path / base).mkdir(parents=True)
-        (tmp_path / base / "Empty.bin").write_bytes(b"")
-        monkeypatch.setattr(fs_rom_handler, "base_path", tmp_path)
-
-        handled = await _reconcile_relocated_roms(
-            platform, [_fs_rom("Empty.bin", base)]
-        )
-
-        assert handled == set()
-        assert db_rom_handler.get_roms_for_relocation(platform.id) == []
-
-    @pytest.mark.asyncio
-    async def test_no_hash_match_is_left_for_normal_import(
-        self, platform: Platform, tmp_path: Path, monkeypatch
-    ):
-        base = f"{platform.fs_slug}/roms"
-        # Existing rom whose stored hash won't match anything on disk.
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Other",
-                slug="other",
-                fs_name="Other.bin",
-                fs_path=base,
-                sha1_hash=hashlib.sha1(b"unrelated", usedforsecurity=False).hexdigest(),
-                fs_size_bytes=len(b"unrelated"),
-            )
-        )
-
-        content = b"a brand new game entirely"
-        sub = tmp_path / base / "Hacks"
-        sub.mkdir(parents=True)
-        (sub / "New.bin").write_bytes(content)
-        monkeypatch.setattr(fs_rom_handler, "base_path", tmp_path)
-
-        handled = await _reconcile_relocated_roms(
-            platform, [_fs_rom("New.bin", f"{base}/Hacks")]
-        )
-
-        # Nothing relocated: the new file falls through to a normal import.
-        assert handled == set()

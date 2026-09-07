@@ -16,7 +16,7 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.roms_handler import FSRom, build_empty_fs_rom
 from handler.metadata import (
     meta_csdb_handler,
     meta_demozoo_handler,
@@ -168,17 +168,7 @@ def build_physical_fs_name(name: str) -> str:
 
 def build_hashless_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
     """An `FSRom` for a rom with no filesystem listing to consult."""
-    return FSRom(
-        fs_name=fs_name,
-        fs_path=fs_path,
-        flat=flat,
-        nested=not flat,
-        files=[],
-        crc_hash="",
-        md5_hash="",
-        sha1_hash="",
-        ra_hash="",
-    )
+    return build_empty_fs_rom(fs_name, fs_path, flat=flat)
 
 
 def get_main_platform_igdb_id(platform: Platform):

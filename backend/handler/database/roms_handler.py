@@ -68,6 +68,7 @@ from models.rom import (
     RomUser,
     SiblingRom,
     TrackMeta,
+    compute_full_path_hash,
     compute_name_sort_key,
 )
 from utils import get_version
@@ -1974,6 +1975,18 @@ class DBRomsHandler(DBBaseHandler):
                 "fs_extension": parts.extension,
             }
 
+        if "fs_name" in data or "fs_path" in data:
+            # The unique index reads the digest, so whichever half the caller
+            # left out has to come from the stored row.
+            stored = session.query(Rom).filter_by(id=id).one()
+            data = {
+                **data,
+                "full_path_hash": compute_full_path_hash(
+                    data.get("fs_path", stored.fs_path),
+                    data.get("fs_name", stored.fs_name),
+                ),
+            }
+
         session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -1991,6 +2004,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> None:
         parts = compute_file_name_parts(folder)
+        stored = session.query(Rom).filter_by(id=id).one()
         session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -1999,6 +2013,7 @@ class DBRomsHandler(DBBaseHandler):
                 fs_name_no_tags=parts.no_tags,
                 fs_name_no_ext=parts.no_ext,
                 fs_extension=parts.extension,
+                full_path_hash=compute_full_path_hash(stored.fs_path, folder),
             )
         )
         session.execute(
@@ -2110,10 +2125,8 @@ class DBRomsHandler(DBBaseHandler):
 
         return (
             session.scalars(
-                # `fs_path` is eager-loaded alongside `fs_name` so callers can
-                # read `rom.full_path` after the session closes (the returned
-                # instances are detached); without it that lazy-loads and raises
-                # DetachedInstanceError.
+                # The returned instances are detached, so `fs_path` is loaded up
+                # front for callers reading `rom.full_path`.
                 select(Rom)
                 .options(load_only(Rom.id, Rom.fs_name, Rom.fs_path))
                 .where(
@@ -2124,48 +2137,6 @@ class DBRomsHandler(DBBaseHandler):
                     )
                 )
                 .order_by(Rom.fs_name.asc())
-            )
-            .unique()
-            .all()
-        )
-
-    @begin_session
-    def get_roms_for_relocation(
-        self,
-        platform_id: int,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[Rom]:
-        """Light-weight load of a platform's roms for relocation matching.
-
-        Returns detached rom instances carrying only the columns needed to
-        detect a moved/renamed file by content (identity hashes + size) and to
-        resolve its current `full_path`. Used by the scan loop to relocate a
-        rom whose on-disk path changed instead of re-importing it as new.
-        Physical games are excluded, having no file to relocate.
-        """
-        return (
-            session.scalars(
-                select(Rom)
-                .options(
-                    load_only(
-                        Rom.id,
-                        Rom.fs_name,
-                        Rom.fs_path,
-                        Rom.fs_size_bytes,
-                        Rom.crc_hash,
-                        Rom.md5_hash,
-                        Rom.sha1_hash,
-                        Rom.ra_hash,
-                    )
-                )
-                .where(
-                    and_(
-                        Rom.platform_id == platform_id,
-                        # A physical game has no file, so it always reads as
-                        # having disappeared from its path.
-                        Rom.is_physical.is_(False),
-                    )
-                )
             )
             .unique()
             .all()

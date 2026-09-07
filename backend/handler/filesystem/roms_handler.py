@@ -121,6 +121,21 @@ class FSRom(TypedDict):
     identity: NotRequired[RomIdentity]
 
 
+def build_empty_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
+    """An `FSRom` carrying only its location: no files listed, no hashes read."""
+    return FSRom(
+        fs_name=fs_name,
+        fs_path=fs_path,
+        flat=flat,
+        nested=not flat,
+        files=[],
+        crc_hash="",
+        md5_hash="",
+        sha1_hash="",
+        ra_hash="",
+    )
+
+
 class FileHash(TypedDict):
     crc_hash: str
     md5_hash: str
@@ -323,6 +338,41 @@ class FSRomsHandler(FSHandler):
             f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
             if cnfg.has_structure_path_b
             else f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
+        )
+
+    def get_roms_upload_path(self, fs_slug: str) -> str:
+        """Where a newly uploaded rom file has to land to be discovered again.
+
+        Default discovery reads the platform's roms folder, but a custom
+        structure only reads the directories its templates descend to, so a file
+        dropped at the root would be flagged missing by the very next scan. A
+        template made of literal levels names its folder outright, so the
+        destination follows it; a wildcard level does not, and there is no
+        folder to pick.
+
+        Raises:
+            ValueError: when every configured template needs a folder name only
+                the user can choose.
+        """
+        rel_roms_path = self.get_roms_fs_structure(fs_slug)
+        structures = cm.get_config().platform_structure(fs_slug)
+        if structures is None:
+            return rel_roms_path
+
+        for structure in structures:
+            # A `{gameDir}` terminal makes each directory one multi-file rom, so
+            # a loose file inside it is a rom file rather than a rom.
+            if not structure.each_file_is_game:
+                continue
+            literals = [level.literal for level in structure.levels]
+            if any(literal is None for literal in literals):
+                continue
+            return "/".join([rel_roms_path, *(lit for lit in literals if lit)])
+
+        raise ValueError(
+            f"The custom library structure configured for {fs_slug} has no folder "
+            "an upload can be placed in. Add the file to the library from the "
+            "filesystem and rescan the platform."
         )
 
     def parse_tags(self, fs_name: str) -> ParsedTags:
@@ -959,19 +1009,18 @@ class FSRomsHandler(FSHandler):
                 rom_sha1_h,
             )
 
-    async def _discover_default_roms(self, rel_roms_path: str) -> list[dict]:
+    async def _discover_default_roms(self, rel_roms_path: str) -> list[FSRom]:
         """Default discovery: top-level files and folders of the roms path.
 
         Each top-level file is a flat rom; each top-level directory is a single
-        multi-file rom. This is RomM's behavior for platforms without a custom
-        structure template.
+        multi-file rom.
         """
-        fs_roms: list[dict] = [
-            {"fs_name": rom, "fs_path": rel_roms_path, "flat": True, "nested": False}
+        fs_roms = [
+            build_empty_fs_rom(rom, rel_roms_path, flat=True)
             for rom in self.exclude_single_files(await self.list_files(rel_roms_path))
         ]
         fs_roms += [
-            {"fs_name": rom, "fs_path": rel_roms_path, "flat": False, "nested": True}
+            build_empty_fs_rom(rom, rel_roms_path, flat=False)
             for rom in self.exclude_multi_roms(
                 await self.list_directories(rel_roms_path)
             )
@@ -980,21 +1029,26 @@ class FSRomsHandler(FSHandler):
 
     async def _discover_structured_roms(
         self, rel_roms_path: str, structure: StructureTemplate
-    ) -> list[dict]:
+    ) -> list[FSRom]:
         """Discover roms following a custom library structure template.
 
         Descends the template's intermediate directory levels (literal names
         matched exactly, wildcard macros matching any folder), then collects
         roms at the terminal: ``{gameFile}`` makes each file a rom, ``{gameDir}``
-        makes each directory a (multi-file) rom. Each rom records its real
-        ``fs_path``. Hidden (dot-prefixed) folders are never descended into or
-        surfaced.
+        makes each directory a (multi-file) rom. Hidden (dot-prefixed) folders
+        are never descended into or surfaced.
         """
         dirs = [rel_roms_path]
         for level in structure.levels:
             next_dirs: list[str] = []
             for directory in dirs:
-                for sub in await self.list_directories(directory):
+                subs = await self.list_directories(directory)
+                # A wildcard level matches organizational folders, so the ones
+                # that are never a game (scraper media, NAS metadata) are
+                # dropped. A literal names its folder outright, so it stands.
+                if level.literal is None:
+                    subs = self.exclude_multi_roms(subs)
+                for sub in subs:
                     if sub.startswith("."):
                         continue
                     if level.literal is not None and sub != level.literal:
@@ -1002,35 +1056,26 @@ class FSRomsHandler(FSHandler):
                     next_dirs.append(f"{directory}/{sub}")
             dirs = next_dirs
 
-        fs_roms: list[dict] = []
+        fs_roms: list[FSRom] = []
         for directory in dirs:
             if structure.each_file_is_game:
-                for name in self.exclude_single_files(await self.list_files(directory)):
-                    fs_roms.append(
-                        {
-                            "fs_name": name,
-                            "fs_path": directory,
-                            "flat": True,
-                            "nested": False,
-                        }
+                fs_roms += [
+                    build_empty_fs_rom(name, directory, flat=True)
+                    for name in self.exclude_single_files(
+                        await self.list_files(directory)
                     )
+                ]
             else:
-                for name in self.exclude_multi_roms(
-                    await self.list_directories(directory)
-                ):
-                    if name.startswith("."):
-                        continue
-                    fs_roms.append(
-                        {
-                            "fs_name": name,
-                            "fs_path": directory,
-                            "flat": False,
-                            "nested": True,
-                        }
+                fs_roms += [
+                    build_empty_fs_rom(name, directory, flat=False)
+                    for name in self.exclude_multi_roms(
+                        await self.list_directories(directory)
                     )
+                    if not name.startswith(".")
+                ]
         return fs_roms
 
-    async def _collect_fs_roms(self, platform: Platform) -> list[dict]:
+    async def _collect_fs_roms(self, platform: Platform) -> list[FSRom]:
         """Discover a platform's roms, honoring its custom structure if set.
 
         A platform may declare several structure templates (e.g. loose games at
@@ -1043,7 +1088,7 @@ class FSRomsHandler(FSHandler):
         if structures is None:
             return await self._discover_default_roms(rel_roms_path)
 
-        fs_roms: list[dict] = []
+        fs_roms: list[FSRom] = []
         seen: set[tuple[str, str]] = set()
         for structure in structures:
             for rom in await self._discover_structured_roms(rel_roms_path, structure):
@@ -1069,9 +1114,7 @@ class FSRomsHandler(FSHandler):
         ]
 
     async def count_roms(self, platform: Platform) -> int:
-        """Return the number of filesystem roms for a platform without
-        materializing FSRom objects.
-        """
+        """Return the number of filesystem roms for a platform."""
         try:
             return len(await self._collect_fs_roms(platform))
         except FileNotFoundError as e:
@@ -1090,25 +1133,11 @@ class FSRomsHandler(FSHandler):
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
-        # Built in one pass and sorted in place, so a platform holding tens of
-        # thousands of entries never has two full copies of the list alive.
-        roms = [
-            FSRom(
-                fs_name=rom["fs_name"],
-                fs_path=rom["fs_path"],
-                flat=rom["flat"],
-                nested=rom["nested"],
-                files=[],
-                crc_hash="",
-                md5_hash="",
-                sha1_hash="",
-                ra_hash="",
-            )
-            for rom in fs_roms
-        ]
-        roms.sort(key=lambda rom: (rom["fs_path"], rom["fs_name"]))
+        # Sorted in place, so a platform holding tens of thousands of entries
+        # never has two full copies of the list alive.
+        fs_roms.sort(key=lambda rom: (rom["fs_path"], rom["fs_name"]))
 
-        return roms
+        return fs_roms
 
     async def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
         if new_name != old_name:

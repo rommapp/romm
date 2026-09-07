@@ -781,6 +781,118 @@ class TestFSRomsHandler:
         assert count == len(roms)
 
     @pytest.mark.asyncio
+    async def test_get_roms_structure_wildcard_skips_excluded_dirs(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A wildcard level must not descend into folders that are never a game
+        (scraper media output, NAS metadata), or their contents read as roms."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{category}/{gameFile}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            roms_dir = tmp_path / base
+            (roms_dir / "Hacks").mkdir(parents=True)
+            (roms_dir / "Hacks" / "HackOnly.zip").write_text("h")
+            (roms_dir / "@eaDir").mkdir()
+            (roms_dir / "@eaDir" / "thumb.zip").write_text("t")
+            roms = await handler.get_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert keys == {(f"{base}/Hacks", "HackOnly.zip")}
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_literal_level_matches_an_excluded_name(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Naming the folder outright is an explicit opt-in, so the exclusion
+        list that guards wildcard levels does not override it."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "@eaDir/{gameFile}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            roms_dir = tmp_path / base
+            (roms_dir / "@eaDir").mkdir(parents=True)
+            (roms_dir / "@eaDir" / "game.zip").write_text("g")
+            roms = await handler.get_roms(platform)
+
+        assert {(r["fs_path"], r["fs_name"]) for r in roms} == {
+            (f"{base}/@eaDir", "game.zip")
+        }
+
+    def test_upload_path_without_a_structure_is_the_roms_folder(
+        self, platform: Platform
+    ):
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config({}),
+        ):
+            assert handler.get_roms_upload_path(
+                platform.fs_slug
+            ) == handler.get_roms_fs_structure(platform.fs_slug)
+
+    def test_upload_path_follows_the_literal_levels_of_a_structure(
+        self, platform: Platform
+    ):
+        """A file dropped at the roms root would not be discovered, so the next
+        scan would flag the upload missing."""
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "Games/Loose/{gameFile}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            assert (
+                handler.get_roms_upload_path(platform.fs_slug) == f"{base}/Games/Loose"
+            )
+
+    def test_upload_path_prefers_a_template_an_upload_can_satisfy(
+        self, platform: Platform
+    ):
+        """Only a `{gameFile}` terminal makes a loose file a rom of its own, and
+        only literal levels name the folder it has to go in."""
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {
+                    platform.fs_slug: [
+                        "{category}/{gameFile}",
+                        "{gameDir}",
+                        "Loose/{gameFile}",
+                    ]
+                }
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            assert handler.get_roms_upload_path(platform.fs_slug) == f"{base}/Loose"
+
+    def test_upload_path_refuses_when_only_the_user_can_pick_the_folder(
+        self, platform: Platform
+    ):
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{category}/{gameFile}"}
+            ),
+        ):
+            with pytest.raises(ValueError, match="custom library structure"):
+                handler.get_roms_upload_path(platform.fs_slug)
+
+    @pytest.mark.asyncio
     async def test_get_rom_files_single_rom(
         self, handler: FSRomsHandler, rom_single, config
     ):

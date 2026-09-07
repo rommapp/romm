@@ -16,12 +16,6 @@ const props = defineProps<{ rom: DetailedRomSchema }>();
 
 const fileCount = computed(() => props.rom.files?.length ?? 0);
 
-// Full on-disk path of the ROM: its directory plus its name. Surfaces
-// *where* a ROM sits in the library (e.g. a platform subfolder like
-// `roms/nes/Hacks/…`), which is otherwise only implicit. Distinct from
-// the per-file relative paths shown in the file list below.
-const fullPath = computed(() => `${props.rom.fs_path}/${props.rom.fs_name}`);
-
 interface RomHash {
   label: string;
   value: string | null;
@@ -65,7 +59,7 @@ const hashes = computed<RomHash[]>(() => {
     </header>
 
     <div class="r-v2-files-summary__location">
-      <LocationChip :path="fullPath" />
+      <LocationChip :path="rom.full_path" />
     </div>
 
     <div v-if="hashes.length > 0" class="r-v2-files-summary__hashes">

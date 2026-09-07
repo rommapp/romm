@@ -1,30 +1,23 @@
 <script setup lang="ts">
-// LocationChip: click-to-copy chip surfacing a ROM's on-disk location
-// (the directory it lives in plus its name). Mirrors HashChip's pattern
-// (a keyboard-accessible <button> shell wrapping the shared RTag primitive)
-// so it reads as a sibling of the hash pills it sits next to. Unlike a hash,
-// a path isn't mid-abbreviated: it ellipsis-truncates on overflow while the
-// full untruncated path is what gets copied.
+// LocationChip — click-to-copy chip surfacing a ROM's on-disk location, built
+// on HashChip's pattern (a keyboard-accessible <button> shell around RTag) so
+// it reads as a sibling of the hash pills beside it. A path ellipsis-truncates
+// on overflow rather than being mid-abbreviated; the full path is what copies.
 import { RTag } from "@v2/lib";
 import { useI18n } from "vue-i18n";
-import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useClipboard } from "@/v2/composables/useClipboard";
 
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ path: string }>();
 
 const { t } = useI18n();
-const snackbar = useSnackbar();
+const clipboard = useClipboard();
 
 async function copy() {
-  try {
-    await navigator.clipboard.writeText(props.path);
-    snackbar.success(t("rom.location-copied"), { icon: "mdi-check-bold" });
-  } catch {
-    snackbar.error(t("common.clipboard-unavailable"), {
-      icon: "mdi-close-circle",
-    });
-  }
+  await clipboard.copy(props.path, {
+    successMessage: t("rom.location-copied"),
+  });
 }
 </script>
 
