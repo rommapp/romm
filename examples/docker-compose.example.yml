@@ -19,7 +19,7 @@ services:
       - RETROACHIEVEMENTS_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
       - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
       - HASHEOUS_API_ENABLED=true # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#hasheous
-      - SCAN_WORKERS=4 # How many ROMs to scan at once; mainly speeds up hashing, as metadata providers pace themselves
+      - SCAN_WORKERS=4 # How many ROMs to scan at once
       - WEB_SERVER_CONCURRENCY=3 # How many workers you want available for API calls and tasks we recommend 2 x CPU + 1
     volumes:
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
