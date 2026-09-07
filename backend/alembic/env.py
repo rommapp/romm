@@ -6,21 +6,11 @@ from sqlalchemy import create_engine
 
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
-from models.assets import (  # noqa
-    MemoryCard,
-    MemoryCardVersion,
-    Save,
-    Screenshot,
-    State,
-)
+from models import load_all_models
 from models.base import BaseModel
 from models.collection import VirtualCollection
-from models.firmware import Firmware  # noqa
-from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
-from models.platform import Platform  # noqa
-from models.recommendation import RomSimilarity  # noqa
-from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
-from models.user import User  # noqa
+from models.rom import RomMetadata, SiblingRom
+from utils.database import AUTOGENERATE_EXEMPT_INDEX_NAMES
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -32,6 +22,7 @@ unify_logger("alembic")
 # for 'autogenerate' support
 sys.path.append(f"{Path(__file__).parent.parent.resolve()}")
 
+load_all_models()
 target_metadata = BaseModel.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -49,13 +40,8 @@ def include_object(object, name, type_, reflected, compare_to):
     ]:  # Virtual table
         return False
 
-    # Skip DB-specific search indexes in autogenerate
-    # to avoid false drop/create operations
-    if type_ == "index" and name in (
-        "idx_roms_name_fs_name_fulltext",
-        "idx_roms_name_trgm",
-        "idx_roms_fs_name_trgm",
-    ):
+    # Dialect-specific indexes that no model can declare.
+    if type_ == "index" and name in AUTOGENERATE_EXEMPT_INDEX_NAMES:
         return False
 
     # generated_* are STORED generated columns backing views.
