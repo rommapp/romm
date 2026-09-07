@@ -25,8 +25,7 @@ if TYPE_CHECKING:
 class PlaySession(BaseModel):
     __tablename__ = "play_sessions"
     __table_args__ = (
-        # A unique index rather than a unique constraint, matching how 0076
-        # created it. Both enforce the same rule.
+        # A unique index, not a UniqueConstraint: that is what the schema has.
         Index(
             "uq_play_session_identity",
             "user_id",

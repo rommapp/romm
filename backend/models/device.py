@@ -42,7 +42,6 @@ KNOWN_DEVICES: dict[str, DeviceType] = {
 class Device(BaseModel):
     __tablename__ = "devices"
     __table_args__ = (
-        # Dedupes re-registrations of the same physical device.
         Index(
             "ix_devices_user_client_identifier",
             "user_id",

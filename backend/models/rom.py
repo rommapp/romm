@@ -547,9 +547,7 @@ class Rom(BaseModel):
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
         Index("idx_roms_missing_from_fs", "missing_from_fs", "name_sort_key"),
-        # The gallery is browsed one platform at a time and sorted by name, so
-        # the platform predicate and the sort have to come off one index or the
-        # whole platform is filesorted on every page.
+        # Serves the per-platform gallery page: predicate and sort in one index.
         Index("idx_roms_platform_name_sort_key", "platform_id", "name_sort_key"),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
@@ -579,7 +577,6 @@ class Rom(BaseModel):
         Index("idx_roms_md5_hash", "md5_hash"),
         Index("idx_roms_sha1_hash", "sha1_hash"),
         Index("idx_roms_ra_hash", "ra_hash"),
-        # Incremental sync (`updated_after`) for the mobile/device clients.
         Index("ix_roms_updated_at", "updated_at"),
     )
 
@@ -1136,9 +1133,8 @@ class RomUser(BaseModel):
     __tablename__ = "rom_user"
     __table_args__ = (
         UniqueConstraint("rom_id", "user_id", name="unique_rom_user_props"),
-        # `unique_rom_user_props` covers the gallery's outer join, which drives
-        # from `roms`. These cover the other direction: scoping or sorting the
-        # gallery by a per-user column starts from this table instead.
+        # `unique_rom_user_props` leads with `rom_id` and so only covers the
+        # gallery's outer join; these cover starting from this table instead.
         Index("ix_rom_user_user_rom", "user_id", "rom_id"),
         Index("ix_rom_user_user_last_played", "user_id", "last_played"),
     )

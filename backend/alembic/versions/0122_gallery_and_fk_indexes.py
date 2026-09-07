@@ -50,6 +50,13 @@ PORTABLE_INDEXES = (
     ("roms", "idx_roms_platform_name_sort_key", ["platform_id", "name_sort_key"]),
 )
 
+# Implicit MariaDB/MySQL foreign-key indexes that the composites above absorb,
+# named as InnoDB names them. Only needed to reverse this migration.
+DISPLACED_FK_INDEXES = (
+    ("screenshots", "rom_id", ["rom_id"]),
+    ("rom_user", "user_id", ["user_id"]),
+)
+
 
 def upgrade() -> None:
     for table, name, columns in PORTABLE_INDEXES:
@@ -61,9 +68,18 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    if is_postgresql(op.get_bind()):
+    bind = op.get_bind()
+
+    if is_postgresql(bind):
         for table, name, _columns in reversed(POSTGRESQL_FK_INDEXES):
             op.drop_index(name, table_name=table, if_exists=True)
+    else:
+        # Adding a composite that leads with a foreign-key column lets InnoDB
+        # re-point the constraint at it and discard the implicit single-column
+        # index. Put those back before dropping the composites, or the drop
+        # fails with "needed in a foreign key constraint".
+        for table, name, columns in DISPLACED_FK_INDEXES:
+            op.create_index(name, table, columns, unique=False, if_not_exists=True)
 
     for table, name, _columns in reversed(PORTABLE_INDEXES):
         op.drop_index(name, table_name=table, if_exists=True)

@@ -7,9 +7,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
 
 # Foreign-key columns that MariaDB/MySQL index implicitly but PostgreSQL does
-# not, so migration 0122 creates them there only. Shared with `alembic/env.py`,
-# which hides them from autogenerate: a model declaration would give the other
-# backends a duplicate index.
+# not, so 0122 creates them there only. A model declaration would give the
+# other backends a duplicate, hence the autogenerate exemption below.
 POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, list[str]], ...] = (
     ("collections", "ix_collections_user_id", ["user_id"]),
     ("smart_collections", "ix_smart_collections_user_id", ["user_id"]),
@@ -33,8 +32,7 @@ DIALECT_SEARCH_INDEX_NAMES = frozenset(
     }
 )
 
-# Indexes that exist in some databases but cannot be declared on a model, so
-# autogenerate must not propose creating or dropping them.
+# Indexes that exist in some databases but cannot be declared on a model.
 AUTOGENERATE_EXEMPT_INDEX_NAMES = (
     DIALECT_SEARCH_INDEX_NAMES | POSTGRESQL_FK_INDEX_NAMES
 )

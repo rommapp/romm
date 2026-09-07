@@ -22,10 +22,7 @@ DESCRIPTION_MAX_LENGTH = 65535  # TEXT
 class Platform(BaseModel):
     __tablename__ = "platforms"
 
-    __table_args__ = (
-        # Incremental sync (`updated_after`) for the mobile/device clients.
-        Index("ix_platforms_updated_at", "updated_at"),
-    )
+    __table_args__ = (Index("ix_platforms_updated_at", "updated_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)

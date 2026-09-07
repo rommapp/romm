@@ -71,8 +71,7 @@ class RomAsset(BaseAsset):
 class Screenshot(RomAsset):
     __tablename__ = "screenshots"
     __table_args__ = (
-        # `Save.screenshot` / `State.screenshot` resolve a thumbnail per row, so
-        # this lookup runs once per card on the continue-playing rail.
+        # `Save.screenshot` / `State.screenshot` hit this once per rendered card.
         Index("ix_screenshots_rom_user", "rom_id", "user_id"),
         Index("idx_screenshots_public", "is_public"),
         {"extend_existing": True},

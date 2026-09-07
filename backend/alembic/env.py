@@ -55,9 +55,7 @@ def include_object(object, name, type_, reflected, compare_to):
     ]:  # Virtual table
         return False
 
-    # Dialect-specific indexes no model can declare: the per-backend search
-    # indexes, and the PostgreSQL-only foreign-key indexes that MariaDB/MySQL
-    # already provide implicitly.
+    # Dialect-specific indexes that no model can declare.
     if type_ == "index" and name in AUTOGENERATE_EXEMPT_INDEX_NAMES:
         return False
 

@@ -19,10 +19,7 @@ if TYPE_CHECKING:
 class Collection(BaseModel):
     __tablename__ = "collections"
 
-    __table_args__ = (
-        # Incremental sync (`updated_after`) for the mobile/device clients.
-        Index("ix_collections_updated_at", "updated_at"),
-    )
+    __table_args__ = (Index("ix_collections_updated_at", "updated_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
@@ -212,10 +209,7 @@ SMART_COLLECTION_MAX_COVERS = 5
 class SmartCollection(BaseModel):
     __tablename__ = "smart_collections"
 
-    __table_args__ = (
-        # Incremental sync (`updated_after`) for the mobile/device clients.
-        Index("ix_smart_collections_updated_at", "updated_at"),
-    )
+    __table_args__ = (Index("ix_smart_collections_updated_at", "updated_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
