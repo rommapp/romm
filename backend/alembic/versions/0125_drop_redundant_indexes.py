@@ -8,9 +8,8 @@ serves no query of its own and only costs writes:
 - ``ix_devices_user_id`` of ``ix_devices_user_client_identifier``.
 - ``ix_memory_card_versions_card`` of ``ix_memory_card_versions_card_hash``.
 
-MariaDB re-points a foreign key at another qualifying index when the one it was
-using is dropped, and every column here keeps such an index, so the constraints
-stay enforced.
+Every column here still leads a qualifying index, so MariaDB re-points its
+foreign key rather than refusing the drop.
 
 Revision ID: 0125_drop_redundant_indexes
 Revises: 0124_gallery_and_fk_indexes

@@ -584,7 +584,6 @@ class Rom(BaseModel):
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
         Index("idx_roms_missing_from_fs", "missing_from_fs", "name_sort_key"),
-        # Serves the per-platform gallery page: predicate and sort in one index.
         Index("idx_roms_platform_name_sort_key", "platform_id", "name_sort_key"),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),

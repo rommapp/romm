@@ -1,9 +1,7 @@
 """Guard the models against drifting away from the migrated schema.
 
-An index is easy to add in a migration and forget on the model. Once that
-happens the next `alembic revision --autogenerate` proposes dropping it, and
-nothing else in the suite notices, because the test database is built from the
-migrations rather than from the models.
+The test database is built from the migrations, so an index declared in one but
+not the other goes unnoticed until autogenerate proposes dropping it.
 """
 
 from alembic.autogenerate import compare_metadata
@@ -35,8 +33,8 @@ def _leading_columns(table: Table) -> set[str]:
 def test_no_index_drift_between_models_and_migrations():
     """Every migrated index is declared on its model, and vice versa.
 
-    A failure names the index: declare it in the model's `__table_args__`, or
-    add it to `AUTOGENERATE_EXEMPT_INDEX_NAMES` if it is dialect-specific.
+    A failure names the index: declare it in the model's `__table_args__`, or in
+    `AUTOGENERATE_EXEMPT_INDEX_NAMES` if it is dialect-specific.
     """
     models.load_all_models()
 
@@ -57,8 +55,7 @@ def test_postgresql_fk_indexes_cover_every_unindexed_foreign_key():
     """`POSTGRESQL_FK_INDEXES` holds exactly the foreign keys that need it.
 
     MariaDB and MySQL index a foreign key implicitly unless its column already
-    leads an index; PostgreSQL does not. Adding a model foreign key therefore
-    has to add an entry here, and this recomputes the rule to say so.
+    leads an index; PostgreSQL does not.
     """
     models.load_all_models()
 

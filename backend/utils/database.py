@@ -6,10 +6,8 @@ from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
 
-# Single-column foreign keys that MariaDB/MySQL index implicitly but
-# PostgreSQL does not, so 0124 creates them there only. Declaring them on the
-# models would give the other backends a duplicate, hence the exemption below.
-# `test_migrations` keeps this list in step with the models.
+# Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL
+# does not, so 0124 creates them there only and no model declares them.
 POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
     ("collections", "ix_collections_user_id", "user_id"),
     ("smart_collections", "ix_smart_collections_user_id", "user_id"),

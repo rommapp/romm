@@ -1,16 +1,12 @@
 """Add the gallery sort/scope indexes and the PostgreSQL foreign-key indexes
 
-Portable, on every backend:
-
-- ``screenshots (rom_id, user_id)`` resolves the thumbnail of every save/state
-  card, the equivalent of what 0093 added to ``states``.
-- ``rom_user (user_id, rom_id)`` and ``rom_user (user_id, last_played)`` scope
-  or sort the gallery starting from this table.
-- ``roms (platform_id, name_sort_key)`` serves the per-platform gallery page:
-  predicate and sort in one index, rather than a filesort per page.
-
-PostgreSQL only: ``POSTGRESQL_FK_INDEXES``, the foreign keys that MariaDB and
-MySQL index implicitly and PostgreSQL leaves to sequential scans.
+Four composites the gallery needs and no index carried: ``screenshots (rom_id,
+user_id)`` for the thumbnail of every save/state card, the equivalent of what
+0093 added to ``states``; ``rom_user (user_id, rom_id)`` and ``rom_user
+(user_id, last_played)`` for scoping or sorting from that table rather than
+from ``roms``; and ``roms (platform_id, name_sort_key)`` so a per-platform page
+no longer filesorts. ``POSTGRESQL_FK_INDEXES`` then covers the foreign keys
+MariaDB and MySQL index implicitly and PostgreSQL does not.
 
 Revision ID: 0124_gallery_and_fk_indexes
 Revises: 0123_recommendation_metadata
@@ -36,8 +32,8 @@ PORTABLE_INDEXES = (
     ("roms", "idx_roms_platform_name_sort_key", ["platform_id", "name_sort_key"]),
 )
 
-# Implicit MariaDB/MySQL foreign-key indexes that the composites above absorb,
-# named as InnoDB names them. Only needed to reverse this migration.
+# Implicit MariaDB/MySQL foreign-key indexes the composites above absorb, named
+# as InnoDB names them. Only needed to reverse this migration.
 DISPLACED_FK_INDEXES = (
     ("screenshots", "rom_id", ["rom_id"]),
     ("rom_user", "user_id", ["user_id"]),
@@ -60,10 +56,8 @@ def downgrade() -> None:
         for table, name, _column in reversed(POSTGRESQL_FK_INDEXES):
             op.drop_index(name, table_name=table, if_exists=True)
     else:
-        # Adding a composite that leads with a foreign-key column lets InnoDB
-        # re-point the constraint at it and discard the implicit single-column
-        # index. Put those back before dropping the composites, or the drop
-        # fails with "needed in a foreign key constraint".
+        # InnoDB discarded the implicit index when it re-pointed the constraint
+        # at the composite, and the drop below fails without one.
         for table, name, columns in DISPLACED_FK_INDEXES:
             op.create_index(name, table, columns, unique=False, if_not_exists=True)
 
