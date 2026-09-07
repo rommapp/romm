@@ -53,8 +53,8 @@ class StructureLevel:
 
 
 @dataclass(frozen=True)
-class LibraryStructure:
-    """A parsed per-platform custom library structure.
+class StructureTemplate:
+    """One parsed structure template for a platform.
 
     Relative to the platform's ROM folder: ``levels`` are the intermediate
     directory levels to descend (literal or wildcard), and ``each_file_is_game``
@@ -66,8 +66,8 @@ class LibraryStructure:
     each_file_is_game: bool
 
 
-def parse_library_structure(template: str) -> LibraryStructure:
-    """Parse a custom structure template into a ``LibraryStructure``.
+def parse_structure_template(template: str) -> StructureTemplate:
+    """Parse one template string into the levels and terminal it describes.
 
     Template syntax mirrors Retrom: ``/``-separated path sections where a
     section wrapped in braces is a macro and a bare section is a literal folder
@@ -127,13 +127,13 @@ def parse_library_structure(template: str) -> LibraryStructure:
             )
         raise ValueError("template must end with '{gameFile}' or '{gameDir}'")
 
-    return LibraryStructure(levels=tuple(levels), each_file_is_game=each_file_is_game)
+    return StructureTemplate(levels=tuple(levels), each_file_is_game=each_file_is_game)
 
 
-def parse_platform_structures(
+def parse_platform_templates(
     value: str | list[str],
-) -> tuple[LibraryStructure, ...]:
-    """Parse a platform's custom structure config into one or more structures.
+) -> tuple[StructureTemplate, ...]:
+    """Parse a platform's `filesystem.structure` value into its templates.
 
     A platform may declare a single template (string) or several (list). The
     list form lets one platform mix layouts, e.g. loose games at the root plus
@@ -147,7 +147,7 @@ def parse_platform_structures(
     template is invalid.
     """
     templates = [value] if isinstance(value, str) else list(value)
-    return tuple(parse_library_structure(template) for template in templates)
+    return tuple(parse_structure_template(template) for template in templates)
 
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
@@ -415,7 +415,7 @@ class Config:
 
         return False
 
-    def platform_structure(self, fs_slug: str) -> tuple[LibraryStructure, ...] | None:
+    def platform_structure(self, fs_slug: str) -> tuple[StructureTemplate, ...] | None:
         """The custom library structure(s) for a platform, or ``None``.
 
         Opt-in per platform via `filesystem.structure` in config.yml (a map of
@@ -429,7 +429,7 @@ class Config:
         value = getattr(self, "STRUCTURE_TEMPLATES", {}).get(fs_slug.lower())
         if not value:
             return None
-        return parse_platform_structures(value)
+        return parse_platform_templates(value)
 
 
 class ConfigManager:
@@ -1040,7 +1040,7 @@ class ConfigManager:
             templates: list[str] = [value] if isinstance(value, str) else value
             for template in templates:
                 try:
-                    parse_library_structure(template)
+                    parse_structure_template(template)
                 except ValueError as exc:
                     log.critical(
                         f"Invalid config.yml: filesystem.structure.{fs_slug} "

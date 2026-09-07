@@ -10,8 +10,8 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
     ConfigManager,
-    parse_library_structure,
-    parse_platform_structures,
+    parse_platform_templates,
+    parse_structure_template,
 )
 
 
@@ -173,8 +173,8 @@ def test_empty_config_loader():
         ("roms/{region}/{gameFile}", ("roms", None), True),
     ],
 )
-def test_parse_library_structure_valid(template, levels, each_file_is_game):
-    structure = parse_library_structure(template)
+def test_parse_structure_template_valid(template, levels, each_file_is_game):
+    structure = parse_structure_template(template)
     assert structure.each_file_is_game is each_file_is_game
     assert tuple(level.literal for level in structure.levels) == levels
 
@@ -192,16 +192,16 @@ def test_parse_library_structure_valid(template, levels, each_file_is_game):
         "{}/{gameFile}",  # empty macro
     ],
 )
-def test_parse_library_structure_invalid(template):
+def test_parse_structure_template_invalid(template):
     with pytest.raises(ValueError):
-        parse_library_structure(template)
+        parse_structure_template(template)
 
 
-def test_parse_library_structure_names_a_near_miss_terminal():
+def test_parse_structure_template_names_a_near_miss_terminal():
     """`{gameFolder}` is an easy slip for `{gameDir}`, so the error has to point
     at it rather than only report a missing terminal."""
     with pytest.raises(ValueError, match=r"\{gameFolder\}.*is not a terminal"):
-        parse_library_structure("{category}/{gameFolder}")
+        parse_structure_template("{category}/{gameFolder}")
 
 
 def test_structure_templates_are_keyed_case_insensitively(monkeypatch, tmp_path):
@@ -217,21 +217,21 @@ def test_structure_templates_are_keyed_case_insensitively(monkeypatch, tmp_path)
     assert config.platform_structure("atari - 2600") is not None
 
 
-def test_parse_platform_structures_string_and_list():
+def test_parse_platform_templates_string_and_list():
     # A bare string yields a single structure.
-    single = parse_platform_structures("{gameFile}")
+    single = parse_platform_templates("{gameFile}")
     assert len(single) == 1 and single[0].each_file_is_game is True
 
     # A list yields one structure per template, preserving order.
-    multi = parse_platform_structures(["{gameFile}", "{category}/{gameDir}"])
+    multi = parse_platform_templates(["{gameFile}", "{category}/{gameDir}"])
     assert len(multi) == 2
     assert multi[0].levels == () and multi[0].each_file_is_game is True
     assert len(multi[1].levels) == 1 and multi[1].each_file_is_game is False
 
 
-def test_parse_platform_structures_propagates_invalid():
+def test_parse_platform_templates_propagates_invalid():
     with pytest.raises(ValueError):
-        parse_platform_structures(["{gameFile}", "nope"])
+        parse_platform_templates(["{gameFile}", "nope"])
 
 
 def test_missing_config_file_is_created(tmp_path):

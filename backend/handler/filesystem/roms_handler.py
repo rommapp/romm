@@ -24,7 +24,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
     Config,
-    LibraryStructure,
+    StructureTemplate,
 )
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import (
@@ -979,7 +979,7 @@ class FSRomsHandler(FSHandler):
         return fs_roms
 
     async def _discover_structured_roms(
-        self, rel_roms_path: str, structure: LibraryStructure
+        self, rel_roms_path: str, structure: StructureTemplate
     ) -> list[dict]:
         """Discover roms following a custom library structure template.
 
