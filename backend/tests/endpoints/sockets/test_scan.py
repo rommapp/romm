@@ -745,6 +745,7 @@ class TestIdentifyRomTagReparse:
             playmatch_enabled=False,
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
         )
 
     async def test_complete_rescan_rewrites_stale_tags(self, patched):
@@ -910,6 +911,7 @@ async def run_identify_rom(platform: Platform, fs_rom: FSRom) -> None:
         playmatch_enabled=False,
         socket_manager=AsyncMock(),
         scan_stats=AsyncMock(),
+        scanned_rom_ids=set(),
     )
 
 
@@ -1216,6 +1218,7 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
             playmatch_enabled=False,
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
         )
 
         assert "mark_missing" in calls and "identify" in calls
@@ -1302,6 +1305,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
             playmatch_enabled=False,
             socket_manager=socket_manager,
             scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
         )
 
     async def test_emits_for_rom_that_is_no_longer_missing(self, patched):
@@ -1415,6 +1419,7 @@ class TestIdentifyPlatformFirmwareReporting:
             playmatch_enabled=False,
             socket_manager=socket_manager,
             scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
         )
         return next(
             call.args[1]
@@ -1661,6 +1666,7 @@ class TestScanSelectedRoms:
             playmatch_enabled=False,
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
         )
 
         identify.assert_called_once()
@@ -1705,6 +1711,7 @@ class TestScanSelectedRoms:
             playmatch_enabled=False,
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
         )
 
         identify.assert_not_called()
@@ -1737,6 +1744,7 @@ class TestScanSelectedRoms:
             playmatch_enabled=False,
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
         )
 
         fs_rom = identify.call_args.kwargs["fs_rom"]
@@ -1768,6 +1776,7 @@ class TestScanSelectedRoms:
                 playmatch_enabled=False,
                 socket_manager=AsyncMock(),
                 scan_stats=AsyncMock(),
+                scanned_rom_ids=set(),
             )
 
 
@@ -1898,6 +1907,42 @@ class TestScopedScanSkipsLibraryWork:
 
         patched["refresh_all"].assert_called_once()
         patched["refresh_scoped"].assert_not_called()
+
+
+class TestPostScanRecommendations:
+    """Games scanned today get their edges now, not at the next nightly build."""
+
+    async def test_the_scan_hands_over_the_roms_it_wrote(self, patched, mocker):
+        top_up = mocker.patch.object(scan_module, "top_up_similarity")
+
+        async def scan_two_roms(**kwargs):
+            kwargs["scanned_rom_ids"].update({11, 12})
+            return kwargs["scan_stats"]
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=scan_two_roms
+        )
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        top_up.assert_called_once_with({11, 12})
+
+    async def test_a_scan_that_wrote_nothing_still_calls_through(self, patched, mocker):
+        """The empty case is the indexer's to short-circuit, not the scan's."""
+        top_up = mocker.patch.object(scan_module, "top_up_similarity")
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        top_up.assert_called_once_with(set())
+
+    async def test_a_failure_to_index_does_not_fail_the_scan(self, patched, mocker):
+        mocker.patch.object(
+            scan_module, "top_up_similarity", side_effect=RuntimeError("boom")
+        )
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        assert patched.emit.await_args.args[0] == "scan:done"
 
 
 class TestGetPico8CoverUrl:
@@ -2492,6 +2537,7 @@ def identify_harness(mocker):
             playmatch_enabled=False,
             socket_manager=socket_manager or AsyncMock(),
             scan_stats=scan_stats or AsyncMock(),
+            scanned_rom_ids=set(),
         )
 
     return SimpleNamespace(
@@ -2655,6 +2701,7 @@ class TestIdentifyPlatformLoadsFilesForQuickScan:
             playmatch_enabled=False,
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
         )
 
         assert patched.get_roms_by_fs_name.call_args.kwargs["with_files"] is with_files

@@ -9,7 +9,6 @@ try:
     import sigil
 except ImportError:
     sigil = None  # type: ignore[assignment]
-    log.debug("sigil binding not installed, title id extraction disabled")
 
 SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.PSP: "psp",

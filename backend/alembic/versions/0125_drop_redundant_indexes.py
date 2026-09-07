@@ -12,8 +12,8 @@ MariaDB re-points a foreign key at another qualifying index when the one it was
 using is dropped, and both columns here keep such an index, so the constraints
 stay enforced.
 
-Revision ID: 0123_drop_redundant_indexes
-Revises: 0122_gallery_and_fk_indexes
+Revision ID: 0125_drop_redundant_indexes
+Revises: 0124_gallery_and_fk_indexes
 Create Date: 2026-09-07 00:00:00.000000
 
 """
@@ -21,8 +21,8 @@ Create Date: 2026-09-07 00:00:00.000000
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0123_drop_redundant_indexes"
-down_revision = "0122_gallery_and_fk_indexes"
+revision = "0125_drop_redundant_indexes"
+down_revision = "0124_gallery_and_fk_indexes"
 branch_labels = None
 depends_on = None
 

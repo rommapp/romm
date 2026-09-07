@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
 
 # Foreign-key columns that MariaDB/MySQL index implicitly but PostgreSQL does
-# not, so 0122 creates them there only. A model declaration would give the
+# not, so 0124 creates them there only. A model declaration would give the
 # other backends a duplicate, hence the autogenerate exemption below.
 POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, list[str]], ...] = (
     ("collections", "ix_collections_user_id", ["user_id"]),

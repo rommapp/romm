@@ -76,6 +76,47 @@ class TestGeneratedMetadata:
         assert meta.publishers == []
         assert meta.developers == []
 
+    def test_steam_derivations(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "steam_metadata": {
+                    "genres": ["Action", "Indie"],
+                    "companies": ["Team Cherry"],
+                    "developers": ["Team Cherry"],
+                    "publishers": ["Team Cherry"],
+                    "game_modes": ["Single player"],
+                    "total_rating": "87",
+                    "first_release_date": 1487894400,
+                },
+            },
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.genres == ["Action", "Indie"]
+        assert meta.companies == ["Team Cherry"]
+        assert meta.developers == ["Team Cherry"]
+        assert meta.publishers == ["Team Cherry"]
+        assert meta.game_modes == ["Single player"]
+        assert meta.average_rating == 87.0
+        # Steam stores epoch seconds; the column exposes milliseconds.
+        assert meta.first_release_date == 1487894400000
+
+    def test_steam_yields_to_every_other_provider(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "gamelist_metadata": {"genres": ["Platform"]},
+                "igdb_metadata": {"total_rating": "80"},
+                "steam_metadata": {"genres": ["Action"], "total_rating": "60"},
+            },
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.genres == ["Platform"]
+        # Ratings are averaged rather than ranked, so Steam's still counts.
+        assert meta.average_rating == 70.0
+
     def test_rating_average_across_providers(self, rom: Rom):
         db_rom_handler.update_rom(
             rom.id,

@@ -26,8 +26,8 @@ everywhere would leave MariaDB with two identical indexes per column, so they
 are dialect-gated here and excluded from autogenerate in ``alembic/env.py``,
 the same treatment the dialect-specific search indexes get.
 
-Revision ID: 0122_gallery_and_fk_indexes
-Revises: 0121_state_disc_file
+Revision ID: 0124_gallery_and_fk_indexes
+Revises: 0123_recommendation_metadata
 Create Date: 2026-09-07 00:00:00.000000
 
 """
@@ -37,8 +37,8 @@ from alembic import op
 from utils.database import POSTGRESQL_FK_INDEXES, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0122_gallery_and_fk_indexes"
-down_revision = "0121_state_disc_file"
+revision = "0124_gallery_and_fk_indexes"
+down_revision = "0123_recommendation_metadata"
 branch_labels = None
 depends_on = None
 

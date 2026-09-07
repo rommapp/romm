@@ -41,6 +41,7 @@ const {
   // Home
   showRecentRoms,
   showContinuePlaying,
+  showRecommendations,
   showPlatforms,
   showCollections,
   showSmartCollections,
@@ -262,6 +263,11 @@ function onVirtualCollectionTypeChange(value: unknown) {
             v-model="showContinuePlaying"
             :title="t('settings.show-continue-playing')"
             :description="t('settings.show-continue-playing-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showRecommendations"
+            :title="t('settings.show-recommendations')"
+            :description="t('settings.show-recommendations-desc')"
           />
           <SettingsToggleRow
             v-model="showPlatforms"

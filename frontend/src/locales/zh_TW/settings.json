@@ -429,6 +429,8 @@
   "show-platforms-desc": "在首頁上顯示平台",
   "show-recently-added": "顯示最近新增的 Rom",
   "show-recently-added-desc": "在首頁上顯示最近新增的 Rom",
+  "show-recommendations": "顯示推薦",
+  "show-recommendations-desc": "在首頁和遊戲詳細資料頁顯示推薦",
   "show-regions": "顯示地區",
   "show-regions-desc": "在遊戲庫中顯示地區標示",
   "show-siblings": "顯示版本",

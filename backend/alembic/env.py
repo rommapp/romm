@@ -23,6 +23,7 @@ from models.firmware import Firmware  # noqa
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
 from models.platform import Platform  # noqa
 from models.play_session import PlaySession  # noqa
+from models.recommendation import RomSimilarity  # noqa
 from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
 from models.sync_session import SyncSession  # noqa
 from models.user import User  # noqa

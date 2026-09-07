@@ -482,6 +482,24 @@ def with_simple_details(func):
     return wrapper
 
 
+# The fields the recommendation feed scores on. Every writer of `rom_user`
+# goes through `update_rom_user`, so the cached feed is dropped there rather
+# than at each of the call sites that move these.
+RECOMMENDATION_SEED_FIELDS = frozenset(
+    {"rating", "status", "last_played", "now_playing", "hidden"}
+)
+
+
+def _invalidate_feed_if_seed_changed(user_id: int, data: dict) -> None:
+    if not RECOMMENDATION_SEED_FIELDS & data.keys():
+        return
+
+    # Imported here because the recommendation package reads this module.
+    from handler.recommendation import invalidate_cached_feed
+
+    invalidate_cached_feed(user_id)
+
+
 class DBRomsHandler(DBBaseHandler):
     @begin_session
     @with_details
@@ -529,6 +547,20 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Sequence[Rom]:
         """Get multiple ROMs by their IDs."""
+        if not ids:
+            return []
+        return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
+    @begin_session
+    @with_simple_details
+    def get_roms_simple_by_ids(
+        self,
+        ids: Sequence[int],
+        *,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Rom]:
+        """Get multiple ROMs by ID with only the loads `SimpleRomSchema` needs."""
         if not ids:
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
@@ -2132,6 +2164,8 @@ class DBRomsHandler(DBBaseHandler):
         rom_user = session.query(RomUser).filter_by(id=id).one_or_none()
         if not rom_user:
             return None
+
+        _invalidate_feed_if_seed_changed(rom_user.user_id, data)
 
         if not data.get("is_main_sibling", False):
             return rom_user

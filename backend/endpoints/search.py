@@ -1,5 +1,6 @@
 import asyncio
-from typing import TypeVar
+from collections.abc import Callable, Sequence
+from typing import Any, TypeVar
 
 from fastapi import HTTPException, Request, status
 
@@ -57,6 +58,32 @@ def _without_failures(
         else:
             fetched.append(result)
     return fetched
+
+
+# The order the provider lookups are gathered in, for reporting which one failed.
+_ID_SEARCH_PROVIDERS = ("IGDB", "MobyGames", "ScreenScraper", "LaunchBox", "Demozoo")
+_NAME_SEARCH_PROVIDERS = (
+    "IGDB",
+    "MobyGames",
+    "ScreenScraper",
+    "Flashpoint",
+    "LaunchBox",
+    "Demozoo",
+)
+
+
+def _resolved(
+    results: Sequence[Any], providers: Sequence[str], fallback: Callable[[], Any]
+) -> list[Any]:
+    """Let a provider that could not answer cost only its own matches."""
+    resolved: list[Any] = []
+    for provider, result in zip(providers, results, strict=True):
+        if isinstance(result, BaseException):
+            log.error("Error searching %s: %s", provider, result)
+            resolved.append(fallback())
+        else:
+            resolved.append(result)
+    return resolved
 
 
 @protected_route(router.get, "/roms", [Scope.ROMS_READ])
@@ -126,12 +153,13 @@ async def search_rom(
 
     if search_by.lower() == "id":
         try:
-            igdb_rom, moby_rom, ss_rom, lb_rom, dz_rom = await asyncio.gather(
+            gathered = await asyncio.gather(
                 meta_igdb_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_moby_handler.get_matched_rom_by_id(int(search_term)),
                 meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
                 meta_demozoo_handler.get_rom_by_id(int(search_term)),
+                return_exceptions=True,
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -140,6 +168,9 @@ async def search_rom(
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
             ) from exc
         else:
+            igdb_rom, moby_rom, ss_rom, lb_rom, dz_rom = _resolved(
+                gathered, _ID_SEARCH_PROVIDERS, lambda: None
+            )
             igdb_matched_roms = [igdb_rom] if igdb_rom else []
             moby_matched_roms = [moby_rom] if moby_rom else []
             ss_matched_roms = [ss_rom] if ss_rom else []
@@ -155,25 +186,30 @@ async def search_rom(
             flashpoint_matched_roms,
             launchbox_matched_roms,
             demozoo_matched_roms,
-        ) = await asyncio.gather(
-            meta_igdb_handler.get_matched_roms_by_name(
-                rom, search_term, get_main_platform_igdb_id(rom.platform)
+        ) = _resolved(
+            await asyncio.gather(
+                meta_igdb_handler.get_matched_roms_by_name(
+                    rom, search_term, get_main_platform_igdb_id(rom.platform)
+                ),
+                meta_moby_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.moby_id
+                ),
+                meta_ss_handler.get_matched_roms_by_name(
+                    rom, search_term, rom.platform.ss_id
+                ),
+                meta_flashpoint_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.slug
+                ),
+                meta_launchbox_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.slug
+                ),
+                meta_demozoo_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.slug
+                ),
+                return_exceptions=True,
             ),
-            meta_moby_handler.get_matched_roms_by_name(
-                search_term, rom.platform.moby_id
-            ),
-            meta_ss_handler.get_matched_roms_by_name(
-                rom, search_term, rom.platform.ss_id
-            ),
-            meta_flashpoint_handler.get_matched_roms_by_name(
-                search_term, rom.platform.slug
-            ),
-            meta_launchbox_handler.get_matched_roms_by_name(
-                search_term, rom.platform.slug
-            ),
-            meta_demozoo_handler.get_matched_roms_by_name(
-                search_term, rom.platform.slug
-            ),
+            _NAME_SEARCH_PROVIDERS,
+            list,
         )
 
     merged_dict: dict[str, dict] = {}
