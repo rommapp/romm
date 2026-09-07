@@ -14,12 +14,19 @@ from models.assets import (  # noqa
     State,
 )
 from models.base import BaseModel
+from models.client_token import ClientToken  # noqa
 from models.collection import VirtualCollection
+from models.container_adoption import StreamingContainerAdoption  # noqa
+from models.device import Device  # noqa
+from models.device_save_sync import DeviceSaveSync  # noqa
 from models.firmware import Firmware  # noqa
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
 from models.platform import Platform  # noqa
+from models.play_session import PlaySession  # noqa
 from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
+from models.sync_session import SyncSession  # noqa
 from models.user import User  # noqa
+from utils.database import AUTOGENERATE_EXEMPT_INDEX_NAMES
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -48,13 +55,10 @@ def include_object(object, name, type_, reflected, compare_to):
     ]:  # Virtual table
         return False
 
-    # Skip DB-specific search indexes in autogenerate
-    # to avoid false drop/create operations
-    if type_ == "index" and name in (
-        "idx_roms_name_fs_name_fulltext",
-        "idx_roms_name_trgm",
-        "idx_roms_fs_name_trgm",
-    ):
+    # Dialect-specific indexes no model can declare: the per-backend search
+    # indexes, and the PostgreSQL-only foreign-key indexes that MariaDB/MySQL
+    # already provide implicitly.
+    if type_ == "index" and name in AUTOGENERATE_EXEMPT_INDEX_NAMES:
         return False
 
     # generated_* are STORED generated columns backing views.

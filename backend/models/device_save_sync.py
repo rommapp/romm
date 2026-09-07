@@ -25,6 +25,7 @@ class DeviceSaveSync(BaseModel):
     save_id: Mapped[int] = mapped_column(
         ForeignKey("saves.id", ondelete="CASCADE"),
         primary_key=True,
+        index=True,
     )
 
     last_synced_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))

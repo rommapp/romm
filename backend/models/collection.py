@@ -4,7 +4,7 @@ import base64
 import json
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config import FRONTEND_RESOURCES_PATH
@@ -18,6 +18,11 @@ if TYPE_CHECKING:
 
 class Collection(BaseModel):
     __tablename__ = "collections"
+
+    __table_args__ = (
+        # Incremental sync (`updated_after`) for the mobile/device clients.
+        Index("ix_collections_updated_at", "updated_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
@@ -130,6 +135,8 @@ class VirtualCollectionRom(BaseModel):
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
 
+    __table_args__ = (Index("idx_virtual_collection_roms_rom_id", "rom_id"),)
+
 
 class VirtualCollection(BaseModel):
     __tablename__ = "virtual_collections"
@@ -204,6 +211,11 @@ SMART_COLLECTION_MAX_COVERS = 5
 
 class SmartCollection(BaseModel):
     __tablename__ = "smart_collections"
+
+    __table_args__ = (
+        # Incremental sync (`updated_after`) for the mobile/device clients.
+        Index("ix_smart_collections_updated_at", "updated_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
