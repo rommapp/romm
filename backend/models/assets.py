@@ -221,7 +221,6 @@ class MemoryCardVersion(BaseAsset):
 
     __tablename__ = "memory_card_versions"
     __table_args__ = (
-        Index("ix_memory_card_versions_card", "memory_card_id"),
         Index("ix_memory_card_versions_card_hash", "memory_card_id", "content_hash"),
         {"extend_existing": True},
     )

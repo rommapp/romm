@@ -122,6 +122,8 @@ class VirtualCollectionRom(BaseModel):
 
     __tablename__ = "virtual_collection_roms"
 
+    __table_args__ = (Index("idx_virtual_collection_roms_rom_id", "rom_id"),)
+
     type: Mapped[str] = mapped_column(String(length=50), primary_key=True)
     name: Mapped[str] = mapped_column(String(length=400), primary_key=True)
     rom_id: Mapped[int] = mapped_column(
@@ -131,8 +133,6 @@ class VirtualCollectionRom(BaseModel):
     # Denormalized so the collection list never has to touch the roms table.
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
-
-    __table_args__ = (Index("idx_virtual_collection_roms_rom_id", "rom_id"),)
 
 
 class VirtualCollection(BaseModel):
