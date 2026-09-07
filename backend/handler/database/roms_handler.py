@@ -1411,6 +1411,25 @@ class DBRomsHandler(DBBaseHandler):
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
 
+        # Only join the metadata table when a filter reads from it. The dedup
+        # subquery below is derived from `query`, so the join has to land before
+        # the filters, or that subquery inherits them without it.
+        needs_metadata_join = any(
+            [
+                genres,
+                franchises,
+                collections,
+                companies,
+                publishers,
+                developers,
+                age_ratings,
+                player_counts,
+            ]
+        )
+
+        if needs_metadata_join:
+            query = query.outerjoin(RomMetadata)
+
         # Apply metadata and rom-level filters efficiently
         # Moved before applying group_by_meta_id to avoid missing titles when
         # filters don't match the primary ROM version in a group but would match a different version instead.
@@ -1561,23 +1580,6 @@ class DBRomsHandler(DBBaseHandler):
                     )
                 )
             )
-
-        # Optimize JOINs - only join tables when needed
-        needs_metadata_join = any(
-            [
-                genres,
-                franchises,
-                collections,
-                companies,
-                publishers,
-                developers,
-                age_ratings,
-                player_counts,
-            ]
-        )
-
-        if needs_metadata_join:
-            query = query.outerjoin(RomMetadata)
 
         # The RomUser table is already joined if user_id is set
         if statuses and user_id:
