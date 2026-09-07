@@ -615,7 +615,7 @@ class TestFSRomsHandler:
         self, platform: Platform, tmp_path: Path
     ):
         """`{category}/{gameDir}` treats each folder at the terminal level as a
-        single multi-file rom (kept whole — no disc-splitting guesswork)."""
+        single multi-file rom (kept whole, no disc-splitting guesswork)."""
         handler = FSRomsHandler()
         handler.base_path = tmp_path
         with patch(
@@ -696,7 +696,7 @@ class TestFSRomsHandler:
     ):
         """A list of templates unions their discovery: loose top-level games
         (`{gameFile}`) plus games inside grouping subfolders
-        (`{category}/{gameFile}`) — the common mixed layout — without dropping
+        (`{category}/{gameFile}`), the common mixed layout, without dropping
         either, deduplicated by full path."""
         handler = FSRomsHandler()
         handler.base_path = tmp_path
@@ -722,6 +722,62 @@ class TestFSRomsHandler:
         assert not any(r["fs_path"].endswith("/.hidden") for r in roms)
         full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
         assert len(full_paths) == len(set(full_paths))
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_grouping_folder_is_not_also_a_game(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """`{gameDir}` at the root must not claim a folder another template
+        descends into: `Hacks` is a category here, not a multi-file game."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: ["{gameDir}", "{category}/{gameFile}"]}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        # Descended into, so a category rather than a game.
+        assert (base, "Hacks") not in keys
+        assert (base, "Translations") not in keys
+        # Its contents are the games.
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        # A folder no template descends into is still a multi-file game.
+        assert (base, "Region") in keys
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_default_layout_nested_under_a_category(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """`{category}/{gameFile}` + `{category}/{gameDir}` reproduces the
+        default scan one level down: each file a game, each folder a game."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: ["{category}/{gameFile}", "{category}/{gameDir}"]}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        by_key = {(r["fs_path"], r["fs_name"]): r for r in roms}
+        assert by_key[(f"{base}/Hacks", "HackOnly.zip")]["flat"] is True
+        assert by_key[(f"{base}/Hacks", "Inner")]["nested"] is True
+        assert by_key[(f"{base}/Region", "USA")]["nested"] is True
+        # The top level holds no games under this template.
+        assert not any(r["fs_path"] == base for r in roms)
         assert count == len(roms)
 
     @pytest.mark.asyncio

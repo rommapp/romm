@@ -1052,7 +1052,21 @@ class FSRomsHandler(FSHandler):
                     continue
                 seen.add(key)
                 fs_roms.append(rom)
-        return fs_roms
+
+        # One template's `{gameDir}` can land on a folder another template
+        # descends into (`{gameDir}` + `{category}/{gameFile}`). The folder is a
+        # grouping level there, so drop it rather than surface its contents twice.
+        grouping: set[str] = set()
+        for path in {rom["fs_path"] for rom in fs_roms}:
+            while len(path) > len(rel_roms_path):
+                grouping.add(path)
+                path = path.rsplit("/", 1)[0]
+
+        return [
+            rom
+            for rom in fs_roms
+            if rom["flat"] or f"{rom['fs_path']}/{rom['fs_name']}" not in grouping
+        ]
 
     async def count_roms(self, platform: Platform) -> int:
         """Return the number of filesystem roms for a platform without

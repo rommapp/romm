@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// LocationChip — click-to-copy chip surfacing a ROM's on-disk location
-// (the directory it lives in plus its name). Mirrors HashChip's pattern —
-// a keyboard-accessible <button> shell wrapping the shared RTag primitive —
+// LocationChip: click-to-copy chip surfacing a ROM's on-disk location
+// (the directory it lives in plus its name). Mirrors HashChip's pattern
+// (a keyboard-accessible <button> shell wrapping the shared RTag primitive)
 // so it reads as a sibling of the hash pills it sits next to. Unlike a hash,
 // a path isn't mid-abbreviated: it ellipsis-truncates on overflow while the
 // full untruncated path is what gets copied.
@@ -47,7 +47,7 @@ async function copy() {
 </template>
 
 <style scoped>
-/* The button is just the interactive shell — RTag owns the visuals.
+/* The button is just the interactive shell, RTag owns the visuals.
    Stripping native chrome so hover / active styles lean on the inner tag. */
 .r-v2-location-chip {
   appearance: none;

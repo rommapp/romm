@@ -58,7 +58,7 @@ class LibraryStructure:
 
     Relative to the platform's ROM folder: ``levels`` are the intermediate
     directory levels to descend (literal or wildcard), and ``each_file_is_game``
-    selects the terminal — ``{gameFile}`` (each file is a ROM) vs ``{gameDir}``
+    selects the terminal: ``{gameFile}`` (each file is a ROM) vs ``{gameDir}``
     (each directory is a multi-file ROM).
     """
 
@@ -116,6 +116,15 @@ def parse_library_structure(template: str) -> LibraryStructure:
         levels.append(StructureLevel(literal=None))
 
     if each_file_is_game is None:
+        last = sections[-1]
+        if last.startswith("{") and last.endswith("}"):
+            # A near-miss on the terminal name (`{gameFolder}`) otherwise reads
+            # as a wildcard level and reports only the missing terminal.
+            raise ValueError(
+                f"'{last}' is not a terminal: the template must end with "
+                "'{gameFile}' (each file is a game) or '{gameDir}' (each "
+                "directory is a game)"
+            )
         raise ValueError("template must end with '{gameFile}' or '{gameDir}'")
 
     return LibraryStructure(levels=tuple(levels), each_file_is_game=each_file_is_game)
@@ -126,7 +135,7 @@ def parse_platform_structures(
 ) -> tuple[LibraryStructure, ...]:
     """Parse a platform's custom structure config into one or more structures.
 
-    A platform may declare a single template (string) or several (list) — the
+    A platform may declare a single template (string) or several (list). The
     list form lets one platform mix layouts, e.g. loose games at the root plus
     games inside grouping subfolders::
 

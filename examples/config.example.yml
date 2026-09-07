@@ -88,7 +88,7 @@
 #   #
 #   # Syntax (Retrom-style): `/`-separated path sections, relative to the
 #   # platform's ROM folder (RomM already resolves the library root, the
-#   # roms_folder above, and the platform directory — so {library}/{platform}
+#   # roms_folder above, and the platform directory, so {library}/{platform}
 #   # are not used here). A section wrapped in braces is a macro; a bare section
 #   # is a literal folder name matched exactly. The LAST section must be a
 #   # terminal macro:
@@ -98,14 +98,14 @@
 #   # directory level: it matches any folder and is purely organizational.
 #   #
 #   # A platform may also declare a LIST of templates instead of one; discovery
-#   # is their union. This covers the common mixed layout — loose games at the
-#   # platform root AND games inside grouping subfolders below it — which a
+#   # is their union. This covers the common mixed layout (loose games at the
+#   # platform root AND games inside grouping subfolders below it) which a
 #   # single fixed-depth template can't express on its own.
 #   #
 #   # Notes:
 #   #   - Hidden (dot-prefixed) folders are never descended into or surfaced.
 #   #   - {gameDir} keeps a folder whole (multi-disc / cue+bin games), so there
-#   #     is no guessing — you declare file-vs-folder explicitly.
+#   #     is no guessing, you declare file-vs-folder explicitly.
 #   #   - Identity is content-based on scan: moving or renaming a game within the
 #   #     structure is detected by its hash and relocated in place, so its saves,
 #   #     play history, favorites and collection membership follow it (as long as
@@ -113,6 +113,17 @@
 #   #     previously scanned as one multi-file game is now descended into, the old
 #   #     entry is marked "missing from filesystem" (the scan log flags it);
 #   #     delete the stale entry to clean up.
+#   #   - Relocation is also how a platform reverts to the default layout:
+#   #     removing its template moves every game back to the platform root, and
+#   #     each one is matched by hash rather than re-imported.
+#   #   - A move that also changes a game's size (compressing it into an archive,
+#   #     or extracting one) is NOT detected as a relocation: a cheap size
+#   #     pre-filter runs before hashing. Such a game is re-imported as new and
+#   #     the old entry is flagged missing. Move first, repack later.
+#   #   - A folder that a template descends into is a grouping level, not a game.
+#   #     With `{gameDir}` and `{category}/{gameFile}` together, a folder holding
+#   #     discovered games is a category; only folders no template descends into
+#   #     stay multi-file games.
 #   #   - Two files with the same name in different folders become distinct games;
 #   #     gamelist.xml metadata matching is by filename, so both may match the
 #   #     same gamelist entry.

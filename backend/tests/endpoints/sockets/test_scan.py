@@ -2781,6 +2781,74 @@ class TestReconcileRelocatedRoms:
         assert updated.missing_from_fs is False
 
     @pytest.mark.asyncio
+    async def test_revert_to_the_default_layout_relocates_rather_than_reimports(
+        self, platform: Platform, tmp_path: Path, monkeypatch
+    ):
+        """Dropping a platform's custom structure moves every rom back to the
+        platform root. That is a relocation, not a library of new games."""
+        content = b"back to the root"
+        sha1 = hashlib.sha1(content, usedforsecurity=False).hexdigest()
+        base = f"{platform.fs_slug}/roms"
+
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Reverter",
+                slug="reverter",
+                fs_name="Reverter.bin",
+                fs_path=f"{base}/Hacks",
+                sha1_hash=sha1,
+                fs_size_bytes=len(content),
+            )
+        )
+
+        root = tmp_path / base
+        root.mkdir(parents=True)
+        (root / "Reverter.bin").write_bytes(content)
+        monkeypatch.setattr(fs_rom_handler, "base_path", tmp_path)
+
+        handled = await _reconcile_relocated_roms(
+            platform, [_fs_rom("Reverter.bin", base)]
+        )
+
+        assert handled == {f"{base}/Reverter.bin"}
+        updated = db_rom_handler.get_rom(rom.id)
+        assert updated is not None
+        assert updated.id == rom.id
+        assert updated.fs_path == base
+        assert updated.missing_from_fs is False
+
+    @pytest.mark.asyncio
+    async def test_physical_games_are_never_relocation_candidates(
+        self, platform: Platform, tmp_path: Path, monkeypatch
+    ):
+        """A physical game has no file, so it reads as having disappeared from
+        its path on every scan and must not be matched onto a real one."""
+        base = f"{platform.fs_slug}/roms"
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Boxed Copy",
+                slug="boxed-copy",
+                fs_name="Boxed Copy",
+                fs_path=f"{base}/physical",
+                is_physical=True,
+                fs_size_bytes=0,
+            )
+        )
+
+        (tmp_path / base).mkdir(parents=True)
+        (tmp_path / base / "Empty.bin").write_bytes(b"")
+        monkeypatch.setattr(fs_rom_handler, "base_path", tmp_path)
+
+        handled = await _reconcile_relocated_roms(
+            platform, [_fs_rom("Empty.bin", base)]
+        )
+
+        assert handled == set()
+        assert db_rom_handler.get_roms_for_relocation(platform.id) == []
+
+    @pytest.mark.asyncio
     async def test_no_hash_match_is_left_for_normal_import(
         self, platform: Platform, tmp_path: Path, monkeypatch
     ):

@@ -197,6 +197,13 @@ def test_parse_library_structure_invalid(template):
         parse_library_structure(template)
 
 
+def test_parse_library_structure_names_a_near_miss_terminal():
+    """`{gameFolder}` is an easy slip for `{gameDir}`, so the error has to point
+    at it rather than only report a missing terminal."""
+    with pytest.raises(ValueError, match=r"\{gameFolder\}.*is not a terminal"):
+        parse_library_structure("{category}/{gameFolder}")
+
+
 def test_parse_platform_structures_string_and_list():
     # A bare string yields a single structure.
     single = parse_platform_structures("{gameFile}")

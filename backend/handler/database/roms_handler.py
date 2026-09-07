@@ -2141,6 +2141,7 @@ class DBRomsHandler(DBBaseHandler):
         detect a moved/renamed file by content (identity hashes + size) and to
         resolve its current `full_path`. Used by the scan loop to relocate a
         rom whose on-disk path changed instead of re-importing it as new.
+        Physical games are excluded, having no file to relocate.
         """
         return (
             session.scalars(
@@ -2157,7 +2158,14 @@ class DBRomsHandler(DBBaseHandler):
                         Rom.ra_hash,
                     )
                 )
-                .where(Rom.platform_id == platform_id)
+                .where(
+                    and_(
+                        Rom.platform_id == platform_id,
+                        # A physical game has no file, so it always reads as
+                        # having disappeared from its path.
+                        Rom.is_physical.is_(False),
+                    )
+                )
             )
             .unique()
             .all()

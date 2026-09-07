@@ -883,7 +883,7 @@ def _fs_rom_size(fs_rom: FSRom) -> int:
 def _hashes_match(rom: Rom, parsed: ParsedRomFiles) -> bool:
     """Whether an existing rom and freshly parsed files are the same content.
 
-    A single matching non-empty hash is enough — a collision across sha1/md5/
+    A single matching non-empty hash is enough: a collision across sha1/md5/
     crc/ra is negligible, and different platforms populate different hashes.
     """
     for stored, computed in (
@@ -903,15 +903,17 @@ async def _reconcile_relocated_roms(
 ) -> set[str]:
     """Relocate roms whose on-disk path changed instead of re-importing them.
 
-    Under a custom library structure, moving (or renaming) a file reads as a
-    new path. Rather than insert a fresh rom and mark the old one missing —
-    which would drop saves, play history, favorites and collection membership —
-    match a newly-seen file to a now-missing rom by content hash and update that
-    rom's path in place. Returns the set of full paths that were fully handled
-    this way (so the caller skips them in the normal scan loop).
+    Moving (or renaming) a file reads as a new path, whether the library uses a
+    custom structure, gained one, or reverted to the default layout. Rather than
+    insert a fresh rom and mark the old one missing (which would drop saves,
+    play history, favorites and collection membership), match a newly-seen file
+    to a now-missing rom by content hash and update that rom's path in place.
+    Returns the set of full paths that were fully handled this way (so the
+    caller skips them in the normal scan loop).
 
     Falls back to no-op (path-based identity) when hashes are unavailable
-    (``skip_hash_calculation`` or a non-hashable platform).
+    (``skip_hash_calculation`` or a non-hashable platform), and when the move
+    also changed the file's size, since the size pre-filter runs before hashing.
     """
     existing = db_rom_handler.get_roms_for_relocation(platform.id)
     existing_paths = {rom.full_path for rom in existing}
@@ -991,7 +993,7 @@ async def _reconcile_relocated_roms(
 
         log.info(
             f"{hl('Relocated', color=BLUE)} {hl(old_path)} → {hl(full_path)} "
-            "(moved on disk; metadata and user data preserved)"
+            "(moved on disk, metadata and user data preserved)"
         )
 
     return handled
@@ -1105,24 +1107,23 @@ async def _identify_platform(
     fs_rom_paths = [f"{rom['fs_path']}/{rom['fs_name']}" for rom in fs_roms]
     db_rom_handler.mark_missing_roms(platform.id, fs_rom_paths)
 
-    # Detect roms that simply moved on disk (custom library structure) and
-    # relocate them in place so their saves/history/favorites/collections
-    # follow, instead of re-importing them as new and orphaning the old entry.
-    # Only runs for platforms with a custom structure, so default libraries pay
-    # no extra cost.
+    # Detect roms that simply moved on disk and relocate them in place so their
+    # saves/history/favorites/collections follow, instead of re-importing them
+    # as new and orphaning the old entry. This also covers a platform reverting
+    # from a custom structure back to the default layout, which moves every rom.
+    # A library whose paths are unchanged costs one query and no hashing.
     roms_to_identify = fs_roms
-    if cm.get_config().platform_structure(platform.fs_slug) is not None:
-        relocated_paths = await _reconcile_relocated_roms(platform, fs_roms)
-        if relocated_paths:
-            await scan_stats.increment(
-                socket_manager=socket_manager,
-                scanned_roms=len(relocated_paths),
-            )
-            roms_to_identify = [
-                fs_rom
-                for fs_rom in fs_roms
-                if f"{fs_rom['fs_path']}/{fs_rom['fs_name']}" not in relocated_paths
-            ]
+    relocated_paths = await _reconcile_relocated_roms(platform, fs_roms)
+    if relocated_paths:
+        await scan_stats.increment(
+            socket_manager=socket_manager,
+            scanned_roms=len(relocated_paths),
+        )
+        roms_to_identify = [
+            fs_rom
+            for fs_rom in fs_roms
+            if f"{fs_rom['fs_path']}/{fs_rom['fs_name']}" not in relocated_paths
+        ]
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
@@ -1223,7 +1224,7 @@ async def _identify_platform(
             )
             if superseded:
                 log.warning(
-                    f" - {r.fs_name} (now scanned as a folder of roms — "
+                    f" - {r.fs_name} (now scanned as a folder of roms, "
                     "delete this stale entry to clean up)"
                 )
             else:
