@@ -429,6 +429,8 @@
   "show-platforms-desc": "홈페이지에 플랫폼 페이지를 보여줍니다",
   "show-recently-added": "최근 추가된 롬 보이기",
   "show-recently-added-desc": "홈페이지에 최근에 추가됨 페이지를 보여줍니다",
+  "show-recommendations": "추천 표시",
+  "show-recommendations-desc": "홈 화면과 게임 상세 페이지에 추천을 표시합니다",
   "show-regions": "지역 보이기",
   "show-regions-desc": "갤러리에서 지역을 보여줍니다",
   "show-siblings": "버전 보이기",

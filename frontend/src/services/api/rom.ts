@@ -7,10 +7,12 @@ import type {
   DetailedRomSchema,
   ManualMetadata,
   PhysicalRomCreateForm,
+  RecommendedRomSchema,
   RomUserData,
   RomUserSchema,
   RomFileUserSchema,
   SearchRomSchema,
+  SimilarRomSchema,
   SimpleRomSchema,
   SoundtrackTrackMetaSchema,
   UploadTargetPayload,
@@ -432,6 +434,43 @@ async function getRecentPlayedRoms() {
       with_total: false,
       last_played: true,
     },
+  });
+}
+
+// Two rows of cards at typical widths, so the section doesn't push the rest
+// of the overview below the fold.
+export const SIMILAR_ROMS_LIMIT = 6;
+export const RECOMMENDED_ROMS_LIMIT = 15;
+
+/** Library games similar to this one, from the precomputed similarity index. */
+async function getSimilarRoms({
+  romId,
+  limit = SIMILAR_ROMS_LIMIT,
+  signal,
+}: {
+  romId: number;
+  limit?: number;
+  signal?: AbortSignal;
+}) {
+  return api.get<SimilarRomSchema[]>(`/roms/${romId}/similar`, {
+    params: { limit },
+    signal,
+  });
+}
+
+/** Personalised recommendations for the signed-in user. */
+async function getRecommendedRoms({
+  limit = RECOMMENDED_ROMS_LIMIT,
+  refresh = false,
+  signal,
+}: {
+  limit?: number;
+  refresh?: boolean;
+  signal?: AbortSignal;
+} = {}) {
+  return api.get<RecommendedRomSchema[]>("/recommendations", {
+    params: { limit, ...(refresh ? { refresh: true } : {}) },
+    signal,
   });
 }
 
@@ -1070,6 +1109,8 @@ export default {
   getRoms,
   getRecentRoms,
   getRecentPlayedRoms,
+  getSimilarRoms,
+  getRecommendedRoms,
   getRom,
   getRomSimple,
   getRandomRom,

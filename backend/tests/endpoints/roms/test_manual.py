@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from pytest_mock import MockerFixture
 
 from endpoints.roms import manual as manual_endpoint
 from handler.database import db_rom_handler
@@ -18,7 +19,7 @@ def _auth(token: str) -> dict[str, str]:
 
 
 @pytest.fixture
-def manual_fs_resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def manual_fs_resources(tmp_path: Path, mocker: MockerFixture):
     """Mock fs_resource_handler so /manuals (resources path) writes to tmp_path."""
     resources_dir = tmp_path / "resources"
     resources_dir.mkdir()
@@ -27,10 +28,10 @@ def manual_fs_resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         target = resources_dir / Path(path).name
         return target
 
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler, "validate_path", validate_path
     )
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler,
         "make_directory",
         AsyncMock(return_value=None),
@@ -39,7 +40,7 @@ def manual_fs_resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def manual_fs_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def manual_fs_folder(tmp_path: Path, mocker: MockerFixture):
     """Mock fs_rom_handler so /manuals/files (folder path) writes to tmp_path."""
     folder_dir = tmp_path / "library"
     folder_dir.mkdir()
@@ -54,13 +55,13 @@ def manual_fs_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         else:
             raise FileNotFoundError(path)
 
-    monkeypatch.setattr(manual_endpoint.fs_rom_handler, "validate_path", validate_path)
-    monkeypatch.setattr(
+    mocker.patch.object(manual_endpoint.fs_rom_handler, "validate_path", validate_path)
+    mocker.patch.object(
         manual_endpoint.fs_rom_handler,
         "make_directory",
         AsyncMock(return_value=None),
     )
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_rom_handler,
         "remove_file",
         AsyncMock(side_effect=remove_file),
@@ -252,7 +253,7 @@ def test_redownload_manual_success(
     client: TestClient,
     access_token: str,
     rom: Rom,
-    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ):
     db_rom_handler.update_rom(
         rom.id,
@@ -262,7 +263,7 @@ def test_redownload_manual_success(
         },
     )
     fake_path = f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler,
         "get_manual",
         AsyncMock(return_value=fake_path),
@@ -286,9 +287,9 @@ def test_delete_manual_no_manual_returns_404(
     client: TestClient,
     access_token: str,
     rom: Rom,
-    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ):
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler,
         "manual_exists",
         lambda _rom: False,
@@ -306,7 +307,7 @@ def test_delete_manual_success(
     client: TestClient,
     access_token: str,
     rom: Rom,
-    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ):
     db_rom_handler.update_rom(
         rom.id,
@@ -316,11 +317,11 @@ def test_delete_manual_success(
             "locked_fields": ["url_manual"],
         },
     )
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler, "manual_exists", lambda _rom: True
     )
     remove_mock = AsyncMock(return_value=None)
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler, "remove_manual", remove_mock
     )
 

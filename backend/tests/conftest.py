@@ -1,6 +1,10 @@
+import errno
+import functools
 import os
 import re
+import socket
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import alembic.config
 import pytest
@@ -42,6 +46,37 @@ session = sessionmaker(bind=engine, expire_on_commit=False)
 settings.register_profile("ci", max_examples=200, deadline=None)
 settings.register_profile("dev", max_examples=50, deadline=None)
 settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev"))
+
+# The test suite talks to nothing but the database; a connection anywhere else
+# means a mock was missed. A workstation answers those instantly, a CI runner
+# silently drops the packets and the test burns its whole socket timeout (up to
+# two minutes for a broker transfer), so refuse them outright.
+_ALLOWED_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+_real_connect = socket.socket.connect
+_real_connect_ex = socket.socket.connect_ex
+
+
+def _blocked(address: Any) -> bool:
+    # Non-tuple addresses are unix sockets, which never leave the machine.
+    return isinstance(address, tuple) and address[0] not in _ALLOWED_HOSTS
+
+
+def _guarded_connect(sock: socket.socket, address: Any) -> None:
+    if _blocked(address):
+        raise OSError(
+            errno.ENETUNREACH, f"outbound network blocked in tests: {address}"
+        )
+    _real_connect(sock, address)
+
+
+def _guarded_connect_ex(sock: socket.socket, address: Any) -> int:
+    if _blocked(address):
+        return errno.ENETUNREACH
+    return _real_connect_ex(sock, address)
+
+
+socket.socket.connect = _guarded_connect  # type: ignore[method-assign,assignment]
+socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign,assignment]
 
 
 def _ensure_database_exists() -> None:
@@ -397,11 +432,18 @@ def memory_card_version(memory_card: MemoryCard, platform: Platform):
     return db_memory_card_handler.add_version(version)
 
 
+@functools.cache
+def _password_hash(password: str) -> str:
+    """Memoized: bcrypt costs a quarter-second and the user fixtures below hash
+    the same three passwords for well over a thousand tests."""
+    return auth_handler.get_password_hash(password)
+
+
 @pytest.fixture
 def admin_user():
     user = User(
         username="test_admin",
-        hashed_password=auth_handler.get_password_hash("test_admin_password"),
+        hashed_password=_password_hash("test_admin_password"),
         role=Role.ADMIN,
     )
     return db_user_handler.add_user(user)
@@ -413,7 +455,7 @@ def editor_user():
     group = db_permission_handler.get_group_by_name("Editor (legacy)")
     user = User(
         username="test_editor",
-        hashed_password=auth_handler.get_password_hash("test_editor_password"),
+        hashed_password=_password_hash("test_editor_password"),
         role=Role.USER,
         permission_group_id=group.id if group else None,
     )
@@ -425,7 +467,7 @@ def viewer_user():
     group = db_permission_handler.get_group_by_name("Viewer (legacy)")
     user = User(
         username="test_viewer",
-        hashed_password=auth_handler.get_password_hash("test_viewer_password"),
+        hashed_password=_password_hash("test_viewer_password"),
         role=Role.USER,
         permission_group_id=group.id if group else None,
     )

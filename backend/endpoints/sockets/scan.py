@@ -52,6 +52,7 @@ from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
+from handler.recommendation import top_up_similarity
 from handler.redis_handler import (
     cancel_job,
     get_job_status,
@@ -532,6 +533,7 @@ async def _identify_rom(
     playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
+    scanned_rom_ids: set[int],
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -734,6 +736,7 @@ async def _identify_rom(
     )
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
+    scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
         await _emit_scanning_rom(socket_manager, _added_rom)
@@ -773,6 +776,7 @@ async def _scan_selected_roms(
     playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
+    scanned_rom_ids: set[int],
 ) -> ScanStats:
     """Scan a hand-picked set of ROMs without touching the rest of their platform.
 
@@ -827,6 +831,7 @@ async def _scan_selected_roms(
                 playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
+                scanned_rom_ids=scanned_rom_ids,
             )
 
     results = await asyncio.gather(
@@ -858,6 +863,7 @@ async def _identify_platform(
     playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
+    scanned_rom_ids: set[int],
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -971,6 +977,7 @@ async def _identify_platform(
                 playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
+                scanned_rom_ids=scanned_rom_ids,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
@@ -1094,6 +1101,10 @@ async def scan_platforms(
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
+
+    # Filled in by the ROM pass, and read by the post-scan work that has to know
+    # which entries changed rather than how many.
+    scanned_rom_ids: set[int] = set()
 
     async def finish(event: str, payload: Any) -> None:
         """End the scan, reporting whatever a coalesced increment held back."""
@@ -1243,6 +1254,7 @@ async def scan_platforms(
                     playmatch_enabled=playmatch_enabled,
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
+                    scanned_rom_ids=scanned_rom_ids,
                 )
         else:
             if len(platform_list) == 0:
@@ -1266,6 +1278,7 @@ async def scan_platforms(
                     playmatch_enabled=playmatch_enabled,
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
+                    scanned_rom_ids=scanned_rom_ids,
                 )
 
             missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
@@ -1293,6 +1306,13 @@ async def scan_platforms(
                 db_collection_handler.refresh_smart_collections()
         except Exception as e:
             log.error(f"Couldn't refresh smart collections after the scan: {e}")
+
+        # Otherwise the games scanned today have an empty "Similar games"
+        # section until the nightly build. Threaded: the scoring is CPU-bound.
+        try:
+            await asyncio.to_thread(top_up_similarity, scanned_rom_ids)
+        except Exception as e:
+            log.error(f"Couldn't update recommendations after the scan: {e}")
 
         # Export metadata files if enabled in config
         config = cm.get_config()

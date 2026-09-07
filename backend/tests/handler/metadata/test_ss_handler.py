@@ -21,6 +21,7 @@ from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.ss_handler import (
     PS1_SS_ID,
     SWITCH_SS_ID,
+    ScreenScraperExhaustedError,
     SSHandler,
     _get_rom_type,
     _is_daily_quota_error,
@@ -1332,9 +1333,9 @@ class TestLookupRom:
         assert is_not_game is True
 
     @pytest.mark.asyncio
-    async def test_returns_empty_on_daily_quota_exhausted(self):
-        """A daily-quota 429 yields an empty match so the scan falls back to the
-        other providers instead of failing."""
+    async def test_reports_a_short_circuit_on_daily_quota_exhausted(self):
+        """A breaker answered, so the caller has to hear that ScreenScraper did
+        not: an empty match would read as a miss it never made."""
         handler = SSHandler()
         mock_get_info = AsyncMock(
             side_effect=HTTPException(
@@ -1346,12 +1347,12 @@ class TestLookupRom:
             patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
             patch.object(handler.ss_service, "get_game_info", mock_get_info),
         ):
-            result, is_not_game = await handler.lookup_rom(
-                MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
-            )
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.lookup_rom(
+                    MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
+                )
         mock_get_info.assert_awaited_once()
-        assert result["ss_id"] is None
-        assert is_not_game is False
+        assert exc_info.value.fallback["ss_id"] is None
 
     @pytest.mark.asyncio
     async def test_reraises_non_quota_http_error(self):
@@ -1377,68 +1378,96 @@ class TestLookupRom:
 
 
 class TestScreenScraperQuotaFallback:
-    """The scan-facing lookups return an empty match when the daily quota is
-    exhausted (HTTP 429), so a scan degrades to the other providers. Non-429
-    errors are real failures and must propagate."""
+    """The scan-facing lookups report a short circuit when the daily quota is
+    exhausted (HTTP 429), so a scan degrades to the other providers without
+    reading the silence as a miss. Non-429 errors are real failures and must
+    propagate."""
 
-    @pytest.mark.asyncio
-    async def test_get_rom_by_id_returns_empty_on_daily_quota(self):
-        handler = SSHandler()
-        mock_get_info = AsyncMock(
+    @pytest.fixture(autouse=True)
+    def _credentials(self):
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+        ):
+            yield
+
+    @staticmethod
+    def _exhausted() -> AsyncMock:
+        return AsyncMock(
             side_effect=HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="quota"
             )
         )
-        with (
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
-            patch.object(handler.ss_service, "get_game_info", mock_get_info),
-        ):
-            result = await handler.get_rom_by_id(MagicMock(), 1234)
+
+    @staticmethod
+    def _unavailable() -> AsyncMock:
+        return AsyncMock(
+            side_effect=HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="down"
+            )
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_rom_by_id_reports_a_short_circuit_on_daily_quota(self):
+        handler = SSHandler()
+        mock_get_info = self._exhausted()
+        with patch.object(handler.ss_service, "get_game_info", mock_get_info):
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.get_rom_by_id(MagicMock(), 1234)
         mock_get_info.assert_awaited_once()
-        assert result["ss_id"] is None
+        assert exc_info.value.fallback["ss_id"] is None
 
     @pytest.mark.asyncio
     async def test_get_rom_by_id_reraises_non_quota_error(self):
         handler = SSHandler()
-        with (
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
-            patch.object(
-                handler.ss_service,
-                "get_game_info",
-                AsyncMock(
-                    side_effect=HTTPException(
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="down"
-                    )
-                ),
-            ),
-        ):
+        with patch.object(handler.ss_service, "get_game_info", self._unavailable()):
             with pytest.raises(HTTPException):
                 await handler.get_rom_by_id(MagicMock(), 1234)
 
     @pytest.mark.asyncio
-    async def test_get_rom_returns_empty_on_daily_quota(self):
+    async def test_get_rom_carries_its_name_only_fallback_on_daily_quota(self):
+        """The filename lookup derives a name locally, so the short circuit hands
+        it back rather than dropping it."""
         handler = SSHandler()
         rom = MagicMock(platform_slug="genesis", platform_id=1, id=1, regions=[])
-        mock_search = AsyncMock(
-            side_effect=HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="quota"
-            )
-        )
-        with (
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
-            patch.object(handler.ss_service, "search_games", mock_search),
-        ):
-            result = await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
+        mock_search = self._exhausted()
+        with patch.object(handler.ss_service, "search_games", mock_search):
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
         mock_search.assert_awaited()
-        assert result["ss_id"] is None
+        assert exc_info.value.fallback["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_matching_by_name_returns_empty_on_daily_quota(self):
+        """A manual search wants whatever the other providers found, so an
+        exhausted ScreenScraper contributes nothing rather than reporting."""
+        handler = SSHandler()
+        mock_search = self._exhausted()
+        with patch.object(handler.ss_service, "search_games", mock_search):
+            result = await handler.get_matched_roms_by_name(MagicMock(), "Sonic", 3)
+        mock_search.assert_awaited_once()
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_matching_by_name_reraises_non_quota_error(self):
+        handler = SSHandler()
+        with patch.object(handler.ss_service, "search_games", self._unavailable()):
+            with pytest.raises(HTTPException):
+                await handler.get_matched_roms_by_name(MagicMock(), "Sonic", 3)
+
+    @pytest.mark.asyncio
+    async def test_matching_by_id_returns_no_match_on_daily_quota(self):
+        """A manual match wants the providers that can still answer, so this one
+        contributes nothing rather than reporting a short circuit."""
+        handler = SSHandler()
+        with patch.object(handler.ss_service, "get_game_info", self._exhausted()):
+            assert await handler.get_matched_rom_by_id(MagicMock(), 1234) is None
 
 
 class TestScreenScraperCredentialFallback:
     """Rejected credentials are a configuration problem, not a scan failure: the
-    service reports them once and the scan carries on with the other providers."""
+    service reports them once and the scan carries on with the other providers,
+    hearing that ScreenScraper never answered rather than that it missed."""
 
     def _make_file(self) -> MagicMock:
         mock_file = MagicMock()
@@ -1453,7 +1482,7 @@ class TestScreenScraperCredentialFallback:
         return mock_file
 
     @pytest.mark.asyncio
-    async def test_lookup_rom_returns_empty_on_rejected_credentials(self):
+    async def test_lookup_rom_reports_a_short_circuit_on_rejected_credentials(self):
         handler = SSHandler()
         rom = MagicMock(
             platform_slug="genesis", platform_id=1, id=1, fs_name="Sonic (USA).md"
@@ -1469,12 +1498,13 @@ class TestScreenScraperCredentialFallback:
                 ),
             ),
         ):
-            result, _ = await handler.lookup_rom(rom, 1, [self._make_file()])
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.lookup_rom(rom, 1, [self._make_file()])
 
-        assert result["ss_id"] is None
+        assert exc_info.value.fallback["ss_id"] is None
 
     @pytest.mark.asyncio
-    async def test_get_rom_returns_empty_on_rejected_credentials(self):
+    async def test_get_rom_reports_a_short_circuit_on_rejected_credentials(self):
         handler = SSHandler()
         rom = MagicMock(platform_slug="genesis", platform_id=1, id=1, regions=[])
         with (
@@ -1488,12 +1518,13 @@ class TestScreenScraperCredentialFallback:
                 ),
             ),
         ):
-            result = await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
 
-        assert result["ss_id"] is None
+        assert exc_info.value.fallback["ss_id"] is None
 
     @pytest.mark.asyncio
-    async def test_get_rom_by_id_returns_empty_on_rejected_credentials(self):
+    async def test_get_rom_by_id_reports_a_short_circuit_on_rejected_credentials(self):
         handler = SSHandler()
         with (
             patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
@@ -1506,9 +1537,10 @@ class TestScreenScraperCredentialFallback:
                 ),
             ),
         ):
-            result = await handler.get_rom_by_id(MagicMock(), 1234)
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.get_rom_by_id(MagicMock(), 1234)
 
-        assert result["ss_id"] is None
+        assert exc_info.value.fallback["ss_id"] is None
 
 
 class TestScreenScraperRateLimitPropagation:

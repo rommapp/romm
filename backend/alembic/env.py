@@ -18,6 +18,7 @@ from models.collection import VirtualCollection
 from models.firmware import Firmware  # noqa
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
 from models.platform import Platform  # noqa
+from models.recommendation import RomSimilarity  # noqa
 from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
 from models.user import User  # noqa
 

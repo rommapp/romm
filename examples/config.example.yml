@@ -156,13 +156,13 @@
 #     - marquee  # Custom marquee
 #   # Auto-export metadata files after scan completes
 #   gamelist:
-#     export: false # Whether to export gamelist.xml for ES-DE/Batocera/RetroBAT
+#     export: false # Whether to export gamelist.xml for ES-DE/Batocera/RetroBAT (merged into an existing file)
 #     media:
 #       # Select a media type from the list above (eg. box2d, screenshot, etc.)
 #       thumbnail: box2d # Use as the <thumbnail> tag in the exported gamelist.xml
 #       image: screenshot  # Use as the <image> tag in the exported gamelist.xml
 #   pegasus:
-#     export: false # Whether to export metadata.pegasus.txt for Pegasus
+#     export: false # Whether to export metadata.pegasus.txt for Pegasus (merged into an existing file)
 
 # EmulatorJS per-core options
 # emulatorjs:
