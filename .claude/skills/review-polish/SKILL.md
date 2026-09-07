@@ -7,11 +7,11 @@ description: The before-review and before-handoff pass for RomM, covering both s
 
 Two passes, in order, once the change works:
 
-1. **Polish (A–F):** shape the code the checks can't see. Derived from the
+1. **Polish (A–D):** shape the code the checks can't see. Derived from the
    corrections a maintainer actually pushed on top of 37 approved contributor
    PRs — every rule below is something that got hand-fixed after review, so
    applying it up front saves a round trip.
-2. **Verify (G):** run the checks that match what you touched, mirroring the CI
+2. **Verify (E):** run the checks that match what you touched, mirroring the CI
    gates so review isn't the first place a failure shows up. Polish comes
    first, since it renames things, extracts helpers, and edits tests; `trunk
 fmt && trunk check` comes last of all, so nothing lands unformatted. If
@@ -94,25 +94,7 @@ trimmed too.
 
 ---
 
-## C. Reuse the existing mechanism before inventing one
-
-- **Use the existing foreign key.** A durable-reference scheme of your own
-  (`(rom_id, md5_hash)` because file ids churn on rescan) loses to
-  `rom_file_id` with `ondelete="CASCADE"`. If the real problem is churn, fix the
-  churn.
-- **Reach for VueUse before hand-rolling.** Persisted UI state is
-  `useLocalStorage(key, default, { writeDefaults: false, serializer })`, not a
-  `ref` plus a `watch` plus `localStorage.setItem`.
-- **Put display logic on the component that renders it.** A bespoke
-  `ratingChips` computed in a tab belongs in the card component and its
-  `providers.ts` config.
-- **Prefer a spread over mutate-after-construct.**
-  `{ ...(x !== undefined ? { x } : {}) }` over building an object then
-  conditionally assigning.
-
----
-
-## D. Names say what the thing does
+## C. Names say what the thing does
 
 - `syncRom` renamed to `syncCachedRom`: it updates the cache, it does not fetch.
 - Sort on `display_name` when `display_name` is what the user sees.
@@ -122,7 +104,7 @@ short a word.
 
 ---
 
-## E. Tests: strict typing is part of the test
+## D. Tests: strict typing is part of the test
 
 Trunk runs mypy over `backend/tests/`, and `vue-tsc` covers frontend tests. Both
 catch these, but only after the contributor has handed the PR over.
@@ -142,25 +124,7 @@ catch these, but only after the contributor has handed the PR over.
 
 ---
 
-## F. Async and reactive lifecycle (v2)
-
-See `frontend-v2-patterns` for the full set. The three that get fixed in review:
-
-1. **Snapshot any reactive value a decision depends on before the first
-   `await`.** The selection and the collection's `rom_ids` both move while
-   requests are in flight, so `const wasAllFavorited = allFavorited.value` comes
-   before the call, not after.
-2. **Watch the narrowest source.** Watching `authStore.user` refires on every
-   unrelated profile update; watch a derived primitive
-   (`user?.oauth_scopes.includes("tasks.run") ? user.id : null`) so the
-   watch is self-guarding and no manual "already ran for this id" flag is
-   needed.
-3. **Guard late resolutions with `useIsAlive()`** rather than a local
-   `unmounted` flag and `onBeforeUnmount`.
-
----
-
-## G. Verification before handoff
+## E. Verification before handoff
 
 Run the checks that match what you touched. **Static checks don't prove a
 feature works** — when UI changed, also test it in the browser. **Never
@@ -232,12 +196,9 @@ Run from `backend/`:
 - [ ] No comment or docstring over two lines of prose; no change history, no
       restatement, no justification of the obvious
 - [ ] Every new constant, type, limit, and getter searched for first
-- [ ] No new mechanism where an FK, a VueUse composable, or an existing
-      component already does it
 - [ ] Names say what the code touches
 - [ ] Tests typecheck strictly and exercise the production path
-- [ ] Reactive values snapshotted before `await`; watches on narrow sources
-- [ ] Stack checks in G green for everything touched (typecheck/test/build,
+- [ ] Stack checks in E green for everything touched (typecheck/test/build,
       pytest, migrations both directions, OpenAPI regen)
 - [ ] UI changes tested in the browser: both themes, all four input modalities,
       responsive sweep
