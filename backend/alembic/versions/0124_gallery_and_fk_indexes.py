@@ -1,31 +1,16 @@
 """Add the gallery sort/scope indexes and the PostgreSQL foreign-key indexes
 
-Two groups of indexes, both filling gaps left by earlier index passes.
-
 Portable, on every backend:
 
-- ``screenshots (rom_id, user_id)``. ``Save.screenshot`` / ``State.screenshot``
-  resolve a thumbnail per row, so this lookup runs once per card on the
-  continue-playing rail. ``0093_states_rom_user_index`` added the equivalent to
-  ``states`` and noted ``saves`` already had it; ``screenshots`` was missed.
-- ``rom_user (user_id, rom_id)`` and ``rom_user (user_id, last_played)``.
-  ``unique_rom_user_props`` leads with ``rom_id``, which covers the gallery's
-  outer join but not the reverse direction, where sorting or scoping by a
-  per-user column starts from this table.
-- ``roms (platform_id, name_sort_key)``. The gallery is browsed one platform at
-  a time and ordered by name, and no index carried both columns, so every page
-  filesorted the whole platform.
+- ``screenshots (rom_id, user_id)`` resolves the thumbnail of every save/state
+  card, the equivalent of what 0093 added to ``states``.
+- ``rom_user (user_id, rom_id)`` and ``rom_user (user_id, last_played)`` scope
+  or sort the gallery starting from this table.
+- ``roms (platform_id, name_sort_key)`` serves the per-platform gallery page:
+  predicate and sort in one index, rather than a filesort per page.
 
-PostgreSQL only:
-
-MariaDB and MySQL create an index for every foreign key whose column is not
-already some index's leftmost prefix; PostgreSQL does not. The columns below
-are queried directly or walked by ``ON DELETE`` and were relying on that
-implicit index, so on PostgreSQL alone they need a real one. The delete path
-matters most on ``play_sessions``, which grows with every session played. Creating them
-everywhere would leave MariaDB with two identical indexes per column, so they
-are dialect-gated here and excluded from autogenerate in ``alembic/env.py``,
-the same treatment the dialect-specific search indexes get.
+PostgreSQL only: ``POSTGRESQL_FK_INDEXES``, the foreign keys that MariaDB and
+MySQL index implicitly and PostgreSQL leaves to sequential scans.
 
 Revision ID: 0124_gallery_and_fk_indexes
 Revises: 0123_recommendation_metadata
@@ -64,15 +49,15 @@ def upgrade() -> None:
         op.create_index(name, table, columns, unique=False, if_not_exists=True)
 
     if is_postgresql(op.get_bind()):
-        for table, name, columns in POSTGRESQL_FK_INDEXES:
-            op.create_index(name, table, columns, unique=False, if_not_exists=True)
+        for table, name, column in POSTGRESQL_FK_INDEXES:
+            op.create_index(name, table, [column], unique=False, if_not_exists=True)
 
 
 def downgrade() -> None:
     bind = op.get_bind()
 
     if is_postgresql(bind):
-        for table, name, _columns in reversed(POSTGRESQL_FK_INDEXES):
+        for table, name, _column in reversed(POSTGRESQL_FK_INDEXES):
             op.drop_index(name, table_name=table, if_exists=True)
     else:
         # Adding a composite that leads with a foreign-key column lets InnoDB

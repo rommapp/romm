@@ -6,36 +6,39 @@ from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
 
-# Foreign-key columns that MariaDB/MySQL index implicitly but PostgreSQL does
-# not, so 0124 creates them there only. A model declaration would give the
-# other backends a duplicate, hence the autogenerate exemption below.
-POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, list[str]], ...] = (
-    ("collections", "ix_collections_user_id", ["user_id"]),
-    ("smart_collections", "ix_smart_collections_user_id", ["user_id"]),
-    ("rom_notes", "ix_rom_notes_user_id", ["user_id"]),
-    ("firmware", "ix_firmware_platform_id", ["platform_id"]),
-    ("collections_roms", "ix_collections_roms_rom_id", ["rom_id"]),
-    ("music_playlist_tracks", "ix_music_playlist_tracks_rom_file_id", ["rom_file_id"]),
-    ("music_favorite_tracks", "ix_music_favorite_tracks_rom_file_id", ["rom_file_id"]),
-    ("play_sessions", "ix_play_sessions_rom_id", ["rom_id"]),
-    ("play_sessions", "ix_play_sessions_device_id", ["device_id"]),
-    ("play_sessions", "ix_play_sessions_sync_session_id", ["sync_session_id"]),
-)
-
-POSTGRESQL_FK_INDEX_NAMES = frozenset(name for _, name, _ in POSTGRESQL_FK_INDEXES)
-
-# Search indexes built per dialect in 0084: a FULLTEXT index on MySQL/MariaDB,
-# pg_trgm GIN indexes on PostgreSQL. No portable model declaration exists.
-DIALECT_SEARCH_INDEX_NAMES = frozenset(
-    {
-        "idx_roms_name_fs_name_fulltext",
-        "idx_roms_name_trgm",
-        "idx_roms_fs_name_trgm",
-    }
+# Single-column foreign keys that MariaDB/MySQL index implicitly but
+# PostgreSQL does not, so 0124 creates them there only. Declaring them on the
+# models would give the other backends a duplicate, hence the exemption below.
+# `test_migrations` keeps this list in step with the models.
+POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
+    ("collections", "ix_collections_user_id", "user_id"),
+    ("smart_collections", "ix_smart_collections_user_id", "user_id"),
+    ("rom_notes", "ix_rom_notes_user_id", "user_id"),
+    ("firmware", "ix_firmware_platform_id", "platform_id"),
+    ("collections_roms", "ix_collections_roms_rom_id", "rom_id"),
+    ("music_playlist_tracks", "ix_music_playlist_tracks_rom_file_id", "rom_file_id"),
+    ("music_favorite_tracks", "ix_music_favorite_tracks_rom_file_id", "rom_file_id"),
+    ("play_sessions", "ix_play_sessions_rom_id", "rom_id"),
+    ("play_sessions", "ix_play_sessions_device_id", "device_id"),
+    ("play_sessions", "ix_play_sessions_sync_session_id", "sync_session_id"),
+    ("saves", "ix_saves_user_id", "user_id"),
+    ("states", "ix_states_user_id", "user_id"),
+    ("screenshots", "ix_screenshots_user_id", "user_id"),
+    ("rom_file_user", "ix_rom_file_user_user_id", "user_id"),
+    ("memory_cards", "ix_memory_cards_platform_id", "platform_id"),
+    (
+        "streaming_container_adoptions",
+        "ix_streaming_container_adoptions_decided_by_user_id",
+        "decided_by_user_id",
+    ),
 )
 
 # Indexes that exist in some databases but cannot be declared on a model.
-AUTOGENERATE_EXEMPT_INDEX_NAMES = DIALECT_SEARCH_INDEX_NAMES | POSTGRESQL_FK_INDEX_NAMES
+AUTOGENERATE_EXEMPT_INDEX_NAMES = frozenset(
+    # Search indexes built per dialect in 0084: FULLTEXT on MySQL/MariaDB,
+    # pg_trgm GIN on PostgreSQL. No portable model declaration exists.
+    {"idx_roms_name_fs_name_fulltext", "idx_roms_name_trgm", "idx_roms_fs_name_trgm"}
+) | frozenset(name for _, name, _ in POSTGRESQL_FK_INDEXES)
 
 
 def CustomJSON(**kwargs: Any) -> sa.JSON:
