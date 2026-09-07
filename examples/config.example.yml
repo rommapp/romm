@@ -170,6 +170,7 @@
 #   cache_limit: null # Cache limit per ROM (in bytes)
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
+#   auto_save_sync: false # Upload the save to the server whenever it changes, without Save & Quit
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { installEJSDefaultOptionsTrap } from "./utils";
+import { createSaveSyncTracker, installEJSDefaultOptionsTrap } from "./utils";
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -131,5 +131,59 @@ describe("installEJSDefaultOptionsTrap", () => {
     const patched = emulator.preGetSetting;
     window.EJS_emulator = emulator;
     expect(emulator.preGetSetting).toBe(patched);
+  });
+});
+
+describe("createSaveSyncTracker", () => {
+  const bytes = (...values: number[]) => new Uint8Array(values);
+  const server = bytes(9, 9);
+  const a = bytes(1, 2, 3);
+  const b = bytes(4, 5, 6);
+
+  it("uploads only once the bytes have been stable for two ticks", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    // The first tick with new bytes may be a save the core is mid-write on.
+    expect(tracker.shouldUpload(a)).toBe(false);
+    // The second identical tick proves it settled.
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+  });
+
+  it("uploads nothing while the save is unchanged from the last upload", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    expect(tracker.shouldUpload(bytes(9, 9))).toBe(false);
+    expect(tracker.shouldUpload(bytes(9, 9))).toBe(false);
+    expect(tracker.shouldUpload(a)).toBe(false);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+    tracker.markUploaded(a);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+  });
+
+  it("never uploads a value that keeps changing between ticks", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(null);
+    expect(tracker.shouldUpload(a)).toBe(false);
+    expect(tracker.shouldUpload(b)).toBe(false);
+    expect(tracker.shouldUpload(bytes(7))).toBe(false);
+    expect(tracker.shouldUpload(bytes(7))).toBe(true);
+  });
+
+  it("re-offers a save whose upload failed", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    tracker.shouldUpload(a);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+    // No markUploaded: the upload failed. The next stable tick tries again.
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+  });
+
+  it("compares content, not identity, and treats a resize as a change", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(null);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+    expect(tracker.shouldUpload(bytes(1, 2, 3, 0))).toBe(false);
   });
 });

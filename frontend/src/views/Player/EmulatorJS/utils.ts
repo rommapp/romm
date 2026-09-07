@@ -135,6 +135,44 @@ export async function saveSave({
   return null;
 }
 
+// Per EmulatorJS "saveSaveFiles" tick, whether the SRAM is worth uploading
+// (#4201). Two agreeing ticks keep a mid-write save from being uploaded (#2349).
+export function createSaveSyncTracker() {
+  let lastUploaded: Uint8Array | null = null;
+  let previousTick: Uint8Array | null = null;
+  return {
+    // Seeded from the SRAM at launch so the server's own file is not re-uploaded.
+    seed(save: Uint8Array | null) {
+      lastUploaded = save;
+      previousTick = save;
+    },
+    shouldUpload(save: Uint8Array): boolean {
+      const stable = bytesEqual(save, previousTick);
+      previousTick = save;
+      return stable && !bytesEqual(save, lastUploaded);
+    },
+    markUploaded(save: Uint8Array) {
+      lastUploaded = save;
+    },
+  };
+}
+
+// EmulatorJS reads each tick off the FS into a fresh buffer, so the tracker can
+// hold on to one rather than fingerprint it.
+function bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
+  if (!a || !b) return a === b;
+  if (a.byteLength !== b.byteLength) return false;
+  return a.every((byte, i) => byte === b[i]);
+}
+
+// saveSave needs an ArrayBuffer, and a Uint8Array's own buffer may be shared or
+// wider than the view, so hand it a standalone copy.
+export function toArrayBuffer(view: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy.buffer;
+}
+
 export function loadEmulatorJSSave(save: Uint8Array) {
   const FS = window.EJS_emulator.gameManager.FS;
   const path = window.EJS_emulator.gameManager.getSaveFilePath();
