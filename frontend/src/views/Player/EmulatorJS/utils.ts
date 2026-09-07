@@ -138,64 +138,39 @@ export async function saveSave({
 // Per EmulatorJS "saveSaveFiles" tick, whether the SRAM is worth uploading
 // (#4201). Two agreeing ticks keep a mid-write save from being uploaded (#2349).
 export function createSaveSyncTracker() {
-  let lastUploaded: string | null = null;
-  let previousTick: string | null = null;
+  let lastUploaded: Uint8Array | null = null;
+  let previousTick: Uint8Array | null = null;
   return {
     // Seeded from the SRAM at launch so the server's own file is not re-uploaded.
-    seed(hash: string | null) {
-      lastUploaded = hash;
-      previousTick = hash;
+    seed(save: Uint8Array | null) {
+      lastUploaded = save;
+      previousTick = save;
     },
-    shouldUpload(hash: string): boolean {
-      const stable = hash === previousTick;
-      previousTick = hash;
-      return stable && hash !== lastUploaded;
+    shouldUpload(save: Uint8Array): boolean {
+      const stable = bytesEqual(save, previousTick);
+      previousTick = save;
+      return stable && !bytesEqual(save, lastUploaded);
     },
-    markUploaded(hash: string) {
-      lastUploaded = hash;
+    markUploaded(save: Uint8Array) {
+      lastUploaded = save;
     },
   };
 }
 
-// EmulatorJS hands out views onto the emulator heap (a SharedArrayBuffer on
-// threaded cores); copy them so the core cannot change them underneath us.
+// EmulatorJS reads each tick off the FS into a fresh buffer, so the tracker can
+// hold on to one rather than fingerprint it.
+function bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
+  if (!a || !b) return a === b;
+  if (a.byteLength !== b.byteLength) return false;
+  return a.every((byte, i) => byte === b[i]);
+}
+
+// saveSave needs an ArrayBuffer, and a Uint8Array's own buffer may be shared or
+// wider than the view, so hand it a standalone copy.
 export function toArrayBuffer(view: Uint8Array): ArrayBuffer {
   const copy = new Uint8Array(view.byteLength);
   copy.set(view);
   return copy.buffer;
-}
-
-// FNV-1a over two lanes with distinct primes, so the halves stay independent.
-// Only used when WebCrypto is unavailable (non-secure contexts).
-function fnv1a64(bytes: Uint8Array): string {
-  let a = 0x811c9dc5;
-  let b = 0xcbf29ce4;
-  for (let i = 0; i < bytes.length; i++) {
-    const byte = bytes[i];
-    a = Math.imul(a ^ byte, 0x01000193) >>> 0;
-    b = Math.imul(b ^ byte, 0x5f356495) >>> 0;
-  }
-  return a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
-}
-
-export async function hashSaveFile(
-  bytes: Uint8Array | ArrayBuffer | null | undefined,
-): Promise<string | null> {
-  if (!bytes) return null;
-  const buffer = bytes instanceof Uint8Array ? toArrayBuffer(bytes) : bytes;
-  if (buffer.byteLength === 0) return null;
-  const subtle = globalThis.crypto?.subtle;
-  if (subtle) {
-    try {
-      const digest = await subtle.digest("SHA-256", buffer);
-      return Array.from(new Uint8Array(digest), (b) =>
-        b.toString(16).padStart(2, "0"),
-      ).join("");
-    } catch (error) {
-      console.warn("WebCrypto digest failed, using fallback hash", error);
-    }
-  }
-  return fnv1a64(new Uint8Array(buffer));
 }
 
 export function loadEmulatorJSSave(save: Uint8Array) {

@@ -35,7 +35,6 @@ import {
   createSaveQuitButton,
   createExitEmulationButton,
   createSaveSyncTracker,
-  hashSaveFile,
   toArrayBuffer,
 } from "./utils";
 
@@ -286,39 +285,28 @@ const STATE_APPLY_SETTLE_MS = 500;
 // createSaveSyncTracker). EmulatorJS has no `off`, so the handler stays
 // subscribed and this slot is what tells it the component still owns it.
 let autoSaveSyncEmulator: object | null = null;
-async function installAutoSaveSync() {
+function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
   if (!emulator?.gameManager || autoSaveSyncEmulator === emulator) return;
   autoSaveSyncEmulator = emulator;
   const tracker = createSaveSyncTracker();
-  // getSaveFile() dumps the core's SRAM first, so the seed is what it holds now.
-  // That dump fires a saveSaveFiles tick, so the subscription must stay below it.
-  const seed = await hashSaveFile(emulator.gameManager.getSaveFile());
-  // A teardown during the seed releases the slot; don't subscribe after it.
-  if (autoSaveSyncEmulator !== emulator) return;
-  tracker.seed(seed);
+  // Passing false reads the SRAM without dumping it, so seeding fires no tick.
+  tracker.seed(emulator.gameManager.getSaveFile(false));
   let uploading = false;
   emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
-    if (autoSaveSyncEmulator !== emulator || uploading || !saveFile) return;
+    if (autoSaveSyncEmulator !== emulator || uploading || !saveFile?.byteLength)
+      return;
+    if (!tracker.shouldUpload(saveFile)) return;
     uploading = true;
     try {
-      const bytes = toArrayBuffer(saveFile);
-      const hash = await hashSaveFile(bytes);
-      // Exit and Save & Quit release the slot mid-hash; they own the last upload.
-      if (
-        !hash ||
-        autoSaveSyncEmulator !== emulator ||
-        !tracker.shouldUpload(hash)
-      )
-        return;
       const save = await saveSave({
         rom: romRef.value,
         save: saveRef.value,
-        saveFile: bytes,
+        saveFile: toArrayBuffer(saveFile),
         deviceId: deviceIDRef.value,
       });
       if (save) {
-        tracker.markUploaded(hash);
+        tracker.markUploaded(saveFile);
         saveRef.value = save;
         romsStore.update(romRef.value);
         displayMessage("Save synced with server", {
@@ -500,9 +488,11 @@ window.EJS_onGameStart = async () => {
         await loadSave(props.save);
       }
       if (EJS_ENABLE_AUTO_SAVE_SYNC) {
-        await installAutoSaveSync().catch((error) =>
-          console.error("Failed to enable periodic save sync", error),
-        );
+        try {
+          installAutoSaveSync();
+        } catch (error) {
+          console.error("Failed to enable periodic save sync", error);
+        }
       }
     }
 

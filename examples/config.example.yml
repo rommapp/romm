@@ -170,10 +170,7 @@
 #   cache_limit: null # Cache limit per ROM (in bytes)
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
-#   # Upload the in-game save (.srm) to the server whenever it changes, on
-#   # EmulatorJS' "System Save interval" tick (default 5 minutes), without
-#   # Save & Quit. Off by default; see docs on saves and states.
-#   auto_save_sync: false
+#   auto_save_sync: false # Upload the save to the server whenever it changes, without Save & Quit
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled
