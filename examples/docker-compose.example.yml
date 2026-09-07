@@ -20,7 +20,7 @@ services:
       - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
       - HASHEOUS_API_ENABLED=true # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#hasheous
       - SCAN_WORKERS=2 # How many items you want scanned at once, we recommend 1 worker per CPU.
-      - WEB_SERVER_CONCURRENCY=4 # Workers for API calls, not background tasks. ~160MB RAM each, raise only for several concurrent users
+      - WEB_SERVER_CONCURRENCY=4 # Workers for API calls, raise for several concurrent users
     volumes:
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks
