@@ -138,7 +138,7 @@ start_bin_gunicorn() {
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
 		--worker-class uvicorn_worker.UvicornWorker \
-		--workers "${WEB_SERVER_CONCURRENCY:-1}" \
+		--workers "${WEB_SERVER_CONCURRENCY:-4}" \
 		--timeout "${WEB_SERVER_TIMEOUT:-300}" \
 		--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
 		--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
