@@ -194,7 +194,6 @@ class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
     __table_args__ = (
-        Index("idx_rom_files_rom_id", "rom_id"),
         Index("idx_rom_files_rom_id_category", "rom_id", "category"),
         # Searching the gallery by a hash digest
         Index("idx_rom_files_crc_hash", "crc_hash"),
@@ -1103,7 +1102,6 @@ class RomNote(BaseModel):
             "rom_id", "user_id", "title", name="unique_rom_user_note_title"
         ),
         Index("idx_rom_notes_public", "is_public"),
-        Index("idx_rom_notes_rom_user", "rom_id", "user_id"),
         Index("idx_rom_notes_title", "title"),
     )
 
