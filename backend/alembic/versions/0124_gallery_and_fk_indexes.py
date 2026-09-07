@@ -21,7 +21,8 @@ PostgreSQL only:
 MariaDB and MySQL create an index for every foreign key whose column is not
 already some index's leftmost prefix; PostgreSQL does not. The columns below
 are queried directly or walked by ``ON DELETE`` and were relying on that
-implicit index, so on PostgreSQL alone they need a real one. Creating them
+implicit index, so on PostgreSQL alone they need a real one. The delete path
+matters most on ``play_sessions``, which grows with every session played. Creating them
 everywhere would leave MariaDB with two identical indexes per column, so they
 are dialect-gated here and excluded from autogenerate in ``alembic/env.py``,
 the same treatment the dialect-specific search indexes get.
