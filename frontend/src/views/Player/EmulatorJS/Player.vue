@@ -183,7 +183,7 @@ const {
   EJS_DISABLE_BATCH_BOOTUP,
   EJS_NETPLAY_ICE_SERVERS,
   EJS_NETPLAY_ENABLED,
-  EJS_AUTO_SAVE_SYNC,
+  EJS_ENABLE_AUTO_SAVE_SYNC,
 } = configStore.config;
 // Full origin (with scheme)
 window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.origin : "";
@@ -489,7 +489,7 @@ window.EJS_onGameStart = async () => {
       } else if (props.save) {
         await loadSave(props.save);
       }
-      if (EJS_AUTO_SAVE_SYNC) {
+      if (EJS_ENABLE_AUTO_SAVE_SYNC) {
         await installAutoSaveSync().catch((error) =>
           console.error("Failed to enable periodic save sync", error),
         );
