@@ -235,6 +235,7 @@ onMounted(() => {
 
 onBeforeUnmount(async () => {
   autoSaveSyncActive = false;
+  autoSaveSyncEmulator = null;
   emitter?.off("saveSelected", loadSave);
   emitter?.off("stateSelected", loadState);
   window.EJS_emulator?.callEvent("exit");
@@ -283,11 +284,14 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 const STATE_APPLY_SETTLE_MS = 500;
 
 // Periodic save upload on EmulatorJS' "System Save interval" tick (see
-// createSaveSyncTracker). EmulatorJS has no `off`, so a flag gates the handler.
+// createSaveSyncTracker). EmulatorJS has no `off`, so a flag gates the handler
+// and the emulator it was installed on guards against a second registration.
 let autoSaveSyncActive = false;
+let autoSaveSyncEmulator: object | null = null;
 async function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
-  if (!emulator?.gameManager) return;
+  if (!emulator?.gameManager || autoSaveSyncEmulator === emulator) return;
+  autoSaveSyncEmulator = emulator;
   const tracker = createSaveSyncTracker();
   // getSaveFile() dumps the core's SRAM first, so the seed is what it holds now.
   // That dump fires a saveSaveFiles tick, so the subscription must stay below it.
