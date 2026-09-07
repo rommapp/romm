@@ -255,7 +255,7 @@ function displayMessage(
     icon?: string;
   },
 ) {
-  window.EJS_emulator.displayMessage(message, duration);
+  window.EJS_emulator?.displayMessage(message, duration);
   const element = document.querySelector("#game .ejs_message");
   if (element) {
     element.classList.add(className, icon);
@@ -295,7 +295,10 @@ async function installAutoSaveSync() {
   const tracker = createSaveSyncTracker();
   // getSaveFile() dumps the core's SRAM first, so the seed is what it holds now.
   // That dump fires a saveSaveFiles tick, so the subscription must stay below it.
-  tracker.seed(await hashSaveFile(emulator.gameManager.getSaveFile()));
+  const seed = await hashSaveFile(emulator.gameManager.getSaveFile());
+  // A teardown during the seed clears the slot; don't revive the gate after it.
+  if (autoSaveSyncEmulator !== emulator) return;
+  tracker.seed(seed);
   let uploading = false;
   autoSaveSyncActive = true;
   emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
@@ -304,7 +307,8 @@ async function installAutoSaveSync() {
     try {
       const bytes = toArrayBuffer(saveFile);
       const hash = await hashSaveFile(bytes);
-      if (!hash || !tracker.shouldUpload(hash)) return;
+      // Exit and Save & Quit close the gate mid-hash; they own the last upload.
+      if (!hash || !autoSaveSyncActive || !tracker.shouldUpload(hash)) return;
       const save = await saveSave({
         rom: romRef.value,
         save: saveRef.value,
