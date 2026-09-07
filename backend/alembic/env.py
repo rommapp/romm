@@ -6,27 +6,10 @@ from sqlalchemy import create_engine
 
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
-from models.assets import (  # noqa
-    MemoryCard,
-    MemoryCardVersion,
-    Save,
-    Screenshot,
-    State,
-)
+from models import load_all_models
 from models.base import BaseModel
-from models.client_token import ClientToken  # noqa
 from models.collection import VirtualCollection
-from models.container_adoption import StreamingContainerAdoption  # noqa
-from models.device import Device  # noqa
-from models.device_save_sync import DeviceSaveSync  # noqa
-from models.firmware import Firmware  # noqa
-from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
-from models.platform import Platform  # noqa
-from models.play_session import PlaySession  # noqa
-from models.recommendation import RomSimilarity  # noqa
-from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
-from models.sync_session import SyncSession  # noqa
-from models.user import User  # noqa
+from models.rom import RomMetadata, SiblingRom
 from utils.database import AUTOGENERATE_EXEMPT_INDEX_NAMES
 
 # this is the Alembic Config object, which provides
@@ -39,6 +22,7 @@ unify_logger("alembic")
 # for 'autogenerate' support
 sys.path.append(f"{Path(__file__).parent.parent.resolve()}")
 
+load_all_models()
 target_metadata = BaseModel.metadata
 
 # other values from the config, defined by the needs of env.py,
