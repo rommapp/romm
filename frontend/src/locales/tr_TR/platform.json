@@ -57,6 +57,7 @@
   "playable-browser-emulatorjs": "EmulatorJS ile tarayıcıda oynanabilir",
   "playable-browser-jsdos": "js-dos ile tarayıcıda oynanabilir",
   "playable-browser-ruffle": "Ruffle ile tarayıcıda oynanabilir",
+  "playable-browser-pico8": "PICO-8 ile tarayıcıda oynanabilir",
   "playable-none": "Tarayıcıda oynanamaz ve yayınlanamaz",
   "playable-stream": "{label} üzerinden yayınlanabilir",
   "player-count": "Oyuncu sayısı",

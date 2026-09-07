@@ -6,6 +6,8 @@ import {
   getDownloadPath,
   isJsDosBundle,
   isJsDosEmulationSupported,
+  isPico8EmulationSupported,
+  isPico8Rom,
 } from "./index";
 
 function makeRom(overrides: Partial<SimpleRom>): SimpleRom {
@@ -165,5 +167,28 @@ describe("isJsDosBundle", () => {
   it("rejects a missing rom", () => {
     expect(isJsDosBundle(null)).toBe(false);
     expect(isJsDosBundle(undefined)).toBe(false);
+  });
+});
+
+describe("PICO-8 support", () => {
+  const withExt = (fs_extension: string) => makeRom({ fs_extension });
+
+  it("supports the pico platform and configured remaps", () => {
+    expect(isPico8EmulationSupported("pico", makeHeartbeat())).toBe(true);
+    expect(
+      isPico8EmulationSupported(
+        "custom-pico",
+        makeHeartbeat(),
+        makeConfig({ "custom-pico": "pico" }),
+      ),
+    ).toBe(true);
+    expect(isPico8EmulationSupported("snes", makeHeartbeat())).toBe(false);
+  });
+
+  it("accepts .p8 and .p8.png cartridges only", () => {
+    expect(isPico8Rom(withExt("p8"))).toBe(true);
+    expect(isPico8Rom(withExt("P8.PNG"))).toBe(true);
+    expect(isPico8Rom(withExt("zip"))).toBe(false);
+    expect(isPico8Rom(null)).toBe(false);
   });
 });

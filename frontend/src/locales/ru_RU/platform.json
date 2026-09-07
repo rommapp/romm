@@ -57,6 +57,7 @@
   "playable-browser-emulatorjs": "Запускается в браузере через EmulatorJS",
   "playable-browser-jsdos": "Запускается в браузере через js-dos",
   "playable-browser-ruffle": "Запускается в браузере через Ruffle",
+  "playable-browser-pico8": "Запускается в браузере через PICO-8",
   "playable-none": "Не запускается ни в браузере, ни через трансляцию",
   "playable-stream": "Транслируется с {label}",
   "player-count": "Количество игроков",

@@ -734,6 +734,20 @@ export function isJsDosBundle(rom: SimpleRom | null | undefined) {
   return rom?.fs_extension.toLowerCase() === "jsdos";
 }
 
+export function isPico8EmulationSupported(
+  platformSlug: string,
+  _heartbeat: Heartbeat,
+  config?: Config,
+) {
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return slug.toLowerCase() === "pico";
+}
+
+export function isPico8Rom(rom: SimpleRom | null | undefined) {
+  const extension = rom?.fs_extension.toLowerCase();
+  return extension === "p8" || extension === "p8.png";
+}
+
 export type PlayingStatus =
   RomUserStatus | "backlogged" | "now_playing" | "hidden";
 

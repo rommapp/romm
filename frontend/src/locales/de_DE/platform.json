@@ -57,6 +57,7 @@
   "playable-browser-emulatorjs": "Im Browser spielbar über EmulatorJS",
   "playable-browser-jsdos": "Im Browser spielbar über js-dos",
   "playable-browser-ruffle": "Im Browser spielbar über Ruffle",
+  "playable-browser-pico8": "Im Browser spielbar über PICO-8",
   "playable-none": "Weder im Browser spielbar noch streambar",
   "playable-stream": "Streambar über {label}",
   "player-count": "Spieleranzahl",

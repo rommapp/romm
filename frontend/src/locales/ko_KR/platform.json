@@ -57,6 +57,7 @@
   "playable-browser-emulatorjs": "EmulatorJS를 통해 브라우저에서 플레이 가능",
   "playable-browser-jsdos": "js-dos를 통해 브라우저에서 플레이 가능",
   "playable-browser-ruffle": "Ruffle을 통해 브라우저에서 플레이 가능",
+  "playable-browser-pico8": "PICO-8을 통해 브라우저에서 플레이 가능",
   "playable-none": "브라우저에서도 스트리밍으로도 플레이할 수 없음",
   "playable-stream": "{label}에서 스트리밍 가능",
   "player-count": "플레이어 수",

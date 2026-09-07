@@ -57,6 +57,7 @@
   "playable-browser-emulatorjs": "Böngészőben játszható EmulatorJS segítségével",
   "playable-browser-jsdos": "Böngészőben játszható js-dos segítségével",
   "playable-browser-ruffle": "Böngészőben játszható Ruffle segítségével",
+  "playable-browser-pico8": "Böngészőben játszható PICO-8 segítségével",
   "playable-none": "Böngészőben nem játszható és nem streamelhető",
   "playable-stream": "Streamelhető innen: {label}",
   "player-count": "Játékosok száma",
