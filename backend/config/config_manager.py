@@ -419,13 +419,14 @@ class Config:
         """The custom library structure(s) for a platform, or ``None``.
 
         Opt-in per platform via `filesystem.structure` in config.yml (a map of
-        ``fs_slug -> template`` or ``fs_slug -> [template, ...]``). When unset,
+        ``fs_slug -> template`` or ``fs_slug -> [template, ...]``, keyed
+        case-insensitively like `system.platforms`). When unset,
         the platform uses RomM's default discovery (top-level files and
         folders). Returns the parsed structures whose discovery is unioned;
         templates are validated at load time, so parsing here is expected to
         succeed.
         """
-        value = getattr(self, "STRUCTURE_TEMPLATES", {}).get(fs_slug)
+        value = getattr(self, "STRUCTURE_TEMPLATES", {}).get(fs_slug.lower())
         if not value:
             return None
         return parse_platform_structures(value)
@@ -1019,6 +1020,12 @@ class ConfigManager:
                 "Invalid config.yml: filesystem.structure must be a dictionary"
             )
             sys.exit(3)
+        # Folder names are lowercased so lookups ignore case, matching
+        # `system.platforms`.
+        self.config.STRUCTURE_TEMPLATES = {
+            str(fs_slug).lower(): value
+            for fs_slug, value in self.config.STRUCTURE_TEMPLATES.items()
+        }
         for fs_slug, value in self.config.STRUCTURE_TEMPLATES.items():
             is_str = isinstance(value, str)
             is_str_list = isinstance(value, list) and all(

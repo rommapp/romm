@@ -204,6 +204,19 @@ def test_parse_library_structure_names_a_near_miss_terminal():
         parse_library_structure("{category}/{gameFolder}")
 
 
+def test_structure_templates_are_keyed_case_insensitively(monkeypatch, tmp_path):
+    """`system.platforms` lowercases its folder names, so `filesystem.structure`
+    has to as well or the same key works in one block and not the other."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "filesystem:\n  structure:\n    'Atari - 2600': '{gameFile}'\n"
+    )
+    config = ConfigManager(str(config_file)).get_config()
+
+    assert config.platform_structure("Atari - 2600") is not None
+    assert config.platform_structure("atari - 2600") is not None
+
+
 def test_parse_platform_structures_string_and_list():
     # A bare string yields a single structure.
     single = parse_platform_structures("{gameFile}")
