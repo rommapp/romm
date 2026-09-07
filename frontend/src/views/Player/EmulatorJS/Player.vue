@@ -284,8 +284,8 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 const STATE_APPLY_SETTLE_MS = 500;
 
 // Periodic save upload on EmulatorJS' "System Save interval" tick (see
-// createSaveSyncTracker). EmulatorJS has no `off`, so a flag gates the handler
-// and the emulator it was installed on guards against a second registration.
+// createSaveSyncTracker). EmulatorJS has no `off`, so the handler is gated
+// rather than removed, and installed at most once.
 let autoSaveSyncActive = false;
 let autoSaveSyncEmulator: object | null = null;
 async function installAutoSaveSync() {
