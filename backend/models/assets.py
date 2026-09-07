@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy import BigInteger, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from models.base import (
@@ -70,7 +70,12 @@ class RomAsset(BaseAsset):
 
 class Screenshot(RomAsset):
     __tablename__ = "screenshots"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        # `Save.screenshot` / `State.screenshot` hit this once per rendered card.
+        Index("ix_screenshots_rom_user", "rom_id", "user_id"),
+        Index("idx_screenshots_public", "is_public"),
+        {"extend_existing": True},
+    )
 
     # `is_gallery` distinguishes intentionally-uploaded gallery screenshots from
     # the auto-captured save/state thumbnails that also live in this table.
@@ -86,15 +91,20 @@ class Screenshot(RomAsset):
 
 class Save(RomAsset):
     __tablename__ = "saves"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        Index("ix_saves_rom_user_hash", "rom_id", "user_id", "content_hash"),
+        Index("idx_saves_public", "is_public"),
+        {"extend_existing": True},
+    )
 
     emulator: Mapped[str | None] = mapped_column(String(length=50))
-    slot: Mapped[str | None] = mapped_column(String(length=255))
+    slot: Mapped[str | None] = mapped_column(String(length=255), index=True)
     content_hash: Mapped[str | None] = mapped_column(String(length=32))
     origin_device_id: Mapped[str | None] = mapped_column(
         String(length=255),
         ForeignKey("devices.id", ondelete="SET NULL"),
         default=None,
+        index=True,
     )
     # `is_public` mirrors Screenshot/RomNote — lets other users browse and
     # download a user's public saves (community). Defaults false (private).
@@ -122,7 +132,11 @@ class Save(RomAsset):
 
 class State(RomAsset):
     __tablename__ = "states"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        Index("ix_states_rom_user", "rom_id", "user_id"),
+        Index("idx_states_public", "is_public"),
+        {"extend_existing": True},
+    )
 
     emulator: Mapped[str | None] = mapped_column(String(length=50))
     # `is_public` mirrors Screenshot/RomNote — lets other users browse and
@@ -162,7 +176,11 @@ class MemoryCard(BaseModel):
     """
 
     __tablename__ = "memory_cards"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        Index("ix_memory_cards_user_emulator", "user_id", "emulator"),
+        Index("ix_memory_cards_public", "is_public"),
+        {"extend_existing": True},
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -202,7 +220,10 @@ class MemoryCardVersion(BaseAsset):
     """
 
     __tablename__ = "memory_card_versions"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        Index("ix_memory_card_versions_card_hash", "memory_card_id", "content_hash"),
+        {"extend_existing": True},
+    )
 
     memory_card_id: Mapped[int] = mapped_column(
         ForeignKey("memory_cards.id", ondelete="CASCADE")
