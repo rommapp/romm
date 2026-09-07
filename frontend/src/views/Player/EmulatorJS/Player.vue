@@ -234,7 +234,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(async () => {
-  autoSaveSyncActive = false;
   autoSaveSyncEmulator = null;
   emitter?.off("saveSelected", loadSave);
   emitter?.off("stateSelected", loadState);
@@ -284,9 +283,8 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 const STATE_APPLY_SETTLE_MS = 500;
 
 // Periodic save upload on EmulatorJS' "System Save interval" tick (see
-// createSaveSyncTracker). EmulatorJS has no `off`, so the handler is gated
-// rather than removed, and installed at most once.
-let autoSaveSyncActive = false;
+// createSaveSyncTracker). EmulatorJS has no `off`, so the handler stays
+// subscribed and this slot is what tells it the component still owns it.
 let autoSaveSyncEmulator: object | null = null;
 async function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
@@ -296,19 +294,23 @@ async function installAutoSaveSync() {
   // getSaveFile() dumps the core's SRAM first, so the seed is what it holds now.
   // That dump fires a saveSaveFiles tick, so the subscription must stay below it.
   const seed = await hashSaveFile(emulator.gameManager.getSaveFile());
-  // A teardown during the seed clears the slot; don't revive the gate after it.
+  // A teardown during the seed releases the slot; don't subscribe after it.
   if (autoSaveSyncEmulator !== emulator) return;
   tracker.seed(seed);
   let uploading = false;
-  autoSaveSyncActive = true;
   emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
-    if (!autoSaveSyncActive || uploading || !saveFile) return;
+    if (autoSaveSyncEmulator !== emulator || uploading || !saveFile) return;
     uploading = true;
     try {
       const bytes = toArrayBuffer(saveFile);
       const hash = await hashSaveFile(bytes);
-      // Exit and Save & Quit close the gate mid-hash; they own the last upload.
-      if (!hash || !autoSaveSyncActive || !tracker.shouldUpload(hash)) return;
+      // Exit and Save & Quit release the slot mid-hash; they own the last upload.
+      if (
+        !hash ||
+        autoSaveSyncEmulator !== emulator ||
+        !tracker.shouldUpload(hash)
+      )
+        return;
       const save = await saveSave({
         rom: romRef.value,
         save: saveRef.value,
@@ -532,7 +534,7 @@ window.EJS_onGameStart = async () => {
 
   const exitEmulation = createExitEmulationButton();
   exitEmulation.addEventListener("click", async () => {
-    autoSaveSyncActive = false;
+    autoSaveSyncEmulator = null;
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
     romsStore.update(romRef.value);
     immediateExit();
@@ -540,7 +542,7 @@ window.EJS_onGameStart = async () => {
 
   const saveAndQuit = createSaveQuitButton();
   saveAndQuit.addEventListener("click", async () => {
-    autoSaveSyncActive = false;
+    autoSaveSyncEmulator = null;
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
     // Grab the screenshot while the game is still running (EmulatorJS reads

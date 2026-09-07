@@ -135,10 +135,8 @@ export async function saveSave({
   return null;
 }
 
-// Decides, per EmulatorJS "saveSaveFiles" tick, whether the SRAM is worth
-// uploading (config flag emulatorjs.auto_save_sync, see #4201).
-// Why two agreeing ticks: a save the core is still writing is never uploaded,
-// which is the corruption the earlier automatic upload was removed for (#2349).
+// Per EmulatorJS "saveSaveFiles" tick, whether the SRAM is worth uploading
+// (#4201). Two agreeing ticks keep a mid-write save from being uploaded (#2349).
 export function createSaveSyncTracker() {
   let lastUploaded: string | null = null;
   let previousTick: string | null = null;
@@ -167,14 +165,15 @@ export function toArrayBuffer(view: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-// FNV-1a over two 32-bit lanes. Only used when WebCrypto is unavailable
-// (non-secure contexts); change detection needs equality, not strength.
+// FNV-1a over two lanes with distinct primes, so the halves stay independent.
+// Only used when WebCrypto is unavailable (non-secure contexts).
 function fnv1a64(bytes: Uint8Array): string {
   let a = 0x811c9dc5;
   let b = 0xcbf29ce4;
   for (let i = 0; i < bytes.length; i++) {
-    a = Math.imul(a ^ bytes[i], 0x01000193) >>> 0;
-    b = Math.imul(b ^ bytes[(i + 1) % bytes.length], 0x01000193) >>> 0;
+    const byte = bytes[i];
+    a = Math.imul(a ^ byte, 0x01000193) >>> 0;
+    b = Math.imul(b ^ byte, 0x5f356495) >>> 0;
   }
   return a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
 }
