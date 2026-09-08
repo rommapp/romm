@@ -830,6 +830,9 @@ class Rom(BaseModel):
         `update()` statements bypass the ORM and set these explicitly (see
         `update_rom`).
         """
+        # `full_path` caches the two halves joined, so it cannot survive a set.
+        self.__dict__.pop("full_path", None)
+
         # The hook runs before the value lands, so the digest reads the incoming
         # half rather than the stale one on the instance.
         if key == "fs_path":

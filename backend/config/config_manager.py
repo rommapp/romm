@@ -107,6 +107,11 @@ def _template_sections(template: str) -> list[str]:
     sections = [section for section in template.split("/") if section != ""]
     if not sections:
         raise ValueError("template is empty")
+    for section in sections:
+        # No directory listing ever yields these, so a template carrying one
+        # would discover nothing and mark the platform's roms missing.
+        if section in (".", ".."):
+            raise ValueError(f"'{section}' is not a folder name")
     return sections
 
 

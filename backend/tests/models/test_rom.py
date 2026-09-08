@@ -240,6 +240,17 @@ class TestFullPathHash:
             "test_platform_slug/roms/Hacks", "renamed.zip"
         )
 
+    def test_the_cached_full_path_does_not_survive_a_rename(self, rom: Rom):
+        """A scan reads `full_path` and then renames the file in place, so the
+        cached pair has to be dropped when either half is set."""
+        assert rom.full_path == "test_platform_slug/roms/test_rom.zip"
+
+        rom.fs_name = "renamed.zip"
+        assert rom.full_path == "test_platform_slug/roms/renamed.zip"
+
+        rom.fs_path = "test_platform_slug/roms/Hacks"
+        assert rom.full_path == "test_platform_slug/roms/Hacks/renamed.zip"
+
     def test_the_same_name_in_two_folders_is_two_distinct_roms(self):
         """What the (platform_id, fs_name) index used to forbid, and what a
         custom library structure makes ordinary."""

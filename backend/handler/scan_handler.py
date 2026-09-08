@@ -160,7 +160,7 @@ def build_physical_fs_name(name: str) -> str:
     """`fs_name` for a physical game: the sanitized name, with no fake extension.
 
     Physical games all share one folder, so the unique index on
-    (platform_id, fs_path, fs_name) rejects a second copy of the same title on a
+    (platform_id, full_path_hash) rejects a second copy of the same title on a
     platform, which is not a library a user can own anyway.
     """
     return sanitize_filename(name)

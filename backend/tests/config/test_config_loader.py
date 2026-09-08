@@ -212,6 +212,9 @@ def test_parse_structure_template_accepts_the_platform_folder_by_name():
         "{library}/roms/{platform}/{game}",  # macro RomM resolves itself
         "roms/{platform}/{}/{game}",  # empty macro
         "roms/{platform}/{gameFile}",  # the terminal is spelled {game}
+        "roms/{platform}/./{game}",  # no listing ever yields '.'
+        "roms/{platform}/../{game}",
+        "../roms/{platform}/{game}",
     ],
 )
 def test_parse_structure_template_invalid(template):
@@ -240,6 +243,7 @@ def test_parse_firmware_template_valid(template, platform_dir, subdir):
         "bios",  # no platform folder
         "bios/{platform}/{game}",  # firmware is a folder, not a set of games
         "bios/{platform}/{region}",  # no wildcard levels
+        "bios/{platform}/..",
     ],
 )
 def test_parse_firmware_template_invalid(template):
