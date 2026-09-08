@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // AnniversaryWidget: games released on today's date in an earlier year, one at
-// a time, with arrows to page through the rest. One request per mount fetches
-// the whole day, so paging is client-side. The server treats 1 January as no
-// day at all, since several providers park year-only metadata there.
+// a time, with arrows to page through the rest. One request per day fetches the
+// whole day, so paging is client-side. The server treats 1 January as no day at
+// all, since several providers park year-only metadata there.
 import { RBtn } from "@v2/lib";
 import { releaseYear } from "@v2/utils/time";
+import { useIntervalFn } from "@vueuse/core";
 import { computed, nextTick, onMounted, ref } from "vue";
 import type { ComponentPublicInstance, Ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -19,7 +20,12 @@ defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 
+// A Home page can sit open across local midnight, and the card is pinned to a
+// date, so the day it was loaded for is compared against the clock.
+const DAY_ROLLOVER_CHECK_MS = 60_000;
+
 const roms = ref<SimpleRom[]>([]);
+const loadedDay = ref("");
 const index = ref(0);
 const loading = ref(false);
 const failed = ref(false);
@@ -37,8 +43,8 @@ const title = computed(
 const atStart = computed(() => index.value <= 0);
 const atEnd = computed(() => index.value >= roms.value.length - 1);
 
-// Null, not zero: a client whose local date runs ahead of UTC can be handed a
-// release from earlier today, and "0 years ago" is not an anniversary.
+// The query already excludes the viewer's current year; this keeps a client
+// whose clock disagrees with the server's from rendering "0 years ago".
 const yearsAgo = computed(() => {
   const released = releaseYear(current.value?.metadatum?.first_release_date);
   if (!released) return null;
@@ -75,12 +81,17 @@ async function step(delta: number) {
   }
 }
 
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
 async function load() {
   loading.value = true;
   try {
     // The client's own calendar day, so "today" matches the date in front of
     // the user rather than the server's UTC clock.
     const today = new Date();
+    loadedDay.value = dayKey(today);
     const { data } = await romApi.getAnniversaryRoms({
       month: today.getMonth() + 1,
       day: today.getDate(),
@@ -98,6 +109,10 @@ async function load() {
 }
 
 onMounted(load);
+
+useIntervalFn(() => {
+  if (dayKey(new Date()) !== loadedDay.value) void load();
+}, DAY_ROLLOVER_CHECK_MS);
 </script>
 
 <template>

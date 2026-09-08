@@ -177,6 +177,25 @@ describe("AnniversaryWidget", () => {
     expect(wrapper.text()).toContain("home.widget-anniversaries-error");
   });
 
+  it("reloads when the local day rolls over, and not before", async () => {
+    getAnniversaryRoms.mockResolvedValue({ data: [] });
+
+    mountWidget();
+    await flushPromises();
+    expect(getAnniversaryRoms).toHaveBeenCalledWith({ month: 9, day: 8 });
+
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(getAnniversaryRoms).toHaveBeenCalledTimes(1);
+
+    // A Home page left open overnight would otherwise keep yesterday's games.
+    vi.setSystemTime(new Date(2026, 8, 9, 0, 0, 30));
+    await vi.advanceTimersByTimeAsync(60_000);
+    await flushPromises();
+
+    expect(getAnniversaryRoms).toHaveBeenCalledTimes(2);
+    expect(getAnniversaryRoms).toHaveBeenLastCalledWith({ month: 9, day: 9 });
+  });
+
   it("omits the years line for a game released earlier this year", async () => {
     // A client east of the server can ask for a day whose current-year release
     // the server has already counted as past. "0 years ago today" is not a
