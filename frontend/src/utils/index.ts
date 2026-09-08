@@ -734,6 +734,36 @@ export function isJsDosBundle(rom: SimpleRom | null | undefined) {
   return rom?.fs_extension.toLowerCase() === "jsdos";
 }
 
+/**
+ * Check if PICO-8 emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isPico8EmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_PICO8) return false;
+
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return slug.toLowerCase() === "pico";
+}
+
+/**
+ * Check if a ROM file is a PICO-8 cartridge.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the file is a PICO-8 cartridge, false otherwise.
+ */
+export function isPico8Rom(rom: SimpleRom | null | undefined) {
+  const extension = rom?.fs_extension.toLowerCase();
+  return extension === "p8" || extension === "p8.png";
+}
+
 export type PlayingStatus =
   RomUserStatus | "backlogged" | "now_playing" | "hidden";
 

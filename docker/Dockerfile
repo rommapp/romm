@@ -133,7 +133,7 @@ RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git &
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
 
 
-# FETCH EMULATORJS, RUFFLE AND JS-DOS
+# FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \
@@ -169,6 +169,20 @@ RUN wget "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION
     rm -f jsdos.zip && \
     rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
     find /jsdos/dist \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
+
+ARG FAKE08_P3A_COMMIT=6519efd9dd1ca853e5c66f7ae9146ace0b7073dc
+ARG FAKE08_JS_SHA256=fd2cd4677956037e41a91dbd40fc1a9c4f5979355d55ce3f9312400e11da463e
+ARG FAKE08_WASM_SHA256=4339a77e0aa5aa6f4a5bce9fd8286053eedf7f23f2d853db7f4900f6fff4c93a
+ARG FAKE08_P3A_RAW=https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8
+
+# FAKE-08 (MIT, https://github.com/jtothebell/fake-08) publishes no web build, so the
+# browser artifacts come from p3a (Apache-2.0, https://github.com/fabkury/p3a), which
+# compiled them. Pinned by commit and checksum because that tree has no tagged releases.
+RUN mkdir -p /fake08 && \
+    wget "${FAKE08_P3A_RAW}/fake08.js" -O /fake08/fake08.js && \
+    wget "${FAKE08_P3A_RAW}/fake08.wasm" -O /fake08/fake08.wasm && \
+    echo "${FAKE08_JS_SHA256}  /fake08/fake08.js" | sha256sum -c - && \
+    echo "${FAKE08_WASM_SHA256}  /fake08/fake08.wasm" | sha256sum -c -
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
@@ -302,6 +316,7 @@ ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 COPY --from=emulator-stage /jsdos/dist ${WEBSERVER_FOLDER}/assets/jsdos
+COPY --from=emulator-stage /fake08 ${WEBSERVER_FOLDER}/assets/pico8
 
 
 FROM slim-image AS dev-slim

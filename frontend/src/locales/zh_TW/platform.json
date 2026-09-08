@@ -56,6 +56,7 @@
   "playable-browser-dosbox": "可透過 DOSBox 在瀏覽器中遊玩",
   "playable-browser-emulatorjs": "可透過 EmulatorJS 在瀏覽器中遊玩",
   "playable-browser-jsdos": "可透過 js-dos 在瀏覽器中遊玩",
+  "playable-browser-pico8": "可透過 PICO-8 在瀏覽器中遊玩",
   "playable-browser-ruffle": "可透過 Ruffle 在瀏覽器中遊玩",
   "playable-none": "無法在瀏覽器中遊玩，也無法串流",
   "playable-stream": "可從 {label} 串流",

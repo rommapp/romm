@@ -8,6 +8,8 @@ import { useCanPlay } from "./index";
 const support = vi.hoisted(() => ({
   ejs: vi.fn(() => false),
   jsDos: vi.fn(() => false),
+  pico8: vi.fn(() => false),
+  pico8Rom: vi.fn(() => false),
   ruffle: vi.fn(() => false),
   // js-dos also demands its own bundle format; on by default so the engine
   // stubs stay the only variable.
@@ -32,6 +34,8 @@ vi.mock("@/stores/streaming", () => ({
 vi.mock("@/utils", () => ({
   isEJSEmulationSupported: support.ejs,
   isJsDosEmulationSupported: support.jsDos,
+  isPico8EmulationSupported: support.pico8,
+  isPico8Rom: support.pico8Rom,
   isRuffleEmulationSupported: support.ruffle,
   isJsDosBundle: support.jsDosBundle,
 }));
@@ -49,10 +53,14 @@ function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
 beforeEach(() => {
   support.ejs.mockReturnValue(false);
   support.jsDos.mockReturnValue(false);
+  support.pico8.mockReturnValue(false);
+  support.pico8Rom.mockReturnValue(false);
   support.ruffle.mockReturnValue(false);
   support.jsDosBundle.mockReturnValue(true);
   support.ejs.mockClear();
   support.jsDos.mockClear();
+  support.pico8.mockClear();
+  support.pico8Rom.mockClear();
   support.ruffle.mockClear();
   support.jsDosBundle.mockClear();
   streamContainer.value = null;
@@ -62,9 +70,11 @@ describe("useCanPlay", () => {
   it.each([
     ["EJS", "ejs", "canPlayEJS"],
     ["js-dos", "jsDos", "canPlayJsDos"],
+    ["PICO-8", "pico8", "canPlayPico8"],
     ["Ruffle", "ruffle", "canPlayRuffle"],
   ] as const)("reports %s support on its own flag", (_label, stub, flag) => {
     support[stub].mockReturnValue(true);
+    if (stub === "pico8") support.pico8Rom.mockReturnValue(true);
     const result = useCanPlay(() => makeRom());
 
     expect(result[flag].value).toBe(true);
@@ -73,7 +83,7 @@ describe("useCanPlay", () => {
 
   // A physical game, or one whose file vanished from the library, has nothing
   // to hand the emulator: every route boots from the download endpoint.
-  it.each(["ejs", "jsDos", "ruffle"] as const)(
+  it.each(["ejs", "jsDos", "pico8", "ruffle"] as const)(
     "refuses %s for a rom with no file on disk",
     (stub) => {
       support[stub].mockReturnValue(true);
@@ -89,14 +99,23 @@ describe("useCanPlay", () => {
   it("refuses every route when there is no rom", () => {
     support.ejs.mockReturnValue(true);
     support.jsDos.mockReturnValue(true);
+    support.pico8.mockReturnValue(true);
+    support.pico8Rom.mockReturnValue(true);
     support.ruffle.mockReturnValue(true);
     streamContainer.value = {};
-    const { canPlay, canPlayEJS, canPlayJsDos, canPlayRuffle, canPlayStream } =
-      useCanPlay(() => null);
+    const {
+      canPlay,
+      canPlayEJS,
+      canPlayJsDos,
+      canPlayPico8,
+      canPlayRuffle,
+      canPlayStream,
+    } = useCanPlay(() => null);
 
     expect(canPlay.value).toBe(false);
     expect(canPlayEJS.value).toBe(false);
     expect(canPlayJsDos.value).toBe(false);
+    expect(canPlayPico8.value).toBe(false);
     expect(canPlayRuffle.value).toBe(false);
     expect(canPlayStream.value).toBe(false);
   });
@@ -131,6 +150,15 @@ describe("useCanPlay", () => {
     const { canPlay, canPlayJsDos } = useCanPlay(() => makeRom());
 
     expect(canPlayJsDos.value).toBe(false);
+    expect(canPlay.value).toBe(false);
+  });
+
+  it("refuses PICO-8 for a rom with another extension", () => {
+    support.pico8.mockReturnValue(true);
+    support.pico8Rom.mockReturnValue(false);
+    const { canPlay, canPlayPico8 } = useCanPlay(() => makeRom());
+
+    expect(canPlayPico8.value).toBe(false);
     expect(canPlay.value).toBe(false);
   });
 

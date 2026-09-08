@@ -56,6 +56,7 @@
   "playable-browser-dosbox": "Jogável no navegador via DOSBox",
   "playable-browser-emulatorjs": "Jogável no navegador via EmulatorJS",
   "playable-browser-jsdos": "Jogável no navegador via js-dos",
+  "playable-browser-pico8": "Jogável no navegador via PICO-8",
   "playable-browser-ruffle": "Jogável no navegador via Ruffle",
   "playable-none": "Não jogável no navegador nem por transmissão",
   "playable-stream": "Transmissível de {label}",
