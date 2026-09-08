@@ -1945,6 +1945,31 @@ class TestPostScanRecommendations:
         assert patched.emit.await_args.args[0] == "scan:done"
 
 
+class TestPostScanIdentityKeyStatistics:
+    """A fresh install samples `rom_identity_keys` while it is still empty, so
+    the scan that fills it has to hand the optimizer a fresh sample."""
+
+    async def test_a_completed_scan_resamples_the_identity_keys(self, patched, mocker):
+        refresh = mocker.patch.object(
+            scan_module.db_rom_handler, "refresh_identity_key_statistics"
+        )
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        refresh.assert_called_once_with()
+
+    async def test_a_failure_to_resample_does_not_fail_the_scan(self, patched, mocker):
+        mocker.patch.object(
+            scan_module.db_rom_handler,
+            "refresh_identity_key_statistics",
+            side_effect=RuntimeError("boom"),
+        )
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        assert patched.emit.await_args.args[0] == "scan:done"
+
+
 class TestGetPico8CoverUrl:
     """Tests for the PICO-8 cover art URL helper on FSRomsHandler."""
 

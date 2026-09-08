@@ -244,3 +244,24 @@ class TestRomIdentityKeys:
             assert [(s.id, is_main) for s, is_main in buckets[rom.id]] == [
                 (sibling.id, True)
             ]
+
+
+class TestIdentityKeyStatistics:
+    """Migration 0126 samples this table right after its backfill, which a fresh
+    install runs while the table is still empty. The scan that fills it has to
+    resample, or the optimizer keeps the plan it chose for an empty table.
+    """
+
+    def test_resampling_leaves_the_keys_readable(self, platform: Platform):
+        """Runs the real statement, so each engine's CI leg proves its own syntax."""
+        rom = _add_rom(platform, "sampled", igdb_id=99)
+
+        db_rom_handler.refresh_identity_key_statistics()
+
+        assert _keys(rom.id) == {
+            (SIBLING_IDENTITY_ID_FIELDS.index("igdb_id"), platform.id, 99)
+        }
+
+    def test_resampling_an_empty_table_is_not_an_error(self) -> None:
+        """A fresh install resamples after a scan that found nothing."""
+        db_rom_handler.refresh_identity_key_statistics()

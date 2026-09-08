@@ -63,6 +63,7 @@ from models.rom import (
     RomFileCategory,
     RomFileDocMeta,
     RomFileUser,
+    RomIdentityKey,
     RomMetadata,
     RomNote,
     RomUser,
@@ -74,6 +75,7 @@ from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
     escape_like,
+    is_postgresql,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
@@ -3408,6 +3410,20 @@ class DBRomsHandler(DBBaseHandler):
             "tags": sorted(tags),
             "platforms": sorted(platforms),
         }
+
+    @begin_session
+    def refresh_identity_key_statistics(
+        self,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        """Resample `rom_identity_keys` so the sibling join keeps its indexed plan.
+
+        Migration 0126's sample lands on an empty table on a fresh install, and
+        InnoDB's auto-recalc refreshes the stored row count without replanning.
+        """
+        keyword = "ANALYZE" if is_postgresql(session.connection()) else "ANALYZE TABLE"
+        session.execute(text(f"{keyword} {RomIdentityKey.__tablename__}"))
 
     def invalidate_filter_values_cache(self) -> None:
         old_version = str(int(sync_cache.incr(ROM_FILTERS_CACHE_VERSION_KEY)) - 1)

@@ -222,6 +222,8 @@ def upgrade() -> None:
     # Without sampled statistics the optimizer estimates thousands of rows per
     # (provider, platform, provider id) and picks a worse join order for the
     # rest of the list query, leaving the gallery slower than before this ran.
+    # A fresh install samples an empty table here, so a scan resamples after it
+    # fills one (`db_rom_handler.refresh_identity_key_statistics`).
     op.execute(f"ANALYZE {'' if pg else 'TABLE '}{TABLE}")
 
     if pg:
