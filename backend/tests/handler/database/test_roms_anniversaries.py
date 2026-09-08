@@ -122,6 +122,13 @@ class TestYearBoundary:
         assert _anniversary_names(date(2026, 12, 31)) == ["new_years_eve"]
         assert _anniversary_names(date(2026, 1, 1)) == []
 
+    def test_a_client_behind_utc_still_excludes_its_own_year(self, platform: Platform):
+        """31 December asked for on 1 January UTC belongs to the year just ended."""
+        _dated_rom(platform, "released_today", date(2026, 12, 31))
+        _dated_rom(platform, "new_years_eve", date(1999, 12, 31))
+
+        assert _anniversary_names(date(2027, 1, 1), 12, 31) == ["new_years_eve"]
+
 
 class TestLeapDay:
     def test_leap_day_matches_itself_in_a_leap_year(self, platform: Platform):

@@ -1945,10 +1945,16 @@ class DBRomsHandler(DBBaseHandler):
         if (month, day) == AMBIGUOUS_RELEASE_DAY:
             return []
 
-        ranges = day_of_year_ranges(month, day, before_year=today.year)
+        # A timezone offset shifts the calendar by at most a day, so the one year
+        # the server's date can get wrong is 31 December asked for on 1 January.
+        current_year = today.year
+        if (month, day) == (12, 31) and (today.month, today.day) == (1, 1):
+            current_year -= 1
+
+        ranges = day_of_year_ranges(month, day, before_year=current_year)
         # Otherwise a 29 February release would surface three years out of four.
-        if (month, day) == (2, 28) and not calendar.isleap(today.year):
-            ranges += day_of_year_ranges(2, 29, before_year=today.year)
+        if (month, day) == (2, 28) and not calendar.isleap(current_year):
+            ranges += day_of_year_ranges(2, 29, before_year=current_year)
 
         id_query = (
             query.order_by(None)

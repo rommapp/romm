@@ -204,6 +204,25 @@ def test_rejects_out_of_range_parameters(
     )
 
 
+def test_a_client_behind_utc_does_not_get_its_own_years_release(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    """The client is still on 31 December while the server has entered 1 January.
+
+    The client sends only a month and a day, so the year the query stops at has
+    to follow the day it asked for rather than the server's own calendar.
+    """
+    _dated_rom(platform, "released_today", date(2026, 12, 31))
+    _dated_rom(platform, "new_years_eve", date(1999, 12, 31))
+
+    with patch("endpoints.roms.datetime") as mock_datetime:
+        mock_datetime.now.return_value = datetime(2027, 1, 1, 2, tzinfo=timezone.utc)
+        response = _get(client, access_token, month=12, day=31)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [rom["name"] for rom in response.json()] == ["new_years_eve"]
+
+
 def test_a_day_no_year_has_returns_nothing(
     client: TestClient, access_token: str, platform: Platform
 ) -> None:
