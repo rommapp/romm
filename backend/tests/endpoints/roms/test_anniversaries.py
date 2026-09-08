@@ -174,16 +174,19 @@ def test_undated_roms_are_not_returned(
     assert response.json() == []
 
 
-def test_caps_the_result_list(
+def test_returns_every_match_for_the_day(
     client: TestClient, access_token: str, platform: Platform
 ) -> None:
-    for year in range(1990, 1996):
+    """Uncapped, so the widget's counter is a real total rather than a ceiling."""
+    for year in range(1970, 2000):
         _dated_rom(platform, f"rom_{year}", date(year, 9, 8))
 
-    response = _get(client, access_token, month=9, day=8, limit=2)
+    response = _get(client, access_token, month=9, day=8)
 
     assert response.status_code == status.HTTP_200_OK
-    assert [rom["name"] for rom in response.json()] == ["rom_1990", "rom_1991"]
+    assert [rom["name"] for rom in response.json()] == [
+        f"rom_{year}" for year in range(1970, 2000)
+    ]
 
 
 @pytest.mark.parametrize(
@@ -192,7 +195,6 @@ def test_caps_the_result_list(
         {"month": 13, "day": 1},
         {"month": 0, "day": 1},
         {"month": 9, "day": 32},
-        {"month": 9, "day": 8, "limit": 500},
     ],
 )
 def test_rejects_out_of_range_parameters(

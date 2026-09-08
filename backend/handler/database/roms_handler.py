@@ -1920,10 +1920,9 @@ class DBRomsHandler(DBBaseHandler):
         today: date,
         month: int | None = None,
         day: int | None = None,
-        limit: int,
         session: Session = None,  # type: ignore
     ) -> list[int]:
-        """Ids of roms released on a given day of the year, oldest release first.
+        """Ids of every rom released on a given day of the year, oldest release first.
 
         `idx_roms_generated_first_release_date` serves both the day-of-year match
         and the sort as one range scan, and only the id is selected, so the wide
@@ -1934,7 +1933,6 @@ class DBRomsHandler(DBBaseHandler):
                 decides the leap-day rollover.
             month: Calendar month, defaulting to `today`'s.
             day: Day of the month, defaulting to `today`'s.
-            limit: Maximum ids to return.
 
         Returns:
             Rom ids, oldest release first. Empty on 1 January.
@@ -1961,7 +1959,6 @@ class DBRomsHandler(DBBaseHandler):
             .with_only_columns(Rom.id)  # type: ignore
             .where(epoch_ms_in_ranges(Rom.generated_first_release_date, ranges))
             .order_by(Rom.generated_first_release_date.asc())
-            .limit(limit)
         )
 
         return list(session.scalars(id_query).all())

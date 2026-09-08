@@ -46,7 +46,7 @@ def _dated_rom(platform: Platform, name: str, released: date | None) -> Rom:
 def _anniversary_names(today: date, month: int | None = None, day: int | None = None):
     query, _ = db_rom_handler.get_roms_query()
     ids = db_rom_handler.get_anniversary_rom_ids(
-        query=query, today=today, month=month, day=day, limit=24
+        query=query, today=today, month=month, day=day
     )
     by_id = {rom.id: rom.name for rom in db_rom_handler.get_roms_simple_by_ids(ids)}
     return [by_id[rom_id] for rom_id in ids]
@@ -103,16 +103,12 @@ class TestMatching:
 
         assert _anniversary_names(date(2026, 9, 8)) == ["released_before"]
 
-    def test_respects_the_limit(self, platform: Platform):
-        for year in range(1990, 2000):
+    def test_returns_every_match(self, platform: Platform):
+        """No cap: the day's whole list is what the widget pages through."""
+        for year in range(1970, 2000):
             _dated_rom(platform, f"rom_{year}", date(year, 9, 8))
 
-        query, _ = db_rom_handler.get_roms_query()
-        ids = db_rom_handler.get_anniversary_rom_ids(
-            query=query, today=date(2026, 9, 8), limit=3
-        )
-
-        assert len(ids) == 3
+        assert len(_anniversary_names(date(2026, 9, 8))) == 30
 
 
 class TestYearBoundary:

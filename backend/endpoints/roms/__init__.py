@@ -159,11 +159,6 @@ router.include_router(patch_router)
 # RomUser fields the statuses filter branches on.
 STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hidden"})
 
-# Anniversaries are paged through one card at a time, so the cap is a ceiling on
-# a widget's payload rather than a page size.
-DEFAULT_ANNIVERSARY_LIMIT = 24
-MAX_ANNIVERSARY_LIMIT = 50
-
 
 def safe_int_or_none(value: Any) -> int | None:
     if value is None or value == "":
@@ -1117,18 +1112,17 @@ def get_anniversary_roms(
             description="Day of the month, defaulting to today's UTC date.", ge=1, le=31
         ),
     ] = None,
-    limit: Annotated[
-        int,
-        Query(ge=1, le=MAX_ANNIVERSARY_LIMIT, description="Maximum roms to return"),
-    ] = DEFAULT_ANNIVERSARY_LIMIT,
 ) -> list[SimpleRomSchema]:
-    """Roms released on a given day of an earlier year, oldest release first.
+    """Every rom released on a given day of an earlier year, oldest release first.
 
     Whole-library, so it takes no scope: it feeds the Home widget, which shows
     one game at a time and pages through the rest. Clients pass their own local
     month and day so "today" matches the calendar in front of the user.
 
-    Empty on 1 January, which several providers use for year-only metadata.
+    Uncapped, so the widget's counter is a real total. That makes the 1 January
+    skip below load-bearing for response size as well as for accuracy: several
+    providers park year-only metadata there, which is the one day of the year
+    that would answer with a sizeable fraction of the library.
     """
     perms = get_permissions(request)
 
@@ -1146,7 +1140,6 @@ def get_anniversary_roms(
         today=datetime.now(timezone.utc).date(),
         month=month,
         day=day,
-        limit=limit,
     )
     if not rom_ids:
         return []
