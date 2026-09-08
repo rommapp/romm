@@ -526,6 +526,8 @@
   "vc-publisher": "発売元",
   "virtual-collection-type": "バーチャルコレクションタイプ (romのグループ化方法)",
   "watcher": "ウォッチャー",
+  "widget-anniversaries": "記念日",
+  "widget-anniversaries-desc": "過去の同じ日付に発売されたゲームを表示します。矢印で切り替えられます。",
   "widget-library-stats": "ライブラリ統計",
   "widget-library-stats-compact": "コンパクト（ゲーム、プラットフォーム、お気に入り）",
   "widget-library-stats-desc": "ライブラリの数値概要：ゲーム、プラットフォーム、お気に入りなど。",

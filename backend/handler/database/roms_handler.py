@@ -1,3 +1,4 @@
+import calendar
 import functools
 import hashlib
 import json
@@ -5,7 +6,7 @@ import re
 import secrets
 from collections import Counter
 from collections.abc import Iterable, Sequence
-from datetime import datetime
+from datetime import date, datetime
 from types import SimpleNamespace
 from typing import Any, NamedTuple
 
@@ -73,6 +74,8 @@ from models.rom import (
 from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
+    day_of_year_ranges,
+    epoch_ms_in_ranges,
     escape_like,
     json_array_contains_all,
     json_array_contains_any,
@@ -152,6 +155,10 @@ HEX_DIGEST_REGEX = re.compile(r"[0-9a-fA-F]+")
 # lands a hit ~99% of the time on a library occupying a quarter of its id
 # range, which is what deletions leave behind on a long-lived instance.
 RANDOM_ID_SAMPLE_SIZE = 16
+
+# Where providers park year-only metadata (ScreenScraper parses a bare year with
+# "%Y", CSDb publishes nothing else), so the day means nothing on this date.
+AMBIGUOUS_RELEASE_DAY = (1, 1)
 
 # CRC32 (8), MD5 and RetroAchievements (32), SHA-1 (40).
 ROM_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]] = {
@@ -1904,6 +1911,54 @@ class DBRomsHandler(DBBaseHandler):
         if total == 0:
             return None
         return session.scalar(id_query.limit(1).offset(secrets.randbelow(total)))
+
+    @begin_session
+    def get_anniversary_rom_ids(
+        self,
+        query: Query,
+        *,
+        today: date,
+        month: int | None = None,
+        day: int | None = None,
+        limit: int,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Ids of roms released on a given day of the year, oldest release first.
+
+        `idx_roms_generated_first_release_date` serves both the day-of-year match
+        and the sort as one range scan, and only the id is selected, so the wide
+        provider blobs are never read.
+
+        Args:
+            today: The caller's current date. Bounds the years searched and
+                decides the leap-day rollover.
+            month: Calendar month, defaulting to `today`'s.
+            day: Day of the month, defaulting to `today`'s.
+            limit: Maximum ids to return.
+
+        Returns:
+            Rom ids, oldest release first. Empty on 1 January.
+        """
+        month = month if month is not None else today.month
+        day = day if day is not None else today.day
+
+        if (month, day) == AMBIGUOUS_RELEASE_DAY:
+            return []
+
+        ranges = day_of_year_ranges(month, day, before_year=today.year)
+        # Otherwise a 29 February release would surface three years out of four.
+        if (month, day) == (2, 28) and not calendar.isleap(today.year):
+            ranges += day_of_year_ranges(2, 29, before_year=today.year)
+
+        id_query = (
+            query.order_by(None)
+            .with_only_columns(Rom.id)  # type: ignore
+            .where(epoch_ms_in_ranges(Rom.generated_first_release_date, ranges))
+            .order_by(Rom.generated_first_release_date.asc())
+            .limit(limit)
+        )
+
+        return list(session.scalars(id_query).all())
 
     @begin_session
     def get_roms_by_fs_name(

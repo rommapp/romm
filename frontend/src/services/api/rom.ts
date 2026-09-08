@@ -520,6 +520,20 @@ async function getRandomRom({
   });
 }
 
+/** Games released on a given day of an earlier year, oldest release first.
+ *  Month/day are the caller's own local date, not the server's UTC clock. */
+async function getAnniversaryRoms({
+  month,
+  day,
+}: {
+  month: number;
+  day: number;
+}) {
+  return api.get<SimpleRom[]>("/roms/anniversaries", {
+    params: { month, day },
+  });
+}
+
 async function getRomByMetadataProvider({
   field,
   id,
@@ -1114,6 +1128,7 @@ export default {
   getRom,
   getRomSimple,
   getRandomRom,
+  getAnniversaryRoms,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,

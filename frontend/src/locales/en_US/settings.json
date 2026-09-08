@@ -526,6 +526,8 @@
   "vc-publisher": "Publisher",
   "virtual-collection-type": "Virtual collection type (ROM grouping method)",
   "watcher": "Watcher",
+  "widget-anniversaries": "Anniversaries",
+  "widget-anniversaries-desc": "Show games released on today's date in an earlier year, with arrows to page through them.",
   "widget-library-stats": "Library stats",
   "widget-library-stats-compact": "Compact (games, platforms, favorites)",
   "widget-library-stats-desc": "Counts overview of your library: games, platforms, favorites, and more.",

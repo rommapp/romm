@@ -159,6 +159,11 @@ router.include_router(patch_router)
 # RomUser fields the statuses filter branches on.
 STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hidden"})
 
+# Anniversaries are paged through one card at a time, so the cap is a ceiling on
+# a widget's payload rather than a page size.
+DEFAULT_ANNIVERSARY_LIMIT = 24
+MAX_ANNIVERSARY_LIMIT = 50
+
 
 def safe_int_or_none(value: Any) -> int | None:
     if value is None or value == "":
@@ -1095,6 +1100,69 @@ def get_random_rom(
         return None
 
     return SimpleRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(router.get, "/anniversaries", [Scope.ROMS_READ])
+def get_anniversary_roms(
+    request: Request,
+    month: Annotated[
+        int | None,
+        Query(
+            description="Calendar month, defaulting to today's UTC date.", ge=1, le=12
+        ),
+    ] = None,
+    day: Annotated[
+        int | None,
+        Query(
+            description="Day of the month, defaulting to today's UTC date.", ge=1, le=31
+        ),
+    ] = None,
+    limit: Annotated[
+        int,
+        Query(ge=1, le=MAX_ANNIVERSARY_LIMIT, description="Maximum roms to return"),
+    ] = DEFAULT_ANNIVERSARY_LIMIT,
+) -> list[SimpleRomSchema]:
+    """Roms released on a given day of an earlier year, oldest release first.
+
+    Whole-library, so it takes no scope: it feeds the Home widget, which shows
+    one game at a time and pages through the rest. Clients pass their own local
+    month and day so "today" matches the calendar in front of the user.
+
+    Empty on 1 January, which several providers use for year-only metadata.
+    """
+    perms = get_permissions(request)
+
+    base_query, _ = db_rom_handler.get_roms_query(user_id=request.user.id)
+    query = db_rom_handler.filter_roms(
+        query=base_query,
+        user_id=request.user.id,
+        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
+        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
+        include_related=False,
+    )
+
+    rom_ids = db_rom_handler.get_anniversary_rom_ids(
+        query=query,
+        today=datetime.now(timezone.utc).date(),
+        month=month,
+        day=day,
+        limit=limit,
+    )
+    if not rom_ids:
+        return []
+
+    # Fetched by raw id, so `IN (...)` returns them in whatever order it likes;
+    # the release ordering lives in `rom_ids`. Each row is re-checked against
+    # what actually loaded rather than the filter that chose its id, the same
+    # way `/random` does, which reads no database.
+    rows_by_id = {rom.id: rom for rom in db_rom_handler.get_roms_simple_by_ids(rom_ids)}
+
+    return [
+        SimpleRomSchema.from_orm_with_request(rom, request)
+        for rom_id in rom_ids
+        if (rom := rows_by_id.get(rom_id))
+        and perms.can_see_rom(rom.id, rom.platform_id)
+    ]
 
 
 @protected_route(

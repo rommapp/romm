@@ -51,6 +51,10 @@ export const UI_SETTINGS_KEYS = {
     key: "settings.widgetLibraryStats",
     default: true,
   },
+  widgetAnniversaries: {
+    key: "settings.widgetAnniversaries",
+    default: true,
+  },
   libraryStatsMode: {
     key: "settings.libraryStatsMode",
     default: "compact",
@@ -62,7 +66,7 @@ export const UI_SETTINGS_KEYS = {
   // the registry doesn't leave dangling entries in user storage.
   widgetOrder: {
     key: "settings.widgetOrder",
-    default: "randomPick,libraryStats",
+    default: "randomPick,libraryStats,anniversaries",
   },
 
   // Platforms drawer
