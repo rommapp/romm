@@ -72,33 +72,36 @@
 #     naomi: arcade
 
 # filesystem:
-#   # Custom games folder name only (eg. `retro_games/`)
-#   roms_folder: 'roms'
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)
 #   skip_hash_calculation: false
 #   # Skip reading platform-native title IDs out of ROM binaries during scans
 #   skip_title_id_extraction: false
 #   # Rename Switch ROMs to embed ` [TITLEID][vVERSION]` in their filename
 #   embed_switch_title_ids: false
-#   # Custom library structure, per platform (by fs_slug). Opt-in: platforms left
-#   # out keep the default one-level-deep scan, where each top-level file is a
-#   # game and each top-level folder is a single multi-file game. A template is a
-#   # `/`-separated path relative to the platform's ROM folder, ending in a
-#   # terminal macro: {gameFile} (each file at that level is a game) or {gameDir}
-#   # (each folder at that level is one multi-file game). Any other braced
-#   # section is a wildcard folder level, purely organizational. A platform can
-#   # declare a list of templates, and discovery is their union.
+#   # Library structure. A template is a `/`-separated path relative to the
+#   # library root, where `{platform}` marks the platform folder and the final
+#   # `{game}` marks where a game begins (a file there is a game of its own, a
+#   # folder there is one multi-file game). Any other braced section is a
+#   # wildcard folder level, purely organizational. Sections before `{platform}`
+#   # must be literal folder names.
 #   # https://docs.romm.app/latest/getting-started/folder-structure/#custom-library-structure
 #   structure:
-#     # Loose top-level games AND games inside grouping subfolders, e.g.
+#     # The library-wide layout. This is the default; set it to rename the games
+#     # folder (eg. `retro_games/{platform}/{game}`) or to put the platform
+#     # folder first (`{platform}/roms/{game}`).
+#     default: 'roms/{platform}/{game}'
+#     # Where each platform's firmware lives. A folder, so no `{game}`.
+#     firmware: 'bios/{platform}'
+#     # Per-platform overrides, by fs_slug. Discovery is the union of the
+#     # templates listed, so one platform can mix layouts:
 #     #   roms/nes/game01.nes  and  roms/nes/Hacks/game03.nes
 #     nes:
-#       - '{gameFile}'
-#       - '{category}/{gameFile}'
+#       - 'roms/{platform}/{game}'
+#       - 'roms/{platform}/{category}/{game}'
 #     # roms/ps3/Disc/Game/, roms/ps3/PSN/Game/ -> each folder a multi-file game
-#     ps3: '{category}/{gameDir}'
+#     ps3: 'roms/{platform}/{category}/{game}'
 #     # roms/snes/USA/foo.sfc, roms/snes/Japan/bar.sfc
-#     snes: '{region}/{gameFile}'
+#     snes: 'roms/{platform}/{region}/{game}'
 
 # scan:
 #   # Metadata priority during scans

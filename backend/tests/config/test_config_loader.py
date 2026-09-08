@@ -10,6 +10,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
     ConfigManager,
+    parse_firmware_template,
     parse_platform_templates,
     parse_structure_template,
 )
@@ -53,8 +54,6 @@ def test_config_loader():
     )
     assert loader.config.PLATFORMS_BINDING == {"gc": "ngc"}
     assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
-    assert loader.config.ROMS_FOLDER_NAME == "ROMS"
-    assert loader.config.FIRMWARE_FOLDER_NAME == "BIOS"
     assert loader.config.SKIP_HASH_CALCULATION
     assert loader.config.EJS_DEBUG
     assert loader.config.EJS_DISABLE_AUTO_UNLOAD
@@ -94,21 +93,29 @@ def test_config_loader():
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box3d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "title_screen"
     assert loader.config.STRUCTURE_TEMPLATES == {
-        "psx": "{category}/{gameDir}",
-        "nes": ["{gameFile}", "{category}/{gameFile}"],
+        "default": "ROMS/{platform}/{game}",
+        "firmware": "BIOS/{platform}",
+        "psx": "ROMS/{platform}/{category}/{game}",
+        "nes": ["ROMS/{platform}/{game}", "ROMS/{platform}/{category}/{game}"],
     }
-    # The accessor parses templates on demand; unset platforms get None.
+    assert loader.config.default_structure.platform_dir == ("ROMS",)
+    assert loader.config.platforms_dir == "ROMS"
+    assert loader.config.firmware_structure.platform_path("psx") == "BIOS/psx"
+
+    # The accessor parses templates on demand.
     psx = loader.config.platform_structure("psx")
-    assert psx is not None and len(psx) == 1
-    assert psx[0].each_file_is_game is False
+    assert len(psx) == 1
+    assert psx[0].platform_path("psx") == "ROMS/psx"
     assert len(psx[0].levels) == 1 and psx[0].levels[0].literal is None
     # The list form yields one structure per template (union on discovery).
     nes = loader.config.platform_structure("nes")
-    assert nes is not None and len(nes) == 2
-    assert nes[0].each_file_is_game is True and nes[0].levels == ()
-    assert nes[1].each_file_is_game is True
+    assert len(nes) == 2
+    assert nes[0].levels == ()
     assert len(nes[1].levels) == 1 and nes[1].levels[0].literal is None
-    assert loader.config.platform_structure("snes") is None
+    # A platform without an override falls back to the library-wide layout.
+    assert loader.config.platform_structure("snes") == (
+        loader.config.default_structure,
+    )
 
 
 def test_scan_priority_sources_match_metadata_source_enum():
@@ -143,8 +150,8 @@ def test_empty_config_loader():
     assert loader.config.EXCLUDED_MULTI_PARTS_FILES == sorted(DEFAULT_EXCLUDED_FILES)
     assert loader.config.PLATFORMS_BINDING == {}
     assert loader.config.PLATFORMS_VERSIONS == {}
-    assert loader.config.ROMS_FOLDER_NAME == "roms"
-    assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
+    assert loader.config.platforms_dir == "roms"
+    assert loader.config.firmware_structure.platform_path("nes") == "bios/nes"
     assert not loader.config.SKIP_HASH_CALCULATION
     assert not loader.config.EJS_DEBUG
     assert loader.config.EJS_CACHE_LIMIT is None
@@ -163,20 +170,31 @@ def test_empty_config_loader():
 
 
 @pytest.mark.parametrize(
-    ("template", "levels", "each_file_is_game"),
+    ("template", "platform_dir", "levels"),
     [
-        ("{gameFile}", (), True),
-        ("{gameDir}", (), False),
-        ("{category}/{gameFile}", (None,), True),
-        ("Hacks/{gameFile}", ("Hacks",), True),
-        ("{region}/{system}/{gameDir}", (None, None), False),
-        ("roms/{region}/{gameFile}", ("roms", None), True),
+        ("{platform}/{game}", (), ()),
+        ("roms/{platform}/{game}", ("roms",), ()),
+        ("roms/{platform}/{category}/{game}", ("roms",), (None,)),
+        ("roms/{platform}/Hacks/{game}", ("roms",), ("Hacks",)),
+        (
+            "games/all/{platform}/{region}/{system}/{game}",
+            ("games", "all"),
+            (None, None),
+        ),
     ],
 )
-def test_parse_structure_template_valid(template, levels, each_file_is_game):
+def test_parse_structure_template_valid(template, platform_dir, levels):
     structure = parse_structure_template(template)
-    assert structure.each_file_is_game is each_file_is_game
+    assert structure.platform_dir == platform_dir
     assert tuple(level.literal for level in structure.levels) == levels
+
+
+def test_parse_structure_template_accepts_the_platform_folder_by_name():
+    """A per-platform override may name the folder outright instead of using the
+    macro, which is how the key already reads."""
+    structure = parse_structure_template("roms/ps3/{category}/{game}", fs_slug="ps3")
+    assert structure.platform_dir == ("roms",)
+    assert structure.platform_path("ps3") == "roms/ps3"
 
 
 @pytest.mark.parametrize(
@@ -184,12 +202,16 @@ def test_parse_structure_template_valid(template, levels, each_file_is_game):
     [
         "",
         "justliteral",
-        "{category}",  # no terminal
-        "{gameFile}/{gameDir}",  # terminal not last
-        "{gameDir}/extra",  # terminal not last
-        "{platform}/{gameFile}",  # reserved macro RomM resolves itself
-        "{library}/{gameFile}",
-        "{}/{gameFile}",  # empty macro
+        "roms/{platform}",  # no terminal
+        "roms/{platform}/{category}",  # no terminal
+        "roms/{game}",  # no platform folder
+        "{game}/roms/{platform}",  # terminal not last
+        "roms/{platform}/{game}/extra",  # terminal not last
+        "roms/{platform}/{platform}/{game}",  # platform folder twice
+        "{category}/{platform}/{game}",  # wildcard above the platform folder
+        "{library}/roms/{platform}/{game}",  # macro RomM resolves itself
+        "roms/{platform}/{}/{game}",  # empty macro
+        "roms/{platform}/{gameFile}",  # the terminal is spelled {game}
     ],
 )
 def test_parse_structure_template_invalid(template):
@@ -197,11 +219,32 @@ def test_parse_structure_template_invalid(template):
         parse_structure_template(template)
 
 
-def test_parse_structure_template_names_a_near_miss_terminal():
-    """`{gameFolder}` is an easy slip for `{gameDir}`, so the error has to point
-    at it rather than only report a missing terminal."""
-    with pytest.raises(ValueError, match=r"\{gameFolder\}.*is not a terminal"):
-        parse_structure_template("{category}/{gameFolder}")
+@pytest.mark.parametrize(
+    ("template", "platform_dir", "subdir"),
+    [
+        ("bios/{platform}", ("bios",), ()),
+        ("{platform}/bios", (), ("bios",)),
+        ("{platform}/firmware/bios", (), ("firmware", "bios")),
+    ],
+)
+def test_parse_firmware_template_valid(template, platform_dir, subdir):
+    template_parsed = parse_firmware_template(template)
+    assert template_parsed.platform_dir == platform_dir
+    assert template_parsed.subdir == subdir
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "",
+        "bios",  # no platform folder
+        "bios/{platform}/{game}",  # firmware is a folder, not a set of games
+        "bios/{platform}/{region}",  # no wildcard levels
+    ],
+)
+def test_parse_firmware_template_invalid(template):
+    with pytest.raises(ValueError):
+        parse_firmware_template(template)
 
 
 def test_structure_templates_are_keyed_case_insensitively(monkeypatch, tmp_path):
@@ -209,29 +252,34 @@ def test_structure_templates_are_keyed_case_insensitively(monkeypatch, tmp_path)
     has to as well or the same key works in one block and not the other."""
     config_file = tmp_path / "config.yml"
     config_file.write_text(
-        "filesystem:\n  structure:\n    'Atari - 2600': '{gameFile}'\n"
+        "filesystem:\n  structure:\n"
+        "    'Atari - 2600': 'roms/{platform}/Hacks/{game}'\n"
     )
     config = ConfigManager(str(config_file)).get_config()
 
-    assert config.platform_structure("Atari - 2600") is not None
-    assert config.platform_structure("atari - 2600") is not None
+    for key in ("Atari - 2600", "atari - 2600"):
+        structure = config.platform_structure(key)
+        assert len(structure) == 1
+        assert structure[0].levels[0].literal == "Hacks"
 
 
 def test_parse_platform_templates_string_and_list():
     # A bare string yields a single structure.
-    single = parse_platform_templates("{gameFile}")
-    assert len(single) == 1 and single[0].each_file_is_game is True
+    single = parse_platform_templates("roms/{platform}/{game}")
+    assert len(single) == 1 and single[0].levels == ()
 
     # A list yields one structure per template, preserving order.
-    multi = parse_platform_templates(["{gameFile}", "{category}/{gameDir}"])
+    multi = parse_platform_templates(
+        ["roms/{platform}/{game}", "roms/{platform}/{category}/{game}"]
+    )
     assert len(multi) == 2
-    assert multi[0].levels == () and multi[0].each_file_is_game is True
-    assert len(multi[1].levels) == 1 and multi[1].each_file_is_game is False
+    assert multi[0].levels == ()
+    assert len(multi[1].levels) == 1 and multi[1].levels[0].literal is None
 
 
 def test_parse_platform_templates_propagates_invalid():
     with pytest.raises(ValueError):
-        parse_platform_templates(["{gameFile}", "nope"])
+        parse_platform_templates(["roms/{platform}/{game}", "nope"])
 
 
 def test_missing_config_file_is_created(tmp_path):
@@ -290,8 +338,8 @@ def test_malformed_yaml_falls_back_to_defaults():
         )
     )
 
-    assert loader.config.ROMS_FOLDER_NAME == "roms"
-    assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
+    assert loader.config.platforms_dir == "roms"
+    assert loader.config.firmware_structure.platform_path("nes") == "bios/nes"
     assert loader.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
     # The parse error is surfaced so the UI can warn the user their whole
     # config (not just the broken part) was discarded.
@@ -571,3 +619,110 @@ def test_platform_binding_lookup_ignores_case(tmp_path):
 
     loader.remove_platform_binding("GAMECUBE")
     assert loader.config.PLATFORMS_BINDING == {}
+
+
+@pytest.fixture
+def critical(mocker):
+    """The last message the config manager logged before exiting."""
+    spy = mocker.patch("config.config_manager.log.critical")
+    return lambda: str(spy.call_args[0][0])
+
+
+def _write_filesystem_config(tmp_path: Path, block: str) -> ConfigManager:
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(f"filesystem:\n{block}")
+    return ConfigManager(str(config_file))
+
+
+@pytest.mark.parametrize(
+    ("key", "folder", "expected"),
+    [
+        ("roms_folder", "retro_games", 'default: "retro_games/{platform}/{game}"'),
+        ("firmware_folder", "fw", 'firmware: "fw/{platform}"'),
+    ],
+)
+def test_retired_folder_keys_exit_with_the_replacement(
+    tmp_path, key, folder, expected, critical
+):
+    """Ignoring them would silently relocate the library, so refuse to start and
+    name the template that reproduces the layout."""
+    with pytest.raises(SystemExit) as excinfo:
+        _write_filesystem_config(tmp_path, f"  {key}: {folder}\n")
+
+    assert excinfo.value.code == 3
+    assert expected in critical()
+
+
+def test_an_override_may_not_move_the_platform_folder(tmp_path, critical):
+    """A platform outside the folder platforms are enumerated in would never be
+    discovered."""
+    with pytest.raises(SystemExit) as excinfo:
+        _write_filesystem_config(
+            tmp_path,
+            "  structure:\n"
+            '    default: "roms/{platform}/{game}"\n'
+            '    ps3: "disc-games/{platform}/{game}"\n',
+        )
+
+    assert excinfo.value.code == 3
+    assert "disc-games" in critical()
+
+
+@pytest.mark.parametrize("key", ["default", "firmware"])
+def test_a_reserved_structure_key_takes_a_single_template(tmp_path, key):
+    """Only a platform can union several layouts; the library has just one."""
+    with pytest.raises(SystemExit) as excinfo:
+        _write_filesystem_config(
+            tmp_path,
+            f'  structure:\n    {key}:\n      - "roms/{{platform}}/{{game}}"\n',
+        )
+
+    assert excinfo.value.code == 3
+
+
+def test_an_invalid_firmware_template_is_rejected(tmp_path):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_filesystem_config(
+            tmp_path, '  structure:\n    firmware: "bios/{platform}/{game}"\n'
+        )
+
+    assert excinfo.value.code == 3
+
+
+def test_the_retired_library_layout_check_names_the_template(
+    tmp_path, mocker, critical
+):
+    """A `{platform}/roms` library used to be auto-detected; now it has to say so
+    rather than scan as empty and mark every rom missing."""
+    library = tmp_path / "library"
+    (library / "n64" / "roms").mkdir(parents=True)
+    mocker.patch("config.config_manager.LIBRARY_BASE_PATH", str(library))
+
+    loader = _write_filesystem_config(tmp_path, "  skip_hash_calculation: false\n")
+    with pytest.raises(SystemExit) as excinfo:
+        loader.check_library_layout()
+
+    assert excinfo.value.code == 3
+    assert 'default: "{platform}/roms/{game}"' in critical()
+
+
+def test_the_retired_library_layout_check_passes_once_declared(tmp_path, mocker):
+    library = tmp_path / "library"
+    (library / "n64" / "roms").mkdir(parents=True)
+    mocker.patch("config.config_manager.LIBRARY_BASE_PATH", str(library))
+
+    loader = _write_filesystem_config(
+        tmp_path, '  structure:\n    default: "{platform}/roms/{game}"\n'
+    )
+    loader.check_library_layout()
+
+
+def test_a_platform_named_like_a_layout_key_uses_the_default(tmp_path):
+    """`structure.firmware` is a firmware folder, not a template for a platform
+    whose folder happens to be called `firmware`."""
+    loader = _write_filesystem_config(
+        tmp_path, '  structure:\n    firmware: "bios/{platform}"\n'
+    )
+
+    config = loader.get_config()
+    assert config.platform_structure("firmware") == (config.default_structure,)

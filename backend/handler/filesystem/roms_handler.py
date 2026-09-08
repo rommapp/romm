@@ -112,7 +112,6 @@ class FSRom(TypedDict):
     fs_name: str
     fs_path: str
     flat: bool
-    nested: bool
     files: list[RomFile]
     crc_hash: str
     md5_hash: str
@@ -127,7 +126,6 @@ def build_empty_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
         fs_name=fs_name,
         fs_path=fs_path,
         flat=flat,
-        nested=not flat,
         files=[],
         crc_hash="",
         md5_hash="",
@@ -333,12 +331,8 @@ class FSRomsHandler(FSHandler):
         super().__init__(base_path=LIBRARY_BASE_PATH)
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
-        cnfg = cm.get_config()
-        return (
-            f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
-            if cnfg.has_structure_path_b
-            else f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
-        )
+        """The folder a platform's games start in, relative to the library root."""
+        return cm.get_config().default_structure.games_dir(fs_slug)
 
     def get_roms_upload_path(self, fs_slug: str) -> str:
         """Where a newly uploaded rom file has to land to be discovered again.
@@ -347,20 +341,10 @@ class FSRomsHandler(FSHandler):
             ValueError: when the platform's structure leaves the folder to the
                 user, so no destination can be derived.
         """
-        rel_roms_path = self.get_roms_fs_structure(fs_slug)
-        structures = cm.get_config().platform_structure(fs_slug)
-        if structures is None:
-            return rel_roms_path
-
-        for structure in structures:
-            # A `{gameDir}` terminal makes each directory one multi-file rom, so
-            # a loose file inside it is a rom file rather than a rom.
-            if not structure.each_file_is_game:
+        for structure in cm.get_config().platform_structure(fs_slug):
+            if structure.has_wildcard_levels:
                 continue
-            literals = [level.literal for level in structure.levels]
-            if any(literal is None for literal in literals):
-                continue
-            return "/".join([rel_roms_path, *(lit for lit in literals if lit)])
+            return structure.games_dir(fs_slug)
 
         raise ValueError(
             f"The custom library structure configured for {fs_slug} has no folder "
@@ -1007,36 +991,18 @@ class FSRomsHandler(FSHandler):
                 rom_sha1_h,
             )
 
-    async def _discover_default_roms(self, rel_roms_path: str) -> list[FSRom]:
-        """Default discovery: top-level files and folders of the roms path.
-
-        Each top-level file is a flat rom; each top-level directory is a single
-        multi-file rom.
-        """
-        fs_roms = [
-            build_empty_fs_rom(rom, rel_roms_path, flat=True)
-            for rom in self.exclude_single_files(await self.list_files(rel_roms_path))
-        ]
-        fs_roms += [
-            build_empty_fs_rom(rom, rel_roms_path, flat=False)
-            for rom in self.exclude_multi_roms(
-                await self.list_directories(rel_roms_path)
-            )
-        ]
-        return fs_roms
-
     async def _discover_structured_roms(
-        self, rel_roms_path: str, structure: StructureTemplate
+        self, structure: StructureTemplate, fs_slug: str
     ) -> list[FSRom]:
-        """Discover roms following a custom library structure template.
+        """Discover a platform's roms following one library structure template.
 
         Descends the template's intermediate directory levels (literal names
-        matched exactly, wildcard macros matching any folder), then collects
-        roms at the terminal: ``{gameFile}`` makes each file a rom, ``{gameDir}``
-        makes each directory a (multi-file) rom. Hidden (dot-prefixed) folders
-        are never descended into or surfaced.
+        matched exactly, wildcard macros matching any folder), then collects the
+        games at the ``{game}`` terminal: each file there is a rom on its own and
+        each directory is one multi-file rom. Hidden (dot-prefixed) folders are
+        never descended into or surfaced.
         """
-        dirs = [rel_roms_path]
+        dirs = [structure.platform_path(fs_slug)]
         for level in structure.levels:
             next_dirs: list[str] = []
             for directory in dirs:
@@ -1055,51 +1021,48 @@ class FSRomsHandler(FSHandler):
 
         fs_roms: list[FSRom] = []
         for directory in dirs:
-            if structure.each_file_is_game:
-                fs_roms += [
-                    build_empty_fs_rom(name, directory, flat=True)
-                    for name in self.exclude_single_files(
-                        await self.list_files(directory)
-                    )
-                ]
-            else:
-                fs_roms += [
-                    build_empty_fs_rom(name, directory, flat=False)
-                    for name in self.exclude_multi_roms(
-                        await self.list_directories(directory)
-                    )
-                ]
+            fs_roms += [
+                build_empty_fs_rom(name, directory, flat=True)
+                for name in self.exclude_single_files(await self.list_files(directory))
+            ]
+            fs_roms += [
+                build_empty_fs_rom(name, directory, flat=False)
+                for name in self.exclude_multi_roms(
+                    await self.list_directories(directory)
+                )
+            ]
         return fs_roms
 
     async def _collect_fs_roms(self, platform: Platform) -> list[FSRom]:
-        """Discover a platform's roms, honoring its custom structure if set.
+        """Discover a platform's roms following its library structure.
 
-        A platform may declare several structure templates (e.g. loose games at
-        the root plus games inside grouping subfolders); discovery is their
-        union, deduplicated by full path so overlapping templates don't surface
-        a rom twice.
+        A platform may declare several structure templates (e.g. games directly
+        in the platform folder plus games inside grouping subfolders); discovery
+        is their union, deduplicated by full path so overlapping templates don't
+        surface a rom twice.
         """
-        rel_roms_path = self.get_roms_fs_structure(platform.fs_slug)
-        structures = cm.get_config().platform_structure(platform.fs_slug)
-        if structures is None:
-            return await self._discover_default_roms(rel_roms_path)
+        cnfg = cm.get_config()
+        platform_path = cnfg.default_structure.platform_path(platform.fs_slug)
+        structures = cnfg.platform_structure(platform.fs_slug)
 
         fs_roms: list[FSRom] = []
         seen: set[tuple[str, str]] = set()
         for structure in structures:
-            for rom in await self._discover_structured_roms(rel_roms_path, structure):
+            for rom in await self._discover_structured_roms(
+                structure, platform.fs_slug
+            ):
                 key = (rom["fs_path"], rom["fs_name"])
                 if key in seen:
                     continue
                 seen.add(key)
                 fs_roms.append(rom)
 
-        # One template's `{gameDir}` can land on a folder another template
-        # descends into (`{gameDir}` + `{category}/{gameFile}`). The folder is a
+        # A folder one template reads as a multi-file game can be a level another
+        # template descends through (`{game}` + `{category}/{game}`). It is a
         # grouping level there, so drop it rather than surface its contents twice.
         grouping: set[str] = set()
         for path in {rom["fs_path"] for rom in fs_roms}:
-            while len(path) > len(rel_roms_path):
+            while len(path) > len(platform_path):
                 grouping.add(path)
                 path = path.rsplit("/", 1)[0]
 

@@ -36,7 +36,6 @@ from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_stats_handler, db_user_handler
 from handler.filesystem import fs_platform_handler
-from handler.filesystem.base_handler import LibraryStructure
 from handler.metadata import (
     meta_csdb_handler,
     meta_demozoo_handler,
@@ -266,7 +265,8 @@ async def get_setup_library_info(request: Request):
     Only accessible during initial setup (no admin users) or with authentication.
 
     Returns:
-        - detected_structure: "struct_a" (roms/{platform}), "struct_b" ({platform}/roms), or None
+        - library_ready: whether the configured platforms folder exists on disk
+        - library_structure: the configured `filesystem.structure.default` template
         - existing_platforms: list of objects with fs_slug and rom_count
         - supported_platforms: list of all supported platforms with metadata
     """
@@ -287,7 +287,7 @@ async def get_setup_library_info(request: Request):
             detail="Forbidden",
         )
 
-    detected_structure = fs_platform_handler.detect_library_structure()
+    library_ready = fs_platform_handler.library_structure_exists()
 
     # The per-platform rom counts below are a first-run hint, so a fresh
     # instance can show what RomM already sees on disk. Once the database
@@ -295,7 +295,8 @@ async def get_setup_library_info(request: Request):
     # platform directory: tens of seconds on a large library.
     if db_stats_handler.get_roms_count() > 0:
         return {
-            "detected_structure": detected_structure,
+            "library_ready": library_ready,
+            "library_structure": cm.get_config().default_structure_pattern,
             "existing_platforms": [],
             "supported_platforms": get_supported_platforms(),
         }
@@ -309,20 +310,14 @@ async def get_setup_library_info(request: Request):
 
     # Build existing platforms with rom counts
     existing_platforms = []
-    if detected_structure and existing_platform_slugs:
-        cnfg = cm.get_config()
+    if library_ready and existing_platform_slugs:
         for fs_slug in existing_platform_slugs:
             rom_count = 0
             try:
-                # Determine the roms directory based on structure
-                if detected_structure == LibraryStructure.A:
-                    roms_path = os.path.join(
-                        LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME, fs_slug
-                    )
-                else:  # Structure B
-                    roms_path = os.path.join(
-                        LIBRARY_BASE_PATH, fs_slug, cnfg.ROMS_FOLDER_NAME
-                    )
+                roms_path = os.path.join(
+                    LIBRARY_BASE_PATH,
+                    fs_platform_handler.get_platform_fs_structure(fs_slug),
+                )
 
                 # Count files and folders in the roms directory
                 roms_dir = AnyioPath(roms_path)
@@ -353,7 +348,8 @@ async def get_setup_library_info(request: Request):
     supported_platforms = get_supported_platforms()
 
     return {
-        "detected_structure": detected_structure,
+        "library_ready": library_ready,
+        "library_structure": cm.get_config().default_structure_pattern,
         "existing_platforms": existing_platforms,
         "supported_platforms": supported_platforms,
     }
@@ -397,11 +393,7 @@ async def create_setup_platforms(request: Request, platform_slugs: list[str]):
         }
 
     try:
-        # Detect structure type to determine if we need to create the roms folder
-        detected_structure = fs_platform_handler.detect_library_structure()
-
-        # If no structure detected, create structure A
-        if detected_structure is None:
+        if not fs_platform_handler.library_structure_exists():
             fs_platform_handler.create_library_structure()
 
         # Create platform folders

@@ -725,7 +725,6 @@ class TestIdentifyRomTagReparse:
             "fs_name": "Game (USA) (En) (Proto) (v1.1) (Rev A).zip",
             "fs_path": "test/roms",
             "flat": True,
-            "nested": False,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",
@@ -921,7 +920,6 @@ def make_fs_rom(fs_name: str, fs_path: str = "test/roms") -> FSRom:
         "fs_name": fs_name,
         "fs_path": fs_path,
         "flat": True,
-        "nested": False,
         "files": [],
         "crc_hash": "",
         "md5_hash": "",
@@ -1202,7 +1200,6 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
             "fs_name": "New Name.zip",
             "fs_path": "test/roms",
             "flat": True,
-            "nested": False,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",
@@ -1284,7 +1281,6 @@ class TestIdentifyPlatformEmitsRestoredRoms:
             "fs_name": "Game.zip",
             "fs_path": "test/roms",
             "flat": True,
-            "nested": False,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",
@@ -1738,7 +1734,9 @@ class TestScanSelectedRoms:
         identify.assert_not_called()
         db_rom.update_rom.assert_called_once_with(rom.id, {"missing_from_fs": True})
 
-    async def test_a_multi_file_rom_is_reported_as_nested(self, mocker, platform, rom):
+    async def test_a_multi_file_rom_is_reported_as_not_flat(
+        self, mocker, platform, rom
+    ):
         mocker.patch.object(
             scan_module, "redis_client", Mock(get=Mock(return_value=None))
         )
@@ -1769,7 +1767,7 @@ class TestScanSelectedRoms:
         )
 
         fs_rom = identify.call_args.kwargs["fs_rom"]
-        assert fs_rom["nested"] is True
+        assert fs_rom["flat"] is False
         assert fs_rom["flat"] is False
 
     async def test_a_scan_stopped_mid_flight_raises(self, mocker, platform, rom):
@@ -2539,7 +2537,6 @@ def identify_harness(mocker):
             "fs_name": "Game",
             "fs_path": "test/roms",
             "flat": False,
-            "nested": True,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",
@@ -2686,7 +2683,6 @@ class TestIdentifyPlatformLoadsFilesForQuickScan:
             "fs_name": "Game",
             "fs_path": "test/roms",
             "flat": False,
-            "nested": True,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",

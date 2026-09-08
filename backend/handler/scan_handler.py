@@ -1555,7 +1555,7 @@ async def scan_rom(
         extra=LOGGER_MODULE_NAME,
     )
 
-    if fs_rom["nested"]:
+    if not fs_rom["flat"]:
         for file in fs_rom["files"]:
             log.info(
                 f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",
