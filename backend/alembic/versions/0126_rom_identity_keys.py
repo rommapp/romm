@@ -158,8 +158,8 @@ END $$
 # View
 # ---------------------------------------------------------------------------
 
-# Carried over from the definition this replaces, so the view's shape is
-# unchanged; a merged view never evaluates a column nobody selects.
+# Same column names as the definition this replaces, though a row now fills
+# only its own provider's; nothing selects them, and a merged view skips them.
 _PROVIDER_COLUMNS = ",\n    ".join(
     f"CASE WHEN k1.provider = {code} THEN k1.provider_id END AS {column}"
     for code, column in IDENTITY_PROVIDERS

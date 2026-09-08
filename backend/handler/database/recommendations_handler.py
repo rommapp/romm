@@ -27,7 +27,7 @@ EDGE_INSERT_CHUNK_SIZE = 1_000
 MAX_CO_OCCURRENCE_SET_SIZE = 250
 
 # Two ROMs sharing any of these are one title and are never recommended for
-# each other. Read off the list `sibling_roms` matches on, but not scoped to a
+# each other. Wider than the sibling list by `steam_id`, and not scoped to a
 # platform: a game reissued on other hardware is no more a suggestion either.
 IDENTITY_ID_COLUMNS = tuple(getattr(RomFacets, field) for field in IDENTITY_ID_FIELDS)
 
