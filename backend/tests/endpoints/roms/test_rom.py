@@ -446,6 +446,86 @@ def test_get_roms_filter_by_metadata_providers(
     assert {item["id"] for item in body["items"]} == {rom.id}
 
 
+def test_get_roms_filter_by_duplicate(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    """The gallery's "Versions" filter, which reads `sibling_roms`."""
+    siblings = [
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=name,
+                slug=name,
+                fs_name=f"{name}.zip",
+                fs_name_no_tags=name,
+                fs_name_no_ext=name,
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+                igdb_id=MOCK_IGDB_ID,
+            )
+        )
+        for name in ("rom_usa", "rom_japan")
+    ]
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "duplicate": True},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert {item["id"] for item in response.json()["items"]} == {
+        sibling.id for sibling in siblings
+    }
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "duplicate": False},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert {item["id"] for item in response.json()["items"]} == {rom.id}
+
+
+def test_get_rom_sibling_matched_by_two_providers_appears_once(
+    client: TestClient, access_token: str, platform: Platform
+):
+    """`sibling_roms` has a row per matching provider; the response has one."""
+    roms = [
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=name,
+                slug=name,
+                fs_name=f"{name}.zip",
+                fs_name_no_tags=name,
+                fs_name_no_ext=name,
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+                igdb_id=MOCK_IGDB_ID,
+                ss_id=MOCK_SS_ID,
+            )
+        )
+        for name in ("twin_usa", "twin_japan")
+    ]
+
+    response = client.get(
+        f"/api/roms/{roms[0].id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert [s["id"] for s in response.json()["sibling_roms"]] == [roms[1].id]
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    items = {item["id"]: item for item in response.json()["items"]}
+    assert [s["id"] for s in items[roms[0].id]["sibling_roms"]] == [roms[1].id]
+    assert [s["id"] for s in items[roms[1].id]["sibling_roms"]] == [roms[0].id]
+
+
 def test_get_roms_filter_by_tags(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
