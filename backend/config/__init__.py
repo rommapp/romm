@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Final, overload
@@ -37,6 +38,19 @@ ROMM_TMP_PATH: Final[str | None] = _get_env("ROMM_TMP_PATH")
 LIBRARY_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
+# Opaque storage for RetroArch Cloud Sync categories RomM has no concept of
+# (config/, thumbnails/, system/) — unrelated to any ROM, so it lives outside
+# the asset tree but still under the same persistent volume.
+CLOUD_SYNC_BLOB_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cloud_sync_blobs"
+# Holds a PSP save folder's files that arrived before the folder could be
+# resolved to a rom (usually only until PARAM.SFO shows up) -- see
+# handler/cloud_sync_psp.py.
+CLOUD_SYNC_PSP_PENDING_PATH: Final[str] = f"{ROMM_BASE_PATH}/cloud_sync_psp_pending"
+# Serial (PARAM.SFO DISC_ID minus the trailing slot digits, e.g. "ULUS10336")
+# -> RomM rom title override, for PSP saves whose PARAM.SFO TITLE doesn't
+# normalize-match any rom automatically. JSON object, e.g.
+# {"ULUS10336": "Crisis Core - Final Fantasy VII"}.
+PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(_get_env("PSP_SERIAL_MAP", "{}"))
 ZIP_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/zips"
 FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 

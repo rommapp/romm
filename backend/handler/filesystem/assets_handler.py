@@ -195,6 +195,18 @@ class FSAssetsHandler(FSHandler):
         with zipfile.ZipFile(self.base_path / zip_path, "r") as zf:
             return hash_zip_contents(zf)
 
+    async def compute_file_md5(self, file_path: str) -> str | None:
+        """MD5 of the bytes on disk.
+
+        Distinct from `compute_content_hash`, which composes member hashes for
+        zips. Cloud-sync clients hash the file itself, so they need this one.
+        """
+        try:
+            return await self._compute_file_hash(file_path)
+        except OSError as e:
+            log.debug(f"Failed to compute MD5 for {file_path}: {e}")
+            return None
+
     async def compute_content_hash(self, file_path: str) -> str | None:
         try:
             full_path = self.base_path / file_path

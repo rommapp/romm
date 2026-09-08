@@ -53,6 +53,9 @@ romm_mock
 # testing
 backend/romm_test/resources
 backend/romm_test/logs
+backend/romm_test/assets
+backend/romm_test/cloud_sync_blobs
+backend/romm_test/cloud_sync_psp_pending
 .pytest_cache
 .hypothesis
 /romm_test

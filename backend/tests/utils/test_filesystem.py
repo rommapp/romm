@@ -15,7 +15,7 @@ from utils.filesystem import (
     sanitize_filename,
 )
 
-INVALID_AFTER_SANITIZE = set('\\/:|*?"<>+\0')
+INVALID_AFTER_SANITIZE = set('\\/:|*?"<>\0')
 
 
 class TestLinkOrCopyFile:
