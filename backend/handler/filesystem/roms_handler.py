@@ -331,7 +331,6 @@ class FSRomsHandler(FSHandler):
         super().__init__(base_path=LIBRARY_BASE_PATH)
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
-        """The folder a platform's games start in, relative to the library root."""
         return cm.get_config().default_structure.games_dir(fs_slug)
 
     def get_roms_upload_path(self, fs_slug: str) -> str:
@@ -996,11 +995,8 @@ class FSRomsHandler(FSHandler):
     ) -> list[FSRom]:
         """Discover a platform's roms following one library structure template.
 
-        Descends the template's intermediate directory levels (literal names
-        matched exactly, wildcard macros matching any folder), then collects the
-        games at the ``{game}`` terminal: each file there is a rom on its own and
-        each directory is one multi-file rom. Hidden (dot-prefixed) folders are
-        never descended into or surfaced.
+        At the ``{game}`` terminal each file is a rom of its own and each folder
+        is one multi-file rom. Hidden folders are never descended into.
         """
         dirs = [structure.platform_path(fs_slug)]
         for level in structure.levels:
@@ -1036,10 +1032,8 @@ class FSRomsHandler(FSHandler):
     async def _collect_fs_roms(self, platform: Platform) -> list[FSRom]:
         """Discover a platform's roms following its library structure.
 
-        A platform may declare several structure templates (e.g. games directly
-        in the platform folder plus games inside grouping subfolders); discovery
-        is their union, deduplicated by full path so overlapping templates don't
-        surface a rom twice.
+        Several templates union, deduplicated by full path so an overlap does
+        not surface a rom twice.
         """
         cnfg = cm.get_config()
         platform_path = cnfg.default_structure.platform_path(platform.fs_slug)

@@ -274,9 +274,6 @@ async def get_setup_library_info(request: Request):
     # Check authentication - only allow public access if no admin users
     # If admin users exist, this would need authentication (but won't be called during setup)
 
-    # Auto-detect structure type
-    # Structure A: /library/roms/{platform}
-    # Structure B: /library/{platform}/roms
     # If there are admin users already, enforce the USERS_WRITE scope.
     if (
         Scope.PLATFORMS_READ not in request.auth.scopes

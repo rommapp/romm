@@ -132,9 +132,8 @@ def process_changes(changes: Sequence[Change]) -> None:
     # exact-match and fnmatch patterns for files, plus excluded directory names
     # checked against every path component so events inside excluded dirs are ignored.
     cnfg = cm.get_config()
-    # Index of the platform segment in a library-relative event path, which
-    # leads with an empty segment for the separator.
-    structure_level = len(cnfg.default_structure.platform_dir) + 1
+    # A library-relative event path leads with an empty segment for the separator.
+    platform_segment = len(cnfg.default_structure.platform_dir) + 1
     excluded_patterns = (
         cnfg.EXCLUDED_SINGLE_FILES
         + cnfg.EXCLUDED_MULTI_FILES
@@ -170,17 +169,17 @@ def process_changes(changes: Sequence[Change]) -> None:
             src_path = os.fsdecode(change_path)
             event_src = src_path.split(LIBRARY_BASE_PATH)[-1]
             event_src_parts = event_src.split("/")
-            if len(event_src_parts) <= structure_level:
+            if len(event_src_parts) <= platform_segment:
                 log.warning(
-                    f"Filesystem event path '{event_src}' does not have enough segments for structure_level {structure_level}. Skipping event."
+                    f"Filesystem event path '{event_src}' has no platform segment. Skipping event."
                 )
                 continue
 
-            if len(event_src_parts) == structure_level + 1:
+            if len(event_src_parts) == platform_segment + 1:
                 changes_platform_directory = True
 
             log.info(f"Filesystem event: {event_type} {event_src}")
-            fs_slugs.add(event_src_parts[structure_level])
+            fs_slugs.add(event_src_parts[platform_segment])
 
         if not fs_slugs:
             log.info("No valid filesystem slugs found in changes, exiting...")

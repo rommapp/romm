@@ -32,7 +32,7 @@ class FSPlatformsHandler(FSHandler):
         )
 
     def library_structure_exists(self) -> bool:
-        """Whether the folder platforms are enumerated in is present on disk."""
+        """Whether the folder platforms are enumerated in exists."""
         return os.path.isdir(
             os.path.join(LIBRARY_BASE_PATH, self.get_platforms_directory())
         )
@@ -41,7 +41,6 @@ class FSPlatformsHandler(FSHandler):
         return cm.get_config().platforms_dir
 
     def get_platform_fs_structure(self, fs_slug: str) -> str:
-        """The folder a platform's games start in, relative to the library root."""
         return cm.get_config().default_structure.games_dir(fs_slug)
 
     async def add_platform(self, fs_slug: str) -> None:
@@ -58,11 +57,6 @@ class FSPlatformsHandler(FSHandler):
             raise PlatformAlreadyExistsException(fs_slug) from e
 
     async def get_platforms(self) -> list[str]:
-        """Retrieves all platforms from the filesystem.
-
-        Returns:
-            List of platform slugs.
-        """
         try:
             platforms = await self.list_directories(path=self.get_platforms_directory())
         except FileNotFoundError:

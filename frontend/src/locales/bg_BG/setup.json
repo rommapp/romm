@@ -18,7 +18,6 @@
   "filter-all": "Всички",
   "finish": "Завърши",
   "folder-structure": "Структура на папките",
-  "footer-create-summary-default": "в roms/{{platform}} (Структура A)",
   "footer-create-summary-many": "Ще бъдат създадени {count} нови папки",
   "footer-create-summary-none": "Няма да бъдат създадени нови папки",
   "footer-create-summary-one": "Ще бъде създадена 1 нова папка",

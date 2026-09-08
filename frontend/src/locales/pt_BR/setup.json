@@ -18,7 +18,6 @@
   "filter-all": "Todas",
   "finish": "Finalizar",
   "folder-structure": "Estrutura de pastas",
-  "footer-create-summary-default": "em roms/{{platform}} (Estrutura A)",
   "footer-create-summary-many": "{count} novas pastas serão criadas",
   "footer-create-summary-none": "Nenhuma nova pasta será criada",
   "footer-create-summary-one": "1 nova pasta será criada",

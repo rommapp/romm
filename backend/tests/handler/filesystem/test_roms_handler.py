@@ -470,7 +470,7 @@ class TestFSRomsHandler:
         """Test get_roms with actual files in the filesystem"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.exists", lambda x: False)
 
             result = await handler.get_roms(platform)
 
@@ -870,7 +870,7 @@ class TestFSRomsHandler:
         """Test get_rom_files with a single ROM file"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.exists", lambda x: False)
 
             parsed_rom_files = await handler.get_rom_files(rom_single)
 
@@ -893,7 +893,7 @@ class TestFSRomsHandler:
         """Test get_rom_files with a multi-part ROM"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.exists", lambda x: False)
 
             parsed_rom_files = await handler.get_rom_files(rom_multi)
 

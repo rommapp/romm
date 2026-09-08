@@ -14,8 +14,7 @@ class FSFirmwareHandler(FSHandler):
         super().__init__(base_path=LIBRARY_BASE_PATH)
 
     def get_firmware_fs_structure(self, fs_slug: str) -> str:
-        """The platform's firmware folder, relative to the library root."""
-        return cm.get_config().firmware_structure.platform_path(fs_slug)
+        return cm.get_config().firmware_structure.firmware_dir(fs_slug)
 
     async def get_firmware(self, platform_fs_slug: str):
         """Gets all filesystem firmware for a platform

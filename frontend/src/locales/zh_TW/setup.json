@@ -18,7 +18,6 @@
   "filter-all": "全部",
   "finish": "完成",
   "folder-structure": "資料夾結構",
-  "footer-create-summary-default": "位於 roms/{{platform}} 下（結構 A）",
   "footer-create-summary-many": "將建立 {count} 個新資料夾",
   "footer-create-summary-none": "不會建立新資料夾",
   "footer-create-summary-one": "將建立 1 個新資料夾",

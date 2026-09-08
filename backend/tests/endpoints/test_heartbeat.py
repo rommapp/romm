@@ -425,7 +425,7 @@ def test_create_setup_platforms_empty_list(client, admin_user, access_token):
 def test_create_setup_platforms_creates_the_library_when_absent(
     client, admin_user, access_token
 ):
-    """Test create_setup_platforms creates Structure A when no structure detected"""
+    """Test create_setup_platforms creates the platforms folder when absent"""
     platform_slugs = ["n64"]
 
     with patch(

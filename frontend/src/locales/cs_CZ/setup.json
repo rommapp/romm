@@ -18,7 +18,6 @@
   "filter-all": "Vše",
   "finish": "Dokončit",
   "folder-structure": "Struktura složek",
-  "footer-create-summary-default": "v roms/{{platform}} (Struktura A)",
   "footer-create-summary-many": "Bude vytvořeno {count} nových složek",
   "footer-create-summary-none": "Nebudou vytvořeny žádné nové složky",
   "footer-create-summary-one": "Bude vytvořena 1 nová složka",

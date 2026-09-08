@@ -18,7 +18,6 @@
   "filter-all": "Toutes",
   "finish": "Terminer",
   "folder-structure": "Structure des dossiers",
-  "footer-create-summary-default": "sous roms/{{platform}} (Structure A)",
   "footer-create-summary-many": "{count} nouveaux dossiers seront créés",
   "footer-create-summary-none": "Aucun nouveau dossier ne sera créé",
   "footer-create-summary-one": "1 nouveau dossier sera créé",

@@ -18,7 +18,6 @@
   "filter-all": "すべて",
   "finish": "完了",
   "folder-structure": "フォルダ構造",
-  "footer-create-summary-default": "roms/{{platform}}の下に(構造A)",
   "footer-create-summary-many": "{count}件の新しいフォルダが作成されます",
   "footer-create-summary-none": "新しいフォルダは作成されません",
   "footer-create-summary-one": "1件の新しいフォルダが作成されます",

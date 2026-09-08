@@ -18,7 +18,6 @@
   "filter-all": "All",
   "finish": "Finish",
   "folder-structure": "Folder structure",
-  "footer-create-summary-default": "under roms/{{platform}} (Structure A)",
   "footer-create-summary-many": "{count} new folders will be created",
   "footer-create-summary-none": "No new folders will be created",
   "footer-create-summary-one": "1 new folder will be created",

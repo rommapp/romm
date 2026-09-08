@@ -18,7 +18,6 @@
   "filter-all": "Todos",
   "finish": "Finalizar",
   "folder-structure": "Estructura de carpetas",
-  "footer-create-summary-default": "dentro de roms/{{platform}} (Estructura A)",
   "footer-create-summary-many": "Se crearán {count} carpetas nuevas",
   "footer-create-summary-none": "No se crearán nuevas carpetas",
   "footer-create-summary-one": "Se creará 1 carpeta nueva",

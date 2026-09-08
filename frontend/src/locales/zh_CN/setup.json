@@ -18,7 +18,6 @@
   "filter-all": "全部",
   "finish": "完成",
   "folder-structure": "文件夹结构",
-  "footer-create-summary-default": "位于 roms/{{platform}}（结构 A）",
   "footer-create-summary-many": "将创建 {count} 个新文件夹",
   "footer-create-summary-none": "不会创建新文件夹",
   "footer-create-summary-one": "将创建 1 个新文件夹",

@@ -18,7 +18,6 @@
   "filter-all": "Tümü",
   "finish": "Bitir",
   "folder-structure": "Klasör yapısı",
-  "footer-create-summary-default": "roms/{{platform}} altında (A Yapısı)",
   "footer-create-summary-many": "{count} yeni klasör oluşturulacak",
   "footer-create-summary-none": "Yeni klasör oluşturulmayacak",
   "footer-create-summary-one": "1 yeni klasör oluşturulacak",

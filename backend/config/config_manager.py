@@ -65,24 +65,19 @@ class StructureLevel:
 
 @dataclass(frozen=True)
 class StructureTemplate:
-    """One parsed ROM layout, relative to the library root.
-
-    ``platform_dir`` are the literal sections before the platform folder and
-    ``levels`` are the directory levels between that folder and the game.
-    """
+    """One parsed ROM layout, relative to the library root."""
 
     platform_dir: tuple[str, ...]
     levels: tuple[StructureLevel, ...]
 
     def platform_path(self, fs_slug: str) -> str:
-        """The platform's own folder, the root of everything it holds."""
+        """The platform's own folder."""
         return "/".join((*self.platform_dir, fs_slug))
 
     def games_dir(self, fs_slug: str) -> str:
         """Where the platform's games start, as far as the template pins it down.
 
-        Stops at the first wildcard level, so with one present this is an
-        ancestor of the games rather than the folder holding them.
+        Stops at the first wildcard, which is then an ancestor of the games.
         """
         literals: list[str] = []
         for level in self.levels:
@@ -103,7 +98,8 @@ class FirmwareTemplate:
     platform_dir: tuple[str, ...]
     subdir: tuple[str, ...]
 
-    def platform_path(self, fs_slug: str) -> str:
+    def firmware_dir(self, fs_slug: str) -> str:
+        """The folder holding the platform's firmware."""
         return "/".join((*self.platform_dir, fs_slug, *self.subdir))
 
 
@@ -136,9 +132,9 @@ def _split_at_platform(
 ) -> tuple[list[str], list[str]]:
     """Split sections around the platform one, returning what precedes and follows.
 
-    The platform section is ``{platform}``, or the platform's own folder name when
-    ``fs_slug`` is given. Everything before it must be a literal folder name so
-    that the folder to enumerate platforms in is a single known path.
+    Sections before it must be literal so the folder to enumerate platforms in
+    is a single known path. ``fs_slug`` also accepts that platform's own name
+    there, in place of ``{platform}``.
     """
     for index, section in enumerate(sections):
         name = _macro_name(section)
@@ -167,11 +163,8 @@ def parse_structure_template(
 ) -> StructureTemplate:
     """Parse one ROM layout template into the platform folder and levels it describes.
 
-    Template syntax mirrors Retrom: a ``/``-separated path, relative to the
-    library root, where a section wrapped in braces is a macro and a bare section
-    is a literal folder name. ``{platform}`` marks the platform folder, the last
-    section must be the terminal ``{game}``, and every other braced section is a
-    wildcard directory level.
+    Syntax mirrors Retrom: a ``/``-separated path relative to the library root,
+    where a braced section is a macro and a bare one is a literal folder name.
 
     Args:
         fs_slug: The platform the template belongs to, which may name its folder
@@ -200,10 +193,6 @@ def parse_structure_template(
 
 def parse_firmware_template(template: str) -> FirmwareTemplate:
     """Parse the firmware layout template into the folder it points each platform at.
-
-    Firmware is a single folder per platform rather than a set of games, so the
-    template takes ``{platform}`` surrounded by literal folder names, with no
-    wildcard levels and no ``{game}`` terminal.
 
     Raises ``ValueError`` on an invalid template.
     """
@@ -499,12 +488,13 @@ class Config:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
+    def _raw_template(self, key: str, fallback: str) -> str:
+        return str(self.STRUCTURE_TEMPLATES.get(key, fallback))
+
     @functools.cached_property
     def default_structure_pattern(self) -> str:
-        """The raw `filesystem.structure.default` template, as configured."""
-        return str(
-            self.STRUCTURE_TEMPLATES.get(STRUCTURE_DEFAULT_KEY, DEFAULT_ROM_STRUCTURE)
-        )
+        """The raw `filesystem.structure.default` template."""
+        return self._raw_template(STRUCTURE_DEFAULT_KEY, DEFAULT_ROM_STRUCTURE)
 
     @functools.cached_property
     def default_structure(self) -> StructureTemplate:
@@ -515,22 +505,15 @@ class Config:
     def firmware_structure(self) -> FirmwareTemplate:
         """The firmware layout, from `filesystem.structure.firmware`."""
         return parse_firmware_template(
-            str(
-                self.STRUCTURE_TEMPLATES.get(
-                    STRUCTURE_FIRMWARE_KEY, DEFAULT_FIRMWARE_STRUCTURE
-                )
-            )
+            self._raw_template(STRUCTURE_FIRMWARE_KEY, DEFAULT_FIRMWARE_STRUCTURE)
         )
 
     def platform_structure(self, fs_slug: str) -> tuple[StructureTemplate, ...]:
-        """The ROM layout(s) for a platform.
+        """The ROM layout(s) for a platform, whose discovery is unioned.
 
-        Overridable per platform via `filesystem.structure` in config.yml (a map
-        of ``fs_slug -> template`` or ``fs_slug -> [template, ...]``, keyed
-        case-insensitively like `system.platforms`), which falls back to
-        `filesystem.structure.default`. Returns the parsed layouts whose
-        discovery is unioned; templates are validated at load time, so parsing
-        here is expected to succeed.
+        Overridable per platform by `filesystem.structure.<fs_slug>`, keyed
+        case-insensitively like `system.platforms`. Templates are validated at
+        load time, so parsing here is expected to succeed.
         """
         key = fs_slug.lower()
         value = (
@@ -927,10 +910,9 @@ class ConfigManager:
         return normalized
 
     def _check_retired_filesystem_keys(self) -> None:
-        """Exit if config.yml still sets a folder name `filesystem.structure` replaced.
+        """Exit if config.yml still sets a folder name that a template replaced.
 
-        Ignoring one would relocate the library under the user, so name the
-        template that reproduces the layout instead.
+        Ignoring one would relocate the library under the user.
         """
         retired = {
             "filesystem.roms_folder": (

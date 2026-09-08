@@ -18,7 +18,6 @@
   "filter-all": "Összes",
   "finish": "Befejezés",
   "folder-structure": "Mappastruktúra",
-  "footer-create-summary-default": "ide: roms/{{platform}} (A struktúra)",
   "footer-create-summary-many": "{count} új mappa lesz létrehozva",
   "footer-create-summary-none": "Nem jön létre új mappa",
   "footer-create-summary-one": "1 új mappa lesz létrehozva",

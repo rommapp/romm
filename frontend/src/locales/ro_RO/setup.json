@@ -18,7 +18,6 @@
   "filter-all": "Toate",
   "finish": "Finalizează",
   "folder-structure": "Structura directoarelor",
-  "footer-create-summary-default": "sub roms/{{platform}} (Structura A)",
   "footer-create-summary-many": "{count} foldere noi vor fi create",
   "footer-create-summary-none": "Nu vor fi create foldere noi",
   "footer-create-summary-one": "1 folder nou va fi creat",

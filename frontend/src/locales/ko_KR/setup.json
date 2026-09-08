@@ -18,7 +18,6 @@
   "filter-all": "전체",
   "finish": "완료",
   "folder-structure": "폴더 구조",
-  "footer-create-summary-default": "roms/{{platform}} 아래에 (구조 A)",
   "footer-create-summary-many": "새 폴더 {count}개가 생성됩니다",
   "footer-create-summary-none": "생성될 새 폴더가 없습니다",
   "footer-create-summary-one": "새 폴더 1개가 생성됩니다",

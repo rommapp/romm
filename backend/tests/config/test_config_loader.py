@@ -100,7 +100,7 @@ def test_config_loader():
     }
     assert loader.config.default_structure.platform_dir == ("ROMS",)
     assert loader.config.platforms_dir == "ROMS"
-    assert loader.config.firmware_structure.platform_path("psx") == "BIOS/psx"
+    assert loader.config.firmware_structure.firmware_dir("psx") == "BIOS/psx"
 
     # The accessor parses templates on demand.
     psx = loader.config.platform_structure("psx")
@@ -151,7 +151,7 @@ def test_empty_config_loader():
     assert loader.config.PLATFORMS_BINDING == {}
     assert loader.config.PLATFORMS_VERSIONS == {}
     assert loader.config.platforms_dir == "roms"
-    assert loader.config.firmware_structure.platform_path("nes") == "bios/nes"
+    assert loader.config.firmware_structure.firmware_dir("nes") == "bios/nes"
     assert not loader.config.SKIP_HASH_CALCULATION
     assert not loader.config.EJS_DEBUG
     assert loader.config.EJS_CACHE_LIMIT is None
@@ -339,7 +339,7 @@ def test_malformed_yaml_falls_back_to_defaults():
     )
 
     assert loader.config.platforms_dir == "roms"
-    assert loader.config.firmware_structure.platform_path("nes") == "bios/nes"
+    assert loader.config.firmware_structure.firmware_dir("nes") == "bios/nes"
     assert loader.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
     # The parse error is surfaced so the UI can warn the user their whole
     # config (not just the broken part) was discarded.
