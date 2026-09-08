@@ -343,16 +343,9 @@ class FSRomsHandler(FSHandler):
     def get_roms_upload_path(self, fs_slug: str) -> str:
         """Where a newly uploaded rom file has to land to be discovered again.
 
-        Default discovery reads the platform's roms folder, but a custom
-        structure only reads the directories its templates descend to, so a file
-        dropped at the root would be flagged missing by the very next scan. A
-        template made of literal levels names its folder outright, so the
-        destination follows it; a wildcard level does not, and there is no
-        folder to pick.
-
         Raises:
-            ValueError: when every configured template needs a folder name only
-                the user can choose.
+            ValueError: when the platform's structure leaves the folder to the
+                user, so no destination can be derived.
         """
         rel_roms_path = self.get_roms_fs_structure(fs_slug)
         structures = cm.get_config().platform_structure(fs_slug)
@@ -1043,9 +1036,8 @@ class FSRomsHandler(FSHandler):
             next_dirs: list[str] = []
             for directory in dirs:
                 subs = await self.list_directories(directory)
-                # A wildcard level matches organizational folders, so the ones
-                # that are never a game (scraper media, NAS metadata) are
-                # dropped. A literal names its folder outright, so it stands.
+                # A wildcard matches any folder, so the ones that are never a
+                # game are dropped; naming one outright is an explicit opt-in.
                 if level.literal is None:
                     subs = self.exclude_multi_roms(subs)
                 for sub in subs:

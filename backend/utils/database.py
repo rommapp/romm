@@ -78,9 +78,7 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
 def full_path_digest_sql(conn: sa.Connection) -> str:
     """`models.rom.compute_full_path_hash` spelled in SQL, for 0126's backfill.
 
-    Digesting a whole roms table row by row from Python is too slow to run at
-    startup, so the migration lets the server do it. `test_migrations` pins this
-    to the Python function it mirrors.
+    `test_migrations` pins this to the Python function it mirrors.
     """
     if is_postgresql(conn):
         return "encode(sha256(convert_to(fs_path || '/' || fs_name, 'UTF8')), 'hex')"

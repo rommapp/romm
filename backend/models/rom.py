@@ -570,11 +570,9 @@ class Rom(BaseModel):
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
     __table_args__ = (
-        # Enforce a unique full path per platform to avoid duplicates. A custom
-        # library structure can hold the same file name in two folders, so the
-        # path is part of the identity. Indexed through the digest because
-        # fs_path + fs_name is 5804 bytes of utf8mb4, well over InnoDB's
-        # 3072-byte key limit.
+        # A custom library structure can hold the same file name in two folders,
+        # so the whole path is the identity. Indexed through its digest because
+        # fs_path + fs_name is 5804 bytes, over InnoDB's 3072-byte key limit.
         Index(
             "idx_roms_platform_id_full_path_hash",
             "platform_id",
@@ -830,9 +828,10 @@ class Rom(BaseModel):
 
         Fires on attribute set (ORM construction and mutation) only. Bulk
         `update()` statements bypass the ORM and set these explicitly (see
-        `update_rom`). The hook runs before the value lands, so the incoming one
-        is passed to the digest rather than read back off the instance.
+        `update_rom`).
         """
+        # The hook runs before the value lands, so the digest reads the incoming
+        # half rather than the stale one on the instance.
         if key == "fs_path":
             self.full_path_hash = compute_full_path_hash(value, self.fs_name)
             return value

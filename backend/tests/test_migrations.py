@@ -86,10 +86,11 @@ def test_postgresql_fk_indexes_cover_every_unindexed_foreign_key():
         ("", ""),
     ],
 )
-def test_the_migrated_full_path_digest_matches_the_models(fs_path, fs_name):
-    """Revision 0126 backfills `full_path_hash` in SQL for speed; the app writes
-    it from Python. A mismatch would make every pre-existing rom look like a new
-    one to the unique index."""
+def test_the_migrated_full_path_digest_matches_the_models(fs_path: str, fs_name: str):
+    """0126 backfills `full_path_hash` in SQL; the app writes it from Python.
+
+    A mismatch would make every pre-existing rom look new to the unique index.
+    """
     with sync_engine.connect() as connection:
         digest = connection.execute(
             sa.text(

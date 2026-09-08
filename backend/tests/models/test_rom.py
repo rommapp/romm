@@ -217,8 +217,8 @@ def test_youtube_video_id_falls_through_to_the_next_valid_source(rom: Rom):
 
 
 class TestFullPathHash:
-    """`full_path_hash` carries the uniqueness the index cannot: fs_path plus
-    fs_name is 5804 bytes of utf8mb4, well over InnoDB's 3072-byte key limit."""
+    """The digest the unique index reads, since fs_path plus fs_name is 5804
+    bytes of utf8mb4 and InnoDB caps a key at 3072."""
 
     def test_it_digests_the_full_path_whichever_half_is_assigned_first(self):
         expected = compute_full_path_hash("nes/roms/Hacks", "Game.zip")

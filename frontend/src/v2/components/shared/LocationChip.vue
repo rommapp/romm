@@ -1,8 +1,6 @@
 <script setup lang="ts">
-// LocationChip — click-to-copy chip surfacing a ROM's on-disk location, built
-// on HashChip's pattern (a keyboard-accessible <button> shell around RTag) so
-// it reads as a sibling of the hash pills beside it. A path ellipsis-truncates
-// on overflow rather than being mid-abbreviated; the full path is what copies.
+// Built on HashChip's pattern so it reads as a sibling of the hash pills beside
+// it, but a path ellipsis-truncates instead of being mid-abbreviated.
 import { RTag } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import { useClipboard } from "@/v2/composables/useClipboard";

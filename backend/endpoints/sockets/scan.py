@@ -958,11 +958,8 @@ async def _identify_platform(
 
     # Flag entries whose file is gone before identifying files, so a renamed or
     # moved ROM (a new file with no full-path match) can be reassociated by hash
-    # with its now-missing entry instead of spawning a duplicate. That is what
-    # relocates a rom whose folder changed (a custom structure being enabled, or
-    # dropped again) with its saves, history, favorites and collections intact.
-    # The end-of-scan call below re-syncs and logs, unmarking any entry that got
-    # reassociated.
+    # with its now-missing entry instead of spawning a duplicate. The end-of-scan
+    # call below re-syncs and logs, unmarking any entry that got reassociated.
     fs_rom_paths = [f"{rom['fs_path']}/{rom['fs_name']}" for rom in fs_roms]
     db_rom_handler.mark_missing_roms(platform.id, fs_rom_paths)
 
