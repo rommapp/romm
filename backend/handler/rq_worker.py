@@ -1,14 +1,12 @@
 import logging
-from typing import Any
+from typing import Any, Final
 
 import rq.scheduler
 from rq import Worker
 
-# Lines RQ emits on every maintenance sweep or scheduler tick. The work itself
-# still runs (crash recovery for orphaned jobs, TTL reaping, stale worker
-# pruning, scheduler lock renewal); only the records are dropped so they do not
-# flood the logs, which at DEBUG means two heartbeat lines per second.
-_PERIODIC_NOISE = (
+# Fragments of the lines RQ logs on every tick. The maintenance sweep and the
+# scheduler heartbeat still run; only their log records are dropped.
+_PERIODIC_NOISE: Final[tuple[str, ...]] = (
     "cleaning registries for queue",
     "scheduler sending heartbeat to",
 )
@@ -33,6 +31,6 @@ class RomMWorker(Worker):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         _silence_periodic_noise(self.log)
-        # --with-scheduler forks a scheduler off this process, so the filter it
-        # inherits here is the only chance to configure that logger.
+        # --with-scheduler forks the scheduler off this process, so a filter
+        # added here is the only one that logger inherits.
         _silence_periodic_noise(logging.getLogger(rq.scheduler.__name__))
