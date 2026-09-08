@@ -6,10 +6,7 @@ from typing import Any
 import pydash
 import socketio  # type: ignore
 
-from adapters.services.screenscraper import (
-    ScreenScraperRateLimitError,
-    is_breaker_tripped,
-)
+from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
@@ -19,7 +16,7 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.roms_handler import FSRom, build_empty_fs_rom
 from handler.metadata import (
     meta_csdb_handler,
     meta_demozoo_handler,
@@ -65,6 +62,7 @@ from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAGameRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import (
     SCREENSAVER_PLATFORM_LIST,
+    ScreenScraperExhaustedError,
     SSRom,
     add_ss_auth_to_url,
     get_preferred_media_types,
@@ -161,24 +159,16 @@ def build_physical_fs_path(platform: Platform) -> str:
 def build_physical_fs_name(name: str) -> str:
     """`fs_name` for a physical game: the sanitized name, with no fake extension.
 
-    The unique index on (platform_id, fs_name) rejects a second copy of the same
-    title on a platform, which is not a library a user can own anyway.
+    Physical games all share one folder, so the unique index on
+    (platform_id, full_path_hash) rejects a second copy of the same title on a
+    platform, which is not a library a user can own anyway.
     """
     return sanitize_filename(name)
 
 
-def build_hashless_fs_rom(fs_name: str, *, flat: bool) -> FSRom:
+def build_hashless_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
     """An `FSRom` for a rom with no filesystem listing to consult."""
-    return FSRom(
-        fs_name=fs_name,
-        flat=flat,
-        nested=not flat,
-        files=[],
-        crc_hash="",
-        md5_hash="",
-        sha1_hash="",
-        ra_hash="",
-    )
+    return build_empty_fs_rom(fs_name, fs_path, flat=flat)
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -962,9 +952,9 @@ async def scan_rom(
             )
         ):
             attempted_sources.add(MetadataSource.SS)
-            # One refusal means the per-minute budget is already spent, so give
-            # up on this ROM rather than spending another retried request (and
-            # its backoff) on the fallback lookups.
+            # A breaker answering in ScreenScraper's place rules nothing out for
+            # this rom, whichever of the lookups below it short-circuits.
+            short_circuited = False
             try:
                 # Use the ID to refetch metadata
                 if scan_type == ScanType.UPDATE and rom.ss_id:
@@ -982,20 +972,34 @@ async def scan_rom(
                     )
 
                 # Use the file hashes for lookup
-                game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
-                    rom, platform.ss_id, get_match_files()
-                )
-                if game_by_hash.get("ss_id") or is_not_game:
-                    return game_by_hash
+                try:
+                    game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
+                        rom, platform.ss_id, get_match_files()
+                    )
+                except ScreenScraperExhaustedError:
+                    # The filename lookup below still derives a name for some
+                    # platforms, and the breaker can clear before it runs.
+                    short_circuited = True
+                else:
+                    if game_by_hash.get("ss_id") or is_not_game:
+                        return game_by_hash
 
                 # Fallback to the filename
                 return await meta_ss_handler.get_rom(
                     rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
                 )
+            except ScreenScraperExhaustedError as exc:
+                short_circuited = True
+                return exc.fallback
             except ScreenScraperRateLimitError:
+                # The per-minute budget is already spent, so give up on this ROM
+                # rather than spending a retried request on the fallback lookups.
                 note_rate_limited_rom(rom_attrs["fs_name"])
-                attempted_sources.discard(MetadataSource.SS)
+                short_circuited = True
                 return SSRom(ss_id=None)
+            finally:
+                if short_circuited:
+                    attempted_sources.discard(MetadataSource.SS)
 
         return SSRom(ss_id=None)
 
@@ -1151,11 +1155,6 @@ async def scan_rom(
             provider_fetches, fetch_results, strict=True
         )
     ]
-
-    # Once a ScreenScraper breaker trips, the remaining lookups answer empty
-    # without asking, so it has ruled nothing out for this rom either.
-    if is_breaker_tripped():
-        attempted_sources.discard(MetadataSource.SS)
 
     (
         igdb_handler_rom,
@@ -1556,7 +1555,7 @@ async def scan_rom(
         extra=LOGGER_MODULE_NAME,
     )
 
-    if fs_rom["nested"]:
+    if not fs_rom["flat"]:
         for file in fs_rom["files"]:
             log.info(
                 f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",

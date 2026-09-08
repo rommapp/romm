@@ -72,14 +72,25 @@
 #     naomi: arcade
 
 # filesystem:
-#   # Custom games folder name only (eg. `retro_games/`)
-#   roms_folder: 'roms'
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)
 #   skip_hash_calculation: false
 #   # Skip reading platform-native title IDs out of ROM binaries during scans
 #   skip_title_id_extraction: false
 #   # Rename Switch ROMs to embed ` [TITLEID][vVERSION]` in their filename
 #   embed_switch_title_ids: false
+#   # Library structure, relative to the library root. `{platform}` is the
+#   # platform folder; `{game}` is where a game begins, a file there being one
+#   # game and a folder one multi-file game. Any other macro is a wildcard level.
+#   # https://docs.romm.app/latest/getting-started/folder-structure/#custom-library-structure
+#   structure:
+#     default: 'roms/{platform}/{game}'
+#     firmware: 'bios/{platform}'
+#     # Overrides by fs_slug; a list unions its layouts.
+#     nes:
+#       - 'roms/{platform}/{game}'
+#       - 'roms/{platform}/{category}/{game}'
+#     ps3: 'roms/{platform}/{category}/{game}'
+#     snes: 'roms/{platform}/{region}/{game}'
 
 # scan:
 #   # Metadata priority during scans
@@ -170,6 +181,7 @@
 #   cache_limit: null # Cache limit per ROM (in bytes)
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
+#   auto_save_sync: false # Upload the save to the server whenever it changes, without Save & Quit
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled

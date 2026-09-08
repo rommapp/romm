@@ -21,6 +21,10 @@ export const UI_SETTINGS_KEYS = {
   showStats: { key: "settings.showStats", default: true },
   showRecentRoms: { key: "settings.showRecentRoms", default: true },
   showContinuePlaying: { key: "settings.showContinuePlaying", default: true },
+  showRecommendations: {
+    key: "settings.showRecommendations",
+    default: true,
+  },
   showPlatforms: { key: "settings.showPlatforms", default: true },
   showCollections: { key: "settings.showCollections", default: true },
   showSmartCollections: {

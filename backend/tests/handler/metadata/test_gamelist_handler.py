@@ -7,6 +7,7 @@ import pytest
 from defusedxml import ElementTree as ET
 
 from config.config_manager import MetadataMediaType
+from handler.filesystem import fs_platform_handler
 from handler.metadata.gamelist_handler import (
     GamelistHandler,
     extract_metadata_from_gamelist_rom,
@@ -98,6 +99,94 @@ def test_parse_gamelist_xml_keeps_game_entries(tmp_path: Path, platform: Platfor
 
     assert "test-rom.zip" in roms_data
     assert roms_data["test-rom.zip"].get("name") == "Game Entry"
+
+
+def test_parse_gamelist_xml_keys_entries_by_path(tmp_path: Path, platform: Platform):
+    """Nested entries keep their own metadata, and a bare file name is a fallback
+    key only while it points at a single entry."""
+    gamelist_path = tmp_path / "gamelist.xml"
+    gamelist_path.write_text(
+        """<?xml version="1.0"?>
+<gameList>
+  <game>
+    <path>./USA/shared.zip</path>
+    <name>USA Release</name>
+  </game>
+  <game>
+    <path>./Japan/shared.zip</path>
+    <name>Japan Release</name>
+  </game>
+  <game>
+    <path>./Disks/Set A/alone.zip</path>
+    <name>Only One</name>
+  </game>
+</gameList>""",
+        encoding="utf-8",
+    )
+    handler = GamelistHandler()
+
+    with (
+        patch(
+            "handler.metadata.gamelist_handler.extract_metadata_from_gamelist_rom",
+            return_value=MOCK_METADATA,
+        ),
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+    ):
+        roms_data = handler._parse_gamelist_xml(gamelist_path, platform)
+
+    assert roms_data["USA/shared.zip"].get("name") == "USA Release"
+    assert roms_data["Japan/shared.zip"].get("name") == "Japan Release"
+    assert "shared.zip" not in roms_data
+    assert roms_data["alone.zip"].get("name") == "Only One"
+
+
+@pytest.mark.asyncio
+async def test_get_rom_matches_the_folder_the_rom_sits_in(
+    tmp_path: Path, platform: Platform
+):
+    gamelist_path = tmp_path / "gamelist.xml"
+    gamelist_path.write_text(
+        """<?xml version="1.0"?>
+<gameList>
+  <game>
+    <path>./USA/shared.zip</path>
+    <name>USA Release</name>
+  </game>
+  <game>
+    <path>./Japan/shared.zip</path>
+    <name>Japan Release</name>
+  </game>
+</gameList>""",
+        encoding="utf-8",
+    )
+    handler = GamelistHandler()
+    platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+    matched: dict[str, str | None] = {}
+    with (
+        patch(
+            "handler.metadata.gamelist_handler.extract_metadata_from_gamelist_rom",
+            return_value=MOCK_METADATA,
+        ),
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+        patch.object(handler, "_find_gamelist_file", return_value=gamelist_path),
+    ):
+        for folder in ("USA", "Japan"):
+            rom = Rom(
+                platform_id=platform.id,
+                fs_name="shared.zip",
+                fs_path=f"{platform_fs_path}/{folder}",
+            )
+            result = await handler.get_rom("shared.zip", platform, rom)
+            matched[folder] = result.get("name")
+
+    assert matched == {"USA": "USA Release", "Japan": "Japan Release"}
 
 
 def test_parse_gamelist_xml_title_screen_not_in_screenshots(

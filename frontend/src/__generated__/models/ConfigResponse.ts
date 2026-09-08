@@ -26,6 +26,7 @@ export type ConfigResponse = {
     EJS_CACHE_LIMIT: (number | null);
     EJS_DISABLE_AUTO_UNLOAD: boolean;
     EJS_DISABLE_BATCH_BOOTUP: boolean;
+    EJS_ENABLE_AUTO_SAVE_SYNC: boolean;
     EJS_NETPLAY_ENABLED: boolean;
     EJS_CORES: Record<string, Array<string>>;
     EJS_NIGHTLY_CORES: Record<string, Array<string>>;

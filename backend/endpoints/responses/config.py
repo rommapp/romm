@@ -24,6 +24,7 @@ class ConfigResponse(TypedDict):
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
+    EJS_ENABLE_AUTO_SAVE_SYNC: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_CORES: dict[str, list[str]]
     EJS_NIGHTLY_CORES: dict[str, list[str]]

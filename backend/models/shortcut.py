@@ -37,7 +37,9 @@ class Shortcut(BaseModel):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
     device_id: Mapped[str] = mapped_column(
         ForeignKey("devices.id", ondelete="CASCADE"), index=True
     )

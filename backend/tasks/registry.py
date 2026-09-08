@@ -14,6 +14,7 @@ from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
+from tasks.scheduled.build_recommendations import build_recommendations_task
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
 from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
@@ -36,6 +37,7 @@ SCHEDULED_TASKS: Final[dict[str, PeriodicTask]] = {
     "scan_library": scan_library_task,
     "update_launchbox_metadata": update_launchbox_metadata_task,
     "update_switch_titledb": update_switch_titledb_task,
+    "build_recommendations": build_recommendations_task,
     "convert_images_to_webp": convert_images_to_webp_task,
     "cleanup_zip_cache": cleanup_zip_cache_task,
     "cleanup_orphaned_resources": cleanup_orphaned_resources_task,

@@ -38,7 +38,8 @@ const stepDirection = ref<"forward" | "back">("forward");
 
 // Step 1 — library + platforms
 const EMPTY_LIBRARY_INFO: SetupLibraryInfo = {
-  detected_structure: null,
+  library_ready: false,
+  library_structure: "",
   existing_platforms: [],
   supported_platforms: [],
 };

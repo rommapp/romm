@@ -41,6 +41,7 @@ from config import (
 )
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
+from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFiltersDict,
@@ -82,7 +83,12 @@ from handler.metadata import (
     scene_id_or_none,
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
-from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
+from handler.metadata.ss_handler import (
+    ScreenScraperExhaustedError,
+    add_ss_auth_to_url,
+    get_preferred_media_types,
+)
+from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
 from handler.scan_handler import (
     MetadataSource,
@@ -1399,6 +1405,42 @@ def get_rom_simple(
 
 @protected_route(
     router.get,
+    "/{id}/similar",
+    [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def get_similar_roms(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    limit: Annotated[
+        int, Query(ge=1, le=50, description="Maximum similar roms to return")
+    ] = 12,
+) -> list[SimilarRomSchema]:
+    """Games in this library that resemble the given one.
+
+    Read from the precomputed similarity graph, so unlike IGDB's own related
+    games every result is a title the server actually holds.
+    """
+
+    rom = db_rom_handler.get_rom_simple(id)
+
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    return [
+        SimilarRomSchema(
+            rom=SimpleRomSchema.from_orm_with_request(item.rom, request),
+            score=item.score,
+            reasons=item.reasons,  # type: ignore[arg-type]
+        )
+        for item in similar_roms(id, limit=limit, permissions=get_permissions(request))
+    ]
+
+
+@protected_route(
+    router.get,
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
@@ -1793,7 +1835,7 @@ async def create_physical_rom(
             scan_type=ScanType.QUICK,
             platform=platform,
             rom=rom,
-            fs_rom=build_hashless_fs_rom(fs_name, flat=True),
+            fs_rom=build_hashless_fs_rom(fs_name, fs_path, flat=True),
             metadata_sources=metadata_sources,
             newly_added=True,
         )
@@ -2070,7 +2112,10 @@ async def update_rom(
         cleaned_data.update({"moby_id": None, "moby_metadata": {}})
 
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
-        ss_rom = await meta_ss_handler.get_rom_by_id(rom, cleaned_data["ss_id"])
+        try:
+            ss_rom = await meta_ss_handler.get_rom_by_id(rom, cleaned_data["ss_id"])
+        except ScreenScraperExhaustedError as exc:
+            ss_rom = exc.fallback
         if ss_rom.get("ss_id"):
             cleaned_data.update(ss_rom)
     elif rom.ss_id and not cleaned_data["ss_id"]:

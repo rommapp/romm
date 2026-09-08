@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, TIMESTAMP, Boolean, Enum, ForeignKey, String
+from sqlalchemy import JSON, TIMESTAMP, Boolean, Enum, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
@@ -44,7 +44,15 @@ KNOWN_DEVICES: dict[str, DeviceType] = {
 
 class Device(BaseModel):
     __tablename__ = "devices"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        Index(
+            "ix_devices_user_client_identifier",
+            "user_id",
+            "client_device_identifier",
+            unique=True,
+        ),
+        {"extend_existing": True},
+    )
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -71,7 +79,9 @@ class Device(BaseModel):
         JSON, nullable=True
     )
 
-    last_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    last_seen: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), index=True
+    )
 
     user: Mapped[User] = relationship(lazy="joined")
     save_syncs: Mapped[list[DeviceSaveSync]] = relationship(

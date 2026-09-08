@@ -34,6 +34,8 @@ import {
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
+  createSaveSyncTracker,
+  toArrayBuffer,
 } from "./utils";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
@@ -180,6 +182,7 @@ const {
   EJS_DISABLE_BATCH_BOOTUP,
   EJS_NETPLAY_ICE_SERVERS,
   EJS_NETPLAY_ENABLED,
+  EJS_ENABLE_AUTO_SAVE_SYNC,
 } = configStore.config;
 // Full origin (with scheme)
 window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.origin : "";
@@ -230,6 +233,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(async () => {
+  autoSaveSyncEmulator = null;
   emitter?.off("saveSelected", loadSave);
   emitter?.off("stateSelected", loadState);
   window.EJS_emulator?.callEvent("exit");
@@ -249,7 +253,7 @@ function displayMessage(
     icon?: string;
   },
 ) {
-  window.EJS_emulator.displayMessage(message, duration);
+  window.EJS_emulator?.displayMessage(message, duration);
   const element = document.querySelector("#game .ejs_message");
   if (element) {
     element.classList.add(className, icon);
@@ -276,6 +280,47 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 // Settle window after boot before applying a state. Some cores need a few
 // frames rendered before loadState takes cleanly.
 const STATE_APPLY_SETTLE_MS = 500;
+
+// Periodic save upload on EmulatorJS' "System Save interval" tick (see
+// createSaveSyncTracker). EmulatorJS has no `off`, so the handler stays
+// subscribed and this slot is what tells it the component still owns it.
+let autoSaveSyncEmulator: object | null = null;
+function installAutoSaveSync() {
+  const emulator = window.EJS_emulator;
+  if (!emulator?.gameManager || autoSaveSyncEmulator === emulator) return;
+  autoSaveSyncEmulator = emulator;
+  const tracker = createSaveSyncTracker();
+  // Passing false reads the SRAM without dumping it, so seeding fires no tick.
+  tracker.seed(emulator.gameManager.getSaveFile(false));
+  let uploading = false;
+  emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
+    if (autoSaveSyncEmulator !== emulator || uploading || !saveFile?.byteLength)
+      return;
+    if (!tracker.shouldUpload(saveFile)) return;
+    uploading = true;
+    try {
+      const save = await saveSave({
+        rom: romRef.value,
+        save: saveRef.value,
+        saveFile: toArrayBuffer(saveFile),
+        deviceId: deviceIDRef.value,
+      });
+      if (save) {
+        tracker.markUploaded(saveFile);
+        saveRef.value = save;
+        romsStore.update(romRef.value);
+        displayMessage("Save synced with server", {
+          duration: 3000,
+          icon: "mdi-cloud-sync",
+        });
+      }
+    } catch (error) {
+      console.error("Periodic save sync failed", error);
+    } finally {
+      uploading = false;
+    }
+  });
+}
 
 // Saves management
 async function loadSave(save: SaveSchema) {
@@ -442,6 +487,13 @@ window.EJS_onGameStart = async () => {
       } else if (props.save) {
         await loadSave(props.save);
       }
+      if (EJS_ENABLE_AUTO_SAVE_SYNC) {
+        try {
+          installAutoSaveSync();
+        } catch (error) {
+          console.error("Failed to enable periodic save sync", error);
+        }
+      }
     }
 
     if (window.EJS_emulator) {
@@ -472,6 +524,7 @@ window.EJS_onGameStart = async () => {
 
   const exitEmulation = createExitEmulationButton();
   exitEmulation.addEventListener("click", async () => {
+    autoSaveSyncEmulator = null;
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
     romsStore.update(romRef.value);
     immediateExit();
@@ -479,6 +532,7 @@ window.EJS_onGameStart = async () => {
 
   const saveAndQuit = createSaveQuitButton();
   saveAndQuit.addEventListener("click", async () => {
+    autoSaveSyncEmulator = null;
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
     // Grab the screenshot while the game is still running (EmulatorJS reads

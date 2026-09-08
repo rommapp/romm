@@ -51,8 +51,10 @@ class TestFSRomsHandler:
             EXCLUDED_MULTI_PARTS_FILES=["excluded_part.bin"],
             PLATFORMS_BINDING={},
             PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
         )
 
     @pytest.fixture
@@ -119,51 +121,22 @@ class TestFSRomsHandler:
         """Test that FSRomsHandler initializes with LIBRARY_BASE_PATH"""
         assert handler.base_path == Path(LIBRARY_BASE_PATH).resolve()
 
-    def test_get_roms_fs_structure_structure_b(self, handler: FSRomsHandler):
-        """Test get_roms_fs_structure with Structure B ({platform}/roms)"""
-        fs_slug = "n64"
-        cnfg = Config(
-            EXCLUDED_PLATFORMS=[],
-            EXCLUDED_SINGLE_EXT=[],
-            EXCLUDED_SINGLE_FILES=[],
-            EXCLUDED_MULTI_FILES=[],
-            EXCLUDED_MULTI_PARTS_EXT=[],
-            EXCLUDED_MULTI_PARTS_FILES=[],
-            PLATFORMS_BINDING={},
-            PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
-        )
-        cnfg.has_structure_path_b = True
+    @pytest.mark.parametrize(
+        ("template", "expected"),
+        [
+            ("{platform}/roms/{game}", "n64/roms"),
+            ("roms/{platform}/{game}", "roms/n64"),
+            ("games/all/{platform}/{game}", "games/all/n64"),
+        ],
+    )
+    def test_get_roms_fs_structure(self, handler: FSRomsHandler, template, expected):
+        """The platform folder is whatever the template puts `{platform}` in."""
+        cnfg = Config(STRUCTURE_TEMPLATES={"default": template})
 
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
 
-            result = handler.get_roms_fs_structure(fs_slug)
-            assert result == f"{fs_slug}/roms"
-
-    def test_get_roms_fs_structure_structure_a(self, handler: FSRomsHandler):
-        """Test get_roms_fs_structure with Structure A (roms/{platform})"""
-        fs_slug = "n64"
-        cnfg = Config(
-            EXCLUDED_PLATFORMS=[],
-            EXCLUDED_SINGLE_EXT=[],
-            EXCLUDED_SINGLE_FILES=[],
-            EXCLUDED_MULTI_FILES=[],
-            EXCLUDED_MULTI_PARTS_EXT=[],
-            EXCLUDED_MULTI_PARTS_FILES=[],
-            PLATFORMS_BINDING={},
-            PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
-        )
-        cnfg.has_structure_path_b = False
-
-        with pytest.MonkeyPatch.context() as m:
-            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
-
-            result = handler.get_roms_fs_structure(fs_slug)
-            assert result == f"roms/{fs_slug}"
+            assert handler.get_roms_fs_structure("n64") == expected
 
     def test_parse_tags_regions_and_languages(self, handler: FSRomsHandler):
         """Test parse_tags method with regions and languages"""
@@ -377,8 +350,10 @@ class TestFSRomsHandler:
             EXCLUDED_MULTI_PARTS_FILES=[],
             PLATFORMS_BINDING={},
             PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
         )
 
         with pytest.MonkeyPatch.context() as m:
@@ -386,6 +361,17 @@ class TestFSRomsHandler:
 
             result = handler.exclude_multi_roms(roms)
             assert result == roms
+
+    def test_exclude_multi_roms_drops_hidden_folders(
+        self, handler: FSRomsHandler, config
+    ):
+        """A hidden folder is never a rom, with or without a structure template."""
+        roms = ["Game1", ".hidden", "Game2"]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            assert handler.exclude_multi_roms(roms) == ["Game1", "Game2"]
 
     def test_exclude_multi_roms_case_insensitive(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms ignores case in excluded names"""
@@ -484,7 +470,7 @@ class TestFSRomsHandler:
         """Test get_roms with actual files in the filesystem"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.exists", lambda x: False)
 
             result = await handler.get_roms(platform)
 
@@ -493,7 +479,7 @@ class TestFSRomsHandler:
 
             # Check that we have both single and multi ROMs
             single_roms = [r for r in result if not r["flat"]]
-            multi_roms = [r for r in result if r["nested"]]
+            multi_roms = [r for r in result if not r["flat"]]
 
             assert len(single_roms) > 0
             assert len(multi_roms) > 0
@@ -507,6 +493,376 @@ class TestFSRomsHandler:
             # Check excluded files are not present
             assert "excluded_test.tmp" not in rom_names
 
+    def _make_structure_config(self, templates: dict[str, str | list[str]]) -> Config:
+        return Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=["tmp"],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=["@eaDir"],
+            EXCLUDED_MULTI_PARTS_EXT=["tmp"],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            STRUCTURE_TEMPLATES={"default": "{platform}/roms/{game}", **templates},
+        )
+
+    def _build_structure_library(self, tmp_path: Path, base: str) -> None:
+        """Library exercising literal/wildcard levels, file-vs-folder terminals,
+        a name collision across folders, a hidden folder, and depth > 1."""
+        roms = tmp_path / base
+        roms.mkdir(parents=True)
+        (roms / "Top.zip").write_text("t")
+        hacks = roms / "Hacks"
+        hacks.mkdir()
+        (hacks / "Shared.zip").write_text("a")
+        (hacks / "HackOnly.zip").write_text("b")
+        inner = hacks / "Inner"
+        inner.mkdir()
+        (inner / "x.bin").write_text("x")
+        trans = roms / "Translations"
+        trans.mkdir()
+        (trans / "Shared.zip").write_text("c")  # collides with Hacks/Shared.zip
+        hidden = roms / ".hidden"
+        hidden.mkdir()
+        (hidden / "secret.zip").write_text("s")
+        region = roms / "Region"
+        region.mkdir()
+        usa = region / "USA"
+        usa.mkdir()
+        (usa / "usagame.zip").write_text("u")
+
+    @pytest.mark.asyncio
+    async def test_get_roms_no_structure_is_default(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Without a template, only top-level files and folders are surfaced
+        (each file a flat rom, each folder a single multi-file rom), and hidden
+        folders are skipped as they are under a template."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config({}),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (base, "Top.zip") in keys
+        assert (base, "Hacks") in keys
+        assert (base, "Translations") in keys
+        assert (base, "Region") in keys
+        assert (base, ".hidden") not in keys
+        # Nothing nested is surfaced.
+        assert all(r["fs_path"] == base for r in roms)
+        assert len(roms) == 4
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_wildcard_level(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A wildcard level descends one folder and the `{game}` terminal takes
+        both the files and the folders it finds there; hidden folders are skipped
+        and identically-named games in different folders stay distinct."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{category}/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        by_key = {(r["fs_path"], r["fs_name"]): r for r in roms}
+        keys = set(by_key)
+        # A file at the terminal level is a game of its own...
+        assert by_key[(f"{base}/Hacks", "Shared.zip")]["flat"] is True
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        assert (f"{base}/Translations", "Shared.zip") in keys  # collision kept
+        # ...and a folder there is one multi-file game, kept whole.
+        assert by_key[(f"{base}/Hacks", "Inner")]["flat"] is False
+        assert (f"{base}/Hacks/Inner", "x.bin") not in keys
+        # Top-level file isn't surfaced (template requires one level down).
+        assert (base, "Top.zip") not in keys
+        # Hidden folder is never descended into.
+        assert not any(r["fs_path"].endswith("/.hidden") for r in roms)
+        full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
+        assert len(full_paths) == len(set(full_paths))
+        assert sum(1 for r in roms if r["fs_name"] == "Shared.zip") == 2
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_two_wildcard_levels(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Multiple wildcard levels descend depth-first to the terminal."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{region}/{system}/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (f"{base}/Hacks/Inner", "x.bin") in keys
+        assert (f"{base}/Region/USA", "usagame.zip") in keys
+        # Depth-1 files are not surfaced at a depth-2 terminal.
+        assert (f"{base}/Hacks", "Shared.zip") not in keys
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_literal_level(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A literal section matches that exact folder only; sibling folders are
+        ignored."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/Hacks/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (f"{base}/Hacks", "Shared.zip") in keys
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        # The literal only matched "Hacks"; "Translations" is ignored.
+        assert (f"{base}/Translations", "Shared.zip") not in keys
+        assert all(r["fs_path"] == f"{base}/Hacks" for r in roms)
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_list_unions_loose_and_grouped(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A list of templates unions their discovery: games in the platform
+        folder plus games inside grouping subfolders, the common mixed layout,
+        without dropping either, deduplicated by full path."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {
+                    platform.fs_slug: [
+                        "{platform}/roms/{game}",
+                        "{platform}/roms/{category}/{game}",
+                    ]
+                }
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        # Loose game in the platform folder.
+        assert (base, "Top.zip") in keys
+        # Grouped games one level down.
+        assert (f"{base}/Hacks", "Shared.zip") in keys
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        assert (f"{base}/Translations", "Shared.zip") in keys
+        # Hidden folder still skipped; no duplicate full paths.
+        assert not any(r["fs_path"].endswith("/.hidden") for r in roms)
+        full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
+        assert len(full_paths) == len(set(full_paths))
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_grouping_folder_is_not_also_a_game(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A `{game}` at the root must not claim a folder another template
+        descends into: `Hacks` is a category here, not a multi-file game."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {
+                    platform.fs_slug: [
+                        "{platform}/roms/{game}",
+                        "{platform}/roms/{category}/{game}",
+                    ]
+                }
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        # Descended into, so categories rather than games.
+        assert (base, "Hacks") not in keys
+        assert (base, "Translations") not in keys
+        assert (base, "Region") not in keys
+        # Their contents are the games, files and folders alike.
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        assert (f"{base}/Hacks", "Inner") in keys
+        assert (f"{base}/Region", "USA") in keys
+        # A loose file in the platform folder is still a game of its own.
+        assert (base, "Top.zip") in keys
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_default_layout_nested_under_a_category(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """One `{category}/{game}` template reproduces the default scan a level
+        down: each file a game, each folder a game."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{category}/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        by_key = {(r["fs_path"], r["fs_name"]): r for r in roms}
+        assert by_key[(f"{base}/Hacks", "HackOnly.zip")]["flat"] is True
+        assert by_key[(f"{base}/Hacks", "Inner")]["flat"] is False
+        assert by_key[(f"{base}/Region", "USA")]["flat"] is False
+        # The top level holds no games under this template.
+        assert not any(r["fs_path"] == base for r in roms)
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_wildcard_skips_excluded_dirs(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A wildcard level must not descend into folders that are never a game
+        (scraper media output, NAS metadata), or their contents read as roms."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{category}/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            roms_dir = tmp_path / base
+            (roms_dir / "Hacks").mkdir(parents=True)
+            (roms_dir / "Hacks" / "HackOnly.zip").write_text("h")
+            (roms_dir / "@eaDir").mkdir()
+            (roms_dir / "@eaDir" / "thumb.zip").write_text("t")
+            roms = await handler.get_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert keys == {(f"{base}/Hacks", "HackOnly.zip")}
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_literal_level_matches_an_excluded_name(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Naming the folder outright is an explicit opt-in, so the exclusion
+        list that guards wildcard levels does not override it."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/@eaDir/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            roms_dir = tmp_path / base
+            (roms_dir / "@eaDir").mkdir(parents=True)
+            (roms_dir / "@eaDir" / "game.zip").write_text("g")
+            roms = await handler.get_roms(platform)
+
+        assert {(r["fs_path"], r["fs_name"]) for r in roms} == {
+            (f"{base}/@eaDir", "game.zip")
+        }
+
+    def test_upload_path_without_a_structure_is_the_roms_folder(
+        self, platform: Platform
+    ):
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config({}),
+        ):
+            assert handler.get_roms_upload_path(
+                platform.fs_slug
+            ) == handler.get_roms_fs_structure(platform.fs_slug)
+
+    def test_upload_path_follows_the_literal_levels_of_a_structure(
+        self, platform: Platform
+    ):
+        """A file dropped at the roms root would not be discovered, so the next
+        scan would flag the upload missing."""
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/Games/Loose/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            assert (
+                handler.get_roms_upload_path(platform.fs_slug) == f"{base}/Games/Loose"
+            )
+
+    def test_upload_path_prefers_a_template_an_upload_can_satisfy(
+        self, platform: Platform
+    ):
+        """Only literal levels name the folder an upload has to go in, so a
+        template with a wildcard is skipped for the next one that pins it down."""
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {
+                    platform.fs_slug: [
+                        "{platform}/roms/{category}/{game}",
+                        "{platform}/roms/Loose/{game}",
+                    ]
+                }
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            assert handler.get_roms_upload_path(platform.fs_slug) == f"{base}/Loose"
+
+    def test_upload_path_refuses_when_only_the_user_can_pick_the_folder(
+        self, platform: Platform
+    ):
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{category}/{game}"}
+            ),
+        ):
+            with pytest.raises(ValueError, match="custom library structure"):
+                handler.get_roms_upload_path(platform.fs_slug)
+
     @pytest.mark.asyncio
     async def test_get_rom_files_single_rom(
         self, handler: FSRomsHandler, rom_single, config
@@ -514,7 +870,7 @@ class TestFSRomsHandler:
         """Test get_rom_files with a single ROM file"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.exists", lambda x: False)
 
             parsed_rom_files = await handler.get_rom_files(rom_single)
 
@@ -537,7 +893,7 @@ class TestFSRomsHandler:
         """Test get_rom_files with a multi-part ROM"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.exists", lambda x: False)
 
             parsed_rom_files = await handler.get_rom_files(rom_multi)
 
@@ -621,8 +977,10 @@ class TestFSRomsHandler:
                 EXCLUDED_MULTI_PARTS_FILES=[],
                 PLATFORMS_BINDING={},
                 PLATFORMS_VERSIONS={},
-                ROMS_FOLDER_NAME="roms",
-                FIRMWARE_FOLDER_NAME="bios",
+                STRUCTURE_TEMPLATES={
+                    "default": "{platform}/roms/{game}",
+                    "firmware": "{platform}/bios",
+                },
             )
             with pytest.MonkeyPatch.context() as m:
                 m.setattr(
@@ -643,8 +1001,10 @@ class TestFSRomsHandler:
                 EXCLUDED_MULTI_PARTS_FILES=[],
                 PLATFORMS_BINDING={},
                 PLATFORMS_VERSIONS={},
-                ROMS_FOLDER_NAME="roms",
-                FIRMWARE_FOLDER_NAME="bios",
+                STRUCTURE_TEMPLATES={
+                    "default": "{platform}/roms/{game}",
+                    "firmware": "{platform}/bios",
+                },
             )
             with pytest.MonkeyPatch.context() as m:
                 m.setattr(
@@ -825,20 +1185,11 @@ class TestFSRomsHandler:
 
     def test_rom_fs_structure_consistency(self, handler: FSRomsHandler, config):
         """Test that ROM filesystem structure is consistent across methods"""
-        fs_slug = "gba"
-
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
 
-            # Test with Structure B
-            config.has_structure_path_b = True
-            structure = handler.get_roms_fs_structure(fs_slug)
-            assert structure == f"{fs_slug}/roms"
-
-            # Test with Structure A
-            config.has_structure_path_b = False
-            structure = handler.get_roms_fs_structure(fs_slug)
-            assert structure == f"roms/{fs_slug}"
+            assert handler.get_roms_fs_structure("gba") == "gba/roms"
+            assert handler.get_roms_upload_path("gba") == "gba/roms"
 
     def test_actual_file_hash_calculation(self, handler: FSRomsHandler):
         """Test hash calculation with actual files"""
@@ -1396,10 +1747,11 @@ def sigil_config(monkeypatch):
         EXCLUDED_MULTI_PARTS_FILES=[],
         PLATFORMS_BINDING={},
         PLATFORMS_VERSIONS={},
-        ROMS_FOLDER_NAME="roms",
-        FIRMWARE_FOLDER_NAME="bios",
+        STRUCTURE_TEMPLATES={
+            "default": "{platform}/roms/{game}",
+            "firmware": "{platform}/bios",
+        },
     )
-    cnfg.has_structure_path_b = True
     monkeypatch.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
     return cnfg
 
@@ -2522,8 +2874,10 @@ class TestIncrementalRomFiles:
             EXCLUDED_MULTI_PARTS_FILES=[],
             PLATFORMS_BINDING={},
             PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
         )
         mocker.patch(
             "handler.filesystem.roms_handler.cm.get_config", return_value=config

@@ -61,7 +61,9 @@ CHD_V5_SHA1_LENGTH: Final = 20  # SHA1 is 20 bytes
 CHD_V5_VERSION: Final = 5  # CHD v5 identifier
 CHD_MIME_TYPE: Final = "application/x-mame-chd"
 
-FILE_READ_CHUNK_SIZE = 1024 * 8
+# Hashing runs in threads and hashlib/zlib release the GIL per chunk, so small
+# chunks make concurrent scans contend instead of overlapping.
+FILE_READ_CHUNK_SIZE: Final = 1024 * 256
 _MIME_DETECTOR = magic.Magic(mime=True)
 _MIME_DETECTOR_LOCK = threading.Lock()
 

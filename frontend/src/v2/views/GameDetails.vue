@@ -11,7 +11,8 @@ import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
-import type { IGDBRelatedGame } from "@/__generated__";
+import type { IGDBRelatedGame, SimilarRomSchema } from "@/__generated__";
+import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
@@ -42,6 +43,7 @@ const authStore = storeAuth();
 const streamingStore = useStreamingStore();
 const { currentRom } = storeToRefs(romsStore);
 const { toWebp } = useWebpSupport();
+const { showRecommendations } = useUISettings();
 const { locale, t } = useI18n();
 
 const setBgArt = useBackgroundArt();
@@ -240,12 +242,34 @@ const earnedAchievementIds = computed<ReadonlySet<string>>(() => {
 const achievementsEarned = computed(() => earnedAchievementIds.value.size);
 
 const igdb = computed(() => currentRom.value?.igdb_metadata ?? null);
-// IGDB ships up to ~10 similar games per title; rendering all of them
-// would dominate the overview and push HLTB/Achievements below the
-// fold. Cap to keep the section to ~2 rows of cards at typical widths.
-const SIMILAR_GAMES_MAX = 6;
-const similarGames = computed<IGDBRelatedGame[]>(() =>
-  (igdb.value?.similar_games ?? []).slice(0, SIMILAR_GAMES_MAX),
+
+// Similar games come from the server-side recommendations index rather than
+// `igdb_metadata.similar_games`, which is mostly titles the server doesn't
+// hold and absent entirely for anything IGDB never matched.
+const similarRoms = ref<SimilarRomSchema[]>([]);
+
+// Keyed on the id rather than the ROM: `currentRom` is reassigned wholesale
+// by every optimistic mutation, which would blank the grid mid-interaction.
+watch(
+  [() => currentRom.value?.id, showRecommendations],
+  ([romId, enabled], _previous, onCleanup) => {
+    similarRoms.value = [];
+    if (!romId || !enabled) return;
+
+    const controller = new AbortController();
+    onCleanup(() => controller.abort());
+
+    romApi
+      .getSimilarRoms({ romId, signal: controller.signal })
+      .then(({ data }) => {
+        similarRoms.value = data;
+      })
+      .catch(() => {
+        // An unbuilt index, or a library too small to relate anything, is a
+        // normal state rather than an error: the section stays hidden.
+      });
+  },
+  { immediate: true },
 );
 const remakes = computed<IGDBRelatedGame[]>(() => igdb.value?.remakes ?? []);
 const remasters = computed<IGDBRelatedGame[]>(
@@ -322,7 +346,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :remakes="remakes"
             :remasters="remasters"
             :ports="ports"
-            :similar-games="similarGames"
+            :similar-roms="similarRoms"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />
           <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />

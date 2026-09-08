@@ -229,7 +229,7 @@ OIDC_END_SESSION_ENDPOINT: Final[str] = _get_env("OIDC_END_SESSION_ENDPOINT", ""
 
 # SCANS
 SCAN_TIMEOUT: Final[int] = safe_int(_get_env("SCAN_TIMEOUT"), 60 * 60 * 4)  # 4 hours
-SCAN_WORKERS: Final[int] = max(1, safe_int(_get_env("SCAN_WORKERS"), 1))
+SCAN_WORKERS: Final[int] = max(1, safe_int(_get_env("SCAN_WORKERS"), 4))
 
 # TASKS
 TASK_TIMEOUT: Final[int] = safe_int(_get_env("TASK_TIMEOUT"), 60 * 5)  # 5 minutes
@@ -284,6 +284,15 @@ ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC: Final[bool] = safe_str_to_bool
 SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
     "SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON",
     "0 4 * * *",  # At 4:00 AM every day
+)
+# On by default: the similarity index is what both the "Similar games" section
+# and the personalised feed read, so leaving it off silently empties them.
+ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS", "true")
+)
+SCHEDULED_BUILD_RECOMMENDATIONS_CRON: Final[str] = _get_env(
+    "SCHEDULED_BUILD_RECOMMENDATIONS_CRON",
+    "30 5 * * *",  # At 5:30 AM every day, after the nightly scan and metadata tasks
 )
 
 # SYNC

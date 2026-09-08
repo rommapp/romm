@@ -16,6 +16,7 @@ from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, compute_name_sort_key
+from utils.filesystem import join_rel_path, rel_platform_folder
 
 from .base_handler import BaseRom, MetadataHandler
 
@@ -123,6 +124,15 @@ XML_TAG_MAP: Final = {
 def gamelist_path_to_filename(raw_path: str) -> str:
     """Return the filename a gamelist <path> refers to, without the `./` prefix."""
     return os.path.basename(raw_path.removeprefix("./"))
+
+
+def gamelist_path_to_rel_path(raw_path: str) -> str:
+    """Return a gamelist <path> as a path relative to the gamelist file itself.
+
+    Unlike the filename alone, this tells two identically named roms in different
+    folders apart, which a custom library structure allows.
+    """
+    return raw_path.removeprefix("./").strip("/")
 
 
 def _make_file_uri(platform_dir: str, raw_text: str) -> str:
@@ -405,7 +415,11 @@ class GamelistHandler(MetadataHandler):
     def _parse_gamelist_xml(
         self, gamelist_path: Path, platform: Platform
     ) -> dict[str, GamelistRom]:
-        """Parse a gamelist.xml file and return ROM data indexed by filename.
+        """Parse a gamelist.xml file and return ROM data indexed by <path>.
+
+        Entries are keyed by their path relative to the gamelist itself, so two
+        identically named roms in different folders keep their own metadata. A bare
+        file name stays a fallback key, since that is all some tools write.
         Results are cached by platform ID  to avoid re-parsing the same file multiple times.
         """
         # Check if we already have cached data for this platform
@@ -416,6 +430,8 @@ class GamelistHandler(MetadataHandler):
 
         preferred_media_types = get_preferred_media_types()
         roms_data: dict[str, GamelistRom] = {}
+        by_filename: dict[str, GamelistRom] = {}
+        ambiguous_filenames: set[str] = set()
 
         try:
             for game in self._iter_game_elements(gamelist_path):
@@ -426,7 +442,8 @@ class GamelistHandler(MetadataHandler):
                 if path_elem is None or path_elem.text is None:
                     continue
 
-                rom_filename = gamelist_path_to_filename(path_elem.text)
+                rel_path = gamelist_path_to_rel_path(path_elem.text)
+                filename = gamelist_path_to_filename(path_elem.text)
 
                 # Extract metadata
                 name_elem = game.find("name")
@@ -491,8 +508,14 @@ class GamelistHandler(MetadataHandler):
                     url_screenshots.append(rom_metadata["screenshot_url"])
                 rom_data["url_screenshots"] = url_screenshots
 
-                # Store by filename for matching
-                roms_data[rom_filename] = rom_data
+                roms_data[rel_path] = rom_data
+                if filename in by_filename:
+                    ambiguous_filenames.add(filename)
+                by_filename[filename] = rom_data
+
+            for name, data in by_filename.items():
+                if name not in ambiguous_filenames:
+                    roms_data.setdefault(name, data)
 
             # Cache the parsed data for this platform
             self._gamelist_cache[cache_key] = roms_data
@@ -520,10 +543,21 @@ class GamelistHandler(MetadataHandler):
         # Parse the gamelist file
         all_roms_data = self._parse_gamelist_xml(gamelist_file_path, platform)
 
-        # Try to find exact match first
-        if fs_name in all_roms_data:
-            log.debug(f"Found exact gamelist match for {fs_name}")
-            matched_rom = pydash.clone_deep(all_roms_data[fs_name])
+        # The rom's own path wins over its bare file name, which a custom library
+        # structure can leave shared with a rom in another folder.
+        rel_path = join_rel_path(
+            rel_platform_folder(
+                rom.fs_path or "",
+                fs_platform_handler.get_platform_fs_structure(platform.fs_slug),
+            ),
+            fs_name,
+        )
+        matched_key = next(
+            (key for key in (rel_path, fs_name) if key in all_roms_data), None
+        )
+        if matched_key is not None:
+            log.debug(f"Found exact gamelist match for {matched_key}")
+            matched_rom = pydash.clone_deep(all_roms_data[matched_key])
             gamelist_metadata = matched_rom.get("gamelist_metadata")
 
             # Populate ROM-specific paths using the actual rom object

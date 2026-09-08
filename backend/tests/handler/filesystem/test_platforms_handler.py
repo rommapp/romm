@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
-from handler.filesystem.platforms_handler import FSPlatformsHandler, LibraryStructure
+from handler.filesystem.platforms_handler import FSPlatformsHandler
 
 
 class TestFSPlatformsHandler:
@@ -25,8 +25,7 @@ class TestFSPlatformsHandler:
             EXCLUDED_MULTI_PARTS_FILES=[],
             PLATFORMS_BINDING={},
             PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
+            STRUCTURE_TEMPLATES={},
         )
 
     @pytest.fixture
@@ -40,8 +39,22 @@ class TestFSPlatformsHandler:
             EXCLUDED_MULTI_PARTS_FILES=[],
             PLATFORMS_BINDING={},
             PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="ROMS",
-            FIRMWARE_FOLDER_NAME="BIOS",
+            STRUCTURE_TEMPLATES={"default": "ROMS/{platform}/{game}"},
+        )
+
+    @pytest.fixture
+    def config_platform_first(self):
+        """A `{platform}/roms` layout, which is now opt-in via a template."""
+        return Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            STRUCTURE_TEMPLATES={"default": "{platform}/roms/{game}"},
         )
 
     def test_init_uses_library_base_path(self, handler: FSPlatformsHandler):
@@ -100,115 +113,93 @@ class TestFSPlatformsHandler:
             result = handler._exclude_platforms(platforms)
             assert result == platforms
 
-    def test_get_platforms_directory_structure_a(
+    def test_get_platforms_directory_from_default_template(
         self, handler: FSPlatformsHandler, config
     ):
-        """Test get_platforms_directory with Structure A (roms/{platform})"""
-        config.has_structure_path_b = False
+        """Platforms are enumerated in the folder above `{platform}`"""
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.get_platforms_directory()
-            assert result == config.ROMS_FOLDER_NAME
+            assert handler.get_platforms_directory() == "roms"
 
-    def test_get_platforms_directory_structure_b(
-        self, handler: FSPlatformsHandler, config
+    def test_get_platforms_directory_is_the_library_root_when_platform_leads(
+        self, handler: FSPlatformsHandler, config_platform_first
     ):
-        """Test get_platforms_directory with Structure B ({platform}/roms)"""
-        config.has_structure_path_a = False
-        config.has_structure_path_b = True
+        """A `{platform}/roms` template puts the platform folders at the root"""
         with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+            "handler.filesystem.platforms_handler.cm.get_config",
+            return_value=config_platform_first,
         ):
-            result = handler.get_platforms_directory()
-            assert result == ""
+            assert handler.get_platforms_directory() == ""
 
-    def test_get_platform_fs_structure_structure_a(
+    def test_get_platform_fs_structure_from_default_template(
         self, handler: FSPlatformsHandler, config
     ):
-        """Test get_platform_fs_structure with Structure A (roms/{platform})"""
-        fs_slug = "n64"
-        config.has_structure_path_b = False
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.get_platform_fs_structure(fs_slug)
-            assert result == f"{config.ROMS_FOLDER_NAME}/{fs_slug}"
+            assert handler.get_platform_fs_structure("n64") == "roms/n64"
 
-    def test_get_platform_fs_structure_structure_b(
-        self, handler: FSPlatformsHandler, config
+    def test_get_platform_fs_structure_when_platform_leads(
+        self, handler: FSPlatformsHandler, config_platform_first
     ):
-        """Test get_platform_fs_structure with Structure B ({platform}/roms)"""
-        fs_slug = "n64"
-        config.has_structure_path_b = True
         with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+            "handler.filesystem.platforms_handler.cm.get_config",
+            return_value=config_platform_first,
         ):
-            result = handler.get_platform_fs_structure(fs_slug)
-            assert result == f"{fs_slug}/{config.ROMS_FOLDER_NAME}"
+            assert handler.get_platform_fs_structure("n64") == "n64/roms"
 
     def test_get_platform_fs_structure_custom_folder_name(
         self, handler: FSPlatformsHandler, config_custom_folder
     ):
-        """Test get_platform_fs_structure with custom folder name (Structure B)"""
-        fs_slug = "psx"
-        config_custom_folder.has_structure_path_b = True
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config",
             return_value=config_custom_folder,
         ):
-            result = handler.get_platform_fs_structure(fs_slug)
-            assert result == f"{fs_slug}/{config_custom_folder.ROMS_FOLDER_NAME}"
+            assert handler.get_platform_fs_structure("psx") == "ROMS/psx"
 
     async def test_add_platform_creates_directory(
         self, handler: FSPlatformsHandler, config
     ):
-        """Test that add_platform creates the correct directory (Structure A)"""
-        fs_slug = "gba"
-        expected_path = f"{config.ROMS_FOLDER_NAME}/{fs_slug}"
-        config.has_structure_path_b = False
-
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
             with patch.object(handler, "make_directory") as mock_make_directory:
-                await handler.add_platform(fs_slug)
-                mock_make_directory.assert_called_once_with(expected_path)
+                await handler.add_platform("gba")
+                mock_make_directory.assert_called_once_with("roms/gba")
 
-    async def test_add_platform_normal_structure(
-        self, handler: FSPlatformsHandler, config
+    async def test_add_platform_follows_the_configured_template(
+        self, handler: FSPlatformsHandler, config_platform_first
     ):
-        """Test that add_platform creates directory with Structure B"""
-        fs_slug = "gba"
-        expected_path = f"{fs_slug}/{config.ROMS_FOLDER_NAME}"
-        config.has_structure_path_b = True
-
         with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+            "handler.filesystem.platforms_handler.cm.get_config",
+            return_value=config_platform_first,
         ):
             with patch.object(handler, "make_directory") as mock_make_directory:
-                await handler.add_platform(fs_slug)
-                mock_make_directory.assert_called_once_with(expected_path)
+                await handler.add_platform("gba")
+                mock_make_directory.assert_called_once_with("gba/roms")
 
     async def test_get_platforms_returns_existing_platforms(
-        self, handler: FSPlatformsHandler, config
+        self, handler: FSPlatformsHandler, config_platform_first
     ):
         """Test that get_platforms returns existing platforms"""
         with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+            "handler.filesystem.platforms_handler.cm.get_config",
+            return_value=config_platform_first,
         ):
             result = await handler.get_platforms()
             assert "n64" in result
             assert "psx" in result
 
     async def test_get_platforms_excludes_excluded_platforms(
-        self, handler: FSPlatformsHandler, config
+        self, handler: FSPlatformsHandler, config_platform_first
     ):
         """Test that get_platforms excludes excluded platforms"""
         with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+            "handler.filesystem.platforms_handler.cm.get_config",
+            return_value=config_platform_first,
         ):
-            config.EXCLUDED_PLATFORMS = ["psx"]
+            config_platform_first.EXCLUDED_PLATFORMS = ["psx"]
             result = await handler.get_platforms()
 
             assert "n64" in result
@@ -217,8 +208,6 @@ class TestFSPlatformsHandler:
     async def test_get_platforms_calls_list_directories_with_correct_path(
         self, handler: FSPlatformsHandler, config
     ):
-        """Test that get_platforms calls list_directories with correct path"""
-        config.has_structure_path_a = True
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
@@ -226,16 +215,15 @@ class TestFSPlatformsHandler:
                 handler, "list_directories", return_value=[]
             ) as mock_list:
                 await handler.get_platforms()
-                mock_list.assert_called_once_with(path=config.ROMS_FOLDER_NAME)
+                mock_list.assert_called_once_with(path="roms")
 
     async def test_get_platforms_calls_list_directories_with_empty_path(
-        self, handler: FSPlatformsHandler, config
+        self, handler: FSPlatformsHandler, config_platform_first
     ):
-        """Test that get_platforms calls list_directories with empty path for normal structure"""
-        config.has_structure_path_a = False
-        config.has_structure_path_b = True
+        """A `{platform}/roms` template enumerates platforms at the library root"""
         with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+            "handler.filesystem.platforms_handler.cm.get_config",
+            return_value=config_platform_first,
         ):
             with patch.object(
                 handler, "list_directories", return_value=[]
@@ -243,13 +231,11 @@ class TestFSPlatformsHandler:
                 await handler.get_platforms()
                 mock_list.assert_called_once_with(path="")
 
-    async def test_get_platforms_bootstraps_structure_a_when_none_detected(
+    async def test_get_platforms_bootstraps_the_platforms_folder(
         self, handler: FSPlatformsHandler, config
     ):
-        """When no structure exists, get_platforms creates Structure A (roms folder)
-        and returns an empty list instead of raising."""
-        config.has_structure_path_a = False
-        config.has_structure_path_b = False
+        """When the platforms folder is missing, get_platforms creates it and
+        returns an empty list instead of raising."""
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
@@ -268,8 +254,6 @@ class TestFSPlatformsHandler:
         """If creating the default structure fails, get_platforms still returns an
         empty list rather than propagating the error (so the heartbeat stays healthy).
         """
-        config.has_structure_path_a = False
-        config.has_structure_path_b = False
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
@@ -285,34 +269,6 @@ class TestFSPlatformsHandler:
 
                     assert result == []
 
-    async def test_get_platforms_skips_unreadable_directories(
-        self, handler: FSPlatformsHandler, config
-    ):
-        """Structure B: directories that raise PermissionError on stat are skipped
-        instead of crashing platform discovery (and the heartbeat with it)."""
-        config.has_structure_path_a = False
-        config.has_structure_path_b = True
-
-        class FakePath:
-            def __init__(self, path: str):
-                self._path = str(path)
-
-            async def exists(self) -> bool:
-                if "locked" in self._path:
-                    raise PermissionError(13, "Permission denied", self._path)
-                return True
-
-        with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
-        ):
-            with patch.object(
-                handler, "list_directories", return_value=["n64", "locked", "psx"]
-            ):
-                with patch("handler.filesystem.platforms_handler.AnyioPath", FakePath):
-                    result = await handler.get_platforms()
-
-                    assert result == ["n64", "psx"]
-
     def test_integration_with_base_handler_methods(self, handler: FSPlatformsHandler):
         """Test that FSPlatformsHandler properly inherits from FSHandler"""
         # Test that handler has base methods
@@ -327,13 +283,10 @@ class TestFSPlatformsHandler:
         self, handler: FSPlatformsHandler, config
     ):
         """Test that platform slugs with special characters are handled correctly"""
-        fs_slug = "n64"
-
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.get_platform_fs_structure(fs_slug)
-            assert result == f"{fs_slug}/{config.ROMS_FOLDER_NAME}"
+            assert handler.get_platform_fs_structure("n64") == "roms/n64"
 
     async def test_path_construction_consistency(
         self, handler: FSPlatformsHandler, config
@@ -360,9 +313,8 @@ class TestFSPlatformsHandler:
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
             for platform in existing_platforms:
-                expected_path = f"{platform}/{config.ROMS_FOLDER_NAME}"
                 result = handler.get_platform_fs_structure(platform)
-                assert result == expected_path
+                assert result == f"roms/{platform}"
 
     async def test_edge_cases_and_error_handling(
         self, handler: FSPlatformsHandler, config
@@ -372,15 +324,12 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.get_platform_fs_structure("")
-            assert result == f"/{config.ROMS_FOLDER_NAME}"
+            assert handler.get_platform_fs_structure("") == "roms/"
 
             # Test adding empty platform
             with patch.object(handler, "make_directory") as mock_make_directory:
                 await handler.add_platform("")
-                mock_make_directory.assert_called_once_with(
-                    f"/{config.ROMS_FOLDER_NAME}"
-                )
+                mock_make_directory.assert_called_once_with("roms/")
 
     def test_multiple_platforms_handling(self, handler: FSPlatformsHandler, config):
         """Test handling multiple platforms simultaneously"""
@@ -396,68 +345,39 @@ class TestFSPlatformsHandler:
             # Test that each platform gets correct structure
             for platform in expected_filtered:
                 structure = handler.get_platform_fs_structure(platform)
-                assert structure == f"{platform}/{config.ROMS_FOLDER_NAME}"
+                assert structure == f"roms/{platform}"
 
-    def test_detect_library_structure_structure_a(
+    def test_library_structure_exists_when_the_platforms_folder_is_present(
         self, handler: FSPlatformsHandler, config
     ):
-        """Test detect_library_structure detects Structure A (roms/{platform})"""
-        config.has_structure_path_a = True
-        config.has_structure_path_b = False
-
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.detect_library_structure()
-            assert result == LibraryStructure.A
+            with patch("handler.filesystem.platforms_handler.os.path.isdir") as isdir:
+                isdir.return_value = True
+                assert handler.library_structure_exists() is True
+                assert isdir.call_args[0][0].endswith("/roms")
 
-    def test_detect_library_structure_structure_b(
+    def test_library_structure_exists_is_false_for_an_empty_library(
         self, handler: FSPlatformsHandler, config
     ):
-        """Test detect_library_structure detects Structure B ({platform}/roms)"""
-        config.has_structure_path_a = False
-        config.has_structure_path_b = True
-
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.detect_library_structure()
-            assert result == LibraryStructure.B
+            with patch(
+                "handler.filesystem.platforms_handler.os.path.isdir",
+                return_value=False,
+            ):
+                assert handler.library_structure_exists() is False
 
-    def test_detect_library_structure_a_takes_priority_over_b(
-        self, handler: FSPlatformsHandler, config
+    def test_library_structure_follows_the_configured_template(
+        self, handler: FSPlatformsHandler, config_custom_folder
     ):
-        """Structure A is reported when the top-level roms folder exists, even
-        when Structure B directories are also present."""
-        config.has_structure_path_a = True
-        config.has_structure_path_b = True
-
+        """The folder checked and created is the one the template names."""
         with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+            "handler.filesystem.platforms_handler.cm.get_config",
+            return_value=config_custom_folder,
         ):
-            result = handler.detect_library_structure()
-            assert result == LibraryStructure.A
-
-    def test_detect_library_structure_none(self, handler: FSPlatformsHandler, config):
-        """Test detect_library_structure returns None when no structure detected"""
-        config.has_structure_path_a = False
-        config.has_structure_path_b = False
-
-        with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
-        ):
-            result = handler.detect_library_structure()
-            assert result is None
-
-    def test_detect_library_structure_empty_library(
-        self, handler: FSPlatformsHandler, config
-    ):
-        """Test detect_library_structure with empty library directory"""
-        config.has_structure_path_a = False
-        config.has_structure_path_b = False
-
-        with patch(
-            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
-        ):
-            result = handler.detect_library_structure()
-            assert result is None
+            with patch("handler.filesystem.platforms_handler.os.makedirs") as makedirs:
+                handler.create_library_structure()
+                assert makedirs.call_args[0][0].endswith("/ROMS")
