@@ -93,21 +93,25 @@ const directionControls = [
     bit: PICO8_INPUT_BITS.up,
     icon: "mdi-menu-up",
     label: "up",
+    labelKey: "play.pico8-up",
   },
   {
     bit: PICO8_INPUT_BITS.left,
     icon: "mdi-menu-left",
     label: "left",
+    labelKey: "play.pico8-left",
   },
   {
     bit: PICO8_INPUT_BITS.right,
     icon: "mdi-menu-right",
     label: "right",
+    labelKey: "play.pico8-right",
   },
   {
     bit: PICO8_INPUT_BITS.down,
     icon: "mdi-menu-down",
     label: "down",
+    labelKey: "play.pico8-down",
   },
 ] as const;
 
@@ -439,7 +443,7 @@ onBeforeUnmount(releaseGame);
             class="r-v2-pico8__canvas"
             :width="PICO8_WIDTH"
             :height="PICO8_HEIGHT"
-            aria-label="PICO-8 game"
+            :aria-label="t('play.pico8-screen')"
             @pointermove="onCanvasPointerMove"
             @pointerdown="onCanvasPointerDown"
             @pointerup="onCanvasPointerUp"
@@ -454,7 +458,7 @@ onBeforeUnmount(releaseGame);
         <div
           class="r-v2-pico8__controls"
           role="group"
-          aria-label="PICO-8 controls"
+          :aria-label="t('play.pico8-controls')"
         >
           <div class="r-v2-pico8__dpad">
             <RBtn
@@ -470,8 +474,8 @@ onBeforeUnmount(releaseGame);
                   'r-v2-pico8__control--held': touchMask & control.bit,
                 },
               ]"
-              :aria-label="`PICO-8 ${control.label}`"
-              :title="`PICO-8 ${control.label}`"
+              :aria-label="t(control.labelKey)"
+              :title="t(control.labelKey)"
               @pointerdown.stop.prevent="
                 onControlPointerDown(control.bit, $event)
               "
@@ -495,8 +499,8 @@ onBeforeUnmount(releaseGame);
               :class="{
                 'r-v2-pico8__control--held': touchMask & control.bit,
               }"
-              :aria-label="`PICO-8 ${control.label}`"
-              :title="`PICO-8 ${control.label}`"
+              :aria-label="control.label"
+              :title="control.label"
               @pointerdown.stop.prevent="
                 onControlPointerDown(control.bit, $event)
               "
