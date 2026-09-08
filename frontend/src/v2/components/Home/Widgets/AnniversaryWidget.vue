@@ -86,25 +86,31 @@ function dayKey(date: Date): string {
 }
 
 async function load() {
+  // The client's own calendar day, so "today" matches the date in front of
+  // the user rather than the server's UTC clock.
+  const today = new Date();
+  const day = dayKey(today);
+  loadedDay.value = day;
+  // A request spanning midnight can land after the rollover's. Committing it
+  // would pin the card to yesterday until the next rollover, a day away.
+  const stale = () => loadedDay.value !== day;
   loading.value = true;
   try {
-    // The client's own calendar day, so "today" matches the date in front of
-    // the user rather than the server's UTC clock.
-    const today = new Date();
-    loadedDay.value = dayKey(today);
     const { data } = await romApi.getAnniversaryRoms({
       month: today.getMonth() + 1,
       day: today.getDate(),
     });
+    if (stale()) return;
     roms.value = data;
     index.value = 0;
     failed.value = false;
   } catch {
+    if (stale()) return;
     // Failures show in the card's own copy rather than the snackbar stack.
     roms.value = [];
     failed.value = true;
   } finally {
-    loading.value = false;
+    if (!stale()) loading.value = false;
   }
 }
 

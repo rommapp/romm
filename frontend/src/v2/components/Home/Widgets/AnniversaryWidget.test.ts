@@ -46,7 +46,10 @@ vi.mock("@/v2/components/shared/GameCover.vue", () => ({
 
 vi.mock("./WidgetCard.vue", () => ({
   default: defineComponent({
-    template: "<section><slot name='action' /><slot /></section>",
+    props: { loading: { type: Boolean, default: false } },
+    // Mirrors the real card, which swaps the body out for a spinner.
+    template:
+      "<section :data-loading='loading'><slot name='action' /><slot v-if='!loading' /></section>",
   }),
 }));
 
@@ -76,6 +79,19 @@ function mountWidget() {
 function arrows(wrapper: ReturnType<typeof mountWidget>) {
   const buttons = wrapper.findAll("button");
   return { prev: buttons[0], next: buttons[1] };
+}
+
+/** A request the test settles by hand, so two can be in flight at once. */
+function pending() {
+  let settle!: (response: { data: SimpleRom[] }) => void;
+  const promise = new Promise<{ data: SimpleRom[] }>((resolve) => {
+    settle = resolve;
+  });
+  return { promise, settle };
+}
+
+function loadingOf(wrapper: ReturnType<typeof mountWidget>) {
+  return wrapper.find("section").attributes("data-loading");
 }
 
 describe("AnniversaryWidget", () => {
@@ -209,5 +225,62 @@ describe("AnniversaryWidget", () => {
 
     expect(wrapper.text()).toContain("Brand New Game");
     expect(wrapper.text()).not.toContain("home.widget-anniversaries-years");
+  });
+
+  it("ignores a response the day rollover has already superseded", async () => {
+    // A request that spans local midnight can land after the new day's. It
+    // must not commit yesterday's games, because the rollover has already
+    // marked the day loaded and so will not ask again for another 24 hours.
+    const yesterday = pending();
+    const today = pending();
+    getAnniversaryRoms
+      .mockReturnValueOnce(yesterday.promise)
+      .mockReturnValueOnce(today.promise);
+
+    const wrapper = mountWidget();
+    await flushPromises();
+
+    vi.setSystemTime(new Date(2026, 8, 9, 0, 0, 30));
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(getAnniversaryRoms).toHaveBeenCalledTimes(2);
+
+    today.settle({ data: [rom(2, "Super Metroid", releasedOn(2005, 9, 9))] });
+    await flushPromises();
+    yesterday.settle({
+      data: [rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))],
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Super Metroid");
+    expect(wrapper.text()).not.toContain("Chrono Trigger");
+  });
+
+  it("stays loading when a superseded response lands first", async () => {
+    const yesterday = pending();
+    const today = pending();
+    getAnniversaryRoms
+      .mockReturnValueOnce(yesterday.promise)
+      .mockReturnValueOnce(today.promise);
+
+    const wrapper = mountWidget();
+    await flushPromises();
+
+    vi.setSystemTime(new Date(2026, 8, 9, 0, 0, 30));
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    // The superseded request settling must not report the new day's request
+    // as finished, or the card claims an empty day while it is still loading.
+    yesterday.settle({
+      data: [rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))],
+    });
+    await flushPromises();
+
+    expect(loadingOf(wrapper)).toBe("true");
+    expect(wrapper.text()).not.toContain("home.widget-anniversaries-empty");
+
+    today.settle({ data: [] });
+    await flushPromises();
+
+    expect(loadingOf(wrapper)).toBe("false");
   });
 });
