@@ -37,7 +37,9 @@ def _build_fake_sfo(fields: dict[str, str | int]) -> bytes:
     key_table_offset = header_size + index_table_size
     data_table_offset = key_table_offset + len(key_table)
 
-    header = b"\x00PSF" + struct.pack("<IIII", 0x0101, key_table_offset, data_table_offset, len(entries))
+    header = b"\x00PSF" + struct.pack(
+        "<IIII", 0x0101, key_table_offset, data_table_offset, len(entries)
+    )
     index_table = b"".join(
         struct.pack("<HHIII", key_offset, data_fmt, data_len, data_len, data_offset)
         for key_offset, data_fmt, data_len, data_offset in entries

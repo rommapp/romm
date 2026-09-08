@@ -296,7 +296,11 @@ async def _save_state_listing(
     )
     clean = "/".join(parts)
 
-    exact = next((e for e in manifest if e["path"] == clean), None) if len(parts) > 1 else None
+    exact = (
+        next((e for e in manifest if e["path"] == clean), None)
+        if len(parts) > 1
+        else None
+    )
     if exact:
         return [_manifest_file_entry(exact)]
 
