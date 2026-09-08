@@ -693,6 +693,7 @@ const detectedPlatformCount = computed(
 .r-setup-platforms__banner {
   display: flex;
   align-items: center;
+  min-width: 0;
   padding: var(--r-space-3) var(--r-space-4);
   border-radius: var(--r-radius-md);
   border: 1px solid var(--r-color-border);
@@ -744,6 +745,8 @@ const detectedPlatformCount = computed(
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-sm);
   color: var(--r-color-fg);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .r-setup-platforms__banner-meta {
@@ -1025,5 +1028,6 @@ html[data-bp~="sm-and-down"] .r-setup-platforms__pane-scroll {
   font-family: var(--r-font-family-mono);
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-muted);
+  overflow-wrap: anywhere;
 }
 </style>
