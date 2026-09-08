@@ -16,6 +16,7 @@ User-visible strings are **never hard-coded** in components — they come from l
 ## The rule (enforced in CI)
 
 - **`en_US` is the source of truth**, but **every key added to `en_US` must be added to all other locale directories in the same change.** Never leave a key English-only.
+- **`en_US` uses US spelling**: "favorites", "color", "canceled". British forms belong in `en_GB` only. This bites tests too: an e2e or unit assertion on a label must expect the `en_US` string.
 - **Actually translate the value into each locale's language** — never paste English into non-English locales.
 - Editing an existing string counts: changing `en_US` means re-translating that key in every other locale.
 - Reuse each locale's established terms — grep a sibling key for how it renders "metadata", "provider", etc.

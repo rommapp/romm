@@ -175,6 +175,31 @@ export const Fullscreen: Story = {
       </div>
     `,
   }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    // The fullscreen overlay teleports to <body>, outside the story canvas.
+    const overlay = within(document.body);
+    const lightbox = () =>
+      overlay.queryByRole("dialog", { name: "Screenshot lightbox" });
+
+    await step("opens the lightbox", async () => {
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Open lightbox" }),
+      );
+      expect(lightbox()).toBeInTheDocument();
+    });
+
+    await step("clicking the image itself keeps it open", async () => {
+      await userEvent.click(overlay.getByAltText("Slide 1"));
+      expect(lightbox()).toBeInTheDocument();
+    });
+
+    await step("clicking the backdrop around the image closes it", async () => {
+      const item = document.querySelector(".r-carousel__item--fullscreen");
+      await userEvent.click(item as HTMLElement);
+      expect(lightbox()).toBeNull();
+    });
+  },
 };
 
 export const NoLoop: Story = {

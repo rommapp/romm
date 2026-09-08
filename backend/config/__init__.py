@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from typing import Final, overload
 
 import yarl
@@ -52,6 +53,16 @@ CLOUD_SYNC_PSP_PENDING_PATH: Final[str] = f"{ROMM_BASE_PATH}/cloud_sync_psp_pend
 PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(_get_env("PSP_SERIAL_MAP", "{}"))
 ZIP_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/zips"
 FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
+
+# ROM UPLOADS
+# Chunked upload parts are staged on disk, under RESOURCES_BASE_PATH by default.
+ROM_UPLOAD_TMP_BASE: Final[Path] = (
+    Path(ROMM_TMP_PATH) if ROMM_TMP_PATH else Path(RESOURCES_BASE_PATH)
+) / "tmp/uploads"
+ROM_UPLOAD_TTL: Final[int] = 86400  # 24 hours
+# Extension of the half-written file an upload assembles into. Excluded from
+# scans by DEFAULT_EXCLUDED_EXTENSIONS, so the two must agree.
+ROM_UPLOAD_ASSEMBLING_EXT: Final[str] = "assembling"
 
 # SEVEN ZIP
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
@@ -130,6 +141,11 @@ PLAYMATCH_API_URL: Final[str] = _get_env(
 
 # HASHEOUS
 HASHEOUS_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HASHEOUS_API_ENABLED"))
+# Base URL of the Hasheous API, overridable to point at a self-hosted instance.
+HASHEOUS_API_URL: Final[str] = _get_env(
+    "HASHEOUS_API_URL",
+    "https://beta.hasheous.org/api/v1" if DEV_MODE else "https://hasheous.org/api/v1",
+).rstrip("/")
 
 # THEGAMESDB
 TGDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("TGDB_API_ENABLED"))
@@ -141,6 +157,24 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
+
+# DEMOZOO / POUET (public JSON, no API key)
+DEMOZOO_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("DEMOZOO_API_ENABLED"))
+POUET_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("POUET_API_ENABLED"))
+# CSDb XML webservice, C64 stills
+CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))
+
+# STEAM
+STEAM_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("STEAM_API_ENABLED"))
+
+# UPC LOOKUP (barcode -> title, used when adding physical games by UPC)
+UPC_LOOKUP_ENABLED: Final[bool] = safe_str_to_bool(
+    _get_env("UPC_LOOKUP_ENABLED", "true")
+)
+UPC_LOOKUP_API_KEY: Final[str | None] = _get_env("UPC_LOOKUP_API_KEY")
+UPC_LOOKUP_URL: Final[str] = _get_env(
+    "UPC_LOOKUP_URL", "https://api.upcitemdb.com/prod/trial/lookup"
+)
 
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final[str] = _get_env("ROMM_AUTH_SECRET_KEY", "")
@@ -167,6 +201,16 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH: Final[bool] = safe_str_to_bool(
 DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
 )
+
+ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
+    o.strip()
+    for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS", "*")).split(",")
+    if o.strip()
+]
+ROMM_SESSION_SECURE_COOKIE: Final[bool] = safe_str_to_bool(
+    _get_env("ROMM_SESSION_SECURE_COOKIE")
+)
+
 DISABLE_SETUP_WIZARD: Final[bool] = safe_str_to_bool(_get_env("DISABLE_SETUP_WIZARD"))
 INVITE_TOKEN_EXPIRY_SECONDS: Final[int] = safe_int(
     _get_env("INVITE_TOKEN_EXPIRY_SECONDS"), 10 * 60
@@ -199,7 +243,7 @@ OIDC_END_SESSION_ENDPOINT: Final[str] = _get_env("OIDC_END_SESSION_ENDPOINT", ""
 
 # SCANS
 SCAN_TIMEOUT: Final[int] = safe_int(_get_env("SCAN_TIMEOUT"), 60 * 60 * 4)  # 4 hours
-SCAN_WORKERS: Final[int] = max(1, safe_int(_get_env("SCAN_WORKERS"), 1))
+SCAN_WORKERS: Final[int] = max(1, safe_int(_get_env("SCAN_WORKERS"), 4))
 
 # TASKS
 TASK_TIMEOUT: Final[int] = safe_int(_get_env("TASK_TIMEOUT"), 60 * 5)  # 5 minutes
@@ -241,12 +285,28 @@ SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final[str] = _get_env(
     "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES")
+)
+SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON",
+    "0 5 * * *",  # At 5:00 AM every day, after the nightly scan and metadata tasks
+)
 ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC")
 )
 SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
     "SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON",
     "0 4 * * *",  # At 4:00 AM every day
+)
+# On by default: the similarity index is what both the "Similar games" section
+# and the personalised feed read, so leaving it off silently empties them.
+ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS", "true")
+)
+SCHEDULED_BUILD_RECOMMENDATIONS_CRON: Final[str] = _get_env(
+    "SCHEDULED_BUILD_RECOMMENDATIONS_CRON",
+    "30 5 * * *",  # At 5:30 AM every day, after the nightly scan and metadata tasks
 )
 
 # SYNC
@@ -272,10 +332,19 @@ SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
 # EMULATION
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
+DISABLE_JSDOS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_JSDOS"))
 
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
 DISABLE_LOGS_VIEWER: Final[bool] = safe_str_to_bool(_get_env("DISABLE_LOGS_VIEWER"))
+
+# ASSETS
+MAX_ASSET_UPLOAD_SIZE_BYTES: Final[int] = safe_int(
+    _get_env("MAX_ASSET_UPLOAD_SIZE_BYTES"), 512 * 1024 * 1024  # 512 MiB
+)
+MAX_AUTOCLEANUP_LIMIT: Final[int] = max(
+    1, safe_int(_get_env("MAX_AUTOCLEANUP_LIMIT"), 100)
+)
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()
@@ -297,6 +366,18 @@ STREAMING_BROKER_SECRET: Final[str] = _get_env("STREAMING_BROKER_SECRET", "")
 STREAMING_SAVE_TIMEOUT: Final[int] = safe_int(
     _get_env("STREAMING_SAVE_TIMEOUT"), 45
 )  # 45 seconds
+# Seconds a webstation activate may take. The broker unpacks pkg and archive
+# ROMs before it can start the emulator, so this has to outlast the slowest
+# extraction rather than just a process spawn.
+STREAMING_LAUNCH_TIMEOUT: Final[int] = safe_int(
+    _get_env("STREAMING_LAUNCH_TIMEOUT"), 600
+)  # 10 minutes
+# How many save states to keep per ROM, emulator and user. Each capture is
+# kept as its own asset rather than overwriting a slot, so the oldest are
+# pruned once this many exist. 0 disables pruning.
+STREAMING_STATE_HISTORY_LIMIT: Final[int] = safe_int(
+    _get_env("STREAMING_STATE_HISTORY_LIMIT"), 50
+)
 
 # SENTRY
 SENTRY_DSN: Final[str | None] = _get_env("SENTRY_DSN")

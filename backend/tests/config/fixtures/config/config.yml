@@ -27,9 +27,14 @@ system:
     naomi: "arcade"
 
 filesystem:
-  roms_folder: "ROMS"
-  firmware_folder: "BIOS"
   skip_hash_calculation: true
+  structure:
+    default: "ROMS/{platform}/{game}"
+    firmware: "BIOS/{platform}"
+    psx: "ROMS/{platform}/{category}/{game}"
+    nes:
+      - "ROMS/{platform}/{game}"
+      - "ROMS/{platform}/{category}/{game}"
 
 scan:
   priority:
@@ -48,6 +53,7 @@ scan:
       - jp
       - eu
       - wor
+    region_mode: prefer_config
     language:
       - jp
       - es
@@ -67,6 +73,7 @@ emulatorjs:
   cache_limit: 1000
   disable_auto_unload: true
   disable_batch_bootup: true
+  auto_save_sync: true
   netplay:
     enabled: true
     ice_servers:

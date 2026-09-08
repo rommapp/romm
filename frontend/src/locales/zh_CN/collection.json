@@ -23,6 +23,7 @@
   "name-placeholder": "收藏名称",
   "no-collections-search": "没有符合 \"{query}\" 的收藏。",
   "no-collections-yet": "暂无收藏。",
+  "no-collections-yet-detail": "您还没有任何收藏。将游戏添加到喜好，或从任意 ROM 的操作栏中创建一个。",
   "no-collections-yet-hint": "暂无收藏。请在上方创建一个。",
   "not-found": "未找到该收藏。",
   "owner": "创建者",

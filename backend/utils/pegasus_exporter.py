@@ -1,15 +1,18 @@
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import Final
 
 from fastapi import Request
 
+from config.config_manager import PLATFORM_MEDIA_DIRS
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom
-from utils.filesystem import link_or_copy_file
+from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
+from utils.filesystem import join_rel_path, link_or_copy_file, rel_platform_folder
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
 # Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/
@@ -114,20 +117,171 @@ SLUG_TO_PEGASUS: dict[UPS, tuple[str, str]] = {
     UPS.STEAM: ("Steam", "steam"),
 }
 
-# Map Pegasus asset keys to subdirectory names inside assets/
-ASSET_DIRS: dict[str, str] = {
-    "box_front": "covers",
-    "box_back": "backcovers",
-    "box_full": "boxes",
-    "screenshot": "screenshots",
-    "titlescreen": "titlescreens",
-    "video": "videos",
-    "marquee": "marquees",
-    "cartridge": "cartridges",
-    "logo": "logos",
-    "background": "backgrounds",
-    "bezel": "bezels",
+# Pegasus resolves media from the paths written in metadata.pegasus.txt, so its
+# files share the ES-DE media folders instead of a parallel assets/ tree. ES-DE
+# keeps logos under marquees.
+PEGASUS_MEDIA_KEYS: Final[dict[str, str]] = {
+    "box_front": "box2d",
+    "box_back": "box2d_back",
+    "box_full": "box3d",
+    "screenshot": "screenshot",
+    "titlescreen": "title_screen",
+    "video": "video",
+    "marquee": "marquee",
+    "logo": "marquee",
+    "cartridge": "physical",
+    "background": "fanart",
+    "bezel": "bezel",
 }
+
+
+# Pegasus accepts several spellings for one field; entries are merged by the
+# canonical name so RomM's `file` also replaces an existing `files` list.
+PEGASUS_KEY_ALIASES: Final[dict[str, str]] = {
+    "files": "file",
+    "command": "launch",
+    "cwd": "workdir",
+    "sort_by": "sort-by",
+    "sort-name": "sort-by",
+    "sort-title": "sort-by",
+    "sort_name": "sort-by",
+    "sort_title": "sort-by",
+    "sortby": "sort-by",
+    "sortname": "sort-by",
+    "sorttitle": "sort-by",
+    "developers": "developer",
+    "publishers": "publisher",
+    "genres": "genre",
+    "tags": "tag",
+}
+
+# Pegasus's own asset-name spellings, folded to the names RomM emits (lowercase
+# because keys are lowercased before lookup).
+PEGASUS_ASSET_ALIASES: Final[dict[str, str]] = {
+    "boxfront": "box_front",
+    "boxart2d": "box_front",
+    "boxback": "box_back",
+    "boxspine": "box_spine",
+    "boxside": "box_spine",
+    "box_side": "box_spine",
+    "boxfull": "box_full",
+    "box": "box_full",
+    "disc": "cartridge",
+    "cart": "cartridge",
+    "wheel": "logo",
+    "screenmarquee": "bezel",
+    "border": "bezel",
+    "cabinetleft": "cabinet_left",
+    "cabinetright": "cabinet_right",
+    "steam": "steamgrid",
+    "grid": "steamgrid",
+    "flyer": "poster",
+    "screenshots": "screenshot",
+    "videos": "video",
+}
+
+COLLECTION_HEADER_KEYS: Final = frozenset({"collection", "shortname"})
+
+
+def canonical_pegasus_key(key: str) -> str:
+    """Fold every spelling Pegasus accepts for a lowercased key into one name."""
+    prefix, dot, asset = key.partition(".")
+    if dot and prefix in ("asset", "assets"):
+        return f"assets.{PEGASUS_ASSET_ALIASES.get(asset, asset)}"
+    return PEGASUS_KEY_ALIASES.get(key, key)
+
+
+@dataclass
+class PegasusBlock:
+    """A `collection:` or `game:` block of metadata.pegasus.txt, kept as raw lines.
+
+    ``fields`` pairs each canonical key with the lines that spell it out,
+    continuation lines included. Comment lines carry an empty key.
+    """
+
+    kind: str
+    fields: list[tuple[str, list[str]]] = field(default_factory=list)
+
+    def keys(self) -> set[str]:
+        return {key for key, _ in self.fields if key}
+
+    def lines(self, skip: frozenset[str] | set[str] = frozenset()) -> list[str]:
+        return [line for key, lines in self.fields if key not in skip for line in lines]
+
+    def file_paths(self) -> set[str]:
+        """Each listed path, plus the folders holding it.
+
+        A multi-file ROM is matched by the folder its files sit in, which a custom
+        library structure nests rather than leaving at the top level.
+        """
+        paths: set[str] = set()
+        for key, lines in self.fields:
+            if key != "file":
+                continue
+            _, _, value = lines[0].partition(":")
+            for raw in [value, *lines[1:]]:
+                if not raw.strip():
+                    continue
+                path = PurePosixPath(raw.strip().removeprefix("./"))
+                if path.is_absolute():
+                    # An absolute path is only comparable by the name it ends in.
+                    paths.add(path.name)
+                    continue
+                paths.add(path.as_posix())
+                paths.update(
+                    parent.as_posix() for parent in path.parents if parent.name
+                )
+        return paths
+
+
+def parse_pegasus(content: str) -> list[PegasusBlock]:
+    """Split metadata.pegasus.txt into blocks, the first holding any preamble."""
+    blocks = [PegasusBlock("preamble")]
+    for line in content.splitlines():
+        if not line.strip():
+            continue
+        if line[0].isspace():
+            if blocks[-1].fields:
+                blocks[-1].fields[-1][1].append(line)
+            continue
+        if line.startswith("#"):
+            blocks[-1].fields.append(("", [line]))
+            continue
+
+        raw_key, separator, _ = line.partition(":")
+        key = canonical_pegasus_key(raw_key.strip().lower()) if separator else ""
+        if key in ("collection", "game"):
+            blocks.append(PegasusBlock(key))
+        blocks[-1].fields.append((key, [line]))
+    return blocks
+
+
+@dataclass
+class ExistingPegasus:
+    """What an on-disk metadata.pegasus.txt holds that RomM did not generate."""
+
+    preamble: list[str] = field(default_factory=list)
+    header: PegasusBlock | None = None
+    games: list[PegasusBlock] = field(default_factory=list)
+    tail: list[PegasusBlock] = field(default_factory=list)
+
+
+def parse_existing_pegasus(content: str) -> ExistingPegasus:
+    """Take apart the first collection of a metadata file; later ones stay verbatim."""
+    existing = ExistingPegasus()
+    blocks = parse_pegasus(content)
+    existing.preamble = blocks[0].lines()
+
+    for index, block in enumerate(blocks[1:], start=1):
+        if block.kind == "collection" and existing.header is not None:
+            existing.tail = blocks[index:]
+            break
+        if block.kind == "collection":
+            existing.header = block
+        else:
+            existing.games.append(block)
+
+    return existing
 
 
 class PegasusExporter:
@@ -215,6 +369,7 @@ class PegasusExporter:
         rom: Rom,
         request: Request | None,
         exported_assets: dict[str, str] | None = None,
+        rel_folder: str = "",
     ) -> str:
         """Create a game entry for a ROM in Pegasus metadata format"""
         lines: list[str] = []
@@ -224,7 +379,7 @@ class PegasusExporter:
 
         # File path
         if self.local_export:
-            lines.append(f"file: {rom.fs_name}")
+            lines.append(f"file: {join_rel_path(rel_folder, rom.fs_name)}")
         else:
             if request is None:
                 raise ValueError(
@@ -238,12 +393,13 @@ class PegasusExporter:
         if rom.name and rom.fs_name_no_tags and rom.name != rom.fs_name_no_tags:
             lines.append(f"sort-by: {rom.fs_name_no_tags}")
 
-        # Developers and publishers
-        if rom.metadatum and rom.metadatum.companies:
-            if len(rom.metadatum.companies) > 0:
-                lines.append(f"developer: {rom.metadatum.companies[0]}")
-            if len(rom.metadatum.companies) > 1:
-                lines.append(f"publisher: {rom.metadatum.companies[1]}")
+        if rom.metadatum:
+            developer = rom.metadatum.primary_developer
+            publisher = rom.metadatum.primary_publisher
+            if developer:
+                lines.append(f"developer: {developer}")
+            if publisher:
+                lines.append(f"publisher: {publisher}")
 
         # Genres
         if rom.metadatum and rom.metadatum.genres:
@@ -292,9 +448,16 @@ class PegasusExporter:
     def _copy_asset(self, source: Path, dest: Path) -> bool:
         """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
         (otherwise). Returns True on success."""
-        dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             return True
+
+        # Metadata scanned before unfetched media paths were cleared can still
+        # point at files that were never downloaded.
+        if not source.is_file():
+            log.debug(f"Skipping asset {source}: source file is missing")
+            return False
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
 
         try:
             link_or_copy_file(source, dest)
@@ -303,51 +466,124 @@ class PegasusExporter:
             log.warning(f"Failed to copy {source} -> {dest}: {e}")
             return False
 
-    def export_platform_to_pegasus(
-        self, platform_id: int, request: Request | None
-    ) -> str:
-        """Export a platform's ROMs to metadata.pegasus.txt format
+    def _build_pegasus(
+        self,
+        platform_id: int,
+        request: Request | None,
+        platform_dir: Path | None,
+        existing: ExistingPegasus | None = None,
+    ) -> tuple[str, int]:
+        """Build the metadata file, optionally copying media under ``platform_dir``.
 
-        Args:
-            platform_id: Platform ID to export
-            request: FastAPI request object for URL generation
-
-        Returns:
-            String content in Pegasus metadata format
+        Entries in ``existing`` keep whatever RomM does not emit itself, and
+        entries with no ROM in the database are carried over untouched.
         """
         platform = db_platform_handler.get_platform(platform_id)
         if not platform:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
-        roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
+        roms = db_rom_handler.get_roms_scalar(
+            platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
+        )
 
-        lines: list[str] = []
+        existing = existing or ExistingPegasus()
+        unmatched_games = dict(enumerate(existing.games))
+        game_index_by_path = {
+            path: index
+            for index, game in enumerate(existing.games)
+            for path in game.file_paths()
+        }
+        platform_fs_path = fs_platform_handler.get_platform_fs_structure(
+            platform.fs_slug
+        )
 
-        # Collection header
+        lines: list[str] = list(existing.preamble)
         collection_name, shortname = self._resolve_collection(platform)
         lines.append(f"collection: {collection_name}")
         lines.append(f"shortname: {shortname}")
+        if existing.header is not None:
+            lines.extend(existing.header.lines(skip=COLLECTION_HEADER_KEYS))
         lines.append("")
 
-        # Game entries
         game_count = 0
         for rom in roms:
-            if not rom.missing_from_fs:
-                if game_count > 0:
-                    lines.append("")
-                lines.append(self._create_game_entry(rom, request=request))
-                game_count += 1
+            exported_assets: dict[str, str] = {}
+            rel_folder = rel_platform_folder(rom.fs_path, platform_fs_path)
+
+            if platform_dir is not None:
+                assets = self._collect_assets(rom)
+
+                claimed: dict[Path, Path] = {}
+                for asset_key, source_path in assets.items():
+                    subdir = PLATFORM_MEDIA_DIRS[PEGASUS_MEDIA_KEYS[asset_key]]
+                    dest_name = f"{rom.fs_name_no_ext}{source_path.suffix}"
+                    rel_dest = join_rel_path(subdir, rel_folder, dest_name)
+                    dest_path = platform_dir / rel_dest
+
+                    # Logo and marquee share one folder; keep both files.
+                    if claimed.get(dest_path, source_path) != source_path:
+                        dest_name = (
+                            f"{rom.fs_name_no_ext}-{asset_key}{source_path.suffix}"
+                        )
+                        rel_dest = join_rel_path(subdir, rel_folder, dest_name)
+                        dest_path = platform_dir / rel_dest
+                    claimed[dest_path] = source_path
+
+                    if self._copy_asset(source_path, dest_path):
+                        exported_assets[asset_key] = rel_dest
+
+            entry = self._create_game_entry(
+                rom,
+                request=request,
+                exported_assets=exported_assets if exported_assets else None,
+                rel_folder=rel_folder,
+            )
+            entry_lines = entry.splitlines()
+
+            existing_game = unmatched_games.pop(
+                game_index_by_path.get(join_rel_path(rel_folder, rom.fs_name), -1),
+                None,
+            )
+            if existing_game is not None:
+                emitted_keys = parse_pegasus(entry)[-1].keys()
+                entry_lines.extend(existing_game.lines(skip=emitted_keys))
+
+            if game_count > 0:
+                lines.append("")
+            lines.extend(entry_lines)
+            game_count += 1
+
+        for block in [*unmatched_games.values(), *existing.tail]:
+            lines.append("")
+            lines.extend(block.lines())
 
         log.info(f"Exported {game_count} ROMs for platform {platform.name}")
-        return "\n".join(lines) + "\n"
+        return "\n".join(lines) + "\n", game_count
+
+    def export_platform_to_pegasus(
+        self, platform_id: int, request: Request | None
+    ) -> str:
+        """Export a platform's ROMs to metadata.pegasus.txt format (no asset files copied)."""
+        content, _ = self._build_pegasus(
+            platform_id, request=request, platform_dir=None
+        )
+        return content
+
+    async def _read_existing_pegasus(self, metadata_path: str) -> ExistingPegasus:
+        """Load the metadata file at ``metadata_path``, or an empty one if absent."""
+        if not await fs_platform_handler.file_exists(metadata_path):
+            return ExistingPegasus()
+
+        content = await fs_platform_handler.read_file(metadata_path)
+        return parse_existing_pegasus(content.decode("utf-8-sig"))
 
     async def export_platform_to_file(
         self,
         platform_id: int,
         request: Request | None,
     ) -> bool:
-        """Export platform ROMs to metadata.pegasus.txt file in the platform's directory,
-        including media assets copied into a local assets/ folder.
+        """Merge platform ROMs into the metadata.pegasus.txt in the platform's
+        directory, copying media into the ES-DE per-type folders when local_export=True.
 
         Args:
             platform_id: Platform ID to export
@@ -365,49 +601,26 @@ class PegasusExporter:
             platform_fs_structure = fs_platform_handler.get_platform_fs_structure(
                 platform.fs_slug
             )
-            platform_dir = fs_platform_handler.base_path / platform_fs_structure
+            platform_dir = (
+                fs_platform_handler.base_path / platform_fs_structure
+                if self.local_export
+                else None
+            )
+            metadata_path = f"{platform_fs_structure}/metadata.pegasus.txt"
 
-            roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
+            # A file we cannot read is left alone rather than replaced.
+            try:
+                existing = await self._read_existing_pegasus(metadata_path)
+            except UnicodeDecodeError as e:
+                log.error(f"Not overwriting unreadable {metadata_path}: {e}")
+                return False
 
-            lines: list[str] = []
-
-            # Collection header
-            collection_name, shortname = self._resolve_collection(platform)
-            lines.append(f"collection: {collection_name}")
-            lines.append(f"shortname: {shortname}")
-            lines.append("")
-
-            game_count = 0
-            for rom in roms:
-                if rom.missing_from_fs:
-                    continue
-
-                exported_assets: dict[str, str] = {}
-
-                if self.local_export:
-                    assets = self._collect_assets(rom)
-
-                    for asset_key, source_path in assets.items():
-                        subdir = ASSET_DIRS.get(asset_key, asset_key)
-                        dest_name = f"{rom.fs_name_no_ext}{source_path.suffix}"
-                        dest_path = platform_dir / "assets" / subdir / dest_name
-
-                        if self._copy_asset(source_path, dest_path):
-                            exported_assets[asset_key] = f"assets/{subdir}/{dest_name}"
-
-                if game_count > 0:
-                    lines.append("")
-
-                lines.append(
-                    self._create_game_entry(
-                        rom,
-                        request=request,
-                        exported_assets=exported_assets if exported_assets else None,
-                    )
-                )
-                game_count += 1
-
-            content = "\n".join(lines) + "\n"
+            content, game_count = self._build_pegasus(
+                platform_id,
+                request=request,
+                platform_dir=platform_dir,
+                existing=existing,
+            )
             await fs_platform_handler.write_file(
                 content.encode("utf-8"),
                 platform_fs_structure,

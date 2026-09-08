@@ -12,12 +12,10 @@ class CleanupZipCacheTask(PeriodicTask):
             enabled=True,
             manual_run=False,
             cron_string="0 4 * * *",
-            func="tasks.scheduled.cleanup_zip_cache.cleanup_zip_cache_task.run",
         )
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         deleted = cleanup_stale_zips()

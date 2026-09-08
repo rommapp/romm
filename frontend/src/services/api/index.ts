@@ -111,12 +111,26 @@ api.interceptors.response.use(
       document.dispatchEvent(new CustomEvent("backend-online"));
     }
 
-    if (error.response?.status === 403) {
+    // A 403 is a permission denial for an authenticated caller (or a CSRF
+    // failure): the session is still valid, so stay on the page and let the
+    // caller surface the error. Only refresh the CSRF token when the backend
+    // rejected it, so the next attempt uses a fresh one.
+    if (
+      error.response?.status === 403 &&
+      typeof error.response?.data === "string" &&
+      error.response.data.includes("CSRF")
+    ) {
+      await refetchCSRFToken().catch(() => {});
+    }
+
+    // A 401 means there are no valid credentials behind the request: clear
+    // the stale session and send the user to the login page.
+    if (error.response?.status === 401) {
       // Clear cookies and redirect to login page
       Cookies.remove("romm_session");
 
       // Refetch CSRF cookie
-      await refetchCSRFToken();
+      await refetchCSRFToken().catch(() => {});
 
       const pathname = window.location.pathname;
       const search = window.location.search;
@@ -149,6 +163,16 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// `fetch(..., { keepalive: true })` is the only way to reach the backend from a
+// page that is going away, and it does not run the request interceptor above,
+// so the CSRF header that interceptor sets has to be built by hand here.
+export function keepaliveHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "x-csrftoken": Cookies.get("romm_csrftoken") ?? "",
+  };
+}
 
 export async function refetchCSRFToken() {
   Cookies.remove("romm_csrftoken");

@@ -2,10 +2,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-from rq.job import Job
 
-from exceptions.task_exceptions import SchedulerException
-from tasks.tasks import PeriodicTask, RemoteFilePullTask, TaskType, tasks_scheduler
+from exceptions.task_exceptions import TaskNotFoundException
+from tasks.tasks import PeriodicTask, RemoteFilePullTask, TaskType, run_task_by_name
 
 
 class ConcretePeriodicTask(PeriodicTask):
@@ -19,7 +18,6 @@ class TestPeriodicTask:
     @pytest.fixture
     def task(self):
         return ConcretePeriodicTask(
-            func="test.function",
             title="Test Task",
             description="test task",
             task_type=TaskType.GENERIC,
@@ -30,7 +28,6 @@ class TestPeriodicTask:
     @pytest.fixture
     def disabled_task(self):
         return ConcretePeriodicTask(
-            func="test.disabled.function",
             title="Disabled Task",
             description="disabled task",
             task_type=TaskType.GENERIC,
@@ -40,167 +37,10 @@ class TestPeriodicTask:
 
     def test_init(self, task):
         """Test task initialization"""
-        assert task.func == "test.function"
         assert task.title == "Test Task"
         assert task.description == "test task"
         assert task.enabled is True
         assert task.cron_string == "0 0 * * *"
-
-    @patch.object(tasks_scheduler, "get_jobs")
-    def test_get_existing_job_found(self, mock_get_jobs, task):
-        """Test finding an existing job"""
-        mock_job = MagicMock(spec=Job)
-        mock_job.func_name = "test.function"
-        mock_get_jobs.return_value = [mock_job]
-
-        result = task._get_existing_job()
-        assert result == mock_job
-
-    @patch.object(tasks_scheduler, "get_jobs")
-    def test_get_existing_job_not_found(self, mock_get_jobs, task):
-        """Test when no existing job is found"""
-        mock_job = MagicMock(spec=Job)
-        mock_job.func_name = "other.function"
-        mock_get_jobs.return_value = [mock_job]
-
-        result = task._get_existing_job()
-        assert result is None
-
-    @patch.object(tasks_scheduler, "get_jobs")
-    def test_get_existing_job_empty_list(self, mock_get_jobs, task):
-        """Test when no jobs exist"""
-        mock_get_jobs.return_value = []
-
-        result = task._get_existing_job()
-        assert result is None
-
-    @patch.object(ConcretePeriodicTask, "_get_existing_job")
-    @patch.object(ConcretePeriodicTask, "schedule")
-    @patch.object(ConcretePeriodicTask, "unschedule")
-    def test_init_enabled_no_existing_job(
-        self, mock_unschedule, mock_schedule, mock_get_existing_job, task
-    ):
-        """Test init when task is enabled and no existing job"""
-        mock_job = MagicMock(spec=Job)
-        mock_get_existing_job.return_value = None
-        mock_schedule.return_value = mock_job
-
-        result = task.init()
-
-        mock_schedule.assert_called_once()
-        mock_unschedule.assert_not_called()
-        assert result == mock_job
-
-    @patch.object(ConcretePeriodicTask, "_get_existing_job")
-    @patch.object(ConcretePeriodicTask, "schedule")
-    @patch.object(ConcretePeriodicTask, "unschedule")
-    def test_init_disabled_with_existing_job(
-        self, mock_unschedule, mock_schedule, mock_get_existing_job, disabled_task
-    ):
-        """Test init when task is disabled but has existing job"""
-        mock_job = MagicMock(spec=Job)
-        mock_get_existing_job.return_value = mock_job
-        mock_unschedule.return_value = None
-
-        result = disabled_task.init()
-
-        mock_unschedule.assert_called_once()
-        mock_schedule.assert_not_called()
-        assert result is None
-
-    @patch.object(ConcretePeriodicTask, "_get_existing_job")
-    @patch.object(ConcretePeriodicTask, "schedule")
-    @patch.object(ConcretePeriodicTask, "unschedule")
-    def test_init_enabled_with_existing_job(
-        self, mock_unschedule, mock_schedule, mock_get_existing_job, task
-    ):
-        """Test init when task is enabled and job already exists"""
-        mock_job = MagicMock(spec=Job)
-        mock_get_existing_job.return_value = mock_job
-
-        result = task.init()
-
-        mock_schedule.assert_not_called()
-        mock_unschedule.assert_not_called()
-        assert result is None  # Should do nothing
-
-    @patch.object(ConcretePeriodicTask, "_get_existing_job")
-    @patch.object(tasks_scheduler, "cron")
-    def test_schedule_success(self, mock_cron, mock_get_existing_job, task):
-        """Test successful scheduling"""
-        mock_job = MagicMock(spec=Job)
-        mock_get_existing_job.return_value = None
-        mock_cron.return_value = mock_job
-
-        result = task.schedule()
-
-        mock_cron.assert_called_once_with(
-            "0 0 * * *",
-            func="test.function",
-            repeat=None,
-            timeout=5 * 60,
-            meta={"task_name": "Test Task", "task_type": "generic"},
-        )
-        assert result == mock_job
-
-    def test_schedule_not_enabled(self, disabled_task):
-        """Test scheduling when task is not enabled"""
-        with pytest.raises(
-            SchedulerException, match="Scheduled disabled task is not enabled."
-        ):
-            disabled_task.schedule()
-
-    @patch.object(ConcretePeriodicTask, "_get_existing_job")
-    @patch("tasks.tasks.log")
-    def test_schedule_already_scheduled(self, mock_log, mock_get_existing_job, task):
-        """Test scheduling when job already exists"""
-        mock_job = MagicMock()
-        mock_get_existing_job.return_value = mock_job
-
-        result = task.schedule()
-
-        mock_log.info.assert_called_once_with("Test task is already scheduled.")
-        assert result is None
-
-    def test_schedule_no_cron_string(self):
-        """Test scheduling with no cron string"""
-        task = ConcretePeriodicTask(
-            func="test.function",
-            title="Test Task",
-            task_type=TaskType.GENERIC,
-            description="test task",
-            enabled=True,
-            cron_string=None,
-        )
-
-        with patch.object(task, "_get_existing_job", return_value=None):
-            result = task.schedule()
-            assert result is None
-
-    @patch.object(ConcretePeriodicTask, "_get_existing_job")
-    @patch.object(tasks_scheduler, "cancel")
-    @patch("tasks.tasks.log")
-    def test_unschedule_success(
-        self, mock_log, mock_cancel, mock_get_existing_job, task
-    ):
-        """Test successful unscheduling"""
-        mock_job = MagicMock(spec=Job)
-        mock_get_existing_job.return_value = mock_job
-
-        task.unschedule()
-
-        mock_cancel.assert_called_once_with(mock_job)
-        mock_log.info.assert_called_once_with("Test task unscheduled.")
-
-    @patch.object(ConcretePeriodicTask, "_get_existing_job")
-    @patch("tasks.tasks.log")
-    def test_unschedule_not_scheduled(self, mock_log, mock_get_existing_job, task):
-        """Test unscheduling when no job exists"""
-        mock_get_existing_job.return_value = None
-
-        task.unschedule()
-
-        mock_log.info.assert_called_once_with("Test task is not scheduled.")
 
     async def test_run_abstract_method(self, task):
         """Test that run method works in concrete implementation"""
@@ -212,7 +52,6 @@ class TestRemoteFilePullTask:
     @pytest.fixture
     def task(self):
         return RemoteFilePullTask(
-            func="test.remote.function",
             title="Remote Test Task",
             task_type=TaskType.UPDATE,
             description="remote test task",
@@ -224,7 +63,6 @@ class TestRemoteFilePullTask:
     @pytest.fixture
     def disabled_task(self):
         return RemoteFilePullTask(
-            func="test.remote.disabled.function",
             title="Disabled Remote Task",
             task_type=TaskType.UPDATE,
             description="disabled remote task",
@@ -234,7 +72,6 @@ class TestRemoteFilePullTask:
 
     def test_init(self, task):
         """Test RemoteFilePullTask initialization"""
-        assert task.func == "test.remote.function"
         assert task.task_type == TaskType.UPDATE
         assert task.description == "remote test task"
         assert task.enabled is True
@@ -296,18 +133,14 @@ class TestRemoteFilePullTask:
         mock_log.error.assert_any_call(http_error)
         assert result is None
 
-    @patch.object(RemoteFilePullTask, "unschedule")
     @patch("tasks.tasks.log")
-    async def test_run_disabled_not_forced(
-        self, mock_log, mock_unschedule, disabled_task
-    ):
+    async def test_run_disabled_not_forced(self, mock_log, disabled_task):
         """Test run when task is disabled and not forced"""
         result = await disabled_task.run(force=False)
 
         mock_log.info.assert_called_once_with(
-            "Scheduled disabled remote task not enabled, unscheduling..."
+            "Scheduled disabled remote task not enabled, skipping..."
         )
-        mock_unschedule.assert_called_once()
         assert result is None
 
     @patch("tasks.tasks.ctx_httpx_client")
@@ -322,3 +155,42 @@ class TestRemoteFilePullTask:
         result = await disabled_task.run(force=True)
 
         assert result == b"forced content"
+
+
+class TestRunTaskByName:
+    """Jobs carry a task's name, so the runner has to resolve it."""
+
+    async def test_runs_the_registered_task(self, mocker):
+        task = MagicMock()
+        task.run = AsyncMock(return_value="ran")
+        mocker.patch("tasks.registry.get_task", return_value=task)
+
+        assert await run_task_by_name("some_task") == "ran"
+        task.run.assert_awaited_once_with()
+
+    async def test_forwards_keyword_arguments(self, mocker):
+        task = MagicMock()
+        task.run = AsyncMock(return_value=None)
+        mocker.patch("tasks.registry.get_task", return_value=task)
+
+        await run_task_by_name("some_task", {"force": True})
+
+        task.run.assert_awaited_once_with(force=True)
+
+    async def test_forwarded_arguments_cannot_name_another_task(self, mocker):
+        # The arguments reach the task rather than this function's own name, so a
+        # request body cannot redirect the run to a task it was not allowed.
+        task = MagicMock()
+        task.run = AsyncMock(return_value=None)
+        get_task = mocker.patch("tasks.registry.get_task", return_value=task)
+
+        await run_task_by_name("allowed_task", {"name": "hidden_task"})
+
+        get_task.assert_called_once_with("allowed_task")
+        task.run.assert_awaited_once_with(name="hidden_task")
+
+    async def test_raises_for_a_name_that_is_not_registered(self, mocker):
+        mocker.patch("tasks.registry.get_task", return_value=None)
+
+        with pytest.raises(TaskNotFoundException, match="some_task"):
+            await run_task_by_name("some_task")

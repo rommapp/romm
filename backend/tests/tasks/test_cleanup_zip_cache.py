@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 from tasks.scheduled.cleanup_zip_cache import CleanupZipCacheTask
 
 
@@ -8,7 +6,6 @@ class TestCleanupZipCacheTask:
         task = CleanupZipCacheTask()
         assert task.enabled is True
         assert task.cron_string == "0 4 * * *"
-        assert "cleanup_zip_cache" in task.func
 
     async def test_run_calls_cleanup(self, mocker):
         task = CleanupZipCacheTask()
@@ -19,10 +16,9 @@ class TestCleanupZipCacheTask:
         await task.run()
         mock_cleanup.assert_called_once_with()
 
-    async def test_run_disabled_unschedules(self, mocker):
+    async def test_run_disabled_skips_the_cleanup(self, mocker):
         task = CleanupZipCacheTask()
         task.enabled = False
-        mocker.patch.object(task, "unschedule", MagicMock())
         mock_cleanup = mocker.patch(
             "tasks.scheduled.cleanup_zip_cache.cleanup_stale_zips",
         )

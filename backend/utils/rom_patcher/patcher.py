@@ -15,7 +15,18 @@ from config import ROM_PATCHER_MAX_CONCURRENCY, ROM_PATCHER_TIMEOUT
 PATCHER_SCRIPT = Path(__file__).parent / "patcher.js"
 
 SUPPORTED_PATCH_EXTENSIONS = frozenset(
-    (".ips", ".ups", ".bps", ".ppf", ".rup", ".aps", ".bdf", ".pmsr", ".vcdiff")
+    (
+        ".ips",
+        ".ups",
+        ".bps",
+        ".ppf",
+        ".rup",
+        ".aps",
+        ".bdf",
+        ".pmsr",
+        ".vcdiff",
+        ".xdelta",
+    )
 )
 
 # Bound concurrent node subprocesses, each of which loads a full ROM into memory.

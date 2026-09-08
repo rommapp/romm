@@ -9,4 +9,4 @@
  * grant matrix can be projected back onto the legacy ``Scope`` set without
  * drift (see ``handler/auth/permissions_map.py``).
  */
-export type PermEntity = 'platforms' | 'roms' | 'collections' | 'firmware' | 'assets' | 'devices' | 'users' | 'tasks' | 'logs';
+export type PermEntity = 'platforms' | 'roms' | 'collections' | 'playlists' | 'firmware' | 'assets' | 'devices' | 'users' | 'tasks' | 'logs';

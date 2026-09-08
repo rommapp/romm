@@ -15,8 +15,9 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
+from utils.platform_aliases import resolve_platform_slug
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> PlatformSchema:
@@ -132,11 +133,7 @@ async def get_filesystem_platforms() -> list[PlatformSchema]:
         if fs_slug in existing_fs_slugs:
             continue
 
-        slug = (
-            cnfg.PLATFORMS_BINDING.get(fs_slug)
-            or cnfg.PLATFORMS_VERSIONS.get(fs_slug)
-            or fs_slug
-        )
+        slug = resolve_platform_slug(fs_slug, cnfg)
         filesystem_platforms.append(_build_unmatched_platform(slug, fs_slug, now))
 
     return filesystem_platforms

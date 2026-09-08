@@ -22,33 +22,45 @@ import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 const { destinations, activeId } = useNavDestinations();
+
+// Sticky avoids a Safari bug where fixed elements can get stuck after scrolling.
 </script>
 
 <template>
-  <div v-if="smAndDown" class="r-v2-bottom-nav">
-    <RSliderBtnGroup
-      :model-value="activeId"
-      :items="destinations"
-      variant="tab"
-      class="r-v2-bottom-nav__group"
-      :aria-label="t('common.primary-navigation')"
-    />
+  <div v-if="smAndDown" class="r-v2-bottom-nav-anchor">
+    <div class="r-v2-bottom-nav">
+      <RSliderBtnGroup
+        :model-value="activeId"
+        :items="destinations"
+        variant="tab"
+        class="r-v2-bottom-nav__group"
+        :aria-label="t('common.primary-navigation')"
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* Fixed bottom strip that just hosts the pill. Transparent — the pill
-   itself carries the glass surface (tab variant), so it reads as a
-   floating control matching the top nav. Side gutters follow the
-   responsive `--r-row-pad`; the safe-area inset keeps the pill above a
-   notched phone's home indicator. `pointer-events: none` on the strip +
-   `auto` on the pill so taps in the transparent gutters fall through. */
-.r-v2-bottom-nav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+/* Matches .r-v2-shell__app's height without adding to it; flex-end anchors the pill to sticky's bottom. */
+.r-v2-bottom-nav-anchor {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
   z-index: 100;
+}
+
+/* Transparent — the pill itself carries the glass surface (tab variant),
+   so it reads as a floating control matching the top nav. Side gutters
+   follow the responsive `--r-row-pad`; the safe-area inset keeps the pill
+   above a notched phone's home indicator. `pointer-events: none` on the
+   strip + `auto` on the pill so taps in the transparent gutters fall
+   through. */
+.r-v2-bottom-nav {
+  position: sticky;
+  bottom: 0;
   display: flex;
   justify-content: center;
   padding: 8px var(--r-row-pad) calc(8px + env(safe-area-inset-bottom));

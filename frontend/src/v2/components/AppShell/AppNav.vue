@@ -110,7 +110,6 @@ onBeforeUnmount(() => {
   inset: 0;
   background: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   opacity: 0;
   pointer-events: none;
   z-index: -1;
@@ -131,7 +130,6 @@ onBeforeUnmount(() => {
 :global(html.r-v2-reduced-motion) .r-v2-nav-bar::before {
   background: var(--r-color-bg);
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* Grid `1fr auto 1fr` keeps the tab pill geometrically centred on the

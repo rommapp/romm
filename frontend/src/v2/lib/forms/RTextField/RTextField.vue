@@ -300,7 +300,10 @@ function clear() {
 }
 
 onMounted(() => {
-  if (props.autofocus) inputRef.value?.focus();
+  // `preventScroll` because an autofocused field often lives in a panel
+  // that a positioner (floating-ui) only places after mount — letting the
+  // UA scroll to its pre-placement box would yank the page.
+  if (props.autofocus) inputRef.value?.focus({ preventScroll: true });
 });
 
 // Slot shape helpers — drives whether to render the prepend / append

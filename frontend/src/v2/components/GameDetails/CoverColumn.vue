@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // CoverColumn — fixed-width left column wrapping the shared GameCover. The
-// cover honours the gallery-wide boxart style, animates on hover, paints
-// the procedural placeholder when empty, and is the destination of the
-// shared-element morph from the GameCard the user clicked through from —
-// all of that lives in GameCover now; this just sizes the column.
+// cover honours the details-page boxart style (falling back to the
+// gallery-wide one), animates on hover, paints the procedural placeholder
+// when empty, and is the destination of the shared-element morph from the
+// GameCard the user clicked through from — all of that lives in GameCover
+// now; this just sizes the column.
 //
-// When the gallery boxart style is the 3D box AND the rom has the full set
+// When the resolved boxart style is the 3D box AND the rom has the full set
 // of flat scans (front + back + spine, from ScreenScraper), the hero
 // upgrades to the interactive RBox3D the user can spin. Anything missing —
 // a different style, an incomplete set, or a failed image — falls straight
@@ -13,10 +14,10 @@
 import { RBox3D } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useUISettings } from "@/composables/useUISettings";
 import type { DetailedRom } from "@/stores/roms";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBoxFaces } from "@/v2/composables/useBoxFaces";
+import { useBoxartStyle } from "@/v2/composables/useCoverArt";
 
 defineOptions({ inheritAttrs: false });
 
@@ -26,14 +27,14 @@ const props = defineProps<{
 }>();
 
 const { t } = useI18n();
-const { boxartStyle } = useUISettings();
+const detailsStyle = useBoxartStyle("details");
 const faces = useBoxFaces(() => props.rom);
 const box3dFailed = ref(false);
 
 // Resolved faces, or null when the interactive box can't / shouldn't render.
 // Returning the concrete object keeps the template free of non-null asserts.
 const box3d = computed(() => {
-  if (boxartStyle.value !== "box3d_path" || box3dFailed.value) return null;
+  if (detailsStyle.value !== "box3d_path" || box3dFailed.value) return null;
   const f = faces.value;
   if (!f.complete || !f.front || !f.back || !f.spine) return null;
   return { front: f.front, back: f.back, spine: f.spine };
@@ -58,6 +59,7 @@ const box3d = computed(() => {
       :title="alt"
       :identified="rom.is_identified"
       :morph-id="rom.id"
+      style-context="details"
       morph-static
       hover-motion
     />

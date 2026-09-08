@@ -20,6 +20,7 @@ Create Date: 2026-07-22 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
+from sqlalchemy import inspect
 
 from utils.database import CustomJSON, is_postgresql
 
@@ -48,11 +49,12 @@ _MIRRORED_COLUMNS = [
 _TARGET_COLUMNS = ", ".join(target for target, _ in _MIRRORED_COLUMNS)
 _SOURCE_COLUMNS = ", ".join(source for _, source in _MIRRORED_COLUMNS)
 
-# Backfilled into the empty table before the triggers exist, so no row can
-# conflict and no upsert guard is needed.
+# Backfilled before the triggers exist. The anti-join keeps it idempotent so a
+# re-run after a partial failure only fills the rows that are still missing.
 _BACKFILL_SQL = (
     f"INSERT INTO roms_facets (rom_id, {_TARGET_COLUMNS})\n"  # nosec B608
-    f"SELECT id, {_SOURCE_COLUMNS} FROM roms"
+    f"SELECT id, {_SOURCE_COLUMNS} FROM roms\n"
+    "WHERE id NOT IN (SELECT rom_id FROM roms_facets)"
 )
 
 _MYSQL_UPSERT_BODY = (
@@ -89,6 +91,11 @@ CREATE TRIGGER roms_facets_sync AFTER INSERT OR UPDATE ON roms
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+
+    # Every step is guarded so a re-run after a partial failure recovers cleanly.
+    # MySQL/MariaDB auto-commit each DDL statement, so a crash mid-migration
+    # leaves objects behind without advancing the alembic version.
     op.create_table(
         "roms_facets",
         sa.Column(
@@ -120,16 +127,23 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
+        if_not_exists=True,
     )
-    op.create_index("idx_roms_facets_platform_id", "roms_facets", ["platform_id"])
+
+    # MySQL has no CREATE INDEX IF NOT EXISTS, so check the catalog instead.
+    existing_indexes = {idx["name"] for idx in inspect(conn).get_indexes("roms_facets")}
+    if "idx_roms_facets_platform_id" not in existing_indexes:
+        op.create_index("idx_roms_facets_platform_id", "roms_facets", ["platform_id"])
 
     op.execute(_BACKFILL_SQL)
 
-    if is_postgresql(op.get_bind()):
+    if is_postgresql(conn):
         op.execute(_POSTGRES_SYNC_FN)
+        op.execute("DROP TRIGGER IF EXISTS roms_facets_sync ON roms")
         op.execute(_POSTGRES_TRIGGER)
     else:
         for name, timing in _MYSQL_TRIGGERS.items():
+            op.execute(f"DROP TRIGGER IF EXISTS {name}")
             op.execute(
                 f"CREATE TRIGGER {name} {timing} ON roms\n"
                 f"FOR EACH ROW\n{_MYSQL_UPSERT_BODY}"

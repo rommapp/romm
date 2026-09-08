@@ -71,7 +71,6 @@ const { isOffline, retryNow } = useServerConnection();
     color-mix(in srgb, var(--r-color-status-base-danger) 40%, transparent);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   box-shadow:
     0 10px 28px color-mix(in srgb, black 45%, transparent),
     0 2px 6px color-mix(in srgb, black 30%, transparent);

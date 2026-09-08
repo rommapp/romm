@@ -60,6 +60,8 @@ const EMPTY_METADATA: RomMetadataSchema = {
   franchises: [],
   collections: [],
   companies: [],
+  publishers: [],
+  developers: [],
   game_modes: [],
   age_ratings: [],
   player_count: "",
@@ -95,6 +97,10 @@ const syntheticRom = computed<SimpleRom>(() => ({
   tgdb_id: null,
   flashpoint_id: null,
   hltb_id: null,
+  demozoo_id: null,
+  pouet_id: null,
+  csdb_id: null,
+  steam_id: null,
   gamelist_id: null,
   libretro_id: null,
   platform_id: 0,
@@ -122,6 +128,10 @@ const syntheticRom = computed<SimpleRom>(() => ({
   hasheous_metadata: null,
   flashpoint_metadata: null,
   hltb_metadata: null,
+  demozoo_metadata: null,
+  pouet_metadata: null,
+  csdb_metadata: null,
+  steam_metadata: null,
   gamelist_metadata: null,
   manual_metadata: null,
   path_cover_small: null,
@@ -142,6 +152,9 @@ const syntheticRom = computed<SimpleRom>(() => ({
   md5_hash: null,
   sha1_hash: null,
   ra_hash: null,
+  title_id: null,
+  save_target: null,
+  save_target_layout: null,
   has_simple_single_file: false,
   has_nested_single_file: false,
   has_multiple_files: false,
@@ -149,6 +162,9 @@ const syntheticRom = computed<SimpleRom>(() => ({
   created_at: "",
   updated_at: "",
   missing_from_fs: false,
+  is_physical: false,
+  has_file_on_disk: false,
+  upc: null,
   has_notes: false,
   files: [],
   sibling_roms: [],
@@ -220,7 +236,6 @@ function onClick(e: MouseEvent) {
   background: var(--r-color-brand-primary);
   color: var(--r-color-overlay-fg);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   box-shadow: 0 1px 4px color-mix(in srgb, black 45%, transparent);
 }
 </style>

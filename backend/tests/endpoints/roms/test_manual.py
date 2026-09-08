@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from pytest_mock import MockerFixture
 
 from endpoints.roms import manual as manual_endpoint
 from handler.database import db_rom_handler
@@ -18,7 +19,7 @@ def _auth(token: str) -> dict[str, str]:
 
 
 @pytest.fixture
-def manual_fs_resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def manual_fs_resources(tmp_path: Path, mocker: MockerFixture):
     """Mock fs_resource_handler so /manuals (resources path) writes to tmp_path."""
     resources_dir = tmp_path / "resources"
     resources_dir.mkdir()
@@ -27,10 +28,10 @@ def manual_fs_resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         target = resources_dir / Path(path).name
         return target
 
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler, "validate_path", validate_path
     )
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler,
         "make_directory",
         AsyncMock(return_value=None),
@@ -39,7 +40,7 @@ def manual_fs_resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def manual_fs_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def manual_fs_folder(tmp_path: Path, mocker: MockerFixture):
     """Mock fs_rom_handler so /manuals/files (folder path) writes to tmp_path."""
     folder_dir = tmp_path / "library"
     folder_dir.mkdir()
@@ -54,13 +55,13 @@ def manual_fs_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         else:
             raise FileNotFoundError(path)
 
-    monkeypatch.setattr(manual_endpoint.fs_rom_handler, "validate_path", validate_path)
-    monkeypatch.setattr(
+    mocker.patch.object(manual_endpoint.fs_rom_handler, "validate_path", validate_path)
+    mocker.patch.object(
         manual_endpoint.fs_rom_handler,
         "make_directory",
         AsyncMock(return_value=None),
     )
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_rom_handler,
         "remove_file",
         AsyncMock(side_effect=remove_file),
@@ -89,6 +90,7 @@ def test_upload_manual_to_resources_success(
     assert written.read_bytes() == PDF_BYTES
     refreshed = db_rom_handler.get_rom(rom.id)
     assert refreshed.path_manual == f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
+    assert refreshed.locked_fields == ["url_manual"]
 
 
 def test_upload_markdown_manual_to_resources_preserves_extension(
@@ -119,8 +121,10 @@ def test_upload_manual_to_resources_rejects_unsupported_extension(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "manual.txt"},
-        files={"manual.txt": ("manual.txt", b"not allowed", "text/plain")},
+        headers={**_auth(access_token), "x-upload-filename": "manual.exe"},
+        files={
+            "manual.exe": ("manual.exe", b"not allowed", "application/octet-stream")
+        },
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -220,8 +224,8 @@ def test_upload_manual_to_folder_rejects_non_pdf(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": "manual.txt"},
-        files={"manual.txt": ("manual.txt", b"not a pdf", "text/plain")},
+        headers={**_auth(access_token), "x-upload-filename": "manual.exe"},
+        files={"manual.exe": ("manual.exe", b"not a pdf", "application/octet-stream")},
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -249,13 +253,17 @@ def test_redownload_manual_success(
     client: TestClient,
     access_token: str,
     rom: Rom,
-    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ):
     db_rom_handler.update_rom(
-        rom.id, {"url_manual": "https://screenscraper.fr/api/manual.pdf"}
+        rom.id,
+        {
+            "url_manual": "https://screenscraper.fr/api/manual.pdf",
+            "locked_fields": ["url_manual"],
+        },
     )
     fake_path = f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler,
         "get_manual",
         AsyncMock(return_value=fake_path),
@@ -269,6 +277,7 @@ def test_redownload_manual_success(
     assert response.status_code == status.HTTP_200_OK
     refreshed = db_rom_handler.get_rom(rom.id)
     assert refreshed.path_manual == fake_path
+    assert refreshed.locked_fields == []
 
 
 # ---------- DELETE /api/roms/{id}/manuals (resources) ----------
@@ -278,9 +287,9 @@ def test_delete_manual_no_manual_returns_404(
     client: TestClient,
     access_token: str,
     rom: Rom,
-    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ):
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler,
         "manual_exists",
         lambda _rom: False,
@@ -298,20 +307,21 @@ def test_delete_manual_success(
     client: TestClient,
     access_token: str,
     rom: Rom,
-    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ):
     db_rom_handler.update_rom(
         rom.id,
         {
             "path_manual": f"{rom.fs_resources_path}/manual/{rom.id}.pdf",
             "url_manual": "https://screenscraper.fr/api/manual.pdf",
+            "locked_fields": ["url_manual"],
         },
     )
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler, "manual_exists", lambda _rom: True
     )
     remove_mock = AsyncMock(return_value=None)
-    monkeypatch.setattr(
+    mocker.patch.object(
         manual_endpoint.fs_resource_handler, "remove_manual", remove_mock
     )
 
@@ -325,6 +335,7 @@ def test_delete_manual_success(
     refreshed = db_rom_handler.get_rom(rom.id)
     assert refreshed.path_manual == ""
     assert refreshed.url_manual == ""
+    assert refreshed.locked_fields == []
 
 
 # ---------- DELETE /api/roms/{id}/manuals/files/{file_id} ----------

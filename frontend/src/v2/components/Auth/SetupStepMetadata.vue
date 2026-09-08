@@ -1,10 +1,7 @@
 <script setup lang="ts">
 // SetupStepMetadata — Step 3 of the setup wizard. Informational only.
 //
-// Three sections, matching how Settings → Metadata sources groups them:
-//   * General metadata — first-party catalogues (IGDB, MobyGames…)
-//   * Specialised sources — achievements, cover art, completion times
-//   * Match proxies — community hash matchers (Hasheous, Playmatch)
+// Sections come from the shared provider taxonomy.
 //
 // For each source we surface two pieces of state separately:
 //   * `disabled`  — admin flag from heartbeat (provider is enabled
@@ -17,6 +14,11 @@ import { RIcon, RImg, RTag } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeHeartbeat from "@/stores/heartbeat";
+import {
+  groupProviders,
+  SETUP_GROUP_LABELS,
+  type MetadataProviderKey,
+} from "@/v2/utils/metadataProviderGroups";
 
 defineOptions({ inheritAttrs: false });
 
@@ -26,9 +28,8 @@ const heartbeat = storeHeartbeat();
 type ProbeState = "pending" | "ok" | "ko";
 
 interface Source {
-  /** Key used both as the heartbeat probe identifier and as the
-   *  status-map index. Matches what the existing settings view uses. */
-  key: string;
+  /** Also the heartbeat probe identifier and the status-map index. */
+  key: MetadataProviderKey;
   name: string;
   logoPath: string;
   descKey: string;
@@ -47,7 +48,7 @@ interface Source {
 
 const probeStatus = ref<Record<string, ProbeState>>({});
 
-const catalogs = computed<Source[]>(() => {
+const sources = computed<Source[]>(() => {
   const m = heartbeat.value.METADATA_SOURCES ?? {};
   return [
     {
@@ -97,12 +98,6 @@ const catalogs = computed<Source[]>(() => {
       requiresKey: false,
       disabled: !m.FLASHPOINT_API_ENABLED,
     },
-  ];
-});
-
-const specialised = computed<Source[]>(() => {
-  const m = heartbeat.value.METADATA_SOURCES ?? {};
-  return [
     {
       key: "ra",
       name: "RetroAchievements",
@@ -124,6 +119,16 @@ const specialised = computed<Source[]>(() => {
       disabled: !m.STEAMGRIDDB_API_ENABLED,
     },
     {
+      key: "steam",
+      name: "Steam",
+      logoPath: "/assets/scrappers/steam.png",
+      descKey: "setup.provider-steam-desc",
+      setupKey: "setup.provider-steam-setup",
+      caveatKey: "setup.provider-steam-caveat",
+      requiresKey: false,
+      disabled: !m.STEAM_API_ENABLED,
+    },
+    {
       key: "hltb",
       name: "HowLongToBeat",
       logoPath: "/assets/scrappers/hltb.png",
@@ -133,12 +138,36 @@ const specialised = computed<Source[]>(() => {
       requiresKey: false,
       disabled: !m.HLTB_API_ENABLED,
     },
-  ];
-});
-
-const proxies = computed<Source[]>(() => {
-  const m = heartbeat.value.METADATA_SOURCES ?? {};
-  return [
+    {
+      key: "demozoo",
+      name: "Demozoo",
+      logoPath: "/assets/scrappers/demozoo.png",
+      descKey: "setup.provider-demozoo-desc",
+      setupKey: "setup.provider-demozoo-setup",
+      caveatKey: "setup.provider-demozoo-caveat",
+      requiresKey: false,
+      disabled: !m.DEMOZOO_API_ENABLED,
+    },
+    {
+      key: "pouet",
+      name: "Pouët",
+      logoPath: "/assets/scrappers/pouet.png",
+      descKey: "setup.provider-pouet-desc",
+      setupKey: "setup.provider-pouet-setup",
+      caveatKey: "setup.provider-pouet-caveat",
+      requiresKey: false,
+      disabled: !m.POUET_API_ENABLED,
+    },
+    {
+      key: "csdb",
+      name: "CSDb",
+      logoPath: "/assets/scrappers/csdb.png",
+      descKey: "setup.provider-csdb-desc",
+      setupKey: "setup.provider-csdb-setup",
+      caveatKey: "setup.provider-csdb-caveat",
+      requiresKey: false,
+      disabled: !m.CSDB_API_ENABLED,
+    },
     {
       key: "hasheous",
       name: "Hasheous",
@@ -161,6 +190,10 @@ const proxies = computed<Source[]>(() => {
     },
   ];
 });
+
+const groups = computed(() =>
+  groupProviders(sources.value, SETUP_GROUP_LABELS),
+);
 
 type StatusTone = "neutral" | "success" | "warning" | "danger";
 interface StatusInfo {
@@ -216,9 +249,8 @@ function itemDataState(source: Source): "available" | "checking" | "missing" {
 }
 
 async function probeAll() {
-  const all = [...catalogs.value, ...specialised.value, ...proxies.value];
   await Promise.all(
-    all
+    sources.value
       .filter((source) => !source.disabled)
       .map(async (source) => {
         probeStatus.value[source.key] = "pending";
@@ -240,134 +272,27 @@ onMounted(() => {
     </p>
 
     <div class="r-setup-metadata__scroll">
-      <!-- General metadata -->
-      <div class="r-setup-metadata__group">
+      <div
+        v-for="group in groups"
+        :key="group.group"
+        class="r-setup-metadata__group"
+        :data-group="group.group"
+      >
         <header class="r-setup-metadata__group-head">
           <div class="r-setup-metadata__group-title">
-            <span>{{ t("setup.metadata-catalogs") }}</span>
+            <span>{{ t(group.titleKey) }}</span>
           </div>
           <p class="r-setup-metadata__group-hint">
-            {{ t("setup.metadata-catalogs-hint") }}
+            {{ t(group.hintKey) }}
           </p>
         </header>
 
         <ul class="r-setup-metadata__items">
           <li
-            v-for="source in catalogs"
+            v-for="source in group.providers"
             :key="source.key"
             class="r-setup-metadata__item"
-            :data-state="itemDataState(source)"
-          >
-            <RImg
-              :src="source.logoPath"
-              :width="36"
-              :height="36"
-              class="r-setup-metadata__item-logo"
-              :alt="source.name"
-            />
-            <div class="r-setup-metadata__item-body">
-              <span class="r-setup-metadata__item-name">{{ source.name }}</span>
-              <span class="r-setup-metadata__item-desc">
-                {{ t(source.descKey) }}
-              </span>
-              <div class="r-setup-metadata__item-meta">
-                <span class="r-setup-metadata__pill">
-                  <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ t(source.setupKey) }}
-                </span>
-                <span
-                  v-if="source.caveatKey"
-                  class="r-setup-metadata__pill r-setup-metadata__pill--warn"
-                >
-                  <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ t(source.caveatKey) }}
-                </span>
-                <RTag
-                  class="r-setup-metadata__status"
-                  size="small"
-                  :tone="statusOf(source).tone"
-                  :prepend-icon="statusOf(source).icon"
-                >
-                  {{ statusOf(source).label }}
-                </RTag>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Specialised sources -->
-      <div class="r-setup-metadata__group">
-        <header class="r-setup-metadata__group-head">
-          <div class="r-setup-metadata__group-title">
-            <span>{{ t("setup.metadata-specialised") }}</span>
-          </div>
-          <p class="r-setup-metadata__group-hint">
-            {{ t("setup.metadata-specialised-hint") }}
-          </p>
-        </header>
-
-        <ul class="r-setup-metadata__items">
-          <li
-            v-for="source in specialised"
-            :key="source.key"
-            class="r-setup-metadata__item"
-            :data-state="itemDataState(source)"
-          >
-            <RImg
-              :src="source.logoPath"
-              :width="36"
-              :height="36"
-              class="r-setup-metadata__item-logo"
-              :alt="source.name"
-            />
-            <div class="r-setup-metadata__item-body">
-              <span class="r-setup-metadata__item-name">{{ source.name }}</span>
-              <span class="r-setup-metadata__item-desc">
-                {{ t(source.descKey) }}
-              </span>
-              <div class="r-setup-metadata__item-meta">
-                <span class="r-setup-metadata__pill">
-                  <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ t(source.setupKey) }}
-                </span>
-                <span
-                  v-if="source.caveatKey"
-                  class="r-setup-metadata__pill r-setup-metadata__pill--warn"
-                >
-                  <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ t(source.caveatKey) }}
-                </span>
-                <RTag
-                  class="r-setup-metadata__status"
-                  size="small"
-                  :tone="statusOf(source).tone"
-                  :prepend-icon="statusOf(source).icon"
-                >
-                  {{ statusOf(source).label }}
-                </RTag>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Match proxies -->
-      <div class="r-setup-metadata__group">
-        <header class="r-setup-metadata__group-head">
-          <div class="r-setup-metadata__group-title">
-            <span>{{ t("setup.metadata-proxies") }}</span>
-          </div>
-          <p class="r-setup-metadata__group-hint">
-            {{ t("setup.metadata-proxies-hint") }}
-          </p>
-        </header>
-
-        <ul class="r-setup-metadata__items">
-          <li
-            v-for="source in proxies"
-            :key="source.key"
-            class="r-setup-metadata__item"
+            :data-provider="source.key"
             :data-state="itemDataState(source)"
           >
             <RImg

@@ -13,9 +13,8 @@ import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
-import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 defineOptions({ inheritAttrs: false });
 
@@ -24,8 +23,7 @@ const router = useRouter();
 const route = useRoute();
 const show = ref(false);
 const romsStore = storeRoms();
-const galleryRomsStore = storeGalleryRoms();
-const gallerySelectionStore = storeGallerySelection();
+const { removeCachedRoms } = useRomSync();
 const roms = ref<SimpleRom[]>([]);
 const romsToDeleteFromFs = ref<number[]>([]);
 const excludeOnDelete = ref(false);
@@ -117,10 +115,9 @@ async function deleteRoms() {
       }
     }
     romsStore.resetSelection();
-    // Drop the deleted ROMs from the gallery selection
-    gallerySelectionStore.removeIds(deletedRoms.map((rom) => rom.id));
-    romsStore.remove(deletedRoms);
-    galleryRomsStore.remove(deletedRoms);
+    removeCachedRoms(deletedRoms);
+    // Deletion is permanent, so unlike the other `removeCachedRoms` callers
+    // this one also takes the ROMs out of Home's rows.
     romsStore.setRecentRoms(
       romsStore.recentRoms.filter(
         (r) => !deletedRoms.some((rom) => rom.id === r.id),

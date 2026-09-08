@@ -53,6 +53,9 @@ romm_mock
 # testing
 backend/romm_test/resources
 backend/romm_test/logs
+backend/romm_test/assets
+backend/romm_test/cloud_sync_blobs
+backend/romm_test/cloud_sync_psp_pending
 .pytest_cache
 .hypothesis
 /romm_test
@@ -79,3 +82,10 @@ switch_product_ids.json
 
 # Local dev scripts
 /dev.sh
+
+# Playwright (e2e) artifacts
+frontend/playwright/.auth/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/.last-run.json

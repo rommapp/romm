@@ -14,11 +14,15 @@ export type MusicTrackSchema = {
     disc?: (number | null);
     duration_seconds?: (number | null);
     has_embedded_cover?: boolean;
+    is_favorite?: boolean;
     game_name?: (string | null);
+    game_genres?: Array<string>;
+    added_at: string;
     platform_id: number;
     platform_slug: string;
     platform_name: string;
     stream_url: string;
     cover_url?: (string | null);
+    game_cover_url?: (string | null);
 };
 

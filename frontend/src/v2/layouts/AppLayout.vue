@@ -31,9 +31,11 @@ import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
 import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
 import { installPermissionsHydration } from "@/v2/composables/useCan";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
+import { installGalleryProvenance } from "@/v2/composables/useGalleryProvenance";
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { installOverlayRouteDismiss } from "@/v2/composables/useOverlayRouteDismiss";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
@@ -117,19 +119,33 @@ const { install: installGlobalHotkeys } = useGlobalHotkeys();
 const router = useRouter();
 
 let removeBackMorph: (() => void) | null = null;
+let removeGalleryProvenance: (() => void) | null = null;
+let removeOverlayRouteDismiss: (() => void) | null = null;
 
 onMounted(() => {
   installInputModality();
   installGamepad();
   installGlobalHotkeys();
+  // Dialogs and drawers are mounted above the router view, so nothing else
+  // dismisses them when the route changes under them (browser back included).
+  removeOverlayRouteDismiss = installOverlayRouteDismiss(router);
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
+  // Tells GameDetails whether the user clicked through from a gallery, so the
+  // prev/next arrows don't step through a list the user has already left.
+  removeGalleryProvenance = installGalleryProvenance(router);
   // Hydrate collections (incl. favoriteCollection) so per-ROM favorite
   // state resolves on direct navigation to /rom/:id without going
   // through Home / Collections first. v1 did this in `Main.vue`.
   if (collectionsStore.allCollections.length === 0) {
     void collectionsStore.fetchCollections();
+  }
+  // Smart collections too, so GameDetails can enrich a ROM's smart-collection
+  // tiles (cover mosaic + rom count) on direct navigation instead of falling
+  // back to a countless, coverless entry.
+  if (collectionsStore.smartCollections.length === 0) {
+    void collectionsStore.fetchSmartCollections();
   }
   // Hydrate platforms for the same reason — views like MissingGames,
   // GameDetails, etc. read `platformsStore.get(id)` to resolve a
@@ -147,13 +163,18 @@ onMounted(() => {
     prefetchPlatformIcons(platformsStore.allPlatforms.map((p) => p.slug));
   }
 
-  // Streaming config is fetched once on app load
+  // Hydrate the streaming config so `containerForPlatform` resolves and
+  // the Play CTA shows on streamable platforms. v1 ran this in `Main.vue`.
   void streamingStore.fetchConfig();
 });
 
 onBeforeUnmount(() => {
   removeBackMorph?.();
   removeBackMorph = null;
+  removeGalleryProvenance?.();
+  removeGalleryProvenance = null;
+  removeOverlayRouteDismiss?.();
+  removeOverlayRouteDismiss = null;
   if (bgTimer !== null) {
     clearTimeout(bgTimer);
     bgTimer = null;
@@ -212,6 +233,10 @@ onBeforeUnmount(() => {
 .r-v2-shell__app {
   position: relative;
   z-index: 2;
+  /* Matches .r-v2-shell so the absolutely-positioned BottomNav anchor
+     spans the viewport even when the content is shorter than the screen. */
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .r-v2-shell__main {

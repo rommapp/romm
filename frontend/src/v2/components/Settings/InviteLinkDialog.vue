@@ -52,7 +52,10 @@ async function createInviteLink() {
       role: selectedRole.value,
       expiration: selectedExpiration.value,
     });
-    fullInviteLink.value = `${window.location.origin}/register?token=${data.token}`;
+    // The backend builds the link from ROMM_BASE_URL so it stays shareable when
+    // generated from localhost. It omits it when ROMM_BASE_URL is unset or non-public.
+    fullInviteLink.value =
+      data.url ?? `${window.location.origin}/register?token=${data.token}`;
     snackbar.success(t("settings.invite-link-created"), {
       icon: "mdi-check-bold",
     });

@@ -10,6 +10,10 @@
   "empty-upload-cta": "Játékok feltöltése",
   "empty-upload-desc": "Húzd ide a ROM fájlokat, vagy válaszd ki őket a számítógépedről. Akkor hasznos, ha néhány játékot magad szeretnél hozzáadni.",
   "empty-upload-title": "Kézi feltöltés",
+  "live-session-host": "Házigazda: {user}",
+  "live-session-host-unknown": "Házigazda: másik játékos",
+  "live-session-live": "Élő",
+  "live-sessions": "Elérhető többjátékos munkamenetek",
   "no-games-yet": "Még nincsenek hozzáadott játékok.",
   "recently-added": "Nemrég hozzáadott",
   "widget-library-favorites": "Kedvencek",
@@ -17,6 +21,6 @@
   "widget-library-stats": "Könyvtárstatisztika",
   "widget-random-pick": "Véletlen választás",
   "widget-random-pick-empty": "Még nincsenek betöltve játékok",
-  "widget-random-pick-open": "Megnyitás",
+  "widget-random-pick-error": "Nem sikerült játékot választani",
   "widget-random-pick-reroll": "Újradobás"
 }

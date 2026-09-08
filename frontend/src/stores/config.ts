@@ -1,15 +1,12 @@
 import { defineStore } from "pinia";
-import type { ConfigResponse, EjsControlsButton } from "@/__generated__";
+import type {
+  ConfigResponse,
+  EjsControlsButton,
+  ExclusionType,
+} from "@/__generated__";
 import api from "@/services/api";
 
 export type Config = ConfigResponse;
-type ExclusionTypes =
-  | "EXCLUDED_PLATFORMS"
-  | "EXCLUDED_SINGLE_EXT"
-  | "EXCLUDED_SINGLE_FILES"
-  | "EXCLUDED_MULTI_FILES"
-  | "EXCLUDED_MULTI_PARTS_EXT"
-  | "EXCLUDED_MULTI_PARTS_FILES";
 
 const defaultConfig = {
   CONFIG_FILE_MOUNTED: false,
@@ -21,7 +18,8 @@ const defaultConfig = {
   EXCLUDED_MULTI_FILES: [],
   EXCLUDED_MULTI_PARTS_EXT: [],
   EXCLUDED_MULTI_PARTS_FILES: [],
-  DEFAULT_EXCLUDED_DIRS: [],
+  DEFAULT_EXCLUDED_PLATFORM_DIRS: [],
+  DEFAULT_EXCLUDED_MULTI_FILE_DIRS: [],
   DEFAULT_EXCLUDED_FILES: [],
   DEFAULT_EXCLUDED_EXTENSIONS: [],
   PLATFORMS_BINDING: {},
@@ -32,6 +30,7 @@ const defaultConfig = {
   EJS_CACHE_LIMIT: null,
   EJS_DISABLE_AUTO_UNLOAD: false,
   EJS_DISABLE_BATCH_BOOTUP: false,
+  EJS_ENABLE_AUTO_SAVE_SYNC: false,
   EJS_NETPLAY_ICE_SERVERS: [],
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
@@ -78,10 +77,10 @@ export default defineStore("config", {
     removePlatformVersion(fsSlug: string) {
       delete this.config.PLATFORMS_VERSIONS[fsSlug];
     },
-    addExclusion(exclusionType: ExclusionTypes, exclusionValue: string) {
+    addExclusion(exclusionType: ExclusionType, exclusionValue: string) {
       this.config[exclusionType].push(exclusionValue);
     },
-    removeExclusion(exclusionValue: string, exclusionType: ExclusionTypes) {
+    removeExclusion(exclusionValue: string, exclusionType: ExclusionType) {
       const index = this.config[exclusionType].indexOf(exclusionValue);
       if (index !== -1) {
         this.config[exclusionType].splice(index, 1);
@@ -91,7 +90,7 @@ export default defineStore("config", {
         );
       }
     },
-    isExclusionType(type: string): type is ExclusionTypes {
+    isExclusionType(type: string): type is ExclusionType {
       return Object.keys(this.config).includes(type);
     },
     getEJSCoreOptions(core: string | null): Record<string, string | boolean> {

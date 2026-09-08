@@ -33,8 +33,10 @@ import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow
 import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 defineOptions({ inheritAttrs: false });
@@ -43,8 +45,10 @@ const { t } = useI18n();
 const { mdAndUp } = useBreakpoint();
 const show = ref(false);
 const collectionsStore = storeCollections();
+const galleryRomsStore = storeGalleryRoms();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const { removeCachedRoms } = useRomSync();
 const { toWebp } = useWebpSupport();
 
 function coversFor(collection: CollectionType): string[] {
@@ -118,15 +122,32 @@ async function toggle(collection: Collection) {
   // selected ids — the backend de-dupes against existing membership,
   // so this is safe and saves a per-id diff round-trip from the
   // frontend.
-  const romIds = roms.value.map((r) => r.id);
+  //
+  // Snapshotted because the dialog is a singleton: a fresh
+  // `showManageCollectionsDialog` can replace `roms` while the call below
+  // is in flight, and the response applies to the set we sent.
+  const targetRoms = roms.value;
+  const romIds = targetRoms.map((r) => r.id);
   try {
     const { data } = adding
       ? await collectionApi.addRomsToCollection(collection.id, romIds)
       : await collectionApi.removeRomsFromCollection(collection.id, romIds);
     collectionsStore.updateCollection(data);
     optimistic.value.delete(collection.id);
+    if (!adding && galleryRomsStore.currentCollection?.id === collection.id) {
+      // We're looking at the collection the ROMs just left, so the cards
+      // have to go with them. Removing from the collection you're viewing
+      // is the only reachable direction here: every selected ROM is
+      // already a member, so the row reads "all" and toggles to "off".
+      removeCachedRoms(targetRoms);
+    }
   } catch (error: unknown) {
-    optimistic.value.set(collection.id, prevState);
+    // Drop the override rather than restoring `prevState`, so the row falls
+    // back to the collection's real membership. Nothing was written, so that
+    // is `prevState` anyway, and a stale override would pin the row: it was
+    // computed against whichever ROMs the dialog held when the click landed,
+    // which a reopen can replace while the call is in flight.
+    optimistic.value.delete(collection.id);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(
       axiosErr.response?.data?.detail ??

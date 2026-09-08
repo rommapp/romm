@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // ServerStats — v2-native rewrite. Composes the two stat sections
-// (Summary + Platforms breakdown). Data fetch is a single /stats call
-// with `include_platform_stats=true`; same shape as v1.
+// (Summary + Platforms breakdown). The summary is fetched on its own first
+// so the six cards paint immediately; the heavier per-platform breakdown
+// loads as a second request.
 import { onBeforeMount, ref } from "vue";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
@@ -20,12 +21,28 @@ const stats = ref({
   REGION_BREAKDOWN: {} as Record<string, RegionBreakdownItem[]>,
 });
 
-onBeforeMount(() => {
-  api
-    .get("/stats", { params: { include_platform_stats: true } })
-    .then(({ data }) => {
-      stats.value = data;
+onBeforeMount(async () => {
+  // The six summary cards are cheap to compute, so load them first and let
+  // them render right away rather than waiting on the breakdown's queries.
+  const { data: summary } = await api.get("/stats");
+  stats.value = { ...stats.value, ...summary };
+
+  // The per-platform breakdown runs the heavier queries; fetch it separately
+  // and merge it in when it arrives. A failure here leaves the summary cards
+  // and platform rows usable, so degrade to partial data instead of rejecting
+  // the hook with an uncaught error.
+  try {
+    const { data: full } = await api.get("/stats", {
+      params: { include_platform_stats: true },
     });
+    stats.value = {
+      ...stats.value,
+      METADATA_COVERAGE: full.METADATA_COVERAGE,
+      REGION_BREAKDOWN: full.REGION_BREAKDOWN,
+    };
+  } catch (error) {
+    console.error("Failed to load Server Stats breakdown:", error);
+  }
 });
 </script>
 

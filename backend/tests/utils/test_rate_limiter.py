@@ -56,6 +56,33 @@ class TestRateLimiter:
         with pytest.raises(ValueError):
             RateLimiter(requests_per_second=rate)
 
+    async def test_raising_the_rate_shortens_the_interval(self, monkeypatch):
+        sleeps = _record_sleeps(monkeypatch)
+        limiter = RateLimiter(requests_per_second=1)
+
+        limiter.set_requests_per_second(4)
+        await limiter.acquire()
+        await limiter.acquire()
+
+        assert limiter.requests_per_second == pytest.approx(4)
+        assert sleeps == [pytest.approx(0.25, abs=0.05)]
+
+    async def test_lowering_the_rate_widens_the_interval(self, monkeypatch):
+        sleeps = _record_sleeps(monkeypatch)
+        limiter = RateLimiter(requests_per_second=4)
+
+        limiter.set_requests_per_second(1)
+        await limiter.acquire()
+        await limiter.acquire()
+
+        assert sleeps == [pytest.approx(1.0, abs=0.05)]
+
+    @pytest.mark.parametrize("rate", [0, -1, -0.5])
+    def test_setting_non_positive_rate_raises(self, rate):
+        limiter = RateLimiter(requests_per_second=4)
+        with pytest.raises(ValueError):
+            limiter.set_requests_per_second(rate)
+
 
 class TestConcurrencyLimiter:
     @pytest.mark.parametrize("value", [0, -1])

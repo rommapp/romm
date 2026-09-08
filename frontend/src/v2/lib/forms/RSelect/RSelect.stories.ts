@@ -233,6 +233,18 @@ export const Multiple: Story = {
   }),
 };
 
+// Without `chips` the selections render as one run of text. The comma
+// separator must read "A, B" — a space on both sides means the separator
+// picked up the value row's flex gap.
+export const MultipleText: Story = {
+  name: "Multiple (no chips)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref(["psx", "snes"]), items: PLATFORMS }),
+    template: `<div style="width:480px"><RSelect v-model="value" :items="items" multiple placeholder="Pick platforms" /></div>`,
+  }),
+};
+
 export const MultipleOverflow: Story = {
   name: "Multiple · dynamic overflow",
   render: () => ({

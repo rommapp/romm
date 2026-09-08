@@ -45,6 +45,17 @@ describe("matchesDatabase", () => {
     );
   });
 
+  it("matches Redump on either the disc-image or the CHD flag", () => {
+    const redump = VERIFICATION_DATABASES.find((db) => db.label === "Redump")!;
+    expect(matchesDatabase(rom({ redump_match: true }), redump.keys)).toBe(
+      true,
+    );
+    // Hasheous indexes CHD conversions under its own MAMERedump source.
+    expect(matchesDatabase(rom({ mame_redump_match: true }), redump.keys)).toBe(
+      true,
+    );
+  });
+
   it("treats RetroAchievements as a database match (ra_match, not ra_id)", () => {
     const ra = VERIFICATION_DATABASES.find(
       (db) => db.label === "RetroAchievements",

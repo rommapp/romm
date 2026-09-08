@@ -46,6 +46,8 @@ class PlatformSchema(BaseModel):
     def display_name(self) -> str:
         return self.custom_name or self.name
 
+    # Counts every row like `rom_count` does; callers wanting only usable
+    # BIOS filter the `firmware` list that ships alongside it.
     @computed_field  # type: ignore
     @property
     def firmware_count(self) -> int:

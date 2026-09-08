@@ -15,7 +15,11 @@ ALLOWED_IMAGE_EXTENSIONS = frozenset(
     {".png", ".jpg", ".jpeg", ".webp", ".gif", ".tiff", ".tif", ".bmp", ".avif"}
 )
 ALLOWED_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".ogv", ".mov", ".m4v"})
-ALLOWED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".md"})
+ALLOWED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".md", ".txt", ".html", ".htm"})
+
+# Document extensions that are HTML and therefore must be served under a
+# sandboxing CSP even after ingest-time sanitization (defense in depth).
+HTML_DOCUMENT_EXTENSIONS = frozenset({".html", ".htm"})
 
 # MIME types the stdlib mimetypes module guesses inconsistently (or not at
 # all) across platforms.
@@ -29,7 +33,17 @@ MEDIA_MIME_OVERRIDES = {
     ".mov": "video/quicktime",
     ".pdf": "application/pdf",
     ".md": "text/markdown",
+    ".txt": "text/plain",
+    ".html": "text/html",
+    ".htm": "text/html",
 }
+
+
+def is_html_document_file(file_name: str) -> bool:
+    """Whether a document is HTML and needs CSP sandboxing when served inline."""
+    ext = os.path.splitext(file_name)[1].lower()
+    return ext in HTML_DOCUMENT_EXTENSIONS
+
 
 # Image MIME types we trust to (a) accept as avatar uploads and (b) serve
 # inline from the raw asset endpoint. Maps each trusted MIME type to its

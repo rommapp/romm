@@ -9,12 +9,15 @@
 // consistent.
 //
 // The `boxartStyle` user preference (gallery-wide) picks WHICH artwork a
-// card shows and therefore its canonical aspect ratio — the four ratios
-// map to known artwork sources:
+// card shows and therefore its canonical aspect ratio. The details page
+// and the play pages carry their own per-context style (legacy/unknown
+// stored values fall back to the gallery style) — see `useBoxartStyle`.
+// The four ratios map to known artwork sources:
 //   * cover_path    → 2/3   box art       (object-fit: cover)
 //   * box3d_path    → 3/4   3D box render (object-fit: contain)
 //   * physical_path → 1/1   disc/cartridge (contain; CD spins, cart drops)
 //   * miximage_path → 1/1   mix image     (contain; hover video overlay)
+//   * miximage_v2_path → 1/1   mix image v2  (contain; hover video overlay)
 //
 // Alt-art paths come from `ss_metadata` (preferred) or `gamelist_metadata`
 // and are relative to `FRONTEND_RESOURCES_PATH`. The local cover chain
@@ -40,11 +43,20 @@ import {
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 export type BoxartStyle =
-  "cover_path" | "box3d_path" | "physical_path" | "miximage_path";
+  | "cover_path"
+  | "box3d_path"
+  | "physical_path"
+  | "miximage_path"
+  | "miximage_v2_path";
+
+/** The surface a cover renders on. Gallery is the default; details and
+ *  player surfaces can carry their own boxart-style override. */
+export type BoxartContext = "gallery" | "details" | "player";
 
 /** Styles that resolve to an alternative artwork on the rom's metadata
  *  (everything except the default box art). These literals are exactly
- *  the path keys shared by `RomSSMetadata` and `RomGamelistMetadata`. */
+ *  the path keys on `RomSSMetadata`; all but `miximage_v2_path` also
+ *  exist on `RomGamelistMetadata`. */
 export type AltBoxartStyle = Exclude<BoxartStyle, "cover_path">;
 
 /** The cover-relevant slice of a rom — both `SimpleRom` (gallery) and
@@ -70,6 +82,7 @@ export const COVER_RATIOS: Record<BoxartStyle, number> = {
   box3d_path: 3 / 4,
   physical_path: 1,
   miximage_path: 1,
+  miximage_v2_path: 1,
 };
 
 const RASTER_EXT = /\.(png|jpe?g)$/i;
@@ -79,12 +92,46 @@ export function isBoxartStyle(value: unknown): value is BoxartStyle {
     value === "cover_path" ||
     value === "box3d_path" ||
     value === "physical_path" ||
-    value === "miximage_path"
+    value === "miximage_path" ||
+    value === "miximage_v2_path"
   );
 }
 
 export function coverRatio(style: BoxartStyle): number {
   return COVER_RATIOS[style];
+}
+
+/** Pure per-context style resolution: the surface's style when it is a
+ *  real one (legacy "inherit" / unknown values fall through), else the
+ *  gallery-wide preference, else the default box art. */
+export function resolveBoxartStyle(
+  context: BoxartContext,
+  prefs: { gallery: unknown; details: unknown; player: unknown },
+): BoxartStyle {
+  const override =
+    context === "details"
+      ? prefs.details
+      : context === "player"
+        ? prefs.player
+        : null;
+  if (isBoxartStyle(override)) return override;
+  return isBoxartStyle(prefs.gallery) ? prefs.gallery : "cover_path";
+}
+
+/** Resolved boxart style for a surface: the per-context user style when
+ *  valid, else the gallery-wide `boxartStyle` preference. */
+export function useBoxartStyle(
+  context: MaybeRefOrGetter<BoxartContext | undefined> = "gallery",
+): ComputedRef<BoxartStyle> {
+  const { boxartStyle, boxartStyleDetails, boxartStylePlayer } =
+    useUISettings();
+  return computed(() =>
+    resolveBoxartStyle(toValue(context) ?? "gallery", {
+      gallery: boxartStyle.value,
+      details: boxartStyleDetails.value,
+      player: boxartStylePlayer.value,
+    }),
+  );
 }
 
 /** Relative metadata path for an alt-art style, preferring ScreenScraper
@@ -168,7 +215,8 @@ export function computeCoverArt(
   const arcadeBased = physicalAlt && isArcadeSystem(rom.platform_slug);
 
   const videoUrl =
-    style === "miximage_path" && rom.path_video
+    (style === "miximage_path" || style === "miximage_v2_path") &&
+    rom.path_video
       ? `${opts.resourcesPath}/${rom.path_video}`
       : null;
 
@@ -189,6 +237,10 @@ export interface UseCoverArtOptions {
   /** Override the gallery-wide `boxartStyle` preference (stories,
    *  pickers that always show box art). */
   forceStyle?: MaybeRefOrGetter<BoxartStyle>;
+  /** The surface this cover renders on — resolves the per-context
+   *  boxart-style override (details / play pages). Defaults to the
+   *  gallery-wide preference. `forceStyle` still wins. */
+  context?: MaybeRefOrGetter<BoxartContext | undefined>;
   /** Explicit cover URL — see {@link ComputeOptions.coverSrc}. When set
    *  without an explicit `forceStyle`, the style resolves to `cover_path`
    *  so preview blobs / external provider URLs render as plain box art
@@ -220,7 +272,8 @@ export function useCoverArt(
   rom: MaybeRefOrGetter<CoverArtRom | null | undefined>,
   options: UseCoverArtOptions = {},
 ): UseCoverArt {
-  const { boxartStyle, disableAnimations } = useUISettings();
+  const { disableAnimations } = useUISettings();
+  const contextStyle = useBoxartStyle(options.context);
   const { supportsWebp } = useWebpSupport();
 
   const coverSrc = computed<string | undefined>(() => {
@@ -236,7 +289,7 @@ export function useCoverArt(
     // An explicit override URL is a plain cover (preview / provider art),
     // not an alt-art style — present it as box art.
     if (coverSrc.value != null) return "cover_path";
-    return isBoxartStyle(boxartStyle.value) ? boxartStyle.value : "cover_path";
+    return contextStyle.value;
   });
 
   const effectiveWebp = computed<boolean>(() => {

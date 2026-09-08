@@ -28,6 +28,7 @@ class PermEntity(enum.StrEnum):
     PLATFORMS = "platforms"
     ROMS = "roms"
     COLLECTIONS = "collections"
+    PLAYLISTS = "playlists"
     FIRMWARE = "firmware"
     ASSETS = "assets"
     DEVICES = "devices"

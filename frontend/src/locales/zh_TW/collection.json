@@ -23,6 +23,7 @@
   "name-placeholder": "收藏庫名稱",
   "no-collections-search": "找不到符合「{query}」的收藏庫。",
   "no-collections-yet": "尚未有任何收藏庫。",
+  "no-collections-yet-detail": "您還沒有任何收藏庫。將遊戲加入喜好，或從任一 ROM 的操作列中建立一個。",
   "no-collections-yet-hint": "尚未有任何收藏庫。請在上方建立一個。",
   "not-found": "找不到收藏庫。",
   "owner": "建立者",

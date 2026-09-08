@@ -5,7 +5,11 @@
 import { computed } from "vue";
 import type { DetailedRom } from "@/stores/roms";
 import ProviderCard from "@/v2/components/GameDetails/ProviderCard.vue";
-import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
+import {
+  PROVIDERS,
+  providerId,
+  providerRating,
+} from "@/v2/components/GameDetails/providers";
 
 defineOptions({ inheritAttrs: false });
 
@@ -17,6 +21,7 @@ type Entry = {
   logo: string | null;
   id: string | number | null;
   href: string | null;
+  rating: string | null;
 };
 
 const entries = computed<Entry[]>(() => {
@@ -28,6 +33,7 @@ const entries = computed<Entry[]>(() => {
       logo: p.logo,
       id,
       href: id !== null && p.url ? p.url(id, props.rom) : null,
+      rating: providerRating(props.rom, p),
     };
   });
   // Linked first; the cards know how to dim themselves when unlinked.
@@ -45,6 +51,7 @@ const entries = computed<Entry[]>(() => {
       :logo="e.logo"
       :id="e.id"
       :href="e.href"
+      :rating="e.rating"
     />
   </div>
 </template>

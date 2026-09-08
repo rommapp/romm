@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import copy
 import enum
+import hashlib
 import re
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Final, NamedTuple, TypedDict
 
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
     Boolean,
     Enum,
+    FetchedValue,
     Float,
     ForeignKey,
     Index,
@@ -33,7 +37,7 @@ from sqlalchemy.orm import (
     relationship,
     validates,
 )
-from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -43,13 +47,39 @@ from models.base import (
     BaseModel,
     compute_file_name_parts,
 )
+from utils import valid_youtube_id
 from utils.database import CustomJSON
 
 # Max length of the precomputed natural-sort key column.
 NAME_SORT_KEY_MAX_LENGTH = 500
+# Length of the sha256 hex digest stored in `Rom.full_path_hash`.
+FULL_PATH_HASH_LENGTH = 64
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
-ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
+# Max length for the binary identity columns (title id and save target).
+TITLE_ID_MAX_LENGTH = 100
+# Articles ignored when sorting or bucketing a title, across the languages
+# No-Intro and LaunchBox name games in. Both patterns built from this are
+# anchored on the right, so "la" preceding "las" costs nothing.
+ARTICLES = (
+    "the",
+    "a",
+    "an",
+    "le",
+    "la",
+    "les",
+    "el",
+    "los",
+    "las",
+    "il",
+    "lo",
+    "gli",
+    "der",
+    "die",
+    "das",
+    "het",
+)
+ARTICLE_PREFIX_RE = re.compile(rf"^({'|'.join(ARTICLES)})\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
 
@@ -61,10 +91,18 @@ def compute_name_sort_key(name: str | None) -> str:
     return value[:NAME_SORT_KEY_MAX_LENGTH]
 
 
+def compute_full_path_hash(fs_path: str | None, fs_name: str | None) -> str:
+    """Precompute the digest stored in `Rom.full_path_hash`"""
+    return hashlib.sha256(
+        f"{fs_path or ''}/{fs_name or ''}".encode(), usedforsecurity=False
+    ).hexdigest()
+
+
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
     from models.collection import Collection
     from models.platform import Platform
+    from models.recommendation import RomSimilarity
     from models.user import User
 
 
@@ -73,6 +111,7 @@ class RomFileCategory(enum.StrEnum):
     DLC = "dlc"
     HACK = "hack"
     MANUAL = "manual"
+    WALKTHROUGH = "walkthrough"
     PATCH = "patch"
     UPDATE = "update"
     MOD = "mod"
@@ -84,7 +123,80 @@ class RomFileCategory(enum.StrEnum):
     SCREENSHOT = "screenshot"
 
 
+class SaveTargetLayout(enum.StrEnum):
+    FOLDER_EXACT = "folder-exact"
+    FOLDER_PREFIX = "folder-prefix"
+    FILE_EXACT = "file-exact"
+    FILE_PREFIX = "file-prefix"
+    FOLDER_SPLIT = "folder-split"
+
+
+@dataclass(frozen=True)
+class RomIdentity:
+    """A ROM's platform-native identity, as read from its binary.
+
+    One home for the triple that travels from the scan through to the `Rom`
+    columns of the same names.
+    """
+
+    title_id: str | None = None
+    save_target: str | None = None
+    save_target_layout: SaveTargetLayout | None = None
+
+    @classmethod
+    def from_rom(cls, rom: "Rom") -> "RomIdentity":
+        """The identity a ROM already carries."""
+        return cls(
+            title_id=rom.title_id,
+            save_target=rom.save_target,
+            save_target_layout=rom.save_target_layout,
+        )
+
+    def as_rom_attrs(self) -> dict[str, Any]:
+        """The identity as `Rom` column values, for a scan's attribute merge."""
+        return {
+            "title_id": self.title_id,
+            "save_target": self.save_target,
+            "save_target_layout": self.save_target_layout,
+        }
+
+
+# Document-category files (manuals, walkthroughs) share one substrate: a
+# RomFile plus an optional RomFileDocMeta sidecar for provenance.
+DOCUMENT_CATEGORIES = frozenset({RomFileCategory.MANUAL, RomFileCategory.WALKTHROUGH})
+
+
+class DocSource(enum.StrEnum):
+    """Where a document (manual/walkthrough) came from."""
+
+    UPLOAD = "upload"  # User-uploaded file
+    GAMEFAQS = "gamefaqs"  # Fetched from a GameFAQs guide URL
+    SCRAPER = "scraper"  # Downloaded by a metadata provider
+
+
+# Provider ids that name a game rather than a file, so two ROMs sharing any of
+# them are one title (regions, revisions, storefront copies). Add a provider
+# here and to the `sibling_roms` view together, or the two notions of "the same
+# game" drift apart.
+IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
+    "igdb_id",
+    "moby_id",
+    "ss_id",
+    "launchbox_id",
+    "ra_id",
+    "hasheous_id",
+    "tgdb_id",
+    "steam_id",
+)
+
+
 class SiblingRom(BaseModel):
+    """Other files of the same game on the same platform.
+
+    A database view, not a table, matching over `IDENTITY_ID_FIELDS` minus
+    `steam_id`, which postdates it.
+    """
+
     __tablename__ = "sibling_roms"
 
     rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -103,10 +215,26 @@ class RomArchiveMember(TypedDict):
     sha1_hash: str
 
 
+class LookupHashes(NamedTuple):
+    """The hashes a ROM database should be queried with."""
+
+    crc: str | None
+    md5: str | None
+    sha1: str | None
+
+
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
-    __table_args__ = (Index("idx_rom_files_rom_id", "rom_id"),)
+    __table_args__ = (
+        Index("idx_rom_files_rom_id_category", "rom_id", "category"),
+        # Searching the gallery by a hash digest
+        Index("idx_rom_files_crc_hash", "crc_hash"),
+        Index("idx_rom_files_md5_hash", "md5_hash"),
+        Index("idx_rom_files_sha1_hash", "sha1_hash"),
+        Index("idx_rom_files_ra_hash", "ra_hash"),
+        Index("idx_rom_files_chd_sha1_hash", "chd_sha1_hash"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
@@ -133,6 +261,16 @@ class RomFile(BaseModel):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    doc_meta: Mapped[RomFileDocMeta | None] = relationship(
+        back_populates="rom_file",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    user_states: Mapped[list[RomFileUser]] = relationship(
+        back_populates="rom_file",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
 
     @cached_property
     def full_path(self) -> str:
@@ -155,6 +293,28 @@ class RomFile(BaseModel):
         from handler.filesystem import fs_rom_handler
 
         return fs_rom_handler.parse_file_extension(self.file_name)
+
+    @cached_property
+    def lookup_hashes(self) -> LookupHashes:
+        """The hashes to identify this file by against a ROM database.
+
+        Often not the file's own digests: a CHD is indexed by the disc data
+        embedded in its header, and a multi-file archive by its largest member
+        (the ROM itself, next to readmes and the like). The file's own hashes
+        cover the container, which no database holds.
+        """
+        if self.chd_sha1_hash:
+            return LookupHashes(crc=None, md5=None, sha1=self.chd_sha1_hash)
+
+        if self.archive_members:
+            largest = max(self.archive_members, key=lambda m: m.get("size") or 0)
+            return LookupHashes(
+                crc=largest.get("crc_hash"),
+                md5=largest.get("md5_hash"),
+                sha1=largest.get("sha1_hash"),
+            )
+
+        return LookupHashes(crc=self.crc_hash, md5=self.md5_hash, sha1=self.sha1_hash)
 
     @cached_property
     def is_nested(self) -> bool:
@@ -214,6 +374,73 @@ class TrackMeta(BaseModel):
     rom_file: Mapped[RomFile] = relationship(back_populates="track_meta")
 
 
+# Max length for free-text document metadata (author / title).
+DOC_META_MAX_LENGTH = 512
+
+
+class RomFileDocMeta(BaseModel):
+    """Provenance sidecar for document-category files (manuals, walkthroughs).
+
+    Only doc-category RomFiles carry a row here, so these fields don't bloat
+    every rom_files row. Format is intentionally not stored: it is derived from
+    the file extension.
+    """
+
+    __tablename__ = "rom_file_doc_meta"
+
+    __table_args__ = (Index("idx_rom_file_doc_meta_rom_id", "rom_id"),)
+
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
+    )
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    source: Mapped[DocSource] = mapped_column(
+        Enum(DocSource), default=DocSource.UPLOAD, nullable=False
+    )
+    source_url: Mapped[str | None] = mapped_column(Text, default=None)
+    author: Mapped[str | None] = mapped_column(
+        String(length=DOC_META_MAX_LENGTH), default=None
+    )
+    title: Mapped[str | None] = mapped_column(
+        String(length=DOC_META_MAX_LENGTH), default=None
+    )
+
+    rom_file: Mapped[RomFile] = relationship(back_populates="doc_meta")
+
+
+class RomFileUser(BaseModel):
+    """Per-user reading state for a document-category file.
+
+    Keyed on (rom_file_id, user_id) so one mechanism covers both manuals and
+    walkthroughs. `progress` is a 0.0-1.0 scroll fraction; `last_page` tracks
+    the page for paginated (PDF) documents.
+    """
+
+    __tablename__ = "rom_file_user"
+
+    __table_args__ = (
+        UniqueConstraint("rom_file_id", "user_id", name="unique_rom_file_user"),
+        Index("idx_rom_file_user", "rom_file_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE")
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+
+    progress: Mapped[float] = mapped_column(Float(), default=0.0, nullable=False)
+    last_page: Mapped[int | None] = mapped_column(Integer(), default=None)
+    finished: Mapped[bool] = mapped_column(default=False, nullable=False)
+    last_read_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+
+    rom_file: Mapped[RomFile] = relationship(
+        lazy="joined", back_populates="user_states"
+    )
+    user: Mapped[User] = relationship(lazy="joined")
+
+
 class RomMetadata(BaseModel):
     __tablename__ = "roms_metadata"
 
@@ -225,13 +452,36 @@ class RomMetadata(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    # IGDB-only descriptors: community tags plus the curated theme and
+    # viewpoint lists, more specific about how a game plays than genre.
+    keywords: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    themes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    player_perspectives: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(), default=[]
+    )
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
     first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
     average_rating: Mapped[float | None] = mapped_column(default=None)
+    # Votes behind `average_rating`; zero where no provider reported one.
+    rating_count: Mapped[int | None] = mapped_column(BigInteger(), default=0)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
+
+    @property
+    def primary_developer(self) -> str | None:
+        """Developer for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.developers or companies[:1]), None)
+
+    @property
+    def primary_publisher(self) -> str | None:
+        """Publisher for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.publishers or companies[1:2]), None)
 
 
 class RomFacets(BaseModel):
@@ -257,12 +507,37 @@ class RomFacets(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    keywords: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    themes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    player_perspectives: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(), default=[]
+    )
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+
+    # Provider match ids, mirrored so the Server Stats coverage breakdown counts
+    # them here instead of scanning `roms`. A populated column means a match.
+    igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ss_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    moby_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ra_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    demozoo_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    pouet_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    csdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
@@ -287,13 +562,31 @@ class Rom(BaseModel):
     tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    demozoo_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    pouet_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    csdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
     __table_args__ = (
-        # Enforce unique fs name per platform to avoid duplicates
-        Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name", unique=True),
-        # Covers the sibling_roms view self-join
+        # A custom library structure can hold the same file name in two folders,
+        # so the whole path is the identity. Indexed through its digest because
+        # fs_path + fs_name is 5804 bytes, over InnoDB's 3072-byte key limit.
+        Index(
+            "idx_roms_platform_id_full_path_hash",
+            "platform_id",
+            "full_path_hash",
+            unique=True,
+        ),
+        # The digest is opaque to a range scan, so the scan loop's
+        # (platform_id, fs_name) batch lookup needs an index of its own.
+        Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
+        # Covers the sibling_roms view self-join and the group_by_meta_id dedup
+        # window. Both read only these columns, so the index has to carry every
+        # one of them: a single missing column (flashpoint_id or fs_name_no_ext,
+        # the window's partition tail and sort tiebreaker) drops the plan to a
+        # full scan of the wide roms row, JSON metadata blobs included.
         Index(
             "idx_roms_sibling_cover",
             "platform_id",
@@ -304,11 +597,20 @@ class Rom(BaseModel):
             "ra_id",
             "hasheous_id",
             "tgdb_id",
+            "flashpoint_id",
+            "fs_name_no_ext",
+            "generated_primary_region",
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
+        Index("idx_roms_missing_from_fs", "missing_from_fs", "name_sort_key"),
+        Index("idx_roms_platform_name_sort_key", "platform_id", "name_sort_key"),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
+        # Gallery sorts exposed through ROM_METADATA_ORDER_COLUMNS.
+        Index("idx_roms_generated_first_release_date", "generated_first_release_date"),
+        Index("idx_roms_generated_average_rating", "generated_average_rating"),
+        Index("idx_roms_generated_player_count", "generated_player_count"),
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
         Index("idx_roms_ss_id", "ss_id"),
@@ -319,8 +621,19 @@ class Rom(BaseModel):
         Index("idx_roms_tgdb_id", "tgdb_id"),
         Index("idx_roms_flashpoint_id", "flashpoint_id"),
         Index("idx_roms_hltb_id", "hltb_id"),
+        Index("idx_roms_demozoo_id", "demozoo_id"),
+        Index("idx_roms_pouet_id", "pouet_id"),
+        Index("idx_roms_csdb_id", "csdb_id"),
+        Index("idx_roms_steam_id", "steam_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
         Index("idx_roms_libretro_id", "libretro_id"),
+        Index("idx_roms_title_id", "title_id"),
+        # Searching the gallery by a hash digest
+        Index("idx_roms_crc_hash", "crc_hash"),
+        Index("idx_roms_md5_hash", "md5_hash"),
+        Index("idx_roms_sha1_hash", "sha1_hash"),
+        Index("idx_roms_ra_hash", "ra_hash"),
+        Index("ix_roms_updated_at", "updated_at"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
@@ -328,6 +641,7 @@ class Rom(BaseModel):
     fs_name_no_ext: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
     fs_extension: Mapped[str] = mapped_column(String(length=FILE_EXTENSION_MAX_LENGTH))
     fs_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
+    full_path_hash: Mapped[str] = mapped_column(String(length=FULL_PATH_HASH_LENGTH))
     fs_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     name: Mapped[str | None] = mapped_column(String(length=350))
@@ -360,11 +674,36 @@ class Rom(BaseModel):
     hltb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
+    demozoo_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    pouet_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    csdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    steam_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
     gamelist_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
     manual_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
+    )
+
+    # Read-only slice of the stored generated columns from the `roms_metadata` view
+    generated_first_release_date: Mapped[int | None] = mapped_column(
+        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_average_rating: Mapped[float | None] = mapped_column(
+        Float(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_player_count: Mapped[str | None] = mapped_column(
+        String(length=100),
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
@@ -383,18 +722,50 @@ class Rom(BaseModel):
         CustomJSON(), default=[], doc="URLs to screenshots stored in IGDB"
     )
 
+    locked_fields: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(),
+        default=[],
+        doc="Slots a user owns, whose stored file a scan must leave alone",
+    )
+
     revision: Mapped[str | None] = mapped_column(String(length=100))
     version: Mapped[str | None] = mapped_column(String(length=100))
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
+    # STORED generated column over regions[0], carried by idx_roms_sibling_cover
+    # so the dedup window can rank regions without reading the JSON.
+    generated_primary_region: Mapped[str | None] = mapped_column(
+        String(length=50),
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
+
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
     ra_hash: Mapped[str | None] = mapped_column(String(length=100))
+    title_id: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH),
+        doc="Platform-native identity read from the ROM binary, normalized (0100ABCD12340000, SLUS-20152)",
+    )
+    save_target: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH),
+        doc="On-disk name an emulator gives this game's saves; a file stem, a folder, or a nested path",
+    )
+    save_target_layout: Mapped[SaveTargetLayout | None] = mapped_column(
+        Enum(SaveTargetLayout),
+        default=None,
+        doc="How to apply save_target: one folder, a folder prefix, a file prefix, or a nested path",
+    )
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    # Physical games are manually-added rows with no file on disk; they carry the
+    # same metadata as digital ROMs but must never be flagged missing or cleaned up.
+    is_physical: Mapped[bool] = mapped_column(default=False, nullable=False)
+    upc: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
@@ -425,6 +796,13 @@ class Rom(BaseModel):
         lazy="raise",
         back_populates="roms",
     )
+    similar_roms: Mapped[list[RomSimilarity]] = relationship(
+        "RomSimilarity",
+        foreign_keys="RomSimilarity.rom_id",
+        lazy="raise",
+        back_populates="rom",
+        passive_deletes=True,
+    )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -443,20 +821,30 @@ class Rom(BaseModel):
 
         return value
 
-    @validates("fs_name")
-    def _sync_fs_name_parts(self, _key: str, fs_name: str) -> str:
+    @validates("fs_name", "fs_path")
+    def _sync_fs_derived_columns(self, key: str, value: str) -> str:
         """Derive the stored `fs_name_no_tags` / `fs_name_no_ext` /
-        `fs_extension` columns whenever `fs_name` is assigned.
+        `fs_extension` / `full_path_hash` columns from the file's name and path.
 
         Fires on attribute set (ORM construction and mutation) only. Bulk
         `update()` statements bypass the ORM and set these explicitly (see
         `update_rom`).
         """
-        parts = compute_file_name_parts(fs_name)
+        # `full_path` caches the two halves joined, so it cannot survive a set.
+        self.__dict__.pop("full_path", None)
+
+        # The hook runs before the value lands, so the digest reads the incoming
+        # half rather than the stale one on the instance.
+        if key == "fs_path":
+            self.full_path_hash = compute_full_path_hash(value, self.fs_name)
+            return value
+
+        parts = compute_file_name_parts(value)
         self.fs_name_no_tags = parts.no_tags
         self.fs_name_no_ext = parts.no_ext
         self.fs_extension = parts.extension
-        return fs_name
+        self.full_path_hash = compute_full_path_hash(self.fs_path, value)
+        return value
 
     @property
     def platform_slug(self) -> str:
@@ -552,6 +940,18 @@ class Rom(BaseModel):
             or (self.launchbox_metadata or {}).get("video_path")
         )
 
+    def is_field_locked(self, field: str) -> bool:
+        """Whether a user supplied this field by hand, so scans must leave it."""
+        return field in (self.locked_fields or [])
+
+    def locked_fields_with(self, field: str) -> list[str]:
+        """This rom's locks plus ``field``, for handing to an update."""
+        return sorted({*(self.locked_fields or []), field})
+
+    def locked_fields_without(self, field: str) -> list[str]:
+        """This rom's locks minus ``field``, for handing to an update."""
+        return sorted({*(self.locked_fields or [])} - {field})
+
     @property
     def is_unidentified(self) -> bool:
         return (
@@ -563,6 +963,10 @@ class Rom(BaseModel):
             and not self.hasheous_id
             and not self.flashpoint_id
             and not self.hltb_id
+            and not self.demozoo_id
+            and not self.pouet_id
+            and not self.csdb_id
+            and not self.steam_id
             and not self.gamelist_id
             and not self.libretro_id
         )
@@ -570,6 +974,17 @@ class Rom(BaseModel):
     @property
     def is_identified(self) -> bool:
         return not self.is_unidentified
+
+    @property
+    def has_file_on_disk(self) -> bool:
+        """Whether a readable file backs this rom.
+
+        False for two different reasons that every file-dependent surface
+        (download, playback, the ES-DE and Pegasus exporters, the device feeds)
+        needs to treat alike: a physical game never had a file, and a missing
+        one no longer does.
+        """
+        return not self.is_physical and not self.missing_from_fs
 
     def has_m3u_file(self) -> bool:
         """
@@ -581,18 +996,17 @@ class Rom(BaseModel):
     # Metadata fields
     @property
     def youtube_video_id(self) -> str | None:
-        igdb_video_id = (
-            self.igdb_metadata.get("youtube_video_id", None)
-            if self.igdb_metadata
-            else None
-        )
-        lb_video_id = (
-            self.launchbox_metadata.get("youtube_video_id", None)
-            if self.launchbox_metadata
-            else None
-        )
-
-        return igdb_video_id or lb_video_id
+        """The blobs are client-writable, so validate on read, not on scan."""
+        for blob in (
+            self.igdb_metadata,
+            self.launchbox_metadata,
+            self.demozoo_metadata,
+            self.pouet_metadata,
+        ):
+            video_id = valid_youtube_id(blob.get("youtube_video_id")) if blob else None
+            if video_id:
+                return video_id
+        return None
 
     @property
     def alternative_names(self) -> list[str]:
@@ -670,6 +1084,36 @@ Rom.top_level_file_count = column_property(
 )
 
 
+def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
+    """Fill the deferred file-stat columns from an already-loaded file list.
+
+    Mirrors the subqueries above, not `RomFile.is_top_level`, which disagrees
+    on nested files.
+    """
+    set_committed_value(
+        rom, "multi_file", any(f.file_path != rom.fs_path for f in files)
+    )
+    set_committed_value(
+        rom,
+        "top_level_file_count",
+        sum(
+            1
+            for f in files
+            if f.full_path == rom.full_path or f.file_path == rom.full_path
+        ),
+    )
+    set_committed_value(
+        rom,
+        "has_soundtrack",
+        any(f.category == RomFileCategory.SOUNDTRACK for f in files),
+    )
+
+
+# Query-side twin of `Rom.has_file_on_disk`, for callers that enumerate roms and
+# want the file-less ones dropped by the database rather than after loading.
+HAS_FILE_ON_DISK_FILTERS = {"physical": False, "missing": False}
+
+
 # Maps a metadata-source slug (matching the MetadataSource enum) to the Rom
 # column holding that source's match id. A populated column means the ROM
 # matched that source. Shared by the stats coverage breakdown and the gallery
@@ -685,8 +1129,32 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
     "tgdb": Rom.tgdb_id,
     "flashpoint": Rom.flashpoint_id,
     "hltb": Rom.hltb_id,
+    "demozoo": Rom.demozoo_id,
+    "pouet": Rom.pouet_id,
+    "csdb": Rom.csdb_id,
+    "steam": Rom.steam_id,
     "gamelist": Rom.gamelist_id,
     "libretro": Rom.libretro_id,
+}
+
+# Same slugs mapped to the `roms_facets` mirror columns. The stats coverage
+# breakdown counts these off the narrow mirror instead of scanning `roms`.
+METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute] = {
+    "igdb": RomFacets.igdb_id,
+    "ss": RomFacets.ss_id,
+    "moby": RomFacets.moby_id,
+    "launchbox": RomFacets.launchbox_id,
+    "ra": RomFacets.ra_id,
+    "hasheous": RomFacets.hasheous_id,
+    "tgdb": RomFacets.tgdb_id,
+    "flashpoint": RomFacets.flashpoint_id,
+    "hltb": RomFacets.hltb_id,
+    "demozoo": RomFacets.demozoo_id,
+    "pouet": RomFacets.pouet_id,
+    "csdb": RomFacets.csdb_id,
+    "steam": RomFacets.steam_id,
+    "gamelist": RomFacets.gamelist_id,
+    "libretro": RomFacets.libretro_id,
 }
 
 
@@ -705,7 +1173,6 @@ class RomNote(BaseModel):
             "rom_id", "user_id", "title", name="unique_rom_user_note_title"
         ),
         Index("idx_rom_notes_public", "is_public"),
-        Index("idx_rom_notes_rom_user", "rom_id", "user_id"),
         Index("idx_rom_notes_title", "title"),
     )
 
@@ -740,6 +1207,10 @@ class RomUser(BaseModel):
     __tablename__ = "rom_user"
     __table_args__ = (
         UniqueConstraint("rom_id", "user_id", name="unique_rom_user_props"),
+        # `unique_rom_user_props` leads with `rom_id` and so only covers the
+        # gallery's outer join; these cover starting from this table instead.
+        Index("ix_rom_user_user_rom", "user_id", "rom_id"),
+        Index("ix_rom_user_user_last_played", "user_id", "last_played"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

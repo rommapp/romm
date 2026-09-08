@@ -7,7 +7,7 @@ from models.platform import CUSTOM_NAME_MAX_LENGTH, DESCRIPTION_MAX_LENGTH
 
 def test_get_platforms(client, access_token, platform):
     response = client.get("/api/platforms")
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     response = client.get(
         "/api/platforms", headers={"Authorization": f"Bearer {access_token}"}
@@ -27,7 +27,7 @@ def test_get_filesystem_platforms(client, access_token, platform):
         mock_get_platforms.return_value = [platform.fs_slug, "segacd"]
 
         response = client.get("/api/platforms/filesystem")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
         response = client.get(
             "/api/platforms/filesystem",
@@ -43,6 +43,19 @@ def test_get_filesystem_platforms(client, access_token, platform):
     segacd = next(p for p in platforms if p["fs_slug"] == "segacd")
     assert segacd["id"] == -1
     assert segacd["rom_count"] == 0
+
+
+def test_supported_platforms_include_doom(client, access_token):
+    # Doom boots in EmulatorJS, so its folder has to be bindable in the picker,
+    # which is built from UniversalPlatformSlug rather than from the core map.
+    response = client.get(
+        "/api/platforms/supported",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    slugs = {p["slug"] for p in response.json()}
+    assert "doom" in slugs
 
 
 def test_update_platform_custom_name(client, access_token, platform):
@@ -175,4 +188,22 @@ def test_update_platform_description_requires_write_scope(client, platform):
         f"/api/platforms/{platform.id}",
         json={"description": "Nope"},
     )
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_firmware_count_matches_the_rows_it_ships(
+    client, access_token, platform, firmware, missing_firmware
+):
+    """`firmware_count` means the same as `rom_count`: every row, missing
+    ones included. Deciding what counts as usable BIOS is the caller's job,
+    and the rows ship alongside the count so it can."""
+    response = client.get(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["firmware_count"] == 2
+    assert len(body["firmware"]) == 2
+    assert sum(1 for f in body["firmware"] if f["missing_from_fs"]) == 1

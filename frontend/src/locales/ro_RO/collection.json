@@ -23,6 +23,7 @@
   "name-placeholder": "Nume colecție",
   "no-collections-search": "Nicio colecție nu corespunde căutării „{query}”.",
   "no-collections-yet": "Nicio colecție încă.",
+  "no-collections-yet-detail": "Nu ai încă nicio colecție. Adaugă un joc la favorite sau creează una din bara de acțiuni a oricărui ROM.",
   "no-collections-yet-hint": "Nicio colecție încă. Creează una mai sus.",
   "not-found": "Colecția nu a fost găsită.",
   "owner": "Proprietar",

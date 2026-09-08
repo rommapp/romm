@@ -14,6 +14,7 @@ from endpoints.responses.collection import (
     SmartCollectionSchema,
     VirtualCollectionSchema,
 )
+from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
     CollectionNotFoundInDatabaseException,
@@ -201,8 +202,10 @@ async def add_smart_collection(
         SmartCollection(**cleaned_data)
     )
 
-    # Fetch the ROMs to update the database model
-    smart_collection = created_smart_collection.update_properties(request.user.id)
+    smart_collection = (
+        db_collection_handler.refresh_smart_collection(created_smart_collection.id)
+        or created_smart_collection
+    )
 
     return SmartCollectionSchema.model_validate(smart_collection)
 
@@ -557,6 +560,7 @@ async def add_roms_to_collection(
     updated_collection = db_collection_handler.add_roms_to_collection(
         id, payload.rom_ids
     )
+    refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
     return CollectionSchema.model_validate(updated_collection)
 
 
@@ -586,6 +590,7 @@ async def remove_roms_from_collection(
     updated_collection = db_collection_handler.remove_roms_from_collection(
         id, payload.rom_ids
     )
+    refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
     return CollectionSchema.model_validate(updated_collection)
 
 
@@ -642,8 +647,9 @@ async def update_smart_collection(
         id, cleaned_data
     )
 
-    # Fetch the ROMs to update the database model
-    smart_collection = updated_smart_collection.update_properties(request.user.id)
+    smart_collection = (
+        db_collection_handler.refresh_smart_collection(id) or updated_smart_collection
+    )
 
     return SmartCollectionSchema.model_validate(smart_collection)
 

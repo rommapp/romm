@@ -222,6 +222,36 @@ def test_update_user_accepts_png_avatar(
     assert response.json()["avatar_path"].endswith("avatar.png")
 
 
+@pytest.mark.parametrize(
+    "base_url, expected_url",
+    [
+        ("https://romm.example.com/", "https://romm.example.com/register?token="),
+        ("http://0.0.0.0", None),
+        ("http://localhost:3000", None),
+        ("http://127.0.0.2:8080", None),
+        ("http://[::1]:8080", None),
+        ("romm.example.com", None),
+        ("ftp://romm.example.com", None),
+    ],
+)
+def test_create_invite_link_url(
+    client, access_token: str, base_url: str, expected_url: str | None
+):
+    with mock.patch("config.ROMM_BASE_URL", base_url):
+        response = client.post(
+            "/api/users/invite-link",
+            params={"role": Role.USER.value},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == HTTPStatus.CREATED
+    invite = response.json()
+    if expected_url is None:
+        assert invite["url"] is None
+    else:
+        assert invite["url"] == f"{expected_url}{invite['token']}"
+
+
 def test_delete_user(client, access_token: str, editor_user: User):
     response = client.delete(
         f"/api/users/{editor_user.id}",

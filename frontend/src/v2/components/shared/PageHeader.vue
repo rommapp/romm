@@ -3,7 +3,8 @@
 // Used by every index view (PlatformsIndex, CollectionsIndex, Search,
 // Settings — future). Pass `count` for the default RTag pill; use the
 // `#count` slot when you want richer content (icon, custom tone, etc).
-// Default slot sits at the end of the header (filters, actions, etc.).
+// The `#prepend` slot sits left of the title (back button, icon);
+// default slot sits at the end of the header (filters, actions, etc.).
 //
 // No divider here — when used as a gallery hero (Search), the gallery
 // shell paints the divider between hero and toolbar so the three
@@ -25,6 +26,7 @@ withDefaults(
 <template>
   <header v-bind="$attrs" class="page-header">
     <div class="page-header__title-wrap">
+      <slot name="prepend" />
       <h1 class="page-header__title">
         {{ title }}
       </h1>

@@ -8,10 +8,15 @@
 // one". Hovering lifts the tile; tiles are focusable for gamepad/key
 // navigation.
 //
-// Layout (`wrap`):
-//   * strip (default) — Play view. Single horizontal row, scroll + snap,
+// Layout (`layout`), all sharing one tile markup:
+//   * strip (default) - Play view. Single horizontal row, scroll + snap,
 //     never wraps; tiles shrink on narrow screens.
-//   * wrap — Save data subtab. Tiles flow into a responsive grid.
+//   * flow - Save data subtab. Tiles flow into a responsive grid that grows
+//     with its content instead of scrolling.
+//   * grid - fixed 4 columns (2 on xs) in a capped, vertically scrolling
+//     box. Source order is preserved, so a newest-first list reads top-left.
+//   * list - rows with no thumbnail and the meta split into columns. Fits
+//     the most entries per pixel, for long save-state histories.
 //
 // Modes (`selectable`):
 //   * selectable (default) — tiles are buttons; clicking emits `select`;
@@ -34,6 +39,7 @@ import { userAvatarUrl } from "@/v2/utils/userAvatar";
 defineOptions({ inheritAttrs: false });
 
 export type AssetType = "save" | "state";
+export type AssetLayout = "strip" | "flow" | "grid" | "list";
 type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 
 const props = withDefaults(
@@ -43,14 +49,13 @@ const props = withDefaults(
     selectable?: boolean;
     selectedId?: number | null;
     showOwner?: boolean;
-    /** Flow tiles into a responsive grid instead of a single scroll row. */
-    wrap?: boolean;
+    layout?: AssetLayout;
   }>(),
   {
     selectable: true,
     selectedId: null,
     showOwner: false,
-    wrap: false,
+    layout: "strip",
   },
 );
 
@@ -83,7 +88,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 </script>
 
 <template>
-  <div class="r-asset-strip" :class="{ 'r-asset-strip--wrap': wrap }">
+  <div class="r-asset-strip" :class="`r-asset-strip--${layout}`">
     <div v-if="assets.length > 0" class="r-asset-strip__track">
       <component
         :is="selectable ? 'button' : 'div'"
@@ -99,7 +104,20 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
         :aria-pressed="selectable ? asset.id === selectedId : undefined"
         @click="selectable && $emit('select', asset)"
       >
-        <div class="r-asset-strip__thumb">
+        <!-- List rows trade the screenshot for density, so the selection
+             badge moves out of the thumbnail and leads the row instead. -->
+        <span
+          v-if="layout === 'list'"
+          class="r-asset-strip__mark"
+          aria-hidden="true"
+        >
+          <RIcon
+            v-if="selectable && asset.id === selectedId"
+            icon="mdi-check-circle"
+            size="14"
+          />
+        </span>
+        <div v-else class="r-asset-strip__thumb">
           <div
             v-if="type === 'state' && screenshotOf(asset)"
             class="r-asset-strip__thumb-img"
@@ -200,19 +218,105 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   border-radius: 6px;
 }
 
-/* Wrap layout (Save data subtab) — a responsive grid instead of a single
+/* Flow layout (Save data subtab): a responsive grid instead of a single
    horizontal scroll row. Tiles fill their grid cell, so the per-tile
    flex-basis below is overridden. */
-.r-asset-strip--wrap .r-asset-strip__track {
+.r-asset-strip--flow .r-asset-strip__track {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   overflow: visible;
   scroll-snap-type: none;
   padding: 4px 0;
 }
-.r-asset-strip--wrap .r-asset-strip__tile {
+.r-asset-strip--flow .r-asset-strip__tile {
   flex: initial;
   scroll-snap-align: none;
+}
+
+/* Grid layout: the strip's tiles in a capped, vertically scrolling box.
+   Column count is fixed rather than auto-fill so tile size stays predictable
+   next to the preview pane. */
+.r-asset-strip--grid .r-asset-strip__track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 340px;
+  scroll-snap-type: none;
+  padding: 4px 2px;
+}
+.r-asset-strip--grid .r-asset-strip__tile {
+  flex: initial;
+  scroll-snap-align: none;
+}
+
+/* List layout: no thumbnail, meta split into columns. `display: contents` on
+   the sub line promotes its date and size spans into the row's own flex flow,
+   which is what turns them into columns without forking the tile markup. */
+.r-asset-strip--list .r-asset-strip__track {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 340px;
+  scroll-snap-type: none;
+  padding: 2px;
+}
+.r-asset-strip--list .r-asset-strip__tile {
+  flex: initial;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: var(--r-radius-sm);
+  scroll-snap-align: none;
+  text-align: left;
+}
+.r-asset-strip--list .r-asset-strip__tile:hover {
+  transform: none;
+  background: var(--r-color-surface-hover);
+}
+.r-asset-strip--list .r-asset-strip__tile--active {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
+}
+.r-asset-strip--list .r-asset-strip__mark {
+  flex: 0 0 14px;
+  display: grid;
+  place-items: center;
+  color: var(--r-color-brand-primary);
+}
+.r-asset-strip--list .r-asset-strip__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+}
+.r-asset-strip--list .r-asset-strip__name {
+  flex: 1;
+  min-width: 0;
+}
+.r-asset-strip--list .r-asset-strip__sub {
+  display: contents;
+}
+.r-asset-strip--list .r-asset-strip__sub > span:first-child {
+  flex: 0 0 96px;
+}
+.r-asset-strip--list .r-asset-strip__sub > span:last-child {
+  flex: 0 0 64px;
+  text-align: right;
+}
+.r-asset-strip--list .r-asset-strip__dot {
+  display: none;
+}
+.r-asset-strip--list .r-asset-strip__owner {
+  flex: 0 0 auto;
+  margin-top: 0;
+  max-width: 120px;
 }
 
 .r-asset-strip__tile {
@@ -399,5 +503,8 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 
 html[data-bp~="xs"] .r-asset-strip__tile {
   flex: 0 0 120px;
+}
+html[data-bp~="xs"] .r-asset-strip--grid .r-asset-strip__track {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 </style>

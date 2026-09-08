@@ -160,6 +160,46 @@ export const ManyStatesOverflow: Story = {
   }),
 };
 
+// Grid and list: a long save-state history, where the horizontal strip
+// buries the older entries behind a scroll.
+export const ManyStatesGrid: Story = {
+  name: "States \u00b7 30 (grid layout)",
+  render: () => ({
+    components: { AssetStrip },
+    setup() {
+      const states = manyStates(30);
+      const selectedId = ref<number | null>(states[0].id);
+      return {
+        states,
+        selectedId,
+        onSelect: (a: StateSchema) => (selectedId.value = a.id),
+      };
+    },
+    template: `
+      <AssetStrip :assets="states" type="state" :selected-id="selectedId" layout="grid" @select="onSelect" />
+    `,
+  }),
+};
+
+export const ManyStatesList: Story = {
+  name: "States \u00b7 30 (list layout)",
+  render: () => ({
+    components: { AssetStrip },
+    setup() {
+      const states = manyStates(30);
+      const selectedId = ref<number | null>(states[0].id);
+      return {
+        states,
+        selectedId,
+        onSelect: (a: StateSchema) => (selectedId.value = a.id),
+      };
+    },
+    template: `
+      <AssetStrip :assets="states" type="state" :selected-id="selectedId" layout="list" @select="onSelect" />
+    `,
+  }),
+};
+
 // States that never had a screenshot taken — gradient fallback with
 // the file icon. Still readable; the row doesn't feel broken.
 export const StatesNoScreenshots: Story = {

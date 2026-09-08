@@ -15,16 +15,17 @@ map $http_x_forwarded_proto $forwardscheme {
 }
 
 # COEP and COOP headers for cross-origin isolation, which are set only for the
-# EmulatorJS player paths, to enable SharedArrayBuffer support, which is needed
-# for multi-threaded cores.
+# EmulatorJS and js-dos player paths, to enable SharedArrayBuffer support, which
+# is needed for multi-threaded cores. Not $uri: try_files rewrites it to
+# /index.html before add_header runs, so the query string is matched explicitly.
 map $request_uri $coep_header {
     default        "";
-    ~^/rom/.*/ejs$ "require-corp";
+    ~^/rom/.*/(ejs|jsdos)(\?|$) "require-corp";
     ~^/console/rom/[0-9]+/play "require-corp";
 }
 map $request_uri $coop_header {
     default        "";
-    ~^/rom/.*/ejs$ "same-origin";
+    ~^/rom/.*/(ejs|jsdos)(\?|$) "same-origin";
     ~^/console/rom/[0-9]+/play "same-origin";
 }
 

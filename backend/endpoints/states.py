@@ -1,24 +1,27 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
+from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from handler.asset_store import store_screenshot, store_state_file
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
-from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import State
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
+from utils.uploads import check_asset_upload_size
+from utils.validation import RomIdScope, narrow_rom_id_scope
 
 router = APIRouter(
     prefix="/states",
@@ -42,18 +45,14 @@ async def add_state(
     stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
+    check_asset_upload_size(stateFile, "State file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    log.info(f"Uploading state of {rom.name}")
-
-    states_path = fs_asset_handler.build_states_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom_id,
-        emulator=emulator,
-    )
+    assert_rom_visible(request, rom)
 
     if not stateFile.filename:
         log.error("State file has no filename")
@@ -69,45 +68,13 @@ async def add_state(
             detail=f"Invalid state filename: {str(exc)}",
         ) from exc
 
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
-
     log.info(
         f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
-    states_path = fs_asset_handler.build_states_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
+    db_state = await store_state_file(
+        request.user, rom, emulator, stateFile, sanitized_state_filename
     )
-
-    await fs_asset_handler.write_file(
-        file=stateFile, path=states_path, filename=sanitized_state_filename
-    )
-
-    # Scan or update state
-    scanned_state = await scan_state(
-        file_name=sanitized_state_filename,
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom_id,
-        emulator=emulator,
-    )
-    db_state = db_state_handler.get_state_by_filename(
-        user_id=request.user.id, rom_id=rom.id, file_name=sanitized_state_filename
-    )
-    if db_state:
-        db_state = db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
-        )
-    else:
-        scanned_state.rom_id = rom.id
-        scanned_state.user_id = request.user.id
-        scanned_state.emulator = emulator
-        db_state = db_state_handler.add_state(state=scanned_state)
 
     if screenshotFile and screenshotFile.filename:
         try:
@@ -118,39 +85,9 @@ async def add_state(
                 detail=f"Invalid screenshot filename: {str(exc)}",
             ) from exc
 
-        screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
+        await store_screenshot(
+            request.user, rom, screenshotFile, sanitized_screenshot_filename
         )
-
-        await fs_asset_handler.write_file(
-            file=screenshotFile,
-            path=screenshots_path,
-            filename=sanitized_screenshot_filename,
-        )
-
-        # Scan or update screenshot
-        scanned_screenshot = await scan_screenshot(
-            file_name=sanitized_screenshot_filename,
-            user=request.user,
-            platform_fs_slug=rom.platform_slug,
-            rom_id=rom.id,
-        )
-        db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=sanitized_screenshot_filename,
-            rom_id=rom.id,
-            user_id=request.user.id,
-        )
-        if db_screenshot:
-            db_screenshot = db_screenshot_handler.update_screenshot(
-                db_screenshot.id,
-                {"file_size_bytes": scanned_screenshot.file_size_bytes},
-            )
-        else:
-            scanned_screenshot.rom_id = rom.id
-            scanned_screenshot.user_id = request.user.id
-            db_screenshot = db_screenshot_handler.add_screenshot(
-                screenshot=scanned_screenshot
-            )
 
     # Set the last played time for the current user
     rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=request.user.id)
@@ -165,15 +102,32 @@ async def add_state(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
+    refresh_affected_smart_collections([rom.id], membership_only=True)
+
     return StateSchema.model_validate(db_state)
 
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_states(
-    request: Request, rom_id: int | None = None, platform_id: int | None = None
+    request: Request,
+    rom_id: int | None = None,
+    rom_ids: Annotated[
+        RomIdScope,
+        Query(
+            description=(
+                "ROM IDs to scope the results to, for clients syncing a known "
+                "set of ROMs. Multiple values are allowed by repeating the "
+                "parameter. Combined with `rom_id` when both are given."
+            ),
+        ),
+    ] = None,
+    platform_id: int | None = None,
 ) -> list[StateSchema]:
+    """Retrieve states for the current user."""
     states = db_state_handler.get_states(
-        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id
+        user_id=request.user.id,
+        rom_ids=narrow_rom_id_scope(rom_id, rom_ids),
+        platform_id=platform_id,
     )
 
     return [StateSchema.model_validate(state) for state in states]
@@ -252,6 +206,9 @@ async def update_state(
     stateFile: UploadFile | None = STATE_FILE_UPDATE,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPDATE,
 ) -> StateSchema:
+    check_asset_upload_size(stateFile, "State file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
     db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
     if not db_state:
         error = f"State with ID {id} not found"
@@ -274,41 +231,12 @@ async def update_state(
                 detail=f"Invalid screenshot filename: {str(exc)}",
             ) from exc
 
-        screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user,
-            platform_fs_slug=db_state.rom.platform_slug,
-            rom_id=db_state.rom.id,
+        await store_screenshot(
+            request.user,
+            db_state.rom,
+            screenshotFile,
+            sanitized_screenshot_filename,
         )
-
-        await fs_asset_handler.write_file(
-            file=screenshotFile,
-            path=screenshots_path,
-            filename=sanitized_screenshot_filename,
-        )
-
-        # Scan or update screenshot
-        scanned_screenshot = await scan_screenshot(
-            file_name=sanitized_screenshot_filename,
-            user=request.user,
-            platform_fs_slug=db_state.rom.platform_slug,
-            rom_id=db_state.rom.id,
-        )
-        db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=sanitized_screenshot_filename,
-            rom_id=db_state.rom.id,
-            user_id=request.user.id,
-        )
-        if db_screenshot:
-            db_screenshot = db_screenshot_handler.update_screenshot(
-                db_screenshot.id,
-                {"file_size_bytes": scanned_screenshot.file_size_bytes},
-            )
-        else:
-            scanned_screenshot.rom_id = db_state.rom.id
-            scanned_screenshot.user_id = request.user.id
-            db_screenshot = db_screenshot_handler.add_screenshot(
-                screenshot=scanned_screenshot
-            )
 
     # Set the last played time for the current user
     rom_user = db_rom_handler.get_rom_user(db_state.rom_id, request.user.id)
@@ -350,6 +278,9 @@ def update_state_visibility(
             state.screenshot.id, {"is_public": is_public}
         )
 
+    # Sharing a state exposes it to every other user's `has_states` filter.
+    refresh_affected_smart_collections([state.rom_id], membership_only=True)
+
     return StateSchema.model_validate(updated)
 
 
@@ -378,6 +309,8 @@ async def delete_states(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
+    affected_rom_ids: set[int] = set()
+
     for state_id in states:
         state = db_state_handler.get_state(user_id=request.user.id, id=state_id)
         if not state:
@@ -385,6 +318,7 @@ async def delete_states(
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+        affected_rom_ids.add(state.rom_id)
         db_state_handler.delete_state(state_id)
         log.info(
             f"Deleting state {hl(state.file_name)} [{state.rom.platform_slug}] from filesystem"
@@ -406,5 +340,7 @@ async def delete_states(
             except FileNotFoundError:
                 error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
                 log.error(error)
+
+    refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
     return states

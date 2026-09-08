@@ -60,6 +60,7 @@ defineProps<{
     scan: string;
     random: string;
     download: string;
+    addPhysical: string;
   };
 }>();
 
@@ -69,6 +70,7 @@ defineEmits<{
   (e: "scan"): void;
   (e: "random"): void;
   (e: "download"): void;
+  (e: "add-physical"): void;
 }>();
 
 // A square icon sized per breakpoint (smaller on phones). Driving the size
@@ -189,6 +191,16 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         @click="$emit('upload')"
       />
       <RBtn
+        v-if="canEdit"
+        variant="outlined"
+        surface
+        icon="mdi-cube-outline"
+        rounded="circle"
+        :aria-label="labels.addPhysical"
+        :tooltip="labels.addPhysical"
+        @click="$emit('add-physical')"
+      />
+      <RBtn
         v-if="canScan"
         variant="outlined"
         surface
@@ -263,9 +275,10 @@ html[data-bp~="xs"] .r-v2-plat__panel-icon {
   color: var(--r-color-fg);
   transform: translateY(-1px);
 }
+/* Keep pointer events on passive chips so the native `title` tooltip still
+   shows on hover; only the pointer affordance is dropped. */
 .r-v2-plat__provider--passive {
   cursor: default;
-  pointer-events: none;
 }
 .r-v2-plat__provider--icon-only {
   padding: 2px 4px;

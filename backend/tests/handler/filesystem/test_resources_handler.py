@@ -1,12 +1,21 @@
+import asyncio
+import errno
 import os
+from io import BytesIO
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
 from PIL import Image
 
+import adapters.services.screenscraper as ss_module
+from adapters.services.screenscraper import (
+    SS_DEFAULT_MAX_THREADS,
+    SS_DEFAULT_MEDIA_TIMEOUT,
+)
 from config import RESOURCES_BASE_PATH
+from config.config_manager import MetadataMediaType
 from handler.filesystem.base_handler import CoverSize
 from handler.filesystem.resources_handler import (
     FSResourcesHandler,
@@ -16,6 +25,7 @@ from handler.filesystem.resources_handler import (
 )
 from models.collection import Collection
 from models.rom import Rom
+from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 
 class TestContentTypeEssence:
@@ -296,39 +306,6 @@ class TestFSResourcesHandler:
         # Should return empty strings since no covers exist and no URL provided
         assert result == (None, None)
 
-    @pytest.mark.asyncio
-    async def test_get_cover_with_url_no_overwrite(
-        self, handler: FSResourcesHandler, rom
-    ):
-        """Test get_cover with URL but no overwrite when covers don't exist"""
-        url = "http://example.com/cover.png"
-
-        with patch.object(handler, "_store_cover") as mock_store:
-            with patch.object(handler, "cover_exists") as mock_exists:
-                mock_exists.return_value = False
-
-                await handler.get_cover(rom, False, url)
-
-                # Should call _store_cover for both sizes since covers don't exist
-                assert mock_store.call_count == 2
-                mock_store.assert_any_call(rom, url, CoverSize.SMALL)
-                mock_store.assert_any_call(rom, url, CoverSize.BIG)
-
-    @pytest.mark.asyncio
-    async def test_get_cover_with_overwrite(
-        self, handler: FSResourcesHandler, rom: Rom
-    ):
-        """Test get_cover with overwrite enabled"""
-        url = "http://example.com/cover.png"
-
-        with patch.object(handler, "_store_cover") as mock_store:
-            await handler.get_cover(rom, True, url)
-
-            # Should call _store_cover for both sizes regardless of existence
-            assert mock_store.call_count == 2
-            mock_store.assert_any_call(rom, url, CoverSize.SMALL)
-            mock_store.assert_any_call(rom, url, CoverSize.BIG)
-
     async def test_remove_cover_no_entity(self, handler: FSResourcesHandler):
         """Test remove_cover with no entity"""
         result = await handler.remove_cover(None)
@@ -414,15 +391,26 @@ class TestFSResourcesHandler:
 
     @pytest.mark.asyncio
     async def test_get_rom_screenshots_with_urls(
-        self, handler: FSResourcesHandler, rom
+        self, handler: FSResourcesHandler, rom, tmp_path
     ):
         """Test get_rom_screenshots with URLs"""
+        handler.base_path = tmp_path
         urls = [
             "http://example.com/screenshot1.jpg",
             "http://example.com/screenshot2.jpg",
         ]
 
-        with patch.object(handler, "_store_screenshot") as mock_store:
+        # Only screenshots that reached the disk get a recorded path, so the
+        # stand-in has to write them.
+        async def store(_rom, _url, idx):
+            directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
+            directory.mkdir(parents=True, exist_ok=True)
+            (directory / f"{idx}.jpg").write_bytes(b"jpeg")
+            return True
+
+        with patch.object(
+            handler, "_store_screenshot", side_effect=store
+        ) as mock_store:
             result = await handler.get_rom_screenshots(rom, True, urls)
 
             # Should call _store_screenshot for each URL
@@ -446,7 +434,7 @@ class TestFSResourcesHandler:
         result = handler._get_manual_path(rom)
         assert result is None
 
-    @pytest.mark.parametrize("ext", [".pdf", ".md"])
+    @pytest.mark.parametrize("ext", [".pdf", ".md", ".txt"])
     def test_manual_exists_finds_extension(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path, ext: str
     ):
@@ -458,7 +446,7 @@ class TestFSResourcesHandler:
 
         assert handler.manual_exists(rom)
 
-    @pytest.mark.parametrize("ext", [".pdf", ".md"])
+    @pytest.mark.parametrize("ext", [".pdf", ".md", ".txt"])
     def test_get_manual_path_finds_extension(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path, ext: str
     ):
@@ -471,11 +459,11 @@ class TestFSResourcesHandler:
         result = handler._get_manual_path(rom)
         assert result == f"{rom.fs_resources_path}/manual/{rom.id}{ext}"
 
-    @pytest.mark.parametrize("ext", [".part", ".bak", ".tmp", ".txt"])
+    @pytest.mark.parametrize("ext", [".part", ".bak", ".tmp", ".exe"])
     def test_manual_exists_ignores_disallowed_extensions(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path, ext: str
     ):
-        """Files that aren't PDF or Markdown must not be treated as manuals."""
+        """Files that aren't an allowed manual document must not count as manuals."""
         handler.base_path = tmp_path
         manual_dir = tmp_path / rom.fs_resources_path / "manual"
         manual_dir.mkdir(parents=True)
@@ -665,6 +653,85 @@ class TestFSResourcesHandler:
         assert "retroachievements" in ra_base
         assert "badges" in ra_badges
 
+    @pytest.mark.asyncio
+    async def test_failed_screenshot_is_not_recorded(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # Recording a path for a screenshot that never landed points the
+        # database at a missing file, and the gallery at a broken image.
+        handler.base_path = tmp_path
+
+        async def store_only_the_first(_rom, _url, idx):
+            if idx != 0:
+                return False
+            path = tmp_path / "roms/1/1/screenshots"
+            path.mkdir(parents=True, exist_ok=True)
+            (path / "0.jpg").write_bytes(b"jpeg")
+            return True
+
+        with patch.object(
+            handler, "_store_screenshot", side_effect=store_only_the_first
+        ):
+            paths = await handler.get_rom_screenshots(
+                rom=rom,
+                overwrite=True,
+                url_screenshots=["http://x/a.jpg", "http://x/b.jpg"],
+            )
+
+        assert paths == ["roms/1/1/screenshots/0.jpg"]
+
+    @pytest.mark.asyncio
+    async def test_only_the_missing_screenshot_is_fetched(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # The url set is unchanged after a partial failure, so the gap is only
+        # visible on disk.
+        handler.base_path = tmp_path
+        rom.path_screenshots = ["roms/1/1/screenshots/0.jpg"]
+        screenshots = tmp_path / "roms/1/1/screenshots"
+        screenshots.mkdir(parents=True)
+        (screenshots / "0.jpg").write_bytes(b"jpeg")
+
+        attempted: list[int] = []
+
+        async def record(_rom, _url, idx):
+            attempted.append(idx)
+            (screenshots / f"{idx}.jpg").write_bytes(b"jpeg")
+            return True
+
+        with patch.object(handler, "_store_screenshot", side_effect=record):
+            paths = await handler.get_rom_screenshots(
+                rom=rom,
+                overwrite=False,
+                url_screenshots=["http://x/a.jpg", "http://x/b.jpg"],
+            )
+
+        assert attempted == [1]
+        assert paths == [
+            "roms/1/1/screenshots/0.jpg",
+            "roms/1/1/screenshots/1.jpg",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_cover_with_no_source_url_is_rederived_from_disk(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # Second half of what keeps a locked cover alive through an unmatch,
+        # which clears the stored paths but never deletes the files.
+        handler.base_path = tmp_path
+        cover = tmp_path / "roms/1/1/cover"
+        cover.mkdir(parents=True)
+        (cover / "big.png").write_bytes(b"uploaded")
+        (cover / "small.png").write_bytes(b"uploaded")
+
+        path_s, path_l = await handler.get_cover(
+            entity=rom, overwrite=False, url_cover=""
+        )
+
+        assert path_s == "roms/1/1/cover/small.png"
+        assert path_l == "roms/1/1/cover/big.png"
+        assert (cover / "big.png").read_bytes() == b"uploaded"
+
 
 class TestChromaKeyDetection:
     """Tests for ScreenScraper chroma-key green placeholder handling."""
@@ -762,3 +829,888 @@ class TestChromaKeyDetection:
         await handler.store_media_file("http://example.com/x.png", rel)
 
         assert (tmp_path / rel).exists()
+
+
+class TestStoreMediaFileResult:
+    """store_media_file reports whether the media actually landed on disk, so
+    callers can drop the recorded path instead of pointing at a missing file."""
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.mark.asyncio
+    async def test_returns_true_for_downloaded_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_FakeResponse())
+            assert await handler.store_media_file("http://example.com/x.png", rel)
+
+        assert (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_returns_true_for_pre_existing_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        (tmp_path / rel).write_bytes(b"art")
+
+        assert await handler.store_media_file("http://example.com/x.png", rel)
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_error_response(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        response = _FakeResponse()
+        response.status_code = 404
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(response)
+            stored = await handler.store_media_file(
+                "http://example.com/x.png", "roms/1/1/box2d_back/box2d_back.png"
+            )
+
+        assert stored is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_unexpected_content_type(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        response = _FakeResponse()
+        response.headers = {"content-type": "text/html"}
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(response)
+            stored = await handler.store_media_file(
+                "http://example.com/x.png", "roms/1/1/box2d_back/box2d_back.png"
+            )
+
+        assert stored is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_transport_error(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            client = Mock()
+            client.stream.side_effect = httpx.ConnectError("no route")
+            mock_ctx.get.return_value = client
+            stored = await handler.store_media_file(
+                "http://example.com/x.png", "roms/1/1/box2d_back/box2d_back.png"
+            )
+
+        assert stored is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_for_discarded_chroma_key(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        Image.new("RGB", (64, 64), (0, 255, 0)).save(tmp_path / rel)
+
+        assert await handler.store_media_file("http://example.com/x.png", rel) is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_for_unresolvable_local_uri(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        stored = await handler.store_media_file(
+            "launchbox-file://Videos/NES/missing.mp4", "roms/1/1/video/video.mp4"
+        )
+
+        assert stored is False
+
+
+class TestStoreMetadataMedia:
+    """Recorded media paths must not survive a download that didn't produce a
+    file, or exports and artwork URLs would point at nothing."""
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.mark.asyncio
+    async def test_clears_paths_for_media_that_did_not_land(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "box2d_back_url": "http://example.com/back.png",
+            "box2d_back_path": "roms/1/1/box2d_back/box2d_back.png",
+            "fanart_url": "http://example.com/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+        }
+
+        async def fake_store(_url: str, dest_path: str) -> bool:
+            return "fanart" in dest_path
+
+        with patch.object(handler, "store_media_file", side_effect=fake_store):
+            changed = await handler.store_metadata_media(
+                metadata,
+                [MetadataMediaType.BOX2D_BACK, MetadataMediaType.FANART],
+            )
+
+        assert changed is True
+        assert metadata["box2d_back_path"] is None
+        assert metadata["fanart_path"] == "roms/1/1/fanart/fanart.png"
+        # The URL is kept so a later scan can retry the download
+        assert metadata["box2d_back_url"] == "http://example.com/back.png"
+
+    @pytest.mark.asyncio
+    async def test_leaves_metadata_untouched_when_all_media_lands(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "fanart_url": "http://example.com/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+        }
+
+        with patch.object(handler, "store_media_file", return_value=True):
+            changed = await handler.store_metadata_media(
+                metadata, [MetadataMediaType.FANART]
+            )
+
+        assert changed is False
+        assert metadata["fanart_path"] == "roms/1/1/fanart/fanart.png"
+
+    @pytest.mark.asyncio
+    async def test_skips_media_types_without_a_path(self, handler: FSResourcesHandler):
+        metadata = {"fanart_url": "http://example.com/fanart.png"}
+
+        with patch.object(handler, "store_media_file") as store_mock:
+            changed = await handler.store_metadata_media(
+                metadata,
+                [MetadataMediaType.FANART, MetadataMediaType.BOX2D_BACK],
+            )
+
+        assert changed is False
+        store_mock.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_clears_a_urlless_path_when_the_file_is_missing(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # A path with no URL can never be fetched, so it must not survive when
+        # the file it names isn't there.
+        handler.base_path = tmp_path
+        metadata = {"fanart_path": "roms/1/1/fanart/fanart.png"}
+
+        changed = await handler.store_metadata_media(
+            metadata, [MetadataMediaType.FANART]
+        )
+
+        assert changed is True
+        assert metadata["fanart_path"] is None
+
+    @pytest.mark.asyncio
+    async def test_keeps_a_urlless_path_when_the_file_exists(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/fanart/fanart.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        (tmp_path / rel).write_bytes(b"art")
+        metadata = {"fanart_path": rel}
+
+        changed = await handler.store_metadata_media(
+            metadata, [MetadataMediaType.FANART]
+        )
+
+        assert changed is False
+        assert metadata["fanart_path"] == rel
+
+    @pytest.mark.asyncio
+    async def test_applies_the_url_transform(self, handler: FSResourcesHandler):
+        metadata = {
+            "fanart_url": "http://example.com/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+        }
+
+        with patch.object(handler, "store_media_file", return_value=True) as store_mock:
+            await handler.store_metadata_media(
+                metadata,
+                [MetadataMediaType.FANART],
+                lambda url: f"{url}?ssid=user",
+            )
+
+        store_mock.assert_awaited_once_with(
+            "http://example.com/fanart.png?ssid=user", "roms/1/1/fanart/fanart.png"
+        )
+
+
+class _FakeResponse:
+    """Minimal stand-in for an httpx streaming response."""
+
+    def __init__(self):
+        self.status_code = 200
+        self.headers = {"content-type": "image/png"}
+
+    async def aiter_raw(self):
+        yield b"partial"
+
+
+class _DroppedResponse:
+    """Streams one chunk, then drops the connection mid-transfer."""
+
+    def __init__(self):
+        self.status_code = 200
+        self.headers = {"content-type": "image/png"}
+
+    async def aiter_raw(self):
+        yield b"partial"
+        raise httpx.ReadError("connection reset")
+
+
+class _FakeStreamContext:
+    def __init__(self, response):
+        self._response = response
+
+    async def __aenter__(self):
+        return self._response
+
+    async def __aexit__(self, *_args):
+        return False
+
+
+class _FakeHttpxClient:
+    def __init__(self, response):
+        self._response = response
+
+    def stream(self, *_args, **_kwargs):
+        return _FakeStreamContext(self._response)
+
+
+class _EnospcResponse:
+    """Streams one chunk, then fails the way a full disk does."""
+
+    def __init__(self, content_type: str = "image/png"):
+        self.status_code = 200
+        self.headers = {"content-type": content_type}
+
+    async def aiter_raw(self):
+        yield b"partial"
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+
+class TestDiskFullHandling:
+    """Resource writes must not leave truncated files when the disk fills up."""
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.fixture
+    def rom(self):
+        rom = Mock(spec=Rom)
+        rom.id = 1
+        rom.platform_id = 1
+        rom.fs_resources_path = "roms/1/1"
+        return rom
+
+    @pytest.mark.asyncio
+    async def test_discard_partial_file_removes_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/cover/big.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        (tmp_path / rel).write_bytes(b"truncated")
+
+        await handler._discard_partial_file(rel)
+
+        assert not (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_discard_partial_file_missing_is_noop(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        await handler._discard_partial_file("roms/1/1/cover/big.png")
+
+    @pytest.mark.asyncio
+    async def test_discard_partial_file_survives_removal_failure(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Cleanup runs inside an error path, so it must never mask the
+        # original failure with one of its own.
+        handler.base_path = tmp_path
+        rel = "roms/1/1/cover/big.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        (tmp_path / rel).write_bytes(b"truncated")
+
+        with patch.object(handler, "remove_file", side_effect=OSError("read-only")):
+            await handler._discard_partial_file(rel)
+
+    @pytest.mark.asyncio
+    async def test_store_cover_discards_partial_download(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        target = tmp_path / "roms/1/1/cover/big.png"
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_EnospcResponse())
+
+            await handler._store_cover(rom, "http://example.com/cover.png")
+
+        assert not target.exists()
+
+    @pytest.mark.asyncio
+    async def test_store_cover_discards_partial_on_dropped_connection(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # A stream that dies mid-transfer leaves the same truncated file a
+        # full disk does, and must be cleaned up the same way.
+        handler.base_path = tmp_path
+        target = tmp_path / "roms/1/1/cover/big.png"
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_DroppedResponse())
+
+            await handler._store_cover(rom, "http://example.com/cover.png")
+
+        assert not target.exists()
+
+    @pytest.mark.asyncio
+    async def test_store_cover_keeps_existing_file_when_refresh_dies(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # Refreshing a cover that is already on disk must not cost the good copy
+        # when the transfer dies: the stream lands in a temp file, so the
+        # existing bytes survive untouched.
+        handler.base_path = tmp_path
+        target = tmp_path / "roms/1/1/cover/big.png"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"the good cover")
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_DroppedResponse())
+
+            await handler._store_cover(rom, "http://example.com/cover.png")
+
+        assert target.read_bytes() == b"the good cover"
+
+    @pytest.mark.asyncio
+    async def test_cancelled_download_leaves_no_temp_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Stopping a scan raises CancelledError, which derives from
+        # BaseException. Cleanup has to catch it or every cancel strands a
+        # temp file in the resource directory.
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+        cover_dir.mkdir(parents=True)
+
+        with pytest.raises(asyncio.CancelledError):
+            async with handler.write_file_streamed(
+                path="roms/1/1/cover", filename="big.png"
+            ) as f:
+                await f.write(b"partial")
+                raise asyncio.CancelledError()
+
+        assert list(cover_dir.iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_interrupted_download_leaves_no_temp_file(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # A temp file left in the cover directory would be served as a resource
+        # and would accumulate one per failed scan.
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_DroppedResponse())
+
+            await handler._store_cover(rom, "http://example.com/cover.png")
+
+        assert list(cover_dir.iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_store_ra_badge_discards_partial_download(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Badges are skipped when already present, so a truncated one would
+        # never be refetched.
+        handler.base_path = tmp_path
+        rel = "roms/1/1/ra/badge.png"
+        target = tmp_path / rel
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_EnospcResponse())
+
+            await handler.store_ra_badge("http://example.com/badge.png", rel)
+
+        assert not target.exists()
+
+
+class _SlotAwareClient:
+    """Records the limiter state and timeout seen at the moment of the request."""
+
+    def __init__(self, response):
+        self._response = response
+        self.calls: list[dict] = []
+
+    def stream(self, *_args, **kwargs):
+        self.calls.append(
+            {
+                "timeout": kwargs.get("timeout"),
+                "in_flight": ss_module._concurrency_limiter.in_flight,
+            }
+        )
+        return _FakeStreamContext(self._response)
+
+
+class TestScreenScraperMediaThrottling:
+    """ScreenScraper counts media downloads against the same per-account thread
+    allowance as API calls, so they must share its limiter instead of bypassing
+    it (which is what let a multi-worker scan overrun the account)."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_limiters(self, monkeypatch):
+        """Swap in fresh limiters so these tests neither sleep on the real
+        per-minute pacing nor leave reserved slots behind for later tests."""
+        monkeypatch.setattr(ss_module, "_rate_limiter", RateLimiter(1_000))
+        monkeypatch.setattr(
+            ss_module,
+            "_concurrency_limiter",
+            ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS),
+        )
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.fixture
+    def rom(self):
+        rom = Mock(spec=Rom)
+        rom.id = 1
+        rom.platform_id = 1
+        rom.fs_resources_path = "roms/1/1"
+        return rom
+
+    @pytest.mark.asyncio
+    async def test_media_file_download_holds_a_screenscraper_slot(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        client = _SlotAwareClient(_FakeResponse())
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler.store_media_file(
+                "https://www.screenscraper.fr/image.php?gameid=1",
+                "roms/1/1/box2d/big.png",
+            )
+
+        assert client.calls == [
+            {"timeout": SS_DEFAULT_MEDIA_TIMEOUT, "in_flight": 1},
+        ]
+        assert ss_module._concurrency_limiter.in_flight == 0
+
+    @pytest.mark.asyncio
+    async def test_cover_download_holds_a_screenscraper_slot(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        client = _SlotAwareClient(_FakeResponse())
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler._store_cover(
+                rom, "https://www.screenscraper.fr/image.php?gameid=1"
+            )
+
+        assert client.calls[0]["in_flight"] == 1
+        assert ss_module._concurrency_limiter.in_flight == 0
+
+    @pytest.mark.asyncio
+    async def test_manual_download_holds_a_screenscraper_slot(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        response = _FakeResponse()
+        response.headers = {"content-type": "application/pdf"}
+        client = _SlotAwareClient(response)
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler._store_manual(
+                rom, "https://www.screenscraper.fr/media.php?media=manual"
+            )
+
+        assert client.calls[0]["in_flight"] == 1
+
+    @pytest.mark.asyncio
+    async def test_screenshot_download_holds_a_screenscraper_slot(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        client = _SlotAwareClient(_FakeResponse())
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler._store_screenshot(
+                rom, "https://www.screenscraper.fr/image.php?media=ss", 0
+            )
+
+        assert client.calls[0]["in_flight"] == 1
+
+    @pytest.mark.asyncio
+    async def test_other_providers_are_not_throttled(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        client = _SlotAwareClient(_FakeResponse())
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler.store_media_file(
+                "https://cdn.example.com/cover.png", "roms/1/1/box2d/big.png"
+            )
+
+        assert client.calls == [
+            {"timeout": SS_DEFAULT_MEDIA_TIMEOUT, "in_flight": 0},
+        ]
+
+
+COVER_URL = "http://example.com/cover.png"
+
+
+def _png_bytes(
+    size: tuple[int, int] = (900, 1200), color: tuple[int, int, int] = (85, 62, 152)
+) -> bytes:
+    buffer = BytesIO()
+    Image.new("RGB", size, color).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+class _CountingResponse:
+    def __init__(self, payload: bytes):
+        self.status_code = 200
+        self.headers = {"content-type": "image/png"}
+        self._payload = payload
+
+    async def aiter_raw(self):
+        yield self._payload
+
+
+class _CountingClient:
+    """Records every request, so a redundant refetch of a cover is visible."""
+
+    def __init__(self, payload: bytes):
+        self._payload = payload
+        self.requests: list[str] = []
+
+    def stream(self, _method: str, url: str, **_kwargs):
+        self.requests.append(url)
+        return _FakeStreamContext(_CountingResponse(self._payload))
+
+
+class TestCoverSingleFetch:
+    """A cover must be fetched exactly once.
+
+    `small` is a downscale of `big`, so a second request for the same URL only
+    re-downloads bytes RomM already holds. That doubles cover bandwidth, and on
+    ScreenScraper burns a second billable api2 request per cover.
+    """
+
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @pytest.fixture
+    def rom(self):
+        rom = Mock(spec=Rom)
+        rom.id = 1
+        rom.platform_id = 1
+        rom.fs_resources_path = "roms/1/1"
+        return rom
+
+    @staticmethod
+    def _cover_dir(handler: FSResourcesHandler, entity) -> Path:
+        return handler.base_path / entity.fs_resources_path / "cover"
+
+    @staticmethod
+    def _image_size(path: Path) -> tuple[int, int]:
+        with Image.open(path) as img:
+            return img.size
+
+    @staticmethod
+    def _write_cover(
+        path: Path,
+        color: tuple[int, int, int] = (10, 20, 30),
+        size: tuple[int, int] = (16, 16),
+    ) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", size, color).save(path)
+
+    @staticmethod
+    async def _get_cover(
+        handler: FSResourcesHandler,
+        entity,
+        overwrite: bool,
+        client,
+        url: str | None = COVER_URL,
+    ) -> tuple[str | None, str | None]:
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            return await handler.get_cover(entity, overwrite, url)
+
+    async def test_fetches_the_cover_once_when_no_covers_exist(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        client = _CountingClient(_png_bytes())
+
+        path_small, path_big = await self._get_cover(handler, rom, False, client)
+
+        assert client.requests == [COVER_URL]
+        cover_dir = self._cover_dir(handler, rom)
+        assert self._image_size(cover_dir / "big.png") == (900, 1200)
+        assert self._image_size(cover_dir / "small.png") == (180, 240)
+        assert path_big == "roms/1/1/cover/big.png"
+        assert path_small == "roms/1/1/cover/small.png"
+
+    async def test_fetches_the_cover_once_when_overwriting(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        cover_dir = self._cover_dir(handler, rom)
+        self._write_cover(cover_dir / "big.png")
+        self._write_cover(cover_dir / "small.png")
+        client = _CountingClient(_png_bytes())
+
+        await self._get_cover(handler, rom, True, client)
+
+        assert client.requests == [COVER_URL]
+        assert self._image_size(cover_dir / "big.png") == (900, 1200)
+        assert self._image_size(cover_dir / "small.png") == (180, 240)
+
+    async def test_does_not_fetch_when_both_covers_exist(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        cover_dir = self._cover_dir(handler, rom)
+        self._write_cover(cover_dir / "big.png")
+        self._write_cover(cover_dir / "small.png")
+        client = _CountingClient(_png_bytes())
+
+        path_small, path_big = await self._get_cover(handler, rom, False, client)
+
+        assert client.requests == []
+        assert path_small == "roms/1/1/cover/small.png"
+        assert path_big == "roms/1/1/cover/big.png"
+
+    async def test_fetches_once_when_only_the_small_cover_exists(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        cover_dir = self._cover_dir(handler, rom)
+        self._write_cover(cover_dir / "small.png")
+        client = _CountingClient(_png_bytes())
+
+        await self._get_cover(handler, rom, False, client)
+
+        assert client.requests == [COVER_URL]
+        assert self._image_size(cover_dir / "big.png") == (900, 1200)
+        assert self._image_size(cover_dir / "small.png") == (180, 240)
+
+    async def test_rebuilds_a_missing_small_cover_without_fetching(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        cover_dir = self._cover_dir(handler, rom)
+        self._write_cover(cover_dir / "big.png", size=(900, 1200))
+        before = (cover_dir / "big.png").read_bytes()
+        client = _CountingClient(_png_bytes())
+
+        path_small, path_big = await self._get_cover(handler, rom, False, client)
+
+        assert client.requests == []
+        assert (cover_dir / "big.png").read_bytes() == before
+        assert self._image_size(cover_dir / "small.png") == (180, 240)
+        assert path_big == "roms/1/1/cover/big.png"
+        assert path_small == "roms/1/1/cover/small.png"
+
+    async def test_a_broken_provider_cannot_destroy_an_existing_large_cover(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        # Fetching into big.png to recover a missing small.png would put a good
+        # large cover at the mercy of the download.
+        cover_dir = self._cover_dir(handler, rom)
+        self._write_cover(cover_dir / "big.png", size=(900, 1200))
+        before = (cover_dir / "big.png").read_bytes()
+
+        path_small, path_big = await self._get_cover(
+            handler, rom, False, _FakeHttpxClient(_DroppedResponse())
+        )
+
+        assert (cover_dir / "big.png").read_bytes() == before
+        assert path_big == "roms/1/1/cover/big.png"
+        assert path_small == "roms/1/1/cover/small.png"
+
+    async def test_rebuilds_the_small_cover_with_the_large_covers_extension(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        cover_dir = self._cover_dir(handler, rom)
+        self._write_cover(cover_dir / "big.jpg", size=(900, 1200))
+        client = _CountingClient(_png_bytes())
+
+        path_small, _ = await self._get_cover(handler, rom, False, client)
+
+        assert client.requests == []
+        assert self._image_size(cover_dir / "small.jpg") == (180, 240)
+        assert path_small == "roms/1/1/cover/small.jpg"
+
+    async def test_leaves_an_unreadable_large_cover_in_place(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        cover_dir = self._cover_dir(handler, rom)
+        cover_dir.mkdir(parents=True)
+        (cover_dir / "big.png").write_bytes(b"not an image")
+        client = _CountingClient(_png_bytes())
+
+        path_small, path_big = await self._get_cover(handler, rom, False, client)
+
+        assert client.requests == []
+        assert (cover_dir / "big.png").exists()
+        assert not (cover_dir / "small.png").exists()
+        assert path_big == "roms/1/1/cover/big.png"
+        assert path_small is None
+
+    async def test_does_not_fetch_without_a_url(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        cover_dir = self._cover_dir(handler, rom)
+        self._write_cover(cover_dir / "big.png")
+        self._write_cover(cover_dir / "small.png")
+        client = _CountingClient(_png_bytes())
+
+        path_small, path_big = await self._get_cover(handler, rom, True, client, None)
+
+        assert client.requests == []
+        assert path_small == "roms/1/1/cover/small.png"
+        assert path_big == "roms/1/1/cover/big.png"
+
+    async def test_copies_a_local_cover_once(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        source = tmp_path / "library" / "art.png"
+        source.parent.mkdir(parents=True)
+        Image.new("RGB", (900, 1200), (85, 62, 152)).save(source)
+
+        copied_to: list[str] = []
+        original_copy = handler.copy_file
+
+        async def counting_copy(src, dest, allow_link=False):
+            copied_to.append(dest)
+            await original_copy(src, dest, allow_link=allow_link)
+
+        with (
+            patch(
+                "handler.filesystem.resources_handler._resolve_local_file_uri",
+                return_value=source,
+            ),
+            patch.object(
+                handler, "copy_file", new=AsyncMock(side_effect=counting_copy)
+            ),
+        ):
+            await handler.get_cover(rom, False, "file://art.png")
+
+        assert copied_to == ["roms/1/1/cover/big.png"]
+        cover_dir = self._cover_dir(handler, rom)
+        assert self._image_size(cover_dir / "big.png") == (900, 1200)
+        assert self._image_size(cover_dir / "small.png") == (180, 240)
+        # A hardlinked destination would be rewritten in place by a later scan,
+        # mutating the user's source image.
+        assert (cover_dir / "big.png").stat().st_nlink == 1
+        assert self._image_size(source) == (900, 1200)
+
+    async def test_discards_both_sizes_for_a_chroma_key_placeholder(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        cover_dir = self._cover_dir(handler, rom)
+        self._write_cover(cover_dir / "small.png")
+        client = _CountingClient(_png_bytes(color=(0, 255, 0)))
+
+        result = await self._get_cover(handler, rom, True, client)
+
+        assert client.requests == [COVER_URL]
+        assert not (cover_dir / "big.png").exists()
+        assert not (cover_dir / "small.png").exists()
+        assert result == (None, None)
+
+    async def test_leaves_no_cover_behind_on_a_dropped_connection(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        result = await self._get_cover(
+            handler, rom, True, _FakeHttpxClient(_DroppedResponse())
+        )
+
+        cover_dir = self._cover_dir(handler, rom)
+        assert not (cover_dir / "big.png").exists()
+        assert not (cover_dir / "small.png").exists()
+        assert result == (None, None)
+
+    async def test_leaves_no_cover_behind_for_undecodable_bytes(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        # A file PIL can't open satisfies cover_exists(), so leaving it would
+        # stop every later scan from refetching a working cover.
+        client = _CountingClient(b"not an image")
+
+        result = await self._get_cover(handler, rom, True, client)
+
+        assert client.requests == [COVER_URL]
+        cover_dir = self._cover_dir(handler, rom)
+        assert not (cover_dir / "big.png").exists()
+        assert not (cover_dir / "small.png").exists()
+        assert result == (None, None)
+
+    async def test_converts_both_sizes_to_webp(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        client = _CountingClient(_png_bytes())
+
+        with patch(
+            "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
+            True,
+        ):
+            await self._get_cover(handler, rom, False, client)
+
+        cover_dir = self._cover_dir(handler, rom)
+        assert (cover_dir / "big.webp").exists()
+        assert (cover_dir / "small.webp").exists()
+
+    async def test_low_resolution_cover_uses_the_larger_ratio(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        client = _CountingClient(_png_bytes(size=(600, 800)))
+
+        await self._get_cover(handler, rom, False, client)
+
+        cover_dir = self._cover_dir(handler, rom)
+        assert self._image_size(cover_dir / "big.png") == (600, 800)
+        assert self._image_size(cover_dir / "small.png") == (240, 320)
+
+    async def test_fetches_a_collection_cover_once(self, handler: FSResourcesHandler):
+        collection = Mock(spec=Collection)
+        collection.id = 3
+        collection.fs_resources_path = "collections/3"
+        client = _CountingClient(_png_bytes())
+
+        path_small, path_big = await self._get_cover(handler, collection, False, client)
+
+        assert client.requests == [COVER_URL]
+        assert path_small == "collections/3/cover/small.png"
+        assert path_big == "collections/3/cover/big.png"

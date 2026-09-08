@@ -434,15 +434,11 @@ class TestCloudSyncStateScreenshots:
         (verified live: RetroArch's upload of this file 409'd because the
         naive last-dot split reported the game name as `test_rom.state`)."""
         assert (
-            cloud_sync_handler.game_name_from_file_name(
-                "states", "test_rom.state.png"
-            )
+            cloud_sync_handler.game_name_from_file_name("states", "test_rom.state.png")
             == "test_rom"
         )
         assert (
-            cloud_sync_handler.game_name_from_file_name(
-                "states", "test_rom.state3.png"
-            )
+            cloud_sync_handler.game_name_from_file_name("states", "test_rom.state3.png")
             == "test_rom"
         )
         assert (
@@ -569,7 +565,7 @@ class TestCloudSyncUpload:
         assert response.status_code == status.HTTP_201_CREATED
         mock_write_file.assert_awaited_once()
 
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert len(saves) == 1
         assert saves[0].file_name == "test_rom.srm"
         assert saves[0].emulator == "snes9x"
@@ -614,7 +610,7 @@ class TestCloudSyncUpload:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert len(saves) == 1
         assert saves[0].file_size_bytes == 7
 
@@ -650,7 +646,7 @@ class TestCloudSyncUpload:
 
         assert response.status_code == status.HTTP_201_CREATED
 
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_id=rom.id)
+        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
         assert len(states) == 1
         assert states[0].file_name == "test_rom.state.auto"
 
@@ -713,7 +709,7 @@ class TestCloudSyncDelete:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_remove_file.assert_awaited_once()
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id) == []
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
 
     @mock.patch(
         "endpoints.cloud_sync.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
@@ -734,7 +730,7 @@ class TestCloudSyncDelete:
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id) == []
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
 
     def test_delete_of_unknown_file_is_not_found(self, client, admin_user: User):
         response = client.request(
@@ -786,7 +782,7 @@ class TestCloudSyncPsp:
         )
         assert put_data.status_code == status.HTTP_201_CREATED
 
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert len(saves) == 1
         assert saves[0].file_name == "PSP-TEST12345DATA0.zip"
 
@@ -795,7 +791,10 @@ class TestCloudSyncPsp:
             auth=ADMIN_AUTH,
         )
         assert get_sfo.status_code == status.HTTP_200_OK
-        assert get_sfo.content == b"not real sfo bytes, resolved via PSP_SERIAL_MAP instead"
+        assert (
+            get_sfo.content
+            == b"not real sfo bytes, resolved via PSP_SERIAL_MAP instead"
+        )
 
         get_data = client.get(
             "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
@@ -858,7 +857,7 @@ class TestCloudSyncPsp:
             auth=ADMIN_AUTH,
         )
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id) == []
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
 
         get_response = client.get(
             "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
@@ -1019,12 +1018,13 @@ class TestCloudSyncWebdavBrowsing:
     def test_propfind_roms_lists_platforms_with_roms(
         self, client, admin_user: User, rom: Rom
     ):
-        response = client.request(
-            "PROPFIND", "/api/cloud-sync/roms/", auth=ADMIN_AUTH
-        )
+        response = client.request("PROPFIND", "/api/cloud-sync/roms/", auth=ADMIN_AUTH)
 
         assert response.status_code == 207
-        assert f"<D:href>/api/cloud-sync/roms/{rom.platform.fs_slug}/</D:href>" in response.text
+        assert (
+            f"<D:href>/api/cloud-sync/roms/{rom.platform.fs_slug}/</D:href>"
+            in response.text
+        )
 
     def test_propfind_platform_lists_rom_files(
         self, client, admin_user: User, rom: Rom
@@ -1036,7 +1036,10 @@ class TestCloudSyncWebdavBrowsing:
         )
 
         assert response.status_code == 207
-        assert f"<D:href>/api/cloud-sync/roms/{rom.platform.fs_slug}/{rom.fs_name}</D:href>" in response.text
+        assert (
+            f"<D:href>/api/cloud-sync/roms/{rom.platform.fs_slug}/{rom.fs_name}</D:href>"
+            in response.text
+        )
 
     def test_propfind_unknown_platform_is_not_found(self, client, admin_user: User):
         response = client.request(
@@ -1055,7 +1058,9 @@ class TestCloudSyncWebdavBrowsing:
         )
 
         assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
-        assert response.headers["location"] == f"/api/roms/{rom.id}/content/{rom.fs_name}"
+        assert (
+            response.headers["location"] == f"/api/roms/{rom.id}/content/{rom.fs_name}"
+        )
 
     def test_get_unknown_rom_file_is_not_found(
         self, client, admin_user: User, rom: Rom
@@ -1093,4 +1098,7 @@ class TestCloudSyncWebdavBrowsing:
         )
 
         assert response.status_code == 207
-        assert "<D:href>/api/cloud-sync/saves/Snes9x/test_rom.srm</D:href>" in response.text
+        assert (
+            "<D:href>/api/cloud-sync/saves/Snes9x/test_rom.srm</D:href>"
+            in response.text
+        )

@@ -4,7 +4,7 @@ import base64
 import json
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config import FRONTEND_RESOURCES_PATH
@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 
 class Collection(BaseModel):
     __tablename__ = "collections"
+
+    __table_args__ = (Index("ix_collections_updated_at", "updated_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
@@ -120,6 +122,8 @@ class VirtualCollectionRom(BaseModel):
 
     __tablename__ = "virtual_collection_roms"
 
+    __table_args__ = (Index("idx_virtual_collection_roms_rom_id", "rom_id"),)
+
     type: Mapped[str] = mapped_column(String(length=50), primary_key=True)
     name: Mapped[str] = mapped_column(String(length=400), primary_key=True)
     rom_id: Mapped[int] = mapped_column(
@@ -205,6 +209,8 @@ SMART_COLLECTION_MAX_COVERS = 5
 class SmartCollection(BaseModel):
     __tablename__ = "smart_collections"
 
+    __table_args__ = (Index("ix_smart_collections_updated_at", "updated_at"),)
+
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     name: Mapped[str] = mapped_column(String(length=400))
@@ -227,34 +233,6 @@ class SmartCollection(BaseModel):
     user: Mapped["User"] = relationship(
         lazy="joined", back_populates="smart_collections"
     )
-
-    def update_properties(self, user_id: int) -> "SmartCollection":
-        from handler.database import db_collection_handler
-
-        roms = db_collection_handler.get_smart_collection_roms(self, user_id)
-
-        roms_with_small_covers = [r for r in roms if r.path_cover_s][
-            :SMART_COLLECTION_MAX_COVERS
-        ]
-        roms_with_large_covers = [r for r in roms if r.path_cover_l][
-            :SMART_COLLECTION_MAX_COVERS
-        ]
-
-        return db_collection_handler.update_smart_collection(
-            self.id,
-            {
-                "rom_count": len(roms),
-                "rom_ids": [rom.id for rom in roms],
-                "path_covers_small": [
-                    f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
-                    for r in roms_with_small_covers
-                ],
-                "path_covers_large": [
-                    f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_l}?ts={self.updated_at}"
-                    for r in roms_with_large_covers
-                ],
-            },
-        )
 
     @property
     def owner_username(self) -> str:

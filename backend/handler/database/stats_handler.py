@@ -3,13 +3,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from sqlalchemy import distinct, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.selectable import Select
 
 from decorators.database import begin_session
 from endpoints.responses.stats import MetadataCoverageItem, RegionBreakdownItem
 from models.assets import Save, Screenshot, State
-from models.rom import METADATA_SOURCE_COLUMNS, Rom, RomFile
+from models.rom import METADATA_SOURCE_FACET_COLUMNS, Rom, RomFacets, RomFile
 
 from .base_handler import DBBaseHandler
 
@@ -18,12 +18,19 @@ def _exclude_hidden(
     query: Select,
     hidden_platform_ids: Sequence[int] | None,
     hidden_rom_ids: Sequence[int] | None,
+    *,
+    platform_id_col: InstrumentedAttribute = Rom.platform_id,
+    rom_id_col: InstrumentedAttribute = Rom.id,
 ) -> Select:
-    """Drop rows for platforms/roms hidden from the caller (admins pass None)."""
+    """Drop rows for platforms/roms hidden from the caller (admins pass None).
+
+    The platform/rom id columns are overridable so callers reading the narrow
+    `roms_facets` mirror can filter on its columns instead of `roms`.
+    """
     if hidden_platform_ids:
-        query = query.where(Rom.platform_id.not_in(hidden_platform_ids))
+        query = query.where(platform_id_col.not_in(hidden_platform_ids))
     if hidden_rom_ids:
-        query = query.where(Rom.id.not_in(hidden_rom_ids))
+        query = query.where(rom_id_col.not_in(hidden_rom_ids))
     return query
 
 
@@ -117,26 +124,32 @@ class DBStatsHandler(DBBaseHandler):
         hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> dict[int, list[MetadataCoverageItem]]:
-        """Get the count of ROMs matched per metadata source, grouped by platform."""
+        """Get the count of ROMs matched per metadata source, grouped by platform.
+
+        Aggregates the narrow `roms_facets` mirror instead of `roms`, whose rows
+        also carry the raw provider-metadata blobs.
+        """
         rows = session.execute(
             _exclude_hidden(
                 select(
-                    Rom.platform_id,
+                    RomFacets.platform_id,
                     *(
                         func.count(col).label(key)
-                        for key, col in METADATA_SOURCE_COLUMNS.items()
+                        for key, col in METADATA_SOURCE_FACET_COLUMNS.items()
                     ),
-                ).select_from(Rom),
+                ).select_from(RomFacets),
                 hidden_platform_ids,
                 hidden_rom_ids,
-            ).group_by(Rom.platform_id)
+                platform_id_col=RomFacets.platform_id,
+                rom_id_col=RomFacets.rom_id,
+            ).group_by(RomFacets.platform_id)
         ).all()
 
         result: dict[int, list[MetadataCoverageItem]] = {}
         for row in rows:
             result[row.platform_id] = [
                 MetadataCoverageItem(source=key, matched=getattr(row, key))
-                for key in METADATA_SOURCE_COLUMNS
+                for key in METADATA_SOURCE_FACET_COLUMNS
                 if getattr(row, key) > 0
             ]
 
@@ -149,12 +162,19 @@ class DBStatsHandler(DBBaseHandler):
         hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> dict[int, list[RegionBreakdownItem]]:
-        """Get the count of ROMs per region, grouped by platform."""
+        """Get the count of ROMs per region, grouped by platform.
+
+        Reads the narrow `roms_facets` mirror rather than scanning `roms`.
+        """
         rows = session.execute(
             _exclude_hidden(
-                select(Rom.platform_id, Rom.regions).where(Rom.regions.is_not(None)),
+                select(RomFacets.platform_id, RomFacets.regions).where(
+                    RomFacets.regions.is_not(None)
+                ),
                 hidden_platform_ids,
                 hidden_rom_ids,
+                platform_id_col=RomFacets.platform_id,
+                rom_id_col=RomFacets.rom_id,
             )
         ).all()
 

@@ -11,22 +11,28 @@
 //   * Upload goes through `romApi.uploadSoundtracks`
 //
 // The soundtrack player is reused from v1 for now.
-import { RBtn, RDropzone, RIcon } from "@v2/lib";
-import axios from "axios";
+import { RBtn, RDropzone, REmptyState, RIcon } from "@v2/lib";
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSoundtrack } from "@/v2/composables/useRomSoundtrack";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
 
 const ManualSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ManualSubtab.vue"),
 );
+const WalkthroughSubtab = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/WalkthroughSubtab.vue"),
+);
 const SoundtrackPanel = defineAsyncComponent(
-  () => import("@/v2/components/GameDetails/SoundtrackPanel.vue"),
+  () => import("@/v2/components/Soundtrack/Panel.vue"),
 );
 const ScreenshotsSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ScreenshotsSubtab.vue"),
@@ -35,27 +41,29 @@ const ArtworkSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ArtworkSubtab.vue"),
 );
 
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : String(err);
-}
-
 const props = defineProps<{ rom: DetailedRom }>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const romsStore = storeRoms();
+const soundtrackActions = useSoundtrackActions();
+const {
+  tracks: soundtrackTracks,
+  loading: soundtrackLoading,
+  fallbackArtUrl: soundtrackArtUrl,
+} = useRomSoundtrack(() => props.rom);
+const { refetchRom } = useRomSync();
 const uploadStore = storeUpload();
 const { t } = useI18n();
+
+// Soundtrack upload / delete both gate on the ROM write grant, so read-only
+// users get the player without any upload or delete affordance.
+const canEdit = useCan("rom.edit");
 
 // ---------- Subtab state ----------
 // Mirrored to `?subtab=` so the SoundtrackMiniPlayer can detect when the full
 // player is visible here and hide itself to avoid duplication.
 const validSubtabs = [
   "manual",
+  "walkthrough",
   "screenshots",
   "artwork",
   "soundtrack",
@@ -128,6 +136,11 @@ const subtabDefs = computed<SubtabDef[]>(() => [
     icon: "mdi-book-open-page-variant-outline",
   },
   {
+    id: "walkthrough",
+    label: t("rom.walkthrough"),
+    icon: "mdi-map-legend",
+  },
+  {
     id: "screenshots",
     label: t("rom.screenshots"),
     icon: "mdi-image-multiple-outline",
@@ -151,13 +164,7 @@ const subtabDefs = computed<SubtabDef[]>(() => [
 const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
 
 async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    romsStore.update(data);
-  } catch (error) {
-    console.error(error);
-  }
+  await refetchRom(props.rom.id);
 }
 
 // ---------- File handlers (shared by file input + drag-and-drop) ----------
@@ -196,30 +203,11 @@ async function handleSoundtrackFiles(files: File[]) {
 }
 
 async function deleteSoundtrack(fileId: number) {
-  // Mirrors the saves/states pattern in SaveDataTab — every destructive
-  // per-row action confirms before hitting the API.
   const track = (props.rom.files ?? []).find((f) => f.id === fileId);
-  const name = track?.file_name ?? "";
-  const ok = await confirm({
-    title: t("rom.delete-track-title"),
-    body: name
-      ? t("rom.delete-track-body-named", { name })
-      : t("rom.delete-track-body"),
-    confirmText: t("rom.soundtrack-delete-track"),
-    tone: "danger",
-  });
-  if (!ok) return;
-  try {
-    await romApi.removeSoundtrack({ romId: props.rom.id, fileId });
+  if (
+    await soundtrackActions.deleteTrack(props.rom.id, fileId, track?.file_name)
+  ) {
     await refreshRom();
-    snackbar.success(t("rom.soundtrack-removed"), { icon: "mdi-check-bold" });
-  } catch (error: unknown) {
-    snackbar.error(
-      t("rom.soundtrack-remove-failed", { error: errorMessage(error) }),
-      {
-        icon: "mdi-close-circle",
-      },
-    );
   }
 }
 </script>
@@ -268,6 +256,12 @@ async function deleteSoundtrack(fileId: number) {
         <ManualSubtab :rom="rom" />
       </section>
 
+      <!-- Walkthrough subtab: uploaded or GameFAQs-fetched documents, with
+           per-user reading progress. -->
+      <section v-show="subTab === 'walkthrough'" class="r-v2-media__panel">
+        <WalkthroughSubtab :rom="rom" />
+      </section>
+
       <!-- Screenshots subtab — its own component (ROM / Mine / Community
            sections, per-user public/private). -->
       <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
@@ -282,8 +276,13 @@ async function deleteSoundtrack(fileId: number) {
 
       <!-- Soundtrack subtab -->
       <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
+        <REmptyState
+          v-if="!rom.has_soundtrack && !canEdit"
+          :title="t('rom.soundtrack-empty')"
+        />
+
         <RDropzone
-          v-if="!rom.has_soundtrack"
+          v-else-if="!rom.has_soundtrack"
           :title="t('rom.soundtrack-empty')"
           :hint="t('common.dropzone-hint')"
           :active-title="t('common.dropzone-drag-over')"
@@ -297,6 +296,7 @@ async function deleteSoundtrack(fileId: number) {
           v-else
           ref="soundtrackDz"
           overlay
+          :disabled="!canEdit"
           class="r-v2-media__fill"
           :release-label="t('common.dropzone-drag-over')"
           :input-label="t('rom.upload-soundtrack')"
@@ -305,14 +305,17 @@ async function deleteSoundtrack(fileId: number) {
           @files="handleSoundtrackFiles"
         >
           <SoundtrackPanel
-            :rom="rom"
+            :tracks="soundtrackTracks"
+            :playlist-key="rom.id"
+            :loading="soundtrackLoading"
+            :fallback-art-url="soundtrackArtUrl"
+            :deletable="canEdit"
             class="r-v2-media__soundtrack"
-            @upload-tracks="soundtrackDz?.open()"
             @delete-track="deleteSoundtrack"
           />
         </RDropzone>
 
-        <div v-if="rom.has_soundtrack">
+        <div v-if="rom.has_soundtrack && canEdit">
           <div class="r-v2-media__section-actions">
             <RBtn
               block
@@ -434,6 +437,13 @@ async function deleteSoundtrack(fileId: number) {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Mobile has no fixed-height chain to fill (GameDetails scrolls as one
+   document there), so a zero flex-basis would collapse the player. */
+html[data-bp~="sm-and-down"] .r-v2-media__fill {
+  flex: none;
+  height: auto;
 }
 
 html[data-bp~="xs"] .r-v2-media {

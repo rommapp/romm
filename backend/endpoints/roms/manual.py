@@ -13,6 +13,7 @@ from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.resources_handler import ALLOWED_MANUAL_EXTENSIONS
@@ -56,6 +57,8 @@ async def add_rom_manuals(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
 
     if not _is_allowed_manual_file(filename):
         raise HTTPException(
@@ -117,10 +120,13 @@ async def add_rom_manuals(
             detail="There was an error uploading the manual",
         ) from exc
 
+    # An uploaded manual and a scraped one share this path, so only the lock
+    # tells them apart.
     db_rom_handler.update_rom(
         id,
         {
             "path_manual": f"{manuals_path}/{rom.id}{ext}",
+            "locked_fields": rom.locked_fields_with("url_manual"),
         },
     )
 
@@ -146,6 +152,8 @@ async def redownload_rom_manual(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    assert_rom_visible(request, rom)
+
     if not rom.url_manual:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -158,7 +166,14 @@ async def redownload_rom_manual(
             overwrite=True,
             url_manual=str(rom.url_manual),
         )
-        db_rom_handler.update_rom(id, {"path_manual": path_manual})
+        # Asking for the provider's manual back is a handover.
+        db_rom_handler.update_rom(
+            id,
+            {
+                "path_manual": path_manual,
+                "locked_fields": rom.locked_fields_without("url_manual"),
+            },
+        )
         log.info(
             f"Re-downloaded manual for {hl(rom.name or 'ROM', color=BLUE)} "
             f"[{hl(rom.fs_name)}]"
@@ -199,6 +214,8 @@ async def add_rom_manual_file(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
 
     if rom.has_simple_single_file:
         try:
@@ -307,6 +324,8 @@ async def delete_rom_manual_file(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    assert_rom_visible(request, rom)
+
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (
         not rom_file
@@ -360,21 +379,23 @@ async def delete_rom_manuals(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    assert_rom_visible(request, rom)
+
     if not fs_resource_handler.manual_exists(rom):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No manual found for this ROM",
         )
 
+    cleared = {
+        "path_manual": "",
+        "url_manual": "",
+        "locked_fields": rom.locked_fields_without("url_manual"),
+    }
+
     try:
         await fs_resource_handler.remove_manual(rom)
-        db_rom_handler.update_rom(
-            id,
-            {
-                "path_manual": "",
-                "url_manual": "",
-            },
-        )
+        db_rom_handler.update_rom(id, cleared)
 
         log.info(
             f"Deleted manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
@@ -384,13 +405,7 @@ async def delete_rom_manuals(
             f"Manual file not found for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
         )
         # Still update the database even if file doesn't exist
-        db_rom_handler.update_rom(
-            id,
-            {
-                "path_manual": "",
-                "url_manual": "",
-            },
-        )
+        db_rom_handler.update_rom(id, cleared)
     except Exception as exc:
         log.error(
             f"Error deleting manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]",

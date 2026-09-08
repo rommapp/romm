@@ -2,12 +2,14 @@ from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, field_validator
 
 from config.config_manager import (
-    DEFAULT_EXCLUDED_DIRS,
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
+    DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
+    DEFAULT_EXCLUDED_PLATFORM_DIRS,
     VALID_GAMELIST_IMAGE_TYPES,
     VALID_GAMELIST_THUMBNAIL_TYPES,
     VALID_SCAN_PRIORITY_SOURCES,
+    ExclusionType,
     MetadataMediaType,
 )
 from config.config_manager import config_manager as cm
@@ -15,6 +17,7 @@ from decorators.auth import protected_route
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
 from handler.auth.constants import Scope
+from handler.database import db_rom_handler
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -31,7 +34,17 @@ class PlatformBindingPayload(BaseModel):
 
 class ExclusionPayload(BaseModel):
     exclusion_value: str
+    # Left a string rather than the enum to keep the generated frontend type one.
     exclusion_type: str
+
+    @field_validator("exclusion_type")
+    @classmethod
+    def validate_exclusion_type(cls, value: str) -> str:
+        if value not in ExclusionType:
+            raise ValueError(
+                f"Unknown exclusion type, expected one of {[t.value for t in ExclusionType]}"
+            )
+        return value
 
 
 class ScanSettingsPayload(BaseModel):
@@ -123,7 +136,8 @@ def get_config(request: Request) -> ConfigResponse:
         EXCLUDED_MULTI_FILES=cfg.EXCLUDED_MULTI_FILES,
         EXCLUDED_MULTI_PARTS_EXT=cfg.EXCLUDED_MULTI_PARTS_EXT,
         EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
-        DEFAULT_EXCLUDED_DIRS=list(DEFAULT_EXCLUDED_DIRS),
+        DEFAULT_EXCLUDED_PLATFORM_DIRS=list(DEFAULT_EXCLUDED_PLATFORM_DIRS),
+        DEFAULT_EXCLUDED_MULTI_FILE_DIRS=list(DEFAULT_EXCLUDED_MULTI_FILE_DIRS),
         DEFAULT_EXCLUDED_FILES=list(DEFAULT_EXCLUDED_FILES),
         DEFAULT_EXCLUDED_EXTENSIONS=list(DEFAULT_EXCLUDED_EXTENSIONS),
         PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
@@ -133,6 +147,7 @@ def get_config(request: Request) -> ConfigResponse:
         EJS_CACHE_LIMIT=cfg.EJS_CACHE_LIMIT,
         EJS_DISABLE_AUTO_UNLOAD=cfg.EJS_DISABLE_AUTO_UNLOAD,
         EJS_DISABLE_BATCH_BOOTUP=cfg.EJS_DISABLE_BATCH_BOOTUP,
+        EJS_ENABLE_AUTO_SAVE_SYNC=cfg.EJS_ENABLE_AUTO_SAVE_SYNC,
         EJS_NETPLAY_ENABLED=cfg.EJS_NETPLAY_ENABLED,
         # Contains credentials, so only send when authenticated
         EJS_NETPLAY_ICE_SERVERS=(
@@ -220,7 +235,7 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     """Add platform exclusion to the configuration"""
 
     exclusion_value = payload.exclusion_value
-    exclusion_type = payload.exclusion_type
+    exclusion_type = ExclusionType(payload.exclusion_type)
     try:
         cm.add_exclusion(exclusion_type, exclusion_value)
     except ConfigNotWritableException as exc:
@@ -236,7 +251,7 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     [Scope.PLATFORMS_WRITE],
 )
 async def delete_exclusion(
-    request: Request, exclusion_type: str, exclusion_value: str
+    request: Request, exclusion_type: ExclusionType, exclusion_value: str
 ) -> None:
     """Delete platform binding from the configuration"""
 
@@ -252,6 +267,10 @@ async def delete_exclusion(
 @protected_route(router.put, "/scan", [Scope.PLATFORMS_WRITE])
 async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -> None:
     """Replace the scan.* section of the configuration"""
+
+    region_priority_changed = (
+        cm.get_config().SCAN_REGION_PRIORITY != payload.region_priority
+    )
 
     try:
         cm.update_scan_settings(
@@ -275,3 +294,8 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+
+    # Region priority picks the primary rom of each sibling group, so every
+    # cached gallery sidecar is stale the moment the order changes.
+    if region_priority_changed:
+        db_rom_handler.invalidate_filter_values_cache()

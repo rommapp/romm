@@ -15,7 +15,8 @@ export type ConfigResponse = {
     EXCLUDED_MULTI_FILES: Array<string>;
     EXCLUDED_MULTI_PARTS_EXT: Array<string>;
     EXCLUDED_MULTI_PARTS_FILES: Array<string>;
-    DEFAULT_EXCLUDED_DIRS: Array<string>;
+    DEFAULT_EXCLUDED_PLATFORM_DIRS: Array<string>;
+    DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Array<string>;
     DEFAULT_EXCLUDED_FILES: Array<string>;
     DEFAULT_EXCLUDED_EXTENSIONS: Array<string>;
     PLATFORMS_BINDING: Record<string, string>;
@@ -25,6 +26,7 @@ export type ConfigResponse = {
     EJS_CACHE_LIMIT: (number | null);
     EJS_DISABLE_AUTO_UNLOAD: boolean;
     EJS_DISABLE_BATCH_BOOTUP: boolean;
+    EJS_ENABLE_AUTO_SAVE_SYNC: boolean;
     EJS_NETPLAY_ENABLED: boolean;
     EJS_NETPLAY_ICE_SERVERS: Array<NetplayICEServer>;
     EJS_SETTINGS: Record<string, Record<string, string>>;

@@ -95,7 +95,11 @@ def is_state_screenshot_path(file_name: str) -> bool:
 def game_name_from_file_name(kind: AssetKind, file_name: str) -> str:
     """The ROM file name (minus extension) an asset file belongs to."""
     if kind == "states":
-        base = file_name[: -len(".png")] if is_state_screenshot_path(file_name) else file_name
+        base = (
+            file_name[: -len(".png")]
+            if is_state_screenshot_path(file_name)
+            else file_name
+        )
         stripped = STATE_SUFFIX_PATTERN.sub("", base)
         if stripped != base:
             return stripped
@@ -187,7 +191,7 @@ def resolve_state_by_slot(
     canonical name rather than trusting any single row's own file name to
     match it exactly (it usually won't, for a web-player-created state)."""
     slot_suffix = state_slot_suffix(requested_file_name)
-    states = db_state_handler.get_states(user_id=user.id, rom_id=rom.id)
+    states = db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
     return latest_state_for_slot(states, rom.id, emulator, slot_suffix)
 
 

@@ -41,6 +41,8 @@ class ActionKey(enum.StrEnum):
     COLLECTION_CREATE = "collection.create"
     COLLECTION_EDIT = "collection.edit"
     COLLECTION_DELETE = "collection.delete"
+    # Playlists
+    PLAYLIST_EDIT = "playlist.edit"
     # Library
     LIBRARY_SCAN = "library.scan"
     # Users
@@ -83,6 +85,7 @@ _ENTITY_ACTION_KEYS: dict[tuple[PermEntity, PermAction], tuple[ActionKey, ...]] 
         ActionKey.COLLECTION_EDIT,
     ),
     (PermEntity.COLLECTIONS, PermAction.DELETE): (ActionKey.COLLECTION_DELETE,),
+    (PermEntity.PLAYLISTS, PermAction.WRITE): (ActionKey.PLAYLIST_EDIT,),
     (PermEntity.USERS, PermAction.READ): (ActionKey.USER_VIEW,),
     (PermEntity.USERS, PermAction.WRITE): (
         ActionKey.USER_CREATE,

@@ -96,7 +96,6 @@ setBgArt(null);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   padding: 18px;
 }
 
@@ -105,7 +104,6 @@ setBgArt(null);
   border: 0;
   border-radius: 0;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   padding: 0;
   gap: 14px;
 }

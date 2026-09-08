@@ -8,6 +8,7 @@ export type RomHasheousMetadata = {
     mame_mess_match?: boolean;
     nointro_match?: boolean;
     redump_match?: boolean;
+    mame_redump_match?: boolean;
     whdload_match?: boolean;
     ra_match?: boolean;
     fbneo_match?: boolean;

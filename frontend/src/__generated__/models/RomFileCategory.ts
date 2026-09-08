@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type RomFileCategory = 'game' | 'dlc' | 'hack' | 'manual' | 'patch' | 'update' | 'mod' | 'demo' | 'translation' | 'prototype' | 'cheat' | 'soundtrack' | 'screenshot';
+export type RomFileCategory = 'game' | 'dlc' | 'hack' | 'manual' | 'walkthrough' | 'patch' | 'update' | 'mod' | 'demo' | 'translation' | 'prototype' | 'cheat' | 'soundtrack' | 'screenshot';

@@ -23,8 +23,8 @@ import type { UserNoteSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
-import storeRoms from "@/stores/roms";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
@@ -37,7 +37,7 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const authStore = storeAuth();
-const romsStore = storeRoms();
+const { refetchRom } = useRomSync();
 const route = useRoute();
 const router = useRouter();
 const { isLight: isLightTheme } = useThemeMode();
@@ -183,8 +183,7 @@ const canSave = computed(() => {
 });
 
 async function refreshRom() {
-  const { data } = await romApi.getRom({ romId: props.rom.id });
-  romsStore.setCurrentRom(data);
+  await refetchRom(props.rom.id);
 }
 
 function startAdd() {

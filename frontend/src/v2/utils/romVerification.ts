@@ -9,15 +9,16 @@ import type { SimpleRom } from "@/stores/roms";
 
 // Each database this ROM's hash can be checked against, with the Hasheous
 // match flag(s) that count as a hit. MAME reports Arcade and MESS
-// separately; either one means the ROM matched MAME. Order is the display
-// order for the Metadata tab chips.
+// separately; either one means the ROM matched MAME. Redump likewise
+// reports disc images and their CHD conversions separately. Order is the
+// display order for the Metadata tab chips.
 export const VERIFICATION_DATABASES: {
   label: string;
   keys: (keyof RomHasheousMetadata)[];
 }[] = [
   { label: "TOSEC", keys: ["tosec_match"] },
   { label: "No-Intro", keys: ["nointro_match"] },
-  { label: "Redump", keys: ["redump_match"] },
+  { label: "Redump", keys: ["redump_match", "mame_redump_match"] },
   { label: "MAME", keys: ["mame_arcade_match", "mame_mess_match"] },
   { label: "FBNeo", keys: ["fbneo_match"] },
   { label: "WHDLoad", keys: ["whdload_match"] },

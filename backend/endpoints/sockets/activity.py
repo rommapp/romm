@@ -16,20 +16,12 @@ All events broadcast to every connected client on the main `/ws` namespace.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, TypedDict
 
-from endpoints.responses.activity import ActivityClearSchema
-from handler.activity_handler import ActivityEntry, activity_handler
-from handler.database import (
-    db_device_handler,
-    db_rom_handler,
-    db_save_handler,
-    db_user_handler,
-)
+from handler.activity_handler import activity_handler
+from handler.database import db_user_handler
 from handler.socket_handler import socket_handler
 from logger.logger import log
-from utils.screenshots import continue_playing_screenshot
 
 if TYPE_CHECKING:
     from models.user import User
@@ -88,54 +80,6 @@ async def _store_session(sid: str, user_id: int, device_id: str) -> None:
     await socket_handler.socket_server.save_session(sid, existing)
 
 
-async def _build_entry(
-    *, user_id: int, device_id: str, rom_id: int, preserve_started_at: bool
-) -> ActivityEntry | None:
-    """Look up DB info and assemble an ActivityEntry. Returns None if invalid."""
-    user = db_user_handler.get_user(user_id)
-    if user is None:
-        log.debug(f"activity: unknown user_id {user_id}")
-        return None
-
-    rom = db_rom_handler.get_rom(rom_id)
-    if rom is None:
-        log.debug(f"activity: unknown rom_id {rom_id}")
-        return None
-
-    platform = rom.platform
-    started_at = datetime.now(timezone.utc).isoformat()
-
-    if preserve_started_at:
-        existing = await activity_handler.get_active(user_id, device_id)
-        if existing:
-            started_at = existing["started_at"]
-
-    device = db_device_handler.get_device(device_id=device_id, user_id=user_id)
-    device_type = device.client if device else None
-
-    # "Where they are" image — the player's latest save screenshot, else the
-    # title screen / first gameplay screenshot (frontend falls back to cover).
-    latest_save = db_save_handler.get_latest_saves_for_roms(
-        user_id=user_id, rom_ids=[rom_id]
-    ).get(rom_id)
-    screenshot_path = continue_playing_screenshot(rom, latest_save) or ""
-
-    return ActivityEntry(
-        user_id=user.id,
-        username=user.username,
-        avatar_path=user.avatar_path or "",
-        rom_id=rom.id,
-        rom_name=rom.name or rom.fs_name,
-        rom_cover_path=rom.path_cover_s or "",
-        screenshot_path=screenshot_path,
-        platform_slug=platform.slug if platform else "",
-        platform_name=((platform.custom_name or platform.name) if platform else ""),
-        device_id=device_id,
-        device_type=device_type or "web",
-        started_at=started_at,
-    )
-
-
 def _extract_payload(data: object) -> tuple[str | None, int | None]:
     """Return ``(device_id, rom_id)`` parsed from an event payload.
 
@@ -163,7 +107,7 @@ async def activity_start(sid: str, data: ActivityEventPayload) -> None:
         log.debug(f"activity:start ignored (unauthenticated or invalid): {data}")
         return
 
-    entry = await _build_entry(
+    entry = await activity_handler.build_entry(
         user_id=user_id,
         device_id=device_id,
         rom_id=rom_id,
@@ -172,9 +116,8 @@ async def activity_start(sid: str, data: ActivityEventPayload) -> None:
     if entry is None:
         return
 
-    await activity_handler.set_active(entry)
     await _store_session(sid, user_id, device_id)
-    await socket_handler.socket_server.emit("activity:update", dict(entry))
+    await activity_handler.publish_active(entry)
 
 
 @socket_handler.socket_server.on("activity:heartbeat")  # type: ignore
@@ -184,7 +127,7 @@ async def activity_heartbeat(sid: str, data: ActivityEventPayload) -> None:
     if user_id is None or device_id is None or rom_id is None:
         return
 
-    entry = await _build_entry(
+    entry = await activity_handler.build_entry(
         user_id=user_id,
         device_id=device_id,
         rom_id=rom_id,
@@ -193,9 +136,8 @@ async def activity_heartbeat(sid: str, data: ActivityEventPayload) -> None:
     if entry is None:
         return
 
-    await activity_handler.set_active(entry)
     await _store_session(sid, user_id, device_id)
-    await socket_handler.socket_server.emit("activity:update", dict(entry))
+    await activity_handler.publish_active(entry)
 
 
 @socket_handler.socket_server.on("activity:stop")  # type: ignore
@@ -213,16 +155,7 @@ async def activity_stop(sid: str, data: ActivityEventPayload | None = None) -> N
     if user_id is None or not device_id:
         return
 
-    rom_id = await activity_handler.clear_active(int(user_id), device_id)
-    if rom_id is None:
-        return
-
-    await socket_handler.socket_server.emit(
-        "activity:clear",
-        ActivityClearSchema(
-            user_id=int(user_id), device_id=device_id, rom_id=rom_id
-        ).model_dump(),
-    )
+    await activity_handler.publish_clear(int(user_id), device_id)
 
 
 @socket_handler.socket_server.on("disconnect")  # type: ignore
@@ -234,13 +167,4 @@ async def activity_on_disconnect(sid: str) -> None:
     if user_id is None or not device_id:
         return
 
-    rom_id = await activity_handler.clear_active(int(user_id), device_id)
-    if rom_id is None:
-        return
-
-    await socket_handler.socket_server.emit(
-        "activity:clear",
-        ActivityClearSchema(
-            user_id=int(user_id), device_id=device_id, rom_id=rom_id
-        ).model_dump(),
-    )
+    await activity_handler.publish_clear(int(user_id), device_id)

@@ -54,6 +54,7 @@ export type Events = {
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];
   showUploadRomDialog: Platform | null;
+  showAddPhysicalGameDialog: Platform | null;
   showDeleteFirmwareDialog: FirmwareSchema[];
   addFirmwareDialog: null;
   showAddPlatformDialog: null;

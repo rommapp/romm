@@ -3,6 +3,7 @@
 // for the auth flows (Login / Register / ResetPassword / Setup). Bottom
 // corners hold the LanguageSelector (left) and VersionTag (right).
 import { onMounted } from "vue";
+import NotificationHost from "@/v2/components/Notifications/NotificationHost.vue";
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
 import VersionTag from "@/v2/components/shared/VersionTag.vue";
 import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
@@ -32,6 +33,7 @@ onMounted(installInputModality);
       </div>
       <VersionTag class="r-v2-auth__version" />
     </div>
+    <NotificationHost />
   </div>
 </template>
 

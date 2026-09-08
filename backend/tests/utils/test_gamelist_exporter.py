@@ -1,11 +1,19 @@
+from dataclasses import dataclass
 from os.path import isabs
+from pathlib import Path
 from xml.etree.ElementTree import fromstring
 
 import pytest
 
 from config import FRONTEND_RESOURCES_PATH
+from config.config_manager import PLATFORM_MEDIA_DIRS
 from handler.database import db_platform_handler, db_rom_handler
-from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.filesystem import (
+    fs_platform_handler,
+    fs_resource_handler,
+    fs_rom_handler,
+)
+from handler.metadata.gamelist_handler import GamelistHandler
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -128,6 +136,31 @@ def test_export_gamelist_xml_basic(platform_with_roms):
     assert players.text == "2"
 
 
+def test_export_gamelist_prefers_explicit_publisher_developer(platform_with_roms):
+    platform, roms = platform_with_roms
+    # The companies order would map developer=Nintendo / publisher=Nintendo EAD;
+    # the explicit split fields (deliberately reversed) must take precedence.
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "igdb_metadata": {
+                "companies": ["Nintendo", "Nintendo EAD"],
+                "publishers": ["Nintendo"],
+                "developers": ["Nintendo EAD"],
+            }
+        },
+    )
+
+    xml_str = GamelistExporter(local_export=True).export_platform_to_xml(
+        platform.id, request=None
+    )
+    game = fromstring(xml_str).findall("game")[0]
+    developer = game.find("developer")
+    publisher = game.find("publisher")
+    assert developer is not None and developer.text == "Nintendo EAD"
+    assert publisher is not None and publisher.text == "Nintendo"
+
+
 def test_export_gamelist_xml_rating(platform_with_roms):
     platform, _ = platform_with_roms
     exporter = GamelistExporter(local_export=True)
@@ -203,6 +236,30 @@ def test_export_gamelist_xml_skips_missing_roms(admin_user: User):
     assert len(root.findall("game")) == 0
 
 
+def test_export_gamelist_xml_skips_physical_roms(admin_user: User):
+    platform = Platform(name="NES", slug="nes", fs_slug="nes")
+    platform = db_platform_handler.add_platform(platform)
+
+    rom = Rom(
+        platform_id=platform.id,
+        name="Boxed Copy",
+        slug="boxed-copy",
+        fs_name="Boxed Copy",
+        fs_name_no_tags="Boxed Copy",
+        fs_name_no_ext="Boxed Copy",
+        fs_extension="",
+        fs_path="nes/roms/.physical",
+        is_physical=True,
+    )
+    db_rom_handler.add_rom(rom)
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    root = fromstring(xml_str)
+
+    assert len(root.findall("game")) == 0
+
+
 def test_export_gamelist_xml_invalid_platform():
     exporter = GamelistExporter(local_export=True)
 
@@ -268,14 +325,60 @@ def test_export_gamelist_xml_local_ss_metadata_media_relative(platform_with_roms
         "marquee",
         "miximage",
         "physicalmedia",
+        "cartridge",
         "title_screen",
+        "titleshot",
         "bezel",
+        "mix",
     ]
     for tag in media_tags:
         elem = game.find(tag)
         assert elem is not None and elem.text is not None
 
         assert not isabs(elem.text)
+
+
+def test_export_gamelist_xml_miximage_variants_use_distinct_tags(platform_with_roms):
+    """Both miximage variants must reach the XML under their own tag."""
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "ss_metadata": {
+                "miximage_path": "snes-ss/miximage/test.png",
+                "miximage_v2_path": "snes-ss/miximage_v2/test.png",
+            }
+        },
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    game = fromstring(xml_str).findall("game")[0]
+
+    miximages = game.findall("miximage")
+    miximages_v2 = game.findall("miximage_v2")
+    assert len(miximages) == 1
+    assert len(miximages_v2) == 1
+    assert miximages[0].text != miximages_v2[0].text
+
+
+def test_export_gamelist_xml_gamelist_backcover_fallback(platform_with_roms):
+    """A back cover discovered by the gamelist handler must reach <boxback>."""
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {"gamelist_metadata": {"box2d_back_path": "snes-gl/box2d_back/test.png"}},
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    game = fromstring(xml_str).findall("game")[0]
+
+    boxback = game.find("boxback")
+    assert boxback is not None
+    assert boxback.text == "./backcovers/Super Mario World (USA).png"
 
 
 def test_export_gamelist_xml_local_no_absolute_paths_anywhere(platform_with_roms):
@@ -305,6 +408,23 @@ def test_export_gamelist_xml_rejects_path_traversal(platform_with_roms):
         exporter.export_platform_to_xml(platform.id, request=None)
 
 
+@dataclass
+class IsolatedFilesystem:
+    resources_base: Path
+    library_base: Path
+
+    def write_resource(self, rel: str, content: bytes = b"X") -> Path:
+        src = self.resources_base / rel
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(content)
+        return src
+
+    def platform_dir(self, platform: Platform) -> Path:
+        return self.library_base / fs_platform_handler.get_platform_fs_structure(
+            platform.fs_slug
+        )
+
+
 @pytest.fixture
 def isolated_filesystem(tmp_path, monkeypatch):
     """Redirect resource and library base paths to a temp directory so that
@@ -314,15 +434,14 @@ def isolated_filesystem(tmp_path, monkeypatch):
     library_base = tmp_path / "library"
     monkeypatch.setattr(fs_resource_handler, "base_path", resources_base)
     monkeypatch.setattr(fs_platform_handler, "base_path", library_base)
-    return resources_base, library_base
+    return IsolatedFilesystem(resources_base, library_base)
 
 
 async def test_export_platform_to_file_copies_assets(
     platform_with_roms, isolated_filesystem
 ):
-    """export_platform_to_file copies each media file into <platform>/assets/<subdir>/
+    """export_platform_to_file copies each media file into <platform>/<media dir>/
     and writes gamelist.xml referencing those relative paths."""
-    resources_base, library_base = isolated_filesystem
     platform, _ = platform_with_roms
 
     sources = {
@@ -332,22 +451,18 @@ async def test_export_platform_to_file_copies_assets(
         "snes/videos/super-mario-world.mp4": b"video-bytes",
     }
     for rel, content in sources.items():
-        src = resources_base / rel
-        src.parent.mkdir(parents=True, exist_ok=True)
-        src.write_bytes(content)
+        isolated_filesystem.write_resource(rel, content)
 
     exporter = GamelistExporter(local_export=True)
     assert await exporter.export_platform_to_file(platform.id, request=None) is True
 
-    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
-    )
+    platform_dir = isolated_filesystem.platform_dir(platform)
 
     expected_assets = {
-        "assets/covers/Super Mario World (USA).jpg": b"cover-bytes",
-        "assets/screenshots/Super Mario World (USA).jpg": b"shot-bytes",
-        "assets/manuals/Super Mario World (USA).pdf": b"manual-bytes",
-        "assets/videos/Super Mario World (USA).mp4": b"video-bytes",
+        "covers/Super Mario World (USA).jpg": b"cover-bytes",
+        "screenshots/Super Mario World (USA).jpg": b"shot-bytes",
+        "manuals/Super Mario World (USA).pdf": b"manual-bytes",
+        "videos/Super Mario World (USA).mp4": b"video-bytes",
     }
     for rel, content in expected_assets.items():
         dest = platform_dir / rel
@@ -359,14 +474,61 @@ async def test_export_platform_to_file_copies_assets(
     game = fromstring(gamelist.read_text()).findall("game")[0]
 
     expected_refs = {
-        "thumbnail": "./assets/covers/Super Mario World (USA).jpg",
-        "screenshot": "./assets/screenshots/Super Mario World (USA).jpg",
-        "video": "./assets/videos/Super Mario World (USA).mp4",
-        "manual": "./assets/manuals/Super Mario World (USA).pdf",
+        "thumbnail": "./covers/Super Mario World (USA).jpg",
+        "screenshot": "./screenshots/Super Mario World (USA).jpg",
+        "video": "./videos/Super Mario World (USA).mp4",
+        "manual": "./manuals/Super Mario World (USA).pdf",
     }
     for tag, expected in expected_refs.items():
         elem = game.find(tag)
         assert elem is not None and elem.text == expected
+
+    written_dirs = [p.name for p in platform_dir.iterdir() if p.is_dir()]
+    assert written_dirs
+    assert fs_rom_handler.exclude_multi_roms(written_dirs) == []
+
+
+async def test_export_platform_to_file_keeps_miximage_variants_separate(
+    platform_with_roms, isolated_filesystem
+):
+    """The two miximage variants share a file extension, so they must land in
+    separate asset directories instead of overwriting each other."""
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "ss_metadata": {
+                "miximage_path": "snes-ss/miximage/test.png",
+                "miximage_v2_path": "snes-ss/miximage_v2/test.png",
+            }
+        },
+    )
+
+    sources = {
+        "snes-ss/miximage/test.png": b"mix-v1-bytes",
+        "snes-ss/miximage_v2/test.png": b"mix-v2-bytes",
+    }
+    for rel, content in sources.items():
+        isolated_filesystem.write_resource(rel, content)
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    platform_dir = isolated_filesystem.platform_dir(platform)
+
+    v1 = platform_dir / "miximages/Super Mario World (USA).png"
+    v2 = platform_dir / "miximages_v2/Super Mario World (USA).png"
+    assert v1.read_bytes() == b"mix-v1-bytes"
+    assert v2.read_bytes() == b"mix-v2-bytes"
+
+    game = fromstring((platform_dir / "gamelist.xml").read_text()).findall("game")[0]
+    miximage = game.find("miximage")
+    miximage_v2 = game.find("miximage_v2")
+    assert miximage is not None
+    assert miximage_v2 is not None
+    assert miximage.text == "./miximages/Super Mario World (USA).png"
+    assert miximage_v2.text == "./miximages_v2/Super Mario World (USA).png"
 
 
 async def test_export_platform_to_file_omits_tags_when_copy_fails(
@@ -375,7 +537,6 @@ async def test_export_platform_to_file_omits_tags_when_copy_fails(
     """When a source resource is missing, _copy_asset returns False; the
     corresponding tag must be omitted from gamelist.xml and no asset file
     must be written for it. Other assets still export normally."""
-    resources_base, library_base = isolated_filesystem
     platform, _ = platform_with_roms
 
     # Provide cover and screenshot, deliberately omit manual + video sources.
@@ -383,31 +544,490 @@ async def test_export_platform_to_file_omits_tags_when_copy_fails(
         "snes/covers/super-mario-world.jpg",
         "snes/screenshots/super-mario-world-1.jpg",
     ):
-        src = resources_base / rel
-        src.parent.mkdir(parents=True, exist_ok=True)
-        src.write_bytes(b"X")
+        isolated_filesystem.write_resource(rel)
 
     exporter = GamelistExporter(local_export=True)
     assert await exporter.export_platform_to_file(platform.id, request=None) is True
 
-    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
-    )
+    platform_dir = isolated_filesystem.platform_dir(platform)
 
     # Successful copies present
-    assert (platform_dir / "assets/covers/Super Mario World (USA).jpg").is_file()
-    assert (platform_dir / "assets/screenshots/Super Mario World (USA).jpg").is_file()
-    # Failed copies don't produce destination files (an empty subdir may be
-    # left behind because _copy_asset mkdirs before opening the source).
-    assert not (platform_dir / "assets/manuals/Super Mario World (USA).pdf").exists()
-    assert not (platform_dir / "assets/videos/Super Mario World (USA).mp4").exists()
+    assert (platform_dir / "covers/Super Mario World (USA).jpg").is_file()
+    assert (platform_dir / "screenshots/Super Mario World (USA).jpg").is_file()
+    # A missing source produces neither a destination file nor an empty subdir
+    assert not (platform_dir / "manuals").exists()
+    assert not (platform_dir / "videos").exists()
 
     game = fromstring((platform_dir / "gamelist.xml").read_text()).findall("game")[0]
     assert game.find("manual") is None
     assert game.find("video") is None
     thumbnail = game.find("thumbnail")
     assert thumbnail is not None
-    assert thumbnail.text == "./assets/covers/Super Mario World (USA).jpg"
+    assert thumbnail.text == "./covers/Super Mario World (USA).jpg"
     screenshot = game.find("screenshot")
     assert screenshot is not None
-    assert screenshot.text == "./assets/screenshots/Super Mario World (USA).jpg"
+    assert screenshot.text == "./screenshots/Super Mario World (USA).jpg"
+
+
+async def test_export_platform_to_file_uses_esde_media_dirs(
+    platform_with_roms, isolated_filesystem
+):
+    """3D boxes and physical media land in ES-DE's folder names beside the ROMs."""
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "ss_metadata": {
+                "box3d_path": "snes-ss/box3d/test.png",
+                "physical_path": "snes-ss/physical/test.png",
+            }
+        },
+    )
+    for rel in ("snes-ss/box3d/test.png", "snes-ss/physical/test.png"):
+        isolated_filesystem.write_resource(rel)
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    platform_dir = isolated_filesystem.platform_dir(platform)
+    assert (platform_dir / "3dboxes/Super Mario World (USA).png").is_file()
+    assert (platform_dir / "physicalmedia/Super Mario World (USA).png").is_file()
+
+    game = fromstring((platform_dir / "gamelist.xml").read_text()).findall("game")[0]
+    box3d = game.find("box3d")
+    physical = game.find("physicalmedia")
+    assert box3d is not None and box3d.text == "./3dboxes/Super Mario World (USA).png"
+    assert (
+        physical is not None
+        and physical.text == "./physicalmedia/Super Mario World (USA).png"
+    )
+
+
+async def test_export_platform_to_file_reuses_existing_esde_media(
+    platform_with_roms, isolated_filesystem
+):
+    """Media already scraped by ES-DE into <platform>/covers/ is left untouched."""
+    platform, _ = platform_with_roms
+
+    isolated_filesystem.write_resource(
+        "snes/covers/super-mario-world.jpg", b"romm-cover"
+    )
+
+    existing = (
+        isolated_filesystem.platform_dir(platform)
+        / "covers/Super Mario World (USA).jpg"
+    )
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(b"esde-cover")
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    assert existing.read_bytes() == b"esde-cover"
+    assert list(existing.parent.iterdir()) == [existing]
+
+
+def test_export_gamelist_xml_mix_falls_back_to_miximage_v2(platform_with_roms):
+    """RetroBat has a single <mix> tag, so it takes the v2 miximage when v1 is absent."""
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {"ss_metadata": {"miximage_v2_path": "snes-ss/miximage_v2/test.png"}},
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    game = fromstring(
+        exporter.export_platform_to_xml(platform.id, request=None)
+    ).findall("game")[0]
+
+    mix = game.find("mix")
+    assert mix is not None
+    assert mix.text == "./miximages_v2/Super Mario World (USA).png"
+
+
+def test_gamelist_media_dirs_are_excluded_from_scan():
+    """Media folders beside the ROMs are never scanned as multi-file ROMs."""
+    assert fs_rom_handler.exclude_multi_roms(list(PLATFORM_MEDIA_DIRS.values())) == []
+
+
+def _write_gamelist(
+    isolated_filesystem: IsolatedFilesystem, platform: Platform, content: str
+) -> Path:
+    gamelist = isolated_filesystem.platform_dir(platform) / "gamelist.xml"
+    gamelist.parent.mkdir(parents=True, exist_ok=True)
+    gamelist.write_text(content, encoding="utf-8")
+    return gamelist
+
+
+async def test_export_platform_to_file_keeps_unmanaged_tags(
+    platform_with_roms, isolated_filesystem
+):
+    """Favorites, play stats and emulator overrides survive a re-export, while
+    the tags RomM owns are replaced rather than duplicated."""
+    platform, _ = platform_with_roms
+    gamelist = _write_gamelist(
+        isolated_filesystem,
+        platform,
+        """<?xml version="1.0"?>
+<gameList>
+  <game id="77" source="ScreenScraper.fr">
+    <path>./Super Mario World (USA).sfc</path>
+    <name>Old Name</name>
+    <desc>Old description</desc>
+    <favorite>true</favorite>
+    <playcount>3</playcount>
+    <lastplayed>20250101T120000</lastplayed>
+    <gametime>3600</gametime>
+    <emulator>libretro</emulator>
+    <core>snes9x</core>
+    <md5>abc</md5>
+    <scrap name="Skraper" date="20240101T000000"/>
+  </game>
+</gameList>
+""",
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    games = fromstring(gamelist.read_text()).findall("game")
+    assert len(games) == 1
+    game = games[0]
+
+    assert game.get("id") == "77"
+    assert game.get("source") == "ScreenScraper.fr"
+    assert [e.text for e in game.findall("name")] == ["Super Mario World"]
+    assert [e.text for e in game.findall("desc")] == ["A classic platformer game."]
+    assert [s.get("name") for s in game.findall("scrap")] == ["RomM"]
+
+    preserved = {
+        "favorite": "true",
+        "playcount": "3",
+        "lastplayed": "20250101T120000",
+        "gametime": "3600",
+        "emulator": "libretro",
+        "core": "snes9x",
+        "md5": "abc",
+    }
+    for tag, expected in preserved.items():
+        elem = game.find(tag)
+        assert elem is not None and elem.text == expected, tag
+
+
+async def test_export_platform_to_file_keeps_unmatched_entries(
+    platform_with_roms, isolated_filesystem
+):
+    """Entries RomM knows nothing about, folders and scraper blocks stay put."""
+    platform, _ = platform_with_roms
+    gamelist = _write_gamelist(
+        isolated_filesystem,
+        platform,
+        """<?xml version="1.0"?>
+<gameList>
+  <provider>
+    <software>Skraper</software>
+  </provider>
+  <game>
+    <path>Hack (Unl).sfc</path>
+    <name>A Hack</name>
+    <favorite>true</favorite>
+  </game>
+  <folder>
+    <path>./Hacks</path>
+    <name>Hacks</name>
+  </folder>
+</gameList>
+""",
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    root = fromstring(gamelist.read_text())
+    assert [child.tag for child in root] == ["provider", "folder", "game", "game"]
+
+    provider = root.find("provider/software")
+    assert provider is not None and provider.text == "Skraper"
+    folder = root.find("folder/name")
+    assert folder is not None and folder.text == "Hacks"
+
+    by_path = {g.findtext("path"): g for g in root.findall("game")}
+    assert set(by_path) == {"./Super Mario World (USA).sfc", "Hack (Unl).sfc"}
+    assert by_path["Hack (Unl).sfc"].findtext("favorite") == "true"
+    assert by_path["Hack (Unl).sfc"].find("scrap") is None
+
+
+async def test_export_platform_to_file_keeps_esde_alternative_emulator(
+    platform_with_roms, isolated_filesystem
+):
+    """ES-DE's <alternativeEmulator> sibling and per-game <altemulator> are
+    written back, and the result still parses through the gamelist handler."""
+    platform, _ = platform_with_roms
+    gamelist = _write_gamelist(
+        isolated_filesystem,
+        platform,
+        """<?xml version="1.0"?>
+<alternativeEmulator>
+	<label>RetroArch</label>
+</alternativeEmulator>
+<gameList>
+	<game>
+		<path>./Super Mario World (USA).sfc</path>
+		<name>Old Name</name>
+		<altemulator>bsnes</altemulator>
+	</game>
+</gameList>
+""",
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    content = gamelist.read_text()
+    assert content.startswith("<?xml")
+    assert content.index("<alternativeEmulator>") < content.index("<gameList>")
+    assert "<label>RetroArch</label>" in content
+
+    games = list(GamelistHandler()._iter_game_elements(gamelist))
+    assert [g.findtext("path") for g in games] == ["./Super Mario World (USA).sfc"]
+    assert games[0].findtext("altemulator") == "bsnes"
+    assert games[0].findtext("name") == "Super Mario World"
+
+
+async def test_export_platform_to_file_refuses_to_overwrite_unparseable_gamelist(
+    platform_with_roms, isolated_filesystem
+):
+    """A gamelist.xml that cannot be read is never replaced."""
+    platform, _ = platform_with_roms
+    broken = "<gameList><game><path>./x.sfc</path><favorite>true</favorite>"
+    gamelist = _write_gamelist(isolated_filesystem, platform, broken)
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is False
+    assert gamelist.read_text() == broken
+
+
+async def test_export_platform_to_file_reads_bom_prefixed_gamelist(
+    platform_with_roms, isolated_filesystem
+):
+    """A UTF-8 BOM, as Windows editors write it, does not block the merge."""
+    platform, _ = platform_with_roms
+    gamelist = isolated_filesystem.platform_dir(platform) / "gamelist.xml"
+    gamelist.parent.mkdir(parents=True, exist_ok=True)
+    gamelist.write_text(
+        """<?xml version="1.0"?>
+<gameList>
+  <game>
+    <path>./Super Mario World (USA).sfc</path>
+    <favorite>true</favorite>
+  </game>
+</gameList>
+""",
+        encoding="utf-8-sig",
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    games = fromstring(gamelist.read_text(encoding="utf-8")).findall("game")
+    assert [g.findtext("favorite") for g in games] == ["true"]
+
+
+async def test_export_platform_to_file_keeps_colliding_filenames(
+    platform_with_roms, isolated_filesystem
+):
+    """Two entries whose paths share a filename are both kept: the first is
+    merged with RomM's data, the second is carried over untouched."""
+    platform, _ = platform_with_roms
+    gamelist = _write_gamelist(
+        isolated_filesystem,
+        platform,
+        """<?xml version="1.0"?>
+<gameList>
+  <game>
+    <path>./Super Mario World (USA).sfc</path>
+    <favorite>true</favorite>
+  </game>
+  <game>
+    <path>./Hacks/Super Mario World (USA).sfc</path>
+    <name>Kaizo</name>
+    <playcount>9</playcount>
+  </game>
+</gameList>
+""",
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    by_path = {
+        g.findtext("path"): g for g in fromstring(gamelist.read_text()).findall("game")
+    }
+    assert set(by_path) == {
+        "./Super Mario World (USA).sfc",
+        "./Hacks/Super Mario World (USA).sfc",
+    }
+    assert by_path["./Super Mario World (USA).sfc"].findtext("favorite") == "true"
+    assert by_path["./Super Mario World (USA).sfc"].find("scrap") is not None
+    hack = by_path["./Hacks/Super Mario World (USA).sfc"]
+    assert hack.findtext("name") == "Kaizo"
+    assert hack.findtext("playcount") == "9"
+    assert hack.find("scrap") is None
+
+
+async def test_export_platform_to_file_keeps_comments_and_instructions(
+    platform_with_roms, isolated_filesystem
+):
+    """XML comments and processing instructions are written back wherever
+    they sat: beside <gameList>, inside it, and inside a <game>."""
+    platform, _ = platform_with_roms
+    gamelist = _write_gamelist(
+        isolated_filesystem,
+        platform,
+        """<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="gamelist.xsl"?>
+<!-- edited by hand -->
+<gameList>
+  <!-- section: platformers -->
+  <game>
+    <path>./Super Mario World (USA).sfc</path>
+    <!-- do not rescrape -->
+    <favorite>true</favorite>
+  </game>
+</gameList>
+""",
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    content = gamelist.read_text()
+    for kept in (
+        '<?xml-stylesheet type="text/xsl" href="gamelist.xsl"?>',
+        "<!-- edited by hand -->",
+        "<!-- section: platformers -->",
+        "<!-- do not rescrape -->",
+    ):
+        assert content.count(kept) == 1, kept
+    assert content.index("<!-- edited by hand -->") < content.index("<gameList>")
+
+    parsed = [
+        (g.findtext("path"), g.findtext("favorite"))
+        for g in GamelistHandler()._iter_game_elements(gamelist)
+    ]
+    assert parsed == [("./Super Mario World (USA).sfc", "true")]
+
+
+@pytest.fixture
+def platform_with_structured_roms(admin_user: User):
+    """A platform whose roms sit in nested folders, as a custom library structure
+    leaves them, with two of them sharing a file name."""
+    platform = db_platform_handler.add_platform(
+        Platform(name="Apple IIGS", slug="apple-iigs", fs_slug="apple-iigs")
+    )
+    platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+    roms = []
+    for rel_folder in ("USA", "Disks/Set A"):
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Zany Golf",
+                slug="zany-golf",
+                fs_name="Zany Golf (USA).2mg",
+                fs_name_no_tags="Zany Golf",
+                fs_name_no_ext="Zany Golf (USA)",
+                fs_extension="2mg",
+                fs_path=f"{platform_fs_path}/{rel_folder}",
+            )
+        )
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        roms.append(rom)
+
+    return platform, roms
+
+
+def test_export_gamelist_xml_paths_follow_the_library_structure(
+    platform_with_structured_roms,
+):
+    platform, _ = platform_with_structured_roms
+
+    xml_str = GamelistExporter(local_export=True).export_platform_to_xml(
+        platform.id, request=None
+    )
+
+    paths = {game.findtext("path") for game in fromstring(xml_str).findall("game")}
+    assert paths == {
+        "./USA/Zany Golf (USA).2mg",
+        "./Disks/Set A/Zany Golf (USA).2mg",
+    }
+
+
+async def test_export_platform_to_file_media_follows_the_library_structure(
+    platform_with_structured_roms, isolated_filesystem
+):
+    """Two roms sharing a file name keep their own media, under their own folder."""
+    platform, roms = platform_with_structured_roms
+    for rom, content in zip(roms, (b"usa-cover", b"set-a-cover"), strict=True):
+        cover = f"apple-iigs/covers/{rom.id}.jpg"
+        isolated_filesystem.write_resource(cover, content)
+        db_rom_handler.update_rom(rom.id, {"path_cover_l": cover})
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    platform_dir = isolated_filesystem.platform_dir(platform)
+    expected = {
+        "covers/USA/Zany Golf (USA).jpg": b"usa-cover",
+        "covers/Disks/Set A/Zany Golf (USA).jpg": b"set-a-cover",
+    }
+    for rel, content in expected.items():
+        assert (platform_dir / rel).read_bytes() == content
+
+    thumbnails = {
+        game.findtext("thumbnail")
+        for game in fromstring((platform_dir / "gamelist.xml").read_text()).findall(
+            "game"
+        )
+    }
+    assert thumbnails == {f"./{rel}" for rel in expected}
+
+
+async def test_export_platform_to_file_matches_existing_entries_by_path(
+    platform_with_structured_roms, isolated_filesystem
+):
+    """Identically named roms in different folders keep their own entry rather
+    than both merging into the first one."""
+    platform, _ = platform_with_structured_roms
+    gamelist = _write_gamelist(
+        isolated_filesystem,
+        platform,
+        """<?xml version="1.0"?>
+<gameList>
+  <game>
+    <path>./USA/Zany Golf (USA).2mg</path>
+    <favorite>true</favorite>
+  </game>
+  <game>
+    <path>./Disks/Set A/Zany Golf (USA).2mg</path>
+    <playcount>9</playcount>
+  </game>
+</gameList>
+""",
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    games = fromstring(gamelist.read_text()).findall("game")
+    assert len(games) == 2
+    kept = {
+        game.findtext("path"): (game.findtext("favorite"), game.findtext("playcount"))
+        for game in games
+    }
+    assert kept == {
+        "./USA/Zany Golf (USA).2mg": ("true", None),
+        "./Disks/Set A/Zany Golf (USA).2mg": (None, "9"),
+    }

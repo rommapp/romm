@@ -1,10 +1,11 @@
 """Unit tests for DBRomsHandler's derived-column bookkeeping.
 
 Bulk `update()` bypasses the ORM `@validates` hooks, so `update_rom` keeps
-the columns derived from `name` / `fs_name` in sync explicitly.
+the columns derived from `name` / `fs_name` / `fs_path` in sync explicitly.
 """
 
 import pytest
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 
 from handler.database import (
@@ -15,7 +16,13 @@ from handler.database import (
 )
 from models.assets import Save, State
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import (
+    Rom,
+    RomFile,
+    RomFileCategory,
+    TrackMeta,
+    compute_full_path_hash,
+)
 from models.user import User
 
 
@@ -34,6 +41,18 @@ class TestUpdateRomDerivedColumns:
         assert updated.fs_name_no_ext == "Sonic (Europe)"
         # The extension is resynced too — the rename endpoint used to omit it.
         assert updated.fs_extension == "md"
+
+    def test_update_either_path_half_resyncs_the_digest(self, rom: Rom):
+        updated = db_rom_handler.update_rom(rom.id, {"fs_name": "Sonic (Europe).md"})
+        assert updated.full_path_hash == compute_full_path_hash(
+            rom.fs_path, "Sonic (Europe).md"
+        )
+
+        # The half the caller left out comes from the stored row.
+        moved = db_rom_handler.update_rom(rom.id, {"fs_path": "test/roms/Hacks"})
+        assert moved.full_path_hash == compute_full_path_hash(
+            "test/roms/Hacks", "Sonic (Europe).md"
+        )
 
     def test_update_unrelated_field_leaves_derived_columns(self, rom: Rom):
         updated = db_rom_handler.update_rom(rom.id, {"summary": "just a summary"})
@@ -69,17 +88,95 @@ def _make_rom(platform: Platform, fs_name: str) -> Rom:
     )
 
 
-class TestUniquePlatformFsName:
-    """A platform folder can't hold two entries with the same name, so the DB
-    rejects a second ROM with the same (platform_id, fs_name). This is what
+class TestAddRomMergesScannedTags:
+    """`add_rom` merges the partially-populated Rom that `scan_rom` returns.
+
+    A rescan re-reads the filename tags onto the existing row and relies on this
+    merge to persist them, so the tag columns have to survive the round trip
+    while columns the scan never names keep their stored values.
+    """
+
+    def _scanned(self, rom: Rom) -> Rom:
+        """The subset of columns `scan_rom` rebuilds for an existing entry."""
+        return Rom(
+            id=rom.id,
+            platform_id=rom.platform_id,
+            fs_name=rom.fs_name,
+            fs_path=rom.fs_path,
+            regions=["USA"],
+            revision="A",
+            version="1.1",
+            languages=["English"],
+            tags=["Proto"],
+        )
+
+    def test_tag_columns_are_persisted(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "regions": ["us"],
+                "languages": ["en"],
+                "tags": ["proto"],
+                "revision": "",
+                "version": "",
+            },
+        )
+
+        db_rom_handler.add_rom(self._scanned(rom))
+
+        stored = db_rom_handler.get_rom(rom.id)
+        assert stored is not None
+        assert stored.regions == ["USA"]
+        assert stored.languages == ["English"]
+        assert stored.tags == ["Proto"]
+        assert stored.revision == "A"
+        assert stored.version == "1.1"
+
+    def test_columns_the_scan_omits_are_left_alone(self, rom: Rom):
+        db_rom_handler.update_rom(rom.id, {"summary": "kept", "slug": "kept-slug"})
+
+        db_rom_handler.add_rom(self._scanned(rom))
+
+        stored = db_rom_handler.get_rom(rom.id)
+        assert stored is not None
+        assert stored.summary == "kept"
+        assert stored.slug == "kept-slug"
+
+
+class TestUniquePlatformFullPath:
+    """A folder can't hold two entries with the same name, so the DB rejects a
+    second ROM at the same full path (via its `full_path_hash`). This is what
     stops racing scans (e.g. after the patcher uploads a patched ROM) from
     creating duplicate library entries."""
 
-    def test_duplicate_platform_fs_name_rejected(self, platform: Platform):
+    def test_duplicate_platform_full_path_rejected(self, platform: Platform):
         db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
 
         with pytest.raises(IntegrityError):
             db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
+
+    def test_same_fs_name_in_another_folder_allowed(self, platform: Platform):
+        """What a custom library structure makes ordinary, and what the old
+        (platform_id, fs_name) index forbade."""
+        root = db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
+        nested = _make_rom(platform, "Patched Game.gba")
+        nested.fs_path = f"{platform.slug}/roms/Hacks"
+
+        assert db_rom_handler.add_rom(nested).id != root.id
+
+    def test_moving_a_rom_onto_an_occupied_path_is_rejected(self, platform: Platform):
+        """`update_rom` bypasses the ORM, so it has to resync the digest the
+        unique index reads or the collision goes unnoticed."""
+        db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
+        moved = _make_rom(platform, "Other Game.gba")
+        moved.fs_path = f"{platform.slug}/roms/Hacks"
+        moved = db_rom_handler.add_rom(moved)
+
+        with pytest.raises(IntegrityError):
+            db_rom_handler.update_rom(
+                moved.id,
+                {"fs_path": f"{platform.slug}/roms", "fs_name": "Patched Game.gba"},
+            )
 
     def test_same_fs_name_other_platform_allowed(self, platform: Platform):
         other = db_platform_handler.add_platform(
@@ -160,3 +257,289 @@ class TestHasSavesStatesFilter:
     ):
         self._add_state(rom, editor_user.id, is_public=False)
         assert rom.id not in self._rom_ids(user_id=admin_user.id, has_states=True)
+
+
+def _scanned_file(
+    rom: Rom,
+    file_name: str,
+    *,
+    file_path: str | None = None,
+    size: int = 100,
+    crc: str | None = "crc",
+    md5: str | None = "md5",
+    sha1: str | None = "sha1",
+    category: RomFileCategory | None = None,
+    track_meta: TrackMeta | None = None,
+) -> RomFile:
+    """A transient RomFile as the filesystem scanner builds it."""
+    return RomFile(
+        rom_id=rom.id,
+        file_name=file_name,
+        file_path=file_path if file_path is not None else rom.fs_path,
+        file_size_bytes=size,
+        crc_hash=crc,
+        md5_hash=md5,
+        sha1_hash=sha1,
+        category=category,
+        track_meta=track_meta,
+    )
+
+
+def _sync(rom: Rom, scanned: list[RomFile]) -> list[RomFile]:
+    return db_rom_handler.sync_rom_files(rom.id, scanned).files
+
+
+class TestHasSoundtrackFilter:
+    """Smart collections resolve their criteria through `get_roms_scalar`, so
+    it must forward has_soundtrack to filter_roms like the other flags."""
+
+    def _with_soundtrack(self, rom: Rom) -> None:
+        _sync(
+            rom,
+            [_scanned_file(rom, "track01.flac", category=RomFileCategory.SOUNDTRACK)],
+        )
+
+    def test_has_soundtrack_true_matches_only_roms_with_tracks(
+        self, rom: Rom, platform: Platform
+    ):
+        other = db_rom_handler.add_rom(_make_rom(platform, "No Music.gba"))
+        self._with_soundtrack(rom)
+
+        ids = {r.id for r in db_rom_handler.get_roms_scalar(has_soundtrack=True)}
+
+        assert rom.id in ids
+        assert other.id not in ids
+
+    def test_has_soundtrack_false_excludes_roms_with_tracks(
+        self, rom: Rom, platform: Platform
+    ):
+        other = db_rom_handler.add_rom(_make_rom(platform, "No Music.gba"))
+        self._with_soundtrack(rom)
+
+        ids = {r.id for r in db_rom_handler.get_roms_scalar(has_soundtrack=False)}
+
+        assert rom.id not in ids
+        assert other.id in ids
+
+
+class TestSyncRomFiles:
+    """A rescan reconciles the file rows in place, so ids survive it. Anything
+    keyed on a file id (track metadata, persisted soundtrack covers) stays
+    valid instead of being orphaned by a purge-and-reinsert."""
+
+    def test_unchanged_file_keeps_its_id(self, rom: Rom):
+        first = _sync(rom, [_scanned_file(rom, "a.bin")])
+        second = _sync(rom, [_scanned_file(rom, "a.bin")])
+
+        assert [f.id for f in second] == [f.id for f in first]
+
+    def test_changed_metadata_updates_in_place(self, rom: Rom):
+        (first,) = _sync(rom, [_scanned_file(rom, "a.bin")])
+        (second,) = _sync(rom, [_scanned_file(rom, "a.bin", size=200, sha1="new-sha1")])
+
+        assert second.id == first.id
+        reloaded = db_rom_handler.get_rom_file_by_id(first.id)
+        assert reloaded is not None
+        assert reloaded.file_size_bytes == 200
+        assert reloaded.sha1_hash == "new-sha1"
+
+    def test_retagged_track_meta_is_updated_in_place(self, rom: Rom):
+        def scanned(title: str, year: int) -> RomFile:
+            return _scanned_file(
+                rom,
+                "track01.flac",
+                category=RomFileCategory.SOUNDTRACK,
+                track_meta=TrackMeta(rom_id=rom.id, title=title, year=year),
+            )
+
+        (first,) = _sync(rom, [scanned("Green Hill", 1991)])
+        _sync(rom, [scanned("Green Hill Zone", 1992)])
+
+        reloaded = db_rom_handler.get_rom_file_by_id(first.id)
+        assert reloaded is not None
+        assert reloaded.track_meta is not None
+        assert reloaded.track_meta.title == "Green Hill Zone"
+        assert reloaded.track_meta.year == 1992
+
+    def test_unset_columns_do_not_overwrite_not_null_values(self, rom: Rom):
+        """A scanned row leaves unset columns as None, and the model defaults
+        only apply on insert. The update path has to skip them rather than
+        write NULL into a NOT NULL column."""
+        scanned = _scanned_file(rom, "a.bin", size=200)
+        _sync(rom, [scanned])
+
+        unset = _scanned_file(rom, "a.bin")
+        unset.file_size_bytes = None  # type: ignore[assignment]
+        (updated,) = _sync(rom, [unset])
+
+        assert updated.file_size_bytes == 200
+
+    def test_renamed_file_is_matched_by_content(self, rom: Rom):
+        (first,) = _sync(rom, [_scanned_file(rom, "a.bin")])
+        (second,) = _sync(rom, [_scanned_file(rom, "b.bin")])
+
+        assert second.id == first.id
+        assert second.file_name == "b.bin"
+
+    def test_moved_file_is_matched_by_content(self, rom: Rom):
+        (first,) = _sync(rom, [_scanned_file(rom, "a.bin")])
+        (second,) = _sync(
+            rom, [_scanned_file(rom, "a.bin", file_path=f"{rom.fs_path}/disc1")]
+        )
+
+        assert second.id == first.id
+        assert second.file_path == f"{rom.fs_path}/disc1"
+
+    def test_partial_hashes_do_not_match_by_content(self, rom: Rom):
+        (first,) = _sync(rom, [_scanned_file(rom, "a.bin", sha1=None)])
+        (second,) = _sync(rom, [_scanned_file(rom, "b.bin", sha1=None)])
+
+        # Without all three hashes the rename can't be proven, so a new row wins.
+        assert second.id != first.id
+
+    def test_identical_copies_are_not_paired_arbitrarily(self, rom: Rom):
+        _sync(rom, [_scanned_file(rom, "a.bin"), _scanned_file(rom, "b.bin")])
+        renamed = _sync(rom, [_scanned_file(rom, "c.bin"), _scanned_file(rom, "d.bin")])
+
+        assert {f.file_name for f in renamed} == {"c.bin", "d.bin"}
+        assert len(db_rom_handler.rom_files_for_rom_id(rom.id)) == 2
+
+    def test_new_file_is_inserted_and_vanished_file_deleted(self, rom: Rom):
+        _sync(
+            rom,
+            [
+                _scanned_file(rom, "a.bin"),
+                _scanned_file(rom, "b.bin", crc="crc2", md5="md52", sha1="sha12"),
+            ],
+        )
+        _sync(
+            rom,
+            [
+                _scanned_file(rom, "a.bin"),
+                _scanned_file(rom, "c.bin", crc="crc3", md5="md53", sha1="sha13"),
+            ],
+        )
+
+        assert {f.file_name for f in db_rom_handler.rom_files_for_rom_id(rom.id)} == {
+            "a.bin",
+            "c.bin",
+        }
+
+    def test_track_meta_survives_a_rescan(self, rom: Rom):
+        def scanned() -> RomFile:
+            return _scanned_file(
+                rom,
+                "track01.flac",
+                file_path=f"{rom.fs_path}/soundtrack",
+                category=RomFileCategory.SOUNDTRACK,
+                track_meta=TrackMeta(
+                    rom_id=rom.id, title="Green Hill", has_embedded_cover=True
+                ),
+            )
+
+        (first,) = _sync(rom, [scanned()])
+        db_rom_handler.upsert_track_meta(
+            first.id, rom.id, {"cover_path": "covers/track01.png"}
+        )
+
+        synced = db_rom_handler.sync_rom_files(rom.id, [scanned()])
+
+        assert synced.files[0].id == first.id
+        assert synced.orphaned_cover_paths == []
+        reloaded = db_rom_handler.get_rom_file_by_id(first.id)
+        assert reloaded is not None
+        assert reloaded.track_meta is not None
+        assert reloaded.track_meta.title == "Green Hill"
+        # The scanner never reports the cover path, so the persisted one stands.
+        assert reloaded.track_meta.cover_path == "covers/track01.png"
+
+    def test_track_meta_dropped_when_file_no_longer_has_tags(self, rom: Rom):
+        (first,) = _sync(
+            rom,
+            [
+                _scanned_file(
+                    rom,
+                    "track01.flac",
+                    category=RomFileCategory.SOUNDTRACK,
+                    track_meta=TrackMeta(rom_id=rom.id, title="Green Hill"),
+                )
+            ],
+        )
+        db_rom_handler.upsert_track_meta(
+            first.id, rom.id, {"cover_path": "covers/track01.png"}
+        )
+
+        synced = db_rom_handler.sync_rom_files(
+            rom.id,
+            [_scanned_file(rom, "track01.flac", category=RomFileCategory.GAME)],
+        )
+
+        # The cover has nothing pointing at it now, so the caller must unlink it.
+        assert synced.orphaned_cover_paths == ["covers/track01.png"]
+        reloaded = db_rom_handler.get_rom_file_by_id(first.id)
+        assert reloaded is not None
+        assert reloaded.track_meta is None
+
+    def test_vanished_soundtrack_reports_its_orphaned_cover(self, rom: Rom):
+        (first,) = _sync(
+            rom,
+            [
+                _scanned_file(
+                    rom,
+                    "track01.flac",
+                    category=RomFileCategory.SOUNDTRACK,
+                    track_meta=TrackMeta(rom_id=rom.id, title="Green Hill"),
+                )
+            ],
+        )
+        db_rom_handler.upsert_track_meta(
+            first.id, rom.id, {"cover_path": "covers/track01.png"}
+        )
+
+        # Deleting the row cascades the track metadata, taking the only
+        # reference to the cover with it.
+        synced = db_rom_handler.sync_rom_files(rom.id, [])
+
+        assert synced.files == []
+        assert synced.orphaned_cover_paths == ["covers/track01.png"]
+
+
+class TestScanFileLoaders:
+    """The scan loop reads rows off detached roms, so every relationship it
+    touches has to be eager-loaded by the lookup."""
+
+    def test_get_roms_by_fs_name_with_files_loads_rows_and_backref(
+        self, multi_file_rom: Rom, platform: Platform
+    ):
+        rom = db_rom_handler.get_roms_by_fs_name(
+            platform_id=platform.id, fs_names={multi_file_rom.fs_name}, with_files=True
+        )[multi_file_rom.full_path]
+
+        assert {f.file_name for f in rom.files} == {"disc1.bin", "disc2.bin"}
+        assert all(f.track_meta is None for f in rom.files)
+        assert all(f.rom.fs_name == rom.fs_name for f in rom.files)
+
+    def test_get_roms_by_fs_name_leaves_files_unloaded_by_default(
+        self, multi_file_rom: Rom, platform: Platform
+    ):
+        rom = db_rom_handler.get_roms_by_fs_name(
+            platform_id=platform.id, fs_names={multi_file_rom.fs_name}
+        )[multi_file_rom.full_path]
+
+        assert "files" in sa_inspect(rom).unloaded
+
+    def test_rom_files_for_rom_id_loads_track_meta(self, multi_file_rom: Rom):
+        files = db_rom_handler.rom_files_for_rom_id(multi_file_rom.id)
+
+        assert len(files) == 2
+        assert all("track_meta" not in sa_inspect(f).unloaded for f in files)
+
+
+class TestSyncRomFilesWithReusedRows:
+    def test_rows_handed_back_are_a_noop(self, rom: Rom):
+        first = _sync(rom, [_scanned_file(rom, "a.bin")])
+
+        second = db_rom_handler.sync_rom_files(rom.id, first).files
+
+        assert [f.id for f in second] == [f.id for f in first]
+        assert second[0].md5_hash == "md5"

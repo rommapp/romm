@@ -4,8 +4,9 @@ import glob
 import json
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import pydash
 import yaml
@@ -20,6 +21,7 @@ from config import (
     DB_QUERY_JSON,
     DB_USER,
     LIBRARY_BASE_PATH,
+    ROM_UPLOAD_ASSEMBLING_EXT,
     ROMM_BASE_PATH,
     ROMM_DB_DRIVER,
 )
@@ -28,18 +30,229 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 
+# Macros of a library structure template. `{platform}` is the platform folder and
+# `{game}` is the terminal, marking where the game itself begins.
+STRUCTURE_PLATFORM: Final = "platform"
+STRUCTURE_GAME: Final = "game"
+# Retrom spells the library root out; a RomM template is already relative to it.
+_STRUCTURE_RESERVED_ROOT: Final = "library"
+
+# Keys of `filesystem.structure` that name a layout rather than a platform.
+STRUCTURE_DEFAULT_KEY: Final = "default"
+STRUCTURE_FIRMWARE_KEY: Final = "firmware"
+RESERVED_STRUCTURE_KEYS: Final = frozenset(
+    {STRUCTURE_DEFAULT_KEY, STRUCTURE_FIRMWARE_KEY}
+)
+
+STRUCTURE_DOCS_URL: Final = (
+    "https://docs.romm.app/latest/getting-started/folder-structure/"
+)
+
+DEFAULT_ROM_STRUCTURE: Final = "roms/{platform}/{game}"
+DEFAULT_FIRMWARE_STRUCTURE: Final = "bios/{platform}"
+
+
+@dataclass(frozen=True)
+class StructureLevel:
+    """One directory level between a platform's folder and its games.
+
+    ``literal`` is the exact folder name to match, or ``None`` for a wildcard
+    macro level (``{region}``, ``{category}``, …) that matches any folder.
+    """
+
+    literal: str | None
+
+
+@dataclass(frozen=True)
+class StructureTemplate:
+    """One parsed ROM layout, relative to the library root."""
+
+    platform_dir: tuple[str, ...]
+    levels: tuple[StructureLevel, ...]
+
+    def platform_path(self, fs_slug: str) -> str:
+        """The platform's own folder."""
+        return "/".join((*self.platform_dir, fs_slug))
+
+    def games_dir(self, fs_slug: str) -> str:
+        """Where the platform's games start, as far as the template pins it down.
+
+        Stops at the first wildcard, which is then an ancestor of the games.
+        """
+        literals: list[str] = []
+        for level in self.levels:
+            if level.literal is None:
+                break
+            literals.append(level.literal)
+        return "/".join((*self.platform_dir, fs_slug, *literals))
+
+    @property
+    def has_wildcard_levels(self) -> bool:
+        return any(level.literal is None for level in self.levels)
+
+
+@dataclass(frozen=True)
+class FirmwareTemplate:
+    """One parsed firmware layout: literal sections around the platform folder."""
+
+    platform_dir: tuple[str, ...]
+    subdir: tuple[str, ...]
+
+    def firmware_dir(self, fs_slug: str) -> str:
+        """The folder holding the platform's firmware."""
+        return "/".join((*self.platform_dir, fs_slug, *self.subdir))
+
+
+def _template_sections(template: str) -> list[str]:
+    sections = [section for section in template.split("/") if section != ""]
+    if not sections:
+        raise ValueError("template is empty")
+    for section in sections:
+        # No directory listing ever yields these, so a template carrying one
+        # would discover nothing and mark the platform's roms missing.
+        if section in (".", ".."):
+            raise ValueError(f"'{section}' is not a folder name")
+    return sections
+
+
+def _macro_name(section: str) -> str | None:
+    """The macro inside a braced section, or ``None`` when it is a folder name."""
+    if section.startswith("{") and section.endswith("}"):
+        name = section[1:-1].strip()
+        if not name:
+            raise ValueError("empty macro '{}'")
+        if name == _STRUCTURE_RESERVED_ROOT:
+            raise ValueError(
+                "'{library}' is not supported: a template is already relative to "
+                "the library root"
+            )
+        return name
+    if "{" in section or "}" in section:
+        raise ValueError(f"malformed macro in section '{section}'")
+    return None
+
+
+def _split_at_platform(
+    sections: list[str], fs_slug: str | None
+) -> tuple[list[str], list[str]]:
+    """Split sections around the platform one, returning what precedes and follows.
+
+    Sections before it must be literal so the folder to enumerate platforms in
+    is a single known path. ``fs_slug`` also accepts that platform's own name
+    there, in place of ``{platform}``.
+    """
+    for index, section in enumerate(sections):
+        name = _macro_name(section)
+        is_platform = name == STRUCTURE_PLATFORM or (
+            name is None and fs_slug is not None and section == fs_slug
+        )
+        if is_platform:
+            before = sections[:index]
+            for preceding in before:
+                if _macro_name(preceding) is not None:
+                    raise ValueError(
+                        f"'{preceding}' cannot be a macro: every section before the "
+                        "platform folder must be a literal folder name"
+                    )
+            return before, sections[index + 1 :]
+
+    if fs_slug is not None:
+        raise ValueError(
+            f"template must contain '{{platform}}' or the '{fs_slug}' folder name"
+        )
+    raise ValueError("template must contain '{platform}'")
+
+
+def parse_structure_template(
+    template: str, fs_slug: str | None = None
+) -> StructureTemplate:
+    """Parse one ROM layout template into the platform folder and levels it describes.
+
+    Syntax mirrors Retrom: a ``/``-separated path relative to the library root,
+    where a braced section is a macro and a bare one is a literal folder name.
+
+    Args:
+        fs_slug: The platform the template belongs to, which may name its folder
+            literally instead of using ``{platform}``.
+
+    Raises ``ValueError`` on an invalid template.
+    """
+    sections = _template_sections(template)
+
+    if _macro_name(sections[-1]) != STRUCTURE_GAME:
+        raise ValueError(
+            "template must end with '{game}', marking where the game itself begins"
+        )
+    platform_dir, after = _split_at_platform(sections[:-1], fs_slug)
+
+    levels: list[StructureLevel] = []
+    for section in after:
+        name = _macro_name(section)
+        if name in (STRUCTURE_PLATFORM, STRUCTURE_GAME):
+            raise ValueError(f"'{{{name}}}' can only appear once")
+        # Any other braced section is an organizational wildcard directory level.
+        levels.append(StructureLevel(literal=section if name is None else None))
+
+    return StructureTemplate(platform_dir=tuple(platform_dir), levels=tuple(levels))
+
+
+def parse_firmware_template(template: str) -> FirmwareTemplate:
+    """Parse the firmware layout template into the folder it points each platform at.
+
+    Raises ``ValueError`` on an invalid template.
+    """
+    platform_dir, after = _split_at_platform(_template_sections(template), None)
+
+    for section in after:
+        name = _macro_name(section)
+        if name == STRUCTURE_GAME:
+            raise ValueError(
+                "'{game}' is not supported here: the firmware template points at a "
+                "folder, not at games"
+            )
+        if name is not None:
+            raise ValueError(
+                f"'{section}' cannot be a macro: the firmware template takes literal "
+                "folder names around '{platform}'"
+            )
+
+    return FirmwareTemplate(platform_dir=tuple(platform_dir), subdir=tuple(after))
+
+
+def parse_platform_templates(
+    value: str | list[str], fs_slug: str | None = None
+) -> tuple[StructureTemplate, ...]:
+    """Parse a platform's `filesystem.structure` value into its templates.
+
+    A platform may declare a single template (string) or several (list). The
+    list form lets one platform mix layouts, e.g. games directly in the platform
+    folder plus games inside grouping subfolders::
+
+        nes:
+          - "roms/{platform}/{game}"
+          - "roms/{platform}/{category}/{game}"
+
+    Discovery is the union of all listed templates. Raises ``ValueError`` if any
+    template is invalid.
+    """
+    templates = [value] if isinstance(value, str) else list(value)
+    return tuple(
+        parse_structure_template(template, fs_slug=fs_slug) for template in templates
+    )
+
+
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     "db",
-    "ini",
     "tmp",
     "bak",
     "lock",
     "log",
     "cache",
     "crdownload",
+    ROM_UPLOAD_ASSEMBLING_EXT,
 ]
 DEFAULT_EXCLUDED_FILES: Final = [
     ".DS_Store",
@@ -47,13 +260,16 @@ DEFAULT_EXCLUDED_FILES: Final = [
     ".Trashes",
     ".stfolder",
     "@SynoResource",
+    "*:Zone.Identifier",
     "gamelist.xml",
     "metadata.pegasus.txt",
 ]
-DEFAULT_EXCLUDED_DIRS: Final = [
+# Library-root folders that are never a platform.
+DEFAULT_EXCLUDED_PLATFORM_DIRS: Final = [
     "@eaDir",
     "assets",
     "__MACOSX",
+    "#recycle",
     "$RECYCLE.BIN",
     ".Trash-*",
     ".stfolder",
@@ -62,6 +278,41 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     ".DocumentRevisions-V100",
     "System Volume Information",
 ]
+# The per-media-type folders beside the ROMs, at <platform>/<folder>/<rom>.<ext>.
+# ES-DE and Batocera resolve media here by name; the Pegasus export shares them.
+PLATFORM_MEDIA_DIRS: Final = {
+    "image": "images",
+    "box2d": "covers",
+    "box2d_back": "backcovers",
+    "box3d": "3dboxes",
+    "bezel": "bezels",
+    "fanart": "fanart",
+    "manual": "manuals",
+    "marquee": "marquees",
+    "miximage": "miximages",
+    "miximage_v2": "miximages_v2",
+    "physical": "physicalmedia",
+    "screenshot": "screenshots",
+    "thumbnail": "thumbnails",
+    "title_screen": "titlescreens",
+    "video": "videos",
+}
+# Folders inside a platform that are never a multi-file ROM (a ROM whose parts
+# live in a directory). Scraper media output lands here, so it is skipped too.
+DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Final = sorted(
+    {*DEFAULT_EXCLUDED_PLATFORM_DIRS, *PLATFORM_MEDIA_DIRS.values()}
+)
+
+
+class ExclusionType(enum.StrEnum):
+    """The `Config` fields an exclusion write may target."""
+
+    EXCLUDED_PLATFORMS = "EXCLUDED_PLATFORMS"
+    EXCLUDED_SINGLE_EXT = "EXCLUDED_SINGLE_EXT"
+    EXCLUDED_SINGLE_FILES = "EXCLUDED_SINGLE_FILES"
+    EXCLUDED_MULTI_FILES = "EXCLUDED_MULTI_FILES"
+    EXCLUDED_MULTI_PARTS_EXT = "EXCLUDED_MULTI_PARTS_EXT"
+    EXCLUDED_MULTI_PARTS_FILES = "EXCLUDED_MULTI_PARTS_FILES"
 
 
 class EjsControlsButton(TypedDict):
@@ -133,11 +384,20 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
         "sgdb",
         "flashpoint",
         "hltb",
+        "demozoo",
+        "pouet",
+        "csdb",
+        "steam",
         "gamelist",
         "libretro",
         "playmatch",
     }
 )
+
+# Valid values for scan.priority.region_mode. "prefer_rom_tags" keeps the
+# rom's filename region tags authoritative for media selection;
+# "prefer_config" makes scan.priority.region win over the rom's own tags.
+VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
 
 class EjsControls(TypedDict):
@@ -156,11 +416,39 @@ class NetplayICEServer(TypedDict):
     credential: NotRequired[str]
 
 
+class StreamingPlatformOverride(TypedDict):
+    # Names the state and card namespace, so it has no container-level default.
+    emulator: str
+    # Anything set here wins over the same key on the container.
+    label: NotRequired[str]
+    memory_card_sync: NotRequired[bool]
+
+
 class StreamingContainer(TypedDict):
-    platform: str
+    # A container declares either one platform (the per-emulator mods) or a
+    # `platforms` map (one webstation serving many). Exactly one of the two.
+    platform: NotRequired[str]
+    # Platform slug to the emulator that serves it, or to a block of options
+    # overriding container keys for that platform, replacing platform +
+    # emulator on a container that hosts more than one.
+    platforms: NotRequired[dict[str, str | StreamingPlatformOverride]]
     host: str
-    broker_host: str
+    # Optional under `protocol: webstation`, which derives the broker host from
+    # `host` and `subfolder` when it is omitted.
+    broker_host: NotRequired[str]
     label: str
+    library_path: NotRequired[str]
+    # Namespace for stored states/cards; defaults to label (or platform)
+    # lowercased when omitted.
+    emulator: NotRequired[str]
+    # Opt in to whole memory-card sync (broker /memory-card). When true, the
+    # legacy per-file /save-file in-game-save path is skipped for this container.
+    memory_card_sync: NotRequired[bool]
+    # Broker dialect. Omitted (or "broker") is the per-emulator mod contract;
+    # "webstation" is the LSIO webstation container's activate/exit contract.
+    protocol: NotRequired[str]
+    # URL prefix the webstation broker is served under, matching its SUBFOLDER.
+    subfolder: NotRequired[str]
 
 
 class Config:
@@ -177,13 +465,15 @@ class Config:
     PEGASUS_AUTO_EXPORT_ON_SCAN: bool
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
-    ROMS_FOLDER_NAME: str
-    FIRMWARE_FOLDER_NAME: str
+    STRUCTURE_TEMPLATES: dict[str, str | list[str]]
     SKIP_HASH_CALCULATION: bool
+    SKIP_TITLE_ID_EXTRACTION: bool
+    EMBED_SWITCH_TITLE_IDS: bool
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
+    EJS_ENABLE_AUTO_SAVE_SYNC: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
@@ -192,6 +482,7 @@ class Config:
     SCAN_ARTWORK_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
     SCAN_REGION_PRIORITY: list[str]
+    SCAN_REGION_MODE: str
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
@@ -202,27 +493,47 @@ class Config:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
-    @functools.cached_property
-    def has_structure_path_a(self) -> bool:
-        # Structure A ({roms_folder}/{platform}) takes priority: if the top-level roms
-        # folder exists, claim Structure A even if some platform dirs happen to
-        # contain a {roms_folder} sub-folder.
-        roms_path = os.path.join(LIBRARY_BASE_PATH, self.ROMS_FOLDER_NAME)
-        return os.path.isdir(roms_path)
+    def _raw_template(self, key: str, fallback: str) -> str:
+        return str(self.STRUCTURE_TEMPLATES.get(key, fallback))
 
     @functools.cached_property
-    def has_structure_path_b(self) -> bool:
-        if self.has_structure_path_a:
-            return False
+    def default_structure_pattern(self) -> str:
+        """The raw `filesystem.structure.default` template."""
+        return self._raw_template(STRUCTURE_DEFAULT_KEY, DEFAULT_ROM_STRUCTURE)
 
-        pattern = os.path.join(
-            LIBRARY_BASE_PATH, "*", glob.escape(self.ROMS_FOLDER_NAME)
+    @functools.cached_property
+    def default_structure(self) -> StructureTemplate:
+        """The library-wide ROM layout, from `filesystem.structure.default`."""
+        return parse_structure_template(self.default_structure_pattern)
+
+    @functools.cached_property
+    def firmware_structure(self) -> FirmwareTemplate:
+        """The firmware layout, from `filesystem.structure.firmware`."""
+        return parse_firmware_template(
+            self._raw_template(STRUCTURE_FIRMWARE_KEY, DEFAULT_FIRMWARE_STRUCTURE)
         )
-        for match in glob.iglob(pattern):
-            if os.path.isdir(match):
-                return True
 
-        return False
+    def platform_structure(self, fs_slug: str) -> tuple[StructureTemplate, ...]:
+        """The ROM layout(s) for a platform, whose discovery is unioned.
+
+        Overridable per platform by `filesystem.structure.<fs_slug>`, keyed
+        case-insensitively like `system.platforms`. Templates are validated at
+        load time, so parsing here is expected to succeed.
+        """
+        key = fs_slug.lower()
+        value = (
+            None
+            if key in RESERVED_STRUCTURE_KEYS
+            else self.STRUCTURE_TEMPLATES.get(key)
+        )
+        if not value:
+            return (self.default_structure,)
+        return parse_platform_templates(value, fs_slug=key)
+
+    @functools.cached_property
+    def platforms_dir(self) -> str:
+        """The library-relative folder the platform folders sit in."""
+        return "/".join(self.default_structure.platform_dir)
 
 
 class ConfigManager:
@@ -360,7 +671,7 @@ class ConfigManager:
             CONFIG_FILE_PARSE_ERROR=self._config_file_parse_error,
             EXCLUDED_PLATFORMS=sorted(
                 {
-                    *DEFAULT_EXCLUDED_DIRS,
+                    *DEFAULT_EXCLUDED_PLATFORM_DIRS,
                     *pydash.get(self._raw_config, "exclude.platforms", []),
                 }
             ),
@@ -389,7 +700,7 @@ class ConfigManager:
             ),
             EXCLUDED_MULTI_FILES=sorted(
                 {
-                    *DEFAULT_EXCLUDED_DIRS,
+                    *DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
                     *pydash.get(
                         self._raw_config,
                         "exclude.roms.multi_file.names",
@@ -420,16 +731,18 @@ class ConfigManager:
                     ),
                 }
             ),
-            PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {}),
-            PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {}),
-            ROMS_FOLDER_NAME=pydash.get(
-                self._raw_config, "filesystem.roms_folder", "roms"
-            ),
-            FIRMWARE_FOLDER_NAME=pydash.get(
-                self._raw_config, "filesystem.firmware_folder", "bios"
-            ),
+            PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {})
+            or {},
+            PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {})
+            or {},
             SKIP_HASH_CALCULATION=pydash.get(
                 self._raw_config, "filesystem.skip_hash_calculation", False
+            ),
+            SKIP_TITLE_ID_EXTRACTION=pydash.get(
+                self._raw_config, "filesystem.skip_title_id_extraction", False
+            ),
+            EMBED_SWITCH_TITLE_IDS=pydash.get(
+                self._raw_config, "filesystem.embed_switch_title_ids", False
             ),
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_CACHE_LIMIT=pydash.get(
@@ -440,6 +753,9 @@ class ConfigManager:
             ),
             EJS_DISABLE_BATCH_BOOTUP=pydash.get(
                 self._raw_config, "emulatorjs.disable_batch_bootup", False
+            ),
+            EJS_ENABLE_AUTO_SAVE_SYNC=pydash.get(
+                self._raw_config, "emulatorjs.auto_save_sync", False
             ),
             EJS_NETPLAY_ENABLED=pydash.get(
                 self._raw_config, "emulatorjs.netplay.enabled", False
@@ -462,7 +778,11 @@ class ConfigManager:
                     "hasheous",
                     "tgdb",
                     "flashpoint",
+                    "steam",
                     "hltb",
+                    "demozoo",
+                    "pouet",
+                    "csdb",
                 ],
             ),
             SCAN_ARTWORK_PRIORITY=pydash.get(
@@ -480,7 +800,11 @@ class ConfigManager:
                     "hasheous",
                     "tgdb",
                     "flashpoint",
+                    "steam",
                     "hltb",
+                    "demozoo",
+                    "pouet",
+                    "csdb",
                 ],
             ),
             SCAN_ARTWORK_PRIORITY_OVERRIDES={
@@ -494,10 +818,15 @@ class ConfigManager:
                 "scan.priority.region",
                 ["us", "wor", "ss", "eu", "jp"],
             ),
+            SCAN_REGION_MODE=pydash.get(
+                self._raw_config,
+                "scan.priority.region_mode",
+                "prefer_rom_tags",
+            ),
             SCAN_LANGUAGE_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.language",
-                ["en", "fr"],
+                ["en"],
             ),
             SCAN_MEDIA=pydash.get(
                 self._raw_config,
@@ -527,6 +856,9 @@ class ConfigManager:
             STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
             STREAMING_CONTAINERS=pydash.get(
                 self._raw_config, "streaming.containers", []
+            ),
+            STRUCTURE_TEMPLATES=pydash.get(
+                self._raw_config, "filesystem.structure", {}
             ),
         )
 
@@ -562,8 +894,85 @@ class ConfigManager:
 
         return yaml_controls
 
+    def _validated_platform_map(self, raw: Any, config_key: str) -> dict[str, str]:
+        """Check a folder name to slug mapping.
+
+        Folder names are lowercased so lookups can ignore case.
+        """
+        if not isinstance(raw, dict):
+            log.critical(f"Invalid config.yml: {config_key} must be a dictionary")
+            sys.exit(3)
+
+        normalized: dict[str, str] = {}
+        for fs_slug, slug in raw.items():
+            if not isinstance(slug, str) or not slug:
+                log.critical(
+                    f"Invalid config.yml: {config_key}.{fs_slug} must be a non-empty string"
+                )
+                sys.exit(3)
+            normalized[str(fs_slug).lower()] = slug
+
+        return normalized
+
+    def _check_retired_filesystem_keys(self) -> None:
+        """Exit if config.yml still sets a folder name that a template replaced.
+
+        Ignoring one would relocate the library under the user.
+        """
+        retired = {
+            "filesystem.roms_folder": (
+                STRUCTURE_DEFAULT_KEY,
+                lambda folder: f"{folder}/{{platform}}/{{game}}",
+            ),
+            "filesystem.firmware_folder": (
+                STRUCTURE_FIRMWARE_KEY,
+                lambda folder: f"{folder}/{{platform}}",
+            ),
+        }
+        for key, (structure_key, to_template) in retired.items():
+            folder = pydash.get(self._raw_config, key)
+            if folder is None:
+                continue
+            log.critical(
+                f"Invalid config.yml: {key} is no longer supported. Replace it "
+                f"with the equivalent layout:\n\n"
+                f"  filesystem:\n"
+                f"    structure:\n"
+                f'      {structure_key}: "{to_template(folder)}"\n\n'
+                f"See {STRUCTURE_DOCS_URL}."
+            )
+            sys.exit(3)
+
+    def check_library_layout(self) -> None:
+        """Exit if the library is laid out as `{platform}/roms` with no template.
+
+        The layout is opt-in rather than auto-detected, and scanning it as the
+        default would mark every rom missing.
+        """
+        if STRUCTURE_DEFAULT_KEY in self.config.STRUCTURE_TEMPLATES:
+            return
+        if os.path.isdir(os.path.join(LIBRARY_BASE_PATH, "roms")):
+            return
+
+        pattern = os.path.join(LIBRARY_BASE_PATH, "*", "roms")
+        if not any(os.path.isdir(match) for match in glob.iglob(pattern)):
+            return
+
+        log.critical(
+            "Detected a '{platform}/roms' library layout, which is no longer "
+            "auto-detected. Declare it in config.yml:\n\n"
+            "  filesystem:\n"
+            "    structure:\n"
+            '      default: "{platform}/roms/{game}"\n'
+            '      firmware: "{platform}/bios"\n\n'
+            f"See {STRUCTURE_DOCS_URL}."
+        )
+        sys.exit(3)
+
     def _validate_config(self):
         """Validates the config.yml file"""
+        self._check_retired_filesystem_keys()
+
         if not isinstance(self.config.EXCLUDED_PLATFORMS, list):
             log.critical("Invalid config.yml: exclude.platforms must be a list")
             sys.exit(3)
@@ -606,49 +1015,12 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.pegasus.export must be a boolean")
             sys.exit(3)
 
-        if not isinstance(self.config.PLATFORMS_BINDING, dict):
-            log.critical("Invalid config.yml: system.platforms must be a dictionary")
-            sys.exit(3)
-        else:
-            for fs_slug, slug in self.config.PLATFORMS_BINDING.items():
-                if slug is None:
-                    log.critical(
-                        f"Invalid config.yml: system.platforms.{fs_slug} must be a string"
-                    )
-                    sys.exit(3)
-
-        if not isinstance(self.config.PLATFORMS_VERSIONS, dict):
-            log.critical("Invalid config.yml: system.versions must be a dictionary")
-            sys.exit(3)
-        else:
-            for fs_slug, slug in self.config.PLATFORMS_VERSIONS.items():
-                if slug is None:
-                    log.critical(
-                        f"Invalid config.yml: system.versions.{fs_slug} must be a string"
-                    )
-                    sys.exit(3)
-
-        if not isinstance(self.config.ROMS_FOLDER_NAME, str):
-            log.critical("Invalid config.yml: filesystem.roms_folder must be a string")
-            sys.exit(3)
-
-        if self.config.ROMS_FOLDER_NAME == "":
-            log.critical(
-                "Invalid config.yml: filesystem.roms_folder cannot be an empty string"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.FIRMWARE_FOLDER_NAME, str):
-            log.critical(
-                "Invalid config.yml: filesystem.firmware_folder must be a string"
-            )
-            sys.exit(3)
-
-        if self.config.FIRMWARE_FOLDER_NAME == "":
-            log.critical(
-                "Invalid config.yml: filesystem.firmware_folder cannot be an empty string"
-            )
-            sys.exit(3)
+        self.config.PLATFORMS_BINDING = self._validated_platform_map(
+            self.config.PLATFORMS_BINDING, "system.platforms"
+        )
+        self.config.PLATFORMS_VERSIONS = self._validated_platform_map(
+            self.config.PLATFORMS_VERSIONS, "system.versions"
+        )
 
         if not isinstance(self.config.EJS_DEBUG, bool):
             log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
@@ -677,6 +1049,12 @@ class ConfigManager:
         if not isinstance(self.config.EJS_DISABLE_BATCH_BOOTUP, bool):
             log.critical(
                 "Invalid config.yml: emulatorjs.disable_batch_bootup must be a boolean"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.EJS_ENABLE_AUTO_SAVE_SYNC, bool):
+            log.critical(
+                "Invalid config.yml: emulatorjs.auto_save_sync must be a boolean"
             )
             sys.exit(3)
 
@@ -751,6 +1129,17 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.region must be a list")
             sys.exit(3)
 
+        if (
+            not isinstance(self.config.SCAN_REGION_MODE, str)
+            or self.config.SCAN_REGION_MODE not in VALID_SCAN_REGION_MODES
+        ):
+            log.warning(
+                f"Unknown scan.priority.region_mode value "
+                f"{self.config.SCAN_REGION_MODE!r}; falling back to "
+                f"'prefer_rom_tags'. Valid options: {sorted(VALID_SCAN_REGION_MODES)}."
+            )
+            self.config.SCAN_REGION_MODE = "prefer_rom_tags"
+
         if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.language must be a list")
             sys.exit(3)
@@ -758,6 +1147,69 @@ class ConfigManager:
         if not isinstance(self.config.SCAN_MEDIA, list):
             log.critical("Invalid config.yml: scan.media must be a list")
             sys.exit(3)
+
+        if not isinstance(self.config.STRUCTURE_TEMPLATES, dict):
+            log.critical(
+                "Invalid config.yml: filesystem.structure must be a dictionary"
+            )
+            sys.exit(3)
+        # Folder names are lowercased so lookups ignore case, matching
+        # `system.platforms`.
+        self.config.STRUCTURE_TEMPLATES = {
+            str(fs_slug).lower(): value
+            for fs_slug, value in self.config.STRUCTURE_TEMPLATES.items()
+        }
+        for key, value in self.config.STRUCTURE_TEMPLATES.items():
+            is_str = isinstance(value, str)
+            is_str_list = isinstance(value, list) and all(
+                isinstance(t, str) for t in value
+            )
+            if not (is_str or is_str_list):
+                log.critical(
+                    f"Invalid config.yml: filesystem.structure.{key} must be a "
+                    "template string or a list of template strings"
+                )
+                sys.exit(3)
+            if key in RESERVED_STRUCTURE_KEYS and not is_str:
+                log.critical(
+                    f"Invalid config.yml: filesystem.structure.{key} must be a "
+                    "single template string"
+                )
+                sys.exit(3)
+
+            templates: list[str] = [value] if isinstance(value, str) else value
+            for template in templates:
+                try:
+                    if key == STRUCTURE_FIRMWARE_KEY:
+                        parse_firmware_template(template)
+                    elif key == STRUCTURE_DEFAULT_KEY:
+                        parse_structure_template(template)
+                    else:
+                        parse_structure_template(template, fs_slug=key)
+                except ValueError as exc:
+                    log.critical(
+                        f"Invalid config.yml: filesystem.structure.{key} "
+                        f"('{template}'): {exc}"
+                    )
+                    sys.exit(3)
+
+        # A platform whose games live outside the folder platforms are enumerated
+        # in would never be discovered, so require every override to agree with
+        # `default` on where the platform folder itself sits.
+        platform_dir = self.config.default_structure.platform_dir
+        for key in self.config.STRUCTURE_TEMPLATES:
+            if key in RESERVED_STRUCTURE_KEYS:
+                continue
+            for structure in self.config.platform_structure(key):
+                if structure.platform_dir != platform_dir:
+                    log.critical(
+                        f"Invalid config.yml: filesystem.structure.{key} places the "
+                        f"'{key}' folder in "
+                        f"'{'/'.join(structure.platform_dir) or '.'}', but "
+                        f"filesystem.structure.default places platform folders in "
+                        f"'{'/'.join(platform_dir) or '.'}'"
+                    )
+                    sys.exit(3)
 
         # Drop unknown media types rather than exiting, since a newer release
         # may ship sample configs referencing media types this version doesn't know.
@@ -811,6 +1263,22 @@ class ConfigManager:
             log.critical("Invalid config.yml: streaming.containers must be a list")
             sys.exit(3)
 
+        legacy_containers = [
+            container
+            for container in self.config.STREAMING_CONTAINERS
+            if isinstance(container, dict)
+            and str(container.get("protocol", "")).strip().lower() != "webstation"
+        ]
+        if legacy_containers:
+            log.warning(
+                "config.yml has %d streaming container(s) still using the "
+                "per-emulator broker mods (no `protocol: webstation`). That "
+                "protocol is deprecated and support for it will be removed "
+                "in a future release. See https://docs.romm.app/latest/using/emulator-streaming-migration/ "
+                "to move to a webstation container.",
+                len(legacy_containers),
+            )
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
@@ -848,9 +1316,10 @@ class ConfigManager:
                 },
             },
             "filesystem": {
-                "roms_folder": self.config.ROMS_FOLDER_NAME,
-                "firmware_folder": self.config.FIRMWARE_FOLDER_NAME,
+                "structure": self.config.STRUCTURE_TEMPLATES,
                 "skip_hash_calculation": self.config.SKIP_HASH_CALCULATION,
+                "skip_title_id_extraction": self.config.SKIP_TITLE_ID_EXTRACTION,
+                "embed_switch_title_ids": self.config.EMBED_SWITCH_TITLE_IDS,
             },
             "system": {
                 "platforms": self.config.PLATFORMS_BINDING,
@@ -861,6 +1330,7 @@ class ConfigManager:
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
                 "disable_auto_unload": self.config.EJS_DISABLE_AUTO_UNLOAD,
                 "disable_batch_bootup": self.config.EJS_DISABLE_BATCH_BOOTUP,
+                "auto_save_sync": self.config.EJS_ENABLE_AUTO_SAVE_SYNC,
                 "netplay": {
                     "enabled": self.config.EJS_NETPLAY_ENABLED,
                     "ice_servers": self.config.EJS_NETPLAY_ICE_SERVERS,
@@ -878,6 +1348,7 @@ class ConfigManager:
                         if field in self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES
                     },
                     "region": self.config.SCAN_REGION_PRIORITY,
+                    "region_mode": self.config.SCAN_REGION_MODE,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,
@@ -914,6 +1385,7 @@ class ConfigManager:
             raise ConfigNotWritableException from exc
 
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
+        fs_slug = fs_slug.lower()
         platform_bindings = self.config.PLATFORMS_BINDING
         if fs_slug in platform_bindings:
             log.warning(f"Binding for {hl(fs_slug)} already exists")
@@ -927,7 +1399,7 @@ class ConfigManager:
         platform_bindings = self.config.PLATFORMS_BINDING
 
         try:
-            del platform_bindings[fs_slug]
+            del platform_bindings[fs_slug.lower()]
         except KeyError:
             pass
 
@@ -935,6 +1407,7 @@ class ConfigManager:
         self._update_config_file()
 
     def add_platform_version(self, fs_slug: str, slug: str) -> None:
+        fs_slug = fs_slug.lower()
         platform_versions = self.config.PLATFORMS_VERSIONS
         if fs_slug in platform_versions:
             log.warning(f"Version for {hl(fs_slug)} already exists")
@@ -948,14 +1421,14 @@ class ConfigManager:
         platform_versions = self.config.PLATFORMS_VERSIONS
 
         try:
-            del platform_versions[fs_slug]
+            del platform_versions[fs_slug.lower()]
         except KeyError:
             pass
 
         self.config.PLATFORMS_VERSIONS = platform_versions
         self._update_config_file()
 
-    def add_exclusion(self, exclusion_type: str, exclusion_value: str):
+    def add_exclusion(self, exclusion_type: ExclusionType, exclusion_value: str):
         config_item = self.config.__getattribute__(exclusion_type)
         if exclusion_value in config_item:
             log.warning(
@@ -967,7 +1440,7 @@ class ConfigManager:
         self.config.__setattr__(exclusion_type, config_item)
         self._update_config_file()
 
-    def remove_exclusion(self, exclusion_type: str, exclusion_value: str):
+    def remove_exclusion(self, exclusion_type: ExclusionType, exclusion_value: str):
         config_item = self.config.__getattribute__(exclusion_type)
 
         try:

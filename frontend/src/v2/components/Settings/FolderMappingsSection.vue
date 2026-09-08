@@ -306,6 +306,8 @@ const initialLoading = ref(false);
 onMounted(async () => {
   initialLoading.value = true;
   loading.value = true;
+  // Refresh FS_PLATFORMS from heartbeat when this page mounts
+  heartbeat.fetchHeartbeat().catch(() => {});
   try {
     const { data } = await platformApi.getSupportedPlatforms();
     supportedPlatforms.value = data || [];

@@ -30,7 +30,6 @@ class TestSyncPushPullTaskInit:
         assert task.title == "Push-Pull Sync"
         assert task.description == "Sync saves with devices via SSH/SFTP"
         assert task.task_type == TaskType.SYNC
-        assert task.func == "tasks.sync_push_pull_task.run_push_pull_sync"
 
     def test_is_periodic_task(self, task: SyncPushPullTask):
         assert isinstance(task, PeriodicTask)

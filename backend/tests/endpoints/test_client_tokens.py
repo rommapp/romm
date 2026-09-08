@@ -213,7 +213,7 @@ class TestClientTokenAuth:
             "/api/platforms",
             headers={"Authorization": f"Bearer {raw_token}"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_revoked_token_rejected(self, client, access_token, admin_user):
         create_resp = client.post(
@@ -233,7 +233,7 @@ class TestClientTokenAuth:
             "/api/platforms",
             headers={"Authorization": f"Bearer {raw_token}"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_scope_enforcement(self, client, access_token, admin_user):
         create_resp = client.post(
@@ -288,7 +288,7 @@ class TestClientTokenAuth:
             "/api/platforms",
             headers={"Authorization": f"Bearer {raw_token}"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
         # Re-enable for other tests
         db_user_handler.update_user(admin_user.id, {"enabled": True})
@@ -298,7 +298,7 @@ class TestClientTokenAuth:
             "/api/platforms",
             headers={"Authorization": "Bearer rmm_invalidgarbage"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_scopes_subset_validation(self, client, viewer_access_token, viewer_user):
         response = client.post(

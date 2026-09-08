@@ -29,6 +29,7 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   // Wave 3 — Gallery
   platform: () => import("@/v2/views/Gallery/Platform.vue"),
   search: () => import("@/v2/views/Gallery/Search.vue"),
+  music: () => import("@/v2/views/Jukebox/index.vue"),
   collection: () => import("@/v2/views/Gallery/Collection.vue"),
   "virtual-collection": () => import("@/v2/views/Gallery/Collection.vue"),
   "smart-collection": () => import("@/v2/views/Gallery/Collection.vue"),
@@ -36,8 +37,10 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   rom: () => import("@/v2/views/GameDetails.vue"),
   // Wave 5 — Players
   emulatorjs: () => import("@/v2/views/Player/EmulatorJS.vue"),
+  jsdos: () => import("@/v2/views/Player/JsDos.vue"),
   ruffle: () => import("@/v2/views/Player/Ruffle.vue"),
   stream: () => import("@/v2/views/Player/Stream.vue"),
+  "stream-desktop": () => import("@/v2/views/Player/Desktop.vue"),
   // Wave 6 — Library Tools (Scan / Upload) + Pair
   scan: () => import("@/v2/views/Scan.vue"),
   upload: () => import("@/v2/views/Upload.vue"),

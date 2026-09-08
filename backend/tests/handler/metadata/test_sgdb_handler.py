@@ -78,6 +78,36 @@ class TestGetGameCoversMapping:
         # `.webm` thumbs are animated covers.
         assert resource["type"] == "animated"
 
+    @pytest.mark.asyncio
+    async def test_skips_dmca_locked_grids(self):
+        handler = SGDBBaseHandler()
+        grids = [
+            _make_grid(id=1, lock=True, url="https://cdn.example.com/grid/locked.png?"),
+            _make_grid(id=2, lock=False),
+            _make_grid(id=3),
+        ]
+        with patch.object(
+            handler.sgdb_service,
+            "iter_grids_for_game",
+            side_effect=lambda *a, **k: _aiter(grids),
+        ):
+            result = await handler._get_game_covers(game_id=1, game_name="Test Game")
+
+        assert len(result["resources"]) == 2
+        assert all("locked" not in resource["url"] for resource in result["resources"])
+
+    @pytest.mark.asyncio
+    async def test_all_locked_grids_yield_no_resources(self):
+        handler = SGDBBaseHandler()
+        with patch.object(
+            handler.sgdb_service,
+            "iter_grids_for_game",
+            side_effect=lambda *a, **k: _aiter([_make_grid(lock=True)]),
+        ):
+            result = await handler._get_game_covers(game_id=1, game_name="Test Game")
+
+        assert result == {"name": "Test Game", "resources": []}
+
 
 class TestGetDetailsContentFilters:
     @pytest.mark.asyncio
@@ -104,3 +134,36 @@ class TestGetDetailsContentFilters:
         assert kwargs["is_nsfw"] == "any"
         assert kwargs["is_humor"] == "any"
         assert kwargs["is_epilepsy"] == "any"
+
+
+class TestLookupFailures:
+    @pytest.mark.asyncio
+    async def test_get_details_by_names_propagates_an_unreachable_sgdb(self):
+        """A failed lookup has to stay distinguishable from a name with no art."""
+        handler = SGDBBaseHandler()
+
+        with (
+            patch.object(
+                handler.sgdb_service,
+                "search_games",
+                AsyncMock(side_effect=RuntimeError("SteamGridDB is down")),
+            ),
+            patch.object(SGDBBaseHandler, "is_enabled", return_value=True),
+            pytest.raises(RuntimeError),
+        ):
+            await handler.get_details_by_names(["Test Game"])
+
+    @pytest.mark.asyncio
+    async def test_get_rom_by_id_propagates_an_unreachable_sgdb(self):
+        handler = SGDBBaseHandler()
+
+        with (
+            patch.object(
+                handler.sgdb_service,
+                "get_game_by_id",
+                AsyncMock(side_effect=RuntimeError("SteamGridDB is down")),
+            ),
+            patch.object(SGDBBaseHandler, "is_enabled", return_value=True),
+            pytest.raises(RuntimeError),
+        ):
+            await handler.get_rom_by_id(7)

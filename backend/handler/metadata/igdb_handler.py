@@ -1,5 +1,6 @@
 import re
-from typing import Final, NotRequired, TypedDict
+from collections.abc import Sequence
+from typing import Any, Final, NotRequired, TypedDict
 
 import httpx
 import pydash
@@ -23,16 +24,15 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from models.rom import Rom
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
 )
-from .base_handler import UniversalPlatformSlug as UPS
 
 PS1_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PSX]["id"]
 PS2_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PS2]["id"]
@@ -118,14 +118,21 @@ class IGDBMetadataMultiplayerMode(TypedDict):
 
 class IGDBMetadata(TypedDict):
     total_rating: str | None
+    # 9/10 from a thousand > 10/10 from one
+    total_rating_count: int | None
     aggregated_rating: str | None
     first_release_date: int | None
     youtube_video_id: str | None
     genres: list[str]
+    keywords: list[str]
+    themes: list[str]
+    player_perspectives: list[str]
     franchises: list[str]
     alternative_names: list[str]
     collections: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     game_modes: list[str]
     age_ratings: list[IGDBAgeRating]
     platforms: list[IGDBMetadataPlatform]
@@ -162,6 +169,19 @@ def build_related_game(
     )
 
 
+def _expanded_names(entries: Sequence[Any]) -> list[str]:
+    """Names from an IGDB expandable field.
+
+    A field requested without `.name` comes back as a bare id, so non-dict
+    entries are skipped rather than raising.
+    """
+    return [
+        name
+        for entry in entries
+        if isinstance(entry, dict) and (name := entry.get("name"))
+    ]
+
+
 def extract_metadata_from_igdb_rom(
     self: MetadataHandler, rom: Game, platform_igdb_id: int | None
 ) -> IGDBMetadata:
@@ -175,6 +195,9 @@ def extract_metadata_from_igdb_rom(
     franchises = rom.get("franchises", [])
     game_modes = rom.get("game_modes", [])
     genres = rom.get("genres", [])
+    keywords = rom.get("keywords", [])
+    themes = rom.get("themes", [])
+    player_perspectives = rom.get("player_perspectives", [])
     involved_companies = rom.get("involved_companies", [])
     platforms = rom.get("platforms", [])
     multiplayer_modes = rom.get("multiplayer_modes", [])
@@ -238,21 +261,45 @@ def extract_metadata_from_igdb_rom(
         {
             "youtube_video_id": videos[0].get("video_id") if videos else None,
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
+            "total_rating_count": rom.get("total_rating_count", 0),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),
-            "genres": [g.get("name", "") for g in genres if g.get("name")],
-            "franchises": pydash.compact(
-                [franchise.get("name") if franchise else None]
-                + [f.get("name", "") for f in franchises if f.get("name")]
+            "genres": _expanded_names(genres),
+            # Community tags ("metroidvania", "roguelike") describing how a game
+            # plays, which the coarse genre list does not capture.
+            "keywords": _expanded_names(keywords),
+            "themes": _expanded_names(themes),
+            "player_perspectives": _expanded_names(player_perspectives),
+            # IGDB reports the main franchise both on its own and inside the
+            # list, so the two sources overlap for most games that have one.
+            "franchises": pydash.uniq(
+                pydash.compact(
+                    [franchise.get("name") if franchise else None]
+                    + _expanded_names(franchises)
+                )
             ),
-            "alternative_names": [
-                n.get("name", "") for n in alternative_names if n.get("name")
-            ],
-            "collections": [c.get("name", "") for c in collections if c.get("name")],
-            "game_modes": [g.get("name", "") for g in game_modes if g.get("name")],
+            "alternative_names": _expanded_names(alternative_names),
+            "collections": _expanded_names(collections),
+            "game_modes": _expanded_names(game_modes),
             "companies": [
                 c["company"]["name"] for c in involved_companies if c.get("company")
             ],
+            # One entry per involvement, not per company, so a studio credited
+            # twice in a role would otherwise be listed twice.
+            "publishers": pydash.uniq(
+                [
+                    c["company"]["name"]
+                    for c in involved_companies
+                    if c.get("company") and c.get("publisher")
+                ]
+            ),
+            "developers": pydash.uniq(
+                [
+                    c["company"]["name"]
+                    for c in involved_companies
+                    if c.get("company") and c.get("developer")
+                ]
+            ),
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p["id"], name=p.get("name", ""))
                 for p in platforms
@@ -818,10 +865,9 @@ class IGDBHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
-        if platform_igdb_id == SWITCH_IGDB_ID and match:
+        if platform_igdb_id == SWITCH_IGDB_ID:
             search_term, index_entry = await self._switch_productid_format(
-                match, search_term
+                rom, fs_name, search_term
             )
             if index_entry:
                 fallback_rom = IGDBRom(
@@ -1035,6 +1081,8 @@ GAMES_FIELDS = (
     "collections.name",
     "game_modes.name",
     "involved_companies.company.name",
+    "involved_companies.developer",
+    "involved_companies.publisher",
     "expansions.id",
     "expansions.slug",
     "expansions.name",
@@ -1059,6 +1107,10 @@ GAMES_FIELDS = (
     "ports.slug",
     "ports.name",
     "ports.cover.url",
+    "total_rating_count",
+    "keywords.name",
+    "themes.name",
+    "player_perspectives.name",
     "similar_games.id",
     "similar_games.slug",
     "similar_games.name",

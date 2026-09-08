@@ -5,6 +5,7 @@ from starlette.requests import Request
 
 from handler.metadata.ra_handler import RAUserProgression
 from models.user import Role, User
+from utils.urls import get_public_base_url
 
 from .base import BaseModel, UTCDatetime
 
@@ -52,3 +53,12 @@ class UserSchema(BaseModel):
 
 class InviteLinkSchema(BaseModel):
     token: str
+    url: str | None = None
+
+    @classmethod
+    def from_token(cls, token: str) -> "InviteLinkSchema":
+        base_url = get_public_base_url()
+        return cls(
+            token=token,
+            url=f"{base_url}/register?token={token}" if base_url else None,
+        )

@@ -16,6 +16,20 @@ class RateLimiter:
         self._min_interval = 1.0 / requests_per_second
         self._next_slot = 0.0
 
+    @property
+    def requests_per_second(self) -> float:
+        return 1.0 / self._min_interval
+
+    def set_requests_per_second(self, requests_per_second: float) -> None:
+        """Re-pace the limiter, for APIs that report their own per-account rate.
+
+        Slots already reserved keep their time; only later ones use the new
+        spacing.
+        """
+        if requests_per_second <= 0:
+            raise ValueError("requests_per_second must be positive")
+        self._min_interval = 1.0 / requests_per_second
+
     async def acquire(self) -> None:
         # Reserving the slot is a read-then-write on _next_slot with no await
         # between, so it is atomic on the single-threaded loop and needs no lock.

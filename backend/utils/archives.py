@@ -10,6 +10,7 @@ import tempfile
 import threading
 import time
 import zipfile
+import zlib
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import IO, Final, Literal
@@ -60,7 +61,9 @@ CHD_V5_SHA1_LENGTH: Final = 20  # SHA1 is 20 bytes
 CHD_V5_VERSION: Final = 5  # CHD v5 identifier
 CHD_MIME_TYPE: Final = "application/x-mame-chd"
 
-FILE_READ_CHUNK_SIZE = 1024 * 8
+# Hashing runs in threads and hashlib/zlib release the GIL per chunk, so small
+# chunks make concurrent scans contend instead of overlapping.
+FILE_READ_CHUNK_SIZE: Final = 1024 * 256
 _MIME_DETECTOR = magic.Magic(mime=True)
 _MIME_DETECTOR_LOCK = threading.Lock()
 
@@ -221,9 +224,48 @@ def read_bz2_file(file_path: Path) -> Iterator[bytes]:
             yield chunk
 
 
-def _iter_chunks(reader: IO[bytes]) -> Iterator[bytes]:
-    while chunk := reader.read(FILE_READ_CHUNK_SIZE):
-        yield chunk
+def _iter_chunks(reader: IO[bytes], file_path: Path, name: str) -> Iterator[bytes]:
+    """Stream a member's bytes, raising `ArchiveReadError` if it can't be read.
+
+    Chunks are consumed by the caller, outside the reader's own error
+    handling, so decompression failures (a bad CRC, truncated data) surface
+    here rather than escaping as a raw zipfile/tarfile error.
+    """
+    try:
+        while chunk := reader.read(FILE_READ_CHUNK_SIZE):
+            yield chunk
+    except (
+        zipfile.BadZipFile,
+        tarfile.TarError,
+        zlib.error,
+        EOFError,
+        OSError,
+    ) as e:
+        raise ArchiveReadError(f"Error reading {name} from {file_path}: {e}") from e
+
+
+def _eligible_zip_entries(
+    z: zipfile.ZipFile, excluded_names: list[str], excluded_exts: list[str]
+) -> list[zipfile.ZipInfo]:
+    return [
+        entry
+        for entry in sorted(z.infolist(), key=lambda e: e.filename)
+        if not entry.is_dir()
+        and not _is_member_excluded(entry.filename, excluded_names, excluded_exts)
+    ]
+
+
+def _undecodable_zip_method(
+    z: zipfile.ZipFile, entries: list[zipfile.ZipInfo]
+) -> int | None:
+    """Opening an entry reads only its local header, so probing every member
+    is cheap and tracks whatever this Python and the inflate64 patch decode."""
+    for entry in entries:
+        try:
+            z.open(entry, "r").close()
+        except NotImplementedError:
+            return entry.compress_type
+    return None
 
 
 def read_zip_archive_files(
@@ -236,27 +278,31 @@ def read_zip_archive_files(
     Each yielded `(internal_name, file_size_bytes, chunks)` streams its
     member's bytes lazily; chunks must be fully consumed before advancing
     to the next entry, since the underlying file is closed at that point.
+
+    An archive with a method zipfile can't decode goes through 7zz as a whole,
+    so a stored .cue next to a PPMd .bin is never streamed twice.
+
+    Raises `ArchiveReadError` if the archive can't be read in full, so callers
+    never mistake a partial read for a complete one.
     """
     try:
         with zipfile.ZipFile(file_path, "r") as z:
-            entries = sorted(z.infolist(), key=lambda e: e.filename)
-            for entry in entries:
-                if entry.is_dir():
-                    continue
-                name = entry.filename
-                base_name = Path(name).name
-                lower = base_name.lower()
-                if any(lower.endswith("." + ext) for ext in excluded_exts):
-                    continue
-                if any(
-                    base_name == exc or fnmatch.fnmatch(base_name, exc)
-                    for exc in excluded_names
-                ):
-                    continue
-                with z.open(entry, "r") as f:
-                    yield name, entry.file_size, _iter_chunks(f)
-    except (zipfile.BadZipFile, RuntimeError, OSError):
-        return
+            entries = _eligible_zip_entries(z, excluded_names, excluded_exts)
+            undecodable_method = _undecodable_zip_method(z, entries)
+            if undecodable_method is None:
+                for entry in entries:
+                    name = entry.filename
+                    with z.open(entry, "r") as f:
+                        yield name, entry.file_size, _iter_chunks(f, file_path, name)
+                return
+    except (zipfile.BadZipFile, RuntimeError, OSError) as e:
+        raise ArchiveReadError(f"Error reading zip {file_path}: {e}") from e
+
+    log.debug(
+        f"Zip {file_path} uses compression method {undecodable_method}, which "
+        "zipfile can't decode; reading it through 7zz"
+    )
+    yield from read_7z_archive_files(file_path, excluded_names, excluded_exts)
 
 
 def read_tar_archive_files(
@@ -269,6 +315,9 @@ def read_tar_archive_files(
     Each yielded `(internal_name, file_size_bytes, chunks)` streams its
     member's bytes lazily; chunks must be fully consumed before advancing
     to the next entry, since the underlying file is closed at that point.
+
+    Raises `ArchiveReadError` if the archive can't be read in full, so callers
+    never mistake a partial read for a complete one.
     """
     try:
         with tarfile.open(file_path, "r:*") as tf:
@@ -295,9 +344,9 @@ def read_tar_archive_files(
                     continue
 
                 with ef:
-                    yield member.name, member.size, _iter_chunks(ef)
-    except tarfile.ReadError:
-        return
+                    yield member.name, member.size, _iter_chunks(ef, file_path, name)
+    except (tarfile.TarError, OSError) as e:
+        raise ArchiveReadError(f"Error reading tar {file_path}: {e}") from e
 
 
 def _stream_7z_chunks(

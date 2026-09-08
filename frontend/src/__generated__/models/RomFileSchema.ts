@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { DocMetaSchema } from './DocMetaSchema';
 import type { RomArchiveMember } from './RomArchiveMember';
 import type { RomFileCategory } from './RomFileCategory';
 import type { TrackMetaSchema } from './TrackMetaSchema';
@@ -24,5 +25,6 @@ export type RomFileSchema = {
     archive_members: (Array<RomArchiveMember> | null);
     category: (RomFileCategory | null);
     track_meta?: (TrackMetaSchema | null);
+    doc_meta?: (DocMetaSchema | null);
 };
 

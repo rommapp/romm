@@ -1,10 +1,15 @@
+import asyncio
 import os
+from collections import defaultdict
+from typing import Final
 
 from anyio import Path as AnyioPath
 from fastapi import HTTPException, Request, status
 
+from adapters.services.sigil import SigilService
 from config import (
     DISABLE_EMULATOR_JS,
+    DISABLE_JSDOS,
     DISABLE_LOGS_VIEWER,
     DISABLE_RUFFLE_RS,
     DISABLE_SETUP_WIZARD,
@@ -29,10 +34,11 @@ from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
-from handler.database import db_user_handler
+from handler.database import db_stats_handler, db_user_handler
 from handler.filesystem import fs_platform_handler
-from handler.filesystem.base_handler import LibraryStructure
 from handler.metadata import (
+    meta_csdb_handler,
+    meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_gamelist_handler,
     meta_hasheous_handler,
@@ -42,16 +48,32 @@ from handler.metadata import (
     meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
+    meta_pouet_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
+from handler.redis_handler import sync_cache
 from handler.scan_handler import MetadataSource
 from logger.logger import log
 from utils import get_version
 from utils.platforms import get_supported_platforms
+from utils.rate_limit import enforce_rate_limit, get_client_ip
 from utils.router import APIRouter
+
+# The endpoint is unauthenticated, and every probe passes through the provider's
+# process-global outbound limiter, where it competes with scans.
+METADATA_HEARTBEAT_RATE_LIMIT: Final[int] = 20
+METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS: Final[int] = 60
+
+# Holds outbound probes to one per source per window whatever the inbound rate, which
+# the per-IP cap cannot do against a spoofed forwarded header or a distributed flood.
+METADATA_HEARTBEAT_CACHE_TTL_SECONDS: Final[int] = 60
+
+# The key set is the MetadataSource enum, so this cannot grow past a lock per source.
+_probe_locks: defaultdict[MetadataSource, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 router = APIRouter(
     tags=["system"],
@@ -65,6 +87,10 @@ async def heartbeat() -> HeartbeatResponse:
     Returns:
         HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
     """
+    title_id_extraction_enabled = (
+        SigilService.is_enabled() and not cm.get_config().SKIP_TITLE_ID_EXTRACTION
+    )
+
     igdb_enabled = meta_igdb_handler.is_enabled()
     flashpoint_enabled = meta_flashpoint_handler.is_enabled()
     ss_enabled = meta_ss_handler.is_enabled()
@@ -75,6 +101,10 @@ async def heartbeat() -> HeartbeatResponse:
     hasheous_enabled = meta_hasheous_handler.is_enabled()
     playmatch_enabled = meta_playmatch_handler.is_enabled()
     hltb_enabled = meta_hltb_handler.is_enabled()
+    demozoo_enabled = meta_demozoo_handler.is_enabled()
+    pouet_enabled = meta_pouet_handler.is_enabled()
+    csdb_enabled = meta_csdb_handler.is_enabled()
+    steam_enabled = meta_steam_handler.is_enabled()
     tgdb_enabled = meta_tgdb_handler.is_enabled()
     libretro_enabled = meta_libretro_handler.is_enabled()
 
@@ -95,10 +125,15 @@ async def heartbeat() -> HeartbeatResponse:
                 or tgdb_enabled
                 or flashpoint_enabled
                 or hltb_enabled
+                or demozoo_enabled
+                or pouet_enabled
+                or csdb_enabled
+                or steam_enabled
                 or libretro_enabled
             ),
             "IGDB_API_ENABLED": igdb_enabled,
             "SS_API_ENABLED": ss_enabled,
+            "SS_DEV_CREDENTIALS_SET": meta_ss_handler.has_dev_credentials(),
             "MOBY_API_ENABLED": moby_enabled,
             "STEAMGRIDDB_API_ENABLED": sgdb_enabled,
             "RA_API_ENABLED": ra_enabled,
@@ -108,14 +143,20 @@ async def heartbeat() -> HeartbeatResponse:
             "TGDB_API_ENABLED": tgdb_enabled,
             "FLASHPOINT_API_ENABLED": flashpoint_enabled,
             "HLTB_API_ENABLED": hltb_enabled,
+            "DEMOZOO_API_ENABLED": demozoo_enabled,
+            "POUET_API_ENABLED": pouet_enabled,
+            "CSDB_API_ENABLED": csdb_enabled,
+            "STEAM_API_ENABLED": steam_enabled,
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
+            "TITLE_ID_EXTRACTION_ENABLED": title_id_extraction_enabled,
         },
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
             "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
+            "DISABLE_JSDOS": DISABLE_JSDOS,
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,
@@ -142,13 +183,38 @@ async def heartbeat() -> HeartbeatResponse:
 
 
 @router.get("/heartbeat/metadata/{source}")
-async def metadata_heartbeat(source: str) -> bool:
+async def metadata_heartbeat(request: Request, source: str) -> bool:
     """Endpoint to return the heartbeat of the metadata sources"""
     try:
         metadata_source = MetadataSource(source)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid metadata source") from e
 
+    # Keyed on the parsed source, so arbitrary path values can't grow the keyspace.
+    enforce_rate_limit(
+        f"metadata-heartbeat-rate:{get_client_ip(request)}:{metadata_source.value}",
+        max_requests=METADATA_HEARTBEAT_RATE_LIMIT,
+        window_seconds=METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS,
+        detail="Too many metadata heartbeat requests. Try again later.",
+    )
+
+    cache_key = f"metadata-heartbeat:{metadata_source.value}"
+
+    # Callers that arrive while a probe is in flight queue here and read its result,
+    # rather than each starting a probe of their own into an empty cache.
+    async with _probe_locks[metadata_source]:
+        cached = sync_cache.get(cache_key)
+        if cached is not None:
+            return bool(int(cached))
+
+        is_alive = await _probe_metadata_source(metadata_source)
+        sync_cache.set(
+            cache_key, int(is_alive), ex=METADATA_HEARTBEAT_CACHE_TTL_SECONDS
+        )
+        return is_alive
+
+
+async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
     match metadata_source:
         case MetadataSource.IGDB:
             return await meta_igdb_handler.heartbeat()
@@ -172,6 +238,14 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_flashpoint_handler.heartbeat()
         case MetadataSource.HLTB:
             return await meta_hltb_handler.heartbeat()
+        case MetadataSource.DEMOZOO:
+            return await meta_demozoo_handler.heartbeat()
+        case MetadataSource.POUET:
+            return await meta_pouet_handler.heartbeat()
+        case MetadataSource.CSDB:
+            return await meta_csdb_handler.heartbeat()
+        case MetadataSource.STEAM:
+            return await meta_steam_handler.heartbeat()
         case MetadataSource.GAMELIST:
             return await meta_gamelist_handler.heartbeat()
         case MetadataSource.LIBRETRO:
@@ -191,7 +265,8 @@ async def get_setup_library_info(request: Request):
     Only accessible during initial setup (no admin users) or with authentication.
 
     Returns:
-        - detected_structure: "struct_a" (roms/{platform}), "struct_b" ({platform}/roms), or None
+        - library_ready: whether the configured platforms folder exists on disk
+        - library_structure: the configured `filesystem.structure.default` template
         - existing_platforms: list of objects with fs_slug and rom_count
         - supported_platforms: list of all supported platforms with metadata
     """
@@ -199,9 +274,6 @@ async def get_setup_library_info(request: Request):
     # Check authentication - only allow public access if no admin users
     # If admin users exist, this would need authentication (but won't be called during setup)
 
-    # Auto-detect structure type
-    # Structure A: /library/roms/{platform}
-    # Structure B: /library/{platform}/roms
     # If there are admin users already, enforce the USERS_WRITE scope.
     if (
         Scope.PLATFORMS_READ not in request.auth.scopes
@@ -212,7 +284,19 @@ async def get_setup_library_info(request: Request):
             detail="Forbidden",
         )
 
-    detected_structure = fs_platform_handler.detect_library_structure()
+    library_ready = fs_platform_handler.library_structure_exists()
+
+    # The per-platform rom counts below are a first-run hint, so a fresh
+    # instance can show what RomM already sees on disk. Once the database
+    # holds ROMs that hint is dead weight, and building it walks every
+    # platform directory: tens of seconds on a large library.
+    if db_stats_handler.get_roms_count() > 0:
+        return {
+            "library_ready": library_ready,
+            "library_structure": cm.get_config().default_structure_pattern,
+            "existing_platforms": [],
+            "supported_platforms": get_supported_platforms(),
+        }
 
     # Get existing platforms from filesystem
     try:
@@ -223,20 +307,14 @@ async def get_setup_library_info(request: Request):
 
     # Build existing platforms with rom counts
     existing_platforms = []
-    if detected_structure and existing_platform_slugs:
-        cnfg = cm.get_config()
+    if library_ready and existing_platform_slugs:
         for fs_slug in existing_platform_slugs:
             rom_count = 0
             try:
-                # Determine the roms directory based on structure
-                if detected_structure == LibraryStructure.A:
-                    roms_path = os.path.join(
-                        LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME, fs_slug
-                    )
-                else:  # Structure B
-                    roms_path = os.path.join(
-                        LIBRARY_BASE_PATH, fs_slug, cnfg.ROMS_FOLDER_NAME
-                    )
+                roms_path = os.path.join(
+                    LIBRARY_BASE_PATH,
+                    fs_platform_handler.get_platform_fs_structure(fs_slug),
+                )
 
                 # Count files and folders in the roms directory
                 roms_dir = AnyioPath(roms_path)
@@ -267,7 +345,8 @@ async def get_setup_library_info(request: Request):
     supported_platforms = get_supported_platforms()
 
     return {
-        "detected_structure": detected_structure,
+        "library_ready": library_ready,
+        "library_structure": cm.get_config().default_structure_pattern,
         "existing_platforms": existing_platforms,
         "supported_platforms": supported_platforms,
     }
@@ -311,11 +390,7 @@ async def create_setup_platforms(request: Request, platform_slugs: list[str]):
         }
 
     try:
-        # Detect structure type to determine if we need to create the roms folder
-        detected_structure = fs_platform_handler.detect_library_structure()
-
-        # If no structure detected, create structure A
-        if detected_structure is None:
+        if not fs_platform_handler.library_structure_exists():
             fs_platform_handler.create_library_structure()
 
         # Create platform folders

@@ -34,6 +34,9 @@ interface LogRow extends LogEntry {
   // stable key keeps virtual-scroller rows from re-patching on front
   // eviction.
   seq: number;
+  // The message as emitted, before newline folding. What the tooltip,
+  // the clipboard and the downloaded file use.
+  raw: string;
 }
 
 // Cap the in-memory buffer so a long-lived view holds memory flat.
@@ -58,11 +61,18 @@ const search = ref("");
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 
+// A record can carry embedded newlines: a provider logging a formatted JSON
+// body, a traceback. Rows are one line tall, so a message rendered with
+// `white-space: pre` painted over the rows the scroller placed after it.
+const NEWLINE_RE = /\r?\n\s*/g;
+
 let seqCounter = 0;
 function toRow(entry: LogEntry): LogRow {
+  const raw = entry.message.replace(ANSI_RE, "");
   return {
     ...entry,
-    message: entry.message.replace(ANSI_RE, ""),
+    message: raw.trim().replace(NEWLINE_RE, " ⏎ "),
+    raw,
     seq: seqCounter++,
   };
 }
@@ -108,7 +118,7 @@ const filtered = computed<LogRow[]>(() => {
     if (mod !== "ALL" && e.module !== mod) return false;
     if (
       q &&
-      !e.message.toLowerCase().includes(q) &&
+      !e.raw.toLowerCase().includes(q) &&
       !e.module.toLowerCase().includes(q)
     ) {
       return false;
@@ -204,7 +214,7 @@ function formatTime(ts: number) {
 }
 
 function asLine(e: LogRow) {
-  return `[${new Date(e.ts).toISOString()}] ${e.level} [${e.module}] ${e.message}`;
+  return `[${new Date(e.ts).toISOString()}] ${e.level} [${e.module}] ${e.raw}`;
 }
 
 async function copyLogs() {
@@ -334,7 +344,7 @@ function downloadLogs() {
               location="top start"
               max-width="min(80vw, 900px)"
               hint-icon="mdi-content-copy"
-              :text="(item as LogRow).message"
+              :text="(item as LogRow).raw"
               :hint="t('logs.click-to-copy')"
             />
             <span class="r-v2-logs__time">{{
@@ -474,6 +484,9 @@ html[data-bp~="sm-and-down"] .r-v2-logs__spacer {
   font-size: var(--r-font-size-sm);
   line-height: 24px;
   white-space: nowrap;
+  /* Structural guard: the row is one line tall, so anything taller would
+     paint over the rows the scroller placed after it. */
+  overflow: hidden;
   color: var(--r-color-fg-secondary);
   cursor: pointer;
 }

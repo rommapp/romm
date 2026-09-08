@@ -1,10 +1,18 @@
+import hashlib
+import io
+import shutil
+import struct
+import subprocess
+import tarfile
 import time
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from utils import archives
+from utils.zip_cache import ensure_zipfile_writable
 
 
 def _fake_7z_listing(names: list[str]) -> str:
@@ -471,3 +479,247 @@ class TestRarArchives:
             "--",
             "game.gba",
         ]
+
+
+class TestZipAndTarReadFailures:
+    """Unreadable zip/tar archives must be reported, not silently swallowed.
+
+    A swallowed failure yields no members, which the hashing path can't tell
+    apart from an empty archive: it falls back to hashing the container's raw
+    bytes, so the ROM ends up with hashes that match no hash database and no
+    log line saying why (GitHub issue #4159).
+    """
+
+    def _write_zip(self, path: Path, members: dict[str, bytes]) -> None:
+        # Importing `archives` patches zipfile for Enhanced Deflate, which
+        # leaves the writer unusable until this is called.
+        ensure_zipfile_writable()
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
+            for name, data in members.items():
+                z.writestr(name, data)
+
+    def test_unopenable_zip_raises(self, tmp_path):
+        path = tmp_path / "game.zip"
+        path.write_bytes(b"not a zip at all")
+
+        with pytest.raises(archives.ArchiveReadError):
+            list(archives.read_zip_archive_files(path, [], []))
+
+    def test_corrupt_zip_member_raises_while_streaming(self, tmp_path):
+        """The failure surfaces as the member's bytes are consumed, which
+        happens outside the reader's own error handling."""
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"a.bin": b"A" * 64, "b.bin": b"B" * 64})
+
+        # Corrupt b.bin's stored data so its CRC check fails on read.
+        raw = bytearray(path.read_bytes())
+        start = raw.index(b"B" * 64)
+        raw[start : start + 64] = b"C" * 64
+        path.write_bytes(bytes(raw))
+
+        with pytest.raises(archives.ArchiveReadError):
+            for _name, _size, chunks in archives.read_zip_archive_files(path, [], []):
+                list(chunks)
+
+    def test_healthy_zip_streams_every_member(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"b.bin": b"B" * 32, "a.bin": b"A" * 16})
+
+        result = [
+            (name, size, b"".join(chunks))
+            for name, size, chunks in archives.read_zip_archive_files(path, [], [])
+        ]
+
+        assert result == [("a.bin", 16, b"A" * 16), ("b.bin", 32, b"B" * 32)]
+
+    def test_unopenable_tar_raises(self, tmp_path):
+        path = tmp_path / "game.tar"
+        path.write_bytes(b"not a tar at all")
+
+        with pytest.raises(archives.ArchiveReadError):
+            list(archives.read_tar_archive_files(path, [], []))
+
+    def test_truncated_tar_raises(self, tmp_path):
+        path = tmp_path / "game.tar"
+        with tarfile.open(path, "w") as tf:
+            for name, data in (("a.bin", b"A" * 4096), ("b.bin", b"B" * 8192)):
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tf.addfile(info, io.BytesIO(data))
+
+        # Cut into the second member's data, not just the trailing padding.
+        raw = path.read_bytes()
+        path.write_bytes(raw[: len(raw) // 2])
+
+        with pytest.raises(archives.ArchiveReadError):
+            for _name, _size, chunks in archives.read_tar_archive_files(path, [], []):
+                list(chunks)
+
+    def test_member_read_failure_is_wrapped(self):
+        """A member that fails mid-stream is reported as an archive error.
+
+        Tar failures surface while listing rather than while streaming, since
+        `getmembers()` walks the whole archive first, so the streaming guard is
+        covered directly here for every archive type that uses it.
+        """
+
+        class _FailingReader(io.BytesIO):
+            def read(self, size: int | None = -1) -> bytes:
+                raise EOFError("Compressed file ended before the end-of-stream marker")
+
+        with pytest.raises(archives.ArchiveReadError):
+            list(archives._iter_chunks(_FailingReader(), Path("/fake.tar.gz"), "a.bin"))
+
+
+class TestZipUndecodableCompression:
+    """Zips using a method zipfile can't decode must be read through 7zz, not
+    hashed as a container (GitHub issue #4159)."""
+
+    # An id the zip spec never assigned, so no Python release can learn to decode it.
+    UNASSIGNED_METHOD = 0xFFFF
+
+    def _write_zip(
+        self, path: Path, members: dict[str, bytes], stamped: frozenset[str]
+    ) -> None:
+        ensure_zipfile_writable()
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
+            for name, data in members.items():
+                z.writestr(name, data)
+
+        raw = bytearray(path.read_bytes())
+        for name in stamped:
+            encoded = name.encode()
+            # The name follows a 30-byte local header and a 46-byte central one.
+            local = raw.index(encoded, raw.index(b"PK\x03\x04")) - 30
+            struct.pack_into("<H", raw, local + 8, self.UNASSIGNED_METHOD)
+            central = raw.index(encoded, raw.index(b"PK\x01\x02")) - 46
+            struct.pack_into("<H", raw, central + 10, self.UNASSIGNED_METHOD)
+        path.write_bytes(bytes(raw))
+
+    def test_stamped_zip_is_rejected_by_zipfile(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"game.bin": b"G" * 64}, frozenset({"game.bin"}))
+
+        with zipfile.ZipFile(path) as z, pytest.raises(NotImplementedError):
+            z.open("game.bin").close()
+
+    def test_undecodable_member_reads_whole_archive_through_7zz(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"game.bin": b"G" * 64}, frozenset({"game.bin"}))
+        listing = MagicMock(stdout=_fake_7z_listing_sized([("game.bin", 64)]))
+        popen = _mock_popen_streaming([[b"G" * 32, b"G" * 32]], [0])
+
+        with (
+            patch.object(archives.subprocess, "run", return_value=listing),
+            patch.object(archives.subprocess, "Popen", popen),
+        ):
+            result = [
+                (name, size, b"".join(chunks))
+                for name, size, chunks in archives.read_zip_archive_files(path, [], [])
+            ]
+
+        assert result == [("game.bin", 64, b"G" * 64)]
+        extract_args = popen.call_args[0][0]
+        assert extract_args[:3] == [archives.SEVEN_ZIP_PATH, "e", str(path)]
+        assert "game.bin" in extract_args
+
+    def test_mixed_methods_do_not_split_the_read(self, tmp_path):
+        """Splitting the read between zipfile and 7zz would double-count the composite hash."""
+        path = tmp_path / "game.zip"
+        self._write_zip(
+            path,
+            {"game.bin": b"B" * 64, "game.cue": b"C" * 16},
+            frozenset({"game.bin"}),
+        )
+        listing = MagicMock(
+            stdout=_fake_7z_listing_sized([("game.bin", 64), ("game.cue", 16)])
+        )
+        popen = _mock_popen_streaming([[b"B" * 64], [b"C" * 16]], [0, 0])
+
+        with (
+            patch.object(archives.subprocess, "run", return_value=listing),
+            patch.object(archives.subprocess, "Popen", popen),
+        ):
+            result = [
+                (name, size, b"".join(chunks))
+                for name, size, chunks in archives.read_zip_archive_files(path, [], [])
+            ]
+
+        assert result == [("game.bin", 64, b"B" * 64), ("game.cue", 16, b"C" * 16)]
+        assert popen.call_count == 2
+
+    def test_excluded_undecodable_member_does_not_trigger_7zz(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(
+            path,
+            {"game.bin": b"B" * 64, "readme.txt": b"R" * 8},
+            frozenset({"readme.txt"}),
+        )
+
+        with (
+            patch.object(archives.subprocess, "run", side_effect=AssertionError),
+            patch.object(archives.subprocess, "Popen", side_effect=AssertionError),
+        ):
+            result = [
+                (name, size, b"".join(chunks))
+                for name, size, chunks in archives.read_zip_archive_files(
+                    path, [], ["txt"]
+                )
+            ]
+
+        assert result == [("game.bin", 64, b"B" * 64)]
+
+    def test_decodable_zip_never_spawns_7zz(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"game.bin": b"B" * 64}, frozenset())
+
+        with (
+            patch.object(archives.subprocess, "run", side_effect=AssertionError),
+            patch.object(archives.subprocess, "Popen", side_effect=AssertionError),
+        ):
+            result = [
+                (name, size, b"".join(chunks))
+                for name, size, chunks in archives.read_zip_archive_files(path, [], [])
+            ]
+
+        assert result == [("game.bin", 64, b"B" * 64)]
+
+
+_SEVEN_ZIP = shutil.which("7zz") or archives.SEVEN_ZIP_PATH
+
+
+@pytest.mark.skipif(not shutil.which(_SEVEN_ZIP), reason="7zz not installed")
+def test_real_ppmd_zip_hashes_through_7zz(tmp_path):
+    """End-to-end on a zip 7zz itself wrote: a PPMd .bin next to a stored .cue."""
+    source = tmp_path / "src"
+    source.mkdir()
+    # Random bytes don't compress, so 7zz would silently store them instead.
+    track = (b"sector data track audio pregap index " * 4000)[:150000]
+    cue = b'FILE "Game (USA) (Track 01).cue" BINARY\n  TRACK 01 MODE2/2352\n'
+    (source / "Game (USA) (Track 01).bin").write_bytes(track)
+    (source / "Game (USA).cue").write_bytes(cue)
+    zip_path = tmp_path / "Game (USA).zip"
+    for member, method in (
+        ("Game (USA) (Track 01).bin", "PPMd"),
+        ("Game (USA).cue", "Copy"),
+    ):
+        subprocess.run(
+            [_SEVEN_ZIP, "a", "-tzip", f"-mm={method}", str(zip_path), member],
+            cwd=source,
+            check=True,
+            capture_output=True,
+        )
+
+    with zipfile.ZipFile(zip_path) as z, pytest.raises(NotImplementedError):
+        z.open("Game (USA) (Track 01).bin").close()
+
+    with patch.object(archives, "SEVEN_ZIP_PATH", _SEVEN_ZIP):
+        result = [
+            (name, size, hashlib.sha1(b"".join(chunks)).hexdigest())
+            for name, size, chunks in archives.read_zip_archive_files(zip_path, [], [])
+        ]
+
+    assert result == [
+        ("Game (USA) (Track 01).bin", len(track), hashlib.sha1(track).hexdigest()),
+        ("Game (USA).cue", len(cue), hashlib.sha1(cue).hexdigest()),
+    ]

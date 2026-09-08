@@ -6,6 +6,7 @@ export type MetadataSourcesDict = {
     ANY_SOURCE_ENABLED: boolean;
     IGDB_API_ENABLED: boolean;
     SS_API_ENABLED: boolean;
+    SS_DEV_CREDENTIALS_SET: boolean;
     MOBY_API_ENABLED: boolean;
     STEAMGRIDDB_API_ENABLED: boolean;
     RA_API_ENABLED: boolean;
@@ -15,6 +16,10 @@ export type MetadataSourcesDict = {
     TGDB_API_ENABLED: boolean;
     FLASHPOINT_API_ENABLED: boolean;
     HLTB_API_ENABLED: boolean;
+    DEMOZOO_API_ENABLED: boolean;
+    POUET_API_ENABLED: boolean;
+    CSDB_API_ENABLED: boolean;
+    STEAM_API_ENABLED: boolean;
     LIBRETRO_API_ENABLED: boolean;
 };
 

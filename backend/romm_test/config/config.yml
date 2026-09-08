@@ -1,0 +1,6 @@
+# The test library is laid out with the platform folder first, which is no longer
+# the auto-detected default, so declare it.
+filesystem:
+  structure:
+    default: "{platform}/roms/{game}"
+    firmware: "{platform}/bios"

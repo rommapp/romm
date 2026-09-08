@@ -23,6 +23,7 @@
   "name-placeholder": "Koleksiyon ismi",
   "no-collections-search": "\"{query}\" için eşleşen koleksiyon bulunamadı.",
   "no-collections-yet": "Henüz hiçbir koleksiyon yok.",
+  "no-collections-yet-detail": "Henüz hiç koleksiyonunuz yok. Bir oyunu favorilere ekleyin veya herhangi bir ROM'un işlem çubuğundan koleksiyon oluşturun.",
   "no-collections-yet-hint": "Henüz koleksiyon yok. Yukarıdan bir tane oluşturun.",
   "not-found": "Koleksiyon bulunamadı.",
   "owner": "Sahip",

@@ -1,14 +1,25 @@
+from pathlib import Path
 from typing import TypedDict
 from unittest.mock import MagicMock
 
 import pytest
 
+from config.config_manager import PLATFORM_MEDIA_DIRS
 from handler.database import db_platform_handler, db_rom_handler
-from handler.filesystem import fs_resource_handler
+from handler.filesystem import (
+    fs_platform_handler,
+    fs_resource_handler,
+    fs_rom_handler,
+)
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-from utils.pegasus_exporter import PegasusExporter
+from utils.pegasus_exporter import (
+    PEGASUS_MEDIA_KEYS,
+    PegasusExporter,
+    canonical_pegasus_key,
+    parse_pegasus,
+)
 
 
 class ParsedPegasus(TypedDict):
@@ -159,6 +170,45 @@ class TestExportMetadata:
         assert "x-romm-id" in game
         assert "sort-by" not in game
 
+    def test_prefers_explicit_publisher_developer(self, admin_user: User):
+        platform = Platform(name="NES", slug="nes", fs_slug="nes")
+        platform = db_platform_handler.add_platform(platform)
+
+        rom = Rom(
+            platform_id=platform.id,
+            name="Test Game",
+            slug="test-game",
+            fs_name="test.nes",
+            fs_name_no_tags="test",
+            fs_name_no_ext="test",
+            fs_extension="nes",
+            fs_path="nes/roms",
+        )
+        rom = db_rom_handler.add_rom(rom)
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+        # companies order would give developer=Atari / publisher=Artech; the
+        # explicit split fields (reversed here) must take precedence.
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "igdb_metadata": {
+                    "companies": ["Atari", "Artech Studios"],
+                    "publishers": ["Atari"],
+                    "developers": ["Artech Studios"],
+                }
+            },
+        )
+
+        parsed = _parse_pegasus(
+            PegasusExporter(local_export=True).export_platform_to_pegasus(
+                platform.id, request=None
+            )
+        )
+        game = parsed["games"][0]
+        assert game["developer"] == "Artech Studios"
+        assert game["publisher"] == "Atari"
+
     def test_minimal_rom(self, admin_user: User):
         platform = Platform(name="Game Boy", slug="gb", fs_slug="gb")
         platform = db_platform_handler.add_platform(platform)
@@ -202,6 +252,31 @@ class TestExportMetadata:
                 fs_extension="nes",
                 fs_path="nes/roms",
                 missing_from_fs=True,
+            )
+        )
+
+        parsed = _parse_pegasus(
+            PegasusExporter(local_export=True).export_platform_to_pegasus(
+                platform.id, request=None
+            )
+        )
+        assert len(parsed["games"]) == 0
+
+    def test_skips_physical_roms(self, admin_user: User):
+        platform = Platform(name="NES", slug="nes", fs_slug="nes")
+        platform = db_platform_handler.add_platform(platform)
+
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Boxed Copy",
+                slug="boxed-copy",
+                fs_name="Boxed Copy",
+                fs_name_no_tags="Boxed Copy",
+                fs_name_no_ext="Boxed Copy",
+                fs_extension="",
+                fs_path="nes/roms/.physical",
+                is_physical=True,
             )
         )
 
@@ -364,18 +439,25 @@ class TestCollectAssets:
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
         assert assets[expected_pegasus_key] == f
 
-    def test_gamelist_metadata(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize(
+        "gl_key, gl_value, expected_pegasus_key",
+        [
+            ("marquee_path", "roms/1/1/marquee/m.png", "marquee"),
+            ("box2d_back_path", "roms/1/1/box2d_back/b.png", "box_back"),
+            ("fanart_path", "roms/1/1/fanart/f.jpg", "background"),
+        ],
+    )
+    def test_gamelist_metadata(
+        self, tmp_path, monkeypatch, gl_key, gl_value, expected_pegasus_key
+    ):
         monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path)
-        f = tmp_path / "roms/1/1/marquee/m.png"
+        f = tmp_path / gl_value
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_bytes(b"x")
 
-        rom = _mock_rom(
-            ss_metadata=None,
-            gamelist_metadata={"marquee_path": "roms/1/1/marquee/m.png"},
-        )
+        rom = _mock_rom(ss_metadata=None, gamelist_metadata={gl_key: gl_value})
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
-        assert assets["marquee"] == f
+        assert assets[expected_pegasus_key] == f
 
 
 class TestCopyAndEntry:
@@ -399,15 +481,16 @@ class TestCopyAndEntry:
     def test_game_entry_with_assets(self):
         metadatum = MagicMock()
         metadatum.companies = metadatum.genres = metadatum.player_count = None
+        metadatum.publishers = metadatum.developers = None
         metadatum.first_release_date = metadatum.average_rating = None
 
         rom = _mock_rom(
             name="Test", fs_name="test.sfc", fs_name_no_tags="test", metadatum=metadatum
         )
         exported_assets = {
-            "box_front": "assets/covers/test.png",
-            "screenshot": "assets/screenshots/test.jpg",
-            "video": "assets/videos/test.mp4",
+            "box_front": "covers/test.png",
+            "screenshot": "screenshots/test.jpg",
+            "video": "videos/test.mp4",
         }
 
         entry = PegasusExporter(local_export=True)._create_game_entry(
@@ -415,3 +498,600 @@ class TestCopyAndEntry:
         )
         for key, path in exported_assets.items():
             assert f"assets.{key}: {path}" in entry
+
+
+@pytest.fixture
+def snes_platform(admin_user: User) -> Platform:
+    platform = db_platform_handler.add_platform(
+        Platform(name="Super Nintendo", slug="snes", fs_slug="snes")
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="Super Mario World",
+            slug="super-mario-world",
+            fs_name="Super Mario World (USA).sfc",
+            fs_name_no_tags="Super Mario World",
+            fs_name_no_ext="Super Mario World (USA)",
+            fs_extension="sfc",
+            fs_path="snes/roms",
+            summary="A classic platformer game.",
+        )
+    )
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    db_rom_handler.update_rom(
+        rom.id, {"igdb_metadata": {"genres": ["Platformer", "Adventure"]}}
+    )
+    return platform
+
+
+@pytest.fixture
+def metadata_file(tmp_path, monkeypatch, snes_platform: Platform) -> Path:
+    """Path of the platform's metadata.pegasus.txt inside a temp library."""
+    library_base = tmp_path / "library"
+    monkeypatch.setattr(fs_platform_handler, "base_path", library_base)
+    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
+        snes_platform.fs_slug
+    )
+    platform_dir.mkdir(parents=True)
+    return platform_dir / "metadata.pegasus.txt"
+
+
+def _write_metadata(metadata_file: Path, content: str | bytes) -> None:
+    if isinstance(content, bytes):
+        metadata_file.write_bytes(content)
+    else:
+        metadata_file.write_text(content, encoding="utf-8")
+
+
+def _read_metadata(metadata_file: Path) -> str:
+    return metadata_file.read_text(encoding="utf-8")
+
+
+def _read_metadata_bytes(metadata_file: Path) -> bytes:
+    return metadata_file.read_bytes()
+
+
+class TestExportToFile:
+    async def test_keeps_collection_and_game_extras(
+        self, snes_platform: Platform, metadata_file: Path
+    ):
+        """Launch commands and custom fields survive; RomM's own keys replace
+        the old values; unknown games are carried over untouched."""
+        _write_metadata(
+            metadata_file,
+            """# hand-maintained
+collection: Old SNES
+shortname: oldsnes
+launch: retroarch -L snes9x_libretro.so {file.path}
+extensions: sfc, smc
+
+game: Old Title
+file: ./Super Mario World (USA).sfc
+launch: custom-launcher {file.path}
+x-favorite: yes
+genre: Old Genre
+description: Old description
+
+game: Not In RomM
+file: Missing.sfc
+description: kept as is
+""",
+        )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(snes_platform.id, request=None)
+            is True
+        )
+
+        content = _read_metadata(metadata_file)
+        assert content.startswith("# hand-maintained\n")
+        header, _, _ = content.partition("\n\n")
+        assert header.splitlines() == [
+            "# hand-maintained",
+            "collection: Super Nintendo Entertainment System",
+            "shortname: snes",
+            "launch: retroarch -L snes9x_libretro.so {file.path}",
+            "extensions: sfc, smc",
+        ]
+
+        parsed = _parse_pegasus(content)
+        assert len(parsed["games"]) == 2
+        mario, missing = parsed["games"]
+        assert mario["game"] == "Super Mario World"
+        assert mario["file"] == "Super Mario World (USA).sfc"
+        assert mario["launch"] == "custom-launcher {file.path}"
+        assert mario["x-favorite"] == "yes"
+        assert mario["genre"] == ["Platformer", "Adventure"]
+        assert mario["description"] == "A classic platformer game."
+        assert missing == {
+            "game": "Not In RomM",
+            "file": "Missing.sfc",
+            "description": "kept as is",
+        }
+
+    async def test_matches_files_list_and_keeps_later_collections(
+        self, snes_platform: Platform, metadata_file: Path
+    ):
+        """A ROM listed under `files:` is recognised, and any collection after
+        the first is written back verbatim after RomM's entries."""
+        _write_metadata(
+            metadata_file,
+            """collection: SNES
+shortname: snes
+
+game: Multi
+files:
+  Disc1.chd
+  Super Mario World (USA).sfc
+x-note: multi
+
+collection: Hacks
+shortname: hacks
+launch: other-emulator {file.path}
+
+game: Hack
+file: hack.sfc
+""",
+        )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(snes_platform.id, request=None)
+            is True
+        )
+
+        content = _read_metadata(metadata_file)
+        assert "files:" not in content
+        assert "game: Multi" not in content
+        assert content.index("x-romm-id") < content.index("collection: Hacks")
+        assert content.endswith(
+            "collection: Hacks\n"
+            "shortname: hacks\n"
+            "launch: other-emulator {file.path}\n"
+            "\n"
+            "game: Hack\n"
+            "file: hack.sfc\n"
+        )
+
+        mario = _parse_pegasus(content)["games"][0]
+        assert mario["game"] == "Super Mario World"
+        assert mario["file"] == "Super Mario World (USA).sfc"
+        assert mario["x-note"] == "multi"
+
+    async def test_refuses_to_overwrite_undecodable_file(
+        self, snes_platform: Platform, metadata_file: Path
+    ):
+        _write_metadata(metadata_file, b"\xff\xfe not utf-8")
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(snes_platform.id, request=None)
+            is False
+        )
+        assert _read_metadata_bytes(metadata_file) == b"\xff\xfe not utf-8"
+
+    async def test_reads_bom_prefixed_file(
+        self, snes_platform: Platform, metadata_file: Path
+    ):
+        """A UTF-8 BOM does not hide the collection header or the game keys."""
+        _write_metadata(
+            metadata_file,
+            "﻿collection: SNES\nshortname: snes\n\n"
+            "game: Old\nfile: Super Mario World (USA).sfc\nx-favorite: yes\n",
+        )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(snes_platform.id, request=None)
+            is True
+        )
+
+        content = _read_metadata(metadata_file)
+        assert content.count("collection:") == 1
+        assert content.startswith("collection: Super Nintendo Entertainment System\n")
+        assert content.count("game:") == 1
+        assert _parse_pegasus(content)["games"][0]["x-favorite"] == "yes"
+
+    async def test_matches_multi_file_rom_by_folder(
+        self, admin_user: User, snes_platform: Platform, metadata_file: Path
+    ):
+        """A block listing the discs of a game folder merges into RomM's entry
+        for that folder instead of being duplicated."""
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=snes_platform.id,
+                name="Multi Disc Game",
+                slug="multi-disc-game",
+                fs_name="Multi Disc Game (USA)",
+                fs_name_no_tags="Multi Disc Game",
+                fs_name_no_ext="Multi Disc Game (USA)",
+                fs_extension="",
+                fs_path="snes/roms",
+                multi_file=True,
+            )
+        )
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        _write_metadata(
+            metadata_file,
+            """collection: SNES
+shortname: snes
+
+game: Multi Disc
+files:
+  ./Multi Disc Game (USA)/disc1.chd
+  ./Multi Disc Game (USA)/disc2.chd
+x-note: discs
+""",
+        )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(snes_platform.id, request=None)
+            is True
+        )
+
+        content = _read_metadata(metadata_file)
+        assert "files:" not in content
+        assert "game: Multi Disc\n" not in content
+        games = {g["game"]: g for g in _parse_pegasus(content)["games"]}
+        assert set(games) == {"Super Mario World", "Multi Disc Game"}
+        assert games["Multi Disc Game"]["file"] == "Multi Disc Game (USA)"
+        assert games["Multi Disc Game"]["x-note"] == "discs"
+
+    @pytest.mark.parametrize(
+        "alias",
+        [
+            "sort_by",
+            "sortby",
+            "sort-title",
+            "sort_title",
+            "sorttitle",
+            "sort-name",
+            "sort_name",
+            "sortname",
+        ],
+    )
+    async def test_sort_aliases_are_replaced(
+        self, alias: str, snes_platform: Platform, metadata_file: Path
+    ):
+        """Every spelling Pegasus accepts for the sort title is replaced by
+        RomM's `sort-by`, since Pegasus would otherwise apply the stale one."""
+        rom = db_rom_handler.get_roms_scalar(platform_ids=[snes_platform.id])[0]
+        db_rom_handler.update_rom(rom.id, {"name": "Super Mario World: SNES"})
+        _write_metadata(
+            metadata_file,
+            f"collection: SNES\nshortname: snes\n\n"
+            f"game: Old\nfile: Super Mario World (USA).sfc\n{alias}: Zzz\n",
+        )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(snes_platform.id, request=None)
+            is True
+        )
+
+        content = _read_metadata(metadata_file)
+        assert "Zzz" not in content
+        mario = _parse_pegasus(content)["games"][0]
+        assert mario["sort-by"] == "Super Mario World"
+        assert parse_pegasus(content)[-1].keys() >= {"game", "file", "sort-by"}
+
+    async def test_asset_aliases_are_replaced(
+        self, tmp_path, monkeypatch, snes_platform: Platform, metadata_file: Path
+    ):
+        """`asset.` and `assets.` prefixes and Pegasus's asset-name spellings
+        all count as the same key, so RomM's cover replaces the old one while
+        assets RomM does not emit are kept verbatim."""
+        monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path)
+        cover = tmp_path / "roms/snes/1/cover/big.png"
+        cover.parent.mkdir(parents=True)
+        cover.write_bytes(b"x")
+        rom = db_rom_handler.get_roms_scalar(platform_ids=[snes_platform.id])[0]
+        db_rom_handler.update_rom(rom.id, {"path_cover_l": "roms/snes/1/cover/big.png"})
+        _write_metadata(
+            metadata_file,
+            """collection: SNES
+shortname: snes
+
+game: Old
+file: Super Mario World (USA).sfc
+asset.boxFront: old-cover.png
+assets.videos: old-video.mp4
+asset.wheel: keep-logo.png
+""",
+        )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(snes_platform.id, request=None)
+            is True
+        )
+
+        content = _read_metadata(metadata_file)
+        assert "old-cover.png" not in content
+        assert "assets.box_front: covers/Super Mario World (USA).png" in content
+        assert "assets.videos: old-video.mp4" in content
+        assert "asset.wheel: keep-logo.png" in content
+        assert content.count("box_front") == 1
+
+    def test_media_keys_resolve_to_esde_dirs(self):
+        assert set(PEGASUS_MEDIA_KEYS.values()).issubset(PLATFORM_MEDIA_DIRS.keys())
+
+    @staticmethod
+    async def _export(
+        admin_user: User,
+        tmp_path: Path,
+        monkeypatch,
+        rom_fields: dict[str, object],
+        sources: dict[str, bytes],
+    ) -> tuple[Path, str]:
+        """Export one SNES ROM with ``rom_fields`` applied and ``sources``
+        present under the resources base. Returns the platform dir and the
+        written metadata.pegasus.txt."""
+        resources_base = tmp_path / "resources"
+        library_base = tmp_path / "library"
+        monkeypatch.setattr(fs_resource_handler, "base_path", resources_base)
+        monkeypatch.setattr(fs_platform_handler, "base_path", library_base)
+
+        platform = db_platform_handler.add_platform(
+            Platform(name="Super Nintendo", slug="snes", fs_slug="snes")
+        )
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Super Mario World",
+                slug="super-mario-world",
+                fs_name="Super Mario World (USA).sfc",
+                fs_name_no_tags="Super Mario World",
+                fs_name_no_ext="Super Mario World (USA)",
+                fs_extension="sfc",
+                fs_path="snes/roms",
+            )
+        )
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        db_rom_handler.update_rom(rom.id, rom_fields)
+        for rel, content in sources.items():
+            src = resources_base / rel
+            src.parent.mkdir(parents=True, exist_ok=True)
+            src.write_bytes(content)
+
+        exporter = PegasusExporter(local_export=True)
+        assert await exporter.export_platform_to_file(platform.id, request=None)
+
+        platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
+            platform.fs_slug
+        )
+        return platform_dir, (platform_dir / "metadata.pegasus.txt").read_text()
+
+    async def test_media_shares_esde_dirs(
+        self, admin_user: User, tmp_path, monkeypatch
+    ):
+        """Media lands in the same per-type folders the gamelist export uses, so
+        exporting for both frontends yields one copy and no assets/ tree."""
+        platform_dir, content = await self._export(
+            admin_user,
+            tmp_path,
+            monkeypatch,
+            {
+                "path_cover_l": "snes/covers/smw.jpg",
+                "path_screenshots": ["snes/screenshots/smw-1.jpg"],
+                "ss_metadata": {
+                    "logo_path": "snes-ss/logo/smw.png",
+                    "physical_path": "snes-ss/physical/smw.png",
+                    "fanart_path": "snes-ss/fanart/smw.jpg",
+                },
+            },
+            {
+                rel: b"x"
+                for rel in (
+                    "snes/covers/smw.jpg",
+                    "snes/screenshots/smw-1.jpg",
+                    "snes-ss/logo/smw.png",
+                    "snes-ss/physical/smw.png",
+                    "snes-ss/fanart/smw.jpg",
+                )
+            },
+        )
+
+        expected = {
+            "box_front": "covers/Super Mario World (USA).jpg",
+            "screenshot": "screenshots/Super Mario World (USA).jpg",
+            "logo": "marquees/Super Mario World (USA).png",
+            "cartridge": "physicalmedia/Super Mario World (USA).png",
+            "background": "fanart/Super Mario World (USA).jpg",
+        }
+        for rel in expected.values():
+            assert (platform_dir / rel).is_file(), f"missing media {rel}"
+        assert not (platform_dir / "assets").exists()
+
+        for key, rel in expected.items():
+            assert f"assets.{key}: {rel}" in content
+
+        written_dirs = [p.name for p in platform_dir.iterdir() if p.is_dir()]
+        assert written_dirs
+        assert fs_rom_handler.exclude_multi_roms(written_dirs) == []
+
+    async def test_logo_and_marquee_both_survive(
+        self, admin_user: User, tmp_path, monkeypatch
+    ):
+        """Both map to marquees/; the second gets its own filename instead of
+        being dropped or pointed at the first."""
+        platform_dir, content = await self._export(
+            admin_user,
+            tmp_path,
+            monkeypatch,
+            {
+                "ss_metadata": {"logo_path": "snes-ss/logo/smw.png"},
+                "gamelist_metadata": {"marquee_path": "snes-gl/marquee/smw.png"},
+            },
+            {
+                "snes-ss/logo/smw.png": b"logo",
+                "snes-gl/marquee/smw.png": b"marquee",
+            },
+        )
+
+        logo = platform_dir / "marquees/Super Mario World (USA).png"
+        marquee = platform_dir / "marquees/Super Mario World (USA)-marquee.png"
+        assert logo.read_bytes() == b"logo"
+        assert marquee.read_bytes() == b"marquee"
+        assert "assets.logo: marquees/Super Mario World (USA).png" in content
+        assert "assets.marquee: marquees/Super Mario World (USA)-marquee.png" in content
+
+
+@pytest.mark.parametrize(
+    "key, expected",
+    [
+        ("asset.boxfront", "assets.box_front"),
+        ("assets.boxart2d", "assets.box_front"),
+        ("asset.box_front", "assets.box_front"),
+        ("assets.screenshots", "assets.screenshot"),
+        ("asset.videos", "assets.video"),
+        ("asset.wheel", "assets.logo"),
+        ("assets.border", "assets.bezel"),
+        ("assets.titlescreen", "assets.titlescreen"),
+        ("assets.custom", "assets.custom"),
+        ("sortname", "sort-by"),
+        ("files", "file"),
+        ("x-favorite", "x-favorite"),
+    ],
+)
+def test_canonical_pegasus_key(key: str, expected: str):
+    assert canonical_pegasus_key(key) == expected
+
+
+@pytest.fixture
+def structured_platform(tmp_path, monkeypatch, admin_user: User) -> Platform:
+    """A platform whose roms sit in nested folders, as a custom library structure
+    leaves them, with two of them sharing a file name."""
+    monkeypatch.setattr(fs_platform_handler, "base_path", tmp_path / "library")
+    platform = db_platform_handler.add_platform(
+        Platform(name="Apple IIGS", slug="apple-iigs", fs_slug="apple-iigs")
+    )
+    platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    (fs_platform_handler.base_path / platform_fs_path).mkdir(parents=True)
+
+    for rel_folder in ("USA", "Disks/Set A"):
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Zany Golf",
+                slug="zany-golf",
+                fs_name="Zany Golf (USA).2mg",
+                fs_name_no_tags="Zany Golf",
+                fs_name_no_ext="Zany Golf (USA)",
+                fs_extension="2mg",
+                fs_path=f"{platform_fs_path}/{rel_folder}",
+            )
+        )
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+    return platform
+
+
+def _structured_metadata_file(platform: Platform) -> Path:
+    platform_dir = fs_platform_handler.base_path / (
+        fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    )
+    return platform_dir / "metadata.pegasus.txt"
+
+
+class TestLibraryStructure:
+    def test_file_paths_follow_the_library_structure(
+        self, structured_platform: Platform
+    ):
+        content = PegasusExporter(local_export=True).export_platform_to_pegasus(
+            structured_platform.id, request=None
+        )
+
+        files = {game["file"] for game in _parse_pegasus(content)["games"]}
+        assert files == {"USA/Zany Golf (USA).2mg", "Disks/Set A/Zany Golf (USA).2mg"}
+
+    async def test_media_follows_the_library_structure(
+        self, structured_platform: Platform, tmp_path, monkeypatch
+    ):
+        """Two roms sharing a file name keep their own media, under their own folder."""
+        monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path / "resources")
+        roms = db_rom_handler.get_roms_scalar(platform_ids=[structured_platform.id])
+        for rom, content in zip(roms, (b"one-cover", b"two-cover"), strict=True):
+            cover = fs_resource_handler.base_path / f"apple-iigs/covers/{rom.id}.jpg"
+            cover.parent.mkdir(parents=True, exist_ok=True)
+            cover.write_bytes(content)
+            db_rom_handler.update_rom(
+                rom.id, {"path_cover_l": f"apple-iigs/covers/{rom.id}.jpg"}
+            )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(structured_platform.id, request=None)
+            is True
+        )
+
+        metadata_file = _structured_metadata_file(structured_platform)
+        platform_dir = metadata_file.parent
+        covers_dir = PLATFORM_MEDIA_DIRS[PEGASUS_MEDIA_KEYS["box_front"]]
+        expected = {
+            f"{covers_dir}/USA/Zany Golf (USA).jpg",
+            f"{covers_dir}/Disks/Set A/Zany Golf (USA).jpg",
+        }
+        assert {
+            path for path in expected if (platform_dir / path).is_file()
+        } == expected
+
+        exported = {
+            game["assets.box_front"]
+            for game in _parse_pegasus(_read_metadata(metadata_file))["games"]
+        }
+        assert exported == expected
+
+    async def test_existing_entries_are_matched_by_path(
+        self, structured_platform: Platform
+    ):
+        """Identically named roms in different folders keep their own block rather
+        than both merging into the first one."""
+        metadata_file = _structured_metadata_file(structured_platform)
+        _write_metadata(
+            metadata_file,
+            """collection: Apple IIGS
+shortname: apple-iigs
+
+game: Old USA Title
+file: ./USA/Zany Golf (USA).2mg
+x-favorite: yes
+
+game: Old Set A Title
+file: Disks/Set A/Zany Golf (USA).2mg
+x-playcount: 9
+""",
+        )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(structured_platform.id, request=None)
+            is True
+        )
+
+        games = _parse_pegasus(_read_metadata(metadata_file))["games"]
+        assert len(games) == 2
+        kept = {
+            game["file"]: (game.get("x-favorite"), game.get("x-playcount"))
+            for game in games
+        }
+        assert kept == {
+            "USA/Zany Golf (USA).2mg": ("yes", None),
+            "Disks/Set A/Zany Golf (USA).2mg": (None, "9"),
+        }
+
+    def test_block_file_paths_include_the_folders_holding_them(self):
+        """A multi-file rom is matched by the folder its files sit in."""
+        (block,) = parse_pegasus("""game: Cosmic Osmo
+file: Disks/Set A/Cosmic Osmo/disk1.2mg
+""")[1:]
+
+        assert block.file_paths() == {
+            "Disks/Set A/Cosmic Osmo/disk1.2mg",
+            "Disks/Set A/Cosmic Osmo",
+            "Disks/Set A",
+            "Disks",
+        }

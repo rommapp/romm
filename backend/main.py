@@ -23,8 +23,11 @@ from config import (
     DEV_PORT,
     DISABLE_CSRF_PROTECTION,
     IS_PYTEST_RUN,
+    MAX_ASSET_UPLOAD_SIZE_BYTES,
     OIDC_ENABLED,
     ROMM_AUTH_SECRET_KEY,
+    ROMM_CORS_ALLOWED_ORIGINS,
+    ROMM_SESSION_SECURE_COOKIE,
     SENTRY_DSN,
 )
 from endpoints.activity import router as activity_router
@@ -40,11 +43,14 @@ from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
 from endpoints.heartbeat import router as heartbeat_router
 from endpoints.logs import router as logs_router
+from endpoints.memory_cards import router as memory_cards_router
 from endpoints.music import router as music_router
+from endpoints.music_playlists import router as music_playlists_router
 from endpoints.netplay import router as netplay_router
 from endpoints.permissions import router as permissions_router
 from endpoints.platform import router as platform_router
 from endpoints.play_sessions import router as play_sessions_router
+from endpoints.recommendations import router as recommendations_router
 from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
 from endpoints.screenshots import router as screenshots_router
@@ -59,6 +65,7 @@ from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.socket_handler import netplay_socket_handler, socket_handler
 from logger.formatter import LOGGING_CONFIG
 from utils import get_version
@@ -68,6 +75,7 @@ from utils.context import (
     initialize_context,
     set_context_middleware,
 )
+from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -111,10 +119,30 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ROMM_CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Bounds asset upload requests before their multipart body is spooled to disk
+app.add_middleware(
+    UploadSizeLimitMiddleware,
+    max_size=MAX_ASSET_UPLOAD_SIZE_BYTES,
+    paths=[
+        re.compile(r"^/api/saves"),
+        re.compile(r"^/api/states"),
+        re.compile(r"^/api/screenshots"),
+    ],
+)
+
+# Memory cards are bounded by what a broker will take, which is lower than the
+# asset ceiling. Bounding them here too keeps a card the endpoint would refuse
+# from being spooled to disk in full first.
+app.add_middleware(
+    UploadSizeLimitMiddleware,
+    max_size=min(MEMORY_CARD_MAX_BYTES, MAX_ASSET_UPLOAD_SIZE_BYTES),
+    paths=[re.compile(r"^/api/memory-cards")],
 )
 
 if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
@@ -123,6 +151,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         CSRFMiddleware,
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
+        cookie_secure=ROMM_SESSION_SECURE_COOKIE,
         exempt_urls=[
             re.compile(r"^/api/token.*"),
             re.compile(r"^/api/client-tokens/exchange"),
@@ -145,7 +174,7 @@ app.add_middleware(
     RedisSessionMiddleware,
     session_cookie=SESSION_COOKIE_NAME,
     same_site="lax" if OIDC_ENABLED else "strict",
-    https_only=False,
+    https_only=ROMM_SESSION_SECURE_COOKIE,
 )
 
 # Sets context vars in request-response cycle
@@ -161,7 +190,9 @@ app.include_router(device_auth_router, prefix="/api")
 app.include_router(play_sessions_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(rom_router, prefix="/api")
+app.include_router(recommendations_router, prefix="/api")
 app.include_router(music_router, prefix="/api")
+app.include_router(music_playlists_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
@@ -178,6 +209,7 @@ app.include_router(collections_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
 app.include_router(netplay_router, prefix="/api")
 app.include_router(permissions_router, prefix="/api")
+app.include_router(memory_cards_router, prefix="/api")
 app.include_router(streaming_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)

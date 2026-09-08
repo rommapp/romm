@@ -4,9 +4,10 @@
 // architecture so the user has the same mental model in both places:
 //
 //   • Account  — Profile, User interface
-//   • Library  — Library management, Metadata sources, Client API tokens
+//   • Library  — Library management, Scan settings, Metadata sources,
+//                Client API tokens
 //   • System   — Administration, Server stats
-//   • Tools    — Controller debug
+//   • Tools    — Jukebox, Controller debug
 //   • Actions  — Scan, Upload (librarian actions, not settings)
 //   • About / Changelog — kept as dialogs (no dedicated views)
 //   • Log out
@@ -72,6 +73,9 @@ const canSeeProfile = computed(
 const canScan = computed(() => scopes.value.includes("platforms.write"));
 const canUpload = computed(() => scopes.value.includes("roms.write"));
 const canSeeLibraryMgmt = computed(() =>
+  scopes.value.includes("platforms.write"),
+);
+const canSeeScanSettings = computed(() =>
   scopes.value.includes("platforms.write"),
 );
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
@@ -207,6 +211,13 @@ async function onLogout() {
         @click="open = false"
       />
       <RMenuItem
+        v-if="canSeeScanSettings"
+        :to="{ name: ROUTES.SCAN_SETTINGS }"
+        icon="mdi-magnify-scan"
+        :label="t('settings.scan-settings')"
+        @click="open = false"
+      />
+      <RMenuItem
         v-if="isAdmin"
         :to="{ name: ROUTES.METADATA_SOURCES }"
         icon="mdi-database-cog-outline"
@@ -261,6 +272,18 @@ async function onLogout() {
       <div class="r-v2-user-menu__group-label">
         {{ t("settings.group-tools") }}
       </div>
+      <RMenuItem
+        :to="{ name: ROUTES.MUSIC }"
+        icon="mdi-music-box-multiple-outline"
+        :label="t('common.jukebox')"
+        @click="open = false"
+      >
+        <template #append>
+          <RChip size="x-small" color="primary">
+            {{ t("common.beta") }}
+          </RChip>
+        </template>
+      </RMenuItem>
       <RMenuItem
         :to="{ name: ROUTES.CONTROLLER_DEBUG }"
         icon="mdi-controller"

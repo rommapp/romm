@@ -3,7 +3,7 @@
 Complements ``test_permissions_parity.py`` (which proves the static matrices).
 Here we exercise ``resolve_permissions`` / ``compute_oauth_scopes`` end-to-end
 against the DB: group membership, per-user overrides, ownership scoping, hidden
-entities, and the KIOSK_MODE read-only cap.
+entities, and the KIOSK_MODE anonymous-visitor cap.
 """
 
 import pytest
@@ -86,15 +86,42 @@ def test_property_parity_for_group_less_users(admin_user, editor_user, viewer_us
     assert set(viewer_user.oauth_scopes) == set(WRITE_SCOPES)
 
 
-def test_kiosk_caps_non_admin_to_read(
-    monkeypatch, admin_user, editor_user, viewer_user
-):
+# --- Kiosk mode: the anonymous visitor is capped, accounts are not -----------
+
+
+@pytest.fixture
+def kiosk_mode(monkeypatch):
     monkeypatch.setattr("handler.auth.permissions.KIOSK_MODE", True)
-    # Kiosk locks every non-admin user (including former editors) to read-only.
-    assert set(viewer_user.oauth_scopes) == set(READ_SCOPES)
-    assert set(editor_user.oauth_scopes) == set(READ_SCOPES)
-    # Only admins bypass the kiosk cap.
+
+
+def test_kiosk_leaves_logged_in_users_alone(
+    kiosk_mode, admin_user, editor_user, viewer_user
+):
+    # Kiosk mode locks down anonymous visitors, not accounts someone logged
+    # into: every user keeps exactly what their group and overrides grant.
+    assert set(viewer_user.oauth_scopes) == set(WRITE_SCOPES)
+    assert set(editor_user.oauth_scopes) == set(EDIT_SCOPES)
     assert set(admin_user.oauth_scopes) == set(FULL_SCOPES)
+
+
+def test_kiosk_honors_write_override_on_logged_in_user(kiosk_mode, viewer_user):
+    _add_override(viewer_user.id, PermEntity.ROMS, PermAction.WRITE, granted=True)
+    user = db_user_handler.get_user(viewer_user.id)
+    assert "roms.write" in {s.value for s in user.oauth_scopes}
+    assert resolve_permissions(user).allows(PermEntity.ROMS, PermAction.WRITE)
+
+
+def test_kiosk_guest_is_capped_to_read(kiosk_mode):
+    # The default group grants writes, so the cap is what keeps the shared
+    # synthetic visitor (id=-1) from uploading assets or editing collections.
+    guest = User.kiosk_mode_user()
+    assert set(guest.oauth_scopes) == set(READ_SCOPES)
+
+    perms = resolve_permissions(guest)
+    assert not perms.is_admin
+    assert {g.action for g in perms.grants} == {PermAction.READ}
+    assert perms.allows(PermEntity.ROMS, PermAction.READ)
+    assert not perms.allows(PermEntity.ASSETS, PermAction.WRITE)
 
 
 # --- Precedence: group > legacy role fallback --------------------------------

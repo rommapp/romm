@@ -12,6 +12,9 @@ COMPRESSED_FILE_EXTENSIONS: frozenset[str] = frozenset(
     (".7z", ".bz2", ".gz", ".rar", ".tar", ".zip", ".xz", ".tgz", ".tbz2", ".txz")
 )
 
+# tempfile.mkstemp creates files 0600, too narrow for the nginx user to read.
+SERVED_FILE_MODE = 0o644
+
 
 def iter_files(path: str, recursive: bool = False) -> Iterator[tuple[Path, str]]:
     """List files in a directory.
@@ -57,6 +60,25 @@ _LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
 )
 
 
+def rel_platform_folder(fs_path: str, platform_fs_path: str) -> str:
+    """The part of a rom's folder that sits below its platform folder.
+
+    Args:
+        fs_path: The rom's folder.
+        platform_fs_path: The platform folder holding the metadata export files.
+    Returns:
+        `Disks/Set A` for a rom nested by a custom library structure, empty for one
+        sitting directly in the platform folder.
+    """
+    rel = fs_path.removeprefix(f"{platform_fs_path}/")
+    return "" if rel in (fs_path, platform_fs_path) else rel
+
+
+def join_rel_path(*parts: str) -> str:
+    """Join the non-empty parts of a path written into an export file."""
+    return "/".join(part for part in parts if part)
+
+
 def link_or_copy_file(source: Path, dest: Path) -> None:
     """Place ``source`` at ``dest`` via hardlink (preferred) or copy (fallback),
     atomically replacing ``dest`` if it already exists. Caller is responsible
@@ -99,15 +121,22 @@ INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
 def sanitize_filename(filename: str) -> str:
     """
     Replace invalid characters in the filename to make it valid across common filesystems
+    and prevent path-traversal attacks.
 
     Args:
     - filename (str): The filename to sanitize.
 
     Returns:
-    - str: The sanitized filename.
+    - str: The sanitized filename (always a bare name, never a path).
+
+    Raises:
+    - ValueError: If the filename is empty or a reserved traversal name.
     """
+    # Strip directory components first to neutralise path-traversal payloads
+    sanitized_filename = os.path.basename(filename)
+
     # Replace some invalid characters with hyphen
-    sanitized_filename = INVALID_CHARS_HYPHENS.sub("-", filename)
+    sanitized_filename = INVALID_CHARS_HYPHENS.sub("-", sanitized_filename)
 
     # Remove other invalid characters
     sanitized_filename = INVALID_CHARS_EMPTY.sub("", sanitized_filename)
@@ -118,8 +147,8 @@ def sanitize_filename(filename: str) -> str:
     # Remove leading/trailing whitespace
     sanitized_filename = sanitized_filename.strip()
 
-    # Ensure the filename is not empty
-    if not sanitized_filename:
+    # Reject empty, current-directory, or parent-directory names
+    if not sanitized_filename or sanitized_filename in (".", ".."):
         raise ValueError("Filename cannot be empty after sanitization")
 
     return sanitized_filename

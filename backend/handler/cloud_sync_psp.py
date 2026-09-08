@@ -26,7 +26,6 @@ from typing import Literal
 
 from config import CLOUD_SYNC_PSP_PENDING_PATH, PSP_SERIAL_MAP
 from handler.cloud_sync_emulator_names import to_retroarch_dir_name
-from utils.zip_cache import _ensure_zipfile_writable
 from handler.database import db_platform_handler, db_rom_handler, db_save_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.base_handler import FSHandler
@@ -35,6 +34,7 @@ from logger.logger import log
 from models.assets import Save
 from models.rom import Rom
 from models.user import User
+from utils.zip_cache import ensure_zipfile_writable
 
 _IGNORED_CATEGORY = "SYSTEM"
 _SAVEDATA_CATEGORY = "SAVEDATA"
@@ -164,7 +164,9 @@ def parse_sfo(data: bytes) -> dict[str, str | int]:
 
         # 0x0404 = int32, 0x0204/0x0402 = UTF-8 string (NUL-padded/terminated).
         if data_fmt == 0x0404:
-            result[key] = struct.unpack_from("<i", raw_value)[0] if len(raw_value) >= 4 else 0
+            result[key] = (
+                struct.unpack_from("<i", raw_value)[0] if len(raw_value) >= 4 else 0
+            )
         else:
             nul = raw_value.find(b"\x00")
             result[key] = raw_value[: nul if nul != -1 else None].decode(
@@ -246,10 +248,9 @@ def _load_bundle_entries(zip_bytes: bytes) -> dict[str, bytes]:
 
 
 def _write_bundle(entries: dict[str, bytes]) -> bytes:
-    # `zipfile_inflate64` (pulled in elsewhere for ROM archive reading)
-    # replaces `zipfile._get_compressor` with a signature CPython 3.13's
-    # own `ZipFile.writestr()` can't call -- see `_ensure_zipfile_writable`.
-    _ensure_zipfile_writable()
+    # `zipfile_inflate64` is imported elsewhere for ROM archive reading, and
+    # breaks `writestr()` until this runs.
+    ensure_zipfile_writable()
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in entries.items():
@@ -259,8 +260,6 @@ def _write_bundle(entries: dict[str, bytes]) -> bytes:
 
 def _pending_dir(user: User, save_folder: str) -> str:
     return f"{user.id}/{save_folder}"
-
-
 
 
 # Per-(user, save folder) locks. FastAPI/uvicorn typically runs this as a
@@ -383,9 +382,7 @@ async def put_psp_file(
         if pending_names:
             for name in pending_names:
                 try:
-                    await fs_psp_pending_handler.remove_file(
-                        f"{pending_dir}/{name}"
-                    )
+                    await fs_psp_pending_handler.remove_file(f"{pending_dir}/{name}")
                 except FileNotFoundError:
                     pass
 

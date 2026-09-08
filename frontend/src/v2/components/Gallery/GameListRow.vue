@@ -19,6 +19,7 @@ import {
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
+import { formatReleaseDate } from "@v2/utils/time";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -165,15 +166,11 @@ function formatDate(value: string | null | undefined): string {
 }
 
 function releaseDate(item: SimpleRom): string {
-  const ts = item.metadatum?.first_release_date;
-  if (!ts) return "—";
-  return new Date(Number(ts)).toLocaleDateString(
-    toBrowserLocale(locale.value),
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    },
+  return (
+    formatReleaseDate(
+      item.metadatum?.first_release_date,
+      toBrowserLocale(locale.value),
+    ) ?? "—"
   );
 }
 

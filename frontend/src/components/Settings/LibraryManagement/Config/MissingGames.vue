@@ -97,7 +97,7 @@ async function cleanupAll() {
   cleaningUp.value = true;
   try {
     const body = selectedPlatform.value?.id
-      ? { platform_id: selectedPlatform.value.id }
+      ? { platform_ids: [selectedPlatform.value.id] }
       : {};
     await taskApi.runTask("cleanup_missing_roms", body);
     emitter?.emit("snackbarShow", {

@@ -16,6 +16,7 @@ import { useRoute } from "vue-router";
 import deviceAuthApi, {
   type DeviceAuthPendingSchema,
 } from "@/services/api/device-auth";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 
 type ApiError = AxiosError<{ detail?: string }>;
 
@@ -24,6 +25,8 @@ type Status =
 
 const route = useRoute();
 const { t } = useI18n();
+
+usePageTitle(() => t("settings.device-auth-heading"));
 
 const userCode = computed(() => (route.query.user_code as string) || "");
 
@@ -311,7 +314,6 @@ async function deny() {
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
   padding: 32px;
   box-shadow:
     0 22px 60px color-mix(in srgb, black 55%, transparent),

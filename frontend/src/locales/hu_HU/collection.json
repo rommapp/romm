@@ -23,6 +23,7 @@
   "name-placeholder": "Gyűjtemény neve",
   "no-collections-search": "Nincs találat a következőre: „{query}”.",
   "no-collections-yet": "Még nincsenek gyűjtemények.",
+  "no-collections-yet-detail": "Még nincs egyetlen gyűjteményed sem. Jelölj meg egy játékot kedvencként, vagy hozz létre egyet bármelyik ROM műveletsávjából.",
   "no-collections-yet-hint": "Még nincsenek gyűjtemények. Hozz létre egyet fent.",
   "not-found": "A gyűjtemény nem található.",
   "owner": "Tulajdonos",

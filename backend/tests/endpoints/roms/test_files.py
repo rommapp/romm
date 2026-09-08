@@ -6,7 +6,8 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from endpoints.roms import files as files_endpoint
-from handler.database import db_rom_handler
+from handler.database import db_permission_handler, db_rom_handler
+from models.permission import PermAction, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
@@ -303,3 +304,55 @@ def test_delete_rom_file_forbidden_viewer(
     assert response.status_code == status.HTTP_403_FORBIDDEN
     # File must NOT have been deleted.
     assert db_rom_handler.get_rom_file_by_id(rom_file.id) is not None
+
+
+def test_delete_rom_file_forbidden_without_delete_grant(
+    client: TestClient,
+    editor_access_token: str,
+    editor_user: User,
+    admin_user: User,
+    platform: Platform,
+    files_fs: Path,
+):
+    """ROMS_WRITE alone must not delete library content.
+
+    The editor keeps write (so the coarse scope gate passes) but loses the
+    ROMS/DELETE grant, which is what the route now requires.
+    """
+    db_permission_handler.replace_user_overrides(
+        editor_user.id,
+        [(PermEntity.ROMS, PermAction.DELETE, False, False)],
+    )
+    rom = _make_rom(admin_user, platform)
+    (files_fs / "game.bin").write_bytes(b"\x00" * 16)
+    rom_file = _add_file(rom, "game.bin", RomFileCategory.GAME)
+
+    response = client.delete(
+        f"/api/roms/{rom.id}/files/{rom_file.id}",
+        headers=_auth(editor_access_token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert db_rom_handler.get_rom_file_by_id(rom_file.id) is not None
+    assert (files_fs / "game.bin").exists()
+
+
+def test_delete_rom_file_allowed_for_editor(
+    client: TestClient,
+    editor_access_token: str,
+    admin_user: User,
+    platform: Platform,
+    files_fs: Path,
+):
+    """The legacy Editor group holds ROMS/DELETE, so it must keep working."""
+    rom = _make_rom(admin_user, platform)
+    (files_fs / "game.bin").write_bytes(b"\x00" * 16)
+    rom_file = _add_file(rom, "game.bin", RomFileCategory.GAME)
+
+    response = client.delete(
+        f"/api/roms/{rom.id}/files/{rom_file.id}",
+        headers=_auth(editor_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert db_rom_handler.get_rom_file_by_id(rom_file.id) is None

@@ -20,6 +20,8 @@ from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from utils import uploads
+from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
 def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
@@ -1443,6 +1445,112 @@ class TestSlotFiltering:
         assert len(data) == 0
 
 
+class TestRomIdsScope:
+    def test_scopes_results_to_listed_roms(
+        self, client, access_token: str, rom: Rom, save: Save, second_save: Save
+    ):
+        response = client.get(
+            f"/api/saves?rom_ids={rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [save.id]
+
+    def test_accepts_repeated_ids(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        second_rom: Rom,
+        save: Save,
+        second_save: Save,
+    ):
+        response = client.get(
+            f"/api/saves?rom_ids={rom.id}&rom_ids={second_rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {item["id"] for item in response.json()} == {save.id, second_save.id}
+
+    def test_tolerates_duplicates(
+        self, client, access_token: str, rom: Rom, save: Save
+    ):
+        response = client.get(
+            f"/api/saves?rom_ids={rom.id}&rom_ids={rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [save.id]
+
+    def test_omitted_returns_all_saves(
+        self, client, access_token: str, save: Save, second_save: Save
+    ):
+        response = client.get(
+            "/api/saves",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {item["id"] for item in response.json()} == {save.id, second_save.id}
+
+    def test_combines_with_slot_filter(
+        self, client, access_token: str, rom: Rom, save: Save, archival_save: Save
+    ):
+        response = client.get(
+            f"/api/saves?rom_ids={rom.id}&slot=autosave",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [save.id]
+
+    def test_narrows_to_the_intersection_with_rom_id(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        second_rom: Rom,
+        save: Save,
+        second_save: Save,
+    ):
+        response = client.get(
+            f"/api/saves?rom_id={rom.id}&rom_ids={second_rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+
+    def test_rejects_non_integer_ids(self, client, access_token: str):
+        response = client.get(
+            "/api/saves?rom_ids=1&rom_ids=abc",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_rejects_non_positive_ids(self, client, access_token: str):
+        response = client.get(
+            "/api/saves?rom_ids=1&rom_ids=0",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_rejects_scope_over_the_limit(self, client, access_token: str):
+        rom_ids = "&".join(f"rom_ids={i}" for i in range(1, MAX_ROM_IDS_PER_QUERY + 2))
+
+        response = client.get(
+            f"/api/saves?{rom_ids}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
 class TestDatetimeTagging:
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -1628,7 +1736,7 @@ class TestAutocleanup:
         from handler.database import db_save_handler
 
         initial_saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_id=rom.id, slot="autosave"
+            user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
         )
         assert len(initial_saves) == 15
 
@@ -1660,6 +1768,58 @@ class TestAutocleanup:
 
         assert response.status_code == status.HTTP_200_OK
         assert mock_remove.call_count == 6
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    @pytest.mark.parametrize("requested_limit", [0, -1])
+    def test_autocleanup_limit_is_clamped_to_keep_one_save(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        slot_saves: list[Save],
+        requested_limit: int,
+    ):
+        mock_scan.return_value = Save(
+            file_name="new_autosave.sav",
+            file_name_no_tags="new_autosave",
+            file_name_no_ext="new_autosave",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="autosave",
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=autosave&autocleanup=true"
+            f"&autocleanup_limit={requested_limit}",
+            files={
+                "saveFile": (
+                    "new_autosave.sav",
+                    BytesIO(b"new save"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        remaining = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
+        )
+        assert len(remaining) == 1
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -1746,6 +1906,43 @@ class TestAutocleanup:
 
         assert response.status_code == status.HTTP_200_OK
         mock_remove.assert_not_called()
+
+
+class TestUploadSizeLimit:
+    def test_rejects_oversized_save_file(self, client, access_token: str, rom: Rom):
+        with mock.patch.object(uploads, "MAX_ASSET_UPLOAD_SIZE_BYTES", 32):
+            response = client.post(
+                f"/api/saves?rom_id={rom.id}",
+                files={
+                    "saveFile": (
+                        "save.sav",
+                        BytesIO(b"x" * 64),
+                        "application/octet-stream",
+                    )
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
+
+    def test_rejects_oversized_screenshot_file(
+        self, client, access_token: str, rom: Rom
+    ):
+        with mock.patch.object(uploads, "MAX_ASSET_UPLOAD_SIZE_BYTES", 32):
+            response = client.post(
+                f"/api/saves?rom_id={rom.id}",
+                files={
+                    "saveFile": (
+                        "save.sav",
+                        BytesIO(b"small"),
+                        "application/octet-stream",
+                    ),
+                    "screenshotFile": ("shot.png", BytesIO(b"x" * 64), "image/png"),
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
 
 
 class TestSavesSummaryEndpoint:
@@ -1881,7 +2078,7 @@ class TestSavesSummaryEndpoint:
     def test_get_saves_summary_requires_auth(self, client, rom: Rom):
         response = client.get(f"/api/saves/summary?rom_id={rom.id}")
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestSaveDownload:

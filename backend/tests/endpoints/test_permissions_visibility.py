@@ -12,9 +12,12 @@ import pytest
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints import roms as rom_endpoints
+from endpoints.roms import walkthrough as walkthrough_endpoints
 from handler.auth import oauth_handler
-from handler.database import db_user_handler
+from handler.database import db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
+from handler.filesystem import fs_resource_handler
 from models.permission import (
     HiddenEntity,
     PermAction,
@@ -22,6 +25,9 @@ from models.permission import (
     PermissionGroup,
     PermissionGroupGrant,
 )
+from models.rom import Rom, RomFile, RomFileCategory
+from utils.gamelist_exporter import GamelistExporter
+from utils.pegasus_exporter import PegasusExporter
 
 
 def _auth(user):
@@ -130,6 +136,50 @@ def test_hidden_rom_update_is_404_masked(client, editor_user, rom):
     assert resp.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_physical_game_create_on_hidden_platform_is_404_masked(
+    client, editor_user, platform, monkeypatch
+):
+    # Editor holds library-wide roms write, so the coarse gate passes. The
+    # platform hide must mask the write before it reaches any side effect.
+    _hide(PermEntity.PLATFORMS, platform.id, editor_user.id)
+
+    def _unreachable(*args, **kwargs):
+        raise AssertionError("scanned a rom onto a hidden platform")
+
+    monkeypatch.setattr(rom_endpoints, "scan_rom", _unreachable)
+
+    resp = client.post(
+        "/api/roms/physical",
+        headers=_auth(editor_user),
+        json={"platform_id": platform.id, "name": "Sonic"},
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+    assert db_rom_handler.get_roms_scalar(platform_ids=[platform.id]) == []
+
+
+@pytest.mark.parametrize(
+    ("path", "exporter"),
+    [
+        ("/api/export/gamelist-xml", GamelistExporter),
+        ("/api/export/pegasus", PegasusExporter),
+    ],
+)
+def test_export_of_hidden_platform_is_404_masked(
+    client, editor_user, platform, monkeypatch, path, exporter
+):
+    # Editor holds platforms write, so the coarse gate passes. The hide must
+    # mask the export before it reads or rewrites the platform's metadata file.
+    _hide(PermEntity.PLATFORMS, platform.id, editor_user.id)
+
+    async def _unreachable(*args, **kwargs):
+        raise AssertionError("exported a hidden platform")
+
+    monkeypatch.setattr(exporter, "export_platform_to_file", _unreachable)
+
+    resp = client.post(f"{path}?platform_ids={platform.id}", headers=_auth(editor_user))
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_hidden_rom_props_update_is_404_masked(client, viewer_user, rom):
     # ROMS_USER_WRITE is a self-service scope every user holds, so the coarse
     # gate passes; the hidden rom must still be masked, not confirmed.
@@ -149,6 +199,161 @@ def test_hidden_rom_patch_is_404_masked(client, viewer_user, rom, rom_file):
         data={"patch_file_id": rom_file.id},
     )
     assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.parametrize(
+    ("path", "headers"),
+    [
+        ("/screenshots", {"x-upload-filename": "shot.png"}),
+        ("/soundtracks", {"x-upload-filename": "track.mp3"}),
+        ("/manuals", {"x-upload-filename": "manual.pdf"}),
+        ("/manuals/files", {"x-upload-filename": "manual.pdf"}),
+        ("/manuals/redownload", {}),
+        ("/walkthroughs/files", {"x-upload-filename": "guide.txt"}),
+    ],
+)
+def test_hidden_rom_child_upload_routes_are_404_masked(
+    client, editor_user, rom, path, headers
+):
+    # Editor holds library-wide roms write, so the coarse scope gate passes; the
+    # child media routes must still mask the hidden rom instead of writing to it.
+    _hide(PermEntity.ROMS, rom.id, editor_user.id)
+    resp = client.post(
+        f"/api/roms/{rom.id}{path}", headers={**_auth(editor_user), **headers}
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.parametrize(
+    ("path", "category"),
+    [
+        ("/screenshots/{file_id}", RomFileCategory.SCREENSHOT),
+        ("/soundtracks/{file_id}", RomFileCategory.SOUNDTRACK),
+        ("/manuals/files/{file_id}", RomFileCategory.MANUAL),
+        ("/walkthroughs/files/{file_id}", RomFileCategory.WALKTHROUGH),
+    ],
+)
+def test_hidden_rom_child_delete_routes_are_404_masked(
+    client, editor_user, rom, path, category
+):
+    # The child file must match the route's category, otherwise the route 404s
+    # on the category check and the visibility gate is never exercised.
+    child = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=f"child.{category}",
+            file_path=f"{rom.fs_path}/{category}",
+            file_size_bytes=10,
+            category=category,
+        )
+    )
+    _hide(PermEntity.ROMS, rom.id, editor_user.id)
+
+    resp = client.delete(
+        f"/api/roms/{rom.id}{path.format(file_id=child.id)}",
+        headers=_auth(editor_user),
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+    # The row must survive: masking is worthless if the sink already ran.
+    assert db_rom_handler.get_rom_file_by_id(child.id) is not None
+
+
+def test_hidden_rom_gamefaqs_walkthrough_is_404_masked(
+    client, editor_user, rom, monkeypatch
+):
+    # The visibility gate must run before the outbound fetch, so a hidden rom
+    # can't be used to make the server reach GameFAQs.
+    def _unreachable(*_args, **_kwargs):
+        raise AssertionError("fetched a guide for a hidden rom")
+
+    monkeypatch.setattr(walkthrough_endpoints, "fetch_gamefaqs_guide", _unreachable)
+    _hide(PermEntity.ROMS, rom.id, editor_user.id)
+
+    resp = client.post(
+        f"/api/roms/{rom.id}/walkthroughs/gamefaqs",
+        headers=_auth(editor_user),
+        json={"url": "https://gamefaqs.gamespot.com/snes/1234-game/faqs/5678"},
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_hidden_rom_manual_delete_is_404_masked(client, editor_user, rom, monkeypatch):
+    # Without a manual on disk the route 404s before the visibility gate, so
+    # force the existence check to pass.
+    monkeypatch.setattr(fs_resource_handler, "manual_exists", lambda _rom: True)
+    _hide(PermEntity.ROMS, rom.id, editor_user.id)
+
+    resp = client.delete(f"/api/roms/{rom.id}/manuals", headers=_auth(editor_user))
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.parametrize(
+    "path", ["/soundtracks/metadata", "/notes", "/notes/identifiers"]
+)
+def test_hidden_rom_child_read_routes_are_404_masked(client, viewer_user, rom, path):
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    resp = client.get(f"/api/roms/{rom.id}{path}", headers=_auth(viewer_user))
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_hidden_rom_note_write_routes_are_404_masked(client, viewer_user, rom):
+    # ROMS_USER_WRITE is self-service, so only the entity check can mask these.
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    headers = _auth(viewer_user)
+
+    create = client.post(
+        f"/api/roms/{rom.id}/notes", headers=headers, json={"title": "x"}
+    )
+    assert create.status_code == status.HTTP_404_NOT_FOUND
+
+    update = client.put(
+        f"/api/roms/{rom.id}/notes/1", headers=headers, json={"title": "x"}
+    )
+    assert update.status_code == status.HTTP_404_NOT_FOUND
+
+    delete = client.delete(f"/api/roms/{rom.id}/notes/1", headers=headers)
+    assert delete.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_note_on_hidden_rom_not_reachable_via_visible_rom_path(
+    client, viewer_user, rom, platform
+):
+    # The path rom only authorizes itself: a note belonging to a hidden rom must
+    # not be reachable by pairing its id with a visible rom in the path.
+    hidden = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="hidden_rom",
+            slug="hidden_rom_slug",
+            fs_name="hidden_rom.zip",
+            fs_name_no_tags="hidden_rom",
+            fs_name_no_ext="hidden_rom",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+    note = db_rom_handler.create_rom_note(
+        rom_id=hidden.id, user_id=viewer_user.id, title="secret"
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+    headers = _auth(viewer_user)
+
+    update = client.put(
+        f"/api/roms/{rom.id}/notes/{note['id']}", headers=headers, json={"title": "x"}
+    )
+    assert update.status_code == status.HTTP_404_NOT_FOUND
+
+    delete = client.delete(f"/api/roms/{rom.id}/notes/{note['id']}", headers=headers)
+    assert delete.status_code == status.HTTP_404_NOT_FOUND
+
+    surviving = db_rom_handler.get_rom_notes(rom_id=hidden.id, user_id=viewer_user.id)
+    assert [n.title for n in surviving] == ["secret"]
+
+
+def test_visible_rom_child_route_is_not_masked(client, viewer_user, rom):
+    # Control: the same route reaches its handler when the rom isn't hidden.
+    resp = client.get(f"/api/roms/{rom.id}/notes", headers=_auth(viewer_user))
+    assert resp.status_code == status.HTTP_200_OK
 
 
 def test_delete_requires_delete_grant_even_with_write_scope(
