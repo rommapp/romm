@@ -723,8 +723,8 @@ class TestIdentifyRomTagReparse:
     async def _run(self, rom: Rom, scan_type: ScanType, roms_ids: list[int]):
         fs_rom: FSRom = {
             "fs_name": "Game (USA) (En) (Proto) (v1.1) (Rev A).zip",
+            "fs_path": "test/roms",
             "flat": True,
-            "nested": False,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",
@@ -915,11 +915,11 @@ async def run_identify_rom(platform: Platform, fs_rom: FSRom) -> None:
     )
 
 
-def make_fs_rom(fs_name: str) -> FSRom:
+def make_fs_rom(fs_name: str, fs_path: str = "test/roms") -> FSRom:
     return {
         "fs_name": fs_name,
+        "fs_path": fs_path,
         "flat": True,
-        "nested": False,
         "files": [],
         "crc_hash": "",
         "md5_hash": "",
@@ -975,6 +975,23 @@ class TestIdentifyRomReassociation:
         assert data["missing_from_fs"] is False
         assert data["fs_name"] == "New Name.zip"
         # No brand-new row is inserted; add_rom only persists the scan result.
+        assert db.add_rom.call_count == 1
+
+    async def test_a_file_that_moved_folders_is_relocated_in_place(self, patched):
+        """Enabling a custom structure (or dropping one) moves every rom. The
+        entry follows its file, keeping the saves and collections attached to
+        it, rather than being re-imported and orphaned as missing."""
+        db, platform = patched
+        moved = MagicMock(id=42, name="Mover", fs_name="Mover.zip")
+        db.get_matching_missing_rom.return_value = moved
+        db.update_rom.return_value = moved
+
+        await run_identify_rom(platform, make_fs_rom("Mover.zip", "test/roms/Hacks"))
+
+        rom_id, data = db.update_rom.call_args.args
+        assert rom_id == 42
+        assert data["fs_path"] == "test/roms/Hacks"
+        assert data["missing_from_fs"] is False
         assert db.add_rom.call_count == 1
 
     async def test_title_id_is_offered_when_the_platform_is_not_hashed(
@@ -1181,8 +1198,8 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
         )
         fs_rom: FSRom = {
             "fs_name": "New Name.zip",
+            "fs_path": "test/roms",
             "flat": True,
-            "nested": False,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",
@@ -1262,8 +1279,8 @@ class TestIdentifyPlatformEmitsRestoredRoms:
 
         fs_rom: FSRom = {
             "fs_name": "Game.zip",
+            "fs_path": "test/roms",
             "flat": True,
-            "nested": False,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",
@@ -1278,7 +1295,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         rom.id = 42
 
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
-        db_rom.get_roms_by_fs_name.return_value = {"Game.zip": rom}
+        db_rom.get_roms_by_fs_name.return_value = {"test/roms/Game.zip": rom}
         db_rom.mark_missing_roms.return_value = []
         db_rom.get_rom.return_value = rom
 
@@ -1717,7 +1734,9 @@ class TestScanSelectedRoms:
         identify.assert_not_called()
         db_rom.update_rom.assert_called_once_with(rom.id, {"missing_from_fs": True})
 
-    async def test_a_multi_file_rom_is_reported_as_nested(self, mocker, platform, rom):
+    async def test_a_multi_file_rom_is_reported_as_not_flat(
+        self, mocker, platform, rom
+    ):
         mocker.patch.object(
             scan_module, "redis_client", Mock(get=Mock(return_value=None))
         )
@@ -1748,7 +1767,7 @@ class TestScanSelectedRoms:
         )
 
         fs_rom = identify.call_args.kwargs["fs_rom"]
-        assert fs_rom["nested"] is True
+        assert fs_rom["flat"] is False
         assert fs_rom["flat"] is False
 
     async def test_a_scan_stopped_mid_flight_raises(self, mocker, platform, rom):
@@ -2516,8 +2535,8 @@ def identify_harness(mocker):
     ) -> None:
         fs_rom: FSRom = {
             "fs_name": "Game",
+            "fs_path": "test/roms",
             "flat": False,
-            "nested": True,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",
@@ -2662,8 +2681,8 @@ class TestIdentifyPlatformLoadsFilesForQuickScan:
         )
         fs_rom: FSRom = {
             "fs_name": "Game",
+            "fs_path": "test/roms",
             "flat": False,
-            "nested": True,
             "files": [],
             "crc_hash": "",
             "md5_hash": "",
@@ -2678,7 +2697,7 @@ class TestIdentifyPlatformLoadsFilesForQuickScan:
         rom = Rom(fs_name="Game", platform_id=platform.id)
         rom.id = 42
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
-        db_rom.get_roms_by_fs_name.return_value = {"Game": rom}
+        db_rom.get_roms_by_fs_name.return_value = {"test/roms/Game": rom}
         db_rom.get_missing_rom_ids.return_value = set()
         db_rom.mark_missing_roms.return_value = []
         db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")

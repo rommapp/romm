@@ -75,6 +75,16 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
     return is_db_version_compatible(conn, min_version=min_version)
 
 
+def full_path_digest_sql(conn: sa.Connection) -> str:
+    """`models.rom.compute_full_path_hash` spelled in SQL, for 0126's backfill.
+
+    `test_migrations` pins this to the Python function it mirrors.
+    """
+    if is_postgresql(conn):
+        return "encode(sha256(convert_to(fs_path || '/' || fs_name, 'UTF8')), 'hex')"
+    return "SHA2(CONCAT(fs_path, '/', fs_name), 256)"
+
+
 def json_array_contains_value(
     column: sa.Column | Any, value: str | int, *, session: Session
 ) -> ColumnElement:

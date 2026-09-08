@@ -1835,7 +1835,7 @@ async def create_physical_rom(
             scan_type=ScanType.QUICK,
             platform=platform,
             rom=rom,
-            fs_rom=build_hashless_fs_rom(fs_name, flat=True),
+            fs_rom=build_hashless_fs_rom(fs_name, fs_path, flat=True),
             metadata_sources=metadata_sources,
             newly_added=True,
         )

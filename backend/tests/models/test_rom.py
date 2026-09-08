@@ -2,7 +2,7 @@ import pytest
 
 from handler.database import db_rom_handler
 from models.platform import Platform
-from models.rom import LookupHashes, Rom, RomFile
+from models.rom import LookupHashes, Rom, RomFile, compute_full_path_hash
 
 
 def test_rom(rom: Rom):
@@ -214,3 +214,47 @@ def test_youtube_video_id_falls_through_to_the_next_valid_source(rom: Rom):
     rom.demozoo_metadata = {"youtube_video_id": "ugPZnsRHUkc"}
 
     assert rom.youtube_video_id == "ugPZnsRHUkc"
+
+
+class TestFullPathHash:
+    """The digest the unique index reads, since fs_path plus fs_name is 5804
+    bytes of utf8mb4 and InnoDB caps a key at 3072."""
+
+    def test_it_digests_the_full_path_whichever_half_is_assigned_first(self):
+        expected = compute_full_path_hash("nes/roms/Hacks", "Game.zip")
+
+        name_first = Rom(fs_name="Game.zip", fs_path="nes/roms/Hacks")
+        path_first = Rom(fs_path="nes/roms/Hacks", fs_name="Game.zip")
+
+        assert name_first.full_path_hash == expected
+        assert path_first.full_path_hash == expected
+
+    def test_it_is_re_derived_when_either_half_changes(self, rom: Rom):
+        rom.fs_path = "test_platform_slug/roms/Hacks"
+        assert rom.full_path_hash == compute_full_path_hash(
+            "test_platform_slug/roms/Hacks", "test_rom.zip"
+        )
+
+        rom.fs_name = "renamed.zip"
+        assert rom.full_path_hash == compute_full_path_hash(
+            "test_platform_slug/roms/Hacks", "renamed.zip"
+        )
+
+    def test_the_cached_full_path_does_not_survive_a_rename(self, rom: Rom):
+        """A scan reads `full_path` and then renames the file in place, so the
+        cached pair has to be dropped when either half is set."""
+        assert rom.full_path == "test_platform_slug/roms/test_rom.zip"
+
+        rom.fs_name = "renamed.zip"
+        assert rom.full_path == "test_platform_slug/roms/renamed.zip"
+
+        rom.fs_path = "test_platform_slug/roms/Hacks"
+        assert rom.full_path == "test_platform_slug/roms/Hacks/renamed.zip"
+
+    def test_the_same_name_in_two_folders_is_two_distinct_roms(self):
+        """What the (platform_id, fs_name) index used to forbid, and what a
+        custom library structure makes ordinary."""
+        root = Rom(fs_name="Game.zip", fs_path="nes/roms")
+        nested = Rom(fs_name="Game.zip", fs_path="nes/roms/Hacks")
+
+        assert root.full_path_hash != nested.full_path_hash

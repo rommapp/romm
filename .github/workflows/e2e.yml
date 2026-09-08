@@ -99,6 +99,9 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/romm/resources" "$RUNNER_TEMP/romm/assets"
           cp -R backend/romm_test/library "$RUNNER_TEMP/romm/library"
+          # The fixture library is laid out platform-folder-first, which its
+          # config.yml declares.
+          cp -R backend/romm_test/config "$RUNNER_TEMP/romm/config"
           echo "ROMM_BASE_PATH=$RUNNER_TEMP/romm" >> "$GITHUB_ENV"
           echo "DB_PORT=${{ job.services.mariadb.ports['3306'] }}" >> "$GITHUB_ENV"
           echo "REDIS_PORT=${{ job.services.valkey.ports['6379'] }}" >> "$GITHUB_ENV"

@@ -9,6 +9,7 @@ from config.config_manager import (
     VALID_GAMELIST_IMAGE_TYPES,
     VALID_GAMELIST_THUMBNAIL_TYPES,
     VALID_SCAN_PRIORITY_SOURCES,
+    ExclusionType,
     MetadataMediaType,
 )
 from config.config_manager import config_manager as cm
@@ -33,7 +34,17 @@ class PlatformBindingPayload(BaseModel):
 
 class ExclusionPayload(BaseModel):
     exclusion_value: str
+    # Left a string rather than the enum to keep the generated frontend type one.
     exclusion_type: str
+
+    @field_validator("exclusion_type")
+    @classmethod
+    def validate_exclusion_type(cls, value: str) -> str:
+        if value not in ExclusionType:
+            raise ValueError(
+                f"Unknown exclusion type, expected one of {[t.value for t in ExclusionType]}"
+            )
+        return value
 
 
 class ScanSettingsPayload(BaseModel):
@@ -224,7 +235,7 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     """Add platform exclusion to the configuration"""
 
     exclusion_value = payload.exclusion_value
-    exclusion_type = payload.exclusion_type
+    exclusion_type = ExclusionType(payload.exclusion_type)
     try:
         cm.add_exclusion(exclusion_type, exclusion_value)
     except ConfigNotWritableException as exc:
@@ -240,7 +251,7 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     [Scope.PLATFORMS_WRITE],
 )
 async def delete_exclusion(
-    request: Request, exclusion_type: str, exclusion_value: str
+    request: Request, exclusion_type: ExclusionType, exclusion_value: str
 ) -> None:
     """Delete platform binding from the configuration"""
 

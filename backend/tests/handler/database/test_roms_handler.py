@@ -1,7 +1,7 @@
 """Unit tests for DBRomsHandler's derived-column bookkeeping.
 
 Bulk `update()` bypasses the ORM `@validates` hooks, so `update_rom` keeps
-the columns derived from `name` / `fs_name` in sync explicitly.
+the columns derived from `name` / `fs_name` / `fs_path` in sync explicitly.
 """
 
 import pytest
@@ -16,7 +16,13 @@ from handler.database import (
 )
 from models.assets import Save, State
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
+from models.rom import (
+    Rom,
+    RomFile,
+    RomFileCategory,
+    TrackMeta,
+    compute_full_path_hash,
+)
 from models.user import User
 
 
@@ -35,6 +41,18 @@ class TestUpdateRomDerivedColumns:
         assert updated.fs_name_no_ext == "Sonic (Europe)"
         # The extension is resynced too — the rename endpoint used to omit it.
         assert updated.fs_extension == "md"
+
+    def test_update_either_path_half_resyncs_the_digest(self, rom: Rom):
+        updated = db_rom_handler.update_rom(rom.id, {"fs_name": "Sonic (Europe).md"})
+        assert updated.full_path_hash == compute_full_path_hash(
+            rom.fs_path, "Sonic (Europe).md"
+        )
+
+        # The half the caller left out comes from the stored row.
+        moved = db_rom_handler.update_rom(rom.id, {"fs_path": "test/roms/Hacks"})
+        assert moved.full_path_hash == compute_full_path_hash(
+            "test/roms/Hacks", "Sonic (Europe).md"
+        )
 
     def test_update_unrelated_field_leaves_derived_columns(self, rom: Rom):
         updated = db_rom_handler.update_rom(rom.id, {"summary": "just a summary"})
@@ -125,17 +143,40 @@ class TestAddRomMergesScannedTags:
         assert stored.slug == "kept-slug"
 
 
-class TestUniquePlatformFsName:
-    """A platform folder can't hold two entries with the same name, so the DB
-    rejects a second ROM with the same (platform_id, fs_name). This is what
+class TestUniquePlatformFullPath:
+    """A folder can't hold two entries with the same name, so the DB rejects a
+    second ROM at the same full path (via its `full_path_hash`). This is what
     stops racing scans (e.g. after the patcher uploads a patched ROM) from
     creating duplicate library entries."""
 
-    def test_duplicate_platform_fs_name_rejected(self, platform: Platform):
+    def test_duplicate_platform_full_path_rejected(self, platform: Platform):
         db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
 
         with pytest.raises(IntegrityError):
             db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
+
+    def test_same_fs_name_in_another_folder_allowed(self, platform: Platform):
+        """What a custom library structure makes ordinary, and what the old
+        (platform_id, fs_name) index forbade."""
+        root = db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
+        nested = _make_rom(platform, "Patched Game.gba")
+        nested.fs_path = f"{platform.slug}/roms/Hacks"
+
+        assert db_rom_handler.add_rom(nested).id != root.id
+
+    def test_moving_a_rom_onto_an_occupied_path_is_rejected(self, platform: Platform):
+        """`update_rom` bypasses the ORM, so it has to resync the digest the
+        unique index reads or the collision goes unnoticed."""
+        db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
+        moved = _make_rom(platform, "Other Game.gba")
+        moved.fs_path = f"{platform.slug}/roms/Hacks"
+        moved = db_rom_handler.add_rom(moved)
+
+        with pytest.raises(IntegrityError):
+            db_rom_handler.update_rom(
+                moved.id,
+                {"fs_path": f"{platform.slug}/roms", "fs_name": "Patched Game.gba"},
+            )
 
     def test_same_fs_name_other_platform_allowed(self, platform: Platform):
         other = db_platform_handler.add_platform(
@@ -472,7 +513,7 @@ class TestScanFileLoaders:
     ):
         rom = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id, fs_names={multi_file_rom.fs_name}, with_files=True
-        )[multi_file_rom.fs_name]
+        )[multi_file_rom.full_path]
 
         assert {f.file_name for f in rom.files} == {"disc1.bin", "disc2.bin"}
         assert all(f.track_meta is None for f in rom.files)
@@ -483,7 +524,7 @@ class TestScanFileLoaders:
     ):
         rom = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id, fs_names={multi_file_rom.fs_name}
-        )[multi_file_rom.fs_name]
+        )[multi_file_rom.full_path]
 
         assert "files" in sa_inspect(rom).unloaded
 

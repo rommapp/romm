@@ -918,3 +918,116 @@ async def test_export_platform_to_file_keeps_comments_and_instructions(
         for g in GamelistHandler()._iter_game_elements(gamelist)
     ]
     assert parsed == [("./Super Mario World (USA).sfc", "true")]
+
+
+@pytest.fixture
+def platform_with_structured_roms(admin_user: User):
+    """A platform whose roms sit in nested folders, as a custom library structure
+    leaves them, with two of them sharing a file name."""
+    platform = db_platform_handler.add_platform(
+        Platform(name="Apple IIGS", slug="apple-iigs", fs_slug="apple-iigs")
+    )
+    platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+    roms = []
+    for rel_folder in ("USA", "Disks/Set A"):
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Zany Golf",
+                slug="zany-golf",
+                fs_name="Zany Golf (USA).2mg",
+                fs_name_no_tags="Zany Golf",
+                fs_name_no_ext="Zany Golf (USA)",
+                fs_extension="2mg",
+                fs_path=f"{platform_fs_path}/{rel_folder}",
+            )
+        )
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        roms.append(rom)
+
+    return platform, roms
+
+
+def test_export_gamelist_xml_paths_follow_the_library_structure(
+    platform_with_structured_roms,
+):
+    platform, _ = platform_with_structured_roms
+
+    xml_str = GamelistExporter(local_export=True).export_platform_to_xml(
+        platform.id, request=None
+    )
+
+    paths = {game.findtext("path") for game in fromstring(xml_str).findall("game")}
+    assert paths == {
+        "./USA/Zany Golf (USA).2mg",
+        "./Disks/Set A/Zany Golf (USA).2mg",
+    }
+
+
+async def test_export_platform_to_file_media_follows_the_library_structure(
+    platform_with_structured_roms, isolated_filesystem
+):
+    """Two roms sharing a file name keep their own media, under their own folder."""
+    platform, roms = platform_with_structured_roms
+    for rom, content in zip(roms, (b"usa-cover", b"set-a-cover"), strict=True):
+        cover = f"apple-iigs/covers/{rom.id}.jpg"
+        isolated_filesystem.write_resource(cover, content)
+        db_rom_handler.update_rom(rom.id, {"path_cover_l": cover})
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    platform_dir = isolated_filesystem.platform_dir(platform)
+    expected = {
+        "covers/USA/Zany Golf (USA).jpg": b"usa-cover",
+        "covers/Disks/Set A/Zany Golf (USA).jpg": b"set-a-cover",
+    }
+    for rel, content in expected.items():
+        assert (platform_dir / rel).read_bytes() == content
+
+    thumbnails = {
+        game.findtext("thumbnail")
+        for game in fromstring((platform_dir / "gamelist.xml").read_text()).findall(
+            "game"
+        )
+    }
+    assert thumbnails == {f"./{rel}" for rel in expected}
+
+
+async def test_export_platform_to_file_matches_existing_entries_by_path(
+    platform_with_structured_roms, isolated_filesystem
+):
+    """Identically named roms in different folders keep their own entry rather
+    than both merging into the first one."""
+    platform, _ = platform_with_structured_roms
+    gamelist = _write_gamelist(
+        isolated_filesystem,
+        platform,
+        """<?xml version="1.0"?>
+<gameList>
+  <game>
+    <path>./USA/Zany Golf (USA).2mg</path>
+    <favorite>true</favorite>
+  </game>
+  <game>
+    <path>./Disks/Set A/Zany Golf (USA).2mg</path>
+    <playcount>9</playcount>
+  </game>
+</gameList>
+""",
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    games = fromstring(gamelist.read_text()).findall("game")
+    assert len(games) == 2
+    kept = {
+        game.findtext("path"): (game.findtext("favorite"), game.findtext("playcount"))
+        for game in games
+    }
+    assert kept == {
+        "./USA/Zany Golf (USA).2mg": ("true", None),
+        "./Disks/Set A/Zany Golf (USA).2mg": (None, "9"),
+    }

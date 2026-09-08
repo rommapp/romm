@@ -189,7 +189,7 @@ async def test_loads_files_when_relationship_is_unloaded(platform, admin_user, l
     rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
     lean = db_rom_handler.get_roms_by_fs_name(
         platform_id=platform.id, fs_names={FOLDER}
-    )[FOLDER]
+    )[rom.full_path]
     _write(library, f"{rom.fs_path}/{FOLDER}/cheats/codes.cht", b"cheats")
 
     result = await refresh_rom_files(lean)
