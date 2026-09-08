@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Plays PICO-8 carts through the FAKE-08 WebAssembly runtime served from
+// /assets/pico8 (provisioned by the emulator stage of docker/Dockerfile).
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
 import { useEventListener } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
@@ -10,6 +12,7 @@ import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -17,7 +20,9 @@ import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import {
   createPico8Runtime,
   PICO8_FRAME_RATE,
+  PICO8_HEIGHT,
   PICO8_INPUT_BITS,
+  PICO8_WIDTH,
   type Pico8Runtime,
 } from "./pico8Runtime";
 
@@ -27,6 +32,7 @@ const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
 const { modality } = useInputModality();
+const alive = useIsAlive();
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -49,7 +55,9 @@ let mouseButtons = 0;
 let audioContext: AudioContext | null = null;
 let audioGain: GainNode | null = null;
 let nextAudioTime = 0;
-let viewAlive = true;
+let frameDuration = 1000 / PICO8_FRAME_RATE;
+
+const input = { keyDown: 0, keyHeld: 0, mouseX: 0, mouseY: 0, mouseButtons: 0 };
 
 const keyboardMap: Record<string, number> = {
   ArrowLeft: PICO8_INPUT_BITS.left,
@@ -60,29 +68,45 @@ const keyboardMap: Record<string, number> = {
   KeyX: PICO8_INPUT_BITS.b,
 };
 
+// W3C standard-mapping button index to PICO-8 bit.
+const padButtonMap = [
+  [0, PICO8_INPUT_BITS.a],
+  [1, PICO8_INPUT_BITS.b],
+  [12, PICO8_INPUT_BITS.up],
+  [13, PICO8_INPUT_BITS.down],
+  [14, PICO8_INPUT_BITS.left],
+  [15, PICO8_INPUT_BITS.right],
+] as const;
+
+// Per stick axis, the bit for a negative then a positive deflection.
+const padAxisMap = [
+  [PICO8_INPUT_BITS.left, PICO8_INPUT_BITS.right],
+  [PICO8_INPUT_BITS.up, PICO8_INPUT_BITS.down],
+] as const;
+const PAD_AXIS_THRESHOLD = 0.5;
+
+// Pointer button number to the mask FAKE-08 expects (left, middle, right).
+const mouseButtonMap = [0x01, 0x04, 0x02];
+
 const directionControls = [
   {
     bit: PICO8_INPUT_BITS.up,
     icon: "mdi-menu-up",
-    className: "r-v2-pico8__control--up",
     label: "up",
   },
   {
     bit: PICO8_INPUT_BITS.left,
     icon: "mdi-menu-left",
-    className: "r-v2-pico8__control--left",
     label: "left",
   },
   {
     bit: PICO8_INPUT_BITS.right,
     icon: "mdi-menu-right",
-    className: "r-v2-pico8__control--right",
     label: "right",
   },
   {
     bit: PICO8_INPUT_BITS.down,
     icon: "mdi-menu-down",
-    className: "r-v2-pico8__control--down",
     label: "down",
   },
 ] as const;
@@ -115,28 +139,32 @@ function onKeyUp(event: KeyboardEvent) {
 
 function readGamepadMask() {
   let mask = 0;
-  const gamepads = navigator.getGamepads?.() ?? [];
-  for (const gamepad of gamepads) {
-    if (!gamepad) continue;
-    if (gamepad.buttons[14]?.pressed) mask |= PICO8_INPUT_BITS.left;
-    if (gamepad.buttons[15]?.pressed) mask |= PICO8_INPUT_BITS.right;
-    if (gamepad.buttons[12]?.pressed) mask |= PICO8_INPUT_BITS.up;
-    if (gamepad.buttons[13]?.pressed) mask |= PICO8_INPUT_BITS.down;
-    if (gamepad.buttons[0]?.pressed) mask |= PICO8_INPUT_BITS.a;
-    if (gamepad.buttons[1]?.pressed) mask |= PICO8_INPUT_BITS.b;
-    if ((gamepad.axes[0] ?? 0) < -0.5) mask |= PICO8_INPUT_BITS.left;
-    if ((gamepad.axes[0] ?? 0) > 0.5) mask |= PICO8_INPUT_BITS.right;
-    if ((gamepad.axes[1] ?? 0) < -0.5) mask |= PICO8_INPUT_BITS.up;
-    if ((gamepad.axes[1] ?? 0) > 0.5) mask |= PICO8_INPUT_BITS.down;
+  for (const gamepad of navigator.getGamepads?.() ?? []) {
+    // Firefox keeps disconnected entries, whose stale analog values drift
+    // across the threshold and press buttons on their own. #3851.
+    if (!gamepad?.connected) continue;
+    const { buttons, axes } = gamepad;
+    for (const [index, bit] of padButtonMap) {
+      if (buttons[index]?.pressed) mask |= bit;
+    }
+    for (let axis = 0; axis < padAxisMap.length; axis += 1) {
+      const value = axes[axis] ?? 0;
+      if (value < -PAD_AXIS_THRESHOLD) mask |= padAxisMap[axis][0];
+      if (value > PAD_AXIS_THRESHOLD) mask |= padAxisMap[axis][1];
+    }
   }
   return mask;
 }
 
-function getInput() {
+function readInput() {
   const held = keyboardMask | touchMask.value | readGamepadMask();
-  const keyDown = held & ~previousHeld;
+  input.keyDown = held & ~previousHeld;
+  input.keyHeld = held;
+  input.mouseX = mouseX;
+  input.mouseY = mouseY;
+  input.mouseButtons = mouseButtons;
   previousHeld = held;
-  return { keyDown, keyHeld: held, mouseX, mouseY, mouseButtons };
+  return input;
 }
 
 function updateMousePosition(event: PointerEvent) {
@@ -144,21 +172,22 @@ function updateMousePosition(event: PointerEvent) {
   if (!element) return;
   const rect = element.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return;
-  mouseX = Math.max(
-    0,
-    Math.min(127, Math.floor(((event.clientX - rect.left) / rect.width) * 128)),
+  mouseX = clampToScreen(
+    ((event.clientX - rect.left) / rect.width) * PICO8_WIDTH,
+    PICO8_WIDTH,
   );
-  mouseY = Math.max(
-    0,
-    Math.min(127, Math.floor(((event.clientY - rect.top) / rect.height) * 128)),
+  mouseY = clampToScreen(
+    ((event.clientY - rect.top) / rect.height) * PICO8_HEIGHT,
+    PICO8_HEIGHT,
   );
 }
 
+function clampToScreen(value: number, size: number) {
+  return Math.max(0, Math.min(size - 1, Math.floor(value)));
+}
+
 function getMouseButtonMask(button: number) {
-  if (button === 0) return 0x01;
-  if (button === 1) return 0x04;
-  if (button === 2) return 0x02;
-  return 0;
+  return mouseButtonMap[button] ?? 0;
 }
 
 function onCanvasPointerMove(event: PointerEvent) {
@@ -210,7 +239,7 @@ function scheduleAudio(samples: Int16Array) {
   const buffer = audioContext.createBuffer(
     1,
     samples.length,
-    runtime?.audioSampleRate ?? 22050,
+    audioContext.sampleRate,
   );
   const channel = buffer.getChannelData(0);
   for (let index = 0; index < samples.length; index += 1) {
@@ -226,19 +255,18 @@ function scheduleAudio(samples: Int16Array) {
 
 function runFrame(timestamp: number) {
   if (!gameRunning.value || !runtime) return;
-  const frameDuration = 1000 / (runtime.frameRate || PICO8_FRAME_RATE);
-  const elapsed = Math.min(timestamp - lastFrameTime, 250);
+  frameAccumulator += Math.min(timestamp - lastFrameTime, 250);
   lastFrameTime = timestamp;
-  frameAccumulator += elapsed;
 
   let steps = 0;
   try {
     while (frameAccumulator >= frameDuration && steps < 3) {
-      runtime.step(getInput());
+      runtime.advance(readInput());
       scheduleAudio(runtime.getAudioSamples());
       frameAccumulator -= frameDuration;
       steps += 1;
     }
+    if (steps > 0) runtime.render();
   } catch (error) {
     showPlayError(error);
     return;
@@ -247,8 +275,9 @@ function runFrame(timestamp: number) {
 }
 
 function startLoop() {
+  frameDuration = 1000 / (runtime?.frameRate || PICO8_FRAME_RATE);
   lastFrameTime = performance.now();
-  frameAccumulator = 1000 / (runtime?.frameRate || PICO8_FRAME_RATE);
+  frameAccumulator = frameDuration;
   animationFrame = requestAnimationFrame(runFrame);
 }
 
@@ -260,18 +289,22 @@ function closeAudio() {
   if (context) void context.close().catch(() => {});
 }
 
-function releaseGame() {
-  cancelAnimationFrame(animationFrame);
-  animationFrame = 0;
-  runtime?.dispose();
-  runtime = null;
-  closeAudio();
+function resetInput() {
   previousHeld = 0;
   keyboardMask = 0;
   mouseX = 0;
   mouseY = 0;
   mouseButtons = 0;
   touchMask.value = 0;
+}
+
+function releaseGame() {
+  cancelAnimationFrame(animationFrame);
+  animationFrame = 0;
+  runtime?.dispose();
+  runtime = null;
+  closeAudio();
+  resetInput();
   playSession.flush();
   playingStore.setPlaying(false);
   gameRunning.value = false;
@@ -284,6 +317,12 @@ function showPlayError(error: unknown) {
   releaseGame();
 }
 
+async function fetchCartBytes(target: DetailedRom) {
+  const response = await fetch(getDownloadPath({ rom: target }));
+  if (!response.ok) throw new Error(`ROM request failed: ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 async function onPlay() {
   const currentRom = rom.value;
   if (!currentRom || gameRunning.value) return;
@@ -293,7 +332,7 @@ async function onPlay() {
   playingStore.setPlaying(true);
   await nextTick();
 
-  if (!viewAlive || !gameRunning.value) return;
+  if (!gameRunning.value) return;
   const canvasElement = canvas.value;
   if (!canvasElement) {
     showPlayError(new Error("PICO-8 canvas is unavailable"));
@@ -302,16 +341,12 @@ async function onPlay() {
 
   let nextRuntime: Pico8Runtime | null = null;
   try {
-    nextRuntime = await createPico8Runtime(canvasElement);
-    if (!viewAlive || !gameRunning.value) {
-      nextRuntime.dispose();
-      nextRuntime = null;
-      return;
-    }
-    const response = await fetch(getDownloadPath({ rom: currentRom }));
-    if (!response.ok) throw new Error(`ROM request failed: ${response.status}`);
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (!viewAlive || !gameRunning.value) {
+    const [runtimeResult, bytes] = await Promise.all([
+      createPico8Runtime(canvasElement),
+      fetchCartBytes(currentRom),
+    ]);
+    nextRuntime = runtimeResult;
+    if (!gameRunning.value) {
       nextRuntime.dispose();
       nextRuntime = null;
       return;
@@ -346,7 +381,7 @@ async function onPlay() {
     startLoop();
   } catch (error) {
     nextRuntime?.dispose();
-    if (!viewAlive || !gameRunning.value) return;
+    if (!gameRunning.value) return;
     showPlayError(error);
   }
 }
@@ -358,27 +393,20 @@ function onlyQuit() {
 
 useEventListener(window, "keydown", onKeyDown);
 useEventListener(window, "keyup", onKeyUp);
-useEventListener(window, "blur", () => {
-  keyboardMask = 0;
-  mouseButtons = 0;
-  touchMask.value = 0;
-});
+useEventListener(window, "blur", resetInput);
 
 onMounted(async () => {
   const romResponse = await romApi.getRom({ romId });
-  if (!viewAlive) return;
+  if (!alive.value) return;
   rom.value = romResponse.data;
   if (modality.value === "pad" || modality.value === "key") {
     await nextTick();
-    if (!viewAlive) return;
+    if (!alive.value) return;
     focusPlayButton();
   }
 });
 
-onBeforeUnmount(() => {
-  viewAlive = false;
-  releaseGame();
-});
+onBeforeUnmount(releaseGame);
 </script>
 
 <template>
@@ -409,8 +437,8 @@ onBeforeUnmount(() => {
           <canvas
             ref="canvas"
             class="r-v2-pico8__canvas"
-            width="128"
-            height="128"
+            :width="PICO8_WIDTH"
+            :height="PICO8_HEIGHT"
             aria-label="PICO-8 game"
             @pointermove="onCanvasPointerMove"
             @pointerdown="onCanvasPointerDown"
@@ -437,7 +465,7 @@ onBeforeUnmount(() => {
               size="small"
               :class="[
                 'r-v2-pico8__control',
-                control.className,
+                `r-v2-pico8__control--${control.label}`,
                 {
                   'r-v2-pico8__control--held': touchMask & control.bit,
                 },
@@ -510,7 +538,7 @@ onBeforeUnmount(() => {
   width: min(78vmin, 640px);
   aspect-ratio: 1;
   flex: 0 0 auto;
-  background: #000;
+  background: var(--r-color-canvas-bg);
   box-shadow: 0 18px 48px color-mix(in srgb, black 55%, transparent);
 }
 

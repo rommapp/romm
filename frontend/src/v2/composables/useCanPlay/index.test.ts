@@ -68,18 +68,21 @@ beforeEach(() => {
 
 describe("useCanPlay", () => {
   it.each([
-    ["EJS", "ejs", "canPlayEJS"],
-    ["js-dos", "jsDos", "canPlayJsDos"],
-    ["PICO-8", "pico8", "canPlayPico8"],
-    ["Ruffle", "ruffle", "canPlayRuffle"],
-  ] as const)("reports %s support on its own flag", (_label, stub, flag) => {
-    support[stub].mockReturnValue(true);
-    if (stub === "pico8") support.pico8Rom.mockReturnValue(true);
-    const result = useCanPlay(() => makeRom());
+    ["EJS", "ejs", "canPlayEJS", []],
+    ["js-dos", "jsDos", "canPlayJsDos", []],
+    ["PICO-8", "pico8", "canPlayPico8", ["pico8Rom"]],
+    ["Ruffle", "ruffle", "canPlayRuffle", []],
+  ] as const)(
+    "reports %s support on its own flag",
+    (_label, stub, flag, alsoRequires) => {
+      support[stub].mockReturnValue(true);
+      for (const extra of alsoRequires) support[extra].mockReturnValue(true);
+      const result = useCanPlay(() => makeRom());
 
-    expect(result[flag].value).toBe(true);
-    expect(result.canPlay.value).toBe(true);
-  });
+      expect(result[flag].value).toBe(true);
+      expect(result.canPlay.value).toBe(true);
+    },
+  );
 
   // A physical game, or one whose file vanished from the library, has nothing
   // to hand the emulator: every route boots from the download endpoint.

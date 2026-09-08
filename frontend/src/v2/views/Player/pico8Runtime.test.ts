@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createPico8Runtime, PICO8_HEIGHT, PICO8_WIDTH } from "./pico8Runtime";
+import {
+  createPico8Runtime,
+  type Fake08Module,
+  PICO8_HEIGHT,
+  PICO8_WIDTH,
+} from "./pico8Runtime";
 
 const heap = new Uint8Array(new ArrayBuffer(64 * 1024));
 const context = {
   createImageData: vi.fn(() => ({
     data: new Uint8ClampedArray(PICO8_WIDTH * PICO8_HEIGHT * 4),
   })),
-  imageSmoothingEnabled: true,
   putImageData: vi.fn(),
 };
+
+// Hand out distinct addresses so the palette and audio buffers do not alias.
+let nextAddress = 200;
 const fakeModule = {
   HEAPU8: heap,
   _f08_init: vi.fn(),
@@ -31,10 +38,14 @@ const fakeModule = {
     return 2;
   }),
   _f08_get_audio_sample_rate: vi.fn(() => 22050),
-  _malloc: vi.fn(() => 200),
+  _malloc: vi.fn((size: number) => {
+    const address = nextAddress;
+    nextAddress += size;
+    return address;
+  }),
   _free: vi.fn(),
   UTF8ToString: vi.fn(() => ""),
-};
+} satisfies Fake08Module;
 
 vi.mock("./scriptLoader", () => ({
   loadScript: vi.fn(async () => {
@@ -44,6 +55,7 @@ vi.mock("./scriptLoader", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  nextAddress = 200;
   heap[100] = 0x21;
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
     context as unknown as CanvasRenderingContext2D,
@@ -55,15 +67,19 @@ describe("createPico8Runtime", () => {
     const runtime = await createPico8Runtime(document.createElement("canvas"));
 
     runtime.loadCart(new Uint8Array([1, 2, 3]));
-    runtime.step({
+    runtime.advance({
       keyDown: 0x10,
       keyHeld: 0x30,
       mouseX: 12,
       mouseY: 34,
       mouseButtons: 1,
     });
+    runtime.render();
 
-    expect(fakeModule._f08_load_cart_data).toHaveBeenCalledWith(200, 3);
+    expect(fakeModule._f08_load_cart_data).toHaveBeenCalledWith(
+      expect.any(Number),
+      3,
+    );
     expect(fakeModule._f08_set_inputs).toHaveBeenCalledWith(
       0x10,
       0x30,
@@ -79,7 +95,7 @@ describe("createPico8Runtime", () => {
     expect(runtime.audioSampleRate).toBe(22050);
 
     runtime.dispose();
-    runtime.step({
+    runtime.advance({
       keyDown: 0,
       keyHeld: 0,
       mouseX: 0,

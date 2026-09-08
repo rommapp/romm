@@ -17,8 +17,9 @@ const PICO8_WASM_PATH = "/assets/pico8/fake08.wasm";
 const PICO8_SCRIPT_PATH = "/assets/pico8/fake08.js";
 const FRAMEBUFFER_BYTES = (PICO8_WIDTH * PICO8_HEIGHT) / 2;
 const PALETTE_BYTES = 16 * 4;
+const EMPTY_SAMPLES = new Int16Array(0);
 
-interface Fake08Module {
+export interface Fake08Module {
   HEAPU8: Uint8Array;
   _f08_init: () => void;
   _f08_load_cart_data: (pointer: number, length: number) => number;
@@ -82,7 +83,8 @@ export interface Pico8Runtime {
   readonly frameRate: number;
   readonly audioSampleRate: number;
   loadCart: (bytes: Uint8Array) => void;
-  step: (input: Pico8Input) => void;
+  advance: (input: Pico8Input) => void;
+  render: () => void;
   getAudioSamples: () => Int16Array;
   dispose: () => void;
 }
@@ -97,13 +99,12 @@ export async function createPico8Runtime(
   const module = await factory({
     locateFile: (path) => (path.endsWith(".wasm") ? PICO8_WASM_PATH : path),
   });
-  const context = canvas.getContext("2d", { alpha: false });
-  if (!context) throw new Error("PICO-8 needs a 2D canvas");
-  const renderContext = context;
+  const canvasContext = canvas.getContext("2d", { alpha: false });
+  if (!canvasContext) throw new Error("PICO-8 needs a 2D canvas");
+  const context = canvasContext;
 
   canvas.width = PICO8_WIDTH;
   canvas.height = PICO8_HEIGHT;
-  renderContext.imageSmoothingEnabled = false;
   module._f08_init();
 
   const framebufferPointer = module._f08_get_framebuffer_ptr();
@@ -114,40 +115,51 @@ export async function createPico8Runtime(
     module._f08_get_audio_sample_rate() / PICO8_FRAME_RATE,
   );
   const audioPointer = module._malloc(samplesPerFrame * 2);
-  const imageData = renderContext.createImageData(PICO8_WIDTH, PICO8_HEIGHT);
+  const imageData = context.createImageData(PICO8_WIDTH, PICO8_HEIGHT);
+  const pixels = new Uint32Array(imageData.data.buffer);
+
+  // Packed-RGBA lookup for the 16 palette entries, so the pixel loop is two
+  // 32-bit stores per byte instead of eight clamped byte stores. Written
+  // through an aliased byte view to stay correct on either endianness.
+  const paletteLutBytes = new Uint8Array(PALETTE_BYTES);
+  const paletteLut = new Uint32Array(paletteLutBytes.buffer);
+
+  let heapBuffer: ArrayBufferLike | null = null;
+  let palette: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
+  let framebuffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
   let disposed = false;
 
-  function render() {
-    module._f08_get_palette_rgba(palettePointer);
-    const palette = new Uint8Array(
-      module.HEAPU8.buffer,
-      palettePointer,
-      PALETTE_BYTES,
-    );
-    const framebuffer = new Uint8Array(
-      module.HEAPU8.buffer,
+  // Heap growth detaches existing views, so rebind whenever the buffer changes.
+  function syncHeapViews() {
+    if (heapBuffer === module.HEAPU8.buffer) return;
+    heapBuffer = module.HEAPU8.buffer;
+    palette = new Uint8Array(heapBuffer, palettePointer, PALETTE_BYTES);
+    framebuffer = new Uint8Array(
+      heapBuffer,
       framebufferPointer,
       FRAMEBUFFER_BYTES,
     );
+  }
 
+  function render() {
+    if (disposed) return;
+    module._f08_get_palette_rgba(palettePointer);
+    syncHeapViews();
+
+    // Carts remap the palette at runtime, so the lookup is rebuilt per paint.
+    paletteLutBytes.set(palette);
+    for (let alpha = 3; alpha < PALETTE_BYTES; alpha += 4) {
+      paletteLutBytes[alpha] = 0xff;
+    }
+
+    let target = 0;
     for (let index = 0; index < FRAMEBUFFER_BYTES; index += 1) {
       const packed = framebuffer[index];
-      const firstPixel = index * 2;
-      const secondPixel = firstPixel + 1;
-      const firstColor = (packed & 0x0f) * 4;
-      const secondColor = (packed >> 4) * 4;
-      const firstTarget = firstPixel * 4;
-      const secondTarget = secondPixel * 4;
-      imageData.data[firstTarget] = palette[firstColor];
-      imageData.data[firstTarget + 1] = palette[firstColor + 1];
-      imageData.data[firstTarget + 2] = palette[firstColor + 2];
-      imageData.data[firstTarget + 3] = 255;
-      imageData.data[secondTarget] = palette[secondColor];
-      imageData.data[secondTarget + 1] = palette[secondColor + 1];
-      imageData.data[secondTarget + 2] = palette[secondColor + 2];
-      imageData.data[secondTarget + 3] = 255;
+      pixels[target] = paletteLut[packed & 0x0f];
+      pixels[target + 1] = paletteLut[packed >> 4];
+      target += 2;
     }
-    renderContext.putImageData(imageData, 0, 0);
+    context.putImageData(imageData, 0, 0);
   }
 
   function loadCart(bytes: Uint8Array) {
@@ -166,7 +178,7 @@ export async function createPico8Runtime(
     }
   }
 
-  function step(input: Pico8Input) {
+  function advance(input: Pico8Input) {
     if (disposed) return;
     module._f08_set_inputs(
       input.keyDown,
@@ -176,16 +188,15 @@ export async function createPico8Runtime(
       input.mouseButtons,
     );
     module._f08_step_frame();
-    render();
   }
 
   function getAudioSamples() {
-    if (disposed) return new Int16Array();
+    if (disposed) return EMPTY_SAMPLES;
     const written = module._f08_fill_audio_buffer(
       audioPointer,
       samplesPerFrame,
     );
-    if (written <= 0) return new Int16Array();
+    if (written <= 0) return EMPTY_SAMPLES;
     return new Int16Array(module.HEAPU8.buffer, audioPointer, written).slice();
   }
 
@@ -200,7 +211,8 @@ export async function createPico8Runtime(
     frameRate: module._f08_get_target_fps() || PICO8_FRAME_RATE,
     audioSampleRate: module._f08_get_audio_sample_rate(),
     loadCart,
-    step,
+    advance,
+    render,
     getAudioSamples,
     dispose,
   };

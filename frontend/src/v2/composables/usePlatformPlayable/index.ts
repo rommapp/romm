@@ -9,12 +9,10 @@
 // slugs at once (sort comparators, group-by buckets in PlatformsIndex).
 //
 // `emulator` resolves to the in-browser engine that actually drives the
-// platform: "ruffle" for Flash, "jsdos" for Windows 3.x/9x, "pico8" for
-// PICO-8, "dosbox"
-// when the EJS catalogue picks the dosbox_pure core (DOS is wrapped by
-// EJS but distinctive enough to surface by name in the UI),
-// "emulatorjs" for everything else playable, and `null` when nothing on
-// the server can run it.
+// platform: "ruffle" for Flash, "jsdos" for Windows 3.x/9x, "dosbox" when
+// the EJS catalogue picks the dosbox_pure core (DOS is wrapped by EJS but
+// distinctive enough to surface by name in the UI), "emulatorjs" for
+// everything else playable, and `null` when nothing on the server can run it.
 //
 // `mode` folds the in-browser answer together with streaming: a platform
 // served by a configured streaming container is playable too, just not in
