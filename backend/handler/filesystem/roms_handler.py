@@ -438,6 +438,8 @@ class FSRomsHandler(FSHandler):
         )
 
     def exclude_multi_roms(self, roms: list[str]) -> list[str]:
+        """Drop the folders that are never a multi-file rom: the excluded names and
+        the hidden (dot-prefixed) ones."""
         excluded_names = cm.get_config().EXCLUDED_MULTI_FILES
         normalized_patterns = {
             excluded_name.lower().strip() for excluded_name in excluded_names
@@ -448,6 +450,9 @@ class FSRomsHandler(FSHandler):
 
         kept_roms: list[str] = []
         for rom in roms:
+            if rom.startswith("."):
+                continue
+
             normalized_rom_name = rom.strip().lower()
             if normalized_rom_name in normalized_patterns:
                 continue
@@ -1063,7 +1068,6 @@ class FSRomsHandler(FSHandler):
                     for name in self.exclude_multi_roms(
                         await self.list_directories(directory)
                     )
-                    if not name.startswith(".")
                 ]
         return fs_roms
 

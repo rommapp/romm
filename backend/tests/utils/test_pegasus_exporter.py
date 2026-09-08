@@ -959,3 +959,139 @@ asset.wheel: keep-logo.png
 )
 def test_canonical_pegasus_key(key: str, expected: str):
     assert canonical_pegasus_key(key) == expected
+
+
+@pytest.fixture
+def structured_platform(tmp_path, monkeypatch, admin_user: User) -> Platform:
+    """A platform whose roms sit in nested folders, as a custom library structure
+    leaves them, with two of them sharing a file name."""
+    monkeypatch.setattr(fs_platform_handler, "base_path", tmp_path / "library")
+    platform = db_platform_handler.add_platform(
+        Platform(name="Apple IIGS", slug="apple-iigs", fs_slug="apple-iigs")
+    )
+    platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    (fs_platform_handler.base_path / platform_fs_path).mkdir(parents=True)
+
+    for rel_folder in ("USA", "Disks/Set A"):
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Zany Golf",
+                slug="zany-golf",
+                fs_name="Zany Golf (USA).2mg",
+                fs_name_no_tags="Zany Golf",
+                fs_name_no_ext="Zany Golf (USA)",
+                fs_extension="2mg",
+                fs_path=f"{platform_fs_path}/{rel_folder}",
+            )
+        )
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+    return platform
+
+
+def _structured_metadata_file(platform: Platform) -> Path:
+    platform_dir = fs_platform_handler.base_path / (
+        fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    )
+    return platform_dir / "metadata.pegasus.txt"
+
+
+class TestLibraryStructure:
+    def test_file_paths_follow_the_library_structure(
+        self, structured_platform: Platform
+    ):
+        content = PegasusExporter(local_export=True).export_platform_to_pegasus(
+            structured_platform.id, request=None
+        )
+
+        files = {game["file"] for game in _parse_pegasus(content)["games"]}
+        assert files == {"USA/Zany Golf (USA).2mg", "Disks/Set A/Zany Golf (USA).2mg"}
+
+    async def test_media_follows_the_library_structure(
+        self, structured_platform: Platform, tmp_path, monkeypatch
+    ):
+        """Two roms sharing a file name keep their own media, under their own folder."""
+        monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path / "resources")
+        roms = db_rom_handler.get_roms_scalar(platform_ids=[structured_platform.id])
+        for rom, content in zip(roms, (b"one-cover", b"two-cover"), strict=True):
+            cover = fs_resource_handler.base_path / f"apple-iigs/covers/{rom.id}.jpg"
+            cover.parent.mkdir(parents=True, exist_ok=True)
+            cover.write_bytes(content)
+            db_rom_handler.update_rom(
+                rom.id, {"path_cover_l": f"apple-iigs/covers/{rom.id}.jpg"}
+            )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(structured_platform.id, request=None)
+            is True
+        )
+
+        metadata_file = _structured_metadata_file(structured_platform)
+        platform_dir = metadata_file.parent
+        covers_dir = PLATFORM_MEDIA_DIRS[PEGASUS_MEDIA_KEYS["box_front"]]
+        expected = {
+            f"{covers_dir}/USA/Zany Golf (USA).jpg",
+            f"{covers_dir}/Disks/Set A/Zany Golf (USA).jpg",
+        }
+        assert {
+            path for path in expected if (platform_dir / path).is_file()
+        } == expected
+
+        exported = {
+            game["assets.box_front"]
+            for game in _parse_pegasus(_read_metadata(metadata_file))["games"]
+        }
+        assert exported == expected
+
+    async def test_existing_entries_are_matched_by_path(
+        self, structured_platform: Platform
+    ):
+        """Identically named roms in different folders keep their own block rather
+        than both merging into the first one."""
+        metadata_file = _structured_metadata_file(structured_platform)
+        _write_metadata(
+            metadata_file,
+            """collection: Apple IIGS
+shortname: apple-iigs
+
+game: Old USA Title
+file: ./USA/Zany Golf (USA).2mg
+x-favorite: yes
+
+game: Old Set A Title
+file: Disks/Set A/Zany Golf (USA).2mg
+x-playcount: 9
+""",
+        )
+
+        exporter = PegasusExporter(local_export=True)
+        assert (
+            await exporter.export_platform_to_file(structured_platform.id, request=None)
+            is True
+        )
+
+        games = _parse_pegasus(_read_metadata(metadata_file))["games"]
+        assert len(games) == 2
+        kept = {
+            game["file"]: (game.get("x-favorite"), game.get("x-playcount"))
+            for game in games
+        }
+        assert kept == {
+            "USA/Zany Golf (USA).2mg": ("yes", None),
+            "Disks/Set A/Zany Golf (USA).2mg": (None, "9"),
+        }
+
+    def test_block_file_paths_include_the_folders_holding_them(self):
+        """A multi-file rom is matched by the folder its files sit in."""
+        (block,) = parse_pegasus("""game: Cosmic Osmo
+file: Disks/Set A/Cosmic Osmo/disk1.2mg
+""")[1:]
+
+        assert block.file_paths() == {
+            "Disks/Set A/Cosmic Osmo/disk1.2mg",
+            "Disks/Set A/Cosmic Osmo",
+            "Disks/Set A",
+            "Disks",
+        }

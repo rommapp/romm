@@ -387,6 +387,17 @@ class TestFSRomsHandler:
             result = handler.exclude_multi_roms(roms)
             assert result == roms
 
+    def test_exclude_multi_roms_drops_hidden_folders(
+        self, handler: FSRomsHandler, config
+    ):
+        """A hidden folder is never a rom, with or without a structure template."""
+        roms = ["Game1", ".hidden", "Game2"]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            assert handler.exclude_multi_roms(roms) == ["Game1", "Game2"]
+
     def test_exclude_multi_roms_case_insensitive(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms ignores case in excluded names"""
         roms = ["Game1", "Manuals", "Game2"]
@@ -552,7 +563,8 @@ class TestFSRomsHandler:
         self, platform: Platform, tmp_path: Path
     ):
         """Without a template, only top-level files and folders are surfaced
-        (each file a flat rom, each folder a single multi-file rom)."""
+        (each file a flat rom, each folder a single multi-file rom), and hidden
+        folders are skipped as they are under a template."""
         handler = FSRomsHandler()
         handler.base_path = tmp_path
         with patch(
@@ -569,10 +581,10 @@ class TestFSRomsHandler:
         assert (base, "Hacks") in keys
         assert (base, "Translations") in keys
         assert (base, "Region") in keys
-        assert (base, ".hidden") in keys
+        assert (base, ".hidden") not in keys
         # Nothing nested is surfaced.
         assert all(r["fs_path"] == base for r in roms)
-        assert len(roms) == 5
+        assert len(roms) == 4
         assert count == len(roms)
 
     @pytest.mark.asyncio

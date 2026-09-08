@@ -213,6 +213,17 @@ DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Final = sorted(
 )
 
 
+class ExclusionType(enum.StrEnum):
+    """The `Config` fields an exclusion write may target."""
+
+    EXCLUDED_PLATFORMS = "EXCLUDED_PLATFORMS"
+    EXCLUDED_SINGLE_EXT = "EXCLUDED_SINGLE_EXT"
+    EXCLUDED_SINGLE_FILES = "EXCLUDED_SINGLE_FILES"
+    EXCLUDED_MULTI_FILES = "EXCLUDED_MULTI_FILES"
+    EXCLUDED_MULTI_PARTS_EXT = "EXCLUDED_MULTI_PARTS_EXT"
+    EXCLUDED_MULTI_PARTS_FILES = "EXCLUDED_MULTI_PARTS_FILES"
+
+
 class EjsControlsButton(TypedDict):
     value: NotRequired[str]  # Keyboard key
     value2: NotRequired[str]  # Controller button
@@ -1267,7 +1278,7 @@ class ConfigManager:
         self.config.PLATFORMS_VERSIONS = platform_versions
         self._update_config_file()
 
-    def add_exclusion(self, exclusion_type: str, exclusion_value: str):
+    def add_exclusion(self, exclusion_type: ExclusionType, exclusion_value: str):
         config_item = self.config.__getattribute__(exclusion_type)
         if exclusion_value in config_item:
             log.warning(
@@ -1279,7 +1290,7 @@ class ConfigManager:
         self.config.__setattr__(exclusion_type, config_item)
         self._update_config_file()
 
-    def remove_exclusion(self, exclusion_type: str, exclusion_value: str):
+    def remove_exclusion(self, exclusion_type: ExclusionType, exclusion_value: str):
         config_item = self.config.__getattribute__(exclusion_type)
 
         try:
