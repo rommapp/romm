@@ -216,7 +216,7 @@ function onCanvasPointerUp(event: PointerEvent) {
   mouseButtons &= ~getMouseButtonMask(event.button);
 }
 
-function onCanvasPointerCancel() {
+function clearMouseButtons() {
   mouseButtons = 0;
 }
 
@@ -472,7 +472,8 @@ onBeforeUnmount(releaseGame);
               @pointermove="onCanvasPointerMove"
               @pointerdown="onCanvasPointerDown"
               @pointerup="onCanvasPointerUp"
-              @pointercancel="onCanvasPointerCancel"
+              @pointercancel="clearMouseButtons"
+              @lostpointercapture="clearMouseButtons"
               @contextmenu.prevent
             />
             <div v-if="loading" class="r-v2-pico8__loading">

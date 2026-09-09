@@ -102,4 +102,13 @@ describe("createPico8Runtime", () => {
     });
     expect(fakeModule._f08_step_frame).toHaveBeenCalledTimes(1);
   });
+
+  it("frees what it allocated when an allocation fails", async () => {
+    fakeModule._malloc.mockReturnValueOnce(200).mockReturnValueOnce(0);
+
+    await expect(
+      createPico8Runtime(document.createElement("canvas")),
+    ).rejects.toThrow(/out of memory/);
+    expect(fakeModule._free).toHaveBeenCalledWith(200);
+  });
 });

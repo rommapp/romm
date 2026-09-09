@@ -63,6 +63,14 @@ function loadPico8Script(): Promise<void> {
   return scriptPromise;
 }
 
+// Builds with ABORTING_MALLOC disabled return 0 instead of trapping, and
+// writing through a null pointer would silently corrupt the heap.
+function allocate(module: Fake08Module, bytes: number): number {
+  const pointer = module._malloc(bytes);
+  if (!pointer) throw new Error("PICO-8 ran out of memory");
+  return pointer;
+}
+
 function lastRuntimeError(module: Fake08Module): string | null {
   const pointer = module._f08_get_last_error();
   if (!pointer) return null;
@@ -110,11 +118,17 @@ export async function createPico8Runtime(
   const framebufferPointer = module._f08_get_framebuffer_ptr();
   if (!framebufferPointer) throw new Error("PICO-8 framebuffer is unavailable");
 
-  const palettePointer = module._malloc(PALETTE_BYTES);
+  const palettePointer = allocate(module, PALETTE_BYTES);
   const samplesPerFrame = Math.ceil(
     module._f08_get_audio_sample_rate() / PICO8_FRAME_RATE,
   );
-  const audioPointer = module._malloc(samplesPerFrame * 2);
+  let audioPointer: number;
+  try {
+    audioPointer = allocate(module, samplesPerFrame * 2);
+  } catch (error) {
+    module._free(palettePointer);
+    throw error;
+  }
   const imageData = context.createImageData(PICO8_WIDTH, PICO8_HEIGHT);
   const pixels = new Uint32Array(imageData.data.buffer);
 
@@ -162,7 +176,7 @@ export async function createPico8Runtime(
   }
 
   function loadCart(bytes: Uint8Array) {
-    const pointer = module._malloc(bytes.byteLength);
+    const pointer = allocate(module, bytes.byteLength);
     try {
       module.HEAPU8.set(bytes, pointer);
       const result = module._f08_load_cart_data(pointer, bytes.byteLength);
