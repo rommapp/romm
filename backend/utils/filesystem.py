@@ -112,6 +112,11 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
 INVALID_CHARS_EMPTY = re.compile(r'[*?"<>+]')
 
+# C0 controls plus DEL. Illegal on most filesystems, and a line feed in a name
+# that reaches a line-oriented protocol (the nginx mod_zip manifest) would split
+# the record it sits in.
+CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
 
 def sanitize_filename(filename: str) -> str:
     """
@@ -136,8 +141,8 @@ def sanitize_filename(filename: str) -> str:
     # Remove other invalid characters
     sanitized_filename = INVALID_CHARS_EMPTY.sub("", sanitized_filename)
 
-    # Ensure null bytes are not included (ZFS allows any characters except null bytes)
-    sanitized_filename = sanitized_filename.replace("\0", "")
+    # Drop control characters, null bytes included (ZFS allows every other character)
+    sanitized_filename = CONTROL_CHARS.sub("", sanitized_filename)
 
     # Remove leading/trailing whitespace
     sanitized_filename = sanitized_filename.strip()
