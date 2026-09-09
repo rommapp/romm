@@ -2,7 +2,8 @@
 // PlayerShell — the pre-game chrome a simple v2 player needs: cover column,
 // settings card, play and back buttons, and the full-bleed running stage. A
 // player supplies only the controls above the Play button and whatever it
-// mounts as a stage, through the `settings` and `stage` slots.
+// mounts as a stage, through the `settings` and `stage` slots. A player that
+// needs its own on-stage chrome replaces the quit button via `stage-actions`.
 import { RBtn, RCard, RSpinner } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
@@ -103,7 +104,9 @@ const { backToRom, backToPlatform } = usePlayerNav(
 
     <div v-else class="r-v2-player__stage-wrap">
       <slot name="stage" />
+      <slot v-if="$slots['stage-actions']" name="stage-actions" />
       <RBtn
+        v-else
         class="r-v2-player__quit"
         variant="translucent"
         prepend-icon="mdi-exit-to-app"

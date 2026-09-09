@@ -36,6 +36,7 @@ class EmulationDict(TypedDict):
     DISABLE_EMULATOR_JS: bool
     DISABLE_RUFFLE_RS: bool
     DISABLE_JSDOS: bool
+    DISABLE_PICO8: bool
 
 
 class FrontendDict(TypedDict):

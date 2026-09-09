@@ -19,6 +19,7 @@ function makeRouter() {
       { path: "/platform/:platform", name: ROUTES.PLATFORM, component: blank },
       { path: "/rom/:rom", name: ROUTES.ROM, component: blank },
       { path: "/play/:rom", name: ROUTES.EMULATORJS, component: blank },
+      { path: "/pico/:rom", name: ROUTES.PICO8, component: blank },
     ],
   });
 }
@@ -59,7 +60,7 @@ describe("useGalleryProvenance", () => {
     expect(mod.useGalleryProvenance().enteredFromGallery.value).toBe(false);
   });
 
-  it("keeps the arming across rom → rom hops and a play session", async () => {
+  it("keeps the arming across rom hops and a PICO-8 session", async () => {
     const mod = await loadFresh();
     const router = makeRouter();
     mod.installGalleryProvenance(router);
@@ -67,7 +68,7 @@ describe("useGalleryProvenance", () => {
     await router.push("/platform/1");
     await router.push("/rom/10");
     await router.push("/rom/11");
-    await router.push("/play/11");
+    await router.push("/pico/11");
     await router.push("/rom/11");
 
     expect(mod.useGalleryProvenance().enteredFromGallery.value).toBe(true);

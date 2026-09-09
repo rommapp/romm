@@ -35,6 +35,7 @@ export const ROUTES = {
   ROM: "rom",
   EMULATORJS: "emulatorjs",
   JSDOS: "jsdos",
+  PICO8: "pico8",
   RUFFLE: "ruffle",
   STREAM: "stream",
   STREAM_DESKTOP: "stream-desktop",
@@ -272,6 +273,14 @@ const routes = [
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.JSDOS),
+        },
+      },
+      {
+        path: "rom/:rom/pico8",
+        name: ROUTES.PICO8,
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.PICO8),
         },
       },
       {

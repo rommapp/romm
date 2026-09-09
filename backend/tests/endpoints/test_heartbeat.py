@@ -48,6 +48,7 @@ def test_heartbeat(client):
     assert isinstance(emulation["DISABLE_EMULATOR_JS"], bool)
     assert isinstance(emulation["DISABLE_RUFFLE_RS"], bool)
     assert isinstance(emulation["DISABLE_JSDOS"], bool)
+    assert isinstance(emulation["DISABLE_PICO8"], bool)
 
     assert "FRONTEND" in heartbeat
     frontend = heartbeat["FRONTEND"]
