@@ -134,6 +134,7 @@ RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git &
 
 
 # FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
+# Keep the pins below in sync with the dev image's copies in ../Dockerfile.
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \

@@ -165,7 +165,14 @@ export default defineConfig(({ mode }) => {
         // Never crawl the served library resources: this path is a symlink
         // into the user's library (covers, screenshots) and can hold hundreds
         // of thousands of files, which OOMs the dev server's file watcher.
-        ignored: ["**/assets/romm/resources/**", "**/assets/romm/resources"],
+        ignored: [
+          "**/assets/romm/resources/**",
+          "**/assets/romm/resources",
+          "**/assets/emulatorjs/**",
+          "**/assets/ruffle/**",
+          "**/assets/jsdos/**",
+          "**/assets/pico8/**",
+        ],
       },
       proxy: {
         "/api": {
