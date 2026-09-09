@@ -175,9 +175,8 @@ ARG FAKE08_JS_SHA256=fd2cd4677956037e41a91dbd40fc1a9c4f5979355d55ce3f9312400e11d
 ARG FAKE08_WASM_SHA256=4339a77e0aa5aa6f4a5bce9fd8286053eedf7f23f2d853db7f4900f6fff4c93a
 ARG FAKE08_P3A_RAW=https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8
 
-# FAKE-08 (MIT, https://github.com/jtothebell/fake-08) publishes no web build, so the
-# browser artifacts come from p3a (Apache-2.0, https://github.com/fabkury/p3a), which
-# compiled them. Pinned by commit and checksum because that tree has no tagged releases.
+# FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
+# which compiled them. Pinned by commit and checksum: that tree has no tags.
 RUN mkdir -p /fake08 && \
     wget "${FAKE08_P3A_RAW}/fake08.js" -O /fake08/fake08.js && \
     wget "${FAKE08_P3A_RAW}/fake08.wasm" -O /fake08/fake08.wasm && \

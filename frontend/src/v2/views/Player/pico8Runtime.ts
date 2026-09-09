@@ -118,9 +118,8 @@ export async function createPico8Runtime(
   const imageData = context.createImageData(PICO8_WIDTH, PICO8_HEIGHT);
   const pixels = new Uint32Array(imageData.data.buffer);
 
-  // Packed-RGBA lookup for the 16 palette entries, so the pixel loop is two
-  // 32-bit stores per byte instead of eight clamped byte stores. Written
-  // through an aliased byte view to stay correct on either endianness.
+  // Packed-RGBA lookup for the 16 palette entries, written through an aliased
+  // byte view so the word order is right on either endianness.
   const paletteLutBytes = new Uint8Array(PALETTE_BYTES);
   const paletteLut = new Uint32Array(paletteLutBytes.buffer);
 

@@ -1,15 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  createPico8Runtime,
-  type Fake08Module,
-  PICO8_HEIGHT,
-  PICO8_WIDTH,
-} from "./pico8Runtime";
+import { createPico8Runtime, type Fake08Module } from "./pico8Runtime";
 
 const heap = new Uint8Array(new ArrayBuffer(64 * 1024));
 const context = {
-  createImageData: vi.fn(() => ({
-    data: new Uint8ClampedArray(PICO8_WIDTH * PICO8_HEIGHT * 4),
+  createImageData: vi.fn((width: number, height: number): ImageData => ({
+    data: new Uint8ClampedArray(width * height * 4),
+    width,
+    height,
+    colorSpace: "srgb",
   })),
   putImageData: vi.fn(),
 };

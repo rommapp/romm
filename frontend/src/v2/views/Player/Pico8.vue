@@ -69,7 +69,7 @@ const keyboardMap: Record<string, number> = {
 };
 
 // W3C standard-mapping button index to PICO-8 bit.
-const padButtonMap = [
+const padButtonBits = [
   [0, PICO8_INPUT_BITS.a],
   [1, PICO8_INPUT_BITS.b],
   [12, PICO8_INPUT_BITS.up],
@@ -79,14 +79,14 @@ const padButtonMap = [
 ] as const;
 
 // Per stick axis, the bit for a negative then a positive deflection.
-const padAxisMap = [
+const padAxisBits = [
   [PICO8_INPUT_BITS.left, PICO8_INPUT_BITS.right],
   [PICO8_INPUT_BITS.up, PICO8_INPUT_BITS.down],
 ] as const;
 const PAD_AXIS_THRESHOLD = 0.5;
 
 // Pointer button number to the mask FAKE-08 expects (left, middle, right).
-const mouseButtonMap = [0x01, 0x04, 0x02];
+const mouseButtonBits = [0x01, 0x04, 0x02];
 
 const directionControls = [
   {
@@ -148,13 +148,13 @@ function readGamepadMask() {
     // across the threshold and press buttons on their own. #3851.
     if (!gamepad?.connected) continue;
     const { buttons, axes } = gamepad;
-    for (const [index, bit] of padButtonMap) {
+    for (const [index, bit] of padButtonBits) {
       if (buttons[index]?.pressed) mask |= bit;
     }
-    for (let axis = 0; axis < padAxisMap.length; axis += 1) {
+    for (let axis = 0; axis < padAxisBits.length; axis += 1) {
       const value = axes[axis] ?? 0;
-      if (value < -PAD_AXIS_THRESHOLD) mask |= padAxisMap[axis][0];
-      if (value > PAD_AXIS_THRESHOLD) mask |= padAxisMap[axis][1];
+      if (value < -PAD_AXIS_THRESHOLD) mask |= padAxisBits[axis][0];
+      if (value > PAD_AXIS_THRESHOLD) mask |= padAxisBits[axis][1];
     }
   }
   return mask;
@@ -191,7 +191,7 @@ function clampToScreen(value: number, size: number) {
 }
 
 function getMouseButtonMask(button: number) {
-  return mouseButtonMap[button] ?? 0;
+  return mouseButtonBits[button] ?? 0;
 }
 
 function onCanvasPointerMove(event: PointerEvent) {

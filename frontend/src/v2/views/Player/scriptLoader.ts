@@ -1,6 +1,5 @@
 // Shared runtime injection for the player views. Runtimes are served from
-// /assets in the full image; EmulatorJS and js-dos fall back to a CDN without
-// it, FAKE-08 has none and simply fails.
+// /assets in the full image; only EmulatorJS and js-dos have a CDN fallback.
 
 /** Inject a <script> and resolve once it has executed. */
 export function loadScript(src: string): Promise<void> {
