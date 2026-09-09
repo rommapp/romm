@@ -10,11 +10,6 @@ import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
-import {
-  AXIS_THRESHOLD,
-  isUsablePad,
-  PAD_BUTTON,
-} from "@/v2/composables/useGamepad";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
@@ -22,6 +17,7 @@ import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { createPico8Audio, type Pico8Audio } from "./pico8Audio";
+import { createPico8Input } from "./pico8Input";
 import { createPico8Pacer, type Pico8Pacer } from "./pico8Pacer";
 import {
   createPico8Runtime,
@@ -45,7 +41,6 @@ const gameRunning = ref(false);
 const loading = ref(false);
 const stage = ref<HTMLDivElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
-const touchMask = ref(0);
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 const {
@@ -58,40 +53,9 @@ let runtime: Pico8Runtime | null = null;
 let audio: Pico8Audio | null = null;
 let pacer: Pico8Pacer | null = null;
 let animationFrame = 0;
-let previousHeld = 0;
-let keyboardMask = 0;
-let mouseX = 0;
-let mouseY = 0;
-let mouseButtons = 0;
 
-const input = { keyDown: 0, keyHeld: 0, mouseX: 0, mouseY: 0, mouseButtons: 0 };
-
-const keyboardMap: Record<string, number> = {
-  ArrowLeft: PICO8_INPUT_BITS.left,
-  ArrowRight: PICO8_INPUT_BITS.right,
-  ArrowUp: PICO8_INPUT_BITS.up,
-  ArrowDown: PICO8_INPUT_BITS.down,
-  KeyZ: PICO8_INPUT_BITS.a,
-  KeyX: PICO8_INPUT_BITS.b,
-};
-
-const padButtonBits = [
-  [PAD_BUTTON.a, PICO8_INPUT_BITS.a],
-  [PAD_BUTTON.b, PICO8_INPUT_BITS.b],
-  [PAD_BUTTON["dpad-up"], PICO8_INPUT_BITS.up],
-  [PAD_BUTTON["dpad-down"], PICO8_INPUT_BITS.down],
-  [PAD_BUTTON["dpad-left"], PICO8_INPUT_BITS.left],
-  [PAD_BUTTON["dpad-right"], PICO8_INPUT_BITS.right],
-] as const;
-
-// Per stick axis, the bit for a negative then a positive deflection.
-const padAxisBits = [
-  [PICO8_INPUT_BITS.left, PICO8_INPUT_BITS.right],
-  [PICO8_INPUT_BITS.up, PICO8_INPUT_BITS.down],
-] as const;
-
-// Pointer button number to the mask FAKE-08 expects (left, middle, right).
-const mouseButtonBits = [0x01, 0x04, 0x02];
+const input = createPico8Input();
+const { touchMask } = input;
 
 const directionControls = [
   {
@@ -135,110 +99,63 @@ function focusPlayButton() {
 
 function onKeyDown(event: KeyboardEvent) {
   if (!gameRunning.value) return;
-  const bit = keyboardMap[event.code];
-  if (!bit) return;
-  event.preventDefault();
-  keyboardMask |= bit;
+  if (input.pressKey(event.code)) event.preventDefault();
 }
 
 function onKeyUp(event: KeyboardEvent) {
-  const bit = keyboardMap[event.code];
-  if (bit) keyboardMask &= ~bit;
+  input.releaseKey(event.code);
 }
 
-function readGamepadMask() {
-  let mask = 0;
-  for (const gamepad of navigator.getGamepads?.() ?? []) {
-    if (!isUsablePad(gamepad)) continue;
-    const { buttons, axes } = gamepad;
-    for (const [index, bit] of padButtonBits) {
-      if (buttons[index]?.pressed) mask |= bit;
-    }
-    for (let axis = 0; axis < padAxisBits.length; axis += 1) {
-      const value = axes[axis] ?? 0;
-      if (value < -AXIS_THRESHOLD) mask |= padAxisBits[axis][0];
-      if (value > AXIS_THRESHOLD) mask |= padAxisBits[axis][1];
-    }
-  }
-  return mask;
-}
-
-function readInput() {
-  const held = keyboardMask | touchMask.value | readGamepadMask();
-  input.keyDown = held & ~previousHeld;
-  input.keyHeld = held;
-  input.mouseX = mouseX;
-  input.mouseY = mouseY;
-  input.mouseButtons = mouseButtons;
-  previousHeld = held;
-  return input;
-}
-
-function updateMousePosition(event: PointerEvent) {
+function trackMouse(event: PointerEvent) {
   const element = canvas.value;
   if (!element) return;
   const rect = element.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) return;
-  mouseX = clampToScreen(
-    ((event.clientX - rect.left) / rect.width) * PICO8_WIDTH,
-    PICO8_WIDTH,
+  input.moveMouse(
+    event.clientX - rect.left,
+    event.clientY - rect.top,
+    rect.width,
+    rect.height,
   );
-  mouseY = clampToScreen(
-    ((event.clientY - rect.top) / rect.height) * PICO8_HEIGHT,
-    PICO8_HEIGHT,
-  );
-}
-
-function clampToScreen(value: number, size: number) {
-  return Math.max(0, Math.min(size - 1, Math.floor(value)));
-}
-
-function getMouseButtonMask(button: number) {
-  return mouseButtonBits[button] ?? 0;
 }
 
 function onCanvasPointerMove(event: PointerEvent) {
   if (!gameRunning.value) return;
-  updateMousePosition(event);
+  trackMouse(event);
 }
 
 function onCanvasPointerDown(event: PointerEvent) {
   if (!gameRunning.value) return;
   event.preventDefault();
-  updateMousePosition(event);
-  mouseButtons |= getMouseButtonMask(event.button);
+  trackMouse(event);
+  input.pressMouse(event.button);
   canvas.value?.setPointerCapture(event.pointerId);
 }
 
 function onCanvasPointerUp(event: PointerEvent) {
-  updateMousePosition(event);
-  mouseButtons &= ~getMouseButtonMask(event.button);
-}
-
-function clearMouseButtons() {
-  mouseButtons = 0;
+  trackMouse(event);
+  input.releaseMouse(event.button);
 }
 
 function onControlPointerDown(bit: number, event: PointerEvent) {
   if (!gameRunning.value) return;
   event.preventDefault();
-  touchMask.value |= bit;
+  input.pressTouch(bit);
   (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 }
 
 function onControlPointerUp(bit: number, event: PointerEvent) {
   event.preventDefault();
-  touchMask.value &= ~bit;
+  input.releaseTouch(bit);
 }
 
 function onControlKeyDown(bit: number, event: KeyboardEvent) {
   if (!gameRunning.value || !["Enter", "Space"].includes(event.code)) return;
   event.preventDefault();
-  touchMask.value |= bit;
+  input.pressTouch(bit);
 }
 
 function onControlKeyUp(bit: number) {
-  touchMask.value &= ~bit;
+  input.releaseTouch(bit);
 }
 
 function runFrame(timestamp: number) {
@@ -248,7 +165,7 @@ function runFrame(timestamp: number) {
   try {
     const steps = pacer.tick(timestamp);
     for (let step = 0; step < steps; step += 1) {
-      active.advance(readInput());
+      active.advance(input.read());
       audio?.pump((target) => active.readAudio(target));
     }
     // Several emulated frames may land in one tick, but only the last is seen.
@@ -266,15 +183,6 @@ function startLoop() {
   animationFrame = requestAnimationFrame(runFrame);
 }
 
-function resetInput() {
-  previousHeld = 0;
-  keyboardMask = 0;
-  mouseX = 0;
-  mouseY = 0;
-  mouseButtons = 0;
-  touchMask.value = 0;
-}
-
 function releaseGame() {
   cancelAnimationFrame(animationFrame);
   animationFrame = 0;
@@ -283,7 +191,7 @@ function releaseGame() {
   pacer = null;
   audio?.close();
   audio = null;
-  resetInput();
+  input.reset();
   playSession.flush();
   playingStore.setPlaying(false);
   gameRunning.value = false;
@@ -367,7 +275,7 @@ function onlyQuit() {
 
 useEventListener(window, "keydown", onKeyDown);
 useEventListener(window, "keyup", onKeyUp);
-useEventListener(window, "blur", resetInput);
+useEventListener(window, "blur", input.reset);
 
 onMounted(async () => {
   const romResponse = await romApi.getRom({ romId });
@@ -440,8 +348,8 @@ onBeforeUnmount(releaseGame);
               @pointermove="onCanvasPointerMove"
               @pointerdown="onCanvasPointerDown"
               @pointerup="onCanvasPointerUp"
-              @pointercancel="clearMouseButtons"
-              @lostpointercapture="clearMouseButtons"
+              @pointercancel="input.clearMouse"
+              @lostpointercapture="input.clearMouse"
               @contextmenu.prevent
             />
             <div v-if="loading" class="r-v2-pico8__loading">
