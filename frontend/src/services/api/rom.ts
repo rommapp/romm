@@ -205,6 +205,10 @@ export interface GetRomsParams {
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
   tagsLogic?: string | null;
+  /** Days of the year the rom released on, as "M-D". Matches any year. */
+  releasedDays?: string[] | null;
+  /** Exclusive upper bound on the years `releasedDays` matches. */
+  releasedBeforeYear?: number | null;
   withCharIndex?: boolean;
   withFilterValues?: boolean;
   withRomIdIndex?: boolean;
@@ -262,6 +266,8 @@ async function getRoms({
   playerCountsLogic = null,
   metadataProvidersLogic = null,
   tagsLogic = null,
+  releasedDays = null,
+  releasedBeforeYear = null,
   withCharIndex = undefined,
   withFilterValues = undefined,
   withRomIdIndex = undefined,
@@ -389,6 +395,11 @@ async function getRoms({
     ...(filterStates !== null ? { has_states: filterStates } : {}),
     ...(filterSoundtrack !== null ? { has_soundtrack: filterSoundtrack } : {}),
     ...(filterVerified !== null ? { verified: filterVerified } : {}),
+    released_days:
+      releasedDays && releasedDays.length > 0 ? releasedDays : undefined,
+    // Only meaningful alongside the days it bounds.
+    released_before_year:
+      releasedDays && releasedDays.length > 0 ? releasedBeforeYear : undefined,
     ...(withCharIndex !== undefined ? { with_char_index: withCharIndex } : {}),
     ...(withFilterValues !== undefined
       ? { with_filter_values: withFilterValues }
@@ -517,20 +528,6 @@ async function getRandomRom({
       virtual_collection_id: virtualCollectionId,
       smart_collection_id: smartCollectionId,
     },
-  });
-}
-
-/** Games released on a given day of an earlier year, oldest release first.
- *  Month/day are the caller's own local date, not the server's UTC clock. */
-async function getAnniversaryRoms({
-  month,
-  day,
-}: {
-  month: number;
-  day: number;
-}) {
-  return api.get<SimpleRom[]>("/roms/anniversaries", {
-    params: { month, day },
   });
 }
 
@@ -1128,7 +1125,6 @@ export default {
   getRom,
   getRomSimple,
   getRandomRom,
-  getAnniversaryRoms,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,

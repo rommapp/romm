@@ -5,9 +5,7 @@ import { defineComponent } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import AnniversaryWidget from "./AnniversaryWidget.vue";
 
-const { getAnniversaryRoms } = vi.hoisted(() => ({
-  getAnniversaryRoms: vi.fn(),
-}));
+const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({
@@ -21,18 +19,19 @@ vi.mock("@/plugins/router", () => ({
 }));
 
 vi.mock("@/services/api/rom", () => ({
-  default: { getAnniversaryRoms },
+  default: { getRoms },
 }));
 
 vi.mock("@v2/lib", () => ({
   RBtn: defineComponent({
     props: {
       disabled: { type: Boolean, default: false },
+      loading: { type: Boolean, default: false },
       ariaLabel: { type: String, default: "" },
     },
     emits: ["click"],
     template:
-      '<button :aria-label="ariaLabel" :disabled="disabled" @click="$emit(\'click\')" />',
+      '<button :aria-label="ariaLabel" :disabled="disabled" :data-loading="loading" @click="$emit(\'click\')" />',
   }),
 }));
 
@@ -70,6 +69,11 @@ function rom(id: number, name: string, released: number): SimpleRom {
   } as unknown as SimpleRom;
 }
 
+/** A page of the shared rom list, as `getRoms` resolves it. */
+function page(items: SimpleRom[], total = items.length) {
+  return { data: { items, total } };
+}
+
 function mountWidget() {
   return mount(AnniversaryWidget, {
     global: { stubs: { RouterLink: { template: "<a><slot /></a>" } } },
@@ -83,8 +87,8 @@ function arrows(wrapper: ReturnType<typeof mountWidget>) {
 
 /** A request the test settles by hand, so two can be in flight at once. */
 function pending() {
-  let settle!: (response: { data: SimpleRom[] }) => void;
-  const promise = new Promise<{ data: SimpleRom[] }>((resolve) => {
+  let settle!: (response: ReturnType<typeof page>) => void;
+  const promise = new Promise<ReturnType<typeof page>>((resolve) => {
     settle = resolve;
   });
   return { promise, settle };
@@ -107,23 +111,47 @@ describe("AnniversaryWidget", () => {
     vi.useRealTimers();
   });
 
-  it("asks for the client's own local month and day", async () => {
-    getAnniversaryRoms.mockResolvedValue({ data: [] });
+  it("asks the shared list for its own local day, one page, no sidecars", async () => {
+    getRoms.mockResolvedValue(page([]));
 
     mountWidget();
     await flushPromises();
 
-    expect(getAnniversaryRoms).toHaveBeenCalledTimes(1);
-    expect(getAnniversaryRoms).toHaveBeenCalledWith({ month: 9, day: 8 });
+    expect(getRoms).toHaveBeenCalledTimes(1);
+    expect(getRoms).toHaveBeenCalledWith(
+      expect.objectContaining({
+        releasedDays: ["9-8"],
+        releasedBeforeYear: 2026,
+        orderBy: "first_release_date",
+        orderDir: "asc",
+        offset: 0,
+        withTotal: true,
+        // Each sidecar is its own scan, and the card renders none of them.
+        withCharIndex: false,
+        withFilterValues: false,
+        withRomIdIndex: false,
+      }),
+    );
+  });
+
+  it("never asks on 1 January, where year-only metadata piles up", async () => {
+    vi.setSystemTime(new Date(2026, 0, 1, 12, 0, 0));
+
+    const wrapper = mountWidget();
+    await flushPromises();
+
+    expect(getRoms).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("home.widget-anniversaries-empty");
+    expect(loadingOf(wrapper)).toBe("false");
   });
 
   it("shows the oldest anniversary first, with the years elapsed", async () => {
-    getAnniversaryRoms.mockResolvedValue({
-      data: [
+    getRoms.mockResolvedValue(
+      page([
         rom(1, "Chrono Trigger", releasedOn(1995, 9, 8)),
         rom(2, "Super Metroid", releasedOn(2005, 9, 8)),
-      ],
-    });
+      ]),
+    );
 
     const wrapper = mountWidget();
     await flushPromises();
@@ -134,13 +162,24 @@ describe("AnniversaryWidget", () => {
     expect(wrapper.text()).toContain("1 / 2");
   });
 
-  it("pages forward and back through the day's games", async () => {
-    getAnniversaryRoms.mockResolvedValue({
-      data: [
+  it("counts the day's real total, not the page it fetched", async () => {
+    getRoms.mockResolvedValue(
+      page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))], 137),
+    );
+
+    const wrapper = mountWidget();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("1 / 137");
+  });
+
+  it("pages within the fetched page without asking again", async () => {
+    getRoms.mockResolvedValue(
+      page([
         rom(1, "Chrono Trigger", releasedOn(1995, 9, 8)),
         rom(2, "Super Metroid", releasedOn(2005, 9, 8)),
-      ],
-    });
+      ]),
+    );
 
     const wrapper = mountWidget();
     await flushPromises();
@@ -151,17 +190,65 @@ describe("AnniversaryWidget", () => {
 
     await arrows(wrapper).prev.trigger("click");
     expect(wrapper.text()).toContain("Chrono Trigger");
-    // Paging is client-side over the fetched list, so no extra requests.
-    expect(getAnniversaryRoms).toHaveBeenCalledTimes(1);
+    expect(getRoms).toHaveBeenCalledTimes(1);
   });
 
-  it("disables each arrow at its end of the list", async () => {
-    getAnniversaryRoms.mockResolvedValue({
-      data: [
+  it("fetches the next page when paging past the loaded ones", async () => {
+    getRoms
+      .mockResolvedValueOnce(
+        page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))], 2),
+      )
+      .mockResolvedValueOnce(
+        page([rom(2, "Super Metroid", releasedOn(2005, 9, 8))], 2),
+      );
+
+    const wrapper = mountWidget();
+    await flushPromises();
+    expect(wrapper.text()).toContain("1 / 2");
+
+    await arrows(wrapper).next.trigger("click");
+    await flushPromises();
+
+    expect(getRoms).toHaveBeenCalledTimes(2);
+    expect(getRoms).toHaveBeenLastCalledWith(
+      // The total came with the first page, so the second does not recount.
+      expect.objectContaining({ offset: 1, withTotal: false }),
+    );
+    expect(wrapper.text()).toContain("Super Metroid");
+    expect(wrapper.text()).toContain("2 / 2");
+  });
+
+  it("keeps the card when the next page fails, and lets the arrow retry", async () => {
+    getRoms
+      .mockResolvedValueOnce(
+        page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))], 2),
+      )
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValueOnce(
+        page([rom(2, "Super Metroid", releasedOn(2005, 9, 8))], 2),
+      );
+
+    const wrapper = mountWidget();
+    await flushPromises();
+
+    await arrows(wrapper).next.trigger("click");
+    await flushPromises();
+    // A failed page says nothing about the game already on screen.
+    expect(wrapper.text()).toContain("Chrono Trigger");
+    expect(wrapper.text()).not.toContain("home.widget-anniversaries-error");
+
+    await arrows(wrapper).next.trigger("click");
+    await flushPromises();
+    expect(wrapper.text()).toContain("Super Metroid");
+  });
+
+  it("disables each arrow at its end of the day", async () => {
+    getRoms.mockResolvedValue(
+      page([
         rom(1, "Chrono Trigger", releasedOn(1995, 9, 8)),
         rom(2, "Super Metroid", releasedOn(2005, 9, 8)),
-      ],
-    });
+      ]),
+    );
 
     const wrapper = mountWidget();
     await flushPromises();
@@ -175,8 +262,28 @@ describe("AnniversaryWidget", () => {
     expect(arrows(wrapper).next.attributes("disabled")).toBeDefined();
   });
 
+  it("keeps the forward arrow live while its page is in flight", async () => {
+    // Disabling it would yank focus mid-page; the spinner rides on the button.
+    const first = page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))], 2);
+    const second = pending();
+    getRoms.mockResolvedValueOnce(first).mockReturnValueOnce(second.promise);
+
+    const wrapper = mountWidget();
+    await flushPromises();
+
+    await arrows(wrapper).next.trigger("click");
+
+    expect(arrows(wrapper).next.attributes("disabled")).toBeUndefined();
+    expect(arrows(wrapper).next.attributes("data-loading")).toBe("true");
+
+    second.settle(page([rom(2, "Super Metroid", releasedOn(2005, 9, 9))], 2));
+    await flushPromises();
+
+    expect(arrows(wrapper).next.attributes("data-loading")).toBe("false");
+  });
+
   it("shows the empty copy when the day has no anniversaries", async () => {
-    getAnniversaryRoms.mockResolvedValue({ data: [] });
+    getRoms.mockResolvedValue(page([]));
 
     const wrapper = mountWidget();
     await flushPromises();
@@ -185,7 +292,7 @@ describe("AnniversaryWidget", () => {
   });
 
   it("shows the error copy when the request fails", async () => {
-    getAnniversaryRoms.mockRejectedValue(new Error("boom"));
+    getRoms.mockRejectedValue(new Error("boom"));
 
     const wrapper = mountWidget();
     await flushPromises();
@@ -194,11 +301,11 @@ describe("AnniversaryWidget", () => {
   });
 
   it("retries a failed load rather than holding the error until midnight", async () => {
-    getAnniversaryRoms
+    getRoms
       .mockRejectedValueOnce(new Error("boom"))
-      .mockResolvedValue({
-        data: [rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))],
-      });
+      .mockResolvedValue(
+        page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))]),
+      );
 
     const wrapper = mountWidget();
     await flushPromises();
@@ -207,36 +314,40 @@ describe("AnniversaryWidget", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     await flushPromises();
 
-    expect(getAnniversaryRoms).toHaveBeenCalledTimes(2);
+    expect(getRoms).toHaveBeenCalledTimes(2);
     expect(wrapper.text()).toContain("Chrono Trigger");
   });
 
   it("reloads when the local day rolls over, and not before", async () => {
-    getAnniversaryRoms.mockResolvedValue({ data: [] });
+    getRoms.mockResolvedValue(page([]));
 
     mountWidget();
     await flushPromises();
-    expect(getAnniversaryRoms).toHaveBeenCalledWith({ month: 9, day: 8 });
+    expect(getRoms).toHaveBeenCalledWith(
+      expect.objectContaining({ releasedDays: ["9-8"] }),
+    );
 
     await vi.advanceTimersByTimeAsync(5 * 60_000);
-    expect(getAnniversaryRoms).toHaveBeenCalledTimes(1);
+    expect(getRoms).toHaveBeenCalledTimes(1);
 
     // A Home page left open overnight would otherwise keep yesterday's games.
     vi.setSystemTime(new Date(2026, 8, 9, 0, 0, 30));
     await vi.advanceTimersByTimeAsync(60_000);
     await flushPromises();
 
-    expect(getAnniversaryRoms).toHaveBeenCalledTimes(2);
-    expect(getAnniversaryRoms).toHaveBeenLastCalledWith({ month: 9, day: 9 });
+    expect(getRoms).toHaveBeenCalledTimes(2);
+    expect(getRoms).toHaveBeenLastCalledWith(
+      expect.objectContaining({ releasedDays: ["9-9"] }),
+    );
   });
 
   it("omits the years line for a game released earlier this year", async () => {
     // A client east of the server can ask for a day whose current-year release
     // the server has already counted as past. "0 years ago today" is not a
     // thing, so the line is dropped rather than rendered wrong.
-    getAnniversaryRoms.mockResolvedValue({
-      data: [rom(1, "Brand New Game", releasedOn(2026, 9, 8))],
-    });
+    getRoms.mockResolvedValue(
+      page([rom(1, "Brand New Game", releasedOn(2026, 9, 8))]),
+    );
 
     const wrapper = mountWidget();
     await flushPromises();
@@ -251,7 +362,7 @@ describe("AnniversaryWidget", () => {
     // marked the day loaded and so will not ask again for another 24 hours.
     const yesterday = pending();
     const today = pending();
-    getAnniversaryRoms
+    getRoms
       .mockReturnValueOnce(yesterday.promise)
       .mockReturnValueOnce(today.promise);
 
@@ -260,13 +371,11 @@ describe("AnniversaryWidget", () => {
 
     vi.setSystemTime(new Date(2026, 8, 9, 0, 0, 30));
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(getAnniversaryRoms).toHaveBeenCalledTimes(2);
+    expect(getRoms).toHaveBeenCalledTimes(2);
 
-    today.settle({ data: [rom(2, "Super Metroid", releasedOn(2005, 9, 9))] });
+    today.settle(page([rom(2, "Super Metroid", releasedOn(2005, 9, 9))]));
     await flushPromises();
-    yesterday.settle({
-      data: [rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))],
-    });
+    yesterday.settle(page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))]));
     await flushPromises();
 
     expect(wrapper.text()).toContain("Super Metroid");
@@ -276,7 +385,7 @@ describe("AnniversaryWidget", () => {
   it("stays loading when a superseded response lands first", async () => {
     const yesterday = pending();
     const today = pending();
-    getAnniversaryRoms
+    getRoms
       .mockReturnValueOnce(yesterday.promise)
       .mockReturnValueOnce(today.promise);
 
@@ -288,15 +397,13 @@ describe("AnniversaryWidget", () => {
 
     // The superseded request settling must not report the new day's request
     // as finished, or the card claims an empty day while it is still loading.
-    yesterday.settle({
-      data: [rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))],
-    });
+    yesterday.settle(page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))]));
     await flushPromises();
 
     expect(loadingOf(wrapper)).toBe("true");
     expect(wrapper.text()).not.toContain("home.widget-anniversaries-empty");
 
-    today.settle({ data: [] });
+    today.settle(page([]));
     await flushPromises();
 
     expect(loadingOf(wrapper)).toBe("false");

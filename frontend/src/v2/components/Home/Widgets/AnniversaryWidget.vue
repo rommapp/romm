@@ -1,10 +1,14 @@
 <script setup lang="ts">
 // AnniversaryWidget: games released on today's date in an earlier year, one at
-// a time, with arrows to page through the rest. One request per day fetches the
-// whole day, so paging is client-side. The server treats 1 January as no day at
-// all, since several providers park year-only metadata there.
+// a time, with arrows to page through the rest. It reads the shared rom list
+// with `releasedDays`, one page at a time, so the day's whole result set never
+// crosses the wire for a card that shows one game.
+//
+// The calendar policy lives here rather than server-side: `anniversaryQuery`
+// picks the days and the year bound off the client's own clock, so "today" is
+// the date in front of the user and no timezone skew can reach it.
 import { RBtn } from "@v2/lib";
-import { releaseYear } from "@v2/utils/time";
+import { anniversaryQuery, releaseYear } from "@v2/utils/time";
 import { useIntervalFn } from "@vueuse/core";
 import { computed, nextTick, onMounted, ref } from "vue";
 import type { ComponentPublicInstance, Ref } from "vue";
@@ -24,10 +28,22 @@ const { t } = useI18n();
 // date, so the day it was loaded for is compared against the clock.
 const DAY_ROLLOVER_CHECK_MS = 60_000;
 
+// Far more cards than anyone clicks through in a sitting, so one request
+// normally covers the whole visit, and small enough that a day holding
+// hundreds of games never ships them all.
+const PAGE_SIZE = 24;
+
+type DayQuery = NonNullable<ReturnType<typeof anniversaryQuery>>;
+
+// The day's oldest releases, accumulated a page at a time, so paging backwards
+// is always in memory and only moving past the end fetches.
 const roms = ref<SimpleRom[]>([]);
+const total = ref(0);
 const loadedDay = ref("");
+const dayQuery = ref<DayQuery | null>(null);
 const index = ref(0);
 const loading = ref(false);
+const paging = ref(false);
 const failed = ref(false);
 const prevBtn = ref<ComponentPublicInstance | null>(null);
 const nextBtn = ref<ComponentPublicInstance | null>(null);
@@ -41,7 +57,7 @@ const title = computed(
 );
 
 const atStart = computed(() => index.value <= 0);
-const atEnd = computed(() => index.value >= roms.value.length - 1);
+const atEnd = computed(() => index.value >= total.value - 1);
 
 // The query already excludes the viewer's current year; this keeps a client
 // whose clock disagrees with the server's from rendering "0 years ago".
@@ -62,27 +78,26 @@ function btnEl(btn: Ref<ComponentPublicInstance | null>): HTMLElement | null {
   return (btn.value?.$el as HTMLElement | undefined) ?? null;
 }
 
-async function step(delta: number) {
-  const target = index.value + delta;
-  if (target < 0 || target >= roms.value.length) return;
-
-  const back = delta < 0;
-  const moved = back ? prevBtn : nextBtn;
-  const other = back ? nextBtn : prevBtn;
-  const hadFocus = document.activeElement === btnEl(moved);
-
-  index.value = target;
-
-  // Reaching an end disables the arrow that got you there, which pulls focus to
-  // <body>; hand it to the arrow that still works.
-  if (hadFocus && (back ? atStart.value : atEnd.value)) {
-    await nextTick();
-    btnEl(other)?.focus();
-  }
-}
-
 function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function fetchPage(query: DayQuery, offset: number) {
+  return romApi.getRoms({
+    releasedDays: query.days,
+    releasedBeforeYear: query.beforeYear,
+    orderBy: "first_release_date",
+    orderDir: "asc",
+    limit: PAGE_SIZE,
+    offset,
+    // The counter needs the day's total once; a later page already has it.
+    withTotal: offset === 0,
+    // The card renders a cover, a title, a platform and a year. None of the
+    // gallery's sidecars reach it, and each one is its own scan.
+    withCharIndex: false,
+    withFilterValues: false,
+    withRomIdIndex: false,
+  });
 }
 
 async function load() {
@@ -94,14 +109,25 @@ async function load() {
   // A request spanning midnight can land after the rollover's. Committing it
   // would pin the card to yesterday until the next rollover, a day away.
   const stale = () => loadedDay.value !== day;
+
+  const query = anniversaryQuery(today);
+  dayQuery.value = query;
+  if (!query) {
+    // 1 January says nothing about a release date, so there is nothing to ask.
+    roms.value = [];
+    total.value = 0;
+    index.value = 0;
+    failed.value = false;
+    loading.value = false;
+    return;
+  }
+
   loading.value = true;
   try {
-    const { data } = await romApi.getAnniversaryRoms({
-      month: today.getMonth() + 1,
-      day: today.getDate(),
-    });
+    const { data } = await fetchPage(query, 0);
     if (stale()) return;
-    roms.value = data;
+    roms.value = data.items;
+    total.value = data.total ?? data.items.length;
     index.value = 0;
     failed.value = false;
     loading.value = false;
@@ -109,11 +135,55 @@ async function load() {
     if (stale()) return;
     // Failures show in the card's own copy rather than the snackbar stack.
     roms.value = [];
+    total.value = 0;
     failed.value = true;
     loading.value = false;
     // Leave the day unclaimed so the rollover check retries it. Claimed, a
     // single failed request would hold the error copy until local midnight.
     loadedDay.value = "";
+  }
+}
+
+/** Appends the next page. A failure keeps the current card and lets the arrow retry. */
+async function loadMore() {
+  const query = dayQuery.value;
+  const day = loadedDay.value;
+  if (!query || paging.value) return;
+
+  paging.value = true;
+  try {
+    const { data } = await fetchPage(query, roms.value.length);
+    if (loadedDay.value !== day) return;
+    roms.value = [...roms.value, ...data.items];
+    total.value = data.total ?? total.value;
+  } catch {
+    // Swallowed: the loaded card is still good, and the arrow stays live.
+  } finally {
+    if (loadedDay.value === day) paging.value = false;
+  }
+}
+
+async function step(delta: number) {
+  const target = index.value + delta;
+  if (target < 0 || target >= total.value) return;
+
+  const back = delta < 0;
+  const moved = back ? prevBtn : nextBtn;
+  const other = back ? nextBtn : prevBtn;
+  const hadFocus = document.activeElement === btnEl(moved);
+
+  if (target >= roms.value.length) {
+    await loadMore();
+    if (target >= roms.value.length) return;
+  }
+
+  index.value = target;
+
+  // Reaching an end disables the arrow that got you there, which pulls focus to
+  // <body>; hand it to the arrow that still works.
+  if (hadFocus && (back ? atStart.value : atEnd.value)) {
+    await nextTick();
+    btnEl(other)?.focus();
   }
 }
 
@@ -144,6 +214,7 @@ useIntervalFn(() => {
           size="x-small"
           icon="mdi-chevron-right"
           :disabled="atEnd"
+          :loading="paging"
           :tooltip="t('home.widget-anniversaries-next')"
           :aria-label="t('home.widget-anniversaries-next')"
           @click="step(1)"
@@ -177,8 +248,8 @@ useIntervalFn(() => {
           <span v-if="yearsAgo">
             {{ t("home.widget-anniversaries-years", { count: yearsAgo }) }}
           </span>
-          <span v-if="roms.length > 1" class="r-v2-widget-anniv__position">
-            {{ index + 1 }} / {{ roms.length }}
+          <span v-if="total > 1" class="r-v2-widget-anniv__position">
+            {{ index + 1 }} / {{ total }}
           </span>
         </div>
       </div>

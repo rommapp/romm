@@ -1,5 +1,6 @@
 import binascii
 import json
+import re
 from base64 import b64encode
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -407,6 +408,43 @@ class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     __params_type__ = CustomLimitOffsetParams
 
 
+RELEASED_DAY_REGEX = re.compile(r"^(\d{1,2})-(\d{1,2})$")
+
+# One day per month of the year is already more than any caller needs, and each
+# day widens the range union the index has to walk.
+MAX_RELEASED_DAYS = 12
+
+
+def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
+    """`["9-8", "2-29"]` as (month, day) pairs.
+
+    Raises:
+        HTTPException: 422 when a value is not a calendar day, so a typo fails
+            loudly instead of silently matching nothing.
+    """
+    if not values:
+        return []
+
+    if len(values) > MAX_RELEASED_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"At most {MAX_RELEASED_DAYS} released_days may be requested",
+        )
+
+    days: list[tuple[int, int]] = []
+    for value in values:
+        matched = RELEASED_DAY_REGEX.match(value.strip())
+        month, day = (int(matched[1]), int(matched[2])) if matched else (0, 0)
+        if not (1 <= month <= 12 and 1 <= day <= 31):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid released_days value: {value!r}, expected 'M-D'",
+            )
+        days.append((month, day))
+
+    return days
+
+
 @protected_route(router.get, "", [Scope.ROMS_READ])
 def get_roms(
     request: Request,
@@ -737,6 +775,26 @@ def get_roms(
             description="Filter roms updated after this datetime (ISO 8601 format with timezone information)."
         ),
     ] = None,
+    released_days: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Days of the year the rom was released on, as 'M-D' (e.g. '9-8'),"
+                " matching any year. Repeat the parameter for more than one day."
+                " A day no year has, such as '2-30', matches nothing."
+            )
+        ),
+    ] = None,
+    released_before_year: Annotated[
+        int | None,
+        Query(
+            description=(
+                "Exclusive upper bound on the years `released_days` matches, so a"
+                " caller can ask for earlier years only. Ignored on its own."
+            ),
+            ge=1,
+        ),
+    ] = None,
     with_files: Annotated[
         bool,
         Query(description="Whether to include each rom's file entries."),
@@ -744,6 +802,7 @@ def get_roms(
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     perms = get_permissions(request)
+    parsed_released_days = parse_released_days(released_days)
 
     unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
@@ -804,6 +863,8 @@ def get_roms(
         tags_logic=tags_logic,
         group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
+        released_days=parsed_released_days,
+        released_before_year=released_before_year,
         # The page's files answer all three flags without the subqueries.
         include_file_stats=not with_files,
         # Siblings and the notes indicator are resolved per page below.
@@ -858,6 +919,7 @@ def get_roms(
         or physical is not None
         or verified is not None
         or has_soundtrack is not None
+        or parsed_released_days
     )
 
     # Get the char index for the roms
@@ -1095,68 +1157,6 @@ def get_random_rom(
         return None
 
     return SimpleRomSchema.from_orm_with_request(rom, request)
-
-
-@protected_route(router.get, "/anniversaries", [Scope.ROMS_READ])
-def get_anniversary_roms(
-    request: Request,
-    month: Annotated[
-        int | None,
-        Query(
-            description="Calendar month, defaulting to today's UTC date.", ge=1, le=12
-        ),
-    ] = None,
-    day: Annotated[
-        int | None,
-        Query(
-            description="Day of the month, defaulting to today's UTC date.", ge=1, le=31
-        ),
-    ] = None,
-) -> list[SimpleRomSchema]:
-    """Roms released on a given day of an earlier year, oldest release first.
-
-    Whole-library, so it takes no platform or collection filters: it feeds the
-    Home widget, which shows one game at a time and pages through the rest.
-    Clients pass their own local month and day so "today" matches the calendar
-    in front of the user.
-
-    Capped, so no single day can answer with a sizeable fraction of the library.
-
-    1 January returns nothing at all: several providers park year-only metadata
-    there, so the day carries no information.
-    """
-    perms = get_permissions(request)
-
-    base_query, _ = db_rom_handler.get_roms_query(user_id=request.user.id)
-    query = db_rom_handler.filter_roms(
-        query=base_query,
-        user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
-        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
-        include_related=False,
-    )
-
-    rom_ids = db_rom_handler.get_anniversary_rom_ids(
-        query=query,
-        today=datetime.now(timezone.utc).date(),
-        month=month,
-        day=day,
-    )
-    if not rom_ids:
-        return []
-
-    # Fetched by raw id, so `IN (...)` returns them in whatever order it likes;
-    # the release ordering lives in `rom_ids`. Each row is re-checked against
-    # what actually loaded rather than the filter that chose its id, the same
-    # way `/random` does, which reads no database.
-    rows_by_id = {rom.id: rom for rom in db_rom_handler.get_roms_simple_by_ids(rom_ids)}
-
-    return [
-        SimpleRomSchema.from_orm_with_request(rom, request)
-        for rom_id in rom_ids
-        if (rom := rows_by_id.get(rom_id))
-        and perms.can_see_rom(rom.id, rom.platform_id)
-    ]
 
 
 @protected_route(

@@ -1,4 +1,3 @@
-import calendar
 import functools
 import hashlib
 import json
@@ -6,7 +5,7 @@ import re
 import secrets
 from collections import Counter
 from collections.abc import Iterable, Sequence
-from datetime import date, datetime
+from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, NamedTuple
 
@@ -75,12 +74,12 @@ from models.rom import (
 from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
-    day_of_year_ranges,
     epoch_ms_in_ranges,
     escape_like,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
+    release_day_ranges,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -156,13 +155,6 @@ HEX_DIGEST_REGEX = re.compile(r"[0-9a-fA-F]+")
 # lands a hit ~99% of the time on a library occupying a quarter of its id
 # range, which is what deletions leave behind on a long-lived instance.
 RANDOM_ID_SAMPLE_SIZE = 16
-
-# Where providers park year-only metadata (ScreenScraper parses a bare year with
-# "%Y", CSDb publishes nothing else), so the day means nothing on this date.
-AMBIGUOUS_RELEASE_DAY = (1, 1)
-
-# The widget pages one game at a time, so a whole busy day is far more than anyone reads.
-MAX_ANNIVERSARY_RESULTS = 500
 
 # CRC32 (8), MD5 and RetroAchievements (32), SHA-1 (40).
 ROM_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]] = {
@@ -1293,6 +1285,8 @@ class DBRomsHandler(DBBaseHandler):
         tags_logic: str = "any",
         user_id: int | None = None,
         updated_after: datetime | None = None,
+        released_days: Sequence[tuple[int, int]] | None = None,
+        released_before_year: int | None = None,
         include_file_stats: bool = False,
         include_files: bool = False,
         include_related: bool = True,
@@ -1421,6 +1415,17 @@ class DBRomsHandler(DBBaseHandler):
 
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
+
+        # A union of one-day ranges rather than MONTH()/DAY() on the value: it
+        # emits no SQL date function, so `idx_roms_generated_first_release_date`
+        # serves it as a range scan on every dialect.
+        if released_days:
+            query = query.filter(
+                epoch_ms_in_ranges(
+                    Rom.generated_first_release_date,
+                    release_day_ranges(released_days, before_year=released_before_year),
+                )
+            )
 
         # Only join the metadata table when a filter reads from it. The dedup
         # subquery below is derived from `query`, so the join has to land before
@@ -1672,7 +1677,10 @@ class DBRomsHandler(DBBaseHandler):
             if relevance_clause is not None:
                 order_clauses.insert(0, relevance_clause)
 
-        return query.order_by(*order_clauses), order_attr_column  # type: ignore
+        # The id settles ties, so a page boundary can't repeat or skip a row when
+        # the sort column holds duplicates (every rom released on one calendar
+        # day carries the same release timestamp).
+        return query.order_by(*order_clauses, Rom.id.asc()), order_attr_column  # type: ignore
 
     @begin_session
     def get_roms_scalar(
@@ -1739,6 +1747,8 @@ class DBRomsHandler(DBBaseHandler):
             metadata_providers_logic=kwargs.get("metadata_providers_logic", "any"),
             tags_logic=kwargs.get("tags_logic", "any"),
             user_id=kwargs.get("user_id", None),
+            released_days=kwargs.get("released_days", None),
+            released_before_year=kwargs.get("released_before_year", None),
             group_by_meta_id=kwargs.get("group_by_meta_id", False),
             include_files=kwargs.get("include_files", False),
             hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
@@ -1915,61 +1925,6 @@ class DBRomsHandler(DBBaseHandler):
         if total == 0:
             return None
         return session.scalar(id_query.limit(1).offset(secrets.randbelow(total)))
-
-    @begin_session
-    def get_anniversary_rom_ids(
-        self,
-        query: Query,
-        *,
-        today: date,
-        month: int | None = None,
-        day: int | None = None,
-        session: Session = None,  # type: ignore
-    ) -> list[int]:
-        """Ids of the roms released on a given day of the year, oldest release first.
-
-        `idx_roms_generated_first_release_date` serves both the day-of-year match
-        and the sort as one range scan, and only the id is selected, so the wide
-        provider blobs are never read.
-
-        Args:
-            today: The caller's current date. Bounds the years searched and
-                decides the leap-day rollover.
-            month: Calendar month, defaulting to `today`'s.
-            day: Day of the month, defaulting to `today`'s.
-
-        Returns:
-            Rom ids, oldest release first, at most `MAX_ANNIVERSARY_RESULTS` of
-            them. Empty on 1 January.
-        """
-        month = month if month is not None else today.month
-        day = day if day is not None else today.day
-
-        if (month, day) == AMBIGUOUS_RELEASE_DAY:
-            return []
-
-        # A timezone offset shifts the calendar by at most a day, so the one year
-        # the server's date can get wrong is 31 December asked for on 1 January.
-        current_year = today.year
-        if (month, day) == (12, 31) and (today.month, today.day) == (1, 1):
-            current_year -= 1
-
-        ranges = day_of_year_ranges(month, day, before_year=current_year)
-        # Otherwise a 29 February release would surface three years out of four.
-        if (month, day) == (2, 28) and not calendar.isleap(current_year):
-            ranges += day_of_year_ranges(2, 29, before_year=current_year)
-
-        id_query = (
-            query.order_by(None)
-            .with_only_columns(Rom.id)  # type: ignore
-            .where(epoch_ms_in_ranges(Rom.generated_first_release_date, ranges))
-            # Same-day roms share a timestamp, so the id breaks the tie: the
-            # paging order and the ceiling's cut would otherwise be arbitrary.
-            .order_by(Rom.generated_first_release_date.asc(), Rom.id.asc())
-            .limit(MAX_ANNIVERSARY_RESULTS)
-        )
-
-        return list(session.scalars(id_query).all())
 
     @begin_session
     def get_roms_by_fs_name(

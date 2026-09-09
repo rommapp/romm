@@ -1,4 +1,4 @@
-"""Tests for the day-of-year predicate behind `GET /api/roms/anniversaries` (issue #3440).
+"""Tests for the day-of-year predicate behind the `released_days` filter (issue #3440).
 
 `generated_first_release_date` is epoch milliseconds, so "8 September in any year" is a
 union of one-day ranges rather than a `MONTH()/DAY()` call. Ranges are sargable, which is
@@ -10,7 +10,13 @@ from datetime import datetime, timezone
 
 import pytest
 
-from utils.database import EARLIEST_RELEASE_YEAR, MS_PER_DAY, day_of_year_ranges
+from utils.database import (
+    EARLIEST_RELEASE_YEAR,
+    LATEST_RELEASE_YEAR,
+    MS_PER_DAY,
+    day_of_year_ranges,
+    release_day_ranges,
+)
 
 
 def _ms(year: int, month: int, day: int) -> int:
@@ -76,3 +82,31 @@ def test_29_february_only_matches_leap_years():
 @pytest.mark.parametrize(("month", "day"), [(2, 30), (4, 31), (6, 31)])
 def test_a_day_no_year_has_yields_no_ranges(month: int, day: int):
     assert day_of_year_ranges(month, day, before_year=2026) == []
+
+
+class TestReleaseDayRanges:
+    """The union the filter hands to the index, over one or more days."""
+
+    def test_merges_days_in_key_order(self):
+        """Two days concatenated would interleave; the index wants one ascending run."""
+        ranges = release_day_ranges([(2, 29), (2, 28)], before_year=2026)
+
+        assert ranges == sorted(ranges)
+        assert set(ranges) == set(day_of_year_ranges(2, 28, before_year=2026)) | set(
+            day_of_year_ranges(2, 29, before_year=2026)
+        )
+
+    def test_a_single_day_matches_the_underlying_ranges(self):
+        assert release_day_ranges([(9, 8)], before_year=2026) == day_of_year_ranges(
+            9, 8, before_year=2026
+        )
+
+    def test_no_days_yields_no_ranges(self):
+        assert release_day_ranges([], before_year=2026) == []
+
+    def test_an_unbounded_caller_still_gets_a_finite_union(self):
+        """`epoch_ms_in_ranges` cannot express "any year", so the bound is capped."""
+        ranges = release_day_ranges([(9, 8)])
+
+        assert len(ranges) == LATEST_RELEASE_YEAR - EARLIEST_RELEASE_YEAR
+        assert max(end for _, end in ranges) == _ms(LATEST_RELEASE_YEAR - 1, 9, 9)

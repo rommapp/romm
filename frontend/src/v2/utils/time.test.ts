@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatReleaseDate, formatTrackTime, releaseYear } from "./time";
+import {
+  anniversaryQuery,
+  formatReleaseDate,
+  formatTrackTime,
+  releaseYear,
+} from "./time";
 
 // West of UTC on purpose: release dates are UTC-midnight timestamps, so a
 // local-time reader lands on the previous day. See rommapp/romm#4321.
@@ -53,5 +58,40 @@ describe("releaseYear", () => {
     for (const value of [undefined, null, 0, "0", "nope"]) {
       expect(releaseYear(value)).toBeNull();
     }
+  });
+});
+
+describe("anniversaryQuery", () => {
+  /** Local time, the clock the widget reads. */
+  const on = (year: number, month: number, day: number) =>
+    new Date(year, month - 1, day, 12);
+
+  it("asks for the day itself, in years before the current one", () => {
+    expect(anniversaryQuery(on(2026, 9, 8))).toEqual({
+      days: ["9-8"],
+      beforeYear: 2026,
+    });
+  });
+
+  it("returns nothing on 1 January, where year-only metadata piles up", () => {
+    expect(anniversaryQuery(on(2026, 1, 1))).toBeNull();
+  });
+
+  it("rolls 29 February onto 28 February in a non-leap year", () => {
+    // Otherwise a leap baby surfaces once every four years.
+    expect(anniversaryQuery(on(2027, 2, 28))?.days).toEqual(["2-28", "2-29"]);
+  });
+
+  it("leaves 28 February alone in a leap year", () => {
+    // 29 February is tomorrow, so it gets its own day.
+    expect(anniversaryQuery(on(2028, 2, 28))?.days).toEqual(["2-28"]);
+    expect(anniversaryQuery(on(2028, 2, 29))?.days).toEqual(["2-29"]);
+  });
+
+  it("does not bleed across the year boundary", () => {
+    expect(anniversaryQuery(on(2026, 12, 31))).toEqual({
+      days: ["12-31"],
+      beforeYear: 2026,
+    });
   });
 });
