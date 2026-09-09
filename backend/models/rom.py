@@ -188,9 +188,9 @@ SIBLING_IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
 )
 
 # Provider ids that name a game rather than a file, so two ROMs sharing any of
-# them are one title (regions, revisions, storefront copies). Wider than the
-# sibling list by `steam_id`; the `group_by_meta_id` window is wider again by
-# `flashpoint_id`.
+# them are one title (regions, revisions, storefront copies). The sibling list
+# plus `steam_id`; the `group_by_meta_id` window is the sibling list plus
+# `flashpoint_id` instead, so neither list contains the other.
 IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = SIBLING_IDENTITY_ID_FIELDS + ("steam_id",)
 
 

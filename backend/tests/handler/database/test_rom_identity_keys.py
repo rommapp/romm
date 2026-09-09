@@ -1,6 +1,6 @@
 """Checks for the `rom_identity_keys` mirror that backs the `sibling_roms` view.
 
-Migration 0126 moved sibling matching off an OR-of-seven-equalities self-join
+Migration 0127 moved sibling matching off an OR-of-seven-equalities self-join
 over `roms` and onto one row per (ROM, provider it has an id for), maintained by
 triggers on `roms` rather than by application code. These tests write through
 the normal handlers and assert both the key rows and the view follow.
@@ -205,9 +205,7 @@ class TestRomIdentityKeys:
         db_rom_handler.update_rom(rom.id, {"igdb_id": 601})
         assert marker not in _keys(rom.id)
 
-    def test_hidden_siblings_are_excluded(
-        self, admin_user: User, platform: Platform, other_platform: Platform
-    ):
+    def test_hidden_siblings_are_excluded(self, admin_user: User, platform: Platform):
         rom = _add_rom(platform, "visible", igdb_id=700)
         hidden_rom = _add_rom(platform, "hidden_rom", igdb_id=700)
 
@@ -247,7 +245,7 @@ class TestRomIdentityKeys:
 
 
 class TestIdentityKeyStatistics:
-    """Migration 0126 samples this table right after its backfill, which a fresh
+    """Migration 0127 samples this table right after its backfill, which a fresh
     install runs while the table is still empty. The scan that fills it has to
     resample, or the optimizer keeps the plan it chose for an empty table.
     """

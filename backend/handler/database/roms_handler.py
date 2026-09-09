@@ -3460,7 +3460,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> None:
         """Resample `rom_identity_keys` so the sibling join keeps its indexed plan.
 
-        Migration 0126's sample lands on an empty table on a fresh install, and
+        Migration 0127's sample lands on an empty table on a fresh install, and
         InnoDB's auto-recalc refreshes the stored row count without replanning.
         """
         keyword = "ANALYZE" if is_postgresql(session.connection()) else "ANALYZE TABLE"

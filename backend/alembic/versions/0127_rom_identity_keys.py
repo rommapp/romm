@@ -73,8 +73,8 @@ _TRACKED_COLUMNS = ["platform_id"] + [column for _, column in IDENTITY_PROVIDERS
 def _backfill(pg: bool) -> list[str]:
     """One statement per provider, skipping the ROMs it never matched.
 
-    The upsert semantics keep it idempotent, so a re-run after a partial
-    failure only fills the rows still missing.
+    Insert-or-skip, so a re-run after a partial failure only fills the rows
+    still missing, and the rows the triggers already wrote are left alone.
     """
     statements = []
     for code, column in IDENTITY_PROVIDERS:
@@ -216,16 +216,9 @@ def upgrade() -> None:
         f"idx_{TABLE}_rom_id", TABLE, ["rom_id"], unique=False, if_not_exists=True
     )
 
-    for statement in _backfill(pg):
-        op.execute(statement)
-
-    # Without sampled statistics the optimizer estimates thousands of rows per
-    # (provider, platform, provider id) and picks a worse join order for the
-    # rest of the list query, leaving the gallery slower than before this ran.
-    # A fresh install samples an empty table here, so a scan resamples after it
-    # fills one (`db_rom_handler.refresh_identity_key_statistics`).
-    op.execute(f"ANALYZE {'' if pg else 'TABLE '}{TABLE}")
-
+    # Before the backfill: a rom written between the two steps would otherwise
+    # never get its key rows, and nothing but a later edit of that rom would
+    # notice. Both writes skip a row that is already there.
     if pg:
         op.execute(_postgres_trigger_function())
         op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_aiu ON roms")
@@ -238,6 +231,16 @@ def upgrade() -> None:
         op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_au")
         for trigger in _mysql_triggers():
             op.execute(trigger)
+
+    for statement in _backfill(pg):
+        op.execute(statement)
+
+    # Without sampled statistics the optimizer estimates thousands of rows per
+    # (provider, platform, provider id) and picks a worse join order for the
+    # rest of the list query, leaving the gallery slower than before this ran.
+    # A fresh install samples an empty table here, so a scan resamples after it
+    # fills one (`db_rom_handler.refresh_identity_key_statistics`).
+    op.execute(f"ANALYZE {'' if pg else 'TABLE '}{TABLE}")
 
     op.execute("DROP VIEW IF EXISTS sibling_roms")
     op.execute(_VIEW)
