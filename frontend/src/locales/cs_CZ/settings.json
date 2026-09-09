@@ -537,6 +537,8 @@
   "vc-publisher": "Vydavatel",
   "virtual-collection-type": "Typ virtuální kolekce (způsob seskupování ROM)",
   "watcher": "Sledovač",
+  "widget-anniversaries": "Výročí",
+  "widget-anniversaries-desc": "Zobrazí hry vydané v dnešní den v dřívějším roce, se šipkami pro procházení.",
   "widget-library-stats": "Statistiky knihovny",
   "widget-library-stats-compact": "Kompaktní (hry, platformy, oblíbené)",
   "widget-library-stats-desc": "Číselný přehled vaší knihovny: hry, platformy, oblíbené a další.",

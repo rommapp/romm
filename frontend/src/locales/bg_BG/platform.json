@@ -56,6 +56,7 @@
   "playable-browser-dosbox": "Може да се играе в браузъра чрез DOSBox",
   "playable-browser-emulatorjs": "Може да се играе в браузъра чрез EmulatorJS",
   "playable-browser-jsdos": "Може да се играе в браузъра чрез js-dos",
+  "playable-browser-pico8": "Може да се играе в браузъра чрез PICO-8",
   "playable-browser-ruffle": "Може да се играе в браузъра чрез Ruffle",
   "playable-none": "Не може да се играе в браузъра или чрез стрийминг",
   "playable-stream": "Може да се стриймва от {label}",

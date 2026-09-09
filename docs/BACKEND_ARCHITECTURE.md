@@ -1652,6 +1652,7 @@ Falls back to `FakeRedis` in test mode.
 | `DISABLE_EMULATOR_JS`    | `false` | Hide EmulatorJS player   |
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
 | `DISABLE_JSDOS`          | `false` | Hide js-dos player       |
+| `DISABLE_PICO8`          | `false` | Hide PICO-8 player       |
 
 #### Task Scheduling
 

@@ -537,6 +537,8 @@
   "vc-publisher": "发行商",
   "virtual-collection-type": "虚拟收藏类型（Rom 文件分组方法）",
   "watcher": "监视器",
+  "widget-anniversaries": "周年纪念",
+  "widget-anniversaries-desc": "显示往年今日发行的游戏，可用箭头翻阅。",
   "widget-library-stats": "库统计",
   "widget-library-stats-compact": "精简（游戏、平台、收藏）",
   "widget-library-stats-desc": "你的库的数量概览：游戏、平台、收藏等。",

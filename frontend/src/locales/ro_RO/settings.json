@@ -537,6 +537,8 @@
   "vc-publisher": "Editor",
   "virtual-collection-type": "Tip de colecție virtuală (metoda de grupare a rom-urilor)",
   "watcher": "Monitor",
+  "widget-anniversaries": "Aniversări",
+  "widget-anniversaries-desc": "Afișează jocurile lansate la data de azi într-un an anterior, cu săgeți pentru parcurgere.",
   "widget-library-stats": "Statistici bibliotecă",
   "widget-library-stats-compact": "Compact (jocuri, platforme, favorite)",
   "widget-library-stats-desc": "Prezentare numerică a bibliotecii: jocuri, platforme, favorite și altele.",

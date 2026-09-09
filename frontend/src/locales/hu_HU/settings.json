@@ -537,6 +537,8 @@
   "vc-publisher": "Kiadó",
   "virtual-collection-type": "Virtuális gyűjtemény típusa (ROM csoportosítási mód)",
   "watcher": "Figyelő",
+  "widget-anniversaries": "Évfordulók",
+  "widget-anniversaries-desc": "Megjeleníti a mai napon, egy korábbi évben megjelent játékokat, nyilakkal lapozva.",
   "widget-library-stats": "Könyvtárstatisztika",
   "widget-library-stats-compact": "Kompakt (játékok, platformok, kedvencek)",
   "widget-library-stats-desc": "Számszerű áttekintés a könyvtáradról: játékok, platformok, kedvencek és más.",

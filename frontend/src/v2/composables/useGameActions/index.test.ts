@@ -20,6 +20,7 @@ const snackbarInfo = vi.fn();
 const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
+const canPlayPico8 = { value: false };
 const canPlayRuffle = { value: false };
 const streamContainer = { value: null as object | null };
 const joinableSession = {
@@ -98,6 +99,7 @@ vi.mock("@/v2/composables/useCanPlay", () => ({
   useCanPlay: (getRom: () => SimpleRom | null | undefined) => ({
     canPlayEJS,
     canPlayJsDos,
+    canPlayPico8,
     canPlayRuffle,
     canPlayStream: {
       get value() {
@@ -169,6 +171,7 @@ beforeEach(() => {
   confirmProtectedLaunch.value = true;
   canPlayEJS.value = true;
   canPlayJsDos.value = false;
+  canPlayPico8.value = false;
   canPlayRuffle.value = false;
   streamContainer.value = null;
   joinableSession.value = null;
@@ -363,6 +366,17 @@ describe("useGameActions.play — launch confirmation", () => {
     await actions.play();
 
     expect(push).toHaveBeenCalledWith("/rom/1/ruffle");
+    expect(locationAssign).not.toHaveBeenCalled();
+  });
+
+  it("keeps SPA navigation for PICO-8", async () => {
+    canPlayEJS.value = false;
+    canPlayPico8.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/pico8");
     expect(locationAssign).not.toHaveBeenCalled();
   });
 

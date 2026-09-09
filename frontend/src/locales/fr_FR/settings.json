@@ -537,6 +537,8 @@
   "vc-publisher": "Éditeur",
   "virtual-collection-type": "Type de collection virtuelle (méthode de regroupement des roms)",
   "watcher": "Surveilleur",
+  "widget-anniversaries": "Anniversaires",
+  "widget-anniversaries-desc": "Affiche les jeux sortis à la date d'aujourd'hui une année précédente, avec des flèches pour les parcourir.",
   "widget-library-stats": "Statistiques de la bibliothèque",
   "widget-library-stats-compact": "Compact (jeux, plateformes, favoris)",
   "widget-library-stats-desc": "Aperçu chiffré de votre bibliothèque : jeux, plateformes, favoris, et plus.",

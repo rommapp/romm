@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from typing import Any, Sequence
 
 import sqlalchemy as sa
@@ -167,6 +168,79 @@ def json_array_contains_all(
 
     raise NotImplementedError(
         f"json_array_contains_all is not implemented for engine: {conn.engine.name}"
+    )
+
+
+MS_PER_DAY = 86_400_000
+
+# Tennis for Two (1958) predates the epoch, so the oldest ranges are negative.
+EARLIEST_RELEASE_YEAR = 1958
+
+# The range union has to be finite, so "any year" stops here.
+LATEST_RELEASE_YEAR = 2100
+
+_EPOCH = date(1970, 1, 1)
+
+
+def day_of_year_ranges(
+    month: int, day: int, *, before_year: int
+) -> list[tuple[int, int]]:
+    """Half-open epoch-millisecond ranges covering (month, day) in each earlier year.
+
+    Ranges rather than `MONTH()/DAY()` on the value, because they are sargable
+    and emit no SQL date function, so every dialect plans them the same way.
+
+    Args:
+        month: Calendar month, 1-12.
+        day: Day of the month, 1-31.
+        before_year: Exclusive upper bound on the years covered.
+
+    Returns:
+        Ascending (start, end) pairs, skipping years the date does not exist in,
+        so an impossible date yields none at all.
+    """
+    ranges: list[tuple[int, int]] = []
+    for year in range(EARLIEST_RELEASE_YEAR, before_year):
+        try:
+            start = (date(year, month, day) - _EPOCH).days * MS_PER_DAY
+        except ValueError:
+            continue
+        ranges.append((start, start + MS_PER_DAY))
+
+    return ranges
+
+
+def release_day_ranges(
+    days: Sequence[tuple[int, int]], *, before_year: int | None = None
+) -> list[tuple[int, int]]:
+    """Epoch-millisecond ranges covering every day in `days`, in every year.
+
+    Args:
+        days: (month, day) pairs to match.
+        before_year: Exclusive upper bound on the years covered, defaulting to
+            `LATEST_RELEASE_YEAR`.
+
+    Returns:
+        (start, end) pairs, skipping years a date does not exist in.
+    """
+    bound = LATEST_RELEASE_YEAR if before_year is None else before_year
+
+    return [
+        day_range
+        for month, day in days
+        for day_range in day_of_year_ranges(month, day, before_year=bound)
+    ]
+
+
+def epoch_ms_in_ranges(
+    column: sa.Column | Any, ranges: Sequence[tuple[int, int]]
+) -> ColumnElement:
+    """Match an epoch-millisecond column against any of the given half-open ranges."""
+    if not ranges:
+        return sa.false()
+
+    return sa.or_(
+        *[sa.and_(column >= start, column < end) for start, end in sorted(ranges)]
     )
 
 

@@ -537,6 +537,8 @@
   "vc-publisher": "배급사",
   "virtual-collection-type": "자동 생성된 모음집 유형(롬 그룹화 방법)",
   "watcher": "감시자",
+  "widget-anniversaries": "기념일",
+  "widget-anniversaries-desc": "이전 연도의 오늘 날짜에 출시된 게임을 표시하고, 화살표로 넘겨볼 수 있습니다.",
   "widget-library-stats": "라이브러리 통계",
   "widget-library-stats-compact": "간략 (게임, 플랫폼, 즐겨찾기)",
   "widget-library-stats-desc": "라이브러리의 수치 개요: 게임, 플랫폼, 즐겨찾기 등.",

@@ -56,6 +56,7 @@
   "playable-browser-dosbox": "Hratelné v prohlížeči přes DOSBox",
   "playable-browser-emulatorjs": "Hratelné v prohlížeči přes EmulatorJS",
   "playable-browser-jsdos": "Hratelné v prohlížeči přes js-dos",
+  "playable-browser-pico8": "Hratelné v prohlížeči přes PICO-8",
   "playable-browser-ruffle": "Hratelné v prohlížeči přes Ruffle",
   "playable-none": "Nelze hrát v prohlížeči ani streamovat",
   "playable-stream": "Streamovatelné z {label}",

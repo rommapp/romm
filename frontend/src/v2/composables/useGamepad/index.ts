@@ -50,31 +50,35 @@ const ACTIONS_DISABLED_PATHS = new Set<string>(["/controller-debug"]);
 
 const INITIAL_DELAY_MS = 350;
 const REPEAT_MS = 120;
-const AXIS_THRESHOLD = 0.5;
+export const AXIS_THRESHOLD = 0.5;
 
-// Standard-mapping button index → short symbolic name. Used as the
-// `name` field on the `gamepad:buttondown` custom event so views can
-// filter without memorising W3C indices. Kept exhaustive over the
-// standard 0..16 range; anything past that ships as `name: undefined`.
-const BUTTON_NAMES: Record<number, string> = {
-  0: "a",
-  1: "b",
-  2: "x",
-  3: "y",
-  4: "lb",
-  5: "rb",
-  6: "lt",
-  7: "rt",
-  8: "back",
-  9: "start",
-  10: "l3",
-  11: "r3",
-  12: "dpad-up",
-  13: "dpad-down",
-  14: "dpad-left",
-  15: "dpad-right",
-  16: "home",
-};
+// Short symbolic name → W3C standard-mapping button index, so a view can
+// read raw pad state without memorising indices. Exhaustive over the standard
+// 0..16 range; anything past that has no name.
+export const PAD_BUTTON = {
+  a: 0,
+  b: 1,
+  x: 2,
+  y: 3,
+  lb: 4,
+  rb: 5,
+  lt: 6,
+  rt: 7,
+  back: 8,
+  start: 9,
+  l3: 10,
+  r3: 11,
+  "dpad-up": 12,
+  "dpad-down": 13,
+  "dpad-left": 14,
+  "dpad-right": 15,
+  home: 16,
+} as const;
+
+// The `name` field on the `gamepad:buttondown` event; `undefined` past 16.
+const BUTTON_NAMES: Record<number, string> = Object.fromEntries(
+  Object.entries(PAD_BUTTON).map(([name, index]) => [index, name]),
+);
 
 export interface GamepadButtonEventDetail {
   /** W3C standard-mapping button index. */
@@ -108,7 +112,7 @@ const BUTTON_MAP: Record<number, Binding | undefined> = {
 // Firefox keeps disconnected entries in the getGamepads() array,
 // and their stale analog values drift across the press threshold,
 // firing index-based actions with no user input. #3851.
-function isUsablePad(pad: Gamepad | null): pad is Gamepad {
+export function isUsablePad(pad: Gamepad | null): pad is Gamepad {
   return pad !== null && pad.connected;
 }
 

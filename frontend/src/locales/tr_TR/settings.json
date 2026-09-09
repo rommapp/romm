@@ -537,6 +537,8 @@
   "vc-publisher": "Yayıncı",
   "virtual-collection-type": "Sanal koleksiyon türü (ROM gruplama yöntemi)",
   "watcher": "İzleyici",
+  "widget-anniversaries": "Yıl dönümleri",
+  "widget-anniversaries-desc": "Bugünün tarihinde daha önceki bir yılda çıkan oyunları, aralarında gezinmek için oklarla gösterir.",
   "widget-library-stats": "Kütüphane istatistikleri",
   "widget-library-stats-compact": "Kompakt (oyunlar, platformlar, favoriler)",
   "widget-library-stats-desc": "Kütüphanenizin sayım özeti: oyunlar, platformlar, favoriler ve daha fazlası.",
