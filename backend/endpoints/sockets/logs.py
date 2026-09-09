@@ -20,6 +20,7 @@ import socketio  # type: ignore
 from config import DISABLE_LOGS_VIEWER, REDIS_URL
 from endpoints.sockets.activity import store_authenticated_user
 from endpoints.sockets.shortcuts import device_room
+from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
@@ -41,12 +42,13 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     Identity comes from the browser session or, for launcher clients, a client
     API token on the handshake. Stores the user id in the socket session so
     activity events can trust the server-resolved identity instead of a
-    client-supplied ``user_id``, joins every authenticated user to their own
-    ``user:{id}`` room (the target for sync, streaming and shortcut push
-    notifications), joins device-bound launcher tokens to their ``device:{id}``
-    room, and joins admins to the log-streaming room. Always returns ``None``
-    (accepts the connection): only identity storage and room membership are
-    gated, so the existing scan/sync sockets keep working for everyone.
+    client-supplied ``user_id``, then joins rooms by what the connection is
+    entitled to: browser sessions get ``user:{id}`` (sync, streaming and
+    shortcut push), device-bound launcher tokens get ``device:{id}`` alone, and
+    the log room additionally requires an effective ``logs.read``. Always
+    returns ``None`` (accepts the connection): only identity storage and room
+    membership are gated, so the existing scan/sync sockets keep working for
+    everyone.
     """
     try:
         user = None
@@ -61,16 +63,27 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
             return
 
         await store_authenticated_user(sid, user.id)
-        await socket_handler.socket_server.enter_room(sid, f"user:{user.id}")
 
-        # A device-bound client token is a launcher: give it the room its
-        # shortcut queue notifications are sent to.
-        if client_token is not None and client_token.device_id:
+        # A token never outranks its owner, so its scopes are narrowed by theirs.
+        effective_scopes = set(user.oauth_scopes)
+        if client_token is not None:
+            effective_scopes &= set(client_token.scopes.split())
+
+        if client_token is None:
+            await socket_handler.socket_server.enter_room(sid, f"user:{user.id}")
+        elif client_token.device_id:
+            # A launcher's shortcut queue arrives on the device room. Keeping it
+            # out of the user room withholds sync and streaming traffic its
+            # scopes may not cover, and stops shortcut events arriving twice.
             await socket_handler.socket_server.enter_room(
                 sid, device_room(client_token.device_id)
             )
 
-        if not DISABLE_LOGS_VIEWER and user.role == Role.ADMIN:
+        if (
+            not DISABLE_LOGS_VIEWER
+            and user.role == Role.ADMIN
+            and Scope.LOGS_READ in effective_scopes
+        ):
             await socket_handler.socket_server.enter_room(sid, ADMIN_ROOM)
     except Exception:  # noqa: BLE001 - never let auth resolution refuse a socket
         log.exception("Failed to resolve user on socket connect")

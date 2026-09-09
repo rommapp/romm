@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
@@ -49,16 +50,39 @@ class DBShortcutsHandler(DBBaseHandler):
         launch_mode: LaunchMode | None,
         session: Session = None,  # type: ignore
     ) -> Shortcut:
-        """Queue a rom for a device, resetting any previous outcome."""
+        """Queue a rom for a device, resetting any previous outcome.
+
+        The unique constraint on (device_id, rom_id) arbitrates a race: the
+        request that loses the insert reloads the winner's row and updates it,
+        so concurrent queues of the same game stay idempotent.
+        """
         existing = session.scalar(
             select(Shortcut).filter_by(device_id=device_id, rom_id=rom_id).limit(1)
         )
         if existing is None:
-            existing = Shortcut(user_id=user_id, device_id=device_id, rom_id=rom_id)
+            created = Shortcut(
+                user_id=user_id,
+                device_id=device_id,
+                rom_id=rom_id,
+                status=ShortcutStatus.PENDING_ADD,
+                launch_mode=launch_mode,
+            )
+            try:
+                with session.begin_nested():
+                    session.add(created)
+                return created
+            except IntegrityError:
+                existing = session.scalar(
+                    select(Shortcut)
+                    .filter_by(device_id=device_id, rom_id=rom_id)
+                    .limit(1)
+                )
+                if existing is None:
+                    raise
         existing.status = ShortcutStatus.PENDING_ADD
         existing.launch_mode = launch_mode
         existing.error = None
-        return session.merge(existing)
+        return existing
 
     @begin_session
     def mark_pending_remove(
@@ -87,9 +111,15 @@ class DBShortcutsHandler(DBBaseHandler):
         values: dict = {"status": status, "error": error}
         if steam_app_id is not None:
             values["steam_app_id"] = steam_app_id
+        # A removal queued while the device was working outranks whatever it
+        # reports back; otherwise a late staged/added would strand the game in
+        # Steam with nothing left asking for its removal.
         session.execute(
             update(Shortcut)
-            .where(Shortcut.id == shortcut_id)
+            .where(
+                Shortcut.id == shortcut_id,
+                Shortcut.status != ShortcutStatus.PENDING_REMOVE,
+            )
             .values(**values)
             .execution_options(synchronize_session="evaluate")
         )

@@ -240,6 +240,53 @@ class TestCompanionQueueAndAck:
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
+    def test_ack_without_a_bound_device_is_forbidden(
+        self, client, access_token: str, device: Device, rom: Rom
+    ):
+        """A browser session holds roms.user.write but reports for no device."""
+        created = client.put(
+            "/api/shortcuts",
+            json={"device_id": device.id, "rom_id": rom.id},
+            headers=_auth(access_token),
+        ).json()
+        response = client.post(
+            f"/api/shortcuts/{created['id']}/ack",
+            json={"status": "added"},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_late_ack_does_not_overwrite_a_queued_removal(
+        self, client, access_token: str, device_token: str, device: Device, rom: Rom
+    ):
+        """The device staged the game while the user asked for its removal."""
+        created = client.put(
+            "/api/shortcuts",
+            json={"device_id": device.id, "rom_id": rom.id},
+            headers=_auth(access_token),
+        ).json()
+        client.post(
+            f"/api/shortcuts/{created['id']}/ack",
+            json={"status": "staged"},
+            headers=_auth(device_token),
+        )
+        client.delete(f"/api/shortcuts/{created['id']}", headers=_auth(access_token))
+
+        late = client.post(
+            f"/api/shortcuts/{created['id']}/ack",
+            json={"status": "added", "steam_app_id": 0x80003039},
+            headers=_auth(device_token),
+        )
+        assert late.status_code == status.HTTP_200_OK
+        assert late.json()["status"] == ShortcutStatus.PENDING_REMOVE
+
+        # The removal is still queued for the device to act on.
+        queue = client.get(
+            "/api/shortcuts?device_id=me&status=pending_remove",
+            headers=_auth(device_token),
+        )
+        assert [s["id"] for s in queue.json()] == [created["id"]]
+
 
 class TestRemove:
     def test_remove_pending_add_deletes_immediately(

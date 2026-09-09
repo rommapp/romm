@@ -57,6 +57,8 @@ class Shortcut(BaseModel):
     steam_app_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    user: Mapped[User] = relationship(lazy="select")
-    device: Mapped[Device] = relationship(lazy="joined")
-    rom: Mapped[Rom] = relationship(lazy="joined")
+    # Nothing serializes these: the schema carries the foreign keys, and the
+    # unfiltered store load would otherwise join the wide roms table per row.
+    user: Mapped[User] = relationship(lazy="raise")
+    device: Mapped[Device] = relationship(lazy="raise")
+    rom: Mapped[Rom] = relationship(lazy="raise")

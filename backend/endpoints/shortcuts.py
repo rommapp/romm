@@ -140,11 +140,13 @@ async def ack_shortcut(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Shortcut not found"
         )
-    bound = getattr(request.state, "device_id", None)
-    if bound and bound != shortcut.device_id:
+    # Acknowledgements are device-originated, so an unbound caller (a browser
+    # session, or a client token with devices.write and no device) has nothing
+    # to report and is refused alongside a token bound elsewhere.
+    if getattr(request.state, "device_id", None) != shortcut.device_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Token is bound to a different device",
+            detail="Acknowledgements must come from the device that owns the shortcut",
         )
 
     # A confirmed removal deletes the row rather than storing a status.
