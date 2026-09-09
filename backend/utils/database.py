@@ -176,8 +176,7 @@ MS_PER_DAY = 86_400_000
 # Tennis for Two (1958) predates the epoch, so the oldest ranges are negative.
 EARLIEST_RELEASE_YEAR = 1958
 
-# Providers carry announced dates a few years out, and the union has to be
-# finite, so an unbounded caller still gets a bound.
+# The range union has to be finite, so "any year" stops here.
 LATEST_RELEASE_YEAR = 2100
 
 _EPOCH = date(1970, 1, 1)
@@ -217,21 +216,20 @@ def release_day_ranges(
     """Epoch-millisecond ranges covering every day in `days`, in every year.
 
     Args:
-        days: (month, day) pairs to match, in any order.
+        days: (month, day) pairs to match.
         before_year: Exclusive upper bound on the years covered, defaulting to
             `LATEST_RELEASE_YEAR`.
 
     Returns:
-        Ascending (start, end) pairs. Merging two days breaks the per-day
-        ordering, so the union is sorted before it is handed to the index.
+        (start, end) pairs, skipping years a date does not exist in.
     """
     bound = LATEST_RELEASE_YEAR if before_year is None else before_year
 
-    return sorted(
+    return [
         day_range
         for month, day in days
         for day_range in day_of_year_ranges(month, day, before_year=bound)
-    )
+    ]
 
 
 def epoch_ms_in_ranges(

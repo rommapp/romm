@@ -6,6 +6,7 @@ layers on top (skipping 1 January, excluding the current year, rolling 29
 February onto 28 February) lives in the client, so nothing here reads a clock.
 """
 
+from collections.abc import Sequence
 from datetime import date, datetime, timezone
 
 from handler.database import db_rom_handler
@@ -44,7 +45,9 @@ def _dated_rom(platform: Platform, name: str, released: date | None) -> Rom:
     )
 
 
-def _names(days, before_year: int | None = None) -> list[str]:
+def _names(
+    days: Sequence[tuple[int, int]], before_year: int | None = None
+) -> list[str]:
     roms = db_rom_handler.get_roms_scalar(
         released_days=days,
         released_before_year=before_year,

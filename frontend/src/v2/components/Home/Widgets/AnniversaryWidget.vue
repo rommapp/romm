@@ -1,14 +1,13 @@
 <script setup lang="ts">
 // AnniversaryWidget: games released on today's date in an earlier year, one at
-// a time, with arrows to page through the rest. It reads the shared rom list
-// with `releasedDays`, one page at a time, so the day's whole result set never
-// crosses the wire for a card that shows one game.
+// a time, with arrows to page through the rest. It reads the shared rom list a
+// page at a time, so a card costs a page rather than the whole day.
 //
-// The calendar policy lives here rather than server-side: `anniversaryQuery`
-// picks the days and the year bound off the client's own clock, so "today" is
-// the date in front of the user and no timezone skew can reach it.
+// `anniversaryQuery` reads the client's own clock, so "today" is the date in
+// front of the user and no timezone offset can reach it.
 import { RBtn } from "@v2/lib";
 import { anniversaryQuery, releaseYear } from "@v2/utils/time";
+import type { AnniversaryQuery } from "@v2/utils/time";
 import { useIntervalFn } from "@vueuse/core";
 import { computed, nextTick, onMounted, ref } from "vue";
 import type { ComponentPublicInstance, Ref } from "vue";
@@ -28,19 +27,16 @@ const { t } = useI18n();
 // date, so the day it was loaded for is compared against the clock.
 const DAY_ROLLOVER_CHECK_MS = 60_000;
 
-// Far more cards than anyone clicks through in a sitting, so one request
-// normally covers the whole visit, and small enough that a day holding
-// hundreds of games never ships them all.
+// More cards than anyone clicks through in a sitting, so one request usually
+// covers the whole visit.
 const PAGE_SIZE = 24;
 
-type DayQuery = NonNullable<ReturnType<typeof anniversaryQuery>>;
-
-// The day's oldest releases, accumulated a page at a time, so paging backwards
-// is always in memory and only moving past the end fetches.
+// Accumulated a page at a time, so paging back is always in memory and only
+// moving past the end fetches.
 const roms = ref<SimpleRom[]>([]);
 const total = ref(0);
 const loadedDay = ref("");
-const dayQuery = ref<DayQuery | null>(null);
+const dayQuery = ref<AnniversaryQuery | null>(null);
 const index = ref(0);
 const loading = ref(false);
 const paging = ref(false);
@@ -82,7 +78,7 @@ function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
-function fetchPage(query: DayQuery, offset: number) {
+function fetchPage(query: AnniversaryQuery, offset: number) {
   return romApi.getRoms({
     releasedDays: query.days,
     releasedBeforeYear: query.beforeYear,
@@ -90,37 +86,40 @@ function fetchPage(query: DayQuery, offset: number) {
     orderDir: "asc",
     limit: PAGE_SIZE,
     offset,
-    // The counter needs the day's total once; a later page already has it.
+    // The counter needs the total once; a later page already has it.
     withTotal: offset === 0,
-    // The card renders a cover, a title, a platform and a year. None of the
-    // gallery's sidecars reach it, and each one is its own scan.
+    // Each sidecar is its own scan, and the card renders none of them.
     withCharIndex: false,
     withFilterValues: false,
     withRomIdIndex: false,
   });
 }
 
+/** Drops the day's games, so the card falls back to its placeholder. */
+function showEmptyDay() {
+  roms.value = [];
+  total.value = 0;
+  index.value = 0;
+  loading.value = false;
+}
+
 async function load() {
-  // The client's own calendar day, so "today" matches the date in front of
-  // the user rather than the server's UTC clock.
   const today = new Date();
   const day = dayKey(today);
   loadedDay.value = day;
-  // A request spanning midnight can land after the rollover's. Committing it
-  // would pin the card to yesterday until the next rollover, a day away.
-  const stale = () => loadedDay.value !== day;
 
   const query = anniversaryQuery(today);
   dayQuery.value = query;
   if (!query) {
-    // 1 January says nothing about a release date, so there is nothing to ask.
-    roms.value = [];
-    total.value = 0;
-    index.value = 0;
+    // 1 January, which the helper refuses: there is nothing to ask for.
+    showEmptyDay();
     failed.value = false;
-    loading.value = false;
     return;
   }
+
+  // A request spanning midnight can land after the rollover's. Committing it
+  // would pin the card to yesterday until the next rollover, a day away.
+  const stale = () => loadedDay.value !== day;
 
   loading.value = true;
   try {
@@ -134,18 +133,16 @@ async function load() {
   } catch {
     if (stale()) return;
     // Failures show in the card's own copy rather than the snackbar stack.
-    roms.value = [];
-    total.value = 0;
+    showEmptyDay();
     failed.value = true;
-    loading.value = false;
     // Leave the day unclaimed so the rollover check retries it. Claimed, a
     // single failed request would hold the error copy until local midnight.
     loadedDay.value = "";
   }
 }
 
-/** Appends the next page. A failure keeps the current card and lets the arrow retry. */
-async function loadMore() {
+/** Appends the next page, leaving the current card alone if it fails. */
+async function loadNextPage() {
   const query = dayQuery.value;
   const day = loadedDay.value;
   if (!query || paging.value) return;
@@ -155,9 +152,8 @@ async function loadMore() {
     const { data } = await fetchPage(query, roms.value.length);
     if (loadedDay.value !== day) return;
     roms.value = [...roms.value, ...data.items];
-    total.value = data.total ?? total.value;
   } catch {
-    // Swallowed: the loaded card is still good, and the arrow stays live.
+    // The card on screen is still good, and the arrow stays live to retry.
   } finally {
     if (loadedDay.value === day) paging.value = false;
   }
@@ -173,7 +169,8 @@ async function step(delta: number) {
   const hadFocus = document.activeElement === btnEl(moved);
 
   if (target >= roms.value.length) {
-    await loadMore();
+    await loadNextPage();
+    // Stay put when the page didn't land, rather than blanking the card.
     if (target >= roms.value.length) return;
   }
 

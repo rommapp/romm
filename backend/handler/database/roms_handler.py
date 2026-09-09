@@ -1416,9 +1416,6 @@ class DBRomsHandler(DBBaseHandler):
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
 
-        # A union of one-day ranges rather than MONTH()/DAY() on the value: it
-        # emits no SQL date function, so `idx_roms_generated_first_release_date`
-        # serves it as a range scan on every dialect.
         if released_days:
             query = query.filter(
                 epoch_ms_in_ranges(
@@ -1677,9 +1674,8 @@ class DBRomsHandler(DBBaseHandler):
             if relevance_clause is not None:
                 order_clauses.insert(0, relevance_clause)
 
-        # The id settles ties, so a page boundary can't repeat or skip a row when
-        # the sort column holds duplicates (every rom released on one calendar
-        # day carries the same release timestamp).
+        # The id settles ties, so a page boundary can't repeat or skip a row
+        # when the sort column holds duplicates.
         return query.order_by(*order_clauses, Rom.id.asc()), order_attr_column  # type: ignore
 
     @begin_session

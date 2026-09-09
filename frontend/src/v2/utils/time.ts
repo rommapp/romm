@@ -43,25 +43,22 @@ export function releaseYear(
   return toReleaseDate(timestamp)?.getUTCFullYear() ?? null;
 }
 
-// Where providers park year-only metadata: ScreenScraper parses a bare year
-// with "%Y", CSDb publishes nothing else, and IGDB reports year precision as
-// 1 January. On a 96k-rom library 28% of everything dated sits there, so the
-// date carries no information and the widget skips it.
+// Several providers report a year-only release as 1 January, so on that date
+// the day carries no information at all.
 const AMBIGUOUS_RELEASE_DAY = "1-1";
 
-/** What `releasedDays` / `releasedBeforeYear` an anniversary of `today` needs.
+/** The `releasedDays` / `releasedBeforeYear` filter an anniversary day needs. */
+export interface AnniversaryQuery {
+  days: string[];
+  beforeYear: number;
+}
+
+/** Which release days count as an anniversary of `today`, or null on 1 January.
  *
- *  Null on 1 January, which says nothing about a release date.
- *
- *  Returns:
- *    The day itself, plus 29 February when `today` is 28 February of a
- *    non-leap year, so a leap baby surfaces once a year rather than once every
- *    four. `beforeYear` is `today`'s own year, so a game released earlier this
- *    year is not an anniversary of itself.
+ *  Adds 29 February on 28 February of a non-leap year, so a leap baby surfaces
+ *  once a year rather than once every four.
  */
-export function anniversaryQuery(
-  today: Date,
-): { days: string[]; beforeYear: number } | null {
+export function anniversaryQuery(today: Date): AnniversaryQuery | null {
   const month = today.getMonth() + 1;
   const day = today.getDate();
   const year = today.getFullYear();
@@ -72,5 +69,7 @@ export function anniversaryQuery(
   const isLeapYear = new Date(year, 1, 29).getMonth() === 1;
   if (month === 2 && day === 28 && !isLeapYear) days.push("2-29");
 
+  // Excluding the current year keeps a game released earlier today from being
+  // its own anniversary.
   return { days, beforeYear: year };
 }

@@ -7,6 +7,7 @@ day-of-year semantics are pinned in `tests/handler/database/test_roms_released_d
 """
 
 from datetime import date, datetime, timezone
+from typing import Iterator
 
 import pytest
 from fastapi import status
@@ -61,7 +62,7 @@ def other_platform() -> Platform:
 
 
 @pytest.fixture
-def captured_sql():
+def captured_sql() -> Iterator[list[str]]:
     """Every statement the engine runs while the fixture is active."""
     statements: list[str] = []
 
@@ -116,6 +117,14 @@ def test_returns_roms_released_on_the_requested_day(
     # The widget renders cover, platform and "N years ago" straight off the row.
     assert body["items"][0]["platform_slug"] == platform.slug
     assert body["items"][0]["metadatum"]["first_release_date"] == 778982400000
+
+
+def test_accepts_a_zero_padded_day(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    _dated_rom(platform, "match", date(1994, 9, 8))
+
+    assert _names(_get(client, access_token, released_days="09-08")) == ["match"]
 
 
 def test_orders_oldest_release_first(

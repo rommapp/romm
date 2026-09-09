@@ -408,10 +408,10 @@ class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     __params_type__ = CustomLimitOffsetParams
 
 
-RELEASED_DAY_REGEX = re.compile(r"^(\d{1,2})-(\d{1,2})$")
+# Month 1-12 and day 1-31, so a match is already a calendar day.
+RELEASED_DAY_REGEX = re.compile(r"^(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$")
 
-# One day per month of the year is already more than any caller needs, and each
-# day widens the range union the index has to walk.
+# Each day widens the range union the index walks.
 MAX_RELEASED_DAYS = 12
 
 
@@ -419,8 +419,7 @@ def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
     """`["9-8", "2-29"]` as (month, day) pairs.
 
     Raises:
-        HTTPException: 422 when a value is not a calendar day, so a typo fails
-            loudly instead of silently matching nothing.
+        HTTPException: 422 when a value is not a calendar day.
     """
     if not values:
         return []
@@ -434,13 +433,12 @@ def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
     days: list[tuple[int, int]] = []
     for value in values:
         matched = RELEASED_DAY_REGEX.match(value.strip())
-        month, day = (int(matched[1]), int(matched[2])) if matched else (0, 0)
-        if not (1 <= month <= 12 and 1 <= day <= 31):
+        if not matched:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid released_days value: {value!r}, expected 'M-D'",
             )
-        days.append((month, day))
+        days.append((int(matched[1]), int(matched[2])))
 
     return days
 
@@ -789,8 +787,8 @@ def get_roms(
         int | None,
         Query(
             description=(
-                "Exclusive upper bound on the years `released_days` matches, so a"
-                " caller can ask for earlier years only. Ignored on its own."
+                "Exclusive upper bound on the years `released_days` matches."
+                " Ignored on its own."
             ),
             ge=1,
         ),

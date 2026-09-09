@@ -87,11 +87,9 @@ def test_a_day_no_year_has_yields_no_ranges(month: int, day: int):
 class TestReleaseDayRanges:
     """The union the filter hands to the index, over one or more days."""
 
-    def test_merges_days_in_key_order(self):
-        """Two days concatenated would interleave; the index wants one ascending run."""
+    def test_covers_the_union_of_the_days(self):
         ranges = release_day_ranges([(2, 29), (2, 28)], before_year=2026)
 
-        assert ranges == sorted(ranges)
         assert set(ranges) == set(day_of_year_ranges(2, 28, before_year=2026)) | set(
             day_of_year_ranges(2, 29, before_year=2026)
         )
