@@ -17,7 +17,6 @@ const PICO8_WASM_PATH = "/assets/pico8/fake08.wasm";
 const PICO8_SCRIPT_PATH = "/assets/pico8/fake08.js";
 const FRAMEBUFFER_BYTES = (PICO8_WIDTH * PICO8_HEIGHT) / 2;
 const PALETTE_BYTES = 16 * 4;
-const EMPTY_SAMPLES = new Int16Array(0);
 
 export interface Fake08Module {
   HEAPU8: Uint8Array;
@@ -90,10 +89,18 @@ export interface Pico8Input {
 export interface Pico8Runtime {
   readonly frameRate: number;
   readonly audioSampleRate: number;
+  /** Samples a single frame can produce, for sizing the caller's buffer. */
+  readonly samplesPerFrame: number;
   loadCart: (bytes: Uint8Array) => void;
   advance: (input: Pico8Input) => void;
   render: () => void;
-  getAudioSamples: () => Int16Array;
+  /**
+   * Copy this frame's audio into the caller's buffer.
+   *
+   * @param target Destination, at least `samplesPerFrame` long.
+   * @returns How many samples were written.
+   */
+  readAudio: (target: Int16Array) => number;
   dispose: () => void;
 }
 
@@ -203,14 +210,15 @@ export async function createPico8Runtime(
     module._f08_step_frame();
   }
 
-  function getAudioSamples() {
-    if (disposed) return EMPTY_SAMPLES;
+  function readAudio(target: Int16Array) {
+    if (disposed) return 0;
     const written = module._f08_fill_audio_buffer(
       audioPointer,
-      samplesPerFrame,
+      Math.min(samplesPerFrame, target.length),
     );
-    if (written <= 0) return EMPTY_SAMPLES;
-    return new Int16Array(module.HEAPU8.buffer, audioPointer, written).slice();
+    if (written <= 0) return 0;
+    target.set(new Int16Array(module.HEAPU8.buffer, audioPointer, written));
+    return written;
   }
 
   function dispose() {
@@ -223,10 +231,11 @@ export async function createPico8Runtime(
   return {
     frameRate: module._f08_get_target_fps() || PICO8_FRAME_RATE,
     audioSampleRate: module._f08_get_audio_sample_rate(),
+    samplesPerFrame,
     loadCart,
     advance,
     render,
-    getAudioSamples,
+    readAudio,
     dispose,
   };
 }

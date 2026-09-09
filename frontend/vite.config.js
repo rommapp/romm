@@ -112,6 +112,10 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: "esnext",
+      // AudioWorklet.addModule is only dependable with a real URL, and Vite
+      // inlines any asset under 4KB as a data: URI, so keep the worklet out.
+      assetsInlineLimit: (filePath) =>
+        filePath.endsWith("pico8AudioWorklet.js") ? false : undefined,
       // Browser targets for CSS (prefixing + down-leveling) come from the
       // shared `.browserslistrc`. Never hand-write a `-webkit-` twin next to a
       // standard property: Lightning CSS collapses the pair to whichever is

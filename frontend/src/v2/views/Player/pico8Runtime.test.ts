@@ -88,7 +88,9 @@ describe("createPico8Runtime", () => {
     expect(context.putImageData).toHaveBeenCalled();
     const image = context.putImageData.mock.calls[0][0] as ImageData;
     expect([...image.data.slice(0, 8)]).toEqual([1, 2, 3, 255, 4, 5, 6, 255]);
-    expect([...runtime.getAudioSamples()]).toEqual([1000, -1000]);
+    const audio = new Int16Array(runtime.samplesPerFrame);
+    expect(runtime.readAudio(audio)).toBe(2);
+    expect([...audio.slice(0, 2)]).toEqual([1000, -1000]);
     expect(runtime.frameRate).toBe(30);
     expect(runtime.audioSampleRate).toBe(22050);
 

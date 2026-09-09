@@ -10,12 +10,19 @@ import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import {
+  AXIS_THRESHOLD,
+  isUsablePad,
+  PAD_BUTTON,
+} from "@/v2/composables/useGamepad";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
+import { createPico8Audio, type Pico8Audio } from "./pico8Audio";
+import { createPico8Pacer, type Pico8Pacer } from "./pico8Pacer";
 import {
   createPico8Runtime,
   PICO8_FRAME_RATE,
@@ -48,18 +55,14 @@ const {
 } = useFullscreen(stage);
 
 let runtime: Pico8Runtime | null = null;
+let audio: Pico8Audio | null = null;
+let pacer: Pico8Pacer | null = null;
 let animationFrame = 0;
-let lastFrameTime = 0;
-let frameAccumulator = 0;
 let previousHeld = 0;
 let keyboardMask = 0;
 let mouseX = 0;
 let mouseY = 0;
 let mouseButtons = 0;
-let audioContext: AudioContext | null = null;
-let audioGain: GainNode | null = null;
-let nextAudioTime = 0;
-let frameDuration = 1000 / PICO8_FRAME_RATE;
 
 const input = { keyDown: 0, keyHeld: 0, mouseX: 0, mouseY: 0, mouseButtons: 0 };
 
@@ -72,14 +75,13 @@ const keyboardMap: Record<string, number> = {
   KeyX: PICO8_INPUT_BITS.b,
 };
 
-// W3C standard-mapping button index to PICO-8 bit.
 const padButtonBits = [
-  [0, PICO8_INPUT_BITS.a],
-  [1, PICO8_INPUT_BITS.b],
-  [12, PICO8_INPUT_BITS.up],
-  [13, PICO8_INPUT_BITS.down],
-  [14, PICO8_INPUT_BITS.left],
-  [15, PICO8_INPUT_BITS.right],
+  [PAD_BUTTON.a, PICO8_INPUT_BITS.a],
+  [PAD_BUTTON.b, PICO8_INPUT_BITS.b],
+  [PAD_BUTTON["dpad-up"], PICO8_INPUT_BITS.up],
+  [PAD_BUTTON["dpad-down"], PICO8_INPUT_BITS.down],
+  [PAD_BUTTON["dpad-left"], PICO8_INPUT_BITS.left],
+  [PAD_BUTTON["dpad-right"], PICO8_INPUT_BITS.right],
 ] as const;
 
 // Per stick axis, the bit for a negative then a positive deflection.
@@ -87,7 +89,6 @@ const padAxisBits = [
   [PICO8_INPUT_BITS.left, PICO8_INPUT_BITS.right],
   [PICO8_INPUT_BITS.up, PICO8_INPUT_BITS.down],
 ] as const;
-const PAD_AXIS_THRESHOLD = 0.5;
 
 // Pointer button number to the mask FAKE-08 expects (left, middle, right).
 const mouseButtonBits = [0x01, 0x04, 0x02];
@@ -148,17 +149,15 @@ function onKeyUp(event: KeyboardEvent) {
 function readGamepadMask() {
   let mask = 0;
   for (const gamepad of navigator.getGamepads?.() ?? []) {
-    // Firefox keeps disconnected entries, whose stale analog values drift
-    // across the threshold and press buttons on their own. #3851.
-    if (!gamepad?.connected) continue;
+    if (!isUsablePad(gamepad)) continue;
     const { buttons, axes } = gamepad;
     for (const [index, bit] of padButtonBits) {
       if (buttons[index]?.pressed) mask |= bit;
     }
     for (let axis = 0; axis < padAxisBits.length; axis += 1) {
       const value = axes[axis] ?? 0;
-      if (value < -PAD_AXIS_THRESHOLD) mask |= padAxisBits[axis][0];
-      if (value > PAD_AXIS_THRESHOLD) mask |= padAxisBits[axis][1];
+      if (value < -AXIS_THRESHOLD) mask |= padAxisBits[axis][0];
+      if (value > AXIS_THRESHOLD) mask |= padAxisBits[axis][1];
     }
   }
   return mask;
@@ -242,39 +241,18 @@ function onControlKeyUp(bit: number) {
   touchMask.value &= ~bit;
 }
 
-function scheduleAudio(samples: Int16Array) {
-  if (!audioContext || !audioGain || samples.length === 0) return;
-  const buffer = audioContext.createBuffer(
-    1,
-    samples.length,
-    audioContext.sampleRate,
-  );
-  const channel = buffer.getChannelData(0);
-  for (let index = 0; index < samples.length; index += 1) {
-    channel[index] = samples[index] / 32768;
-  }
-  const source = audioContext.createBufferSource();
-  source.buffer = buffer;
-  source.connect(audioGain);
-  const startAt = Math.max(audioContext.currentTime, nextAudioTime);
-  source.start(startAt);
-  nextAudioTime = startAt + buffer.duration;
-}
-
 function runFrame(timestamp: number) {
-  if (!gameRunning.value || !runtime) return;
-  frameAccumulator += Math.min(timestamp - lastFrameTime, 250);
-  lastFrameTime = timestamp;
+  const active = runtime;
+  if (!gameRunning.value || !active || !pacer) return;
 
-  let steps = 0;
   try {
-    while (frameAccumulator >= frameDuration && steps < 3) {
-      runtime.advance(readInput());
-      scheduleAudio(runtime.getAudioSamples());
-      frameAccumulator -= frameDuration;
-      steps += 1;
+    const steps = pacer.tick(timestamp);
+    for (let step = 0; step < steps; step += 1) {
+      active.advance(readInput());
+      audio?.pump((target) => active.readAudio(target));
     }
-    if (steps > 0) runtime.render();
+    // Several emulated frames may land in one tick, but only the last is seen.
+    if (steps > 0) active.render();
   } catch (error) {
     showPlayError(error);
     return;
@@ -283,18 +261,9 @@ function runFrame(timestamp: number) {
 }
 
 function startLoop() {
-  frameDuration = 1000 / (runtime?.frameRate || PICO8_FRAME_RATE);
-  lastFrameTime = performance.now();
-  frameAccumulator = frameDuration;
+  pacer = createPico8Pacer(runtime?.frameRate || PICO8_FRAME_RATE);
+  pacer.reset(performance.now());
   animationFrame = requestAnimationFrame(runFrame);
-}
-
-function closeAudio() {
-  const context = audioContext;
-  audioContext = null;
-  audioGain = null;
-  nextAudioTime = 0;
-  if (context) void context.close().catch(() => {});
 }
 
 function resetInput() {
@@ -311,7 +280,9 @@ function releaseGame() {
   animationFrame = 0;
   runtime?.dispose();
   runtime = null;
-  closeAudio();
+  pacer = null;
+  audio?.close();
+  audio = null;
   resetInput();
   playSession.flush();
   playingStore.setPlaying(false);
@@ -363,22 +334,19 @@ async function onPlay() {
     runtime = nextRuntime;
     nextRuntime = null;
 
+    // A cart is playable without sound, so a failed audio graph only warns.
     try {
-      audioContext = new AudioContext({
+      audio = await createPico8Audio({
         sampleRate: runtime.audioSampleRate,
+        samplesPerFrame: runtime.samplesPerFrame,
       });
-    } catch {
-      try {
-        audioContext = new AudioContext();
-      } catch {
-        audioContext = null;
-      }
+    } catch (error) {
+      console.warn("[PICO-8] Audio is unavailable", error);
+      audio = null;
     }
-    if (audioContext) {
-      audioGain = audioContext.createGain();
-      audioGain.gain.value = 0.75;
-      audioGain.connect(audioContext.destination);
-      void audioContext.resume().catch(() => {});
+    if (!gameRunning.value) {
+      releaseGame();
+      return;
     }
 
     loading.value = false;
