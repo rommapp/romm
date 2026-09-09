@@ -194,7 +194,7 @@ describe("Home", () => {
     setActivePinia(createPinia());
     getLibraryInfo.mockReset();
     getLibraryInfo.mockResolvedValue({
-      data: { detected_structure: "struct_a", existing_platforms: [] },
+      data: { library_ready: true, existing_platforms: [] },
     });
     getRecommendedRoms.mockReset();
     getRecommendedRoms.mockResolvedValue({ data: [] });

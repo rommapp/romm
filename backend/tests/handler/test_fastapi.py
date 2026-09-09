@@ -90,8 +90,8 @@ async def test_scan_rom():
             rom=rom,
             fs_rom={
                 "fs_name": "Paper Mario (USA).z64",
+                "fs_path": "n64/Paper Mario (USA)",
                 "flat": True,
-                "nested": False,
                 "files": [
                     RomFile(
                         rom=rom,
@@ -180,8 +180,8 @@ async def test_scan_rom_complete_clears_unselected_metadata(
             rom=rom,
             fs_rom={
                 "fs_name": "Paper Mario (USA).z64",
+                "fs_path": "n64/Paper Mario (USA)",
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "",
                 "md5_hash": "",
@@ -239,8 +239,8 @@ async def test_scan_rom_folds_extracted_title_id_values(
             rom=rom,
             fs_rom={
                 "fs_name": "Game.nsp",
+                "fs_path": rom.fs_path,
                 "flat": True,
-                "nested": False,
                 "files": [
                     RomFile(
                         rom=rom,
@@ -320,8 +320,8 @@ async def test_scan_rom_unmatched_fetches_ra_when_id_set_but_no_metadata(
             rom=rom,
             fs_rom={
                 "fs_name": "Jak and Daxter.chd",
+                "fs_path": "ps2",
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "",
                 "md5_hash": "",
@@ -382,8 +382,8 @@ async def test_scan_rom_unmatched_skips_ra_when_id_and_metadata_exist(
             rom=rom,
             fs_rom={
                 "fs_name": "Jak and Daxter.chd",
+                "fs_path": "ps2",
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "",
                 "md5_hash": "",
@@ -448,8 +448,8 @@ async def test_scan_rom_unmatched_replaces_placeholder_name(
             rom=rom,
             fs_rom={
                 "fs_name": "Snow Brothers (USA).zip",
+                "fs_path": rom.fs_path,
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "",
                 "md5_hash": "",
@@ -511,8 +511,8 @@ async def test_scan_rom_unmatched_preserves_custom_name(
             rom=rom,
             fs_rom={
                 "fs_name": "Snow Brothers (USA).zip",
+                "fs_path": rom.fs_path,
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "",
                 "md5_hash": "",
@@ -569,8 +569,8 @@ async def test_scan_rom_unmatched_no_match_uses_parsed_name(
             rom=rom,
             fs_rom={
                 "fs_name": "Snow Brothers (USA).zip",
+                "fs_path": rom.fs_path,
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "",
                 "md5_hash": "",
@@ -800,8 +800,8 @@ async def test_scan_rom_hashes_rematches_hasheous(
             rom=rom,
             fs_rom={
                 "fs_name": "Snow Brothers (USA).7z",
+                "fs_path": rom.fs_path,
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "newcrc",
                 "md5_hash": "newmd5",
@@ -875,8 +875,8 @@ async def test_scan_rom_hashes_clears_stale_hasheous_match(
             rom=rom,
             fs_rom={
                 "fs_name": "Snow Brothers (USA).7z",
+                "fs_path": rom.fs_path,
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "changedcrc",
                 "md5_hash": "changedmd5",
@@ -925,8 +925,8 @@ async def test_scan_rom_hashes_keeps_match_when_hasheous_unreachable(
             rom=rom,
             fs_rom={
                 "fs_name": "Snow Brothers (USA).7z",
+                "fs_path": rom.fs_path,
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "changedcrc",
                 "md5_hash": "changedmd5",
@@ -1118,11 +1118,11 @@ def _ss_quota_platform() -> Platform:
     return db_platform_handler.add_platform(platform)
 
 
-def _ss_quota_fs_rom(fs_name: str) -> FSRom:
+def _ss_quota_fs_rom(fs_name: str, fs_path: str = "n64/roms") -> FSRom:
     return {
         "fs_name": fs_name,
+        "fs_path": fs_path,
         "flat": True,
-        "nested": False,
         "files": [],
         "crc_hash": "",
         "md5_hash": "",

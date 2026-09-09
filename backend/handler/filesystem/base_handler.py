@@ -36,11 +36,6 @@ UUID_V4_REGEX = re.compile(
 )
 
 
-class LibraryStructure(Enum):
-    A = "struct_a"
-    B = "struct_b"
-
-
 LANGUAGES = (
     ("Ar", "Arabic"),
     ("Da", "Danish"),

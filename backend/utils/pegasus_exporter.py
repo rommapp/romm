@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Final
 
 from fastapi import Request
@@ -11,7 +11,7 @@ from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.platform import Platform
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
-from utils.filesystem import link_or_copy_file
+from utils.filesystem import join_rel_path, link_or_copy_file, rel_platform_folder
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
@@ -208,9 +208,13 @@ class PegasusBlock:
     def lines(self, skip: frozenset[str] | set[str] = frozenset()) -> list[str]:
         return [line for key, lines in self.fields if key not in skip for line in lines]
 
-    def file_names(self) -> set[str]:
-        """Each listed filename, plus its top folder (a multi-file ROM's fs_name)."""
-        names: set[str] = set()
+    def file_paths(self) -> set[str]:
+        """Each listed path, plus the folders holding it.
+
+        A multi-file ROM is matched by the folder its files sit in, which a custom
+        library structure nests rather than leaving at the top level.
+        """
+        paths: set[str] = set()
         for key, lines in self.fields:
             if key != "file":
                 continue
@@ -218,11 +222,16 @@ class PegasusBlock:
             for raw in [value, *lines[1:]]:
                 if not raw.strip():
                     continue
-                path = Path(raw.strip().removeprefix("./"))
-                names.add(path.name)
-                if len(path.parts) > 1 and not path.is_absolute():
-                    names.add(path.parts[0])
-        return names
+                path = PurePosixPath(raw.strip().removeprefix("./"))
+                if path.is_absolute():
+                    # An absolute path is only comparable by the name it ends in.
+                    paths.add(path.name)
+                    continue
+                paths.add(path.as_posix())
+                paths.update(
+                    parent.as_posix() for parent in path.parents if parent.name
+                )
+        return paths
 
 
 def parse_pegasus(content: str) -> list[PegasusBlock]:
@@ -360,6 +369,7 @@ class PegasusExporter:
         rom: Rom,
         request: Request | None,
         exported_assets: dict[str, str] | None = None,
+        rel_folder: str = "",
     ) -> str:
         """Create a game entry for a ROM in Pegasus metadata format"""
         lines: list[str] = []
@@ -369,7 +379,7 @@ class PegasusExporter:
 
         # File path
         if self.local_export:
-            lines.append(f"file: {rom.fs_name}")
+            lines.append(f"file: {join_rel_path(rel_folder, rom.fs_name)}")
         else:
             if request is None:
                 raise ValueError(
@@ -478,11 +488,14 @@ class PegasusExporter:
 
         existing = existing or ExistingPegasus()
         unmatched_games = dict(enumerate(existing.games))
-        game_index_by_file = {
-            name: index
+        game_index_by_path = {
+            path: index
             for index, game in enumerate(existing.games)
-            for name in game.file_names()
+            for path in game.file_paths()
         }
+        platform_fs_path = fs_platform_handler.get_platform_fs_structure(
+            platform.fs_slug
+        )
 
         lines: list[str] = list(existing.preamble)
         collection_name, shortname = self._resolve_collection(platform)
@@ -495,6 +508,7 @@ class PegasusExporter:
         game_count = 0
         for rom in roms:
             exported_assets: dict[str, str] = {}
+            rel_folder = rel_platform_folder(rom.fs_path, platform_fs_path)
 
             if platform_dir is not None:
                 assets = self._collect_assets(rom)
@@ -503,28 +517,32 @@ class PegasusExporter:
                 for asset_key, source_path in assets.items():
                     subdir = PLATFORM_MEDIA_DIRS[PEGASUS_MEDIA_KEYS[asset_key]]
                     dest_name = f"{rom.fs_name_no_ext}{source_path.suffix}"
-                    dest_path = platform_dir / subdir / dest_name
+                    rel_dest = join_rel_path(subdir, rel_folder, dest_name)
+                    dest_path = platform_dir / rel_dest
 
                     # Logo and marquee share one folder; keep both files.
                     if claimed.get(dest_path, source_path) != source_path:
                         dest_name = (
                             f"{rom.fs_name_no_ext}-{asset_key}{source_path.suffix}"
                         )
-                        dest_path = platform_dir / subdir / dest_name
+                        rel_dest = join_rel_path(subdir, rel_folder, dest_name)
+                        dest_path = platform_dir / rel_dest
                     claimed[dest_path] = source_path
 
                     if self._copy_asset(source_path, dest_path):
-                        exported_assets[asset_key] = f"{subdir}/{dest_name}"
+                        exported_assets[asset_key] = rel_dest
 
             entry = self._create_game_entry(
                 rom,
                 request=request,
                 exported_assets=exported_assets if exported_assets else None,
+                rel_folder=rel_folder,
             )
             entry_lines = entry.splitlines()
 
             existing_game = unmatched_games.pop(
-                game_index_by_file.get(rom.fs_name, -1), None
+                game_index_by_path.get(join_rel_path(rel_folder, rom.fs_name), -1),
+                None,
             )
             if existing_game is not None:
                 emitted_keys = parse_pegasus(entry)[-1].keys()

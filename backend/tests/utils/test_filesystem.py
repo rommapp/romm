@@ -8,7 +8,12 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from utils.filesystem import link_or_copy_file, sanitize_filename
+from utils.filesystem import (
+    join_rel_path,
+    link_or_copy_file,
+    rel_platform_folder,
+    sanitize_filename,
+)
 
 INVALID_AFTER_SANITIZE = set('\\/:|*?"<>+\0')
 
@@ -235,3 +240,26 @@ class TestSanitizeFilename:
     def test_rejects_names_without_a_basename(self, name: str):
         with pytest.raises(ValueError):
             sanitize_filename(name)
+
+
+class TestRelPlatformFolder:
+    @pytest.mark.parametrize(
+        ("fs_path", "expected"),
+        [
+            ("roms/snes", ""),
+            ("roms/snes/USA", "USA"),
+            ("roms/snes/Disks/Set A", "Disks/Set A"),
+            # A path that is not under the platform folder cannot be made relative.
+            ("roms/nes/USA", ""),
+            ("snes/roms", ""),
+        ],
+    )
+    def test_folder_below_the_platform(self, fs_path: str, expected: str):
+        assert rel_platform_folder(fs_path, "roms/snes") == expected
+
+
+class TestJoinRelPath:
+    def test_skips_the_empty_parts(self):
+        assert join_rel_path("covers", "", "game.jpg") == "covers/game.jpg"
+        assert join_rel_path("covers", "USA", "game.jpg") == "covers/USA/game.jpg"
+        assert join_rel_path("", "") == ""

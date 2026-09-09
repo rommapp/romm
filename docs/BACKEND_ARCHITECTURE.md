@@ -1621,6 +1621,7 @@ Falls back to `FakeRedis` in test mode.
 | `DISABLE_EMULATOR_JS`    | `false` | Hide EmulatorJS player   |
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
 | `DISABLE_JSDOS`          | `false` | Hide js-dos player       |
+| `DISABLE_PICO8`          | `false` | Hide PICO-8 player       |
 
 #### Task Scheduling
 
@@ -1661,8 +1662,10 @@ exclude:
       names: ["__MACOSX"]
 
 filesystem:
-  roms_folder: "roms" # Subfolder name for ROMs
-  firmware_folder: "bios" # Subfolder name for BIOS
+  structure: # Library layout; `{platform}` is the platform folder, `{game}` where a game begins
+    default: "roms/{platform}/{game}"
+    firmware: "bios/{platform}"
+    ps3: "roms/{platform}/{category}/{game}" # Per-platform override, by fs_slug
   skip_hash_calculation: false
   skip_title_id_extraction: false # Skip sigil title ID extraction
   embed_switch_title_ids: false # Rename Switch ROMs to embed their title ID

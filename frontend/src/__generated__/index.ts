@@ -90,6 +90,7 @@ export type { EjsControls } from './models/EjsControls';
 export type { EjsControlsButton } from './models/EjsControlsButton';
 export type { EmulationDict } from './models/EmulationDict';
 export type { ExclusionPayload } from './models/ExclusionPayload';
+export type { ExclusionType } from './models/ExclusionType';
 export type { Facet } from './models/Facet';
 export type { FacetValueSchema } from './models/FacetValueSchema';
 export type { FilesystemDict } from './models/FilesystemDict';
