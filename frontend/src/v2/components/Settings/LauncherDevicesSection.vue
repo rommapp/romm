@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// LauncherDevicesSection — the desktop companions paired with this account
+// LauncherDevicesSection: the desktop companions paired with this account
 // and where each one's Steam queue stands. Lives under the token table
 // because a companion is paired through a client token.
 import { RBtn, RTable, type RTableColumn } from "@v2/lib";
@@ -153,7 +153,7 @@ onMounted(() => {
           {{
             (row as DeviceSchema).last_seen
               ? formatTimestamp((row as DeviceSchema).last_seen!, locale)
-              : "—"
+              : "-"
           }}
         </span>
       </template>

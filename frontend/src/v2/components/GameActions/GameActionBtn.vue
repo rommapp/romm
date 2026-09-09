@@ -553,7 +553,7 @@ function onClick(e: MouseEvent) {
     </template>
   </RMenu>
 
-  <!-- Steam with several companions — a picker naming each device and
+  <!-- Steam with several companions: a picker naming each device and
        where the rom stands on it. One companion skips the menu and lands
        in the plain-action branch below. -->
   <RMenu

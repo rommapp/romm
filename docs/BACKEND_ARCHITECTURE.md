@@ -801,7 +801,7 @@ Token format: `rmm_` + 64 hex chars (32-byte random)
 | `0064`         | Performance indexes on updated_at            |
 | `0068`         | Device + device_save_sync tables             |
 | `0072`         | Client tokens table                          |
-| `0122`         | Shortcuts table, devices.launch_capabilities |
+| `0127`         | Shortcuts table, devices.launch_capabilities |
 
 Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/PostgreSQL.
 
