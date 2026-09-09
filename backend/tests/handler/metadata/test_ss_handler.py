@@ -58,8 +58,10 @@ def _make_config(
         EXCLUDED_MULTI_PARTS_FILES=[],
         PLATFORMS_BINDING={},
         PLATFORMS_VERSIONS={},
-        ROMS_FOLDER_NAME="roms",
-        FIRMWARE_FOLDER_NAME="bios",
+        STRUCTURE_TEMPLATES={
+            "default": "{platform}/roms/{game}",
+            "firmware": "{platform}/bios",
+        },
         SCAN_REGION_PRIORITY=region_priority or [],
         SCAN_LANGUAGE_PRIORITY=(
             language_priority if language_priority is not None else ["en"]

@@ -16,7 +16,7 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.roms_handler import FSRom, build_empty_fs_rom
 from handler.metadata import (
     meta_csdb_handler,
     meta_demozoo_handler,
@@ -159,24 +159,16 @@ def build_physical_fs_path(platform: Platform) -> str:
 def build_physical_fs_name(name: str) -> str:
     """`fs_name` for a physical game: the sanitized name, with no fake extension.
 
-    The unique index on (platform_id, fs_name) rejects a second copy of the same
-    title on a platform, which is not a library a user can own anyway.
+    Physical games all share one folder, so the unique index on
+    (platform_id, full_path_hash) rejects a second copy of the same title on a
+    platform, which is not a library a user can own anyway.
     """
     return sanitize_filename(name)
 
 
-def build_hashless_fs_rom(fs_name: str, *, flat: bool) -> FSRom:
+def build_hashless_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
     """An `FSRom` for a rom with no filesystem listing to consult."""
-    return FSRom(
-        fs_name=fs_name,
-        flat=flat,
-        nested=not flat,
-        files=[],
-        crc_hash="",
-        md5_hash="",
-        sha1_hash="",
-        ra_hash="",
-    )
+    return build_empty_fs_rom(fs_name, fs_path, flat=flat)
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -1563,7 +1555,7 @@ async def scan_rom(
         extra=LOGGER_MODULE_NAME,
     )
 
-    if fs_rom["nested"]:
+    if not fs_rom["flat"]:
         for file in fs_rom["files"]:
             log.info(
                 f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",

@@ -526,6 +526,8 @@
   "vc-publisher": "發行商",
   "virtual-collection-type": "自動生成收藏庫形式（Rom 分組方式）",
   "watcher": "監視器",
+  "widget-anniversaries": "週年紀念",
+  "widget-anniversaries-desc": "顯示往年今日發行的遊戲，可用箭頭翻閱。",
   "widget-library-stats": "庫統計",
   "widget-library-stats-compact": "精簡（遊戲、平台、收藏）",
   "widget-library-stats-desc": "你的庫的數量概覽：遊戲、平台、收藏等。",

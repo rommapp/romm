@@ -7,6 +7,8 @@ from urllib.parse import quote
 from anyio import Path
 from fastapi.responses import Response
 
+from utils.filesystem import CONTROL_CHARS
+
 
 @dataclasses.dataclass(frozen=True)
 class ZipContentLine:
@@ -20,6 +22,18 @@ class ZipContentLine:
     size_bytes: int
     encoded_location: str
     filename: str
+
+    def __post_init__(self) -> None:
+        """Keep the rendered line parseable as exactly one mod_zip record.
+
+        The manifest is line-oriented, so a line feed in a name taken off disk
+        would otherwise let that name forge an extra archive entry.
+        """
+        location = self.encoded_location
+        if " " in location or CONTROL_CHARS.search(location):
+            raise ValueError(f"mod_zip location must be URL-encoded, got {location!r}")
+
+        object.__setattr__(self, "filename", CONTROL_CHARS.sub("_", self.filename))
 
     def __str__(self) -> str:
         crc32 = self.crc32 or "-"

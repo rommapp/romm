@@ -562,7 +562,9 @@ async def _identify_rom(
 
     # Update properties that don't require metadata
     parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+    # The discovered path is the rom's actual directory, which may be nested
+    # under the platform roms folder when a custom structure is configured.
+    roms_path = fs_rom["fs_path"]
 
     rom_attrs = {
         "fs_name": fs_rom["fs_name"],
@@ -822,7 +824,7 @@ async def _scan_selected_roms(
 
             await _identify_rom(
                 platform=platform,
-                fs_rom=build_hashless_fs_rom(rom.fs_name, flat=is_flat),
+                fs_rom=build_hashless_fs_rom(rom.fs_name, rom.fs_path, flat=is_flat),
                 rom=rom,
                 scan_type=scan_type,
                 roms_ids=roms_ids,
@@ -955,10 +957,11 @@ async def _identify_platform(
     previously_missing_rom_ids = db_rom_handler.get_missing_rom_ids(platform.id)
 
     # Flag entries whose file is gone before identifying files, so a renamed or
-    # moved ROM (a new file with no fs_name match) can be reassociated by hash
+    # moved ROM (a new file with no full-path match) can be reassociated by hash
     # with its now-missing entry instead of spawning a duplicate. The end-of-scan
     # call below re-syncs and logs, unmarking any entry that got reassociated.
-    db_rom_handler.mark_missing_roms(platform.id, [rom["fs_name"] for rom in fs_roms])
+    fs_rom_paths = [f"{rom['fs_path']}/{rom['fs_name']}" for rom in fs_roms]
+    db_rom_handler.mark_missing_roms(platform.id, fs_rom_paths)
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
@@ -981,7 +984,10 @@ async def _identify_platform(
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
+        # Key matches on the rom's full path (fs_path/fs_name), not just the
+        # file name, so identically-named files in different folders don't
+        # collide under a custom library structure.
+        roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
             with_files=scan_type == ScanType.QUICK,
@@ -993,7 +999,7 @@ async def _identify_platform(
         roms_to_scan: list[tuple[FSRom, Rom | None]] = []
 
         for fs_rom in fs_roms_batch:
-            rom = roms_by_fs_name.get(fs_rom["fs_name"])
+            rom = roms_by_full_path.get(f"{fs_rom['fs_path']}/{fs_rom['fs_name']}")
             if rom and rom.id in previously_missing_rom_ids:
                 restored_roms.append(rom)
             if should_scan_rom(
@@ -1041,13 +1047,26 @@ async def _identify_platform(
                 if isinstance(result, Exception):
                     log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
 
-    missing_roms = db_rom_handler.mark_missing_roms(
-        platform.id, [rom["fs_name"] for rom in fs_roms]
-    )
+    missing_roms = db_rom_handler.mark_missing_roms(platform.id, fs_rom_paths)
     if len(missing_roms) > 0:
         log.warning(f"{hl('Missing')} roms from filesystem:")
+        # A folder a custom structure now descends into used to be a single
+        # multi-file rom; that old entry shows up here as missing. Flag those so
+        # it's clear the "missing" is expected and the stale entry can be
+        # deleted. A superseded folder's path is a parent of a discovered rom.
+        descended_paths = {rom["fs_path"] for rom in fs_roms}
         for r in missing_roms:
-            log.warning(f" - {r.fs_name}")
+            superseded = any(
+                p == r.full_path or p.startswith(f"{r.full_path}/")
+                for p in descended_paths
+            )
+            if superseded:
+                log.warning(
+                    f" - {r.fs_name} (now scanned as a folder of roms, "
+                    "delete this stale entry to clean up)"
+                )
+            else:
+                log.warning(f" - {r.fs_name}")
 
     missing_firmware = db_firmware_handler.mark_missing_firmware(
         platform.id, [fw for fw in fs_firmware]

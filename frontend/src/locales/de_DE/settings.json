@@ -526,6 +526,8 @@
   "vc-publisher": "Publisher",
   "virtual-collection-type": "Typ der automatisch generierten Sammlung (ROM-Gruppierungsmethode)",
   "watcher": "Überwacher",
+  "widget-anniversaries": "Jahrestage",
+  "widget-anniversaries-desc": "Zeigt Spiele, die an einem früheren Jahr am heutigen Datum erschienen sind, mit Pfeilen zum Durchblättern.",
   "widget-library-stats": "Bibliotheksstatistik",
   "widget-library-stats-compact": "Kompakt (Spiele, Plattformen, Favoriten)",
   "widget-library-stats-desc": "Zahlenüberblick deiner Bibliothek: Spiele, Plattformen, Favoriten und mehr.",

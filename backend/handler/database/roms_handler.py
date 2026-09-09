@@ -69,16 +69,19 @@ from models.rom import (
     RomUser,
     SiblingRom,
     TrackMeta,
+    compute_full_path_hash,
     compute_name_sort_key,
 )
 from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
+    epoch_ms_in_ranges,
     escape_like,
     is_postgresql,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
+    release_day_ranges,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -1284,6 +1287,8 @@ class DBRomsHandler(DBBaseHandler):
         tags_logic: str = "any",
         user_id: int | None = None,
         updated_after: datetime | None = None,
+        released_days: Sequence[tuple[int, int]] | None = None,
+        released_before_year: int | None = None,
         include_file_stats: bool = False,
         include_files: bool = False,
         include_related: bool = True,
@@ -1412,6 +1417,14 @@ class DBRomsHandler(DBBaseHandler):
 
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
+
+        if released_days:
+            query = query.filter(
+                epoch_ms_in_ranges(
+                    Rom.generated_first_release_date,
+                    release_day_ranges(released_days, before_year=released_before_year),
+                )
+            )
 
         # Only join the metadata table when a filter reads from it. The dedup
         # subquery below is derived from `query`, so the join has to land before
@@ -1663,7 +1676,9 @@ class DBRomsHandler(DBBaseHandler):
             if relevance_clause is not None:
                 order_clauses.insert(0, relevance_clause)
 
-        return query.order_by(*order_clauses), order_attr_column  # type: ignore
+        # The id settles ties, so a page boundary can't repeat or skip a row
+        # when the sort column holds duplicates.
+        return query.order_by(*order_clauses, Rom.id.asc()), order_attr_column  # type: ignore
 
     @begin_session
     def get_roms_scalar(
@@ -1730,6 +1745,8 @@ class DBRomsHandler(DBBaseHandler):
             metadata_providers_logic=kwargs.get("metadata_providers_logic", "any"),
             tags_logic=kwargs.get("tags_logic", "any"),
             user_id=kwargs.get("user_id", None),
+            released_days=kwargs.get("released_days", None),
+            released_before_year=kwargs.get("released_before_year", None),
             group_by_meta_id=kwargs.get("group_by_meta_id", False),
             include_files=kwargs.get("include_files", False),
             hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
@@ -1915,7 +1932,11 @@ class DBRomsHandler(DBBaseHandler):
         with_files: bool = False,
         session: Session = None,  # type: ignore
     ) -> dict[str, Rom]:
-        """Retrieve a dictionary of roms by their filesystem names.
+        """Retrieve a dictionary of roms keyed by their full path (fs_path/fs_name).
+
+        Filters by file name for an indexed lookup, but keys the result on the
+        full path so identically-named files in different folders (custom
+        library structures) remain distinct.
 
         Eager-loads only `platform` (used downstream by the scan loop via
         `rom.platform_slug` / `rom.platform.fs_slug`). This deliberately
@@ -1945,7 +1966,7 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
 
-        return {rom.fs_name: rom for rom in roms}
+        return {rom.full_path: rom for rom in roms}
 
     @begin_session
     def update_rom(
@@ -1974,6 +1995,18 @@ class DBRomsHandler(DBBaseHandler):
                 "fs_extension": parts.extension,
             }
 
+        if "fs_name" in data or "fs_path" in data:
+            # The unique index reads the digest, so whichever half the caller
+            # left out has to come from the stored row.
+            stored = session.query(Rom).filter_by(id=id).one()
+            data = {
+                **data,
+                "full_path_hash": compute_full_path_hash(
+                    data.get("fs_path", stored.fs_path),
+                    data.get("fs_name", stored.fs_name),
+                ),
+            }
+
         session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -1991,6 +2024,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> None:
         parts = compute_file_name_parts(folder)
+        stored = session.query(Rom).filter_by(id=id).one()
         session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -1999,6 +2033,7 @@ class DBRomsHandler(DBBaseHandler):
                 fs_name_no_tags=parts.no_tags,
                 fs_name_no_ext=parts.no_ext,
                 fs_extension=parts.extension,
+                full_path_hash=compute_full_path_hash(stored.fs_path, folder),
             )
         )
         session.execute(
@@ -2075,13 +2110,17 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Sequence[Rom]:
         """Sync `missing_from_fs` for a platform against the keep-list.
 
+        The keep-list holds rom full paths (fs_path/fs_name) so that
+        identically-named files in different folders are tracked
+        independently under a custom library structure.
+
         Reads the rows once and writes only those whose state actually
         changes, so a re-scan of an unchanged platform issues no updates.
         """
         keep_set = set(fs_roms_to_keep)
         # Physical games have no file on disk, so they must never be flagged missing.
         rows = session.execute(
-            select(Rom.id, Rom.fs_name, Rom.missing_from_fs).where(
+            select(Rom.id, Rom.fs_path, Rom.fs_name, Rom.missing_from_fs).where(
                 and_(
                     Rom.platform_id == platform_id,
                     Rom.is_physical.is_(False),
@@ -2090,8 +2129,8 @@ class DBRomsHandler(DBBaseHandler):
         ).all()
 
         flips: dict[bool, list[int]] = {True: [], False: []}
-        for rom_id, fs_name, was_missing in rows:
-            is_missing = fs_name not in keep_set
+        for rom_id, fs_path, fs_name, was_missing in rows:
+            is_missing = f"{fs_path}/{fs_name}" not in keep_set
             if is_missing != was_missing:
                 flips[is_missing].append(rom_id)
 
@@ -2106,8 +2145,10 @@ class DBRomsHandler(DBBaseHandler):
 
         return (
             session.scalars(
+                # The returned instances are detached, so `fs_path` is loaded up
+                # front for callers reading `rom.full_path`.
                 select(Rom)
-                .options(load_only(Rom.id, Rom.fs_name))
+                .options(load_only(Rom.id, Rom.fs_name, Rom.fs_path))
                 .where(
                     and_(
                         Rom.platform_id == platform_id,

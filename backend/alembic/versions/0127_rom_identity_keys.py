@@ -27,8 +27,8 @@ Notes:
   so responses are identical. `steam_id` (in `IDENTITY_ID_FIELDS`) and
   `flashpoint_id` (in the `group_by_meta_id` window) are still not part of it.
 
-Revision ID: 0126_rom_identity_keys
-Revises: 0125_drop_redundant_indexes
+Revision ID: 0127_rom_identity_keys
+Revises: 0126_unique_rom_full_path
 Create Date: 2026-09-07 00:00:00.000000
 
 """
@@ -39,8 +39,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0126_rom_identity_keys"
-down_revision = "0125_drop_redundant_indexes"
+revision = "0127_rom_identity_keys"
+down_revision = "0126_unique_rom_full_path"
 branch_labels = None
 depends_on = None
 

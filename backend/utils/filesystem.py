@@ -60,6 +60,25 @@ _LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
 )
 
 
+def rel_platform_folder(fs_path: str, platform_fs_path: str) -> str:
+    """The part of a rom's folder that sits below its platform folder.
+
+    Args:
+        fs_path: The rom's folder.
+        platform_fs_path: The platform folder holding the metadata export files.
+    Returns:
+        `Disks/Set A` for a rom nested by a custom library structure, empty for one
+        sitting directly in the platform folder.
+    """
+    rel = fs_path.removeprefix(f"{platform_fs_path}/")
+    return "" if rel in (fs_path, platform_fs_path) else rel
+
+
+def join_rel_path(*parts: str) -> str:
+    """Join the non-empty parts of a path written into an export file."""
+    return "/".join(part for part in parts if part)
+
+
 def link_or_copy_file(source: Path, dest: Path) -> None:
     """Place ``source`` at ``dest`` via hardlink (preferred) or copy (fallback),
     atomically replacing ``dest`` if it already exists. Caller is responsible
@@ -93,6 +112,11 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
 INVALID_CHARS_EMPTY = re.compile(r'[*?"<>+]')
 
+# C0 controls plus DEL. Illegal on most filesystems, and a line feed in a name
+# that reaches a line-oriented protocol (the nginx mod_zip manifest) would split
+# the record it sits in.
+CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
 
 def sanitize_filename(filename: str) -> str:
     """
@@ -117,8 +141,8 @@ def sanitize_filename(filename: str) -> str:
     # Remove other invalid characters
     sanitized_filename = INVALID_CHARS_EMPTY.sub("", sanitized_filename)
 
-    # Ensure null bytes are not included (ZFS allows any characters except null bytes)
-    sanitized_filename = sanitized_filename.replace("\0", "")
+    # Drop control characters, null bytes included (ZFS allows every other character)
+    sanitized_filename = CONTROL_CHARS.sub("", sanitized_filename)
 
     # Remove leading/trailing whitespace
     sanitized_filename = sanitized_filename.strip()

@@ -16,7 +16,7 @@ import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import { isJsResource, loadScript } from "./scriptLoader";
+import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 
 const JSDOS_LOCAL_BASE = "/assets/jsdos";
 // Fallback for slim images and the dev server, which ship no local copy. Pinned

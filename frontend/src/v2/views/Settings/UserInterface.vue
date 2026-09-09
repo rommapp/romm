@@ -51,6 +51,7 @@ const {
   showHomeWidgets,
   widgetRandomPick,
   widgetLibraryStats,
+  widgetAnniversaries,
   libraryStatsMode,
   widgetOrder,
   // Gallery
@@ -330,6 +331,12 @@ function onVirtualCollectionTypeChange(value: unknown) {
               />
             </template>
           </SettingsToggleRow>
+          <SettingsToggleRow
+            v-model="widgetAnniversaries"
+            :title="t('settings.widget-anniversaries')"
+            :description="t('settings.widget-anniversaries-desc')"
+            :disabled="!showHomeWidgets"
+          />
         </div>
         <!-- Reorder list — drag handles let users decide the
              left-to-right order the widgets paint on Home. Disabled

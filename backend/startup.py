@@ -9,6 +9,7 @@ from rq.job import Job
 from rq.utils import as_text
 
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, SENTRY_DSN
+from config.config_manager import config_manager as cm
 from handler.database import db_save_handler
 from handler.metadata.base_handler import (
     MAME_XML_KEY,
@@ -132,6 +133,8 @@ async def main() -> None:
 
     async with initialize_context():
         log.info("Running startup tasks")
+
+        cm.check_library_layout()
 
         try:
             drop_stale_scheduled_scans()

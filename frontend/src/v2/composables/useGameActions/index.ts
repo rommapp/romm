@@ -83,14 +83,24 @@ export function useGameActions(
   const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
   const { startScan } = useScanTrigger();
-  const { canPlay, canPlayEJS, canPlayJsDos, canPlayRuffle, canPlayStream } =
-    useCanPlay(getRom);
+  const {
+    canPlay,
+    canPlayEJS,
+    canPlayJsDos,
+    canPlayPico8,
+    canPlayRuffle,
+    canPlayStream,
+  } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
 
   // Streaming is offered as its own action rather than as the winner of a
   // precedence rule, so each player needs a gate of its own.
   const canPlayInBrowser = computed(
-    () => canPlayEJS.value || canPlayJsDos.value || canPlayRuffle.value,
+    () =>
+      canPlayEJS.value ||
+      canPlayJsDos.value ||
+      canPlayPico8.value ||
+      canPlayRuffle.value,
   );
 
   // Download, the copied link and the QR code all resolve to the download
@@ -332,6 +342,7 @@ export function useGameActions(
     // immediate here.
     let path: string | null = null;
     if (streaming && canPlayStream.value) path = `/rom/${rom.id}/stream`;
+    else if (inBrowser && canPlayPico8.value) path = `/rom/${rom.id}/pico8`;
     else if (inBrowser && canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
     if (!path) return;
     const target = path;
