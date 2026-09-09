@@ -179,6 +179,7 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "first_release_date": Rom.generated_first_release_date,
     "average_rating": Rom.generated_average_rating,
     "player_count": Rom.generated_player_count,
+    "hltb_main_story": Rom.generated_hltb_main_story,
 }
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
@@ -1271,6 +1272,8 @@ class DBRomsHandler(DBBaseHandler):
         player_counts: Sequence[str] | None = None,
         metadata_providers: Sequence[str] | None = None,
         tags: Sequence[str] | None = None,
+        hltb_main_story_min: int | None = None,
+        hltb_main_story_max: int | None = None,
         # Logic operators for multi-value filters
         genres_logic: str = "any",
         franchises_logic: str = "any",
@@ -1425,6 +1428,14 @@ class DBRomsHandler(DBBaseHandler):
                     release_day_ranges(released_days, before_year=released_before_year),
                 )
             )
+
+        # A NULL length is excluded by either comparison, so a range filter
+        # only ever returns roms HowLongToBeat actually has a time for.
+        if hltb_main_story_min is not None:
+            query = query.filter(Rom.generated_hltb_main_story >= hltb_main_story_min)
+
+        if hltb_main_story_max is not None:
+            query = query.filter(Rom.generated_hltb_main_story <= hltb_main_story_max)
 
         # Only join the metadata table when a filter reads from it. The dedup
         # subquery below is derived from `query`, so the join has to land before
@@ -1659,10 +1670,14 @@ class DBRomsHandler(DBBaseHandler):
 
         order_attr_column = order_attr
 
-        if order_dir.lower() == "desc":
-            order_attr = order_attr.desc()
-        else:
-            order_attr = order_attr.asc()
+        descending = order_dir.lower() == "desc"
+        order_attr = order_attr.desc() if descending else order_attr.asc()
+
+        # Ties are common on every sort key here and the gallery pages by
+        # offset, so without a unique final key a rom can repeat in one window
+        # and vanish from the next. The id follows the sort direction because a
+        # mixed-direction pair forces a filesort.
+        tiebreaker = Rom.id.desc() if descending else Rom.id.asc()
 
         relevance_clause = None
         if search_term and ROMM_DB_DRIVER in ("mariadb", "mysql"):
@@ -1681,10 +1696,9 @@ class DBRomsHandler(DBBaseHandler):
             order_clauses = [order_attr]
             if relevance_clause is not None:
                 order_clauses.insert(0, relevance_clause)
+        order_clauses.append(tiebreaker)
 
-        # The id settles ties, so a page boundary can't repeat or skip a row
-        # when the sort column holds duplicates.
-        return query.order_by(*order_clauses, Rom.id.asc()), order_attr_column  # type: ignore
+        return query.order_by(*order_clauses), order_attr_column  # type: ignore
 
     @begin_session
     def get_roms_scalar(
@@ -1736,6 +1750,8 @@ class DBRomsHandler(DBBaseHandler):
             player_counts=kwargs.get("player_counts", None),
             metadata_providers=kwargs.get("metadata_providers", None),
             tags=kwargs.get("tags", None),
+            hltb_main_story_min=kwargs.get("hltb_main_story_min", None),
+            hltb_main_story_max=kwargs.get("hltb_main_story_max", None),
             # Logic operators for multi-value filters
             genres_logic=kwargs.get("genres_logic", "any"),
             franchises_logic=kwargs.get("franchises_logic", "any"),

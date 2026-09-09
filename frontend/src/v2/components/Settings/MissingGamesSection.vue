@@ -119,7 +119,8 @@ const listSortKey = computed<ListSortKey | null>(() => {
     k === "fs_size_bytes" ||
     k === "created_at" ||
     k === "first_release_date" ||
-    k === "average_rating"
+    k === "average_rating" ||
+    k === "hltb_main_story"
   ) {
     return k;
   }
