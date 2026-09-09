@@ -161,8 +161,7 @@ RANDOM_ID_SAMPLE_SIZE = 16
 # "%Y", CSDb publishes nothing else), so the day means nothing on this date.
 AMBIGUOUS_RELEASE_DAY = (1, 1)
 
-# The widget pages one game at a time, so a whole busy day on a large library
-# is far more than anyone reads.
+# The widget pages one game at a time, so a whole busy day is far more than anyone reads.
 MAX_ANNIVERSARY_RESULTS = 500
 
 # CRC32 (8), MD5 and RetroAchievements (32), SHA-1 (40).
