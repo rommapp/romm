@@ -3,11 +3,12 @@
 // serves every GameActionBtn in a gallery, so per-card surfaces read state
 // with no request of their own; `shortcuts:changed` keeps it current.
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, effectScope, ref } from "vue";
 import type { DeviceSchema, ShortcutSchema } from "@/__generated__";
 import deviceApi from "@/services/api/device";
 import shortcutApi from "@/services/api/shortcut";
 import storeAuth from "@/stores/auth";
+import type { SocketEventHandle } from "@/v2/composables/useSocketEvent";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
 /** Device `client` a desktop companion registers with (KNOWN_DEVICES). */
@@ -27,7 +28,12 @@ export const useShortcutsStore = defineStore("shortcuts", () => {
   const loaded = ref(false);
   let inflight: Promise<void> | null = null;
   let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-  let subscribed = false;
+  // The subscription belongs to the store, not to whichever component happened
+  // to trigger the first load: cleanup runs on the scope that was active when
+  // useSocketEvent was called, so a component scope would take the listener
+  // down with it on unmount.
+  const socketScope = effectScope(true);
+  let socketHandle: SocketEventHandle | null = null;
 
   // Reading devices and shortcuts needs both scopes; a viewer without them
   // simply never sees the Steam actions rather than tripping a 403.
@@ -94,9 +100,10 @@ export const useShortcutsStore = defineStore("shortcuts", () => {
 
   /** First-call load; later calls are free. Also arms the socket refresh. */
   async function ensureLoaded(): Promise<void> {
-    if (!subscribed && canRead.value) {
-      subscribed = true;
-      useSocketEvent("shortcuts:changed", scheduleRefresh);
+    if (!socketHandle && canRead.value) {
+      socketHandle = socketScope.run(() =>
+        useSocketEvent("shortcuts:changed", scheduleRefresh),
+      ) as SocketEventHandle;
     }
     if (loaded.value) return;
     await fetch();
@@ -133,6 +140,21 @@ export const useShortcutsStore = defineStore("shortcuts", () => {
     return data;
   }
 
+  /** Logout clears every store that offers this, so the next account starts
+   *  from nothing rather than seeing the previous one's launchers. */
+  function reset() {
+    devices.value = [];
+    shortcuts.value = [];
+    loaded.value = false;
+    inflight = null;
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+      refreshTimer = null;
+    }
+    socketHandle?.stop();
+    socketHandle = null;
+  }
+
   return {
     devices,
     shortcuts,
@@ -147,5 +169,6 @@ export const useShortcutsStore = defineStore("shortcuts", () => {
     ensureLoaded,
     add,
     remove,
+    reset,
   };
 });

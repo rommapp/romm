@@ -83,10 +83,15 @@ function pendingCount(device: DeviceSchema): number {
     .length;
 }
 
-async function removeAll(device: DeviceSchema) {
-  const rows = store
+/** The rows a "remove all" would act on; a removal already queued is not one. */
+function removableShortcuts(device: DeviceSchema) {
+  return store
     .shortcutsForDevice(device.id)
     .filter((s) => s.status !== "pending_remove");
+}
+
+async function removeAll(device: DeviceSchema) {
+  const rows = removableShortcuts(device);
   if (rows.length === 0) return;
   const ok = await confirm({
     title: t("settings.launcher-remove-all"),
@@ -172,9 +177,7 @@ onMounted(() => {
           size="small"
           color="danger"
           prepend-icon="mdi-steam"
-          :disabled="
-            store.shortcutsForDevice((row as DeviceSchema).id).length === 0
-          "
+          :disabled="removableShortcuts(row as DeviceSchema).length === 0"
           :loading="removing === (row as DeviceSchema).id"
           @click="removeAll(row as DeviceSchema)"
         >

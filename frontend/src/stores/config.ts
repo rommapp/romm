@@ -48,6 +48,9 @@ const defaultConfig = {
   PEGASUS_AUTO_EXPORT_ON_SCAN: false,
 } as ConfigResponse;
 
+const CONFIG_FETCH_ATTEMPTS = 3;
+const CONFIG_RETRY_BASE_MS = 400;
+
 export default defineStore("config", {
   state: () => ({
     config: { ...defaultConfig },
@@ -57,15 +60,28 @@ export default defineStore("config", {
     async fetchConfig({
       rethrow = false,
     }: { rethrow?: boolean } = {}): Promise<ConfigResponse> {
-      try {
-        const response = await api.get("/config");
-        this.config = response.data;
-        return this.config;
-      } catch (error) {
-        console.error("Error fetching config: ", error);
-        if (rethrow) throw error;
-        return this.config;
+      // Config is fetched once at startup and consumers read it synchronously
+      // afterwards, so a blip here would otherwise leave the defaults in place
+      // for the whole session: no emulator cores, and every platform looking
+      // unplayable. Retry briefly before giving up on that.
+      let lastError: unknown;
+      for (let attempt = 0; attempt < CONFIG_FETCH_ATTEMPTS; attempt++) {
+        try {
+          const response = await api.get("/config");
+          this.config = response.data;
+          return this.config;
+        } catch (error) {
+          lastError = error;
+          if (attempt < CONFIG_FETCH_ATTEMPTS - 1) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, CONFIG_RETRY_BASE_MS * (attempt + 1)),
+            );
+          }
+        }
       }
+      console.error("Error fetching config: ", lastError);
+      if (rethrow) throw lastError;
+      return this.config;
     },
     addPlatformBinding(fsSlug: string, slug: string) {
       this.config.PLATFORMS_BINDING[fsSlug] = slug;
