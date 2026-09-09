@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionsList from "./GameActionsList.vue";
 
@@ -45,6 +45,15 @@ const flags: Flags = {
   canAddToSteam: false,
 };
 
+interface TestSteamTarget {
+  device: { id: string };
+  shortcut: { status: string } | null;
+  supported: boolean | null;
+}
+
+let steamTargets: TestSteamTarget[] = [];
+const toggleSteam = vi.fn();
+
 vi.mock("@/v2/composables/useGameActions", () => ({
   useGameActions: () =>
     new Proxy(
@@ -59,7 +68,12 @@ vi.mock("@/v2/composables/useGameActions", () => ({
             };
           }
           if (prop === "isFavorited") return { value: false };
-          if (prop === "steamTargets") return { value: [] };
+          if (prop === "steamTargets") return { value: steamTargets };
+          if (prop === "steamTargetLabel")
+            return (t: { device: { id: string } }) => `steam:${t.device.id}`;
+          if (prop === "steamTargetDisabled")
+            return (t: { supported: boolean | null }) => t.supported === false;
+          if (prop === "toggleSteam") return toggleSteam;
           if (prop === "joinActionLabel") return { value: joinActionLabel };
           if (prop === "streamActionLabel") return { value: streamActionLabel };
           return vi.fn();
@@ -69,10 +83,16 @@ vi.mock("@/v2/composables/useGameActions", () => ({
 }));
 
 const RMenuItem = {
-  props: ["label"],
-  template: `<li class="item">{{ label }}</li>`,
+  props: ["label", "disabled", "variant"],
+  emits: ["click"],
+  template: `<li class="item" :data-disabled="disabled" :data-variant="variant" @click="$emit('click')">{{ label }}</li>`,
 };
 const RDivider = { template: `<hr class="divider" />` };
+
+beforeEach(() => {
+  steamTargets = [];
+  toggleSteam.mockClear();
+});
 
 function mountList(
   overrides: Partial<Flags> = {},
@@ -189,5 +209,52 @@ describe("GameActionsList: joining someone else's session", () => {
     const shown = labels(mountList({ canJoinStream: false }, "ana"));
     expect(shown).not.toContain("rom.join-session");
     expect(shown).not.toContain("rom.join-session-of");
+  });
+});
+
+describe("GameActionsList: Steam", () => {
+  const target = (
+    id: string,
+    shortcut: { status: string } | null = null,
+    supported: boolean | null = true,
+  ) => ({ device: { id }, shortcut, supported });
+
+  it("lists one row per companion", () => {
+    steamTargets = [target("pc"), target("laptop")];
+    const wrapper = mountList({ canAddToSteam: true });
+    expect(labels(wrapper)).toEqual(
+      expect.arrayContaining(["steam:pc", "steam:laptop"]),
+    );
+  });
+
+  it("shows no rows when the user cannot add to Steam", () => {
+    steamTargets = [target("pc")];
+    const wrapper = mountList({ canAddToSteam: false });
+    expect(labels(wrapper)).not.toContain("steam:pc");
+  });
+
+  it("disables a companion that cannot play the platform", () => {
+    steamTargets = [target("pc", null, false)];
+    const wrapper = mountList({ canAddToSteam: true });
+    const row = wrapper.findAll(".item").find((i) => i.text() === "steam:pc");
+    expect(row?.attributes("data-disabled")).toBe("true");
+  });
+
+  it("marks a game already in Steam as active", () => {
+    steamTargets = [target("pc", { status: "added" })];
+    const wrapper = mountList({ canAddToSteam: true });
+    const row = wrapper.findAll(".item").find((i) => i.text() === "steam:pc");
+    expect(row?.attributes("data-variant")).toBe("active");
+  });
+
+  it("dispatches the toggle for the row that was clicked", async () => {
+    steamTargets = [target("pc"), target("laptop")];
+    const wrapper = mountList({ canAddToSteam: true });
+    const row = wrapper
+      .findAll(".item")
+      .find((i) => i.text() === "steam:laptop");
+    await row?.trigger("click");
+    expect(toggleSteam).toHaveBeenCalledTimes(1);
+    expect(toggleSteam.mock.calls[0][0].device.id).toBe("laptop");
   });
 });

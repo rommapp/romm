@@ -13,6 +13,8 @@ from adapters.services.steamgriddb import (
 )
 from adapters.services.steamgriddb_types import (
     SGDBDimension,
+    SGDBHeroDimension,
+    SGDBLogoStyle,
     SGDBMime,
     SGDBStyle,
     SGDBTag,
@@ -203,6 +205,60 @@ class TestSteamGridDBServiceUnit:
         assert result["data"][0]["id"] == 1
         call_args = mock_request.call_args[0][0]
         assert "grids/game/123" in call_args
+
+    @pytest.mark.asyncio
+    async def test_get_heroes_for_game(self, service):
+        """Heroes go to their own path and carry hero dimensions."""
+        mock_response = {
+            "page": 0,
+            "total": 1,
+            "limit": 50,
+            "data": [{"id": 7, "url": "https://example.com/hero.png"}],
+        }
+
+        with patch.object(
+            service, "_request", return_value=mock_response
+        ) as mock_request:
+            result = await service.get_heroes_for_game(
+                123,
+                dimensions=[
+                    SGDBHeroDimension.STEAM_HERO,
+                    SGDBHeroDimension.GOG_GALAXY_HERO,
+                ],
+            )
+
+        assert result["data"][0]["id"] == 7
+        call_args = mock_request.call_args[0][0]
+        assert "heroes/game/123" in call_args
+        assert (
+            "dimensions=1920x620%2C1600x650" in call_args
+            or "dimensions=1920x620,1600x650" in call_args
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_logos_for_game(self, service):
+        """Logos go to their own path and carry logo styles."""
+        mock_response = {
+            "page": 0,
+            "total": 1,
+            "limit": 50,
+            "data": [{"id": 9, "url": "https://example.com/logo.png"}],
+        }
+
+        with patch.object(
+            service, "_request", return_value=mock_response
+        ) as mock_request:
+            result = await service.get_logos_for_game(
+                123, styles=[SGDBLogoStyle.OFFICIAL, SGDBLogoStyle.WHITE]
+            )
+
+        assert result["data"][0]["id"] == 9
+        call_args = mock_request.call_args[0][0]
+        assert "logos/game/123" in call_args
+        assert (
+            "styles=official%2Cwhite" in call_args
+            or "styles=official,white" in call_args
+        )
 
     @pytest.mark.asyncio
     async def test_get_grids_for_game_with_styles(self, service):

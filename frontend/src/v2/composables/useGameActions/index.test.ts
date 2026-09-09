@@ -48,23 +48,40 @@ vi.mock("@/composables/useUISettings", () => ({
 vi.mock("@/services/api/rom", () => ({
   default: { updateUserRomProps: vi.fn() },
 }));
+let authScopes: string[] = [];
 vi.mock("@/stores/auth", () => ({
-  default: () => ({ scopes: [] as string[] }),
+  default: () => ({
+    get scopes() {
+      return authScopes;
+    },
+  }),
 }));
 vi.mock("@/stores/roms", () => ({
   default: () => ({ update: vi.fn(), removeFromContinuePlaying: vi.fn() }),
 }));
+const shortcutsState = {
+  launcherDevices: [] as { id: string; name: string | null }[],
+  rows: [] as { id: number; device_id: string; status: string }[],
+  supports: null as boolean | null,
+};
+const shortcutAdd = vi.fn();
+const shortcutRemove = vi.fn();
+
 vi.mock("@/stores/shortcuts", () => ({
   launcherDeviceName: (d: { name: string | null; id: string }) =>
     d.name ?? d.id,
   useShortcutsStore: () => ({
-    hasLauncherDevices: false,
-    launcherDevices: [],
-    shortcutsForRom: () => [],
-    deviceSupports: () => null,
+    get hasLauncherDevices() {
+      return shortcutsState.launcherDevices.length > 0;
+    },
+    get launcherDevices() {
+      return shortcutsState.launcherDevices;
+    },
+    shortcutsForRom: () => shortcutsState.rows,
+    deviceSupports: () => shortcutsState.supports,
     ensureLoaded: vi.fn(),
-    add: vi.fn(),
-    remove: vi.fn(),
+    add: shortcutAdd,
+    remove: shortcutRemove,
   }),
 }));
 vi.mock("@/stores/streaming", () => ({
@@ -176,6 +193,12 @@ beforeEach(() => {
   streamContainer.value = null;
   joinableSession.value = null;
   grantedActions.value = null;
+  authScopes = [];
+  shortcutsState.launcherDevices = [];
+  shortcutsState.rows = [];
+  shortcutsState.supports = null;
+  shortcutAdd.mockClear();
+  shortcutRemove.mockClear();
 });
 
 describe("useGameActions.joinStream", () => {
@@ -472,5 +495,85 @@ describe("useGameActions.refreshFiles", () => {
     actions.refreshFiles();
 
     expect(snackbarInfo).not.toHaveBeenCalled();
+  });
+});
+
+describe("useGameActions: Steam", () => {
+  const PC = { id: "pc", name: "Gaming PC" };
+
+  function withCompanion(status?: string, supported: boolean | null = true) {
+    authScopes = ["roms.user.write"];
+    shortcutsState.launcherDevices = [PC];
+    shortcutsState.supports = supported;
+    shortcutsState.rows = status ? [{ id: 5, device_id: "pc", status }] : [];
+    return useGameActions(() => makeRom());
+  }
+
+  it("offers the action only when a companion is paired", () => {
+    expect(useGameActions(() => makeRom()).canAddToSteam.value).toBe(false);
+    expect(withCompanion().canAddToSteam.value).toBe(true);
+  });
+
+  it("gives one target per companion, carrying the rom's row", () => {
+    const actions = withCompanion("added");
+    expect(actions.steamTargets.value).toHaveLength(1);
+    expect(actions.steamTargets.value[0].shortcut?.status).toBe("added");
+    expect(actions.steamTargets.value[0].device.id).toBe("pc");
+  });
+
+  it.each([
+    [undefined, "rom.steam-add-on"],
+    ["pending_add", "rom.steam-queued-on"],
+    ["staged", "rom.steam-restart-on"],
+    ["added", "rom.steam-in-library-on"],
+    ["pending_remove", "rom.steam-removing-on"],
+    ["failed", "rom.steam-failed-on"],
+  ])("labels the %s state", (status, key) => {
+    const actions = withCompanion(status as string | undefined);
+    expect(actions.steamTargetLabel(actions.steamTargets.value[0])).toContain(
+      key,
+    );
+  });
+
+  it("labels and disables a platform the companion cannot play", () => {
+    const actions = withCompanion(undefined, false);
+    const target = actions.steamTargets.value[0];
+    expect(actions.steamTargetLabel(target)).toContain("rom.steam-unsupported");
+    expect(actions.steamTargetDisabled(target)).toBe(true);
+  });
+
+  it("keeps a queued removal unpressable", () => {
+    const actions = withCompanion("pending_remove");
+    expect(actions.steamTargetDisabled(actions.steamTargets.value[0])).toBe(
+      true,
+    );
+  });
+
+  it("queues an add for a rom that has never been sent", async () => {
+    const actions = withCompanion();
+    await actions.toggleSteam(actions.steamTargets.value[0]);
+    expect(shortcutAdd).toHaveBeenCalledWith(1, "pc");
+    expect(shortcutRemove).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed row rather than removing it", async () => {
+    const actions = withCompanion("failed");
+    await actions.toggleSteam(actions.steamTargets.value[0]);
+    expect(shortcutAdd).toHaveBeenCalledWith(1, "pc");
+    expect(shortcutRemove).not.toHaveBeenCalled();
+  });
+
+  it("does not remove a game from Steam until the user confirms", async () => {
+    confirmFn.mockResolvedValue(false);
+    const actions = withCompanion("added");
+    await actions.toggleSteam(actions.steamTargets.value[0]);
+    expect(shortcutRemove).not.toHaveBeenCalled();
+  });
+
+  it("removes it once confirmed", async () => {
+    confirmFn.mockResolvedValue(true);
+    const actions = withCompanion("added");
+    await actions.toggleSteam(actions.steamTargets.value[0]);
+    expect(shortcutRemove).toHaveBeenCalledTimes(1);
   });
 });
