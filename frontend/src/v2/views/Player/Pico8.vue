@@ -16,9 +16,9 @@ import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import { createPico8Audio, type Pico8Audio } from "./pico8Audio";
-import { createPico8Input } from "./pico8Input";
-import { createPico8Pacer, type Pico8Pacer } from "./pico8Pacer";
+import { createPico8Audio, type Pico8Audio } from "@/v2/utils/pico8Audio";
+import { createPico8Input } from "@/v2/utils/pico8Input";
+import { createPico8Pacer, type Pico8Pacer } from "@/v2/utils/pico8Pacer";
 import {
   createPico8Runtime,
   PICO8_FRAME_RATE,
@@ -26,7 +26,7 @@ import {
   PICO8_INPUT_BITS,
   PICO8_WIDTH,
   type Pico8Runtime,
-} from "./pico8Runtime";
+} from "@/v2/utils/pico8Runtime";
 
 const { t } = useI18n();
 const playingStore = storePlaying();
