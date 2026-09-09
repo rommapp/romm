@@ -1,6 +1,5 @@
 <script setup lang="ts">
-// Plays PICO-8 carts through the FAKE-08 WebAssembly runtime served from
-// /assets/pico8 (provisioned by the emulator stage of docker/Dockerfile).
+// Plays PICO-8 carts through the FAKE-08 WebAssembly runtime.
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
 import { useEventListener, useFullscreen } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
