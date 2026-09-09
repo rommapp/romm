@@ -175,9 +175,13 @@ class DocSource(enum.StrEnum):
 
 
 # Provider ids that name a game rather than a file, so two ROMs sharing any of
-# them are one title (regions, revisions, storefront copies). Add a provider
-# here and to the `sibling_roms` view together, or the two notions of "the same
-# game" drift apart.
+# them are one title (regions, revisions, storefront copies). Every reader of
+# "the same game" matches on this one list: `sibling_roms`, the
+# `group_by_meta_id` gallery window, and the recommendation feed's exclusions.
+#
+# A field's position is the `provider` code stored in `rom_identity_keys`, so
+# the tuple is append-only, and a new provider needs a migration that backfills
+# its rows.
 IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
     "igdb_id",
     "moby_id",
@@ -187,24 +191,60 @@ IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
     "hasheous_id",
     "tgdb_id",
     "steam_id",
+    "flashpoint_id",
 )
+
+# Wide enough for the longest of those columns (`flashpoint_id`), since
+# `rom_identity_keys` holds every provider's id in one column.
+IDENTITY_PROVIDER_ID_LENGTH: Final = 100
+
+
+class RomIdentityKey(BaseModel):
+    """One row per (ROM, provider it has a match id for), scoped to a platform.
+
+    Two ROMs are the same game when they share a row's (provider, platform,
+    provider id), so `sibling_roms` is an indexed lookup over this table rather
+    than an OR of one equality per `IDENTITY_ID_FIELDS` entry across the whole
+    of `roms`.
+
+    Maintained by database triggers on `roms` (migration 0127), so no write path
+    has to update it; deletes ride the foreign key's cascade.
+    """
+
+    __tablename__ = "rom_identity_keys"
+
+    __table_args__ = (Index("idx_rom_identity_keys_rom_id", "rom_id"),)
+
+    provider: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    platform_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    provider_id: Mapped[str] = mapped_column(
+        String(length=IDENTITY_PROVIDER_ID_LENGTH), primary_key=True
+    )
+    rom_id: Mapped[int] = mapped_column(
+        ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
 
 
 class SiblingRom(BaseModel):
     """Other files of the same game on the same platform.
 
-    A database view, not a table, matching over `IDENTITY_ID_FIELDS` minus
-    `steam_id`, which postdates it.
+    A database view, not a table, over `RomIdentityKey` self-joined on its
+    (provider, platform, provider id). A pair matched by several providers
+    appears once per provider, which `get_siblings_for_roms` and the relationship
+    loaders both collapse.
     """
 
     __tablename__ = "sibling_roms"
 
     rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-
-    __table_args__ = (
-        UniqueConstraint("rom_id", "sibling_rom_id", name="unique_sibling_roms"),
-    )
 
 
 class RomArchiveMember(TypedDict):
@@ -582,11 +622,11 @@ class Rom(BaseModel):
         # The digest is opaque to a range scan, so the scan loop's
         # (platform_id, fs_name) batch lookup needs an index of its own.
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
-        # Covers the sibling_roms view self-join and the group_by_meta_id dedup
-        # window. Both read only these columns, so the index has to carry every
-        # one of them: a single missing column (flashpoint_id or fs_name_no_ext,
-        # the window's partition tail and sort tiebreaker) drops the plan to a
-        # full scan of the wide roms row, JSON metadata blobs included.
+        # Covers the group_by_meta_id dedup window, which reads only these
+        # columns, so the index has to carry every one of them: a single
+        # missing column (flashpoint_id or fs_name_no_ext, the window's
+        # partition tail and sort tiebreaker) drops the plan to a full scan of
+        # the wide roms row, JSON metadata blobs included.
         Index(
             "idx_roms_sibling_cover",
             "platform_id",
@@ -598,6 +638,7 @@ class Rom(BaseModel):
             "hasheous_id",
             "tgdb_id",
             "flashpoint_id",
+            "steam_id",
             "fs_name_no_ext",
             "generated_primary_region",
             "id",

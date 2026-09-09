@@ -1326,6 +1326,13 @@ async def scan_platforms(
         except Exception as e:
             log.error(f"Couldn't refresh smart collections after the scan: {e}")
 
+        # A fresh install sampled `rom_identity_keys` while it was empty, and
+        # this scan is what filled it. Failing here only costs a query plan.
+        try:
+            db_rom_handler.refresh_identity_key_statistics()
+        except Exception as e:
+            log.error(f"Couldn't resample the sibling identity keys: {e}")
+
         # Otherwise the games scanned today have an empty "Similar games"
         # section until the nightly build. Threaded: the scoring is CPU-bound.
         try:

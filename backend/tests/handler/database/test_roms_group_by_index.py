@@ -32,19 +32,15 @@ from tests.conftest import engine
 from handler.database import db_rom_handler
 from models.rom import Rom
 
+# Taken off the model rather than repeated, so these checks read as "the
+# migrations and the window agree with the declared index".
 INDEX_COLUMNS = [
-    "platform_id",
-    "igdb_id",
-    "moby_id",
-    "ss_id",
-    "launchbox_id",
-    "ra_id",
-    "hasheous_id",
-    "tgdb_id",
-    "flashpoint_id",
-    "fs_name_no_ext",
-    "generated_primary_region",
-    "id",
+    column.name
+    for column in next(
+        index
+        for index in Rom.__table__.indexes
+        if index.name == "idx_roms_sibling_cover"
+    ).columns
 ]
 
 
