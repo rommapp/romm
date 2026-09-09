@@ -1,6 +1,6 @@
 # trunk-ignore-all(trivy)
 # trunk-ignore-all(checkov)
-# trunk-ignore-all(hadolint/DL4006): the checksum pipes read from echo, which cannot fail
+# trunk-ignore-all(hadolint/DL4006)
 
 FROM ubuntu:22.04
 
