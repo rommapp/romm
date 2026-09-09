@@ -193,6 +193,24 @@ describe("AnniversaryWidget", () => {
     expect(wrapper.text()).toContain("home.widget-anniversaries-error");
   });
 
+  it("retries a failed load rather than holding the error until midnight", async () => {
+    getAnniversaryRoms
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValue({
+        data: [rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))],
+      });
+
+    const wrapper = mountWidget();
+    await flushPromises();
+    expect(wrapper.text()).toContain("home.widget-anniversaries-error");
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    await flushPromises();
+
+    expect(getAnniversaryRoms).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).toContain("Chrono Trigger");
+  });
+
   it("reloads when the local day rolls over, and not before", async () => {
     getAnniversaryRoms.mockResolvedValue({ data: [] });
 

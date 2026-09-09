@@ -104,13 +104,16 @@ async function load() {
     roms.value = data;
     index.value = 0;
     failed.value = false;
+    loading.value = false;
   } catch {
     if (stale()) return;
     // Failures show in the card's own copy rather than the snackbar stack.
     roms.value = [];
     failed.value = true;
-  } finally {
-    if (!stale()) loading.value = false;
+    loading.value = false;
+    // Leave the day unclaimed so the rollover check retries it. Claimed, a
+    // single failed request would hold the error copy until local midnight.
+    loadedDay.value = "";
   }
 }
 

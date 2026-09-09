@@ -21,7 +21,7 @@
   "widget-anniversaries-error": "Nepodařilo se načíst výročí",
   "widget-anniversaries-next": "Další hra",
   "widget-anniversaries-prev": "Předchozí hra",
-  "widget-anniversaries-years": "před {count} lety | před {count} rokem | před {count} lety | před {count} lety",
+  "widget-anniversaries-years": "před {count} lety | před {count} rokem | před {count} roky | před {count} lety",
   "widget-library-favorites": "Oblíbené",
   "widget-library-screenshots": "Snímky obrazovky",
   "widget-library-stats": "Statistiky knihovny",

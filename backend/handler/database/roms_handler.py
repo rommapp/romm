@@ -1963,7 +1963,9 @@ class DBRomsHandler(DBBaseHandler):
             query.order_by(None)
             .with_only_columns(Rom.id)  # type: ignore
             .where(epoch_ms_in_ranges(Rom.generated_first_release_date, ranges))
-            .order_by(Rom.generated_first_release_date.asc())
+            # Same-day roms share a timestamp, so the id breaks the tie: the
+            # paging order and the ceiling's cut would otherwise be arbitrary.
+            .order_by(Rom.generated_first_release_date.asc(), Rom.id.asc())
             .limit(MAX_ANNIVERSARY_RESULTS)
         )
 

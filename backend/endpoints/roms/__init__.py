@@ -1115,9 +1115,10 @@ def get_anniversary_roms(
 ) -> list[SimpleRomSchema]:
     """Roms released on a given day of an earlier year, oldest release first.
 
-    Whole-library, so it takes no scope: it feeds the Home widget, which shows
-    one game at a time and pages through the rest. Clients pass their own local
-    month and day so "today" matches the calendar in front of the user.
+    Whole-library, so it takes no platform or collection filters: it feeds the
+    Home widget, which shows one game at a time and pages through the rest.
+    Clients pass their own local month and day so "today" matches the calendar
+    in front of the user.
 
     Capped, so no single day can answer with a sizeable fraction of the library.
 

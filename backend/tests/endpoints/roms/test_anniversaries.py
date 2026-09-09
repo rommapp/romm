@@ -7,7 +7,7 @@ tests pin the behaviour, and `test_roms_anniversaries.py` pins the day-of-year
 semantics against explicit dates.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Iterator
 from unittest.mock import patch
 
@@ -50,11 +50,6 @@ def _dated_rom(platform: Platform, name: str, released: date) -> Rom:
     return db_rom_handler.update_rom(
         rom.id, {"igdb_metadata": {"first_release_date": str(seconds)}}
     )
-
-
-def _today() -> date:
-    """The day the endpoint falls back to when the client sends no month/day."""
-    return datetime.now(timezone.utc).date()
 
 
 @pytest.fixture
@@ -117,12 +112,17 @@ def test_returns_roms_released_on_the_requested_day(
 def test_defaults_to_todays_utc_date(
     client: TestClient, access_token: str, platform: Platform
 ) -> None:
-    """Clients send their own local date; omitting it falls back to UTC."""
-    today = _today()
-    _dated_rom(platform, "match", today.replace(year=today.year - 10))
-    _dated_rom(platform, "miss", (today + timedelta(days=1)).replace(year=1999))
+    """Clients send their own local date; omitting it falls back to UTC.
 
-    response = _get(client, access_token)
+    The clock is pinned: run for real, the assertion would break on 1 January,
+    which the endpoint answers with nothing at all.
+    """
+    _dated_rom(platform, "match", date(2016, 9, 8))
+    _dated_rom(platform, "miss", date(2016, 9, 9))
+
+    with patch("endpoints.roms.datetime") as mock_datetime:
+        mock_datetime.now.return_value = datetime(2026, 9, 8, 12, tzinfo=timezone.utc)
+        response = _get(client, access_token)
 
     assert response.status_code == status.HTTP_200_OK
     assert [rom["name"] for rom in response.json()] == ["match"]
