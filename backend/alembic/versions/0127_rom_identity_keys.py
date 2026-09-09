@@ -23,9 +23,12 @@ Notes:
   and ScreenScraper appears twice. `DISTINCT` would collapse that at 11x the
   cost, because it stops the view merging into the caller's query; the two
   readers dedupe instead.
-- Matching is unchanged: the same seven providers, still scoped to a platform,
-  so responses are identical. `steam_id` (in `IDENTITY_ID_FIELDS`) and
-  `flashpoint_id` (in the `group_by_meta_id` window) are still not part of it.
+- Every id in `IDENTITY_ID_FIELDS` matches, still scoped to a platform. The
+  view's own list used to stop short of `steam_id` and `flashpoint_id`, so a
+  pair sharing only one of those was a sibling to the gallery's dedup window
+  but not to the sibling badge; one list now answers both.
+- The ids share one `provider_id` column, so it is a varchar: `flashpoint_id`
+  is a string, the rest are integers cast on the way in.
 
 Revision ID: 0127_rom_identity_keys
 Revises: 0126_unique_rom_full_path
@@ -36,6 +39,7 @@ Create Date: 2026-09-07 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
+from models.rom import IDENTITY_PROVIDER_ID_LENGTH
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
@@ -47,8 +51,10 @@ depends_on = None
 
 TABLE = "rom_identity_keys"
 
-# (provider code, roms column). Frozen here rather than read off
-# `SIBLING_IDENTITY_ID_FIELDS`, which a later migration is free to extend.
+# (provider code, roms column), a frozen snapshot of `IDENTITY_ID_FIELDS` and
+# its positions. Read off the model this would rewrite itself under a fresh
+# install the day that list grows, leaving two installs on the same revision
+# with different triggers.
 IDENTITY_PROVIDERS = (
     (0, "igdb_id"),
     (1, "moby_id"),
@@ -57,9 +63,17 @@ IDENTITY_PROVIDERS = (
     (4, "ra_id"),
     (5, "hasheous_id"),
     (6, "tgdb_id"),
+    (7, "steam_id"),
+    (8, "flashpoint_id"),
 )
 
 _COLUMNS = "provider, platform_id, provider_id, rom_id"
+
+
+def _as_provider_id(pg: bool, expression: str) -> str:
+    """Every provider's id, integer or string, in the one varchar column."""
+    return f"CAST({expression} AS {'VARCHAR' if pg else 'CHAR'})"
+
 
 # A change to any of these invalidates the ROM's key rows.
 _TRACKED_COLUMNS = ["platform_id"] + [column for _, column in IDENTITY_PROVIDERS]
@@ -79,7 +93,7 @@ def _backfill(pg: bool) -> list[str]:
     statements = []
     for code, column in IDENTITY_PROVIDERS:
         select = (
-            f"SELECT {code}, platform_id, {column}, id "  # nosec B608
+            f"SELECT {code}, platform_id, {_as_provider_id(pg, column)}, id "  # nosec B608
             f"FROM roms WHERE {column} IS NOT NULL"
         )
         if pg:
@@ -102,7 +116,8 @@ def _mysql_inserts() -> str:
     return "\n".join(
         f"IF NEW.{column} IS NOT NULL THEN\n"  # nosec B608
         f"INSERT IGNORE INTO {TABLE} ({_COLUMNS}) "
-        f"VALUES ({code}, NEW.platform_id, NEW.{column}, NEW.id);\n"
+        f"VALUES ({code}, NEW.platform_id, "
+        f"{_as_provider_id(False, f'NEW.{column}')}, NEW.id);\n"
         "END IF;"
         for code, column in IDENTITY_PROVIDERS
     )
@@ -131,7 +146,8 @@ def _postgres_trigger_function() -> str:
     inserts = "\n".join(
         f"    IF NEW.{column} IS NOT NULL THEN\n"  # nosec B608
         f"        INSERT INTO {TABLE} ({_COLUMNS})\n"
-        f"        VALUES ({code}, NEW.platform_id, NEW.{column}, NEW.id)\n"
+        f"        VALUES ({code}, NEW.platform_id, "
+        f"{_as_provider_id(True, f'NEW.{column}')}, NEW.id)\n"
         f"        ON CONFLICT DO NOTHING;\n"
         f"    END IF;"
         for code, column in IDENTITY_PROVIDERS
@@ -152,6 +168,36 @@ BEGIN
     RETURN NULL;
 END $$
 """  # nosec B608
+
+
+# ---------------------------------------------------------------------------
+# Dedup window cover
+# ---------------------------------------------------------------------------
+
+# `group_by_meta_id` now reads `steam_id` too, and the index has to carry every
+# column that window touches or its plan drops to a full scan of the wide roms
+# row (0107 measured it).
+COVER_INDEX = "idx_roms_sibling_cover"
+_COVER_HEAD = [
+    "platform_id",
+    "igdb_id",
+    "moby_id",
+    "ss_id",
+    "launchbox_id",
+    "ra_id",
+    "hasheous_id",
+    "tgdb_id",
+    "flashpoint_id",
+]
+_COVER_TAIL = ["fs_name_no_ext", "generated_primary_region", "id"]
+OLD_COVER_COLUMNS = [*_COVER_HEAD, *_COVER_TAIL]
+NEW_COVER_COLUMNS = [*_COVER_HEAD, "steam_id", *_COVER_TAIL]
+
+
+def _rebuild_cover_index(columns: list[str]) -> None:
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.drop_index(COVER_INDEX, if_exists=True)
+        batch_op.create_index(COVER_INDEX, columns, unique=False, if_not_exists=True)
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +240,11 @@ def upgrade() -> None:
         TABLE,
         sa.Column("provider", sa.SmallInteger(), nullable=False),
         sa.Column("platform_id", sa.Integer(), nullable=False),
-        sa.Column("provider_id", sa.Integer(), nullable=False),
+        sa.Column(
+            "provider_id",
+            sa.String(length=IDENTITY_PROVIDER_ID_LENGTH),
+            nullable=False,
+        ),
         sa.Column("rom_id", sa.Integer(), nullable=False),
         sa.Column(
             "created_at",
@@ -245,10 +295,14 @@ def upgrade() -> None:
     op.execute("DROP VIEW IF EXISTS sibling_roms")
     op.execute(_VIEW)
 
+    _rebuild_cover_index(NEW_COVER_COLUMNS)
+
 
 def downgrade() -> None:
     connection = op.get_bind()
     pg = is_postgresql(connection)
+
+    _rebuild_cover_index(OLD_COVER_COLUMNS)
 
     op.execute("DROP VIEW IF EXISTS sibling_roms")
     op.execute(_legacy_view(pg))

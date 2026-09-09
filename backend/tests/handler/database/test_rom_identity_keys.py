@@ -1,27 +1,39 @@
 """Checks for the `rom_identity_keys` mirror that backs the `sibling_roms` view.
 
-Migration 0127 moved sibling matching off an OR-of-seven-equalities self-join
-over `roms` and onto one row per (ROM, provider it has an id for), maintained by
+Migration 0127 moved sibling matching off an OR-of-equalities self-join over
+`roms` and onto one row per (ROM, provider it has an id for), maintained by
 triggers on `roms` rather than by application code. These tests write through
 the normal handlers and assert both the key rows and the view follow.
 """
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import String, select
 
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from models.platform import Platform
 from models.rom import (
-    SIBLING_IDENTITY_ID_FIELDS,
+    IDENTITY_ID_FIELDS,
     Rom,
     RomIdentityKey,
     SiblingRom,
 )
 from models.user import User
 
+# `flashpoint_id` is a varchar column, the other ids are integers, so a
+# parametrized test has to hand each one a value its column accepts.
+_STRING_ID_FIELDS = frozenset(
+    field
+    for field in IDENTITY_ID_FIELDS
+    if isinstance(Rom.__table__.c[field].type, String)
+)
 
-def _add_rom(platform: Platform, name: str, **identity_ids: int) -> Rom:
+
+def _sample_id(field: str, value: int) -> int | str:
+    return str(value) if field in _STRING_ID_FIELDS else value
+
+
+def _add_rom(platform: Platform, name: str, **identity_ids: int | str) -> Rom:
     return db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
@@ -37,8 +49,11 @@ def _add_rom(platform: Platform, name: str, **identity_ids: int) -> Rom:
     )
 
 
-def _keys(rom_id: int) -> set[tuple[int, int, int]]:
-    """The (provider code, platform_id, provider_id) rows the triggers wrote."""
+def _keys(rom_id: int) -> set[tuple[int, int, str]]:
+    """The (provider code, platform_id, provider_id) rows the triggers wrote.
+
+    `provider_id` is the varchar every provider's id is cast into.
+    """
     with sync_session.begin() as session:
         return {
             tuple(row)
@@ -75,8 +90,8 @@ class TestRomIdentityKeys:
         rom = _add_rom(platform, "scraped", igdb_id=11, ss_id=22)
 
         assert _keys(rom.id) == {
-            (SIBLING_IDENTITY_ID_FIELDS.index("igdb_id"), platform.id, 11),
-            (SIBLING_IDENTITY_ID_FIELDS.index("ss_id"), platform.id, 22),
+            (IDENTITY_ID_FIELDS.index("igdb_id"), platform.id, "11"),
+            (IDENTITY_ID_FIELDS.index("ss_id"), platform.id, "22"),
         }
 
     def test_unscraped_rom_has_no_keys_and_no_siblings(
@@ -89,17 +104,18 @@ class TestRomIdentityKeys:
         assert _siblings(first.id, admin_user.id) == []
         assert _siblings(second.id, admin_user.id) == []
 
-    @pytest.mark.parametrize("field", SIBLING_IDENTITY_ID_FIELDS)
+    @pytest.mark.parametrize("field", IDENTITY_ID_FIELDS)
     def test_each_provider_matches_on_its_own(
         self, admin_user: User, platform: Platform, field: str
     ):
         """Guards the trigger's provider list against the view's.
 
-        Appending to `SIBLING_IDENTITY_ID_FIELDS` without a migration that
-        backfills and matches on the new provider fails here.
+        Appending to `IDENTITY_ID_FIELDS` without a migration that backfills
+        and matches on the new provider fails here.
         """
-        first = _add_rom(platform, f"{field}_a", **{field: 4242})
-        second = _add_rom(platform, f"{field}_b", **{field: 4242})
+        value = _sample_id(field, 4242)
+        first = _add_rom(platform, f"{field}_a", **{field: value})
+        second = _add_rom(platform, f"{field}_b", **{field: value})
 
         assert _siblings(first.id, admin_user.id) == [second.id]
         assert _siblings(second.id, admin_user.id) == [first.id]
@@ -148,7 +164,7 @@ class TestRomIdentityKeys:
         db_rom_handler.update_rom(rom.id, {"igdb_id": 200})
 
         assert _keys(rom.id) == {
-            (SIBLING_IDENTITY_ID_FIELDS.index("igdb_id"), platform.id, 200)
+            (IDENTITY_ID_FIELDS.index("igdb_id"), platform.id, "200")
         }
         assert _siblings(rom.id, admin_user.id) == [new_match.id]
         assert _siblings(old_match.id, admin_user.id) == []
@@ -172,7 +188,7 @@ class TestRomIdentityKeys:
         db_rom_handler.update_rom(rom.id, {"platform_id": other_platform.id})
 
         assert _keys(rom.id) == {
-            (SIBLING_IDENTITY_ID_FIELDS.index("igdb_id"), other_platform.id, 400)
+            (IDENTITY_ID_FIELDS.index("igdb_id"), other_platform.id, "400")
         }
         assert _siblings(rom.id, admin_user.id) == []
         assert _siblings(left_behind.id, admin_user.id) == []
@@ -188,7 +204,7 @@ class TestRomIdentityKeys:
     def test_update_touching_no_identity_id_skips_the_resync(self, platform: Platform):
         """The `<=>` guard: without it every rom write pays a full resync."""
         rom = _add_rom(platform, "guarded", igdb_id=600)
-        marker = (SIBLING_IDENTITY_ID_FIELDS.index("tgdb_id"), platform.id, 999999)
+        marker = (IDENTITY_ID_FIELDS.index("tgdb_id"), platform.id, "999999")
         with sync_session.begin() as session:
             session.add(
                 RomIdentityKey(
@@ -257,7 +273,7 @@ class TestIdentityKeyStatistics:
         db_rom_handler.refresh_identity_key_statistics()
 
         assert _keys(rom.id) == {
-            (SIBLING_IDENTITY_ID_FIELDS.index("igdb_id"), platform.id, 99)
+            (IDENTITY_ID_FIELDS.index("igdb_id"), platform.id, "99")
         }
 
     def test_resampling_an_empty_table_is_not_an_error(self) -> None:

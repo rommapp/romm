@@ -1509,6 +1509,7 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.launchbox_id,
                     Rom.tgdb_id,
                     Rom.flashpoint_id,
+                    Rom.steam_id,
                 )
                 .subquery()
             )
@@ -1567,6 +1568,11 @@ class DBRomsHandler(DBBaseHandler):
                             _create_metadata_id_case(
                                 MetadataSource.FLASHPOINT,
                                 base_subquery.c.flashpoint_id,
+                                base_subquery.c.platform_id,
+                            ),
+                            _create_metadata_id_case(
+                                MetadataSource.STEAM,
+                                base_subquery.c.steam_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(

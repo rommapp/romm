@@ -174,10 +174,15 @@ class DocSource(enum.StrEnum):
     SCRAPER = "scraper"  # Downloaded by a metadata provider
 
 
-# Provider ids `sibling_roms` matches on. A field's position is the `provider`
-# code stored in `rom_identity_keys`, so this tuple is append-only, and a new
-# provider needs a migration that backfills its rows.
-SIBLING_IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
+# Provider ids that name a game rather than a file, so two ROMs sharing any of
+# them are one title (regions, revisions, storefront copies). Every reader of
+# "the same game" matches on this one list: `sibling_roms`, the
+# `group_by_meta_id` gallery window, and the recommendation feed's exclusions.
+#
+# A field's position is the `provider` code stored in `rom_identity_keys`, so
+# the tuple is append-only, and a new provider needs a migration that backfills
+# its rows.
+IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
     "igdb_id",
     "moby_id",
     "ss_id",
@@ -185,13 +190,13 @@ SIBLING_IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
     "ra_id",
     "hasheous_id",
     "tgdb_id",
+    "steam_id",
+    "flashpoint_id",
 )
 
-# Provider ids that name a game rather than a file, so two ROMs sharing any of
-# them are one title (regions, revisions, storefront copies). The sibling list
-# plus `steam_id`; the `group_by_meta_id` window is the sibling list plus
-# `flashpoint_id` instead, so neither list contains the other.
-IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = SIBLING_IDENTITY_ID_FIELDS + ("steam_id",)
+# Wide enough for the longest of those columns (`flashpoint_id`), since
+# `rom_identity_keys` holds every provider's id in one column.
+IDENTITY_PROVIDER_ID_LENGTH: Final = 100
 
 
 class RomIdentityKey(BaseModel):
@@ -199,7 +204,8 @@ class RomIdentityKey(BaseModel):
 
     Two ROMs are the same game when they share a row's (provider, platform,
     provider id), so `sibling_roms` is an indexed lookup over this table rather
-    than an OR of seven equalities across the whole of `roms`.
+    than an OR of one equality per `IDENTITY_ID_FIELDS` entry across the whole
+    of `roms`.
 
     Maintained by database triggers on `roms` (migration 0127), so no write path
     has to update it; deletes ride the foreign key's cascade.
@@ -211,7 +217,9 @@ class RomIdentityKey(BaseModel):
 
     provider: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     platform_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    provider_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    provider_id: Mapped[str] = mapped_column(
+        String(length=IDENTITY_PROVIDER_ID_LENGTH), primary_key=True
+    )
     rom_id: Mapped[int] = mapped_column(
         ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
     )
@@ -630,6 +638,7 @@ class Rom(BaseModel):
             "hasheous_id",
             "tgdb_id",
             "flashpoint_id",
+            "steam_id",
             "fs_name_no_ext",
             "generated_primary_region",
             "id",
