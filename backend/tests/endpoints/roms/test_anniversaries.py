@@ -177,7 +177,7 @@ def test_undated_roms_are_not_returned(
 def test_returns_every_match_for_the_day(
     client: TestClient, access_token: str, platform: Platform
 ) -> None:
-    """Uncapped, so the widget's counter is a real total rather than a ceiling."""
+    """Under the ceiling the whole day comes back, so the counter is a real total."""
     for year in range(1970, 2000):
         _dated_rom(platform, f"rom_{year}", date(year, 9, 8))
 

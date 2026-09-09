@@ -161,6 +161,10 @@ RANDOM_ID_SAMPLE_SIZE = 16
 # "%Y", CSDb publishes nothing else), so the day means nothing on this date.
 AMBIGUOUS_RELEASE_DAY = (1, 1)
 
+# The widget pages one game at a time, so a whole busy day on a large library
+# is far more than anyone reads.
+MAX_ANNIVERSARY_RESULTS = 500
+
 # CRC32 (8), MD5 and RetroAchievements (32), SHA-1 (40).
 ROM_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]] = {
     8: (Rom.crc_hash,),
@@ -1923,7 +1927,7 @@ class DBRomsHandler(DBBaseHandler):
         day: int | None = None,
         session: Session = None,  # type: ignore
     ) -> list[int]:
-        """Ids of every rom released on a given day of the year, oldest release first.
+        """Ids of the roms released on a given day of the year, oldest release first.
 
         `idx_roms_generated_first_release_date` serves both the day-of-year match
         and the sort as one range scan, and only the id is selected, so the wide
@@ -1936,7 +1940,8 @@ class DBRomsHandler(DBBaseHandler):
             day: Day of the month, defaulting to `today`'s.
 
         Returns:
-            Rom ids, oldest release first. Empty on 1 January.
+            Rom ids, oldest release first, at most `MAX_ANNIVERSARY_RESULTS` of
+            them. Empty on 1 January.
         """
         month = month if month is not None else today.month
         day = day if day is not None else today.day
@@ -1960,6 +1965,7 @@ class DBRomsHandler(DBBaseHandler):
             .with_only_columns(Rom.id)  # type: ignore
             .where(epoch_ms_in_ranges(Rom.generated_first_release_date, ranges))
             .order_by(Rom.generated_first_release_date.asc())
+            .limit(MAX_ANNIVERSARY_RESULTS)
         )
 
         return list(session.scalars(id_query).all())

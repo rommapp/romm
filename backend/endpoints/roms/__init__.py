@@ -1113,16 +1113,16 @@ def get_anniversary_roms(
         ),
     ] = None,
 ) -> list[SimpleRomSchema]:
-    """Every rom released on a given day of an earlier year, oldest release first.
+    """Roms released on a given day of an earlier year, oldest release first.
 
     Whole-library, so it takes no scope: it feeds the Home widget, which shows
     one game at a time and pages through the rest. Clients pass their own local
     month and day so "today" matches the calendar in front of the user.
 
-    Uncapped, so the widget's counter is a real total. That makes the 1 January
-    skip below load-bearing for response size as well as for accuracy: several
-    providers park year-only metadata there, which is the one day of the year
-    that would answer with a sizeable fraction of the library.
+    Capped, so no single day can answer with a sizeable fraction of the library.
+
+    1 January returns nothing at all: several providers park year-only metadata
+    there, so the day carries no information.
     """
     perms = get_permissions(request)
 

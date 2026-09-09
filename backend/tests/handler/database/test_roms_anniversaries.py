@@ -6,8 +6,9 @@ tests cover the route; these cover what it selects.
 """
 
 from datetime import date, datetime, timezone
+from unittest.mock import patch
 
-from handler.database import db_rom_handler
+from handler.database import db_rom_handler, roms_handler
 from models.platform import Platform
 from models.rom import Rom
 
@@ -104,7 +105,7 @@ class TestMatching:
         assert _anniversary_names(date(2026, 9, 8)) == ["released_before"]
 
     def test_returns_every_match(self, platform: Platform):
-        """No cap: the day's whole list is what the widget pages through."""
+        """Under the ceiling, the day's whole list is what the widget pages through."""
         for year in range(1970, 2000):
             _dated_rom(platform, f"rom_{year}", date(year, 9, 8))
 
@@ -159,3 +160,22 @@ class TestLeapDay:
             "end_of_february",
             "leap_baby",
         ]
+
+
+class TestResultCeiling:
+    """A day is capped, so one request cannot pull a whole library over."""
+
+    def test_returns_no_more_than_the_ceiling(self, platform: Platform):
+        for year in range(1990, 1996):
+            _dated_rom(platform, f"rom_{year}", date(year, 9, 8))
+
+        with patch.object(roms_handler, "MAX_ANNIVERSARY_RESULTS", 2):
+            assert _anniversary_names(date(2027, 9, 8)) == ["rom_1990", "rom_1991"]
+
+    def test_the_ceiling_keeps_the_oldest(self, platform: Platform):
+        """Truncating the fetch rather than the sort would drop a random half."""
+        for year in (1995, 1990, 1993):
+            _dated_rom(platform, f"rom_{year}", date(year, 9, 8))
+
+        with patch.object(roms_handler, "MAX_ANNIVERSARY_RESULTS", 1):
+            assert _anniversary_names(date(2027, 9, 8)) == ["rom_1990"]
