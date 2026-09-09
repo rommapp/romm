@@ -2,7 +2,7 @@
 // Plays PICO-8 carts through the FAKE-08 WebAssembly runtime served from
 // /assets/pico8 (provisioned by the emulator stage of docker/Dockerfile).
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useFullscreen } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
@@ -42,6 +42,11 @@ const canvas = ref<HTMLCanvasElement | null>(null);
 const touchMask = ref(0);
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
+const {
+  isFullscreen,
+  enter: enterFullscreen,
+  toggle: toggleFullscreen,
+} = useFullscreen(stage);
 
 let runtime: Pico8Runtime | null = null;
 let animationFrame = 0;
@@ -379,9 +384,7 @@ async function onPlay() {
 
     loading.value = false;
     playSession.start(currentRom);
-    if (fullscreenOnPlay.value && stage.value?.requestFullscreen) {
-      void stage.value.requestFullscreen().catch(() => {});
-    }
+    if (fullscreenOnPlay.value) void enterFullscreen().catch(() => {});
     startLoop();
   } catch (error) {
     nextRuntime?.dispose();
@@ -422,8 +425,30 @@ onBeforeUnmount(releaseGame);
     :ready="!!rom"
     :running="gameRunning"
     @play="onPlay"
-    @quit="onlyQuit"
   >
+    <template #stage-actions>
+      <div class="r-v2-pico8__actions">
+        <RBtn
+          variant="translucent"
+          :icon="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
+          :aria-label="
+            isFullscreen ? t('play.exit-full-screen') : t('play.full-screen')
+          "
+          :title="
+            isFullscreen ? t('play.exit-full-screen') : t('play.full-screen')
+          "
+          @click="toggleFullscreen"
+        />
+        <RBtn
+          variant="translucent"
+          icon="mdi-exit-to-app"
+          :aria-label="t('play.quit')"
+          :title="t('play.quit')"
+          @click="onlyQuit"
+        />
+      </div>
+    </template>
+
     <template #settings>
       <RSwitch v-model="fullscreenOnPlay" :label="t('play.full-screen')" />
     </template>
@@ -437,21 +462,23 @@ onBeforeUnmount(releaseGame);
 
     <template #stage>
       <div ref="stage" class="r-v2-pico8__stage">
-        <div class="r-v2-pico8__screen">
-          <canvas
-            ref="canvas"
-            class="r-v2-pico8__canvas"
-            :width="PICO8_WIDTH"
-            :height="PICO8_HEIGHT"
-            :aria-label="t('play.pico8-screen')"
-            @pointermove="onCanvasPointerMove"
-            @pointerdown="onCanvasPointerDown"
-            @pointerup="onCanvasPointerUp"
-            @pointercancel="onCanvasPointerCancel"
-            @contextmenu.prevent
-          />
-          <div v-if="loading" class="r-v2-pico8__loading">
-            <RSpinner :size="32" :aria-label="t('common.loading')" />
+        <div class="r-v2-pico8__viewport">
+          <div class="r-v2-pico8__screen">
+            <canvas
+              ref="canvas"
+              class="r-v2-pico8__canvas"
+              :width="PICO8_WIDTH"
+              :height="PICO8_HEIGHT"
+              :aria-label="t('play.pico8-screen')"
+              @pointermove="onCanvasPointerMove"
+              @pointerdown="onCanvasPointerDown"
+              @pointerup="onCanvasPointerUp"
+              @pointercancel="onCanvasPointerCancel"
+              @contextmenu.prevent
+            />
+            <div v-if="loading" class="r-v2-pico8__loading">
+              <RSpinner :size="32" :aria-label="t('common.loading')" />
+            </div>
           </div>
         </div>
 
@@ -522,26 +549,47 @@ onBeforeUnmount(releaseGame);
 
 <style scoped>
 .r-v2-pico8__stage {
+  --r-pico8-stage-pad: 24px;
   width: 100%;
   height: 100%;
   display: grid;
-  place-items: center;
-  align-content: center;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-items: center;
+  align-items: center;
   gap: 20px;
-  overflow: auto;
-  padding: 24px;
+  overflow: hidden;
+  padding: var(--r-pico8-stage-pad);
   box-sizing: border-box;
+}
+
+/* The bottom tab bar overlays the stage on sm-and-down, so keep the on-screen
+   controls clear of it. */
+html[data-bp~="sm-and-down"] .r-v2-pico8__stage {
+  padding-bottom: calc(
+    var(--r-pico8-stage-pad) + var(--r-bottom-nav-h) +
+      env(safe-area-inset-bottom)
+  );
 }
 
 .r-v2-pico8__stage:fullscreen {
   background: var(--r-color-canvas-bg);
 }
 
+.r-v2-pico8__viewport {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+  display: grid;
+  place-items: center;
+}
+
+/* The largest square the viewport can hold, so it never outgrows either axis. */
 .r-v2-pico8__screen {
   position: relative;
-  width: min(78vmin, 640px);
+  width: min(100cqw, 100cqh, 640px);
   aspect-ratio: 1;
-  flex: 0 0 auto;
   background: var(--r-color-canvas-bg);
   box-shadow: 0 18px 48px color-mix(in srgb, black 55%, transparent);
 }
@@ -553,6 +601,21 @@ onBeforeUnmount(releaseGame);
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   touch-action: none;
+}
+
+.r-v2-pico8__actions {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Clear the bottom tab bar, which overlays this corner on sm-and-down. */
+html[data-bp~="sm-and-down"] .r-v2-pico8__actions {
+  bottom: calc(16px + var(--r-bottom-nav-h) + env(safe-area-inset-bottom));
 }
 
 .r-v2-pico8__loading {
@@ -632,12 +695,12 @@ onBeforeUnmount(releaseGame);
 }
 
 html[data-bp~="xs"] .r-v2-pico8__stage {
+  --r-pico8-stage-pad: 16px;
   gap: 12px;
-  padding: 16px;
 }
 
 html[data-bp~="xs"] .r-v2-pico8__screen {
-  width: min(78vmin, 420px);
+  width: min(100cqw, 100cqh, 420px);
 }
 
 html[data-bp~="xs"] .r-v2-pico8__controls {

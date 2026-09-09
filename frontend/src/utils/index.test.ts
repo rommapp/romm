@@ -172,8 +172,6 @@ describe("isJsDosBundle", () => {
 });
 
 describe("PICO-8 support", () => {
-  const withExt = (fs_extension: string) => makeRom({ fs_extension });
-
   it("supports the pico platform and configured remaps", () => {
     expect(isPico8EmulationSupported("pico", makeHeartbeat())).toBe(true);
     expect(
@@ -192,10 +190,24 @@ describe("PICO-8 support", () => {
     ).toBe(false);
   });
 
+  // A `.p8.png` cart lands with fs_extension "png", so the name is the only
+  // thing that identifies one.
   it("accepts .p8 and .p8.png cartridges only", () => {
-    expect(isPico8Rom(withExt("p8"))).toBe(true);
-    expect(isPico8Rom(withExt("P8.PNG"))).toBe(true);
-    expect(isPico8Rom(withExt("zip"))).toBe(false);
+    expect(
+      isPico8Rom(makeRom({ fs_name: "celeste.p8", fs_extension: "p8" })),
+    ).toBe(true);
+    expect(
+      isPico8Rom(makeRom({ fs_name: "slipways.p8.png", fs_extension: "png" })),
+    ).toBe(true);
+    expect(
+      isPico8Rom(makeRom({ fs_name: "SLIPWAYS.P8.PNG", fs_extension: "PNG" })),
+    ).toBe(true);
+    expect(
+      isPico8Rom(makeRom({ fs_name: "label.png", fs_extension: "png" })),
+    ).toBe(false);
+    expect(
+      isPico8Rom(makeRom({ fs_name: "game.zip", fs_extension: "zip" })),
+    ).toBe(false);
     expect(isPico8Rom(null)).toBe(false);
   });
 });

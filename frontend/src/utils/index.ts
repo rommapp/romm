@@ -756,12 +756,15 @@ export function isPico8EmulationSupported(
 /**
  * Check if a ROM file is a PICO-8 cartridge.
  *
+ * `fs_extension` holds only `png` for a `.p8.png` cart: the backend joins
+ * multi-part extensions from letter-only segments, and `p8` has a digit.
+ *
  * @param rom The ROM to check.
  * @returns True if the file is a PICO-8 cartridge, false otherwise.
  */
 export function isPico8Rom(rom: SimpleRom | null | undefined) {
-  const extension = rom?.fs_extension.toLowerCase();
-  return extension === "p8" || extension === "p8.png";
+  const name = rom?.fs_name.toLowerCase();
+  return name?.endsWith(".p8") === true || name?.endsWith(".p8.png") === true;
 }
 
 export type PlayingStatus =
