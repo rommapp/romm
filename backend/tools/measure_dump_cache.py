@@ -8,10 +8,10 @@ Usage:
 
 import argparse
 import json
-import re
 import statistics
 import sys
 import time
+import unicodedata
 import zipfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -54,14 +54,22 @@ STORE_KEYS: Final[tuple[str, ...]] = (
 GAME_IMAGE_FIELDS: Final[frozenset[str]] = frozenset({"FileName", "Type", "Region"})
 
 WRITE_BATCH = 2000
-NON_ALNUM = re.compile(r"[^a-z0-9]+")
 
 Record = tuple[str, str, Any]
 
 
-def fold_stand_in(title: str) -> str:
-    """Approximate `fold_title`: same shape and length, not the same algorithm."""
-    return NON_ALNUM.sub("", title.strip().lower())
+def fold_title(title: str) -> str:
+    """Mirror of `launchbox_handler.utils.fold_title`, whose module needs the app."""
+    kept: list[str] = []
+    for char in unicodedata.normalize("NFKD", title.casefold()):
+        if unicodedata.category(char).startswith("M"):
+            if kept and "a" <= kept[-1] <= "z":
+                continue
+            kept.append(char)
+        elif char.isalnum():
+            kept.append(char)
+
+    return "".join(kept)
 
 
 def element_to_dict(elem: Any, fields: frozenset[str] | None = None) -> dict[str, Any]:
@@ -137,7 +145,7 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                                 f"{title.lower()}:{platform}",
                                 database_id,
                             )
-                            folded = fold_stand_in(title)
+                            folded = fold_title(title)
                             if folded:
                                 yield (
                                     FOLDED_NAME_KEY,
@@ -361,11 +369,12 @@ def main() -> int:
 
     foreign = foreign_keys(client)
     if foreign and not args.force:
+        # The URL is not echoed back: RomM builds it with the password inline.
         print(
-            f"{args.redis_url} holds {foreign:,} key(s) outside the metadata dump "
-            "stores, so it looks like a live instance. This tool drops and rebuilds "
-            "the dump stores, which a running RomM would then have to re-import. "
-            "Point it at a disposable server, or pass --force.",
+            f"The target server holds {foreign:,} key(s) outside the metadata "
+            "dump stores, so it looks like a live instance. This tool drops and "
+            "rebuilds the dump stores, which a running RomM would then have to "
+            "re-import. Point it at a disposable server, or pass --force.",
             file=sys.stderr,
         )
         return 1

@@ -1,9 +1,6 @@
 """Storage codec for the metadata dumps that live only in the cache.
 
-The LaunchBox and Switch TitleDB stores hold hundreds of MB of JSON that is
-only ever read by exact key, so each value is compressed on its own rather
-than as a stream. Reads detect the frame instead of trusting the key, so a
-store written before this keeps answering until the next import rewrites it.
+Values are compressed one at a time because the stores are read by exact key.
 """
 
 import json
@@ -13,14 +10,11 @@ import zstandard
 
 from handler.redis_handler import async_binary_cache
 
-# Level 3 adds 3-6us per record read, less than the `json.loads` that follows
-# it, and 1.8x on the real dumps.
+# Level 3 costs less per read than the `json.loads` that follows it.
 COMPRESSION_LEVEL: Final[int] = 3
 
-# Under this size a frame header and a poor ratio on a short payload cost more
-# than they save, which is what keeps the id-valued title and product id
-# indexes stored as plain JSON. `tools/measure_dump_cache.py --sweep` finds the
-# real records flat between 64 and 256, so this sits at the top of that range.
+# Below this a frame header and a poor ratio cost more than they save, which is
+# what leaves the id-valued title and product id indexes as plain JSON.
 COMPRESS_MIN_BYTES: Final[int] = 256
 
 # Zstandard frame magic, from RFC 8878 section 3.1.1.
