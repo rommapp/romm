@@ -102,6 +102,10 @@ def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
     }
 
 
+# Set on the job by `finish`, so a scan that emitted a terminal event of its
+# own is not reported a second time from the outside.
+SCAN_REPORTED_META_KEY: Final = "reported_terminal_event"
+
 # Why a scan could not report its own end, and what to tell the clients.
 # Every other failure unwinds through `scan_platforms`, which emits on its way
 # out, so reporting those here too would report them twice.
@@ -110,9 +114,10 @@ _UNREPORTABLE_SCAN_FAILURES: Final[dict[type, tuple[str, str]]] = {
         "was abandoned by its worker",
         "the worker running it stopped unexpectedly",
     ),
-    # SIGALRM lands wherever execution happens to be, which for a coroutine is
-    # the event loop rather than a frame inside `scan_platforms`, so none of the
-    # scan's own exit paths run.
+    # SIGALRM lands wherever execution happens to be. Parked between coroutine
+    # steps, that is the event loop rather than a frame inside `scan_platforms`,
+    # so none of the scan's own exit paths run. Land it inside one and the scan
+    # does report itself, which the meta flag below tells apart.
     JobTimeoutException: (
         f"hit its {SCAN_TIMEOUT}s SCAN_TIMEOUT",
         "it exceeded SCAN_TIMEOUT",
@@ -120,17 +125,27 @@ _UNREPORTABLE_SCAN_FAILURES: Final[dict[type, tuple[str, str]]] = {
 }
 
 
+def _scan_reported_itself(job: Job) -> bool:
+    """Whether the scan already emitted a terminal event before it unwound."""
+    try:
+        job.refresh()
+    except Exception:
+        # A job whose hash is already gone cannot have anything to add.
+        log.debug(f"Could not re-read meta for scan {job.id}", exc_info=True)
+    return bool(job.meta.get(SCAN_REPORTED_META_KEY))
+
+
 def report_scan_failure(
     job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
 ) -> None:
     """Tell the clients a scan is over when the scan could not say so itself.
 
-    A worker killed mid-scan, or one whose job timed out, never reaches the
-    handler that emits this, so the clients would keep showing a scan that no
-    longer exists.
+    A worker killed mid-scan, or one whose job timed out between coroutine
+    steps, never reaches the handler that emits this, so the clients would keep
+    showing a scan that no longer exists.
     """
     failure = _UNREPORTABLE_SCAN_FAILURES.get(exc_type)
-    if failure is None:
+    if failure is None or _scan_reported_itself(job):
         return
 
     log_reason, client_reason = failure
@@ -1145,6 +1160,8 @@ async def scan_platforms(
         """End the scan, reporting whatever a coalesced increment held back."""
         await scan_stats.flush(socket_manager)
         await socket_manager.emit(event, payload)
+        # `report_scan_failure` reads this to know the scan got its own word in.
+        update_job_meta({SCAN_REPORTED_META_KEY: True})
 
     # A ROM-id-scoped scan resolves its work from the database, so it neither
     # needs nor can afford the filesystem walk a library scan starts with.

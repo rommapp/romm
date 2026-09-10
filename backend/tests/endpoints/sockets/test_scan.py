@@ -244,7 +244,14 @@ class TestScanFailureReporting:
         with pytest.raises(RuntimeError):
             await scan_platforms(platform_ids=[], metadata_sources=[])
 
-        assert update_job_meta.call_args.args[0]["scan_stats"]["scanned_roms"] == 7
+        # `finish` writes meta twice: the flushed stats, then the flag saying
+        # it reported the end itself.
+        published = [
+            call.args[0]["scan_stats"]
+            for call in update_job_meta.call_args_list
+            if "scan_stats" in call.args[0]
+        ]
+        assert published[-1]["scanned_roms"] == 7
         assert patched.emit.await_args.args[0] == "scan:done_ko"
 
 
@@ -2446,6 +2453,23 @@ class TestReportScanFailure:
         emit.assert_awaited_once()
         assert emit.await_args.args[0] == "scan:done_ko"
         assert "SCAN_TIMEOUT" in emit.await_args.args[1]
+
+    def test_stays_quiet_when_the_timeout_landed_inside_the_coroutine(self, emit):
+        # SIGALRM raised in a `scan_platforms` frame is caught by its own
+        # `except Exception`, which emits and re-raises; emitting again here
+        # would show the user two "Scan failed" notifications.
+        job = make_job(SCAN_PLATFORMS_FUNC)
+        job.meta = {scan_module.SCAN_REPORTED_META_KEY: True}
+
+        scan_module.report_scan_failure(
+            job,
+            MagicMock(),
+            JobTimeoutException,
+            JobTimeoutException("Task exceeded maximum timeout value"),
+            None,
+        )
+
+        emit.assert_not_awaited()
 
     def test_stays_quiet_for_a_failure_the_scan_already_reported(self, emit):
         # scan_platforms emits on its way out, so reporting here would double up.
