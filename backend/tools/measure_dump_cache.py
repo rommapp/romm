@@ -39,8 +39,10 @@ from handler.dump_cache import (  # noqa: E402
     encode,
 )
 
-# Mirrors GAME_IMAGE_FIELDS in the LaunchBox task.
-GAME_IMAGE_FIELDS: Final[frozenset[str]] = frozenset({"FileName", "Type", "Region"})
+# Mirrors LAUNCHBOX_IMAGE_FIELDS, whose module needs the app to import.
+LAUNCHBOX_IMAGE_FIELDS: Final[frozenset[str]] = frozenset(
+    {"FileName", "Type", "Region"}
+)
 
 WRITE_BATCH = 2000
 
@@ -164,7 +166,7 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                             yield LAUNCHBOX_METADATA_IMAGE_KEY, image_id, images
                             images = []
                         image_id = current
-                        images.append(element_to_dict(elem, GAME_IMAGE_FIELDS))
+                        images.append(element_to_dict(elem, LAUNCHBOX_IMAGE_FIELDS))
 
                 if image_id is not None:
                     yield LAUNCHBOX_METADATA_IMAGE_KEY, image_id, images

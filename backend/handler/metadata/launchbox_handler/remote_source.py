@@ -19,13 +19,15 @@ class RemoteSource:
     async def get_by_id(self, database_id: int | str) -> dict | None:
         return await hget_json(LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id))
 
-    async def _follow_title_index(self, value: dict | int | str) -> dict | None:
-        """Resolve a title index hit to the record it points at.
+    async def _lookup_title_index(self, key: str, field: str) -> dict | None:
+        """Read a title index hit and resolve the database id it holds.
 
-        A hit holds the database id of the record. A store imported before the
-        title indexes were de-duplicated holds the whole record instead, so it
-        keeps answering until the next import rewrites it.
+        An index written by an earlier import holds the whole record instead.
         """
+        value = await hget_json(key, field)
+        if not value:
+            return None
+
         if isinstance(value, dict):
             return value
         return await self.get_by_id(value)
@@ -66,13 +68,9 @@ class RemoteSource:
         candidates = list(dict.fromkeys(candidates))
 
         for candidate in candidates:
-            metadata_name_index_entry = await hget_json(
+            entry = await self._lookup_title_index(
                 LAUNCHBOX_METADATA_NAME_KEY, f"{candidate}:{platform_name}"
             )
-            if not metadata_name_index_entry:
-                continue
-
-            entry = await self._follow_title_index(metadata_name_index_entry)
             if entry:
                 return entry
 
@@ -101,13 +99,9 @@ class RemoteSource:
             folded = fold_title(candidate)
             if not folded:
                 continue
-            folded_index_entry = await hget_json(
+            entry = await self._lookup_title_index(
                 LAUNCHBOX_METADATA_FOLDED_NAME_KEY, f"{folded}:{platform_name}"
             )
-            if not folded_index_entry:
-                continue
-
-            entry = await self._follow_title_index(folded_index_entry)
             if entry:
                 return entry
 

@@ -29,6 +29,13 @@ class LaunchboxImage(TypedDict):
     region: NotRequired[str]
 
 
+# `DatabaseID` repeats the field the list is stored under and `CRC32` has no
+# reader; across the dump's 1.3M images the pair costs ~100MB of cache.
+LAUNCHBOX_IMAGE_FIELDS: Final[frozenset[str]] = frozenset(
+    {"FileName", "Type", "Region"}
+)
+
+
 class LaunchboxPlatform(TypedDict):
     slug: str
     launchbox_id: int | None

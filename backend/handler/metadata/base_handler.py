@@ -278,7 +278,7 @@ class MetadataHandler(abc.ABC):
             log.error("Could not find the Switch titleID index file in cache")
             return search_term, None
 
-        index_entry = await hget_json(SWITCH_TITLEDB_INDEX_KEY, title_id)
+        index_entry = await self._switch_titledb_entry(title_id)
         if index_entry:
             return index_entry["name"], index_entry
 
@@ -312,12 +312,14 @@ class MetadataHandler(abc.ABC):
         return search_term, None
 
     @staticmethod
-    async def _switch_product_id_entry(product_id: str) -> dict | None:
-        """Resolve a Switch product id to its titleID index entry.
+    async def _switch_titledb_entry(title_id: str) -> dict | None:
+        return await hget_json(SWITCH_TITLEDB_INDEX_KEY, title_id)
 
-        The product id index holds the title id of the entry. A store imported
-        before it was de-duplicated holds the entry itself, so it keeps
-        answering until the next update rewrites it.
+    @classmethod
+    async def _switch_product_id_entry(cls, product_id: str) -> dict | None:
+        """Resolve a Switch product id to the titleID entry its index points at.
+
+        An index written by an earlier import holds the entry itself.
         """
         value = await hget_json(SWITCH_PRODUCT_ID_KEY, product_id)
         if not value:
@@ -326,7 +328,7 @@ class MetadataHandler(abc.ABC):
         if isinstance(value, dict):
             return value
 
-        return await hget_json(SWITCH_TITLEDB_INDEX_KEY, value)
+        return await cls._switch_titledb_entry(value)
 
     async def _mame_format(self, search_term: str) -> str:
         from handler.filesystem import fs_rom_handler
