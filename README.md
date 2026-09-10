@@ -72,7 +72,7 @@ Effortlessly integrate your retro game collection into [Playnite](https://playni
 
 `Windows` `Desktop` `QR pairing`
 
-<a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><img src=".github/resources/playnite-install-button.svg" width="134" height="38" align="middle" alt="Install" /></a> <sub>by <a href="https://github.com/gantoine">@gantoine</a></sub>
+<a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><img src=".github/resources/playnite-install-button.svg" width="134" height="38" align="middle" alt="Install" /></a>&nbsp;&nbsp;<sub>by <a href="https://github.com/gantoine">@gantoine</a></sub>
 
 <br clear="left" />
 
@@ -84,7 +84,7 @@ Sync your library, download games on demand and track your achievements, from a 
 
 `Android` `Handhelds` `QR pairing` `Save sync`
 
-<a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><img src=".github/resources/argosy-download-button.svg" width="134" height="38" align="middle" alt="Download" /></a> <sub>by <a href="https://github.com/tmgast">@tmgast</a></sub>
+<a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><img src=".github/resources/argosy-download-button.svg" width="134" height="38" align="middle" alt="Download" /></a>&nbsp;&nbsp;<sub>by <a href="https://github.com/tmgast">@tmgast</a></sub>
 
 <br clear="left" />
 
@@ -96,7 +96,7 @@ A lightweight client for your favorite handheld custom firmwares. Download games
 
 `Linux` `Handhelds` `Save sync`
 
-<a href="https://grout.romm.app/getting-started/"><img src=".github/resources/grout-quick-start-button.svg" width="134" height="38" align="middle" alt="Quick start" /></a> <sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub>
+<a href="https://grout.romm.app/getting-started/"><img src=".github/resources/grout-quick-start-button.svg" width="134" height="38" align="middle" alt="Quick start" /></a>&nbsp;&nbsp;<sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub>
 
 <sub><i>Supports Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce and TrimUI.</i></sub>
 
