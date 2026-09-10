@@ -52,27 +52,24 @@ Prefer a hosted deploy over wiring up the stack yourself? Each of these platform
 <table align="center">
   <tr valign="top">
     <td align="center">
-      <p><img src=".github/resources/hostinger-logo.svg" height="44" alt="Hostinger logo" /></p>
-      <p><b>Hostinger</b></p>
+      <p><br /><img src=".github/resources/hostinger-logo.svg" height="44" alt="Hostinger logo" /><br /><b>Hostinger</b></p>
       <p>Starting at <b>$6.49/mo</b><br /><a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a></p>
       <p><a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a></p>
     </td>
     <td align="center">
-      <p><img src=".github/resources/cloudzy-logo.svg" height="44" alt="Cloudzy logo" /></p>
-      <p><b>Cloudzy</b></p>
+      <p><br /><img src=".github/resources/cloudzy-logo.svg" height="44" alt="Cloudzy logo" /><br /><b>Cloudzy</b></p>
       <p>Starting at <b>$2.48/mo</b><br /><a href="https://docs.romm.app/latest/install/cloudzy/">Setup guide</a></p>
       <p><a href="https://cloudzy.com/marketplace/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/cloudzy-badge.svg" alt="Deploy on Cloudzy" width="250" height="58" /></a></p>
     </td>
     <td align="center">
-      <p><img src=".github/resources/railway-logo.svg" height="44" alt="Railway logo" /></p>
-      <p><b>Railway</b></p>
+      <p><br /><img src=".github/resources/railway-logo.svg" height="44" alt="Railway logo" /><br /><b>Railway</b></p>
       <p>Starting at <b>$5/mo</b><br /><a href="https://docs.romm.app/latest/install/railway/">Setup guide</a></p>
       <p><a href="https://railway.com/deploy/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/railway-badge.svg" alt="Deploy on Railway" width="250" height="58" /></a></p>
     </td>
   </tr>
 </table>
 
-<sub><i>Deployment and infrastructure support for these installs is handled by the platform, not the RomM team. Prices are indicative and may not reflect current offerings. Signups through the Hostinger link send a share of the revenue back to RomM, which helps fund the project.</i></sub>
+<sub><i>Deployment and infrastructure support for these installs is handled by the platform, not our team. Prices are indicative and may not reflect current offerings. Signups through the Hostinger link send a share of the revenue back to RomM, which helps fund the project.</i></sub>
 
 ## Contributing
 
