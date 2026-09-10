@@ -282,6 +282,104 @@ async def test_oidc_registration_enabled_creates_unknown_user(
     assert user == mock_user
 
 
+async def test_oidc_registration_rewrites_a_username_romm_would_reject(
+    mocker,
+    mock_oidc_enabled,
+    mock_oidc_allow_registration_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """A provider name like `first.last` used to be stored verbatim, and the
+    resulting account could not be edited afterwards."""
+    mock_token["userinfo"]["preferred_username"] = "first.last"
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=None
+    )
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_username", return_value=None
+    )
+    mock_add_user = mocker.patch(
+        "handler.database.db_user_handler.add_user",
+        return_value=MagicMock(enabled=True, role=Role.USER),
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    assert mock_add_user.call_args.args[0].username == "first-last"
+
+
+async def test_oidc_registration_suffixes_a_taken_username(
+    mocker,
+    mock_oidc_enabled,
+    mock_oidc_allow_registration_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Two providers' `a.user` and `a-user` sanitize to the same name, and the
+    column is unique."""
+    mock_token["userinfo"]["preferred_username"] = "a.user"
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=None
+    )
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_username",
+        side_effect=lambda username: (
+            MagicMock() if username in ("a-user", "a-user-2") else None
+        ),
+    )
+    mock_add_user = mocker.patch(
+        "handler.database.db_user_handler.add_user",
+        return_value=MagicMock(enabled=True, role=Role.USER),
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    assert mock_add_user.call_args.args[0].username == "a-user-3"
+
+
+async def test_oidc_registration_falls_back_to_the_email_local_part(
+    mocker,
+    mock_oidc_enabled,
+    mock_oidc_allow_registration_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Nothing survives sanitizing a name written in another script."""
+    mock_token["userinfo"]["preferred_username"] = "ユーザー"
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=None
+    )
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_username", return_value=None
+    )
+    mock_add_user = mocker.patch(
+        "handler.database.db_user_handler.add_user",
+        return_value=MagicMock(enabled=True, role=Role.USER),
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    assert mock_add_user.call_args.args[0].username == "test"
+
+
 async def test_oidc_registration_disabled_allows_existing_user(
     mocker,
     mock_oidc_enabled,

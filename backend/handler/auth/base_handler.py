@@ -35,6 +35,32 @@ from logger.logger import log
 oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
 
 
+def _romm_username(provided: str, fallback: str) -> str:
+    """A valid, unused RomM username for the name an identity provider chose.
+
+    Args:
+        provided (str): The username as the provider sent it
+        fallback (str): Stem to use when nothing usable survives sanitizing
+
+    Returns:
+        str: A username no other account holds
+    """
+    # Deferred: `utils.validation` reaches this module through `models.user`,
+    # so importing it at module level closes a cycle.
+    from handler.database import db_user_handler
+    from utils.validation import sanitize_username
+
+    username = sanitize_username(provided, fallback=fallback)
+
+    candidate = username
+    suffix = 1
+    while db_user_handler.get_user_by_username(candidate) is not None:
+        suffix += 1
+        candidate = f"{username}-{suffix}"
+
+    return candidate
+
+
 class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -452,8 +478,15 @@ class OpenIDHandler:
                 "User with email '%s' not found, creating new user",
                 hl(email, color=CYAN),
             )
+            username = _romm_username(preferred_username, fallback=email.split("@")[0])
+            if username != preferred_username:
+                log.info(
+                    "OIDC username '%s' is not a valid RomM username, registering as '%s'",
+                    hl(preferred_username, color=CYAN),
+                    hl(username, color=CYAN),
+                )
             new_user = User(
-                username=preferred_username,
+                username=username,
                 hashed_password=str(uuid.uuid4()),
                 email=email,
                 enabled=True,
