@@ -66,6 +66,7 @@ import {
 import {
   ALL_DISCS,
   bootDiscId,
+  bootableFiles,
   rememberDisc,
   resolveRememberedDisc,
   type DiscSelection,
@@ -138,9 +139,11 @@ const compatibleStates = computed(
     ) ?? [],
 );
 
+const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
+
 const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
   { title: t("play.all-discs"), value: ALL_DISCS },
-  ...(rom.value?.files ?? []).map((f) => ({
+  ...bootableRomFiles.value.map((f) => ({
     title: f.file_name,
     value: f.id,
   })),
@@ -345,7 +348,10 @@ onMounted(async () => {
   }
   isSavesTabSelected.value = !hasCompatibleState;
 
-  selectedDisc.value = resolveRememberedDisc(rom.value.id, rom.value.files);
+  selectedDisc.value = resolveRememberedDisc(
+    rom.value.id,
+    bootableRomFiles.value,
+  );
 
   selectedCore.value = resolveRememberedCore(
     rom.value.id,
@@ -590,7 +596,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
         </div>
         <div class="r-v2-ejs__setup-body">
           <RSelect
-            v-if="(rom?.files?.length ?? 0) > 1"
+            v-if="bootableRomFiles.length > 1"
             v-model="selectedDisc"
             variant="outlined"
             density="comfortable"
