@@ -260,7 +260,7 @@ class TestFullPathHash:
         assert root.full_path_hash != nested.full_path_hash
 
 
-def _achievement(ra_id: int, display_order: int | None) -> dict:
+def _achievement(ra_id: int | None, display_order: int | None) -> dict:
     return {
         "ra_id": ra_id,
         "display_order": display_order,
@@ -288,13 +288,12 @@ class TestMergedRAMetadata:
         assert [a["ra_id"] for a in merged["achievements"]] == [10, 20, 30]
 
     def test_ties_and_missing_orders_stay_deterministic(self):
-        """Metadata scanned before `display_order` was captured has none, and
-        RetroAchievements itself hands out duplicate orders."""
         rom = Rom(
             fs_name="Game.zip",
             fs_path="nes/roms",
             ra_metadata={
                 "achievements": [
+                    _achievement(None, None),
                     _achievement(9, None),
                     _achievement(8, 1),
                     _achievement(7, 1),
@@ -304,11 +303,10 @@ class TestMergedRAMetadata:
 
         merged = rom.merged_ra_metadata
         assert merged is not None
-        assert [a["ra_id"] for a in merged["achievements"]] == [7, 8, 9]
+        assert [a["ra_id"] for a in merged["achievements"]] == [7, 8, 9, None]
 
     def test_the_stored_metadata_keeps_its_own_order_and_relative_paths(self):
-        """Badge paths on disk are relative, and the sort must not leak back
-        into the column the filesystem handlers read."""
+        """Badge paths on disk stay relative for the filesystem handlers."""
         stored = {"achievements": [_achievement(2, 2), _achievement(1, 1)]}
         rom = Rom(fs_name="Game.zip", fs_path="nes/roms", ra_metadata=stored)
 

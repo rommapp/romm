@@ -99,12 +99,8 @@ def compute_full_path_hash(fs_path: str | None, fs_name: str | None) -> str:
     ).hexdigest()
 
 
-def _ra_display_order(achievement: dict) -> tuple[int, int]:
-    """Sort key matching RetroAchievements' "Display Order", ties by id.
-
-    An achievement scanned before `display_order` was captured sinks to the
-    end rather than jumping to the front of the list.
-    """
+def _ra_achievement_sort_key(achievement: dict) -> tuple[int, int]:
+    """Orders achievements by RetroAchievements' "Display Order", ties by id."""
     order = achievement.get("display_order")
     ra_id = achievement.get("ra_id")
     return (
@@ -1080,19 +1076,19 @@ class Rom(BaseModel):
             # This ensures that badge paths remain relative for filesystem operations
             # while the frontend receives absolute paths
             metadata_copy = copy.deepcopy(self.ra_metadata)
-            for achievement in metadata_copy.get("achievements", []):
+            # The provider returns achievements keyed by id, so the stored order
+            # is arbitrary.
+            achievements = sorted(
+                metadata_copy.get("achievements", []), key=_ra_achievement_sort_key
+            )
+            for achievement in achievements:
                 achievement["badge_path_lock"] = (
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}"
                 )
                 achievement["badge_path"] = (
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
                 )
-            # The provider returns achievements keyed by id, so the stored order
-            # is arbitrary. RetroAchievements' own "Display Order" is what a
-            # player follows while playing.
-            metadata_copy["achievements"] = sorted(
-                metadata_copy.get("achievements", []), key=_ra_display_order
-            )
+            metadata_copy["achievements"] = achievements
             return metadata_copy
         return self.ra_metadata
 
