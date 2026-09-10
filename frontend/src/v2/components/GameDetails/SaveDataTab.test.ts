@@ -89,6 +89,18 @@ describe("SaveDataTab states subtab", () => {
     );
   });
 
+  // Mine and Community are separate AssetList instances stacked in one
+  // scroll view, so a per-list decision would misalign their name columns.
+  it("gives both sections of a subtab the same cell width", () => {
+    const lists = mountTab()
+      .findAllComponents({ name: "AssetList" })
+      .filter((l) => l.props("type") === "state");
+    const [mine, community] = lists.map((l) => l.props("thumbs"));
+
+    expect(mine).toBe(community);
+    expect(mine).not.toBeNull();
+  });
+
   it("credits the author on community states only", () => {
     const lists = mountTab()
       .findAllComponents({ name: "AssetList" })

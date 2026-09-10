@@ -17,21 +17,16 @@
 import { RAvatar, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type {
-  SaveSchema,
-  StateSchema,
-  UserSaveSchema,
-  UserStateSchema,
-} from "@/__generated__";
+import type { UserSaveSchema, UserStateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
 import HashChip from "@/v2/components/shared/HashChip.vue";
+import { type Asset, assetScreenshotUrl } from "@/v2/utils/asset";
 import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
 export type AssetType = "save" | "state";
-type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 
 const props = withDefaults(
   defineProps<{
@@ -45,12 +40,16 @@ const props = withDefaults(
     showOwner?: boolean;
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
+    /** Force the leading cell wide or narrow. Set it when sibling lists
+     *  read as one table and so must agree; otherwise each list decides. */
+    thumbs?: boolean | null;
   }>(),
   {
     selectable: true,
     selectedId: null,
     showOwner: false,
     scrollable: true,
+    thumbs: null,
   },
 );
 
@@ -74,14 +73,14 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   return "username" in asset && asset.username ? asset : null;
 }
 
-function screenshotOf(asset: Asset): string | null {
-  return asset.screenshot?.download_path ?? null;
-}
-
 // Widening is decided per list rather than per row, so the names of rows
-// whose asset happens to lack a screenshot still line up with the rest.
-const showThumbs = computed(() =>
-  props.assets.some((asset) => screenshotOf(asset) !== null),
+// whose asset happens to lack a screenshot still line up with the rest. A
+// parent rendering sibling lists can override it so they line up with each
+// other too.
+const showThumbs = computed(
+  () =>
+    props.thumbs ??
+    props.assets.some((asset) => assetScreenshotUrl(asset) !== null),
 );
 
 const fallbackIcon = computed(() =>
@@ -115,9 +114,9 @@ const fallbackIcon = computed(() =>
             aria-hidden="true"
           >
             <span
-              v-if="screenshotOf(asset)"
+              v-if="assetScreenshotUrl(asset)"
               class="r-asset-list__shot"
-              :style="{ backgroundImage: toCssUrl(screenshotOf(asset)!) }"
+              :style="{ backgroundImage: toCssUrl(assetScreenshotUrl(asset)!) }"
             />
             <RIcon v-else :icon="fallbackIcon" :size="showThumbs ? 26 : 22" />
           </span>

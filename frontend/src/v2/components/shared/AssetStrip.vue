@@ -18,13 +18,9 @@
 import { RAvatar, RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type {
-  SaveSchema,
-  StateSchema,
-  UserSaveSchema,
-  UserStateSchema,
-} from "@/__generated__";
+import type { UserSaveSchema, UserStateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { type Asset, assetScreenshotUrl } from "@/v2/utils/asset";
 import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -32,7 +28,6 @@ defineOptions({ inheritAttrs: false });
 
 export type AssetType = "save" | "state";
 export type AssetLayout = "strip" | "grid" | "list";
-type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 
 const props = withDefaults(
   defineProps<{
@@ -60,13 +55,6 @@ const emptyLabel = computed(() =>
     ? t("play.no-saves-available")
     : t("play.no-states-available"),
 );
-
-function screenshotOf(asset: Asset): string | null {
-  if ("screenshot" in asset && asset.screenshot?.download_path) {
-    return asset.screenshot.download_path;
-  }
-  return null;
-}
 
 function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   return "username" in asset && asset.username ? asset : null;
@@ -103,9 +91,9 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
         </span>
         <div v-else class="r-asset-strip__thumb">
           <div
-            v-if="type === 'state' && screenshotOf(asset)"
+            v-if="type === 'state' && assetScreenshotUrl(asset)"
             class="r-asset-strip__thumb-img"
-            :style="{ backgroundImage: toCssUrl(screenshotOf(asset)!) }"
+            :style="{ backgroundImage: toCssUrl(assetScreenshotUrl(asset)!) }"
           />
           <div v-else class="r-asset-strip__thumb-icon">
             <RIcon

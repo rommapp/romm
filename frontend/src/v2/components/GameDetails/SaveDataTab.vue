@@ -34,6 +34,7 @@ import AssetList from "@/v2/components/shared/AssetList.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { assetScreenshotUrl } from "@/v2/utils/asset";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 // Slot payload from AssetList is the full save|state union; these narrow it
@@ -111,6 +112,15 @@ const communitySaves = computed(() => allSaves.value.filter((s) => !isOwn(s)));
 const myStates = computed(() => allStates.value.filter(isOwn));
 const communityStates = computed(() =>
   allStates.value.filter((s) => !isOwn(s)),
+);
+
+// Mine and Community read as one table, so the leading cell's width is
+// decided across both rather than per section.
+const savesHaveShots = computed(() =>
+  allSaves.value.some((s) => assetScreenshotUrl(s) !== null),
+);
+const statesHaveShots = computed(() =>
+  allStates.value.some((s) => assetScreenshotUrl(s) !== null),
 );
 
 // Badge = total visible items in the subtab (own + community).
@@ -385,6 +395,7 @@ async function toggleStateVisibility(state: StateSchema) {
               type="save"
               :selectable="false"
               :scrollable="false"
+              :thumbs="savesHaveShots"
             >
               <template #actions="{ asset }">
                 <RBtn
@@ -445,6 +456,7 @@ async function toggleStateVisibility(state: StateSchema) {
             type="save"
             :selectable="false"
             :scrollable="false"
+            :thumbs="savesHaveShots"
             show-owner
           >
             <template #actions="{ asset }">
@@ -511,6 +523,7 @@ async function toggleStateVisibility(state: StateSchema) {
               type="state"
               :selectable="false"
               :scrollable="false"
+              :thumbs="statesHaveShots"
             >
               <template #actions="{ asset }">
                 <RBtn
@@ -571,6 +584,7 @@ async function toggleStateVisibility(state: StateSchema) {
             type="state"
             :selectable="false"
             :scrollable="false"
+            :thumbs="statesHaveShots"
             show-owner
           >
             <template #actions="{ asset }">

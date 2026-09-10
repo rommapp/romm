@@ -36,7 +36,11 @@ function makeAsset(overrides: Partial<SaveSchema> = {}): Asset {
 
 function mountList(
   assets: Asset[],
-  props: { type?: "save" | "state"; selectable?: boolean } = {},
+  props: {
+    type?: "save" | "state";
+    selectable?: boolean;
+    thumbs?: boolean | null;
+  } = {},
 ) {
   return shallowMount(AssetList, {
     props: { assets, type: "save", selectable: false, ...props },
@@ -89,6 +93,26 @@ describe("AssetList leading cell", () => {
 
     expect(wrapper.findAll(".r-asset-list__icon--thumb")).toHaveLength(2);
     expect(wrapper.findAll(".r-asset-list__shot")).toHaveLength(1);
+  });
+
+  // Sibling lists that read as one table pass a shared answer, so a section
+  // with no captures still lines its names up with the section above it.
+  it("lets the parent force the cell wide", () => {
+    const wrapper = mountList([makeAsset({ screenshot: null })], {
+      thumbs: true,
+    });
+
+    expect(wrapper.findAll(".r-asset-list__icon--thumb")).toHaveLength(1);
+    expect(wrapper.findAll(".r-asset-list__shot")).toHaveLength(0);
+  });
+
+  it("lets the parent force the cell narrow", () => {
+    const wrapper = mountList(
+      [makeAsset({ screenshot: shot("/api/screenshots/1/content") })],
+      { thumbs: false },
+    );
+
+    expect(wrapper.findAll(".r-asset-list__icon--thumb")).toHaveLength(0);
   });
 
   it("keeps the fallback icon type-aware inside a widened cell", () => {
