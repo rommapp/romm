@@ -753,6 +753,26 @@ def get_roms(
             description="Logic operator for tags filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
+    hltb_main_story_min: Annotated[
+        int | None,
+        Query(
+            description=(
+                "Minimum HowLongToBeat main story time, in seconds. Roms without"
+                " a HowLongToBeat time are excluded."
+            ),
+            ge=0,
+        ),
+    ] = None,
+    hltb_main_story_max: Annotated[
+        int | None,
+        Query(
+            description=(
+                "Maximum HowLongToBeat main story time, in seconds. Roms without"
+                " a HowLongToBeat time are excluded."
+            ),
+            ge=0,
+        ),
+    ] = None,
     order_by: Annotated[
         str,
         Query(
@@ -845,6 +865,8 @@ def get_roms(
         player_counts=player_counts,
         metadata_providers=metadata_providers,
         tags=tags,
+        hltb_main_story_min=hltb_main_story_min,
+        hltb_main_story_max=hltb_main_story_max,
         # Logic operators
         genres_logic=genres_logic,
         franchises_logic=franchises_logic,
@@ -904,6 +926,8 @@ def get_roms(
         or player_counts
         or metadata_providers
         or tags
+        or hltb_main_story_min is not None
+        or hltb_main_story_max is not None
         or updated_after
         or matched is not None
         or favorite is not None

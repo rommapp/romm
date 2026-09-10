@@ -12,6 +12,7 @@
 //     companies / age-ratings / regions / languages / tags /
 //     player-counts / metadata-providers / statuses) — each paired with
 //     an AND/OR/NONE logic toggle.
+//   • Game length: an open-ended HowLongToBeat main-story range in hours.
 //   • Reset button at the bottom.
 //
 // Apply is implicit — the URL composable + galleryRoms watcher refresh
@@ -21,7 +22,15 @@
 // primitives. Mounted by GalleryShell so it's available everywhere a
 // gallery is rendered. The shell controls `modelValue` and forwards
 // `showPlatformsFilter`.
-import { RBtn, RDrawer, RIcon, RSelect, RSliderBtnGroup, RTag } from "@v2/lib";
+import {
+  RBtn,
+  RDrawer,
+  RIcon,
+  RSelect,
+  RSliderBtnGroup,
+  RTag,
+  RTextField,
+} from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject } from "vue";
@@ -106,6 +115,8 @@ const {
   filterStatuses,
   selectedStatuses,
   statusesLogic,
+  selectedLengthMinHours,
+  selectedLengthMaxHours,
 } = storeToRefs(filter);
 const { allPlatforms } = storeToRefs(platformsStore);
 
@@ -435,12 +446,46 @@ const selectedPlatformIds = computed({
   },
 });
 
+// ── Game length (HowLongToBeat main story) ─────────────────────
+// Typed in hours; the API layer converts to the seconds the backend stores.
+function lengthBoundInput(value: number | null): string {
+  return value === null ? "" : String(value);
+}
+
+function parseLengthBound(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function setLengthMin(raw: string) {
+  filter.setSelectedFilterLengthHours(
+    parseLengthBound(raw),
+    selectedLengthMaxHours.value,
+  );
+}
+
+function setLengthMax(raw: string) {
+  filter.setSelectedFilterLengthHours(
+    selectedLengthMinHours.value,
+    parseLengthBound(raw),
+  );
+}
+
+const hasLengthFilter = computed(
+  () =>
+    selectedLengthMinHours.value !== null ||
+    selectedLengthMaxHours.value !== null,
+);
+
 // ── Active-filter count (footer badge) ────────────────────────
 const activeCount = computed(() => {
   let n = 0;
   for (const f of boolFilters) if (f.value.value !== null) n += 1;
   if (selectedPlatforms.value.length > 0) n += 1;
   for (const s of multiSections.value) if (s.selected.value.length > 0) n += 1;
+  if (hasLengthFilter.value) n += 1;
   return n;
 });
 
@@ -455,6 +500,7 @@ function resetAll() {
     s.selected.value = [];
     s.setLogic("any");
   }
+  filter.setSelectedFilterLengthHours(null, null);
 }
 
 // Hand off to CreateSmartCollectionDialog — closing the drawer first
@@ -579,6 +625,44 @@ function saveAsSmartCollection() {
       </div>
     </section>
 
+    <!-- ── Game length ─────────────────────────────────────── -->
+    <section class="r-v2-fd__section">
+      <h3 class="r-v2-fd__heading">
+        {{ t("platform.game-length") }}
+      </h3>
+      <div class="r-v2-fd__length-row">
+        <RTextField
+          :model-value="lengthBoundInput(selectedLengthMinHours)"
+          type="number"
+          hide-details
+          prefix-label="stacked"
+          :placeholder="t('platform.length-any')"
+          @update:model-value="setLengthMin"
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-timer-outline" size="14" />
+            {{ t("platform.length-from-hours") }}
+          </template>
+        </RTextField>
+        <RTextField
+          :model-value="lengthBoundInput(selectedLengthMaxHours)"
+          type="number"
+          hide-details
+          prefix-label="stacked"
+          :placeholder="t('platform.length-any')"
+          @update:model-value="setLengthMax"
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-timer-outline" size="14" />
+            {{ t("platform.length-to-hours") }}
+          </template>
+        </RTextField>
+      </div>
+      <p v-if="hasLengthFilter" class="r-v2-fd__length-note">
+        {{ t("platform.length-hides-unknown") }}
+      </p>
+    </section>
+
     <template #footer>
       <RBtn
         variant="text"
@@ -668,6 +752,20 @@ function saveAsSmartCollection() {
 .r-v2-fd__multi-select {
   min-width: 0;
 }
+/* ── Game length ─────────────────────────────────────────────── */
+.r-v2-fd__length-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.r-v2-fd__length-note {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--r-color-fg-muted);
+}
+
 .r-v2-fd__logic {
   flex-shrink: 0;
   /* Visually align with the select's field box (the stacked label

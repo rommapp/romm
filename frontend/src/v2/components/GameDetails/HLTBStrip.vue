@@ -5,31 +5,16 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomHLTBMetadata } from "@/__generated__";
+import { toBrowserLocale } from "@/utils";
+import { formatPlaytime } from "@/v2/utils/time";
 
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ metadata: RomHLTBMetadata | null | undefined }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 type Entry = { label: string; value: string; count: number | null };
-
-// Backend stores HLTB durations in seconds. Convert to hours, round to
-// the nearest 0.5h (mirrors v1's HowLongToBeat.vue), or to minutes when
-// the game is shorter than an hour.
-const intlHours = new Intl.NumberFormat("en-US", {
-  maximumSignificantDigits: 3,
-});
-
-function formatHours(secs?: number | null) {
-  if (!secs || secs <= 0) return null;
-  const hours = secs / 3600;
-  if (hours < 1) {
-    const mins = Math.round(secs / 60);
-    return mins > 0 ? `${mins}m` : null;
-  }
-  return `${intlHours.format(Math.round(hours * 2) / 2)}h`;
-}
 
 const entries = computed<Entry[]>(() => {
   const m = props.metadata;
@@ -42,7 +27,7 @@ const entries = computed<Entry[]>(() => {
     [t("rom.all-styles"), m.all_styles, m.all_styles_count],
   ];
   for (const [label, value, count] of candidates) {
-    const v = formatHours(value);
+    const v = formatPlaytime(value, toBrowserLocale(locale.value));
     if (v) out.push({ label, value: v, count: count ?? null });
   }
   return out;

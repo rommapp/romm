@@ -42,6 +42,7 @@ import storeCollections, {
 } from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
+import { toBrowserLocale } from "@/utils";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -65,7 +66,7 @@ const emit = defineEmits<{
   (e: "delete"): void;
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const auth = storeAuth();
@@ -193,12 +194,17 @@ const filterSummary = computed(() => {
   if (props.kind !== "smart") return [];
   const c = props.collection as SmartCollection;
   const fc = (c.filter_criteria ?? {}) as SmartFilterCriteria;
-  return summarizeSmartFilterCriteria(fc, t, {
-    platform: platformLookup,
-    collection: collectionLookup,
-    virtualCollection: virtualCollectionLookup,
-    smartCollection: smartCollectionLookup,
-  });
+  return summarizeSmartFilterCriteria(
+    fc,
+    t,
+    {
+      platform: platformLookup,
+      collection: collectionLookup,
+      virtualCollection: virtualCollectionLookup,
+      smartCollection: smartCollectionLookup,
+    },
+    toBrowserLocale(locale.value),
+  );
 });
 
 // ── Cover actions ───────────────────────────────────────────────

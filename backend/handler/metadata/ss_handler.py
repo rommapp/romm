@@ -156,9 +156,7 @@ def add_ss_auth_to_url(url: str | None) -> str:
     )
 
 
-def get_preferred_regions(
-    rom: Rom | None = None, *, for_media: bool = False
-) -> list[str]:
+def get_preferred_regions(rom: Rom | None = None) -> list[str]:
     """Get preferred regions, prepending the rom's own region tags when available.
 
     When a rom is tagged with multiple regions (e.g. "(Japan, USA)"), the rom's
@@ -167,11 +165,11 @@ def get_preferred_regions(
     Filename-tagged regions not present in the priority list keep their relative
     order and follow the prioritized ones.
 
-    With SCAN_REGION_MODE set to "prefer_config" and for_media=True, the
-    configured priority is authoritative instead: config regions come first and
-    the rom's own tags become the fallback when the config regions have no
-    media. The mode only applies to media selection; name and release-date
-    selection always keep the rom-tags-first ordering.
+    With SCAN_REGION_MODE set to "prefer_config" the configured priority is
+    authoritative instead: config regions come first and the rom's own tags
+    become the fallback. Everything region-selected reads this ordering, so a
+    game picked up in French comes back with its French artwork, title and
+    release date rather than a mix.
     """
     config = cm.get_config()
     priority = config.SCAN_REGION_PRIORITY
@@ -186,7 +184,7 @@ def get_preferred_regions(
             key=lambda code: priority.index(code) if code in priority else len(priority)
         )
 
-    if for_media and config.SCAN_REGION_MODE == "prefer_config":
+    if config.SCAN_REGION_MODE == "prefer_config":
         ordered = priority + rom_codes
     else:
         ordered = rom_codes + priority
@@ -396,7 +394,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_normalized_path=None,
     )
 
-    for region in get_preferred_regions(rom, for_media=True):
+    for region in get_preferred_regions(rom):
         for media in game.get("medias", []):
             if media.get("region", "unk") != region or media.get("parent") != "jeu":
                 continue
