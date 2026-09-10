@@ -7,13 +7,12 @@ from sqlalchemy.orm import sessionmaker
 from config import DB_POOL_RECYCLE_SECONDS, DEV_SQL_ECHO
 from config.config_manager import ConfigManager
 
-# `pool_pre_ping` alone still hands out a connection the server closed while it
-# sat idle, and the ping on a half-closed socket blocks the worker until TCP
-# gives up. Recycling retires it first.
+# A ping on a socket the server already closed blocks the worker until TCP gives
+# up, so `pool_pre_ping` alone is not enough.
 sync_engine = create_engine(
     ConfigManager.get_db_engine(),
     pool_pre_ping=True,
-    pool_recycle=DB_POOL_RECYCLE_SECONDS if DB_POOL_RECYCLE_SECONDS > 0 else -1,
+    pool_recycle=DB_POOL_RECYCLE_SECONDS,
     echo=False,
 )
 sync_session = sessionmaker(bind=sync_engine, expire_on_commit=False)
