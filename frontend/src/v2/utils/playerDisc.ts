@@ -24,11 +24,8 @@ interface DiscFile {
   category?: RomFileCategory | null;
 }
 
-// Categories that are never a thing a core can boot. Media uploaded into a
-// folder rom's subdirectory becomes one of the rom's files, and a manual that
-// sorts before the game would otherwise be what Play defaults to (issue #4074).
-// A file scanned before categories existed carries none, so absence means
-// bootable.
+// Media uploaded into a folder rom's subdirectory becomes one of the rom's
+// files, so Play would otherwise default to a manual (issue #4074).
 const NON_BOOTABLE_CATEGORIES: readonly RomFileCategory[] = [
   "manual",
   "walkthrough",
@@ -38,12 +35,13 @@ const NON_BOOTABLE_CATEGORIES: readonly RomFileCategory[] = [
   "cheat",
 ];
 
-export function isBootableFile(file: DiscFile): boolean {
+function isBootableFile(file: DiscFile): boolean {
+  // A file scanned before categories existed carries none, so absence boots.
   return !file.category || !NON_BOOTABLE_CATEGORIES.includes(file.category);
 }
 
-// The rom's files a core could boot. Falls back to all of them rather than
-// leaving the player with nothing to offer.
+// Falls back to every file when media is all the rom has, so the player is
+// never left with nothing to boot.
 export function bootableFiles<T extends DiscFile>(
   files: readonly T[],
 ): readonly T[] {

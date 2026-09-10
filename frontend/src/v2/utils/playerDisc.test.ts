@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import type { RomFileCategory } from "@/__generated__";
 import {
   ALL_DISCS,
   bootDiscId,
@@ -9,10 +10,16 @@ import {
   resolveStoredDisc,
 } from "./playerDisc";
 
-// Only `id` and `file_name` are read off each file; minimal stubs stand in for
-// RomFileSchema.
+// Only `id`, `file_name` and `category` are read off each file; minimal stubs
+// stand in for RomFileSchema.
+const file = (
+  id: number,
+  file_name: string,
+  category: RomFileCategory | null = null,
+) => ({ id, file_name, category });
+
 const files = (...ids: number[]) =>
-  ids.map((id) => ({ id, file_name: `Game (Disc ${id}).chd` }));
+  ids.map((id) => file(id, `Game (Disc ${id}).chd`));
 
 describe("resolveStoredDisc", () => {
   it("keeps a stored id that still belongs to the rom", () => {
@@ -75,17 +82,12 @@ describe("resolveStoredDisc", () => {
 
 describe("defaultDisc", () => {
   it("boots every file together when the set ships its own playlist", () => {
-    expect(
-      defaultDisc([...files(1, 2), { id: 99, file_name: "Game.m3u" }]),
-    ).toBe(ALL_DISCS);
+    expect(defaultDisc([...files(1, 2), file(99, "Game.m3u")])).toBe(ALL_DISCS);
   });
 
   it("matches the playlist extension case-insensitively", () => {
     expect(
-      defaultDisc([
-        { id: 1, file_name: "Game (Disc 1).chd" },
-        { id: 2, file_name: "Game.M3U" },
-      ]),
+      defaultDisc([file(1, "Game (Disc 1).chd"), file(2, "Game.M3U")]),
     ).toBe(ALL_DISCS);
   });
 
@@ -94,7 +96,7 @@ describe("defaultDisc", () => {
   });
 
   it("boots the only file of a single-file rom carrying a playlist", () => {
-    expect(defaultDisc([{ id: 1, file_name: "Game.m3u" }])).toBe(1);
+    expect(defaultDisc([file(1, "Game.m3u")])).toBe(1);
   });
 
   it("returns null for a rom with no files", () => {
@@ -104,50 +106,46 @@ describe("defaultDisc", () => {
   it("skips media that sorts before the game file", () => {
     expect(
       defaultDisc([
-        { id: 1, file_name: "artwork.png", category: "screenshot" },
-        { id: 2, file_name: "Game.chd", category: "game" },
+        file(1, "artwork.png", "screenshot"),
+        file(2, "Game.chd", "game"),
       ]),
     ).toBe(2);
   });
 
   it("still boots a file scanned before categories existed", () => {
-    expect(
-      defaultDisc([{ id: 1, file_name: "Game.chd", category: null }]),
-    ).toBe(1);
+    expect(defaultDisc([file(1, "Game.chd", null)])).toBe(1);
   });
 
   it("boots media rather than nothing when that is all the rom has", () => {
-    expect(
-      defaultDisc([{ id: 1, file_name: "manual.pdf", category: "manual" }]),
-    ).toBe(1);
+    expect(defaultDisc([file(1, "manual.pdf", "manual")])).toBe(1);
   });
 });
 
 describe("bootableFiles", () => {
   it("drops every category a core cannot boot", () => {
-    const game = { id: 1, file_name: "Game.chd", category: "game" as const };
+    const game = file(1, "Game.chd", "game");
 
     expect(
       bootableFiles([
-        { id: 2, file_name: "manual.pdf", category: "manual" },
-        { id: 3, file_name: "guide.txt", category: "walkthrough" },
-        { id: 4, file_name: "shot.png", category: "screenshot" },
-        { id: 5, file_name: "track.mp3", category: "soundtrack" },
-        { id: 6, file_name: "fix.ips", category: "patch" },
-        { id: 7, file_name: "codes.cht", category: "cheat" },
+        file(2, "manual.pdf", "manual"),
+        file(3, "guide.txt", "walkthrough"),
+        file(4, "shot.png", "screenshot"),
+        file(5, "track.mp3", "soundtrack"),
+        file(6, "fix.ips", "patch"),
+        file(7, "codes.cht", "cheat"),
         game,
       ]),
     ).toEqual([game]);
   });
 
   it("keeps the parts of a multi-file release", () => {
-    const files = [
-      { id: 1, file_name: "Game.nsp", category: "game" as const },
-      { id: 2, file_name: "Game.nsz", category: "update" as const },
-      { id: 3, file_name: "Game DLC.nsp", category: "dlc" as const },
+    const release = [
+      file(1, "Game.nsp", "game"),
+      file(2, "Game.nsz", "update"),
+      file(3, "Game DLC.nsp", "dlc"),
     ];
 
-    expect(bootableFiles(files)).toEqual(files);
+    expect(bootableFiles(release)).toEqual(release);
   });
 });
 
@@ -212,11 +210,9 @@ describe("rememberDisc / resolveRememberedDisc", () => {
   });
 
   it("drops a remembered media file once the caller filters media out", () => {
-    // The player hands in `bootableFiles(rom.files)`, so a manual the user
-    // picked before the filter existed reads as stale rather than booting.
     const bootable = bootableFiles([
-      { id: 1, file_name: "manual.pdf", category: "manual" },
-      { id: 2, file_name: "Game.chd", category: "game" },
+      file(1, "manual.pdf", "manual"),
+      file(2, "Game.chd", "game"),
     ]);
     rememberDisc(ROM_ID, 1);
 
