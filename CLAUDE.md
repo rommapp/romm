@@ -49,12 +49,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 | `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                                              |
 | `review-polish`          | Before committing / opening a PR / declaring done - the self-review pass (comments, duplication, naming, test typing) plus the checks that keep CI green. |
 | `security-audit`         | Vetting a diff (release tag range or PR) for anything malicious or a security regression - supply chain, egress, auth/injection, CI, provenance.          |
-
-## Commands
-
-`/pr-ready` runs the pre-submit gauntlet in the order maintainers apply it to
-incoming PRs: `security-audit`, `code-review xhigh --fix`, `simplify`,
-`review-polish`. Run it before opening a PR.
+| `pr-ready`               | Before opening a PR - the four passes in order: `security-audit`, `code-review xhigh --fix`, `simplify`, `review-polish`. Not auto-invoked.               |
 
 ---
 

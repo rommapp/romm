@@ -1,6 +1,8 @@
 ---
+name: pr-ready
 description: Run the pre-submit gauntlet (security-audit, code-review, simplify, review-polish) over a change before opening or merging a PR.
 argument-hint: "[PR number | branch | nothing for the current branch]"
+disable-model-invocation: true
 ---
 
 # PR-ready gauntlet
