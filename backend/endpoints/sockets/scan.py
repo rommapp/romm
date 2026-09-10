@@ -12,6 +12,7 @@ from redis import Redis
 from rq import get_current_job
 from rq.exceptions import AbandonedJobError
 from rq.job import Job, JobStatus
+from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
@@ -101,30 +102,45 @@ def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
     }
 
 
+# Why a scan could not report its own end, and what to tell the clients.
+# Every other failure unwinds through `scan_platforms`, which emits on its way
+# out, so reporting those here too would report them twice.
+_UNREPORTABLE_SCAN_FAILURES: Final[dict[type, tuple[str, str]]] = {
+    AbandonedJobError: (
+        "was abandoned by its worker",
+        "the worker running it stopped unexpectedly",
+    ),
+    # SIGALRM lands wherever execution happens to be, which for a coroutine is
+    # the event loop rather than a frame inside `scan_platforms`, so none of the
+    # scan's own exit paths run.
+    JobTimeoutException: (
+        f"hit its {SCAN_TIMEOUT}s SCAN_TIMEOUT",
+        "it exceeded SCAN_TIMEOUT",
+    ),
+}
+
+
 def report_scan_failure(
     job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
 ) -> None:
     """Tell the clients a scan is over when the scan could not say so itself.
 
-    A worker killed mid-scan never reaches the handler that emits this, so the
-    clients would keep showing a scan that no longer exists.
+    A worker killed mid-scan, or one whose job timed out, never reaches the
+    handler that emits this, so the clients would keep showing a scan that no
+    longer exists.
     """
-    # Every other failure is reported by the scan as it unwinds, and emitting
-    # here too would report it twice.
-    if exc_type is not AbandonedJobError:
+    failure = _UNREPORTABLE_SCAN_FAILURES.get(exc_type)
+    if failure is None:
         return
 
-    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} was abandoned by its worker")
+    log_reason, client_reason = failure
+    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} {log_reason}")
     try:
-        asyncio.run(
-            _get_socket_manager().emit(
-                "scan:done_ko", "the worker running it stopped unexpectedly"
-            )
-        )
+        asyncio.run(_get_socket_manager().emit("scan:done_ko", client_reason))
     except Exception:
         # RQ re-raises out of the registry sweep that calls this, which would
         # leave the abandoned scans in the registry and stop the worker.
-        log.error(f"Could not report abandoned scan {job.id}", exc_info=True)
+        log.error(f"Could not report failed scan {job.id}", exc_info=True)
 
 
 def _scan_job_label(job: Job) -> str:

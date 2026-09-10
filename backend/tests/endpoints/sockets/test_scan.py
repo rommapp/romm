@@ -6,6 +6,7 @@ import pytest
 import socketio
 from rq.exceptions import AbandonedJobError, InvalidJobOperation
 from rq.job import JobStatus
+from rq.timeouts import JobTimeoutException
 from tests.scan_job_stubs import (
     NON_SCAN_FUNC,
     make_job,
@@ -2429,6 +2430,22 @@ class TestReportScanFailure:
 
         emit.assert_awaited_once()
         assert emit.await_args.args[0] == "scan:done_ko"
+
+    def test_reports_a_scan_the_job_timeout_killed(self, emit):
+        # RQ's SIGALRM unwinds the event loop, not a frame inside
+        # scan_platforms, so the scan's own `except Exception` never runs and
+        # the header would show progress forever.
+        scan_module.report_scan_failure(
+            make_job(SCAN_PLATFORMS_FUNC),
+            MagicMock(),
+            JobTimeoutException,
+            JobTimeoutException("Task exceeded maximum timeout value"),
+            None,
+        )
+
+        emit.assert_awaited_once()
+        assert emit.await_args.args[0] == "scan:done_ko"
+        assert "SCAN_TIMEOUT" in emit.await_args.args[1]
 
     def test_stays_quiet_for_a_failure_the_scan_already_reported(self, emit):
         # scan_platforms emits on its way out, so reporting here would double up.
