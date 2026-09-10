@@ -317,10 +317,9 @@ class MetadataHandler(abc.ABC):
 
     @classmethod
     async def _switch_product_id_entry(cls, product_id: str) -> dict | None:
-        """Resolve a Switch product id to the title id its index entry holds.
+        """Resolve a Switch product id to the titleID entry its index points at.
 
-        A store imported before the index was de-duplicated holds the titleID
-        entry itself, so it keeps answering until the next update.
+        An index written by an earlier import holds the entry itself.
         """
         raw = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
         if not raw:

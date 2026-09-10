@@ -28,8 +28,7 @@ class RemoteSource:
     async def _lookup_title_index(self, key: str, field: str) -> dict | None:
         """Read a title index hit and resolve the database id it holds.
 
-        A store imported before the title indexes were de-duplicated holds the
-        whole record instead, so it keeps answering until the next import.
+        An index written by an earlier import holds the whole record instead.
         """
         raw = await async_cache.hget(key, field)
         if not raw:

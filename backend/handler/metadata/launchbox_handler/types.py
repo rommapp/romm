@@ -39,9 +39,8 @@ class LaunchboxImage(TypedDict):
     region: NotRequired[str]
 
 
-# The fields an image list is imported with. `DatabaseID` repeats the field the
-# list is stored under and `CRC32` has no reader, and the dump holds 1.3M
-# images, so dropping the pair saves ~100MB of cache.
+# `DatabaseID` repeats the field the list is stored under and `CRC32` has no
+# reader; across the dump's 1.3M images the pair costs ~100MB of cache.
 LAUNCHBOX_IMAGE_FIELDS: Final[frozenset[str]] = frozenset(
     {"FileName", "Type", "Region"}
 )

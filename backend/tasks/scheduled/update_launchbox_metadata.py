@@ -194,8 +194,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             elem.findtext("Platform") or ""
                                         ).strip()
                                         if database_id and name and platform_name:
-                                            # Storing the id rather than the record:
-                                            # each copy costs ~120MB of cache.
+                                            # A full copy of the record here
+                                            # costs ~120MB of cache.
                                             await writer.hset(
                                                 LAUNCHBOX_METADATA_NAME_KEY,
                                                 f"{name.lower()}:{platform_name}",

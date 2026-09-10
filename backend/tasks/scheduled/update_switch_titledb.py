@@ -52,8 +52,7 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
                     mapping={title_id: json.dumps(v) for title_id, v in data_batch},
                 )
 
-                # The product id index points at the titleID index entry rather
-                # than holding a second copy of it, which costs ~60MB of cache.
+                # A second copy of each entry here costs ~60MB of cache.
                 product_map = {
                     v["id"]: json.dumps(title_id)
                     for title_id, v in data_batch
