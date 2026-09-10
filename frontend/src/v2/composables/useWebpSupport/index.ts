@@ -1,9 +1,6 @@
 // useWebpSupport — single-source resolution of whether the backend serves
-// .webp covers for this server. The flag is exposed as
-// `FRONTEND.IMAGES_WEBP` on the heartbeat response, but `FrontendDict` in
-// the generated OpenAPI types currently omits it (backend debt — when the
-// schema is updated and regenerated, the cast below disappears and the
-// composable becomes a thin wrapper).
+// .webp covers for this server. The WebP conversion task is what writes the
+// `.webp` sibling next to every cover, so its heartbeat flag is the signal.
 //
 // Use this everywhere a feature needs to decide whether to rewrite cover
 // URLs `.png|.jpg|.jpeg` → `.webp`.
@@ -13,10 +10,6 @@
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
-
-interface FrontendWithWebp {
-  FRONTEND?: { IMAGES_WEBP?: boolean };
-}
 
 const RASTER_EXT = /\.(png|jpe?g)$/i;
 
@@ -28,9 +21,7 @@ export function useWebpSupport(): {
   const { value } = storeToRefs(heartbeatStore);
 
   const supportsWebp = computed<boolean>(() =>
-    Boolean(
-      (value.value as unknown as FrontendWithWebp)?.FRONTEND?.IMAGES_WEBP,
-    ),
+    Boolean(value.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP),
   );
 
   function toWebp(url: string | null | undefined): string {
