@@ -49,10 +49,11 @@ To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] i
 
 Prefer a hosted deploy over wiring up the stack yourself? Hostinger has a 1-click installer and host.
 
-<a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
-
-Starting at <b>$6.49/mo</b><br />
-<a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
+<table align="center">
+  <tr>
+    <td><a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" align="left" hspace="14" /></a>Starting at <b>$6.49/mo</b><br /><a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a></td>
+  </tr>
+</table>
 
 <sub><i>Deployment and infrastructure support for this install is handled by the platform, not our team. Prices are indicative and may not reflect current offerings. Signups through the Hostinger link send a share of the revenue back to us, which helps fund the project.</i></sub>
 
