@@ -210,4 +210,17 @@ describe("rememberDisc / resolveRememberedDisc", () => {
     rememberDisc(ROM_ID, 2);
     expect(resolveRememberedDisc(99, files(1, 2))).toBe(1);
   });
+
+  it("drops a remembered media file once the caller filters media out", () => {
+    // The player hands in `bootableFiles(rom.files)`, so a manual the user
+    // picked before the filter existed reads as stale rather than booting.
+    const bootable = bootableFiles([
+      { id: 1, file_name: "manual.pdf", category: "manual" },
+      { id: 2, file_name: "Game.chd", category: "game" },
+    ]);
+    rememberDisc(ROM_ID, 1);
+
+    expect(resolveRememberedDisc(ROM_ID, bootable)).toBe(2);
+    expect(localStorage.getItem(`player:${ROM_ID}:disc-selection`)).toBeNull();
+  });
 });

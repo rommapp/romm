@@ -348,7 +348,10 @@ onMounted(async () => {
   }
   isSavesTabSelected.value = !hasCompatibleState;
 
-  selectedDisc.value = resolveRememberedDisc(rom.value.id, rom.value.files);
+  selectedDisc.value = resolveRememberedDisc(
+    rom.value.id,
+    bootableRomFiles.value,
+  );
 
   selectedCore.value = resolveRememberedCore(
     rom.value.id,
