@@ -70,9 +70,9 @@ Apps and integrations built and maintained by the RomM team.
 
 Effortlessly integrate your retro game collection into [Playnite](https://playnite.link/), the open-source game library manager that provides a unified interface for all of your games on PC.
 
-`Windows · Desktop` `QR pairing`
+`Windows` `Desktop` `QR pairing`
 
-<a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><img src=".github/resources/playnite-install-button.svg" width="118" height="34" align="middle" alt="Install" /></a> <sub>by <a href="https://github.com/gantoine">@gantoine</a></sub>
+<a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><img src=".github/resources/playnite-install-button.svg" width="134" height="38" align="middle" alt="Install" /></a> <sub>by <a href="https://github.com/gantoine">@gantoine</a></sub>
 
 <br clear="left" />
 
@@ -82,9 +82,9 @@ Effortlessly integrate your retro game collection into [Playnite](https://playni
 
 Sync your library, download games on demand and track your achievements, from a gamepad-first interface designed for Anbernic, Retroid Pocket, Odin, and similar devices.
 
-`Android · Handhelds` `QR pairing` `Save sync`
+`Android` `Handhelds` `QR pairing` `Save sync`
 
-<a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><img src=".github/resources/argosy-download-button.svg" width="118" height="34" align="middle" alt="Download" /></a> <sub>by <a href="https://github.com/tmgast">@tmgast</a></sub>
+<a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><img src=".github/resources/argosy-download-button.svg" width="134" height="38" align="middle" alt="Download" /></a> <sub>by <a href="https://github.com/tmgast">@tmgast</a></sub>
 
 <br clear="left" />
 
@@ -94,13 +94,11 @@ Sync your library, download games on demand and track your achievements, from a 
 
 A lightweight client for your favorite handheld custom firmwares. Download games, box art and BIOS files wirelessly, and sync your saves automatically as you play.
 
-`Linux · Handhelds` `Save sync`
+`Linux` `Handhelds` `Save sync`
 
-<a href="https://grout.romm.app/getting-started/"><img src=".github/resources/grout-quick-start-button.svg" width="118" height="34" align="middle" alt="Quick start" /></a> <sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub>
+<a href="https://grout.romm.app/getting-started/"><img src=".github/resources/grout-quick-start-button.svg" width="134" height="38" align="middle" alt="Quick start" /></a> <sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub>
 
 <sub><i>Supports Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce and TrimUI.</i></sub>
-
-<br clear="left" />
 
 ## Community
 
