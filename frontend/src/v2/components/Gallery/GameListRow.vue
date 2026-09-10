@@ -19,7 +19,7 @@ import {
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
-import { formatReleaseDate } from "@v2/utils/time";
+import { formatPlaytime, formatReleaseDate } from "@v2/utils/time";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -31,6 +31,7 @@ import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
+import { toWebpUrl } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import { activeProviders } from "@/v2/utils/metadataProviders";
@@ -92,8 +93,6 @@ const platformsStore = storePlatforms();
 const { morphTransition } = useViewTransition();
 const setBgArt = useBackgroundArt();
 const { locale } = useI18n();
-
-const EXTENSION_REGEX = /\.(png|jpg|jpeg)$/i;
 
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const listSkeletonColumns = columns;
@@ -180,6 +179,15 @@ function ratingValue(item: SimpleRom): string {
   return r.toFixed(1);
 }
 
+function lengthValue(item: SimpleRom): string {
+  return (
+    formatPlaytime(
+      item.hltb_metadata?.main_story,
+      toBrowserLocale(locale.value),
+    ) ?? "—"
+  );
+}
+
 function navigateTo(item: SimpleRom, currentTarget: HTMLElement | null) {
   const navigate = async () => {
     await router.push(`/rom/${item.id}`);
@@ -228,11 +236,7 @@ function onRowHighlight() {
   const item = rom.value;
   if (!item) return;
   const path = item.path_cover_large ?? item.path_cover_small ?? null;
-  const coverUrl = path
-    ? props.webp
-      ? path.replace(EXTENSION_REGEX, ".webp")
-      : path
-    : null;
+  const coverUrl = path ? toWebpUrl(path, !!props.webp) : null;
   if (coverUrl) setBgArt(coverUrl);
   else if (item.url_cover) setBgArt(item.url_cover);
 }
@@ -373,6 +377,7 @@ function onRowPointerEnd() {
       <div class="game-list-row__cell">{{ formatDate(rom.created_at) }}</div>
       <div class="game-list-row__cell">{{ releaseDate(rom) }}</div>
       <div class="game-list-row__cell">{{ ratingValue(rom) }}</div>
+      <div class="game-list-row__cell">{{ lengthValue(rom) }}</div>
 
       <div class="game-list-row__cell game-list-row__cell--pills">
         <div class="game-list-row__pills">

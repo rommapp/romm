@@ -300,25 +300,13 @@ function onCheckboxClick(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
   if (props.position == null) return;
-  if (e.shiftKey) {
-    selectionInput.handleActivate(props.rom, props.position, e);
-    return;
-  }
   selectionStore.toggle(props.rom, props.position);
 }
 
-/** Capture-phase suppressor — when the gallery is in selectable mode
- *  AND the user is holding a modifier key, any click on the card
- *  (overlay buttons included: download / favorite / play / more /
- *  platform icon) is reinterpreted as a selection gesture. Without
- *  this, shift-clicking the favourite star would toggle the favourite
- *  AND extend the selection range — confusing. */
+/** Capture phase so nothing else sees a click the selection consumed: the
+ *  root is a `router-link`, and vue-router only bails on a prevented event. */
 function onCardClickCapture(e: MouseEvent) {
-  if (!props.selectable) return;
-  if (!(e.shiftKey || e.ctrlKey || e.metaKey)) return;
-  e.preventDefault();
-  e.stopPropagation();
-  if (props.position == null) return;
+  if (!props.selectable || props.position == null) return;
   selectionInput.handleActivate(props.rom, props.position, e);
 }
 
@@ -334,18 +322,7 @@ function onCardClick(e: MouseEvent) {
     return;
   }
 
-  // Gallery selection takes precedence over navigation when the card
-  // opts in. Returns `true` if the click was consumed (mode active,
-  // modifier pressed, long-press just fired); we short-circuit and
-  // skip the morph + router push.
-  if (
-    props.selectable &&
-    props.position != null &&
-    selectionInput.handleActivate(props.rom, props.position, e)
-  ) {
-    return;
-  }
-
+  // Selection-consumed clicks are stopped by `onCardClickCapture`.
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
     return;
   }

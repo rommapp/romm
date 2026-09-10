@@ -120,6 +120,34 @@ def validate_username(username: str) -> None:
         raise ValidationError(msg, "Username")
 
 
+def sanitize_username(username: str, fallback: str = "user") -> str:
+    """Coerce an externally supplied username into one `validate_username` accepts.
+
+    An identity provider is free to hand out names RomM's own rules reject
+    (`first.last`, an email address, non-ASCII), and an account carrying one
+    can't be edited afterwards.
+
+    Args:
+        username (str): The username as the provider sent it
+        fallback (str): Stem to use when nothing usable survives
+
+    Returns:
+        str: A username that satisfies `validate_username`
+    """
+    sanitized = re.sub(r"[^a-zA-Z0-9_-]+", "-", username).strip("-")[:TEXT_FIELD_LENGTH]
+
+    # Same floor as `validate_username`, and a bare "a-" style remnant is no
+    # more recognizable than the fallback.
+    if len(sanitized) < 3:
+        sanitized = re.sub(r"[^a-zA-Z0-9_-]+", "-", fallback).strip("-")[
+            :TEXT_FIELD_LENGTH
+        ]
+    if len(sanitized) < 3:
+        sanitized = "user"
+
+    return sanitized
+
+
 def validate_password(password: str) -> None:
     """Validate password format and content.
 

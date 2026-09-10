@@ -12,6 +12,7 @@ from redis import Redis
 from rq import get_current_job
 from rq.exceptions import AbandonedJobError
 from rq.job import Job, JobStatus
+from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
@@ -101,30 +102,48 @@ def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
     }
 
 
+# Set on the job by `finish`, so a scan that reports its own end is not
+# reported a second time from the outside.
+SCAN_REPORTED_META_KEY: Final = "reported_terminal_event"
+
+# How to word the end of a scan that never got to report itself.
+_SCAN_FAILURE_REASONS: Final[dict[type[BaseException], str]] = {
+    AbandonedJobError: "the worker running it stopped unexpectedly",
+    # SIGALRM parked between coroutine steps unwinds the event loop, not a
+    # `scan_platforms` frame, so none of the scan's own exit paths run.
+    JobTimeoutException: f"it exceeded the {SCAN_TIMEOUT}s SCAN_TIMEOUT",
+}
+
+
+def _scan_reported_itself(job: Job) -> bool:
+    """Whether the scan already emitted a terminal event before it unwound."""
+    try:
+        return bool(job.get_meta().get(SCAN_REPORTED_META_KEY))
+    except Exception:
+        # Saying so twice beats leaving a finished scan on screen forever.
+        log.debug(f"Could not re-read meta for scan {job.id}", exc_info=True)
+        return False
+
+
 def report_scan_failure(
     job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
 ) -> None:
     """Tell the clients a scan is over when the scan could not say so itself.
 
-    A worker killed mid-scan never reaches the handler that emits this, so the
-    clients would keep showing a scan that no longer exists.
+    A killed worker, or a timeout parked in the event loop, never reaches the
+    handler that emits this, so the clients would keep showing a dead scan.
     """
-    # Every other failure is reported by the scan as it unwinds, and emitting
-    # here too would report it twice.
-    if exc_type is not AbandonedJobError:
+    if _scan_reported_itself(job):
         return
 
-    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} was abandoned by its worker")
+    reason = _SCAN_FAILURE_REASONS.get(exc_type, "it stopped unexpectedly")
+    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} is over: {reason}")
     try:
-        asyncio.run(
-            _get_socket_manager().emit(
-                "scan:done_ko", "the worker running it stopped unexpectedly"
-            )
-        )
+        asyncio.run(_get_socket_manager().emit("scan:done_ko", reason))
     except Exception:
         # RQ re-raises out of the registry sweep that calls this, which would
-        # leave the abandoned scans in the registry and stop the worker.
-        log.error(f"Could not report abandoned scan {job.id}", exc_info=True)
+        # leave the failed scans in the registry and stop the worker.
+        log.error(f"Could not report failed scan {job.id}", exc_info=True)
 
 
 def _scan_job_label(job: Job) -> str:
@@ -1127,6 +1146,7 @@ async def scan_platforms(
 
     async def finish(event: str, payload: Any) -> None:
         """End the scan, reporting whatever a coalesced increment held back."""
+        update_job_meta({SCAN_REPORTED_META_KEY: True})
         await scan_stats.flush(socket_manager)
         await socket_manager.emit(event, payload)
 
@@ -1325,6 +1345,13 @@ async def scan_platforms(
                 db_collection_handler.refresh_smart_collections()
         except Exception as e:
             log.error(f"Couldn't refresh smart collections after the scan: {e}")
+
+        # A fresh install sampled `rom_identity_keys` while it was empty, and
+        # this scan is what filled it. Failing here only costs a query plan.
+        try:
+            db_rom_handler.refresh_identity_key_statistics()
+        except Exception as e:
+            log.error(f"Couldn't resample the sibling identity keys: {e}")
 
         # Otherwise the games scanned today have an empty "Similar games"
         # section until the nightly build. Threaded: the scoring is CPU-bound.

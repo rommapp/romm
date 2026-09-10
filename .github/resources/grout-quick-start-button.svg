@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="134" height="38">
+  <rect width="132" height="36" x="1" y="1" fill="#007c77" stroke="#007c77" stroke-width="2" rx="6" />
+  <text fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="bold" text-anchor="middle">
+    <tspan x="67" y="24">Quick start</tspan>
+  </text>
+</svg>

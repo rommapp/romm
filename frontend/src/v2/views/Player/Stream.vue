@@ -77,9 +77,11 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { bootableFiles } from "@/v2/utils/playerDisc";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
 type ErrorType =
@@ -121,6 +123,7 @@ const selectedDisc = ref<number | null>(null);
 const isSwappingDisc = ref(false);
 
 const gameRunning = computed(() => playerState.value === "playing");
+useStageActive(gameRunning);
 
 // Set by the Join action on the game page. A join attaches to a session
 // someone else is hosting instead of claiming a container, so none of the
@@ -248,11 +251,13 @@ const hasM3uFile = computed(() =>
   (rom.value?.files ?? []).some((f) => fileExtension(f.file_name) === "m3u"),
 );
 
+const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
+
 // Mirrors the download endpoint's playlist filtering: when .cue files are
 // present only those are valid swap targets (raw .bin tracks are not), and
 // the .m3u itself is never something to swap to.
 const discOptions = computed(() => {
-  const files = (rom.value?.files ?? []).filter(
+  const files = bootableRomFiles.value.filter(
     (f) => fileExtension(f.file_name) !== "m3u",
   );
   const cueFiles = files.filter((f) => fileExtension(f.file_name) === "cue");
@@ -275,7 +280,7 @@ const canSwapDisc = computed(
 const showManualDiscHint = computed(
   () =>
     capabilities.value.hasManualDiscSwap &&
-    (rom.value?.files?.length ?? 0) > 1 &&
+    bootableRomFiles.value.length > 1 &&
     !isJoining,
 );
 

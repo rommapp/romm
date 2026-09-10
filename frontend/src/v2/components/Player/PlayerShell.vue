@@ -9,6 +9,7 @@ import { useI18n } from "vue-i18n";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { useStageActive } from "@/v2/composables/useStageActive";
 
 interface Props {
   /** Full rom once loaded, else the cover-only seed during the morph-in. */
@@ -34,6 +35,7 @@ const { backToRom, backToPlatform } = usePlayerNav(
   props.romId,
   () => props.heroRom?.platform_id,
 );
+useStageActive(() => props.running);
 </script>
 
 <template>

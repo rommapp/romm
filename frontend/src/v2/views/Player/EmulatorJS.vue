@@ -56,6 +56,7 @@ import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import {
@@ -66,11 +67,13 @@ import {
 import {
   ALL_DISCS,
   bootDiscId,
+  bootableFiles,
   rememberDisc,
   resolveRememberedDisc,
   type DiscSelection,
 } from "@/v2/utils/playerDisc";
 import { resolveInitialFirmware } from "@/v2/utils/playerFirmware";
+import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
@@ -119,6 +122,13 @@ const gameRunning = ref(false);
 const removeIOSFullscreenShim = ref<(() => void) | null>(null);
 
 useUnloadGuard(gameRunning);
+useStageActive(gameRunning);
+
+// Stage-scoped so the non-passive listener never taxes touches elsewhere.
+const stageRef = ref<HTMLElement | null>(null);
+useEventListener(stageRef, "touchstart", suppressVirtualGamepadZoneTouch, {
+  passive: false,
+});
 
 const presence = useActivityPresence(() => rom.value?.id);
 
@@ -138,9 +148,11 @@ const compatibleStates = computed(
     ) ?? [],
 );
 
+const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
+
 const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
   { title: t("play.all-discs"), value: ALL_DISCS },
-  ...(rom.value?.files ?? []).map((f) => ({
+  ...bootableRomFiles.value.map((f) => ({
     title: f.file_name,
     value: f.id,
   })),
@@ -239,8 +251,6 @@ async function onPlay() {
       console.warn("[Play] Local loader failed, trying CDN", e);
       await attemptLoad(EJS_NETPLAY_ENABLED ? LOCAL_PATH : CDN_PATH);
     }
-    playing.value = true;
-    fullScreen.value = fullscreenOnPlay.value;
   } catch (err) {
     removeIOSFullscreenShim.value?.();
     removeIOSFullscreenShim.value = null;
@@ -345,7 +355,10 @@ onMounted(async () => {
   }
   isSavesTabSelected.value = !hasCompatibleState;
 
-  selectedDisc.value = resolveRememberedDisc(rom.value.id, rom.value.files);
+  selectedDisc.value = resolveRememberedDisc(
+    rom.value.id,
+    bootableRomFiles.value,
+  );
 
   selectedCore.value = resolveRememberedCore(
     rom.value.id,
@@ -590,7 +603,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
         </div>
         <div class="r-v2-ejs__setup-body">
           <RSelect
-            v-if="(rom?.files?.length ?? 0) > 1"
+            v-if="bootableRomFiles.length > 1"
             v-model="selectedDisc"
             variant="outlined"
             density="comfortable"
@@ -656,7 +669,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
     </div>
 
     <!-- Running state -->
-    <div v-else-if="rom" class="r-v2-ejs__stage">
+    <div v-else-if="rom" ref="stageRef" class="r-v2-ejs__stage">
       <Player
         :rom="rom"
         :state="selectedState"
@@ -884,6 +897,16 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   inset: var(--r-nav-h) 0 0 0;
   background: var(--r-color-canvas-bg);
   z-index: 1;
+}
+
+/* EmulatorJS parks its touch menu button 5px into the corner, which lands
+   under the rounded screen corners on phones. */
+.r-v2-ejs__stage :deep(.ejs_virtualGamepad_open) {
+  top: 10px;
+  right: 14px;
+  width: var(--r-touch-target);
+  height: var(--r-touch-target);
+  padding: 10px;
 }
 
 /* Scraped bezel framing the running game. Full-height, centred, aspect

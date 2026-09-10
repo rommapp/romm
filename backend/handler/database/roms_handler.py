@@ -11,6 +11,7 @@ from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
+    Enum,
     Integer,
     String,
     Text,
@@ -63,6 +64,7 @@ from models.rom import (
     RomFileCategory,
     RomFileDocMeta,
     RomFileUser,
+    RomIdentityKey,
     RomMetadata,
     RomNote,
     RomUser,
@@ -76,6 +78,7 @@ from utils.database import (
     LIKE_ESCAPE_CHAR,
     epoch_ms_in_ranges,
     escape_like,
+    is_postgresql,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
@@ -177,6 +180,7 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "first_release_date": Rom.generated_first_release_date,
     "average_rating": Rom.generated_average_rating,
     "player_count": Rom.generated_player_count,
+    "hltb_main_story": Rom.generated_hltb_main_story,
 }
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
@@ -294,8 +298,21 @@ def _filter_values_cache_keys_key(version: str) -> str:
     return f"filter_values:keys:v{version}"
 
 
+def _sidecar_redis_key(prefix: str, cache_key: str, version: str) -> str:
+    """Every gallery sidecar key shares this shape, so none can omit the schema version."""
+    return f"{prefix}:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+
+
 def _filter_values_redis_key(cache_key: str, version: str) -> str:
-    return f"filter_values:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+    return _sidecar_redis_key("filter_values", cache_key, version)
+
+
+def _char_index_redis_key(cache_key: str, version: str) -> str:
+    return _sidecar_redis_key("char_index", cache_key, version)
+
+
+def _rom_id_index_redis_key(cache_key: str, version: str) -> str:
+    return _sidecar_redis_key("rom_id_index", cache_key, version)
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -1269,6 +1286,8 @@ class DBRomsHandler(DBBaseHandler):
         player_counts: Sequence[str] | None = None,
         metadata_providers: Sequence[str] | None = None,
         tags: Sequence[str] | None = None,
+        hltb_main_story_min: int | None = None,
+        hltb_main_story_max: int | None = None,
         # Logic operators for multi-value filters
         genres_logic: str = "any",
         franchises_logic: str = "any",
@@ -1424,6 +1443,14 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
 
+        # A NULL length is excluded by either comparison, so a range filter
+        # only ever returns roms HowLongToBeat actually has a time for.
+        if hltb_main_story_min is not None:
+            query = query.filter(Rom.generated_hltb_main_story >= hltb_main_story_min)
+
+        if hltb_main_story_max is not None:
+            query = query.filter(Rom.generated_hltb_main_story <= hltb_main_story_max)
+
         # Only join the metadata table when a filter reads from it. The dedup
         # subquery below is derived from `query`, so the join has to land before
         # the filters, or that subquery inherits them without it.
@@ -1507,6 +1534,7 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.launchbox_id,
                     Rom.tgdb_id,
                     Rom.flashpoint_id,
+                    Rom.steam_id,
                 )
                 .subquery()
             )
@@ -1565,6 +1593,11 @@ class DBRomsHandler(DBBaseHandler):
                             _create_metadata_id_case(
                                 MetadataSource.FLASHPOINT,
                                 base_subquery.c.flashpoint_id,
+                                base_subquery.c.platform_id,
+                            ),
+                            _create_metadata_id_case(
+                                MetadataSource.STEAM,
+                                base_subquery.c.steam_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
@@ -1630,9 +1663,10 @@ class DBRomsHandler(DBBaseHandler):
     ) -> tuple[Query[Rom], Any]:
         query = self._join_rom_user(select(Rom), user_id)
 
+        sorts_by_rom_user = False
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)
-            query = query.filter(RomUser.user_id == user_id)
+            sorts_by_rom_user = True
         elif order_by in ROM_METADATA_ORDER_COLUMNS:
             order_attr = ROM_METADATA_ORDER_COLUMNS[order_by]
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
@@ -1651,10 +1685,18 @@ class DBRomsHandler(DBBaseHandler):
 
         order_attr_column = order_attr
 
-        if order_dir.lower() == "desc":
-            order_attr = order_attr.desc()
-        else:
-            order_attr = order_attr.asc()
+        # MariaDB/MySQL have no NULLS LAST, so a leading IS NULL term keeps NULL
+        # keys (no rom_user row, or an unset field) last in both directions.
+        nulls_last_clause = order_attr_column.is_(None) if sorts_by_rom_user else None
+
+        descending = order_dir.lower() == "desc"
+        order_attr = order_attr.desc() if descending else order_attr.asc()
+
+        # Ties are common on every sort key here and the gallery pages by
+        # offset, so without a unique final key a rom can repeat in one window
+        # and vanish from the next. The id follows the sort direction because a
+        # mixed-direction pair forces a filesort.
+        tiebreaker = Rom.id.desc() if descending else Rom.id.asc()
 
         relevance_clause = None
         if search_term and ROMM_DB_DRIVER in ("mariadb", "mysql"):
@@ -1665,18 +1707,16 @@ class DBRomsHandler(DBBaseHandler):
                     "AGAINST(:relevance IN BOOLEAN MODE) DESC"
                 ).bindparams(relevance=relevance)
 
-        if order_by:  # explicit sort wins, relevance breaks ties
-            order_clauses = [order_attr]
-            if relevance_clause is not None:
-                order_clauses.append(relevance_clause)
-        else:  # no sort selected: relevance leads, name is the tiebreaker
-            order_clauses = [order_attr]
-            if relevance_clause is not None:
-                order_clauses.insert(0, relevance_clause)
+        # An explicit sort wins with relevance breaking ties; with no sort
+        # selected, relevance leads and name is the tiebreaker.
+        ordering = (
+            (nulls_last_clause, order_attr, relevance_clause, tiebreaker)
+            if order_by
+            else (relevance_clause, order_attr, tiebreaker)
+        )
+        order_clauses = [clause for clause in ordering if clause is not None]
 
-        # The id settles ties, so a page boundary can't repeat or skip a row
-        # when the sort column holds duplicates.
-        return query.order_by(*order_clauses, Rom.id.asc()), order_attr_column  # type: ignore
+        return query.order_by(*order_clauses), order_attr_column  # type: ignore
 
     @begin_session
     def get_roms_scalar(
@@ -1728,6 +1768,8 @@ class DBRomsHandler(DBBaseHandler):
             player_counts=kwargs.get("player_counts", None),
             metadata_providers=kwargs.get("metadata_providers", None),
             tags=kwargs.get("tags", None),
+            hltb_main_story_min=kwargs.get("hltb_main_story_min", None),
+            hltb_main_story_max=kwargs.get("hltb_main_story_max", None),
             # Logic operators for multi-value filters
             genres_logic=kwargs.get("genres_logic", "any"),
             franchises_logic=kwargs.get("franchises_logic", "any"),
@@ -1783,11 +1825,20 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         session: Session = None,  # type: ignore
     ) -> list[tuple[str, int]]:
+        # Letter offsets only index a lexically ordered result. `Enum` subclasses
+        # `String`, but the database orders native enums by declaration order.
+        column_type = order_by_attr.type
+        is_lexical = isinstance(column_type, (String, Text)) and not isinstance(
+            column_type, Enum
+        )
+        if not is_lexical:
+            return []
+
         redis_key: str | None = None
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"char_index:{cache_key}:v{version}"
+            redis_key = _char_index_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
                 return json.loads(cached)
@@ -1795,9 +1846,6 @@ class DBRomsHandler(DBBaseHandler):
         # Drop any ordering carried over from the main query (e.g. search relevance).
         # This builds its own positional ordering below.
         query = query.order_by(None)
-
-        if not isinstance(order_by_attr.type, (String, Text)):
-            order_by_attr = Rom.name_sort_key
 
         # The alpha-strip only needs each first letter's starting offset, not a
         # positional number for every row. Counting rows per letter and
@@ -1846,7 +1894,7 @@ class DBRomsHandler(DBBaseHandler):
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"rom_id_index:{cache_key}:v{version}"
+            redis_key = _rom_id_index_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
                 return json.loads(cached)
@@ -3449,6 +3497,20 @@ class DBRomsHandler(DBBaseHandler):
             "tags": sorted(tags),
             "platforms": sorted(platforms),
         }
+
+    @begin_session
+    def refresh_identity_key_statistics(
+        self,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        """Resample `rom_identity_keys` so the sibling join keeps its indexed plan.
+
+        Migration 0127's sample lands on an empty table on a fresh install, and
+        InnoDB's auto-recalc refreshes the stored row count without replanning.
+        """
+        keyword = "ANALYZE" if is_postgresql(session.connection()) else "ANALYZE TABLE"
+        session.execute(text(f"{keyword} {RomIdentityKey.__tablename__}"))
 
     def invalidate_filter_values_cache(self) -> None:
         old_version = str(int(sync_cache.incr(ROM_FILTERS_CACHE_VERSION_KEY)) - 1)
