@@ -53,7 +53,7 @@ Prefer a hosted deploy over wiring up the stack yourself? Each of these platform
   <tr valign="top">
     <td align="center">
       <p><img src=".github/resources/hostinger-logo.svg" height="44" alt="Hostinger logo" /></p>
-      <p><b>Hostinger</b> <img src=".github/resources/recommended-badge.svg" height="20" alt="Recommended" /></p>
+      <p><b>Hostinger</b></p>
       <p>Starting at <b>$6.49/mo</b><br /><a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a></p>
       <p><a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a></p>
     </td>
@@ -65,14 +65,14 @@ Prefer a hosted deploy over wiring up the stack yourself? Each of these platform
     </td>
     <td align="center">
       <p><img src=".github/resources/railway-logo.svg" height="44" alt="Railway logo" /></p>
-      <p><b>Railway</b> <img src=".github/resources/community-badge.svg" height="20" alt="Community maintained" /></p>
+      <p><b>Railway</b></p>
       <p>Starting at <b>$5/mo</b><br /><a href="https://docs.romm.app/latest/install/railway/">Setup guide</a></p>
       <p><a href="https://railway.com/deploy/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/railway-badge.svg" alt="Deploy on Railway" width="250" height="58" /></a></p>
     </td>
   </tr>
 </table>
 
-Deployment and infrastructure support for these installs is handled by the platform, not the RomM team, and the Railway template is maintained by the community. Signups through the Hostinger link send a share of the revenue back to RomM, which helps fund the project.
+<sub><i>Deployment and infrastructure support for these installs is handled by the platform, not the RomM team. Prices are indicative and may not reflect current offerings. Signups through the Hostinger link send a share of the revenue back to RomM, which helps fund the project.</i></sub>
 
 ## Contributing
 
