@@ -123,20 +123,29 @@ class TestRomUserSortResults:
 
         assert db_rom_handler.get_rom_count(query=query) == 3
 
-    def test_char_index_visits_the_null_bucket_last(
-        self, admin_user: User, platform: Platform
+    @pytest.mark.parametrize("order_by", ["last_played", "status"])
+    def test_char_index_skips_non_lexical_sorts(
+        self, admin_user: User, platform: Platform, order_by: str
     ):
-        for name in ("first_done", "second_done"):
-            _set_user_props(
-                _make_rom(platform, name),
-                admin_user,
-                {"status": RomUserStatus.FINISHED},
-            )
+        _set_user_props(
+            _make_rom(platform, "finished"),
+            admin_user,
+            {"status": RomUserStatus.FINISHED},
+        )
+        _set_user_props(
+            _make_rom(platform, "incomplete"),
+            admin_user,
+            {
+                "status": RomUserStatus.INCOMPLETE,
+                "last_played": datetime(2024, 6, 1, tzinfo=timezone.utc),
+            },
+        )
         _make_rom(platform, "untouched")
 
         query, order_column = db_rom_handler.get_roms_query(
-            order_by="status", user_id=admin_user.id
+            order_by=order_by, user_id=admin_user.id
         )
 
-        # The status-less rom sorts last, so it must not shift the offsets.
-        assert db_rom_handler.with_char_index(query, order_column) == [("F", 0)]
+        # Offsets into a non-lexical order (a date, or an enum the database
+        # orders by declaration) would hand the alpha strip wrong targets.
+        assert db_rom_handler.with_char_index(query, order_column) == []

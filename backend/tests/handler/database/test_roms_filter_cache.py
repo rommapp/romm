@@ -23,9 +23,11 @@ from tests.conftest import session as session_factory
 from handler.database import db_rom_handler
 from handler.database.roms_handler import (
     ROM_FILTERS_CACHE_VERSION_KEY,
+    _char_index_redis_key,
     _filter_values_cache_keys_key,
     _filter_values_cache_version,
     _filter_values_redis_key,
+    _rom_id_index_redis_key,
     _store_versioned_cache,
 )
 from handler.redis_handler import sync_cache
@@ -152,7 +154,7 @@ class TestCacheHitMatchesMiss:
         )
 
         version = _filter_values_cache_version()
-        redis_key = f"char_index:{cache_key}:v{version}"
+        redis_key = _char_index_redis_key(cache_key, version)
         assert sync_cache.get(redis_key) is not None
         # "test_rom" -> first letter "t" at position 0.
         assert dict(miss) == {"t": 0}
@@ -186,7 +188,7 @@ class TestCacheHitMatchesMiss:
         miss = db_rom_handler.get_rom_id_index(query=query, cache_key=cache_key)
 
         version = _filter_values_cache_version()
-        redis_key = f"rom_id_index:{cache_key}:v{version}"
+        redis_key = _rom_id_index_redis_key(cache_key, version)
         assert sync_cache.get(redis_key) is not None
         assert miss == [rom.id]
 

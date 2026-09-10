@@ -184,12 +184,6 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
 }
 
 
-def _sorts_nulls_last(order_column: Any) -> bool:
-    """RomUser sort keys are NULL for roms the user never touched; the query
-    ordering and the char-index walk must both pin that bucket last."""
-    return getattr(order_column, "class_", None) is RomUser
-
-
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Column order matches the unpacking
 # in `_collect_filter_values`.
@@ -307,6 +301,14 @@ def _filter_values_cache_keys_key(version: str) -> str:
 
 def _filter_values_redis_key(cache_key: str, version: str) -> str:
     return f"filter_values:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+
+
+def _char_index_redis_key(cache_key: str, version: str) -> str:
+    return f"char_index:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+
+
+def _rom_id_index_redis_key(cache_key: str, version: str) -> str:
+    return f"rom_id_index:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -1681,7 +1683,7 @@ class DBRomsHandler(DBBaseHandler):
         # keys (no rom_user row, or an unset field) last in both directions.
         nulls_last_clause = (
             order_attr_column.is_(None)
-            if _sorts_nulls_last(order_attr_column)
+            if getattr(order_attr_column, "class_", None) is RomUser
             else None
         )
 
@@ -1821,11 +1823,19 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         session: Session = None,  # type: ignore
     ) -> list[tuple[str, int]]:
+        # Letter offsets only index a lexically ordered result: skip sorts
+        # that fall back to another column, and native enums (the database
+        # orders those by declaration order, not by their letters).
+        if not isinstance(order_by_attr.type, (String, Text)) or isinstance(
+            order_by_attr.type, Enum
+        ):
+            return []
+
         redis_key: str | None = None
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"char_index:{cache_key}:v{version}"
+            redis_key = _char_index_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
                 return json.loads(cached)
@@ -1834,31 +1844,18 @@ class DBRomsHandler(DBBaseHandler):
         # This builds its own positional ordering below.
         query = query.order_by(None)
 
-        if not isinstance(order_by_attr.type, (String, Text)):
-            order_by_attr = Rom.name_sort_key
-
         # The alpha-strip only needs each first letter's starting offset, not a
         # positional number for every row. Counting rows per letter and
         # accumulating those counts avoids row_number() over the whole library,
         # which forced a full materialization + filesort on large libraries.
         descending = order_dir.lower() == "desc"
-        letter_source = order_by_attr
-        if isinstance(order_by_attr.type, Enum):
-            # PostgreSQL has no substring() overload for native enums.
-            letter_source = cast(order_by_attr, String)
-        letter = func.substring(letter_source, 1, 1)
-        letter_order: list[ColumnElement[Any]] = []
-        # A NULLS-pinned sort needs the letter walk to visit that bucket last
-        # too, or every offset shifts by its size.
-        if _sorts_nulls_last(order_by_attr):
-            letter_order.append(letter.is_(None))
-        letter_order.append(letter.desc() if descending else letter.asc())
+        letter = func.substring(order_by_attr, 1, 1)
         counts = (
             query.with_only_columns(  # type: ignore
                 letter.label("letter"), func.count().label("count")
             )
             .group_by(letter)
-            .order_by(*letter_order)
+            .order_by(letter.desc() if descending else letter.asc())
         )
 
         # Walk the letters in the same direction the client paginates over, so
@@ -1894,7 +1891,7 @@ class DBRomsHandler(DBBaseHandler):
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"rom_id_index:{cache_key}:v{version}"
+            redis_key = _rom_id_index_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
                 return json.loads(cached)
