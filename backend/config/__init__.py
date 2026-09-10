@@ -72,11 +72,8 @@ DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
 DB_NAME: Final[str] = _get_env("DB_NAME", "romm")
 DB_QUERY_JSON: Final[str | None] = _get_env("DB_QUERY_JSON")
 ROMM_DB_DRIVER: Final[str] = _get_env("ROMM_DB_DRIVER", "mariadb")
-# Kept under the idle `wait_timeout` a host may impose. A user's `0` means "off",
-# which is SQLAlchemy's -1; its own 0 recycles on every checkout instead.
-DB_POOL_RECYCLE_SECONDS: Final[int] = (
-    safe_int(_get_env("DB_POOL_RECYCLE_SECONDS"), 300) or -1
-)
+# Kept under the idle `wait_timeout` a host may impose; -1 never recycles.
+DB_POOL_RECYCLE_SECONDS: Final[int] = safe_int(_get_env("DB_POOL_RECYCLE_SECONDS"), 300)
 
 # REDIS
 REDIS_HOST: Final[str | None] = _get_env("REDIS_HOST")
