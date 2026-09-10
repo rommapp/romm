@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from anyio import Path as AnyioPath
 from defusedxml import ElementTree as ET
+from tests.handler.metadata.conftest import schema_stamp_get
 
 from handler.dump_cache import _ZSTD_MAGIC, encode
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
@@ -57,7 +58,6 @@ from handler.metadata.launchbox_handler.utils import (
     sanitize_filename,
 )
 from handler.redis_handler import async_cache
-from tests.handler.metadata.conftest import schema_stamp_get
 
 # ---------------------------------------------------------------------------
 # Sample XML that mirrors a real LaunchBox platform file
