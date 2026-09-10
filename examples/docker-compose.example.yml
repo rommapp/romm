@@ -1,5 +1,6 @@
 volumes:
   mysql_data:
+  romm_data:
   romm_resources:
   romm_redis_data:
 
@@ -22,6 +23,7 @@ services:
       - SCAN_WORKERS=4 # How many ROMs to scan at once
       - WEB_SERVER_CONCURRENCY=4 # Workers for API calls, raise for several concurrent users
     volumes:
+      - romm_data:/romm # Everything the image declares a volume for that isn't mounted below: the zip cache, the LaunchBox store, and save-sync's SSH keys
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks
       - /path/to/library:/romm/library # Your game library. Check https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details.
