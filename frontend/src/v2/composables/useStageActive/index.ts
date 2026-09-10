@@ -5,8 +5,8 @@ import storePlaying from "@/stores/playing";
  *  unmounts the app chrome and zeroes the nav-height tokens. */
 export function useStageActive(running: MaybeRefOrGetter<boolean>): void {
   const playingStore = storePlaying();
-  // Deliberately not the `playing` flag: that one also covers pre-stage
-  // phases (Stream mutes input while loading behind its config screen).
+  // Deliberately not the `playing` flag: that one also spans pre-stage
+  // phases (Stream sets it while loading behind its config screen).
   watch(
     () => toValue(running),
     (active) => playingStore.setStageActive(active),

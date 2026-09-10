@@ -43,8 +43,7 @@ describe("useStageActive", () => {
     scope.run(() => useStageActive(() => false));
     const store = storePlaying();
 
-    // Stream sets playing during its loading phase while the config
-    // screen is still up; the chrome must not react to that.
+    // Stream sets `playing` while still on its config screen.
     store.setPlaying(true);
     expect(store.stageActive).toBe(false);
     scope.stop();

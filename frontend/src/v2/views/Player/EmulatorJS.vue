@@ -123,8 +123,7 @@ const removeIOSFullscreenShim = ref<(() => void) | null>(null);
 useUnloadGuard(gameRunning);
 useStageActive(gameRunning);
 
-// Stage-scoped so the non-passive listener never taxes touches elsewhere;
-// cancelling touchstart alone suppresses the synthesized mouse sequence.
+// Stage-scoped so the non-passive listener never taxes touches elsewhere.
 const stageRef = ref<HTMLElement | null>(null);
 useEventListener(stageRef, "touchstart", suppressVirtualGamepadZoneTouch, {
   passive: false,
@@ -894,8 +893,8 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   z-index: 1;
 }
 
-/* EmulatorJS (pinned 4.2.3) parks its touch menu button 5px into the
-   corner; clear rounded corners and pad the icon up to the touch target. */
+/* EmulatorJS parks its touch menu button 5px into the corner, which lands
+   under the rounded screen corners on phones. */
 .r-v2-ejs__stage :deep(.ejs_virtualGamepad_open) {
   top: 10px;
   right: 14px;

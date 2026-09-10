@@ -4,8 +4,7 @@ export default defineStore("playing", {
   state: () => ({
     playing: false,
     fullScreen: false,
-    // True while a player's running stage covers the viewport; the v2
-    // AppLayout unmounts the nav chrome and zeroes the nav-height tokens.
+    // True while a running player stage owns the viewport (see useStageActive).
     stageActive: false,
   }),
 

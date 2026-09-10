@@ -122,8 +122,6 @@ const selectedDisc = ref<number | null>(null);
 const isSwappingDisc = ref(false);
 
 const gameRunning = computed(() => playerState.value === "playing");
-// Chrome-wise only the mounted stage counts; `playing` also spans the
-// loading phase, where the config screen still needs the nav.
 useStageActive(gameRunning);
 
 // Set by the Join action on the game page. A join attaches to a session

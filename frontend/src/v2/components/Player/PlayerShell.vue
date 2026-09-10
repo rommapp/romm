@@ -35,8 +35,6 @@ const { backToRom, backToPlatform } = usePlayerNav(
   props.romId,
   () => props.heroRom?.platform_id,
 );
-// The shell owns the running flag, so it also drives the chrome unmount
-// for every player built on it.
 useStageActive(() => props.running);
 </script>
 

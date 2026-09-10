@@ -8,8 +8,7 @@ const VIRTUAL_GAMEPAD_ZONE_SELECTOR = [
   ".ejs_virtualGamepad_right",
 ].join(", ");
 
-/** Cancels a touch on an empty virtual-gamepad zone so the browser never
- *  synthesizes the mouse events that would open the EmulatorJS menu. */
+/** Cancels a touch that lands on an empty virtual-gamepad zone. */
 export function suppressVirtualGamepadZoneTouch(event: Event): void {
   const target = event.target;
   if (

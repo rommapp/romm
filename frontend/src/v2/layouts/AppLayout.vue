@@ -74,8 +74,6 @@ const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
 const streamingStore = useStreamingStore();
 
-// While a player stage covers the viewport the emulator owns the screen,
-// so the fixed nav chrome unmounts (and its links drop from the tab order).
 const playingStore = storePlaying();
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
