@@ -6,7 +6,8 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
-from handler.redis_handler import async_cache
+from handler.dump_cache import encode
+from handler.redis_handler import async_binary_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
 from utils.context import initialize_context
@@ -45,9 +46,9 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         # Update initial progress
         update_stats.update(processed=processed_items, total=total_items)
 
-        async with async_cache.pipeline() as pipe:
+        async with async_binary_cache.pipeline() as pipe:
             for data_batch in batched(relevant_data.items(), 2000, strict=False):
-                titledb_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
+                titledb_map = {k: encode(v) for k, v in dict(data_batch).items()}
                 await pipe.hset(SWITCH_TITLEDB_INDEX_KEY, mapping=titledb_map)
                 processed_items += len(data_batch)
                 update_stats.update(processed=processed_items)
@@ -56,7 +57,7 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             # holding a second copy of it, which costs ~60MB of cache.
             for data_batch in batched(relevant_data.items(), 2000, strict=False):
                 product_map = {
-                    v["id"]: json.dumps(title_id)
+                    v["id"]: encode(title_id)
                     for title_id, v in data_batch
                     if v.get("id")
                 }

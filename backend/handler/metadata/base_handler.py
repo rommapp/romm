@@ -10,6 +10,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from fastapi import HTTPException, status
 from strsimpy.jaro_winkler import JaroWinkler
 
+from handler.dump_cache import hget_json
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.scheduled.update_switch_titledb import (
@@ -277,9 +278,8 @@ class MetadataHandler(abc.ABC):
             log.error("Could not find the Switch titleID index file in cache")
             return search_term, None
 
-        index_entry = await async_cache.hget(SWITCH_TITLEDB_INDEX_KEY, title_id)
+        index_entry = await hget_json(SWITCH_TITLEDB_INDEX_KEY, title_id)
         if index_entry:
-            index_entry = json.loads(index_entry)
             return index_entry["name"], index_entry
 
         return search_term, None
@@ -319,16 +319,14 @@ class MetadataHandler(abc.ABC):
         before it was de-duplicated holds the entry itself, so it keeps
         answering until the next update rewrites it.
         """
-        raw = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
-        if not raw:
+        value = await hget_json(SWITCH_PRODUCT_ID_KEY, product_id)
+        if not value:
             return None
 
-        value = json.loads(raw)
         if isinstance(value, dict):
             return value
 
-        entry = await async_cache.hget(SWITCH_TITLEDB_INDEX_KEY, value)
-        return json.loads(entry) if entry else None
+        return await hget_json(SWITCH_TITLEDB_INDEX_KEY, value)
 
     async def _mame_format(self, search_term: str) -> str:
         from handler.filesystem import fs_rom_handler

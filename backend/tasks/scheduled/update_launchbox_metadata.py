@@ -1,4 +1,3 @@
-import json
 import zipfile
 from collections.abc import Iterator
 from io import BytesIO
@@ -13,6 +12,7 @@ from config import (
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     TASK_TIMEOUT,
 )
+from handler.dump_cache import encode
 from handler.metadata import meta_launchbox_handler
 from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_FILES_KEY,
@@ -26,7 +26,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_PLATFORMS_KEY,
 )
 from handler.metadata.launchbox_handler.utils import fold_title
-from handler.redis_handler import async_cache
+from handler.redis_handler import async_binary_cache, async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
 from utils.context import initialize_context
@@ -55,7 +55,7 @@ class BatchedCacheWriter:
         self._queued = 0
 
     async def hset(self, key: str, field: str, value: Any) -> None:
-        await self._pipe.hset(key, mapping={field: json.dumps(value)})
+        await self._pipe.hset(key, mapping={field: encode(value)})
         self._queued += 1
         if self._queued >= self._batch_size:
             await self.flush()
@@ -155,7 +155,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                 for file in file_list:
                     if file == "Platforms.xml":
                         with z.open(file, "r") as f:
-                            async with async_cache.pipeline() as pipe:
+                            async with async_binary_cache.pipeline() as pipe:
                                 writer = BatchedCacheWriter(pipe)
 
                                 for elem in _iter_elements(f):
@@ -174,7 +174,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                     elif file == "Metadata.xml":
                         with z.open(file, "r") as f:
-                            async with async_cache.pipeline() as pipe:
+                            async with async_binary_cache.pipeline() as pipe:
                                 writer = BatchedCacheWriter(pipe)
 
                                 current_game_image_db_id = None
@@ -273,7 +273,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                     elif file == "Mame.xml":
                         with z.open(file, "r") as f:
-                            async with async_cache.pipeline() as pipe:
+                            async with async_binary_cache.pipeline() as pipe:
                                 writer = BatchedCacheWriter(pipe)
 
                                 for elem in _iter_elements(f):
@@ -295,7 +295,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                     elif file == "Files.xml":
                         with z.open(file, "r") as f:
-                            async with async_cache.pipeline() as pipe:
+                            async with async_binary_cache.pipeline() as pipe:
                                 writer = BatchedCacheWriter(pipe)
 
                                 for elem in _iter_elements(f):
@@ -321,7 +321,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                 processed_files += 1
                                 update_stats.update(processed=processed_files)
 
-        except (zipfile.BadZipFile, RuntimeError, OSError):
+        except zipfile.BadZipFile, RuntimeError, OSError:
             log.error("Bad zip file in launchbox metadata update")
             return update_stats.to_dict()
 

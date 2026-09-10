@@ -17,6 +17,7 @@ import pytest
 from anyio import Path as AnyioPath
 from defusedxml import ElementTree as ET
 
+from handler.dump_cache import _ZSTD_MAGIC, encode
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
 from handler.metadata.launchbox_handler.media import (
@@ -647,6 +648,26 @@ class TestRemoteSourceGetRom:
                 "super mario bros.", "nes", assume_cache_present=True
             )
         assert result is None
+
+    async def test_reads_a_compressed_store(self, source: RemoteSource):
+        """The records the import compresses are read back through the codec."""
+        assert encode(REMOTE_ENTRY).startswith(_ZSTD_MAGIC), "fixture is not compressed"
+
+        async def side_effect(key, _field):
+            if key == LAUNCHBOX_METADATA_NAME_KEY:
+                return encode("1234")
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
+                return encode(REMOTE_ENTRY)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom(
+                "super mario bros.", "nes", assume_cache_present=True
+            )
+        assert result is not None
+        assert result.get("Name", None) == "Super Mario Bros."
 
     async def test_alternate_name_match(self, source: RemoteSource):
         alt_entry = {"DatabaseID": "1234"}

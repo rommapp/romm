@@ -67,6 +67,22 @@ sync_cache = __get_sync_cache()
 async_cache = __get_async_cache()
 
 
+def __get_async_binary_cache() -> AsyncRedis:
+    """A client that leaves values as bytes, for the compressed metadata dumps.
+
+    `async_cache` decodes every response as UTF-8, which a zstd frame is not.
+    """
+    if IS_PYTEST_RUN:
+        # Two fakeredis clients get two keyspaces, so the fake is shared. It
+        # does not decode responses, which is what this client wants anyway.
+        return async_cache
+
+    return AsyncRedis.from_url(REDIS_URL)
+
+
+async_binary_cache = __get_async_binary_cache()
+
+
 def get_job_func_name(job: Job, fallback: str = "") -> str:
     """Safely get the function name from an RQ job, handling DeserializationError.
 
