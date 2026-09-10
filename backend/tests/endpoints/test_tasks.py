@@ -13,6 +13,7 @@ def _job_with_meta(meta: dict[str, Any]) -> Mock:
     """A finished job carrying `meta`, for asserting on what the response reports."""
     job = Mock()
     job.id = "test-job-id-123"
+    job.kwargs = {}
     job.get_meta.return_value = {"task_type": TaskType.CLEANUP, **meta}
     job.get_status.return_value = "finished"
     for attr in ("created_at", "enqueued_at", "started_at", "ended_at"):
@@ -397,6 +398,7 @@ class TestGetTaskById:
             "task_type": TaskType.CLEANUP,
         }
         mock_job.func_name = "test_task"
+        mock_job.kwargs = {}
         mock_job.get_status.return_value = "finished"
         mock_job.id = "test-job-id-123"
         mock_job.result = {"status": "completed"}
@@ -452,6 +454,22 @@ class TestGetTaskById:
         assert response.json()["task_key"] == expected_key
 
     @patch("endpoints.tasks.Job.fetch")
+    def test_a_job_predating_the_field_falls_back_to_its_payload(
+        self, mock_job_fetch, client, access_token
+    ):
+        """An in-flight job survives the upgrade matchable, without its meta."""
+        job = _job_with_meta({"task_name": "Scheduled ZIP cache cleanup"})
+        job.kwargs = {"name": "cleanup_zip_cache", "task_kwargs": {}}
+        mock_job_fetch.return_value = job
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.json()["task_key"] == "cleanup_zip_cache"
+
+    @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_not_found(self, mock_job_fetch, client, access_token):
         """Test retrieval of a non-existent task by job ID"""
         mock_job_fetch.side_effect = Exception("Job not found")
@@ -484,6 +502,7 @@ class TestGetTaskById:
             "task_type": TaskType.CLEANUP,
         }
         mock_job.func_name = "test_task"
+        mock_job.kwargs = {}
         mock_job.get_status.return_value = "failed"
         mock_job.id = "failed-job-id"
         mock_job.result = {"error": "Task failed"}

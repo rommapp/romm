@@ -79,6 +79,8 @@ describe("TasksSection", () => {
     });
     getTaskStatus.mockReset();
     getTaskStatus.mockResolvedValue({ data: [] });
+    runTask.mockReset();
+    runTask.mockResolvedValue({ data: { task_id: "job-1" } });
   });
 
   it("disables the run button while that task's job is in flight", async () => {
@@ -102,6 +104,36 @@ describe("TasksSection", () => {
     const wrapper = await mountSection();
 
     expect(runButton(wrapper).attributes("disabled")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("holds the button from the click, before any poll has seen the job", async () => {
+    let finishRun = () => {};
+    runTask.mockReturnValue(
+      new Promise((resolve) => {
+        finishRun = () => resolve({ data: { task_id: "job-1" } });
+      }),
+    );
+
+    const wrapper = await mountSection();
+    await runButton(wrapper).trigger("click");
+
+    expect(runButton(wrapper).attributes("disabled")).toBeDefined();
+    expect(runTask).toHaveBeenCalledTimes(1);
+
+    finishRun();
+    await flushPromises();
+    wrapper.unmount();
+  });
+
+  it("asks for the status again rather than waiting out the poll", async () => {
+    const wrapper = await mountSection();
+    getTaskStatus.mockClear();
+
+    await runButton(wrapper).trigger("click");
+    await flushPromises();
+
+    expect(getTaskStatus).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
 

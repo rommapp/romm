@@ -10,7 +10,7 @@
 // run button that posts to /tasks/{name}/run.
 import { RBtn, RIcon, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import taskApi from "@/services/api/task";
 import storeTasks from "@/stores/tasks";
@@ -54,18 +54,27 @@ const completedStatuses = computed(() =>
   ),
 );
 
+// A click is only visible in `taskStatuses` once a poll has been round the
+// loop, so the names in flight from this tab hold their own buttons until then.
+const startingTasks = ref(new Set<string>());
+
 function isTaskRunning(name: string) {
-  return taskStatuses.value.some(
-    (s) => s.task_key === name && IN_FLIGHT_STATUSES.includes(s.status),
+  return (
+    startingTasks.value.has(name) ||
+    taskStatuses.value.some(
+      (s) => s.task_key === name && IN_FLIGHT_STATUSES.includes(s.status),
+    )
   );
 }
 
 async function runTask(name: string, title: string) {
+  startingTasks.value.add(name);
   try {
     await taskApi.runTask(name);
     snackbar.success(t("settings.task-started", { title }), {
       icon: "mdi-check-bold",
     });
+    await fetchTaskStatus();
   } catch (err) {
     const e = err as {
       response?: { data?: { detail?: string }; statusText?: string };
@@ -78,6 +87,8 @@ async function runTask(name: string, title: string) {
         t("settings.task-failed"),
       { icon: "mdi-close-circle" },
     );
+  } finally {
+    startingTasks.value.delete(name);
   }
 }
 
