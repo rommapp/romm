@@ -1,22 +1,5 @@
 """Measure what the metadata dump stores cost in a real valkey, encoded or not.
 
-Imports the real LaunchBox and Switch TitleDB dumps twice over, once storing
-plain JSON and once through `handler.dump_cache.encode`, and reports each
-store's size, the exact compression ratio, and decode latency.
-
-The record shapes and store keys mirror `tasks/scheduled/update_*.py`; the walk
-lives here because a tool cannot import the task without standing up the whole
-app. The folded-title index is keyed by a stand-in for `fold_title`, whose
-output length (not its exact spelling) is what its size depends on.
-
-Sizes come from `MEMORY USAGE <key> SAMPLES 0`, which walks every field. The
-default of 5 samples extrapolates, and on a hash of this size it is wrong by
-enough to make per-key figures disagree with `used_memory`.
-
-The dump stores on the target server are dropped and rebuilt, and nothing else
-on it is touched. It refuses a server holding anything else unless forced,
-since a live RomM would have to re-import what it drops.
-
 Usage:
     uv run tools/measure_dump_cache.py \
         --metadata-zip Metadata.zip --titledb US.en.json \
@@ -107,6 +90,8 @@ def iter_elements(source: Any) -> Iterator[Any]:
         root.clear()
 
 
+# Mirrors the record shapes `tasks/scheduled/update_launchbox_metadata.py`
+# writes, duplicated because a tool cannot import the task without the app.
 def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
     with zipfile.ZipFile(metadata_zip) as z:
         names = z.namelist()
@@ -240,12 +225,9 @@ def load(client: redis.Redis, records: Iterator[Record], serialize: Any) -> None
 
 
 def store_stats(client: redis.Redis) -> tuple[dict[str, int], dict[str, int]]:
-    """Field count and total value bytes per store, read back off the hashes.
-
-    Taken from the stores rather than tallied while writing, because the dump
-    repeats a title on one platform and an alternate name across platforms, so
-    several records land on one field and only the last of them survives.
-    """
+    """Field count and total value bytes per store, read back off the hashes."""
+    # Not tallied while writing: the dump repeats a title on one platform and an
+    # alternate name across platforms, so ~9k records overwrite another's field.
     counts: dict[str, int] = {}
     value_bytes: dict[str, int] = {}
     for key in STORE_KEYS:
@@ -266,15 +248,13 @@ def foreign_keys(client: redis.Redis) -> int:
 
 
 def clear_stores(client: redis.Redis) -> tuple[int, int]:
-    """Drop only this tool's stores, returning usage without them.
-
-    Deliberately not `flushall`: the URL can point at a live RomM instance,
-    whose sessions and RQ queues share the database with these stores.
+    """Drop only this tool's stores, returning `used_memory` and RSS without them.
 
     Returns:
-        The server's `used_memory` and `used_memory_rss` with the stores gone,
-        each of which only ever offsets the same metric.
+        Each figure only ever offsets the same metric it came from.
     """
+    # Not `flushall`: the URL can point at a live RomM, whose sessions and RQ
+    # queues share the database with these stores.
     client.delete(*STORE_KEYS)
     info = client.info("memory")
     return int(info["used_memory"]), int(info["used_memory_rss"])
