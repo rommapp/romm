@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288.99" height="67">
+  <g fill="none" fill-rule="evenodd">
+    <rect width="286.99" height="65" x="1" y="1" fill="#673de6" stroke="#673de6" stroke-width="2" rx="8" />
+    <svg x="15" y="13.5" width="34.1" height="40" viewBox="0 0.8 24.9 29.2">
+      <path fill="#fff" fill-rule="evenodd" clip-rule="evenodd" d="m17.8175.798004v8.729406l7.0525 4.12459v-9.25917zm-17.81725511.000429v13.698467h22.93675511l-6.9786-3.8357-9.0909-.0044v-6.17182zm17.81725511 25.471867v-6.1186l-9.16098-.0064c.00855.0408-7.09448-3.8969-7.09448-3.8969l23.30786.1101v13.6982zm-17.81725567-8.9516-.00024433 8.9516 6.8675 3.5946v-8.5192z" />
+    </svg>
+    <!--  -->
+    <text fill="#fff" font-family="Arial" font-size="21" font-weight="bold">
+      <tspan x="70" y="51">Deploy on Hostinger</tspan>
+    </text>
+    <text fill="#c9b8ff" font-family="Arial" font-size="12" font-weight="bold">
+      <tspan x="70" y="26">1-CLICK INSTALL</tspan>
+    </text>
+  </g>
+</svg>
