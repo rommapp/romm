@@ -52,10 +52,9 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 
 ## Commands
 
-`/pr-ready` (`.claude/commands/pr-ready.md`) runs the full pre-submit gauntlet in
-the order maintainers apply it to incoming PRs: `security-audit`, then
-`code-review xhigh --fix`, then `simplify`, then `review-polish`. Run it before
-opening a PR.
+`/pr-ready` runs the pre-submit gauntlet in the order maintainers apply it to
+incoming PRs: `security-audit`, `code-review xhigh --fix`, `simplify`,
+`review-polish`. Run it before opening a PR.
 
 ---
 
