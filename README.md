@@ -45,6 +45,35 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting].
 
+### One-click deploys
+
+Prefer a hosted deploy over wiring up the stack yourself? Each of these platforms has a 1-click RomM install, with a setup guide in our docs.
+
+<table align="center">
+  <tr valign="top">
+    <td align="center">
+      <p><img src=".github/resources/hostinger-logo.svg" height="44" alt="Hostinger logo" /></p>
+      <p><b>Hostinger</b> <img src=".github/resources/recommended-badge.svg" height="20" alt="Recommended" /></p>
+      <p>Starting at <b>$6.49/mo</b><br /><a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a></p>
+      <p><a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a></p>
+    </td>
+    <td align="center">
+      <p><img src=".github/resources/cloudzy-logo.svg" height="44" alt="Cloudzy logo" /></p>
+      <p><b>Cloudzy</b></p>
+      <p>Starting at <b>$2.48/mo</b><br /><a href="https://docs.romm.app/latest/install/cloudzy/">Setup guide</a></p>
+      <p><a href="https://cloudzy.com/marketplace/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/cloudzy-badge.svg" alt="Deploy on Cloudzy" width="250" height="58" /></a></p>
+    </td>
+    <td align="center">
+      <p><img src=".github/resources/railway-logo.svg" height="44" alt="Railway logo" /></p>
+      <p><b>Railway</b> <img src=".github/resources/community-badge.svg" height="20" alt="Community maintained" /></p>
+      <p>Starting at <b>$5/mo</b><br /><a href="https://docs.romm.app/latest/install/railway/">Setup guide</a></p>
+      <p><a href="https://railway.com/deploy/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/railway-badge.svg" alt="Deploy on Railway" width="250" height="58" /></a></p>
+    </td>
+  </tr>
+</table>
+
+Deployment and infrastructure support for these installs is handled by the platform, not the RomM team, and the Railway template is maintained by the community. Signups through the Hostinger link send a share of the revenue back to RomM, which helps fund the project.
+
 ## Contributing
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).

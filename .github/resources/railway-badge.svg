@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288.99" height="67">
+  <defs>
+    <linearGradient id="railway-badge-grad" x1="286.99" y1="1" x2="40" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b63bce" />
+      <stop offset="1" stop-color="#5016a1" />
+    </linearGradient>
+  </defs>
+  <g fill="none" fill-rule="evenodd">
+    <rect width="286.99" height="65" x="1" y="1" fill="url(#railway-badge-grad)" stroke="#8b2bbd" stroke-width="2" rx="8" />
+    <svg x="15" y="13.5" width="40" height="40" viewBox="12 8 24 24">
+      <path fill="#fff" fill-rule="evenodd" clip-rule="evenodd" d="M13.554 14.105C15.614 10.464 19.516 8 24 8c6.628 0 12 5.373 12 12a12 12 0 0 1-.61 3.764H12.61a12 12 0 0 1-.451-1.893l.212 1.008h16.693c1.064 0 1.943-.545 2.35-1.457.444-.994.257-2.03-.396-2.933-.705-.975-1.889-2.343-2.709-2.964-1.51-1.143-3.43-1.31-4.991-1.363l-.449-.016-.13-.006c-.625-.027-.965-.041-4.438-.041v.001s-3.137.002-4.747.005m-1.528 5.379q.026-.608.111-1.208h9.573V17.06h-9.332l-.003.012-.003.01-.214 1.055a12 12 0 0 1 .797-2.814c1.798-.005 3.645-.01 5.343-.01 3.18 0 3.721.014 4.52.047q.325.013.635.02c2.076.055 3.718.098 6.549 3.758.086.11.172.221.235.346zm1.484-5.303q-.307.555-.555 1.142h-.01c.166-.393.359-.771.565-1.142m-1.475 6.52h18.346c-.138.532-.56.96-1.315.96H12.128a12 12 0 0 1-.093-.96m.582 3.079q.207.612.475 1.199H34.91C33.017 29.119 28.85 32 24 32c-5.305 0-9.798-3.447-11.384-8.22Zm-.607-4.005.01-.158v.763l-.01-.16q-.009-.11-.01-.222.001-.112.01-.223" />
+    </svg>
+    <!--  -->
+    <text fill="#fff" font-family="Arial" font-size="21" font-weight="bold">
+      <tspan x="70" y="51">Deploy on Railway</tspan>
+    </text>
+    <text fill="#e8c4f5" font-family="Arial" font-size="12" font-weight="bold">
+      <tspan x="70" y="26">1-CLICK INSTALL</tspan>
+    </text>
+  </g>
+</svg>

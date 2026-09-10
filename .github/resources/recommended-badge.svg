@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="132" height="26">
+  <g fill="none" fill-rule="evenodd">
+    <rect width="130" height="24" x="1" y="1" fill="#553f99" stroke="#553f99" stroke-width="2" rx="12" />
+    <path fill="#e5c7a7" d="M13 5.5l2.163 4.383 4.837.703-3.5 3.412.826 4.817L13 16.541 8.674 18.815l.826-4.817L6 10.586l4.837-.703z" />
+    <text fill="#fff" font-family="Arial" font-size="12" font-weight="bold">
+      <tspan x="26" y="17.5">RECOMMENDED</tspan>
+    </text>
+  </g>
+</svg>

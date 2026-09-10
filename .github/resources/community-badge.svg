@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="104" height="26">
+  <g fill="none" fill-rule="evenodd">
+    <rect width="102" height="24" x="1" y="1" fill="#48546b" stroke="#48546b" stroke-width="2" rx="12" />
+    <text fill="#fff" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle">
+      <tspan x="52" y="17.5">COMMUNITY</tspan>
+    </text>
+  </g>
+</svg>
