@@ -240,6 +240,11 @@ def plain(value: Any) -> bytes:
     return json.dumps(value).encode()
 
 
+def compact(value: Any) -> bytes:
+    """Serialize a record the way `encode` does before it decides to compress."""
+    return json.dumps(value, separators=(",", ":")).encode()
+
+
 def load(
     client: redis.Redis, records: Iterator[Record], serialize: Callable[[Any], bytes]
 ) -> None:
@@ -314,7 +319,9 @@ def sweep_threshold(metadata_zip: Path, limit: int) -> int:
     compressor = zstandard.ZstdCompressor(level=COMPRESSION_LEVEL)
     sample: list[bytes] = []
     for _, _, value in iter_launchbox(metadata_zip):
-        sample.append(plain(value))
+        # The threshold is compared against the payload `encode` builds, not
+        # the wider baseline the report uses for the old format.
+        sample.append(compact(value))
         if len(sample) >= limit:
             break
 
