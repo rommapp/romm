@@ -6,9 +6,10 @@
 // jumping when the user switches tabs or clears the selection.
 //
 // What changes inside the stage:
-//   • State: screenshot (or placeholder when none was captured).
-//   • Save: a featured save graphic — saves never carry a screenshot,
-//     so we lean on the icon + decorative backdrop.
+//   • Any asset carrying a capture: the screenshot. Saves carry one as
+//     readily as states do, so the stage keys off the capture, not the type.
+//   • State without one: the "no screenshot" placeholder.
+//   • Save without one: a featured save graphic (icon + decorative backdrop).
 //   • Empty: the empty-state art for the active type.
 //
 // The metadata strip carries the filename + chips + exact timestamp
@@ -18,6 +19,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { assetScreenshotUrl } from "@/v2/utils/asset";
 import { toCssUrl } from "@/v2/utils/css";
 
 defineOptions({ inheritAttrs: false });
@@ -40,13 +42,9 @@ defineEmits<{
 
 const { t, locale } = useI18n();
 
-const screenshotUrl = computed(() => {
-  if (!props.asset) return null;
-  if ("screenshot" in props.asset && props.asset.screenshot?.download_path) {
-    return props.asset.screenshot.download_path;
-  }
-  return null;
-});
+const screenshotUrl = computed(() =>
+  props.asset ? assetScreenshotUrl(props.asset) : null,
+);
 
 const heading = computed(() =>
   props.type === "save"
@@ -73,28 +71,31 @@ const emptyText = computed(() =>
         'r-asset-preview__stage--empty': !asset,
       }"
     >
-      <!-- State: screenshot or placeholder. -->
-      <template v-if="asset && type === 'state'">
-        <div v-if="screenshotUrl" class="r-asset-preview__stage-shot">
-          <!-- Blurred cover copy fills the letterbox left by the
-               contained frame, so the whole screenshot stays visible
-               without dead bars on a stage wider than the frame. -->
-          <div
-            class="r-asset-preview__stage-backdrop"
-            :style="{ backgroundImage: toCssUrl(screenshotUrl) }"
-          />
-          <div
-            class="r-asset-preview__stage-img"
-            :style="{ backgroundImage: toCssUrl(screenshotUrl) }"
-          />
-        </div>
-        <div v-else class="r-asset-preview__stage-fill">
-          <RIcon icon="mdi-image-off-outline" size="64" />
-          <p>{{ t("play.no-screenshot-available") }}</p>
-        </div>
-      </template>
+      <!-- The capture, whichever kind of asset carries it (#4422). -->
+      <div v-if="asset && screenshotUrl" class="r-asset-preview__stage-shot">
+        <!-- Blurred cover copy fills the letterbox left by the
+             contained frame, so the whole screenshot stays visible
+             without dead bars on a stage wider than the frame. -->
+        <div
+          class="r-asset-preview__stage-backdrop"
+          :style="{ backgroundImage: toCssUrl(screenshotUrl) }"
+        />
+        <div
+          class="r-asset-preview__stage-img"
+          :style="{ backgroundImage: toCssUrl(screenshotUrl) }"
+        />
+      </div>
 
-      <!-- Save: big icon + decorative backdrop. -->
+      <!-- State with no capture. -->
+      <div
+        v-else-if="asset && type === 'state'"
+        class="r-asset-preview__stage-fill"
+      >
+        <RIcon icon="mdi-image-off-outline" size="64" />
+        <p>{{ t("play.no-screenshot-available") }}</p>
+      </div>
+
+      <!-- Save with no capture: big icon + decorative backdrop. -->
       <div
         v-else-if="asset && type === 'save'"
         class="r-asset-preview__stage-fill"

@@ -29,6 +29,40 @@ function mountStrip(selectedId: number | null = null) {
   });
 }
 
+// #4422: the thumb used to be gated on `type === 'state'`, hiding the capture a
+// save carries just as readily.
+describe("AssetStrip thumbnails", () => {
+  const withShot = (id: number) =>
+    ({
+      ...makeState(id),
+      screenshot: { id, download_path: `/api/screenshots/${id}/content` },
+    }) as StateSchema;
+
+  it("shows a save's capture", () => {
+    const wrapper = shallowMount(AssetStrip, {
+      props: { assets: [withShot(1)], type: "save" },
+    });
+
+    expect(
+      wrapper.find(".r-asset-strip__thumb-img").attributes("style"),
+    ).toContain("/api/screenshots/1/content");
+  });
+
+  it("falls back to a type-aware icon when there is no capture", () => {
+    const wrapper = shallowMount(AssetStrip, {
+      props: { assets: [makeState(1)], type: "save" },
+    });
+
+    expect(wrapper.find(".r-asset-strip__thumb-img").exists()).toBe(false);
+    expect(
+      wrapper
+        .find(".r-asset-strip__thumb-icon")
+        .findComponent({ name: "RIcon" })
+        .props("icon"),
+    ).toBe("mdi-content-save");
+  });
+});
+
 // Every tile is a selection control now that manage mode is gone, so the root
 // element and its click path must not quietly become a <div> again.
 describe("AssetStrip tiles", () => {

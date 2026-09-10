@@ -5,8 +5,8 @@
 // "you're about to resume from this one". Hovering lifts the tile; tiles are
 // focusable for gamepad/key navigation.
 //
-// State tiles show their 16:9 screenshot prominently; saves fall back
-// to a large save icon.
+// Tiles show their 16:9 capture prominently; whichever kind of asset carries
+// one gets it, and the rest fall back to a type-aware icon.
 //
 // Layout (`layout`), all sharing one tile markup:
 //   * strip (default) - single horizontal row, scroll + snap, never wraps;
@@ -91,7 +91,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
         </span>
         <div v-else class="r-asset-strip__thumb">
           <div
-            v-if="type === 'state' && assetScreenshotUrl(asset)"
+            v-if="assetScreenshotUrl(asset)"
             class="r-asset-strip__thumb-img"
             :style="{ backgroundImage: toCssUrl(assetScreenshotUrl(asset)!) }"
           />
