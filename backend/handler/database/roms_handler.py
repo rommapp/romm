@@ -11,6 +11,7 @@ from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
+    Enum,
     Integer,
     String,
     Text,
@@ -297,8 +298,21 @@ def _filter_values_cache_keys_key(version: str) -> str:
     return f"filter_values:keys:v{version}"
 
 
+def _sidecar_redis_key(prefix: str, cache_key: str, version: str) -> str:
+    """Every gallery sidecar key shares this shape, so none can omit the schema version."""
+    return f"{prefix}:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+
+
 def _filter_values_redis_key(cache_key: str, version: str) -> str:
-    return f"filter_values:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+    return _sidecar_redis_key("filter_values", cache_key, version)
+
+
+def _char_index_redis_key(cache_key: str, version: str) -> str:
+    return _sidecar_redis_key("char_index", cache_key, version)
+
+
+def _rom_id_index_redis_key(cache_key: str, version: str) -> str:
+    return _sidecar_redis_key("rom_id_index", cache_key, version)
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -1649,9 +1663,10 @@ class DBRomsHandler(DBBaseHandler):
     ) -> tuple[Query[Rom], Any]:
         query = self._join_rom_user(select(Rom), user_id)
 
+        sorts_by_rom_user = False
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)
-            query = query.filter(RomUser.user_id == user_id)
+            sorts_by_rom_user = True
         elif order_by in ROM_METADATA_ORDER_COLUMNS:
             order_attr = ROM_METADATA_ORDER_COLUMNS[order_by]
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
@@ -1669,6 +1684,10 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = Rom.name_sort_key
 
         order_attr_column = order_attr
+
+        # MariaDB/MySQL have no NULLS LAST, so a leading IS NULL term keeps NULL
+        # keys (no rom_user row, or an unset field) last in both directions.
+        nulls_last_clause = order_attr_column.is_(None) if sorts_by_rom_user else None
 
         descending = order_dir.lower() == "desc"
         order_attr = order_attr.desc() if descending else order_attr.asc()
@@ -1688,15 +1707,14 @@ class DBRomsHandler(DBBaseHandler):
                     "AGAINST(:relevance IN BOOLEAN MODE) DESC"
                 ).bindparams(relevance=relevance)
 
-        if order_by:  # explicit sort wins, relevance breaks ties
-            order_clauses = [order_attr]
-            if relevance_clause is not None:
-                order_clauses.append(relevance_clause)
-        else:  # no sort selected: relevance leads, name is the tiebreaker
-            order_clauses = [order_attr]
-            if relevance_clause is not None:
-                order_clauses.insert(0, relevance_clause)
-        order_clauses.append(tiebreaker)
+        # An explicit sort wins with relevance breaking ties; with no sort
+        # selected, relevance leads and name is the tiebreaker.
+        ordering = (
+            (nulls_last_clause, order_attr, relevance_clause, tiebreaker)
+            if order_by
+            else (relevance_clause, order_attr, tiebreaker)
+        )
+        order_clauses = [clause for clause in ordering if clause is not None]
 
         return query.order_by(*order_clauses), order_attr_column  # type: ignore
 
@@ -1807,11 +1825,20 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         session: Session = None,  # type: ignore
     ) -> list[tuple[str, int]]:
+        # Letter offsets only index a lexically ordered result. `Enum` subclasses
+        # `String`, but the database orders native enums by declaration order.
+        column_type = order_by_attr.type
+        is_lexical = isinstance(column_type, (String, Text)) and not isinstance(
+            column_type, Enum
+        )
+        if not is_lexical:
+            return []
+
         redis_key: str | None = None
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"char_index:{cache_key}:v{version}"
+            redis_key = _char_index_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
                 return json.loads(cached)
@@ -1819,9 +1846,6 @@ class DBRomsHandler(DBBaseHandler):
         # Drop any ordering carried over from the main query (e.g. search relevance).
         # This builds its own positional ordering below.
         query = query.order_by(None)
-
-        if not isinstance(order_by_attr.type, (String, Text)):
-            order_by_attr = Rom.name_sort_key
 
         # The alpha-strip only needs each first letter's starting offset, not a
         # positional number for every row. Counting rows per letter and
@@ -1870,7 +1894,7 @@ class DBRomsHandler(DBBaseHandler):
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"rom_id_index:{cache_key}:v{version}"
+            redis_key = _rom_id_index_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
                 return json.loads(cached)

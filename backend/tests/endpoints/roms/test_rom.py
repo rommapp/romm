@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 from urllib.parse import unquote
 
@@ -401,6 +402,47 @@ def test_get_roms_keeps_total_from_the_rom_id_index(
     body = response.json()
     assert body["total"] == 1
     assert body["rom_id_index"] == [rom.id]
+
+
+def test_get_roms_sorted_by_user_field_keeps_all_roms(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+    assert rom_user is not None
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime(2024, 1, 1, tzinfo=timezone.utc)}
+    )
+    never_played = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="never_played",
+            slug="never_played",
+            fs_name="never_played.zip",
+            fs_name_no_tags="never_played",
+            fs_name_no_ext="never_played",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "platform_ids": [platform.id],
+            "order_by": "last_played",
+            "order_dir": "asc",
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["total"] == 2
+    assert [item["id"] for item in body["items"]] == [rom.id, never_played.id]
 
 
 def test_get_roms_filter_by_metadata_providers(
