@@ -12,26 +12,28 @@ over one fixed range. Do not skip a step or reorder them.
 
 ## Target
 
-`$ARGUMENTS` is a PR number, a branch, or nothing (the current branch). Fetch
-that target and resolve `$RANGE` from it before step 1, then reuse `$RANGE` for
-every step. `HEAD` is the right target only when `$ARGUMENTS` is empty, so
-resolving it by hand is not optional: get this wrong and all four passes review
-the current checkout instead of what was asked for.
+`$ARGUMENTS` is a PR number, a branch, or nothing (the current branch). Resolve
+it to a fetched target and derive `$RANGE` before step 1, then reuse `$RANGE`
+for every step. `HEAD` is the right target only when `$ARGUMENTS` is empty, so
+run the dispatch rather than assuming it: skip it and all four passes review the
+current checkout instead of what was asked for.
 
 ```bash
 git fetch origin master
 
-# nothing: the current branch
-TARGET="$(git rev-parse HEAD)"
+case "$ARGUMENTS" in
+"") TARGET="$(git rev-parse HEAD)" ;;
+# a pull ref needs its own refspec, the fetch above will not create it
+*[!0-9]*) git fetch origin "$ARGUMENTS" && TARGET="$(git rev-parse FETCH_HEAD)" ;;
+*) git fetch origin "pull/$ARGUMENTS/head" && TARGET="$(git rev-parse FETCH_HEAD)" ;;
+esac
 
-# a branch
-git fetch origin <branch> && TARGET="$(git rev-parse FETCH_HEAD)"
-
-# a PR number: the pull ref needs its own refspec, a plain fetch will not create it
-git fetch origin "pull/<n>/head" && TARGET="$(git rev-parse FETCH_HEAD)"
-
+test -n "$TARGET" || { echo "cannot resolve target: $ARGUMENTS" >&2; exit 1; }
 RANGE="$(git merge-base origin/master "$TARGET")..$TARGET"
 ```
+
+An all-digit argument is a PR number, anything else is a branch. Stop if the
+target does not resolve; do not fall through to a range built without it.
 
 Steps 2 to 4 write to the working tree, so check the target out before running
 them when it is not already the current branch.
