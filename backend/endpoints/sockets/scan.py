@@ -102,37 +102,27 @@ def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
     }
 
 
-# Set on the job by `finish`, so a scan that emitted a terminal event of its
-# own is not reported a second time from the outside.
+# Set on the job by `finish`, so a scan that reports its own end is not
+# reported a second time from the outside.
 SCAN_REPORTED_META_KEY: Final = "reported_terminal_event"
 
-# Why a scan could not report its own end, and what to tell the clients.
-# Every other failure unwinds through `scan_platforms`, which emits on its way
-# out, so reporting those here too would report them twice.
-_UNREPORTABLE_SCAN_FAILURES: Final[dict[type, tuple[str, str]]] = {
-    AbandonedJobError: (
-        "was abandoned by its worker",
-        "the worker running it stopped unexpectedly",
-    ),
-    # SIGALRM lands wherever execution happens to be. Parked between coroutine
-    # steps, that is the event loop rather than a frame inside `scan_platforms`,
-    # so none of the scan's own exit paths run. Land it inside one and the scan
-    # does report itself, which the meta flag below tells apart.
-    JobTimeoutException: (
-        f"hit its {SCAN_TIMEOUT}s SCAN_TIMEOUT",
-        "it exceeded SCAN_TIMEOUT",
-    ),
+# How to word the end of a scan that never got to report itself.
+_SCAN_FAILURE_REASONS: Final[dict[type[BaseException], str]] = {
+    AbandonedJobError: "the worker running it stopped unexpectedly",
+    # SIGALRM parked between coroutine steps unwinds the event loop, not a
+    # `scan_platforms` frame, so none of the scan's own exit paths run.
+    JobTimeoutException: f"it exceeded the {SCAN_TIMEOUT}s SCAN_TIMEOUT",
 }
 
 
 def _scan_reported_itself(job: Job) -> bool:
     """Whether the scan already emitted a terminal event before it unwound."""
     try:
-        job.refresh()
+        return bool(job.get_meta().get(SCAN_REPORTED_META_KEY))
     except Exception:
-        # A job whose hash is already gone cannot have anything to add.
+        # Saying so twice beats leaving a finished scan on screen forever.
         log.debug(f"Could not re-read meta for scan {job.id}", exc_info=True)
-    return bool(job.meta.get(SCAN_REPORTED_META_KEY))
+        return False
 
 
 def report_scan_failure(
@@ -140,21 +130,19 @@ def report_scan_failure(
 ) -> None:
     """Tell the clients a scan is over when the scan could not say so itself.
 
-    A worker killed mid-scan, or one whose job timed out between coroutine
-    steps, never reaches the handler that emits this, so the clients would keep
-    showing a scan that no longer exists.
+    A killed worker, or a timeout parked in the event loop, never reaches the
+    handler that emits this, so the clients would keep showing a dead scan.
     """
-    failure = _UNREPORTABLE_SCAN_FAILURES.get(exc_type)
-    if failure is None or _scan_reported_itself(job):
+    if _scan_reported_itself(job):
         return
 
-    log_reason, client_reason = failure
-    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} {log_reason}")
+    reason = _SCAN_FAILURE_REASONS.get(exc_type, "it stopped unexpectedly")
+    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} is over: {reason}")
     try:
-        asyncio.run(_get_socket_manager().emit("scan:done_ko", client_reason))
+        asyncio.run(_get_socket_manager().emit("scan:done_ko", reason))
     except Exception:
         # RQ re-raises out of the registry sweep that calls this, which would
-        # leave the abandoned scans in the registry and stop the worker.
+        # leave the failed scans in the registry and stop the worker.
         log.error(f"Could not report failed scan {job.id}", exc_info=True)
 
 
@@ -1158,10 +1146,9 @@ async def scan_platforms(
 
     async def finish(event: str, payload: Any) -> None:
         """End the scan, reporting whatever a coalesced increment held back."""
+        update_job_meta({SCAN_REPORTED_META_KEY: True})
         await scan_stats.flush(socket_manager)
         await socket_manager.emit(event, payload)
-        # `report_scan_failure` reads this to know the scan got its own word in.
-        update_job_meta({SCAN_REPORTED_META_KEY: True})
 
     # A ROM-id-scoped scan resolves its work from the database, so it neither
     # needs nor can afford the filesystem walk a library scan starts with.

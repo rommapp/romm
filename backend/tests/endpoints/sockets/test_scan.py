@@ -244,14 +244,7 @@ class TestScanFailureReporting:
         with pytest.raises(RuntimeError):
             await scan_platforms(platform_ids=[], metadata_sources=[])
 
-        # `finish` writes meta twice: the flushed stats, then the flag saying
-        # it reported the end itself.
-        published = [
-            call.args[0]["scan_stats"]
-            for call in update_job_meta.call_args_list
-            if "scan_stats" in call.args[0]
-        ]
-        assert published[-1]["scanned_roms"] == 7
+        assert update_job_meta.call_args.args[0]["scan_stats"]["scanned_roms"] == 7
         assert patched.emit.await_args.args[0] == "scan:done_ko"
 
 
@@ -2418,7 +2411,7 @@ class TestStopScan:
 
 
 class TestReportScanFailure:
-    """A scan whose worker died cannot report itself, so RQ reports for it."""
+    """A scan that could not report its own end is reported for it."""
 
     @pytest.fixture
     def emit(self, mocker):
@@ -2426,60 +2419,46 @@ class TestReportScanFailure:
         mocker.patch.object(scan_module, "_get_socket_manager", return_value=manager)
         return manager.emit
 
-    def test_reports_a_scan_its_worker_abandoned(self, emit):
-        scan_module.report_scan_failure(
-            make_job(SCAN_PLATFORMS_FUNC),
-            MagicMock(),
-            AbandonedJobError,
-            AbandonedJobError(),
-            None,
+    def report(self, exc: type[BaseException], *, reported: bool = False):
+        job = make_job(
+            SCAN_PLATFORMS_FUNC,
+            meta={scan_module.SCAN_REPORTED_META_KEY: True} if reported else None,
         )
+        scan_module.report_scan_failure(job, MagicMock(), exc, exc("boom"), None)
+
+    def test_reports_a_scan_its_worker_abandoned(self, emit):
+        self.report(AbandonedJobError)
 
         emit.assert_awaited_once()
         assert emit.await_args.args[0] == "scan:done_ko"
 
     def test_reports_a_scan_the_job_timeout_killed(self, emit):
-        # RQ's SIGALRM unwinds the event loop, not a frame inside
-        # scan_platforms, so the scan's own `except Exception` never runs and
-        # the header would show progress forever.
-        scan_module.report_scan_failure(
-            make_job(SCAN_PLATFORMS_FUNC),
-            MagicMock(),
-            JobTimeoutException,
-            JobTimeoutException("Task exceeded maximum timeout value"),
-            None,
-        )
+        # SIGALRM parked between coroutine steps unwinds the event loop, so
+        # scan_platforms never runs its own exit paths and never flags the job.
+        self.report(JobTimeoutException)
 
         emit.assert_awaited_once()
         assert emit.await_args.args[0] == "scan:done_ko"
         assert "SCAN_TIMEOUT" in emit.await_args.args[1]
 
-    def test_stays_quiet_when_the_timeout_landed_inside_the_coroutine(self, emit):
-        # SIGALRM raised in a `scan_platforms` frame is caught by its own
-        # `except Exception`, which emits and re-raises; emitting again here
-        # would show the user two "Scan failed" notifications.
-        job = make_job(SCAN_PLATFORMS_FUNC)
-        job.meta = {scan_module.SCAN_REPORTED_META_KEY: True}
+    def test_reports_a_failure_that_never_reached_the_scans_own_handler(self, emit):
+        # The setup before scan_platforms' try block has no exit path of its
+        # own, so nothing but this tells the clients the scan is gone.
+        self.report(RuntimeError)
 
-        scan_module.report_scan_failure(
-            job,
-            MagicMock(),
-            JobTimeoutException,
-            JobTimeoutException("Task exceeded maximum timeout value"),
-            None,
-        )
-
-        emit.assert_not_awaited()
+        emit.assert_awaited_once()
+        assert emit.await_args.args[0] == "scan:done_ko"
 
     def test_stays_quiet_for_a_failure_the_scan_already_reported(self, emit):
         # scan_platforms emits on its way out, so reporting here would double up.
-        scan_module.report_scan_failure(
-            make_job(SCAN_PLATFORMS_FUNC),
-            MagicMock(),
-            RuntimeError,
-            RuntimeError("boom"),
-            None,
-        )
+        self.report(RuntimeError, reported=True)
+
+        emit.assert_not_awaited()
+
+    def test_stays_quiet_when_the_timeout_landed_inside_the_coroutine(self, emit):
+        # SIGALRM raised in a scan_platforms frame is caught by its own
+        # `except Exception`, which emits and re-raises.
+        self.report(JobTimeoutException, reported=True)
 
         emit.assert_not_awaited()
 
@@ -2488,13 +2467,7 @@ class TestReportScanFailure:
         # leave the abandoned scans in the registry and stop the worker.
         emit.side_effect = ConnectionError("redis is gone")
 
-        scan_module.report_scan_failure(
-            make_job(SCAN_PLATFORMS_FUNC),
-            MagicMock(),
-            AbandonedJobError,
-            AbandonedJobError(),
-            None,
-        )
+        self.report(AbandonedJobError)
 
         emit.assert_called_once()
 
