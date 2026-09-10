@@ -23,7 +23,10 @@ services:
       - SCAN_WORKERS=4 # How many ROMs to scan at once
       - WEB_SERVER_CONCURRENCY=4 # Workers for API calls, raise for several concurrent users
     volumes:
-      - romm_data:/romm # Everything the image declares a volume for that isn't mounted below: the zip cache, the LaunchBox store, and save-sync's SSH keys
+      # Everything the image declares a volume for that isn't mounted below: the zip cache, the LaunchBox store, and save-sync's SSH keys.
+      # Adding this to an existing install starts it empty. The caches rebuild themselves, but if you use save sync, copy /romm/sync out of
+      # the old anonymous volume first: docker run --rm -v <old>:/from -v romm_data:/to alpine cp -a /from/sync /to/
+      - romm_data:/romm
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks
       - /path/to/library:/romm/library # Your game library. Check https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details.
