@@ -69,7 +69,7 @@ Prefer a hosted deploy over wiring up the stack yourself? Each of these platform
   </tr>
 </table>
 
-<sub><i>Deployment and infrastructure support for these installs is handled by the platform, not our team. Prices are indicative and may not reflect current offerings. Signups through the Hostinger link send a share of the revenue back to RomM, which helps fund the project.</i></sub>
+<sub><i>Deployment and infrastructure support for these installs is handled by the platform, not our team. Prices are indicative and may not reflect current offerings. Signups through the Hostinger link send a share of the revenue back to us, which helps fund the project.</i></sub>
 
 ## Contributing
 
