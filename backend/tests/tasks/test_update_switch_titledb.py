@@ -19,22 +19,24 @@ class TestUpdateSwitchTitleDBTask:
 
     @pytest.fixture
     def sample_titledb_data(self):
+        # The dump keys entries by title id and carries the application id as
+        # `id`, so the two indexes are keyed differently.
         return {
-            "0100000000010000": {
+            "70010000000025": {
                 "id": "0100000000010000",
                 "name": "Super Mario Odyssey",
                 "publisher": "Nintendo",
                 "region": "US",
                 "version": "1.3.0",
             },
-            "0100000000020000": {
+            "70010000000041": {
                 "id": "0100000000020000",
                 "name": "The Legend of Zelda: Breath of the Wild",
                 "publisher": "Nintendo",
                 "region": "US",
                 "version": "1.6.0",
             },
-            "0100000000030000": {
+            "70010000000046": {
                 "id": "0100000000030000",
                 "name": "Mario Kart 8 Deluxe",
                 "publisher": "Nintendo",
@@ -45,7 +47,7 @@ class TestUpdateSwitchTitleDBTask:
                 "id": "should_be_filtered",
                 "name": "Should not appear",
             },
-            "0100000000040000": None,  # None value to test filtering
+            "70010000000052": None,  # None value to test filtering
         }
 
     @pytest.fixture
@@ -218,9 +220,10 @@ class TestUpdateSwitchTitleDBTask:
         mock_async_cache_pipeline,
         mock_super_run,
         task,
+        sample_titledb_data,
         sample_json_content,
     ):
-        """Test that product ID mapping works correctly"""
+        """The product id index points at its titleID index entry."""
         mock_super_run.return_value = sample_json_content
 
         mock_pipe = AsyncMock()
@@ -230,22 +233,19 @@ class TestUpdateSwitchTitleDBTask:
 
         await task.run(force=True)
 
-        # Find product ID calls
         hset_calls = mock_pipe.hset.call_args_list
-        product_calls = [
-            call for call in hset_calls if call[0][0] == SWITCH_PRODUCT_ID_KEY
-        ]
+        product_mapping = {
+            product_id: json.loads(raw)
+            for call in hset_calls
+            if call[0][0] == SWITCH_PRODUCT_ID_KEY
+            for product_id, raw in call[1]["mapping"].items()
+        }
 
-        assert len(product_calls) > 0
-
-        # Verify product mapping structure
-        for call in product_calls:
-            args, kwargs = call
-            if "mapping" in kwargs:
-                mapping = kwargs["mapping"]
-                for product_id, data_json in mapping.items():
-                    data = json.loads(data_json)
-                    assert data.get("id") == product_id
+        assert product_mapping == {
+            entry["id"]: title_id
+            for title_id, entry in sample_titledb_data.items()
+            if title_id and entry
+        }
 
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_switch_titledb.async_cache.pipeline")

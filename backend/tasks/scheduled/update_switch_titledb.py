@@ -9,12 +9,22 @@ from config import (
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
+from utils.cache import (
+    VersionedCacheStore,
+    drop_stale_cache_store,
+    stamp_cache_schema,
+)
 from utils.context import initialize_context
 
 from . import UpdateStats
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
 SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
+SWITCH_TITLEDB_STORE: Final = VersionedCacheStore(
+    schema_key="romm:switch_titledb_schema",
+    version=1,
+    keys=(SWITCH_TITLEDB_INDEX_KEY, SWITCH_PRODUCT_ID_KEY),
+)
 
 
 class UpdateSwitchTitleDBTask(RemoteFilePullTask):
@@ -37,6 +47,9 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         if content is None:
             return update_stats.to_dict()
 
+        # An import merges into its hashes, so an older release's rows go first.
+        await drop_stale_cache_store(async_cache, SWITCH_TITLEDB_STORE)
+
         index_json = json.loads(content)
         relevant_data = {k: v for k, v in index_json.items() if k and v}
         total_items = len(relevant_data)
@@ -47,20 +60,25 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
 
         async with async_cache.pipeline() as pipe:
             for data_batch in batched(relevant_data.items(), 2000, strict=False):
-                titledb_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
-                await pipe.hset(SWITCH_TITLEDB_INDEX_KEY, mapping=titledb_map)
-                processed_items += len(data_batch)
-                update_stats.update(processed=processed_items)
+                await pipe.hset(
+                    SWITCH_TITLEDB_INDEX_KEY,
+                    mapping={title_id: json.dumps(v) for title_id, v in data_batch},
+                )
 
-            for data_batch in batched(relevant_data.items(), 2000, strict=False):
+                # A second copy of each entry here costs ~60MB of cache.
                 product_map = {
-                    v["id"]: json.dumps(v)
-                    for v in dict(data_batch).values()
+                    v["id"]: json.dumps(title_id)
+                    for title_id, v in data_batch
                     if v.get("id")
                 }
                 if product_map:
                     await pipe.hset(SWITCH_PRODUCT_ID_KEY, mapping=product_map)
+
+                processed_items += len(data_batch)
+                update_stats.update(processed=processed_items)
             await pipe.execute()
+
+        await stamp_cache_schema(async_cache, SWITCH_TITLEDB_STORE)
 
         # Final progress update
         update_stats.update(processed=processed_items)
