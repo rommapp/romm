@@ -22,32 +22,21 @@ from defusedxml import ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from handler.dump_cache import COMPRESS_MIN_BYTES, decode, encode  # noqa: E402
-
-# Mirrors the keys the two update tasks write.
-DATABASE_ID_KEY: Final = "romm:launchbox_metadata_database_id"
-NAME_KEY: Final = "romm:launchbox_metadata_name"
-ALTERNATE_NAME_KEY: Final = "romm:launchbox_metadata_alternate_name"
-FOLDED_NAME_KEY: Final = "romm:launchbox_metadata_folded_name"
-IMAGE_KEY: Final = "romm:launchbox_metadata_image"
-MAME_KEY: Final = "romm:launchbox_mame"
-FILES_KEY: Final = "romm:launchbox_files"
-PLATFORMS_KEY: Final = "romm:launchbox_platforms"
-TITLEDB_KEY: Final = "romm:switch_titledb"
-PRODUCT_ID_KEY: Final = "romm:switch_product_id"
-
-# Every key this tool writes, and the only keys it is ever allowed to delete.
-STORE_KEYS: Final[tuple[str, ...]] = (
-    DATABASE_ID_KEY,
-    NAME_KEY,
-    ALTERNATE_NAME_KEY,
-    FOLDED_NAME_KEY,
-    IMAGE_KEY,
-    MAME_KEY,
-    FILES_KEY,
-    PLATFORMS_KEY,
-    TITLEDB_KEY,
-    PRODUCT_ID_KEY,
+from handler.dump_cache import (  # noqa: E402
+    COMPRESS_MIN_BYTES,
+    DUMP_STORE_KEYS,
+    LAUNCHBOX_FILES_KEY,
+    LAUNCHBOX_MAME_KEY,
+    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
+    LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_PLATFORMS_KEY,
+    SWITCH_PRODUCT_ID_KEY,
+    SWITCH_TITLEDB_INDEX_KEY,
+    decode,
+    encode,
 )
 
 # Mirrors GAME_IMAGE_FIELDS in the LaunchBox task.
@@ -111,7 +100,9 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                         continue
                     name = elem.find("Name")
                     if name is not None and name.text:
-                        yield PLATFORMS_KEY, name.text.strip(), element_to_dict(elem)
+                        yield LAUNCHBOX_PLATFORMS_KEY, name.text.strip(), element_to_dict(
+                            elem
+                        )
 
         if "Metadata.xml" in names:
             with z.open("Metadata.xml") as f:
@@ -127,7 +118,9 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                             else None
                         )
                         if database_id:
-                            yield DATABASE_ID_KEY, database_id, element_to_dict(elem)
+                            yield LAUNCHBOX_METADATA_DATABASE_ID_KEY, database_id, element_to_dict(
+                                elem
+                            )
 
                         name_elem = elem.find("Name")
                         platform_elem = elem.find("Platform")
@@ -141,14 +134,14 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                             platform = platform_elem.text.strip()
                             title = name_elem.text.strip()
                             yield (
-                                NAME_KEY,
+                                LAUNCHBOX_METADATA_NAME_KEY,
                                 f"{title.lower()}:{platform}",
                                 database_id,
                             )
                             folded = fold_title(title)
                             if folded:
                                 yield (
-                                    FOLDED_NAME_KEY,
+                                    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
                                     f"{folded}:{platform}",
                                     database_id,
                                 )
@@ -157,7 +150,7 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                         alt = elem.find("AlternateName")
                         if alt is not None and alt.text:
                             yield (
-                                ALTERNATE_NAME_KEY,
+                                LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
                                 alt.text.strip().lower(),
                                 element_to_dict(elem),
                             )
@@ -168,13 +161,13 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                             continue
                         current = id_elem.text.strip()
                         if image_id is not None and current != image_id:
-                            yield IMAGE_KEY, image_id, images
+                            yield LAUNCHBOX_METADATA_IMAGE_KEY, image_id, images
                             images = []
                         image_id = current
                         images.append(element_to_dict(elem, GAME_IMAGE_FIELDS))
 
                 if image_id is not None:
-                    yield IMAGE_KEY, image_id, images
+                    yield LAUNCHBOX_METADATA_IMAGE_KEY, image_id, images
 
         if "Mame.xml" in names:
             with z.open("Mame.xml") as f:
@@ -183,7 +176,7 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                         continue
                     fn = elem.find("FileName")
                     if fn is not None and fn.text:
-                        yield MAME_KEY, fn.text.strip(), element_to_dict(elem)
+                        yield LAUNCHBOX_MAME_KEY, fn.text.strip(), element_to_dict(elem)
 
         if "Files.xml" in names:
             with z.open("Files.xml") as f:
@@ -199,18 +192,18 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                         and platform.text
                     ):
                         field = f"{fn.text.strip().lower()}:{platform.text.strip()}"
-                        yield FILES_KEY, field, element_to_dict(elem)
+                        yield LAUNCHBOX_FILES_KEY, field, element_to_dict(elem)
 
 
 def iter_titledb(titledb: Path) -> Iterator[Record]:
     data = json.loads(titledb.read_text())
     relevant = {k: v for k, v in data.items() if k and v}
     for title_id, entry in relevant.items():
-        yield TITLEDB_KEY, title_id, entry
+        yield SWITCH_TITLEDB_INDEX_KEY, title_id, entry
     for title_id, entry in relevant.items():
         product_id = entry.get("id")
         if product_id:
-            yield PRODUCT_ID_KEY, product_id, title_id
+            yield SWITCH_PRODUCT_ID_KEY, product_id, title_id
 
 
 def plain(value: Any) -> bytes:
@@ -238,7 +231,7 @@ def store_stats(client: redis.Redis) -> tuple[dict[str, int], dict[str, int]]:
     # alternate name across platforms, so ~9k records overwrite another's field.
     counts: dict[str, int] = {}
     value_bytes: dict[str, int] = {}
-    for key in STORE_KEYS:
+    for key in DUMP_STORE_KEYS:
         count = client.hlen(key)
         if not count:
             continue
@@ -251,7 +244,7 @@ def store_stats(client: redis.Redis) -> tuple[dict[str, int], dict[str, int]]:
 
 def foreign_keys(client: redis.Redis) -> int:
     """How many keys on the server are not this tool's own stores."""
-    owned = {key.encode() for key in STORE_KEYS}
+    owned = {key.encode() for key in DUMP_STORE_KEYS}
     return sum(1 for key in client.scan_iter(count=1000) if key not in owned)
 
 
@@ -263,7 +256,7 @@ def clear_stores(client: redis.Redis) -> tuple[int, int]:
     """
     # Not `flushall`: the URL can point at a live RomM, whose sessions and RQ
     # queues share the database with these stores.
-    client.delete(*STORE_KEYS)
+    client.delete(*DUMP_STORE_KEYS)
     info = client.info("memory")
     return int(info["used_memory"]), int(info["used_memory_rss"])
 
@@ -384,7 +377,11 @@ def main() -> int:
         if args.titledb:
             yield from iter_titledb(args.titledb)
 
-    benched = (DATABASE_ID_KEY, IMAGE_KEY, TITLEDB_KEY)
+    benched = (
+        LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+        LAUNCHBOX_METADATA_IMAGE_KEY,
+        SWITCH_TITLEDB_INDEX_KEY,
+    )
     results = {}
     passes = [("plain", plain), ("encoded", encode)]
     if args.only:

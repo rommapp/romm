@@ -6,16 +6,17 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
-from handler.dump_cache import encode
+from handler.dump_cache import (
+    SWITCH_PRODUCT_ID_KEY,
+    SWITCH_TITLEDB_INDEX_KEY,
+    encode,
+)
 from handler.redis_handler import async_binary_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
 from utils.context import initialize_context
 
 from . import UpdateStats
-
-SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
-SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
 
 
 class UpdateSwitchTitleDBTask(RemoteFilePullTask):

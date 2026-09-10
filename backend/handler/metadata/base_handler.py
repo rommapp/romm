@@ -10,13 +10,13 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from fastapi import HTTPException, status
 from strsimpy.jaro_winkler import JaroWinkler
 
-from handler.dump_cache import hget_json
-from handler.redis_handler import async_cache
-from logger.logger import log
-from tasks.scheduled.update_switch_titledb import (
+from handler.dump_cache import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
+    hget_json,
 )
+from handler.redis_handler import async_cache
+from logger.logger import log
 from utils.context import ctx_httpx_client
 from utils.switch import derive_base_title_id
 

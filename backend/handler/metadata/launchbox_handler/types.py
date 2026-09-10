@@ -7,16 +7,6 @@ from config import ROMM_BASE_PATH
 
 from ..base_handler import BaseRom
 
-LAUNCHBOX_PLATFORMS_KEY: Final[str] = "romm:launchbox_platforms"
-LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final[str] = "romm:launchbox_metadata_database_id"
-LAUNCHBOX_METADATA_NAME_KEY: Final[str] = "romm:launchbox_metadata_name"
-LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final[str] = (
-    "romm:launchbox_metadata_alternate_name"
-)
-LAUNCHBOX_METADATA_FOLDED_NAME_KEY: Final[str] = "romm:launchbox_metadata_folded_name"
-LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
-LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
-LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 # Set while the store is being filled for the first time
 LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY: Final[str] = (
     "romm:launchbox_metadata_initial_import"

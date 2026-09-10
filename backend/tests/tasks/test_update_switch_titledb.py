@@ -3,10 +3,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from handler.dump_cache import decode
-from tasks.scheduled.update_switch_titledb import (
+from handler.dump_cache import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
+    decode,
+)
+from tasks.scheduled.update_switch_titledb import (
     UpdateSwitchTitleDBTask,
     update_switch_titledb_task,
 )

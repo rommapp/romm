@@ -1,9 +1,4 @@
-from handler.dump_cache import hget_json
-from handler.redis_handler import async_cache
-from logger.logger import log
-
-from .platforms import get_platform
-from .types import (
+from handler.dump_cache import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
@@ -11,7 +6,12 @@ from .types import (
     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    hget_json,
 )
+from handler.redis_handler import async_cache
+from logger.logger import log
+
+from .platforms import get_platform
 from .utils import deinvert_article, file_name_forms, fold_title
 
 

@@ -1,6 +1,9 @@
 import re
 
 from config import LAUNCHBOX_API_ENABLED
+from handler.dump_cache import (
+    LAUNCHBOX_METADATA_NAME_KEY,
+)
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
 from logger.logger import log
@@ -15,7 +18,6 @@ from .remote_source import RemoteSource
 from .types import (
     DASH_COLON_REGEX,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
-    LAUNCHBOX_METADATA_NAME_KEY,
     LAUNCHBOX_PLATFORMS_DIR,
     LAUNCHBOX_TAG_REGEX,
     LaunchboxPlatform,

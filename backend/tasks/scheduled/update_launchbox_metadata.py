@@ -12,18 +12,20 @@ from config import (
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     TASK_TIMEOUT,
 )
-from handler.dump_cache import encode
-from handler.metadata import meta_launchbox_handler
-from handler.metadata.launchbox_handler.types import (
+from handler.dump_cache import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
-    LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LAUNCHBOX_PLATFORMS_KEY,
+    encode,
+)
+from handler.metadata import meta_launchbox_handler
+from handler.metadata.launchbox_handler.types import (
+    LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
 )
 from handler.metadata.launchbox_handler.utils import fold_title
 from handler.redis_handler import async_binary_cache, async_cache

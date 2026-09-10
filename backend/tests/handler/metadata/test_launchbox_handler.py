@@ -17,7 +17,17 @@ import pytest
 from anyio import Path as AnyioPath
 from defusedxml import ElementTree as ET
 
-from handler.dump_cache import _ZSTD_MAGIC, encode
+from handler.dump_cache import (
+    _ZSTD_MAGIC,
+    LAUNCHBOX_FILES_KEY,
+    LAUNCHBOX_MAME_KEY,
+    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
+    LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_METADATA_NAME_KEY,
+    encode,
+)
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
 from handler.metadata.launchbox_handler.media import (
@@ -33,14 +43,7 @@ from handler.metadata.launchbox_handler.media import (
 from handler.metadata.launchbox_handler.platforms import get_platform
 from handler.metadata.launchbox_handler.remote_source import RemoteSource
 from handler.metadata.launchbox_handler.types import (
-    LAUNCHBOX_FILES_KEY,
-    LAUNCHBOX_MAME_KEY,
-    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
-    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
-    LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
-    LAUNCHBOX_METADATA_NAME_KEY,
     LaunchboxImage,
     LaunchboxMetadata,
     MediaRequest,

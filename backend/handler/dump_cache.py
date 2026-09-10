@@ -10,6 +10,34 @@ import zstandard
 
 from handler.redis_handler import async_binary_cache
 
+# The stores these dumps live in. Their one home: the importers write them, the
+# lookups read them, and `tools/measure_dump_cache.py` rebuilds them.
+LAUNCHBOX_PLATFORMS_KEY: Final[str] = "romm:launchbox_platforms"
+LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final[str] = "romm:launchbox_metadata_database_id"
+LAUNCHBOX_METADATA_NAME_KEY: Final[str] = "romm:launchbox_metadata_name"
+LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final[str] = (
+    "romm:launchbox_metadata_alternate_name"
+)
+LAUNCHBOX_METADATA_FOLDED_NAME_KEY: Final[str] = "romm:launchbox_metadata_folded_name"
+LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
+LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
+LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
+SWITCH_TITLEDB_INDEX_KEY: Final[str] = "romm:switch_titledb"
+SWITCH_PRODUCT_ID_KEY: Final[str] = "romm:switch_product_id"
+
+DUMP_STORE_KEYS: Final[tuple[str, ...]] = (
+    LAUNCHBOX_PLATFORMS_KEY,
+    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
+    LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_MAME_KEY,
+    LAUNCHBOX_FILES_KEY,
+    SWITCH_TITLEDB_INDEX_KEY,
+    SWITCH_PRODUCT_ID_KEY,
+)
+
 # Level 3 costs less per read than the `json.loads` that follows it.
 COMPRESSION_LEVEL: Final[int] = 3
 
