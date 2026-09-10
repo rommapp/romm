@@ -523,6 +523,8 @@ class DBCollectionsHandler(DBBaseHandler):
             "statuses": as_list("statuses", "selected_status"),
             "player_counts": criteria.get("player_counts"),
             "metadata_providers": criteria.get("metadata_providers"),
+            "hltb_main_story_min": criteria.get("hltb_main_story_min"),
+            "hltb_main_story_max": criteria.get("hltb_main_story_max"),
             "genres_logic": criteria.get("genres_logic", "any"),
             "franchises_logic": criteria.get("franchises_logic", "any"),
             "collections_logic": criteria.get("collections_logic", "any"),

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   anniversaryQuery,
+  formatPlaytime,
+  formatPlaytimeBound,
   formatReleaseDate,
   formatTrackTime,
   releaseYear,
@@ -58,6 +60,40 @@ describe("releaseYear", () => {
     for (const value of [undefined, null, 0, "0", "nope"]) {
       expect(releaseYear(value)).toBeNull();
     }
+  });
+});
+
+const HOUR = 3600;
+
+describe("formatPlaytime", () => {
+  it("rounds a crowd-sourced estimate to the nearest half hour", () => {
+    expect(formatPlaytime(12.4 * HOUR, "en-US")).toBe("12.5h");
+    expect(formatPlaytime(40 * HOUR, "en-US")).toBe("40h");
+  });
+
+  it("falls back to minutes under an hour, and null when unset", () => {
+    expect(formatPlaytime(45 * 60, "en-US")).toBe("45m");
+    expect(formatPlaytime(0, "en-US")).toBeNull();
+    expect(formatPlaytime(null, "en-US")).toBeNull();
+  });
+
+  it("formats the number in the caller's locale", () => {
+    expect(formatPlaytime(12.5 * HOUR, "de-DE")).toBe("12,5h");
+  });
+});
+
+describe("formatPlaytimeBound", () => {
+  it("reports the bound as saved instead of rounding it", () => {
+    expect(formatPlaytimeBound(5.25 * HOUR, "en-US")).toBe("5.25h");
+    expect(formatPlaytime(5.25 * HOUR, "en-US")).toBe("5.5h");
+  });
+
+  it("keeps a zero bound, which is an active filter", () => {
+    expect(formatPlaytimeBound(0, "en-US")).toBe("0h");
+  });
+
+  it("formats the number in the caller's locale", () => {
+    expect(formatPlaytimeBound(5.25 * HOUR, "de-DE")).toBe("5,25h");
   });
 });
 

@@ -446,6 +446,54 @@ def test_get_roms_filter_by_metadata_providers(
     assert {item["id"] for item in body["items"]} == {rom.id}
 
 
+def test_get_roms_filter_by_hltb_main_story(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    """`rom` carries no HowLongToBeat time, so a length range must drop it."""
+    ten_hours = 10 * 3600
+    rom_ten_hours = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="rom_ten_hours",
+            slug="rom_ten_hours",
+            fs_name="rom_ten_hours.zip",
+            fs_name_no_tags="rom_ten_hours",
+            fs_name_no_ext="rom_ten_hours",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            hltb_metadata={"main_story": ten_hours},
+        )
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "hltb_main_story_max": ten_hours},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert {item["id"] for item in response.json()["items"]} == {rom_ten_hours.id}
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "hltb_main_story_min": ten_hours + 1},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["items"] == []
+
+
+def test_get_roms_rejects_a_negative_hltb_main_story_bound(
+    client: TestClient, access_token: str, platform: Platform
+):
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "hltb_main_story_min": -1},
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
 def test_get_roms_filter_by_duplicate(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):

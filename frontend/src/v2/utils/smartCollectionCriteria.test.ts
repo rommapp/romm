@@ -53,6 +53,8 @@ function emptySnapshot(): GalleryFilterSnapshot {
     tagsLogic: "any",
     selectedStatuses: [],
     statusesLogic: "any",
+    selectedLengthMinHours: null,
+    selectedLengthMaxHours: null,
   };
 }
 
@@ -231,5 +233,61 @@ describe("buildSmartFilterCriteria — negative tri-state filters", () => {
     const row = rows.find((r) => r.key === "matched");
     expect(row).toBeDefined();
     expect(row?.label).toBe("Unmatched");
+  });
+});
+
+describe("buildSmartFilterCriteria — game length", () => {
+  it("stores the hour bounds as seconds", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedLengthMinHours: 5,
+      selectedLengthMaxHours: 20,
+    });
+
+    expect(out.hltb_main_story_min).toBe(5 * 3600);
+    expect(out.hltb_main_story_max).toBe(20 * 3600);
+  });
+
+  it("leaves an open end out of the criteria", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedLengthMaxHours: 10,
+    });
+
+    expect(out).not.toHaveProperty("hltb_main_story_min");
+    expect(out.hltb_main_story_max).toBe(10 * 3600);
+  });
+
+  it("summarizes the bounds back as hours", () => {
+    const summary = summarizeSmartFilterCriteria(
+      { hltb_main_story_min: 5 * 3600, hltb_main_story_max: 20 * 3600 },
+      tStub,
+      undefined,
+      "en-US",
+    );
+
+    expect(summary.map((row) => row.values?.[0])).toEqual(["5h", "20h"]);
+  });
+
+  it("reports a fractional bound as saved", () => {
+    const summary = summarizeSmartFilterCriteria(
+      { hltb_main_story_min: 5.25 * 3600 },
+      tStub,
+      undefined,
+      "en-US",
+    );
+
+    expect(summary.map((row) => row.values?.[0])).toEqual(["5.25h"]);
+  });
+
+  it("keeps a zero minimum, which still hides unknown-length games", () => {
+    const summary = summarizeSmartFilterCriteria(
+      { hltb_main_story_min: 0 },
+      tStub,
+      undefined,
+      "en-US",
+    );
+
+    expect(summary.map((row) => row.values?.[0])).toEqual(["0h"]);
   });
 });

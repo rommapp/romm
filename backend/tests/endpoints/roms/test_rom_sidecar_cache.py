@@ -184,6 +184,20 @@ def test_row_filter_does_not_read_unscoped_rom_id_index_cache(
     assert body["rom_id_index"] == []
 
 
+def test_length_filter_does_not_read_unscoped_rom_id_index_cache(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """A HowLongToBeat range narrows the result set like any other row filter."""
+    version = _filter_values_cache_version()
+    _store_versioned_cache(
+        f"rom_id_index:{_unscoped_key(admin_user.id)}:v{version}", version, [424242]
+    )
+
+    body = _get_roms(client, access_token, hltb_main_story_max=3600)
+
+    assert body["rom_id_index"] == []
+
+
 def test_unfiltered_request_still_reads_unscoped_char_index_cache(
     client: TestClient, access_token: str, admin_user: User, rom: Rom
 ):

@@ -2,13 +2,14 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 
-const { post, put } = vi.hoisted(() => ({
+const { get, post, put } = vi.hoisted(() => ({
+  get: vi.fn(),
   post: vi.fn(),
   put: vi.fn(),
 }));
 
 vi.mock("@/services/api", () => ({
-  default: { post, put, get: vi.fn(), delete: vi.fn() },
+  default: { post, put, get, delete: vi.fn() },
 }));
 vi.mock("@/services/socket", () => ({
   default: { emit: vi.fn(), connected: true, connect: vi.fn() },
@@ -126,5 +127,36 @@ describe("romApi.uploadRoms", () => {
     });
 
     expect(startCall().body).toEqual({ rom_id: 42 });
+  });
+});
+
+describe("getRoms game-length range", () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({ data: {} });
+  });
+
+  async function sentParams(
+    params: Parameters<typeof romApi.getRoms>[0],
+  ): Promise<Record<string, unknown>> {
+    await romApi.getRoms(params);
+    return get.mock.calls[0][1].params as Record<string, unknown>;
+  }
+
+  it("sends both bounds in seconds", async () => {
+    const params = await sentParams({
+      hltbMainStoryMin: 18000,
+      hltbMainStoryMax: 72000,
+    });
+
+    expect(params.hltb_main_story_min).toBe(18000);
+    expect(params.hltb_main_story_max).toBe(72000);
+  });
+
+  it("omits an unset bound so the range stays open at that end", async () => {
+    const params = await sentParams({ hltbMainStoryMax: 36000 });
+
+    expect(params).not.toHaveProperty("hltb_main_story_min");
+    expect(params.hltb_main_story_max).toBe(36000);
   });
 });

@@ -662,6 +662,7 @@ class Rom(BaseModel):
         Index("idx_roms_tgdb_id", "tgdb_id"),
         Index("idx_roms_flashpoint_id", "flashpoint_id"),
         Index("idx_roms_hltb_id", "hltb_id"),
+        Index("idx_roms_hltb_main_story", "generated_hltb_main_story"),
         Index("idx_roms_demozoo_id", "demozoo_id"),
         Index("idx_roms_pouet_id", "pouet_id"),
         Index("idx_roms_csdb_id", "csdb_id"),
@@ -745,6 +746,10 @@ class Rom(BaseModel):
         String(length=100),
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
+    )
+    # Seconds, as HowLongToBeat reports them.
+    generated_hltb_main_story: Mapped[int | None] = mapped_column(
+        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")

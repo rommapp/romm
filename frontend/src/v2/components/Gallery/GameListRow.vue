@@ -19,7 +19,7 @@ import {
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
-import { formatReleaseDate } from "@v2/utils/time";
+import { formatPlaytime, formatReleaseDate } from "@v2/utils/time";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -177,6 +177,15 @@ function ratingValue(item: SimpleRom): string {
   const r = item.metadatum?.average_rating;
   if (typeof r !== "number" || r <= 0) return "—";
   return r.toFixed(1);
+}
+
+function lengthValue(item: SimpleRom): string {
+  return (
+    formatPlaytime(
+      item.hltb_metadata?.main_story,
+      toBrowserLocale(locale.value),
+    ) ?? "—"
+  );
 }
 
 function navigateTo(item: SimpleRom, currentTarget: HTMLElement | null) {
@@ -368,6 +377,7 @@ function onRowPointerEnd() {
       <div class="game-list-row__cell">{{ formatDate(rom.created_at) }}</div>
       <div class="game-list-row__cell">{{ releaseDate(rom) }}</div>
       <div class="game-list-row__cell">{{ ratingValue(rom) }}</div>
+      <div class="game-list-row__cell">{{ lengthValue(rom) }}</div>
 
       <div class="game-list-row__cell game-list-row__cell--pills">
         <div class="game-list-row__pills">

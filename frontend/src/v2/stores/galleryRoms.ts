@@ -35,6 +35,7 @@ import {
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
+import { playtimeHoursToSeconds } from "@/v2/utils/time";
 
 export type SimpleRom = SimpleRomSchema;
 
@@ -52,6 +53,7 @@ export type GalleryOrderKey =
   | "updated_at"
   | "first_release_date"
   | "average_rating"
+  | "hltb_main_story"
   | "last_played";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
@@ -385,6 +387,12 @@ export default defineStore("v2GalleryRoms", {
         playerCountsLogic: galleryFilter.playerCountsLogic,
         metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
         tagsLogic: galleryFilter.tagsLogic,
+        hltbMainStoryMin: playtimeHoursToSeconds(
+          galleryFilter.selectedLengthMinHours,
+        ),
+        hltbMainStoryMax: playtimeHoursToSeconds(
+          galleryFilter.selectedLengthMaxHours,
+        ),
       };
     },
 

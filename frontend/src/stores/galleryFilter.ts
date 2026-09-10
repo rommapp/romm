@@ -66,6 +66,10 @@ const buildDefaultFilterState = () => ({
   selectedMetadataProviders: [] as string[],
   selectedTags: [] as string[],
   selectedStatuses: [] as string[],
+  // HowLongToBeat main-story bounds in hours; null leaves that end open. Games
+  // with no HowLongToBeat time are excluded whenever either bound is set.
+  selectedLengthMinHours: null as number | null,
+  selectedLengthMaxHours: null as number | null,
   // Logic operators for multi-select filters
   genresLogic: "any" as FilterLogicOperator,
   franchisesLogic: "any" as FilterLogicOperator,
@@ -212,6 +216,10 @@ export default defineStore("galleryFilter", {
     },
     setStatusesLogic(logic: FilterLogicOperator) {
       this.statusesLogic = logic;
+    },
+    setSelectedFilterLengthHours(min: number | null, max: number | null) {
+      this.selectedLengthMinHours = min;
+      this.selectedLengthMaxHours = max;
     },
     setFilterMatched(value: boolean | null) {
       this.filterMatched = value;
@@ -468,7 +476,9 @@ export default defineStore("galleryFilter", {
         this.selectedPlayerCounts.length > 0 ||
         this.selectedMetadataProviders.length > 0 ||
         this.selectedTags.length > 0 ||
-        this.selectedStatuses.length > 0,
+        this.selectedStatuses.length > 0 ||
+        this.selectedLengthMinHours !== null ||
+        this.selectedLengthMaxHours !== null,
       );
     },
     reset() {
@@ -490,6 +500,8 @@ export default defineStore("galleryFilter", {
       this.selectedMetadataProviders = [];
       this.selectedTags = [];
       this.selectedStatuses = [];
+      this.selectedLengthMinHours = null;
+      this.selectedLengthMaxHours = null;
       this.filterMatched = null;
       this.filterFavorites = null;
       this.filterDuplicates = null;
