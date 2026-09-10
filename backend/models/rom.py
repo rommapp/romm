@@ -4,6 +4,7 @@ import copy
 import enum
 import hashlib
 import re
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -96,6 +97,20 @@ def compute_full_path_hash(fs_path: str | None, fs_name: str | None) -> str:
     return hashlib.sha256(
         f"{fs_path or ''}/{fs_name or ''}".encode(), usedforsecurity=False
     ).hexdigest()
+
+
+def _ra_display_order(achievement: dict) -> tuple[int, int]:
+    """Sort key matching RetroAchievements' "Display Order", ties by id.
+
+    An achievement scanned before `display_order` was captured sinks to the
+    end rather than jumping to the front of the list.
+    """
+    order = achievement.get("display_order")
+    ra_id = achievement.get("ra_id")
+    return (
+        order if isinstance(order, int) else sys.maxsize,
+        ra_id if isinstance(ra_id, int) else sys.maxsize,
+    )
 
 
 if TYPE_CHECKING:
@@ -1072,6 +1087,12 @@ class Rom(BaseModel):
                 achievement["badge_path"] = (
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
                 )
+            # The provider returns achievements keyed by id, so the stored order
+            # is arbitrary. RetroAchievements' own "Display Order" is what a
+            # player follows while playing.
+            metadata_copy["achievements"] = sorted(
+                metadata_copy.get("achievements", []), key=_ra_display_order
+            )
             return metadata_copy
         return self.ra_metadata
 
