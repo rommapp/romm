@@ -45,9 +45,7 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
     async def run(self, force: bool = False) -> dict[str, Any]:
         update_stats = UpdateStats()
 
-        # A schema bump drops the store at startup and queues this task to refill
-        # it, so the pull goes ahead regardless of the scheduled-update setting.
-        content = await super().run(True)
+        content = await super().run(force)
         if content is None:
             return update_stats.to_dict()
 

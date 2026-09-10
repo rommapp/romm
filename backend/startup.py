@@ -1,6 +1,7 @@
 """Startup script to run tasks before the main application is started."""
 
 import asyncio
+from typing import Any
 
 import sentry_sdk
 from opentelemetry import trace
@@ -49,14 +50,16 @@ UPDATE_LAUNCHBOX_METADATA_JOB_ID = "update_launchbox_metadata_bootstrap"
 UPDATE_SWITCH_TITLEDB_JOB_ID = "update_switch_titledb_bootstrap"
 
 
-def _enqueue_backfill(task_name: str, job_id: str) -> None:
+def _enqueue_backfill(
+    task_name: str, job_id: str, task_kwargs: dict[str, Any] | None = None
+) -> None:
     """Hand a backfill to the low-priority worker and move on.
 
     A fixed id with unique=True settles it in one round trip, so two instances
     starting together cannot both get past the check.
     """
     try:
-        enqueue_task(task_name, job_id=job_id, unique=True)
+        enqueue_task(task_name, job_id=job_id, unique=True, task_kwargs=task_kwargs)
         log.info(f"Enqueued {task_name} on the low-priority worker")
     except DuplicateJobError:
         log.info(
@@ -121,7 +124,9 @@ async def _rebuild_outdated_metadata_stores() -> None:
 
         log.info(f"Dropped the {task_name} store left by an older release")
         if rebuild:
-            _enqueue_backfill(task_name, job_id)
+            # A store that is dropped has to refill whatever the scheduled
+            # update setting says, or the provider matches nothing.
+            _enqueue_backfill(task_name, job_id, task_kwargs={"force": True})
 
 
 # Keys the rq-scheduler process left behind, now owned by the cron config.

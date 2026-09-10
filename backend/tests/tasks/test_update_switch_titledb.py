@@ -170,15 +170,6 @@ class TestUpdateSwitchTitleDBTask:
         assert len(hset_calls) > 2  # At least one batch for each key type
 
     @patch.object(RemoteFilePullTask, "run")
-    async def test_run_forces_the_pull(self, mock_super_run, task):
-        """The startup rebuild queues this task with the scheduled update off."""
-        mock_super_run.return_value = None
-
-        await task.run()
-
-        mock_super_run.assert_called_once_with(True)
-
-    @patch.object(RemoteFilePullTask, "run")
     async def test_run_no_content(self, mock_super_run, task):
         """Test run when super().run returns None"""
         mock_super_run.return_value = None
