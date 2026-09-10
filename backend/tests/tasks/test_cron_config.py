@@ -6,7 +6,7 @@ from config import TASK_RESULT_TTL, TASK_TIMEOUT
 from handler.redis_handler import QueuePrio
 from tasks import cron_config
 from tasks.registry import SCHEDULED_TASKS, enqueue_scheduled_scan
-from tasks.tasks import TaskType, run_task_by_name
+from tasks.tasks import Task, TaskType, run_task_by_name
 
 
 @pytest.fixture
@@ -23,19 +23,19 @@ def registered(mocker):
 
 
 def _task(mocker, *, enabled=True, cron_string="0 4 * * *", task_type=TaskType.CLEANUP):
-    return mocker.MagicMock(
-        enabled=enabled,
-        cron_string=cron_string,
-        timeout=100,
-        title="Test Task",
-        description="test task",
-        task_type=task_type,
-        job_meta=lambda key: {
-            "task_key": key,
-            "task_name": "Test Task",
-            "task_type": task_type.value,
-        },
-    )
+    task = mocker.create_autospec(Task, instance=True)
+    task.enabled = enabled
+    task.cron_string = cron_string
+    task.timeout = 100
+    task.title = "Test Task"
+    task.description = "test task"
+    task.task_type = task_type
+    task.job_meta.side_effect = lambda key: {
+        "task_key": key,
+        "task_name": "Test Task",
+        "task_type": task_type.value,
+    }
+    return task
 
 
 def _scan_task(mocker, **kwargs):

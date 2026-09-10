@@ -1,6 +1,8 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CleanupTaskStatusResponse } from "@/__generated__/models/CleanupTaskStatusResponse";
+import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import TasksSection from "./TasksSection.vue";
 
 const { getTasks, getTaskStatus, runTask } = vi.hoisted(() => ({
@@ -21,7 +23,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
 
-const CLEANUP_TASK = {
+const CLEANUP_TASK: TaskInfo = {
   name: "cleanup_zip_cache",
   type: "cleanup",
   title: "Scheduled ZIP cache cleanup",
@@ -31,7 +33,9 @@ const CLEANUP_TASK = {
   cron_string: "",
 };
 
-function status(overrides: Record<string, unknown>) {
+function status(
+  overrides: Partial<CleanupTaskStatusResponse> = {},
+): CleanupTaskStatusResponse {
   return {
     task_key: null,
     task_name: "Scheduled ZIP cache cleanup",
@@ -42,7 +46,7 @@ function status(overrides: Record<string, unknown>) {
     enqueued_at: null,
     started_at: null,
     ended_at: null,
-    meta: {},
+    meta: { cleanup_stats: null },
     ...overrides,
   };
 }
@@ -75,8 +79,6 @@ describe("TasksSection", () => {
     });
     getTaskStatus.mockReset();
     getTaskStatus.mockResolvedValue({ data: [] });
-    runTask.mockReset();
-    runTask.mockResolvedValue({ data: { task_id: "job-1" } });
   });
 
   it("disables the run button while that task's job is in flight", async () => {

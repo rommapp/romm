@@ -91,7 +91,7 @@ TaskMeta = Union[
 
 
 class TaskExecutionResponse(TypedDict):
-    # None on a scan a client started itself, which answers to no registry entry.
+    # None on scans started outside the catalog, by a client or the watcher.
     task_key: str | None
     task_name: str
     task_id: str

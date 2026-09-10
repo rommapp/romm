@@ -46,15 +46,17 @@ const manualTasksUI = computed(() =>
   manualTasks.value.map((task) => ({ ...task, icon: "mdi-broom" })),
 );
 
+const IN_FLIGHT_STATUSES = ["queued", "started"];
+
 const completedStatuses = computed(() =>
   taskStatuses.value.filter(
-    (task) => !["queued", "started"].includes(task.status),
+    (task) => !IN_FLIGHT_STATUSES.includes(task.status),
   ),
 );
 
 function isTaskRunning(name: string) {
   return taskStatuses.value.some(
-    (s) => s.task_key === name && ["queued", "started"].includes(s.status),
+    (s) => s.task_key === name && IN_FLIGHT_STATUSES.includes(s.status),
   );
 }
 
