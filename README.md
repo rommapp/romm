@@ -47,14 +47,12 @@ To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] i
 
 ### One-click deploys
 
-Prefer a hosted deploy over wiring up the stack yourself? Hostinger has a 1-click RomM install, with a setup guide in our docs.
+Prefer a hosted deploy over wiring up the stack yourself? Hostinger has a 1-click installer and host.
 
-<p align="center">
-  <img src=".github/resources/hostinger-logo.svg" height="44" alt="Hostinger logo" />
-  <br /><b>Hostinger</b>
-  <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
-  <br /><br /><a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
-</p>
+<a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
+
+Starting at <b>$6.49/mo</b><br />
+<a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
 
 <sub><i>Deployment and infrastructure support for this install is handled by the platform, not our team. Prices are indicative and may not reflect current offerings. Signups through the Hostinger link send a share of the revenue back to us, which helps fund the project.</i></sub>
 
@@ -68,41 +66,41 @@ Apps and integrations built and maintained by the RomM team.
 
 <a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/screenshots/app-playnite.webp" width="420" align="left" alt="Playnite library" /></a>
 
-### <a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/playnite-logo.svg" height="22" align="top" alt="Playnite logo" /></a> Playnite plugin
+### <a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/playnite-logo.svg" height="28" align="top" alt="Playnite logo" /></a> Playnite plugin
 
 Effortlessly integrate your retro game collection into [Playnite](https://playnite.link/), the open-source game library manager that provides a unified interface for all of your games on PC.
 
 `Windows · Desktop` `QR pairing`
 
-<a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><img src=".github/resources/playnite-install-button.svg" width="152" height="42" align="middle" alt="Install" /></a> <sub>by <a href="https://github.com/gantoine">@gantoine</a></sub>
+<a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><img src=".github/resources/playnite-install-button.svg" width="118" height="34" align="middle" alt="Install" /></a> <sub>by <a href="https://github.com/gantoine">@gantoine</a></sub>
 
 <br clear="left" /><br />
 
 <a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/screenshots/app-argosy.webp" width="420" align="left" alt="Argosy library" /></a>
 
-### <a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/argosy-logo.svg" height="22" align="top" alt="Argosy logo" /></a> Argosy
+### <a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/argosy-logo.svg" height="28" align="top" alt="Argosy logo" /></a> Argosy
 
 Sync your library, download games on demand and track your achievements, from a gamepad-first interface designed for Anbernic, Retroid Pocket, Odin, and similar devices.
 
 `Android · Handhelds` `QR pairing` `Save sync`
 
-<a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><img src=".github/resources/argosy-download-button.svg" width="152" height="42" align="middle" alt="Download" /></a> <sub>by <a href="https://github.com/tmgast">@tmgast</a></sub>
+<a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><img src=".github/resources/argosy-download-button.svg" width="118" height="34" align="middle" alt="Download" /></a> <sub>by <a href="https://github.com/tmgast">@tmgast</a></sub>
 
 <br clear="left" /><br />
 
 <a href="https://github.com/rommapp/grout"><img src=".github/resources/screenshots/app-grout.webp" width="420" align="left" alt="Grout multi-select" /></a>
 
-### <a href="https://github.com/rommapp/grout"><img src=".github/resources/grout-logo.svg" height="22" align="top" alt="Grout logo" /></a> Grout
+### <a href="https://github.com/rommapp/grout"><img src=".github/resources/grout-logo.svg" height="28" align="top" alt="Grout logo" /></a> Grout
 
 A lightweight client for your favorite handheld custom firmwares. Download games, box art and BIOS files wirelessly, and sync your saves automatically as you play.
 
 `Linux · Handhelds` `Save sync`
 
-<a href="https://grout.romm.app/getting-started/"><img src=".github/resources/grout-quick-start-button.svg" width="152" height="42" align="middle" alt="Quick start" /></a> <sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub>
+<a href="https://grout.romm.app/getting-started/"><img src=".github/resources/grout-quick-start-button.svg" width="118" height="34" align="middle" alt="Quick start" /></a> <sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub>
+
+<sub><i>Supports Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce and TrimUI.</i></sub>
 
 <br clear="left" /><br />
-
-<sub><i>Grout supports Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce and TrimUI.</i></sub>
 
 ## Community
 

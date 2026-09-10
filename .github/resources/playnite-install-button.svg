@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="152" height="42">
-  <rect width="150" height="40" x="1" y="1" fill="#d9450f" stroke="#d9450f" stroke-width="2" rx="8" />
-  <text fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" text-anchor="middle">
-    <tspan x="76" y="27.5">Install</tspan>
+<svg xmlns="http://www.w3.org/2000/svg" width="118" height="34">
+  <rect width="116" height="32" x="1" y="1" fill="#d9450f" stroke="#d9450f" stroke-width="2" rx="6" />
+  <text fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="bold" text-anchor="middle">
+    <tspan x="59" y="22">Install</tspan>
   </text>
 </svg>
