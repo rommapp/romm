@@ -84,23 +84,17 @@ Apps and integrations built and maintained by the RomM team.
     <td align="center" width="33%">
       <p><br /><img src=".github/resources/playnite-logo.svg" height="44" alt="Playnite logo" /><br /><b>Playnite plugin</b><br /><sub>Windows · Desktop</sub></p>
       <p><a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/screenshots/app-playnite.webp" width="320" alt="Playnite library" /></a></p>
-      <p>Effortlessly integrate your retro game collection into <a href="https://playnite.link/">Playnite</a>, the open-source game library manager that provides a unified interface for all of your games on PC.</p>
-      <p><code>QR pairing</code></p>
-      <p><a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><b>Install</b></a><br /><sub>by <a href="https://github.com/gantoine">@gantoine</a></sub></p>
+      <p><a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><b>Install</b></a> <sub>by <a href="https://github.com/gantoine">@gantoine</a></sub></p>
     </td>
     <td align="center" width="33%">
       <p><br /><img src=".github/resources/argosy-logo.svg" height="44" alt="Argosy logo" /><br /><b>Argosy</b><br /><sub>Android · Handhelds</sub></p>
       <p><a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/screenshots/app-argosy.webp" width="320" alt="Argosy library" /></a></p>
-      <p>Sync your library, download games on demand and track your achievements, from a gamepad-first interface designed for Anbernic, Retroid Pocket, Odin, and similar devices.</p>
-      <p><code>QR pairing</code> <code>Save sync</code></p>
-      <p><a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><b>Download</b></a><br /><sub>by <a href="https://github.com/tmgast">@tmgast</a></sub></p>
+      <p><a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><b>Download</b></a> <sub>by <a href="https://github.com/tmgast">@tmgast</a></sub></p>
     </td>
     <td align="center" width="33%">
       <p><br /><img src=".github/resources/grout-logo.svg" height="44" alt="Grout logo" /><br /><b>Grout</b><br /><sub>Linux · Handhelds</sub></p>
       <p><a href="https://github.com/rommapp/grout"><img src=".github/resources/screenshots/app-grout.webp" width="320" alt="Grout multi-select" /></a></p>
-      <p>A lightweight client for your favorite handheld custom firmwares. Download games, box art and BIOS files wirelessly, and sync your saves automatically as you play.</p>
-      <p><code>Save sync</code></p>
-      <p><a href="https://grout.romm.app/getting-started/"><b>Quick start</b></a><br /><sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub></p>
+      <p><a href="https://grout.romm.app/getting-started/"><b>Quick start</b></a> <sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub></p>
     </td>
   </tr>
 </table>
