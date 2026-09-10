@@ -5,8 +5,8 @@ desktop companion) on one paired device, and where each row is in the
 add/remove lifecycle. ``devices.launch_capabilities`` holds the per-platform
 emulator map a launcher client reports so the UI can refuse an add up front.
 
-Revision ID: 0127_shortcuts
-Revises: 0126_unique_rom_full_path
+Revision ID: 0129_shortcuts
+Revises: 0128_hltb_main_story_column
 Create Date: 2026-09-06 00:00:00.000000
 
 """
@@ -17,8 +17,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0127_shortcuts"
-down_revision = "0126_unique_rom_full_path"
+revision = "0129_shortcuts"
+down_revision = "0128_hltb_main_story_column"
 branch_labels = None
 depends_on = None
 
