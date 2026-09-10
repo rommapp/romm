@@ -20,6 +20,7 @@ import {
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
+import storePlaying from "@/stores/playing";
 import { useStreamingStore } from "@/stores/streaming";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
@@ -39,6 +40,7 @@ import { installOverlayRouteDismiss } from "@/v2/composables/useOverlayRouteDism
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
+import { installStageActiveClass } from "@/v2/composables/useStageActive";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
 installPermissionsHydration();
@@ -51,6 +53,7 @@ installScanLifecycle();
 // can branch on viewport via `html[data-bp~="xs"] .foo { … }` instead of
 // hardcoding `@media (max-width: …)` values across every SFC.
 installBreakpointAttribute();
+installStageActiveClass();
 
 // Reduced-motion mode: mirror the flag onto <html> so global CSS can drop
 // its heaviest work via `html.r-v2-reduced-motion .foo { … }` (background-art
@@ -70,6 +73,10 @@ watch(
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
 const streamingStore = useStreamingStore();
+
+// While a player stage covers the viewport the emulator owns the screen,
+// so the fixed nav chrome unmounts (and its links drop from the tab order).
+const playingStore = storePlaying();
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
@@ -194,11 +201,11 @@ onBeforeUnmount(() => {
     />
 
     <div class="r-v2-shell__app">
-      <AppNav />
+      <AppNav v-if="!playingStore.stageActive" />
       <main id="r-v2-main" class="r-v2-shell__main" tabindex="-1">
         <router-view name="v2" />
       </main>
-      <BottomNav />
+      <BottomNav v-if="!playingStore.stageActive" />
     </div>
 
     <GlobalDialogs />

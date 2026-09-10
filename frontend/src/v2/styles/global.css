@@ -33,6 +33,13 @@ html[data-bp~="xs"].r-v2 {
   --r-row-pad: 14px;
 }
 
+/* A running player stage owns the viewport: AppLayout unmounts the nav
+   chrome and this collapses the nav-height tokens for every consumer. */
+html.r-v2.r-v2-stage-active {
+  --r-nav-h: 0px;
+  --r-bottom-nav-h: 0px;
+}
+
 /* Focus rings are modality-gated — invisible for mouse/touch so we don't
    dog-pile the hover states, visible and prominent for keyboard/pad so
    the user always knows where they are.

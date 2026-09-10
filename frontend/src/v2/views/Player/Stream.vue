@@ -77,6 +77,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -121,6 +122,9 @@ const selectedDisc = ref<number | null>(null);
 const isSwappingDisc = ref(false);
 
 const gameRunning = computed(() => playerState.value === "playing");
+// Chrome-wise only the mounted stage counts; `playing` also spans the
+// loading phase, where the config screen still needs the nav.
+useStageActive(gameRunning);
 
 // Set by the Join action on the game page. A join attaches to a session
 // someone else is hosting instead of claiming a container, so none of the
