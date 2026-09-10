@@ -145,7 +145,7 @@ describe("computeCoverArt — cover_path", () => {
     expect(d.coverUrl).toBe("covers/large.webp");
   });
   it("rewrites a cover carrying the backend's cache-busting query", () => {
-    // The shape every rom actually arrives in — `?ts=<updated_at>`.
+    // The shape every rom actually arrives in: `?ts=<updated_at>`.
     const d = computeCoverArt(
       rom({ path_cover_large: "covers/large.png?ts=2026-09-09T00:00:00" }),
       "cover_path",
