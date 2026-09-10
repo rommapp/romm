@@ -305,12 +305,30 @@ class MetadataHandler(abc.ABC):
             log.error("Could not find the Switch productID index file in cache")
             return search_term, None
 
-        index_entry = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
+        index_entry = await self._switch_product_id_entry(product_id)
         if index_entry:
-            index_entry = json.loads(index_entry)
             return index_entry["name"], index_entry
 
         return search_term, None
+
+    @staticmethod
+    async def _switch_product_id_entry(product_id: str) -> dict | None:
+        """Resolve a Switch product id to its titleID index entry.
+
+        The product id index holds the title id of the entry. A store imported
+        before it was de-duplicated holds the entry itself, so it keeps
+        answering until the next update rewrites it.
+        """
+        raw = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
+        if not raw:
+            return None
+
+        value = json.loads(raw)
+        if isinstance(value, dict):
+            return value
+
+        entry = await async_cache.hget(SWITCH_TITLEDB_INDEX_KEY, value)
+        return json.loads(entry) if entry else None
 
     async def _mame_format(self, search_term: str) -> str:
         from handler.filesystem import fs_rom_handler

@@ -1,4 +1,6 @@
+import json
 import os
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import anyio
@@ -209,6 +211,25 @@ class TestUpdateLaunchboxMetadataTask:
         assert fields(metadata_alt_calls) == {"super mario 64 (usa)"}
         assert fields(metadata_image_calls) == {"12345"}
         assert fields(mame_calls) == {"mario.zip", "pacman.zip"}
+
+        def values(calls) -> list[Any]:
+            return [
+                json.loads(value)
+                for call in calls
+                for value in call[1]["mapping"].values()
+            ]
+
+        # The title indexes point at the record, rather than repeating it.
+        assert sorted(values(metadata_name_calls)) == ["12345", "67890"]
+        assert sorted(values(metadata_folded_calls)) == ["12345", "67890"]
+
+        # Images keep only the fields media selection reads.
+        assert values(metadata_image_calls) == [
+            [
+                {"FileName": "super_mario_64.jpg", "Type": "Cover"},
+                {"FileName": "super_mario_64_screenshot.jpg", "Type": "Screenshot"},
+            ]
+        ]
 
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")

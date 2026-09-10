@@ -52,10 +52,12 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
                 processed_items += len(data_batch)
                 update_stats.update(processed=processed_items)
 
+            # The product id index points at the titleID index entry rather than
+            # holding a second copy of it, which costs ~60MB of cache.
             for data_batch in batched(relevant_data.items(), 2000, strict=False):
                 product_map = {
-                    v["id"]: json.dumps(v)
-                    for v in dict(data_batch).values()
+                    v["id"]: json.dumps(title_id)
+                    for title_id, v in data_batch
                     if v.get("id")
                 }
                 if product_map:

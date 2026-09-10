@@ -596,6 +596,58 @@ class TestRemoteSourceGetRom:
         assert result is not None
         assert result.get("DatabaseID", None) == "1234"
 
+    async def test_name_match_follows_database_id(self, source: RemoteSource):
+        """A title index hit holds the id of the record, not the record."""
+
+        async def side_effect(key, _field):
+            if key == LAUNCHBOX_METADATA_NAME_KEY:
+                return json.dumps("1234")
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
+                return json.dumps(REMOTE_ENTRY)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom(
+                "super mario bros.", "nes", assume_cache_present=True
+            )
+        assert result is not None
+        assert result.get("Name", None) == "Super Mario Bros."
+
+    async def test_folded_name_match_follows_database_id(self, source: RemoteSource):
+        async def side_effect(key, _field):
+            if key == LAUNCHBOX_METADATA_FOLDED_NAME_KEY:
+                return json.dumps("1234")
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
+                return json.dumps(REMOTE_ENTRY)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom(
+                "super mario bros", "nes", assume_cache_present=True
+            )
+        assert result is not None
+        assert result.get("Name", None) == "Super Mario Bros."
+
+    async def test_title_index_pointing_at_missing_record(self, source: RemoteSource):
+        """A refresh that dropped the record leaves the index pointing nowhere."""
+
+        async def side_effect(key, _field):
+            if key == LAUNCHBOX_METADATA_NAME_KEY:
+                return json.dumps("1234")
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom(
+                "super mario bros.", "nes", assume_cache_present=True
+            )
+        assert result is None
+
     async def test_alternate_name_match(self, source: RemoteSource):
         alt_entry = {"DatabaseID": "1234"}
 

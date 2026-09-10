@@ -25,6 +25,18 @@ class RemoteSource:
             return None
         return json.loads(entry)
 
+    async def _follow_title_index(self, entry: str) -> dict | None:
+        """Resolve a title index hit to the record it points at.
+
+        A hit holds the database id of the record. A store imported before the
+        title indexes were de-duplicated holds the whole record instead, so it
+        keeps answering until the next import rewrites it.
+        """
+        value = json.loads(entry)
+        if isinstance(value, dict):
+            return value
+        return await self.get_by_id(value)
+
     async def get_rom(
         self,
         file_name: str,
@@ -64,8 +76,12 @@ class RemoteSource:
             metadata_name_index_entry = await async_cache.hget(
                 LAUNCHBOX_METADATA_NAME_KEY, f"{candidate}:{platform_name}"
             )
-            if metadata_name_index_entry:
-                return json.loads(metadata_name_index_entry)
+            if not metadata_name_index_entry:
+                continue
+
+            entry = await self._follow_title_index(metadata_name_index_entry)
+            if entry:
+                return entry
 
         for candidate in candidates:
             metadata_alternate_name_index_entry = await async_cache.hget(
@@ -101,8 +117,12 @@ class RemoteSource:
             folded_index_entry = await async_cache.hget(
                 LAUNCHBOX_METADATA_FOLDED_NAME_KEY, f"{folded}:{platform_name}"
             )
-            if folded_index_entry:
-                return json.loads(folded_index_entry)
+            if not folded_index_entry:
+                continue
+
+            entry = await self._follow_title_index(folded_index_entry)
+            if entry:
+                return entry
 
         return None
 

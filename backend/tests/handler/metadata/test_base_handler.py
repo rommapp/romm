@@ -337,6 +337,30 @@ class TestMetadataHandlerMethods:
             )
             assert result[0] == "Product Game"
 
+    async def test_switch_productid_format_follows_title_id(
+        self, handler: MetadataHandler
+    ):
+        """The product id index holds the title id of its titleID index entry."""
+        with patch.object(
+            async_cache, "exists", new_callable=AsyncMock
+        ) as mock_exists, patch.object(
+            async_cache, "hget", new_callable=AsyncMock
+        ) as mock_hget:
+            mock_exists.return_value = True
+            mock_hget.side_effect = [
+                json.dumps("70010000000025"),
+                json.dumps({"name": "Product Game"}),
+            ]
+
+            rom = Rom(fs_name="Game.nsp", title_id="0100ABCD12340000")
+            result = await handler._switch_productid_format(rom, "Game.nsp", "original")
+
+            assert mock_hget.await_args_list[1].args == (
+                "romm:switch_titledb",  # SWITCH_TITLEDB_INDEX_KEY
+                "70010000000025",
+            )
+            assert result[0] == "Product Game"
+
     @pytest.mark.parametrize(
         ("title_id", "fs_name", "expected"),
         [
