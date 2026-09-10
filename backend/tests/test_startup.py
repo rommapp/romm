@@ -164,7 +164,6 @@ class TestRebuildOutdatedMetadataStores:
             "update_launchbox_metadata",
             job_id=startup.UPDATE_LAUNCHBOX_METADATA_JOB_ID,
             unique=True,
-            task_kwargs={"force": True},
         )
 
     async def test_launchbox_rebuild_waits_on_the_provider_being_enabled(
@@ -193,7 +192,6 @@ class TestRebuildOutdatedMetadataStores:
     async def test_stale_switch_store_is_dropped_and_rebuilt(
         self, drop_stale, enqueue_task
     ):
-        """The rebuild forces the pull, since the update ships disabled."""
         drop_stale(SWITCH_TITLEDB_STORE)
 
         await startup._rebuild_outdated_metadata_stores()
@@ -202,7 +200,6 @@ class TestRebuildOutdatedMetadataStores:
             "update_switch_titledb",
             job_id=startup.UPDATE_SWITCH_TITLEDB_JOB_ID,
             unique=True,
-            task_kwargs={"force": True},
         )
 
     async def test_current_stores_queue_nothing(self, drop_stale, enqueue_task):

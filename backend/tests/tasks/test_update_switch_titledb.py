@@ -271,6 +271,21 @@ class TestUpdateSwitchTitleDBTask:
 
         mock_log.info.assert_called_with("Scheduled switch titledb update completed!")
 
+    @patch.object(RemoteFilePullTask, "run")
+    async def test_run_forces_the_pull(self, mock_super_run, task):
+        """The startup rebuild and a manual run both reach a disabled task."""
+        mock_super_run.return_value = None
+
+        await task.run()
+
+        mock_super_run.assert_called_once_with(True)
+
+    def test_runnable_with_the_scheduled_update_off(self, task):
+        """The setting ships false, and a failed rebuild is not queued again."""
+        task.enabled = False
+
+        assert task.can_run_manually is True
+
     def test_task_instance(self):
         """Test that the module-level task instance is created correctly"""
         assert isinstance(update_switch_titledb_task, UpdateSwitchTitleDBTask)

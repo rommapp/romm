@@ -41,11 +41,19 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             url="https://raw.githubusercontent.com/blawar/titledb/master/US.en.json",
         )
 
+    @property
+    def can_run_manually(self) -> bool:
+        # The store lives only in the cache, and a rebuild that fails is not
+        # queued again, so admins need a way to fill it with the cron off.
+        return self.manual_run
+
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, Any]:
         update_stats = UpdateStats()
 
-        content = await super().run(force)
+        # Reaching here means the cron fired, an admin asked, or a schema bump
+        # dropped the store, so the pull goes ahead whatever the setting says.
+        content = await super().run(True)
         if content is None:
             return update_stats.to_dict()
 
