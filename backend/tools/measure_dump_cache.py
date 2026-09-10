@@ -13,7 +13,7 @@ import sys
 import time
 import unicodedata
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, Final
 
@@ -116,8 +116,10 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                         continue
                     name = elem.find("Name")
                     if name is not None and name.text:
-                        yield LAUNCHBOX_PLATFORMS_KEY, name.text.strip(), element_to_dict(
-                            elem
+                        yield (
+                            LAUNCHBOX_PLATFORMS_KEY,
+                            name.text.strip(),
+                            element_to_dict(elem),
                         )
 
         if "Metadata.xml" in names:
@@ -134,8 +136,10 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                             else None
                         )
                         if database_id:
-                            yield LAUNCHBOX_METADATA_DATABASE_ID_KEY, database_id, element_to_dict(
-                                elem
+                            yield (
+                                LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+                                database_id,
+                                element_to_dict(elem),
                             )
 
                         name_elem = elem.find("Name")
@@ -236,7 +240,9 @@ def plain(value: Any) -> bytes:
     return json.dumps(value).encode()
 
 
-def load(client: redis.Redis, records: Iterator[Record], serialize: Any) -> None:
+def load(
+    client: redis.Redis, records: Iterator[Record], serialize: Callable[[Any], bytes]
+) -> None:
     """Write every record into the store its key names."""
     pipe = client.pipeline(transaction=False)
     queued = 0
