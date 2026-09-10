@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mariadb:
-        image: mariadb:11.3.2
+        image: mariadb:12.3.3
         ports:
           - 3306
         env:
@@ -37,9 +37,9 @@ jobs:
           MYSQL_PASSWORD: passwd
           MYSQL_DATABASE: romm_e2e
           MYSQL_ROOT_PASSWORD: passwd
-        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=2s --health-retries=3
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=2s --health-retries=3 --health-start-period=30s
       valkey:
-        image: valkey/valkey:7.2
+        image: valkey/valkey:9.0.6
         ports:
           - 6379
         options: >-
