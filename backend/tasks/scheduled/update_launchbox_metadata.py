@@ -12,26 +12,28 @@ from config import (
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     TASK_TIMEOUT,
 )
-from handler.dump_cache import (
+from handler.dump_cache import encode
+from handler.metadata import meta_launchbox_handler
+from handler.metadata.launchbox_handler.types import (
+    LAUNCHBOX_FILE_FIELDS,
     LAUNCHBOX_FILES_KEY,
+    LAUNCHBOX_IMAGE_FIELDS,
+    LAUNCHBOX_MAME_FIELDS,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
-    LAUNCHBOX_METADATA_NAME_KEY,
-    LAUNCHBOX_PLATFORMS_KEY,
-    encode,
-)
-from handler.metadata import meta_launchbox_handler
-from handler.metadata.launchbox_handler.types import (
-    LAUNCHBOX_IMAGE_FIELDS,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
+    LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_STORE,
+    LAUNCHBOX_PLATFORMS_KEY,
 )
 from handler.metadata.launchbox_handler.utils import fold_title
 from handler.redis_handler import async_binary_cache, async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
+from utils.cache import drop_stale_cache_store, stamp_cache_schema
 from utils.context import initialize_context
 
 from . import UpdateStats
@@ -139,6 +141,9 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         if not await meta_launchbox_handler.is_remote_store_populated():
             await async_cache.set(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1")
 
+        # An import merges into its hashes, so an older release's rows go first.
+        await drop_stale_cache_store(async_cache, LAUNCHBOX_METADATA_STORE)
+
         try:
             zip_file_bytes = BytesIO(content)
             with zipfile.ZipFile(zip_file_bytes) as z:
@@ -213,15 +218,17 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                                 )
 
                                     elif elem.tag == "GameAlternateName":
-                                        alternate_name_elem = elem.find("AlternateName")
-                                        if (
-                                            alternate_name_elem is not None
-                                            and alternate_name_elem.text
-                                        ):
+                                        alternate_name = (
+                                            elem.findtext("AlternateName") or ""
+                                        ).strip()
+                                        alternate_id = (
+                                            elem.findtext("DatabaseID") or ""
+                                        ).strip()
+                                        if alternate_name and alternate_id:
                                             await writer.hset(
                                                 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-                                                alternate_name_elem.text.strip().lower(),
-                                                _element_to_dict(elem),
+                                                alternate_name.lower(),
+                                                alternate_id,
                                             )
 
                                     elif elem.tag == "GameImage":
@@ -274,7 +281,9 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             await writer.hset(
                                                 LAUNCHBOX_MAME_KEY,
                                                 filename_elem.text.strip(),
-                                                _element_to_dict(elem),
+                                                _element_to_dict(
+                                                    elem, LAUNCHBOX_MAME_FIELDS
+                                                ),
                                             )
 
                                 await writer.flush()
@@ -302,7 +311,9 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                                 LAUNCHBOX_FILES_KEY,
                                                 f"{filename_elem.text.strip().lower()}"
                                                 f":{platform_elem.text.strip()}",
-                                                _element_to_dict(elem),
+                                                _element_to_dict(
+                                                    elem, LAUNCHBOX_FILE_FIELDS
+                                                ),
                                             )
 
                                 await writer.flush()
@@ -312,6 +323,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         except zipfile.BadZipFile, RuntimeError, OSError:
             log.error("Bad zip file in launchbox metadata update")
             return update_stats.to_dict()
+
+        await stamp_cache_schema(async_cache, LAUNCHBOX_METADATA_STORE)
 
         # Also clears a flag left behind by an earlier run that died partway.
         await async_cache.delete(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY)

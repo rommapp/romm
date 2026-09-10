@@ -6,17 +6,27 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
-from handler.dump_cache import (
-    SWITCH_PRODUCT_ID_KEY,
-    SWITCH_TITLEDB_INDEX_KEY,
-    encode,
-)
-from handler.redis_handler import async_binary_cache
+from handler.dump_cache import encode
+from handler.redis_handler import async_binary_cache, async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
+from utils.cache import (
+    VersionedCacheStore,
+    drop_stale_cache_store,
+    stamp_cache_schema,
+)
 from utils.context import initialize_context
 
 from . import UpdateStats
+
+SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
+SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
+# Version 2 stores each entry compressed, which an older store is not.
+SWITCH_TITLEDB_STORE: Final = VersionedCacheStore(
+    schema_key="romm:switch_titledb_schema",
+    version=2,
+    keys=(SWITCH_TITLEDB_INDEX_KEY, SWITCH_PRODUCT_ID_KEY),
+)
 
 
 class UpdateSwitchTitleDBTask(RemoteFilePullTask):
@@ -38,6 +48,9 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         content = await super().run(force)
         if content is None:
             return update_stats.to_dict()
+
+        # An import merges into its hashes, so an older release's rows go first.
+        await drop_stale_cache_store(async_cache, SWITCH_TITLEDB_STORE)
 
         index_json = json.loads(content)
         relevant_data = {k: v for k, v in index_json.items() if k and v}
@@ -66,6 +79,8 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
                 processed_items += len(data_batch)
                 update_stats.update(processed=processed_items)
             await pipe.execute()
+
+        await stamp_cache_schema(async_cache, SWITCH_TITLEDB_STORE)
 
         # Final progress update
         update_stats.update(processed=processed_items)

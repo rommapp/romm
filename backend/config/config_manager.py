@@ -395,8 +395,8 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 )
 
 # Valid values for scan.priority.region_mode. "prefer_rom_tags" keeps the
-# rom's filename region tags authoritative for media selection;
-# "prefer_config" makes scan.priority.region win over the rom's own tags.
+# rom's filename region tags authoritative; "prefer_config" makes
+# scan.priority.region win over them, for artwork, title and release date alike.
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
 

@@ -22,27 +22,41 @@ from defusedxml import ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from handler.dump_cache import (  # noqa: E402
-    COMPRESS_MIN_BYTES,
-    DUMP_STORE_KEYS,
-    LAUNCHBOX_FILES_KEY,
-    LAUNCHBOX_MAME_KEY,
-    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+from handler.dump_cache import COMPRESS_MIN_BYTES, decode, encode  # noqa: E402
+
+# Mirrors LAUNCHBOX_METADATA_STORE.keys and SWITCH_TITLEDB_STORE.keys, whose
+# modules need the app to import. The only keys this tool ever deletes.
+LAUNCHBOX_PLATFORMS_KEY: Final = "romm:launchbox_platforms"
+LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final = "romm:launchbox_metadata_database_id"
+LAUNCHBOX_METADATA_NAME_KEY: Final = "romm:launchbox_metadata_name"
+LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final = "romm:launchbox_metadata_alternate_name"
+LAUNCHBOX_METADATA_FOLDED_NAME_KEY: Final = "romm:launchbox_metadata_folded_name"
+LAUNCHBOX_METADATA_IMAGE_KEY: Final = "romm:launchbox_metadata_image"
+LAUNCHBOX_MAME_KEY: Final = "romm:launchbox_mame"
+LAUNCHBOX_FILES_KEY: Final = "romm:launchbox_files"
+SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
+SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
+
+DUMP_STORE_KEYS: Final[tuple[str, ...]] = (
+    LAUNCHBOX_PLATFORMS_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
-    LAUNCHBOX_METADATA_NAME_KEY,
-    LAUNCHBOX_PLATFORMS_KEY,
-    SWITCH_PRODUCT_ID_KEY,
+    LAUNCHBOX_MAME_KEY,
+    LAUNCHBOX_FILES_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
-    decode,
-    encode,
+    SWITCH_PRODUCT_ID_KEY,
 )
 
-# Mirrors LAUNCHBOX_IMAGE_FIELDS, whose module needs the app to import.
+# Mirrors the projections in `launchbox_handler/types.py`, whose module needs
+# the app to import. Each store keeps only the fields its reader reads.
 LAUNCHBOX_IMAGE_FIELDS: Final[frozenset[str]] = frozenset(
     {"FileName", "Type", "Region"}
 )
+LAUNCHBOX_FILE_FIELDS: Final[frozenset[str]] = frozenset({"GameName"})
+LAUNCHBOX_MAME_FIELDS: Final[frozenset[str]] = frozenset({"Name"})
 
 WRITE_BATCH = 2000
 
@@ -149,12 +163,13 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                                 )
 
                     elif elem.tag == "GameAlternateName":
-                        alt = elem.find("AlternateName")
-                        if alt is not None and alt.text:
+                        alt = (elem.findtext("AlternateName") or "").strip()
+                        alt_id = (elem.findtext("DatabaseID") or "").strip()
+                        if alt and alt_id:
                             yield (
                                 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-                                alt.text.strip().lower(),
-                                element_to_dict(elem),
+                                alt.lower(),
+                                alt_id,
                             )
 
                     elif elem.tag == "GameImage":
@@ -178,7 +193,11 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                         continue
                     fn = elem.find("FileName")
                     if fn is not None and fn.text:
-                        yield LAUNCHBOX_MAME_KEY, fn.text.strip(), element_to_dict(elem)
+                        yield (
+                            LAUNCHBOX_MAME_KEY,
+                            fn.text.strip(),
+                            element_to_dict(elem, LAUNCHBOX_MAME_FIELDS),
+                        )
 
         if "Files.xml" in names:
             with z.open("Files.xml") as f:
@@ -194,7 +213,11 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
                         and platform.text
                     ):
                         field = f"{fn.text.strip().lower()}:{platform.text.strip()}"
-                        yield LAUNCHBOX_FILES_KEY, field, element_to_dict(elem)
+                        yield (
+                            LAUNCHBOX_FILES_KEY,
+                            field,
+                            element_to_dict(elem, LAUNCHBOX_FILE_FIELDS),
+                        )
 
 
 def iter_titledb(titledb: Path) -> Iterator[Record]:

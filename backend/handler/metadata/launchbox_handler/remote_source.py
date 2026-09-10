@@ -1,4 +1,10 @@
-from handler.dump_cache import (
+from handler.dump_cache import hget_json
+from handler.redis_handler import async_cache
+from logger.logger import log
+from utils.cache import is_cache_store_ready
+
+from .platforms import get_platform
+from .types import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
@@ -6,12 +12,8 @@ from handler.dump_cache import (
     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
-    hget_json,
+    LAUNCHBOX_METADATA_STORE,
 )
-from handler.redis_handler import async_cache
-from logger.logger import log
-
-from .platforms import get_platform
 from .utils import deinvert_article, file_name_forms, fold_title
 
 
@@ -20,17 +22,12 @@ class RemoteSource:
         return await hget_json(LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id))
 
     async def _lookup_title_index(self, key: str, field: str) -> dict | None:
-        """Read a title index hit and resolve the database id it holds.
-
-        An index written by an earlier import holds the whole record instead.
-        """
-        value = await hget_json(key, field)
-        if not value:
+        """Read a title index hit and resolve the database id it holds."""
+        database_id = await hget_json(key, field)
+        if not database_id:
             return None
 
-        if isinstance(value, dict):
-            return value
-        return await self.get_by_id(value)
+        return await self.get_by_id(database_id)
 
     async def get_rom(
         self,
@@ -39,10 +36,10 @@ class RemoteSource:
         *,
         assume_cache_present: bool = False,
     ) -> dict | None:
-        if not assume_cache_present and not (
-            await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)
+        if not assume_cache_present and not await is_cache_store_ready(
+            async_cache, LAUNCHBOX_METADATA_STORE, LAUNCHBOX_METADATA_NAME_KEY
         ):
-            log.error("Could not find the Launchbox Metadata.xml file in cache")
+            log.error("Could not find a current Launchbox Metadata.xml in cache")
             return None
 
         lb_platform = get_platform(platform_slug)
@@ -75,14 +72,9 @@ class RemoteSource:
                 return entry
 
         for candidate in candidates:
-            metadata_alternate_name_index_entry = await hget_json(
+            entry = await self._lookup_title_index(
                 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY, candidate
             )
-            if not metadata_alternate_name_index_entry:
-                continue
-
-            database_id = metadata_alternate_name_index_entry["DatabaseID"]
-            entry = await self.get_by_id(database_id)
             if not entry:
                 continue
 

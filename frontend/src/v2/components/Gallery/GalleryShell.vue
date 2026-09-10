@@ -91,6 +91,7 @@ const LIST_SORT_KEYS = new Set<string>([
   "created_at",
   "first_release_date",
   "average_rating",
+  "hltb_main_story",
 ]);
 
 interface Props {
@@ -192,6 +193,8 @@ const {
   metadataProvidersLogic,
   tagsLogic,
   statusesLogic,
+  selectedLengthMinHours,
+  selectedLengthMaxHours,
 } = storeToRefs(galleryFilterStore);
 
 // Drawer open state — bound to FilterDrawer via v-model.
@@ -231,6 +234,12 @@ const filterActiveCount = computed(() => {
     selectedStatuses,
   ]) {
     if (arr.value.length > 0) n += 1;
+  }
+  if (
+    selectedLengthMinHours.value !== null ||
+    selectedLengthMaxHours.value !== null
+  ) {
+    n += 1;
   }
   return n;
 });
@@ -280,6 +289,8 @@ watch(
     metadataProvidersLogic,
     tagsLogic,
     statusesLogic,
+    selectedLengthMinHours,
+    selectedLengthMaxHours,
   ],
   () => {
     galleryRoms.invalidateWindows();

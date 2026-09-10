@@ -4,6 +4,7 @@ import copy
 import enum
 import hashlib
 import re
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -96,6 +97,16 @@ def compute_full_path_hash(fs_path: str | None, fs_name: str | None) -> str:
     return hashlib.sha256(
         f"{fs_path or ''}/{fs_name or ''}".encode(), usedforsecurity=False
     ).hexdigest()
+
+
+def _ra_achievement_sort_key(achievement: dict) -> tuple[int, int]:
+    """Orders achievements by RetroAchievements' "Display Order", ties by id."""
+    order = achievement.get("display_order")
+    ra_id = achievement.get("ra_id")
+    return (
+        order if isinstance(order, int) else sys.maxsize,
+        ra_id if isinstance(ra_id, int) else sys.maxsize,
+    )
 
 
 if TYPE_CHECKING:
@@ -662,6 +673,7 @@ class Rom(BaseModel):
         Index("idx_roms_tgdb_id", "tgdb_id"),
         Index("idx_roms_flashpoint_id", "flashpoint_id"),
         Index("idx_roms_hltb_id", "hltb_id"),
+        Index("idx_roms_hltb_main_story", "generated_hltb_main_story"),
         Index("idx_roms_demozoo_id", "demozoo_id"),
         Index("idx_roms_pouet_id", "pouet_id"),
         Index("idx_roms_csdb_id", "csdb_id"),
@@ -745,6 +757,10 @@ class Rom(BaseModel):
         String(length=100),
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
+    )
+    # Seconds, as HowLongToBeat reports them.
+    generated_hltb_main_story: Mapped[int | None] = mapped_column(
+        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
@@ -1065,13 +1081,19 @@ class Rom(BaseModel):
             # This ensures that badge paths remain relative for filesystem operations
             # while the frontend receives absolute paths
             metadata_copy = copy.deepcopy(self.ra_metadata)
-            for achievement in metadata_copy.get("achievements", []):
+            # The provider returns achievements keyed by id, so the stored order
+            # is arbitrary.
+            achievements = sorted(
+                metadata_copy.get("achievements", []), key=_ra_achievement_sort_key
+            )
+            for achievement in achievements:
                 achievement["badge_path_lock"] = (
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}"
                 )
                 achievement["badge_path"] = (
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
                 )
+            metadata_copy["achievements"] = achievements
             return metadata_copy
         return self.ra_metadata
 

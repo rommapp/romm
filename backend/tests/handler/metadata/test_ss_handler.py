@@ -39,6 +39,8 @@ from handler.metadata.ss_handler import (
 )
 from handler.redis_handler import async_cache
 from models.rom import Rom
+from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
+from tests.handler.metadata.conftest import schema_stamp_get
 
 
 def _make_config(
@@ -148,7 +150,7 @@ class TestGetPreferredRegions:
         rom.regions = ["Europe"]
         config = _make_config(region_priority=["fr", "eu"], region_mode="prefer_config")
         with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
-            regions = get_preferred_regions(rom, for_media=True)
+            regions = get_preferred_regions(rom)
 
         assert regions.index("fr") < regions.index("eu")
 
@@ -159,21 +161,10 @@ class TestGetPreferredRegions:
         rom.regions = ["Japan"]
         config = _make_config(region_priority=["fr"], region_mode="prefer_config")
         with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
-            regions = get_preferred_regions(rom, for_media=True)
+            regions = get_preferred_regions(rom)
 
         assert regions.index("fr") < regions.index("jp")
         assert regions.index("jp") < regions.index("us")
-
-    def test_prefer_config_mode_only_applies_to_media(self):
-        """region_mode only affects media selection; name/date ordering keeps
-        the rom's own tags first."""
-        rom = MagicMock()
-        rom.regions = ["Europe"]
-        config = _make_config(region_priority=["fr", "eu"], region_mode="prefer_config")
-        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
-            regions = get_preferred_regions(rom)
-
-        assert regions.index("eu") < regions.index("fr")
 
     def test_default_mode_rom_tags_still_win(self):
         """Default prefer_rom_tags mode keeps the current behavior."""
@@ -594,6 +585,46 @@ class TestExtractMetadataFromSsRom:
 
         assert metadata["first_release_date"] == 593568000
 
+    def test_release_date_follows_the_configured_region_under_prefer_config(self):
+        """The same ordering that picks the artwork and the title picks the
+        date, so a game resolved as French is not dated by its US release."""
+        config = _make_config(region_priority=["fr"], region_mode="prefer_config")
+        rom = self._make_rom(regions=["USA"])
+        game = cast(
+            SSGame,
+            {
+                "dates": [
+                    {"region": "us", "text": "1990-02-12"},
+                    {"region": "fr", "text": "1991-08-29"},
+                ],
+                "medias": [],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            metadata = extract_metadata_from_ss_rom(rom, game)
+
+        assert metadata["first_release_date"] == 683424000
+
+    def test_release_date_keeps_the_rom_s_region_under_prefer_rom_tags(self):
+        config = _make_config(region_priority=["fr"])
+        rom = self._make_rom(regions=["USA"])
+        game = cast(
+            SSGame,
+            {
+                "dates": [
+                    {"region": "us", "text": "1990-02-12"},
+                    {"region": "fr", "text": "1991-08-29"},
+                ],
+                "medias": [],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            metadata = extract_metadata_from_ss_rom(rom, game)
+
+        assert metadata["first_release_date"] == 634780800
+
     def test_franchises_fall_back_to_french(self):
         """ScreenScraper's taxonomy is often French-only, so those fields still
         fall back even when the user asked for another language."""
@@ -637,11 +668,11 @@ class TestExtractMetadataFromSsRom:
 
 
 class TestBuildSSGame:
-    def _make_rom(self) -> MagicMock:
+    def _make_rom(self, regions: list[str] | None = None) -> MagicMock:
         rom = MagicMock()
         rom.platform_id = 1
         rom.id = 100
-        rom.regions = None
+        rom.regions = regions
         return rom
 
     def _make_media(self, media_type: str) -> dict:
@@ -708,6 +739,46 @@ class TestBuildSSGame:
 
         # Empty values are stripped from the returned dict.
         assert "summary" not in result
+
+    def test_prefer_config_picks_the_title_from_the_configured_region(self):
+        """The mode used to reach the artwork only, so a European rom came back
+        with French box art under an English title."""
+        config = _make_config(region_priority=["fr", "eu"], region_mode="prefer_config")
+        game = cast(
+            SSGame,
+            {
+                "id": "42",
+                "medias": [],
+                "noms": [
+                    {"region": "eu", "text": "007 - Everything or Nothing"},
+                    {"region": "fr", "text": "007 : Quitte ou Double"},
+                ],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            result = build_ss_game(self._make_rom(regions=["Europe"]), game)
+
+        assert result["name"] == "007: Quitte ou Double"
+
+    def test_prefer_rom_tags_keeps_the_title_of_the_rom_s_own_region(self):
+        config = _make_config(region_priority=["fr", "eu"])
+        game = cast(
+            SSGame,
+            {
+                "id": "42",
+                "medias": [],
+                "noms": [
+                    {"region": "eu", "text": "007 - Everything or Nothing"},
+                    {"region": "fr", "text": "007 : Quitte ou Double"},
+                ],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            result = build_ss_game(self._make_rom(regions=["Europe"]), game)
+
+        assert result["name"] == "007 - Everything or Nothing"
 
     def test_summary_uses_configured_language(self):
         config = _make_config(language_priority=["de", "en"])
@@ -1909,6 +1980,7 @@ class TestSonySerialFilenames:
                 return_value=True,
             ),
             patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
+            patch.object(async_cache, "get", schema_stamp_get(SWITCH_TITLEDB_STORE)),
             patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
             patch.object(
                 SSHandler, "_search_rom", new_callable=AsyncMock, return_value=None

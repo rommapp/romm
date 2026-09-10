@@ -191,6 +191,9 @@ export interface GetRomsParams {
   selectedMetadataProviders?: string[] | null;
   selectedTags?: string[] | null;
   selectedStatuses?: string[] | null;
+  // HowLongToBeat main-story bounds, in seconds (the unit the backend stores).
+  hltbMainStoryMin?: number | null;
+  hltbMainStoryMax?: number | null;
   // Logic operators for multi-value filters
   genresLogic?: string | null;
   franchisesLogic?: string | null;
@@ -252,6 +255,8 @@ async function getRoms({
   selectedMetadataProviders = null,
   selectedTags = null,
   selectedStatuses = null,
+  hltbMainStoryMin = null,
+  hltbMainStoryMax = null,
   // Logic operators
   genresLogic = null,
   franchisesLogic = null,
@@ -384,6 +389,12 @@ async function getRoms({
         : undefined,
     tags_logic:
       selectedTags && selectedTags.length > 0 ? tagsLogic || "any" : undefined,
+    ...(hltbMainStoryMin !== null
+      ? { hltb_main_story_min: hltbMainStoryMin }
+      : {}),
+    ...(hltbMainStoryMax !== null
+      ? { hltb_main_story_max: hltbMainStoryMax }
+      : {}),
     ...(filterMatched !== null ? { matched: filterMatched } : {}),
     ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),

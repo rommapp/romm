@@ -313,3 +313,39 @@ describe("galleryRoms windowed fetch", () => {
     expect(getRoms).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("galleryRoms length filter", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    getRoms.mockReset();
+    getRoms.mockImplementation((params: { offset: number }) =>
+      Promise.resolve(windowResponse(params.offset)),
+    );
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends the hour bounds to the API as seconds", () => {
+    storeGalleryFilter().setSelectedFilterLengthHours(5, 20);
+
+    storeGalleryRoms().syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBe(5 * 3600);
+    expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(20 * 3600);
+  });
+
+  it("leaves an open end of the range unset", () => {
+    storeGalleryFilter().setSelectedFilterLengthHours(null, 10);
+
+    storeGalleryRoms().syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBeNull();
+    expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(10 * 3600);
+  });
+});

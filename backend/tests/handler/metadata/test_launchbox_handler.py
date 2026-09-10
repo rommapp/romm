@@ -17,17 +17,7 @@ import pytest
 from anyio import Path as AnyioPath
 from defusedxml import ElementTree as ET
 
-from handler.dump_cache import (
-    _ZSTD_MAGIC,
-    LAUNCHBOX_FILES_KEY,
-    LAUNCHBOX_MAME_KEY,
-    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
-    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
-    LAUNCHBOX_METADATA_IMAGE_KEY,
-    LAUNCHBOX_METADATA_NAME_KEY,
-    encode,
-)
+from handler.dump_cache import _ZSTD_MAGIC, encode
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
 from handler.metadata.launchbox_handler.media import (
@@ -43,7 +33,15 @@ from handler.metadata.launchbox_handler.media import (
 from handler.metadata.launchbox_handler.platforms import get_platform
 from handler.metadata.launchbox_handler.remote_source import RemoteSource
 from handler.metadata.launchbox_handler.types import (
+    LAUNCHBOX_FILES_KEY,
+    LAUNCHBOX_MAME_KEY,
+    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
+    LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
+    LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_STORE,
     LaunchboxImage,
     LaunchboxMetadata,
     MediaRequest,
@@ -59,6 +57,7 @@ from handler.metadata.launchbox_handler.utils import (
     sanitize_filename,
 )
 from handler.redis_handler import async_cache
+from tests.handler.metadata.conftest import schema_stamp_get
 
 # ---------------------------------------------------------------------------
 # Sample XML that mirrors a real LaunchBox platform file
@@ -102,6 +101,7 @@ SAMPLE_N64_XML = """\
   </Game>
 </LaunchBox>
 """
+
 
 REMOTE_ENTRY = {
     "DatabaseID": "1234",
@@ -718,6 +718,8 @@ class TestRemoteSourceGetRom:
                 key == LAUNCHBOX_METADATA_NAME_KEY
                 and field == "the legend of zelda: ocarina of time:Nintendo 64"
             ):
+                return json.dumps("161")
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
                 return json.dumps(entry)
             return None
 
@@ -757,6 +759,8 @@ class TestRemoteSourceGetRom:
 
         async def side_effect(key, field):
             if key == LAUNCHBOX_METADATA_FOLDED_NAME_KEY and field == folded_field:
+                return json.dumps("77")
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
                 return json.dumps(entry)
             return None
 
@@ -800,11 +804,13 @@ class TestRemoteSourceGetRom:
         exact = {"DatabaseID": "1", "Name": "Burnout Revenge"}
         folded = {"DatabaseID": "2", "Name": "Burnout: Revenge"}
 
-        async def side_effect(key, _field):
+        async def side_effect(key, field):
             if key == LAUNCHBOX_METADATA_NAME_KEY:
-                return json.dumps(exact)
+                return json.dumps("1")
             if key == LAUNCHBOX_METADATA_FOLDED_NAME_KEY:
-                return json.dumps(folded)
+                return json.dumps("2")
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
+                return json.dumps(exact if field == "1" else folded)
             return None
 
         with patch.object(
@@ -839,20 +845,17 @@ class TestRemoteSourceGetRomByFileName:
         return RemoteSource()
 
     async def test_file_name_resolves_to_title(self, source: RemoteSource):
-        file_entry = {
-            "Platform": "Commodore Amiga",
-            "FileName": "1943_v1.3",
-            "GameName": "1943: The Battle of Midway",
-        }
         game_entry = {"DatabaseID": "999", "Name": "1943: The Battle of Midway"}
 
         async def side_effect(key, field):
             if key == LAUNCHBOX_FILES_KEY and field == "1943_v1.3:Commodore Amiga":
-                return json.dumps(file_entry)
+                return json.dumps({"GameName": "1943: The Battle of Midway"})
             if (
                 key == LAUNCHBOX_METADATA_NAME_KEY
                 and field == "1943: The Battle of Midway:Commodore Amiga"
             ):
+                return json.dumps("999")
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
                 return json.dumps(game_entry)
             return None
 
@@ -1366,6 +1369,9 @@ class TestRemoteMatchLocalImages:
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            async_cache, "get", schema_stamp_get(LAUNCHBOX_METADATA_STORE)
+        )
 
         with patch(
             "handler.metadata.launchbox_handler.handler.fs_rom_handler"
@@ -1497,6 +1503,9 @@ class TestLaunchboxHandlerHeartbeat:
             patch.object(
                 async_cache, "exists", self._cache_exists(LAUNCHBOX_METADATA_NAME_KEY)
             ),
+            patch.object(
+                async_cache, "get", schema_stamp_get(LAUNCHBOX_METADATA_STORE)
+            ),
         ):
             assert await handler.heartbeat() is True
 
@@ -1552,6 +1561,9 @@ class TestLaunchboxHandlerGetRom:
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            async_cache, "get", schema_stamp_get(LAUNCHBOX_METADATA_STORE)
+        )
         return h
 
     async def test_disabled_returns_fallback(
@@ -1718,7 +1730,8 @@ class TestLaunchboxHandlerGetRom:
                 LAUNCHBOX_METADATA_NAME_KEY,
                 "the legend of zelda: a link to the past"
                 ":Super Nintendo Entertainment System",
-            ): json.dumps(entry)
+            ): json.dumps("5678"),
+            (LAUNCHBOX_METADATA_DATABASE_ID_KEY, "5678"): json.dumps(entry),
         }
 
         async def hget(key, field):
@@ -1902,6 +1915,9 @@ class TestLaunchboxHandlerSearch:
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            async_cache, "get", schema_stamp_get(LAUNCHBOX_METADATA_STORE)
+        )
         return h
 
     async def test_get_matched_roms_by_name_disabled_returns_empty(

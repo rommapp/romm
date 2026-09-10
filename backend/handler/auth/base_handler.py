@@ -35,6 +35,45 @@ from logger.logger import log
 oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
 
 
+def _romm_username(provided: str, fallback: str) -> str:
+    """A valid, unused RomM username for the name an identity provider chose.
+
+    Args:
+        provided (str): The username as the provider sent it
+        fallback (str): Stem to use when nothing usable survives sanitizing
+
+    Returns:
+        str: A username no other account holds
+
+    Raises:
+        HTTPException: If another account already holds that username
+    """
+    # Deferred: `utils.validation` reaches this module through `models.user`,
+    # so importing it at module level closes a cycle.
+    from handler.database import db_user_handler
+    from utils.validation import sanitize_username
+
+    username = sanitize_username(provided, fallback=fallback)
+    if username != provided:
+        log.info(
+            "OIDC username '%s' is not a valid RomM username, registering as '%s'",
+            hl(provided, color=CYAN),
+            hl(username, color=CYAN),
+        )
+
+    if db_user_handler.get_user_by_username(username) is not None:
+        log.error(
+            "OIDC username '%s' is already taken by another account",
+            hl(username, color=CYAN),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Username '{username}' is already taken. Please contact an administrator.",
+        )
+
+    return username
+
+
 class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -452,8 +491,9 @@ class OpenIDHandler:
                 "User with email '%s' not found, creating new user",
                 hl(email, color=CYAN),
             )
+            username = _romm_username(preferred_username, fallback=email.split("@")[0])
             new_user = User(
-                username=preferred_username,
+                username=username,
                 hashed_password=str(uuid.uuid4()),
                 email=email,
                 enabled=True,

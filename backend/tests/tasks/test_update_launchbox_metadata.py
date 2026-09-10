@@ -14,6 +14,7 @@ from handler.dump_cache import (
     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_STORE,
     LAUNCHBOX_PLATFORMS_KEY,
     decode,
 )
@@ -231,6 +232,19 @@ class TestUpdateLaunchboxMetadataTask:
             ]
         ]
 
+        # The alternate name index points at the record like the other two.
+        assert values(metadata_alt_calls) == ["12345"]
+
+        # A store keeps its reader's field, never one the key already carries.
+        assert values(files_calls) == [
+            {"GameName": "Super Mario 64"},
+            {"GameName": "Crash Bandicoot"},
+        ]
+        assert values(mame_calls) == [
+            {"Name": "Super Mario Bros."},
+            {"Name": "Pac-Man"},
+        ]
+
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_empty_xml_elements_handling(
@@ -354,18 +368,8 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
         # Verify that all expected Redis keys were used
         redis_keys_used = [call[0][0] for call in hset_calls]
 
-        expected_keys = [
-            LAUNCHBOX_PLATFORMS_KEY,
-            LAUNCHBOX_METADATA_DATABASE_ID_KEY,
-            LAUNCHBOX_METADATA_NAME_KEY,
-            LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
-            LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-            LAUNCHBOX_METADATA_IMAGE_KEY,
-            LAUNCHBOX_MAME_KEY,
-            LAUNCHBOX_FILES_KEY,
-        ]
-
-        for expected_key in expected_keys:
+        # The tuple the schema drop deletes has to name every key written.
+        for expected_key in LAUNCHBOX_METADATA_STORE.keys:
             assert (
                 expected_key in redis_keys_used
             ), f"Expected key {expected_key} not found in Redis operations"
@@ -457,12 +461,19 @@ class TestInitialImportFlag:
 
         with (
             patch.object(async_cache, "exists", AsyncMock(return_value=0)),
+            patch.object(async_cache, "get", AsyncMock(return_value=None)),
             patch.object(async_cache, "set", AsyncMock()) as mock_set,
             patch.object(async_cache, "delete", AsyncMock()) as mock_delete,
         ):
             await task.run(force=True)
 
-        mock_set.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1")
+        assert [call.args for call in mock_set.await_args_list] == [
+            (LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1"),
+            (
+                LAUNCHBOX_METADATA_STORE.schema_key,
+                str(LAUNCHBOX_METADATA_STORE.version),
+            ),
+        ]
         mock_delete.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY)
 
     @patch.object(RemoteFilePullTask, "run")
@@ -477,12 +488,20 @@ class TestInitialImportFlag:
 
         with (
             patch.object(async_cache, "exists", AsyncMock(return_value=1)),
+            patch.object(
+                async_cache,
+                "get",
+                AsyncMock(return_value=str(LAUNCHBOX_METADATA_STORE.version)),
+            ),
             patch.object(async_cache, "set", AsyncMock()) as mock_set,
             patch.object(async_cache, "delete", AsyncMock()),
         ):
             await task.run(force=True)
 
-        mock_set.assert_not_awaited()
+        # Only the schema stamp, never the initial-import flag.
+        mock_set.assert_awaited_once_with(
+            LAUNCHBOX_METADATA_STORE.schema_key, str(LAUNCHBOX_METADATA_STORE.version)
+        )
 
     @patch.object(RemoteFilePullTask, "run")
     async def test_flag_survives_a_failed_run(
