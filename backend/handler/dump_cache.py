@@ -17,8 +17,6 @@ COMPRESSION_LEVEL: Final[int] = 3
 # what leaves the id-valued title and product id indexes as plain JSON.
 COMPRESS_MIN_BYTES: Final[int] = 256
 
-# A store mixes both encodings by design, since a short payload stays plain
-# JSON, so a read detects the frame rather than assuming one or the other.
 # Zstandard frame magic, from RFC 8878 section 3.1.1.
 _ZSTD_MAGIC: Final[bytes] = b"\x28\xb5\x2f\xfd"
 
@@ -46,7 +44,7 @@ def decode(raw: bytes | str | None) -> Any:
     """Deserialize a dump record, whether or not it was stored compressed.
 
     Args:
-        raw: The stored bytes, or None when the field is absent.
+        raw: The stored value, or None when the field is absent.
 
     Returns:
         The record, or None when there was nothing stored.

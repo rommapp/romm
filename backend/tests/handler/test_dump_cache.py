@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import pytest
 
@@ -44,7 +45,7 @@ class TestEncode:
 
 class TestDecode:
     @pytest.mark.parametrize("value", [BIG_RECORD, SMALL_RECORD, [], {}, 0])
-    def test_round_trips_whatever_encode_wrote(self, value):
+    def test_round_trips_whatever_encode_wrote(self, value: Any):
         assert decode(encode(value)) == value
 
     def test_reads_a_store_written_before_compression(self):
@@ -58,7 +59,7 @@ class TestDecode:
         assert decode(json.dumps(BIG_RECORD)) == BIG_RECORD
 
     @pytest.mark.parametrize("missing", [None, b"", ""])
-    def test_returns_nothing_for_an_absent_field(self, missing):
+    def test_returns_nothing_for_an_absent_field(self, missing: bytes | str | None):
         assert decode(missing) is None
 
 

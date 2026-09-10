@@ -236,7 +236,7 @@ def iter_titledb(titledb: Path) -> Iterator[Record]:
 
 
 def plain(value: Any) -> bytes:
-    """What the stores held before this change."""
+    """Serialize a record as the uncompressed baseline the report compares to."""
     return json.dumps(value).encode()
 
 
@@ -280,11 +280,7 @@ def foreign_keys(client: redis.Redis) -> int:
 
 
 def clear_stores(client: redis.Redis) -> tuple[int, int]:
-    """Drop only this tool's stores, returning `used_memory` and RSS without them.
-
-    Returns:
-        Each figure only ever offsets the same metric it came from.
-    """
+    """Drop only this tool's stores, returning `used_memory` and RSS without them."""
     # Not `flushall`: the URL can point at a live RomM, whose sessions and RQ
     # queues share the database with these stores.
     client.delete(*DUMP_STORE_KEYS)
@@ -292,7 +288,9 @@ def clear_stores(client: redis.Redis) -> tuple[int, int]:
     return int(info["used_memory"]), int(info["used_memory_rss"])
 
 
-def measure(client: redis.Redis, keys: list[str]) -> tuple[dict[str, int], int, int]:
+def store_memory(
+    client: redis.Redis, keys: list[str]
+) -> tuple[dict[str, int], int, int]:
     sizes = {}
     for key in keys:
         # SAMPLES 0 walks every field rather than extrapolating from five.
@@ -429,10 +427,9 @@ def main() -> int:
         load(client, records(), serialize)
         elapsed = time.perf_counter() - start
         counts, value_bytes = store_stats(client)
-        sizes, used, rss = measure(client, list(counts))
-        # Net of anything else on the server, so a non-empty one still reports
-        # what the dumps themselves cost. Only `used_memory` can be offset this
-        # way; RSS keeps the pages a delete frees, so it is left absolute.
+        sizes, used, rss = store_memory(client, list(counts))
+        # Net of anything else on the server. Only `used_memory` can be offset
+        # this way; RSS keeps the pages a delete frees, so it stays absolute.
         used -= base_used
         latency = {key: bench_decode(client, key) for key in benched}
         results[label] = (counts, value_bytes, sizes, used, rss, latency)
@@ -473,8 +470,8 @@ def main() -> int:
         f"{'used_memory (dump stores)':<40} {'':>10} {mb(p_used)} {mb(e_used)} "
         f"{1 - e_used / p_used:>6.0%}"
     )
-    # Absolute, and only comparable between passes on a server restarted
-    # between them, which is what --only is for.
+    # Only comparable between passes on a server restarted between them,
+    # which is what --only is for.
     print(f"{'used_memory_rss (absolute)':<40} {'':>10} {mb(p_rss)} {mb(e_rss)}")
 
     p_value_total, e_value_total = sum(p_values.values()), sum(e_values.values())

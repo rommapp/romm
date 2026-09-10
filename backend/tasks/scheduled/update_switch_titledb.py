@@ -21,7 +21,7 @@ from . import UpdateStats
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
 SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
-# Version 2 stores each entry compressed, which an older store is not.
+# Version 2 stores each entry compressed.
 SWITCH_TITLEDB_STORE: Final = VersionedCacheStore(
     schema_key="romm:switch_titledb_schema",
     version=2,

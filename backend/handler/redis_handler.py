@@ -68,10 +68,8 @@ async_cache = __get_async_cache()
 
 
 def __get_async_binary_cache() -> AsyncRedis:
-    """A client that leaves values as bytes, for the compressed metadata dumps.
-
-    `async_cache` decodes every response as UTF-8, which a zstd frame is not.
-    """
+    """A client that leaves values as bytes, since `async_cache` decodes every
+    response as UTF-8 and a zstd frame is not."""
     if IS_PYTEST_RUN:
         # Two fakeredis clients get two keyspaces, so the fake is shared. It
         # does not decode responses, which is what this client wants anyway.
