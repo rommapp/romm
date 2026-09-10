@@ -31,14 +31,13 @@ import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import AssetList from "@/v2/components/shared/AssetList.vue";
-import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
-// Slot payload from AssetList/AssetStrip is the full save|state union; these
-// narrow it back to the concrete schema the section's handlers expect.
+// Slot payload from AssetList is the full save|state union; these narrow it
+// back to the concrete schema the section's handlers expect.
 type AssetSlot = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 const asSave = (a: AssetSlot) => a as SaveSchema;
 const asState = (a: AssetSlot) => a as StateSchema;
@@ -462,7 +461,8 @@ async function toggleStateVisibility(state: StateSchema) {
         </div>
       </section>
 
-      <!-- States subtab — tile grid (screenshot is the point) -->
+      <!-- States subtab — same row list as saves, with the capture
+           screenshot in the leading cell (issue #4320) -->
       <section v-show="subTab === 'states'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
@@ -506,11 +506,11 @@ async function toggleStateVisibility(state: StateSchema) {
             multiple
             @files="onStateUpload"
           >
-            <AssetStrip
+            <AssetList
               :assets="myStates"
               type="state"
               :selectable="false"
-              layout="flow"
+              :scrollable="false"
             >
               <template #actions="{ asset }">
                 <RBtn
@@ -553,7 +553,7 @@ async function toggleStateVisibility(state: StateSchema) {
                   @click="deleteState(asState(asset))"
                 />
               </template>
-            </AssetStrip>
+            </AssetList>
           </RDropzone>
         </div>
 
@@ -566,11 +566,11 @@ async function toggleStateVisibility(state: StateSchema) {
               </h3>
             </div>
           </header>
-          <AssetStrip
+          <AssetList
             :assets="communityStates"
             type="state"
             :selectable="false"
-            layout="flow"
+            :scrollable="false"
             show-owner
           >
             <template #actions="{ asset }">
@@ -583,7 +583,7 @@ async function toggleStateVisibility(state: StateSchema) {
                 @click="downloadAsset(asset)"
               />
             </template>
-          </AssetStrip>
+          </AssetList>
         </div>
       </section>
     </div>
