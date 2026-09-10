@@ -10,6 +10,8 @@
 // Asking the download endpoint for no file in particular instead returns every
 // file zipped with a generated .m3u, which EmulatorJS boots with its in-game
 // disc switcher (issue #3985). That choice is stored as `ALL_DISCS`.
+import type { RomFileCategory } from "@/__generated__";
+
 export const ALL_DISCS = "all";
 
 // A file id to boot on its own, ALL_DISCS to boot every file together, or null
@@ -19,6 +21,34 @@ export type DiscSelection = number | typeof ALL_DISCS | null;
 interface DiscFile {
   id: number;
   file_name: string;
+  category?: RomFileCategory | null;
+}
+
+// Categories that are never a thing a core can boot. Media uploaded into a
+// folder rom's subdirectory becomes one of the rom's files, and a manual that
+// sorts before the game would otherwise be what Play defaults to (issue #4074).
+// A file scanned before categories existed carries none, so absence means
+// bootable.
+const NON_BOOTABLE_CATEGORIES: readonly RomFileCategory[] = [
+  "manual",
+  "walkthrough",
+  "screenshot",
+  "soundtrack",
+  "patch",
+  "cheat",
+];
+
+export function isBootableFile(file: DiscFile): boolean {
+  return !file.category || !NON_BOOTABLE_CATEGORIES.includes(file.category);
+}
+
+// The rom's files a core could boot. Falls back to all of them rather than
+// leaving the player with nothing to offer.
+export function bootableFiles<T extends DiscFile>(
+  files: readonly T[],
+): readonly T[] {
+  const bootable = files.filter(isBootableFile);
+  return bootable.length > 0 ? bootable : files;
 }
 
 export interface ResolvedDisc {
@@ -51,7 +81,7 @@ export function resolveStoredDisc(
 // anything else boots one file to avoid pulling hundreds of unused MB.
 export function defaultDisc(files: readonly DiscFile[]): DiscSelection {
   if (files.length > 1 && files.some(isM3uFile)) return ALL_DISCS;
-  return files[0]?.id ?? null;
+  return bootableFiles(files)[0]?.id ?? null;
 }
 
 // The file id to download, or null to download the rom whole.

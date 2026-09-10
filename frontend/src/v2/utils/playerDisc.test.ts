@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   ALL_DISCS,
   bootDiscId,
+  bootableFiles,
   defaultDisc,
   rememberDisc,
   resolveRememberedDisc,
@@ -98,6 +99,55 @@ describe("defaultDisc", () => {
 
   it("returns null for a rom with no files", () => {
     expect(defaultDisc([])).toBeNull();
+  });
+
+  it("skips media that sorts before the game file", () => {
+    expect(
+      defaultDisc([
+        { id: 1, file_name: "artwork.png", category: "screenshot" },
+        { id: 2, file_name: "Game.chd", category: "game" },
+      ]),
+    ).toBe(2);
+  });
+
+  it("still boots a file scanned before categories existed", () => {
+    expect(
+      defaultDisc([{ id: 1, file_name: "Game.chd", category: null }]),
+    ).toBe(1);
+  });
+
+  it("boots media rather than nothing when that is all the rom has", () => {
+    expect(
+      defaultDisc([{ id: 1, file_name: "manual.pdf", category: "manual" }]),
+    ).toBe(1);
+  });
+});
+
+describe("bootableFiles", () => {
+  it("drops every category a core cannot boot", () => {
+    const game = { id: 1, file_name: "Game.chd", category: "game" as const };
+
+    expect(
+      bootableFiles([
+        { id: 2, file_name: "manual.pdf", category: "manual" },
+        { id: 3, file_name: "guide.txt", category: "walkthrough" },
+        { id: 4, file_name: "shot.png", category: "screenshot" },
+        { id: 5, file_name: "track.mp3", category: "soundtrack" },
+        { id: 6, file_name: "fix.ips", category: "patch" },
+        { id: 7, file_name: "codes.cht", category: "cheat" },
+        game,
+      ]),
+    ).toEqual([game]);
+  });
+
+  it("keeps the parts of a multi-file release", () => {
+    const files = [
+      { id: 1, file_name: "Game.nsp", category: "game" as const },
+      { id: 2, file_name: "Game.nsz", category: "update" as const },
+      { id: 3, file_name: "Game DLC.nsp", category: "dlc" as const },
+    ];
+
+    expect(bootableFiles(files)).toEqual(files);
   });
 });
 
