@@ -48,14 +48,14 @@ class TestDecode:
     def test_round_trips_whatever_encode_wrote(self, value: Any):
         assert decode(encode(value)) == value
 
-    def test_reads_a_store_written_before_compression(self):
-        """An existing store holds plain JSON, so it has to keep answering."""
+    def test_reads_a_plain_json_value(self):
+        """A payload under the threshold is stored as JSON, so reads accept it."""
         legacy = json.dumps(BIG_RECORD).encode()
 
         assert decode(legacy) == BIG_RECORD
 
     def test_reads_a_value_handed_over_as_text(self):
-        """`fakeredis` and a decoding client both hand back `str`."""
+        """A client that decodes responses hands back `str`, which still parses."""
         assert decode(json.dumps(BIG_RECORD)) == BIG_RECORD
 
     @pytest.mark.parametrize("missing", [None, b"", ""])
