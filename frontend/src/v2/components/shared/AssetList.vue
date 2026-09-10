@@ -87,12 +87,6 @@ const showThumbs = computed(() =>
 const fallbackIcon = computed(() =>
   props.type === "save" ? "mdi-content-save" : "mdi-file-outline",
 );
-
-// One write produces both stamps, so `created_at` only earns a line on the
-// assets it disagrees with — an overwritten save slot, mostly.
-function showsCreated(asset: Asset): boolean {
-  return asset.created_at !== asset.updated_at;
-}
 </script>
 
 <template>
@@ -183,17 +177,8 @@ function showsCreated(asset: Asset): boolean {
             <span class="r-asset-list__relative">
               {{ formatRelativeDate(asset.updated_at) }}
             </span>
-            <!-- The label only appears alongside a created line, so a lone
-                 timestamp is never mistaken for the creation time. -->
             <span class="r-asset-list__exact">
-              <template v-if="showsCreated(asset)">
-                {{ t("rom.updated") }}:
-              </template>
               {{ formatTimestamp(asset.updated_at, locale) }}
-            </span>
-            <span v-if="showsCreated(asset)" class="r-asset-list__created">
-              {{ t("rom.created") }}:
-              {{ formatTimestamp(asset.created_at, locale) }}
             </span>
           </span>
 
@@ -218,10 +203,6 @@ function showsCreated(asset: Asset): boolean {
               <span class="r-asset-list__tip-sub">
                 {{ t("rom.updated") }}:
                 {{ formatTimestamp(asset.updated_at, locale) }}
-              </span>
-              <span v-if="showsCreated(asset)" class="r-asset-list__tip-sub">
-                {{ t("rom.created") }}:
-                {{ formatTimestamp(asset.created_at, locale) }}
               </span>
             </div>
           </RTooltip>
@@ -420,11 +401,6 @@ function showsCreated(asset: Asset): boolean {
   color: var(--r-color-fg-muted);
   font-variant-numeric: tabular-nums;
 }
-.r-asset-list__created {
-  font-size: 10px;
-  color: var(--r-color-fg-faint);
-  font-variant-numeric: tabular-nums;
-}
 
 .r-asset-list__check {
   display: grid;
@@ -479,10 +455,9 @@ function showsCreated(asset: Asset): boolean {
 }
 
 /* Tighten the row on small screens so the time column doesn't push
-   the filename off-screen. The exact timestamps are the first to go —
-   the tooltip still has them. */
-html[data-bp~="xs"] .r-asset-list__exact,
-html[data-bp~="xs"] .r-asset-list__created {
+   the filename off-screen. The exact timestamp is the first to go, and
+   the tooltip still has it. */
+html[data-bp~="xs"] .r-asset-list__exact {
   display: none;
 }
 html[data-bp~="xs"] .r-asset-list__icon--thumb {

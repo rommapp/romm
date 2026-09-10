@@ -326,18 +326,15 @@ export const ManageMode: Story = {
 
 // ── Save detail (issue #4320) ────────────────────────────────────
 
-// A save that has been overwritten carries a created_at its updated_at
-// disagrees with, plus the content hash companion apps compare.
+// The content hash companion apps compare, on the rows that carry one. The
+// third save predates the backfill, so its chip is absent rather than empty.
 export const SaveWithDetail: Story = {
-  name: "Save · overwritten slot with hash",
+  name: "Save · content hashes",
   render: () => ({
     components: { AssetList },
     setup() {
       const saves = [
-        makeSave(0, {
-          created_at: "2026-03-01T09:00:00Z",
-          content_hash: "0123456789abcdef0123456789abcdef",
-        }),
+        makeSave(0, { content_hash: "0123456789abcdef0123456789abcdef" }),
         makeSave(1, { content_hash: "fedcba9876543210fedcba9876543210" }),
         makeSave(2),
       ];

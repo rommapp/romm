@@ -109,32 +109,6 @@ describe("AssetList leading cell", () => {
   });
 });
 
-// created_at is only worth a line when it disagrees with updated_at; otherwise
-// the row would print the same stamp twice.
-describe("AssetList timestamps", () => {
-  it("stays on two unlabelled lines when the stamps match", () => {
-    const wrapper = mountList([makeAsset()]);
-
-    expect(wrapper.find(".r-asset-list__created").exists()).toBe(false);
-    expect(wrapper.find(".r-asset-list__exact").text()).not.toContain(
-      "rom.updated",
-    );
-  });
-
-  it("adds a labelled created line, and labels the updated one, when they differ", () => {
-    const wrapper = mountList([
-      makeAsset({ created_at: "2026-04-02T09:00:00Z", updated_at: STAMP }),
-    ]);
-
-    expect(wrapper.find(".r-asset-list__created").text()).toContain(
-      "rom.created",
-    );
-    expect(wrapper.find(".r-asset-list__exact").text()).toContain(
-      "rom.updated",
-    );
-  });
-});
-
 describe("AssetList manage mode", () => {
   // The row name is CSS-truncated and manage mode has no other way to read it.
   it("carries a tooltip when rows are not selectable", () => {
