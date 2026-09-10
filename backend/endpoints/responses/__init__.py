@@ -91,6 +91,8 @@ TaskMeta = Union[
 
 
 class TaskExecutionResponse(TypedDict):
+    # None on a scan a client started itself, which answers to no registry entry.
+    task_key: str | None
     task_name: str
     task_id: str
     status: JobStatus

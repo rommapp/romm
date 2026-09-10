@@ -8,6 +8,18 @@ from handler.redis_handler import redis_client
 from tasks.tasks import Task, TaskType
 
 
+def _job_with_meta(meta: dict) -> Mock:
+    """A finished job carrying `meta`, for asserting on what the response reports."""
+    job = Mock()
+    job.id = "test-job-id-123"
+    job.func_name = "test_task"
+    job.get_meta.return_value = {"task_type": TaskType.CLEANUP, **meta}
+    job.get_status.return_value = "finished"
+    for attr in ("created_at", "enqueued_at", "started_at", "ended_at"):
+        setattr(job, attr, None)
+    return job
+
+
 @pytest.fixture
 def mock_task():
     """Create a mock task for testing"""
@@ -247,6 +259,7 @@ class TestRunSingleTask:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
+        assert data["task_key"] == "test_task"
         assert data["task_name"] == "Test Task"
         assert data["task_id"] == "1"
         assert data["status"] == "queued"
@@ -409,6 +422,39 @@ class TestGetTaskById:
         mock_job_fetch.assert_called_once_with(
             "test-job-id-123", connection=redis_client
         )
+
+    @patch("endpoints.tasks.Job.fetch")
+    def test_the_registry_key_survives_the_round_trip(
+        self, mock_job_fetch, client, access_token
+    ):
+        """A job's key reaches the client, which matches runs to the catalog by it."""
+        mock_job_fetch.return_value = _job_with_meta(
+            {
+                "task_key": "cleanup_zip_cache",
+                "task_name": "Scheduled ZIP cache cleanup",
+            }
+        )
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.json()["task_key"] == "cleanup_zip_cache"
+
+    @patch("endpoints.tasks.Job.fetch")
+    def test_a_job_outside_the_catalog_reports_no_key(
+        self, mock_job_fetch, client, access_token
+    ):
+        """A scan a client started itself answers to no registry entry."""
+        mock_job_fetch.return_value = _job_with_meta({"task_name": "Quick Scan"})
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.json()["task_key"] is None
 
     @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_not_found(self, mock_job_fetch, client, access_token):

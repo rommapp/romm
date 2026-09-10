@@ -30,7 +30,11 @@ def _task(mocker, *, enabled=True, cron_string="0 4 * * *", task_type=TaskType.C
         title="Test Task",
         description="test task",
         task_type=task_type,
-        job_meta={"task_name": "Test Task", "task_type": task_type.value},
+        job_meta=lambda key: {
+            "task_key": key,
+            "task_name": "Test Task",
+            "task_type": task_type.value,
+        },
     )
 
 
@@ -84,6 +88,11 @@ class TestCronConfig:
 
         names = [call.kwargs["name"] for call in register.call_args_list]
         assert names == ["first", "second"]
+
+    def test_the_registered_meta_carries_the_key(self, mocker, registered):
+        register = registered({"test_task": _task(mocker)})
+
+        assert register.call_args.kwargs["meta"]["task_key"] == "test_task"
 
     def test_skips_a_disabled_task(self, mocker, registered):
         assert registered({"off": _task(mocker, enabled=False)}).call_count == 0

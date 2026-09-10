@@ -54,7 +54,7 @@ const completedStatuses = computed(() =>
 
 function isTaskRunning(name: string) {
   return taskStatuses.value.some(
-    (s) => s.task_name === name && ["queued", "started"].includes(s.status),
+    (s) => s.task_key === name && ["queued", "started"].includes(s.status),
   );
 }
 

@@ -47,7 +47,13 @@ class TestEnqueueTask:
         assert kwargs["kwargs"] == {"name": "cleanup_zip_cache", "task_kwargs": {}}
         assert kwargs["job_timeout"] == task.timeout
         assert kwargs["result_ttl"] == TASK_RESULT_TTL
-        assert kwargs["meta"] == task.job_meta
+        assert kwargs["meta"] == task.job_meta("cleanup_zip_cache")
+
+    def test_the_payload_carries_the_registry_key(self, queue):
+        enqueue_task("cleanup_zip_cache", queue=queue)
+
+        meta = queue.enqueue.call_args.kwargs["meta"]
+        assert meta["task_key"] == "cleanup_zip_cache"
 
     def test_caller_arguments_are_nested_under_the_name(self, queue):
         enqueue_task("cleanup_missing_roms", queue=queue, task_kwargs={"dry_run": True})
