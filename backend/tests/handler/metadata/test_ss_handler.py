@@ -583,6 +583,46 @@ class TestExtractMetadataFromSsRom:
 
         assert metadata["first_release_date"] == 593568000
 
+    def test_release_date_follows_the_configured_region_under_prefer_config(self):
+        """The same ordering that picks the artwork and the title picks the
+        date, so a game resolved as French is not dated by its US release."""
+        config = _make_config(region_priority=["fr"], region_mode="prefer_config")
+        rom = self._make_rom(regions=["USA"])
+        game = cast(
+            SSGame,
+            {
+                "dates": [
+                    {"region": "us", "text": "1990-02-12"},
+                    {"region": "fr", "text": "1991-08-29"},
+                ],
+                "medias": [],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            metadata = extract_metadata_from_ss_rom(rom, game)
+
+        assert metadata["first_release_date"] == 683424000
+
+    def test_release_date_keeps_the_rom_s_region_under_prefer_rom_tags(self):
+        config = _make_config(region_priority=["fr"])
+        rom = self._make_rom(regions=["USA"])
+        game = cast(
+            SSGame,
+            {
+                "dates": [
+                    {"region": "us", "text": "1990-02-12"},
+                    {"region": "fr", "text": "1991-08-29"},
+                ],
+                "medias": [],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            metadata = extract_metadata_from_ss_rom(rom, game)
+
+        assert metadata["first_release_date"] == 634780800
+
     def test_franchises_fall_back_to_french(self):
         """ScreenScraper's taxonomy is often French-only, so those fields still
         fall back even when the user asked for another language."""
