@@ -1,5 +1,4 @@
-import json
-
+from handler.dump_cache import hget_json
 from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.cache import is_cache_store_ready
@@ -20,20 +19,15 @@ from .utils import deinvert_article, file_name_forms, fold_title
 
 class RemoteSource:
     async def get_by_id(self, database_id: int | str) -> dict | None:
-        entry = await async_cache.hget(
-            LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id)
-        )
-        if not entry:
-            return None
-        return json.loads(entry)
+        return await hget_json(LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id))
 
     async def _lookup_title_index(self, key: str, field: str) -> dict | None:
         """Read a title index hit and resolve the database id it holds."""
-        database_id = await async_cache.hget(key, field)
+        database_id = await hget_json(key, field)
         if not database_id:
             return None
 
-        return await self.get_by_id(json.loads(database_id))
+        return await self.get_by_id(database_id)
 
     async def get_rom(
         self,
@@ -119,13 +113,11 @@ class RemoteSource:
             return None
 
         for candidate in file_name_forms(file_name):
-            entry = await async_cache.hget(
-                LAUNCHBOX_FILES_KEY, f"{candidate}:{platform_name}"
-            )
+            entry = await hget_json(LAUNCHBOX_FILES_KEY, f"{candidate}:{platform_name}")
             if not entry:
                 continue
 
-            game_name = (json.loads(entry).get("GameName") or "").strip()
+            game_name = (entry.get("GameName") or "").strip()
             if not game_name:
                 continue
 
@@ -157,9 +149,9 @@ class RemoteSource:
             candidates.append(stem)
 
         for candidate in candidates:
-            entry = await async_cache.hget(LAUNCHBOX_MAME_KEY, candidate)
+            entry = await hget_json(LAUNCHBOX_MAME_KEY, candidate)
             if entry:
-                return json.loads(entry)
+                return entry
 
         return None
 
@@ -180,11 +172,4 @@ class RemoteSource:
         if not resolved_id:
             return None
 
-        metadata_image_index_entry = await async_cache.hget(
-            LAUNCHBOX_METADATA_IMAGE_KEY, str(resolved_id)
-        )
-
-        if not metadata_image_index_entry:
-            return None
-
-        return json.loads(metadata_image_index_entry)
+        return await hget_json(LAUNCHBOX_METADATA_IMAGE_KEY, str(resolved_id))

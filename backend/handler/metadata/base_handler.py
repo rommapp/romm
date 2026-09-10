@@ -10,6 +10,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from fastapi import HTTPException, status
 from strsimpy.jaro_winkler import JaroWinkler
 
+from handler.dump_cache import hget_json
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.scheduled.update_switch_titledb import (
@@ -321,17 +322,16 @@ class MetadataHandler(abc.ABC):
 
     @staticmethod
     async def _switch_titledb_entry(title_id: str) -> dict | None:
-        entry = await async_cache.hget(SWITCH_TITLEDB_INDEX_KEY, title_id)
-        return json.loads(entry) if entry else None
+        return await hget_json(SWITCH_TITLEDB_INDEX_KEY, title_id)
 
     @classmethod
     async def _switch_product_id_entry(cls, product_id: str) -> dict | None:
         """Resolve a Switch product id to the titleID entry its index points at."""
-        title_id = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
+        title_id = await hget_json(SWITCH_PRODUCT_ID_KEY, product_id)
         if not title_id:
             return None
 
-        return await cls._switch_titledb_entry(json.loads(title_id))
+        return await cls._switch_titledb_entry(title_id)
 
     async def _mame_format(self, search_term: str) -> str:
         from handler.filesystem import fs_rom_handler

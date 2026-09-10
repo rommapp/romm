@@ -24,9 +24,10 @@ LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY: Final[str] = (
 )
 
 # Every hash the Metadata.zip import fills, dropped together on a schema bump.
+# Version 2 stores each record compressed.
 LAUNCHBOX_METADATA_STORE: Final[VersionedCacheStore] = VersionedCacheStore(
     schema_key="romm:launchbox_metadata_schema",
-    version=1,
+    version=2,
     keys=(
         LAUNCHBOX_PLATFORMS_KEY,
         LAUNCHBOX_METADATA_DATABASE_ID_KEY,

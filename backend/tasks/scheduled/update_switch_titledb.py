@@ -6,7 +6,8 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
-from handler.redis_handler import async_cache
+from handler.dump_cache import encode
+from handler.redis_handler import async_binary_cache, async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
 from utils.cache import (
@@ -20,9 +21,10 @@ from . import UpdateStats
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
 SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
+# Version 2 stores each entry compressed.
 SWITCH_TITLEDB_STORE: Final = VersionedCacheStore(
     schema_key="romm:switch_titledb_schema",
-    version=1,
+    version=2,
     keys=(SWITCH_TITLEDB_INDEX_KEY, SWITCH_PRODUCT_ID_KEY),
 )
 
@@ -58,16 +60,16 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         # Update initial progress
         update_stats.update(processed=processed_items, total=total_items)
 
-        async with async_cache.pipeline() as pipe:
+        async with async_binary_cache.pipeline() as pipe:
             for data_batch in batched(relevant_data.items(), 2000, strict=False):
                 await pipe.hset(
                     SWITCH_TITLEDB_INDEX_KEY,
-                    mapping={title_id: json.dumps(v) for title_id, v in data_batch},
+                    mapping={title_id: encode(v) for title_id, v in data_batch},
                 )
 
                 # A second copy of each entry here costs ~60MB of cache.
                 product_map = {
-                    v["id"]: json.dumps(title_id)
+                    v["id"]: encode(title_id)
                     for title_id, v in data_batch
                     if v.get("id")
                 }

@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -7,6 +6,7 @@ import anyio
 import pytest
 
 from config import TASK_TIMEOUT
+from handler.dump_cache import decode
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_FILES_KEY,
@@ -123,7 +123,7 @@ class TestUpdateLaunchboxMetadataTask:
         )
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_xml_parsing(
         self,
         mock_async_cache_pipeline,
@@ -215,9 +215,7 @@ class TestUpdateLaunchboxMetadataTask:
 
         def values(calls) -> list[Any]:
             return [
-                json.loads(value)
-                for call in calls
-                for value in call[1]["mapping"].values()
+                decode(value) for call in calls for value in call[1]["mapping"].values()
             ]
 
         # The title indexes point at the record, rather than repeating it.
@@ -246,7 +244,7 @@ class TestUpdateLaunchboxMetadataTask:
         ]
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_empty_xml_elements_handling(
         self,
         mock_async_cache_pipeline,
@@ -285,7 +283,7 @@ class TestUpdateLaunchboxMetadataTask:
         assert len(platform_calls) == 1
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_missing_xml_files_handling(
         self,
         mock_async_cache_pipeline,
@@ -345,7 +343,7 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
         return UpdateLaunchboxMetadataTask()
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_full_workflow_integration(
         self, mock_async_cache_pipeline, mock_super_run, task, sample_zip_content
     ):
@@ -412,15 +410,17 @@ class TestBatchedCacheWriter:
 
         assert pipe.execute.call_count == 0
 
-    async def test_values_are_json_encoded(self):
+    async def test_values_go_through_the_dump_codec(self):
         pipe = AsyncMock()
         writer = BatchedCacheWriter(pipe, batch_size=10)
+        record = {"Name": "Super Mario Bros."}
 
-        await writer.hset("key", "field", {"Name": "Super Mario Bros."})
+        await writer.hset("key", "field", record)
 
-        pipe.hset.assert_called_once_with(
-            "key", mapping={"field": '{"Name": "Super Mario Bros."}'}
-        )
+        stored = pipe.hset.call_args.kwargs["mapping"]["field"]
+        # Bytes, because a compressed value is not valid UTF-8.
+        assert isinstance(stored, bytes)
+        assert decode(stored) == record
 
     async def test_large_input_flushes_repeatedly(self, task, sample_zip_content):
         """A real dump must not end up in one pipeline execute."""
@@ -449,7 +449,7 @@ class TestInitialImportFlag:
     ready to the provider heartbeat."""
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_first_import_flags_and_clears_on_completion(
         self, mock_pipeline, mock_super_run, task, sample_zip_content
     ):
@@ -475,7 +475,7 @@ class TestInitialImportFlag:
         mock_delete.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY)
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_refresh_of_a_filled_store_is_not_flagged(
         self, mock_pipeline, mock_super_run, task, sample_zip_content
     ):
