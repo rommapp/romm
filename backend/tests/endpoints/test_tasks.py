@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,7 +9,7 @@ from handler.redis_handler import redis_client
 from tasks.tasks import Task, TaskType
 
 
-def _job_with_meta(meta: dict) -> Mock:
+def _job_with_meta(meta: dict[str, Any]) -> Mock:
     """A finished job carrying `meta`, for asserting on what the response reports."""
     job = Mock()
     job.id = "test-job-id-123"
