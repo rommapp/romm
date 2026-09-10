@@ -25,14 +25,17 @@ class RemoteSource:
             return None
         return json.loads(entry)
 
-    async def _follow_title_index(self, entry: str) -> dict | None:
-        """Resolve a title index hit to the record it points at.
+    async def _lookup_title_index(self, key: str, field: str) -> dict | None:
+        """Read a title index hit and resolve the database id it holds.
 
-        A hit holds the database id of the record. A store imported before the
-        title indexes were de-duplicated holds the whole record instead, so it
-        keeps answering until the next import rewrites it.
+        A store imported before the title indexes were de-duplicated holds the
+        whole record instead, so it keeps answering until the next import.
         """
-        value = json.loads(entry)
+        raw = await async_cache.hget(key, field)
+        if not raw:
+            return None
+
+        value = json.loads(raw)
         if isinstance(value, dict):
             return value
         return await self.get_by_id(value)
@@ -73,13 +76,9 @@ class RemoteSource:
         candidates = list(dict.fromkeys(candidates))
 
         for candidate in candidates:
-            metadata_name_index_entry = await async_cache.hget(
+            entry = await self._lookup_title_index(
                 LAUNCHBOX_METADATA_NAME_KEY, f"{candidate}:{platform_name}"
             )
-            if not metadata_name_index_entry:
-                continue
-
-            entry = await self._follow_title_index(metadata_name_index_entry)
             if entry:
                 return entry
 
@@ -90,19 +89,13 @@ class RemoteSource:
             if not metadata_alternate_name_index_entry:
                 continue
 
-            metadata_alternate_name_index_entry = json.loads(
-                metadata_alternate_name_index_entry
-            )
-            database_id = metadata_alternate_name_index_entry["DatabaseID"]
-            metadata_database_index_entry = await async_cache.hget(
-                LAUNCHBOX_METADATA_DATABASE_ID_KEY, database_id
-            )
-            if not metadata_database_index_entry:
+            database_id = json.loads(metadata_alternate_name_index_entry)["DatabaseID"]
+            entry = await self.get_by_id(database_id)
+            if not entry:
                 continue
 
             # The alternate name index is not keyed by platform, so a hit can
             # point at a same-titled game on a completely different system.
-            entry = json.loads(metadata_database_index_entry)
             if entry.get("Platform") == platform_name:
                 return entry
 
@@ -114,13 +107,9 @@ class RemoteSource:
             folded = fold_title(candidate)
             if not folded:
                 continue
-            folded_index_entry = await async_cache.hget(
+            entry = await self._lookup_title_index(
                 LAUNCHBOX_METADATA_FOLDED_NAME_KEY, f"{folded}:{platform_name}"
             )
-            if not folded_index_entry:
-                continue
-
-            entry = await self._follow_title_index(folded_index_entry)
             if entry:
                 return entry
 

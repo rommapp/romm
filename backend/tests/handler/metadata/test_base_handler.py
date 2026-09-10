@@ -29,6 +29,7 @@ from handler.metadata.base_handler import (
 )
 from handler.redis_handler import async_cache
 from models.rom import Rom
+from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_INDEX_KEY
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug
 
@@ -356,7 +357,7 @@ class TestMetadataHandlerMethods:
             result = await handler._switch_productid_format(rom, "Game.nsp", "original")
 
             assert mock_hget.await_args_list[1].args == (
-                "romm:switch_titledb",  # SWITCH_TITLEDB_INDEX_KEY
+                SWITCH_TITLEDB_INDEX_KEY,
                 "70010000000025",
             )
             assert result[0] == "Product Game"

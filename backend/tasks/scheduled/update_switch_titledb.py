@@ -47,14 +47,13 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
 
         async with async_cache.pipeline() as pipe:
             for data_batch in batched(relevant_data.items(), 2000, strict=False):
-                titledb_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
-                await pipe.hset(SWITCH_TITLEDB_INDEX_KEY, mapping=titledb_map)
-                processed_items += len(data_batch)
-                update_stats.update(processed=processed_items)
+                await pipe.hset(
+                    SWITCH_TITLEDB_INDEX_KEY,
+                    mapping={title_id: json.dumps(v) for title_id, v in data_batch},
+                )
 
-            # The product id index points at the titleID index entry rather than
-            # holding a second copy of it, which costs ~60MB of cache.
-            for data_batch in batched(relevant_data.items(), 2000, strict=False):
+                # The product id index points at the titleID index entry rather
+                # than holding a second copy of it, which costs ~60MB of cache.
                 product_map = {
                     v["id"]: json.dumps(title_id)
                     for title_id, v in data_batch
@@ -62,6 +61,9 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
                 }
                 if product_map:
                     await pipe.hset(SWITCH_PRODUCT_ID_KEY, mapping=product_map)
+
+                processed_items += len(data_batch)
+                update_stats.update(processed=processed_items)
             await pipe.execute()
 
         # Final progress update

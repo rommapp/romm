@@ -16,6 +16,7 @@ from config import (
 from handler.metadata import meta_launchbox_handler
 from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_FILES_KEY,
+    LAUNCHBOX_IMAGE_FIELDS,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
@@ -41,10 +42,6 @@ CACHE_WRITE_BATCH_SIZE: Final[int] = 2000
 # Downloading ~100MB and parsing it takes far longer than an ordinary task.
 LAUNCHBOX_TASK_TIMEOUT: Final[int] = max(TASK_TIMEOUT, 30 * 60)
 
-# `DatabaseID` repeats the field an image list is stored under and `CRC32` has
-# no reader, and the dump holds 1.3M images, so dropping the pair saves ~100MB.
-GAME_IMAGE_FIELDS: Final[frozenset[str]] = frozenset({"FileName", "Type", "Region"})
-
 
 class BatchedCacheWriter:
     """Queues cache writes on a pipeline, flushing every `batch_size` entries."""
@@ -67,9 +64,9 @@ class BatchedCacheWriter:
 
 
 def _element_to_dict(elem: Any, fields: frozenset[str] | None = None) -> dict[str, Any]:
-    return {
-        child.tag: child.text for child in elem if fields is None or child.tag in fields
-    }
+    if fields is None:
+        return {child.tag: child.text for child in elem}
+    return {child.tag: child.text for child in elem if child.tag in fields}
 
 
 def _iter_elements(source: Any) -> Iterator[Any]:
@@ -182,12 +179,9 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                                 for elem in _iter_elements(f):
                                     if elem.tag == "Game":
-                                        id_elem = elem.find("DatabaseID")
                                         database_id = (
-                                            id_elem.text.strip()
-                                            if id_elem is not None and id_elem.text
-                                            else None
-                                        )
+                                            elem.findtext("DatabaseID") or ""
+                                        ).strip()
                                         if database_id:
                                             await writer.hset(
                                                 LAUNCHBOX_METADATA_DATABASE_ID_KEY,
@@ -195,28 +189,20 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                                 _element_to_dict(elem),
                                             )
 
-                                        name_elem = elem.find("Name")
-                                        platform_elem = elem.find("Platform")
-                                        if (
-                                            database_id
-                                            and name_elem is not None
-                                            and name_elem.text
-                                            and platform_elem is not None
-                                            and platform_elem.text
-                                        ):
-                                            platform_name = platform_elem.text.strip()
-
-                                            # The title indexes hold the id of the
-                                            # record, not a second and third copy
-                                            # of it: each costs ~120MB of cache.
+                                        name = (elem.findtext("Name") or "").strip()
+                                        platform_name = (
+                                            elem.findtext("Platform") or ""
+                                        ).strip()
+                                        if database_id and name and platform_name:
+                                            # Storing the id rather than the record:
+                                            # each copy costs ~120MB of cache.
                                             await writer.hset(
                                                 LAUNCHBOX_METADATA_NAME_KEY,
-                                                f"{name_elem.text.strip().lower()}"
-                                                f":{platform_name}",
+                                                f"{name.lower()}:{platform_name}",
                                                 database_id,
                                             )
 
-                                            folded = fold_title(name_elem.text)
+                                            folded = fold_title(name)
                                             if folded:
                                                 await writer.hset(
                                                     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
@@ -256,7 +242,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             current_game_image_db_id = image_id
                                             current_game_images.append(
                                                 _element_to_dict(
-                                                    elem, GAME_IMAGE_FIELDS
+                                                    elem, LAUNCHBOX_IMAGE_FIELDS
                                                 )
                                             )
 

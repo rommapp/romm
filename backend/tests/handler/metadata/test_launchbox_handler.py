@@ -596,11 +596,20 @@ class TestRemoteSourceGetRom:
         assert result is not None
         assert result.get("DatabaseID", None) == "1234"
 
-    async def test_name_match_follows_database_id(self, source: RemoteSource):
+    @pytest.mark.parametrize(
+        ("index_key", "file_name"),
+        [
+            (LAUNCHBOX_METADATA_NAME_KEY, "super mario bros."),
+            (LAUNCHBOX_METADATA_FOLDED_NAME_KEY, "super mario bros"),
+        ],
+    )
+    async def test_title_index_follows_database_id(
+        self, source: RemoteSource, index_key: str, file_name: str
+    ):
         """A title index hit holds the id of the record, not the record."""
 
         async def side_effect(key, _field):
-            if key == LAUNCHBOX_METADATA_NAME_KEY:
+            if key == index_key:
                 return json.dumps("1234")
             if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
                 return json.dumps(REMOTE_ENTRY)
@@ -609,26 +618,7 @@ class TestRemoteSourceGetRom:
         with patch.object(
             async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
         ):
-            result = await source.get_rom(
-                "super mario bros.", "nes", assume_cache_present=True
-            )
-        assert result is not None
-        assert result.get("Name", None) == "Super Mario Bros."
-
-    async def test_folded_name_match_follows_database_id(self, source: RemoteSource):
-        async def side_effect(key, _field):
-            if key == LAUNCHBOX_METADATA_FOLDED_NAME_KEY:
-                return json.dumps("1234")
-            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
-                return json.dumps(REMOTE_ENTRY)
-            return None
-
-        with patch.object(
-            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
-        ):
-            result = await source.get_rom(
-                "super mario bros", "nes", assume_cache_present=True
-            )
+            result = await source.get_rom(file_name, "nes", assume_cache_present=True)
         assert result is not None
         assert result.get("Name", None) == "Super Mario Bros."
 
