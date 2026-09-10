@@ -8,7 +8,11 @@ from rq.exceptions import DuplicateJobError
 from rq.job import Job
 from rq.utils import as_text
 
-from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, SENTRY_DSN
+from config import (
+    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+    LAUNCHBOX_API_ENABLED,
+    SENTRY_DSN,
+)
 from config.config_manager import config_manager as cm
 from handler.database import db_save_handler
 from handler.metadata.base_handler import (
@@ -19,6 +23,11 @@ from handler.metadata.base_handler import (
     PS2_SERIAL_INDEX_KEY,
     PSP_SERIAL_INDEX_KEY,
     SCUMMVM_INDEX_KEY,
+)
+from handler.metadata.launchbox_handler.types import (
+    LAUNCHBOX_METADATA_SCHEMA_KEY,
+    LAUNCHBOX_METADATA_SCHEMA_VERSION,
+    LAUNCHBOX_STORE_KEYS,
 )
 from handler.redis_handler import (
     async_cache,
@@ -31,14 +40,21 @@ from handler.scan_jobs import drop_stale_scheduled_scans
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
 from tasks.registry import enqueue_task
+from tasks.scheduled.update_switch_titledb import (
+    SWITCH_TITLEDB_SCHEMA_KEY,
+    SWITCH_TITLEDB_SCHEMA_VERSION,
+    SWITCH_TITLEDB_STORE_KEYS,
+)
 from utils import get_version
-from utils.cache import conditionally_set_cache
+from utils.cache import conditionally_set_cache, drop_stale_cache_store
 from utils.context import initialize_context
 
 tracer = trace.get_tracer(__name__)
 
 RECOMPUTE_SAVE_HASHES_JOB_ID = "recompute_save_content_hashes_bootstrap"
 CONVERT_IMAGES_TO_WEBP_JOB_ID = "convert_images_to_webp_bootstrap"
+UPDATE_LAUNCHBOX_METADATA_JOB_ID = "update_launchbox_metadata_bootstrap"
+UPDATE_SWITCH_TITLEDB_JOB_ID = "update_switch_titledb_bootstrap"
 
 
 def _enqueue_backfill(task_name: str, job_id: str) -> None:
@@ -85,6 +101,34 @@ def _enqueue_convert_images_to_webp() -> None:
     without this every cover fetched before it 404s until the next cron run.
     """
     _enqueue_backfill("convert_images_to_webp", CONVERT_IMAGES_TO_WEBP_JOB_ID)
+
+
+async def _rebuild_outdated_metadata_stores() -> None:
+    """Drop the metadata stores an older release wrote and queue their rebuild.
+
+    Lookups read the current shape only, so an old store answers nothing while
+    still holding several hundred MB of cache.
+    """
+    if await drop_stale_cache_store(
+        async_cache,
+        LAUNCHBOX_METADATA_SCHEMA_KEY,
+        LAUNCHBOX_METADATA_SCHEMA_VERSION,
+        LAUNCHBOX_STORE_KEYS,
+    ):
+        log.info("Dropped a LaunchBox metadata store left by an older release")
+        if LAUNCHBOX_API_ENABLED:
+            _enqueue_backfill(
+                "update_launchbox_metadata", UPDATE_LAUNCHBOX_METADATA_JOB_ID
+            )
+
+    if await drop_stale_cache_store(
+        async_cache,
+        SWITCH_TITLEDB_SCHEMA_KEY,
+        SWITCH_TITLEDB_SCHEMA_VERSION,
+        SWITCH_TITLEDB_STORE_KEYS,
+    ):
+        log.info("Dropped a Switch TitleDB store left by an older release")
+        _enqueue_backfill("update_switch_titledb", UPDATE_SWITCH_TITLEDB_JOB_ID)
 
 
 # Keys the rq-scheduler process left behind, now owned by the cron config.
@@ -147,6 +191,11 @@ async def main() -> None:
             _enqueue_convert_images_to_webp()
 
         _enqueue_recompute_save_hashes_if_needed()
+
+        try:
+            await _rebuild_outdated_metadata_stores()
+        except Exception:
+            log.exception("Failed to check the metadata stores for an older shape")
 
         log.info("Initializing cache with fixtures data")
         await conditionally_set_cache(

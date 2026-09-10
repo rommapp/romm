@@ -15,8 +15,11 @@ from config import (
 )
 from handler.metadata import meta_launchbox_handler
 from handler.metadata.launchbox_handler.types import (
+    LAUNCHBOX_ALTERNATE_NAME_FIELDS,
+    LAUNCHBOX_FILE_FIELDS,
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_IMAGE_FIELDS,
+    LAUNCHBOX_MAME_FIELDS,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
@@ -24,12 +27,15 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_SCHEMA_KEY,
+    LAUNCHBOX_METADATA_SCHEMA_VERSION,
     LAUNCHBOX_PLATFORMS_KEY,
 )
 from handler.metadata.launchbox_handler.utils import fold_title
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
+from utils.cache import stamp_cache_schema
 from utils.context import initialize_context
 
 from . import UpdateStats
@@ -219,7 +225,10 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             await writer.hset(
                                                 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
                                                 alternate_name_elem.text.strip().lower(),
-                                                _element_to_dict(elem),
+                                                _element_to_dict(
+                                                    elem,
+                                                    LAUNCHBOX_ALTERNATE_NAME_FIELDS,
+                                                ),
                                             )
 
                                     elif elem.tag == "GameImage":
@@ -272,7 +281,9 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             await writer.hset(
                                                 LAUNCHBOX_MAME_KEY,
                                                 filename_elem.text.strip(),
-                                                _element_to_dict(elem),
+                                                _element_to_dict(
+                                                    elem, LAUNCHBOX_MAME_FIELDS
+                                                ),
                                             )
 
                                 await writer.flush()
@@ -300,7 +311,9 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                                 LAUNCHBOX_FILES_KEY,
                                                 f"{filename_elem.text.strip().lower()}"
                                                 f":{platform_elem.text.strip()}",
-                                                _element_to_dict(elem),
+                                                _element_to_dict(
+                                                    elem, LAUNCHBOX_FILE_FIELDS
+                                                ),
                                             )
 
                                 await writer.flush()
@@ -310,6 +323,12 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         except (zipfile.BadZipFile, RuntimeError, OSError):
             log.error("Bad zip file in launchbox metadata update")
             return update_stats.to_dict()
+
+        await stamp_cache_schema(
+            async_cache,
+            LAUNCHBOX_METADATA_SCHEMA_KEY,
+            LAUNCHBOX_METADATA_SCHEMA_VERSION,
+        )
 
         # Also clears a flag left behind by an earlier run that died partway.
         await async_cache.delete(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY)

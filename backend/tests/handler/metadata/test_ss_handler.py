@@ -39,6 +39,7 @@ from handler.metadata.ss_handler import (
 )
 from handler.redis_handler import async_cache
 from models.rom import Rom
+from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_SCHEMA_VERSION
 
 
 def _make_config(
@@ -1909,6 +1910,12 @@ class TestSonySerialFilenames:
                 return_value=True,
             ),
             patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
+            patch.object(
+                async_cache,
+                "get",
+                new_callable=AsyncMock,
+                return_value=str(SWITCH_TITLEDB_SCHEMA_VERSION),
+            ),
             patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
             patch.object(
                 SSHandler, "_search_rom", new_callable=AsyncMock, return_value=None

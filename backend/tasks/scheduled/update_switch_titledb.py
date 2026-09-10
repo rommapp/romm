@@ -9,12 +9,23 @@ from config import (
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
+from utils.cache import stamp_cache_schema
 from utils.context import initialize_context
 
 from . import UpdateStats
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
 SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
+SWITCH_TITLEDB_SCHEMA_KEY: Final = "romm:switch_titledb_schema"
+
+# Bumped whenever an import changes what the indexes hold, so a store an older
+# release wrote is dropped and rebuilt rather than read as the current shape.
+SWITCH_TITLEDB_SCHEMA_VERSION: Final[int] = 1
+
+SWITCH_TITLEDB_STORE_KEYS: Final[tuple[str, ...]] = (
+    SWITCH_TITLEDB_INDEX_KEY,
+    SWITCH_PRODUCT_ID_KEY,
+)
 
 
 class UpdateSwitchTitleDBTask(RemoteFilePullTask):
@@ -64,6 +75,10 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
                 processed_items += len(data_batch)
                 update_stats.update(processed=processed_items)
             await pipe.execute()
+
+        await stamp_cache_schema(
+            async_cache, SWITCH_TITLEDB_SCHEMA_KEY, SWITCH_TITLEDB_SCHEMA_VERSION
+        )
 
         # Final progress update
         update_stats.update(processed=processed_items)

@@ -17,6 +17,8 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_SCHEMA_KEY,
+    LAUNCHBOX_METADATA_SCHEMA_VERSION,
     LAUNCHBOX_PLATFORMS_KEY,
 )
 from handler.redis_handler import async_cache
@@ -229,6 +231,18 @@ class TestUpdateLaunchboxMetadataTask:
                 {"FileName": "super_mario_64.jpg", "Type": "Cover"},
                 {"FileName": "super_mario_64_screenshot.jpg", "Type": "Screenshot"},
             ]
+        ]
+
+        # Every other store keeps its reader's field, and never one the key
+        # already carries: the fixture's Platform, FileType and Size all go.
+        assert values(metadata_alt_calls) == [{"DatabaseID": "12345"}]
+        assert values(files_calls) == [
+            {"GameName": "Super Mario 64"},
+            {"GameName": "Crash Bandicoot"},
+        ]
+        assert values(mame_calls) == [
+            {"Name": "Super Mario Bros."},
+            {"Name": "Pac-Man"},
         ]
 
     @patch.object(RemoteFilePullTask, "run")
@@ -455,12 +469,16 @@ class TestInitialImportFlag:
 
         with (
             patch.object(async_cache, "exists", AsyncMock(return_value=0)),
+            patch.object(async_cache, "get", AsyncMock(return_value=None)),
             patch.object(async_cache, "set", AsyncMock()) as mock_set,
             patch.object(async_cache, "delete", AsyncMock()) as mock_delete,
         ):
             await task.run(force=True)
 
-        mock_set.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1")
+        assert [call.args for call in mock_set.await_args_list] == [
+            (LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1"),
+            (LAUNCHBOX_METADATA_SCHEMA_KEY, str(LAUNCHBOX_METADATA_SCHEMA_VERSION)),
+        ]
         mock_delete.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY)
 
     @patch.object(RemoteFilePullTask, "run")
@@ -475,12 +493,20 @@ class TestInitialImportFlag:
 
         with (
             patch.object(async_cache, "exists", AsyncMock(return_value=1)),
+            patch.object(
+                async_cache,
+                "get",
+                AsyncMock(return_value=str(LAUNCHBOX_METADATA_SCHEMA_VERSION)),
+            ),
             patch.object(async_cache, "set", AsyncMock()) as mock_set,
             patch.object(async_cache, "delete", AsyncMock()),
         ):
             await task.run(force=True)
 
-        mock_set.assert_not_awaited()
+        # Only the schema stamp, never the initial-import flag.
+        mock_set.assert_awaited_once_with(
+            LAUNCHBOX_METADATA_SCHEMA_KEY, str(LAUNCHBOX_METADATA_SCHEMA_VERSION)
+        )
 
     @patch.object(RemoteFilePullTask, "run")
     async def test_flag_survives_a_failed_run(

@@ -29,7 +29,12 @@ from handler.metadata.base_handler import (
 )
 from handler.redis_handler import async_cache
 from models.rom import Rom
-from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_INDEX_KEY
+from tasks.scheduled.update_switch_titledb import (
+    SWITCH_PRODUCT_ID_KEY,
+    SWITCH_TITLEDB_INDEX_KEY,
+    SWITCH_TITLEDB_SCHEMA_KEY,
+    SWITCH_TITLEDB_SCHEMA_VERSION,
+)
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug
 
@@ -111,6 +116,17 @@ class TestNormalizeSearchTerm:
 
         assert result1 == result2
         assert cache_info2.hits == cache_info1.hits + 1
+
+
+def current_schema_get() -> AsyncMock:
+    """Answer the schema stamp read with the version the readers expect."""
+
+    async def get(key: str) -> str | None:
+        if key == SWITCH_TITLEDB_SCHEMA_KEY:
+            return str(SWITCH_TITLEDB_SCHEMA_VERSION)
+        return None
+
+    return AsyncMock(side_effect=get)
 
 
 class TestMetadataHandlerMethods:
@@ -269,6 +285,8 @@ class TestMetadataHandlerMethods:
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch.object(
+            async_cache, "get", current_schema_get()
+        ), patch.object(
             async_cache, "hget", new_callable=AsyncMock
         ) as mock_hget:
             mock_exists.return_value = True
@@ -324,27 +342,8 @@ class TestMetadataHandlerMethods:
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch.object(
-            async_cache, "hget", new_callable=AsyncMock
-        ) as mock_hget:
-            mock_exists.return_value = True
-            mock_hget.return_value = json.dumps({"name": "Product Game"})
-
-            rom = Rom(fs_name="Game.nsp", title_id=product_id)
-            result = await handler._switch_productid_format(rom, "Game.nsp", "original")
-
-            mock_hget.assert_called_once_with(
-                "romm:switch_product_id",  # SWITCH_PRODUCT_ID_KEY
-                "0100ABCD12340000",
-            )
-            assert result[0] == "Product Game"
-
-    async def test_switch_productid_format_follows_title_id(
-        self, handler: MetadataHandler
-    ):
-        """The product id index holds the title id of its titleID index entry."""
-        with patch.object(
-            async_cache, "exists", new_callable=AsyncMock
-        ) as mock_exists, patch.object(
+            async_cache, "get", current_schema_get()
+        ), patch.object(
             async_cache, "hget", new_callable=AsyncMock
         ) as mock_hget:
             mock_exists.return_value = True
@@ -353,13 +352,14 @@ class TestMetadataHandlerMethods:
                 json.dumps({"name": "Product Game"}),
             ]
 
-            rom = Rom(fs_name="Game.nsp", title_id="0100ABCD12340000")
+            rom = Rom(fs_name="Game.nsp", title_id=product_id)
             result = await handler._switch_productid_format(rom, "Game.nsp", "original")
 
-            assert mock_hget.await_args_list[1].args == (
-                SWITCH_TITLEDB_INDEX_KEY,
-                "70010000000025",
-            )
+            # The product id index holds the title id of its titleID entry.
+            assert [call.args for call in mock_hget.await_args_list] == [
+                (SWITCH_PRODUCT_ID_KEY, "0100ABCD12340000"),
+                (SWITCH_TITLEDB_INDEX_KEY, "70010000000025"),
+            ]
             assert result[0] == "Product Game"
 
     @pytest.mark.parametrize(
@@ -389,6 +389,8 @@ class TestMetadataHandlerMethods:
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch.object(
+            async_cache, "get", current_schema_get()
+        ), patch.object(
             async_cache, "hget", new_callable=AsyncMock
         ) as mock_hget:
             mock_exists.return_value = True
@@ -399,10 +401,7 @@ class TestMetadataHandlerMethods:
             if expected is None:
                 mock_hget.assert_not_called()
             else:
-                mock_hget.assert_called_once_with(
-                    "romm:switch_product_id",  # SWITCH_PRODUCT_ID_KEY
-                    expected,
-                )
+                mock_hget.assert_called_once_with(SWITCH_PRODUCT_ID_KEY, expected)
 
     @pytest.mark.asyncio
     async def test_mame_format_found(self, handler: MetadataHandler):

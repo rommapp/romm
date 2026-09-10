@@ -15,7 +15,10 @@ from logger.logger import log
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
+    SWITCH_TITLEDB_SCHEMA_KEY,
+    SWITCH_TITLEDB_SCHEMA_VERSION,
 )
+from utils.cache import is_cache_schema_current
 from utils.context import ctx_httpx_client
 from utils.switch import derive_base_title_id
 
@@ -273,8 +276,8 @@ class MetadataHandler(abc.ABC):
     ) -> tuple[str, dict | None]:
         title_id = match.group(1)
 
-        if not (await async_cache.exists(SWITCH_TITLEDB_INDEX_KEY)):
-            log.error("Could not find the Switch titleID index file in cache")
+        if not await self._is_switch_titledb_current():
+            log.error("Could not find a current Switch titleID index in cache")
             return search_term, None
 
         index_entry = await self._switch_titledb_entry(title_id)
@@ -300,8 +303,8 @@ class MetadataHandler(abc.ABC):
         # low 12 bits, and only the base has a titledb entry.
         product_id = derive_base_title_id(product_id) or product_id
 
-        if not (await async_cache.exists(SWITCH_PRODUCT_ID_KEY)):
-            log.error("Could not find the Switch productID index file in cache")
+        if not await self._is_switch_titledb_current():
+            log.error("Could not find a current Switch productID index in cache")
             return search_term, None
 
         index_entry = await self._switch_product_id_entry(product_id)
@@ -311,25 +314,28 @@ class MetadataHandler(abc.ABC):
         return search_term, None
 
     @staticmethod
+    async def _is_switch_titledb_current() -> bool:
+        """Whether both Switch indexes were written by the current import."""
+        if not await is_cache_schema_current(
+            async_cache, SWITCH_TITLEDB_SCHEMA_KEY, SWITCH_TITLEDB_SCHEMA_VERSION
+        ):
+            return False
+
+        return bool(await async_cache.exists(SWITCH_TITLEDB_INDEX_KEY))
+
+    @staticmethod
     async def _switch_titledb_entry(title_id: str) -> dict | None:
         entry = await async_cache.hget(SWITCH_TITLEDB_INDEX_KEY, title_id)
         return json.loads(entry) if entry else None
 
     @classmethod
     async def _switch_product_id_entry(cls, product_id: str) -> dict | None:
-        """Resolve a Switch product id to the titleID entry its index points at.
-
-        An index written by an earlier import holds the entry itself.
-        """
-        raw = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
-        if not raw:
+        """Resolve a Switch product id to the titleID entry its index points at."""
+        title_id = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
+        if not title_id:
             return None
 
-        value = json.loads(raw)
-        if isinstance(value, dict):
-            return value
-
-        return await cls._switch_titledb_entry(value)
+        return await cls._switch_titledb_entry(json.loads(title_id))
 
     async def _mame_format(self, search_term: str) -> str:
         from handler.filesystem import fs_rom_handler

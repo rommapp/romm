@@ -1,5 +1,6 @@
 import hashlib
 import json
+from collections.abc import Sequence
 from itertools import batched
 from pathlib import Path
 
@@ -49,3 +50,34 @@ async def conditionally_set_cache(cache: AsyncRedis, key: str, file_path: Path) 
     except Exception as e:
         # Log the error but don't fail - this allows migrations to run even if Redis is not available
         log.warning(f"Failed to initialize cache for {key}: {e}")
+
+
+async def is_cache_schema_current(
+    cache: AsyncRedis, schema_key: str, version: int
+) -> bool:
+    """Whether the store stamped at `schema_key` holds the shape readers expect."""
+    return await cache.get(schema_key) == str(version)
+
+
+async def stamp_cache_schema(cache: AsyncRedis, schema_key: str, version: int) -> None:
+    """Record the shape a completed import left the store in."""
+    await cache.set(schema_key, str(version))
+
+
+async def drop_stale_cache_store(
+    cache: AsyncRedis, schema_key: str, version: int, keys: Sequence[str]
+) -> bool:
+    """Delete a store an older release wrote, returning whether anything went.
+
+    Readers only understand the current shape, so an unstamped store answers
+    nothing while still holding its memory.
+    """
+    if await is_cache_schema_current(cache, schema_key, version):
+        return False
+
+    present = [key for key in keys if await cache.exists(key)]
+    if not present:
+        return False
+
+    await cache.delete(*present, schema_key)
+    return True

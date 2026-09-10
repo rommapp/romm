@@ -21,6 +21,23 @@ LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY: Final[str] = (
     "romm:launchbox_metadata_initial_import"
 )
+LAUNCHBOX_METADATA_SCHEMA_KEY: Final[str] = "romm:launchbox_metadata_schema"
+
+# Bumped whenever an import changes what a store holds, so a store an older
+# release wrote is dropped and rebuilt rather than read as the current shape.
+LAUNCHBOX_METADATA_SCHEMA_VERSION: Final[int] = 1
+
+# Every hash the import fills, dropped together when the schema moves on.
+LAUNCHBOX_STORE_KEYS: Final[tuple[str, ...]] = (
+    LAUNCHBOX_PLATFORMS_KEY,
+    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
+    LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_MAME_KEY,
+    LAUNCHBOX_FILES_KEY,
+)
 
 LAUNCHBOX_LOCAL_DIR: Final[Path] = Path(ROMM_BASE_PATH) / "launchbox"
 LAUNCHBOX_PLATFORMS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Data" / "Platforms"
@@ -39,11 +56,14 @@ class LaunchboxImage(TypedDict):
     region: NotRequired[str]
 
 
-# `DatabaseID` repeats the field the list is stored under and `CRC32` has no
-# reader; across the dump's 1.3M images the pair costs ~100MB of cache.
+# What each store keeps of its dump element: the fields its reader reads, and
+# never one the cache key already carries. Together these drop ~135MB.
 LAUNCHBOX_IMAGE_FIELDS: Final[frozenset[str]] = frozenset(
     {"FileName", "Type", "Region"}
 )
+LAUNCHBOX_FILE_FIELDS: Final[frozenset[str]] = frozenset({"GameName"})
+LAUNCHBOX_MAME_FIELDS: Final[frozenset[str]] = frozenset({"Name"})
+LAUNCHBOX_ALTERNATE_NAME_FIELDS: Final[frozenset[str]] = frozenset({"DatabaseID"})
 
 
 class LaunchboxPlatform(TypedDict):

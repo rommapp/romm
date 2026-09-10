@@ -26,18 +26,12 @@ class RemoteSource:
         return json.loads(entry)
 
     async def _lookup_title_index(self, key: str, field: str) -> dict | None:
-        """Read a title index hit and resolve the database id it holds.
-
-        An index written by an earlier import holds the whole record instead.
-        """
-        raw = await async_cache.hget(key, field)
-        if not raw:
+        """Read a title index hit and resolve the database id it holds."""
+        database_id = await async_cache.hget(key, field)
+        if not database_id:
             return None
 
-        value = json.loads(raw)
-        if isinstance(value, dict):
-            return value
-        return await self.get_by_id(value)
+        return await self.get_by_id(json.loads(database_id))
 
     async def get_rom(
         self,

@@ -1,5 +1,7 @@
 """Tests for startup-time auto-enqueue of the recompute task."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 import startup
 from rq.exceptions import DuplicateJobError
@@ -128,3 +130,64 @@ class TestDropLegacySchedulerState:
         redis.zrange.side_effect = RuntimeError("redis gone")
 
         startup._drop_legacy_scheduler_state()
+
+
+class TestRebuildOutdatedMetadataStores:
+    """A store an older release wrote is dropped, and its rebuild queued."""
+
+    async def test_stale_launchbox_store_is_dropped_and_rebuilt(
+        self, mocker, enqueue_task
+    ):
+        mocker.patch.object(startup, "LAUNCHBOX_API_ENABLED", True)
+        drop = mocker.patch.object(
+            startup, "drop_stale_cache_store", new_callable=AsyncMock
+        )
+        drop.side_effect = [True, False]
+
+        await startup._rebuild_outdated_metadata_stores()
+
+        enqueue_task.assert_called_once_with(
+            "update_launchbox_metadata",
+            job_id=startup.UPDATE_LAUNCHBOX_METADATA_JOB_ID,
+            unique=True,
+        )
+
+    async def test_launchbox_rebuild_waits_on_the_provider_being_enabled(
+        self, mocker, enqueue_task
+    ):
+        """Dropping reclaims the memory; refilling it would serve nobody."""
+        mocker.patch.object(startup, "LAUNCHBOX_API_ENABLED", False)
+        drop = mocker.patch.object(
+            startup, "drop_stale_cache_store", new_callable=AsyncMock
+        )
+        drop.side_effect = [True, False]
+
+        await startup._rebuild_outdated_metadata_stores()
+
+        enqueue_task.assert_not_called()
+
+    async def test_stale_switch_store_is_dropped_and_rebuilt(
+        self, mocker, enqueue_task
+    ):
+        drop = mocker.patch.object(
+            startup, "drop_stale_cache_store", new_callable=AsyncMock
+        )
+        drop.side_effect = [False, True]
+
+        await startup._rebuild_outdated_metadata_stores()
+
+        enqueue_task.assert_called_once_with(
+            "update_switch_titledb",
+            job_id=startup.UPDATE_SWITCH_TITLEDB_JOB_ID,
+            unique=True,
+        )
+
+    async def test_current_stores_queue_nothing(self, mocker, enqueue_task):
+        drop = mocker.patch.object(
+            startup, "drop_stale_cache_store", new_callable=AsyncMock
+        )
+        drop.return_value = False
+
+        await startup._rebuild_outdated_metadata_stores()
+
+        enqueue_task.assert_not_called()
