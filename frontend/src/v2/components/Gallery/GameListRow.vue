@@ -31,6 +31,7 @@ import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
+import { toWebpUrl } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import { activeProviders } from "@/v2/utils/metadataProviders";
@@ -92,8 +93,6 @@ const platformsStore = storePlatforms();
 const { morphTransition } = useViewTransition();
 const setBgArt = useBackgroundArt();
 const { locale } = useI18n();
-
-const EXTENSION_REGEX = /\.(png|jpg|jpeg)$/i;
 
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const listSkeletonColumns = columns;
@@ -228,11 +227,7 @@ function onRowHighlight() {
   const item = rom.value;
   if (!item) return;
   const path = item.path_cover_large ?? item.path_cover_small ?? null;
-  const coverUrl = path
-    ? props.webp
-      ? path.replace(EXTENSION_REGEX, ".webp")
-      : path
-    : null;
+  const coverUrl = path ? toWebpUrl(path, !!props.webp) : null;
   if (coverUrl) setBgArt(coverUrl);
   else if (item.url_cover) setBgArt(item.url_cover);
 }

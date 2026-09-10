@@ -7,11 +7,22 @@
 //
 //   const { supportsWebp, toWebp } = useWebpSupport();
 //   <img :src="toWebp(rom.path_cover_large)" />
+//
+// Code without a component instance (a pure resolver, a store) reaches for
+// `toWebpUrl` and passes the flag in.
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 
-const RASTER_EXT = /\.(png|jpe?g)$/i;
+// The extension ends the *path*, not the URL: a cover arrives from the backend
+// as `.../cover/big.png?ts=<updated_at>`, so anchoring on the end of the string
+// would never match one.
+const RASTER_EXT = /\.(png|jpe?g)(?=$|[?#])/i;
+
+/** Point a cover URL at its converted sibling, when the server serves them. */
+export function toWebpUrl(url: string, supportsWebp: boolean): string {
+  return supportsWebp ? url.replace(RASTER_EXT, ".webp") : url;
+}
 
 export function useWebpSupport(): {
   supportsWebp: ComputedRef<boolean>;
@@ -26,7 +37,7 @@ export function useWebpSupport(): {
 
   function toWebp(url: string | null | undefined): string {
     if (!url) return "";
-    return supportsWebp.value ? url.replace(RASTER_EXT, ".webp") : url;
+    return toWebpUrl(url, supportsWebp.value);
   }
 
   return { supportsWebp, toWebp };
