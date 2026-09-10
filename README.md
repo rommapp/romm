@@ -74,7 +74,7 @@ Effortlessly integrate your retro game collection into [Playnite](https://playni
 
 <a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><img src=".github/resources/playnite-install-button.svg" width="118" height="34" align="middle" alt="Install" /></a> <sub>by <a href="https://github.com/gantoine">@gantoine</a></sub>
 
-<br clear="left" /><br />
+<br clear="left" />
 
 <a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/screenshots/app-argosy.webp" width="420" align="left" alt="Argosy library" /></a>
 
@@ -86,7 +86,7 @@ Sync your library, download games on demand and track your achievements, from a 
 
 <a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><img src=".github/resources/argosy-download-button.svg" width="118" height="34" align="middle" alt="Download" /></a> <sub>by <a href="https://github.com/tmgast">@tmgast</a></sub>
 
-<br clear="left" /><br />
+<br clear="left" />
 
 <a href="https://github.com/rommapp/grout"><img src=".github/resources/screenshots/app-grout.webp" width="420" align="left" alt="Grout multi-select" /></a>
 
@@ -100,7 +100,7 @@ A lightweight client for your favorite handheld custom firmwares. Download games
 
 <sub><i>Supports Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce and TrimUI.</i></sub>
 
-<br clear="left" /><br />
+<br clear="left" />
 
 ## Community
 
