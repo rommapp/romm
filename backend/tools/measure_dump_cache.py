@@ -225,22 +225,12 @@ def plain(value: Any) -> bytes:
     return json.dumps(value).encode()
 
 
-def load(
-    client: redis.Redis, records: Iterator[Record], serialize: Any
-) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
-    """Write every record, returning per-store field counts and byte totals."""
-    counts: dict[str, int] = {}
-    raw_bytes: dict[str, int] = {}
-    stored_bytes: dict[str, int] = {}
-
+def load(client: redis.Redis, records: Iterator[Record], serialize: Any) -> None:
+    """Write every record into the store its key names."""
     pipe = client.pipeline(transaction=False)
     queued = 0
     for key, field, value in records:
-        blob = serialize(value)
-        pipe.hset(key, mapping={field: blob})
-        counts[key] = counts.get(key, 0) + 1
-        raw_bytes[key] = raw_bytes.get(key, 0) + len(plain(value))
-        stored_bytes[key] = stored_bytes.get(key, 0) + len(blob)
+        pipe.hset(key, mapping={field: serialize(value)})
         queued += 1
         if queued >= WRITE_BATCH:
             pipe.execute()
@@ -248,7 +238,25 @@ def load(
     if queued:
         pipe.execute()
 
-    return counts, raw_bytes, stored_bytes
+
+def store_stats(client: redis.Redis) -> tuple[dict[str, int], dict[str, int]]:
+    """Field count and total value bytes per store, read back off the hashes.
+
+    Taken from the stores rather than tallied while writing, because the dump
+    repeats a title on one platform and an alternate name across platforms, so
+    several records land on one field and only the last of them survives.
+    """
+    counts: dict[str, int] = {}
+    value_bytes: dict[str, int] = {}
+    for key in STORE_KEYS:
+        count = client.hlen(key)
+        if not count:
+            continue
+        counts[key] = count
+        value_bytes[key] = sum(
+            len(value) for _, value in client.hscan_iter(key, count=1000)
+        )
+    return counts, value_bytes
 
 
 def foreign_keys(client: redis.Redis) -> int:
@@ -257,14 +265,19 @@ def foreign_keys(client: redis.Redis) -> int:
     return sum(1 for key in client.scan_iter(count=1000) if key not in owned)
 
 
-def clear_stores(client: redis.Redis) -> int:
-    """Drop only this tool's stores, returning what the server uses without them.
+def clear_stores(client: redis.Redis) -> tuple[int, int]:
+    """Drop only this tool's stores, returning usage without them.
 
     Deliberately not `flushall`: the URL can point at a live RomM instance,
     whose sessions and RQ queues share the database with these stores.
+
+    Returns:
+        The server's `used_memory` and `used_memory_rss` with the stores gone,
+        each of which only ever offsets the same metric.
     """
     client.delete(*STORE_KEYS)
-    return int(client.info("memory")["used_memory"])
+    info = client.info("memory")
+    return int(info["used_memory"]), int(info["used_memory_rss"])
 
 
 def measure(client: redis.Redis, keys: list[str]) -> tuple[dict[str, int], int, int]:
@@ -352,6 +365,12 @@ def main() -> int:
         action="store_true",
         help="run even though the server holds data other than these stores",
     )
+    parser.add_argument(
+        "--only",
+        choices=("plain", "encoded"),
+        help="load one encoding and report it, for reading RSS off a server "
+        "started fresh for this pass",
+    )
     args = parser.parse_args()
 
     if args.sweep:
@@ -378,25 +397,33 @@ def main() -> int:
 
     benched = (DATABASE_ID_KEY, IMAGE_KEY, TITLEDB_KEY)
     results = {}
-    for label, serialize in (("plain", plain), ("encoded", encode)):
-        baseline = clear_stores(client)
+    passes = [("plain", plain), ("encoded", encode)]
+    if args.only:
+        passes = [p for p in passes if p[0] == args.only]
+
+    for label, serialize in passes:
+        base_used, _ = clear_stores(client)
         start = time.perf_counter()
-        counts, raw_bytes, stored_bytes = load(client, records(), serialize)
+        load(client, records(), serialize)
         elapsed = time.perf_counter() - start
+        counts, value_bytes = store_stats(client)
         sizes, used, rss = measure(client, list(counts))
         # Net of anything else on the server, so a non-empty one still reports
-        # what the dumps themselves cost.
-        used -= baseline
-        rss -= baseline
+        # what the dumps themselves cost. Only `used_memory` can be offset this
+        # way; RSS keeps the pages a delete frees, so it is left absolute.
+        used -= base_used
         latency = {key: bench_decode(client, key) for key in benched}
-        results[label] = (counts, raw_bytes, stored_bytes, sizes, used, rss, latency)
+        results[label] = (counts, value_bytes, sizes, used, rss, latency)
         print(
             f"{label}: loaded in {elapsed:.0f}s, used_memory {mb(used)}, "
             f"rss {mb(rss)}"
         )
 
-    p_counts, p_raw, p_stored, p_sizes, p_used, p_rss, p_latency = results["plain"]
-    _, e_raw, e_stored, e_sizes, e_used, e_rss, e_latency = results["encoded"]
+    if args.only:
+        return 0
+
+    p_counts, p_values, p_sizes, p_used, p_rss, p_latency = results["plain"]
+    _, e_values, e_sizes, e_used, e_rss, e_latency = results["encoded"]
 
     print(f"\nCOMPRESS_MIN_BYTES = {COMPRESS_MIN_BYTES}\n")
     header = f"{'store':<40} {'fields':>10} {'plain':>9} {'encoded':>9} {'saved':>7}"
@@ -420,15 +447,14 @@ def main() -> int:
         f"{'used_memory (dump stores)':<40} {'':>10} {mb(p_used)} {mb(e_used)} "
         f"{1 - e_used / p_used:>6.0%}"
     )
-    print(
-        f"{'used_memory_rss (dump stores)':<40} {'':>10} {mb(p_rss)} {mb(e_rss)} "
-        f"{1 - e_rss / p_rss:>6.0%}"
-    )
+    # Absolute, and only comparable between passes on a server restarted
+    # between them, which is what --only is for.
+    print(f"{'used_memory_rss (absolute)':<40} {'':>10} {mb(p_rss)} {mb(e_rss)}")
 
+    p_value_total, e_value_total = sum(p_values.values()), sum(e_values.values())
     print(
-        f"\nvalue bytes only: {mb(sum(p_stored.values()))} -> "
-        f"{mb(sum(e_stored.values()))} "
-        f"({sum(p_raw.values()) / sum(e_stored.values()):.2f}x on the JSON)"
+        f"\nstored value bytes: {mb(p_value_total)} -> {mb(e_value_total)} "
+        f"({p_value_total / e_value_total:.2f}x)"
     )
 
     print(
