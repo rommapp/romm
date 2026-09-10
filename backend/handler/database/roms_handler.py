@@ -11,6 +11,7 @@ from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
+    Enum,
     Integer,
     String,
     Text,
@@ -180,6 +181,13 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "average_rating": Rom.generated_average_rating,
     "player_count": Rom.generated_player_count,
 }
+
+
+def _sorts_nulls_last(order_column: Any) -> bool:
+    """RomUser sort keys are NULL for roms the user never touched; the query
+    ordering and the char-index walk must both pin that bucket last."""
+    return getattr(order_column, "class_", None) is RomUser
+
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Column order matches the unpacking
@@ -1640,7 +1648,6 @@ class DBRomsHandler(DBBaseHandler):
 
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)
-            query = query.filter(RomUser.user_id == user_id)
         elif order_by in ROM_METADATA_ORDER_COLUMNS:
             order_attr = ROM_METADATA_ORDER_COLUMNS[order_by]
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
@@ -1659,6 +1666,14 @@ class DBRomsHandler(DBBaseHandler):
 
         order_attr_column = order_attr
 
+        # MariaDB/MySQL have no NULLS LAST, so a leading IS NULL term keeps NULL
+        # keys (no rom_user row, or an unset field) last in both directions.
+        nulls_last_clause = (
+            order_attr_column.is_(None)
+            if _sorts_nulls_last(order_attr_column)
+            else None
+        )
+
         if order_dir.lower() == "desc":
             order_attr = order_attr.desc()
         else:
@@ -1673,14 +1688,14 @@ class DBRomsHandler(DBBaseHandler):
                     "AGAINST(:relevance IN BOOLEAN MODE) DESC"
                 ).bindparams(relevance=relevance)
 
-        if order_by:  # explicit sort wins, relevance breaks ties
-            order_clauses = [order_attr]
-            if relevance_clause is not None:
-                order_clauses.append(relevance_clause)
-        else:  # no sort selected: relevance leads, name is the tiebreaker
-            order_clauses = [order_attr]
-            if relevance_clause is not None:
-                order_clauses.insert(0, relevance_clause)
+        # An explicit sort wins with relevance breaking ties; with no sort
+        # selected, relevance leads and name is the tiebreaker.
+        ordering = (
+            (nulls_last_clause, order_attr, relevance_clause)
+            if order_by
+            else (relevance_clause, order_attr)
+        )
+        order_clauses = [clause for clause in ordering if clause is not None]
 
         # The id settles ties, so a page boundary can't repeat or skip a row
         # when the sort column holds duplicates.
@@ -1812,13 +1827,23 @@ class DBRomsHandler(DBBaseHandler):
         # accumulating those counts avoids row_number() over the whole library,
         # which forced a full materialization + filesort on large libraries.
         descending = order_dir.lower() == "desc"
-        letter = func.substring(order_by_attr, 1, 1)
+        letter_source = order_by_attr
+        if isinstance(order_by_attr.type, Enum):
+            # PostgreSQL has no substring() overload for native enums.
+            letter_source = cast(order_by_attr, String)
+        letter = func.substring(letter_source, 1, 1)
+        letter_order: list[ColumnElement[Any]] = []
+        # A NULLS-pinned sort needs the letter walk to visit that bucket last
+        # too, or every offset shifts by its size.
+        if _sorts_nulls_last(order_by_attr):
+            letter_order.append(letter.is_(None))
+        letter_order.append(letter.desc() if descending else letter.asc())
         counts = (
             query.with_only_columns(  # type: ignore
                 letter.label("letter"), func.count().label("count")
             )
             .group_by(letter)
-            .order_by(letter.desc() if descending else letter.asc())
+            .order_by(*letter_order)
         )
 
         # Walk the letters in the same direction the client paginates over, so
