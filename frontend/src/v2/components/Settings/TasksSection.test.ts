@@ -92,7 +92,9 @@ describe("TasksSection", () => {
 
   it("leaves the button live when only the display title matches", async () => {
     getTaskStatus.mockResolvedValue({
-      data: [status({ task_key: "some_other_task" })],
+      data: [
+        status({ task_key: "some_other_task", task_name: "cleanup_zip_cache" }),
+      ],
     });
 
     const wrapper = await mountSection();
