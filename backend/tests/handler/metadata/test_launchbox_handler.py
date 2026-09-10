@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from anyio import Path as AnyioPath
 from defusedxml import ElementTree as ET
+from tests.handler.metadata.conftest import schema_stamp_get
 
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
@@ -40,8 +41,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
-    LAUNCHBOX_METADATA_SCHEMA_KEY,
-    LAUNCHBOX_METADATA_SCHEMA_VERSION,
+    LAUNCHBOX_METADATA_STORE,
     LaunchboxImage,
     LaunchboxMetadata,
     MediaRequest,
@@ -100,17 +100,6 @@ SAMPLE_N64_XML = """\
   </Game>
 </LaunchBox>
 """
-
-
-def current_schema_get() -> AsyncMock:
-    """Answer the schema stamp read with the version the readers expect."""
-
-    async def get(key: str) -> str | None:
-        if key == LAUNCHBOX_METADATA_SCHEMA_KEY:
-            return str(LAUNCHBOX_METADATA_SCHEMA_VERSION)
-        return None
-
-    return AsyncMock(side_effect=get)
 
 
 REMOTE_ENTRY = {
@@ -1359,7 +1348,9 @@ class TestRemoteMatchLocalImages:
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
-        monkeypatch.setattr(async_cache, "get", current_schema_get())
+        monkeypatch.setattr(
+            async_cache, "get", schema_stamp_get(LAUNCHBOX_METADATA_STORE)
+        )
 
         with patch(
             "handler.metadata.launchbox_handler.handler.fs_rom_handler"
@@ -1491,7 +1482,9 @@ class TestLaunchboxHandlerHeartbeat:
             patch.object(
                 async_cache, "exists", self._cache_exists(LAUNCHBOX_METADATA_NAME_KEY)
             ),
-            patch.object(async_cache, "get", current_schema_get()),
+            patch.object(
+                async_cache, "get", schema_stamp_get(LAUNCHBOX_METADATA_STORE)
+            ),
         ):
             assert await handler.heartbeat() is True
 
@@ -1547,7 +1540,9 @@ class TestLaunchboxHandlerGetRom:
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
-        monkeypatch.setattr(async_cache, "get", current_schema_get())
+        monkeypatch.setattr(
+            async_cache, "get", schema_stamp_get(LAUNCHBOX_METADATA_STORE)
+        )
         return h
 
     async def test_disabled_returns_fallback(
@@ -1899,7 +1894,9 @@ class TestLaunchboxHandlerSearch:
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
-        monkeypatch.setattr(async_cache, "get", current_schema_get())
+        monkeypatch.setattr(
+            async_cache, "get", schema_stamp_get(LAUNCHBOX_METADATA_STORE)
+        )
         return h
 
     async def test_get_matched_roms_by_name_disabled_returns_empty(

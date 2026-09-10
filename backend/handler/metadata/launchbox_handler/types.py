@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Final, NotRequired, TypedDict
 
 from config import ROMM_BASE_PATH
+from utils.cache import VersionedCacheStore
 
 from ..base_handler import BaseRom
 
@@ -21,22 +22,21 @@ LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY: Final[str] = (
     "romm:launchbox_metadata_initial_import"
 )
-LAUNCHBOX_METADATA_SCHEMA_KEY: Final[str] = "romm:launchbox_metadata_schema"
 
-# Bumped whenever an import changes what a store holds, so a store an older
-# release wrote is dropped and rebuilt rather than read as the current shape.
-LAUNCHBOX_METADATA_SCHEMA_VERSION: Final[int] = 1
-
-# Every hash the import fills, dropped together when the schema moves on.
-LAUNCHBOX_STORE_KEYS: Final[tuple[str, ...]] = (
-    LAUNCHBOX_PLATFORMS_KEY,
-    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
-    LAUNCHBOX_METADATA_NAME_KEY,
-    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
-    LAUNCHBOX_METADATA_IMAGE_KEY,
-    LAUNCHBOX_MAME_KEY,
-    LAUNCHBOX_FILES_KEY,
+# Every hash the Metadata.zip import fills, dropped together on a schema bump.
+LAUNCHBOX_METADATA_STORE: Final[VersionedCacheStore] = VersionedCacheStore(
+    schema_key="romm:launchbox_metadata_schema",
+    version=1,
+    keys=(
+        LAUNCHBOX_PLATFORMS_KEY,
+        LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+        LAUNCHBOX_METADATA_NAME_KEY,
+        LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+        LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
+        LAUNCHBOX_METADATA_IMAGE_KEY,
+        LAUNCHBOX_MAME_KEY,
+        LAUNCHBOX_FILES_KEY,
+    ),
 )
 
 LAUNCHBOX_LOCAL_DIR: Final[Path] = Path(ROMM_BASE_PATH) / "launchbox"
@@ -57,13 +57,12 @@ class LaunchboxImage(TypedDict):
 
 
 # What each store keeps of its dump element: the fields its reader reads, and
-# never one the cache key already carries. Together these drop ~135MB.
+# never one the cache key already carries.
 LAUNCHBOX_IMAGE_FIELDS: Final[frozenset[str]] = frozenset(
     {"FileName", "Type", "Region"}
 )
 LAUNCHBOX_FILE_FIELDS: Final[frozenset[str]] = frozenset({"GameName"})
 LAUNCHBOX_MAME_FIELDS: Final[frozenset[str]] = frozenset({"Name"})
-LAUNCHBOX_ALTERNATE_NAME_FIELDS: Final[frozenset[str]] = frozenset({"DatabaseID"})
 
 
 class LaunchboxPlatform(TypedDict):

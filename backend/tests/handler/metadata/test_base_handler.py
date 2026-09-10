@@ -6,6 +6,7 @@ from urllib.parse import parse_qsl, urlparse
 
 import httpx
 import pytest
+from tests.handler.metadata.conftest import schema_stamp_get
 
 from handler.metadata import base_handler
 from handler.metadata.base_handler import (
@@ -32,8 +33,7 @@ from models.rom import Rom
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
-    SWITCH_TITLEDB_SCHEMA_KEY,
-    SWITCH_TITLEDB_SCHEMA_VERSION,
+    SWITCH_TITLEDB_STORE,
 )
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug
@@ -116,17 +116,6 @@ class TestNormalizeSearchTerm:
 
         assert result1 == result2
         assert cache_info2.hits == cache_info1.hits + 1
-
-
-def current_schema_get() -> AsyncMock:
-    """Answer the schema stamp read with the version the readers expect."""
-
-    async def get(key: str) -> str | None:
-        if key == SWITCH_TITLEDB_SCHEMA_KEY:
-            return str(SWITCH_TITLEDB_SCHEMA_VERSION)
-        return None
-
-    return AsyncMock(side_effect=get)
 
 
 class TestMetadataHandlerMethods:
@@ -285,7 +274,7 @@ class TestMetadataHandlerMethods:
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch.object(
-            async_cache, "get", current_schema_get()
+            async_cache, "get", schema_stamp_get(SWITCH_TITLEDB_STORE)
         ), patch.object(
             async_cache, "hget", new_callable=AsyncMock
         ) as mock_hget:
@@ -342,7 +331,7 @@ class TestMetadataHandlerMethods:
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch.object(
-            async_cache, "get", current_schema_get()
+            async_cache, "get", schema_stamp_get(SWITCH_TITLEDB_STORE)
         ), patch.object(
             async_cache, "hget", new_callable=AsyncMock
         ) as mock_hget:
@@ -389,7 +378,7 @@ class TestMetadataHandlerMethods:
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch.object(
-            async_cache, "get", current_schema_get()
+            async_cache, "get", schema_stamp_get(SWITCH_TITLEDB_STORE)
         ), patch.object(
             async_cache, "hget", new_callable=AsyncMock
         ) as mock_hget:

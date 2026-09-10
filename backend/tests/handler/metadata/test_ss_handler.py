@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi import HTTPException, status
+from tests.handler.metadata.conftest import schema_stamp_get
 
 from adapters.services.screenscraper import (
     ScreenScraperCredentialsError,
@@ -39,7 +40,7 @@ from handler.metadata.ss_handler import (
 )
 from handler.redis_handler import async_cache
 from models.rom import Rom
-from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_SCHEMA_VERSION
+from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 
 
 def _make_config(
@@ -1910,12 +1911,7 @@ class TestSonySerialFilenames:
                 return_value=True,
             ),
             patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
-            patch.object(
-                async_cache,
-                "get",
-                new_callable=AsyncMock,
-                return_value=str(SWITCH_TITLEDB_SCHEMA_VERSION),
-            ),
+            patch.object(async_cache, "get", schema_stamp_get(SWITCH_TITLEDB_STORE)),
             patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
             patch.object(
                 SSHandler, "_search_rom", new_callable=AsyncMock, return_value=None

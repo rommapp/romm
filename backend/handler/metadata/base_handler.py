@@ -15,10 +15,9 @@ from logger.logger import log
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
-    SWITCH_TITLEDB_SCHEMA_KEY,
-    SWITCH_TITLEDB_SCHEMA_VERSION,
+    SWITCH_TITLEDB_STORE,
 )
-from utils.cache import is_cache_schema_current
+from utils.cache import is_cache_store_ready
 from utils.context import ctx_httpx_client
 from utils.switch import derive_base_title_id
 
@@ -315,13 +314,10 @@ class MetadataHandler(abc.ABC):
 
     @staticmethod
     async def _is_switch_titledb_current() -> bool:
-        """Whether both Switch indexes were written by the current import."""
-        if not await is_cache_schema_current(
-            async_cache, SWITCH_TITLEDB_SCHEMA_KEY, SWITCH_TITLEDB_SCHEMA_VERSION
-        ):
-            return False
-
-        return bool(await async_cache.exists(SWITCH_TITLEDB_INDEX_KEY))
+        """Whether the titleID index was written by the current import."""
+        return await is_cache_store_ready(
+            async_cache, SWITCH_TITLEDB_STORE, SWITCH_TITLEDB_INDEX_KEY
+        )
 
     @staticmethod
     async def _switch_titledb_entry(title_id: str) -> dict | None:

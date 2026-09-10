@@ -17,8 +17,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
-    LAUNCHBOX_METADATA_SCHEMA_KEY,
-    LAUNCHBOX_METADATA_SCHEMA_VERSION,
+    LAUNCHBOX_METADATA_STORE,
     LAUNCHBOX_PLATFORMS_KEY,
 )
 from handler.redis_handler import async_cache
@@ -233,9 +232,10 @@ class TestUpdateLaunchboxMetadataTask:
             ]
         ]
 
-        # Every other store keeps its reader's field, and never one the key
-        # already carries: the fixture's Platform, FileType and Size all go.
-        assert values(metadata_alt_calls) == [{"DatabaseID": "12345"}]
+        # The alternate name index points at the record like the other two.
+        assert values(metadata_alt_calls) == ["12345"]
+
+        # A store keeps its reader's field, never one the key already carries.
         assert values(files_calls) == [
             {"GameName": "Super Mario 64"},
             {"GameName": "Crash Bandicoot"},
@@ -368,18 +368,8 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
         # Verify that all expected Redis keys were used
         redis_keys_used = [call[0][0] for call in hset_calls]
 
-        expected_keys = [
-            LAUNCHBOX_PLATFORMS_KEY,
-            LAUNCHBOX_METADATA_DATABASE_ID_KEY,
-            LAUNCHBOX_METADATA_NAME_KEY,
-            LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
-            LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-            LAUNCHBOX_METADATA_IMAGE_KEY,
-            LAUNCHBOX_MAME_KEY,
-            LAUNCHBOX_FILES_KEY,
-        ]
-
-        for expected_key in expected_keys:
+        # The tuple the schema drop deletes has to name every key written.
+        for expected_key in LAUNCHBOX_METADATA_STORE.keys:
             assert (
                 expected_key in redis_keys_used
             ), f"Expected key {expected_key} not found in Redis operations"
@@ -477,7 +467,10 @@ class TestInitialImportFlag:
 
         assert [call.args for call in mock_set.await_args_list] == [
             (LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1"),
-            (LAUNCHBOX_METADATA_SCHEMA_KEY, str(LAUNCHBOX_METADATA_SCHEMA_VERSION)),
+            (
+                LAUNCHBOX_METADATA_STORE.schema_key,
+                str(LAUNCHBOX_METADATA_STORE.version),
+            ),
         ]
         mock_delete.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY)
 
@@ -496,7 +489,7 @@ class TestInitialImportFlag:
             patch.object(
                 async_cache,
                 "get",
-                AsyncMock(return_value=str(LAUNCHBOX_METADATA_SCHEMA_VERSION)),
+                AsyncMock(return_value=str(LAUNCHBOX_METADATA_STORE.version)),
             ),
             patch.object(async_cache, "set", AsyncMock()) as mock_set,
             patch.object(async_cache, "delete", AsyncMock()),
@@ -505,7 +498,7 @@ class TestInitialImportFlag:
 
         # Only the schema stamp, never the initial-import flag.
         mock_set.assert_awaited_once_with(
-            LAUNCHBOX_METADATA_SCHEMA_KEY, str(LAUNCHBOX_METADATA_SCHEMA_VERSION)
+            LAUNCHBOX_METADATA_STORE.schema_key, str(LAUNCHBOX_METADATA_STORE.version)
         )
 
     @patch.object(RemoteFilePullTask, "run")

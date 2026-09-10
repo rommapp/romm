@@ -2,6 +2,7 @@ import json
 
 from handler.redis_handler import async_cache
 from logger.logger import log
+from utils.cache import is_cache_store_ready
 
 from .platforms import get_platform
 from .types import (
@@ -12,6 +13,7 @@ from .types import (
     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_STORE,
 )
 from .utils import deinvert_article, file_name_forms, fold_title
 
@@ -40,10 +42,10 @@ class RemoteSource:
         *,
         assume_cache_present: bool = False,
     ) -> dict | None:
-        if not assume_cache_present and not (
-            await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)
+        if not assume_cache_present and not await is_cache_store_ready(
+            async_cache, LAUNCHBOX_METADATA_STORE, LAUNCHBOX_METADATA_NAME_KEY
         ):
-            log.error("Could not find the Launchbox Metadata.xml file in cache")
+            log.error("Could not find a current Launchbox Metadata.xml in cache")
             return None
 
         lb_platform = get_platform(platform_slug)
@@ -76,14 +78,9 @@ class RemoteSource:
                 return entry
 
         for candidate in candidates:
-            metadata_alternate_name_index_entry = await async_cache.hget(
+            entry = await self._lookup_title_index(
                 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY, candidate
             )
-            if not metadata_alternate_name_index_entry:
-                continue
-
-            database_id = json.loads(metadata_alternate_name_index_entry)["DatabaseID"]
-            entry = await self.get_by_id(database_id)
             if not entry:
                 continue
 

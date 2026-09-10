@@ -24,11 +24,7 @@ from handler.metadata.base_handler import (
     PSP_SERIAL_INDEX_KEY,
     SCUMMVM_INDEX_KEY,
 )
-from handler.metadata.launchbox_handler.types import (
-    LAUNCHBOX_METADATA_SCHEMA_KEY,
-    LAUNCHBOX_METADATA_SCHEMA_VERSION,
-    LAUNCHBOX_STORE_KEYS,
-)
+from handler.metadata.launchbox_handler.types import LAUNCHBOX_METADATA_STORE
 from handler.redis_handler import (
     async_cache,
     default_queue,
@@ -40,11 +36,7 @@ from handler.scan_jobs import drop_stale_scheduled_scans
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
 from tasks.registry import enqueue_task
-from tasks.scheduled.update_switch_titledb import (
-    SWITCH_TITLEDB_SCHEMA_KEY,
-    SWITCH_TITLEDB_SCHEMA_VERSION,
-    SWITCH_TITLEDB_STORE_KEYS,
-)
+from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 from utils import get_version
 from utils.cache import conditionally_set_cache, drop_stale_cache_store
 from utils.context import initialize_context
@@ -103,32 +95,33 @@ def _enqueue_convert_images_to_webp() -> None:
     _enqueue_backfill("convert_images_to_webp", CONVERT_IMAGES_TO_WEBP_JOB_ID)
 
 
+# A provider that is off reclaims its store's memory without queueing a
+# download nothing would read.
+VERSIONED_METADATA_STORES = (
+    (
+        LAUNCHBOX_METADATA_STORE,
+        "update_launchbox_metadata",
+        UPDATE_LAUNCHBOX_METADATA_JOB_ID,
+        LAUNCHBOX_API_ENABLED,
+    ),
+    (
+        SWITCH_TITLEDB_STORE,
+        "update_switch_titledb",
+        UPDATE_SWITCH_TITLEDB_JOB_ID,
+        True,
+    ),
+)
+
+
 async def _rebuild_outdated_metadata_stores() -> None:
-    """Drop the metadata stores an older release wrote and queue their rebuild.
+    """Drop the metadata stores an older release wrote and queue their rebuild."""
+    for store, task_name, job_id, rebuild in VERSIONED_METADATA_STORES:
+        if not await drop_stale_cache_store(async_cache, store):
+            continue
 
-    Lookups read the current shape only, so an old store answers nothing while
-    still holding several hundred MB of cache.
-    """
-    if await drop_stale_cache_store(
-        async_cache,
-        LAUNCHBOX_METADATA_SCHEMA_KEY,
-        LAUNCHBOX_METADATA_SCHEMA_VERSION,
-        LAUNCHBOX_STORE_KEYS,
-    ):
-        log.info("Dropped a LaunchBox metadata store left by an older release")
-        if LAUNCHBOX_API_ENABLED:
-            _enqueue_backfill(
-                "update_launchbox_metadata", UPDATE_LAUNCHBOX_METADATA_JOB_ID
-            )
-
-    if await drop_stale_cache_store(
-        async_cache,
-        SWITCH_TITLEDB_SCHEMA_KEY,
-        SWITCH_TITLEDB_SCHEMA_VERSION,
-        SWITCH_TITLEDB_STORE_KEYS,
-    ):
-        log.info("Dropped a Switch TitleDB store left by an older release")
-        _enqueue_backfill("update_switch_titledb", UPDATE_SWITCH_TITLEDB_JOB_ID)
+        log.info(f"Dropped the {task_name} store left by an older release")
+        if rebuild:
+            _enqueue_backfill(task_name, job_id)
 
 
 # Keys the rq-scheduler process left behind, now owned by the cron config.
