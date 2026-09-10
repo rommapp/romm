@@ -3,10 +3,10 @@
 from unittest.mock import AsyncMock
 
 import pytest
+import startup
 from rq.exceptions import DuplicateJobError
 from rq.job import JOB_ID_PATTERN
 
-import startup
 from handler.metadata.launchbox_handler.types import LAUNCHBOX_METADATA_STORE
 from tasks.registry import get_task
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE

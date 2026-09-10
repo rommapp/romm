@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi import HTTPException, status
+from tests.handler.metadata.conftest import schema_stamp_get
 
 from adapters.services.screenscraper import (
     ScreenScraperCredentialsError,
@@ -40,7 +41,6 @@ from handler.metadata.ss_handler import (
 from handler.redis_handler import async_cache
 from models.rom import Rom
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
-from tests.handler.metadata.conftest import schema_stamp_get
 
 
 def _make_config(

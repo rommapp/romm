@@ -7,6 +7,13 @@ import socketio
 from rq.exceptions import AbandonedJobError, InvalidJobOperation
 from rq.job import JobStatus
 from rq.timeouts import JobTimeoutException
+from tests.scan_job_stubs import (
+    NON_SCAN_FUNC,
+    make_job,
+    make_scoped_job,
+    make_task_job,
+    patch_scan_jobs,
+)
 
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
@@ -38,13 +45,6 @@ from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
-from tests.scan_job_stubs import (
-    NON_SCAN_FUNC,
-    make_job,
-    make_scoped_job,
-    make_task_job,
-    patch_scan_jobs,
-)
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 

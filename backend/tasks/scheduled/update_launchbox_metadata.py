@@ -320,7 +320,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                 processed_files += 1
                                 update_stats.update(processed=processed_files)
 
-        except zipfile.BadZipFile, RuntimeError, OSError:
+        except (zipfile.BadZipFile, RuntimeError, OSError):
             log.error("Bad zip file in launchbox metadata update")
             return update_stats.to_dict()
 

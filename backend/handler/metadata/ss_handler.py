@@ -556,7 +556,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
         try:
             return str(int(score) / 2)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return ""
 
     def _parse_date(date_text: str) -> int | None:

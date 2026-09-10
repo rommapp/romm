@@ -6,21 +6,19 @@ import anyio
 import pytest
 
 from config import TASK_TIMEOUT
-from handler.dump_cache import (
+from handler.dump_cache import decode
+from handler.metadata.launchbox_handler.handler import LaunchboxHandler
+from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LAUNCHBOX_METADATA_STORE,
     LAUNCHBOX_PLATFORMS_KEY,
-    decode,
-)
-from handler.metadata.launchbox_handler.handler import LaunchboxHandler
-from handler.metadata.launchbox_handler.types import (
-    LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
 )
 from handler.redis_handler import async_cache
 from tasks.scheduled.update_launchbox_metadata import (
