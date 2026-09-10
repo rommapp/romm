@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from authlib.integrations.starlette_client.apps import StarletteOAuth2App
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from joserfc.jwt import Token
 
 from handler.auth.base_handler import OpenIDHandler
@@ -315,7 +315,7 @@ async def test_oidc_registration_rewrites_a_username_romm_would_reject(
     assert mock_add_user.call_args.args[0].username == "first-last"
 
 
-async def test_oidc_registration_suffixes_a_taken_username(
+async def test_oidc_registration_rejects_a_taken_username(
     mocker,
     mock_oidc_enabled,
     mock_oidc_allow_registration_enabled,
@@ -330,9 +330,7 @@ async def test_oidc_registration_suffixes_a_taken_username(
     )
     mocker.patch(
         "handler.database.db_user_handler.get_user_by_username",
-        side_effect=lambda username: (
-            MagicMock() if username in ("a-user", "a-user-2") else None
-        ),
+        side_effect=lambda username: MagicMock() if username == "a-user" else None,
     )
     mock_add_user = mocker.patch(
         "handler.database.db_user_handler.add_user",
@@ -345,27 +343,27 @@ async def test_oidc_registration_suffixes_a_taken_username(
     )
 
     oidc_handler = OpenIDHandler()
-    await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+    with pytest.raises(HTTPException) as exc_info:
+        await oidc_handler.get_current_active_user_from_openid_token(mock_token)
 
-    assert mock_add_user.call_args.args[0].username == "a-user-3"
+    assert exc_info.value.status_code == status.HTTP_409_CONFLICT
+    mock_add_user.assert_not_called()
 
 
-async def test_oidc_registration_keeps_a_suffixed_username_inside_the_column(
+async def test_oidc_registration_keeps_a_long_username_inside_the_column(
     mocker,
     mock_oidc_enabled,
     mock_oidc_allow_registration_enabled,
     mock_token,
     mock_openid_configuration,
 ):
-    """A name already at the column's length leaves no room to append to."""
+    """A provider is free to hand out a name longer than the column."""
     mock_token["userinfo"]["preferred_username"] = "b" * (TEXT_FIELD_LENGTH + 10)
-    taken = "b" * TEXT_FIELD_LENGTH
     mocker.patch(
         "handler.database.db_user_handler.get_user_by_email", return_value=None
     )
     mocker.patch(
-        "handler.database.db_user_handler.get_user_by_username",
-        side_effect=lambda username: MagicMock() if username == taken else None,
+        "handler.database.db_user_handler.get_user_by_username", return_value=None
     )
     mock_add_user = mocker.patch(
         "handler.database.db_user_handler.add_user",
@@ -382,7 +380,6 @@ async def test_oidc_registration_keeps_a_suffixed_username_inside_the_column(
 
     username = mock_add_user.call_args.args[0].username
     assert len(username) == TEXT_FIELD_LENGTH
-    assert username.endswith("-2")
     validate_username(username)
 
 

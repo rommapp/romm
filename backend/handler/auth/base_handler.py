@@ -44,11 +44,13 @@ def _romm_username(provided: str, fallback: str) -> str:
 
     Returns:
         str: A username no other account holds
+
+    Raises:
+        HTTPException: If another account already holds that username
     """
     # Deferred: `utils.validation` reaches this module through `models.user`,
     # so importing it at module level closes a cycle.
     from handler.database import db_user_handler
-    from models.user import TEXT_FIELD_LENGTH
     from utils.validation import sanitize_username
 
     username = sanitize_username(provided, fallback=fallback)
@@ -59,22 +61,17 @@ def _romm_username(provided: str, fallback: str) -> str:
             hl(username, color=CYAN),
         )
 
-    candidate = username
-    suffix = 1
-    while db_user_handler.get_user_by_username(candidate) is not None:
-        suffix += 1
-        marker = f"-{suffix}"
-        # The suffix has to fit inside the column, not extend past it.
-        candidate = f"{username[: TEXT_FIELD_LENGTH - len(marker)]}{marker}"
-
-    if candidate != username:
-        log.info(
-            "OIDC username '%s' is taken, registering as '%s'",
+    if db_user_handler.get_user_by_username(username) is not None:
+        log.error(
+            "OIDC username '%s' is already taken by another account",
             hl(username, color=CYAN),
-            hl(candidate, color=CYAN),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Username '{username}' is already taken. Please contact an administrator.",
         )
 
-    return candidate
+    return username
 
 
 class AuthHandler:
