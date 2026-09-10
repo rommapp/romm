@@ -183,7 +183,6 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "hltb_main_story": Rom.generated_hltb_main_story,
 }
 
-
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Column order matches the unpacking
 # in `_collect_filter_values`.
@@ -299,16 +298,21 @@ def _filter_values_cache_keys_key(version: str) -> str:
     return f"filter_values:keys:v{version}"
 
 
+def _sidecar_redis_key(prefix: str, cache_key: str, version: str) -> str:
+    """Every gallery sidecar key shares this shape, so none can omit the schema version."""
+    return f"{prefix}:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+
+
 def _filter_values_redis_key(cache_key: str, version: str) -> str:
-    return f"filter_values:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+    return _sidecar_redis_key("filter_values", cache_key, version)
 
 
 def _char_index_redis_key(cache_key: str, version: str) -> str:
-    return f"char_index:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+    return _sidecar_redis_key("char_index", cache_key, version)
 
 
 def _rom_id_index_redis_key(cache_key: str, version: str) -> str:
-    return f"rom_id_index:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+    return _sidecar_redis_key("rom_id_index", cache_key, version)
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -1659,8 +1663,10 @@ class DBRomsHandler(DBBaseHandler):
     ) -> tuple[Query[Rom], Any]:
         query = self._join_rom_user(select(Rom), user_id)
 
+        sorts_by_rom_user = False
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)
+            sorts_by_rom_user = True
         elif order_by in ROM_METADATA_ORDER_COLUMNS:
             order_attr = ROM_METADATA_ORDER_COLUMNS[order_by]
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
@@ -1681,11 +1687,7 @@ class DBRomsHandler(DBBaseHandler):
 
         # MariaDB/MySQL have no NULLS LAST, so a leading IS NULL term keeps NULL
         # keys (no rom_user row, or an unset field) last in both directions.
-        nulls_last_clause = (
-            order_attr_column.is_(None)
-            if getattr(order_attr_column, "class_", None) is RomUser
-            else None
-        )
+        nulls_last_clause = order_attr_column.is_(None) if sorts_by_rom_user else None
 
         descending = order_dir.lower() == "desc"
         order_attr = order_attr.desc() if descending else order_attr.asc()
@@ -1823,12 +1825,13 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         session: Session = None,  # type: ignore
     ) -> list[tuple[str, int]]:
-        # Letter offsets only index a lexically ordered result: skip sorts
-        # that fall back to another column, and native enums (the database
-        # orders those by declaration order, not by their letters).
-        if not isinstance(order_by_attr.type, (String, Text)) or isinstance(
-            order_by_attr.type, Enum
-        ):
+        # Letter offsets only index a lexically ordered result. `Enum` subclasses
+        # `String`, but the database orders native enums by declaration order.
+        column_type = order_by_attr.type
+        is_lexical = isinstance(column_type, (String, Text)) and not isinstance(
+            column_type, Enum
+        )
+        if not is_lexical:
             return []
 
         redis_key: str | None = None

@@ -1,7 +1,7 @@
 """Ordering the gallery by a per-user `rom_user` field.
 
-Sorting must keep every rom in the results and the count, with NULL sort
-keys (no `rom_user` row, or an unset field) last in both directions.
+Sorting on one must keep every rom in the results and in the count, with the
+unset keys last in both directions.
 """
 
 from datetime import datetime, timezone
@@ -29,9 +29,9 @@ def _make_rom(platform: Platform, name: str) -> Rom:
     )
 
 
-def _set_user_props(rom: Rom, user: User, props: dict[str, object]) -> None:
+def _set_rom_user_fields(rom: Rom, user: User, fields: dict[str, object]) -> None:
     rom_user = db_rom_handler.add_rom_user(rom_id=rom.id, user_id=user.id)
-    db_rom_handler.update_rom_user(rom_user.id, props)
+    db_rom_handler.update_rom_user(rom_user.id, fields)
 
 
 def _ordered_names(user: User, order_by: str, order_dir: str) -> list[str]:
@@ -51,9 +51,9 @@ class TestRomUserSortQueryShape:
         sql = str(query)
 
         assert "LEFT OUTER JOIN rom_user" in sql
-        # The user restriction lives only in the join's ON clause; repeating
-        # it in the WHERE would turn the join into an inner one.
-        assert sql.count("rom_user.user_id") == 1
+        # The user restriction belongs in the join's ON clause; in the WHERE it
+        # would turn the join into an inner one and drop untouched roms.
+        assert "rom_user.user_id" not in str(query.whereclause or "")
         assert order_column is RomUser.last_played
 
     @pytest.mark.parametrize("order_dir", ["asc", "desc"])
@@ -70,52 +70,47 @@ class TestRomUserSortQueryShape:
 
 class TestRomUserSortResults:
     @pytest.fixture
-    def rated_library(self, admin_user: User, platform: Platform) -> None:
-        _set_user_props(_make_rom(platform, "low"), admin_user, {"rating": 2})
-        _set_user_props(_make_rom(platform, "high"), admin_user, {"rating": 9})
+    def library(self, admin_user: User, platform: Platform) -> None:
+        _set_rom_user_fields(
+            _make_rom(platform, "barely_touched"),
+            admin_user,
+            {
+                "rating": 2,
+                "last_played": datetime(2020, 1, 1, tzinfo=timezone.utc),
+                "status": RomUserStatus.INCOMPLETE,
+            },
+        )
+        _set_rom_user_fields(
+            _make_rom(platform, "well_loved"),
+            admin_user,
+            {
+                "rating": 9,
+                "last_played": datetime(2024, 6, 1, tzinfo=timezone.utc),
+                "status": RomUserStatus.FINISHED,
+            },
+        )
         _make_rom(platform, "untouched")
 
-    @pytest.fixture
-    def played_library(self, admin_user: User, platform: Platform) -> None:
-        _set_user_props(
-            _make_rom(platform, "recent"),
-            admin_user,
-            {"last_played": datetime(2024, 6, 1, tzinfo=timezone.utc)},
-        )
-        _set_user_props(
-            _make_rom(platform, "older"),
-            admin_user,
-            {"last_played": datetime(2020, 1, 1, tzinfo=timezone.utc)},
-        )
-        _make_rom(platform, "never_played")
-
     @pytest.mark.parametrize(
-        ("order_dir", "expected"),
+        ("order_by", "order_dir", "expected"),
         [
-            ("asc", ["older", "recent", "never_played"]),
-            ("desc", ["recent", "older", "never_played"]),
+            ("last_played", "asc", ["barely_touched", "well_loved", "untouched"]),
+            ("last_played", "desc", ["well_loved", "barely_touched", "untouched"]),
+            ("rating", "asc", ["barely_touched", "well_loved", "untouched"]),
         ],
     )
-    def test_last_played_keeps_unplayed_roms_last(
+    def test_unset_user_fields_sort_last(
         self,
         admin_user: User,
-        played_library: None,
+        library: None,
+        order_by: str,
         order_dir: str,
         expected: list[str],
     ):
-        assert _ordered_names(admin_user, "last_played", order_dir) == expected
-
-    def test_rating_ascending_keeps_unrated_roms_last(
-        self, admin_user: User, rated_library: None
-    ):
-        assert _ordered_names(admin_user, "rating", "asc") == [
-            "low",
-            "high",
-            "untouched",
-        ]
+        assert _ordered_names(admin_user, order_by, order_dir) == expected
 
     def test_count_includes_roms_without_a_rom_user_row(
-        self, admin_user: User, rated_library: None
+        self, admin_user: User, library: None
     ):
         query, _ = db_rom_handler.get_roms_query(
             order_by="rating", user_id=admin_user.id
@@ -125,23 +120,8 @@ class TestRomUserSortResults:
 
     @pytest.mark.parametrize("order_by", ["last_played", "status"])
     def test_char_index_skips_non_lexical_sorts(
-        self, admin_user: User, platform: Platform, order_by: str
+        self, admin_user: User, library: None, order_by: str
     ):
-        _set_user_props(
-            _make_rom(platform, "finished"),
-            admin_user,
-            {"status": RomUserStatus.FINISHED},
-        )
-        _set_user_props(
-            _make_rom(platform, "incomplete"),
-            admin_user,
-            {
-                "status": RomUserStatus.INCOMPLETE,
-                "last_played": datetime(2024, 6, 1, tzinfo=timezone.utc),
-            },
-        )
-        _make_rom(platform, "untouched")
-
         query, order_column = db_rom_handler.get_roms_query(
             order_by=order_by, user_id=admin_user.id
         )
