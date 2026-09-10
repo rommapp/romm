@@ -74,7 +74,7 @@ Effortlessly integrate your retro game collection into [Playnite](https://playni
 
 `Windows · Desktop` `QR pairing`
 
-[**Install**](https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation) <sub>by [@gantoine](https://github.com/gantoine)</sub>
+<a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><img src=".github/resources/playnite-install-button.svg" width="152" height="42" align="middle" alt="Install" /></a> <sub>by <a href="https://github.com/gantoine">@gantoine</a></sub>
 
 <br clear="left" /><br />
 
@@ -86,7 +86,7 @@ Sync your library, download games on demand and track your achievements, from a 
 
 `Android · Handhelds` `QR pairing` `Save sync`
 
-[**Download**](https://github.com/rommapp/argosy-launcher/releases/latest/) <sub>by [@tmgast](https://github.com/tmgast)</sub>
+<a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><img src=".github/resources/argosy-download-button.svg" width="152" height="42" align="middle" alt="Download" /></a> <sub>by <a href="https://github.com/tmgast">@tmgast</a></sub>
 
 <br clear="left" /><br />
 
@@ -98,7 +98,7 @@ A lightweight client for your favorite handheld custom firmwares. Download games
 
 `Linux · Handhelds` `Save sync`
 
-[**Quick start**](https://grout.romm.app/getting-started/) <sub>by [@BrandonKowalski](https://github.com/BrandonKowalski)</sub>
+<a href="https://grout.romm.app/getting-started/"><img src=".github/resources/grout-quick-start-button.svg" width="152" height="42" align="middle" alt="Quick start" /></a> <sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub>
 
 <br clear="left" /><br />
 
