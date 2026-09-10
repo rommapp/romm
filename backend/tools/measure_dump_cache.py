@@ -13,6 +13,10 @@ Sizes come from `MEMORY USAGE <key> SAMPLES 0`, which walks every field. The
 default of 5 samples extrapolates, and on a hash of this size it is wrong by
 enough to make per-key figures disagree with `used_memory`.
 
+The dump stores on the target server are dropped and rebuilt, and nothing else
+on it is touched. It refuses a server holding anything else unless forced,
+since a live RomM would have to re-import what it drops.
+
 Usage:
     uv run tools/measure_dump_cache.py \
         --metadata-zip Metadata.zip --titledb US.en.json \
@@ -48,6 +52,20 @@ FILES_KEY: Final = "romm:launchbox_files"
 PLATFORMS_KEY: Final = "romm:launchbox_platforms"
 TITLEDB_KEY: Final = "romm:switch_titledb"
 PRODUCT_ID_KEY: Final = "romm:switch_product_id"
+
+# Every key this tool writes, and the only keys it is ever allowed to delete.
+STORE_KEYS: Final[tuple[str, ...]] = (
+    DATABASE_ID_KEY,
+    NAME_KEY,
+    ALTERNATE_NAME_KEY,
+    FOLDED_NAME_KEY,
+    IMAGE_KEY,
+    MAME_KEY,
+    FILES_KEY,
+    PLATFORMS_KEY,
+    TITLEDB_KEY,
+    PRODUCT_ID_KEY,
+)
 
 # Mirrors GAME_IMAGE_FIELDS in the LaunchBox task.
 GAME_IMAGE_FIELDS: Final[frozenset[str]] = frozenset({"FileName", "Type", "Region"})
@@ -233,6 +251,22 @@ def load(
     return counts, raw_bytes, stored_bytes
 
 
+def foreign_keys(client: redis.Redis) -> int:
+    """How many keys on the server are not this tool's own stores."""
+    owned = {key.encode() for key in STORE_KEYS}
+    return sum(1 for key in client.scan_iter(count=1000) if key not in owned)
+
+
+def clear_stores(client: redis.Redis) -> int:
+    """Drop only this tool's stores, returning what the server uses without them.
+
+    Deliberately not `flushall`: the URL can point at a live RomM instance,
+    whose sessions and RQ queues share the database with these stores.
+    """
+    client.delete(*STORE_KEYS)
+    return int(client.info("memory")["used_memory"])
+
+
 def measure(client: redis.Redis, keys: list[str]) -> tuple[dict[str, int], int, int]:
     sizes = {}
     for key in keys:
@@ -313,6 +347,11 @@ def main() -> int:
         metavar="N",
         help="sweep the compression threshold over N records and exit",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="run even though the server holds data other than these stores",
+    )
     args = parser.parse_args()
 
     if args.sweep:
@@ -320,6 +359,17 @@ def main() -> int:
         return 0
 
     client = redis.Redis.from_url(args.redis_url)
+
+    foreign = foreign_keys(client)
+    if foreign and not args.force:
+        print(
+            f"{args.redis_url} holds {foreign:,} key(s) outside the metadata dump "
+            "stores, so it looks like a live instance. This tool drops and rebuilds "
+            "the dump stores, which a running RomM would then have to re-import. "
+            "Point it at a disposable server, or pass --force.",
+            file=sys.stderr,
+        )
+        return 1
 
     def records() -> Iterator[Record]:
         yield from iter_launchbox(args.metadata_zip)
@@ -329,11 +379,15 @@ def main() -> int:
     benched = (DATABASE_ID_KEY, IMAGE_KEY, TITLEDB_KEY)
     results = {}
     for label, serialize in (("plain", plain), ("encoded", encode)):
-        client.flushall()
+        baseline = clear_stores(client)
         start = time.perf_counter()
         counts, raw_bytes, stored_bytes = load(client, records(), serialize)
         elapsed = time.perf_counter() - start
         sizes, used, rss = measure(client, list(counts))
+        # Net of anything else on the server, so a non-empty one still reports
+        # what the dumps themselves cost.
+        used -= baseline
+        rss -= baseline
         latency = {key: bench_decode(client, key) for key in benched}
         results[label] = (counts, raw_bytes, stored_bytes, sizes, used, rss, latency)
         print(
@@ -363,11 +417,11 @@ def main() -> int:
         f"{1 - sum(e_sizes.values()) / sum(p_sizes.values()):>6.0%}"
     )
     print(
-        f"{'used_memory':<40} {'':>10} {mb(p_used)} {mb(e_used)} "
+        f"{'used_memory (dump stores)':<40} {'':>10} {mb(p_used)} {mb(e_used)} "
         f"{1 - e_used / p_used:>6.0%}"
     )
     print(
-        f"{'used_memory_rss':<40} {'':>10} {mb(p_rss)} {mb(e_rss)} "
+        f"{'used_memory_rss (dump stores)':<40} {'':>10} {mb(p_rss)} {mb(e_rss)} "
         f"{1 - e_rss / p_rss:>6.0%}"
     )
 
