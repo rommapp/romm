@@ -11,10 +11,11 @@
       "groupName": "mariadb"
     },
     {
-      "description": "The shipped image installs valkey from Alpine rather than a tag, so check docker/Dockerfile's ALPINE_VERSION on a major bump to keep tests on what users run.",
+      "description": "The shipped image installs valkey from Alpine's package repo, currently the 9.0 line. Hold the test pins there so they keep matching what users run, and raise this bound deliberately when ALPINE_VERSION in docker/Dockerfile moves.",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["valkey/valkey"],
-      "groupName": "valkey"
+      "groupName": "valkey",
+      "allowedVersions": "<9.1"
     },
     {
       "matchDatasources": ["docker"],
