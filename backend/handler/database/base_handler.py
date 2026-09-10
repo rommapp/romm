@@ -4,11 +4,17 @@ import time
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from config import DEV_SQL_ECHO
+from config import DB_POOL_RECYCLE_SECONDS, DEV_SQL_ECHO
 from config.config_manager import ConfigManager
 
+# `pool_pre_ping` alone still hands out a connection the server closed while it
+# sat idle, and the ping on a half-closed socket blocks the worker until TCP
+# gives up. Recycling retires it first.
 sync_engine = create_engine(
-    ConfigManager.get_db_engine(), pool_pre_ping=True, echo=False
+    ConfigManager.get_db_engine(),
+    pool_pre_ping=True,
+    pool_recycle=DB_POOL_RECYCLE_SECONDS if DB_POOL_RECYCLE_SECONDS > 0 else -1,
+    echo=False,
 )
 sync_session = sessionmaker(bind=sync_engine, expire_on_commit=False)
 

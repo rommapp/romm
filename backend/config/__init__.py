@@ -72,6 +72,9 @@ DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
 DB_NAME: Final[str] = _get_env("DB_NAME", "romm")
 DB_QUERY_JSON: Final[str | None] = _get_env("DB_QUERY_JSON")
 ROMM_DB_DRIVER: Final[str] = _get_env("ROMM_DB_DRIVER", "mariadb")
+# Retire a pooled connection before the server can drop it for being idle.
+# Under MariaDB's lowest common `wait_timeout` (600s); 0 disables recycling.
+DB_POOL_RECYCLE_SECONDS: Final[int] = safe_int(_get_env("DB_POOL_RECYCLE_SECONDS"), 300)
 
 # REDIS
 REDIS_HOST: Final[str | None] = _get_env("REDIS_HOST")
