@@ -301,7 +301,7 @@ def mb(value: float) -> str:
     return f"{value / 1024 / 1024:>8.1f}M"
 
 
-def sweep_threshold(metadata_zip: Path, limit: int) -> None:
+def sweep_threshold(metadata_zip: Path, limit: int) -> int:
     """Total stored bytes at each candidate COMPRESS_MIN_BYTES, on real records."""
     import zstandard
 
@@ -314,6 +314,11 @@ def sweep_threshold(metadata_zip: Path, limit: int) -> None:
         if len(sample) >= limit:
             break
 
+    if not sample:
+        print("no records in the zip; check --metadata-zip", file=sys.stderr)
+        return 1
+
+    raw = sum(len(payload) for payload in sample)
     print(f"\nthreshold sweep over {len(sample):,} real records")
     print(f"{'min bytes':>10} {'stored':>10} {'ratio':>7} {'compressed':>11}")
     for threshold in (0, 64, 128, 192, 256, 384, 512, 1024, 1 << 30):
@@ -325,12 +330,13 @@ def sweep_threshold(metadata_zip: Path, limit: int) -> None:
                 compressed += 1
             else:
                 total += len(payload)
-        raw = sum(len(p) for p in sample)
         label = "never" if threshold == 1 << 30 else f"{threshold}"
         print(
             f"{label:>10} {mb(total)} {raw / total:>6.2f}x "
             f"{compressed / len(sample):>10.0%}"
         )
+
+    return 0
 
 
 def bench_decode(
@@ -380,8 +386,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.sweep:
-        sweep_threshold(args.metadata_zip, args.sweep)
-        return 0
+        return sweep_threshold(args.metadata_zip, args.sweep)
 
     client = redis.Redis.from_url(args.redis_url)
 
@@ -435,6 +440,10 @@ def main() -> int:
 
     p_counts, p_values, p_sizes, p_used, p_rss, p_latency = results["plain"]
     _, e_values, e_sizes, e_used, e_rss, e_latency = results["encoded"]
+
+    if not p_sizes:
+        print("no records loaded; check --metadata-zip", file=sys.stderr)
+        return 1
 
     print(f"\nCOMPRESS_MIN_BYTES = {COMPRESS_MIN_BYTES}\n")
     header = f"{'store':<40} {'fields':>10} {'plain':>9} {'encoded':>9} {'saved':>7}"
