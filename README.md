@@ -64,9 +64,7 @@ To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
 
 Apps and integrations built and maintained by the RomM team.
 
-<a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/screenshots/app-playnite.webp" width="420" align="left" alt="Playnite library" /></a>
-
-### <a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/playnite-logo.svg" height="28" align="top" alt="Playnite logo" /></a> Playnite plugin
+### <a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/screenshots/app-playnite.webp" width="420" align="left" alt="Playnite library" /></a><a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/playnite-logo.svg" height="28" align="top" alt="Playnite logo" /></a> Playnite plugin
 
 Effortlessly integrate your retro game collection into [Playnite](https://playnite.link/), the open-source game library manager that provides a unified interface for all of your games on PC.
 
@@ -76,9 +74,7 @@ Effortlessly integrate your retro game collection into [Playnite](https://playni
 
 <br clear="left" />
 
-<a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/screenshots/app-argosy.webp" width="420" align="left" alt="Argosy library" /></a>
-
-### <a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/argosy-logo.svg" height="28" align="top" alt="Argosy logo" /></a> Argosy
+### <a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/screenshots/app-argosy.webp" width="420" align="left" alt="Argosy library" /></a><a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/argosy-logo.svg" height="28" align="top" alt="Argosy logo" /></a> Argosy
 
 Sync your library, download games on demand and track your achievements, from a gamepad-first interface designed for Anbernic, Retroid Pocket, Odin, and similar devices.
 
@@ -88,9 +84,7 @@ Sync your library, download games on demand and track your achievements, from a 
 
 <br clear="left" />
 
-<a href="https://github.com/rommapp/grout"><img src=".github/resources/screenshots/app-grout.webp" width="420" align="left" alt="Grout multi-select" /></a>
-
-### <a href="https://github.com/rommapp/grout"><img src=".github/resources/grout-logo.svg" height="28" align="top" alt="Grout logo" /></a> Grout
+### <a href="https://github.com/rommapp/grout"><img src=".github/resources/screenshots/app-grout.webp" width="420" align="left" alt="Grout multi-select" /></a><a href="https://github.com/rommapp/grout"><img src=".github/resources/grout-logo.svg" height="28" align="top" alt="Grout logo" /></a> Grout
 
 A lightweight client for your favorite handheld custom firmwares. Download games, box art and BIOS files wirelessly, and sync your saves automatically as you play.
 
