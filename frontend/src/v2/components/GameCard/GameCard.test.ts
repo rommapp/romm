@@ -10,18 +10,8 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-function makeRom(id: number): SimpleRom {
-  return {
-    id,
-    name: `Game ${id}`,
-    fs_name_no_ext: `Game ${id}`,
-    platform_slug: "snes",
-    path_cover_large: null,
-    path_cover_small: null,
-    url_cover: null,
-    regions: [],
-    languages: [],
-  } as unknown as SimpleRom;
+function rom(id: number): SimpleRom {
+  return { id, name: `Game ${id}`, platform_slug: "snes" } as SimpleRom;
 }
 
 function makeRouter(): Router {
@@ -34,11 +24,11 @@ function makeRouter(): Router {
   });
 }
 
-async function mountCard(rom: SimpleRom, router: Router) {
+async function mountCard(romId: number, router: Router) {
   await router.push("/");
   await router.isReady();
   return mount(GameCard, {
-    props: { rom, selectable: true, position: 0 },
+    props: { rom: rom(romId), selectable: true, position: 0 },
     global: { plugins: [router] },
   });
 }
@@ -50,7 +40,7 @@ beforeEach(() => {
 describe("GameCard selection", () => {
   it("navigates on a plain click when nothing is selected", async () => {
     const router = makeRouter();
-    const wrapper = await mountCard(makeRom(1), router);
+    const wrapper = await mountCard(1, router);
 
     await wrapper.find(".r-gc").trigger("click");
     await flushPromises();
@@ -61,10 +51,10 @@ describe("GameCard selection", () => {
 
   it("toggles instead of navigating once the gallery is in selection mode", async () => {
     const selection = storeGallerySelection();
-    selection.toggle(makeRom(2), 1);
+    selection.toggle(rom(2), 1);
 
     const router = makeRouter();
-    const wrapper = await mountCard(makeRom(1), router);
+    const wrapper = await mountCard(1, router);
 
     await wrapper.find(".r-gc").trigger("click");
     await flushPromises();
@@ -75,9 +65,33 @@ describe("GameCard selection", () => {
 
   it("enters selection mode on a modifier click without navigating", async () => {
     const router = makeRouter();
-    const wrapper = await mountCard(makeRom(1), router);
+    const wrapper = await mountCard(1, router);
 
     await wrapper.find(".r-gc").trigger("click", { ctrlKey: true });
+    await flushPromises();
+
+    expect(router.currentRoute.value.fullPath).toBe("/");
+    expect(storeGallerySelection().ids).toEqual([1]);
+  });
+
+  it("toggles the card once when the click lands on its checkbox", async () => {
+    const selection = storeGallerySelection();
+    selection.toggle(rom(2), 1);
+
+    const router = makeRouter();
+    const wrapper = await mountCard(1, router);
+
+    await wrapper.find(".r-gc__check").trigger("click");
+    await flushPromises();
+
+    expect(selection.ids).toEqual([2, 1]);
+  });
+
+  it("consumes a modifier click on the checkbox", async () => {
+    const router = makeRouter();
+    const wrapper = await mountCard(1, router);
+
+    await wrapper.find(".r-gc__check").trigger("click", { ctrlKey: true });
     await flushPromises();
 
     expect(router.currentRoute.value.fullPath).toBe("/");
