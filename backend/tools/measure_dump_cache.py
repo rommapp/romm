@@ -28,6 +28,7 @@ from handler.dump_cache import (  # noqa: E402
     COMPRESSION_LEVEL,
     decode,
     encode,
+    serialize,
 )
 
 # Mirrors the two stores' keys, which live behind `handler/metadata/__init__.py`
@@ -247,11 +248,6 @@ def plain(value: Any) -> bytes:
     return json.dumps(value).encode()
 
 
-def compact(value: Any) -> bytes:
-    """Serialize a record the way `encode` does before it decides to compress."""
-    return json.dumps(value, separators=(",", ":")).encode()
-
-
 def load(
     client: redis.Redis, records: Iterator[Record], serialize: Callable[[Any], bytes]
 ) -> None:
@@ -322,9 +318,9 @@ def sweep_threshold(metadata_zip: Path, limit: int) -> int:
     compressor = zstandard.ZstdCompressor(level=COMPRESSION_LEVEL)
     sample: list[bytes] = []
     for _, _, value in iter_launchbox(metadata_zip):
-        # The threshold is compared against the payload `encode` builds, not
-        # the wider baseline the report uses for the old format.
-        sample.append(compact(value))
+        # The threshold applies to the payload `encode` builds, not the wider
+        # baseline the report uses for the old format.
+        sample.append(serialize(value))
         if len(sample) >= limit:
             break
 
@@ -431,10 +427,10 @@ def main() -> int:
     if args.only:
         passes = [p for p in passes if p[0] == args.only]
 
-    for label, serialize in passes:
+    for label, encoding in passes:
         base_used = clear_stores(client)
         start = time.perf_counter()
-        load(client, records(), serialize)
+        load(client, records(), encoding)
         elapsed = time.perf_counter() - start
         counts, value_bytes = store_stats(client)
         sizes, used, rss = store_memory(client, list(counts))

@@ -24,6 +24,18 @@ _compressor = zstandard.ZstdCompressor(level=COMPRESSION_LEVEL)
 _decompressor = zstandard.ZstdDecompressor()
 
 
+def serialize(value: Any) -> bytes:
+    """Serialize a dump record, which is what the size threshold applies to.
+
+    Args:
+        value: The record to store, as JSON-serializable data.
+
+    Returns:
+        The payload, before any compression.
+    """
+    return json.dumps(value, separators=(",", ":")).encode()
+
+
 def encode(value: Any) -> bytes:
     """Serialize a dump record, compressing it when it is large enough to pay off.
 
@@ -33,7 +45,7 @@ def encode(value: Any) -> bytes:
     Returns:
         The bytes to write into the store.
     """
-    payload = json.dumps(value, separators=(",", ":")).encode()
+    payload = serialize(value)
     if len(payload) < COMPRESS_MIN_BYTES:
         return payload
 
