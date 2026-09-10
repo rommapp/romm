@@ -406,15 +406,17 @@ class TestBatchedCacheWriter:
 
         assert pipe.execute.call_count == 0
 
-    async def test_values_are_json_encoded(self):
+    async def test_values_go_through_the_dump_codec(self):
         pipe = AsyncMock()
         writer = BatchedCacheWriter(pipe, batch_size=10)
+        record = {"Name": "Super Mario Bros."}
 
-        await writer.hset("key", "field", {"Name": "Super Mario Bros."})
+        await writer.hset("key", "field", record)
 
-        pipe.hset.assert_called_once_with(
-            "key", mapping={"field": '{"Name": "Super Mario Bros."}'}
-        )
+        stored = pipe.hset.call_args.kwargs["mapping"]["field"]
+        # Bytes, because a compressed value is not valid UTF-8.
+        assert isinstance(stored, bytes)
+        assert decode(stored) == record
 
     async def test_large_input_flushes_repeatedly(self, task, sample_zip_content):
         """A real dump must not end up in one pipeline execute."""
