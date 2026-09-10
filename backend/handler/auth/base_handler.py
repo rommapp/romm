@@ -48,15 +48,31 @@ def _romm_username(provided: str, fallback: str) -> str:
     # Deferred: `utils.validation` reaches this module through `models.user`,
     # so importing it at module level closes a cycle.
     from handler.database import db_user_handler
+    from models.user import TEXT_FIELD_LENGTH
     from utils.validation import sanitize_username
 
     username = sanitize_username(provided, fallback=fallback)
+    if username != provided:
+        log.info(
+            "OIDC username '%s' is not a valid RomM username, registering as '%s'",
+            hl(provided, color=CYAN),
+            hl(username, color=CYAN),
+        )
 
     candidate = username
     suffix = 1
     while db_user_handler.get_user_by_username(candidate) is not None:
         suffix += 1
-        candidate = f"{username}-{suffix}"
+        marker = f"-{suffix}"
+        # The suffix has to fit inside the column, not extend past it.
+        candidate = f"{username[: TEXT_FIELD_LENGTH - len(marker)]}{marker}"
+
+    if candidate != username:
+        log.info(
+            "OIDC username '%s' is taken, registering as '%s'",
+            hl(username, color=CYAN),
+            hl(candidate, color=CYAN),
+        )
 
     return candidate
 
@@ -479,12 +495,6 @@ class OpenIDHandler:
                 hl(email, color=CYAN),
             )
             username = _romm_username(preferred_username, fallback=email.split("@")[0])
-            if username != preferred_username:
-                log.info(
-                    "OIDC username '%s' is not a valid RomM username, registering as '%s'",
-                    hl(preferred_username, color=CYAN),
-                    hl(username, color=CYAN),
-                )
             new_user = User(
                 username=username,
                 hashed_password=str(uuid.uuid4()),

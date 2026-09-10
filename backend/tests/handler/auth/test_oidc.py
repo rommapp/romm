@@ -6,7 +6,8 @@ from fastapi import HTTPException
 from joserfc.jwt import Token
 
 from handler.auth.base_handler import OpenIDHandler
-from models.user import Role
+from models.user import TEXT_FIELD_LENGTH, Role
+from utils.validation import validate_username
 
 # Mock constants
 OIDC_SERVER_APPLICATION_URL = "http://mock-oidc-server"
@@ -347,6 +348,42 @@ async def test_oidc_registration_suffixes_a_taken_username(
     await oidc_handler.get_current_active_user_from_openid_token(mock_token)
 
     assert mock_add_user.call_args.args[0].username == "a-user-3"
+
+
+async def test_oidc_registration_keeps_a_suffixed_username_inside_the_column(
+    mocker,
+    mock_oidc_enabled,
+    mock_oidc_allow_registration_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """A name already at the column's length leaves no room to append to."""
+    mock_token["userinfo"]["preferred_username"] = "b" * (TEXT_FIELD_LENGTH + 10)
+    taken = "b" * TEXT_FIELD_LENGTH
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=None
+    )
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_username",
+        side_effect=lambda username: MagicMock() if username == taken else None,
+    )
+    mock_add_user = mocker.patch(
+        "handler.database.db_user_handler.add_user",
+        return_value=MagicMock(enabled=True, role=Role.USER),
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    username = mock_add_user.call_args.args[0].username
+    assert len(username) == TEXT_FIELD_LENGTH
+    assert username.endswith("-2")
+    validate_username(username)
 
 
 async def test_oidc_registration_falls_back_to_the_email_local_part(
