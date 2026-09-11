@@ -81,10 +81,10 @@ class TestUpdateSwitchTitleDBTask:
         mock_pipe.__aexit__ = AsyncMock(return_value=None)
         mock_async_cache_pipeline.return_value = mock_pipe
 
-        await task.run(force=True)
+        await task.run()
 
         # Verify super().run was called
-        mock_super_run.assert_called_once_with(True)
+        mock_super_run.assert_called_once_with()
 
         # Verify pipeline was used
         assert mock_async_cache_pipeline.called
@@ -122,7 +122,7 @@ class TestUpdateSwitchTitleDBTask:
         mock_pipe.__aexit__ = AsyncMock(return_value=None)
         mock_async_cache_pipeline.return_value = mock_pipe
 
-        await task.run(force=True)
+        await task.run()
 
         # Get all the mapping data that was passed to hset
         hset_calls = mock_pipe.hset.call_args_list
@@ -163,7 +163,7 @@ class TestUpdateSwitchTitleDBTask:
         mock_pipe.__aexit__ = AsyncMock(return_value=None)
         mock_async_cache_pipeline.return_value = mock_pipe
 
-        await task.run(force=True)
+        await task.run()
 
         # Should have multiple hset calls due to batching
         hset_calls = mock_pipe.hset.call_args_list
@@ -174,10 +174,10 @@ class TestUpdateSwitchTitleDBTask:
         """Test run when super().run returns None"""
         mock_super_run.return_value = None
 
-        await task.run(force=True)
+        await task.run()
 
         # Should return early without doing anything
-        mock_super_run.assert_called_once_with(True)
+        mock_super_run.assert_called_once_with()
 
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_switch_titledb.async_binary_cache.pipeline")
@@ -191,7 +191,7 @@ class TestUpdateSwitchTitleDBTask:
         mock_super_run.return_value = b"invalid json content"
 
         with pytest.raises(json.JSONDecodeError):
-            await task.run(force=True)
+            await task.run()
 
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_switch_titledb.async_binary_cache.pipeline")
@@ -209,7 +209,7 @@ class TestUpdateSwitchTitleDBTask:
         mock_pipe.__aexit__ = AsyncMock(return_value=None)
         mock_async_cache_pipeline.return_value = mock_pipe
 
-        await task.run(force=True)
+        await task.run()
 
         # Should still call execute even with empty data
         assert mock_pipe.execute.called
@@ -232,7 +232,7 @@ class TestUpdateSwitchTitleDBTask:
         mock_pipe.__aexit__ = AsyncMock(return_value=None)
         mock_async_cache_pipeline.return_value = mock_pipe
 
-        await task.run(force=True)
+        await task.run()
 
         hset_calls = mock_pipe.hset.call_args_list
         product_mapping = {
@@ -267,9 +267,15 @@ class TestUpdateSwitchTitleDBTask:
         mock_pipe.__aexit__ = AsyncMock(return_value=None)
         mock_async_cache_pipeline.return_value = mock_pipe
 
-        await task.run(force=True)
+        await task.run()
 
         mock_log.info.assert_called_with("Scheduled switch titledb update completed!")
+
+    def test_runnable_with_the_scheduled_update_off(self, task):
+        """The setting ships false, and a failed rebuild is not queued again."""
+        task.enabled = False
+
+        assert task.can_run_manually is True
 
     def test_task_instance(self):
         """Test that the module-level task instance is created correctly"""

@@ -495,6 +495,7 @@ def trigger_push_pull(
         force=True,
         job_timeout=TASK_TIMEOUT,
         meta={
+            "task_key": "sync_push_pull",
             "task_name": "Push-Pull Sync",
             "task_type": "sync",
         },

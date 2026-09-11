@@ -5,6 +5,7 @@
 import type { CleanupTaskMeta } from './CleanupTaskMeta';
 import type { JobStatus } from './JobStatus';
 export type CleanupTaskStatusResponse = {
+    task_key: (string | null);
     task_name: string;
     task_id: string;
     status: JobStatus;

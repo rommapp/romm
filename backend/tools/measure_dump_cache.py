@@ -18,14 +18,21 @@ from pathlib import Path
 from typing import Any, Final
 
 import redis
+import zstandard
 from defusedxml import ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from handler.dump_cache import COMPRESS_MIN_BYTES, decode, encode  # noqa: E402
+from handler.dump_cache import (  # noqa: E402
+    COMPRESS_MIN_BYTES,
+    COMPRESSION_LEVEL,
+    decode,
+    encode,
+    serialize,
+)
 
-# Mirrors LAUNCHBOX_METADATA_STORE.keys and SWITCH_TITLEDB_STORE.keys, whose
-# modules need the app to import. The only keys this tool ever deletes.
+# Mirrors the two stores' keys, which live behind `handler/metadata/__init__.py`
+# and its provider handlers. The only keys this tool ever deletes.
 LAUNCHBOX_PLATFORMS_KEY: Final = "romm:launchbox_platforms"
 LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final = "romm:launchbox_metadata_database_id"
 LAUNCHBOX_METADATA_NAME_KEY: Final = "romm:launchbox_metadata_name"
@@ -50,8 +57,8 @@ DUMP_STORE_KEYS: Final[tuple[str, ...]] = (
     SWITCH_PRODUCT_ID_KEY,
 )
 
-# Mirrors the projections in `launchbox_handler/types.py`, whose module needs
-# the app to import. Each store keeps only the fields its reader reads.
+# Mirrors the projections in `launchbox_handler/types.py`, behind the same
+# package import. Each store keeps only the fields its reader reads.
 LAUNCHBOX_IMAGE_FIELDS: Final[frozenset[str]] = frozenset(
     {"FileName", "Type", "Region"}
 )
@@ -64,7 +71,7 @@ Record = tuple[str, str, Any]
 
 
 def fold_title(title: str) -> str:
-    """Mirror of `launchbox_handler.utils.fold_title`, whose module needs the app."""
+    """Mirror of `launchbox_handler.utils.fold_title`, behind the same package import."""
     kept: list[str] = []
     for char in unicodedata.normalize("NFKD", title.casefold()):
         if unicodedata.category(char).startswith("M"):
@@ -104,7 +111,7 @@ def iter_elements(source: Any) -> Iterator[Any]:
 
 
 # Mirrors the record shapes `tasks/scheduled/update_launchbox_metadata.py`
-# writes, duplicated because a tool cannot import the task without the app.
+# writes, duplicated because the writer fills a pipeline rather than yielding.
 def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
     with zipfile.ZipFile(metadata_zip) as z:
         names = z.namelist()
@@ -227,6 +234,7 @@ def iter_launchbox(metadata_zip: Path) -> Iterator[Record]:
 def iter_titledb(titledb: Path) -> Iterator[Record]:
     data = json.loads(titledb.read_text())
     relevant = {k: v for k, v in data.items() if k and v}
+    del data
     for title_id, entry in relevant.items():
         yield SWITCH_TITLEDB_INDEX_KEY, title_id, entry
     for title_id, entry in relevant.items():
@@ -279,13 +287,12 @@ def foreign_keys(client: redis.Redis) -> int:
     return sum(1 for key in client.scan_iter(count=1000) if key not in owned)
 
 
-def clear_stores(client: redis.Redis) -> tuple[int, int]:
-    """Drop only this tool's stores, returning `used_memory` and RSS without them."""
+def clear_stores(client: redis.Redis) -> int:
+    """Drop only this tool's stores, returning `used_memory` without them."""
     # Not `flushall`: the URL can point at a live RomM, whose sessions and RQ
     # queues share the database with these stores.
     client.delete(*DUMP_STORE_KEYS)
-    info = client.info("memory")
-    return int(info["used_memory"]), int(info["used_memory_rss"])
+    return int(client.info("memory")["used_memory"])
 
 
 def store_memory(
@@ -306,15 +313,14 @@ def mb(value: float) -> str:
 
 
 def sweep_threshold(metadata_zip: Path, limit: int) -> int:
-    """Total stored bytes at each candidate COMPRESS_MIN_BYTES, on real records."""
-    import zstandard
-
-    from handler.dump_cache import COMPRESSION_LEVEL
-
+    """Print total stored bytes at each candidate COMPRESS_MIN_BYTES, on real
+    records, and return an exit code."""
     compressor = zstandard.ZstdCompressor(level=COMPRESSION_LEVEL)
     sample: list[bytes] = []
     for _, _, value in iter_launchbox(metadata_zip):
-        sample.append(plain(value))
+        # The threshold applies to the payload `encode` builds, not the wider
+        # baseline the report uses for the old format.
+        sample.append(serialize(value))
         if len(sample) >= limit:
             break
 
@@ -421,10 +427,10 @@ def main() -> int:
     if args.only:
         passes = [p for p in passes if p[0] == args.only]
 
-    for label, serialize in passes:
-        base_used, _ = clear_stores(client)
+    for label, encoding in passes:
+        base_used = clear_stores(client)
         start = time.perf_counter()
-        load(client, records(), serialize)
+        load(client, records(), encoding)
         elapsed = time.perf_counter() - start
         counts, value_bytes = store_stats(client)
         sizes, used, rss = store_memory(client, list(counts))

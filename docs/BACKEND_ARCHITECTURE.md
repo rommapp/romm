@@ -415,11 +415,18 @@ HTTP Request
 
 ### Supported Databases
 
-| Database      | Driver                | Status    |
-| ------------- | --------------------- | --------- |
-| MariaDB 10.5+ | `mariadb+pymysql`     | Default   |
-| MySQL 8.0+    | `mysql+pymysql`       | Supported |
-| PostgreSQL    | `postgresql+psycopg2` | Supported |
+| Database       | Driver                | Status    |
+| -------------- | --------------------- | --------- |
+| MariaDB 10.11+ | `mariadb+pymysql`     | Default   |
+| MySQL 8.0+     | `mysql+pymysql`       | Supported |
+| PostgreSQL     | `postgresql+psycopg2` | Supported |
+
+MariaDB 10.5 and 10.6 reached upstream end of life in June 2025 and July 2026, so
+10.11 is the oldest LTS still receiving fixes.
+
+CI runs the test suite against MariaDB 12.3 and PostgreSQL 16, and the migration
+suite additionally against MariaDB 10.11, which predates the 11.6 `uca1400`
+collation default. MySQL has no CI coverage.
 
 ### Engine & Session Setup
 

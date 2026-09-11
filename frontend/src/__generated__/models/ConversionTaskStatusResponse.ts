@@ -5,6 +5,7 @@
 import type { ConversionTaskMeta } from './ConversionTaskMeta';
 import type { JobStatus } from './JobStatus';
 export type ConversionTaskStatusResponse = {
+    task_key: (string | null);
     task_name: string;
     task_id: string;
     status: JobStatus;
