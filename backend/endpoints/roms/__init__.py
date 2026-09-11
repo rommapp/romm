@@ -66,8 +66,9 @@ from handler.database import (
 )
 from handler.database.base_handler import sync_session
 from handler.database.roms_handler import (
-    rom_user_cache_version,
     sorts_by_rom_user_column,
+    user_sibling_cache_version,
+    user_sort_cache_version,
 )
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
@@ -194,38 +195,32 @@ def build_unscoped_sidecar_cache_key(
     order_dir: str,
     group_by_meta_id: bool,
     is_unscoped: bool,
-    *,
-    with_rom_user_version: bool = True,
 ) -> str | None:
-    """Cache key for the unscoped library sidecars (char index, filter values,
-    rom id index). Returns None for scoped/searched sets, which are computed live.
-    The computed values depend on user, ordering and grouping, so all are part
-    of the key. Sets whose content reads the user's rom_user rows also embed a
-    per-user version that every rom_user write bumps; a sidecar that reads none
-    of them opts out with `with_rom_user_version=False`.
+    """Cache key for the unscoped char-index / rom-id-index sidecars.
+    Returns None for scoped/searched sets, which are computed live.
 
-    What counts as unscoped differs per sidecar, so the caller decides: the char
-    index and the id index narrow with every filter, while the filter-value list
-    is built from a query that only applies platform / collection / search.
+    The content depends on user, ordering and grouping. A RomUser-column
+    sort also embeds the per-user sort version, and a grouped set the
+    sibling version, so exactly the writes that move a set rotate its key.
     """
     if not is_unscoped:
         return None
 
-    # The query layer sorts by the lowercased key, so the per-user-version gate
-    # must normalise the same way the key text below already does.
-    order_by = order_by.lower()
-
     user_part = f"u{user_id}"
-    if with_rom_user_version and (
-        sorts_by_rom_user_column(order_by) or group_by_meta_id
-    ):
-        # These sets read the user's own rom_user rows (sort keys, or the
-        # grouped main-sibling pick), so they rotate with the per-user version.
-        user_part = f"{user_part}.{rom_user_cache_version(user_id)}"
+    if sorts_by_rom_user_column(order_by):
+        user_part = f"{user_part}.{user_sort_cache_version(user_id)}"
+    if group_by_meta_id:
+        user_part = f"{user_part}.s{user_sibling_cache_version(user_id)}"
 
-    return (
-        f"all:{user_part}" f":o{order_by}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
-    )
+    return f"all:{user_part}:o{order_by}:d{order_dir}:g{int(group_by_meta_id)}"
+
+
+def build_unscoped_filter_values_cache_key(
+    user_id: int, is_unscoped: bool
+) -> str | None:
+    """Filter values ignore ordering and grouping (their query strips both),
+    so one per-user entry serves every sort."""
+    return f"all:u{user_id}" if is_unscoped else None
 
 
 class RomUpdateForm(BaseModel):
@@ -841,10 +836,14 @@ def get_roms(
     perms = get_permissions(request)
     parsed_released_days = parse_released_days(released_days)
 
+    # Normalised once so the query layer and every cache key agree on case.
+    order_by = order_by.lower()
+    order_dir = order_dir.lower()
+
     unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
-        order_by=order_by.lower(),
-        order_dir=order_dir.lower(),
+        order_by=order_by,
+        order_dir=order_dir,
         search_term=search_term,
     )
 
@@ -963,19 +962,20 @@ def get_roms(
         or parsed_released_days
     )
 
+    # One key for both ordered sidecars: the same request must not read the
+    # char index and the id index under different per-user versions.
+    sidecar_cache_key = build_unscoped_sidecar_cache_key(
+        request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
+    )
+
     # Get the char index for the roms
     char_index_dict = {}
     if with_char_index:
-        # Switching sort direction/column (or toggling grouping) must not reuse
-        # a stale index, or the AlphaStrip highlights the wrong letters.
-        char_index_cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
-        )
         char_index = db_rom_handler.with_char_index(
             query=query,
             order_by_attr=order_by_attr,
-            order_dir=order_dir.lower(),
-            cache_key=char_index_cache_key,
+            order_dir=order_dir,
+            cache_key=sidecar_cache_key,
         )
         char_index_dict = {char: index for (char, index) in char_index}
 
@@ -1007,19 +1007,13 @@ def get_roms(
             smart_collection_id=smart_collection_id,
             search_term=search_term,
         )
-        cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id,
-            order_by,
-            order_dir,
-            group_by_meta_id,
-            is_unscoped_scope,
-            # `hidden` is the only RomUser column filter values read, and it
-            # bumps the global version, so the per-user version is pure churn.
-            with_rom_user_version=False,
-        )
+        # `hidden`, the only RomUser column filter values read, already
+        # bumps the global version, so no per-user version is embedded.
         query_filters = db_rom_handler.with_filter_values(
             query=filter_query,
-            cache_key=cache_key,
+            cache_key=build_unscoped_filter_values_cache_key(
+                request.user.id, is_unscoped_scope
+            ),
         )
         # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
@@ -1029,13 +1023,8 @@ def get_roms(
     # out with with_rom_id_index=false and avoid the full-library scan.
     rom_id_index: list[int] = []
     if with_rom_id_index:
-        # Memoise the unscoped library scan (same key scheme as the other
-        # sidecars); scoped/searched sets stay live.
-        rom_id_index_cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
-        )
         rom_id_index = db_rom_handler.get_rom_id_index(
-            query=query, cache_key=rom_id_index_cache_key
+            query=query, cache_key=sidecar_cache_key
         )
 
     # Hydrate the requested page and its additional data

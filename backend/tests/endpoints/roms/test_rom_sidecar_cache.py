@@ -15,11 +15,13 @@ These tests pin the split gate:
   2. a scope filter (platform / collection / search) does neither,
   3. the char index and the id index stay live under any row-level filter,
      since both narrow with it,
-  4. RomUser-column sorts key on a per-user version, so a rom_user write
-     refreshes that user's sorted index without touching other users'
-     entries or the name-sorted one, and `hidden` still bumps globally,
-  5. grouped sets join the same per-user version (the representative is the
-     user's main sibling), while filter values opt out of it.
+  4. RomUser-column sorts key on a per-user sort version, so a rom_user
+     write refreshes that user's sorted index without touching other
+     users' entries or the name-sorted one, and `hidden` still bumps
+     globally,
+  5. grouped sets key on a per-user sibling version moved only by
+     main-sibling picks, and filter values use one order-free per-user
+     entry.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -29,7 +31,10 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from endpoints.roms import build_unscoped_sidecar_cache_key
+from endpoints.roms import (
+    build_unscoped_filter_values_cache_key,
+    build_unscoped_sidecar_cache_key,
+)
 from handler.database import db_rom_handler
 from handler.database.roms_handler import (
     _char_index_redis_key,
@@ -69,17 +74,32 @@ def missing_rom(rom: Rom) -> Rom:
     return db_rom
 
 
-def _unscoped_key(user_id: int) -> str:
-    """The shared sidecar key for a default (no order, no grouping) request."""
-    key = build_unscoped_sidecar_cache_key(user_id, "", "asc", False, True)
+def _unscoped_key(
+    user_id: int, order_by: str = "", order_dir: str = "asc", group: bool = False
+) -> str:
+    """The shared sidecar key for an unscoped request."""
+    key = build_unscoped_sidecar_cache_key(user_id, order_by, order_dir, group, True)
+    assert key is not None
+    return key
+
+
+def _filter_values_key(user_id: int) -> str:
+    key = build_unscoped_filter_values_cache_key(user_id, True)
     assert key is not None
     return key
 
 
 def _seed_filter_values(user_id: int) -> str:
     version = _filter_values_cache_version()
-    redis_key = _filter_values_redis_key(_unscoped_key(user_id), version)
+    redis_key = _filter_values_redis_key(_filter_values_key(user_id), version)
     _store_versioned_cache(redis_key, version, SENTINEL_FILTER_VALUES)
+    return redis_key
+
+
+def _seed_rom_id_index(cache_key: str, ids: list[int]) -> str:
+    version = _filter_values_cache_version()
+    redis_key = _rom_id_index_redis_key(cache_key, version)
+    _store_versioned_cache(redis_key, version, ids)
     return redis_key
 
 
@@ -109,7 +129,7 @@ def test_row_filter_writes_unscoped_filter_values_cache(
 ):
     """A row-filtered request also warms the shared entry for everyone else."""
     version = _filter_values_cache_version()
-    redis_key = _filter_values_redis_key(_unscoped_key(admin_user.id), version)
+    redis_key = _filter_values_redis_key(_filter_values_key(admin_user.id), version)
     assert sync_cache.get(redis_key) is None
 
     _get_roms(client, access_token, missing=True)
@@ -184,12 +204,7 @@ def test_row_filter_does_not_read_unscoped_rom_id_index_cache(
     client: TestClient, access_token: str, admin_user: User, rom: Rom
 ):
     """Same for the id index: it is the filtered result set, not the library."""
-    version = _filter_values_cache_version()
-    _store_versioned_cache(
-        _rom_id_index_redis_key(_unscoped_key(admin_user.id), version),
-        version,
-        [424242],
-    )
+    _seed_rom_id_index(_unscoped_key(admin_user.id), [424242])
 
     body = _get_roms(client, access_token, missing=True)
 
@@ -200,12 +215,7 @@ def test_length_filter_does_not_read_unscoped_rom_id_index_cache(
     client: TestClient, access_token: str, admin_user: User, rom: Rom
 ):
     """A HowLongToBeat range narrows the result set like any other row filter."""
-    version = _filter_values_cache_version()
-    _store_versioned_cache(
-        _rom_id_index_redis_key(_unscoped_key(admin_user.id), version),
-        version,
-        [424242],
-    )
+    _seed_rom_id_index(_unscoped_key(admin_user.id), [424242])
 
     body = _get_roms(client, access_token, hltb_main_story_max=3600)
 
@@ -244,12 +254,6 @@ def _put_props(
     assert response.status_code == status.HTTP_200_OK
 
 
-def _last_played_sort_key(user_id: int) -> str:
-    key = build_unscoped_sidecar_cache_key(user_id, "last_played", "desc", False, True)
-    assert key is not None
-    return key
-
-
 @pytest.fixture
 def played_rom(rom: Rom, admin_user: User) -> Rom:
     """The shared rom with an old `last_played`, so a later play must reorder past it."""
@@ -261,34 +265,7 @@ def played_rom(rom: Rom, admin_user: User) -> Rom:
     return rom
 
 
-def test_props_write_refreshes_last_played_sorted_index(
-    client: TestClient,
-    access_token: str,
-    admin_user: User,
-    played_rom: Rom,
-    second_rom: Rom,
-):
-    """A play recorded through /props reorders the next last_played-sorted index."""
-    first = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
-    assert first["rom_id_index"] == [played_rom.id, second_rom.id]
-
-    _put_props(client, access_token, second_rom.id, update_last_played=True)
-
-    second = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
-    assert second["rom_id_index"] == [second_rom.id, played_rom.id]
-
-
-def test_play_session_ingest_refreshes_last_played_sorted_index(
-    client: TestClient,
-    access_token: str,
-    admin_user: User,
-    played_rom: Rom,
-    second_rom: Rom,
-):
-    """The play-session path writes `last_played` through the same choke point."""
-    first = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
-    assert first["rom_id_index"] == [played_rom.id, second_rom.id]
-
+def _ingest_play_session(client: TestClient, access_token: str, rom_id: int) -> None:
     end = datetime.now(timezone.utc).replace(microsecond=0)
     response = client.post(
         "/api/play-sessions",
@@ -296,7 +273,7 @@ def test_play_session_ingest_refreshes_last_played_sorted_index(
         json={
             "sessions": [
                 {
-                    "rom_id": second_rom.id,
+                    "rom_id": rom_id,
                     "start_time": (end - timedelta(minutes=30)).isoformat(),
                     "end_time": end.isoformat(),
                     "duration_ms": 30 * 60 * 1000,
@@ -306,28 +283,34 @@ def test_play_session_ingest_refreshes_last_played_sorted_index(
     )
     assert response.status_code == status.HTTP_201_CREATED
 
+
+@pytest.mark.parametrize("trigger", ["props", "play_session"])
+def test_last_played_write_refreshes_the_sorted_index(
+    client: TestClient,
+    access_token: str,
+    played_rom: Rom,
+    second_rom: Rom,
+    trigger: str,
+):
+    """Both `last_played` writers reorder the next sorted index."""
+    first = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
+    assert first["rom_id_index"] == [played_rom.id, second_rom.id]
+
+    if trigger == "props":
+        _put_props(client, access_token, second_rom.id, update_last_played=True)
+    else:
+        _ingest_play_session(client, access_token, second_rom.id)
+
     second = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
     assert second["rom_id_index"] == [second_rom.id, played_rom.id]
 
 
-def test_cache_key_normalises_order_by_case():
-    """A mixed-case RomUser sort must land on the same versioned key as lowercase."""
-    mixed_case_key = build_unscoped_sidecar_cache_key(
-        1, "Last_Played", "desc", False, True
-    )
-    assert mixed_case_key == _last_played_sort_key(1)
-
-
-def test_rom_user_write_refreshes_grouped_entry(
+def test_main_sibling_write_refreshes_grouped_entry(
     client: TestClient, access_token: str, admin_user: User, rom: Rom
 ):
-    """Grouped sets pick the user's main sibling, so any rom_user write must
-    refresh the grouped index even under the default name sort."""
-    key = build_unscoped_sidecar_cache_key(admin_user.id, "", "asc", True, True)
-    assert key is not None
-    version = _filter_values_cache_version()
-    redis_key = _rom_id_index_redis_key(key, version)
-    _store_versioned_cache(redis_key, version, [424242])
+    """Grouped sets pick the user's main sibling, so that write refreshes
+    the grouped index even under the default name sort."""
+    _seed_rom_id_index(_unscoped_key(admin_user.id, group=True), [424242])
 
     first = _get_roms(client, access_token, group_by_meta_id=True)
     assert first["rom_id_index"] == [424242]
@@ -338,18 +321,24 @@ def test_rom_user_write_refreshes_grouped_entry(
     assert second["rom_id_index"] == [rom.id]
 
 
+def test_non_sibling_write_keeps_the_grouped_entry(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """A play must not rotate the default grouped gallery's whole-library
+    index; only main-sibling picks move a name-sorted grouped set."""
+    _seed_rom_id_index(_unscoped_key(admin_user.id, group=True), [424242])
+
+    _put_props(client, access_token, rom.id, update_last_played=True)
+
+    body = _get_roms(client, access_token, group_by_meta_id=True)
+    assert body["rom_id_index"] == [424242]
+
+
 def test_rom_user_write_keeps_filter_values_entry(
     client: TestClient, access_token: str, admin_user: User, rom: Rom
 ):
     """Filter values read no sortable RomUser column, so a play must not rotate them."""
-    version = _filter_values_cache_version()
-    key = build_unscoped_sidecar_cache_key(
-        admin_user.id, "last_played", "desc", False, True, with_rom_user_version=False
-    )
-    assert key is not None
-    _store_versioned_cache(
-        _filter_values_redis_key(key, version), version, SENTINEL_FILTER_VALUES
-    )
+    _seed_filter_values(admin_user.id)
 
     _put_props(client, access_token, rom.id, update_last_played=True)
 
@@ -361,35 +350,29 @@ def test_rom_user_write_keeps_name_sorted_entry(
     client: TestClient, access_token: str, admin_user: User, rom: Rom
 ):
     """A rating write must not rotate or delete the user's name-sorted entry."""
-    version = _filter_values_cache_version()
-    redis_key = _rom_id_index_redis_key(_unscoped_key(admin_user.id), version)
-    _store_versioned_cache(redis_key, version, [424242])
+    redis_key = _seed_rom_id_index(_unscoped_key(admin_user.id), [424242])
 
     _put_props(client, access_token, rom.id, body={"rating": 8})
 
     body = _get_roms(client, access_token)
     assert body["rom_id_index"] == [424242]
+    assert sync_cache.get(redis_key) is not None
 
 
 def test_rom_user_write_leaves_other_users_sorted_entries_alone(
-    client: TestClient,
-    access_token: str,
-    admin_user: User,
-    editor_user: User,
-    rom: Rom,
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
 ):
     """One user's play rotates only their own key; another user's entry stays."""
-    writer_key = _last_played_sort_key(admin_user.id)
-    other_key = _last_played_sort_key(editor_user.id)
-    version = _filter_values_cache_version()
-    other_redis_key = _rom_id_index_redis_key(other_key, version)
-    _store_versioned_cache(other_redis_key, version, [424242])
+    other_user_id = admin_user.id + 1
+    writer_key = _unscoped_key(admin_user.id, "last_played", "desc")
+    other_key = _unscoped_key(other_user_id, "last_played", "desc")
+    other_redis_key = _seed_rom_id_index(other_key, [424242])
 
     _put_props(client, access_token, rom.id, update_last_played=True)
 
-    assert _last_played_sort_key(editor_user.id) == other_key
+    assert _unscoped_key(other_user_id, "last_played", "desc") == other_key
     assert sync_cache.get(other_redis_key) is not None
-    assert _last_played_sort_key(admin_user.id) != writer_key
+    assert _unscoped_key(admin_user.id, "last_played", "desc") != writer_key
 
 
 def test_hidden_write_still_bumps_the_global_version(
@@ -397,8 +380,7 @@ def test_hidden_write_still_bumps_the_global_version(
 ):
     """`hidden` keeps its global invalidation on top of the per-user bump."""
     old_version = _filter_values_cache_version()
-    redis_key = _rom_id_index_redis_key(_unscoped_key(admin_user.id), old_version)
-    _store_versioned_cache(redis_key, old_version, [424242])
+    redis_key = _seed_rom_id_index(_unscoped_key(admin_user.id), [424242])
 
     _put_props(client, access_token, rom.id, body={"hidden": True})
 
