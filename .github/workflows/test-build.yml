@@ -23,28 +23,29 @@ on:
 permissions:
   contents: read
 
+# One preview per branch: overlapping runs would interleave their writes to the
+# shared sticky comment and to the per-arch layer cache.
+concurrency:
+  group: preview-build-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
+  cancel-in-progress: true
+
 jobs:
   prepare:
     if: |
-      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'pull_request' &&
       contains(github.event.pull_request.labels.*.name, 'build-preview')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
     steps:
       - name: PR comment build starting
-        if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
         with:
           header: preview-build
           message: 🔨 Preview build is under way...
 
-  # Each architecture builds on a runner of its own architecture and pushes an
-  # untagged, digest-addressed image; `merge` then stitches them into one index.
-  # Emulating arm64 under QEMU made the C/C++ stages dominate the build.
-  #
-  # Deliberately not `needs: prepare`: the two are independent, and a hiccup
-  # posting the comment should not cancel the build.
+  # Each architecture builds natively and pushes an untagged, digest-addressed
+  # image; `merge` stitches them into one index.
   build:
     if: |
       github.event_name == 'workflow_dispatch' ||
@@ -63,6 +64,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest-repo: ${{ steps.repo.outputs.ref }}
     env:
       USE_GHCR: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.registry == 'ghcr' || github.event.inputs.registry == 'both' }}
       USE_DOCKERHUB: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.registry == 'dockerhub' || github.event.inputs.registry == 'both') }}
@@ -138,9 +141,8 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Waits on `prepare` as well, so a late "under way" comment cannot land on top
-  # of the completed one. Its result is not required though: failing to post a
-  # comment should not leave a pushed image untagged.
+  # Waits on `prepare` too, so a late "under way" comment cannot overwrite the
+  # completed one; its result is not required.
   merge:
     needs: [prepare, build]
     if: ${{ !cancelled() && needs.build.result == 'success' }}
@@ -188,23 +190,12 @@ jobs:
           tags: |
             type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
 
-      - name: Resolve digest repository
-        id: repo
-        env:
-          OWNER: ${{ github.repository_owner }}
-        run: |
-          if [[ "${USE_GHCR}" == "true" ]]; then
-            echo "ref=ghcr.io/${OWNER}/romm-testing" >>"$GITHUB_OUTPUT"
-          else
-            echo "ref=${DOCKERHUB_NAMESPACE}/romm-testing" >>"$GITHUB_OUTPUT"
-          fi
-
       # Cross-registry tags are fine here: `imagetools create` copies the blobs
       # over when a target sits in a different registry than the digests.
       - name: Create manifest list and push
         working-directory: /tmp/digests
         env:
-          DIGEST_REF: ${{ steps.repo.outputs.ref }}
+          DIGEST_REF: ${{ needs.build.outputs.digest-repo }}
           METADATA: ${{ steps.meta.outputs.json }}
         run: |
           tags=()
@@ -214,14 +205,21 @@ jobs:
 
           sources=()
           for digest in *; do
+            [[ -f "$digest" ]] || continue
             sources+=("${DIGEST_REF}@sha256:${digest}")
           done
 
+          # Without both lists `imagetools create` would push an untagged index
+          # and still exit 0, leaving the preview image unreachable by tag.
+          if [[ ${#tags[@]} -eq 0 || ${#sources[@]} -eq 0 ]]; then
+            echo "::error::${#tags[@]} tag(s), ${#sources[@]} digest(s)"
+            exit 1
+          fi
+
           docker buildx imagetools create "${tags[@]}" "${sources[@]}"
 
-      # PR builds always push to GHCR only, so the image link is hardcoded to GHCR.
-      # The branch name is not a usable tag on its own: `metadata-action` rewrites
-      # characters Docker forbids, `/` among them.
+      # PR builds push to GHCR only. Use the metadata tag, not the raw branch:
+      # `metadata-action` rewrites characters Docker forbids, `/` among them.
       - name: Comment PR with GHCR image link
         if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
@@ -231,3 +229,20 @@ jobs:
             ✅ Preview build completed!
 
             Docker image: `ghcr.io/${{ github.repository_owner }}/romm-testing:${{ steps.meta.outputs.version }}`
+
+  # Without this the sticky comment would sit on "under way..." forever.
+  report-failure:
+    needs: [build, merge]
+    if: ${{ failure() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment PR with the failure
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
+        with:
+          header: preview-build
+          message: |
+            ❌ Preview build failed.
+
+            [View the run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})

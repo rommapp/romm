@@ -21,19 +21,17 @@ jobs:
     steps:
       - name: Check if tag follows SemVer
         id: check_tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
           if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
             echo "valid=true" >>"$GITHUB_OUTPUT"
           else
             echo "valid=false" >>"$GITHUB_OUTPUT"
           fi
 
-  # Each architecture builds on a runner of its own architecture and pushes
-  # untagged, digest-addressed images; `merge` then stitches them into one index
-  # per variant. Emulating arm64 under QEMU made the C/C++ stages dominate the
-  # build. The full image is `FROM` the slim one, so the two targets share
-  # almost all of their work within a single job.
+  # Each architecture builds natively and pushes untagged, digest-addressed
+  # images; `merge` stitches them into one index per variant.
   build:
     needs: validate-tag-semver
     if: needs.validate-tag-semver.outputs.valid == 'true'
@@ -49,7 +47,6 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:
-      id-token: write
       contents: read
       packages: write
     env:
@@ -178,7 +175,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
       packages: write
     env:
@@ -259,8 +255,16 @@ jobs:
             local sources=()
             local digest
             for digest in "$dir"/*; do
-              sources+=("${DIGEST_IMAGE}@sha256:$(basename "$digest")")
+              [[ -f "$digest" ]] || continue
+              sources+=("${DIGEST_IMAGE}@sha256:${digest##*/}")
             done
+
+            # Without both lists `imagetools create` would push an untagged
+            # index and still exit 0, publishing a release nobody can pull.
+            if [[ ${#tags[@]} -eq 0 || ${#sources[@]} -eq 0 ]]; then
+              echo "::error::${dir}: ${#tags[@]} tag(s), ${#sources[@]} digest(s)"
+              return 1
+            fi
 
             docker buildx imagetools create "${tags[@]}" "${sources[@]}"
           }
@@ -269,8 +273,8 @@ jobs:
           push_variant /tmp/digests/full "$FULL_METADATA"
 
   trigger-docs-and-web:
-    permissions:
-      actions: write
+    # Dispatches into other repositories with a PAT; GITHUB_TOKEN is unused.
+    permissions: {}
     needs: merge
     runs-on: ubuntu-latest
     if: needs.merge.result == 'success' && github.event.release.prerelease == false
