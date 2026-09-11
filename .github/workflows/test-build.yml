@@ -228,11 +228,13 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          HEAD_REF: ${{ github.head_ref }}
+          # The branch name is not a usable tag on its own: `metadata-action`
+          # rewrites characters Docker forbids, `/` among them.
+          IMAGE_TAG: ${{ steps.meta.outputs.version }}
         with:
           script: |
             const owner = context.repo.owner;
-            const tag = process.env.HEAD_REF;
+            const tag = process.env.IMAGE_TAG;
             github.rest.issues.updateComment({
               comment_id: ${{ needs.prepare.outputs.comment-id }},
               owner: owner,
