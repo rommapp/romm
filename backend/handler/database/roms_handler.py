@@ -1338,9 +1338,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         query: Query,
         *,
-        # The grouped dedup aggregates the active sort key over each group, so
-        # it needs the ordering the query was built with; get_roms_query
-        # callers pass the key it resolved rather than re-deriving it here.
+        # The grouped dedup aggregates the active sort key over each group;
+        # get_roms_query callers pass the key they resolved for the query.
         sort_key: _GallerySortKey | None = None,
         order_by: str = "",
         order_dir: str = "asc",
