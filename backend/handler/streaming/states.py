@@ -434,13 +434,16 @@ async def pull_state_to_library(
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False
-        # The browser frame is preferred: it is what the player actually saw,
-        # and capturing it never asks the emulator to read back its own
-        # framebuffer, which is what deadlocks GPU-rendered cores. PCSX2 embeds
-        # a frame in the state file; the rest write one beside it.
-        screenshot = await take_state_frame(user_id, rom_id)
+        # PCSX2's embedded frame comes first: it was already downloaded as part
+        # of the state content above, so using it costs nothing extra and it
+        # can never be a stale/blank capture off the player's video sink. For
+        # every other emulator this is always None, so the browser frame is
+        # preferred next: it is what the player actually saw, and capturing it
+        # never asks the emulator to read back its own framebuffer, which is
+        # what deadlocks GPU-rendered cores.
+        screenshot = extract_state_screenshot(emulator, content)
         if screenshot is None:
-            screenshot = extract_state_screenshot(emulator, content)
+            screenshot = await take_state_frame(user_id, rom_id)
         if screenshot is None:
             screenshot = await asyncio.to_thread(
                 fetch_state_screenshot, container, slot

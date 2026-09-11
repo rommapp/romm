@@ -2772,6 +2772,51 @@ def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
     fetch_shot.assert_not_called()
 
 
+def test_pull_state_prefers_embedded_pcsx2_screenshot(rom: Rom, admin_user: User):
+    """PCSX2's own embedded frame beats a browser capture: it's already in
+    hand from the state download and can't be a stale/blank canvas grab."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    scanned = _state_for(rom, admin_user, "Game.05.p2s", "pcsx2")
+    scanned_shot = Screenshot(
+        file_name="Game.05.p2s.png",
+        file_name_no_tags="Game.05.p2s",
+        file_name_no_ext="Game.05.p2s",
+        file_extension="png",
+        file_path=f"{rom.platform_slug}/screenshots",
+        file_size_bytes=len(_PNG),
+    )
+    browser_frame = b"\x89PNG\r\n\x1a\n" + b"browser-frame"
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=("Game.05.p2s", _p2s_bytes(_PNG)),
+        ),
+        patch(
+            "handler.streaming.states.take_state_frame",
+            new=AsyncMock(return_value=browser_frame),
+        ) as take_frame,
+        patch("handler.streaming.states.fetch_state_screenshot") as fetch_shot,
+        patch(
+            "handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()
+        ) as wf,
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
+        patch(
+            "handler.asset_store.scan_screenshot",
+            new=AsyncMock(return_value=scanned_shot),
+        ),
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 5)
+        )
+    assert ok is True
+    take_frame.assert_not_called()
+    fetch_shot.assert_not_called()
+    shot_call = next(
+        c for c in wf.await_args_list if c.kwargs["filename"].endswith(".png")
+    )
+    assert shot_call.kwargs["file"] == _PNG
+
+
 def test_state_frame_stashes_capture(client, access_token):
     """The endpoint holds the frame for the save that follows it."""
     rom = _rom_on("ps2")
