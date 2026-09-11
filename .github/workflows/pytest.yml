@@ -42,7 +42,7 @@ jobs:
           MYSQL_ROOT_PASSWORD: passwd
         options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=2s --health-retries=3 --health-start-period=30s
       postgresql:
-        image: postgres:16
+        image: postgres:18
         ports:
           - 5432
         env:
