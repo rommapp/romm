@@ -149,54 +149,38 @@ describe("HashChip", () => {
       expect(button.attributes("aria-expanded")).toBeUndefined();
     });
 
-    it("announces the disclosure state when the clipboard is unavailable", async () => {
+    it("announces the disclosure state and names the revealed value by content", async () => {
       clipboard.isSupported = false;
       const wrapper = mountChip();
 
-      expect(wrapper.find("button").attributes("aria-expanded")).toBe("false");
-      expect(wrapper.find("button").attributes("aria-label")).toBe(
-        'common.show-full-hash:{"label":"SHA-1"}',
-      );
-
-      await click(wrapper);
-
-      expect(wrapper.find("button").attributes("aria-expanded")).toBe("true");
-      expect(wrapper.find("button").attributes("aria-label")).toBe(
-        'common.hide-full-hash:{"label":"SHA-1"}',
-      );
-
-      await click(wrapper);
-
-      expect(wrapper.find("button").attributes("aria-expanded")).toBe("false");
-      expect(wrapper.find("button").attributes("aria-label")).toBe(
-        'common.show-full-hash:{"label":"SHA-1"}',
-      );
-    });
-
-    // A failed copy discloses the value but the next click still copies,
-    // so the state flips to expanded while the name stays the copy action.
-    it("marks the fallback reveal after a failed copy as expanded", async () => {
-      copy.mockResolvedValue(false);
-      const wrapper = mountChip();
-
-      await click(wrapper);
-
       const button = wrapper.find("button");
-      expect(button.attributes("aria-expanded")).toBe("true");
-      expect(button.attributes("aria-label")).toBe(
-        'common.copy-hash:{"label":"SHA-1"}',
+      expect(button.attributes("aria-expanded")).toBe("false");
+      expect(button.attributes("aria-label")).toContain(
+        "common.show-full-hash",
       );
+
+      await click(wrapper);
+
+      // Expanded, the action label drops so the content (label plus full
+      // value) becomes the accessible name and the value stays reachable.
+      expect(button.attributes("aria-expanded")).toBe("true");
+      expect(button.attributes("aria-label")).toBeUndefined();
+      expect(wrapper.text()).toContain(SHA1);
     });
 
-    it("keeps copying and stays expanded on clicks after a failed copy", async () => {
+    // A failed copy reveals the value, but the chip stays a plain copy
+    // button: no disclosure state, and the next click copies again.
+    it("keeps the fallback reveal a plain copy button", async () => {
       copy.mockResolvedValueOnce(false);
       const wrapper = mountChip();
 
       await click(wrapper);
       await click(wrapper);
 
+      const button = wrapper.find("button");
       expect(copy).toHaveBeenCalledTimes(2);
-      expect(wrapper.find("button").attributes("aria-expanded")).toBe("true");
+      expect(button.attributes("aria-expanded")).toBeUndefined();
+      expect(button.attributes("aria-label")).toContain("common.copy-hash");
       expect(wrapper.text()).toContain(SHA1);
     });
   });

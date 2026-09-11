@@ -57,21 +57,19 @@ const appendIcon = computed(() => {
   return clipboard.isSupported ? "mdi-content-copy" : "mdi-eye-outline";
 });
 
-// Present only while the chip acts as a disclosure (the reveal toggle, or a
-// value revealed by a failed copy); a pure copy button carries no aria-expanded.
-const ariaExpanded = computed(() => {
-  if (clipboard.isSupported && !revealed.value) return undefined;
-  return revealed.value;
-});
+// Only a real toggle announces itself as a disclosure; the copy chip stays
+// a plain button even when a failed copy left the value revealed.
+const ariaExpanded = computed(() =>
+  clipboard.isSupported ? undefined : revealed.value,
+);
 
-// The visible text is just the label and abbreviated value, so the accessible
-// name spells out what a click does instead.
+// The abbreviated chip names its action; once revealed, the content (label
+// plus full value) is the better accessible name, so the override drops.
 const ariaLabel = computed(() => {
   if (clipboard.isSupported)
     return t("common.copy-hash", { label: props.label });
-  return revealed.value
-    ? t("common.hide-full-hash", { label: props.label })
-    : t("common.show-full-hash", { label: props.label });
+  if (revealed.value) return undefined;
+  return t("common.show-full-hash", { label: props.label });
 });
 
 // Scoped to this chip so a selection made elsewhere on the page does not
