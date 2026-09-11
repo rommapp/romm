@@ -24,16 +24,16 @@ Scan, enrich, browse and play your ROM collection from one beautiful & free self
 
 ## Features
 
-- Scan and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
-- Fetch custom artwork from [SteamGridDB][steamgriddb-api]
-- Display your achievements from [Retroachievements][retroachievements-api]
-- Metadata available for [400+ platforms][docs-supported-platforms]
-- Play games directly from the browser using [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers]
-- Share your library with friends with limited access and permissions
-- Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout]
-- Supports multi-disk games, DLCs, mods, hacks, patches, and manuals
+- Play in your browser with [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers], no setup required
+- Keep [saves and states][docs-saves] in sync across your devices, with conflict resolution
+- Scan and enrich your library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api], [LaunchBox][launchbox-api] and [MobyGames][mobygames-api]
+- Fetch custom artwork from [SteamGridDB][steamgriddb-api] and track your achievements from [Retroachievements][retroachievements-api]
+- Metadata available for [400+ platforms][docs-supported-platforms], plus multi-disk games, DLCs, mods, hacks and manuals
+- Apply romhacks and translations on the fly with the built-in [ROM patcher][docs-rom-patcher]
+- Share your library with granular [per-user permissions][docs-users-and-roles] and [OIDC single sign-on][docs-oidc]
+- Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout], plus [ES-DE and Pegasus exports][docs-exports] and a full [REST API][docs-api]
 - Parse and filter by [tags][docs-tag-support] in filenames
-- View, upload, update, and delete games from any modern web browser
+- Free forever: AGPL-3.0, no tracking, no paid features, and total control of your data
 
 ## Preview
 
@@ -158,12 +158,19 @@ These companies support us by providing their tools for free:
 [docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
 [docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
 [docs-tag-support]: https://docs.romm.app/latest/Getting-Started/Folder-Structure/#tag-support
+[docs-saves]: https://docs.romm.app/latest/using/saves-and-states/
+[docs-rom-patcher]: https://docs.romm.app/latest/using/rom-patcher/
+[docs-users-and-roles]: https://docs.romm.app/latest/administration/users-and-roles/
+[docs-oidc]: https://docs.romm.app/latest/administration/oidc/
+[docs-exports]: https://docs.romm.app/latest/reference/exports/
+[docs-api]: https://docs.romm.app/latest/developers/api-reference/
 
 <!-- External links -->
 
 [igdb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#igdb
 [screenscraper-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#screenscraper
 [mobygames-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#mobygames
+[launchbox-api]: https://docs.romm.app/latest/getting-started/metadata-providers/#launchbox
 [steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
 [retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
