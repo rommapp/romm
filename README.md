@@ -32,7 +32,6 @@ Scan, enrich, browse and play your ROM collection from one beautiful & free self
 - Apply romhacks and translations on the fly with the built-in [ROM patcher][docs-rom-patcher]
 - Share your library with granular [per-user permissions][docs-users-and-roles] and [OIDC single sign-on][docs-oidc]
 - Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout]
-- Parse and filter by [tags][docs-tag-support] in filenames
 - Free forever: AGPL-3.0, no tracking, no paid features, and total control of your data
 
 ## Preview
@@ -158,7 +157,6 @@ These companies support us by providing their tools for free:
 [docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
 [docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
 [docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
-[docs-tag-support]: https://docs.romm.app/latest/Getting-Started/Folder-Structure/#tag-support
 [docs-saves]: https://docs.romm.app/latest/using/saves-and-states/
 [docs-rom-patcher]: https://docs.romm.app/latest/using/rom-patcher/
 [docs-users-and-roles]: https://docs.romm.app/latest/administration/users-and-roles/
