@@ -27,15 +27,27 @@ The base is always **the last stable tag**, never the preceding prerelease. A
 the beta is a superset of the alpha rather than a delta on top of it.
 
 ```bash
-TAG=5.3.0-alpha.1                                        # what you are drafting
+TAG=5.3.0-alpha.1                       # what you are drafting
+LINE=${TAG%%-*}                         # 5.3.0, the stable version this line becomes
 git fetch origin master --tags
-# last stable tag: numeric tags only (the legacy v-prefixed ones sort wrong),
-# no -alpha/-beta suffix, highest version
-BASE=$(git tag --list '[0-9]*' | grep -vE -- '-(alpha|beta|rc)' | sort -V | tail -1)
-RANGE="$BASE..origin/master"
+
+# the stable tag immediately below $LINE. Numeric tags only, since the legacy
+# v-prefixed ones sort above them, and sort -V rather than --sort=v:refname
+BASE=$(git tag --list '[0-9]*' | grep -vE -- '-(alpha|beta|rc)' | grep -vFx "$LINE" \
+  | { cat; echo "$LINE"; } | sort -V | grep -B1 -Fx "$LINE" | head -1)
+
+# an already-tagged prerelease is drafted against its tag, not against master,
+# or the draft picks up everything merged since it shipped
+if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then HEAD_REF="$TAG"; else HEAD_REF=origin/master; fi
+
+RANGE="$BASE..$HEAD_REF"
 git rev-list --count $RANGE
 git diff --stat $RANGE | tail -20
 ```
+
+Sanity-check the pair before going further. `$BASE` should equal the tag in the
+previous release's compare link, and if `$LINE` is already tagged stable while
+`$TAG` is not, then `$TAG` is wrong: stop and confirm the version.
 
 ## 2. Pull the raw material
 
@@ -48,7 +60,11 @@ gh api repos/rommapp/romm/releases/generate-notes \
   -f tag_name="$TAG" -f previous_tag_name="$BASE" --jq '.body' > /tmp/raw-notes.md
 ```
 
-Then run the sweeps that find what the PR titles do not say:
+Then run the sweeps that find what the PR titles do not say. They are an index,
+not an answer: a `@protected_route(...)` or `_get_env(...)` call wrapped across
+lines matches only on the line that actually changed, so a moved path or a new
+default can surface as a bare `+@protected_route(`. Read the full hunks of every
+file a sweep touches before writing the tables.
 
 ```bash
 # new or changed env vars
@@ -61,6 +77,11 @@ git diff --stat $RANGE -- backend/endpoints/responses/ backend/handler/scan_hand
 git diff --name-status $RANGE -- backend/alembic/versions/
 # config.yml surface
 git diff $RANGE -- backend/config/config_manager.py | grep -E '^[+-].*(class |: )' | head -40
+```
+
+```bash
+# the sweeps only point at files, so read what actually changed inside them
+git diff $RANGE -- backend/endpoints/ backend/config/
 ```
 
 For each candidate Highlight, read the PR itself rather than paraphrasing its
@@ -97,7 +118,8 @@ subsystem, a new metadata source, a new UI surface, a new export format. Format:
 - One or two short paragraphs, second person, present tense. Say what it does,
   then the one thing the reader has to know to use it (the config key, the
   setting, the caveat). Name real keys and paths in backticks.
-- End the first paragraph with the bare PR reference: ` #3211`. Bare `#NNNN` in
+- End the first paragraph with a space and the bare PR reference, `#3211`. Bare
+  `#NNNN` in
   prose, full URLs only in the bullet lists.
 - Add a fenced `yaml` block when a config key drives the feature.
 - Leave a `<!-- screenshot: ... -->` placeholder for anything visual. Do not
@@ -109,7 +131,10 @@ only the title, in place: give it a conventional-commit prefix and scope if it
 lacks one (`Skip DMCA-locked grids when scraping SteamGridDB` becomes
 `fix: Skip DMCA-locked grids when scraping SteamGridDB`), and lowercase a shouty
 one. Never drop a PR, never merge two into one line, never reorder across
-sections. A PR that is both a highlight and a `feat:` appears in both.
+sections. Promoting a PR to a Highlight **removes** its bullet: every published
+release does this, so `5.1.0-beta.1` lists neither #3211 nor #3854 under Minor
+changes, and #3155 left the `4.9.0-alpha.1` bullets once the beta gave it a
+Highlight. Promote or list, never both.
 
 `build(deps):` and `dependabot[bot]` lines always land in Other changes, never
 in Fixes, even when the bump closes a CVE. Call the CVE out in a callout instead
@@ -139,7 +164,8 @@ for a new endpoint group. Prefix a breaking entry with `⚠️`.
 
 ## 6. Before handing it over
 
-- Every PR in `/tmp/raw-notes.md` appears exactly once in a bullet section.
+- Every PR in `/tmp/raw-notes.md` is accounted for exactly once, either as a
+  Highlight or as a bullet, never both and never dropped.
 - Every `#NNNN` in the Highlights resolves to a PR in the range.
 - Every new env var found in step 2 is documented, and every route change too.
 - A migration in the range means you have checked whether it needs a warning.
