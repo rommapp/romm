@@ -62,10 +62,11 @@
 # system:
 #   # Asociate different platform names to your current file system platform names
 #   # [your custom platform folder name]: [RomM platform name]
-#   # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
+#   # Matched case-insensitively. The folder names Batocera, RetroBat and ES-DE use
+#   # are already recognised, so only name the ones RomM doesn't know.
 #   platforms:
-#     gc: ngc
 #     ps1: psx
+#     super_nintendo: snes
 
 #   # Asociate one platform to it's main version (IGDB only)
 #   versions:
