@@ -32,6 +32,6 @@ for name, task in SCHEDULED_TASKS.items():
         # A spent dispatch carries the scan's own name, and RQ drops a job whose
         # result_ttl is 0, so one rescan is not listed as two runs.
         result_ttl=0 if is_scan else TASK_RESULT_TTL,
-        meta=task.job_meta,
+        meta=task.job_meta(name),
     )
     log.info(f"Scheduled '{name}' at '{task.cron_string}'")

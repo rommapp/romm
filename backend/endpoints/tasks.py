@@ -74,6 +74,7 @@ def _build_task_status_response(
     job_meta = job.get_meta()
     task_type = job_meta.get("task_type")
     task_name = job_meta.get("task_name") or get_job_func_name(job)
+    task_key = job_meta.get("task_key") or job.kwargs.get("name")
 
     # Convert datetime objects to ISO format strings
     created_at = job.created_at.isoformat() if job.created_at else None
@@ -82,6 +83,7 @@ def _build_task_status_response(
     enqueued_at = job.enqueued_at.isoformat() if job.enqueued_at else None
 
     common_data = {
+        "task_key": task_key,
         "task_name": task_name,
         "task_id": job.id,
         "status": job.get_status(),
@@ -286,6 +288,7 @@ async def run_single_task(
     job = enqueue_task(task_name, task_kwargs=task_kwargs or {})
 
     return {
+        "task_key": task_name,
         "task_name": task_instance.title,
         "task_id": job.id,
         "status": job.get_status() or JobStatus.QUEUED,

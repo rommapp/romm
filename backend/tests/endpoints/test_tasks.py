@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -6,6 +7,18 @@ from rq.exceptions import NoSuchJobError
 
 from handler.redis_handler import redis_client
 from tasks.tasks import Task, TaskType
+
+
+def _job_with_meta(meta: dict[str, Any]) -> Mock:
+    """A finished job carrying `meta`, for asserting on what the response reports."""
+    job = Mock()
+    job.id = "test-job-id-123"
+    job.kwargs = {}
+    job.get_meta.return_value = {"task_type": TaskType.CLEANUP, **meta}
+    job.get_status.return_value = "finished"
+    for attr in ("created_at", "enqueued_at", "started_at", "ended_at"):
+        setattr(job, attr, None)
+    return job
 
 
 @pytest.fixture
@@ -247,6 +260,7 @@ class TestRunSingleTask:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
+        assert data["task_key"] == "test_task"
         assert data["task_name"] == "Test Task"
         assert data["task_id"] == "1"
         assert data["status"] == "queued"
@@ -384,6 +398,7 @@ class TestGetTaskById:
             "task_type": TaskType.CLEANUP,
         }
         mock_job.func_name = "test_task"
+        mock_job.kwargs = {}
         mock_job.get_status.return_value = "finished"
         mock_job.id = "test-job-id-123"
         mock_job.result = {"status": "completed"}
@@ -409,6 +424,50 @@ class TestGetTaskById:
         mock_job_fetch.assert_called_once_with(
             "test-job-id-123", connection=redis_client
         )
+
+    @pytest.mark.parametrize(
+        ("meta", "expected_key"),
+        [
+            (
+                {
+                    "task_key": "cleanup_zip_cache",
+                    "task_name": "Scheduled ZIP cache cleanup",
+                },
+                "cleanup_zip_cache",
+            ),
+            ({"task_name": "Quick Scan"}, None),
+        ],
+        ids=["catalog entry", "started outside the catalog"],
+    )
+    @patch("endpoints.tasks.Job.fetch")
+    def test_the_response_reports_the_registry_key(
+        self, mock_job_fetch, meta, expected_key, client, access_token
+    ):
+        """The key a run is matched to its catalog entry by, null when it has none."""
+        mock_job_fetch.return_value = _job_with_meta(meta)
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.json()["task_key"] == expected_key
+
+    @patch("endpoints.tasks.Job.fetch")
+    def test_a_job_predating_the_field_falls_back_to_its_payload(
+        self, mock_job_fetch, client, access_token
+    ):
+        """An in-flight job survives the upgrade matchable, without its meta."""
+        job = _job_with_meta({"task_name": "Scheduled ZIP cache cleanup"})
+        job.kwargs = {"name": "cleanup_zip_cache", "task_kwargs": {}}
+        mock_job_fetch.return_value = job
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.json()["task_key"] == "cleanup_zip_cache"
 
     @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_not_found(self, mock_job_fetch, client, access_token):
@@ -443,6 +502,7 @@ class TestGetTaskById:
             "task_type": TaskType.CLEANUP,
         }
         mock_job.func_name = "test_task"
+        mock_job.kwargs = {}
         mock_job.get_status.return_value = "failed"
         mock_job.id = "failed-job-id"
         mock_job.result = {"error": "Task failed"}

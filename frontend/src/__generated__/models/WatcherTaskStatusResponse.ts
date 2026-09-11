@@ -5,6 +5,7 @@
 import type { JobStatus } from './JobStatus';
 import type { WatcherTaskMeta } from './WatcherTaskMeta';
 export type WatcherTaskStatusResponse = {
+    task_key: (string | null);
     task_name: string;
     task_id: string;
     status: JobStatus;
