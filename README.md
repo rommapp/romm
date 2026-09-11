@@ -43,7 +43,7 @@ Scan, enrich, browse and play your ROM collection from one beautiful & free self
 
 ## Installation
 
-To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting].
+The easiest way to start is with the [Quick Start Guide][docs-quick-start-guide] in the docs. If you're having trouble with setup, please review the page for [troubleshooting steps][docs-troubleshooting].
 
 ### One-click deploys
 
@@ -53,10 +53,6 @@ To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] i
 </p>
 
 <sub><i>Deployment and infrastructure support for this install is handled by Hostinger. Prices are indicative and may not reflect current offerings. Signups through the link above send a share of the revenue back to us, which helps fund the project.</i></sub>
-
-## Contributing
-
-To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
 
 ## Official apps
 
