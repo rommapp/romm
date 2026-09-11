@@ -84,6 +84,22 @@ class TestRomUserSortQueryShape:
         ) in str(query)
         assert sort_key.column is RomUser.rating
 
+    @pytest.mark.parametrize(
+        "order_by", ["metadatum", "rom_users", "rom", "user", "__table__"]
+    )
+    @pytest.mark.parametrize("user_id", [None, 1])
+    def test_non_column_order_by_falls_back_to_the_name_sort(
+        self, order_by: str, user_id: int | None
+    ):
+        # A relationship or dunder name is not a sortable column; it must
+        # resolve to the name sort instead of raising while ordering builds.
+        query, sort_key = db_rom_handler.get_roms_query(
+            order_by=order_by, user_id=user_id
+        )
+
+        assert sort_key.column is Rom.name_sort_key
+        assert "ORDER BY roms.name_sort_key ASC" in str(query)
+
 
 class TestRomUserSortResults:
     @pytest.fixture
