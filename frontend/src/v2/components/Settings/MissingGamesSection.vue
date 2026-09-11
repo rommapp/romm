@@ -42,7 +42,7 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import storeGalleryRoms, { type SidecarOptions } from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, { NO_SIDECARS } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 interface PlatformItem {
@@ -50,15 +50,6 @@ interface PlatformItem {
   slug: string;
   name: string;
 }
-
-// This tab renders no filter drawer and no AlphaStrip, and sizes its
-// scroller off `total` alone, so all three whole-library aggregates are
-// scans whose results it would discard.
-const NO_SIDECARS: SidecarOptions = {
-  withCharIndex: false,
-  withFilterValues: false,
-  withRomIdIndex: false,
-};
 
 defineOptions({ inheritAttrs: false });
 

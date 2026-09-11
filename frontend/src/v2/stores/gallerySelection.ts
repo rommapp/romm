@@ -122,20 +122,17 @@ export default defineStore("v2GallerySelection", {
       this.lastSelectedPosition = position;
     },
 
-    /** Merge the given ROMs into the selection (existing picks kept).
-     * One Map swap per call, skipped when nothing changed. */
+    /** Merge the given ROMs into the selection (existing picks kept). */
     selectMany(roms: Iterable<SimpleRom>) {
-      // Clone from the raw Map: the swap below is the reactive trigger,
-      // so per-entry proxy wrapping during the copy is pure overhead.
-      const next = new Map(toRaw(this.selected));
-      let changed = false;
+      // Clone lazily from the raw Map: a merge that adds nothing stays
+      // allocation-free, and the swap is the reactive trigger.
+      let next: Map<number, SimpleRom> | null = null;
       for (const rom of roms) {
-        if (next.get(rom.id) !== rom) {
-          next.set(rom.id, rom);
-          changed = true;
-        }
+        if ((next ?? toRaw(this.selected)).get(rom.id) === rom) continue;
+        next ??= new Map(toRaw(this.selected));
+        next.set(rom.id, rom);
       }
-      if (changed) this.selected = next;
+      if (next) this.selected = next;
     },
 
     /** Replace the selection with exactly the given ROMs. Used by

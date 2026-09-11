@@ -26,11 +26,7 @@ function deferred(): Deferred {
   return { promise, resolve };
 }
 
-function windowResponse(
-  offset: number,
-  total: number | null = 1000,
-  items: unknown[] = [],
-) {
+function windowResponse(total: number | null = 1000, items: unknown[] = []) {
   return { data: { total, items, char_index: {}, rom_id_index: [] } };
 }
 
@@ -51,9 +47,7 @@ describe("galleryRoms windowed fetch", () => {
   });
 
   it("collapses many visible positions into one request per 72-item window", async () => {
-    getRoms.mockImplementation((params: { offset: number }) =>
-      Promise.resolve(windowResponse(params.offset)),
-    );
+    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
     const store = storeGalleryRoms();
 
     // Every position falls inside the first 72-item window.
@@ -94,7 +88,7 @@ describe("galleryRoms windowed fetch", () => {
     // Resolve the four in-flight windows; each freed slot pulls one from the
     // queue until all six have run.
     for (const offset of [0, 72, 144, 216]) {
-      pending.get(offset)?.resolve(windowResponse(offset));
+      pending.get(offset)?.resolve(windowResponse());
     }
     await flushPromises();
 
@@ -125,7 +119,7 @@ describe("galleryRoms windowed fetch", () => {
     // Drain by resolving windows one at a time; the peak in-flight count must
     // never pass the cap of 4.
     while (pending.length > 0) {
-      pending.shift()?.resolve(windowResponse(0));
+      pending.shift()?.resolve(windowResponse());
       await flushPromises();
     }
 
@@ -209,7 +203,7 @@ describe("galleryRoms windowed fetch", () => {
           },
         });
       }
-      return Promise.resolve(windowResponse(0, 500));
+      return Promise.resolve(windowResponse(500));
     });
     const store = storeGalleryRoms();
 
@@ -264,7 +258,7 @@ describe("galleryRoms windowed fetch", () => {
   // The very first window doubles as the bootstrap when nothing has loaded
   // yet, so it still has to bring the total back with it.
   it("asks for the total on the first window when no bootstrap ran", async () => {
-    getRoms.mockResolvedValue(windowResponse(0, 300));
+    getRoms.mockResolvedValue(windowResponse(300));
     const store = storeGalleryRoms();
 
     store.syncVisibleWindows([0]);
@@ -337,10 +331,11 @@ describe("galleryRoms whole-result fetch", () => {
     ];
     getRoms.mockImplementation((params: { offset: number }) =>
       Promise.resolve(
-        windowResponse(0, null, params.offset === 0 ? fullPage : lastPage),
+        windowResponse(null, params.offset === 0 ? fullPage : lastPage),
       ),
     );
     const store = storeGalleryRoms();
+    store.currentSearch = true;
 
     const roms = await store.fetchAllFilteredRoms();
 
@@ -366,12 +361,22 @@ describe("galleryRoms whole-result fetch", () => {
     const d = deferred();
     getRoms.mockReturnValue(d.promise);
     const store = storeGalleryRoms();
+    store.currentSearch = true;
 
     const fetching = store.fetchAllFilteredRoms();
     store.invalidateWindows();
-    d.resolve(windowResponse(0, null, [{ id: 1 }]));
+    d.resolve(windowResponse(null, [{ id: 1 }]));
 
     expect(await fetching).toBeNull();
+    expect(store.selectingAll).toBe(false);
+  });
+
+  it("refuses to fetch off the gallery view", async () => {
+    // Without a context the params would describe the whole library.
+    const store = storeGalleryRoms();
+
+    expect(await store.fetchAllFilteredRoms()).toBeNull();
+    expect(getRoms).not.toHaveBeenCalled();
   });
 });
 
@@ -379,9 +384,7 @@ describe("galleryRoms length filter", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     getRoms.mockReset();
-    getRoms.mockImplementation((params: { offset: number }) =>
-      Promise.resolve(windowResponse(params.offset)),
-    );
+    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
       cb(0);
       return 0;

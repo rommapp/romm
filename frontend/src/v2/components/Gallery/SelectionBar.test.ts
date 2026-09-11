@@ -32,7 +32,6 @@ vi.mock("@/v2/composables/useGallerySelectAll", () => ({
   useGallerySelectAll: () => ({
     selectingAll: ref(false),
     allSelected: ref(false),
-    selectionState: ref("some"),
     selectAll,
   }),
 }));

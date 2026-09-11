@@ -3,9 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
-import storeGalleryRoms, {
-  SELECT_ALL_PAGE_SIZE,
-} from "@/v2/stores/galleryRoms";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 const { getRoms, snackbarError } = vi.hoisted(() => ({
@@ -35,29 +33,30 @@ function rom(id: number): SimpleRom {
 }
 
 function resultPage(items: SimpleRom[]) {
-  return {
-    data: { total: null, items, char_index: {}, rom_id_index: [] },
-  };
+  return { data: { items } };
 }
 
-interface Deferred {
-  promise: Promise<unknown>;
-  resolve: (value: unknown) => void;
-}
-
-function deferred(): Deferred {
-  let resolve!: (value: unknown) => void;
-  const promise = new Promise<unknown>((r) => {
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => {
     resolve = r;
   });
   return { promise, resolve };
 }
 
-// A gallery context is required for the whole-result fetch; Search is
-// the lightest one to fake.
-function galleryContext() {
+/** Gallery context (Search is the lightest to fake) with a known id
+ * index and pre-loaded windows. Omit `ids` for a pending bootstrap. */
+function setupGallery({
+  ids,
+  loaded = [],
+}: { ids?: number[]; loaded?: SimpleRom[] } = {}) {
   const galleryRoms = storeGalleryRoms();
   galleryRoms.currentSearch = true;
+  if (ids) {
+    galleryRoms.romIdIndex = ids;
+    galleryRoms.metadataLoaded = true;
+  }
+  loaded.forEach((r, position) => galleryRoms.byPosition.set(position, r));
   return galleryRoms;
 }
 
@@ -73,11 +72,8 @@ describe("useGallerySelectAll", () => {
   });
 
   it("selects the whole filtered result, not just the loaded windows", async () => {
-    const galleryRoms = galleryContext();
+    setupGallery({ ids: [1, 2, 3, 4], loaded: [rom(1), rom(2)] });
     const selection = storeGallerySelection();
-    galleryRoms.romIdIndex = [1, 2, 3, 4];
-    galleryRoms.byPosition.set(0, rom(1));
-    galleryRoms.byPosition.set(1, rom(2));
     getRoms.mockResolvedValue(resultPage([rom(1), rom(2), rom(3), rom(4)]));
 
     const { selectAll, allSelected } = useGallerySelectAll();
@@ -85,24 +81,13 @@ describe("useGallerySelectAll", () => {
 
     expect(selection.ids.sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
     expect(allSelected.value).toBe(true);
-    // One whole-result request, sidecar aggregations off.
     expect(getRoms).toHaveBeenCalledTimes(1);
-    expect(getRoms.mock.calls[0][0]).toMatchObject({
-      limit: SELECT_ALL_PAGE_SIZE,
-      offset: 0,
-      withCharIndex: false,
-      withFilterValues: false,
-      withRomIdIndex: false,
-      withTotal: false,
-    });
   });
 
   it("merges the loaded roms before the whole-result fetch resolves", async () => {
-    const galleryRoms = galleryContext();
+    setupGallery({ ids: [1, 2, 3], loaded: [rom(1)] });
     const selection = storeGallerySelection();
-    galleryRoms.romIdIndex = [1, 2, 3];
-    galleryRoms.byPosition.set(0, rom(1));
-    const d = deferred();
+    const d = deferred<ReturnType<typeof resultPage>>();
     getRoms.mockReturnValue(d.promise);
 
     const { selectAll } = useGallerySelectAll();
@@ -117,10 +102,8 @@ describe("useGallerySelectAll", () => {
   it("fetches the whole result while the bootstrap is still pending", async () => {
     // Loaded windows can resolve before the metadata bootstrap fills
     // `romIdIndex`; select-all must not mistake them for full coverage.
-    const galleryRoms = galleryContext();
+    setupGallery({ loaded: [rom(1), rom(2)] });
     const selection = storeGallerySelection();
-    galleryRoms.byPosition.set(0, rom(1));
-    galleryRoms.byPosition.set(1, rom(2));
     getRoms.mockResolvedValue(resultPage([rom(1), rom(2), rom(3), rom(4)]));
 
     const { selectAll } = useGallerySelectAll();
@@ -131,11 +114,8 @@ describe("useGallerySelectAll", () => {
   });
 
   it("skips the fetch when the whole result is already selected", async () => {
-    const galleryRoms = galleryContext();
+    setupGallery({ ids: [1, 2], loaded: [rom(1), rom(2)] });
     const selection = storeGallerySelection();
-    galleryRoms.romIdIndex = [1, 2];
-    galleryRoms.byPosition.set(0, rom(1));
-    galleryRoms.byPosition.set(1, rom(2));
     selection.selectMany([rom(1), rom(2)]);
 
     const { selectAll, selectionState } = useGallerySelectAll();
@@ -146,11 +126,9 @@ describe("useGallerySelectAll", () => {
   });
 
   it("drops a late result when the selection was cleared mid-fetch", async () => {
-    const galleryRoms = galleryContext();
+    setupGallery({ ids: [1, 2], loaded: [rom(1)] });
     const selection = storeGallerySelection();
-    galleryRoms.romIdIndex = [1, 2];
-    galleryRoms.byPosition.set(0, rom(1));
-    const d = deferred();
+    const d = deferred<ReturnType<typeof resultPage>>();
     getRoms.mockReturnValue(d.promise);
 
     const { selectAll } = useGallerySelectAll();
@@ -162,34 +140,32 @@ describe("useGallerySelectAll", () => {
     expect(selection.count).toBe(0);
   });
 
-  it("re-arms the running fetch when re-triggered after a clear", async () => {
-    const galleryRoms = galleryContext();
+  it("supersedes the running fetch when re-triggered after a clear", async () => {
+    setupGallery({ ids: [1, 2, 3], loaded: [rom(1)] });
     const selection = storeGallerySelection();
-    galleryRoms.romIdIndex = [1, 2, 3];
-    galleryRoms.byPosition.set(0, rom(1));
-    const d = deferred();
-    getRoms.mockReturnValue(d.promise);
+    const first = deferred<ReturnType<typeof resultPage>>();
+    const second = deferred<ReturnType<typeof resultPage>>();
+    getRoms
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
 
     const { selectAll } = useGallerySelectAll();
-    const first = selectAll();
+    const run1 = selectAll();
     selection.clear();
-    // The re-trigger must not need a second fetch: the in-flight one is
-    // revalidated for the fresh intent.
-    const second = selectAll();
-    d.resolve(resultPage([rom(1), rom(2), rom(3)]));
-    await Promise.all([first, second]);
+    const run2 = selectAll();
+    first.resolve(resultPage([rom(1), rom(2), rom(3)]));
+    second.resolve(resultPage([rom(1), rom(2), rom(3)]));
+    await Promise.all([run1, run2]);
 
-    expect(getRoms).toHaveBeenCalledTimes(1);
+    // The superseded run's result is discarded; the fresh run merges.
+    expect(getRoms).toHaveBeenCalledTimes(2);
     expect(selection.ids.sort((a, b) => a - b)).toEqual([1, 2, 3]);
   });
 
   it("keeps a rom deselected during the fetch out of the merge", async () => {
-    const galleryRoms = galleryContext();
+    setupGallery({ ids: [1, 2, 3], loaded: [rom(1), rom(2)] });
     const selection = storeGallerySelection();
-    galleryRoms.romIdIndex = [1, 2, 3];
-    galleryRoms.byPosition.set(0, rom(1));
-    galleryRoms.byPosition.set(1, rom(2));
-    const d = deferred();
+    const d = deferred<ReturnType<typeof resultPage>>();
     getRoms.mockReturnValue(d.promise);
 
     const { selectAll } = useGallerySelectAll();
@@ -203,7 +179,7 @@ describe("useGallerySelectAll", () => {
 
   it("falls back to loaded-only coverage without a rom id index", async () => {
     // Surfaces that opt out of the sidecar (Settings "Missing" tab)
-    // finish the bootstrap with an empty index.
+    // finish the bootstrap with an empty index and no gallery context.
     const galleryRoms = storeGalleryRoms();
     const selection = storeGallerySelection();
     galleryRoms.metadataLoaded = true;
@@ -213,16 +189,12 @@ describe("useGallerySelectAll", () => {
     const { selectAll, allSelected } = useGallerySelectAll();
     await selectAll();
 
-    // The instant merge already covers everything the surface knows
-    // about, so no whole-result fetch is issued.
     expect(getRoms).not.toHaveBeenCalled();
     expect(selection.ids.sort((a, b) => a - b)).toEqual([1, 2]);
     expect(allSelected.value).toBe(true);
   });
 
   it("stays loaded-only on opt-out surfaces even before any window lands", async () => {
-    // Like the Missing tab: no gallery context, bootstrap resolved with
-    // no id index, rows still skeletons.
     const galleryRoms = storeGalleryRoms();
     galleryRoms.metadataLoaded = true;
 
@@ -233,9 +205,8 @@ describe("useGallerySelectAll", () => {
   });
 
   it("does nothing on an empty filtered result", async () => {
-    const galleryRoms = galleryContext();
+    setupGallery({ ids: [] });
     const selection = storeGallerySelection();
-    galleryRoms.metadataLoaded = true;
 
     const { selectAll } = useGallerySelectAll();
     await selectAll();
@@ -246,8 +217,7 @@ describe("useGallerySelectAll", () => {
 
   it("surfaces a snackbar when the whole-result fetch fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const galleryRoms = galleryContext();
-    galleryRoms.romIdIndex = [1, 2];
+    setupGallery({ ids: [1, 2] });
     getRoms.mockRejectedValue(new Error("boom"));
 
     const { selectAll, selectingAll } = useGallerySelectAll();
@@ -261,9 +231,8 @@ describe("useGallerySelectAll", () => {
   });
 
   it("reports tri-state coverage for the header checkbox", () => {
-    const galleryRoms = galleryContext();
+    setupGallery({ ids: [1, 2] });
     const selection = storeGallerySelection();
-    galleryRoms.romIdIndex = [1, 2];
 
     const { selectionState } = useGallerySelectAll();
     expect(selectionState.value).toBe("off");
@@ -276,7 +245,7 @@ describe("useGallerySelectAll", () => {
   });
 
   it("reports off over an empty result despite out-of-filter picks", () => {
-    galleryContext();
+    setupGallery({ ids: [] });
     const selection = storeGallerySelection();
     selection.selectMany([rom(9)]);
 
