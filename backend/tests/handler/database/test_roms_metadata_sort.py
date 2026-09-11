@@ -119,7 +119,9 @@ class TestMetadataSortQueryShape:
         assert sql.count("JOIN roms_metadata") == 1
         assert "JOIN rom_user" in sql
 
-    def test_grouped_metadata_sort_keeps_the_representative_key(self):
+    def test_grouped_metadata_sort_keeps_the_representative_key(
+        self, mariadb_driver: None
+    ):
         query, _ = db_rom_handler.get_roms_query(order_by="first_release_date")
         grouped = db_rom_handler.filter_roms(
             query=query, order_by="first_release_date", group_by_meta_id=True
@@ -129,7 +131,10 @@ class TestMetadataSortQueryShape:
         # Roms-side keys stay on the representative: aggregating one would
         # push the dedup window off its covering index.
         assert "group_sort_value" not in sql
-        assert "ORDER BY roms.generated_first_release_date ASC" in sql
+        assert (
+            "ORDER BY roms.generated_first_release_date IS NULL, "
+            "roms.generated_first_release_date ASC"
+        ) in sql
 
 
 class TestMetadataSortResults:

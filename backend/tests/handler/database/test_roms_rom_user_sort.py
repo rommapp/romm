@@ -74,9 +74,7 @@ class TestRomUserSortQueryShape:
     def test_zero_default_columns_fold_zero_into_the_null_bucket(
         self, mariadb_driver: None
     ):
-        query, order_column = db_rom_handler.get_roms_query(
-            order_by="rating", user_id=1
-        )
+        query, sort_key = db_rom_handler.get_roms_query(order_by="rating", user_id=1)
 
         # NULLIF turns the 0 default into a NULL sort key, so a touched but
         # unset rom lands in the same trailing bucket as an untouched one.
@@ -84,7 +82,7 @@ class TestRomUserSortQueryShape:
             "ORDER BY nullif(rom_user.rating, :nullif_1) IS NULL, "
             "nullif(rom_user.rating, :nullif_1) ASC"
         ) in str(query)
-        assert order_column is RomUser.rating
+        assert sort_key.column is RomUser.rating
 
 
 class TestRomUserSortResults:
@@ -332,7 +330,7 @@ class TestGroupedRomUserSortQueryShape:
         ("order_dir", "aggregate"), [("desc", "max"), ("asc", "min")]
     )
     def test_group_key_aggregates_with_the_sort_direction(
-        self, order_dir: str, aggregate: str
+        self, mariadb_driver: None, order_dir: str, aggregate: str
     ):
         sql = self._grouped_sql("last_played", order_dir)
         direction = order_dir.upper()
@@ -345,8 +343,9 @@ class TestGroupedRomUserSortQueryShape:
         # The aggregate reuses row_number's window spec (one sort pass), with a
         # whole-partition frame so it still covers every sibling.
         assert "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING" in sql
-        # NULLs-last emission carries over from the ungrouped rom_user sort.
-        assert "group_sort_value IS NULL" in sql
+        # NULLs-last carries over from the ungrouped sort: ascending needs the
+        # leading IS NULL term, DESC already places NULLs last on MariaDB.
+        assert ("group_sort_value IS NULL" in sql) == (order_dir == "asc")
         assert f"group_sort_value {direction}, roms.id {direction}" in sql
 
     def test_group_key_join_stays_outer(self):
@@ -361,15 +360,11 @@ class TestGroupedRomUserSortQueryShape:
         ("order_by", "order_clause"),
         [
             ("name", "ORDER BY roms.name_sort_key DESC, roms.id DESC"),
-            (
-                "status",
-                "ORDER BY rom_user.status IS NULL, rom_user.status DESC, "
-                "roms.id DESC",
-            ),
+            ("status", "ORDER BY rom_user.status DESC, roms.id DESC"),
         ],
     )
     def test_lexical_and_enum_sorts_keep_the_representative_key(
-        self, order_by: str, order_clause: str
+        self, mariadb_driver: None, order_by: str, order_clause: str
     ):
         sql = self._grouped_sql(order_by)
 
