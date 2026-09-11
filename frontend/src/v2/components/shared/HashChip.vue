@@ -57,6 +57,23 @@ const appendIcon = computed(() => {
   return clipboard.isSupported ? "mdi-content-copy" : "mdi-eye-outline";
 });
 
+// Present only while the chip acts as a disclosure (the reveal toggle, or a
+// value revealed by a failed copy); a pure copy button carries no aria-expanded.
+const ariaExpanded = computed(() => {
+  if (clipboard.isSupported && !revealed.value) return undefined;
+  return revealed.value;
+});
+
+// The visible text is just the label and abbreviated value, so the accessible
+// name spells out what a click does instead.
+const ariaLabel = computed(() => {
+  if (clipboard.isSupported)
+    return t("common.copy-hash", { label: props.label });
+  return revealed.value
+    ? t("common.hide-full-hash", { label: props.label })
+    : t("common.show-full-hash", { label: props.label });
+});
+
 // Scoped to this chip so a selection made elsewhere on the page does not
 // leave the collapse click dead.
 function hasSelectionInside() {
@@ -92,6 +109,8 @@ async function copy() {
     class="r-v2-hash-chip"
     :class="{ 'r-v2-hash-chip--revealed': revealed }"
     :title="`${label}: ${value}`"
+    :aria-expanded="ariaExpanded"
+    :aria-label="ariaLabel"
     @click="copy"
   >
     <RTag

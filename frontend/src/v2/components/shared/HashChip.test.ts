@@ -135,4 +135,57 @@ describe("HashChip", () => {
     expect(copy).toHaveBeenCalled();
     expect(wrapper.text()).toContain(SHA1);
   });
+
+  // The core of #4105: screen readers need the action as the accessible
+  // name and, when the chip is a disclosure, the expanded/collapsed state.
+  describe("ARIA state", () => {
+    it("names the copy action and carries no aria-expanded when the clipboard works", () => {
+      const wrapper = mountChip();
+
+      const button = wrapper.find("button");
+      expect(button.attributes("aria-label")).toBe(
+        'common.copy-hash:{"label":"SHA-1"}',
+      );
+      expect(button.attributes("aria-expanded")).toBeUndefined();
+    });
+
+    it("announces the disclosure state when the clipboard is unavailable", async () => {
+      clipboard.isSupported = false;
+      const wrapper = mountChip();
+
+      expect(wrapper.find("button").attributes("aria-expanded")).toBe("false");
+      expect(wrapper.find("button").attributes("aria-label")).toBe(
+        'common.show-full-hash:{"label":"SHA-1"}',
+      );
+
+      await click(wrapper);
+
+      expect(wrapper.find("button").attributes("aria-expanded")).toBe("true");
+      expect(wrapper.find("button").attributes("aria-label")).toBe(
+        'common.hide-full-hash:{"label":"SHA-1"}',
+      );
+
+      await click(wrapper);
+
+      expect(wrapper.find("button").attributes("aria-expanded")).toBe("false");
+      expect(wrapper.find("button").attributes("aria-label")).toBe(
+        'common.show-full-hash:{"label":"SHA-1"}',
+      );
+    });
+
+    // A failed copy discloses the value but the next click still copies,
+    // so the state flips to expanded while the name stays the copy action.
+    it("marks the fallback reveal after a failed copy as expanded", async () => {
+      copy.mockResolvedValue(false);
+      const wrapper = mountChip();
+
+      await click(wrapper);
+
+      const button = wrapper.find("button");
+      expect(button.attributes("aria-expanded")).toBe("true");
+      expect(button.attributes("aria-label")).toBe(
+        'common.copy-hash:{"label":"SHA-1"}',
+      );
+    });
+  });
 });
