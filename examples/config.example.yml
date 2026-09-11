@@ -62,8 +62,8 @@
 # system:
 #   # Asociate different platform names to your current file system platform names
 #   # [your custom platform folder name]: [RomM platform name]
-#   # Matched case-insensitively. The folder names Batocera, RetroBat and ES-DE use
-#   # are already recognised, so only name the ones RomM doesn't know.
+#   # Matched case-insensitively. Batocera, RetroBat and ES-DE folder names are
+#   # recognised already; bind names RomM doesn't know or resolves to the wrong platform.
 #   platforms:
 #     ps1: psx
 #     super_nintendo: snes
