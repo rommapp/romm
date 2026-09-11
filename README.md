@@ -47,22 +47,18 @@ To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] i
 
 ### One-click deploys
 
-Prefer a hosted deploy over wiring up the stack yourself? Hostinger has a 1-click installer and host.
-
 <p align="center">
   <a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
   <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
 </p>
 
-<sub><i>Deployment and infrastructure support for this install is handled by the platform, not our team. Prices are indicative and may not reflect current offerings. Signups through the Hostinger link send a share of the revenue back to us, which helps fund the project.</i></sub>
+<sub><i>Deployment and infrastructure support for this install is handled by Hostinger. Prices are indicative and may not reflect current offerings. Signups through the link above send a share of the revenue back to us, which helps fund the project.</i></sub>
 
 ## Contributing
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
 
 ## Official apps
-
-Apps and integrations built and maintained by the RomM team.
 
 ### <a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/screenshots/app-playnite.webp" width="420" align="left" alt="Playnite library" /></a><a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/playnite-logo.svg" height="28" align="top" alt="Playnite logo" /></a> Playnite plugin
 
@@ -86,17 +82,17 @@ Sync your library, download games on demand and track your achievements, from a 
 
 ### <a href="https://github.com/rommapp/grout"><img src=".github/resources/screenshots/app-grout.webp" width="420" align="left" alt="Grout multi-select" /></a><a href="https://github.com/rommapp/grout"><img src=".github/resources/grout-logo.svg" height="28" align="top" alt="Grout logo" /></a> Grout
 
-A lightweight client for your favorite handheld custom firmwares. Download games, box art and BIOS files wirelessly, and sync your saves automatically as you play.
+A lightweight client for your favorite handheld custom firmwares*. Download games, box art and BIOS files wirelessly, and sync your saves automatically as you play.
 
 `Linux` `Handhelds` `Save sync`
 
 <a href="https://grout.romm.app/getting-started/"><img src=".github/resources/grout-quick-start-button.svg" width="134" height="38" align="middle" alt="Quick start" /></a>&nbsp;&nbsp;<sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub>
 
-<sub><i>Supports Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce and TrimUI.</i></sub>
+<sub><i>*Supports Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce and TrimUI.</i></sub>
 
 ## Community
 
-Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
+Here are some cool projects maintained by members of our community. Please note that our team does not regularly review their source code.
 
 ### Mobile
 
@@ -122,7 +118,7 @@ Here are a few projects maintained by members of our community. Please note that
 
 ## Support the project
 
-Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
+Consider supporting this project on Open Collective. Funds cover hosting, development, and maintenance, and we pass some along to community projects to nurture a healthy ecosystem of apps.
 
 <div align="center">
   <div dir="auto">
