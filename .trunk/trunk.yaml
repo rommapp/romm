@@ -63,6 +63,14 @@ lint:
     - linters: [mypy]
       paths:
         - backend/alembic/**
+    # The v1 UI is frozen and slated for deletion, and the freeze check blocks
+    # changes to these paths, so ESLint findings here cannot lead to fixes.
+    - linters: [eslint]
+      paths:
+        - frontend/src/views/**
+        - frontend/src/components/**
+        - frontend/src/console/**
+        - frontend/src/layouts/**
   files:
     - name: vue
       extensions: [vue]
@@ -71,6 +79,7 @@ lint:
       files:
         - javascript
         - typescript
+        - vue
       commands:
         - name: lint
           run_from: ${root_or_parent_with_any_config}

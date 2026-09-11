@@ -14,7 +14,17 @@ export default tseslint.config(
   // Storybook config files live outside `src/` and aren't part of the
   // app tsconfig, so type-aware linting can't resolve them.
   {
-    ignores: [".storybook/**", "src/__generated__/**"],
+    ignores: [
+      ".storybook/**",
+      "src/__generated__/**",
+      // Build and coverage output: generated, so nothing here is fixable in
+      // source. These only take effect in an `ignores`-only config object.
+      "dist/**",
+      "dist-ssr/**",
+      "dev-dist/**",
+      "storybook-static/**",
+      "coverage/**",
+    ],
   },
   {
     ignores: [
@@ -27,9 +37,6 @@ export default tseslint.config(
       "lerna-debug.log*",
       "node_modules",
       ".DS_Store",
-      "dist",
-      "dist-ssr",
-      "coverage",
       "*.local",
       "*.config.js",
       "src/plugins/*.d.ts",
