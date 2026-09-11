@@ -20,7 +20,7 @@
 
 # Overview
 
-RomM (ROM Manager) allows you to scan, enrich, browse and play your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes, and custom tags, RomM is a must-have for anyone who plays on emulators.
+Scan, enrich, browse and play your ROM collection from one beautiful & free self-hosted app. Metadata from 10+ providers, save sync across your devices, and support for over 400 platforms. RomM is a must-have for anyone who plays on emulators.
 
 ## Features
 
