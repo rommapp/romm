@@ -34,28 +34,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    outputs:
-      comment-id: ${{ steps.build-comment.outputs.comment-id }}
     steps:
       - name: PR comment build starting
         if: github.event_name == 'pull_request'
-        id: build-comment
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
         with:
-          script: |
-            const comment = await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🔨 Preview build is under way...`
-            });
-            core.setOutput('comment-id', comment.data.id);
+          header: preview-build
+          message: 🔨 Preview build is under way...
 
   # Each architecture builds on a runner of its own architecture and pushes an
   # untagged, digest-addressed image; `merge` then stitches them into one index.
   # Emulating arm64 under QEMU made the C/C++ stages dominate the build.
+  #
+  # Deliberately not `needs: prepare`: the two are independent, and a hiccup
+  # posting the comment should not cancel the build.
   build:
-    needs: prepare
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'build-preview')
     strategy:
       fail-fast: false
       matrix:
@@ -147,7 +143,7 @@ jobs:
           retention-days: 1
 
   merge:
-    needs: [prepare, build]
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -224,20 +220,14 @@ jobs:
           docker buildx imagetools create "${tags[@]}" "${sources[@]}"
 
       # PR builds always push to GHCR only, so the image link is hardcoded to GHCR.
+      # The branch name is not a usable tag on its own: `metadata-action` rewrites
+      # characters Docker forbids, `/` among them.
       - name: Comment PR with GHCR image link
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          # The branch name is not a usable tag on its own: `metadata-action`
-          # rewrites characters Docker forbids, `/` among them.
-          IMAGE_TAG: ${{ steps.meta.outputs.version }}
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
         with:
-          script: |
-            const owner = context.repo.owner;
-            const tag = process.env.IMAGE_TAG;
-            github.rest.issues.updateComment({
-              comment_id: ${{ needs.prepare.outputs.comment-id }},
-              owner: owner,
-              repo: context.repo.repo,
-              body: `✅ Preview build completed!\n\nDocker image: \`ghcr.io/${owner}/romm-testing:${tag}\``
-            })
+          header: preview-build
+          message: |
+            ✅ Preview build completed!
+
+            Docker image: `ghcr.io/${{ github.repository_owner }}/romm-testing:${{ steps.meta.outputs.version }}`
