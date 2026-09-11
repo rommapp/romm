@@ -22,6 +22,10 @@
 
 Scan, enrich, browse and play your ROM collection from one beautiful & free self-hosted app. Metadata from 10+ providers, save sync across your devices, and support for over 400 platforms. RomM is a must-have for anyone who plays on emulators.
 
+<p align="center">
+  <a href="https://demo.romm.app/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/screenshots/preview.gif" alt="Browsing a library and playing a game in RomM" width="1000" /></a>
+</p>
+
 ## Features
 
 - Play in your browser with [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers], no setup required
@@ -33,10 +37,6 @@ Scan, enrich, browse and play your ROM collection from one beautiful & free self
 - Share your library with granular [per-user permissions][docs-users-and-roles] and [OIDC single sign-on][docs-oidc]
 - Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout]
 - Free forever: AGPL-3.0, no tracking, no paid features, and total control of your data
-
-<p align="center">
-  <img src=".github/resources/screenshots/preview.gif" alt="Browsing a library and playing a game in RomM" width="1000" />
-</p>
 
 ## Installation
 
