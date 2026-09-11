@@ -11,8 +11,9 @@
 //     API calls without re-resolving against the sparse gallery
 //     cache (`galleryRoms.byPosition`), which may have evicted the
 //     rom by the time the user runs the action. Memory is bounded
-//     by the size of the selection — well within the gallery's
-//     working set.
+//     by the size of the selection; a whole-result select-all holds
+//     the full filtered set, the price of bulk actions needing real
+//     objects rather than ids.
 //   - `lastSelectedPosition: number | null` — anchor for shift-range
 //     selection. Stored as a *position* in the sparse gallery (matches
 //     `galleryRoms.byPosition` keys) rather than an index into a dense
@@ -30,6 +31,7 @@
 //     to a platform should drop the selection, but we let the view
 //     decide so an in-page filter change can preserve it.
 import { defineStore } from "pinia";
+import { toRaw } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 
 interface State {
@@ -38,11 +40,15 @@ interface State {
    * ROM. Used as the anchor for shift-range selection. `null` means
    * no anchor yet (next shift-click acts as a single toggle). */
   lastSelectedPosition: number | null;
+  /** Bumped by `clear()`; async select flows (useGallerySelectAll)
+   * compare it before merging a late fetch result. */
+  epoch: number;
 }
 
 const defaults = (): State => ({
   selected: new Map<number, SimpleRom>(),
   lastSelectedPosition: null,
+  epoch: 0,
 });
 
 export default defineStore("v2GallerySelection", {
@@ -116,16 +122,17 @@ export default defineStore("v2GallerySelection", {
       this.lastSelectedPosition = position;
     },
 
-    /** Add every currently-loaded ROM in the gallery to the
-     * selection. v2 galleries are sparse (only fetched windows are
-     * present in `byPosition`), so this is "select all loaded" — not
-     * "select all in the entire filtered set". Matches v1's UX (its
-     * select-all also only touched ROMs already in memory) without
-     * the perf cost of fetching every page upfront. */
-    selectAllLoaded(loadedRoms: Iterable<SimpleRom>) {
-      const next = new Map(this.selected);
-      for (const rom of loadedRoms) next.set(rom.id, rom);
-      this.selected = next;
+    /** Merge the given ROMs into the selection (existing picks kept). */
+    selectMany(roms: Iterable<SimpleRom>) {
+      // Clone lazily from the raw Map: a merge that adds nothing stays
+      // allocation-free, and the swap is the reactive trigger.
+      let next: Map<number, SimpleRom> | null = null;
+      for (const rom of roms) {
+        if ((next ?? toRaw(this.selected)).get(rom.id) === rom) continue;
+        next ??= new Map(toRaw(this.selected));
+        next.set(rom.id, rom);
+      }
+      if (next) this.selected = next;
     },
 
     /** Replace the selection with exactly the given ROMs. Used by
@@ -136,8 +143,10 @@ export default defineStore("v2GallerySelection", {
     },
 
     /** Drop the selection and anchor. Bound to Esc, the SelectionBar
-     * clear button, and view route-leave. */
+     * clear button, and view route-leave. Bumps `epoch` first (even
+     * when already empty) so in-flight select-all merges are abandoned. */
     clear() {
+      this.epoch += 1;
       if (this.selected.size === 0 && this.lastSelectedPosition === null) {
         return;
       }
