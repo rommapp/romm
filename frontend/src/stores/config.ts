@@ -95,9 +95,7 @@ export default defineStore("config", {
       return Object.keys(this.config).includes(type);
     },
     getEJSDefaultCore(platformSlug: string): string | null {
-      return (
-        this.config.EJS_DEFAULT_CORES?.[platformSlug.toLowerCase()] ?? null
-      );
+      return this.config.EJS_DEFAULT_CORES[platformSlug.toLowerCase()] ?? null;
     },
     getEJSCoreOptions(core: string | null): Record<string, string | boolean> {
       const defaultOptions = this.config.EJS_SETTINGS["default"] || {};

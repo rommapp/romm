@@ -315,9 +315,10 @@ onMounted(async () => {
   });
   firmwareOptions.value = firmwareResponse.data;
 
+  const platformSlug = rom.value.platform_slug;
   supportedCores.value = [
     ...getSupportedEJSCores(
-      rom.value.platform_slug,
+      platformSlug,
       configStore.config.EJS_NETPLAY_ENABLED,
     ),
   ];
@@ -338,19 +339,12 @@ onMounted(async () => {
     });
   }
 
-  // Resolved before the save/state defaults below, which key off the core
-  // this game will actually boot with.
-  const configuredCore = configStore.getEJSDefaultCore(rom.value.platform_slug);
-  if (configuredCore && !supportedCores.value.includes(configuredCore)) {
-    console.warn(
-      `[Play] emulatorjs.default_cores sets ${configuredCore} for ${rom.value.platform_slug}, which does not support it`,
-    );
-  }
+  // compatibleStates filters on selectedCore, so resolve the core first.
   selectedCore.value = resolveRememberedCore(
     rom.value.id,
-    rom.value.platform_slug,
+    platformSlug,
     supportedCores.value,
-    configuredCore,
+    configStore.getEJSDefaultCore(platformSlug),
   );
 
   // Default selection — save and state are independent, so both can be
@@ -378,9 +372,7 @@ onMounted(async () => {
   );
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
-  const storedBiosID = localStorage.getItem(
-    `player:${rom.value.platform_slug}:bios_id`,
-  );
+  const storedBiosID = localStorage.getItem(`player:${platformSlug}:bios_id`);
 
   selectedFirmware.value = resolveInitialFirmware({
     options: firmwareOptions.value,

@@ -615,24 +615,6 @@ def test_null_platforms_block_means_empty(tmp_path):
     assert loader.config.PLATFORMS_VERSIONS == {}
 
 
-def test_null_default_cores_block_means_empty(tmp_path):
-    config_file = tmp_path / "config.yml"
-    config_file.write_text("emulatorjs:\n  default_cores:\n")
-
-    assert ConfigManager(str(config_file)).config.EJS_DEFAULT_CORES == {}
-
-
-@pytest.mark.parametrize("value", ['""', "5", "~"])
-def test_default_core_must_be_a_non_empty_string(tmp_path, value):
-    config_file = tmp_path / "config.yml"
-    config_file.write_text(f"emulatorjs:\n  default_cores:\n    nds: {value}\n")
-
-    with pytest.raises(SystemExit) as excinfo:
-        ConfigManager(str(config_file))
-
-    assert excinfo.value.code == 3
-
-
 @pytest.mark.parametrize("value", ['""', "5", "~"])
 def test_platform_binding_must_be_a_non_empty_string(tmp_path, value):
     with pytest.raises(SystemExit) as excinfo:
@@ -646,6 +628,26 @@ def test_platform_binding_lookup_ignores_case(tmp_path):
 
     loader.remove_platform_binding("GAMECUBE")
     assert loader.config.PLATFORMS_BINDING == {}
+
+
+def _write_emulatorjs_config(tmp_path: Path, emulatorjs_block: str) -> ConfigManager:
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(f"emulatorjs:\n{emulatorjs_block}")
+    return ConfigManager(str(config_file))
+
+
+def test_null_default_cores_block_means_empty(tmp_path):
+    loader = _write_emulatorjs_config(tmp_path, "  default_cores:\n")
+
+    assert loader.config.EJS_DEFAULT_CORES == {}
+
+
+@pytest.mark.parametrize("value", ['""', "5", "~"])
+def test_default_core_must_be_a_non_empty_string(tmp_path, value):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_emulatorjs_config(tmp_path, f"  default_cores:\n    nds: {value}\n")
+
+    assert excinfo.value.code == 3
 
 
 @pytest.fixture
