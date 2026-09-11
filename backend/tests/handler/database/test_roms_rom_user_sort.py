@@ -246,6 +246,43 @@ class TestGroupedRomUserSortResults:
             "Knuckles (USA)",
         ]
 
+    def test_permission_hidden_sibling_does_not_drive_the_group(
+        self, admin_user: User, platform: Platform, grouped_library: None
+    ):
+        # The newest play belongs to a sibling an admin hid from this user, so
+        # it can neither represent its group nor drive the group's key.
+        admin_hidden = _make_rom(platform, "Knuckles", region="Europe", igdb_id=300)
+        _set_rom_user_fields(
+            admin_hidden,
+            admin_user,
+            {"last_played": datetime(2026, 1, 1, tzinfo=timezone.utc)},
+        )
+
+        query, _ = db_rom_handler.get_roms_query(
+            order_by="last_played", order_dir="desc", user_id=admin_user.id
+        )
+        grouped = db_rom_handler.filter_roms(
+            query=query,
+            order_by="last_played",
+            order_dir="desc",
+            platform_ids=[platform.id],
+            group_by_meta_id=True,
+            user_id=admin_user.id,
+            hidden_rom_ids=[admin_hidden.id],
+        )
+        by_id = {
+            rom.id: rom.fs_name_no_ext
+            for rom in db_rom_handler.get_roms_scalar(user_id=admin_user.id)
+        }
+
+        assert [
+            by_id[rom_id] for rom_id in db_rom_handler.get_rom_id_index(query=grouped)
+        ] == [
+            "Sonic (USA)",
+            "Tails (USA)",
+            "Knuckles (USA)",
+        ]
+
     def test_grouped_id_index_follows_the_group_order(
         self, admin_user: User, platform: Platform, grouped_library: None
     ):

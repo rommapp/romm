@@ -1592,6 +1592,15 @@ class DBRomsHandler(DBBaseHandler):
                     match_none=(logic == "none"),
                 )
 
+        # Admin-driven visibility (opt-out): hide platforms/roms an admin has
+        # hidden from this user/group. Applied before the grouped dedup window
+        # so a permission-hidden sibling can neither represent a group nor
+        # drive its sort key. Empty sets (e.g. admins) skip filtering entirely.
+        if hidden_platform_ids:
+            query = query.filter(Rom.platform_id.not_in(hidden_platform_ids))
+        if hidden_rom_ids:
+            query = query.filter(Rom.id.not_in(hidden_rom_ids))
+
         # BEWARE YE WHO ENTERS HERE 💀
         if group_by_meta_id:
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
@@ -1777,14 +1786,6 @@ class DBRomsHandler(DBBaseHandler):
             )
         elif user_id:
             query = query.filter(_rom_user_not_hidden())
-
-        # Admin-driven visibility (opt-out): hide platforms/roms an admin has
-        # hidden from this user/group. Orthogonal to the personal RomUser.hidden
-        # toggle above. Empty sets (e.g. admins) skip filtering entirely.
-        if hidden_platform_ids:
-            query = query.filter(Rom.platform_id.not_in(hidden_platform_ids))
-        if hidden_rom_ids:
-            query = query.filter(Rom.id.not_in(hidden_rom_ids))
 
         return query
 
