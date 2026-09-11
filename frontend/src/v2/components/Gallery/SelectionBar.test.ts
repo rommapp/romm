@@ -13,6 +13,7 @@ const {
   createCollection,
   getCollections,
   removeRomsFromCollection,
+  selectAll,
   snackbarError,
   snackbarSuccess,
 } = vi.hoisted(() => ({
@@ -20,8 +21,20 @@ const {
   createCollection: vi.fn(),
   getCollections: vi.fn(),
   removeRomsFromCollection: vi.fn(),
+  selectAll: vi.fn(),
   snackbarError: vi.fn(),
   snackbarSuccess: vi.fn(),
+}));
+
+// The whole-result behavior is covered by the composable's own tests;
+// here we only assert the bar's wiring to it.
+vi.mock("@/v2/composables/useGallerySelectAll", () => ({
+  useGallerySelectAll: () => ({
+    selectingAll: ref(false),
+    allSelected: ref(false),
+    selectionState: ref("some"),
+    selectAll,
+  }),
 }));
 
 // `t` echoes the key plus its params so a test can assert *which* message was
@@ -259,5 +272,35 @@ describe("SelectionBar bulk favorite", () => {
 
     expect(createCollection).toHaveBeenCalledTimes(1);
     expect(addRomsToCollection).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SelectionBar select all", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  it("triggers the whole-result select-all", async () => {
+    select(rom(1));
+    const wrapper = mountBar();
+
+    await wrapper
+      .get('[aria-label="gallery.selection-select-all"]')
+      .trigger("click");
+
+    expect(selectAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels the button with the filtered-result total when known", () => {
+    storeGalleryRoms().total = 42;
+    select(rom(1));
+    const wrapper = mountBar();
+
+    expect(
+      wrapper
+        .find("[aria-label='gallery.selection-select-all-count::{\"n\":42}']")
+        .exists(),
+    ).toBe(true);
   });
 });

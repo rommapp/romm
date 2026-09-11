@@ -72,6 +72,7 @@ import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
+import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import {
   useGalleryVirtualItems,
@@ -780,8 +781,12 @@ onBeforeRouteLeave((_to, from) => {
   gallerySelection.clear();
 });
 
+// Whole-result select-all, shared with the SelectionBar button and
+// the list header checkbox.
+const { selectAll } = useGallerySelectAll();
+
 // Global hotkeys scoped to the gallery shell — Esc clears the
-// selection, Ctrl/Cmd+A selects every currently-loaded rom. Both are
+// selection, Ctrl/Cmd+A selects the whole filtered result. Both are
 // guarded against editable elements so the search field's native
 // Cmd+A still selects the input text.
 function onShellKey(e: KeyboardEvent) {
@@ -802,7 +807,7 @@ function onShellKey(e: KeyboardEvent) {
   }
   if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
     e.preventDefault();
-    gallerySelection.selectAllLoaded(galleryRoms.byPosition.values());
+    void selectAll();
   }
 }
 

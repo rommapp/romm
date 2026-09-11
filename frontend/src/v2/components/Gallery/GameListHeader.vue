@@ -12,7 +12,7 @@
 import { RCheckbox, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   getListColumns,
@@ -55,37 +55,20 @@ const gridStyle = computed(() => ({
   ),
 }));
 
-const galleryRoms = storeGalleryRoms();
 const selection = storeGallerySelection();
-
-// Select-all state derived from the *loaded* ROMs (sparse galleries
-// don't have everything in memory until the user scrolls there). Three
-// states drive the checkbox glyph:
-//   * "off"   — no loaded rom is selected (or there are none)
-//   * "all"   — every loaded rom is selected
-//   * "some"  — at least one but not all loaded roms are selected
-const loadedSelectionState = computed<"off" | "some" | "all">(() => {
-  const loaded = galleryRoms.byPosition;
-  if (loaded.size === 0) return "off";
-  let selected = 0;
-  for (const rom of loaded.values()) {
-    if (selection.isSelected(rom.id)) selected += 1;
-  }
-  if (selected === 0) return "off";
-  if (selected === loaded.size) return "all";
-  return "some";
-});
+// Whole-result select-all shared with the SelectionBar and Ctrl/Cmd+A;
+// `selectionState` drives the tri-state checkbox glyph.
+const { selectionState, selectAll } = useGallerySelectAll();
 
 function onSelectAllClick(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
-  const state = loadedSelectionState.value;
   // Indeterminate behaves like "off → all" (typical file-manager UX:
   // a tri-state checkbox click resolves to "all checked").
-  if (state === "all") {
+  if (selectionState.value === "all") {
     selection.clear();
   } else {
-    selection.selectAllLoaded(galleryRoms.byPosition.values());
+    void selectAll();
   }
 }
 
@@ -107,24 +90,23 @@ function handleClick(col: ListColumn) {
 <template>
   <div class="game-list-header" :style="gridStyle" role="row">
     <template v-for="col in columns" :key="String(col.key)">
-      <!-- Select-all column. Tri-state checkbox: off → some → all. The
-           "loaded" qualifier is deliberate — selecting beyond what's in
-           memory would require a backend round-trip we don't have a
-           cheap path for yet. RCheckbox draws the dash glyph for the
-           indeterminate state and the tick for "all", so we just pipe
-           the derived state through and intercept the click. -->
+      <!-- Select-all column. Tri-state checkbox: off → some → all,
+           judged against the whole filtered result. RCheckbox draws
+           the dash glyph for the indeterminate state and the tick for
+           "all", so we just pipe the derived state through and
+           intercept the click. -->
       <RCheckbox
         v-if="col.key === 'select'"
         class="game-list-header__check"
-        :model-value="loadedSelectionState === 'all'"
-        :indeterminate="loadedSelectionState === 'some'"
+        :model-value="selectionState === 'all'"
+        :indeterminate="selectionState === 'some'"
         shape="circle"
         size="sm"
         color="primary"
         bare
         hide-details
         :aria-label="
-          loadedSelectionState === 'all'
+          selectionState === 'all'
             ? t('gallery.selection-deselect-all')
             : t('gallery.selection-select-all')
         "

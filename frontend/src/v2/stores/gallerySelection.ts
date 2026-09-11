@@ -11,8 +11,9 @@
 //     API calls without re-resolving against the sparse gallery
 //     cache (`galleryRoms.byPosition`), which may have evicted the
 //     rom by the time the user runs the action. Memory is bounded
-//     by the size of the selection — well within the gallery's
-//     working set.
+//     by the size of the selection; a whole-result select-all holds
+//     the full filtered set, the price of bulk actions needing real
+//     objects rather than ids.
 //   - `lastSelectedPosition: number | null` — anchor for shift-range
 //     selection. Stored as a *position* in the sparse gallery (matches
 //     `galleryRoms.byPosition` keys) rather than an index into a dense
@@ -38,11 +39,16 @@ interface State {
    * ROM. Used as the anchor for shift-range selection. `null` means
    * no anchor yet (next shift-click acts as a single toggle). */
   lastSelectedPosition: number | null;
+  /** Bumped by `clear()`. Async select flows (useGallerySelectAll)
+   * snapshot it before fetching and drop a late result if the user
+   * abandoned the selection in the meantime. */
+  epoch: number;
 }
 
 const defaults = (): State => ({
   selected: new Map<number, SimpleRom>(),
   lastSelectedPosition: null,
+  epoch: 0,
 });
 
 export default defineStore("v2GallerySelection", {
@@ -116,15 +122,13 @@ export default defineStore("v2GallerySelection", {
       this.lastSelectedPosition = position;
     },
 
-    /** Add every currently-loaded ROM in the gallery to the
-     * selection. v2 galleries are sparse (only fetched windows are
-     * present in `byPosition`), so this is "select all loaded" — not
-     * "select all in the entire filtered set". Matches v1's UX (its
-     * select-all also only touched ROMs already in memory) without
-     * the perf cost of fetching every page upfront. */
-    selectAllLoaded(loadedRoms: Iterable<SimpleRom>) {
+    /** Add every given ROM to the selection (existing picks are kept).
+     * `useGallerySelectAll` feeds it the loaded windows for instant
+     * feedback, then the fetched whole-result set. One Map swap per
+     * call, so a large merge is a single reactive invalidation. */
+    selectMany(roms: Iterable<SimpleRom>) {
       const next = new Map(this.selected);
-      for (const rom of loadedRoms) next.set(rom.id, rom);
+      for (const rom of roms) next.set(rom.id, rom);
       this.selected = next;
     },
 
@@ -136,8 +140,11 @@ export default defineStore("v2GallerySelection", {
     },
 
     /** Drop the selection and anchor. Bound to Esc, the SelectionBar
-     * clear button, and view route-leave. */
+     * clear button, and view route-leave. Bumps `epoch` even when the
+     * selection is already empty, so a select-all fetch launched from
+     * an empty selection is still abandoned by a clear gesture. */
     clear() {
+      this.epoch += 1;
       if (this.selected.size === 0 && this.lastSelectedPosition === null) {
         return;
       }

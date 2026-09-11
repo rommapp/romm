@@ -63,6 +63,11 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 // fewer requests but each one downloads more.
 const WINDOW_SIZE = 72;
 
+// Page size for the whole-result fetch behind "select all". Matches the
+// backend's ceiling on the `/roms` limit param (le=10_000), so results
+// up to that size arrive in one request.
+const SELECT_ALL_PAGE_SIZE = 10_000;
+
 // In-flight `AbortController`s keyed by request: `window:${offset}`
 // for a windowed fetch, `bootstrap` for the lightweight metadata
 // bootstrap. Lives outside store state so Pinia doesn't
@@ -641,6 +646,56 @@ export default defineStore("v2GalleryRoms", {
           if (offset === 0) this.initialFetching = false;
           // A slot freed up — start the next queued window, if any.
           this._drainWindowQueue();
+        }
+      }
+    },
+
+    /** Fetch every ROM of the current filtered result, in backend-capped
+     * pages. Powers the whole-result "select all": the selection store
+     * keeps full `SimpleRom`s (bulk actions need real objects), so ids
+     * from `romIdIndex` alone are not enough. Loaded windows are left
+     * untouched; the result goes straight to the selection. Registered
+     * in `inFlightControllers`, so `invalidateWindows` / `resetGallery`
+     * / a context switch aborts it.
+     *
+     * Returns:
+     *   The full result set, or null when aborted or superseded.
+     *   Non-cancel errors are rethrown for the caller to surface. */
+    async fetchAllFilteredRoms(): Promise<SimpleRom[] | null> {
+      const galleryFilter = storeGalleryFilter();
+      const params = this._buildRequestParams(galleryFilter, 0);
+      const ctrlKey = "select-all";
+      // A re-trigger supersedes the previous run.
+      inFlightControllers.get(ctrlKey)?.abort();
+      const controller = new AbortController();
+      inFlightControllers.set(ctrlKey, controller);
+
+      try {
+        const all: SimpleRom[] = [];
+        let offset = 0;
+        for (;;) {
+          const response = await romApi.getRoms({
+            ...params,
+            limit: SELECT_ALL_PAGE_SIZE,
+            offset,
+            withCharIndex: false,
+            withFilterValues: false,
+            withRomIdIndex: false,
+            withTotal: false,
+            signal: controller.signal,
+          });
+          if (inFlightControllers.get(ctrlKey) !== controller) return null;
+          all.push(...response.data.items);
+          // A short page is the last page.
+          if (response.data.items.length < SELECT_ALL_PAGE_SIZE) return all;
+          offset += SELECT_ALL_PAGE_SIZE;
+        }
+      } catch (err) {
+        if (axios.isCancel(err)) return null;
+        throw err;
+      } finally {
+        if (inFlightControllers.get(ctrlKey) === controller) {
+          inFlightControllers.delete(ctrlKey);
         }
       }
     },

@@ -314,6 +314,65 @@ describe("galleryRoms windowed fetch", () => {
   });
 });
 
+describe("galleryRoms whole-result fetch", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    getRoms.mockReset();
+  });
+
+  it("pages through backend-capped pages until a short page", async () => {
+    // A full page (the backend's 10k limit cap) forces a second request.
+    const fullPage = Array.from({ length: 10_000 }, (_, i) => ({ id: i }));
+    const lastPage = [{ id: 10_000 }, { id: 10_001 }];
+    getRoms.mockImplementation((params: { offset: number }) =>
+      Promise.resolve({
+        data: {
+          total: null,
+          items: params.offset === 0 ? fullPage : lastPage,
+          char_index: {},
+          rom_id_index: [],
+        },
+      }),
+    );
+    const store = storeGalleryRoms();
+
+    const roms = await store.fetchAllFilteredRoms();
+
+    expect(roms).toHaveLength(10_002);
+    expect(getRoms).toHaveBeenCalledTimes(2);
+    expect(getRoms.mock.calls.map((c) => c[0].offset)).toEqual([0, 10_000]);
+    // Whole-result pages skip every sidecar aggregation.
+    expect(getRoms.mock.calls[0][0]).toMatchObject({
+      withCharIndex: false,
+      withFilterValues: false,
+      withRomIdIndex: false,
+      withTotal: false,
+    });
+    // Loaded windows stay untouched: the result goes to the selection,
+    // not into the sparse gallery cache.
+    expect(store.byPosition.size).toBe(0);
+  });
+
+  it("returns null when the gallery context is invalidated mid-flight", async () => {
+    const d = deferred();
+    getRoms.mockReturnValue(d.promise);
+    const store = storeGalleryRoms();
+
+    const fetching = store.fetchAllFilteredRoms();
+    store.invalidateWindows();
+    d.resolve({
+      data: {
+        total: null,
+        items: [{ id: 1 }],
+        char_index: {},
+        rom_id_index: [],
+      },
+    });
+
+    expect(await fetching).toBeNull();
+  });
+});
+
 describe("galleryRoms length filter", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
