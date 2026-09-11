@@ -55,10 +55,12 @@ def _subqueries(clause, found: list[Subquery] | None = None) -> list[Subquery]:
     return found
 
 
-def _dedup_window_subquery() -> Select:
+def _dedup_window_subquery(order_by: str = "", user_id: int | None = None) -> Select:
     """The narrow `roms` subquery the grouped query materializes for its window."""
-    query, _ = db_rom_handler.get_roms_query()
-    grouped = db_rom_handler.filter_roms(query=query, group_by_meta_id=True)
+    query, _ = db_rom_handler.get_roms_query(order_by=order_by, user_id=user_id)
+    grouped = db_rom_handler.filter_roms(
+        query=query, order_by=order_by, group_by_meta_id=True, user_id=user_id
+    )
 
     for subquery in _subqueries(grouped):
         if not isinstance(subquery.element, Select):
@@ -81,7 +83,9 @@ def _dedup_window_columns() -> set[str]:
     }
 
 
-def _dedup_window_referenced_columns() -> set[str]:
+def _dedup_window_referenced_columns(
+    order_by: str = "", user_id: int | None = None
+) -> set[str]:
     """Every `roms` column the window's SQL reads, expressions included.
 
     Selecting a bare column is only one way in: a CASE or a function call over
@@ -89,7 +93,7 @@ def _dedup_window_referenced_columns() -> set[str]:
     the compiled SQL is what has to be inspected.
     """
     sql = str(
-        _dedup_window_subquery().compile(
+        _dedup_window_subquery(order_by=order_by, user_id=user_id).compile(
             dialect=mysql.dialect(), compile_kwargs={"literal_binds": True}
         )
     )
@@ -116,3 +120,10 @@ class TestGroupByMetaIdCoverage:
         assert not {
             column for column in _dedup_window_columns() if column.endswith("_metadata")
         }
+
+    def test_rom_user_sorted_window_reads_only_covered_columns(self):
+        # The grouped sort aggregate reads its key off the window's rom_user
+        # join; a roms-side key would break out of the covering index here.
+        referenced = _dedup_window_referenced_columns(order_by="last_played", user_id=1)
+
+        assert referenced <= set(INDEX_COLUMNS)

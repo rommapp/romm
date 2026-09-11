@@ -86,6 +86,19 @@ class TestMetadataSortQueryShape:
         assert sql.count("JOIN roms_metadata") == 1
         assert "JOIN rom_user" in sql
 
+    def test_grouped_metadata_sort_keeps_the_representative_key(self):
+        query, _ = db_rom_handler.get_roms_query(order_by="first_release_date")
+        grouped = db_rom_handler.filter_roms(
+            query=query, order_by="first_release_date", group_by_meta_id=True
+        )
+        sql = str(grouped)
+
+        # A roms-side group aggregate would push the sort key into the dedup
+        # window and off its covering index, so groups sort by the
+        # representative's own key (see test_roms_group_by_index).
+        assert "group_sort_value" not in sql
+        assert "ORDER BY roms.generated_first_release_date ASC" in sql
+
 
 class TestMetadataSortResults:
     """The values sorted on are the ones the view exposes."""

@@ -11,8 +11,11 @@ from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
+    Date,
+    DateTime,
     Enum,
     Integer,
+    Numeric,
     String,
     Text,
     and_,
@@ -395,6 +398,37 @@ def _prerelease_rank() -> ColumnElement:
         ),
         else_=0,
     )
+
+
+# Grouped galleries sort each group by the MIN/MAX over its siblings, which
+# matches ORDER BY semantics on every dialect only for these types. Enum and
+# lexical keys stay on the representative, so the gallery reads sorted by the
+# labels it displays and the char index stays aligned with them.
+_GROUP_SORT_AGGREGATE_TYPES = (Date, DateTime, Integer, Numeric)
+
+
+class _GallerySortKey(NamedTuple):
+    column: Any
+    from_rom_user: bool
+    joins_rom_metadata: bool
+
+
+def _resolve_gallery_sort_key(order_by: str, user_id: int | None) -> _GallerySortKey:
+    """Map a gallery `order_by` name to its sort column and source table."""
+    if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
+        return _GallerySortKey(getattr(RomUser, order_by), True, False)
+    if order_by in ROM_METADATA_ORDER_COLUMNS:
+        return _GallerySortKey(ROM_METADATA_ORDER_COLUMNS[order_by], False, False)
+    if hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
+        return _GallerySortKey(getattr(RomMetadata, order_by), False, True)
+
+    column = getattr(Rom, order_by) if hasattr(Rom, order_by) else Rom.name
+    # Use indexed `name_sort_key` to have fast access to names without
+    # articles (the, a, an) and leading digits. The key is derived from
+    # `name` at write time, or holds a custom override when one is set.
+    if column is Rom.name:
+        column = Rom.name_sort_key
+    return _GallerySortKey(column, False, False)
 
 
 def with_details(func):
@@ -1255,6 +1289,10 @@ class DBRomsHandler(DBBaseHandler):
     def filter_roms(
         self,
         query: Query,
+        # The grouped dedup aggregates the active sort key over each group, so
+        # it needs the ordering the query was built with.
+        order_by: str = "",
+        order_dir: str = "asc",
         platform_ids: Sequence[int] | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
@@ -1511,6 +1549,17 @@ class DBRomsHandler(DBBaseHandler):
                 else literal(1)
             )
 
+            sort_key = _resolve_gallery_sort_key(order_by, user_id)
+            # A group must sort by its best sibling's key, not the
+            # representative's, or a group whose representative carries no
+            # value lands in the NULL bucket (#4447). Only rom_user keys
+            # aggregate: they ride the window's existing rom_user join, while
+            # a roms-side key would push the window off its covering index
+            # (see test_roms_group_by_index).
+            aggregates_sort_key = sort_key.from_rom_user and isinstance(
+                sort_key.column.type, _GROUP_SORT_AGGREGATE_TYPES
+            )
+
             # Create a subquery that identifies the primary ROM in each group.
             # Priority order: is_main_sibling (desc), then a full release over
             # a pre-release, then the configured region priority, then
@@ -1538,10 +1587,87 @@ class DBRomsHandler(DBBaseHandler):
                 )
                 .subquery()
             )
-            # Only id and the row number flow downstream; the partition/order
-            # inputs are read straight from base_subquery, so keeping them out of
-            # this SELECT keeps the window's temp table narrow (carrying the wide
-            # fs_name_no_ext through it spilled the sort to disk).
+            partition_key = func.coalesce(
+                _create_metadata_id_case(
+                    MetadataSource.IGDB,
+                    base_subquery.c.igdb_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.SS,
+                    base_subquery.c.ss_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.MOBY,
+                    base_subquery.c.moby_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.RA,
+                    base_subquery.c.ra_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.HASHEOUS,
+                    base_subquery.c.hasheous_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.LAUNCHBOX,
+                    base_subquery.c.launchbox_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.TGDB,
+                    base_subquery.c.tgdb_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.FLASHPOINT,
+                    base_subquery.c.flashpoint_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.STEAM,
+                    base_subquery.c.steam_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    "romm",
+                    base_subquery.c.id,
+                    base_subquery.c.platform_id,
+                ),
+            )
+
+            # Only id, the row number and the group sort key flow downstream;
+            # the partition/order inputs are read straight from base_subquery,
+            # so keeping them out of this SELECT keeps the window's temp table
+            # narrow (carrying the wide fs_name_no_ext through it spilled the
+            # sort to disk).
+            window_columns: list[ColumnElement] = [
+                func.row_number()
+                .over(
+                    partition_by=partition_key,
+                    order_by=[
+                        is_main_sibling_order,
+                        base_subquery.c.prerelease_rank.asc(),
+                        base_subquery.c.region_rank.asc(),
+                        base_subquery.c.fs_name_no_ext.asc(),
+                    ],
+                )
+                .label("row_num"),
+            ]
+            if aggregates_sort_key:
+                # MIN/MAX skip NULL siblings, so a group keeps a NULL key only
+                # when every sibling's key is NULL.
+                group_aggregate = func.max if order_dir.lower() == "desc" else func.min
+                window_columns.append(
+                    group_aggregate(sort_key.column)
+                    .over(partition_by=partition_key)
+                    .label("group_sort_value")
+                )
+
             group_subquery = (
                 select(base_subquery.c.id)
                 .select_from(base_subquery)
@@ -1551,81 +1677,43 @@ class DBRomsHandler(DBBaseHandler):
                         base_subquery.c.id == RomUser.rom_id, RomUser.user_id == user_id
                     ),
                 )
-                .add_columns(
-                    func.row_number()
-                    .over(
-                        partition_by=func.coalesce(
-                            _create_metadata_id_case(
-                                MetadataSource.IGDB,
-                                base_subquery.c.igdb_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.SS,
-                                base_subquery.c.ss_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.MOBY,
-                                base_subquery.c.moby_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.RA,
-                                base_subquery.c.ra_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.HASHEOUS,
-                                base_subquery.c.hasheous_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.LAUNCHBOX,
-                                base_subquery.c.launchbox_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.TGDB,
-                                base_subquery.c.tgdb_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.FLASHPOINT,
-                                base_subquery.c.flashpoint_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.STEAM,
-                                base_subquery.c.steam_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                "romm",
-                                base_subquery.c.id,
-                                base_subquery.c.platform_id,
-                            ),
-                        ),
-                        order_by=[
-                            is_main_sibling_order,
-                            base_subquery.c.prerelease_rank.asc(),
-                            base_subquery.c.region_rank.asc(),
-                            base_subquery.c.fs_name_no_ext.asc(),
-                        ],
-                    )
-                    .label("row_num"),
-                )
+                .add_columns(*window_columns)
                 .subquery()
             )
 
-            # Add a filter to the original query to only include the primary ROM from each group
-            query = query.filter(
-                Rom.id.in_(
-                    session.query(group_subquery.c.id).filter(
-                        group_subquery.c.row_num == 1
+            if aggregates_sort_key:
+                # Joining the primary rows (instead of the IN filter below)
+                # carries the group's key out for the ORDER BY; each id sits in
+                # exactly one partition, so the join cannot fan out.
+                dedup_subquery = (
+                    select(group_subquery.c.id, group_subquery.c.group_sort_value)
+                    .where(group_subquery.c.row_num == 1)
+                    .subquery()
+                )
+                # The null-safe match keeps this join outer: made inner,
+                # MariaDB drives from the derived table and probes the wide
+                # roms rows per group instead of leading with a covering index.
+                query = query.outerjoin(
+                    dedup_subquery, Rom.id == dedup_subquery.c.id
+                ).filter(dedup_subquery.c.id.is_not_distinct_from(Rom.id))
+                query = query.order_by(None).order_by(
+                    *self._gallery_order_clauses(
+                        order_by=order_by,
+                        order_dir=order_dir,
+                        sort_column=dedup_subquery.c.group_sort_value,
+                        nulls_last=sort_key.from_rom_user,
+                        search_term=search_term,
                     )
                 )
-            )
+            else:
+                # Add a filter to the original query to only include the primary ROM from each group
+                query = query.filter(
+                    Rom.id.in_(
+                        session.query(group_subquery.c.id).filter(
+                            group_subquery.c.row_num == 1
+                        )
+                    )
+                )
 
         # The RomUser table is already joined if user_id is set
         if statuses and user_id:
@@ -1651,46 +1739,21 @@ class DBRomsHandler(DBBaseHandler):
 
         return query
 
-    @begin_session
-    def get_roms_query(
+    def _gallery_order_clauses(
         self,
         *,
-        order_by: str = "",
-        order_dir: str = "asc",
-        search_term: str | None = None,
-        user_id: int | None = None,
-        session: Session = None,  # type: ignore
-    ) -> tuple[Query[Rom], Any]:
-        query = self._join_rom_user(select(Rom), user_id)
-
-        sorts_by_rom_user = False
-        if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
-            order_attr = getattr(RomUser, order_by)
-            sorts_by_rom_user = True
-        elif order_by in ROM_METADATA_ORDER_COLUMNS:
-            order_attr = ROM_METADATA_ORDER_COLUMNS[order_by]
-        elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
-            order_attr = getattr(RomMetadata, order_by)
-            query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
-        elif hasattr(Rom, order_by):
-            order_attr = getattr(Rom, order_by)
-        else:
-            order_attr = Rom.name
-
-        # Use indexed `name_sort_key` to have fast access to names without
-        # articles (the, a, an) and leading digits. The key is derived from
-        # `name` at write time, or holds a custom override when one is set.
-        if order_attr is Rom.name:
-            order_attr = Rom.name_sort_key
-
-        order_attr_column = order_attr
-
+        order_by: str,
+        order_dir: str,
+        sort_column: Any,
+        nulls_last: bool,
+        search_term: str | None,
+    ) -> list[Any]:
         # MariaDB/MySQL have no NULLS LAST, so a leading IS NULL term keeps NULL
         # keys (no rom_user row, or an unset field) last in both directions.
-        nulls_last_clause = order_attr_column.is_(None) if sorts_by_rom_user else None
+        nulls_last_clause = sort_column.is_(None) if nulls_last else None
 
         descending = order_dir.lower() == "desc"
-        order_attr = order_attr.desc() if descending else order_attr.asc()
+        order_attr = sort_column.desc() if descending else sort_column.asc()
 
         # Ties are common on every sort key here and the gallery pages by
         # offset, so without a unique final key a rom can repeat in one window
@@ -1714,9 +1777,33 @@ class DBRomsHandler(DBBaseHandler):
             if order_by
             else (relevance_clause, order_attr, tiebreaker)
         )
-        order_clauses = [clause for clause in ordering if clause is not None]
+        return [clause for clause in ordering if clause is not None]
 
-        return query.order_by(*order_clauses), order_attr_column  # type: ignore
+    @begin_session
+    def get_roms_query(
+        self,
+        *,
+        order_by: str = "",
+        order_dir: str = "asc",
+        search_term: str | None = None,
+        user_id: int | None = None,
+        session: Session = None,  # type: ignore
+    ) -> tuple[Query[Rom], Any]:
+        query = self._join_rom_user(select(Rom), user_id)
+
+        sort_key = _resolve_gallery_sort_key(order_by, user_id)
+        if sort_key.joins_rom_metadata:
+            query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
+
+        order_clauses = self._gallery_order_clauses(
+            order_by=order_by,
+            order_dir=order_dir,
+            sort_column=sort_key.column,
+            nulls_last=sort_key.from_rom_user,
+            search_term=search_term,
+        )
+
+        return query.order_by(*order_clauses), sort_key.column  # type: ignore
 
     @begin_session
     def get_roms_scalar(
@@ -1738,6 +1825,8 @@ class DBRomsHandler(DBBaseHandler):
 
         roms = self.filter_roms(
             query=query,
+            order_by=kwargs.get("order_by", ""),
+            order_dir=kwargs.get("order_dir", "asc"),
             platform_ids=kwargs.get("platform_ids", None),
             collection_id=kwargs.get("collection_id", None),
             virtual_collection_id=kwargs.get("virtual_collection_id", None),

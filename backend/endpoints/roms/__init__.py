@@ -832,6 +832,8 @@ def get_roms(
     # Filter down the query
     query = db_rom_handler.filter_roms(
         query=unfiltered_query,
+        order_by=order_by.lower(),
+        order_dir=order_dir.lower(),
         user_id=request.user.id,
         hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
         hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
