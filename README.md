@@ -130,14 +130,19 @@ Consider supporting this project on Open Collective. Funds cover hosting, develo
 
 Here are a few projects that we think you might like:
 
-- [EmulatorJS](https://emulatorjs.org/): An embeddable, browser-based emulator
+- [Lutris](https://lutris.net/): Open gaming platform for Linux
+- [Cocoon](https://cocoon-shell.com/): Controller-first Android frontend for retro handhelds
+- [muOS](https://muos.dev/): Custom firmware for Anbernic and other handhelds
 - [RetroDECK](https://retrodeck.net/): Retro gaming on SteamOS and Linux
-- [ES-DE Frontend](https://es-de.org/): Emulator frontend for Linux, macOS and Windows
-- [Gaseous](https://github.com/gaseous-project/gaseous-server): Another ROM manager with web-based emulator
-- [Retrom](https://github.com/JMBeresford/retrom): A centralized game library/collection management service
-- [Drop](https://droposs.org/): Steam-like experience for DRM-free games
-- [LanCommander](https://lancommander.app/): Digital game platform for PC games
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
+- [Hasheous](https://hasheous.org/): Hash lookup service that maps ROMs to game metadata
+- [Gaseous](https://github.com/gaseous-project/gaseous-server): Another ROM manager with web-based emulator
+- [Playmatch](https://github.com/RetroRealm/playmatch): Microservice for matching ROM hashes to games
+- [EmulatorJS](https://emulatorjs.org/): An embeddable, browser-based emulator
+- [PortMaster](https://portmaster.games/): Native game ports for Linux handhelds
+- [MelonLoader](https://melonloader.co/): Universal mod loader for Unity games
+- [NextUI](https://nextui.loveretro.games/): MinUI-based custom firmware for TrimUI handhelds
+- [RetroAchievements](https://retroachievements.org/): Achievements for retro games
 
 ## Supported By
 
