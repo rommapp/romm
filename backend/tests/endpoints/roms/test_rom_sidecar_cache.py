@@ -17,7 +17,9 @@ These tests pin the split gate:
      since both narrow with it,
   4. RomUser-column sorts key on a per-user version, so a rom_user write
      refreshes that user's sorted index without touching other users'
-     entries or the name-sorted one, and `hidden` still bumps globally.
+     entries or the name-sorted one, and `hidden` still bumps globally,
+  5. grouped sets join the same per-user version (the representative is the
+     user's main sibling), while filter values opt out of it.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -306,6 +308,53 @@ def test_play_session_ingest_refreshes_last_played_sorted_index(
 
     second = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
     assert second["rom_id_index"] == [second_rom.id, played_rom.id]
+
+
+def test_cache_key_normalises_order_by_case():
+    """A mixed-case RomUser sort must land on the same versioned key as lowercase."""
+    mixed_case_key = build_unscoped_sidecar_cache_key(
+        1, "Last_Played", "desc", False, True
+    )
+    assert mixed_case_key == _last_played_sort_key(1)
+
+
+def test_rom_user_write_refreshes_grouped_entry(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """Grouped sets pick the user's main sibling, so any rom_user write must
+    refresh the grouped index even under the default name sort."""
+    key = build_unscoped_sidecar_cache_key(admin_user.id, "", "asc", True, True)
+    assert key is not None
+    version = _filter_values_cache_version()
+    redis_key = _rom_id_index_redis_key(key, version)
+    _store_versioned_cache(redis_key, version, [424242])
+
+    first = _get_roms(client, access_token, group_by_meta_id=True)
+    assert first["rom_id_index"] == [424242]
+
+    _put_props(client, access_token, rom.id, body={"is_main_sibling": True})
+
+    second = _get_roms(client, access_token, group_by_meta_id=True)
+    assert second["rom_id_index"] == [rom.id]
+
+
+def test_rom_user_write_keeps_filter_values_entry(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """Filter values read no sortable RomUser column, so a play must not rotate them."""
+    version = _filter_values_cache_version()
+    key = build_unscoped_sidecar_cache_key(
+        admin_user.id, "last_played", "desc", False, True, with_rom_user_version=False
+    )
+    assert key is not None
+    _store_versioned_cache(
+        _filter_values_redis_key(key, version), version, SENTINEL_FILTER_VALUES
+    )
+
+    _put_props(client, access_token, rom.id, update_last_played=True)
+
+    body = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
+    assert body["filter_values"]["genres"] == ["Sentinel Genre"]
 
 
 def test_rom_user_write_keeps_name_sorted_entry(

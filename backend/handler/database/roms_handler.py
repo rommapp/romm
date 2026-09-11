@@ -19,6 +19,7 @@ from sqlalchemy import (
     case,
     cast,
     delete,
+    event,
     false,
     func,
 )
@@ -2309,9 +2310,15 @@ class DBRomsHandler(DBBaseHandler):
 
         _invalidate_feed_if_seed_changed(rom_user.user_id, data)
 
-        # Every RomUser column can back a gallery sort, so any write here moves
-        # this user's RomUser-sorted sidecar entries.
-        _bump_rom_user_cache_version(rom_user.user_id)
+        # Any RomUser column can move this user's versioned sidecar entries;
+        # bump after commit so a reader can't cache pre-commit rows under it.
+        user_id = rom_user.user_id
+        event.listen(
+            session,
+            "after_commit",
+            lambda _: _bump_rom_user_cache_version(user_id),
+            once=True,
+        )
 
         if not data.get("is_main_sibling", False):
             return rom_user

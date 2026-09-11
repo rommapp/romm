@@ -194,12 +194,15 @@ def build_unscoped_sidecar_cache_key(
     order_dir: str,
     group_by_meta_id: bool,
     is_unscoped: bool,
+    *,
+    with_rom_user_version: bool = True,
 ) -> str | None:
     """Cache key for the unscoped library sidecars (char index, filter values,
     rom id index). Returns None for scoped/searched sets, which are computed live.
     The computed values depend on user, ordering and grouping, so all are part
-    of the key. RomUser-column sorts also embed a per-user version that every
-    rom_user write bumps.
+    of the key. Sets whose content reads the user's rom_user rows also embed a
+    per-user version that every rom_user write bumps; a sidecar that reads none
+    of them opts out with `with_rom_user_version=False`.
 
     What counts as unscoped differs per sidecar, so the caller decides: the char
     index and the id index narrow with every filter, while the filter-value list
@@ -208,15 +211,20 @@ def build_unscoped_sidecar_cache_key(
     if not is_unscoped:
         return None
 
+    # The query layer sorts by the lowercased key, so the per-user-version gate
+    # must normalise the same way the key text below already does.
+    order_by = order_by.lower()
+
     user_part = f"u{user_id}"
-    if sorts_by_rom_user_column(order_by):
-        # A RomUser-column sort orders by this user's own writes, so its entries
-        # rotate with the per-user version rather than the global one.
+    if with_rom_user_version and (
+        sorts_by_rom_user_column(order_by) or group_by_meta_id
+    ):
+        # These sets read the user's own rom_user rows (sort keys, or the
+        # grouped main-sibling pick), so they rotate with the per-user version.
         user_part = f"{user_part}.{rom_user_cache_version(user_id)}"
 
     return (
-        f"all:{user_part}"
-        f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
+        f"all:{user_part}" f":o{order_by}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
     )
 
 
@@ -1000,7 +1008,14 @@ def get_roms(
             search_term=search_term,
         )
         cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped_scope
+            request.user.id,
+            order_by,
+            order_dir,
+            group_by_meta_id,
+            is_unscoped_scope,
+            # `hidden` is the only RomUser column filter values read, and it
+            # bumps the global version, so the per-user version is pure churn.
+            with_rom_user_version=False,
         )
         query_filters = db_rom_handler.with_filter_values(
             query=filter_query,
