@@ -252,4 +252,13 @@ describe("useGallerySelectAll", () => {
     const { selectionState } = useGallerySelectAll();
     expect(selectionState.value).toBe("off");
   });
+
+  it("reports off when the selection holds only out-of-filter roms", () => {
+    setupGallery({ ids: [1, 2] });
+    const selection = storeGallerySelection();
+    selection.selectMany([rom(9)]);
+
+    const { selectionState } = useGallerySelectAll();
+    expect(selectionState.value).toBe("off");
+  });
 });

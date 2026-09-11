@@ -44,9 +44,24 @@ export function useGallerySelectAll() {
   /** Tri-state for the list header checkbox glyph. */
   const selectionState = computed<GallerySelectionState>(() => {
     if (selection.count === 0) return "off";
+    const selected = toRaw(selection.selected);
     const ids = galleryRoms.filteredRomIds;
-    // An empty result has nothing to select, whatever the count says.
-    if ((ids ? ids.length : galleryRoms.byPosition.size) === 0) return "off";
+    // Picks kept from another filter don't make this result "some", and an
+    // empty result has nothing to select, whatever the count says.
+    if (ids !== null) {
+      if (ids.length === 0 || !toRaw(ids).some((id) => selected.has(id))) {
+        return "off";
+      }
+    } else {
+      let anyLoadedSelected = false;
+      for (const rom of galleryRoms.byPosition.values()) {
+        if (selected.has(rom.id)) {
+          anyLoadedSelected = true;
+          break;
+        }
+      }
+      if (!anyLoadedSelected) return "off";
+    }
     return allSelected.value ? "all" : "some";
   });
 
