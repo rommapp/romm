@@ -187,5 +187,17 @@ describe("HashChip", () => {
         'common.copy-hash:{"label":"SHA-1"}',
       );
     });
+
+    it("keeps copying and stays expanded on clicks after a failed copy", async () => {
+      copy.mockResolvedValueOnce(false);
+      const wrapper = mountChip();
+
+      await click(wrapper);
+      await click(wrapper);
+
+      expect(copy).toHaveBeenCalledTimes(2);
+      expect(wrapper.find("button").attributes("aria-expanded")).toBe("true");
+      expect(wrapper.text()).toContain(SHA1);
+    });
   });
 });

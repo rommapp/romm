@@ -41,7 +41,7 @@
   "confirm": "Подтвердить",
   "confirm-deletion": "Подтвердить удаление",
   "copy-code": "Копировать код",
-  "copy-hash": "Скопировать хеш {label}",
+  "copy-hash": "Копировать хеш {label}",
   "core": "Ядро",
   "create": "Создать",
   "crt-mode": "CRT mode",

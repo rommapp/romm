@@ -41,7 +41,7 @@
   "confirm": "Potwierdź",
   "confirm-deletion": "Potwierdź usunięcie",
   "copy-code": "Kopiuj kod",
-  "copy-hash": "Skopiuj hash {label}",
+  "copy-hash": "Kopiuj hash {label}",
   "core": "Rdzeń",
   "create": "Utwórz",
   "crt-mode": "CRT mode",

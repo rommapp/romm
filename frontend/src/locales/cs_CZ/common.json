@@ -41,7 +41,7 @@
   "confirm": "Potvrdit",
   "confirm-deletion": "Potvrdit smazání",
   "copy-code": "Kopírovat kód",
-  "copy-hash": "Zkopírovat hash {label}",
+  "copy-hash": "Kopírovat hash {label}",
   "core": "Jádro",
   "create": "Vytvořit",
   "crt-mode": "CRT mode",
