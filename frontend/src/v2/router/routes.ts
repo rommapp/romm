@@ -8,8 +8,8 @@
 //
 // When the user's uiVersion is "v2" the named <router-view name="v2"> in the
 // v2 AppLayout renders the v2 component. Routes without a v2 entry fall
-// through to the `fallbackComponent` so the user sees a helpful "not ready
-// yet" screen instead of a blank page.
+// through to `notFoundComponent`, which is correct now that every route the
+// v2 UI links to is migrated: an unregistered name leads nowhere in v2.
 //
 // NOTE: We use string keys instead of importing ROUTES from @/plugins/router
 // to avoid a circular import (router.ts ↔ v2/router/routes.ts). Keys here
@@ -17,6 +17,11 @@
 import type { Component } from "vue";
 
 export type V2Route = () => Promise<Component>;
+
+// Rendered for the catch-all route and for any route name that reaches
+// `v2For` without an entry below.
+export const notFoundComponent: V2Route = () =>
+  import("@/v2/views/NotFound.vue");
 
 export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   home: () => import("@/v2/views/Home.vue"),
@@ -63,10 +68,9 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   "collections-index": () => import("@/v2/views/CollectionsIndex.vue"),
   // V2-only dev tool — live gamepad input inspector.
   "controller-debug": () => import("@/v2/views/ControllerDebug.vue"),
+  // v1-only easter egg: no v2 component links here, so the URL is a dead end.
+  "april-fools": notFoundComponent,
 };
-
-export const fallbackComponent: V2Route = () =>
-  import("@/v2/views/NotReady.vue");
 
 export const v2Layouts = {
   main: () => import("@/v2/layouts/AppLayout.vue"),
