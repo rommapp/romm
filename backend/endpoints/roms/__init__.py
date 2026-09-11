@@ -196,12 +196,10 @@ def build_unscoped_sidecar_cache_key(
     group_by_meta_id: bool,
     is_unscoped: bool,
 ) -> str | None:
-    """Cache key for the unscoped char-index / rom-id-index sidecars.
-    Returns None for scoped/searched sets, which are computed live.
-
-    The content depends on user, ordering and grouping. A RomUser-column
-    sort also embeds the per-user sort version, and a grouped set the
-    sibling version, so exactly the writes that move a set rotate its key.
+    """Cache key for the unscoped char-index / rom-id-index sidecars; None for
+    scoped/searched sets, which are computed live. Embeds the per-user sort
+    version on RomUser-column sorts and the sibling version on grouped sets,
+    so exactly the writes that move a set rotate its key.
     """
     if not is_unscoped:
         return None
