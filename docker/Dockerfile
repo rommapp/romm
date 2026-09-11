@@ -33,7 +33,6 @@ FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA
 # FRONTEND BUILD
 # Built on the native build platform: the output (/front/dist) is static JS/CSS,
 # fully architecture-independent, so there is no need to emulate the target arch.
-# This avoids running `npm ci`/Node under QEMU arm64 emulation, which hangs.
 FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
 WORKDIR /front
 

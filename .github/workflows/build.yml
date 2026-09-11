@@ -7,7 +7,6 @@ on:
   release:
     types: [published]
 
-# Every job below grants itself what it needs; this is only the fallback.
 permissions:
   contents: read
 
@@ -123,6 +122,8 @@ jobs:
           labels: ${{ steps.meta-slim.outputs.labels }}
           target: slim-image
           outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          # Deliberately not seeded from the preview cache: those layers are
+          # built from PR head content and must not reach a release image.
           cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
@@ -193,9 +194,6 @@ jobs:
           path: /tmp/digests/full
           pattern: digest-full-*
           merge-multiple: true
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Login to Docker Hub
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -277,7 +275,7 @@ jobs:
     permissions: {}
     needs: merge
     runs-on: ubuntu-latest
-    if: needs.merge.result == 'success' && github.event.release.prerelease == false
+    if: github.event.release.prerelease == false
     steps:
       - name: Trigger docs build
         run: |
