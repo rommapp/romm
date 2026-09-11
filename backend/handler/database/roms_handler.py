@@ -318,6 +318,28 @@ def _filter_values_cache_keys_key(version: str) -> str:
     return f"filter_values:keys:v{version}"
 
 
+def _rom_user_cache_version_key(user_id: int) -> str:
+    return f"filter_values:user_ver:{user_id}"
+
+
+def rom_user_cache_version(user_id: int) -> str:
+    """Version component for one user's RomUser-sorted sidecar cache keys."""
+    return (
+        _cache_value_to_str(sync_cache.get(_rom_user_cache_version_key(user_id))) or "0"
+    )
+
+
+def _bump_rom_user_cache_version(user_id: int) -> None:
+    # No keys-set bookkeeping: entries under the old per-user version become
+    # unreachable and are reaped by the TTL or the next global bump.
+    sync_cache.incr(_rom_user_cache_version_key(user_id))
+
+
+def sorts_by_rom_user_column(order_by: str) -> bool:
+    """True when this sort key resolves to a per-user RomUser column."""
+    return hasattr(RomUser, order_by) and not hasattr(Rom, order_by)
+
+
 def _sidecar_redis_key(prefix: str, cache_key: str, version: str) -> str:
     """Every gallery sidecar key shares this shape, so none can omit the schema version."""
     return f"{prefix}:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
@@ -1684,7 +1706,7 @@ class DBRomsHandler(DBBaseHandler):
         query = self._join_rom_user(select(Rom), user_id)
 
         sort_key_is_nullable = False
-        if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
+        if user_id and sorts_by_rom_user_column(order_by):
             order_attr = getattr(RomUser, order_by)
             sort_key_is_nullable = True
         elif order_by in ROM_METADATA_ORDER_COLUMNS:
@@ -2286,6 +2308,10 @@ class DBRomsHandler(DBBaseHandler):
             return None
 
         _invalidate_feed_if_seed_changed(rom_user.user_id, data)
+
+        # Every RomUser column can back a gallery sort, so any write here moves
+        # this user's RomUser-sorted sidecar entries.
+        _bump_rom_user_cache_version(rom_user.user_id)
 
         if not data.get("is_main_sibling", False):
             return rom_user

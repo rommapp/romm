@@ -14,9 +14,13 @@ These tests pin the split gate:
   1. a row-level filter reads and writes the shared filter-values entry,
   2. a scope filter (platform / collection / search) does neither,
   3. the char index and the id index stay live under any row-level filter,
-     since both narrow with it.
+     since both narrow with it,
+  4. RomUser-column sorts key on a per-user version, so a rom_user write
+     refreshes that user's sorted index without touching other users'
+     entries or the name-sorted one, and `hidden` still bumps globally.
 """
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -220,3 +224,134 @@ def test_unfiltered_request_still_reads_unscoped_char_index_cache(
     body = _get_roms(client, access_token)
 
     assert body["char_index"] == {"Z": 41}
+
+
+def _put_props(
+    client: TestClient,
+    access_token: str,
+    rom_id: int,
+    body: dict[str, Any] | None = None,
+    **params: Any,
+) -> None:
+    response = client.put(
+        f"/api/roms/{rom_id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params=params,
+        json=body or {},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+
+def _last_played_sort_key(user_id: int) -> str:
+    key = build_unscoped_sidecar_cache_key(user_id, "last_played", "desc", False, True)
+    assert key is not None
+    return key
+
+
+@pytest.fixture
+def played_rom(rom: Rom, admin_user: User) -> Rom:
+    """The shared rom with an old `last_played`, so a later play must reorder past it."""
+    rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+    assert rom_user is not None
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+    )
+    return rom
+
+
+def test_props_write_refreshes_last_played_sorted_index(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    played_rom: Rom,
+    second_rom: Rom,
+):
+    """A play recorded through /props reorders the next last_played-sorted index."""
+    first = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
+    assert first["rom_id_index"] == [played_rom.id, second_rom.id]
+
+    _put_props(client, access_token, second_rom.id, update_last_played=True)
+
+    second = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
+    assert second["rom_id_index"] == [second_rom.id, played_rom.id]
+
+
+def test_play_session_ingest_refreshes_last_played_sorted_index(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    played_rom: Rom,
+    second_rom: Rom,
+):
+    """The play-session path writes `last_played` through the same choke point."""
+    first = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
+    assert first["rom_id_index"] == [played_rom.id, second_rom.id]
+
+    end = datetime.now(timezone.utc).replace(microsecond=0)
+    response = client.post(
+        "/api/play-sessions",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "sessions": [
+                {
+                    "rom_id": second_rom.id,
+                    "start_time": (end - timedelta(minutes=30)).isoformat(),
+                    "end_time": end.isoformat(),
+                    "duration_ms": 30 * 60 * 1000,
+                }
+            ]
+        },
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+
+    second = _get_roms(client, access_token, order_by="last_played", order_dir="desc")
+    assert second["rom_id_index"] == [second_rom.id, played_rom.id]
+
+
+def test_rom_user_write_keeps_name_sorted_entry(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """A rating write must not rotate or delete the user's name-sorted entry."""
+    version = _filter_values_cache_version()
+    redis_key = _rom_id_index_redis_key(_unscoped_key(admin_user.id), version)
+    _store_versioned_cache(redis_key, version, [424242])
+
+    _put_props(client, access_token, rom.id, body={"rating": 8})
+
+    body = _get_roms(client, access_token)
+    assert body["rom_id_index"] == [424242]
+
+
+def test_rom_user_write_leaves_other_users_sorted_entries_alone(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    editor_user: User,
+    rom: Rom,
+):
+    """One user's play rotates only their own key; another user's entry stays."""
+    writer_key = _last_played_sort_key(admin_user.id)
+    other_key = _last_played_sort_key(editor_user.id)
+    version = _filter_values_cache_version()
+    other_redis_key = _rom_id_index_redis_key(other_key, version)
+    _store_versioned_cache(other_redis_key, version, [424242])
+
+    _put_props(client, access_token, rom.id, update_last_played=True)
+
+    assert _last_played_sort_key(editor_user.id) == other_key
+    assert sync_cache.get(other_redis_key) is not None
+    assert _last_played_sort_key(admin_user.id) != writer_key
+
+
+def test_hidden_write_still_bumps_the_global_version(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """`hidden` keeps its global invalidation on top of the per-user bump."""
+    old_version = _filter_values_cache_version()
+    redis_key = _rom_id_index_redis_key(_unscoped_key(admin_user.id), old_version)
+    _store_versioned_cache(redis_key, old_version, [424242])
+
+    _put_props(client, access_token, rom.id, body={"hidden": True})
+
+    assert int(_filter_values_cache_version()) == int(old_version) + 1
+    assert sync_cache.get(redis_key) is None

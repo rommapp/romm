@@ -65,6 +65,10 @@ from handler.database import (
     db_save_handler,
 )
 from handler.database.base_handler import sync_session
+from handler.database.roms_handler import (
+    rom_user_cache_version,
+    sorts_by_rom_user_column,
+)
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
@@ -194,7 +198,8 @@ def build_unscoped_sidecar_cache_key(
     """Cache key for the unscoped library sidecars (char index, filter values,
     rom id index). Returns None for scoped/searched sets, which are computed live.
     The computed values depend on user, ordering and grouping, so all are part
-    of the key.
+    of the key. RomUser-column sorts also embed a per-user version that every
+    rom_user write bumps.
 
     What counts as unscoped differs per sidecar, so the caller decides: the char
     index and the id index narrow with every filter, while the filter-value list
@@ -203,8 +208,14 @@ def build_unscoped_sidecar_cache_key(
     if not is_unscoped:
         return None
 
+    user_part = f"u{user_id}"
+    if sorts_by_rom_user_column(order_by):
+        # A RomUser-column sort orders by this user's own writes, so its entries
+        # rotate with the per-user version rather than the global one.
+        user_part = f"{user_part}.{rom_user_cache_version(user_id)}"
+
     return (
-        f"all:u{user_id}"
+        f"all:{user_part}"
         f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
     )
 

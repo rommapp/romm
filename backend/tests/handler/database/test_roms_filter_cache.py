@@ -9,10 +9,12 @@ actually delete the old entries instead of leaking them until TTL.
 These tests pin down that machinery:
   1. storing a value also registers its key in the version set,
   2. a cache hit returns the exact same shape as the cache miss that filled it,
-  3. `invalidate_filter_values_cache()` deletes the prior version's keys.
+  3. `invalidate_filter_values_cache()` deletes the prior version's keys,
+  4. a rom_user write bumps only the writing user's per-user version.
 """
 
 import json
+from datetime import datetime, timezone
 from typing import cast
 
 import pytest
@@ -29,9 +31,11 @@ from handler.database.roms_handler import (
     _filter_values_redis_key,
     _rom_id_index_redis_key,
     _store_versioned_cache,
+    rom_user_cache_version,
 )
 from handler.redis_handler import sync_cache
 from models.rom import Rom
+from models.user import User
 
 
 @pytest.fixture(autouse=True)
@@ -237,6 +241,34 @@ class TestFilterValuesSchemaDrift:
         assert result["genres"] == ["RPG"]
         # ...and the fresh entry lands under the schema-namespaced key.
         assert sync_cache.get(_filter_values_redis_key(cache_key, version)) is not None
+
+
+class TestRomUserCacheVersion:
+    def test_update_rom_user_bumps_only_that_users_version(
+        self, rom: Rom, admin_user: User, editor_user: User
+    ):
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        assert rom_user_cache_version(admin_user.id) == "0"
+
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"last_played": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+
+        assert rom_user_cache_version(admin_user.id) == "1"
+        assert rom_user_cache_version(editor_user.id) == "0"
+
+    def test_missing_rom_user_does_not_bump(self, admin_user: User):
+        assert db_rom_handler.update_rom_user(424242, {"rating": 8}) is None
+        assert rom_user_cache_version(admin_user.id) == "0"
+
+    def test_bump_leaves_the_global_version_alone(self, rom: Rom, admin_user: User):
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+
+        db_rom_handler.update_rom_user(rom_user.id, {"rating": 8})
+
+        assert _filter_values_cache_version() == "0"
 
 
 class TestInvalidateFilterValuesCache:
