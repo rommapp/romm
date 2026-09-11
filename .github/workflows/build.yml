@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+# `build` pushes digests here and `merge` tags them from here; the two must agree.
+env:
+  DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
+
 jobs:
   validate-tag-semver:
     runs-on: ubuntu-latest
@@ -49,7 +53,6 @@ jobs:
       contents: read
       packages: write
     env:
-      DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
       CACHE_IMAGE: ghcr.io/${{ github.repository_owner }}/romm-buildcache
     steps:
       - name: Checkout code
@@ -178,8 +181,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
     steps:
       - name: Download slim digests
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0

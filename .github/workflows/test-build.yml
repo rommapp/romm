@@ -115,7 +115,6 @@ jobs:
           platforms: ${{ matrix.platform }}
           target: full-image
           outputs: type=image,name=${{ steps.repo.outputs.ref }},push-by-digest=true,name-canonical=true,push=true
-          # Seed from the previous preview, falling back to the last release.
           cache-from: |
             type=registry,ref=${{ env.CACHE_IMAGE }}:preview-${{ matrix.arch }}
             type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
