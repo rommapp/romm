@@ -138,8 +138,12 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # Waits on `prepare` as well, so a late "under way" comment cannot land on top
+  # of the completed one. Its result is not required though: failing to post a
+  # comment should not leave a pushed image untagged.
   merge:
-    needs: build
+    needs: [prepare, build]
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
