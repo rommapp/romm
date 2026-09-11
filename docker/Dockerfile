@@ -58,12 +58,10 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${
 # BACKEND PYTHON BUILD
 FROM python-alias AS backend-build
 
-# git is needed to install streaming-form-data fork
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
     gcc \
-    git \
     libpq-dev \
     mariadb-connector-c-dev \
     musl-dev

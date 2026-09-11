@@ -24,28 +24,40 @@ jobs:
         run: |
           TAG="${{ github.event.release.tag_name }}"
           if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
-            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "valid=true" >>"$GITHUB_OUTPUT"
           else
-            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "valid=false" >>"$GITHUB_OUTPUT"
           fi
 
+  # Each architecture builds on a runner of its own architecture and pushes
+  # untagged, digest-addressed images; `merge` then stitches them into one index
+  # per variant. Emulating arm64 under QEMU made the C/C++ stages dominate the
+  # build. The full image is `FROM` the slim one, so the two targets share
+  # almost all of their work within a single job.
   build:
     needs: validate-tag-semver
-    runs-on: ubuntu-latest
     if: needs.validate-tag-semver.outputs.valid == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       id-token: write
-      contents: write
+      contents: read
       packages: write
+    env:
+      DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
+      CACHE_IMAGE: ghcr.io/${{ github.repository_owner }}/romm-buildcache
     steps:
-      - name: Run only once per release
-        run: echo "Triggered by ${{ github.event_name }}"
-
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -104,42 +116,164 @@ jobs:
         run: |
           sed -i 's/<version>/${{ steps.meta.outputs.version }}/' backend/__version__.py
 
-      - name: Build slim image
+      - name: Build and push slim image by digest
         id: build-slim
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           file: docker/Dockerfile
           context: .
-          push: true
-          platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta-slim.outputs.tags }}
+          platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta-slim.outputs.labels }}
           target: slim-image
+          outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
 
-      - name: Build full image
+      # Only the full build writes the cache: it is a superset of the slim one,
+      # so a single `mode=max` export covers every stage either target needs.
+      - name: Build and push full image by digest
         id: build-full
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           file: docker/Dockerfile
           context: .
-          push: true
-          platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
+          platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           target: full-image
+          outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
+          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }},mode=max
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
 
+      - name: Export digests
+        env:
+          SLIM_DIGEST: ${{ steps.build-slim.outputs.digest }}
+          FULL_DIGEST: ${{ steps.build-full.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests/slim /tmp/digests/full
+          touch "/tmp/digests/slim/${SLIM_DIGEST#sha256:}"
+          touch "/tmp/digests/full/${FULL_DIGEST#sha256:}"
+
+      - name: Upload slim digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digest-slim-${{ matrix.arch }}
+          path: /tmp/digests/slim/*
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload full digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digest-full-${{ matrix.arch }}
+          path: /tmp/digests/full/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    env:
+      DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
+    steps:
+      - name: Download slim digests
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: /tmp/digests/slim
+          pattern: digest-slim-*
+          merge-multiple: true
+
+      - name: Download full digests
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: /tmp/digests/full
+          pattern: digest-full-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Docker metadata (slim)
+        id: meta-slim
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: |
+            name=rommapp/romm
+            name=ghcr.io/rommapp/romm
+          flavor: |
+            latest=auto
+            suffix=-slim,onlatest=true
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Generate Docker metadata (full)
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: |
+            name=rommapp/romm
+            name=ghcr.io/rommapp/romm
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      # Tags spanning both registries are fine here: `imagetools create` copies
+      # the blobs over when a target sits in a different registry than the digests.
+      - name: Create manifest lists and push
+        env:
+          SLIM_METADATA: ${{ steps.meta-slim.outputs.json }}
+          FULL_METADATA: ${{ steps.meta.outputs.json }}
+        run: |
+          push_variant() {
+            local dir="$1" metadata="$2"
+
+            local tags=()
+            while IFS= read -r tag; do
+              tags+=(--tag "$tag")
+            done < <(jq -r '.tags[]' <<<"$metadata")
+
+            local sources=()
+            local digest
+            for digest in "$dir"/*; do
+              sources+=("${DIGEST_IMAGE}@sha256:$(basename "$digest")")
+            done
+
+            docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+          }
+
+          push_variant /tmp/digests/slim "$SLIM_METADATA"
+          push_variant /tmp/digests/full "$FULL_METADATA"
+
   trigger-docs-and-web:
     permissions:
       actions: write
-    needs: build
+    needs: merge
     runs-on: ubuntu-latest
-    if: needs.build.result == 'success' && github.event.release.prerelease == false
+    if: needs.merge.result == 'success' && github.event.release.prerelease == false
     steps:
       - name: Trigger docs build
         run: |
