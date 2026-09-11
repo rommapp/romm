@@ -48,12 +48,10 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         return self.manual_run
 
     @initialize_context()
-    async def run(self, force: bool = False) -> dict[str, Any]:
+    async def run(self) -> dict[str, Any]:
         update_stats = UpdateStats()
 
-        # Reaching here means the cron fired, an admin asked, or a schema bump
-        # dropped the store, so the pull goes ahead whatever the setting says.
-        content = await super().run(True)
+        content = await super().run()
         if content is None:
             return update_stats.to_dict()
 
