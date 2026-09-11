@@ -118,6 +118,9 @@ const selectedDisc = ref<DiscSelection>(null);
 const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
+// Written back only when the user deviates from it, so a later change to
+// the instance default isn't shadowed by a core nobody chose.
+const resolvedCore = ref<string | null>(null);
 const gameRunning = ref(false);
 const removeIOSFullscreenShim = ref<(() => void) | null>(null);
 
@@ -222,7 +225,10 @@ async function onPlay() {
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
   if (rom.value) {
-    rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
+    if (selectedCore.value !== resolvedCore.value) {
+      rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
+      resolvedCore.value = selectedCore.value;
+    }
     rememberDisc(rom.value.id, selectedDisc.value);
   }
   gameRunning.value = true;
@@ -360,11 +366,13 @@ onMounted(async () => {
     bootableRomFiles.value,
   );
 
-  selectedCore.value = resolveRememberedCore(
+  resolvedCore.value = resolveRememberedCore(
     rom.value.id,
     rom.value.platform_slug,
     supportedCores.value,
+    configStore.getEJSDefaultCore(rom.value.platform_slug),
   );
+  selectedCore.value = resolvedCore.value;
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(

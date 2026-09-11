@@ -33,6 +33,7 @@ def test_config(client):
         DEFAULT_EXCLUDED_MULTI_FILE_DIRS
     )
     assert config.get("PLATFORMS_BINDING") == {}
+    assert config.get("EJS_DEFAULT_CORES") == {}
     assert not config.get("SKIP_HASH_CALCULATION")
     assert config.get("GAMELIST_MEDIA_THUMBNAIL") == "box2d"
     assert config.get("GAMELIST_MEDIA_IMAGE") == "screenshot"

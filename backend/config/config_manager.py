@@ -476,6 +476,7 @@ class Config:
     EJS_ENABLE_AUTO_SAVE_SYNC: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
+    EJS_DEFAULT_CORES: dict[str, str]  # platform_slug -> core_name
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
     SCAN_METADATA_PRIORITY: list[str]
@@ -763,6 +764,10 @@ class ConfigManager:
             EJS_NETPLAY_ICE_SERVERS=pydash.get(
                 self._raw_config, "emulatorjs.netplay.ice_servers", []
             ),
+            EJS_DEFAULT_CORES=pydash.get(
+                self._raw_config, "emulatorjs.default_cores", {}
+            )
+            or {},
             EJS_SETTINGS=pydash.get(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
             SCAN_METADATA_PRIORITY=pydash.get(
@@ -895,9 +900,9 @@ class ConfigManager:
         return yaml_controls
 
     def _validated_platform_map(self, raw: Any, config_key: str) -> dict[str, str]:
-        """Check a folder name to slug mapping.
+        """Check a mapping of platform or folder names to non-empty strings.
 
-        Folder names are lowercased so lookups can ignore case.
+        Keys are lowercased so lookups can ignore case.
         """
         if not isinstance(raw, dict):
             log.critical(f"Invalid config.yml: {config_key} must be a dictionary")
@@ -1063,6 +1068,10 @@ class ConfigManager:
                 "Invalid config.yml: emulatorjs.netplay.ice_servers must be a list"
             )
             sys.exit(3)
+
+        self.config.EJS_DEFAULT_CORES = self._validated_platform_map(
+            self.config.EJS_DEFAULT_CORES, "emulatorjs.default_cores"
+        )
 
         if not isinstance(self.config.EJS_SETTINGS, dict):
             log.critical("Invalid config.yml: emulatorjs.settings must be a dictionary")
@@ -1335,6 +1344,7 @@ class ConfigManager:
                     "enabled": self.config.EJS_NETPLAY_ENABLED,
                     "ice_servers": self.config.EJS_NETPLAY_ICE_SERVERS,
                 },
+                "default_cores": self.config.EJS_DEFAULT_CORES,
                 "settings": self.config.EJS_SETTINGS,
                 "controls": self._format_ejs_controls_for_yaml(),
             },
