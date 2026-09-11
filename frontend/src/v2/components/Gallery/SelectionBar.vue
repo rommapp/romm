@@ -84,7 +84,7 @@ const { ensureFavoriteCollection } = useFavoriteToggle();
 const { syncCachedRom, removeCachedRoms, refreshAfterUserStateChange } =
   useRomSync();
 // Whole-result select-all, shared with the list header checkbox and
-// Ctrl/Cmd+A. In grid mode this button is the only visible affordance.
+// Ctrl/Cmd+A.
 const { selectingAll, allSelected, selectAll } = useGallerySelectAll();
 
 // The filtered-result size, so the label says how many "all" is. Falls
@@ -326,10 +326,8 @@ function clear() {
           </span>
         </div>
 
-        <!-- Select all: extends the selection to the whole filtered
-             result (not just the loaded windows). Sits by the count so
-             both read as "selection scope"; the sole grid-mode
-             affordance (the list header has its own checkbox). -->
+        <!-- Extends the selection to the whole filtered result; the
+             sole grid-mode affordance (list mode has the header checkbox). -->
         <RTooltip :text="selectAllLabel">
           <template #activator="{ props: tipProps }">
             <RBtn

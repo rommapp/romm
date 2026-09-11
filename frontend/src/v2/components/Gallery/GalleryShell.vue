@@ -783,7 +783,7 @@ onBeforeRouteLeave((_to, from) => {
 
 // Whole-result select-all, shared with the SelectionBar button and
 // the list header checkbox.
-const { selectAll } = useGallerySelectAll();
+const { selectAll, selectingAll } = useGallerySelectAll();
 
 // Global hotkeys scoped to the gallery shell — Esc clears the
 // selection, Ctrl/Cmd+A selects the whole filtered result. Both are
@@ -800,14 +800,17 @@ function onShellKey(e: KeyboardEvent) {
   ) {
     return;
   }
-  if (e.key === "Escape" && gallerySelection.enabled) {
+  // `selectingAll` keeps Esc working while a whole-result fetch is
+  // still in flight with nothing selected yet (clear() abandons it).
+  if (e.key === "Escape" && (gallerySelection.enabled || selectingAll.value)) {
     e.preventDefault();
     gallerySelection.clear();
     return;
   }
   if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
     e.preventDefault();
-    void selectAll();
+    // A held chord repeats keydown at the OS rate; one trigger is enough.
+    if (!e.repeat) void selectAll();
   }
 }
 

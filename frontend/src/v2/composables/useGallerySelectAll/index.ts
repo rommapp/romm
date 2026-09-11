@@ -1,16 +1,8 @@
-// useGallerySelectAll: whole-result "select all" shared by the
-// SelectionBar button, the list header checkbox and the shell's
-// Ctrl/Cmd+A. It selects the entire filtered result, not just the
-// loaded windows: loaded ROMs apply instantly, then the rest of the
-// result set is fetched (the selection store keeps full SimpleRoms so
-// bulk actions keep working) and merged when it lands.
-//
-// Coverage is judged against `romIdIndex`, the full ordered id list of
-// the current filtered result that the gallery bootstrap already
-// fetches for virtual scrolling. Surfaces that opt out of that sidecar
-// (Settings "Missing" tab) fall back to loaded-only coverage, where the
-// instant merge already satisfies `allSelected` and no fetch happens.
-import { computed, ref } from "vue";
+// Whole-result "select all" shared by the SelectionBar button, the
+// list header checkbox and the shell's Ctrl/Cmd+A: loaded ROMs merge
+// instantly, then the rest of the filtered result is fetched and
+// merged. Surfaces with no rom id index after bootstrap stay loaded-only.
+import { computed, ref, toRaw } from "vue";
 import { useI18n } from "vue-i18n";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -21,6 +13,12 @@ export type GallerySelectionState = "off" | "some" | "all";
 // Module-level so every call site shares one in-flight flag: a second
 // trigger while a fetch runs is a no-op, not a second fetch.
 const selectingAll = ref(false);
+// Selection epoch the in-flight fetch may merge against. Re-armed by
+// every trigger, so a select-all after a clear reuses the running fetch.
+let pendingEpoch = 0;
+// Ids selected when the last trigger fired: a ROM deselected while the
+// fetch runs stays deselected when the late result merges.
+let selectedAtDispatch = new Set<number>();
 
 export function useGallerySelectAll() {
   const galleryRoms = storeGalleryRoms();
@@ -28,18 +26,25 @@ export function useGallerySelectAll() {
   const snackbar = useSnackbar();
   const { t } = useI18n();
 
-  /** True when every ROM of the filtered result is selected. Selected
-   * ROMs outside the current filter (kept across an in-view filter
-   * change) don't count against it. */
+  /** True when every ROM of the filtered result is selected; picks
+   * outside the current filter don't count against it. */
   const allSelected = computed<boolean>(() => {
-    const ids = galleryRoms.romIdIndex;
+    // Raw reads: the selection Map and the id index are only ever
+    // replaced wholesale, so the property-level deps suffice and
+    // per-entry tracking would allocate one dep per rom per scan.
+    const selected = toRaw(selection.selected);
+    const ids = toRaw(galleryRoms.romIdIndex);
     if (ids.length > 0) {
-      return ids.every((id) => selection.selected.has(id));
+      if (selection.count < ids.length) return false;
+      return ids.every((id) => selected.has(id));
     }
+    // No index while the bootstrap is pending: coverage is unknown, so
+    // report not-all and let `selectAll` fetch the whole result.
+    if (!galleryRoms.metadataLoaded) return false;
     const loaded = galleryRoms.byPosition;
     if (loaded.size === 0) return false;
     for (const rom of loaded.values()) {
-      if (!selection.selected.has(rom.id)) return false;
+      if (!selected.has(rom.id)) return false;
     }
     return true;
   });
@@ -47,23 +52,46 @@ export function useGallerySelectAll() {
   /** Tri-state for the list header checkbox glyph. */
   const selectionState = computed<GallerySelectionState>(() => {
     if (selection.count === 0) return "off";
+    // An empty result has nothing to select, whatever the count says.
+    if (
+      galleryRoms.romIdIndex.length === 0 &&
+      galleryRoms.byPosition.size === 0
+    ) {
+      return "off";
+    }
     return allSelected.value ? "all" : "some";
   });
 
-  /** Select the whole filtered result. Loaded ROMs merge immediately;
-   * the remainder arrives from `fetchAllFilteredRoms` and merges unless
-   * the user cleared the selection in the meantime (epoch guard). */
+  /** Select the whole filtered result: loaded ROMs merge immediately,
+   * the remainder merges when `fetchAllFilteredRoms` lands. */
   async function selectAll(): Promise<void> {
-    selection.selectMany(galleryRoms.byPosition.values());
+    if (galleryRoms.byPosition.size > 0) {
+      selection.selectMany(galleryRoms.byPosition.values());
+    }
+    pendingEpoch = selection.epoch;
+    selectedAtDispatch = new Set(selection.ids);
     if (selectingAll.value || allSelected.value) return;
-    const epochAtStart = selection.epoch;
+    // The fetch needs a gallery context to scope the query; without one
+    // (Settings "Missing" tab, a mid-switch reset) stay loaded-only.
+    if (!galleryRoms.onGalleryView) return;
+    // An id index still empty after bootstrap means the surface opted
+    // out of it, or the result is empty: nothing more to fetch.
+    if (galleryRoms.metadataLoaded && galleryRoms.romIdIndex.length === 0) {
+      return;
+    }
     selectingAll.value = true;
     try {
       const roms = await galleryRoms.fetchAllFilteredRoms();
-      if (roms && selection.epoch === epochAtStart) {
-        selection.selectMany(roms);
+      if (roms && selection.epoch === pendingEpoch) {
+        const selected = toRaw(selection.selected);
+        selection.selectMany(
+          roms.filter(
+            (rom) => !selectedAtDispatch.has(rom.id) || selected.has(rom.id),
+          ),
+        );
       }
-    } catch {
+    } catch (err) {
+      console.error("[useGallerySelectAll] whole-result fetch failed", err);
       snackbar.error(t("gallery.selection-select-all-fail"));
     } finally {
       selectingAll.value = false;

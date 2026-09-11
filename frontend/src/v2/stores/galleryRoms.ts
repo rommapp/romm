@@ -63,10 +63,19 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 // fewer requests but each one downloads more.
 const WINDOW_SIZE = 72;
 
-// Page size for the whole-result fetch behind "select all". Matches the
-// backend's ceiling on the `/roms` limit param (le=10_000), so results
-// up to that size arrive in one request.
-const SELECT_ALL_PAGE_SIZE = 10_000;
+// Page size for the whole-result fetch behind "select all": the
+// backend's ceiling on the `/roms` limit param (le=10_000). Exported
+// for the tests that exercise the paging.
+export const SELECT_ALL_PAGE_SIZE = 10_000;
+
+// Request params that skip every whole-result aggregation (sidecars
+// plus the COUNT) for fetches that only need their page of items.
+const SKIP_AGGREGATES = {
+  withCharIndex: false,
+  withFilterValues: false,
+  withRomIdIndex: false,
+  withTotal: false,
+} as const;
 
 // In-flight `AbortController`s keyed by request: `window:${offset}`
 // for a windowed fetch, `bootstrap` for the lightweight metadata
@@ -552,14 +561,7 @@ export default defineStore("v2GalleryRoms", {
       try {
         const response = await romApi.getRoms({
           ...params,
-          ...(withAggregations
-            ? {}
-            : {
-                withCharIndex: false,
-                withFilterValues: false,
-                withRomIdIndex: false,
-                withTotal: false,
-              }),
+          ...(withAggregations ? {} : SKIP_AGGREGATES),
           signal: controller.signal,
         });
         // Re-check identity: invalidateWindows / resetGallery / a context
@@ -650,13 +652,8 @@ export default defineStore("v2GalleryRoms", {
       }
     },
 
-    /** Fetch every ROM of the current filtered result, in backend-capped
-     * pages. Powers the whole-result "select all": the selection store
-     * keeps full `SimpleRom`s (bulk actions need real objects), so ids
-     * from `romIdIndex` alone are not enough. Loaded windows are left
-     * untouched; the result goes straight to the selection. Registered
-     * in `inFlightControllers`, so `invalidateWindows` / `resetGallery`
-     * / a context switch aborts it.
+    /** Fetch every ROM of the current filtered result in backend-capped
+     * pages, for the whole-result "select all".
      *
      * Returns:
      *   The full result set, or null when aborted or superseded.
@@ -672,24 +669,20 @@ export default defineStore("v2GalleryRoms", {
 
       try {
         const all: SimpleRom[] = [];
-        let offset = 0;
-        for (;;) {
+        let page: SimpleRom[];
+        do {
           const response = await romApi.getRoms({
             ...params,
+            ...SKIP_AGGREGATES,
             limit: SELECT_ALL_PAGE_SIZE,
-            offset,
-            withCharIndex: false,
-            withFilterValues: false,
-            withRomIdIndex: false,
-            withTotal: false,
+            offset: all.length,
             signal: controller.signal,
           });
           if (inFlightControllers.get(ctrlKey) !== controller) return null;
-          all.push(...response.data.items);
-          // A short page is the last page.
-          if (response.data.items.length < SELECT_ALL_PAGE_SIZE) return all;
-          offset += SELECT_ALL_PAGE_SIZE;
-        }
+          page = response.data.items;
+          for (const rom of page) all.push(rom);
+        } while (page.length === SELECT_ALL_PAGE_SIZE);
+        return all;
       } catch (err) {
         if (axios.isCancel(err)) return null;
         throw err;

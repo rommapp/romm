@@ -90,11 +90,8 @@ function handleClick(col: ListColumn) {
 <template>
   <div class="game-list-header" :style="gridStyle" role="row">
     <template v-for="col in columns" :key="String(col.key)">
-      <!-- Select-all column. Tri-state checkbox: off → some → all,
-           judged against the whole filtered result. RCheckbox draws
-           the dash glyph for the indeterminate state and the tick for
-           "all", so we just pipe the derived state through and
-           intercept the click. -->
+      <!-- Tri-state select-all checkbox (off → some → all), judged
+           against the whole filtered result. -->
       <RCheckbox
         v-if="col.key === 'select'"
         class="game-list-header__check"

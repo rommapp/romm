@@ -31,6 +31,7 @@
 //     to a platform should drop the selection, but we let the view
 //     decide so an in-page filter change can preserve it.
 import { defineStore } from "pinia";
+import { toRaw } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 
 interface State {
@@ -39,9 +40,8 @@ interface State {
    * ROM. Used as the anchor for shift-range selection. `null` means
    * no anchor yet (next shift-click acts as a single toggle). */
   lastSelectedPosition: number | null;
-  /** Bumped by `clear()`. Async select flows (useGallerySelectAll)
-   * snapshot it before fetching and drop a late result if the user
-   * abandoned the selection in the meantime. */
+  /** Bumped by `clear()`; async select flows (useGallerySelectAll)
+   * compare it before merging a late fetch result. */
   epoch: number;
 }
 
@@ -122,14 +122,20 @@ export default defineStore("v2GallerySelection", {
       this.lastSelectedPosition = position;
     },
 
-    /** Add every given ROM to the selection (existing picks are kept).
-     * `useGallerySelectAll` feeds it the loaded windows for instant
-     * feedback, then the fetched whole-result set. One Map swap per
-     * call, so a large merge is a single reactive invalidation. */
+    /** Merge the given ROMs into the selection (existing picks kept).
+     * One Map swap per call, skipped when nothing changed. */
     selectMany(roms: Iterable<SimpleRom>) {
-      const next = new Map(this.selected);
-      for (const rom of roms) next.set(rom.id, rom);
-      this.selected = next;
+      // Clone from the raw Map: the swap below is the reactive trigger,
+      // so per-entry proxy wrapping during the copy is pure overhead.
+      const next = new Map(toRaw(this.selected));
+      let changed = false;
+      for (const rom of roms) {
+        if (next.get(rom.id) !== rom) {
+          next.set(rom.id, rom);
+          changed = true;
+        }
+      }
+      if (changed) this.selected = next;
     },
 
     /** Replace the selection with exactly the given ROMs. Used by
@@ -140,9 +146,8 @@ export default defineStore("v2GallerySelection", {
     },
 
     /** Drop the selection and anchor. Bound to Esc, the SelectionBar
-     * clear button, and view route-leave. Bumps `epoch` even when the
-     * selection is already empty, so a select-all fetch launched from
-     * an empty selection is still abandoned by a clear gesture. */
+     * clear button, and view route-leave. Bumps `epoch` first (even
+     * when already empty) so in-flight select-all merges are abandoned. */
     clear() {
       this.epoch += 1;
       if (this.selected.size === 0 && this.lastSelectedPosition === null) {

@@ -43,6 +43,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, { type SidecarOptions } from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 interface PlatformItem {
   id: number;
@@ -278,6 +279,9 @@ onBeforeUnmount(() => {
   galleryFilter.setFilterMissing(prevFilterMissing);
   galleryFilter.setSelectedFilterPlatforms(prevSelectedPlatforms);
   galleryRoms.resetGallery();
+  // Selection is surface-scoped: drop it so the next gallery's
+  // SelectionBar doesn't resurface picks made on this tab.
+  storeGallerySelection().clear();
 });
 </script>
 

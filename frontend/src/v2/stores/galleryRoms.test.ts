@@ -3,7 +3,9 @@ import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
 // Import after the mock so the store binds to the mocked rom API.
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, {
+  SELECT_ALL_PAGE_SIZE,
+} from "@/v2/stores/galleryRoms";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
 
@@ -24,8 +26,12 @@ function deferred(): Deferred {
   return { promise, resolve };
 }
 
-function windowResponse(offset: number, total = 1000) {
-  return { data: { total, items: [], char_index: {}, rom_id_index: [] } };
+function windowResponse(
+  offset: number,
+  total: number | null = 1000,
+  items: unknown[] = [],
+) {
+  return { data: { total, items, char_index: {}, rom_id_index: [] } };
 }
 
 describe("galleryRoms windowed fetch", () => {
@@ -321,26 +327,29 @@ describe("galleryRoms whole-result fetch", () => {
   });
 
   it("pages through backend-capped pages until a short page", async () => {
-    // A full page (the backend's 10k limit cap) forces a second request.
-    const fullPage = Array.from({ length: 10_000 }, (_, i) => ({ id: i }));
-    const lastPage = [{ id: 10_000 }, { id: 10_001 }];
+    // A full page (the backend's limit cap) forces a second request.
+    const fullPage = Array.from({ length: SELECT_ALL_PAGE_SIZE }, (_, i) => ({
+      id: i,
+    }));
+    const lastPage = [
+      { id: SELECT_ALL_PAGE_SIZE },
+      { id: SELECT_ALL_PAGE_SIZE + 1 },
+    ];
     getRoms.mockImplementation((params: { offset: number }) =>
-      Promise.resolve({
-        data: {
-          total: null,
-          items: params.offset === 0 ? fullPage : lastPage,
-          char_index: {},
-          rom_id_index: [],
-        },
-      }),
+      Promise.resolve(
+        windowResponse(0, null, params.offset === 0 ? fullPage : lastPage),
+      ),
     );
     const store = storeGalleryRoms();
 
     const roms = await store.fetchAllFilteredRoms();
 
-    expect(roms).toHaveLength(10_002);
+    expect(roms).toHaveLength(SELECT_ALL_PAGE_SIZE + 2);
     expect(getRoms).toHaveBeenCalledTimes(2);
-    expect(getRoms.mock.calls.map((c) => c[0].offset)).toEqual([0, 10_000]);
+    expect(getRoms.mock.calls.map((c) => c[0].offset)).toEqual([
+      0,
+      SELECT_ALL_PAGE_SIZE,
+    ]);
     // Whole-result pages skip every sidecar aggregation.
     expect(getRoms.mock.calls[0][0]).toMatchObject({
       withCharIndex: false,
@@ -360,14 +369,7 @@ describe("galleryRoms whole-result fetch", () => {
 
     const fetching = store.fetchAllFilteredRoms();
     store.invalidateWindows();
-    d.resolve({
-      data: {
-        total: null,
-        items: [{ id: 1 }],
-        char_index: {},
-        rom_id_index: [],
-      },
-    });
+    d.resolve(windowResponse(0, null, [{ id: 1 }]));
 
     expect(await fetching).toBeNull();
   });
