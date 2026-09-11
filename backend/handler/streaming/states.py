@@ -436,12 +436,24 @@ async def pull_state_to_library(
             return False
         # PCSX2's embedded frame comes first: it was already downloaded as part
         # of the state content above, so using it costs nothing extra and it
-        # can never be a stale/blank capture off the player's video sink. For
-        # every other emulator this is always None, so the browser frame is
-        # preferred next: it is what the player actually saw, and capturing it
-        # never asks the emulator to read back its own framebuffer, which is
-        # what deadlocks GPU-rendered cores.
+        # can never be a stale/blank capture off the player's video sink.
+        #
+        # RetroArch writes its own thumbnail off the core's real framebuffer
+        # at the moment of the save, which the browser-captured canvas frame
+        # cannot match: that canvas is a lagging, lossy copy of the video
+        # stream, and a save taken right after a scene change (e.g. pausing)
+        # can catch it holding a torn or missing keyframe. The broker's own
+        # screenshot is preferred for RetroArch for that reason.
+        #
+        # Every other emulator writes no thumbnail of its own, so the browser
+        # frame is preferred: it is what the player actually saw, and
+        # capturing it never asks the emulator to read back its own
+        # framebuffer, which is what deadlocks GPU-rendered cores.
         screenshot = extract_state_screenshot(emulator, content)
+        if screenshot is None and emulator == "retroarch":
+            screenshot = await asyncio.to_thread(
+                fetch_state_screenshot, container, slot
+            )
         if screenshot is None:
             screenshot = await take_state_frame(user_id, rom_id)
         if screenshot is None:
