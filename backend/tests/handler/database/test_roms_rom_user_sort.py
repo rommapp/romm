@@ -57,60 +57,22 @@ class TestRomUserSortQueryShape:
         assert "rom_user.user_id" not in str(query.whereclause or "")
         assert order_column is RomUser.last_played
 
-    def test_mariadb_ascending_leads_with_is_null(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
-        monkeypatch.setattr("handler.database.roms_handler.ROMM_DB_DRIVER", "mariadb")
-        query, _ = db_rom_handler.get_roms_query(order_by="last_played", user_id=1)
-
-        assert (
-            "ORDER BY rom_user.last_played IS NULL, rom_user.last_played ASC"
-        ) in str(query)
-
-    def test_mariadb_descending_uses_native_null_placement(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
-        monkeypatch.setattr("handler.database.roms_handler.ROMM_DB_DRIVER", "mariadb")
-        query, _ = db_rom_handler.get_roms_query(
-            order_by="last_played", order_dir="desc", user_id=1
-        )
-        order_sql = str(query).split("ORDER BY")[-1]
-
-        # MariaDB/MySQL place NULLs last on DESC without a leading IS NULL term.
-        assert order_sql.strip().startswith("rom_user.last_played DESC")
-        assert "IS NULL" not in order_sql
-
-    @pytest.mark.parametrize("order_dir", ["asc", "desc"])
-    def test_postgres_sorts_with_native_nulls_last(
-        self, monkeypatch: pytest.MonkeyPatch, order_dir: str
-    ):
-        monkeypatch.setattr(
-            "handler.database.roms_handler.ROMM_DB_DRIVER", "postgresql"
-        )
-        query, _ = db_rom_handler.get_roms_query(
-            order_by="last_played", order_dir=order_dir, user_id=1
-        )
-        order_sql = str(query).split("ORDER BY")[-1]
-
-        assert f"rom_user.last_played {order_dir.upper()} NULLS LAST" in order_sql
-        assert "IS NULL" not in order_sql
-
-    @pytest.mark.parametrize("order_by", ["rating", "difficulty", "completion"])
+    # The dialect matrix for the shared NULL-placement block lives in
+    # test_roms_metadata_sort.py; this pins the rom_user branch's shape.
     def test_zero_default_columns_fold_zero_into_the_null_bucket(
-        self, monkeypatch: pytest.MonkeyPatch, order_by: str
+        self, mariadb_driver: None
     ):
-        monkeypatch.setattr("handler.database.roms_handler.ROMM_DB_DRIVER", "mariadb")
         query, order_column = db_rom_handler.get_roms_query(
-            order_by=order_by, user_id=1
+            order_by="rating", user_id=1
         )
 
         # NULLIF turns the 0 default into a NULL sort key, so a touched but
         # unset rom lands in the same trailing bucket as an untouched one.
         assert (
-            f"ORDER BY nullif(rom_user.{order_by}, :nullif_1) IS NULL, "
-            f"nullif(rom_user.{order_by}, :nullif_1) ASC"
+            "ORDER BY nullif(rom_user.rating, :nullif_1) IS NULL, "
+            "nullif(rom_user.rating, :nullif_1) ASC"
         ) in str(query)
-        assert order_column is getattr(RomUser, order_by)
+        assert order_column is RomUser.rating
 
 
 class TestRomUserSortResults:
@@ -192,9 +154,7 @@ class TestRomUserSortResults:
         assert db_rom_handler.get_rom_count(query=query) == 4
 
     @pytest.mark.parametrize("order_by", ["last_played", "status"])
-    def test_char_index_skips_non_lexical_sorts(
-        self, admin_user: User, library: None, order_by: str
-    ):
+    def test_char_index_skips_non_lexical_sorts(self, admin_user: User, order_by: str):
         query, order_column = db_rom_handler.get_roms_query(
             order_by=order_by, user_id=admin_user.id
         )

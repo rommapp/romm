@@ -123,10 +123,7 @@ class TestVerifiedPostgresPredicate:
     compiling it (the suite runs on a single driver at a time)."""
 
     @pytest.fixture
-    def postgres_handler(self, monkeypatch: pytest.MonkeyPatch) -> DBRomsHandler:
-        monkeypatch.setattr(
-            "handler.database.roms_handler.ROMM_DB_DRIVER", "postgresql"
-        )
+    def postgres_handler(self, postgres_driver: None) -> DBRomsHandler:
         return db_rom_handler
 
     @pytest.mark.parametrize("verified", [True, False])

@@ -54,9 +54,8 @@ class TestMetadataSortQueryShape:
         ],
     )
     def test_orders_by_the_roms_column_with_nulls_last(
-        self, monkeypatch: pytest.MonkeyPatch, order_by: str, expected_column: str
+        self, mariadb_driver: None, order_by: str, expected_column: str
     ):
-        monkeypatch.setattr("handler.database.roms_handler.ROMM_DB_DRIVER", "mariadb")
         query, order_column = db_rom_handler.get_roms_query(order_by=order_by)
         sql = str(query)
 
@@ -68,37 +67,39 @@ class TestMetadataSortQueryShape:
         # view is expected; the sort must not add a second one.
         assert sql.count("JOIN roms_metadata") == 1
 
-    def test_descending_metadata_sort_stays_on_the_index(
-        self, monkeypatch: pytest.MonkeyPatch
+    # One dialect matrix for the shared NULL-placement block; the rom_user
+    # family proves its branch separately through the NULLIF shape test.
+    @pytest.mark.parametrize(
+        ("driver", "order_dir", "expected"),
+        [
+            (
+                "mariadb",
+                "asc",
+                "roms.generated_first_release_date IS NULL, "
+                "roms.generated_first_release_date ASC",
+            ),
+            ("mariadb", "desc", "roms.generated_first_release_date DESC"),
+            ("postgres", "asc", "roms.generated_first_release_date ASC NULLS LAST"),
+            ("postgres", "desc", "roms.generated_first_release_date DESC NULLS LAST"),
+        ],
+    )
+    def test_null_placement_per_dialect(
+        self,
+        request: pytest.FixtureRequest,
+        driver: str,
+        order_dir: str,
+        expected: str,
     ):
-        monkeypatch.setattr("handler.database.roms_handler.ROMM_DB_DRIVER", "mariadb")
-        query, _ = db_rom_handler.get_roms_query(
-            order_by="first_release_date", order_dir="desc"
-        )
-        order_sql = str(query).split("ORDER BY")[-1]
-
-        # MariaDB/MySQL place NULLs last on DESC natively; without a leading
-        # IS NULL term the sort keeps reading the column's index.
-        assert order_sql.strip().startswith("roms.generated_first_release_date DESC")
-        assert "IS NULL" not in order_sql
-
-    @pytest.mark.parametrize("order_dir", ["asc", "desc"])
-    def test_postgres_sorts_with_native_nulls_last(
-        self, monkeypatch: pytest.MonkeyPatch, order_dir: str
-    ):
-        monkeypatch.setattr(
-            "handler.database.roms_handler.ROMM_DB_DRIVER", "postgresql"
-        )
+        request.getfixturevalue(f"{driver}_driver")
         query, _ = db_rom_handler.get_roms_query(
             order_by="first_release_date", order_dir=order_dir
         )
         order_sql = str(query).split("ORDER BY")[-1]
 
-        assert (
-            f"roms.generated_first_release_date {order_dir.upper()} NULLS LAST"
-            in order_sql
-        )
-        assert "IS NULL" not in order_sql
+        assert order_sql.strip().startswith(expected)
+        # The emulation term appears only where the engine needs it.
+        emulated = driver == "mariadb" and order_dir == "asc"
+        assert ("IS NULL" in order_sql) == emulated
 
     def test_rom_column_sort_is_unchanged(self):
         query, order_column = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
@@ -159,19 +160,9 @@ class TestMetadataSortResults:
             "four",
         ]
 
-    @pytest.mark.parametrize("order_dir", ["asc", "desc"])
-    def test_roms_without_metadata_stay_in_the_result_and_sort_last(
-        self, platform: Platform, order_dir: str
-    ):
-        """An unmatched rom stays in the result and trails the dated roms."""
-        _make_rom(platform, "dated", igdb_metadata={"first_release_date": "100000000"})
-        _make_rom(platform, "undated")
-
-        names = _ordered_names(order_by="first_release_date", order_dir=order_dir)
-
-        assert names == ["dated", "undated"]
-
     def test_null_bucket_ties_break_on_the_rom_id(self, platform: Platform):
+        """Unmatched roms stay in the result, trail the dated ones in both
+        directions, and tie inside the bucket on the rom id."""
         _make_rom(platform, "undated_first")
         _make_rom(platform, "undated_second")
         _make_rom(platform, "dated", igdb_metadata={"first_release_date": "100000000"})
