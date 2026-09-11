@@ -31,7 +31,7 @@ Scan, enrich, browse and play your ROM collection from one beautiful & free self
 - Metadata available for [400+ platforms][docs-supported-platforms], plus multi-disk games, DLCs, mods, hacks and manuals
 - Apply romhacks and translations on the fly with the built-in [ROM patcher][docs-rom-patcher]
 - Share your library with granular [per-user permissions][docs-users-and-roles] and [OIDC single sign-on][docs-oidc]
-- Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout], plus [ES-DE and Pegasus exports][docs-exports] and a full [REST API][docs-api]
+- Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout]
 - Parse and filter by [tags][docs-tag-support] in filenames
 - Free forever: AGPL-3.0, no tracking, no paid features, and total control of your data
 
@@ -163,8 +163,6 @@ These companies support us by providing their tools for free:
 [docs-rom-patcher]: https://docs.romm.app/latest/using/rom-patcher/
 [docs-users-and-roles]: https://docs.romm.app/latest/administration/users-and-roles/
 [docs-oidc]: https://docs.romm.app/latest/administration/oidc/
-[docs-exports]: https://docs.romm.app/latest/reference/exports/
-[docs-api]: https://docs.romm.app/latest/developers/api-reference/
 
 <!-- External links -->
 
