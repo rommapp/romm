@@ -45,7 +45,7 @@ Scan, enrich, browse and play your ROM collection from one beautiful & free self
 
 The easiest way to start is with the [Quick Start Guide][docs-quick-start-guide] in the docs. If you're having trouble with setup, please review the page for [troubleshooting steps][docs-troubleshooting].
 
-### One-click deploys
+Prefer a hosted deploy over wiring up the stack yourself? Hostinger has a 1-click installer and host.
 
 <p align="center">
   <a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
