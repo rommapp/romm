@@ -34,11 +34,9 @@ Scan, enrich, browse and play your ROM collection from one beautiful & free self
 - Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout]
 - Free forever: AGPL-3.0, no tracking, no paid features, and total control of your data
 
-## Preview
-
-|                                       🖥 Desktop                                        |                                                           📱 Mobile                                                            |
-| :------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------: |
-| <img src=".github/resources/screenshots/preview-desktop.webp" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/preview-mobile.webp" alt="mobile preview" /> |
+<p align="center">
+  <img src=".github/resources/screenshots/preview.gif" alt="Browsing a library and playing a game in RomM" width="1000" />
+</p>
 
 ## Installation
 
