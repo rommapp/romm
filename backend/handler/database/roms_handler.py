@@ -7,15 +7,13 @@ from collections import Counter
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from types import SimpleNamespace
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
-    Date,
     DateTime,
     Enum,
     Integer,
-    Numeric,
     String,
     Text,
     and_,
@@ -401,15 +399,14 @@ def _prerelease_rank() -> ColumnElement:
     )
 
 
-# Group keys aggregate with MIN/MAX, which matches ORDER BY semantics on every
-# dialect only for these types; enum and lexical keys stay on the representative.
-_GROUP_SORT_AGGREGATE_TYPES = (Date, DateTime, Integer, Numeric)
+# The RomUser column types whose MIN/MAX matches ORDER BY semantics on every
+# dialect; enum and boolean keys stay on the representative.
+_GROUP_SORT_AGGREGATE_TYPES = (DateTime, Integer)
 
 
 class _GallerySortKey(NamedTuple):
     column: QueryableAttribute
-    from_rom_user: bool
-    joins_rom_metadata: bool
+    source: Literal["rom", "rom_user", "rom_metadata"]
 
 
 def _mapped_sort_column(model: type, order_by: str) -> QueryableAttribute | None:
@@ -422,19 +419,24 @@ def _mapped_sort_column(model: type, order_by: str) -> QueryableAttribute | None
     return None
 
 
+def _rom_user_not_hidden() -> ColumnElement[bool]:
+    """NULL-safe visibility check; a missing rom_user row counts as visible."""
+    return or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
+
+
 def _resolve_gallery_sort_key(order_by: str, user_id: int | None) -> _GallerySortKey:
     """Map a gallery `order_by` name to its sort column and source table."""
     rom_column = _mapped_sort_column(Rom, order_by)
     if user_id and rom_column is None:
         rom_user_column = _mapped_sort_column(RomUser, order_by)
         if rom_user_column is not None:
-            return _GallerySortKey(rom_user_column, True, False)
+            return _GallerySortKey(rom_user_column, "rom_user")
     if order_by in ROM_METADATA_ORDER_COLUMNS:
-        return _GallerySortKey(ROM_METADATA_ORDER_COLUMNS[order_by], False, False)
+        return _GallerySortKey(ROM_METADATA_ORDER_COLUMNS[order_by], "rom")
     if rom_column is None:
         metadata_column = _mapped_sort_column(RomMetadata, order_by)
         if metadata_column is not None:
-            return _GallerySortKey(metadata_column, False, True)
+            return _GallerySortKey(metadata_column, "rom_metadata")
 
     column = rom_column if rom_column is not None else Rom.name
     # Use indexed `name_sort_key` to have fast access to names without
@@ -442,7 +444,7 @@ def _resolve_gallery_sort_key(order_by: str, user_id: int | None) -> _GallerySor
     # `name` at write time, or holds a custom override when one is set.
     if column is Rom.name:
         column = Rom.name_sort_key
-    return _GallerySortKey(column, False, False)
+    return _GallerySortKey(column, "rom")
 
 
 def with_details(func):
@@ -1211,7 +1213,7 @@ class DBRomsHandler(DBBaseHandler):
         if "hidden" in values:
             return query
 
-        return query.filter(or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None)))
+        return query.filter(_rom_user_not_hidden())
 
     def _filter_by_regions(
         self,
@@ -1305,7 +1307,9 @@ class DBRomsHandler(DBBaseHandler):
         query: Query,
         *,
         # The grouped dedup aggregates the active sort key over each group, so
-        # it needs the ordering the query was built with.
+        # it needs the ordering the query was built with; get_roms_query
+        # callers pass the key it resolved rather than re-deriving it here.
+        sort_key: _GallerySortKey | None = None,
         order_by: str = "",
         order_dir: str = "asc",
         platform_ids: Sequence[int] | None = None,
@@ -1369,6 +1373,8 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
+
+        order_dir = order_dir.lower()
 
         # Callers that select bare columns (a membership subquery) pass
         # include_related=False: loader options can't apply without an entity.
@@ -1564,10 +1570,11 @@ class DBRomsHandler(DBBaseHandler):
                 else literal(1)
             )
 
-            sort_key = _resolve_gallery_sort_key(order_by, user_id)
+            if sort_key is None:
+                sort_key = _resolve_gallery_sort_key(order_by, user_id)
             # A group sorts by its best sibling's key; only rom_user keys
             # aggregate, since a roms-side key would leave the covering index.
-            aggregates_sort_key = sort_key.from_rom_user and isinstance(
+            aggregates_sort_key = sort_key.source == "rom_user" and isinstance(
                 sort_key.column.type, _GROUP_SORT_AGGREGATE_TYPES
             )
 
@@ -1667,13 +1674,8 @@ class DBRomsHandler(DBBaseHandler):
             if aggregates_sort_key:
                 # MIN/MAX skip NULL siblings, and a hidden sibling's key is
                 # masked to NULL so it cannot drive a group it is absent from.
-                visible_sort_key = case(
-                    (
-                        or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None)),
-                        sort_key.column,
-                    )
-                )
-                group_aggregate = func.max if order_dir.lower() == "desc" else func.min
+                visible_sort_key = case((_rom_user_not_hidden(), sort_key.column))
+                group_aggregate = func.max if order_dir == "desc" else func.min
                 window_columns.append(
                     # Sharing row_number's window spec keeps the derived table
                     # on one sort pass; the frame still spans the partition.
@@ -1717,7 +1719,7 @@ class DBRomsHandler(DBBaseHandler):
                         order_by=order_by,
                         order_dir=order_dir,
                         sort_column=dedup_subquery.c.group_sort_value,
-                        nulls_last=sort_key.from_rom_user,
+                        nulls_last=sort_key.source == "rom_user",
                         search_term=search_term,
                     )
                 )
@@ -1741,9 +1743,7 @@ class DBRomsHandler(DBBaseHandler):
                 match_none=(statuses_logic == "none"),
             )
         elif user_id:
-            query = query.filter(
-                or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
-            )
+            query = query.filter(_rom_user_not_hidden())
 
         # Admin-driven visibility (opt-out): hide platforms/roms an admin has
         # hidden from this user/group. Orthogonal to the personal RomUser.hidden
@@ -1768,7 +1768,7 @@ class DBRomsHandler(DBBaseHandler):
         # keys (no rom_user row, or an unset field) last in both directions.
         nulls_last_clause = sort_column.is_(None) if nulls_last else None
 
-        descending = order_dir.lower() == "desc"
+        descending = order_dir == "desc"
         order_attr = sort_column.desc() if descending else sort_column.asc()
 
         # Ties are common on every sort key here and the gallery pages by
@@ -1804,22 +1804,23 @@ class DBRomsHandler(DBBaseHandler):
         search_term: str | None = None,
         user_id: int | None = None,
         session: Session = None,  # type: ignore
-    ) -> tuple[Query[Rom], Any]:
+    ) -> tuple[Query[Rom], _GallerySortKey]:
         query = self._join_rom_user(select(Rom), user_id)
+        order_dir = order_dir.lower()
 
         sort_key = _resolve_gallery_sort_key(order_by, user_id)
-        if sort_key.joins_rom_metadata:
+        if sort_key.source == "rom_metadata":
             query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
 
         order_clauses = self._gallery_order_clauses(
             order_by=order_by,
             order_dir=order_dir,
             sort_column=sort_key.column,
-            nulls_last=sort_key.from_rom_user,
+            nulls_last=sort_key.source == "rom_user",
             search_term=search_term,
         )
 
-        return query.order_by(*order_clauses), sort_key.column  # type: ignore
+        return query.order_by(*order_clauses), sort_key  # type: ignore
 
     @begin_session
     def get_roms_scalar(
@@ -1829,7 +1830,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
         **kwargs,
     ) -> Sequence[Rom]:
-        query, _ = self.get_roms_query(
+        query, sort_key = self.get_roms_query(
             order_by=kwargs.get("order_by", ""),
             order_dir=kwargs.get("order_dir", "asc"),
             search_term=kwargs.get("search_term", None),
@@ -1841,6 +1842,7 @@ class DBRomsHandler(DBBaseHandler):
 
         roms = self.filter_roms(
             query=query,
+            sort_key=sort_key,
             order_by=kwargs.get("order_by", ""),
             order_dir=kwargs.get("order_dir", "asc"),
             platform_ids=kwargs.get("platform_ids", None),

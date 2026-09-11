@@ -73,10 +73,10 @@ class TestGeneratedColumn:
 
 class TestLengthSort:
     def test_orders_by_the_indexed_roms_column(self):
-        query, order_column = db_rom_handler.get_roms_query(order_by="hltb_main_story")
+        query, sort_key = db_rom_handler.get_roms_query(order_by="hltb_main_story")
 
         assert "ORDER BY roms.generated_hltb_main_story ASC" in str(query)
-        assert order_column is Rom.generated_hltb_main_story
+        assert sort_key.column is Rom.generated_hltb_main_story
 
     @pytest.mark.parametrize("order_dir", ["asc", "desc"])
     def test_breaks_ties_on_the_primary_key(self, order_dir: str):

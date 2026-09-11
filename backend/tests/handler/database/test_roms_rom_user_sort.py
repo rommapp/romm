@@ -57,7 +57,7 @@ def _ordered_names(
 
 class TestRomUserSortQueryShape:
     def test_sort_keeps_the_outer_join(self):
-        query, order_column = db_rom_handler.get_roms_query(
+        query, sort_key = db_rom_handler.get_roms_query(
             order_by="last_played", user_id=1
         )
         sql = str(query)
@@ -66,7 +66,7 @@ class TestRomUserSortQueryShape:
         # The user restriction belongs in the join's ON clause; in the WHERE it
         # would turn the join into an inner one and drop untouched roms.
         assert "rom_user.user_id" not in str(query.whereclause or "")
-        assert order_column is RomUser.last_played
+        assert sort_key.column is RomUser.last_played
 
     @pytest.mark.parametrize("order_dir", ["asc", "desc"])
     def test_nulls_lead_the_order_clause(self, order_dir: str):
@@ -134,13 +134,13 @@ class TestRomUserSortResults:
     def test_char_index_skips_non_lexical_sorts(
         self, admin_user: User, library: None, order_by: str
     ):
-        query, order_column = db_rom_handler.get_roms_query(
+        query, sort_key = db_rom_handler.get_roms_query(
             order_by=order_by, user_id=admin_user.id
         )
 
         # Offsets into a non-lexical order (a date, or an enum the database
         # orders by declaration) would hand the alpha strip wrong targets.
-        assert db_rom_handler.with_char_index(query, order_column) == []
+        assert db_rom_handler.with_char_index(query, sort_key.column) == []
 
 
 def _grouped_names(user: User, platform: Platform, order_dir: str) -> list[str]:

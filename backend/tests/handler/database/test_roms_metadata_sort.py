@@ -52,11 +52,11 @@ class TestMetadataSortQueryShape:
     def test_orders_by_the_indexed_roms_column(
         self, order_by: str, expected_column: str
     ):
-        query, order_column = db_rom_handler.get_roms_query(order_by=order_by)
+        query, sort_key = db_rom_handler.get_roms_query(order_by=order_by)
         sql = str(query)
 
         assert f"ORDER BY roms.{expected_column} ASC" in sql
-        assert order_column is getattr(Rom, expected_column)
+        assert sort_key.column is getattr(Rom, expected_column)
         # `Rom.metadatum` is a `lazy="joined"` eager load, so one join to the
         # view is expected; the sort must not add a second one.
         assert sql.count("JOIN roms_metadata") == 1
@@ -69,10 +69,10 @@ class TestMetadataSortQueryShape:
         assert "ORDER BY roms.generated_first_release_date DESC" in str(query)
 
     def test_rom_column_sort_is_unchanged(self):
-        query, order_column = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
+        query, sort_key = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
 
         assert "ORDER BY roms.fs_size_bytes ASC" in str(query)
-        assert order_column is Rom.fs_size_bytes
+        assert sort_key.column is Rom.fs_size_bytes
 
     def test_metadata_sort_does_not_join_the_view_for_a_user(
         self, admin_user: User, platform: Platform

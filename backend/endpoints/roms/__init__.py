@@ -822,7 +822,7 @@ def get_roms(
     perms = get_permissions(request)
     parsed_released_days = parse_released_days(released_days)
 
-    unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
+    unfiltered_query, sort_key = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
@@ -832,6 +832,7 @@ def get_roms(
     # Filter down the query
     query = db_rom_handler.filter_roms(
         query=unfiltered_query,
+        sort_key=sort_key,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
         user_id=request.user.id,
@@ -956,7 +957,7 @@ def get_roms(
         )
         char_index = db_rom_handler.with_char_index(
             query=query,
-            order_by_attr=order_by_attr,
+            order_by_attr=sort_key.column,
             order_dir=order_dir.lower(),
             cache_key=char_index_cache_key,
         )
