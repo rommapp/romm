@@ -17,6 +17,7 @@ import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import { NO_SIDECARS } from "@/v2/stores/galleryRoms";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -88,10 +89,7 @@ function fetchPage(query: AnniversaryQuery, offset: number) {
     offset,
     // The counter needs the total once; a later page already has it.
     withTotal: offset === 0,
-    // Each sidecar is its own scan, and the card renders none of them.
-    withCharIndex: false,
-    withFilterValues: false,
-    withRomIdIndex: false,
+    ...NO_SIDECARS,
   });
 }
 
