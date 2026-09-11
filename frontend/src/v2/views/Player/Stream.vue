@@ -926,7 +926,7 @@ async function performSaveAndExit(): Promise<void> {
     return;
   }
   isSavingAndExiting.value = true;
-  let saved = false;
+  let saved: boolean | undefined;
   let released = false;
   try {
     await pushStreamFrame();
@@ -1637,6 +1637,7 @@ onBeforeUnmount(() => {
         </div>
       </template>
       <template #footer>
+        <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and focusing the dialog's action on open is intentional modal UX -->
         <RBtn
           autofocus
           color="primary"
@@ -1645,6 +1646,7 @@ onBeforeUnmount(() => {
         >
           {{ t("play.back-to-game-details") }}
         </RBtn>
+        <!-- eslint-enable vuejs-accessibility/no-autofocus -->
       </template>
     </RDialog>
 
@@ -1666,7 +1668,9 @@ onBeforeUnmount(() => {
         </p>
       </template>
       <template #footer>
+        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- arrow keys rove focus between this container's real buttons, which stay the interactive elements; the listener sits here to catch keydowns bubbling from either of them -->
         <div class="r-v2-stream__exit-actions" @keydown="onExitDialogKeydown">
+          <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and the least destructive action is the intended target -->
           <RBtn
             autofocus
             variant="text"
@@ -1675,6 +1679,7 @@ onBeforeUnmount(() => {
           >
             {{ t("play.keep-playing") }}
           </RBtn>
+          <!-- eslint-enable vuejs-accessibility/no-autofocus -->
           <RBtn
             v-if="isJoining"
             color="error"
