@@ -20,60 +20,145 @@ on:
           - both
 
 permissions:
-  id-token: write
-  contents: write
-  packages: write
-  actions: write
-  pull-requests: write
+  contents: read
+
+# One preview per branch, so re-labelling cannot leave two runs writing the same
+# sticky comment.
+concurrency:
+  group: preview-build-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
+  cancel-in-progress: true
 
 jobs:
+  prepare:
+    if: |
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'build-preview')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: PR comment build starting
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
+        with:
+          header: preview-build
+          message: 🔨 Preview build is under way...
+
+  # Each architecture builds natively and pushes an untagged, digest-addressed
+  # image; `merge` stitches them into one index.
   build:
     if: |
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'build-preview')
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
-      id-token: write
-      contents: write
+      contents: read
       packages: write
-      pull-requests: write
+    outputs:
+      digest-repo: ${{ steps.repo.outputs.ref }}
     env:
       USE_GHCR: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.registry == 'ghcr' || github.event.inputs.registry == 'both' }}
       USE_DOCKERHUB: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.registry == 'dockerhub' || github.event.inputs.registry == 'both') }}
       # Key the Docker Hub namespace off the push credential rather than the GitHub owner.
       DOCKERHUB_NAMESPACE: ${{ secrets.DOCKER_NAMESPACE || secrets.DOCKER_USERNAME || github.repository_owner }}
+      CACHE_IMAGE: ghcr.io/${{ github.repository_owner }}/romm-buildcache
     steps:
-      - name: Run only once per workflow
-        run: echo "Triggered by ${{ github.event_name }}"
-
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
-          fetch-depth: 0
-
-      - name: PR comment build starting
-        if: github.event_name == 'pull_request'
-        id: build-comment
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const comment = await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🔨 Preview build is under way...`
-            });
-            core.setOutput('comment-id', comment.data.id);
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
+      # The layer cache lives in GHCR even when the image is published elsewhere.
       - name: Login to GHCR
-        if: env.USE_GHCR == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        if: env.USE_DOCKERHUB == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Resolve digest repository
+        id: repo
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [[ "${USE_GHCR}" == "true" ]]; then
+            echo "ref=ghcr.io/${OWNER}/romm-testing" >>"$GITHUB_OUTPUT"
+          else
+            echo "ref=${DOCKERHUB_NAMESPACE}/romm-testing" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          file: docker/Dockerfile
+          context: .
+          platforms: ${{ matrix.platform }}
+          target: full-image
+          outputs: type=image,name=${{ steps.repo.outputs.ref }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: |
+            type=registry,ref=${{ env.CACHE_IMAGE }}:preview-${{ matrix.arch }}
+            type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
+          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:preview-${{ matrix.arch }},mode=max
+          build-args: |
+            SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
+            SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
+
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digest-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    env:
+      USE_GHCR: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.registry == 'ghcr' || github.event.inputs.registry == 'both' }}
+      USE_DOCKERHUB: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.registry == 'dockerhub' || github.event.inputs.registry == 'both') }}
+      DOCKERHUB_NAMESPACE: ${{ secrets.DOCKER_NAMESPACE || secrets.DOCKER_USERNAME || github.repository_owner }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - name: Login to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -97,33 +182,61 @@ jobs:
           tags: |
             type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
 
-      - name: Build full image
-        id: build-full
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          file: docker/Dockerfile
-          context: .
-          push: true
-          platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
-          target: full-image
-          build-args: |
-            SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
-            SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
-
-      # PR builds always push to GHCR only, so the image link is hardcoded to GHCR.
-      - name: Comment PR with GHCR image link
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      # Cross-registry tags are fine here: `imagetools create` copies the blobs
+      # over when a target sits in a different registry than the digests.
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
         env:
-          HEAD_REF: ${{ github.head_ref }}
+          DIGEST_REF: ${{ needs.build.outputs.digest-repo }}
+          METADATA: ${{ steps.meta.outputs.json }}
+        run: |
+          tags=()
+          while IFS= read -r tag; do
+            tags+=(--tag "$tag")
+          done < <(jq -r '.tags[]' <<<"$METADATA")
+
+          sources=()
+          for digest in *; do
+            [[ -f "$digest" ]] || continue
+            sources+=("${DIGEST_REF}@sha256:${digest}")
+          done
+
+          # Without both lists `imagetools create` would push an untagged index
+          # and still exit 0, leaving the preview image unreachable by tag.
+          if [[ ${#tags[@]} -eq 0 || ${#sources[@]} -eq 0 ]]; then
+            echo "::error::${#tags[@]} tag(s), ${#sources[@]} digest(s)"
+            exit 1
+          fi
+
+          docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+
+  # The only writer of the final comment, and it needs `prepare`, so the opening
+  # "under way" message can never land on top of the result.
+  report:
+    needs: [prepare, build, merge]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      # The branch name is not a usable tag: `metadata-action` rewrites
+      # characters Docker forbids, `/` among them.
+      - name: Report success
+        if: needs.merge.result == 'success'
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
         with:
-          script: |
-            const owner = context.repo.owner;
-            const tag = process.env.HEAD_REF;
-            github.rest.issues.updateComment({
-              comment_id: ${{ steps.build-comment.outputs.comment-id }},
-              owner: owner,
-              repo: context.repo.repo,
-              body: `✅ Preview build completed!\n\nDocker image: \`ghcr.io/${owner}/romm-testing:${tag}\``
-            })
+          header: preview-build
+          message: |
+            ✅ Preview build completed!
+
+            Docker image: `ghcr.io/${{ github.repository_owner }}/romm-testing:${{ needs.merge.outputs.version }}`
+
+      - name: Report failure
+        if: needs.merge.result != 'success'
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
+        with:
+          header: preview-build
+          message: |
+            ❌ Preview build failed.
+
+            [View the run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
