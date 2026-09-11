@@ -1,7 +1,7 @@
 ---
-name: release-notes
-description: Draft the GitHub release notes for a RomM alpha.1 or beta.1 prerelease from the diff since the last stable tag. Use when asked to "write the release notes", "draft the 5.3.0-alpha.1 notes", "what goes in the beta notes", or to refresh a draft after more PRs land. Produces the house format (callouts, Highlights, Minor changes, Fixes, Other changes, API changes, New Contributors) and never publishes.
-argument-hint: "[tag to draft, e.g. 5.2.0-alpha.1 | nothing to infer it]"
+name: prerelease-notes
+description: Draft the GitHub release notes for a RomM alpha.1 or beta.1 prerelease from the diff since the last stable tag, in the house format the published RomM releases use. Use when asked to "draft the 5.3.0-alpha.1 notes", "write the prerelease notes", "what goes in the beta notes", or to refresh a draft after more PRs land. Produces callouts, Highlights, Minor changes, Fixes, Other changes, API changes and New Contributors, and never publishes.
+argument-hint: "[tag to draft, e.g. 5.3.0-alpha.1 | nothing to infer it]"
 ---
 
 # Drafting alpha/beta release notes
