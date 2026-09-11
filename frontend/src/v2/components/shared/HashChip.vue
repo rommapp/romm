@@ -52,23 +52,29 @@ const displayed = computed(() =>
   revealed.value ? (props.value ?? "") : shortened.value,
 );
 
-const appendIcon = computed(() => {
-  if (revealed.value) return "mdi-eye-off-outline";
-  return clipboard.isSupported ? "mdi-content-copy" : "mdi-eye-outline";
-});
-
-// Only a real toggle announces itself as a disclosure; the copy chip stays
-// a plain button even when a failed copy left the value revealed.
-const ariaExpanded = computed(() =>
-  clipboard.isSupported ? undefined : revealed.value,
+// Short values (a CRC) render in full, so there is nothing to disclose.
+const isAbbreviated = computed(
+  () => !!props.value && shortened.value !== props.value,
 );
 
-// The abbreviated chip names its action; once revealed, the content (label
-// plus full value) is the better accessible name, so the override drops.
+const appendIcon = computed(() => {
+  if (revealed.value) return "mdi-eye-off-outline";
+  if (clipboard.isSupported) return "mdi-content-copy";
+  return isAbbreviated.value ? "mdi-eye-outline" : undefined;
+});
+
+// Only a real toggle announces itself as a disclosure; the copy chip and a
+// value already shown in full stay plain buttons.
+const ariaExpanded = computed(() =>
+  clipboard.isSupported || !isAbbreviated.value ? undefined : revealed.value,
+);
+
+// The abbreviated chip names its action; once revealed (or when the value
+// is its own full content), the content is the better accessible name.
 const ariaLabel = computed(() => {
   if (clipboard.isSupported)
     return t("common.copy-hash", { label: props.label });
-  if (revealed.value) return undefined;
+  if (revealed.value || !isAbbreviated.value) return undefined;
   return t("common.show-full-hash", { label: props.label });
 });
 
@@ -88,6 +94,7 @@ async function copy() {
   if (revealed.value && hasSelectionInside()) return;
 
   if (!clipboard.isSupported) {
+    if (!isAbbreviated.value) return;
     revealed.value = !revealed.value;
     return;
   }

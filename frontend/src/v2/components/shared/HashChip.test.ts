@@ -168,6 +168,21 @@ describe("HashChip", () => {
       expect(wrapper.text()).toContain(SHA1);
     });
 
+    it("treats a value shown in full as plain content, not a disclosure", async () => {
+      clipboard.isSupported = false;
+      const wrapper = mountChip({ label: "CRC", value: "aabbccdd" });
+
+      const button = wrapper.find("button");
+      expect(button.attributes("aria-expanded")).toBeUndefined();
+      expect(button.attributes("aria-label")).toBeUndefined();
+
+      // With nothing abbreviated a click has nothing to toggle.
+      await click(wrapper);
+
+      expect(button.attributes("aria-expanded")).toBeUndefined();
+      expect(button.classes()).not.toContain("r-v2-hash-chip--revealed");
+    });
+
     // A failed copy reveals the value, but the chip stays a plain copy
     // button: no disclosure state, and the next click copies again.
     it("keeps the fallback reveal a plain copy button", async () => {
