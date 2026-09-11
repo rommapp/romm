@@ -38,6 +38,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
+    ColumnProperty,
     Query,
     QueryableAttribute,
     Session,
@@ -400,29 +401,42 @@ def _prerelease_rank() -> ColumnElement:
     )
 
 
-# Grouped galleries sort each group by the MIN/MAX over its siblings, which
-# matches ORDER BY semantics on every dialect only for these types. Enum and
-# lexical keys stay on the representative, so the gallery reads sorted by the
-# labels it displays and the char index stays aligned with them.
+# Group keys aggregate with MIN/MAX, which matches ORDER BY semantics on every
+# dialect only for these types; enum and lexical keys stay on the representative.
 _GROUP_SORT_AGGREGATE_TYPES = (Date, DateTime, Integer, Numeric)
 
 
 class _GallerySortKey(NamedTuple):
-    column: Any
+    column: QueryableAttribute
     from_rom_user: bool
     joins_rom_metadata: bool
 
 
+def _mapped_sort_column(model: type, order_by: str) -> QueryableAttribute | None:
+    """The mapped column `order_by` names on `model`, or None for non-columns."""
+    attr = getattr(model, order_by, None)
+    if isinstance(attr, QueryableAttribute) and isinstance(
+        attr.property, ColumnProperty
+    ):
+        return attr
+    return None
+
+
 def _resolve_gallery_sort_key(order_by: str, user_id: int | None) -> _GallerySortKey:
     """Map a gallery `order_by` name to its sort column and source table."""
-    if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
-        return _GallerySortKey(getattr(RomUser, order_by), True, False)
+    rom_column = _mapped_sort_column(Rom, order_by)
+    if user_id and rom_column is None:
+        rom_user_column = _mapped_sort_column(RomUser, order_by)
+        if rom_user_column is not None:
+            return _GallerySortKey(rom_user_column, True, False)
     if order_by in ROM_METADATA_ORDER_COLUMNS:
         return _GallerySortKey(ROM_METADATA_ORDER_COLUMNS[order_by], False, False)
-    if hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
-        return _GallerySortKey(getattr(RomMetadata, order_by), False, True)
+    if rom_column is None:
+        metadata_column = _mapped_sort_column(RomMetadata, order_by)
+        if metadata_column is not None:
+            return _GallerySortKey(metadata_column, False, True)
 
-    column = getattr(Rom, order_by) if hasattr(Rom, order_by) else Rom.name
+    column = rom_column if rom_column is not None else Rom.name
     # Use indexed `name_sort_key` to have fast access to names without
     # articles (the, a, an) and leading digits. The key is derived from
     # `name` at write time, or holds a custom override when one is set.
@@ -1289,6 +1303,7 @@ class DBRomsHandler(DBBaseHandler):
     def filter_roms(
         self,
         query: Query,
+        *,
         # The grouped dedup aggregates the active sort key over each group, so
         # it needs the ordering the query was built with.
         order_by: str = "",
@@ -1550,12 +1565,8 @@ class DBRomsHandler(DBBaseHandler):
             )
 
             sort_key = _resolve_gallery_sort_key(order_by, user_id)
-            # A group must sort by its best sibling's key, not the
-            # representative's, or a group whose representative carries no
-            # value lands in the NULL bucket (#4447). Only rom_user keys
-            # aggregate: they ride the window's existing rom_user join, while
-            # a roms-side key would push the window off its covering index
-            # (see test_roms_group_by_index).
+            # A group sorts by its best sibling's key; only rom_user keys
+            # aggregate, since a roms-side key would leave the covering index.
             aggregates_sort_key = sort_key.from_rom_user and isinstance(
                 sort_key.column.type, _GROUP_SORT_AGGREGATE_TYPES
             )
@@ -1641,30 +1652,37 @@ class DBRomsHandler(DBBaseHandler):
             )
 
             # Only id, the row number and the group sort key flow downstream;
-            # the partition/order inputs are read straight from base_subquery,
-            # so keeping them out of this SELECT keeps the window's temp table
-            # narrow (carrying the wide fs_name_no_ext through it spilled the
-            # sort to disk).
+            # wider columns here spill the window's temp-table sort to disk.
+            window_order = [
+                is_main_sibling_order,
+                base_subquery.c.prerelease_rank.asc(),
+                base_subquery.c.region_rank.asc(),
+                base_subquery.c.fs_name_no_ext.asc(),
+            ]
             window_columns: list[ColumnElement] = [
                 func.row_number()
-                .over(
-                    partition_by=partition_key,
-                    order_by=[
-                        is_main_sibling_order,
-                        base_subquery.c.prerelease_rank.asc(),
-                        base_subquery.c.region_rank.asc(),
-                        base_subquery.c.fs_name_no_ext.asc(),
-                    ],
-                )
+                .over(partition_by=partition_key, order_by=window_order)
                 .label("row_num"),
             ]
             if aggregates_sort_key:
-                # MIN/MAX skip NULL siblings, so a group keeps a NULL key only
-                # when every sibling's key is NULL.
+                # MIN/MAX skip NULL siblings, and a hidden sibling's key is
+                # masked to NULL so it cannot drive a group it is absent from.
+                visible_sort_key = case(
+                    (
+                        or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None)),
+                        sort_key.column,
+                    )
+                )
                 group_aggregate = func.max if order_dir.lower() == "desc" else func.min
                 window_columns.append(
-                    group_aggregate(sort_key.column)
-                    .over(partition_by=partition_key)
+                    # Sharing row_number's window spec keeps the derived table
+                    # on one sort pass; the frame still spans the partition.
+                    group_aggregate(visible_sort_key)
+                    .over(
+                        partition_by=partition_key,
+                        order_by=window_order,
+                        rows=(None, None),
+                    )
                     .label("group_sort_value")
                 )
 
@@ -1682,17 +1700,15 @@ class DBRomsHandler(DBBaseHandler):
             )
 
             if aggregates_sort_key:
-                # Joining the primary rows (instead of the IN filter below)
-                # carries the group's key out for the ORDER BY; each id sits in
-                # exactly one partition, so the join cannot fan out.
+                # Joining the primary rows carries the group's key out for the
+                # ORDER BY; ids are partition-unique, so the join cannot fan out.
                 dedup_subquery = (
                     select(group_subquery.c.id, group_subquery.c.group_sort_value)
                     .where(group_subquery.c.row_num == 1)
                     .subquery()
                 )
-                # The null-safe match keeps this join outer: made inner,
-                # MariaDB drives from the derived table and probes the wide
-                # roms rows per group instead of leading with a covering index.
+                # The null-safe match keeps this join outer; made inner, MariaDB
+                # drives from the derived table and probes wide roms rows per group.
                 query = query.outerjoin(
                     dedup_subquery, Rom.id == dedup_subquery.c.id
                 ).filter(dedup_subquery.c.id.is_not_distinct_from(Rom.id))

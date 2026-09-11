@@ -7,6 +7,7 @@ unset keys last in both directions.
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy.dialects import mysql
 
 from handler.database import db_rom_handler
 from models.platform import Platform
@@ -14,23 +15,14 @@ from models.rom import Rom, RomUser, RomUserStatus
 from models.user import User
 
 
-def _make_rom(platform: Platform, name: str) -> Rom:
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name,
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
-
-
-def _make_sibling(platform: Platform, name: str, region: str, igdb_id: int) -> Rom:
-    full_name = f"{name} ({region})"
+def _make_rom(
+    platform: Platform,
+    name: str,
+    *,
+    region: str | None = None,
+    igdb_id: int | None = None,
+) -> Rom:
+    full_name = f"{name} ({region})" if region else name
     return db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
@@ -42,7 +34,7 @@ def _make_sibling(platform: Platform, name: str, region: str, igdb_id: int) -> R
             fs_name_no_ext=full_name,
             fs_extension="zip",
             fs_path=f"{platform.slug}/roms",
-            regions=[region],
+            regions=[region] if region else [],
         )
     )
 
@@ -52,11 +44,13 @@ def _set_rom_user_fields(rom: Rom, user: User, fields: dict[str, object]) -> Non
     db_rom_handler.update_rom_user(rom_user.id, fields)
 
 
-def _ordered_names(user: User, order_by: str, order_dir: str) -> list[str]:
+def _ordered_names(
+    user: User, order_by: str, order_dir: str, *, attr: str = "name", **kwargs: object
+) -> list[str]:
     return [
-        rom.name
+        getattr(rom, attr)
         for rom in db_rom_handler.get_roms_scalar(
-            order_by=order_by, order_dir=order_dir, user_id=user.id
+            order_by=order_by, order_dir=order_dir, user_id=user.id, **kwargs
         )
     ]
 
@@ -150,16 +144,14 @@ class TestRomUserSortResults:
 
 
 def _grouped_names(user: User, platform: Platform, order_dir: str) -> list[str]:
-    return [
-        rom.fs_name_no_ext
-        for rom in db_rom_handler.get_roms_scalar(
-            platform_ids=[platform.id],
-            order_by="last_played",
-            order_dir=order_dir,
-            user_id=user.id,
-            group_by_meta_id=True,
-        )
-    ]
+    return _ordered_names(
+        user,
+        "last_played",
+        order_dir,
+        attr="fs_name_no_ext",
+        platform_ids=[platform.id],
+        group_by_meta_id=True,
+    )
 
 
 class TestGroupedRomUserSortResults:
@@ -169,21 +161,21 @@ class TestGroupedRomUserSortResults:
     def grouped_library(self, admin_user: User, platform: Platform) -> None:
         # Sonic: the USA rom is the representative (region rank), but only the
         # Japan sibling was played, most recently of all.
-        _make_sibling(platform, "Sonic", "USA", igdb_id=100)
+        _make_rom(platform, "Sonic", region="USA", igdb_id=100)
         _set_rom_user_fields(
-            _make_sibling(platform, "Sonic", "Japan", igdb_id=100),
+            _make_rom(platform, "Sonic", region="Japan", igdb_id=100),
             admin_user,
             {"last_played": datetime(2025, 6, 1, tzinfo=timezone.utc)},
         )
         # Tails: a played group of one.
         _set_rom_user_fields(
-            _make_sibling(platform, "Tails", "USA", igdb_id=200),
+            _make_rom(platform, "Tails", region="USA", igdb_id=200),
             admin_user,
             {"last_played": datetime(2024, 1, 1, tzinfo=timezone.utc)},
         )
         # Knuckles: every sibling untouched.
-        _make_sibling(platform, "Knuckles", "USA", igdb_id=300)
-        _make_sibling(platform, "Knuckles", "Japan", igdb_id=300)
+        _make_rom(platform, "Knuckles", region="USA", igdb_id=300)
+        _make_rom(platform, "Knuckles", region="Japan", igdb_id=300)
 
     @pytest.mark.parametrize(
         ("order_dir", "expected"),
@@ -206,18 +198,60 @@ class TestGroupedRomUserSortResults:
     ):
         assert _grouped_names(admin_user, platform, order_dir) == expected
 
+    def test_hidden_sibling_does_not_drive_the_group(
+        self, admin_user: User, platform: Platform, grouped_library: None
+    ):
+        # The newest play in the library belongs to a hidden Knuckles sibling,
+        # so its group must stay in the NULL tail.
+        _set_rom_user_fields(
+            _make_rom(platform, "Knuckles", region="Europe", igdb_id=300),
+            admin_user,
+            {"last_played": datetime(2026, 1, 1, tzinfo=timezone.utc), "hidden": True},
+        )
+
+        assert _grouped_names(admin_user, platform, "desc") == [
+            "Sonic (USA)",
+            "Tails (USA)",
+            "Knuckles (USA)",
+        ]
+
+    def test_grouped_id_index_follows_the_group_order(
+        self, admin_user: User, platform: Platform, grouped_library: None
+    ):
+        query, _ = db_rom_handler.get_roms_query(
+            order_by="last_played", order_dir="desc", user_id=admin_user.id
+        )
+        grouped = db_rom_handler.filter_roms(
+            query=query,
+            order_by="last_played",
+            order_dir="desc",
+            platform_ids=[platform.id],
+            group_by_meta_id=True,
+            user_id=admin_user.id,
+        )
+
+        ids = db_rom_handler.get_rom_id_index(query=grouped)
+        by_id = {
+            rom.id: rom.fs_name_no_ext
+            for rom in db_rom_handler.get_roms_scalar(user_id=admin_user.id)
+        }
+
+        assert [by_id[rom_id] for rom_id in ids] == [
+            "Sonic (USA)",
+            "Tails (USA)",
+            "Knuckles (USA)",
+        ]
+
     def test_ungrouped_sort_still_ranks_each_rom_by_its_own_key(
         self, admin_user: User, platform: Platform, grouped_library: None
     ):
-        names = [
-            rom.fs_name_no_ext
-            for rom in db_rom_handler.get_roms_scalar(
-                platform_ids=[platform.id],
-                order_by="last_played",
-                order_dir="desc",
-                user_id=admin_user.id,
-            )
-        ]
+        names = _ordered_names(
+            admin_user,
+            "last_played",
+            "desc",
+            attr="fs_name_no_ext",
+            platform_ids=[platform.id],
+        )
 
         assert names == [
             "Sonic (Japan)",
@@ -246,19 +280,20 @@ class TestGroupedRomUserSortResults:
 
 
 class TestGroupedRomUserSortQueryShape:
-    def _grouped_sql(self, order_by: str, order_dir: str = "desc") -> str:
+    def _grouped_query(self, order_by: str, order_dir: str = "desc"):
         query, _ = db_rom_handler.get_roms_query(
             order_by=order_by, order_dir=order_dir, user_id=1
         )
-        return str(
-            db_rom_handler.filter_roms(
-                query=query,
-                order_by=order_by,
-                order_dir=order_dir,
-                group_by_meta_id=True,
-                user_id=1,
-            )
+        return db_rom_handler.filter_roms(
+            query=query,
+            order_by=order_by,
+            order_dir=order_dir,
+            group_by_meta_id=True,
+            user_id=1,
         )
+
+    def _grouped_sql(self, order_by: str, order_dir: str = "desc") -> str:
+        return str(self._grouped_query(order_by, order_dir))
 
     @pytest.mark.parametrize(
         ("order_dir", "aggregate"), [("desc", "max"), ("asc", "min")]
@@ -269,26 +304,44 @@ class TestGroupedRomUserSortQueryShape:
         sql = self._grouped_sql("last_played", order_dir)
         direction = order_dir.upper()
 
-        assert f"{aggregate}(rom_user.last_played) OVER" in sql
-        # NULLs-last emission carries over from the ungrouped rom_user sort.
+        # Hidden siblings are masked to NULL so they cannot drive the group.
         assert (
-            "ORDER BY anon_1.group_sort_value IS NULL, "
-            f"anon_1.group_sort_value {direction}, roms.id {direction}"
+            f"{aggregate}(CASE WHEN (rom_user.hidden IS false OR "
+            "rom_user.hidden IS NULL) THEN rom_user.last_played END) OVER"
         ) in sql
+        # The aggregate reuses row_number's window spec (one sort pass), with a
+        # whole-partition frame so it still covers every sibling.
+        assert "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING" in sql
+        # NULLs-last emission carries over from the ungrouped rom_user sort.
+        assert "group_sort_value IS NULL" in sql
+        assert f"group_sort_value {direction}, roms.id {direction}" in sql
 
     def test_group_key_join_stays_outer(self):
-        sql = self._grouped_sql("last_played")
+        # Compiled for MariaDB, where the null-safe <=> is what stops the
+        # optimizer from converting the join to inner and re-planning.
+        sql = str(self._grouped_query("last_played").compile(dialect=mysql.dialect()))
 
-        # Made inner, MariaDB drives from the derived table and probes the
-        # wide roms rows once per group instead of leading with an index.
         assert "LEFT OUTER JOIN (SELECT" in sql
-        assert "IS NOT DISTINCT FROM roms.id" in sql
+        assert "<=> roms.id" in sql
 
-    @pytest.mark.parametrize("order_by", ["name", "status"])
-    def test_lexical_and_enum_sorts_keep_the_representative_key(self, order_by: str):
+    @pytest.mark.parametrize(
+        ("order_by", "order_clause"),
+        [
+            ("name", "ORDER BY roms.name_sort_key DESC, roms.id DESC"),
+            (
+                "status",
+                "ORDER BY rom_user.status IS NULL, rom_user.status DESC, "
+                "roms.id DESC",
+            ),
+        ],
+    )
+    def test_lexical_and_enum_sorts_keep_the_representative_key(
+        self, order_by: str, order_clause: str
+    ):
         sql = self._grouped_sql(order_by)
 
         # MIN/MAX diverge from ORDER BY semantics for enums, and a lexical
         # group key would disagree with the representative's displayed label.
         assert "group_sort_value" not in sql
         assert "IN (SELECT" in sql
+        assert order_clause in sql

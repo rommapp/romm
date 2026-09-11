@@ -93,9 +93,8 @@ class TestMetadataSortQueryShape:
         )
         sql = str(grouped)
 
-        # A roms-side group aggregate would push the sort key into the dedup
-        # window and off its covering index, so groups sort by the
-        # representative's own key (see test_roms_group_by_index).
+        # Roms-side keys stay on the representative: aggregating one would
+        # push the dedup window off its covering index.
         assert "group_sort_value" not in sql
         assert "ORDER BY roms.generated_first_release_date ASC" in sql
 
