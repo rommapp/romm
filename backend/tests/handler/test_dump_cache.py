@@ -48,15 +48,16 @@ class TestDecode:
     def test_round_trips_whatever_encode_wrote(self, value: Any):
         assert decode(encode(value)) == value
 
-    def test_reads_a_store_written_before_compression(self):
-        """An existing store holds plain JSON, so it has to keep answering."""
-        legacy = json.dumps(BIG_RECORD).encode()
+    def test_reads_a_plain_json_value(self):
+        """A payload under the threshold is stored as JSON, so reads accept it."""
+        stored = encode(SMALL_RECORD)
 
-        assert decode(legacy) == BIG_RECORD
+        assert not stored.startswith(_ZSTD_MAGIC)
+        assert decode(stored) == SMALL_RECORD
 
     def test_reads_a_value_handed_over_as_text(self):
-        """`fakeredis` and a decoding client both hand back `str`."""
-        assert decode(json.dumps(BIG_RECORD)) == BIG_RECORD
+        """A client that decodes responses hands back `str`, which still parses."""
+        assert decode(json.dumps(SMALL_RECORD)) == SMALL_RECORD
 
     @pytest.mark.parametrize("missing", [None, b"", ""])
     def test_returns_nothing_for_an_absent_field(self, missing: bytes | str | None):

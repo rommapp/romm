@@ -121,16 +121,14 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         return self.manual_run and (self.enabled or LAUNCHBOX_API_ENABLED)
 
     @initialize_context()
-    async def run(self, force: bool = False) -> dict[str, Any]:
+    async def run(self) -> dict[str, Any]:
         update_stats = UpdateStats()
 
         if not meta_launchbox_handler.is_cloud_enabled():
             log.warning("Launchbox API is not enabled, skipping metadata update")
             return update_stats.to_dict()
 
-        # Reaching here means either the cron fired or an admin asked for it, so
-        # the pull goes ahead regardless of the scheduled-update setting.
-        content = await super().run(True)
+        content = await super().run()
         if content is None:
             log.warning("No content received from launchbox metadata update")
             return update_stats.to_dict()
