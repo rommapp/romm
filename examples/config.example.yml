@@ -182,6 +182,10 @@
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
 #   auto_save_sync: false # Upload the save to the server whenever it changes, without Save & Quit
+#   default_cores: # Core preselected per platform, unless overridden on the device
+#     # Use the exact core name, as listed for the platform in the docs
+#     nds: desmume
+#     nintendo-dsi: melonds
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled

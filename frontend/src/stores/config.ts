@@ -32,6 +32,7 @@ const defaultConfig = {
   EJS_DISABLE_BATCH_BOOTUP: false,
   EJS_ENABLE_AUTO_SAVE_SYNC: false,
   EJS_NETPLAY_ICE_SERVERS: [],
+  EJS_DEFAULT_CORES: {},
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
   SCAN_METADATA_PRIORITY: [],
@@ -92,6 +93,9 @@ export default defineStore("config", {
     },
     isExclusionType(type: string): type is ExclusionType {
       return Object.keys(this.config).includes(type);
+    },
+    getEJSDefaultCore(platformSlug: string): string | null {
+      return this.config.EJS_DEFAULT_CORES[platformSlug.toLowerCase()] ?? null;
     },
     getEJSCoreOptions(core: string | null): Record<string, string | boolean> {
       const defaultOptions = this.config.EJS_SETTINGS["default"] || {};
