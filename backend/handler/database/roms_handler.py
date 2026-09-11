@@ -177,13 +177,33 @@ ROM_FILE_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]
     40: (RomFile.sha1_hash, RomFile.chd_sha1_hash),
 }
 
-# Every column here is indexed on `roms`, so the sort walks the index and stops at the page.
+# Every column here is indexed on `roms`, so the sort key needs no join to
+# the view.
 ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "first_release_date": Rom.generated_first_release_date,
     "average_rating": Rom.generated_average_rating,
     "player_count": Rom.generated_player_count,
     "hltb_main_story": Rom.generated_hltb_main_story,
 }
+
+
+def _nulls_last_ordering(
+    sort_key: Any, descending: bool
+) -> tuple[ColumnElement[bool] | None, ColumnElement[Any]]:
+    """NULL sort keys land last on every engine.
+
+    Returns:
+        A leading IS NULL term (or None) and the directed sort clause.
+    """
+    # PostgreSQL says it natively; the other engines place NULLs last on
+    # DESC already, so only their ascending case needs the emulation term.
+    order_clause = sort_key.desc() if descending else sort_key.asc()
+    if ROMM_DB_DRIVER == "postgresql":
+        return None, order_clause.nulls_last()
+    if descending:
+        return None, order_clause
+    return sort_key.is_(None), order_clause
+
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Column order matches the unpacking
@@ -407,6 +427,9 @@ _GROUP_SORT_AGGREGATE_TYPES = (DateTime, Integer)
 class _GallerySortKey(NamedTuple):
     column: QueryableAttribute
     source: Literal["rom", "rom_user", "rom_metadata"]
+    # Nullable keys get the NULLS LAST treatment; an indexed Rom column is
+    # sorted as-is.
+    nullable: bool = False
 
 
 def _mapped_sort_column(model: type, order_by: str) -> QueryableAttribute | None:
@@ -424,19 +447,28 @@ def _rom_user_not_hidden() -> ColumnElement[bool]:
     return or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
 
 
+def _zero_unset_folded(column: Any) -> Any:
+    """NULLIF folds the marked zero-as-unset metrics into the NULL bucket."""
+    if getattr(column, "info", {}).get("zero_is_unset"):
+        return func.nullif(column, 0)
+    return column
+
+
 def _resolve_gallery_sort_key(order_by: str, user_id: int | None) -> _GallerySortKey:
     """Map a gallery `order_by` name to its sort column and source table."""
     rom_column = _mapped_sort_column(Rom, order_by)
     if user_id and rom_column is None:
         rom_user_column = _mapped_sort_column(RomUser, order_by)
         if rom_user_column is not None:
-            return _GallerySortKey(rom_user_column, "rom_user")
+            return _GallerySortKey(rom_user_column, "rom_user", nullable=True)
     if order_by in ROM_METADATA_ORDER_COLUMNS:
-        return _GallerySortKey(ROM_METADATA_ORDER_COLUMNS[order_by], "rom")
+        return _GallerySortKey(
+            ROM_METADATA_ORDER_COLUMNS[order_by], "rom", nullable=True
+        )
     if rom_column is None:
         metadata_column = _mapped_sort_column(RomMetadata, order_by)
         if metadata_column is not None:
-            return _GallerySortKey(metadata_column, "rom_metadata")
+            return _GallerySortKey(metadata_column, "rom_metadata", nullable=True)
 
     column = rom_column if rom_column is not None else Rom.name
     # Use indexed `name_sort_key` to have fast access to names without
@@ -1674,7 +1706,9 @@ class DBRomsHandler(DBBaseHandler):
             if aggregates_sort_key:
                 # MIN/MAX skip NULL siblings, and a hidden sibling's key is
                 # masked to NULL so it cannot drive a group it is absent from.
-                visible_sort_key = case((_rom_user_not_hidden(), sort_key.column))
+                visible_sort_key = case(
+                    (_rom_user_not_hidden(), _zero_unset_folded(sort_key.column))
+                )
                 group_aggregate = func.max if order_dir == "desc" else func.min
                 window_columns.append(
                     # Sharing row_number's window spec keeps the derived table
@@ -1719,7 +1753,7 @@ class DBRomsHandler(DBBaseHandler):
                         order_by=order_by,
                         order_dir=order_dir,
                         sort_column=dedup_subquery.c.group_sort_value,
-                        nulls_last=sort_key.source == "rom_user",
+                        nulls_last=sort_key.nullable,
                         search_term=search_term,
                     )
                 )
@@ -1764,12 +1798,14 @@ class DBRomsHandler(DBBaseHandler):
         nulls_last: bool,
         search_term: str | None,
     ) -> list[Any]:
-        # MariaDB/MySQL have no NULLS LAST, so a leading IS NULL term keeps NULL
-        # keys (no rom_user row, or an unset field) last in both directions.
-        nulls_last_clause = sort_column.is_(None) if nulls_last else None
-
         descending = order_dir == "desc"
-        order_attr = sort_column.desc() if descending else sort_column.asc()
+        if nulls_last:
+            nulls_last_clause, order_clause = _nulls_last_ordering(
+                sort_column, descending
+            )
+        else:
+            nulls_last_clause = None
+            order_clause = sort_column.desc() if descending else sort_column.asc()
 
         # Ties are common on every sort key here and the gallery pages by
         # offset, so without a unique final key a rom can repeat in one window
@@ -1789,9 +1825,9 @@ class DBRomsHandler(DBBaseHandler):
         # An explicit sort wins with relevance breaking ties; with no sort
         # selected, relevance leads and name is the tiebreaker.
         ordering = (
-            (nulls_last_clause, order_attr, relevance_clause, tiebreaker)
+            (nulls_last_clause, order_clause, relevance_clause, tiebreaker)
             if order_by
-            else (relevance_clause, order_attr, tiebreaker)
+            else (relevance_clause, order_clause, tiebreaker)
         )
         return [clause for clause in ordering if clause is not None]
 
@@ -1815,8 +1851,8 @@ class DBRomsHandler(DBBaseHandler):
         order_clauses = self._gallery_order_clauses(
             order_by=order_by,
             order_dir=order_dir,
-            sort_column=sort_key.column,
-            nulls_last=sort_key.source == "rom_user",
+            sort_column=_zero_unset_folded(sort_key.column),
+            nulls_last=sort_key.nullable,
             search_term=search_term,
         )
 
@@ -2916,11 +2952,14 @@ class DBRomsHandler(DBBaseHandler):
         if playlist_id is not None:
             order_map["position"] = MusicPlaylistTrack.position
         col = order_map.get(order_by, TrackMeta.title)
-        direction = col.desc() if order_dir == "desc" else col.asc()
+        nulls_last_clause, direction = _nulls_last_ordering(col, order_dir == "desc")
+        track_ordering = [
+            clause
+            for clause in (nulls_last_clause, direction, TrackMeta.rom_file_id)
+            if clause is not None
+        ]
         rows = session.execute(
-            base.order_by(col.is_(None), direction, TrackMeta.rom_file_id)
-            .limit(limit)
-            .offset(offset)
+            base.order_by(*track_ordering).limit(limit).offset(offset)
         ).all()
         return rows, total
 

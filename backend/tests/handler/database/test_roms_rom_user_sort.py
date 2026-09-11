@@ -1,7 +1,8 @@
 """Ordering the gallery by a per-user `rom_user` field.
 
 Sorting on one must keep every rom in the results and in the count, with the
-unset keys last in both directions.
+unset keys last in both directions. Rating, difficulty and completion default
+to 0 in an existing row, which renders as unset and sorts as unset.
 """
 
 from datetime import datetime, timezone
@@ -68,16 +69,22 @@ class TestRomUserSortQueryShape:
         assert "rom_user.user_id" not in str(query.whereclause or "")
         assert sort_key.column is RomUser.last_played
 
-    @pytest.mark.parametrize("order_dir", ["asc", "desc"])
-    def test_nulls_lead_the_order_clause(self, order_dir: str):
-        query, _ = db_rom_handler.get_roms_query(
-            order_by="last_played", order_dir=order_dir, user_id=1
+    # The dialect matrix for the shared NULL-placement block lives in
+    # test_roms_metadata_sort.py; this pins the rom_user branch's shape.
+    def test_zero_default_columns_fold_zero_into_the_null_bucket(
+        self, mariadb_driver: None
+    ):
+        query, order_column = db_rom_handler.get_roms_query(
+            order_by="rating", user_id=1
         )
 
+        # NULLIF turns the 0 default into a NULL sort key, so a touched but
+        # unset rom lands in the same trailing bucket as an untouched one.
         assert (
-            "ORDER BY rom_user.last_played IS NULL, "
-            f"rom_user.last_played {order_dir.upper()}"
+            "ORDER BY nullif(rom_user.rating, :nullif_1) IS NULL, "
+            "nullif(rom_user.rating, :nullif_1) ASC"
         ) in str(query)
+        assert order_column is RomUser.rating
 
 
 class TestRomUserSortResults:
@@ -102,13 +109,41 @@ class TestRomUserSortResults:
             },
         )
         _make_rom(platform, "untouched")
+        # Touched (the rom_user row exists) but explicitly unrated: the 0 must
+        # sort with the untouched bucket, not before the real ratings.
+        _set_rom_user_fields(
+            _make_rom(platform, "played_unrated"),
+            admin_user,
+            {
+                "rating": 0,
+                "last_played": datetime(2022, 1, 1, tzinfo=timezone.utc),
+            },
+        )
 
+    # Ties inside the unset bucket follow the rom id in the sort direction.
     @pytest.mark.parametrize(
         ("order_by", "order_dir", "expected"),
         [
-            ("last_played", "asc", ["barely_touched", "well_loved", "untouched"]),
-            ("last_played", "desc", ["well_loved", "barely_touched", "untouched"]),
-            ("rating", "asc", ["barely_touched", "well_loved", "untouched"]),
+            (
+                "last_played",
+                "asc",
+                ["barely_touched", "played_unrated", "well_loved", "untouched"],
+            ),
+            (
+                "last_played",
+                "desc",
+                ["well_loved", "played_unrated", "barely_touched", "untouched"],
+            ),
+            (
+                "rating",
+                "asc",
+                ["barely_touched", "well_loved", "untouched", "played_unrated"],
+            ),
+            (
+                "rating",
+                "desc",
+                ["well_loved", "barely_touched", "played_unrated", "untouched"],
+            ),
         ],
     )
     def test_unset_user_fields_sort_last(
@@ -128,12 +163,10 @@ class TestRomUserSortResults:
             order_by="rating", user_id=admin_user.id
         )
 
-        assert db_rom_handler.get_rom_count(query=query) == 3
+        assert db_rom_handler.get_rom_count(query=query) == 4
 
     @pytest.mark.parametrize("order_by", ["last_played", "status"])
-    def test_char_index_skips_non_lexical_sorts(
-        self, admin_user: User, library: None, order_by: str
-    ):
+    def test_char_index_skips_non_lexical_sorts(self, admin_user: User, order_by: str):
         query, sort_key = db_rom_handler.get_roms_query(
             order_by=order_by, user_id=admin_user.id
         )
