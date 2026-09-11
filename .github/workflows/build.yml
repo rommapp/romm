@@ -7,15 +7,15 @@ on:
   release:
     types: [published]
 
+# Every job below grants itself what it needs; this is only the fallback.
 permissions:
-  id-token: write
-  contents: write
-  packages: write
-  actions: write
+  contents: read
 
 jobs:
   validate-tag-semver:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       valid: ${{ steps.check_tag.outputs.valid }}
     steps:
