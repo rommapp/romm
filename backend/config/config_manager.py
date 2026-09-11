@@ -909,13 +909,13 @@ class ConfigManager:
             sys.exit(3)
 
         normalized: dict[str, str] = {}
-        for fs_slug, slug in raw.items():
-            if not isinstance(slug, str) or not slug:
+        for key, value in raw.items():
+            if not isinstance(value, str) or not value:
                 log.critical(
-                    f"Invalid config.yml: {config_key}.{fs_slug} must be a non-empty string"
+                    f"Invalid config.yml: {config_key}.{key} must be a non-empty string"
                 )
                 sys.exit(3)
-            normalized[str(fs_slug).lower()] = slug
+            normalized[str(key).lower()] = value
 
         return normalized
 

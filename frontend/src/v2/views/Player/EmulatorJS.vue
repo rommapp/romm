@@ -118,9 +118,6 @@ const selectedDisc = ref<DiscSelection>(null);
 const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
-// Written back only when the user deviates from it, so a later change to
-// the instance default isn't shadowed by a core nobody chose.
-const resolvedCore = ref<string | null>(null);
 const gameRunning = ref(false);
 const removeIOSFullscreenShim = ref<(() => void) | null>(null);
 
@@ -225,10 +222,7 @@ async function onPlay() {
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
   if (rom.value) {
-    if (selectedCore.value !== resolvedCore.value) {
-      rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
-      resolvedCore.value = selectedCore.value;
-    }
+    rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
     rememberDisc(rom.value.id, selectedDisc.value);
   }
   gameRunning.value = true;
@@ -321,7 +315,12 @@ onMounted(async () => {
   });
   firmwareOptions.value = firmwareResponse.data;
 
-  supportedCores.value = [...getSupportedEJSCores(rom.value.platform_slug)];
+  supportedCores.value = [
+    ...getSupportedEJSCores(
+      rom.value.platform_slug,
+      configStore.config.EJS_NETPLAY_ENABLED,
+    ),
+  ];
 
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
@@ -339,6 +338,21 @@ onMounted(async () => {
     });
   }
 
+  // Resolved before the save/state defaults below, which key off the core
+  // this game will actually boot with.
+  const configuredCore = configStore.getEJSDefaultCore(rom.value.platform_slug);
+  if (configuredCore && !supportedCores.value.includes(configuredCore)) {
+    console.warn(
+      `[Play] emulatorjs.default_cores sets ${configuredCore} for ${rom.value.platform_slug}, which does not support it`,
+    );
+  }
+  selectedCore.value = resolveRememberedCore(
+    rom.value.id,
+    rom.value.platform_slug,
+    supportedCores.value,
+    configuredCore,
+  );
+
   // Default selection — save and state are independent, so both can be
   // armed at once. The bound save is the write-back target for "Save &
   // Quit" (PUT in place), so we only auto-bind it when the choice is
@@ -346,13 +360,10 @@ onMounted(async () => {
   // there are multiple saves, since loading the state injects a different
   // SRAM timeline that would overwrite an arbitrary save the user never
   // picked. In that case the user must select the save slot explicitly.
-  const initiallyCompatibleStates = rom.value.user_states.filter(
-    (s) => !s.emulator || s.emulator === supportedCores.value[0],
-  );
-  const hasCompatibleState = initiallyCompatibleStates.length > 0;
+  const hasCompatibleState = compatibleStates.value.length > 0;
 
   if (hasCompatibleState) {
-    selectedState.value = initiallyCompatibleStates[0];
+    selectedState.value = compatibleStates.value[0];
   }
   const safeToBindSave =
     rom.value.user_saves.length === 1 || !hasCompatibleState;
@@ -365,14 +376,6 @@ onMounted(async () => {
     rom.value.id,
     bootableRomFiles.value,
   );
-
-  resolvedCore.value = resolveRememberedCore(
-    rom.value.id,
-    rom.value.platform_slug,
-    supportedCores.value,
-    configStore.getEJSDefaultCore(rom.value.platform_slug),
-  );
-  selectedCore.value = resolvedCore.value;
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(
