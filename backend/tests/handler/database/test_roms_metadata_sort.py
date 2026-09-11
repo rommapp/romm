@@ -7,10 +7,8 @@ joined table: the database cannot read that from an index, so it filesorts the
 whole library on every page. The generated columns are indexed on `roms`, so
 these tests pin both the ordering results and the query reading them directly.
 
-NULL sort keys (unmatched roms) land last on every engine and both directions.
-Descending stays on the index (MariaDB/MySQL place NULLs last on DESC natively,
-PostgreSQL gets an explicit NULLS LAST); ascending on MariaDB/MySQL takes a
-leading IS NULL term and gives up the index order.
+NULL sort keys (unmatched roms) land last on every engine and both directions;
+on MariaDB/MySQL the ascending sort pays a leading IS NULL term for it.
 """
 
 import pytest
@@ -52,6 +50,7 @@ class TestMetadataSortQueryShape:
             ("first_release_date", "generated_first_release_date"),
             ("average_rating", "generated_average_rating"),
             ("player_count", "generated_player_count"),
+            ("hltb_main_story", "generated_hltb_main_story"),
         ],
     )
     def test_orders_by_the_roms_column_with_nulls_last(
@@ -164,8 +163,7 @@ class TestMetadataSortResults:
     def test_roms_without_metadata_stay_in_the_result_and_sort_last(
         self, platform: Platform, order_dir: str
     ):
-        """An unmatched rom has no release date; it must not be filtered out,
-        and it trails the dated roms in both directions on every engine."""
+        """An unmatched rom stays in the result and trails the dated roms."""
         _make_rom(platform, "dated", igdb_metadata={"first_release_date": "100000000"})
         _make_rom(platform, "undated")
 

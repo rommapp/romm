@@ -1266,6 +1266,11 @@ class RomNote(BaseModel):
     user: Mapped[User] = relationship(lazy="joined", back_populates="notes")
 
 
+# `rom_user` columns that are NOT NULL with default 0, where 0 renders as
+# unset in the UI, exactly like having no `rom_user` row at all.
+ROM_USER_ZERO_IS_UNSET_COLUMNS = frozenset({"rating", "difficulty", "completion"})
+
+
 class RomUser(BaseModel):
     __tablename__ = "rom_user"
     __table_args__ = (

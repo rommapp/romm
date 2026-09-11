@@ -57,19 +57,49 @@ class TestRomUserSortQueryShape:
         assert "rom_user.user_id" not in str(query.whereclause or "")
         assert order_column is RomUser.last_played
 
+    def test_mariadb_ascending_leads_with_is_null(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr("handler.database.roms_handler.ROMM_DB_DRIVER", "mariadb")
+        query, _ = db_rom_handler.get_roms_query(order_by="last_played", user_id=1)
+
+        assert (
+            "ORDER BY rom_user.last_played IS NULL, rom_user.last_played ASC"
+        ) in str(query)
+
+    def test_mariadb_descending_uses_native_null_placement(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr("handler.database.roms_handler.ROMM_DB_DRIVER", "mariadb")
+        query, _ = db_rom_handler.get_roms_query(
+            order_by="last_played", order_dir="desc", user_id=1
+        )
+        order_sql = str(query).split("ORDER BY")[-1]
+
+        # MariaDB/MySQL place NULLs last on DESC without a leading IS NULL term.
+        assert order_sql.strip().startswith("rom_user.last_played DESC")
+        assert "IS NULL" not in order_sql
+
     @pytest.mark.parametrize("order_dir", ["asc", "desc"])
-    def test_nulls_lead_the_order_clause(self, order_dir: str):
+    def test_postgres_sorts_with_native_nulls_last(
+        self, monkeypatch: pytest.MonkeyPatch, order_dir: str
+    ):
+        monkeypatch.setattr(
+            "handler.database.roms_handler.ROMM_DB_DRIVER", "postgresql"
+        )
         query, _ = db_rom_handler.get_roms_query(
             order_by="last_played", order_dir=order_dir, user_id=1
         )
+        order_sql = str(query).split("ORDER BY")[-1]
 
-        assert (
-            "ORDER BY rom_user.last_played IS NULL, "
-            f"rom_user.last_played {order_dir.upper()}"
-        ) in str(query)
+        assert f"rom_user.last_played {order_dir.upper()} NULLS LAST" in order_sql
+        assert "IS NULL" not in order_sql
 
     @pytest.mark.parametrize("order_by", ["rating", "difficulty", "completion"])
-    def test_zero_default_columns_fold_zero_into_the_null_bucket(self, order_by: str):
+    def test_zero_default_columns_fold_zero_into_the_null_bucket(
+        self, monkeypatch: pytest.MonkeyPatch, order_by: str
+    ):
+        monkeypatch.setattr("handler.database.roms_handler.ROMM_DB_DRIVER", "mariadb")
         query, order_column = db_rom_handler.get_roms_query(
             order_by=order_by, user_id=1
         )
@@ -116,8 +146,7 @@ class TestRomUserSortResults:
             },
         )
 
-    # Unset keys always trail; ties inside the unset bucket follow the rom id
-    # in the sort direction (untouched was created before played_unrated).
+    # Ties inside the unset bucket follow the rom id in the sort direction.
     @pytest.mark.parametrize(
         ("order_by", "order_dir", "expected"),
         [
