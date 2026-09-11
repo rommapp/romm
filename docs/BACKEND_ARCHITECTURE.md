@@ -1727,6 +1727,8 @@ scan:
 
 emulatorjs:
   debug: false
+  default_cores:
+    nds: desmume # platform slug → core preselected in the player
   netplay:
     enabled: false
     ice_servers:

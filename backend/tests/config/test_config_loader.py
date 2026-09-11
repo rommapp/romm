@@ -69,6 +69,10 @@ def test_config_loader():
             "credential": "password",
         },
     ]
+    assert loader.config.EJS_DEFAULT_CORES == {
+        "nds": "desmume",
+        "nintendo-dsi": "melonds",
+    }
     assert loader.config.EJS_SETTINGS == {
         "parallel_n64": {"vsync": "disabled"},
         "snes9x": {"snes9x_region": "ntsc"},
@@ -160,6 +164,7 @@ def test_empty_config_loader():
     assert not loader.config.EJS_ENABLE_AUTO_SAVE_SYNC
     assert not loader.config.EJS_NETPLAY_ENABLED
     assert loader.config.EJS_NETPLAY_ICE_SERVERS == []
+    assert loader.config.EJS_DEFAULT_CORES == {}
     assert loader.config.EJS_SETTINGS == {}
     assert loader.config.EJS_CONTROLS == {}
     assert loader.config.SCAN_ARTWORK_PRIORITY_OVERRIDES == {}
@@ -623,6 +628,26 @@ def test_platform_binding_lookup_ignores_case(tmp_path):
 
     loader.remove_platform_binding("GAMECUBE")
     assert loader.config.PLATFORMS_BINDING == {}
+
+
+def _write_emulatorjs_config(tmp_path: Path, emulatorjs_block: str) -> ConfigManager:
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(f"emulatorjs:\n{emulatorjs_block}")
+    return ConfigManager(str(config_file))
+
+
+def test_null_default_cores_block_means_empty(tmp_path):
+    loader = _write_emulatorjs_config(tmp_path, "  default_cores:\n")
+
+    assert loader.config.EJS_DEFAULT_CORES == {}
+
+
+@pytest.mark.parametrize("value", ['""', "5", "~"])
+def test_default_core_must_be_a_non_empty_string(tmp_path, value):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_emulatorjs_config(tmp_path, f"  default_cores:\n    nds: {value}\n")
+
+    assert excinfo.value.code == 3
 
 
 @pytest.fixture

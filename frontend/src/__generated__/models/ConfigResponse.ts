@@ -31,6 +31,7 @@ export type ConfigResponse = {
     EJS_CORES: Record<string, Array<string>>;
     EJS_NIGHTLY_CORES: Record<string, Array<string>>;
     EJS_NETPLAY_ICE_SERVERS: Array<NetplayICEServer>;
+    EJS_DEFAULT_CORES: Record<string, string>;
     EJS_SETTINGS: Record<string, Record<string, string>>;
     EJS_CONTROLS: Record<string, EjsControls>;
     SCAN_METADATA_PRIORITY: Array<string>;

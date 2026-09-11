@@ -157,6 +157,7 @@ def get_config(request: Request) -> ConfigResponse:
             cfg.EJS_NETPLAY_ICE_SERVERS if request.user.is_authenticated else []
         ),
         EJS_CONTROLS=cfg.EJS_CONTROLS,
+        EJS_DEFAULT_CORES=cfg.EJS_DEFAULT_CORES,
         EJS_SETTINGS=cfg.EJS_SETTINGS,
         SCAN_METADATA_PRIORITY=cfg.SCAN_METADATA_PRIORITY,
         SCAN_ARTWORK_PRIORITY=cfg.SCAN_ARTWORK_PRIORITY,

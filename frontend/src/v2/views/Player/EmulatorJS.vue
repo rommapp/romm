@@ -315,7 +315,13 @@ onMounted(async () => {
   });
   firmwareOptions.value = firmwareResponse.data;
 
-  supportedCores.value = [...getSupportedEJSCores(rom.value.platform_slug)];
+  const platformSlug = rom.value.platform_slug;
+  supportedCores.value = [
+    ...getSupportedEJSCores(
+      platformSlug,
+      configStore.config.EJS_NETPLAY_ENABLED,
+    ),
+  ];
 
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
@@ -333,6 +339,14 @@ onMounted(async () => {
     });
   }
 
+  // compatibleStates filters on selectedCore, so resolve the core first.
+  selectedCore.value = resolveRememberedCore(
+    rom.value.id,
+    platformSlug,
+    supportedCores.value,
+    configStore.getEJSDefaultCore(platformSlug),
+  );
+
   // Default selection — save and state are independent, so both can be
   // armed at once. The bound save is the write-back target for "Save &
   // Quit" (PUT in place), so we only auto-bind it when the choice is
@@ -340,13 +354,10 @@ onMounted(async () => {
   // there are multiple saves, since loading the state injects a different
   // SRAM timeline that would overwrite an arbitrary save the user never
   // picked. In that case the user must select the save slot explicitly.
-  const initiallyCompatibleStates = rom.value.user_states.filter(
-    (s) => !s.emulator || s.emulator === supportedCores.value[0],
-  );
-  const hasCompatibleState = initiallyCompatibleStates.length > 0;
+  const hasCompatibleState = compatibleStates.value.length > 0;
 
   if (hasCompatibleState) {
-    selectedState.value = initiallyCompatibleStates[0];
+    selectedState.value = compatibleStates.value[0];
   }
   const safeToBindSave =
     rom.value.user_saves.length === 1 || !hasCompatibleState;
@@ -360,16 +371,8 @@ onMounted(async () => {
     bootableRomFiles.value,
   );
 
-  selectedCore.value = resolveRememberedCore(
-    rom.value.id,
-    rom.value.platform_slug,
-    supportedCores.value,
-  );
-
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
-  const storedBiosID = localStorage.getItem(
-    `player:${rom.value.platform_slug}:bios_id`,
-  );
+  const storedBiosID = localStorage.getItem(`player:${platformSlug}:bios_id`);
 
   selectedFirmware.value = resolveInitialFirmware({
     options: firmwareOptions.value,

@@ -29,6 +29,7 @@ class ConfigResponse(TypedDict):
     EJS_CORES: dict[str, list[str]]
     EJS_NIGHTLY_CORES: dict[str, list[str]]
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
+    EJS_DEFAULT_CORES: dict[str, str]
     EJS_SETTINGS: dict[str, dict[str, str]]
     EJS_CONTROLS: dict[str, EjsControls]
     SCAN_METADATA_PRIORITY: list[str]
