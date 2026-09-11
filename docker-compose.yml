@@ -37,7 +37,7 @@ services:
     tty: true
 
   romm-db-dev:
-    image: mariadb:11.3.2
+    image: mariadb:12.3.3
     container_name: romm-db-dev
     restart: unless-stopped
     env_file: .env
@@ -52,7 +52,7 @@ services:
       - "3306:3306"
 
   romm-valkey-dev:
-    image: valkey/valkey:8
+    image: valkey/valkey:9.0.6
     container_name: romm-valkey-dev
     restart: unless-stopped
     env_file: .env

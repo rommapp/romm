@@ -19,7 +19,7 @@ jobs:
       pull-requests: write
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
@@ -66,7 +66,7 @@ jobs:
     # A server configured for utf8mb3 makes the roms table, the view literals
     # and the JSON_TABLE columns utf8mb3, which breaks collation-sensitive
     # migration SQL that a default utf8mb4 server accepts (issue #4350).
-    name: migrate-mariadb (${{ matrix.collation }})
+    name: migrate-mariadb (${{ matrix.mariadb }}, ${{ matrix.collation }})
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -75,10 +75,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - charset: utf8mb4
+          # renovate: datasource=docker depName=mariadb
+          - mariadb: "12.3.3"
+            charset: utf8mb4
             collation: utf8mb4_general_ci
-          - charset: utf8mb3
+          # renovate: datasource=docker depName=mariadb
+          - mariadb: "12.3.3"
+            charset: utf8mb3
             collation: utf8mb3_unicode_ci
+          # Oldest supported LTS, and the only leg still on the pre-uca1400
+          # default. Unmarked so updates cannot raise it off that floor.
+          - mariadb: "10.11.19"
+            charset: utf8mb4
+            collation: utf8mb4_general_ci
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -101,6 +110,7 @@ jobs:
         env:
           CHARSET: ${{ matrix.charset }}
           COLLATION: ${{ matrix.collation }}
+          MARIADB_IMAGE_TAG: ${{ matrix.mariadb }}
         run: |
           docker run -d --name mariadb -p 3306:3306 \
             -e MARIADB_USER=user \
@@ -111,7 +121,7 @@ jobs:
             --health-interval 5s \
             --health-timeout 2s \
             --health-retries 10 \
-            mariadb:11.3.2 \
+            "mariadb:$MARIADB_IMAGE_TAG" \
             --character-set-server="$CHARSET" \
             --collation-server="$COLLATION"
           for _ in $(seq 1 30); do
