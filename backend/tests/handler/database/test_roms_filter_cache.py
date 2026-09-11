@@ -315,6 +315,33 @@ class TestRomUserCacheVersion:
         assert db_rom_handler.update_rom_user(424242, {"rating": 8}) is None
         assert user_sort_cache_version(admin_user.id) == before
 
+    def test_reused_session_bumps_on_every_commit(self, rom: Rom, admin_user: User):
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        before = int(user_sort_cache_version(admin_user.id))
+
+        with session_factory() as session:
+            db_rom_handler.update_rom_user(rom_user.id, {"rating": 4}, session=session)
+            session.commit()
+            db_rom_handler.update_rom_user(rom_user.id, {"rating": 5}, session=session)
+            session.commit()
+
+        assert int(user_sort_cache_version(admin_user.id)) == before + 2
+
+    def test_rolled_back_write_does_not_bump(self, rom: Rom, admin_user: User):
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        before = user_sort_cache_version(admin_user.id)
+
+        with session_factory() as session:
+            db_rom_handler.update_rom_user(rom_user.id, {"rating": 4}, session=session)
+            session.rollback()
+            # An empty commit after the rollback must not flush the
+            # discarded bumps.
+            session.commit()
+
+        assert user_sort_cache_version(admin_user.id) == before
+
 
 class TestInvalidateFilterValuesCache:
     def test_deletes_prior_version_keys_and_set(self, rom_with_metadata: Rom):

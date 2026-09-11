@@ -52,6 +52,7 @@ from config import ROMM_DB_DRIVER
 from config.config_manager import config_manager as cm
 from decorators.database import begin_session
 from handler.redis_handler import sync_cache
+from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.base import PRERELEASE_FILENAME_TAGS, compute_file_name_parts
 from models.collection import Collection, CollectionRom, SmartCollection
@@ -581,21 +582,35 @@ def _queue_user_cache_bumps(
         return
     session.info["user_cache_bumps_armed"] = True
 
+    def _consume(ending_session: Session) -> dict[int, set[str]]:
+        # Popping the state re-arms the next transaction on a reused session.
+        ending_session.info.pop("user_cache_bumps_armed", None)
+        return ending_session.info.pop("user_cache_bumps", {})
+
     @event.listens_for(session, "after_commit", once=True)
     def _flush(_session: Session) -> None:
         # No keys-set bookkeeping: entries under an old version become
         # unreachable and are reaped by the TTL or the next global bump.
-        for uid, uid_flags in bumps.items():
-            if "sort" in uid_flags:
-                sync_cache.incr(_user_sort_version_key(uid))
-            if "sib" in uid_flags:
-                sync_cache.incr(_user_sibling_version_key(uid))
-            if "feed" in uid_flags:
-                # Imported here because the recommendation package reads
-                # this module.
-                from handler.recommendation import invalidate_cached_feed
+        for uid, uid_flags in _consume(_session).items():
+            # The write is already durable, so a cache failure only logs;
+            # the stale entry falls to the TTL.
+            try:
+                if "sort" in uid_flags:
+                    sync_cache.incr(_user_sort_version_key(uid))
+                if "sib" in uid_flags:
+                    sync_cache.incr(_user_sibling_version_key(uid))
+                if "feed" in uid_flags:
+                    # Imported here because the recommendation package reads
+                    # this module.
+                    from handler.recommendation import invalidate_cached_feed
 
-                invalidate_cached_feed(uid)
+                    invalidate_cached_feed(uid)
+            except Exception:
+                log.exception("Failed to bump user %s cache versions", uid)
+
+    @event.listens_for(session, "after_rollback", once=True)
+    def _discard(_session: Session) -> None:
+        _consume(_session)
 
 
 class DBRomsHandler(DBBaseHandler):
