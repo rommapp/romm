@@ -785,10 +785,8 @@ onBeforeRouteLeave((_to, from) => {
 // the list header checkbox.
 const { selectAll, selectingAll } = useGallerySelectAll();
 
-// Global hotkeys scoped to the gallery shell — Esc clears the
-// selection, Ctrl/Cmd+A selects the whole filtered result. Both are
-// guarded against editable elements so the search field's native
-// Cmd+A still selects the input text.
+// Esc clears the selection, Ctrl/Cmd+A selects the whole result; both
+// skip editable elements so the search field's native Cmd+A survives.
 function onShellKey(e: KeyboardEvent) {
   const target = e.target as HTMLElement | null;
   if (
