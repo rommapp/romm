@@ -183,6 +183,10 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "hltb_main_story": Rom.generated_hltb_main_story,
 }
 
+# `rom_user` columns that are NOT NULL with default 0, where 0 renders as
+# unset in the UI, exactly like having no `rom_user` row at all.
+ROM_USER_ZERO_IS_UNSET_COLUMNS = frozenset({"rating", "difficulty", "completion"})
+
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Column order matches the unpacking
 # in `_collect_filter_values`.
@@ -1664,14 +1668,17 @@ class DBRomsHandler(DBBaseHandler):
         query = self._join_rom_user(select(Rom), user_id)
 
         sorts_by_rom_user = False
+        sorts_by_metadata = False
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)
             sorts_by_rom_user = True
         elif order_by in ROM_METADATA_ORDER_COLUMNS:
             order_attr = ROM_METADATA_ORDER_COLUMNS[order_by]
+            sorts_by_metadata = True
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomMetadata, order_by)
             query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
+            sorts_by_metadata = True
         elif hasattr(Rom, order_by):
             order_attr = getattr(Rom, order_by)
         else:
@@ -1685,12 +1692,26 @@ class DBRomsHandler(DBBaseHandler):
 
         order_attr_column = order_attr
 
+        # 0 renders as unset, so NULLIF folds it into the NULL bucket and both
+        # kinds of unset sort together.
+        if sorts_by_rom_user and order_by in ROM_USER_ZERO_IS_UNSET_COLUMNS:
+            order_attr = func.nullif(order_attr, 0)
+
         # MariaDB/MySQL have no NULLS LAST, so a leading IS NULL term keeps NULL
         # keys (no rom_user row, or an unset field) last in both directions.
-        nulls_last_clause = order_attr_column.is_(None) if sorts_by_rom_user else None
+        nulls_last_clause = order_attr.is_(None) if sorts_by_rom_user else None
 
         descending = order_dir.lower() == "desc"
         order_attr = order_attr.desc() if descending else order_attr.asc()
+
+        if sorts_by_metadata:
+            # NULL metadata keys (unmatched roms) sort last too. PostgreSQL says
+            # it natively; MariaDB/MySQL place NULLs last on DESC already, so
+            # only ASC needs the IS NULL term (which costs the index order).
+            if ROMM_DB_DRIVER == "postgresql":
+                order_attr = order_attr.nulls_last()
+            elif not descending:
+                nulls_last_clause = order_attr_column.is_(None)
 
         # Ties are common on every sort key here and the gallery pages by
         # offset, so without a unique final key a rom can repeat in one window

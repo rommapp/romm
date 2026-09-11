@@ -72,10 +72,14 @@ class TestGeneratedColumn:
 
 
 class TestLengthSort:
-    def test_orders_by_the_indexed_roms_column(self):
+    def test_orders_by_the_indexed_roms_column(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr("handler.database.roms_handler.ROMM_DB_DRIVER", "mariadb")
         query, order_column = db_rom_handler.get_roms_query(order_by="hltb_main_story")
 
-        assert "ORDER BY roms.generated_hltb_main_story ASC" in str(query)
+        assert (
+            "ORDER BY roms.generated_hltb_main_story IS NULL, "
+            "roms.generated_hltb_main_story ASC"
+        ) in str(query)
         assert order_column is Rom.generated_hltb_main_story
 
     @pytest.mark.parametrize("order_dir", ["asc", "desc"])
@@ -109,10 +113,9 @@ class TestLengthSort:
         ordered = [
             rom.name
             for rom in db_rom_handler.get_roms_scalar(order_by="hltb_main_story")
-            if rom.generated_hltb_main_story is not None
         ]
 
-        assert ordered == ["short", "medium", "long"]
+        assert ordered == ["short", "medium", "long", "unknown"]
 
     def test_descending(self, length_roms: None):
         ordered = [
@@ -120,18 +123,9 @@ class TestLengthSort:
             for rom in db_rom_handler.get_roms_scalar(
                 order_by="hltb_main_story", order_dir="desc"
             )
-            if rom.generated_hltb_main_story is not None
         ]
 
-        assert ordered == ["long", "medium", "short"]
-
-    def test_roms_without_a_length_are_still_returned(self, length_roms: None):
-        names = {
-            rom.name
-            for rom in db_rom_handler.get_roms_scalar(order_by="hltb_main_story")
-        }
-
-        assert names == {"short", "medium", "long", "unknown"}
+        assert ordered == ["long", "medium", "short", "unknown"]
 
 
 class TestLengthFilter:
