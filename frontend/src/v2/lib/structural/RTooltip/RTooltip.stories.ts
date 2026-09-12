@@ -504,14 +504,14 @@ export const FormHelper: Story = {
 export const DismissedByOverlay: Story = {
   name: "Dismissed when an overlay opens",
   render: () => ({
-    components: { RTooltip, RMenu, RMenuItem },
+    components: { RTooltip, RMenu, RMenuItem, RBtn },
     template: `
       <div style="padding:48px;display:flex;justify-content:center">
         <section aria-label="Super Mario World" style="padding:24px;border:1px solid var(--r-color-border);border-radius:8px">
           Super Mario World
           <RMenu>
             <template #activator="{ props }">
-              <button type="button" v-bind="props" @click.stop>More actions</button>
+              <RBtn v-bind="props" @click.stop>More actions</RBtn>
             </template>
             <RTooltip text="Rename this game" :open-delay="0">
               <template #activator="{ props: tipProps }">

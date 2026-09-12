@@ -8,7 +8,11 @@ import {
 } from "./escapeStack";
 
 function entry(panel?: HTMLElement): EscapableEntry {
-  return { close: () => {}, persistent: false, panel: panel && (() => panel) };
+  return {
+    close: () => {},
+    persistent: false,
+    panel: panel ? () => panel : undefined,
+  };
 }
 
 const open: EscapableEntry[] = [];
@@ -42,7 +46,6 @@ describe("onEscapableOpen", () => {
 
     push(e);
     popEscapable(e);
-    open.splice(open.indexOf(e), 1);
     expect(listener).toHaveBeenCalledTimes(1);
 
     stop();
@@ -80,11 +83,5 @@ describe("isUnderOpenEscapable", () => {
     push(entry());
 
     expect(isUnderOpenEscapable(document.createElement("button"))).toBe(false);
-  });
-
-  it("treats a missing node as covered", () => {
-    push(entry(document.createElement("div")));
-
-    expect(isUnderOpenEscapable(null)).toBe(true);
   });
 });

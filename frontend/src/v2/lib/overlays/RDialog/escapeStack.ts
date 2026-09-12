@@ -58,7 +58,7 @@ function detachListener() {
 export function pushEscapable(entry: EscapableEntry): void {
   stack.push(entry);
   attachListener();
-  for (const listener of [...openListeners]) listener();
+  for (const listener of openListeners) listener();
 }
 
 export function popEscapable(entry: EscapableEntry): void {
@@ -81,7 +81,7 @@ export function onEscapableOpen(listener: () => void): () => void {
 export function isUnderOpenEscapable(el: Node | null): boolean {
   const panel = stack[stack.length - 1]?.panel?.();
   if (!panel) return false;
-  return !el || !panel.contains(el);
+  return !panel.contains(el);
 }
 
 /** True when at least one non-persistent escapable overlay is open.
