@@ -39,8 +39,16 @@ SUPPORTED_PATCH_EXTENSIONS = frozenset(
     )
 )
 
-# Bound concurrent node subprocesses, each of which loads a full ROM into memory.
+# Bound concurrent operations because each Node subprocess loads a full ROM.
 _patch_semaphore = asyncio.Semaphore(ROM_PATCHER_MAX_CONCURRENCY)
+
+_WRITABLE_ZIP_COMPRESSION_TYPES = {
+    zipfile.ZIP_STORED,
+    zipfile.ZIP_DEFLATED,
+    zipfile.ZIP_BZIP2,
+    zipfile.ZIP_LZMA,
+    zipfile.ZIP_ZSTANDARD,
+}
 
 
 class PatcherError(Exception):
@@ -115,12 +123,6 @@ def _rebuild_zip(
     patched_path: Path,
     patched_member_name: str,
 ) -> None:
-    writable_compression = {
-        zipfile.ZIP_STORED,
-        zipfile.ZIP_DEFLATED,
-        zipfile.ZIP_BZIP2,
-        zipfile.ZIP_LZMA,
-    }
     try:
         ensure_zipfile_writable()
         with (
@@ -130,7 +132,10 @@ def _rebuild_zip(
             output_archive.comment = source_archive.comment
             for source_entry in source_archive.infolist():
                 output_entry = copy.copy(source_entry)
-                if output_entry.compress_type not in writable_compression:
+                if (
+                    output_entry.compress_type
+                    not in _WRITABLE_ZIP_COMPRESSION_TYPES
+                ):
                     output_entry.compress_type = zipfile.ZIP_DEFLATED
 
                 if source_entry.is_dir():
@@ -170,26 +175,25 @@ async def _apply_binary_patch(
     Raises :class:`PatcherError` if the subprocess fails, times out, or the
     output file is missing.
     """
-    async with _patch_semaphore:
-        proc = await asyncio.create_subprocess_exec(
-            "node",
-            str(PATCHER_SCRIPT),
-            str(rom_path),
-            str(patch_path),
-            str(output_path),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+    proc = await asyncio.create_subprocess_exec(
+        "node",
+        str(PATCHER_SCRIPT),
+        str(rom_path),
+        str(patch_path),
+        str(output_path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(), timeout=ROM_PATCHER_TIMEOUT
         )
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=ROM_PATCHER_TIMEOUT
-            )
-        except TimeoutError as e:
-            proc.kill()
-            await proc.wait()
-            raise PatcherError(
-                f"Patching timed out after {ROM_PATCHER_TIMEOUT}s"
-            ) from e
+    except TimeoutError as e:
+        proc.kill()
+        await proc.wait()
+        raise PatcherError(
+            f"Patching timed out after {ROM_PATCHER_TIMEOUT}s"
+        ) from e
 
     if proc.returncode != 0:
         message = "Patching failed"
@@ -219,29 +223,30 @@ async def apply_patch(
     archive_member_name: str | None = None,
 ) -> bool:
     """Apply a patch to a raw ROM or to one member of a ZIP archive."""
-    extension = rom_path.suffix.lower()
-    if extension != ".zip":
-        if archive_member_name is not None:
-            raise PatcherInputError("Archive member selection requires a ZIP ROM")
-        if extension in COMPRESSED_FILE_EXTENSIONS:
-            raise PatcherInputError(
-                f"ROM archives in '{extension}' format are not supported for patching"
-            )
-        return await _apply_binary_patch(rom_path, patch_path, output_path)
+    async with _patch_semaphore:
+        extension = rom_path.suffix.lower()
+        if extension != ".zip":
+            if archive_member_name is not None:
+                raise PatcherInputError("Archive member selection requires a ZIP ROM")
+            if extension in COMPRESSED_FILE_EXTENSIONS:
+                raise PatcherInputError(
+                    f"ROM archives in '{extension}' format are not supported for patching"
+                )
+            return await _apply_binary_patch(rom_path, patch_path, output_path)
 
-    extracted_path = output_path.parent / "source_rom"
-    member_name = await asyncio.to_thread(
-        _extract_zip_member, rom_path, extracted_path, archive_member_name
-    )
-    patched_path = output_path.parent / "patched_rom"
-    validated = await _apply_binary_patch(extracted_path, patch_path, patched_path)
-    patched_size = (await AnyioPath(patched_path).stat()).st_size
-    if patched_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
-        raise PatcherInputError(
-            "The patched ROM is too large "
-            f"({patched_size} bytes, max {ROM_PATCHER_MAX_FILE_SIZE_BYTES})"
+        extracted_path = output_path.parent / "source_rom"
+        member_name = await asyncio.to_thread(
+            _extract_zip_member, rom_path, extracted_path, archive_member_name
         )
-    await asyncio.to_thread(
-        _rebuild_zip, rom_path, output_path, patched_path, member_name
-    )
-    return validated
+        patched_path = output_path.parent / "patched_rom"
+        validated = await _apply_binary_patch(extracted_path, patch_path, patched_path)
+        patched_size = (await AnyioPath(patched_path).stat()).st_size
+        if patched_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+            raise PatcherInputError(
+                "The patched ROM is too large "
+                f"({patched_size} bytes, max {ROM_PATCHER_MAX_FILE_SIZE_BYTES})"
+            )
+        await asyncio.to_thread(
+            _rebuild_zip, rom_path, output_path, patched_path, member_name
+        )
+        return validated
