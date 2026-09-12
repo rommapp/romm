@@ -36,7 +36,7 @@ Create Date: 2026-08-08 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import CustomJSON, is_postgresql
+from utils.database import CustomJSON, has_column, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0123_recommendation_metadata"
@@ -625,7 +625,8 @@ def _refresh_steam_collections(pg: bool) -> None:
 
 
 def upgrade() -> None:
-    pg = is_postgresql(op.get_bind())
+    connection = op.get_bind()
+    pg = is_postgresql(connection)
 
     _rebuild_columns(
         pg,
@@ -636,7 +637,8 @@ def upgrade() -> None:
     )
 
     for _, facet in _TAG_COLUMNS:
-        op.add_column("roms_facets", sa.Column(facet, CustomJSON(), nullable=True))
+        if not has_column(connection, "roms_facets", facet):
+            op.add_column("roms_facets", sa.Column(facet, CustomJSON(), nullable=True))
 
     _sync_facets(pg, _FACET_COLUMNS)
     _rebuild_triggers(pg, _MIRRORED_COLUMNS)
