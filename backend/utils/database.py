@@ -81,9 +81,14 @@ def full_path_digest_sql(conn: sa.Connection) -> str:
 
     `test_migrations` pins this to the Python function it mirrors.
     """
+    # COALESCE because the Python side reads a NULL as "", while both dialects
+    # would fold the whole concatenation to NULL and fail 0126's NOT NULL step.
     if is_postgresql(conn):
-        return "encode(sha256(convert_to(fs_path || '/' || fs_name, 'UTF8')), 'hex')"
-    return "SHA2(CONCAT(fs_path, '/', fs_name), 256)"
+        return (
+            "encode(sha256(convert_to(COALESCE(fs_path, '') || '/' || "
+            "COALESCE(fs_name, ''), 'UTF8')), 'hex')"
+        )
+    return "SHA2(CONCAT(COALESCE(fs_path, ''), '/', COALESCE(fs_name, '')), 256)"
 
 
 def json_array_contains_value(

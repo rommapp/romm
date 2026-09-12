@@ -4,10 +4,14 @@ The test database is built from the migrations, so an index declared in one but
 not the other goes unnoticed until autogenerate proposes dropping it.
 """
 
+import importlib.util
+from pathlib import Path
+
 import pytest
 import sqlalchemy as sa
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import Table, UniqueConstraint
 
 import models
@@ -84,9 +88,12 @@ def test_postgresql_fk_indexes_cover_every_unindexed_foreign_key():
         ("roms/nes/Hacks & Tra'nslations", "Zelda [T-Eng].nes"),
         ("roms/nes/Ünïcøde", "Pokémon Édition Rouge.gb"),
         ("", ""),
+        (None, None),
     ],
 )
-def test_the_migrated_full_path_digest_matches_the_models(fs_path: str, fs_name: str):
+def test_the_migrated_full_path_digest_matches_the_models(
+    fs_path: str | None, fs_name: str | None
+):
     """0126 backfills `full_path_hash` in SQL; the app writes it from Python.
 
     A mismatch would make every pre-existing rom look new to the unique index.
@@ -101,3 +108,33 @@ def test_the_migrated_full_path_digest_matches_the_models(fs_path: str, fs_name:
         ).scalar_one()
 
     assert digest == compute_full_path_hash(fs_path, fs_name)
+
+
+def test_the_full_path_hash_migration_survives_a_re_run():
+    """0126 replayed over a schema it already migrated is a no-op.
+
+    MySQL/MariaDB auto-commit each DDL statement, so a run that dies partway
+    keeps the column without advancing the alembic version, and every restart
+    after that replays the revision from the top.
+    """
+    path = (
+        Path(__file__).parent.parent
+        / "alembic"
+        / "versions"
+        / "0126_unique_rom_full_path.py"
+    )
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    assert spec and spec.loader
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+        indexes = {
+            index["name"]: index for index in sa.inspect(connection).get_indexes("roms")
+        }
+
+    assert indexes[migration.UNIQUE_INDEX_NAME]["unique"]
+    assert not indexes[migration.LOOKUP_INDEX_NAME]["unique"]

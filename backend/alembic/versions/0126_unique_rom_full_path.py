@@ -23,41 +23,64 @@ down_revision = "0125_drop_redundant_indexes"
 branch_labels = None
 depends_on = None
 
+COLUMN_NAME = "full_path_hash"
 LOOKUP_INDEX_NAME = "idx_roms_platform_id_fs_name"
 UNIQUE_INDEX_NAME = "idx_roms_platform_id_full_path_hash"
 
 
 def upgrade() -> None:
-    op.add_column(
-        "roms",
-        sa.Column("full_path_hash", sa.String(length=FULL_PATH_HASH_LENGTH)),
-    )
     connection = op.get_bind()
+    inspector = sa.inspect(connection)
+    column = next(
+        (
+            column
+            for column in inspector.get_columns("roms")
+            if column["name"] == COLUMN_NAME
+        ),
+        None,
+    )
+    indexes = {index["name"]: index for index in inspector.get_indexes("roms")}
+
+    # Every step is guarded so a re-run after a partial failure recovers
+    # cleanly. MySQL/MariaDB auto-commit each DDL statement, so a crash
+    # mid-migration leaves the column behind without advancing the alembic
+    # version, and an unguarded ADD COLUMN then fails every start after it.
+    if column is None:
+        op.add_column(
+            "roms",
+            sa.Column(COLUMN_NAME, sa.String(length=FULL_PATH_HASH_LENGTH)),
+        )
+
     connection.execute(
         sa.text(
-            f"UPDATE roms SET full_path_hash = {full_path_digest_sql(connection)}"  # nosec B608
+            f"UPDATE roms SET {COLUMN_NAME} = {full_path_digest_sql(connection)} "  # nosec B608
+            f"WHERE {COLUMN_NAME} IS NULL"
         )
     )
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.alter_column(
-            "full_path_hash",
-            existing_type=sa.String(length=FULL_PATH_HASH_LENGTH),
-            nullable=False,
-        )
-        batch_op.create_index(
-            UNIQUE_INDEX_NAME,
-            ["platform_id", "full_path_hash"],
-            unique=True,
-            if_not_exists=True,
-        )
-        batch_op.drop_index(LOOKUP_INDEX_NAME, if_exists=True)
-        batch_op.create_index(
-            LOOKUP_INDEX_NAME,
-            ["platform_id", "fs_name"],
-            unique=False,
-            if_not_exists=True,
-        )
+        if column is None or column["nullable"]:
+            batch_op.alter_column(
+                COLUMN_NAME,
+                existing_type=sa.String(length=FULL_PATH_HASH_LENGTH),
+                nullable=False,
+            )
+        if UNIQUE_INDEX_NAME not in indexes:
+            batch_op.create_index(
+                UNIQUE_INDEX_NAME,
+                ["platform_id", COLUMN_NAME],
+                unique=True,
+                if_not_exists=True,
+            )
+        # 0091 made this index unique; the digest carries that role now.
+        if LOOKUP_INDEX_NAME not in indexes or indexes[LOOKUP_INDEX_NAME]["unique"]:
+            batch_op.drop_index(LOOKUP_INDEX_NAME, if_exists=True)
+            batch_op.create_index(
+                LOOKUP_INDEX_NAME,
+                ["platform_id", "fs_name"],
+                unique=False,
+                if_not_exists=True,
+            )
 
 
 def downgrade() -> None:
