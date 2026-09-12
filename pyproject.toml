@@ -140,9 +140,10 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
 
 [tool.uv]
 package = false
-# Keep in step with UV_VERSION in docker/Dockerfile: CI resolves its uv from
-# here, and the image build fails if its pinned uv falls below this floor.
-required-version = ">=0.12.13"
+# The one source of truth for uv, pinned exactly so CI and both images resolve
+# the same release. Keep in step with docker/Dockerfile and ./Dockerfile,
+# whose builds fail against a mismatched pin.
+required-version = "==0.12.13"
 exclude-newer = "7 days"
 
 [tool.ty.environment]
