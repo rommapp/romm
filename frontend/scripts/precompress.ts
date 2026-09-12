@@ -1,12 +1,13 @@
 /**
- * precompress — a build plugin that writes a .gz sibling for each built asset.
+ * precompress: a build plugin that writes a .gz sibling for each built asset.
  *
  * nginx serves these directly via `gzip_static`, so the bundle is compressed
  * once at build time rather than on every cold page load.
  *
  * Level 9 is affordable because it runs once. The ratio lands within a percent
  * of what nginx produces at runtime, so the win is the CPU, not the bytes.
- * Files without a .gz sibling still fall back to on-the-fly gzip.
+ * A file without a .gz sibling is served normally, gzipped on the fly only
+ * if its type is in nginx's gzip_types.
  */
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
@@ -29,7 +30,8 @@ const COMPRESSIBLE = new Set([
   ".xml",
 ]);
 
-// nginx's gzip_min_length: below this the encoding overhead outweighs the win.
+// Must equal nginx's gzip_min_length, or the precompressed set stops matching
+// what the server will serve. test_static_precompression.py asserts they agree.
 const MIN_BYTES = 1024;
 
 async function* walk(dir: string): AsyncGenerator<string> {

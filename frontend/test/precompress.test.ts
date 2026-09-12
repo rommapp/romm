@@ -61,6 +61,22 @@ describe("precompress", () => {
     expect(await readdir(dir)).not.toContain("logo.png.gz");
   });
 
+  it("skips a file gzip would make bigger", async () => {
+    // High-entropy bytes under a compressible extension, so the extension
+    // filter lets it through and only the size guard can reject it.
+    const noise = Buffer.alloc(4096);
+    let seed = 1;
+    for (let i = 0; i < noise.length; i += 1) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      noise[i] = seed >>> 16;
+    }
+    const dir = await fixture({ "noise.json": noise });
+
+    await runOn(dir);
+
+    expect(await readdir(dir)).not.toContain("noise.json.gz");
+  });
+
   it("does not compress its own output on a second run", async () => {
     const dir = await fixture({
       "app.js": "const compressible = 1;\n".repeat(200),
