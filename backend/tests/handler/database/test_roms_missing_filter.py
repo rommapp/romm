@@ -18,6 +18,7 @@ from sqlalchemy import inspect
 from tests.conftest import engine
 
 from handler.database import db_rom_handler
+from handler.database.rom_filters import RomFilterParams
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -59,7 +60,9 @@ class TestMissingFromFsPredicate:
     @pytest.mark.parametrize(("missing", "literal"), [(True, "true"), (False, "false")])
     def test_predicate_is_an_indexable_equality(self, missing: bool, literal: str):
         query, _ = db_rom_handler.get_roms_query()
-        filtered = db_rom_handler.filter_roms(query=query, missing=missing)
+        filtered = db_rom_handler.filter_roms(
+            query=query, filters=RomFilterParams(missing=missing)
+        )
 
         sql = str(filtered.compile(compile_kwargs={"literal_binds": True}))
 

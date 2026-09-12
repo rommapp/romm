@@ -53,6 +53,7 @@ from decorators.database import begin_session
 from handler.database.rom_filters import (
     ROM_FILTER_SPECS,
     FilterKind,
+    RomFilterParams,
     RomFilterSpec,
 )
 from handler.redis_handler import sync_cache
@@ -1167,53 +1168,8 @@ class DBRomsHandler(DBBaseHandler):
     def filter_roms(
         self,
         query: Query,
-        platform_ids: Sequence[int] | None = None,
-        collection_id: int | None = None,
-        virtual_collection_id: str | None = None,
-        smart_collection_id: int | None = None,
-        search_term: str | None = None,
-        matched: bool | None = None,
-        favorite: bool | None = None,
-        duplicate: bool | None = None,
-        last_played: bool | None = None,
-        playable: bool | None = None,
-        has_ra: bool | None = None,
-        has_saves: bool | None = None,
-        has_states: bool | None = None,
-        missing: bool | None = None,
-        physical: bool | None = None,
-        verified: bool | None = None,
-        has_soundtrack: bool | None = None,
-        group_by_meta_id: bool = False,
-        genres: Sequence[str] | None = None,
-        franchises: Sequence[str] | None = None,
-        collections: Sequence[str] | None = None,
-        companies: Sequence[str] | None = None,
-        publishers: Sequence[str] | None = None,
-        developers: Sequence[str] | None = None,
-        age_ratings: Sequence[str] | None = None,
-        statuses: Sequence[str] | None = None,
-        regions: Sequence[str] | None = None,
-        languages: Sequence[str] | None = None,
-        player_counts: Sequence[str] | None = None,
-        metadata_providers: Sequence[str] | None = None,
-        tags: Sequence[str] | None = None,
-        hltb_main_story_min: int | None = None,
-        hltb_main_story_max: int | None = None,
-        # Logic operators for multi-value filters
-        genres_logic: str = "any",
-        franchises_logic: str = "any",
-        collections_logic: str = "any",
-        companies_logic: str = "any",
-        publishers_logic: str = "any",
-        developers_logic: str = "any",
-        age_ratings_logic: str = "any",
-        regions_logic: str = "any",
-        languages_logic: str = "any",
-        statuses_logic: str = "any",
-        player_counts_logic: str = "any",
-        metadata_providers_logic: str = "any",
-        tags_logic: str = "any",
+        filters: RomFilterParams | None = None,
+        *,
         user_id: int | None = None,
         updated_after: datetime | None = None,
         released_days: Sequence[tuple[int, int]] | None = None,
@@ -1228,6 +1184,8 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
+
+        filters = filters or RomFilterParams()
 
         # Callers that select bare columns (a membership subquery) pass
         # include_related=False: loader options can't apply without an entity.
@@ -1281,66 +1239,70 @@ class DBRomsHandler(DBBaseHandler):
             )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
-        if platform_ids:
-            query = self._filter_by_platform_ids(query, platform_ids)
+        if filters.platform_ids:
+            query = self._filter_by_platform_ids(query, filters.platform_ids)
 
-        if collection_id:
-            query = self._filter_by_collection_id(query, collection_id)
+        if filters.collection_id:
+            query = self._filter_by_collection_id(query, filters.collection_id)
 
-        if virtual_collection_id:
+        if filters.virtual_collection_id:
             query = self._filter_by_virtual_collection_id(
-                query, session, virtual_collection_id
+                query, session, filters.virtual_collection_id
             )
 
-        if smart_collection_id:
+        if filters.smart_collection_id:
             query = self._filter_by_smart_collection_id(
-                query, session, smart_collection_id, user_id
+                query, session, filters.smart_collection_id, user_id
             )
 
-        if search_term:
-            query = self._filter_by_search_term(query, search_term)
+        if filters.search_term:
+            query = self._filter_by_search_term(query, filters.search_term)
 
-        if matched is not None:
-            query = self._filter_by_matched(query, value=matched)
+        if filters.matched is not None:
+            query = self._filter_by_matched(query, value=filters.matched)
 
-        if favorite is not None:
+        if filters.favorite is not None:
             query = self._filter_by_favorite(
-                query, session=session, value=favorite, user_id=user_id
+                query, session=session, value=filters.favorite, user_id=user_id
             )
 
-        if duplicate is not None:
-            query = self._filter_by_duplicate(query, value=duplicate)
+        if filters.duplicate is not None:
+            query = self._filter_by_duplicate(query, value=filters.duplicate)
 
-        if last_played is not None:
+        if filters.last_played is not None:
             query = self._filter_by_last_played(
-                query, value=last_played, user_id=user_id
+                query, value=filters.last_played, user_id=user_id
             )
 
-        if playable is not None:
-            query = self._filter_by_playable(query, value=playable)
+        if filters.playable is not None:
+            query = self._filter_by_playable(query, value=filters.playable)
 
-        if has_ra is not None:
-            query = self._filter_by_has_ra(query, value=has_ra)
+        if filters.has_ra is not None:
+            query = self._filter_by_has_ra(query, value=filters.has_ra)
 
-        if has_saves is not None:
-            query = self._filter_by_has_saves(query, value=has_saves, user_id=user_id)
+        if filters.has_saves is not None:
+            query = self._filter_by_has_saves(
+                query, value=filters.has_saves, user_id=user_id
+            )
 
-        if has_states is not None:
-            query = self._filter_by_has_states(query, value=has_states, user_id=user_id)
+        if filters.has_states is not None:
+            query = self._filter_by_has_states(
+                query, value=filters.has_states, user_id=user_id
+            )
 
-        if missing is not None:
-            query = self._filter_by_missing_from_fs(query, value=missing)
+        if filters.missing is not None:
+            query = self._filter_by_missing_from_fs(query, value=filters.missing)
 
-        if physical is not None:
-            query = query.filter(Rom.is_physical.is_(physical))
+        if filters.physical is not None:
+            query = query.filter(Rom.is_physical.is_(filters.physical))
 
-        if verified is not None:
-            query = self._filter_by_verified(query, value=verified)
+        if filters.verified is not None:
+            query = self._filter_by_verified(query, value=filters.verified)
 
-        if has_soundtrack is not None:
+        if filters.has_soundtrack is not None:
             query = (
                 query.filter(Rom.has_soundtrack)
-                if has_soundtrack
+                if filters.has_soundtrack
                 else query.filter(~Rom.has_soundtrack)
             )
 
@@ -1357,32 +1319,21 @@ class DBRomsHandler(DBBaseHandler):
 
         # A NULL length is excluded by either comparison, so a range filter
         # only ever returns roms HowLongToBeat actually has a time for.
-        if hltb_main_story_min is not None:
-            query = query.filter(Rom.generated_hltb_main_story >= hltb_main_story_min)
+        if filters.hltb_main_story_min is not None:
+            query = query.filter(
+                Rom.generated_hltb_main_story >= filters.hltb_main_story_min
+            )
 
-        if hltb_main_story_max is not None:
-            query = query.filter(Rom.generated_hltb_main_story <= hltb_main_story_max)
-
-        selected_filters: dict[str, tuple[Sequence[str] | None, str]] = {
-            "genres": (genres, genres_logic),
-            "franchises": (franchises, franchises_logic),
-            "collections": (collections, collections_logic),
-            "companies": (companies, companies_logic),
-            "publishers": (publishers, publishers_logic),
-            "developers": (developers, developers_logic),
-            "age_ratings": (age_ratings, age_ratings_logic),
-            "regions": (regions, regions_logic),
-            "languages": (languages, languages_logic),
-            "player_counts": (player_counts, player_counts_logic),
-            "metadata_providers": (metadata_providers, metadata_providers_logic),
-            "tags": (tags, tags_logic),
-        }
+        if filters.hltb_main_story_max is not None:
+            query = query.filter(
+                Rom.generated_hltb_main_story <= filters.hltb_main_story_max
+            )
 
         # Only join the metadata table when a filter reads from it. The dedup
         # subquery below is derived from `query`, so the join has to land before
         # the filters, or that subquery inherits them without it.
         if any(
-            selected_filters[spec.name][0]
+            filters.selected(spec.name)[0]
             for spec in ROM_FILTER_SPECS
             if spec.needs_metadata_join
         ):
@@ -1391,7 +1342,7 @@ class DBRomsHandler(DBBaseHandler):
         # Applied before the `group_by_meta_id` window below, so a title whose
         # match sits on a non-primary version still reaches the gallery.
         for spec in ROM_FILTER_SPECS:
-            values, logic = selected_filters[spec.name]
+            values, logic = filters.selected(spec.name)
             if values:
                 query = self._apply_filter_spec(
                     query,
@@ -1403,7 +1354,7 @@ class DBRomsHandler(DBBaseHandler):
                 )
 
         # BEWARE YE WHO ENTERS HERE 💀
-        if group_by_meta_id:
+        if filters.group_by_meta_id:
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
             is_main_sibling_order = (
                 func.coalesce(cast(RomUser.is_main_sibling, Integer), 0).desc()
@@ -1528,13 +1479,13 @@ class DBRomsHandler(DBBaseHandler):
             )
 
         # The RomUser table is already joined if user_id is set
-        if statuses and user_id:
+        if filters.statuses and user_id:
             query = self._filter_by_status(
                 query,
                 session=session,
-                values=statuses,
-                match_all=(statuses_logic == "all"),
-                match_none=(statuses_logic == "none"),
+                values=filters.statuses,
+                match_all=(filters.statuses_logic == "all"),
+                match_none=(filters.statuses_logic == "none"),
             )
         elif user_id:
             query = query.filter(
@@ -1647,56 +1598,11 @@ class DBRomsHandler(DBBaseHandler):
 
         roms = self.filter_roms(
             query=query,
-            platform_ids=kwargs.get("platform_ids", None),
-            collection_id=kwargs.get("collection_id", None),
-            virtual_collection_id=kwargs.get("virtual_collection_id", None),
-            smart_collection_id=kwargs.get("smart_collection_id", None),
-            search_term=kwargs.get("search_term", None),
-            matched=kwargs.get("matched", None),
-            favorite=kwargs.get("favorite", None),
-            duplicate=kwargs.get("duplicate", None),
-            last_played=kwargs.get("last_played", None),
-            playable=kwargs.get("playable", None),
-            has_ra=kwargs.get("has_ra", None),
-            has_saves=kwargs.get("has_saves", None),
-            has_states=kwargs.get("has_states", None),
-            has_soundtrack=kwargs.get("has_soundtrack", None),
-            missing=kwargs.get("missing", None),
-            physical=kwargs.get("physical", None),
-            verified=kwargs.get("verified", None),
-            genres=kwargs.get("genres", None),
-            franchises=kwargs.get("franchises", None),
-            collections=kwargs.get("collections", None),
-            companies=kwargs.get("companies", None),
-            publishers=kwargs.get("publishers", None),
-            developers=kwargs.get("developers", None),
-            age_ratings=kwargs.get("age_ratings", None),
-            statuses=kwargs.get("statuses", None),
-            regions=kwargs.get("regions", None),
-            languages=kwargs.get("languages", None),
-            player_counts=kwargs.get("player_counts", None),
-            metadata_providers=kwargs.get("metadata_providers", None),
-            tags=kwargs.get("tags", None),
-            hltb_main_story_min=kwargs.get("hltb_main_story_min", None),
-            hltb_main_story_max=kwargs.get("hltb_main_story_max", None),
-            # Logic operators for multi-value filters
-            genres_logic=kwargs.get("genres_logic", "any"),
-            franchises_logic=kwargs.get("franchises_logic", "any"),
-            collections_logic=kwargs.get("collections_logic", "any"),
-            companies_logic=kwargs.get("companies_logic", "any"),
-            publishers_logic=kwargs.get("publishers_logic", "any"),
-            developers_logic=kwargs.get("developers_logic", "any"),
-            age_ratings_logic=kwargs.get("age_ratings_logic", "any"),
-            regions_logic=kwargs.get("regions_logic", "any"),
-            languages_logic=kwargs.get("languages_logic", "any"),
-            statuses_logic=kwargs.get("statuses_logic", "any"),
-            player_counts_logic=kwargs.get("player_counts_logic", "any"),
-            metadata_providers_logic=kwargs.get("metadata_providers_logic", "any"),
-            tags_logic=kwargs.get("tags_logic", "any"),
+            # Extra keys (ordering, loading flags) are not filters; ignored here.
+            filters=RomFilterParams.model_validate(kwargs),
             user_id=kwargs.get("user_id", None),
             released_days=kwargs.get("released_days", None),
             released_before_year=kwargs.get("released_before_year", None),
-            group_by_meta_id=kwargs.get("group_by_meta_id", False),
             include_files=kwargs.get("include_files", False),
             hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
             hidden_rom_ids=kwargs.get("hidden_rom_ids", None),

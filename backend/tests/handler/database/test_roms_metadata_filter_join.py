@@ -16,7 +16,7 @@ from sqlalchemy.exc import SAWarning
 from sqlalchemy.sql.compiler import FROM_LINTING
 
 from handler.database import db_rom_handler
-from handler.database.rom_filters import ROM_FILTER_SPECS
+from handler.database.rom_filters import ROM_FILTER_SPECS, RomFilterParams
 from models.platform import Platform
 from models.rom import Rom
 
@@ -61,7 +61,8 @@ class TestGroupedMetadataFilterJoin:
     def test_grouped_query_joins_what_it_filters_on(self, filters: dict):
         query, _ = db_rom_handler.get_roms_query()
         grouped = db_rom_handler.filter_roms(
-            query=query, group_by_meta_id=True, **filters
+            query=query,
+            filters=RomFilterParams(group_by_meta_id=True, **filters),
         )
 
         assert not _cartesian_warnings(grouped)

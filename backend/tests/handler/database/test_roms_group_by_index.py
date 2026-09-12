@@ -30,6 +30,7 @@ from sqlalchemy.sql.expression import Select
 from tests.conftest import engine
 
 from handler.database import db_rom_handler
+from handler.database.rom_filters import RomFilterParams
 from models.rom import Rom
 
 # Taken off the model rather than repeated, so these checks read as "the
@@ -58,7 +59,9 @@ def _subqueries(clause, found: list[Subquery] | None = None) -> list[Subquery]:
 def _dedup_window_subquery() -> Select:
     """The narrow `roms` subquery the grouped query materializes for its window."""
     query, _ = db_rom_handler.get_roms_query()
-    grouped = db_rom_handler.filter_roms(query=query, group_by_meta_id=True)
+    grouped = db_rom_handler.filter_roms(
+        query=query, filters=RomFilterParams(group_by_meta_id=True)
+    )
 
     for subquery in _subqueries(grouped):
         if not isinstance(subquery.element, Select):

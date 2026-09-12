@@ -1,5 +1,6 @@
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.collections_handler import MAX_VIRTUAL_COLLECTION_COVERS
+from handler.database.rom_filters import RomFilterParams
 from models.collection import Collection, SmartCollection
 from models.platform import Platform
 from models.rom import Rom
@@ -202,7 +203,7 @@ def test_filter_roms_by_non_favorite_without_a_collection(
     assert {rom.id for rom in not_favorites} == {rom.id for rom in roms}
 
 
-def test_get_smart_collection_criteria_normalizes_legacy_selected_status_lists(
+def test_stored_criteria_normalizes_legacy_selected_status_lists(
     admin_user: User,
 ):
     smart_collection = SmartCollection(
@@ -212,12 +213,12 @@ def test_get_smart_collection_criteria_normalizes_legacy_selected_status_lists(
         filter_criteria={"selected_status": ["finished", "completed_100"]},
     )
 
-    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
 
-    assert criteria["statuses"] == ["finished", "completed_100"]
+    assert criteria.statuses == ["finished", "completed_100"]
 
 
-def test_get_smart_collection_criteria_wraps_legacy_scalar_values(admin_user: User):
+def test_stored_criteria_wraps_legacy_scalar_values(admin_user: User):
     smart_collection = SmartCollection(
         name="Legacy shooter",
         description="",
@@ -225,13 +226,13 @@ def test_get_smart_collection_criteria_wraps_legacy_scalar_values(admin_user: Us
         filter_criteria={"selected_genre": "Shooter", "platform_id": 7},
     )
 
-    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
 
-    assert criteria["genres"] == ["Shooter"]
-    assert criteria["platform_ids"] == [7]
+    assert criteria.genres == ["Shooter"]
+    assert criteria.platform_ids == [7]
 
 
-def test_get_smart_collection_criteria_passes_metadata_providers(admin_user: User):
+def test_stored_criteria_passes_metadata_providers(admin_user: User):
     smart_collection = SmartCollection(
         name="IGDB and Moby matches",
         description="",
@@ -242,13 +243,13 @@ def test_get_smart_collection_criteria_passes_metadata_providers(admin_user: Use
         },
     )
 
-    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
 
-    assert criteria["metadata_providers"] == ["igdb", "moby"]
-    assert criteria["metadata_providers_logic"] == "all"
+    assert criteria.metadata_providers == ["igdb", "moby"]
+    assert criteria.metadata_providers_logic == "all"
 
 
-def test_get_smart_collection_criteria_passes_asset_and_soundtrack_filters(
+def test_stored_criteria_passes_asset_and_soundtrack_filters(
     admin_user: User,
 ):
     smart_collection = SmartCollection(
@@ -262,14 +263,14 @@ def test_get_smart_collection_criteria_passes_asset_and_soundtrack_filters(
         },
     )
 
-    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
 
-    assert criteria["has_saves"] is True
-    assert criteria["has_states"] is True
-    assert criteria["has_soundtrack"] is True
+    assert criteria.has_saves is True
+    assert criteria.has_states is True
+    assert criteria.has_soundtrack is True
 
 
-def test_get_smart_collection_criteria_passes_negative_boolean_filters(
+def test_stored_criteria_passes_negative_boolean_filters(
     admin_user: User,
 ):
     smart_collection = SmartCollection(
@@ -279,12 +280,12 @@ def test_get_smart_collection_criteria_passes_negative_boolean_filters(
         filter_criteria={"matched": False},
     )
 
-    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
 
-    assert criteria["matched"] is False
+    assert criteria.matched is False
 
 
-def test_get_smart_collection_criteria_passes_player_counts(admin_user: User):
+def test_stored_criteria_passes_player_counts(admin_user: User):
     smart_collection = SmartCollection(
         name="Multiplayer games",
         description="",
@@ -295,13 +296,13 @@ def test_get_smart_collection_criteria_passes_player_counts(admin_user: User):
         },
     )
 
-    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
 
-    assert criteria["player_counts"] == ["2", "4"]
-    assert criteria["player_counts_logic"] == "any"
+    assert criteria.player_counts == ["2", "4"]
+    assert criteria.player_counts_logic == "any"
 
 
-def test_get_smart_collection_criteria_passes_tags(admin_user: User):
+def test_stored_criteria_passes_tags(admin_user: User):
     smart_collection = SmartCollection(
         name="Prototypes and betas",
         description="",
@@ -312,13 +313,13 @@ def test_get_smart_collection_criteria_passes_tags(admin_user: User):
         },
     )
 
-    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
 
-    assert criteria["tags"] == ["Proto", "Beta"]
-    assert criteria["tags_logic"] == "any"
+    assert criteria.tags == ["Proto", "Beta"]
+    assert criteria.tags_logic == "any"
 
 
-def test_get_smart_collection_criteria_drops_nested_smart_collection_id(
+def test_stored_criteria_drops_nested_smart_collection_id(
     admin_user: User,
 ):
     # The v2 dialog stores the route it was created from, so a smart collection
@@ -330,7 +331,7 @@ def test_get_smart_collection_criteria_drops_nested_smart_collection_id(
         filter_criteria={"smart_collection_id": 42, "matched": True},
     )
 
-    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
 
-    assert "smart_collection_id" not in criteria
-    assert criteria["matched"] is True
+    assert criteria.smart_collection_id is None
+    assert criteria.matched is True
