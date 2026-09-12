@@ -15,6 +15,7 @@ from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
     Boolean,
+    Computed,
     Enum,
     FetchedValue,
     Float,
@@ -48,6 +49,7 @@ from models.base import (
     BaseModel,
     compute_file_name_parts,
 )
+from models.generated import HltbMainStory
 from utils import valid_youtube_id
 from utils.database import CustomJSON
 
@@ -760,7 +762,7 @@ class Rom(BaseModel):
     )
     # Seconds, as HowLongToBeat reports them.
     generated_hltb_main_story: Mapped[int | None] = mapped_column(
-        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        BigInteger(), Computed(HltbMainStory(), persisted=True)
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
