@@ -6,6 +6,7 @@ not the other goes unnoticed until autogenerate proposes dropping it.
 
 import importlib.util
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 import sqlalchemy as sa
@@ -13,11 +14,12 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import Table, UniqueConstraint
+from sqlalchemy.engine.interfaces import ReflectedColumn, ReflectedIndex
 
 import models
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
-from models.rom import compute_full_path_hash
+from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
@@ -110,31 +112,94 @@ def test_the_migrated_full_path_digest_matches_the_models(
     assert digest == compute_full_path_hash(fs_path, fs_name)
 
 
-def test_the_full_path_hash_migration_survives_a_re_run():
-    """0126 replayed over a schema it already migrated is a no-op.
-
-    MySQL/MariaDB auto-commit each DDL statement, so a run that dies partway
-    keeps the column without advancing the alembic version, and every restart
-    after that replays the revision from the top.
-    """
-    path = (
-        Path(__file__).parent.parent
-        / "alembic"
-        / "versions"
-        / "0126_unique_rom_full_path.py"
-    )
+def _load_migration(filename: str) -> ModuleType:
+    """Import a revision by file name, which no package path can reach."""
+    path = Path(__file__).parent.parent / "alembic" / "versions" / filename
     spec = importlib.util.spec_from_file_location(path.stem, path)
     assert spec and spec.loader
     migration = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration)
 
+    return migration
+
+
+def _roms_indexes(connection: sa.Connection) -> dict[str, ReflectedIndex]:
+    return {
+        index["name"]: index for index in sa.inspect(connection).get_indexes("roms")
+    }
+
+
+def _roms_column(connection: sa.Connection, name: str) -> ReflectedColumn:
+    return next(
+        column
+        for column in sa.inspect(connection).get_columns("roms")
+        if column["name"] == name
+    )
+
+
+# MySQL/MariaDB auto-commit each DDL statement, so a run that dies partway keeps
+# what it created while the alembic version stays behind, and the next start
+# replays the revision over its own leftovers.
+@pytest.mark.parametrize(
+    "filename",
+    ["0126_unique_rom_full_path.py", "0128_hltb_main_story_column.py"],
+)
+def test_a_migration_replayed_over_a_migrated_schema_is_a_no_op(filename: str):
+    """Neither revision's ADD COLUMN fires again on a schema that has the column."""
+    migration = _load_migration(filename)
+
     with sync_engine.begin() as connection:
         with Operations.context(MigrationContext.configure(connection)):
             migration.upgrade()
 
-        indexes = {
-            index["name"]: index for index in sa.inspect(connection).get_indexes("roms")
-        }
+        indexes = _roms_indexes(connection)
 
+    assert indexes["idx_roms_platform_id_full_path_hash"]["unique"]
+    assert not indexes["idx_roms_platform_id_fs_name"]["unique"]
+    assert "idx_roms_hltb_main_story" in indexes
+
+
+def test_the_full_path_hash_migration_resumes_an_interrupted_run(rom: Rom):
+    """0126 finishes a run that died right after its ADD COLUMN.
+
+    The column survives the failure without a digest, a NOT NULL or either
+    index, which is the state a restart mid-backfill leaves behind.
+    """
+    migration = _load_migration("0126_unique_rom_full_path.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            migration.downgrade()
+            operations.add_column(
+                "roms",
+                sa.Column(
+                    migration.COLUMN_NAME, sa.String(length=FULL_PATH_HASH_LENGTH)
+                ),
+            )
+            migration.upgrade()
+
+        indexes = _roms_indexes(connection)
+        column = _roms_column(connection, migration.COLUMN_NAME)
+        digest = connection.execute(
+            sa.text("SELECT full_path_hash FROM roms WHERE id = :rom_id"),
+            {"rom_id": rom.id},
+        ).scalar_one()
+
+    assert not column["nullable"]
     assert indexes[migration.UNIQUE_INDEX_NAME]["unique"]
     assert not indexes[migration.LOOKUP_INDEX_NAME]["unique"]
+    assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
+
+
+def test_the_hltb_migration_resumes_an_interrupted_run():
+    """0128 keeps the generated column it already added and builds its index."""
+    migration = _load_migration("0128_hltb_main_story_column.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            operations.drop_index(migration.INDEX_NAME, table_name="roms")
+            migration.upgrade()
+
+        indexes = _roms_indexes(connection)
+
+    assert migration.INDEX_NAME in indexes
