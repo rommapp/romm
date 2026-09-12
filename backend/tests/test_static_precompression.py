@@ -1,12 +1,11 @@
 """Assert the frontend precompresses its assets and nginx is set to serve them."""
 
-import json
 import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NGINX_CONF = REPO_ROOT / "docker" / "nginx" / "default.conf"
-PACKAGE_JSON = REPO_ROOT / "frontend" / "package.json"
+VITE_CONFIG = REPO_ROOT / "frontend" / "vite.config.js"
 
 
 def test_nginx_serves_precompressed_assets() -> None:
@@ -16,10 +15,8 @@ def test_nginx_serves_precompressed_assets() -> None:
 
 
 def test_build_precompresses() -> None:
-    # frontend/.npmrc sets ignore-scripts, so a postbuild hook would never fire
-    # and the step has to stay chained into build itself.
-    scripts = json.loads(PACKAGE_JSON.read_text())["scripts"]
-    assert "precompress" in scripts["build"], (
-        "npm run build no longer runs precompress, so nginx's gzip_static would "
-        "have nothing to serve"
+    config = VITE_CONFIG.read_text()
+    assert "precompress" in config and re.search(r"\bprecompress\(\)", config), (
+        "vite.config.js no longer runs the precompress plugin, so nginx's "
+        "gzip_static would have nothing to serve"
     )
