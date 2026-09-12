@@ -2,6 +2,8 @@
 
 Comprehensive documentation of the RomM frontend: a Vue 3 single-page application powering the retro gaming platform UI.
 
+> **Scope: this document describes the v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), which is frozen pending deletion. The v2 rewrite under `src/v2/` shares the Vue/Vite/Pinia/router/i18n/Socket.IO foundation described here, but has its own design system and uses **neither Vuetify nor Tailwind**, styling instead with generated tokens plus scoped CSS. For v2, read the `frontend-v2-components`, `frontend-v2-theming`, `frontend-v2-input`, and `frontend-v2-patterns` skills in `.claude/skills/`.
+
 ---
 
 ## Table of Contents
@@ -34,8 +36,8 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 | **Framework**        | Vue 3.4.27 (Composition API, `<script setup>`) |
 | **Build Tool**       | Vite 6.4.2                                     |
 | **Language**         | TypeScript 5.7.3 (`noImplicitAny: true`)       |
-| **UI Library**       | Vuetify 3.9.2 (Material Design)                |
-| **CSS**              | Tailwind CSS 4.0.0 + Vuetify themes            |
+| **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only       |
+| **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only   |
 | **State Management** | Pinia 3.0.1 (18 stores)                        |
 | **Routing**          | Vue Router 4.3.2                               |
 | **HTTP Client**      | Axios 1.15.0                                   |
@@ -889,13 +891,15 @@ Vuetify handles theme switching. Additional shared brand colors: `romm-red`, `ro
 
 ### CSS Stack
 
-| Layer     | Technology                         | Scope                  |
-| --------- | ---------------------------------- | ---------------------- |
-| Component | Vuetify classes + scoped `<style>` | Per-component          |
-| Utility   | Tailwind CSS 4.0                   | Inline utility classes |
-| Global    | `styles/common.css`                | App-wide utilities     |
-| Scrollbar | `styles/scrollbar.css`             | Custom scrollbar       |
-| Console   | `console/index.css`                | Console mode only      |
+| Layer     | Technology                         | Scope                                                                                                          |
+| --------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Component | Vuetify classes + scoped `<style>` | Per-component                                                                                                  |
+| Utility   | Tailwind CSS 4.3                   | Inline utility classes; `@import "tailwindcss"` lives in `console/index.css`, which `main.ts` imports app-wide |
+| Global    | `styles/common.css`                | App-wide utilities                                                                                             |
+| Scrollbar | `styles/scrollbar.css`             | Custom scrollbar                                                                                               |
+| Console   | `console/index.css`                | Console mode styles (plus the Tailwind import above)                                                           |
+
+v2 opts out of this stack entirely: `src/v2/styles/tokens.css` (generated from `src/v2/tokens/index.ts`) plus `global.css`, scoped under `.r-v2`, with per-component `<style scoped>`.
 
 ### Procedural Cover Generation
 

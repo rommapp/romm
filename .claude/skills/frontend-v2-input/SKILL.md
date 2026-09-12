@@ -22,7 +22,7 @@ The input system lives in `src/v2/composables/useInput/` (bus, keyboard, gamepad
 
 Buttons, list items, tabs, menu items, focusable cards, toggleable chips — all participate in spatial navigation (not optional). A new interactive primitive must:
 
-- be focusable (proper `tabindex`, or already so via a wrapped Vuetify component);
+- be focusable (a natively focusable element, or a proper `tabindex`);
 - react to logical actions (confirm/cancel) from `useInput`, in addition to native click;
 - show a modality-gated focus state.
 

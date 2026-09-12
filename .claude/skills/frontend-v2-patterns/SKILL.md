@@ -58,14 +58,14 @@ Name a helper for what it touches: `syncCachedRom`, not `syncRom`, when it updat
 ## E. Pagination & infinite scroll
 
 - `LoadMore` (`RBtn` + `RSpinner` + IntersectionObserver) is the canonical fallback when virtualization stalls.
-- `RVirtualScroller` (`src/v2/lib/structural/`, wrapping `v-virtual-scroll`) is the substrate for large lists/grids.
+- `RVirtualScroller` (`src/v2/lib/structural/`) is the substrate for large lists/grids: a custom windowed list that owns its offset math, not a wrapper around anything.
 - Page size lives in the store (`fetchLimit`); not user-configurable for now.
-- **Scroll restoration** on back-nav: Vue Router `scrollBehavior` + Pinia in-session offset. URL holds filters/sort/search but **not** scroll offset.
+- **Scroll restoration** on back-nav: the `scrollRestoration` Pinia store keyed by `route.fullPath`. Vue Router's `scrollBehavior` only restores `window` scroll, and galleries scroll `RVirtualScroller`'s container, so views save on `onBeforeRouteLeave` and restore in `onMounted`. URL holds filters/sort/search but **not** scroll offset.
 
 ## F. Forms & validation
 
-- Use the **`RForm` primitive** (wraps `v-form`: Enter-to-submit when valid, scroll-to-first-error after a failed `validate()`). **Never use `v-form` directly.**
-- **Native Vuetify rules** — no Zod/Yup. Rules are arrays of `(v) => true | string`.
+- Use the **`RForm` primitive** (a native `<form>` providing a registration context that descendant fields auto-enroll into: Enter-to-submit when valid, scroll-to-first-error after a failed `validate()`). **Never hand-roll a `<form>`.**
+- **Plain function rules**, no Zod/Yup and no validation library. Rules are arrays of `(v) => true | string`, run by the field primitives themselves.
 - **Reusable rules** in `src/v2/utils/validation.ts` (`required(msg?)`, `email`, `asciiOnly`, `lengthBetween`, `usernameLength/Chars`, `passwordLength`). Utility code _may_ call `i18n.global.t(...)` (the no-i18n rule covers lib primitives, not utils).
 - **Submit pattern:** `await formRef.value?.validate()` before the API call; submit button uses `:loading="submitting"`; errors → snackbar; field errors stay in-place via `:error-messages`.
 
