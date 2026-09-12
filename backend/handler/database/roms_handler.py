@@ -63,7 +63,7 @@ from models.collection import Collection, CollectionRom, SmartCollection
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
-    METADATA_SOURCE_COLUMNS,
+    METADATA_SOURCE_FACET_COLUMNS,
     Rom,
     RomFacets,
     RomFile,
@@ -1148,9 +1148,9 @@ class DBRomsHandler(DBBaseHandler):
         - "none": matched none of the selected providers.
         """
         columns = [
-            METADATA_SOURCE_COLUMNS[value]
+            METADATA_SOURCE_FACET_COLUMNS[value]
             for value in values
-            if value in METADATA_SOURCE_COLUMNS
+            if value in METADATA_SOURCE_FACET_COLUMNS
         ]
         # Unknown slugs (stale bookmark / hand-edited URL) leave nothing to
         # filter on; treat that as a no-op rather than an empty result set.
@@ -1329,15 +1329,12 @@ class DBRomsHandler(DBBaseHandler):
                 Rom.generated_hltb_main_story <= filters.hltb_main_story_max
             )
 
-        # Only join the metadata table when a filter reads from it. The dedup
-        # subquery below is derived from `query`, so the join has to land before
-        # the filters, or that subquery inherits them without it.
-        if any(
-            filters.selected(spec.name)[0]
-            for spec in ROM_FILTER_SPECS
-            if spec.needs_metadata_join
-        ):
-            query = query.outerjoin(RomMetadata)
+        # Every filter below matches against the facets mirror, so one join
+        # serves all of them. The dedup subquery is derived from `query`, so it
+        # has to land before the filters or that subquery inherits them without
+        # it.
+        if any(filters.selected(spec.name)[0] for spec in ROM_FILTER_SPECS):
+            query = query.outerjoin(RomFacets, RomFacets.rom_id == Rom.id)
 
         # Applied before the `group_by_meta_id` window below, so a title whose
         # match sits on a non-primary version still reaches the gallery.

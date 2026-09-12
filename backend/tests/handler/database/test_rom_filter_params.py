@@ -13,8 +13,10 @@ import pytest
 from handler.database.rom_filters import (
     _SCOPE_FIELDS,
     _UNFILTERED_FIELDS,
+    ROM_FILTER_SPECS,
     RomFilterParams,
 )
+from models.rom import RomFacets
 
 # A value that counts as "selected", per field type.
 SAMPLE_VALUES: dict[str, Any] = {
@@ -123,3 +125,21 @@ class TestFromStoredCriteria:
 
         assert criteria.smart_collection_id is None
         assert criteria.matched is True
+
+
+class TestRegistryColumns:
+    def test_every_filter_matches_against_the_facets_mirror(self):
+        """Filters must not read `roms` or the `roms_metadata` view over it.
+
+        Both carry the raw provider-metadata blobs inline, so matching against
+        them reads the whole wide table: on a 40k-game library that made the
+        gallery's count and id-index queries 5-8x slower than the same
+        predicates against the narrow mirror.
+        """
+        for spec in ROM_FILTER_SPECS:
+            if spec.column is None:  # metadata_providers, matched on id columns
+                continue
+
+            assert (
+                spec.column.class_ is RomFacets
+            ), f"{spec.name} reads {spec.column.class_.__name__}"

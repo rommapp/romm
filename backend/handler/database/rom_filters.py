@@ -4,6 +4,11 @@ Every entry here is one filter the gallery, the ROM list endpoint and smart
 collections all share. Keeping the name, the column it matches on and the way
 it matches in one place means the query builder, the join it needs and the
 request schema are all derived from the same row instead of being restated.
+
+The columns are the `roms_facets` mirror rather than `roms` or the
+`roms_metadata` view over it. Both of those carry the raw provider-metadata
+blobs inline, so matching against them reads the whole wide table; the mirror
+holds the same values in a few MB. See `RomFacets`.
 """
 
 from collections.abc import Mapping, Sequence
@@ -14,7 +19,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import QueryableAttribute
 
-from models.rom import Rom, RomMetadata
+from models.rom import RomFacets
 
 
 class FilterKind(StrEnum):
@@ -34,27 +39,23 @@ class RomFilterSpec:
     kind: FilterKind
     column: QueryableAttribute | None = None
 
-    @property
-    def needs_metadata_join(self) -> bool:
-        """Whether matching reads `RomMetadata`, which the query has to join."""
-        return self.column is not None and self.column.class_ is RomMetadata
-
 
 # Order is the order the filters narrow the query, so the generated WHERE
-# clause keeps the shape it had before this was a registry.
+# clause keeps the shape it had before this was a registry. Every filter reads
+# `roms_facets`, so applying any of them costs the query one join.
 ROM_FILTER_SPECS: tuple[RomFilterSpec, ...] = (
-    RomFilterSpec("genres", FilterKind.JSON_ARRAY, RomMetadata.genres),
-    RomFilterSpec("franchises", FilterKind.JSON_ARRAY, RomMetadata.franchises),
-    RomFilterSpec("collections", FilterKind.JSON_ARRAY, RomMetadata.collections),
-    RomFilterSpec("companies", FilterKind.JSON_ARRAY, RomMetadata.companies),
-    RomFilterSpec("publishers", FilterKind.JSON_ARRAY, RomMetadata.publishers),
-    RomFilterSpec("developers", FilterKind.JSON_ARRAY, RomMetadata.developers),
-    RomFilterSpec("age_ratings", FilterKind.JSON_ARRAY, RomMetadata.age_ratings),
-    RomFilterSpec("regions", FilterKind.JSON_ARRAY, Rom.regions),
-    RomFilterSpec("languages", FilterKind.JSON_ARRAY, Rom.languages),
-    RomFilterSpec("player_counts", FilterKind.SCALAR_IN, RomMetadata.player_count),
+    RomFilterSpec("genres", FilterKind.JSON_ARRAY, RomFacets.genres),
+    RomFilterSpec("franchises", FilterKind.JSON_ARRAY, RomFacets.franchises),
+    RomFilterSpec("collections", FilterKind.JSON_ARRAY, RomFacets.collections),
+    RomFilterSpec("companies", FilterKind.JSON_ARRAY, RomFacets.companies),
+    RomFilterSpec("publishers", FilterKind.JSON_ARRAY, RomFacets.publishers),
+    RomFilterSpec("developers", FilterKind.JSON_ARRAY, RomFacets.developers),
+    RomFilterSpec("age_ratings", FilterKind.JSON_ARRAY, RomFacets.age_ratings),
+    RomFilterSpec("regions", FilterKind.JSON_ARRAY, RomFacets.regions),
+    RomFilterSpec("languages", FilterKind.JSON_ARRAY, RomFacets.languages),
+    RomFilterSpec("player_counts", FilterKind.SCALAR_IN, RomFacets.player_count),
     RomFilterSpec("metadata_providers", FilterKind.PROVIDER_IDS),
-    RomFilterSpec("tags", FilterKind.JSON_ARRAY, Rom.tags),
+    RomFilterSpec("tags", FilterKind.JSON_ARRAY, RomFacets.tags),
 )
 
 # `statuses` is absent above on purpose: it matches against RomUser, is applied
