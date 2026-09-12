@@ -9,6 +9,27 @@ the day the expression changed.
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.expression import ColumnElement
 
+# Length of the region digest; the column and the expression share it.
+PRIMARY_REGION_LENGTH = 50
+
+
+class PrimaryRegion(ColumnElement):
+    """The first entry of `regions`, truncated to the column width (0108)."""
+
+    inherit_cache = True
+
+
+@compiles(PrimaryRegion, "mysql")
+@compiles(PrimaryRegion, "mariadb")
+def _primary_region_maria(element: PrimaryRegion, compiler, **kw) -> str:
+    return f"LEFT(JSON_UNQUOTE(JSON_EXTRACT(regions, '$[0]')), {PRIMARY_REGION_LENGTH})"
+
+
+@compiles(PrimaryRegion, "postgresql")
+def _primary_region_postgres(element: PrimaryRegion, compiler, **kw) -> str:
+    return f"left(regions ->> 0, {PRIMARY_REGION_LENGTH})"
+
+
 _MARIA_HLTB_VALUE = (
     "CAST(JSON_UNQUOTE(JSON_EXTRACT(hltb_metadata, '$.main_story')) AS CHAR)"
 )

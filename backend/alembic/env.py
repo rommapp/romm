@@ -13,7 +13,9 @@ from models.rom import RomMetadata, SiblingRom
 from utils.database import AUTOGENERATE_EXEMPT_INDEX_NAMES
 
 # Generated columns the model declares outright, so autogenerate manages them.
-MODEL_OWNED_GENERATED_COLUMNS = frozenset({"generated_hltb_main_story"})
+MODEL_OWNED_GENERATED_COLUMNS = frozenset(
+    {"generated_hltb_main_story", "generated_primary_region"}
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

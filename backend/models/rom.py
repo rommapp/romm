@@ -49,7 +49,7 @@ from models.base import (
     BaseModel,
     compute_file_name_parts,
 )
-from models.generated import HltbMainStory
+from models.generated import PRIMARY_REGION_LENGTH, HltbMainStory, PrimaryRegion
 from utils import valid_youtube_id
 from utils.database import CustomJSON
 
@@ -796,9 +796,8 @@ class Rom(BaseModel):
     # STORED generated column over regions[0], carried by idx_roms_sibling_cover
     # so the dedup window can rank regions without reading the JSON.
     generated_primary_region: Mapped[str | None] = mapped_column(
-        String(length=50),
-        server_default=FetchedValue(),
-        server_onupdate=FetchedValue(),
+        String(length=PRIMARY_REGION_LENGTH),
+        Computed(PrimaryRegion(), persisted=True),
     )
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
