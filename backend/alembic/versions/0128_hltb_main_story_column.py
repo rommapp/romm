@@ -16,6 +16,7 @@ Create Date: 2026-09-08 00:00:00.000000
 
 """
 
+import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
 from utils.database import is_postgresql
@@ -47,11 +48,18 @@ _POSTGRES_EXPR = (
 
 
 def upgrade() -> None:
-    expr = _POSTGRES_EXPR if is_postgresql(op.get_bind()) else _MARIA_EXPR
-    op.execute(  # nosec B608
-        f"ALTER TABLE roms ADD COLUMN {COLUMN_NAME} BIGINT "
-        f"GENERATED ALWAYS AS ({expr}) STORED"
-    )
+    connection = op.get_bind()
+    columns = {column["name"] for column in sa.inspect(connection).get_columns("roms")}
+
+    # MySQL/MariaDB auto-commit each DDL statement, so a run that dies on the
+    # index keeps the column without advancing the alembic version.
+    if COLUMN_NAME not in columns:
+        expr = _POSTGRES_EXPR if is_postgresql(connection) else _MARIA_EXPR
+        op.execute(  # nosec B608
+            f"ALTER TABLE roms ADD COLUMN {COLUMN_NAME} BIGINT "
+            f"GENERATED ALWAYS AS ({expr}) STORED"
+        )
+
     op.create_index(INDEX_NAME, "roms", [COLUMN_NAME], if_not_exists=True)
 
 
