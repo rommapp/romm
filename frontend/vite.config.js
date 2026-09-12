@@ -1,4 +1,3 @@
-import { precompress } from "./scripts/precompress";
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
 import browserslist from "browserslist";
@@ -7,6 +6,7 @@ import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import { precompress } from "./scripts/precompress";
 
 // Vuetify components to preoptimize for faster dev startup
 const VUETIFY_COMPONENTS = [
