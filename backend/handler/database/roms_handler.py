@@ -1271,6 +1271,100 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(and_(*predicates))
         return query.filter(or_(*predicates))
 
+    def _apply_gallery_load_options(
+        self,
+        query: Query,
+        *,
+        include_related: bool = True,
+        include_siblings: bool = True,
+        include_notes: bool = True,
+        include_files: bool = False,
+        include_file_stats: bool = False,
+    ) -> Query:
+        """Eager loads for a query that serializes `SimpleRomSchema`."""
+        # Callers that select bare columns (a membership subquery) pass
+        # include_related=False: loader options can't apply without an entity.
+        if include_related:
+            query = query.options(
+                # Ensure platform is loaded for main ROM objects
+                selectinload(Rom.platform),
+                # Display properties for the current user (last_played)
+                selectinload(Rom.rom_users).options(
+                    noload(RomUser.rom), noload(RomUser.user)
+                ),
+                # Sort table by metadata (first_release_date)
+                selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+            )
+
+            # Show sibling rom badges on cards
+            if include_siblings:
+                query = query.options(
+                    selectinload(Rom.sibling_roms).options(
+                        noload(Rom.platform),
+                        noload(Rom.metadatum),
+                        # is_main_sibling needs each sibling's RomUser.
+                        selectinload(Rom.rom_users).options(
+                            noload(RomUser.rom), noload(RomUser.user)
+                        ),
+                    )
+                )
+
+            # Notes indicator on cards
+            if include_notes:
+                query = query.options(selectinload(Rom.notes))
+
+        # Only load files (and the RomFile.rom backref needed by `is_top_level` /
+        # `file_name_for_download`) when the caller iterates them — e.g. the
+        # feed endpoints. The gallery/list and filter-value paths serialize
+        # SimpleRomSchema without files, so they skip this entirely.
+        if include_files:
+            query = query.options(
+                selectinload(Rom.files).options(
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+                )
+            )
+
+        # Correlated subqueries and only undefer when the caller serializes the
+        # gallery-card flags. Feeds and filter-value lookups don't need them.
+        if include_file_stats:
+            query = query.options(
+                undefer(Rom.multi_file),
+                undefer(Rom.top_level_file_count),
+                undefer(Rom.has_soundtrack),
+            )
+
+        return query
+
+    @begin_session
+    def hydrate_gallery_page(
+        self,
+        ids: Sequence[int],
+        *,
+        user_id: int | None = None,
+        include_files: bool = False,
+        include_file_stats: bool = False,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Rom]:
+        """Load one page of gallery cards by id, in no particular order.
+
+        The ids come out of a query that already filtered, ordered and (for
+        `group_by_meta_id`) deduplicated the library, so reading the rows back
+        through that same query would run the facet scan and the dedup window
+        again for rows a primary key already identifies. Siblings and notes are
+        resolved per page by the caller, so they stay out of the loads here.
+        """
+        if not ids:
+            return []
+
+        query = self._apply_gallery_load_options(
+            self._join_rom_user(select(Rom), user_id),
+            include_siblings=False,
+            include_notes=False,
+            include_files=include_files,
+            include_file_stats=include_file_stats,
+        )
+        return session.scalars(query.where(Rom.id.in_(ids))).all()
+
     @begin_session
     def filter_roms(
         self,
@@ -1337,56 +1431,14 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
 
-        # Callers that select bare columns (a membership subquery) pass
-        # include_related=False: loader options can't apply without an entity.
-        if include_related:
-            query = query.options(
-                # Ensure platform is loaded for main ROM objects
-                selectinload(Rom.platform),
-                # Display properties for the current user (last_played)
-                selectinload(Rom.rom_users).options(
-                    noload(RomUser.rom), noload(RomUser.user)
-                ),
-                # Sort table by metadata (first_release_date)
-                selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            )
-
-            # Show sibling rom badges on cards
-            if include_siblings:
-                query = query.options(
-                    selectinload(Rom.sibling_roms).options(
-                        noload(Rom.platform),
-                        noload(Rom.metadatum),
-                        # is_main_sibling needs each sibling's RomUser.
-                        selectinload(Rom.rom_users).options(
-                            noload(RomUser.rom), noload(RomUser.user)
-                        ),
-                    )
-                )
-
-            # Notes indicator on cards
-            if include_notes:
-                query = query.options(selectinload(Rom.notes))
-
-        # Only load files (and the RomFile.rom backref needed by `is_top_level` /
-        # `file_name_for_download`) when the caller iterates them — e.g. the
-        # feed endpoints. The gallery/list and filter-value paths serialize
-        # SimpleRomSchema without files, so they skip this entirely.
-        if include_files:
-            query = query.options(
-                selectinload(Rom.files).options(
-                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-                )
-            )
-
-        # Correlated subqueries and only undefer when the caller serializes the
-        # gallery-card flags. Feeds and filter-value lookups don't need them.
-        if include_file_stats:
-            query = query.options(
-                undefer(Rom.multi_file),
-                undefer(Rom.top_level_file_count),
-                undefer(Rom.has_soundtrack),
-            )
+        query = self._apply_gallery_load_options(
+            query,
+            include_related=include_related,
+            include_siblings=include_siblings,
+            include_notes=include_notes,
+            include_files=include_files,
+            include_file_stats=include_file_stats,
+        )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if platform_ids:

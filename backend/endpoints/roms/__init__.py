@@ -1085,12 +1085,14 @@ def get_roms(
                 ).all()
             )
 
-        if page_ids:
-            page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
-            rows_by_id = {rom.id: rom for rom in page_rows}
-            page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
-        else:
-            page_items = []
+        page_rows = db_rom_handler.hydrate_gallery_page(
+            page_ids,
+            user_id=request.user.id,
+            include_file_stats=not with_files,
+            session=session,
+        )
+        rows_by_id = {rom.id: rom for rom in page_rows}
+        page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
 
         return CustomLimitOffsetPage.create(
             _transform(page_items),
