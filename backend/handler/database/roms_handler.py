@@ -1069,7 +1069,7 @@ class DBRomsHandler(DBBaseHandler):
         match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.genres, values, session=session)
+        condition = op(RomFacets.genres, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_franchises(
@@ -1082,7 +1082,7 @@ class DBRomsHandler(DBBaseHandler):
         match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.franchises, values, session=session)
+        condition = op(RomFacets.franchises, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_collections(
@@ -1095,7 +1095,7 @@ class DBRomsHandler(DBBaseHandler):
         match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.collections, values, session=session)
+        condition = op(RomFacets.collections, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_companies(
@@ -1108,7 +1108,7 @@ class DBRomsHandler(DBBaseHandler):
         match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.companies, values, session=session)
+        condition = op(RomFacets.companies, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_publishers(
@@ -1121,7 +1121,7 @@ class DBRomsHandler(DBBaseHandler):
         match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.publishers, values, session=session)
+        condition = op(RomFacets.publishers, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_developers(
@@ -1134,7 +1134,7 @@ class DBRomsHandler(DBBaseHandler):
         match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.developers, values, session=session)
+        condition = op(RomFacets.developers, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_age_ratings(
@@ -1147,7 +1147,7 @@ class DBRomsHandler(DBBaseHandler):
         match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.age_ratings, values, session=session)
+        condition = op(RomFacets.age_ratings, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_status(
@@ -1233,7 +1233,7 @@ class DBRomsHandler(DBBaseHandler):
         match_all: bool = False,
         match_none: bool = False,
     ) -> Query:
-        condition = RomMetadata.player_count.in_(values)
+        condition = RomFacets.player_count.in_(values)
         if match_none:
             return query.filter(not_(condition))
         return query.filter(condition)
@@ -1471,10 +1471,14 @@ class DBRomsHandler(DBBaseHandler):
         if hltb_main_story_max is not None:
             query = query.filter(Rom.generated_hltb_main_story <= hltb_main_story_max)
 
-        # Only join the metadata table when a filter reads from it. The dedup
+        # Only join the facet mirror when a filter reads from it. The dedup
         # subquery below is derived from `query`, so the join has to land before
         # the filters, or that subquery inherits them without it.
-        needs_metadata_join = any(
+        #
+        # `roms_facets` rather than the `roms_metadata` view: the view projects
+        # straight off `roms`, so joining it reads the raw provider blobs stored
+        # inline on every row, and drags them through the dedup window too.
+        needs_facet_join = any(
             [
                 genres,
                 franchises,
@@ -1487,8 +1491,8 @@ class DBRomsHandler(DBBaseHandler):
             ]
         )
 
-        if needs_metadata_join:
-            query = query.outerjoin(RomMetadata)
+        if needs_facet_join:
+            query = query.outerjoin(RomFacets, RomFacets.rom_id == Rom.id)
 
         # Apply metadata and rom-level filters efficiently
         # Moved before applying group_by_meta_id to avoid missing titles when

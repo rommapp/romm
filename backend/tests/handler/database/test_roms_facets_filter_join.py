@@ -1,11 +1,11 @@
-"""Filtering on a `roms_metadata` field while grouping ROMs by title.
+"""Filtering on a `roms_facets` field while grouping ROMs by title.
 
-The dedup window that grouping materializes is derived from the query the
-metadata filters were already applied to, so the join to `roms_metadata` has to
-be in place before them. Without it the window filters on a table it never
-joined: the database cross-joins `roms` against `roms_metadata` (a view over
-`roms`), the window ranks the whole library instead of the matching ROMs, and
-the version of a game that did match the filter drops out of the gallery.
+The dedup window that grouping materializes is derived from the query the facet
+filters were already applied to, so the join to `roms_facets` has to be in place
+before them. Without it the window filters on a table it never joined: the
+database cross-joins `roms` against `roms_facets`, the window ranks the whole
+library instead of the matching ROMs, and the version of a game that did match
+the filter drops out of the gallery.
 """
 
 import warnings
@@ -19,7 +19,7 @@ from handler.database import db_rom_handler
 from models.platform import Platform
 from models.rom import Rom
 
-METADATA_FILTERS = [
+FACET_FILTERS = [
     {"genres": ["Shooter"]},
     {"franchises": ["Metroid"]},
     {"collections": ["Trilogy"]},
@@ -60,8 +60,8 @@ def _cartesian_warnings(statement) -> list[str]:
     ]
 
 
-class TestGroupedMetadataFilterJoin:
-    @pytest.mark.parametrize("filters", METADATA_FILTERS, ids=lambda f: next(iter(f)))
+class TestGroupedFacetFilterJoin:
+    @pytest.mark.parametrize("filters", FACET_FILTERS, ids=lambda f: next(iter(f)))
     def test_grouped_query_joins_what_it_filters_on(self, filters: dict):
         query, _ = db_rom_handler.get_roms_query()
         grouped = db_rom_handler.filter_roms(
