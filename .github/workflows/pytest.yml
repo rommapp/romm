@@ -8,6 +8,8 @@ on:
       - pyproject.toml
       - uv.lock
       - .python-version
+      - Dockerfile
+      - docker/Dockerfile
   push:
     branches:
       - "master"
@@ -17,6 +19,8 @@ on:
       - pyproject.toml
       - uv.lock
       - .python-version
+      - Dockerfile
+      - docker/Dockerfile
 
 permissions: read-all
 
