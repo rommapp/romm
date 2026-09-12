@@ -560,3 +560,44 @@ export const DismissedByOverlay: Story = {
     });
   },
 };
+
+export const PendingOpenCancelledByOverlay: Story = {
+  name: "Pending open cancelled when an overlay opens",
+  render: () => ({
+    components: { RTooltip, RMenu, RMenuItem, RBtn },
+    template: `
+      <div style="padding:48px;display:flex;justify-content:center">
+        <section aria-label="Chrono Trigger" style="padding:24px;border:1px solid var(--r-color-border);border-radius:8px">
+          Chrono Trigger
+          <RMenu>
+            <template #activator="{ props }">
+              <RBtn v-bind="props" @click.stop>More actions</RBtn>
+            </template>
+            <RMenuItem>Edit</RMenuItem>
+          </RMenu>
+          <RTooltip activator="parent" text="Chrono Trigger" />
+        </section>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const body = within(document.body);
+    const card = canvas.getByRole("region", { name: /chrono trigger/i });
+    const activator = canvas.getByRole("button", { name: /more actions/i });
+
+    await step("the menu opens while the reveal is still pending", async () => {
+      firePointerEnter(card, "mouse");
+      expect(body.queryByRole("tooltip")).toBeNull();
+      activator.click();
+      expect(await body.findByRole("menu")).toBeInTheDocument();
+    });
+
+    await step("the tooltip never lands once the delay elapses", async () => {
+      // Real wait: the pending timer is the thing under test, so it has to be
+      // given its full `openDelay` to fire.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(body.queryByRole("tooltip")).toBeNull();
+    });
+  },
+};
