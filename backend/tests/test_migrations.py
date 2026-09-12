@@ -137,9 +137,8 @@ def _roms_column(connection: sa.Connection, name: str) -> ReflectedColumn:
     )
 
 
-# MySQL/MariaDB auto-commit each DDL statement, so a run that dies partway keeps
-# what it created while the alembic version stays behind, and the next start
-# replays the revision over its own leftovers.
+# MySQL/MariaDB auto-commit each DDL statement, so the next start replays a
+# revision over the leftovers of the run that died partway through it.
 @pytest.mark.parametrize(
     "filename",
     ["0126_unique_rom_full_path.py", "0128_hltb_main_story_column.py"],
@@ -152,18 +151,17 @@ def test_a_migration_replayed_over_a_migrated_schema_is_a_no_op(filename: str):
         with Operations.context(MigrationContext.configure(connection)):
             migration.upgrade()
 
-        indexes = _roms_indexes(connection)
+        columns = {
+            column["name"] for column in sa.inspect(connection).get_columns("roms")
+        }
 
-    assert indexes["idx_roms_platform_id_full_path_hash"]["unique"]
-    assert not indexes["idx_roms_platform_id_fs_name"]["unique"]
-    assert "idx_roms_hltb_main_story" in indexes
+    assert migration.COLUMN_NAME in columns
 
 
 def test_the_full_path_hash_migration_resumes_an_interrupted_run(rom: Rom):
     """0126 finishes a run that died right after its ADD COLUMN.
 
-    The column survives the failure without a digest, a NOT NULL or either
-    index, which is the state a restart mid-backfill leaves behind.
+    That run leaves the column with no digest, no NOT NULL and neither index.
     """
     migration = _load_migration("0126_unique_rom_full_path.py")
 

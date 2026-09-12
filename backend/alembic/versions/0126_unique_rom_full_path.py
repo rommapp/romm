@@ -41,10 +41,9 @@ def upgrade() -> None:
     )
     indexes = {index["name"]: index for index in inspector.get_indexes("roms")}
 
-    # Every step is guarded so a re-run after a partial failure recovers
-    # cleanly. MySQL/MariaDB auto-commit each DDL statement, so a crash
-    # mid-migration leaves the column behind without advancing the alembic
-    # version, and an unguarded ADD COLUMN then fails every start after it.
+    # MySQL/MariaDB auto-commit each DDL statement, so a crash mid-migration
+    # keeps the column while the alembic version stays behind. Every step is
+    # guarded so the replay resumes where it stopped.
     if column is None:
         op.add_column(
             "roms",
