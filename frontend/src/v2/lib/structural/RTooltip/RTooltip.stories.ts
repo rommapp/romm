@@ -509,11 +509,15 @@ export const DismissedByOverlay: Story = {
       <div style="padding:48px;display:flex;justify-content:center">
         <section aria-label="Super Mario World" style="padding:24px;border:1px solid var(--r-color-border);border-radius:8px">
           Super Mario World
-          <RMenu :offset="8">
+          <RMenu>
             <template #activator="{ props }">
               <button type="button" v-bind="props" @click.stop>More actions</button>
             </template>
-            <RMenuItem>Edit</RMenuItem>
+            <RTooltip text="Rename this game" :open-delay="0">
+              <template #activator="{ props: tipProps }">
+                <RMenuItem v-bind="tipProps">Edit</RMenuItem>
+              </template>
+            </RTooltip>
           </RMenu>
           <RTooltip activator="parent" text="Super Mario World" :open-delay="0" />
         </section>
@@ -541,5 +545,18 @@ export const DismissedByOverlay: Story = {
         await waitFor(() => expect(body.queryByRole("tooltip")).toBeNull());
       },
     );
+
+    await step("re-hovering the covered card does not bring it back", () => {
+      firePointerEnter(card, "mouse");
+      expect(body.queryByRole("tooltip")).toBeNull();
+    });
+
+    await step("a tooltip inside the menu still opens", async () => {
+      const menu = within(await body.findByRole("menu"));
+      firePointerEnter(menu.getByRole("button", { name: /edit/i }), "mouse");
+      expect(await body.findByRole("tooltip")).toHaveTextContent(
+        "Rename this game",
+      );
+    });
   },
 };

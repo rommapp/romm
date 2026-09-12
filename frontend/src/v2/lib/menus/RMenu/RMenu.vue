@@ -320,6 +320,7 @@ function onDocPointerDown(evt: PointerEvent) {
 const escEntry: EscapableEntry = {
   close: () => close(),
   persistent: false,
+  panel: () => panelRef.value,
 };
 
 watch(

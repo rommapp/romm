@@ -17,6 +17,9 @@
 // registry — `useGamepad`'s B/back action calls `hasOpenEscapable()`
 // to decide between "close the top overlay" and "router.back()", so
 // gamepad dismiss and Esc share the same source of truth.
+//
+// Pushing also notifies `onEscapableOpen` subscribers, so surfaces that
+// paint above every overlay (RTooltip) can dismiss themselves.
 
 export interface EscapableEntry {
   close: () => void;
@@ -24,6 +27,10 @@ export interface EscapableEntry {
    *  becomes a no-op for it. Outer entries do not get a chance to
    *  respond either — a persistent layer effectively swallows Esc. */
   persistent: boolean;
+  /** The surface this entry paints, for overlays that own one. Lets
+   *  `isUnderOpenEscapable` tell content inside the overlay apart from
+   *  content the overlay covers. */
+  panel?: () => HTMLElement | null;
 }
 
 const stack: EscapableEntry[] = [];
@@ -62,12 +69,19 @@ export function popEscapable(entry: EscapableEntry): void {
   }
 }
 
-/** Subscribe to "an overlay just opened". Returns an unsubscribe function.
- *  RTooltip listens so a hover tip never lingers over the surface it
- *  launched; the activator's own click is not a reliable dismissal. */
+/** Subscribe to "an overlay just opened". Returns an unsubscribe function. */
 export function onEscapableOpen(listener: () => void): () => void {
   openListeners.add(listener);
   return () => openListeners.delete(listener);
+}
+
+/** True when `el` is covered by the topmost overlay rather than living
+ *  inside it. Entries that declare no panel have no opinion, so nothing
+ *  counts as covered while one of those is on top. */
+export function isUnderOpenEscapable(el: Node | null): boolean {
+  const panel = stack[stack.length - 1]?.panel?.();
+  if (!panel) return false;
+  return !el || !panel.contains(el);
 }
 
 /** True when at least one non-persistent escapable overlay is open.

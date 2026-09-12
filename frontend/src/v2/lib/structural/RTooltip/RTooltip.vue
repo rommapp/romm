@@ -45,7 +45,10 @@ import {
   useSlots,
   watch,
 } from "vue";
-import { onEscapableOpen } from "../../overlays/RDialog/escapeStack.js";
+import {
+  isUnderOpenEscapable,
+  onEscapableOpen,
+} from "../../overlays/RDialog/escapeStack.js";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -172,6 +175,8 @@ function clearTimers() {
 }
 function show() {
   if (props.disabled || !hasContent.value) return;
+  // A tip whose activator the overlay covers would paint on top of it.
+  if (isUnderOpenEscapable(reference.value)) return;
   clearTimers();
   const d = Number(props.openDelay) || 0;
   if (d <= 0) {
@@ -369,13 +374,11 @@ function detachFromParent() {
   parent.removeEventListener("click", onActivatorClick);
 }
 
-// Tooltips outrank menus in the z-index ladder, so an open tip paints over
-// any overlay that appears. The activator's click is not a reliable dismissal
-// (a nested control can stop it; keyboard and gamepad fire no pointer gesture
-// at all), so close on the overlay itself, ignoring `closeDelay`.
+// A tip paints above every overlay in the z-index ladder, so an overlay
+// opening dismisses it outright, ignoring `closeDelay`.
 const stopOverlayDismiss = onEscapableOpen(() => {
   clearTimers();
-  setOpen(false);
+  if (isOpen.value) setOpen(false);
 });
 
 onMounted(() => {
