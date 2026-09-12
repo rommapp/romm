@@ -115,7 +115,9 @@ wait_for_gunicorn() {
 	warn_log "Gunicorn did not become ready after waiting ${wait_seconds}s!"
 }
 
-# Runs our main process and creates a corresponding PID file
+# Runs our main process and creates a corresponding PID file.
+# WEB_SERVER_KEEPALIVE must stay above nginx's upstream idle timeout (60s by
+# default), or nginx reuses a connection gunicorn is closing and returns 502.
 start_bin_gunicorn() {
 	# Wire LOGLEVEL into Gunicorn's logging config so it respects the env var.
 	local gunicorn_level="${LOGLEVEL^^}"
@@ -140,7 +142,7 @@ start_bin_gunicorn() {
 		--worker-class uvicorn_worker.UvicornWorker \
 		--workers "${WEB_SERVER_CONCURRENCY:-4}" \
 		--timeout "${WEB_SERVER_TIMEOUT:-300}" \
-		--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
+		--keep-alive "${WEB_SERVER_KEEPALIVE:-65}" \
 		--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
 		--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
 		--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
