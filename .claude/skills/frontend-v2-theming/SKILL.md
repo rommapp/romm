@@ -33,7 +33,7 @@ v2 has **no Vuetify theme of its own**, and no Vuetify at all. `tokens.css` emit
 ### Diagnostics — when `var(--r-color-...)` resolves to nothing on an overlay
 
 1. Check `RomM.vue`'s watch on `documentElement.classList` (load-bearing).
-2. Check that the overlay still teleports to `body`. A teleport to any other target can land outside the `<html>` scope.
+2. Check that the teleport target is attached to the document. `<html>` is the document root, so any in-document target inherits the scope; a detached node resolves no `var(--r-*)` at all.
 3. **Never** "fix" it by swapping the token for a hex literal — that hides the bug and breaks the dual theme.
 
 ---

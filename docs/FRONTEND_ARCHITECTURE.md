@@ -2,7 +2,7 @@
 
 Comprehensive documentation of the RomM frontend: a Vue 3 single-page application powering the retro gaming platform UI.
 
-> **Scope: this document describes the v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), which is frozen pending deletion. The v2 rewrite under `src/v2/` shares the Vue/Vite/Pinia/router/i18n/Socket.IO foundation described here, but has its own design system and uses **neither Vuetify nor Tailwind**, styling instead with generated tokens plus scoped CSS. For v2, read the `frontend-v2-components`, `frontend-v2-theming`, `frontend-v2-input`, and `frontend-v2-patterns` skills in `.claude/skills/`.
+> **Scope: this document describes the v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), which is frozen pending deletion. The v2 rewrite under `src/v2/` shares the Vue/Vite/Pinia/router/i18n/Socket.IO foundation described here, but has its own design system: **no Vuetify, and no Tailwind utility classes** (the Tailwind stylesheet is still loaded app-wide, see CSS Stack below). It styles with generated tokens plus per-component scoped CSS. For v2, read the `frontend-v2-components`, `frontend-v2-theming`, `frontend-v2-input`, and `frontend-v2-patterns` skills in `.claude/skills/`.
 
 ---
 

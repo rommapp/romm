@@ -31,7 +31,7 @@ How v2 features behave. Each pattern has one canonical mechanism — don't inven
 ## C. Real-time updates (Socket.IO)
 
 - One instance: `src/services/socket.ts`. Never `new io()`.
-- New consumers go through (or build) a `useSocketEvent(event, handler)` composable for typed subscriptions with automatic mount/unmount cleanup (this composable is still debt — today consumers wire `socket.on/off` by hand).
+- Subscriptions go through `useSocketEvent(event, handler)` (`src/v2/composables/useSocketEvent/`): typed payload, auto-connect by default (`{ connect: false }` opts out), cleanup via `onScopeDispose` so it also works inside a store action or a manual `effectScope`. No v2 code wires `socket.on/off` by hand; don't start.
 - **Ownership rule:** state living only while a view is open → subscribe in the view; state that must outlive a view (e.g. scan badge in navbar) → a Pinia store subscribes globally and views just read.
 - Reconnection is socket.io's job — don't roll your own.
 
