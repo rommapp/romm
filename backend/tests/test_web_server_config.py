@@ -1,14 +1,4 @@
-"""Guards two serving-layer settings that live outside Python.
-
-* ``gzip_types`` in the nginx config must cover the compressible types the
-  image actually serves. The emulator cores (``.wasm``) and logos (``.svg``)
-  are the large ones, and neither type is in nginx's ``gzip_types`` default,
-  so leaving them out ships them uncompressed.
-* Gunicorn's keep-alive must outlive nginx's upstream idle timeout. Upstream
-  keepalive is on by default since nginx 1.29.7, but a shorter gunicorn value
-  reaps each pooled connection before nginx can reuse it, so the pool never
-  pays off and every request opens a new one.
-"""
+"""Guards the serving-layer settings that live outside Python."""
 
 import re
 from pathlib import Path
@@ -17,11 +7,16 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NGINX_CONF = REPO_ROOT / "docker" / "nginx" / "default.conf"
+DOCKERFILE = REPO_ROOT / "docker" / "Dockerfile"
 INIT_SCRIPT = REPO_ROOT / "docker" / "init_scripts" / "init"
 ENV_TEMPLATE = REPO_ROOT / "env.template"
 
 # nginx's own default upstream keepalive_timeout, which gunicorn must outlive.
 NGINX_UPSTREAM_IDLE_TIMEOUT = 60
+
+# nginx enables upstream keepalive by default from this release. Below it the
+# pool is off entirely and the timeout invariant stops meaning anything.
+NGINX_UPSTREAM_KEEPALIVE_SINCE = (1, 29, 7)
 
 REQUIRED_GZIP_TYPES = [
     "application/wasm",  # EmulatorJS, js-dos and FAKE-08 cores
@@ -33,7 +28,6 @@ REQUIRED_GZIP_TYPES = [
 
 
 def _init_script_keepalive() -> int:
-    """Return the gunicorn --keep-alive default baked into the init script."""
     match = re.search(
         r'--keep-alive "\$\{WEB_SERVER_KEEPALIVE:-(\d+)\}"', INIT_SCRIPT.read_text()
     )
@@ -51,6 +45,16 @@ def gzip_types() -> set[str]:
 @pytest.mark.parametrize("media_type", REQUIRED_GZIP_TYPES)
 def test_compressible_types_are_gzipped(gzip_types: set[str], media_type: str) -> None:
     assert media_type in gzip_types, f"{media_type} would be served uncompressed"
+
+
+def test_nginx_defaults_upstream_keepalive_on() -> None:
+    match = re.search(r"^ARG NGINX_VERSION=(\S+)", DOCKERFILE.read_text(), re.M)
+    assert match, "docker/Dockerfile is missing an ARG NGINX_VERSION pin"
+    version = tuple(int(part) for part in match.group(1).split("."))
+    assert version >= NGINX_UPSTREAM_KEEPALIVE_SINCE, (
+        f"nginx {match.group(1)} does not pool upstream connections by default, "
+        f"so every API request opens a new one"
+    )
 
 
 def test_gunicorn_outlives_nginx_upstream_idle_timeout() -> None:
