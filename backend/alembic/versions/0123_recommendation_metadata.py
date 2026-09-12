@@ -36,7 +36,7 @@ Create Date: 2026-08-08 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import CustomJSON, is_postgresql
+from utils.database import CustomJSON, column_names, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0123_recommendation_metadata"
@@ -492,17 +492,11 @@ def _rebuild_columns(
     # The view projects the columns being dropped, so it goes first.
     op.execute("DROP VIEW IF EXISTS roms_metadata")
 
-    # MySQL/MariaDB auto-commit each DDL statement, so a replay after a partial
-    # run meets the columns the previous one added. Dropping only what is there
-    # re-adds every column at this revision's definition either way.
-    present = {
-        column["name"] for column in sa.inspect(op.get_bind()).get_columns("roms")
-    }
-    actions = [
-        f"DROP COLUMN {name}"
-        for name in [name for name, _, _ in swapped] + drop
-        if name in present
-    ] + [
+    # A replay meets the columns the previous run added; dropping only what is
+    # there re-adds every one at this revision's definition either way.
+    present = column_names(op.get_bind(), "roms")
+    dropped = [name for name, _, _ in swapped] + drop
+    actions = [f"DROP COLUMN {name}" for name in dropped if name in present] + [
         f"ADD COLUMN {name} {type_} GENERATED ALWAYS AS ({expr}) STORED"
         for name, type_, expr in swapped
     ]

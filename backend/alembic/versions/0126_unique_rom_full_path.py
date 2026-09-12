@@ -31,34 +31,30 @@ UNIQUE_INDEX_NAME = "idx_roms_platform_id_full_path_hash"
 def upgrade() -> None:
     connection = op.get_bind()
     inspector = sa.inspect(connection)
-    column = next(
-        (
-            column
-            for column in inspector.get_columns("roms")
-            if column["name"] == COLUMN_NAME
-        ),
-        None,
-    )
+    columns = {column["name"]: column for column in inspector.get_columns("roms")}
     indexes = {index["name"]: index for index in inspector.get_indexes("roms")}
+    column = columns.get(COLUMN_NAME)
+    # Once the column is NOT NULL the backfill is done: no row can still match.
+    unfilled = column is None or column["nullable"]
 
-    # MySQL/MariaDB auto-commit each DDL statement, so a crash mid-migration
-    # keeps the column while the alembic version stays behind. Every step is
-    # guarded so the replay resumes where it stopped.
+    # A crash mid-migration keeps what it created while the alembic version
+    # stays behind, so each step is guarded and a replay resumes where it stopped.
     if column is None:
         op.add_column(
             "roms",
             sa.Column(COLUMN_NAME, sa.String(length=FULL_PATH_HASH_LENGTH)),
         )
 
-    connection.execute(
-        sa.text(
-            f"UPDATE roms SET {COLUMN_NAME} = {full_path_digest_sql(connection)} "  # nosec B608
-            f"WHERE {COLUMN_NAME} IS NULL"
+    if unfilled:
+        connection.execute(
+            sa.text(
+                f"UPDATE roms SET {COLUMN_NAME} = {full_path_digest_sql(connection)} "  # nosec B608
+                f"WHERE {COLUMN_NAME} IS NULL"
+            )
         )
-    )
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        if column is None or column["nullable"]:
+        if unfilled:
             batch_op.alter_column(
                 COLUMN_NAME,
                 existing_type=sa.String(length=FULL_PATH_HASH_LENGTH),
@@ -113,4 +109,4 @@ def downgrade() -> None:
         )
         batch_op.drop_index(UNIQUE_INDEX_NAME, if_exists=True)
 
-    op.drop_column("roms", "full_path_hash")
+    op.drop_column("roms", COLUMN_NAME)

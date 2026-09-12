@@ -14,7 +14,6 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import Table, UniqueConstraint
-from sqlalchemy.engine.interfaces import ReflectedColumn, ReflectedIndex
 
 import models
 from handler.database.base_handler import sync_engine
@@ -125,11 +124,17 @@ def _load_migration(filename: str) -> ModuleType:
     return migration
 
 
-def _schema_of(connection: sa.Connection, table: str) -> tuple[set[str], set[str]]:
+def _schema_of(
+    connection: sa.Connection, table: str
+) -> tuple[dict[str, bool], dict[str | None, tuple[tuple[str | None, ...], bool]]]:
+    """Columns by nullability and indexes by (columns, uniqueness)."""
     inspector = sa.inspect(connection)
     return (
-        {column["name"] for column in inspector.get_columns(table)},
-        {index["name"] for index in inspector.get_indexes(table)},
+        {column["name"]: column["nullable"] for column in inspector.get_columns(table)},
+        {
+            index["name"]: (tuple(index["column_names"]), bool(index["unique"]))
+            for index in inspector.get_indexes(table)
+        },
     )
 
 
@@ -138,24 +143,8 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         _load_migration(filename).upgrade()
 
 
-def _roms_indexes(connection: sa.Connection) -> dict[str, ReflectedIndex]:
-    return {
-        index["name"]: index for index in sa.inspect(connection).get_indexes("roms")
-    }
-
-
-def _roms_column(connection: sa.Connection, name: str) -> ReflectedColumn:
-    return next(
-        column
-        for column in sa.inspect(connection).get_columns("roms")
-        if column["name"] == name
-    )
-
-
-# MySQL/MariaDB auto-commit each DDL statement, so a revision that dies partway
-# keeps what it created while alembic_version stays behind, and the next start
-# replays it. None of these is touched by a later revision, so replaying one
-# over the migrated schema has to leave that schema exactly as it found it.
+# None of these is touched by a later revision, so replaying one over the
+# migrated schema has to leave that schema exactly as it found it.
 @pytest.mark.parametrize(
     "filename,table",
     [
@@ -175,6 +164,25 @@ def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
         _replay(connection, filename)
 
         assert _schema_of(connection, table) == before
+
+
+def test_the_rom_similarity_revision_fills_in_a_missing_index():
+    """0122 meets its own table on a replay, with only some of its indexes.
+
+    Alembic issues those as their own statements after the table, so a run can
+    die between them.
+    """
+    migration = _load_migration("0122_rom_similarity.py")
+    name, _ = migration.INDEXES[0]
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, migration.TABLE)
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            # The other one backs a foreign key, which MariaDB will not let go.
+            operations.drop_index(name, table_name=migration.TABLE)
+            migration.upgrade()
+
+        assert _schema_of(connection, migration.TABLE) == before
 
 
 def test_the_memory_card_revision_replays_under_the_one_that_prunes_it():
@@ -209,16 +217,17 @@ def test_the_full_path_hash_migration_resumes_an_interrupted_run(rom: Rom):
             )
             migration.upgrade()
 
-        indexes = _roms_indexes(connection)
-        column = _roms_column(connection, migration.COLUMN_NAME)
+        columns, indexes = _schema_of(connection, "roms")
         digest = connection.execute(
-            sa.text("SELECT full_path_hash FROM roms WHERE id = :rom_id"),
+            sa.text(
+                f"SELECT {migration.COLUMN_NAME} FROM roms WHERE id = :rom_id"
+            ),  # nosec B608
             {"rom_id": rom.id},
         ).scalar_one()
 
-    assert not column["nullable"]
-    assert indexes[migration.UNIQUE_INDEX_NAME]["unique"]
-    assert not indexes[migration.LOOKUP_INDEX_NAME]["unique"]
+    assert not columns[migration.COLUMN_NAME]
+    assert indexes[migration.UNIQUE_INDEX_NAME][1]
+    assert not indexes[migration.LOOKUP_INDEX_NAME][1]
     assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
 
 
@@ -231,26 +240,16 @@ def test_the_hltb_migration_resumes_an_interrupted_run():
             operations.drop_index(migration.INDEX_NAME, table_name="roms")
             migration.upgrade()
 
-        indexes = _roms_indexes(connection)
+        _, indexes = _schema_of(connection, "roms")
 
     assert migration.INDEX_NAME in indexes
 
 
-@pytest.mark.parametrize(
-    "table,column,expected",
-    [
-        ("roms", "generated_publishers", True),
-        ("roms_facets", "developers", True),
-        ("states", "disc_file_id", True),
-        ("roms", "no_such_column", False),
-    ],
-)
-def test_has_column_reflects_the_migrated_schema(
-    table: str, column: str, expected: bool
-):
+def test_has_column_reflects_the_migrated_schema():
     """The guard every replayed column add is skipped by."""
     with sync_engine.connect() as connection:
-        assert has_column(connection, table, column) is expected
+        assert has_column(connection, "roms", "generated_publishers")
+        assert not has_column(connection, "roms", "no_such_column")
 
 
 def test_the_publisher_split_column_add_replays():
@@ -297,10 +296,10 @@ def test_the_state_disc_file_migration_resumes_an_interrupted_run(drop_column: b
             migration.upgrade()
 
         inspector = sa.inspect(connection)
-        column = has_column(connection, "states", "disc_file_id")
+        columns = {column["name"] for column in inspector.get_columns("states")}
         index = inspector.has_index("states", "ix_states_disc_file_id")
         foreign_keys = {key["name"] for key in inspector.get_foreign_keys("states")}
 
-    assert column
+    assert "disc_file_id" in columns
     assert index
     assert "fk_states_disc_file_id" in foreign_keys

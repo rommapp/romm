@@ -9,8 +9,6 @@ Create Date: 2026-08-14 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op
 
-from utils.database import has_column
-
 # revision identifiers, used by Alembic.
 revision = "0121_state_disc_file"
 down_revision = "0120_container_adoptions"
@@ -19,18 +17,21 @@ depends_on = None
 
 
 def upgrade() -> None:
-    connection = op.get_bind()
-    inspector = sa.inspect(connection)
-    # No `has_foreign_key` to match `has_index`, so this one is reflected by hand.
-    foreign_keys = {key["name"] for key in inspector.get_foreign_keys("states")}
+    # No `if_not_exists` on `create_foreign_key`, so that one is reflected.
+    foreign_keys = {
+        key["name"] for key in sa.inspect(op.get_bind()).get_foreign_keys("states")
+    }
 
     with op.batch_alter_table("states", schema=None) as batch_op:
-        if not has_column(connection, "states", "disc_file_id"):
-            batch_op.add_column(sa.Column("disc_file_id", sa.Integer(), nullable=True))
+        batch_op.add_column(
+            sa.Column("disc_file_id", sa.Integer(), nullable=True),
+            if_not_exists=True,
+        )
         # Postgres indexes no FK column on its own, and the SET NULL cascade
         # scans this on every rom_files delete.
-        if not inspector.has_index("states", "ix_states_disc_file_id"):
-            batch_op.create_index("ix_states_disc_file_id", ["disc_file_id"])
+        batch_op.create_index(
+            "ix_states_disc_file_id", ["disc_file_id"], if_not_exists=True
+        )
         if "fk_states_disc_file_id" not in foreign_keys:
             batch_op.create_foreign_key(
                 "fk_states_disc_file_id",

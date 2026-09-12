@@ -24,7 +24,7 @@ Create Date: 2026-07-23 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import CustomJSON, has_column, is_postgresql
+from utils.database import CustomJSON, column_names, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0112_publisher_developer_split"
@@ -72,12 +72,8 @@ def _postgres_array_expr(key: str) -> str:
 
 
 def _add_generated_columns(pg: bool) -> None:
-    connection = op.get_bind()
-    missing = [
-        (name, key)
-        for name, key in _NEW_GENERATED
-        if not has_column(connection, "roms", name)
-    ]
+    present = column_names(op.get_bind(), "roms")
+    missing = [(name, key) for name, key in _NEW_GENERATED if name not in present]
     if not missing:
         return
 
@@ -390,8 +386,11 @@ def upgrade() -> None:
     _rebuild_roms_metadata_view(pg, include_new=True)
 
     for facet in ("publishers", "developers"):
-        if not has_column(op.get_bind(), "roms_facets", facet):
-            op.add_column("roms_facets", sa.Column(facet, CustomJSON(), nullable=True))
+        op.add_column(
+            "roms_facets",
+            sa.Column(facet, CustomJSON(), nullable=True),
+            if_not_exists=True,
+        )
     _rebuild_facets_triggers(pg, include_new=True)
     _rebuild_vc_triggers(pg, _VC_ALL_TYPES)
 

@@ -76,20 +76,18 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
     return is_db_version_compatible(conn, min_version=min_version)
 
 
-def has_column(conn: sa.Connection, table: str, column: str) -> bool:
-    """Whether `table` already carries `column`, which `Inspector` cannot answer.
+def column_names(conn: sa.Connection, table: str) -> set[str]:
+    """The columns `table` currently carries, for guards over a set of them.
 
-    Args:
-        conn: Connection to reflect through.
-        table: Table to look in.
-        column: Column to look for.
-
-    Returns:
-        True when a replayed revision should skip adding it.
+    One reflection answers the whole set; `has_column` per candidate costs one
+    round-trip each.
     """
-    return any(
-        reflected["name"] == column for reflected in sa.inspect(conn).get_columns(table)
-    )
+    return {column["name"] for column in sa.inspect(conn).get_columns(table)}
+
+
+def has_column(conn: sa.Connection, table: str, column: str) -> bool:
+    """Whether `table` already carries `column`, which `Inspector` cannot answer."""
+    return column in column_names(conn, table)
 
 
 def full_path_digest_sql(conn: sa.Connection) -> str:
