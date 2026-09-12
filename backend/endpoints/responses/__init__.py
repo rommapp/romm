@@ -20,20 +20,16 @@ class ScanStats(TypedDict):
     new_files: int
 
 
-# Read off the annotations so a counter added here is filled without a second
-# edit, which is the step the release that added `updated_roms` and `new_files`
-# missed.
+# Read off the annotations so a counter added here is filled without a second edit.
 EMPTY_SCAN_STATS: Final[ScanStats] = cast(
     ScanStats, dict.fromkeys(ScanStats.__annotations__, 0)
 )
 
 
 def fill_scan_stats(stats: Mapping[str, Any] | None) -> ScanStats | None:
-    """A scan's counters, with any the release that wrote them predates zeroed.
+    """A scan's counters, zeroing any the release that stored them predates.
 
-    A job's meta outlives the release that stored it in Redis, so an upgrade
-    leaves stats behind that are missing every counter added since. Zero is what
-    a run that never counted one reported.
+    A job's meta in Redis outlives the release that wrote it.
     """
     if stats is None:
         return None

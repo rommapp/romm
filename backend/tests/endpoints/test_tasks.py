@@ -475,11 +475,7 @@ class TestGetTaskById:
     def test_a_scan_predating_a_counter_reports_it_as_zero(
         self, mock_job_fetch, client, access_token
     ):
-        """Stats written to Redis by an older release lack the counters it predates.
-
-        The response requires every counter, so such a job used to fail the
-        whole listing rather than report the run it belongs to.
-        """
+        """Stats stored by an older release lack the counters it predates."""
         mock_job_fetch.return_value = _job_with_meta(
             {
                 "task_type": TaskType.SCAN,
