@@ -76,6 +76,22 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
     return is_db_version_compatible(conn, min_version=min_version)
 
 
+def has_column(conn: sa.Connection, table: str, column: str) -> bool:
+    """Whether `table` already carries `column`, which `Inspector` cannot answer.
+
+    Args:
+        conn: Connection to reflect through.
+        table: Table to look in.
+        column: Column to look for.
+
+    Returns:
+        True when a replayed revision should skip adding it.
+    """
+    return any(
+        reflected["name"] == column for reflected in sa.inspect(conn).get_columns(table)
+    )
+
+
 def full_path_digest_sql(conn: sa.Connection) -> str:
     """`models.rom.compute_full_path_hash` spelled in SQL, for 0126's backfill.
 

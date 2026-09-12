@@ -4,10 +4,15 @@ The test database is built from the migrations, so an index declared in one but
 not the other goes unnoticed until autogenerate proposes dropping it.
 """
 
+import importlib.util
+from pathlib import Path
+from types import ModuleType
+
 import pytest
 import sqlalchemy as sa
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import Table, UniqueConstraint
 
 import models
@@ -18,6 +23,8 @@ from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
     full_path_digest_sql,
+    has_column,
+    is_postgresql,
 )
 
 # `compare_metadata` yields flat tuples for schema-level diffs, and a list of
@@ -101,3 +108,66 @@ def test_the_migrated_full_path_digest_matches_the_models(fs_path: str, fs_name:
         ).scalar_one()
 
     assert digest == compute_full_path_hash(fs_path, fs_name)
+
+
+def _load_migration(filename: str) -> ModuleType:
+    """Import a revision by file name, which no package path can reach."""
+    path = Path(__file__).parent.parent / "alembic" / "versions" / filename
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    assert spec and spec.loader
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    return migration
+
+
+@pytest.mark.parametrize(
+    "table,column,expected",
+    [
+        ("roms", "generated_publishers", True),
+        ("roms_facets", "developers", True),
+        ("states", "disc_file_id", True),
+        ("roms", "no_such_column", False),
+    ],
+)
+def test_has_column_reflects_the_migrated_schema(
+    table: str, column: str, expected: bool
+):
+    """The guard every replayed column add is skipped by."""
+    with sync_engine.connect() as connection:
+        assert has_column(connection, table, column) is expected
+
+
+def test_the_publisher_split_column_add_replays():
+    """0112's generated columns are added once, however often it runs.
+
+    A run that dies on its trigger DDL (error 1419 on a binlog-enabled server
+    without SUPER) leaves these committed, and the replay used to die on the
+    duplicate column rather than resuming at the triggers.
+    """
+    migration = _load_migration("0112_publisher_developer_split.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration._add_generated_columns(is_postgresql(connection))
+
+        assert has_column(connection, "roms", "generated_publishers")
+        assert has_column(connection, "roms", "generated_developers")
+
+
+def test_the_state_disc_file_migration_replays():
+    """0121 touches only its own column, index and foreign key, so it replays whole."""
+    migration = _load_migration("0121_state_disc_file.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+        inspector = sa.inspect(connection)
+        column = has_column(connection, "states", "disc_file_id")
+        index = inspector.has_index("states", "ix_states_disc_file_id")
+        foreign_keys = {key["name"] for key in inspector.get_foreign_keys("states")}
+
+    assert column
+    assert index
+    assert "fk_states_disc_file_id" in foreign_keys
