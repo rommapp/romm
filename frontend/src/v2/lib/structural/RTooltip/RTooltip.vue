@@ -45,6 +45,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { onEscapableOpen } from "../../overlays/RDialog/escapeStack.js";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -368,6 +369,15 @@ function detachFromParent() {
   parent.removeEventListener("click", onActivatorClick);
 }
 
+// Tooltips outrank menus in the z-index ladder, so an open tip paints over
+// any overlay that appears. The activator's click is not a reliable dismissal
+// (a nested control can stop it; keyboard and gamepad fire no pointer gesture
+// at all), so close on the overlay itself, ignoring `closeDelay`.
+const stopOverlayDismiss = onEscapableOpen(() => {
+  clearTimers();
+  setOpen(false);
+});
+
 onMounted(() => {
   // For the slot pattern, the reference is the first child rendered
   // by the slot — we read it from the wrapper span on mount.
@@ -381,6 +391,7 @@ onBeforeUnmount(() => {
   detachFromParent();
   clearTimers();
   teardownOutsideClose();
+  stopOverlayDismiss();
 });
 
 // ── Slot activator wrapper ──────────────────────────────────────

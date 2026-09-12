@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, waitFor, within } from "storybook/test";
 import { ref } from "vue";
+import RMenu from "@/v2/lib/menus/RMenu/RMenu.vue";
+import RMenuItem from "@/v2/lib/menus/RMenuItem/RMenuItem.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTooltip from "./RTooltip.vue";
@@ -497,4 +499,47 @@ export const FormHelper: Story = {
       </div>
     `,
   }),
+};
+
+export const DismissedByOverlay: Story = {
+  name: "Dismissed when an overlay opens",
+  render: () => ({
+    components: { RTooltip, RMenu, RMenuItem },
+    template: `
+      <div style="padding:48px;display:flex;justify-content:center">
+        <section aria-label="Super Mario World" style="padding:24px;border:1px solid var(--r-color-border);border-radius:8px">
+          Super Mario World
+          <RMenu :offset="8">
+            <template #activator="{ props }">
+              <button type="button" v-bind="props" @click.stop>More actions</button>
+            </template>
+            <RMenuItem>Edit</RMenuItem>
+          </RMenu>
+          <RTooltip activator="parent" text="Super Mario World" :open-delay="0" />
+        </section>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const body = within(document.body);
+    const card = canvas.getByRole("region", { name: /super mario world/i });
+    const activator = canvas.getByRole("button", { name: /more actions/i });
+
+    await step("hovering the card reveals its tooltip", async () => {
+      firePointerEnter(card, "mouse");
+      expect(await body.findByRole("tooltip")).toHaveTextContent(
+        "Super Mario World",
+      );
+    });
+
+    await step(
+      "opening the menu dismisses it, even though the activator swallows the click",
+      async () => {
+        activator.click();
+        expect(await body.findByRole("menu")).toBeInTheDocument();
+        await waitFor(() => expect(body.queryByRole("tooltip")).toBeNull());
+      },
+    );
+  },
 };

@@ -27,6 +27,7 @@ export interface EscapableEntry {
 }
 
 const stack: EscapableEntry[] = [];
+const openListeners = new Set<() => void>();
 
 function onWindowKeyDown(evt: KeyboardEvent) {
   if (evt.key !== "Escape") return;
@@ -50,6 +51,7 @@ function detachListener() {
 export function pushEscapable(entry: EscapableEntry): void {
   stack.push(entry);
   attachListener();
+  for (const listener of [...openListeners]) listener();
 }
 
 export function popEscapable(entry: EscapableEntry): void {
@@ -58,6 +60,14 @@ export function popEscapable(entry: EscapableEntry): void {
     stack.splice(idx, 1);
     detachListener();
   }
+}
+
+/** Subscribe to "an overlay just opened". Returns an unsubscribe function.
+ *  RTooltip listens so a hover tip never lingers over the surface it
+ *  launched; the activator's own click is not a reliable dismissal. */
+export function onEscapableOpen(listener: () => void): () => void {
+  openListeners.add(listener);
+  return () => openListeners.delete(listener);
 }
 
 /** True when at least one non-persistent escapable overlay is open.
