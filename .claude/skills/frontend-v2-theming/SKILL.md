@@ -49,7 +49,7 @@ v2 has **no Vuetify theme of its own**, and no Vuetify at all. `tokens.css` emit
    - focus (modality-gated; visible only on `key`/`pad` — see `frontend-v2-input`)
    - busy/pending · disabled
 4. **Implementation gotchas:**
-   - Every dialog goes through `RDialog`; every menu through `RMenu`; every tooltip through `RTooltip`. Each owns its own teleport, scrim, and scroll lock, so don't hand-roll a parallel one.
+   - Every dialog goes through `RDialog`; every menu through `RMenu`; every tooltip through `RTooltip`. Each owns its teleport and positioning, so don't hand-roll a parallel surface. The scrim and the reference-counted body scroll lock (`lib/overlays/bodyScrollLock.ts`) belong to `RDialog` and `RDrawer` only; menus and tooltips have neither.
 
 ---
 

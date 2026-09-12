@@ -60,7 +60,7 @@ Name a helper for what it touches: `syncCachedRom`, not `syncRom`, when it updat
 - `LoadMore` (`RBtn` + `RSpinner` + IntersectionObserver) is the canonical fallback when virtualization stalls.
 - `RVirtualScroller` (`src/v2/lib/structural/`) is the substrate for large lists/grids: a custom windowed list that owns its offset math, not a wrapper around anything.
 - Page size lives in the store (`fetchLimit`); not user-configurable for now.
-- **Scroll restoration** on back-nav: the `scrollRestoration` Pinia store keyed by `route.fullPath`. Vue Router's `scrollBehavior` only restores `window` scroll, and galleries scroll `RVirtualScroller`'s container, so views save on `onBeforeRouteLeave` and restore in `onMounted`. URL holds filters/sort/search but **not** scroll offset.
+- **Scroll restoration** on back-nav: the `scrollRestoration` Pinia store keyed by `route.fullPath`. Vue Router's `scrollBehavior` only restores `window` scroll, and galleries scroll `RVirtualScroller`'s container, so `GalleryShell` owns persistence: it saves the outgoing route's offset in both its `onBeforeRouteUpdate` and `onBeforeRouteLeave` guards. Views don't repeat that (their own `onBeforeRouteUpdate` just triggers the new context's load); they call the exposed `applyRestoredScroll()` at the end of their load flow. URL holds filters/sort/search but **not** scroll offset.
 
 ## F. Forms & validation
 
