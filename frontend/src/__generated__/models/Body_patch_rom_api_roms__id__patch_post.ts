@@ -12,8 +12,11 @@ export type Body_patch_rom_api_roms__id__patch_post = {
      */
     output_file_name?: (string | null);
     /**
+     * File inside a ZIP ROM archive to patch.
+     */
+    archive_member_name?: (string | null);
+    /**
      * A patch file uploaded from the client, applied without being stored in the library.
      */
     patch_file?: (string | null);
 };
-
