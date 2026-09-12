@@ -13,8 +13,8 @@ import { extname, join, resolve } from "node:path";
 import { constants, gzipSync } from "node:zlib";
 import type { Plugin } from "vite";
 
-// Kept in step with gzip_types in docker/nginx/default.conf. Formats that are
-// already compressed (png, woff2, ico) only grow, so they are left alone.
+// gzip_static serves a .gz sibling whatever gzip_types says, so this list alone
+// decides what is precompressed. Already-compressed formats only grow.
 const COMPRESSIBLE = new Set([
   ".css",
   ".html",
@@ -77,8 +77,10 @@ export function precompress(): Plugin {
 
       const mib = (bytes: number) => (bytes / 1024 ** 2).toFixed(1);
       this.info(
-        `${count} files, ${mib(raw)} MiB -> ${mib(packed)} MiB ` +
-          `(${Math.round((1 - packed / raw) * 100)}% smaller)`,
+        count === 0
+          ? "nothing to compress"
+          : `${count} files, ${mib(raw)} MiB -> ${mib(packed)} MiB ` +
+              `(${Math.round((1 - packed / raw) * 100)}% smaller)`,
       );
     },
   };
