@@ -14,6 +14,8 @@ def _job_with_meta(meta: dict[str, Any]) -> Mock:
     job = Mock()
     job.id = "test-job-id-123"
     job.kwargs = {}
+    # What the response falls back to when the meta carries no task name.
+    job.func_name = "test_task"
     job.get_meta.return_value = {"task_type": TaskType.CLEANUP, **meta}
     job.get_status.return_value = "finished"
     for attr in ("created_at", "enqueued_at", "started_at", "ended_at"):
