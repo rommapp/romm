@@ -320,6 +320,7 @@ function onDocPointerDown(evt: PointerEvent) {
 const escEntry: EscapableEntry = {
   close: () => close(),
   persistent: false,
+  panel: () => panelRef.value,
 };
 
 watch(
@@ -328,6 +329,10 @@ watch(
     if (open) pushEscapable(escEntry);
     else popEscapable(escEntry);
   },
+  // `immediate: true` so a menu that mounts already open registers too, the
+  // same reason RDialog does it: otherwise the watch never sees the initial
+  // `true` and Esc, gamepad-back and tooltip suppression all miss the panel.
+  { immediate: true },
 );
 
 onMounted(() => {
