@@ -27,9 +27,8 @@ export interface EscapableEntry {
    *  becomes a no-op for it. Outer entries do not get a chance to
    *  respond either — a persistent layer effectively swallows Esc. */
   persistent: boolean;
-  /** The surface this entry paints, for overlays that own one. Lets
-   *  `isUnderOpenEscapable` tell content inside the overlay apart from
-   *  content the overlay covers. */
+  /** The surface this entry paints, when it owns one. Read lazily: the
+   *  entry outlives the panel, which mounts only while open. */
   panel?: () => HTMLElement | null;
 }
 
@@ -76,8 +75,7 @@ export function onEscapableOpen(listener: () => void): () => void {
 }
 
 /** True when `el` is covered by the topmost overlay rather than living
- *  inside it. Entries that declare no panel have no opinion, so nothing
- *  counts as covered while one of those is on top. */
+ *  inside it. A panel-less entry has no opinion and covers nothing. */
 export function isUnderOpenEscapable(el: Node | null): boolean {
   const panel = stack[stack.length - 1]?.panel?.();
   if (!panel) return false;

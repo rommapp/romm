@@ -376,7 +376,7 @@ function detachFromParent() {
 
 // A tip paints above every overlay in the z-index ladder, so an overlay
 // opening dismisses it outright, ignoring `closeDelay`.
-const stopOverlayDismiss = onEscapableOpen(() => {
+const unsubscribeOverlayDismiss = onEscapableOpen(() => {
   clearTimers();
   if (isOpen.value) setOpen(false);
 });
@@ -394,7 +394,7 @@ onBeforeUnmount(() => {
   detachFromParent();
   clearTimers();
   teardownOutsideClose();
-  stopOverlayDismiss();
+  unsubscribeOverlayDismiss();
 });
 
 // ── Slot activator wrapper ──────────────────────────────────────
