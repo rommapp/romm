@@ -5,9 +5,9 @@
   are the large ones, and neither type is in nginx's ``gzip_types`` default,
   so leaving them out ships them uncompressed.
 * Gunicorn's keep-alive must outlive nginx's upstream idle timeout. Upstream
-  keepalive is on by default since nginx 1.29.7, so a shorter gunicorn value
-  lets nginx reuse a connection gunicorn is closing, surfacing as
-  intermittent 502s under load.
+  keepalive is on by default since nginx 1.29.7, but a shorter gunicorn value
+  reaps each pooled connection before nginx can reuse it, so the pool never
+  pays off and every request opens a new one.
 """
 
 import re

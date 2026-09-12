@@ -117,7 +117,8 @@ wait_for_gunicorn() {
 
 # Runs our main process and creates a corresponding PID file.
 # WEB_SERVER_KEEPALIVE must stay above nginx's upstream idle timeout (60s by
-# default), or nginx reuses a connection gunicorn is closing and returns 502.
+# default). Below it gunicorn reaps pooled connections before nginx reuses
+# them, so every request pays a fresh TCP handshake.
 start_bin_gunicorn() {
 	# Wire LOGLEVEL into Gunicorn's logging config so it respects the env var.
 	local gunicorn_level="${LOGLEVEL^^}"
