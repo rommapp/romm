@@ -1,6 +1,7 @@
 import json
+from contextlib import contextmanager
 from datetime import date
-from typing import Any, Sequence
+from typing import Any, Final, Iterator, Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
@@ -74,6 +75,54 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
     if conn.engine.name != "mariadb":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
+
+
+# One name for the whole chain: a second process must wait for the first rather
+# than race it, because MySQL/MariaDB auto-commit each DDL statement and a
+# half-applied revision is what strands an upgrade.
+MIGRATION_LOCK_NAME: Final = "romm_alembic_upgrade"
+
+# PostgreSQL advisory locks are keyed on a bigint, not a name.
+MIGRATION_LOCK_KEY: Final = 8_374_021_566_284_119
+
+
+@contextmanager
+def migration_lock(conn: sa.Connection, timeout_seconds: int) -> Iterator[None]:
+    """Hold the exclusive migration lock for the duration of the block.
+
+    Args:
+        conn: The connection the migrations run on; the lock is session-scoped,
+            so it has to be this one.
+        timeout_seconds: How long to wait for a run already in progress.
+
+    Raises:
+        TimeoutError: When another process still holds the lock.
+    """
+    if is_postgresql(conn):
+        acquired = conn.execute(
+            sa.text("SELECT pg_try_advisory_lock(:key)"), {"key": MIGRATION_LOCK_KEY}
+        ).scalar()
+        release = sa.text("SELECT pg_advisory_unlock(:key)")
+        params: dict[str, Any] = {"key": MIGRATION_LOCK_KEY}
+    else:
+        acquired = conn.execute(
+            sa.text("SELECT GET_LOCK(:name, :timeout)"),
+            {"name": MIGRATION_LOCK_NAME, "timeout": timeout_seconds},
+        ).scalar()
+        release = sa.text("SELECT RELEASE_LOCK(:name)")
+        params = {"name": MIGRATION_LOCK_NAME}
+
+    if not acquired:
+        raise TimeoutError(
+            "Another process is running database migrations. Waited "
+            f"{timeout_seconds}s for it to finish; it is either still working "
+            "on a large library or it exited without releasing the lock."
+        )
+
+    try:
+        yield
+    finally:
+        conn.execute(release, params)
 
 
 def full_path_digest_sql(conn: sa.Connection) -> str:

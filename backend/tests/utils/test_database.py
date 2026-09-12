@@ -10,11 +10,13 @@ from datetime import datetime, timezone
 
 import pytest
 
+from handler.database.base_handler import sync_engine
 from utils.database import (
     EARLIEST_RELEASE_YEAR,
     LATEST_RELEASE_YEAR,
     MS_PER_DAY,
     day_of_year_ranges,
+    migration_lock,
     release_day_ranges,
 )
 
@@ -108,3 +110,20 @@ class TestReleaseDayRanges:
 
         assert len(ranges) == LATEST_RELEASE_YEAR - EARLIEST_RELEASE_YEAR
         assert max(end for _, end in ranges) == _ms(LATEST_RELEASE_YEAR - 1, 9, 9)
+
+
+def test_the_migration_lock_shuts_out_a_second_connection():
+    """Two processes upgrading at once is how a revision ends up half applied.
+
+    The lock is session-scoped, so the exclusion has to hold across connections
+    rather than within one.
+    """
+    with sync_engine.connect() as holder, sync_engine.connect() as contender:
+        with migration_lock(holder, timeout_seconds=1):
+            with pytest.raises(TimeoutError):
+                with migration_lock(contender, timeout_seconds=1):
+                    pass
+
+        # Released with the block, so the next process in line gets it.
+        with migration_lock(contender, timeout_seconds=1):
+            pass

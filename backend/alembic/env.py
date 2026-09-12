@@ -4,13 +4,14 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import create_engine
 
+from config import MIGRATION_LOCK_TIMEOUT
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
 from models import load_all_models
 from models.base import BaseModel
 from models.collection import VirtualCollection
 from models.rom import RomMetadata, SiblingRom
-from utils.database import AUTOGENERATE_EXEMPT_INDEX_NAMES
+from utils.database import AUTOGENERATE_EXEMPT_INDEX_NAMES, migration_lock
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -99,8 +100,12 @@ def run_migrations_online() -> None:
             include_object=include_object,
         )
 
-        with context.begin_transaction():
-            context.run_migrations()
+        # Two processes upgrading at once is how a revision ends up half
+        # applied: MySQL/MariaDB commit each DDL statement as it lands, so the
+        # loser of a race meets objects the winner has already created.
+        with migration_lock(connection, MIGRATION_LOCK_TIMEOUT):
+            with context.begin_transaction():
+                context.run_migrations()
 
 
 if context.is_offline_mode():

@@ -52,6 +52,8 @@ ROM_UPLOAD_ASSEMBLING_EXT: Final[str] = "assembling"
 
 # SEVEN ZIP
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
+# How long a starting process waits for another one's migrations to finish.
+MIGRATION_LOCK_TIMEOUT: Final[int] = safe_int(_get_env("MIGRATION_LOCK_TIMEOUT"), 900)
 
 # ROM PATCHER
 ROM_PATCHER_TIMEOUT: Final[int] = safe_int(_get_env("ROM_PATCHER_TIMEOUT"), 120)
