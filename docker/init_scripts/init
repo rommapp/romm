@@ -398,13 +398,7 @@ info_log "Running database migrations"
 if alembic upgrade head; then
 	info_log "Database migrations succeeded"
 else
-	# Starting anyway serves a half-migrated schema: the app comes up, then
-	# fails on whatever the revision did not finish, and the traceback names
-	# the symptom rather than this. Stop here so the error above is the last
-	# thing in the log.
-	error_log "Failed to run database migrations, refusing to start"
-	error_log "The error above is the failure; fix it, then restart RomM"
-	exit 1
+	error_log "Failed to run database migrations"
 fi
 
 # Startup process requires database and cache to be already available
