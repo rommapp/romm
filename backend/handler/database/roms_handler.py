@@ -50,6 +50,11 @@ from sqlalchemy.sql.selectable import Select
 from config import ROMM_DB_DRIVER
 from config.config_manager import config_manager as cm
 from decorators.database import begin_session
+from handler.database.rom_filters import (
+    ROM_FILTER_SPECS,
+    FilterKind,
+    RomFilterSpec,
+)
 from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
 from models.base import PRERELEASE_FILENAME_TAGS, compute_file_name_parts
@@ -1059,97 +1064,6 @@ class DBRomsHandler(DBBaseHandler):
                 predicate = not_(predicate)
             return query.filter(predicate)
 
-    def _filter_by_genres(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.genres, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_franchises(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.franchises, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_collections(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.collections, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_companies(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.companies, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_publishers(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.publishers, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_developers(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.developers, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_age_ratings(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.age_ratings, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
     def _filter_by_status(
         self,
         query: Query,
@@ -1185,64 +1099,42 @@ class DBRomsHandler(DBBaseHandler):
 
         return query.filter(or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None)))
 
-    def _filter_by_regions(
+    def _apply_filter_spec(
         self,
         query: Query,
+        spec: RomFilterSpec,
         *,
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
         match_none: bool = False,
     ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(Rom.regions, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
+        """Narrow `query` to the roms matching `values` under `spec`."""
+        column = spec.column
+        if column is None:
+            # PROVIDER_IDS is the only column-less kind: its values name
+            # providers, matched against the id columns they populate on Rom.
+            return self._filter_by_metadata_providers(
+                query,
+                values=values,
+                match_all=match_all,
+                match_none=match_none,
+            )
 
-    def _filter_by_languages(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(Rom.languages, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
+        if spec.kind == FilterKind.SCALAR_IN:
+            # A scalar column can't hold every selected value, so "all" has no
+            # meaning here and matches "any".
+            condition = column.in_(values)
+        else:
+            op = json_array_contains_all if match_all else json_array_contains_any
+            condition = op(column, values, session=session)
 
-    def _filter_by_tags(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(Rom.tags, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_player_counts(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        condition = RomMetadata.player_count.in_(values)
-        if match_none:
-            return query.filter(not_(condition))
-        return query.filter(condition)
 
     def _filter_by_metadata_providers(
         self,
         query: Query,
         *,
-        session: Session,
         values: Sequence[str],
         match_all: bool = False,
         match_none: bool = False,
@@ -1471,51 +1363,39 @@ class DBRomsHandler(DBBaseHandler):
         if hltb_main_story_max is not None:
             query = query.filter(Rom.generated_hltb_main_story <= hltb_main_story_max)
 
+        selected_filters: dict[str, tuple[Sequence[str] | None, str]] = {
+            "genres": (genres, genres_logic),
+            "franchises": (franchises, franchises_logic),
+            "collections": (collections, collections_logic),
+            "companies": (companies, companies_logic),
+            "publishers": (publishers, publishers_logic),
+            "developers": (developers, developers_logic),
+            "age_ratings": (age_ratings, age_ratings_logic),
+            "regions": (regions, regions_logic),
+            "languages": (languages, languages_logic),
+            "player_counts": (player_counts, player_counts_logic),
+            "metadata_providers": (metadata_providers, metadata_providers_logic),
+            "tags": (tags, tags_logic),
+        }
+
         # Only join the metadata table when a filter reads from it. The dedup
         # subquery below is derived from `query`, so the join has to land before
         # the filters, or that subquery inherits them without it.
-        needs_metadata_join = any(
-            [
-                genres,
-                franchises,
-                collections,
-                companies,
-                publishers,
-                developers,
-                age_ratings,
-                player_counts,
-            ]
-        )
-
-        if needs_metadata_join:
+        if any(
+            selected_filters[spec.name][0]
+            for spec in ROM_FILTER_SPECS
+            if spec.needs_metadata_join
+        ):
             query = query.outerjoin(RomMetadata)
 
-        # Apply metadata and rom-level filters efficiently
-        # Moved before applying group_by_meta_id to avoid missing titles when
-        # filters don't match the primary ROM version in a group but would match a different version instead.
-        filters_to_apply = [
-            (genres, genres_logic, self._filter_by_genres),
-            (franchises, franchises_logic, self._filter_by_franchises),
-            (collections, collections_logic, self._filter_by_collections),
-            (companies, companies_logic, self._filter_by_companies),
-            (publishers, publishers_logic, self._filter_by_publishers),
-            (developers, developers_logic, self._filter_by_developers),
-            (age_ratings, age_ratings_logic, self._filter_by_age_ratings),
-            (regions, regions_logic, self._filter_by_regions),
-            (languages, languages_logic, self._filter_by_languages),
-            (player_counts, player_counts_logic, self._filter_by_player_counts),
-            (
-                metadata_providers,
-                metadata_providers_logic,
-                self._filter_by_metadata_providers,
-            ),
-            (tags, tags_logic, self._filter_by_tags),
-        ]
-
-        for values, logic, filter_func in filters_to_apply:
+        # Applied before the `group_by_meta_id` window below, so a title whose
+        # match sits on a non-primary version still reaches the gallery.
+        for spec in ROM_FILTER_SPECS:
+            values, logic = selected_filters[spec.name]
             if values:
-                query = filter_func(
+                query = self._apply_filter_spec(
                     query,
+                    spec,
                     session=session,
                     values=values,
                     match_all=(logic == "all"),

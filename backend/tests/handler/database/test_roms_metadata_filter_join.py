@@ -16,18 +16,14 @@ from sqlalchemy.exc import SAWarning
 from sqlalchemy.sql.compiler import FROM_LINTING
 
 from handler.database import db_rom_handler
+from handler.database.rom_filters import ROM_FILTER_SPECS
 from models.platform import Platform
 from models.rom import Rom
 
+# Derived from the registry, so registering a filter that reads `roms_metadata`
+# extends this coverage instead of silently going untested.
 METADATA_FILTERS = [
-    {"genres": ["Shooter"]},
-    {"franchises": ["Metroid"]},
-    {"collections": ["Trilogy"]},
-    {"companies": ["Nintendo"]},
-    {"publishers": ["Nintendo"]},
-    {"developers": ["Retro Studios"]},
-    {"age_ratings": ["E"]},
-    {"player_counts": ["4"]},
+    {spec.name: ["any-value"]} for spec in ROM_FILTER_SPECS if spec.needs_metadata_join
 ]
 
 
