@@ -19,6 +19,7 @@ from endpoints.responses import (
     TaskStatusResponse,
     UpdateTaskStatusResponse,
     WatcherTaskStatusResponse,
+    fill_scan_stats,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
 from handler.auth.constants import Scope
@@ -104,7 +105,7 @@ def _build_task_status_response(
         case TaskType.SCAN:
             return ScanTaskStatusResponse(
                 task_type=TaskType.SCAN,
-                meta={"scan_stats": job_meta.get("scan_stats")},
+                meta={"scan_stats": fill_scan_stats(job_meta.get("scan_stats"))},
                 **common_data,  # trunk-ignore(mypy/typeddict-item)
             )
         case TaskType.CONVERSION:
