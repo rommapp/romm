@@ -155,12 +155,30 @@ def test_the_publisher_split_column_add_replays():
         assert has_column(connection, "roms", "generated_developers")
 
 
-def test_the_state_disc_file_migration_replays():
-    """0121 touches only its own column, index and foreign key, so it replays whole."""
+@pytest.mark.parametrize(
+    "drop_column",
+    [False, True],
+    ids=["died before the index", "died before the column"],
+)
+def test_the_state_disc_file_migration_resumes_an_interrupted_run(drop_column: bool):
+    """0121 completes whatever a run that died partway left behind.
+
+    Nothing else in the schema references these, so the interrupted states can
+    be built for real: the foreign key and index missing, or all three.
+    """
     migration = _load_migration("0121_state_disc_file.py")
 
     with sync_engine.begin() as connection:
-        with Operations.context(MigrationContext.configure(connection)):
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            # The foreign key goes first: MariaDB refuses to drop a column it
+            # still needs, and an index it still sits on.
+            operations.drop_constraint(
+                "fk_states_disc_file_id", "states", type_="foreignkey"
+            )
+            operations.drop_index("ix_states_disc_file_id", table_name="states")
+            if drop_column:
+                operations.drop_column("states", "disc_file_id")
+
             migration.upgrade()
 
         inspector = sa.inspect(connection)
