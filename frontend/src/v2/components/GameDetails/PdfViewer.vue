@@ -7,14 +7,19 @@
 //   * Plain <button> + RIcon + RTooltip per toolbar action — vue3-pdf-app
 //     wires controls by `id`, so raw buttons keep that contract while
 //     the v2 visual is owned by our scoped CSS.
-import { RIcon, RTooltip } from "@v2/lib";
+import { RIcon, RProgressLinear, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import VuePdfApp from "vue3-pdf-app";
 import { useI18n } from "vue-i18n";
+import { useReadingProgress } from "@/v2/composables/useReadingProgress";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 
-defineProps<{
+const props = defineProps<{
   pdfUrl: string;
+  /** ROM id + file id persist the reading position; without them the progress
+   *  bar still tracks the session's page. */
+  romId?: number;
+  fileId?: number;
   /** Show a danger-tinted delete button at the end of the toolbar. */
   deletable?: boolean;
   /** Show a re-download button (next to Download) when a scraped source
@@ -49,6 +54,43 @@ const ids = {
   lastPage: "lastPageId",
   download: "downloadId",
 };
+
+// ---------- Reading progress ----------
+// PDFs are paginated, so progress is page-based: the saved page is restored
+// exactly rather than approximated from a scroll offset.
+const romIdRef = computed(() => props.romId ?? 0);
+const fileIdRef = computed(() =>
+  props.romId != null && props.fileId != null ? props.fileId : null,
+);
+const { progress, restore, setPage, suppressWhileRestoring } =
+  useReadingProgress(romIdRef, fileIdRef);
+
+// Only the members we touch — vue3-pdf-app hands over pdf.js's application
+// object untyped.
+type PdfApp = {
+  page: number;
+  pagesCount: number;
+  eventBus: {
+    on: (
+      event: string,
+      handler: (payload: { pageNumber: number }) => void,
+    ) => void;
+  };
+};
+
+async function onPagesRendered(pdfApp: PdfApp) {
+  pdfApp.eventBus.on("pagechanging", ({ pageNumber }) => {
+    setPage(pageNumber, pdfApp.pagesCount);
+  });
+
+  const { lastPage } = await restore();
+  if (lastPage && lastPage > 1 && lastPage <= pdfApp.pagesCount) {
+    suppressWhileRestoring();
+    pdfApp.page = lastPage;
+  } else {
+    setPage(pdfApp.page, pdfApp.pagesCount);
+  }
+}
 </script>
 
 <template>
@@ -201,6 +243,13 @@ const ids = {
       </RTooltip>
     </div>
 
+    <RProgressLinear
+      :model-value="progress * 100"
+      :height="2"
+      :aria-label="t('rom.reading-progress')"
+      class="r-v2-pdfv__progress"
+    />
+
     <div class="r-v2-pdfv__viewer">
       <VuePdfApp
         :id-config="ids"
@@ -208,6 +257,7 @@ const ids = {
         :theme="pdfTheme"
         :pdf="pdfUrl"
         class="r-v2-pdfv__app"
+        @pages-rendered="onPagesRendered"
       />
     </div>
   </div>
@@ -317,6 +367,10 @@ html[data-bp~="xs"] .r-v2-pdfv__btn--step {
   color: var(--r-color-fg-muted);
   margin: 0 6px 0 4px;
   font-variant-numeric: tabular-nums;
+}
+
+.r-v2-pdfv__progress {
+  flex-shrink: 0;
 }
 
 .r-v2-pdfv__viewer {
