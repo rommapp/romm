@@ -67,6 +67,7 @@ const { t } = useI18n();
 
 export type GameAction =
   | "play"
+  | "native"
   | "stream"
   | "join"
   | "download"
@@ -169,6 +170,18 @@ const preset = computed<Preset>(() => {
       label: t("rom.play"),
       activeIcon: null,
       onClick: () => actions.play("local"),
+      active: false,
+    };
+  }
+  if (props.action === "native") {
+    const emulator = actions.nativeEmulatorLabel.value;
+    return {
+      icon: "mdi-monitor-play",
+      label: emulator
+        ? t("play.play-native-in", { emulator })
+        : t("play.play-native"),
+      activeIcon: null,
+      onClick: () => actions.play("native"),
       active: false,
     };
   }

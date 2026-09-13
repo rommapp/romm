@@ -50,6 +50,18 @@ function run(fn: () => void | Promise<void>) {
     @click="run(() => actions.play('local'))"
   />
   <RMenuItem
+    v-if="actions.canPlayNative.value"
+    :label="
+      actions.nativeEmulatorLabel.value
+        ? t('play.play-native-in', {
+            emulator: actions.nativeEmulatorLabel.value,
+          })
+        : t('play.play-native')
+    "
+    icon="mdi-monitor-play"
+    @click="run(() => actions.play('native'))"
+  />
+  <RMenuItem
     v-if="actions.canPlayStream.value"
     :label="actions.streamActionLabel.value"
     icon="mdi-play-network"

@@ -1,0 +1,68 @@
+{
+  "name": "romm-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Optional desktop shell for RomM that launches games in a locally installed emulator",
+  "author": "RomM contributors <https://github.com/rommapp/romm>",
+  "license": "AGPL-3.0-only",
+  "homepage": "https://github.com/rommapp/romm",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rommapp/romm.git"
+  },
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "dev": "npm run build && electron .",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder",
+    "dist:dir": "npm run build && electron-builder --dir"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.13.14",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.0.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.56.1"
+  },
+  "engines": {
+    "node": "24"
+  },
+  "build": {
+    "appId": "app.romm.desktop",
+    "productName": "RomM",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "dist/**/*",
+      "resources/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Game"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.games"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  }
+}

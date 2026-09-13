@@ -66,6 +66,14 @@ useGridNav(rootEl, {
       with-label
     />
     <GameActionBtn
+      v-if="actions.canPlayNative.value"
+      :rom="rom"
+      action="native"
+      :size="btnSize"
+      variant="emphasized"
+      with-label
+    />
+    <GameActionBtn
       v-if="actions.canPlayStream.value"
       :rom="rom"
       action="stream"

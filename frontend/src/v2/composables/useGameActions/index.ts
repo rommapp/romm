@@ -29,6 +29,7 @@ import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { confirmJoinStream } from "@/v2/composables/useJoinStreamConfirm";
+import { useNativeShell } from "@/v2/composables/useNativeShell";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -44,8 +45,10 @@ export interface GameActionsOptions {
   coverEl?: () => HTMLElement | null;
 }
 
-/** Which player a launch is asking for. "auto" lets availability decide. */
-export type PlayTarget = "auto" | "local" | "stream";
+/** Which player a launch is asking for. "auto" lets availability decide.
+ *  "native" hands the game to a locally installed emulator and is only ever
+ *  offered inside the desktop shell. */
+export type PlayTarget = "auto" | "local" | "stream" | "native";
 
 // Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
@@ -83,6 +86,8 @@ export function useGameActions(
   const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
   const { startScan } = useScanTrigger();
+  const nativeShell = useNativeShell(getRom);
+
   const {
     canPlay,
     canPlayEJS,
@@ -313,6 +318,13 @@ export function useGameActions(
         tone: "warning",
       });
       if (!ok) return;
+    }
+
+    // A native launch hands off to a local emulator, so unlike every other
+    // target it does not navigate: the web app stays where it is.
+    if (player === "native") {
+      await nativeShell.launch();
+      return;
     }
 
     // A platform can be served by both an in-browser core and a streaming
@@ -572,6 +584,8 @@ export function useGameActions(
     canPlay,
     canPlayStream,
     canPlayInBrowser,
+    canPlayNative: nativeShell.canLaunch,
+    nativeEmulatorLabel: nativeShell.emulatorLabel,
     streamLabel,
     streamActionLabel,
     canJoinStream,

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+    />
+    <title>Connect to RomM</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #10121a;
+        --fg: #e8eaf2;
+        --muted: #9aa0b4;
+        --accent: #5a67f2;
+        --field: #1b1e2a;
+        --border: #2b3040;
+        --danger: #ff6b6b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.5 system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        width: min(420px, 100%);
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 8px;
+      }
+      p {
+        margin: 0 0 20px;
+        color: var(--muted);
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 6px;
+        color: var(--muted);
+      }
+      input {
+        width: 100%;
+        padding: 11px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--field);
+        color: var(--fg);
+        font: inherit;
+      }
+      input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      button {
+        width: 100%;
+        margin-top: 16px;
+        padding: 11px 12px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--fg);
+        outline-offset: 2px;
+      }
+      .error {
+        margin-top: 12px;
+        color: var(--danger);
+        font-size: 13px;
+        min-height: 1.5em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Connect to RomM</h1>
+      <p>Enter the address of your RomM server to get started.</p>
+      <form id="form">
+        <label for="url">Server address</label>
+        <input
+          id="url"
+          name="url"
+          type="text"
+          placeholder="https://romm.example.com"
+          autocomplete="url"
+          autofocus
+          required
+        />
+        <button type="submit">Connect</button>
+        <div class="error" id="error" role="alert"></div>
+      </form>
+    </main>
+    <script>
+      const form = document.getElementById("form");
+      const error = document.getElementById("error");
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        error.textContent = "";
+        try {
+          await window.rommSetup.save(document.getElementById("url").value);
+        } catch (cause) {
+          error.textContent = String(cause?.message ?? cause).replace(
+            /^Error invoking remote method '[^']*':\s*/,
+            "",
+          );
+        }
+      });
+    </script>
+  </body>
+</html>
