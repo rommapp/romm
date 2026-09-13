@@ -356,6 +356,25 @@ def test_the_hltb_migration_resumes_an_interrupted_run():
     assert migration.INDEX_NAME in indexes
 
 
+def test_the_hltb_migration_builds_its_index_with_the_column():
+    """0128 lands both the column and its index on a run that starts from neither.
+
+    MySQL and MariaDB take the index as a clause of the ALTER that adds the
+    column, so this is the path that exercises the combined statement.
+    """
+    migration = _load_migration("0128_hltb_main_story_column.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            migration.upgrade()
+
+        columns, indexes = _schema_of(connection, "roms")
+
+    assert migration.COLUMN_NAME in columns
+    assert migration.INDEX_NAME in indexes
+
+
 def test_has_column_reflects_the_migrated_schema():
     """The guard every replayed column add is skipped by."""
     with sync_engine.connect() as connection:

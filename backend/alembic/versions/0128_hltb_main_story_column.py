@@ -10,12 +10,17 @@ Following 0098: MariaDB unquotes before the numeric CAST so a STORED INSERT
 does not trip strict-mode truncation, and the digits-only gate makes a
 malformed blob yield NULL instead of aborting the write.
 
+Adding a STORED column rebuilds `roms`, the widest table in the schema, so on
+MySQL and MariaDB the index rides along in that same ALTER rather than costing
+a second pass over it.
+
 Revision ID: 0128_hltb_main_story_column
 Revises: 0127_rom_identity_keys
 Create Date: 2026-09-08 00:00:00.000000
 
 """
 
+import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
 from utils.database import has_column, is_postgresql
@@ -48,17 +53,27 @@ _POSTGRES_EXPR = (
 
 def upgrade() -> None:
     connection = op.get_bind()
+    pg = is_postgresql(connection)
+    has_index = INDEX_NAME in {
+        index["name"] for index in sa.inspect(connection).get_indexes("roms")
+    }
 
     # MySQL/MariaDB auto-commit each DDL statement, so a run that dies on the
     # index keeps the column without advancing the alembic version.
     if not has_column(connection, "roms", COLUMN_NAME):
-        expr = _POSTGRES_EXPR if is_postgresql(connection) else _MARIA_EXPR
-        op.execute(  # nosec B608
-            f"ALTER TABLE roms ADD COLUMN {COLUMN_NAME} BIGINT "
-            f"GENERATED ALWAYS AS ({expr}) STORED"
-        )
+        expr = _POSTGRES_EXPR if pg else _MARIA_EXPR
+        alter = f"ADD COLUMN {COLUMN_NAME} BIGINT GENERATED ALWAYS AS ({expr}) STORED"
 
-    op.create_index(INDEX_NAME, "roms", [COLUMN_NAME], if_not_exists=True)
+        # The rebuild this forces can carry the index too. PostgreSQL builds
+        # its indexes outside ALTER TABLE, so it still pays for both.
+        if not pg and not has_index:
+            alter += f", ADD INDEX {INDEX_NAME} ({COLUMN_NAME})"
+            has_index = True
+
+        op.execute(f"ALTER TABLE roms {alter}")  # nosec B608
+
+    if not has_index:
+        op.create_index(INDEX_NAME, "roms", [COLUMN_NAME], if_not_exists=True)
 
 
 def downgrade() -> None:
