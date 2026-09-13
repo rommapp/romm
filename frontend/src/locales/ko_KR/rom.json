@@ -325,6 +325,7 @@
   "qr-scan-to-download": "스캔하여 다운로드",
   "rating": "평가",
   "ratings-label": "평가",
+  "reading-progress": "읽기 진행률",
   "redownload": "다시 다운로드",
   "redownload-manual": "Re-download scraped manual",
   "refresh-complete-desc": "선택한 모든 제공자의 메타데이터로 덮어씁니다",

@@ -325,6 +325,7 @@
   "qr-scan-to-download": "Scan to download",
   "rating": "Rating",
   "ratings-label": "Ratings",
+  "reading-progress": "Reading progress",
   "redownload": "Re-download",
   "redownload-manual": "Re-download scraped manual",
   "refresh-complete-desc": "Overwrite metadata from all selected providers",
