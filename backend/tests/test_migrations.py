@@ -231,6 +231,65 @@ def test_the_full_path_hash_migration_resumes_an_interrupted_run(rom: Rom):
     assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
 
 
+def test_the_full_path_hash_column_is_born_not_null_and_keeps_no_default(rom: Rom):
+    """0126 never turns the column NOT NULL on a fresh run.
+
+    That alter rebuilds roms and every index on it, so the column arrives NOT
+    NULL behind a default that the finished backfill retires.
+    """
+    migration = _load_migration("0126_unique_rom_full_path.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            migration.upgrade()
+
+        column = next(
+            column
+            for column in sa.inspect(connection).get_columns("roms")
+            if column["name"] == migration.COLUMN_NAME
+        )
+        digest = connection.execute(
+            sa.text(
+                f"SELECT {migration.COLUMN_NAME} FROM roms WHERE id = :rom_id"
+            ),  # nosec B608
+            {"rom_id": rom.id},
+        ).scalar_one()
+
+    assert not column["nullable"]
+    assert column["default"] is None
+    assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
+
+
+def test_the_full_path_hash_backfill_resumes_over_the_rows_it_already_wrote(rom: Rom):
+    """A backfill stopped partway leaves the column filled but the default set.
+
+    The default, not the digest, is what marks the rows as still pending, so a
+    replay has to finish them without a second pass over the whole table.
+    """
+    migration = _load_migration("0126_unique_rom_full_path.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            connection.execute(
+                sa.text(
+                    f"ALTER TABLE roms ADD COLUMN {migration.COLUMN_NAME} "  # nosec B608
+                    f"VARCHAR({FULL_PATH_HASH_LENGTH}) NOT NULL DEFAULT ''"
+                )
+            )
+            migration.upgrade()
+
+        digest = connection.execute(
+            sa.text(
+                f"SELECT {migration.COLUMN_NAME} FROM roms WHERE id = :rom_id"
+            ),  # nosec B608
+            {"rom_id": rom.id},
+        ).scalar_one()
+
+    assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
+
+
 def test_the_hltb_migration_resumes_an_interrupted_run():
     """0128 keeps the generated column it already added and builds its index."""
     migration = _load_migration("0128_hltb_main_story_column.py")

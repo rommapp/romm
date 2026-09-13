@@ -393,8 +393,10 @@ else
 	info_log "REDIS_HOST is set, not starting internal valkey-server"
 fi
 
-# Run needed database migrations once at startup
-info_log "Running database migrations"
+# Run needed database migrations once at startup. Nothing else starts until
+# they finish, and a schema change over a large library runs for minutes, so
+# say so rather than letting a working upgrade look like a hang.
+info_log "Running database migrations, which can take several minutes on a large library"
 if alembic upgrade head; then
 	info_log "Database migrations succeeded"
 else
