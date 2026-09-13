@@ -14,8 +14,10 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import Table, UniqueConstraint
+from sqlalchemy.dialects import mysql, postgresql
 
 import models
+from handler.database import db_rom_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
 from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
@@ -30,6 +32,15 @@ from utils.database import (
 # `compare_metadata` yields flat tuples for schema-level diffs, and a list of
 # tuples for column-level ones. Only these two name an index.
 INDEX_DIFF_OPS = frozenset({"add_index", "remove_index"})
+
+# The revision that owns each model-declared generated column's DDL. The model
+# and the revision hold the same SQL on purpose, since a revision that imported
+# its DDL from the model would rewrite itself the day the expression changed, so
+# the pairing is pinned here and checked below.
+GENERATED_COLUMN_REVISIONS = {
+    "generated_primary_region": "0108_roms_primary_region.py",
+    "generated_hltb_main_story": "0128_hltb_main_story_column.py",
+}
 
 
 def _leading_columns(table: Table) -> set[str]:
@@ -303,3 +314,72 @@ def test_the_state_disc_file_migration_resumes_an_interrupted_run(drop_column: b
     assert "disc_file_id" in columns
     assert index
     assert "fk_states_disc_file_id" in foreign_keys
+
+
+def _model_declared_generated_columns() -> list[sa.Column]:
+    """The `roms` generated columns whose expression the model owns."""
+    return [column for column in Rom.__table__.columns if column.computed is not None]
+
+
+def test_every_model_declared_generated_column_is_pinned_to_a_revision():
+    """Declaring a third `Computed` column without pinning it fails here."""
+    declared = {column.name for column in _model_declared_generated_columns()}
+
+    assert declared == set(GENERATED_COLUMN_REVISIONS)
+
+
+@pytest.mark.parametrize(
+    "dialect",
+    [mysql.dialect(), postgresql.dialect()],
+    ids=lambda dialect: dialect.name,
+)
+@pytest.mark.parametrize(
+    ("column_name", "filename"), sorted(GENERATED_COLUMN_REVISIONS.items())
+)
+def test_the_model_expression_matches_the_revision_that_created_it(
+    column_name: str, filename: str, dialect: sa.engine.Dialect
+):
+    """The model renders the SQL its revision emitted, on both dialects.
+
+    Alembic reports a generated column being added or dropped but never a
+    changed expression, so nothing else holds the two copies together.
+    """
+    migration = _load_migration(filename)
+    column = Rom.__table__.c[column_name]
+    literal = (
+        migration._POSTGRES_EXPR
+        if dialect.name == "postgresql"
+        else migration._MARIA_EXPR
+    )
+
+    assert str(column.computed.sqltext.compile(dialect=dialect)) == literal
+
+
+@pytest.mark.parametrize(
+    "column", _model_declared_generated_columns(), ids=lambda column: column.name
+)
+def test_the_stored_generated_column_matches_the_model_expression(
+    column: sa.Column, rom: Rom
+):
+    """The database computes what the model says it computes.
+
+    The revision check above compares two strings; this one compares values, so
+    a later revision that rebuilt the column is caught too.
+    """
+    db_rom_handler.update_rom(
+        rom.id,
+        {"regions": ["USA", "EUR"], "hltb_metadata": {"main_story": 7200}},
+    )
+
+    query = sa.select(
+        Rom.__table__.c.id,
+        column.computed.sqltext.label("model"),
+        column.label("stored"),
+    )
+    with sync_engine.connect() as connection:
+        rows = connection.execute(query).all()
+
+    assert rows
+    assert [
+        (row.id, row.model, row.stored) for row in rows if row.model != row.stored
+    ] == []

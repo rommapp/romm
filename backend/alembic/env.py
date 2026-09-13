@@ -44,11 +44,14 @@ def include_object(object, name, type_, reflected, compare_to):
     if type_ == "index" and name in AUTOGENERATE_EXEMPT_INDEX_NAMES:
         return False
 
-    # generated_* are STORED generated columns backing views.
-    # They are maintained in raw SQL (dialect-specific expressions) rather
-    # than the ORM model, so hide them from autogenerate to avoid false drops.
+    # generated_* are STORED generated columns. One the model declares with a
+    # dialect-dispatched `Computed` (see models/generated.py) owns its own
+    # expression, so autogenerate compares it; the rest are still raw SQL in the
+    # migrations and stay hidden to avoid false drops. `reflected` is the
+    # database side of that comparison, which is only reached for a column no
+    # model declares, so it is always the hidden case.
     if type_ == "column" and name.startswith("generated_"):
-        return False
+        return not reflected and object.computed is not None
 
     return True
 
