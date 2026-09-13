@@ -393,7 +393,7 @@
   "search-by-id": "ID",
   "search-by-name": "名称",
   "search-cover": "搜索封面",
-  "search-cover-hint": "输入标题并按回车以在 SteamGridDB 中搜索。",
+  "search-cover-hint": "输入标题并按回车以在封面提供商中搜索。",
   "search-failed": "搜索失败",
   "search-placeholder": "按名称、文件名、哈希值搜索…",
   "seek-progress": "{current} / {duration}",

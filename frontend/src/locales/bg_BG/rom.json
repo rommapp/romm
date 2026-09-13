@@ -393,7 +393,7 @@
   "search-by-id": "ID",
   "search-by-name": "Име",
   "search-cover": "Търси корица",
-  "search-cover-hint": "Напиши заглавие и натисни Enter, за да търсиш в SteamGridDB.",
+  "search-cover-hint": "Напиши заглавие и натисни Enter, за да търсиш в доставчиците на обложки.",
   "search-failed": "Търсенето е неуспешно",
   "search-placeholder": "Търси по име, име на файл, хеш…",
   "seek-progress": "{current} от {duration}",

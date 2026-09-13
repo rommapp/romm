@@ -393,7 +393,7 @@
   "search-by-id": "Buscar por ID",
   "search-by-name": "Buscar por nombre",
   "search-cover": "Buscar portada",
-  "search-cover-hint": "Busca una portada alternativa.",
+  "search-cover-hint": "Escribe un título y pulsa Intro para buscar en los proveedores de carátulas.",
   "search-failed": "Búsqueda fallida",
   "search-placeholder": "Buscar por nombre, archivo, hash…",
   "seek-progress": "Posición de reproducción",

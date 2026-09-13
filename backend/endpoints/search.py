@@ -6,7 +6,6 @@ from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
-from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_rom_handler
@@ -21,6 +20,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_steam_handler,
 )
+from handler.metadata.base_handler import CoverResult
 from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
@@ -347,18 +347,44 @@ async def search_cover(
     request: Request,
     search_term: str = "",
 ) -> list[SearchCoverSchema]:
-    if not meta_sgdb_handler.is_enabled():
-        log.error("Search error: No SteamGridDB enabled")
+    """Search the cover art providers, in the configured cover priority order."""
+    if not meta_sgdb_handler.is_enabled() and not meta_steam_handler.is_enabled():
+        log.error("Search error: No cover art providers enabled")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No SteamGridDB enabled",
+            detail="No cover art providers enabled",
         )
 
-    try:
-        covers = await meta_sgdb_handler.get_details(search_term=search_term)
-    except SGDBInvalidAPIKeyException as err:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid SGDB API key"
-        ) from err
+    lookups = {
+        MetadataSource.SGDB: meta_sgdb_handler.get_details(search_term=search_term),
+        MetadataSource.STEAM: meta_steam_handler.get_details(search_term=search_term),
+    }
+    gathered = await asyncio.gather(*lookups.values(), return_exceptions=True)
+    fetched: dict[MetadataSource, list[CoverResult] | BaseException] = dict(
+        zip(lookups, gathered, strict=True)
+    )
 
-    return [SearchCoverSchema.model_validate(cover) for cover in covers]
+    # A rejected key is the user's to fix, so it is reported rather than
+    # costing the SteamGridDB covers silently.
+    sgdb_result = fetched[MetadataSource.SGDB]
+    if (
+        isinstance(sgdb_result, HTTPException)
+        and sgdb_result.status_code == status.HTTP_401_UNAUTHORIZED
+    ):
+        raise sgdb_result
+
+    ordered_sources = get_priority_ordered_metadata_sources(
+        metadata_sources=list(lookups.keys()), priority_type="url_cover"
+    )
+    covers: list[SearchCoverSchema] = []
+    for source in ordered_sources:
+        results = fetched[source]
+        if isinstance(results, BaseException):
+            log.error("Error fetching %s covers: %s", source.value, results)
+            continue
+        covers.extend(
+            SearchCoverSchema.model_validate({"provider": source.value, **cover})
+            for cover in results
+        )
+
+    return covers

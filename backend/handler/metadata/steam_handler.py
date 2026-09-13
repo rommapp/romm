@@ -1,5 +1,6 @@
 import asyncio
 import re
+from collections.abc import Awaitable
 from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict
 
@@ -13,7 +14,7 @@ from config import STEAM_API_ENABLED
 from logger.logger import log
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, CoverResource, CoverResult, MetadataHandler
 
 # Half-Life 2: never region locked, so a fetch failing means Steam is down.
 STEAM_HEARTBEAT_APP_ID: Final[int] = 220
@@ -27,11 +28,15 @@ STEAM_PLATFORM_KEYS: Final[dict[UPS, str]] = {
     UPS.MAC: "mac",
 }
 
-# How many store hits the manual match picker offers.
+# How many store hits the manual match and cover pickers offer.
 STEAM_SEARCH_RESULT_LIMIT: Final[int] = 15
 
-# How long the picker waits on the CDN for cover art, in seconds.
+# How long the pickers wait on the CDN for cover art, in seconds.
 STEAM_COVER_PROBE_TIMEOUT: Final[float] = 5.0
+
+# The sizes the CDN serves the portrait capsule and the landscape header at.
+STEAM_LIBRARY_CAPSULE_SIZE: Final[tuple[int, int]] = (600, 900)
+STEAM_HEADER_IMAGE_SIZE: Final[tuple[int, int]] = (460, 215)
 
 # Regex to detect Steam app ID tags in filenames like (steam-12345)
 STEAM_TAG_REGEX = re.compile(r"\(steam-(\d+)\)", re.IGNORECASE)
@@ -83,6 +88,24 @@ def _runs_on(app: SteamStoreSearchItem, platform_slug: str) -> bool:
         return True
 
     return bool(platforms.get(os_key, False))
+
+
+def _cover_resource(url: str, size: tuple[int, int]) -> CoverResource:
+    """A store asset in the picker's shape; the flags are SteamGridDB's."""
+    width, height = size
+    return CoverResource(
+        thumb=url,
+        url=url,
+        type="static",
+        width=width,
+        height=height,
+        style="",
+        author="",
+        score=0,
+        nsfw=False,
+        humor=False,
+        epilepsy=False,
+    )
 
 
 def _parse_release_date(raw_date: str) -> int | None:
@@ -265,44 +288,76 @@ class SteamHandler(MetadataHandler):
 
         apps = await self.steam_service.search_apps(search_term)
         candidates = [
-            app
-            for app in apps
-            if app.get("type") == "app"
-            and app.get("id")
-            and app.get("name")
-            and _runs_on(app, platform_slug)
+            app for app in self._store_hits(apps) if _runs_on(app, platform_slug)
         ][:STEAM_SEARCH_RESULT_LIMIT]
 
-        # Cover art decorates a list the user is waiting on, so a slow CDN
-        # costs thumbnails rather than the results.
-        try:
-            covers = await asyncio.wait_for(
-                asyncio.gather(
-                    *[
-                        self.steam_service.get_library_capsule_url(app["id"])
-                        for app in candidates
-                    ]
-                ),
-                timeout=STEAM_COVER_PROBE_TIMEOUT,
-            )
-        except TimeoutError:
-            log.debug("Steam cover probes timed out for '%s'", search_term)
-            covers = [None] * len(candidates)
+        covers = await self._probe_covers(
+            [
+                self.steam_service.get_library_capsule_url(app["id"])
+                for app in candidates
+            ]
+        )
 
         return [
             SteamRom(steam_id=app["id"], name=app["name"], url_cover=cover or "")
             for app, cover in zip(candidates, covers, strict=True)
         ]
 
-    async def _search_and_match(self, search_term: str) -> SteamRom:
-        apps = await self.steam_service.search_apps(search_term)
+    async def get_details(self, search_term: str) -> list[CoverResult]:
+        """Store artwork for the manual cover search, one entry per store hit."""
+        if not self.is_enabled() or not search_term:
+            return []
 
-        # The storefront returns DLC, soundtracks and tools alongside games.
-        candidates = [
+        apps = await self.steam_service.search_apps(search_term)
+        candidates = self._store_hits(apps)[:STEAM_SEARCH_RESULT_LIMIT]
+
+        cover_probes = (
+            (self.steam_service.get_library_capsule_url, STEAM_LIBRARY_CAPSULE_SIZE),
+            (self.steam_service.get_header_image_url, STEAM_HEADER_IMAGE_SIZE),
+        )
+        urls = await self._probe_covers(
+            [probe(app["id"]) for app in candidates for probe, _ in cover_probes]
+        )
+
+        results: list[CoverResult] = []
+        for index, app in enumerate(candidates):
+            app_urls = urls[index * len(cover_probes) : (index + 1) * len(cover_probes)]
+            resources = [
+                _cover_resource(url, size)
+                for (_, size), url in zip(cover_probes, app_urls, strict=True)
+                if url
+            ]
+            if resources:
+                results.append(CoverResult(name=app["name"], resources=resources))
+
+        return results
+
+    @staticmethod
+    def _store_hits(apps: list[SteamStoreSearchItem]) -> list[SteamStoreSearchItem]:
+        """The search hits that name an app, dropping DLC, soundtracks and tools."""
+        return [
             app
             for app in apps
             if app.get("type") == "app" and app.get("id") and app.get("name")
         ]
+
+    async def _probe_covers(
+        self, probes: list[Awaitable[str | None]]
+    ) -> list[str | None]:
+        """Run the CDN probes under one budget, so a slow CDN costs thumbnails
+        rather than the results the user is waiting on."""
+        try:
+            return await asyncio.wait_for(
+                asyncio.gather(*probes), timeout=STEAM_COVER_PROBE_TIMEOUT
+            )
+        except TimeoutError:
+            log.debug("Steam cover probes timed out")
+            return [None] * len(probes)
+
+    async def _search_and_match(self, search_term: str) -> SteamRom:
+        apps = await self.steam_service.search_apps(search_term)
+
+        candidates = self._store_hits(apps)
         if not candidates:
             log.debug("Could not find '%s' on Steam", search_term)
             return SteamRom(steam_id=None)

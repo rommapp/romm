@@ -393,7 +393,7 @@
   "search-by-id": "Azonosító",
   "search-by-name": "Név",
   "search-cover": "Borító keresése",
-  "search-cover-hint": "Írj be egy címet, majd nyomd meg az Entert a SteamGridDB-n való kereséshez.",
+  "search-cover-hint": "Írj be egy címet, majd nyomd meg az Entert a borítószolgáltatóknál való kereséshez.",
   "search-failed": "A keresés sikertelen",
   "search-placeholder": "Keresés név, fájlnév, hash szerint…",
   "seek-progress": "{current} / {duration}",

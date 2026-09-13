@@ -50,6 +50,9 @@ def _handler(search_result=None, details=None) -> tuple[SteamHandler, MagicMock]
     service.get_library_capsule_url = AsyncMock(
         return_value="https://cdn.example/library_600x900.jpg"
     )
+    service.get_header_image_url = AsyncMock(
+        return_value="https://cdn.example/header.jpg"
+    )
     handler.steam_service = service
     return handler, service
 
@@ -344,3 +347,70 @@ async def test_get_matched_roms_by_name_gives_up_on_slow_covers():
 
     assert [rom["steam_id"] for rom in roms] == [1]
     assert roms[0]["url_cover"] == ""
+
+
+async def test_get_details_offers_the_capsule_and_the_header_per_hit():
+    """The cover picker gets both store assets, portrait first."""
+    handler, service = _handler(
+        search_result=[
+            {"type": "app", "name": "Blur", "id": 49800},
+            {"type": "dlc", "name": "Blur: Powered Up Pack", "id": 49802},
+        ]
+    )
+
+    covers = await handler.get_details("Blur")
+
+    assert [cover["name"] for cover in covers] == ["Blur"]
+    resources = covers[0]["resources"]
+    assert [(r["url"], r["width"], r["height"]) for r in resources] == [
+        ("https://cdn.example/library_600x900.jpg", 600, 900),
+        ("https://cdn.example/header.jpg", 460, 215),
+    ]
+    assert all(r["type"] == "static" and not r["nsfw"] for r in resources)
+    service.get_app_details.assert_not_awaited()
+
+
+async def test_get_details_drops_hits_with_no_artwork():
+    handler, service = _handler(
+        search_result=[
+            {"type": "app", "name": "Blur", "id": 1},
+            {"type": "app", "name": "Blur Demo", "id": 2},
+        ]
+    )
+    service.get_library_capsule_url = AsyncMock(
+        side_effect=lambda app_id: "https://cdn.example/1.jpg" if app_id == 1 else None
+    )
+    service.get_header_image_url = AsyncMock(return_value=None)
+
+    covers = await handler.get_details("Blur")
+
+    assert [cover["name"] for cover in covers] == ["Blur"]
+    assert [r["url"] for r in covers[0]["resources"]] == ["https://cdn.example/1.jpg"]
+
+
+async def test_get_details_returns_empty_when_disabled():
+    handler, service = _handler(
+        search_result=[{"type": "app", "name": "Blur", "id": 1}]
+    )
+
+    with patch("handler.metadata.steam_handler.STEAM_API_ENABLED", False):
+        assert await handler.get_details("Blur") == []
+
+    service.search_apps.assert_not_awaited()
+
+
+async def test_get_details_gives_up_on_slow_covers():
+    """A CDN that never answers costs the Steam covers, not the dialog."""
+    handler, service = _handler(
+        search_result=[{"type": "app", "name": "Blur", "id": 1}]
+    )
+
+    async def never_answers(app_id: int) -> str:
+        await asyncio.sleep(30)
+        return "https://cdn.example/never.jpg"
+
+    service.get_library_capsule_url = never_answers
+    service.get_header_image_url = never_answers
+
+    with patch("handler.metadata.steam_handler.STEAM_COVER_PROBE_TIMEOUT", 0.01):
+        assert await handler.get_details("Blur") == []

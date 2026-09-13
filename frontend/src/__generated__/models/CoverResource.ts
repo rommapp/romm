@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type SGDBResource = {
+export type CoverResource = {
     thumb: string;
     url: string;
     type: string;

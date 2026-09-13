@@ -1,13 +1,13 @@
 <script setup lang="ts">
 // SearchCoverDialog — global cover-search dialog. Listens for the
 // `showSearchCoverDialog` emitter event (term + optional platformId
-// + optional source rom), queries `sgdbApi.searchCover` for SGDB
-// thumbs, and — when a `rom` is provided — also calls
-// `romApi.searchRom` to surface the cover URLs that IGDB, MobyGames,
-// Screenscraper, Flashpoint, Launchbox and Libretro have for this
-// game. Picking any cover fires `updateUrlCover` with the full
-// resolution URL; consumers (EditRom, CollectionSettingsDrawer) own
-// the actual save.
+// + optional source rom), queries `sgdbApi.searchCover` for the
+// SteamGridDB and Steam grids, and — when a `rom` is provided — also
+// calls `romApi.searchRom` to surface the cover URLs that IGDB,
+// MobyGames, Screenscraper, Flashpoint, Launchbox and Libretro have
+// for this game. Picking any cover fires `updateUrlCover` with the
+// full resolution URL; consumers (EditRom, CollectionSettingsDrawer)
+// own the actual save.
 //
 // Why fold the provider covers in here: previously the user had to
 // open the manual-match flow just to swap an IGDB cover, even though
@@ -15,25 +15,32 @@
 // endpoint returns the per-provider URLs in one call, so a parallel
 // fetch keeps the surface to a single dialog.
 //
-// Collection-cover edits don't pass a `rom` — they hit SGDB only
-// (collections don't have provider IDs in the same way).
+// Collection-cover edits don't pass a `rom` — they hit the cover grids
+// only (collections don't have provider IDs in the same way).
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
+  CoverResource,
   SearchCoverSchema,
   SearchRomSchema,
-  SGDBResource,
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import sgdbApi from "@/services/api/sgdb";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFilter.vue";
 import {
   getMatchSources,
+  sourceLogo,
   type MatchedSource,
+  type SourceName,
 } from "@/v2/components/MatchRom/types";
-import { useCoverFilters } from "@/v2/composables/useCoverFilters";
+import {
+  useCoverFilters,
+  type CoverProvider,
+} from "@/v2/composables/useCoverFilters";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RSelect from "@/v2/lib/forms/RSelect/RSelect.vue";
 import RSwitch from "@/v2/lib/forms/RSwitch/RSwitch.vue";
@@ -50,6 +57,7 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const heartbeat = storeHeartbeat();
 
 const show = ref(false);
 const searching = ref(false);
@@ -61,6 +69,31 @@ const covers = ref<SearchCoverSchema[]>([]);
 // inherit a stale rom.
 const sourceRom = ref<SimpleRom | null>(null);
 const providerCovers = ref<MatchedSource[]>([]);
+
+// The grid providers, keyed as the backend tags each result. The chips
+// mirror the match dialog's filter row: disabled when the backend has no
+// key for the provider, toggled off by the user to hide its covers.
+const gridProviders = computed<
+  { key: CoverProvider; name: SourceName; enabled: boolean }[]
+>(() => [
+  {
+    key: "sgdb",
+    name: "SteamGridDB",
+    enabled: !!heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
+  },
+  {
+    key: "steam",
+    name: "Steam",
+    enabled: !!heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED,
+  },
+]);
+const gridProviderNames = computed(() =>
+  gridProviders.value.map((provider) => provider.name),
+);
+function gridProviderLogo(key: CoverProvider): string {
+  const provider = gridProviders.value.find((p) => p.key === key);
+  return provider ? sourceLogo(provider.name) : "";
+}
 
 // Client-side filtering + sorting over the two fetched lists. The
 // backend returns every content variant (NSFW / humor / epilepsy) with
@@ -76,6 +109,8 @@ const {
   showHumor,
   showEpilepsy,
   sortMode,
+  activeProviders,
+  toggleProvider,
   resetFilters,
   coverTypeItems,
   resolutionItems,
@@ -105,7 +140,7 @@ const sortByVotes = computed({
 // element can't render those (broken-image icon). Detect by type or
 // extension and swap to a `<video>` for those resources so the preview
 // actually plays.
-function isAnimated(resource: SGDBResource): boolean {
+function isAnimated(resource: CoverResource): boolean {
   return (
     resource.type === "animated" || /\.(webm|mp4)(\?|$)/i.test(resource.thumb)
   );
@@ -166,11 +201,11 @@ async function doSearch() {
   const term = searchText.value.trim();
   const source = sourceRom.value;
   try {
-    // Fire SGDB + (optional) provider lookup in parallel — neither
-    // depends on the other and they both populate independent
+    // Fire the grid search + (optional) provider lookup in parallel —
+    // neither depends on the other and they both populate independent
     // sections of the same dialog. `allSettled` so a provider-side
-    // failure doesn't take down the SGDB grid and vice versa.
-    const [sgdbResult, providersResult] = await Promise.allSettled([
+    // failure doesn't take down the grid and vice versa.
+    const [gridResult, providersResult] = await Promise.allSettled([
       sgdbApi.searchCover({ searchTerm: term }),
       source
         ? romApi.searchRom({
@@ -181,10 +216,10 @@ async function doSearch() {
         : Promise.resolve(null),
     ]);
 
-    if (sgdbResult.status === "fulfilled") {
-      covers.value = sgdbResult.value.data;
+    if (gridResult.status === "fulfilled") {
+      covers.value = gridResult.value.data;
     } else {
-      const e = sgdbResult.reason as {
+      const e = gridResult.reason as {
         response?: { data?: { detail?: string } };
         message?: string;
       };
@@ -216,12 +251,14 @@ async function doSearch() {
             scoreAgainstSourceRom(b, source) - scoreAgainstSourceRom(a, source),
         )
         .at(0);
-      // Drop SteamGridDB from the providers row — the dialog already
-      // surfaces the full SGDB cover grid below, listing it twice
-      // (once as a single tile, once as the full result set) is just
+      // Drop the grid providers from the providers row — the dialog
+      // already surfaces their full result sets below, listing them
+      // twice (once as a single tile, once as the full set) is just
       // noise.
       providerCovers.value = best
-        ? getMatchSources(best).filter((s) => s.name !== "SteamGridDB")
+        ? getMatchSources(best).filter(
+            (s) => !gridProviderNames.value.includes(s.name),
+          )
         : [];
     }
   } finally {
@@ -231,9 +268,13 @@ async function doSearch() {
 
 // SGDB serves a thumb resource and a full-resolution one; substituting
 // "thumb" → "grid" in the URL is how v1 derived the full image. We
-// keep the same swap so consumers receive the high-res URL.
-function pickCover(url: string) {
-  emitter?.emit("updateUrlCover", url.replace("thumb", "grid"));
+// keep the same swap so consumers receive the high-res URL. Steam
+// serves one URL per asset, handed off as is.
+function pickCover(url: string, provider: CoverProvider) {
+  emitter?.emit(
+    "updateUrlCover",
+    provider === "sgdb" ? url.replace("thumb", "grid") : url,
+  );
   closeDialog();
 }
 
@@ -293,6 +334,18 @@ function closeDialog() {
         >
           {{ t("common.search") }}
         </RBtn>
+        <div class="r-v2-sgdb__providers">
+          <MatchRomProviderFilter
+            v-for="provider in gridProviders"
+            :key="provider.key"
+            :name="provider.name"
+            :label="provider.name"
+            :logo="sourceLogo(provider.name)"
+            :enabled="provider.enabled"
+            :active="activeProviders[provider.key]"
+            @toggle="toggleProvider(provider.key)"
+          />
+        </div>
       </div>
 
       <!-- Filter bar -->
@@ -405,7 +458,7 @@ function closeDialog() {
 
           <RCollapsible
             v-for="game in filteredCovers"
-            :key="game.name"
+            :key="`${game.provider}-${game.name}`"
             :title="game.name"
             default-open
           >
@@ -415,7 +468,7 @@ function closeDialog() {
                 :key="resource.url"
                 type="button"
                 class="r-v2-sgdb__cover"
-                @click="pickCover(resource.url)"
+                @click="pickCover(resource.url, game.provider)"
               >
                 <video
                   v-if="isAnimated(resource)"
@@ -433,6 +486,13 @@ function closeDialog() {
                   loading="lazy"
                   class="r-v2-sgdb__cover-img"
                 />
+                <span class="r-v2-sgdb__cover-provider">
+                  <img
+                    :src="gridProviderLogo(game.provider)"
+                    :alt="game.provider"
+                    class="r-v2-sgdb__cover-provider-logo"
+                  />
+                </span>
               </button>
             </div>
           </RCollapsible>
@@ -466,13 +526,19 @@ function closeDialog() {
 <style scoped>
 .r-v2-sgdb__toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-bottom: 14px;
 }
 .r-v2-sgdb__search {
-  flex: 1 1 auto;
+  flex: 1 1 240px;
   min-width: 0;
+}
+.r-v2-sgdb__providers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Filter bar — wraps onto multiple rows on narrow dialogs so no control
