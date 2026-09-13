@@ -207,9 +207,9 @@ def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | Non
         with zipfile.ZipFile(io.BytesIO(state_content)) as zf:
             with zf.open(_SCREENSHOT_ZIP_ENTRY) as entry:
                 data = entry.read(SCREENSHOT_MAX_BYTES + 1)
-    except (KeyError, zipfile.BadZipFile, OSError) as exc:
-        # No screenshot entry, or the state is not a readable zip. Not fatal:
-        # the state still syncs, it just has no thumbnail.
+    except Exception as exc:
+        # Never fatal: a missing entry, an unreadable zip or a corrupt member
+        # costs the thumbnail only, the state itself still syncs.
         log.warning("could not extract state screenshot, %s", exc)
         return None
     if not data or len(data) > SCREENSHOT_MAX_BYTES:
@@ -246,6 +246,11 @@ async def take_state_frame(user_id: int, rom_id: int) -> bytes | None:
         return base64.b64decode(raw)
     except (ValueError, TypeError):
         return None
+
+
+# Emulators whose broker writes the thumbnail as the state is saved, rather
+# than reading the framebuffer back on demand, which deadlocks GPU cores.
+_BROKER_FRAME_EMULATORS = frozenset({"retroarch"})
 
 
 def fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | None:
@@ -434,17 +439,18 @@ async def pull_state_to_library(
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False
-        # The browser frame is preferred: it is what the player actually saw,
-        # and capturing it never asks the emulator to read back its own
-        # framebuffer, which is what deadlocks GPU-rendered cores. PCSX2 embeds
-        # a frame in the state file; the rest write one beside it.
-        screenshot = await take_state_frame(user_id, rom_id)
-        if screenshot is None:
-            screenshot = extract_state_screenshot(emulator, content)
-        if screenshot is None:
+        # An embedded frame arrived with the state, so it wins. The stash is
+        # drained either way: a leftover frame becomes a later save's thumbnail.
+        screenshot = extract_state_screenshot(emulator, content)
+        browser_frame = await take_state_frame(user_id, rom_id)
+        if screenshot is None and (
+            browser_frame is None or emulator in _BROKER_FRAME_EMULATORS
+        ):
             screenshot = await asyncio.to_thread(
                 fetch_state_screenshot, container, slot
             )
+        if screenshot is None:
+            screenshot = browser_frame
         try:
             await store_state_asset(
                 user, rom, emulator, filename, content, screenshot, disc_file_id
