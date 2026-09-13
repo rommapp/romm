@@ -1,3 +1,4 @@
+import asyncio
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -225,7 +226,7 @@ async def test_heartbeat_false_when_disabled():
 
 
 async def test_get_matched_roms_by_name_lists_candidates():
-    """The picker offers every store hit, not just the best-scoring one."""
+    """The picker offers the store hits, not just the best-scoring one."""
     handler, service = _handler(
         search_result=[
             {"type": "app", "name": "Blur", "id": 49800},
@@ -324,3 +325,22 @@ async def test_get_matched_rom_by_id_returns_the_app():
 
     assert rom["steam_id"] == 1091500
     assert rom["name"] == "Cyberpunk 2077"
+
+
+async def test_get_matched_roms_by_name_gives_up_on_slow_covers():
+    """A CDN that never answers must not hold the picker open."""
+    handler, service = _handler(
+        search_result=[{"type": "app", "name": "Blur", "id": 1}]
+    )
+
+    async def never_answers(app_id: int) -> str:
+        await asyncio.sleep(30)
+        return "https://cdn.example/never.jpg"
+
+    service.get_library_capsule_url = never_answers
+
+    with patch("handler.metadata.steam_handler.STEAM_COVER_PROBE_TIMEOUT", 0.01):
+        roms = await handler.get_matched_roms_by_name("Blur", "win")
+
+    assert [rom["steam_id"] for rom in roms] == [1]
+    assert roms[0]["url_cover"] == ""

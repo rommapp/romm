@@ -30,6 +30,9 @@ STEAM_PLATFORM_KEYS: Final[dict[UPS, str]] = {
 # How many store hits the manual match picker offers.
 STEAM_SEARCH_RESULT_LIMIT: Final[int] = 15
 
+# How long the picker waits on the CDN for cover art, in seconds.
+STEAM_COVER_PROBE_TIMEOUT: Final[float] = 5.0
+
 # Regex to detect Steam app ID tags in filenames like (steam-12345)
 STEAM_TAG_REGEX = re.compile(r"\(steam-(\d+)\)", re.IGNORECASE)
 
@@ -74,7 +77,8 @@ def _runs_on(app: SteamStoreSearchItem, platform_slug: str) -> bool:
     """Whether a store hit is sold for the library's operating system."""
     platforms = app.get("platforms")
     os_key = STEAM_PLATFORM_KEYS.get(UPS(platform_slug))
-    # A platform that names no single OS (a plain "steam" library) takes them all.
+    # A hit with no OS flags, or a platform that maps to none, is kept rather
+    # than dropped: only a flag that says "not for this OS" rules a hit out.
     if not platforms or not os_key:
         return True
 
@@ -269,12 +273,21 @@ class SteamHandler(MetadataHandler):
             and _runs_on(app, platform_slug)
         ][:STEAM_SEARCH_RESULT_LIMIT]
 
-        covers = await asyncio.gather(
-            *[
-                self.steam_service.get_library_capsule_url(app["id"])
-                for app in candidates
-            ]
-        )
+        # Cover art decorates a list the user is waiting on, so a slow CDN
+        # costs thumbnails rather than the results.
+        try:
+            covers = await asyncio.wait_for(
+                asyncio.gather(
+                    *[
+                        self.steam_service.get_library_capsule_url(app["id"])
+                        for app in candidates
+                    ]
+                ),
+                timeout=STEAM_COVER_PROBE_TIMEOUT,
+            )
+        except TimeoutError:
+            log.debug("Steam cover probes timed out for '%s'", search_term)
+            covers = [None] * len(candidates)
 
         return [
             SteamRom(steam_id=app["id"], name=app["name"], url_cover=cover or "")

@@ -2360,8 +2360,16 @@ async def update_rom(
             )
             locked_fields.add("url_cover")
         else:
+            # A provider refetch may have brought artwork of its own: the form
+            # wins when it posts a cover, and a cover the user locked is never
+            # handed back to a provider.
+            fetched_cover = (
+                None if "url_cover" in locked_fields else cleaned_data.get("url_cover")
+            )
             url_cover = (
-                form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
+                form_data.url_cover
+                if "url_cover" in provided_fields
+                else fetched_cover or rom.url_cover
             )
             try:
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
