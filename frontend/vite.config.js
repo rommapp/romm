@@ -6,6 +6,7 @@ import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import { precompress } from "./scripts/precompress";
 
 // Vuetify components to preoptimize for faster dev startup
 const VUETIFY_COMPONENTS = [
@@ -147,6 +148,7 @@ export default defineConfig(({ mode }) => {
           type: "module",
         },
       }),
+      precompress(),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",
