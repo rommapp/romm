@@ -1,5 +1,5 @@
 import itertools
-from typing import Annotated
+from typing import Annotated, Any
 
 import pytest
 from fastapi import Depends, FastAPI, Request
@@ -35,32 +35,23 @@ def test_route_path_with_trailing_slash(method, route_path):
     }
 
 
+class Filters(BaseModel):
+    name: Annotated[str | None, Field(description="A name.")] = None
+    page: Annotated[int, Field(ge=1)] = 1
+
+
 class TestAsQueryDependency:
-    class Filters(BaseModel):
-        name: Annotated[str | None, Field(description="A name.")] = None
-        page: Annotated[int, Field(ge=1)] = 1
-
-    def _schema(self, **extra_params) -> list[dict]:
-        """The OpenAPI parameters of a route taking the model plus `extra_params`."""
+    @staticmethod
+    def _schema() -> list[dict]:
+        """OpenAPI parameters of a route taking the model and one plain param."""
         router = APIRouter()
-        dependency = as_query_dependency(self.Filters)
 
-        if extra_params:
-
-            @router.get("/things")
-            def route(
-                filters: Annotated[TestAsQueryDependency.Filters, Depends(dependency)],
-                order_by: str = "name",
-            ):
-                return filters
-
-        else:
-
-            @router.get("/things")
-            def route(
-                filters: Annotated[TestAsQueryDependency.Filters, Depends(dependency)],
-            ):
-                return filters
+        @router.get("/things")
+        def route(
+            filters: Annotated[Filters, Depends(as_query_dependency(Filters))],
+            order_by: str = "name",
+        ):
+            return filters
 
         app = FastAPI()
         app.include_router(router)
@@ -69,9 +60,11 @@ class TestAsQueryDependency:
     def test_fields_stay_flat_alongside_another_query_parameter(self):
         """The reason this helper exists: `Annotated[Model, Query()]` collapses
         to one `$ref` parameter as soon as the route takes anything else."""
-        names = {param["name"] for param in self._schema(order_by=True)}
-
-        assert {"name", "page", "order_by"} == names
+        assert {param["name"] for param in self._schema()} == {
+            "name",
+            "page",
+            "order_by",
+        }
 
     def test_field_metadata_reaches_the_parameter(self):
         page = next(p for p in self._schema() if p["name"] == "page")
@@ -84,10 +77,7 @@ class TestAsQueryDependency:
 
         @router.get("/things")
         def route(
-            filters: Annotated[
-                TestAsQueryDependency.Filters,
-                Depends(as_query_dependency(TestAsQueryDependency.Filters)),
-            ],
+            filters: Annotated[Filters, Depends(as_query_dependency(Filters))],
         ):
             return {"name": filters.name, "page": filters.page}
 
@@ -107,7 +97,7 @@ class TestAsQueryDependency:
         ],
         ids=["default_factory", "alias"],
     )
-    def test_it_refuses_a_field_it_cannot_express(self, annotation):
+    def test_it_refuses_a_field_it_cannot_express(self, annotation: Any):
         """Both would build a route that silently misbehaves at runtime."""
         model = create_model("Unexpressible", field=annotation)
 

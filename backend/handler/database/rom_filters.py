@@ -397,16 +397,11 @@ class RomFilterParams(BaseModel):
             try:
                 return cls.model_validate(values)
             except ValidationError as error:
-                dropped = {
-                    str(err["loc"][0])
-                    for err in error.errors()
-                    if err["loc"] and str(err["loc"][0]) in values
-                }
-                if not dropped:
+                unusable = {str(err["loc"][0]) for err in error.errors() if err["loc"]}
+                if not unusable & values.keys():
                     log.warning("Discarding unusable smart collection criteria")
                     return cls()
-                for field in dropped:
-                    del values[field]
+                values = {k: v for k, v in values.items() if k not in unusable}
 
     def selected(self, name: str) -> tuple[Sequence[str] | None, str]:
         """The values chosen for a multi-value filter, with its logic operator."""
