@@ -900,7 +900,7 @@ html[data-input="touch"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
   text-overflow: ellipsis;
   transition: color 0.18s;
   padding: 0 1px;
-  text-align: center;
+  text-align: start;
 }
 html[data-input="mouse"] .r-gc:hover .r-gc__label,
 html[data-input="touch"] .r-gc:hover .r-gc__label,
@@ -930,7 +930,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__label,
   font-weight: var(--r-font-weight-semibold);
   max-width: var(--r-hero-w);
   white-space: normal;
-  text-align: center;
+  text-align: start;
   text-overflow: unset;
 }
 
