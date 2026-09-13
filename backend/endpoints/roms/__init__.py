@@ -2285,12 +2285,20 @@ async def update_rom(
             log.error(f"Invalid screenshot URL in update_rom: {str(e)}")
             raise HTTPException(status_code=400, detail=str(e)) from e
 
-    name_value = form_data.name if "name" in provided_fields else rom.name
+    # A provider refetch above may have filled these in, so only fall back to
+    # the stored value when neither the form nor a provider supplied one.
+    name_value = (
+        form_data.name
+        if "name" in provided_fields
+        else cleaned_data.get("name") or rom.name
+    )
     cleaned_data.update(
         {
             "name": name_value,
             "summary": (
-                form_data.summary if "summary" in provided_fields else rom.summary
+                form_data.summary
+                if "summary" in provided_fields
+                else cleaned_data.get("summary") or rom.summary
             ),
         }
     )
@@ -2352,8 +2360,16 @@ async def update_rom(
             )
             locked_fields.add("url_cover")
         else:
+            # A provider refetch may have brought artwork of its own: the form
+            # wins when it posts a cover, and a cover the user locked is never
+            # handed back to a provider.
+            fetched_cover = (
+                None if "url_cover" in locked_fields else cleaned_data.get("url_cover")
+            )
             url_cover = (
-                form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
+                form_data.url_cover
+                if "url_cover" in provided_fields
+                else fetched_cover or rom.url_cover
             )
             try:
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(

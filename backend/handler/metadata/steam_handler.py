@@ -1,9 +1,14 @@
+import asyncio
 import re
 from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict
 
 from adapters.services.steam import SteamService
-from adapters.services.steam_types import SteamAppDetails, SteamPlatforms
+from adapters.services.steam_types import (
+    SteamAppDetails,
+    SteamPlatforms,
+    SteamStoreSearchItem,
+)
 from config import STEAM_API_ENABLED
 from logger.logger import log
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -14,6 +19,19 @@ from .base_handler import BaseRom, MetadataHandler
 STEAM_HEARTBEAT_APP_ID: Final[int] = 220
 
 STEAM_PLATFORMS: Final[frozenset[UPS]] = frozenset({UPS.WIN, UPS.LINUX, UPS.MAC})
+
+# The OS flag a store hit carries for each of those platforms.
+STEAM_PLATFORM_KEYS: Final[dict[UPS, str]] = {
+    UPS.WIN: "windows",
+    UPS.LINUX: "linux",
+    UPS.MAC: "mac",
+}
+
+# How many store hits the manual match picker offers.
+STEAM_SEARCH_RESULT_LIMIT: Final[int] = 15
+
+# How long the picker waits on the CDN for cover art, in seconds.
+STEAM_COVER_PROBE_TIMEOUT: Final[float] = 5.0
 
 # Regex to detect Steam app ID tags in filenames like (steam-12345)
 STEAM_TAG_REGEX = re.compile(r"\(steam-(\d+)\)", re.IGNORECASE)
@@ -53,6 +71,18 @@ class SteamMetadata(TypedDict):
 class SteamRom(BaseRom):
     steam_id: int | None
     steam_metadata: NotRequired[SteamMetadata]
+
+
+def _runs_on(app: SteamStoreSearchItem, platform_slug: str) -> bool:
+    """Whether a store hit is sold for the library's operating system."""
+    platforms = app.get("platforms")
+    os_key = STEAM_PLATFORM_KEYS.get(UPS(platform_slug))
+    # A hit with no OS flags, or a platform that maps to none, is kept rather
+    # than dropped: only a flag that says "not for this OS" rules a hit out.
+    if not platforms or not os_key:
+        return True
+
+    return bool(platforms.get(os_key, False))
 
 
 def _parse_release_date(raw_date: str) -> int | None:
@@ -208,6 +238,61 @@ class SteamHandler(MetadataHandler):
             return SteamRom(steam_id=None)
 
         return await self._build_rom(details)
+
+    async def get_matched_rom_by_id(
+        self, steam_id: int, platform_slug: str
+    ) -> SteamRom:
+        """Manual match by Steam app ID, skipped for non-PC platforms."""
+        if platform_slug not in STEAM_PLATFORMS:
+            return SteamRom(steam_id=None)
+
+        return await self.get_rom_by_id(steam_id)
+
+    async def get_matched_roms_by_name(
+        self, search_term: str, platform_slug: str
+    ) -> list[SteamRom]:
+        """Candidate list for the manual match flow.
+
+        Built from the store search alone: an app page per candidate would
+        spend the storefront's budget on rows nobody picks, and applying a
+        match refetches the chosen app by ID.
+        """
+        if not self.is_enabled() or not search_term:
+            return []
+
+        if platform_slug not in STEAM_PLATFORMS:
+            return []
+
+        apps = await self.steam_service.search_apps(search_term)
+        candidates = [
+            app
+            for app in apps
+            if app.get("type") == "app"
+            and app.get("id")
+            and app.get("name")
+            and _runs_on(app, platform_slug)
+        ][:STEAM_SEARCH_RESULT_LIMIT]
+
+        # Cover art decorates a list the user is waiting on, so a slow CDN
+        # costs thumbnails rather than the results.
+        try:
+            covers = await asyncio.wait_for(
+                asyncio.gather(
+                    *[
+                        self.steam_service.get_library_capsule_url(app["id"])
+                        for app in candidates
+                    ]
+                ),
+                timeout=STEAM_COVER_PROBE_TIMEOUT,
+            )
+        except TimeoutError:
+            log.debug("Steam cover probes timed out for '%s'", search_term)
+            covers = [None] * len(candidates)
+
+        return [
+            SteamRom(steam_id=app["id"], name=app["name"], url_cover=cover or "")
+            for app, cover in zip(candidates, covers, strict=True)
+        ]
 
     async def _search_and_match(self, search_term: str) -> SteamRom:
         apps = await self.steam_service.search_apps(search_term)
