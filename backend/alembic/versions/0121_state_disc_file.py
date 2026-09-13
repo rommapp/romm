@@ -17,18 +17,29 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # No `if_not_exists` on `create_foreign_key`, so that one is reflected.
+    foreign_keys = {
+        key["name"] for key in sa.inspect(op.get_bind()).get_foreign_keys("states")
+    }
+
     with op.batch_alter_table("states", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("disc_file_id", sa.Integer(), nullable=True))
+        batch_op.add_column(
+            sa.Column("disc_file_id", sa.Integer(), nullable=True),
+            if_not_exists=True,
+        )
         # Postgres indexes no FK column on its own, and the SET NULL cascade
         # scans this on every rom_files delete.
-        batch_op.create_index("ix_states_disc_file_id", ["disc_file_id"])
-        batch_op.create_foreign_key(
-            "fk_states_disc_file_id",
-            "rom_files",
-            ["disc_file_id"],
-            ["id"],
-            ondelete="SET NULL",
+        batch_op.create_index(
+            "ix_states_disc_file_id", ["disc_file_id"], if_not_exists=True
         )
+        if "fk_states_disc_file_id" not in foreign_keys:
+            batch_op.create_foreign_key(
+                "fk_states_disc_file_id",
+                "rom_files",
+                ["disc_file_id"],
+                ["id"],
+                ondelete="SET NULL",
+            )
 
 
 def downgrade() -> None:

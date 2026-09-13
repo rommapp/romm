@@ -31,7 +31,7 @@ Create Date: 2026-08-21 00:00:00.000000
 
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import is_postgresql
+from utils.database import has_column, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0108_roms_primary_region"
@@ -74,11 +74,14 @@ def _rebuild_index(columns: list[str]) -> None:
 
 
 def upgrade() -> None:
-    expr = _POSTGRES_EXPR if is_postgresql(op.get_bind()) else _MARIA_EXPR
-    op.execute(
-        f"ALTER TABLE roms ADD COLUMN {COLUMN_NAME} VARCHAR({COLUMN_LENGTH}) "  # nosec B608
-        f"GENERATED ALWAYS AS ({expr}) STORED"
-    )
+    connection = op.get_bind()
+    if not has_column(connection, "roms", COLUMN_NAME):
+        expr = _POSTGRES_EXPR if is_postgresql(connection) else _MARIA_EXPR
+        op.execute(
+            f"ALTER TABLE roms ADD COLUMN {COLUMN_NAME} VARCHAR({COLUMN_LENGTH}) "  # nosec B608
+            f"GENERATED ALWAYS AS ({expr}) STORED"
+        )
+
     _rebuild_index(NEW_INDEX_COLUMNS)
 
 

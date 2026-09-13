@@ -36,7 +36,7 @@ Create Date: 2026-08-08 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import CustomJSON, is_postgresql
+from utils.database import CustomJSON, column_names, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0123_recommendation_metadata"
@@ -487,18 +487,19 @@ def _rebuild_columns(
     batched: adding them one migration at a time rewrote `roms` three times.
     """
     rebuilt = _rebuilt_columns(pg, with_steam)
+    swapped = rebuilt + add
 
     # The view projects the columns being dropped, so it goes first.
     op.execute("DROP VIEW IF EXISTS roms_metadata")
 
-    actions = (
-        [f"DROP COLUMN {name}" for name, _, _ in rebuilt]
-        + [f"DROP COLUMN {name}" for name in drop]
-        + [
-            f"ADD COLUMN {name} {type_} GENERATED ALWAYS AS ({expr}) STORED"
-            for name, type_, expr in rebuilt + add
-        ]
-    )
+    # A replay meets the columns the previous run added; dropping only what is
+    # there re-adds every one at this revision's definition either way.
+    present = column_names(op.get_bind(), "roms")
+    dropped = [name for name, _, _ in swapped] + drop
+    actions = [f"DROP COLUMN {name}" for name in dropped if name in present] + [
+        f"ADD COLUMN {name} {type_} GENERATED ALWAYS AS ({expr}) STORED"
+        for name, type_, expr in swapped
+    ]
     op.execute("ALTER TABLE roms\n" + ",\n".join(actions))  # nosec B608
 
     # MariaDB carries a single-column index across the drop and re-add;
@@ -636,7 +637,11 @@ def upgrade() -> None:
     )
 
     for _, facet in _TAG_COLUMNS:
-        op.add_column("roms_facets", sa.Column(facet, CustomJSON(), nullable=True))
+        op.add_column(
+            "roms_facets",
+            sa.Column(facet, CustomJSON(), nullable=True),
+            if_not_exists=True,
+        )
 
     _sync_facets(pg, _FACET_COLUMNS)
     _rebuild_triggers(pg, _MIRRORED_COLUMNS)
@@ -655,7 +660,7 @@ def downgrade() -> None:
     )
 
     for _, facet in _TAG_COLUMNS:
-        op.drop_column("roms_facets", facet)
+        op.drop_column("roms_facets", facet, if_exists=True)
 
     _sync_facets(pg, [entry for entry in _FACET_COLUMNS if entry[0] not in {facet for _, facet in _TAG_COLUMNS}])  # fmt: skip
     _rebuild_triggers(pg, _BASE_MIRRORED_COLUMNS)
