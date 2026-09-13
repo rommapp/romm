@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.ss_handler import SSRom
+from handler.metadata.steam_handler import SteamRom
 
 DOWN = HTTPException(status_code=503, detail="provider is down")
 
@@ -23,6 +24,9 @@ _BY_NAME = {
     "meta_flashpoint_handler": [],
     "meta_launchbox_handler": [],
     "meta_demozoo_handler": [],
+    "meta_steam_handler": [
+        SteamRom(steam_id=4, name="From Steam", url_cover="https://cdn/4.jpg")
+    ],
 }
 
 
@@ -69,6 +73,18 @@ def test_no_single_provider_can_take_the_search_down(
     assert response.status_code == status.HTTP_200_OK
 
 
+def test_steam_matches_carry_their_id_and_cover(client, access_token, rom):
+    """Steam joins the picker, so a PC library can be matched to the store."""
+    response = _search(client, access_token, rom, failing=None)
+
+    assert response.status_code == status.HTTP_200_OK
+    steam_match = next(
+        match for match in response.json() if match["name"] == "From Steam"
+    )
+    assert steam_match["steam_id"] == 4
+    assert steam_match["steam_url_cover"] == "https://cdn/4.jpg"
+
+
 def test_a_failing_provider_costs_only_its_own_match_when_searching_by_id(
     client, access_token, rom
 ):
@@ -92,6 +108,10 @@ def test_a_failing_provider_costs_only_its_own_match_when_searching_by_id(
         ),
         patch(
             "endpoints.search.meta_demozoo_handler.get_rom_by_id",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "endpoints.search.meta_steam_handler.get_matched_rom_by_id",
             new=AsyncMock(return_value=None),
         ),
     ):

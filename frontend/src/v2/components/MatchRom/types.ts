@@ -11,6 +11,7 @@ export type SourceName =
   | "Flashpoint"
   | "Launchbox"
   | "Libretro"
+  | "Steam"
   | "SteamGridDB";
 
 export interface MatchedSource {
@@ -61,6 +62,11 @@ const SOURCE_DEFS: readonly SourceDef[] = [
     name: "Libretro",
     logo: "/assets/scrappers/libretro.png",
   },
+  {
+    urlKey: "steam_url_cover",
+    name: "Steam",
+    logo: "/assets/scrappers/steam.png",
+  },
 ];
 
 export function getMatchSources(matchedRom: SearchRom): MatchedSource[] {
@@ -95,6 +101,7 @@ export function firstAvailableCover(r: SearchRom): string | null {
     r.flashpoint_url_cover,
     r.launchbox_url_cover,
     r.libretro_url_cover,
+    r.steam_url_cover,
   ];
   return candidates.find((c): c is string => Boolean(c)) ?? null;
 }

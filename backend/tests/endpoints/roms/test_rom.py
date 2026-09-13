@@ -1848,6 +1848,33 @@ class TestUpdateMetadataIDs:
         SteamHandler,
         "get_rom_by_id",
         return_value=SteamRom(
+            steam_id=MOCK_STEAM_ID,
+            name="Portal 2",
+            summary="The Perpetual Testing Initiative has been expanded.",
+        ),
+    )
+    def test_update_rom_takes_the_summary_the_provider_fetched(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """The match picker sends no summary for a provider that lists none."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"steam_id": str(MOCK_STEAM_ID), "name": "Portal 2"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["summary"] == "The Perpetual Testing Initiative has been expanded."
+
+    @patch.object(
+        SteamHandler,
+        "get_rom_by_id",
+        return_value=SteamRom(
             steam_id=MOCK_STEAM_ID, steam_metadata={"total_rating": "86"}
         ),
     )

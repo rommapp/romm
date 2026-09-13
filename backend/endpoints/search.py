@@ -19,6 +19,7 @@ from handler.metadata import (
     meta_moby_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
 )
 from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.flashpoint_handler import FlashpointRom
@@ -28,6 +29,7 @@ from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
+from handler.metadata.steam_handler import SteamRom
 from handler.scan_handler import (
     MetadataSource,
     get_main_platform_igdb_id,
@@ -61,7 +63,14 @@ def _without_failures(
 
 
 # The order the provider lookups are gathered in, for reporting which one failed.
-_ID_SEARCH_PROVIDERS = ("IGDB", "MobyGames", "ScreenScraper", "LaunchBox", "Demozoo")
+_ID_SEARCH_PROVIDERS = (
+    "IGDB",
+    "MobyGames",
+    "ScreenScraper",
+    "LaunchBox",
+    "Demozoo",
+    "Steam",
+)
 _NAME_SEARCH_PROVIDERS = (
     "IGDB",
     "MobyGames",
@@ -69,6 +78,7 @@ _NAME_SEARCH_PROVIDERS = (
     "Flashpoint",
     "LaunchBox",
     "Demozoo",
+    "Steam",
 )
 
 
@@ -114,6 +124,7 @@ async def search_rom(
         and not meta_flashpoint_handler.is_enabled()
         and not meta_launchbox_handler.is_cloud_enabled()
         and not meta_demozoo_handler.is_enabled()
+        and not meta_steam_handler.is_enabled()
     ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
@@ -150,6 +161,7 @@ async def search_rom(
     flashpoint_matched_roms: list[FlashpointRom] = []
     launchbox_matched_roms: list[LaunchboxRom] = []
     demozoo_matched_roms: list[DemozooRom] = []
+    steam_matched_roms: list[SteamRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -159,6 +171,9 @@ async def search_rom(
                 meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
                 meta_demozoo_handler.get_rom_by_id(int(search_term)),
+                meta_steam_handler.get_matched_rom_by_id(
+                    int(search_term), rom.platform.slug
+                ),
                 return_exceptions=True,
             )
         except ValueError as exc:
@@ -168,7 +183,7 @@ async def search_rom(
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
             ) from exc
         else:
-            igdb_rom, moby_rom, ss_rom, lb_rom, dz_rom = _resolved(
+            igdb_rom, moby_rom, ss_rom, lb_rom, dz_rom, steam_rom = _resolved(
                 gathered, _ID_SEARCH_PROVIDERS, lambda: None
             )
             igdb_matched_roms = [igdb_rom] if igdb_rom else []
@@ -178,6 +193,9 @@ async def search_rom(
             demozoo_matched_roms = (
                 [dz_rom] if dz_rom and dz_rom.get("demozoo_id") else []
             )
+            steam_matched_roms = (
+                [steam_rom] if steam_rom and steam_rom.get("steam_id") else []
+            )
     elif search_by.lower() == "name":
         (
             igdb_matched_roms,
@@ -186,6 +204,7 @@ async def search_rom(
             flashpoint_matched_roms,
             launchbox_matched_roms,
             demozoo_matched_roms,
+            steam_matched_roms,
         ) = _resolved(
             await asyncio.gather(
                 meta_igdb_handler.get_matched_roms_by_name(
@@ -204,6 +223,9 @@ async def search_rom(
                     search_term, rom.platform.slug
                 ),
                 meta_demozoo_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.slug
+                ),
+                meta_steam_handler.get_matched_roms_by_name(
                     search_term, rom.platform.slug
                 ),
                 return_exceptions=True,
@@ -245,6 +267,12 @@ async def search_rom(
             meta_demozoo_handler,
             "demozoo_id",
             "demozoo_url_cover",
+        ),
+        MetadataSource.STEAM: (
+            steam_matched_roms,
+            meta_steam_handler,
+            "steam_id",
+            "steam_url_cover",
         ),
     }
 
