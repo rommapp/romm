@@ -63,6 +63,7 @@ import {
   getListMinWidth,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
+  isListSortKey,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
@@ -85,15 +86,6 @@ import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
-
-const LIST_SORT_KEYS = new Set<string>([
-  "name",
-  "fs_size_bytes",
-  "created_at",
-  "first_release_date",
-  "average_rating",
-  "hltb_main_story",
-]);
 
 interface Props {
   /** Whether the header slot has content to render. False suppresses
@@ -729,8 +721,8 @@ function setSearch(value: string) {
 // The grid-mode sort goes through the same path (toolbar dropdown), so
 // no separate code path; list just exposes the click affordance.
 const listSortKey = computed<ListSortKey | null>(() => {
-  const k = orderBy.value as string;
-  return LIST_SORT_KEYS.has(k) ? (k as ListSortKey) : null;
+  const key = orderBy.value;
+  return isListSortKey(key) ? key : null;
 });
 
 function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
