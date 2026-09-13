@@ -73,10 +73,12 @@ class SteamRom(BaseRom):
 def _runs_on(app: SteamStoreSearchItem, platform_slug: str) -> bool:
     """Whether a store hit is sold for the library's operating system."""
     platforms = app.get("platforms")
-    if not platforms:
+    os_key = STEAM_PLATFORM_KEYS.get(UPS(platform_slug))
+    # A platform that names no single OS (a plain "steam" library) takes them all.
+    if not platforms or not os_key:
         return True
 
-    return bool(platforms.get(STEAM_PLATFORM_KEYS[UPS(platform_slug)], False))
+    return bool(platforms.get(os_key, False))
 
 
 def _parse_release_date(raw_date: str) -> int | None:
