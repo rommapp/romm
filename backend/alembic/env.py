@@ -2,7 +2,10 @@ import sys
 from pathlib import Path
 
 from alembic import context
+from alembic.script import ScriptDirectory
+from alembic.util import CommandError
 from sqlalchemy import create_engine
+from sqlalchemy.exc import DatabaseError
 
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
@@ -10,7 +13,11 @@ from models import load_all_models
 from models.base import BaseModel
 from models.collection import VirtualCollection
 from models.rom import RomMetadata, SiblingRom
-from utils.database import AUTOGENERATE_EXEMPT_INDEX_NAMES
+from utils.database import (
+    AUTOGENERATE_EXEMPT_INDEX_NAMES,
+    is_binlog_trigger_privilege_error,
+    trigger_ddl_is_blocked,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -29,6 +36,24 @@ target_metadata = BaseModel.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+
+# Several migrations keep the `roms_facets` and `virtual_collection_roms` mirrors
+# in sync with triggers, which error 1419 denies outright (issue #3932).
+TRIGGER_DDL_DENIED = (
+    "The database user is not allowed to create triggers, which RomM's migrations "
+    "need: MySQL and MariaDB deny trigger statements while binary logging is on "
+    "and the user holds neither SUPER nor BINLOG ADMIN (error 1419). Ask an admin "
+    "database user to set 'log_bin_trust_function_creators = 1' under [mysqld] in "
+    "my.cnf, or to run GRANT BINLOG ADMIN ON *.* TO '<romm database user>'@'%', "
+    "then start RomM again. See https://docs.romm.app/latest/install/databases/"
+)
+
+
+def has_pending_migrations() -> bool:
+    """Whether any revision is still unapplied, so trigger DDL may yet run."""
+    heads = ScriptDirectory.from_config(config).get_heads()
+    return set(context.get_context().get_current_heads()) != set(heads)
 
 
 # Ignore specific models when running migrations
@@ -99,8 +124,16 @@ def run_migrations_online() -> None:
             include_object=include_object,
         )
 
+        if has_pending_migrations() and trigger_ddl_is_blocked(connection):
+            raise CommandError(TRIGGER_DDL_DENIED)
+
         with context.begin_transaction():
-            context.run_migrations()
+            try:
+                context.run_migrations()
+            except DatabaseError as exc:
+                if is_binlog_trigger_privilege_error(exc):
+                    raise CommandError(TRIGGER_DDL_DENIED) from exc
+                raise
 
 
 if context.is_offline_mode():
