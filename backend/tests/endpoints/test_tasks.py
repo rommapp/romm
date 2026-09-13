@@ -14,6 +14,8 @@ def _job_with_meta(meta: dict[str, Any]) -> Mock:
     job = Mock()
     job.id = "test-job-id-123"
     job.kwargs = {}
+    # What the response falls back to when the meta carries no task name.
+    job.func_name = "test_task"
     job.get_meta.return_value = {"task_type": TaskType.CLEANUP, **meta}
     job.get_status.return_value = "finished"
     for attr in ("created_at", "enqueued_at", "started_at", "ended_at"):
@@ -468,6 +470,56 @@ class TestGetTaskById:
         )
 
         assert response.json()["task_key"] == "cleanup_zip_cache"
+
+    @patch("endpoints.tasks.Job.fetch")
+    def test_a_scan_predating_a_counter_reports_it_as_zero(
+        self, mock_job_fetch, client, access_token
+    ):
+        """Stats stored by an older release lack the counters it predates."""
+        mock_job_fetch.return_value = _job_with_meta(
+            {
+                "task_type": TaskType.SCAN,
+                # The shape 5.2.0 stored, which had neither counter.
+                "scan_stats": {
+                    "total_platforms": 1,
+                    "total_roms": 819,
+                    "scanned_platforms": 1,
+                    "new_platforms": 1,
+                    "identified_platforms": 1,
+                    "scanned_roms": 378,
+                    "new_roms": 378,
+                    "identified_roms": 378,
+                    "scanned_firmware": 0,
+                    "new_firmware": 0,
+                },
+            }
+        )
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        scan_stats = response.json()["meta"]["scan_stats"]
+        assert scan_stats["updated_roms"] == 0
+        assert scan_stats["new_files"] == 0
+        assert scan_stats["scanned_roms"] == 378
+
+    @patch("endpoints.tasks.Job.fetch")
+    def test_a_scan_that_never_reported_stats_keeps_none(
+        self, mock_job_fetch, client, access_token
+    ):
+        """A queued scan has no counters yet, which is not the same as zeroes."""
+        mock_job_fetch.return_value = _job_with_meta({"task_type": TaskType.SCAN})
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["meta"]["scan_stats"] is None
 
     @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_not_found(self, mock_job_fetch, client, access_token):
