@@ -206,7 +206,7 @@ def build_unscoped_sidecar_cache_key(
         return None
 
     user_part = f"u{user_id}"
-    if sorts_by_rom_user_column(order_by):
+    if sorts_by_rom_user_column(order_by, user_id):
         user_part = f"{user_part}.{user_sort_cache_version(user_id)}"
     if group_by_meta_id:
         user_part = f"{user_part}.s{user_sibling_cache_version(user_id)}"
@@ -542,7 +542,7 @@ def get_roms(
     order_by = order_by.lower()
     order_dir = order_dir.lower()
 
-    unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
+    unfiltered_query, sort_key = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by,
         order_dir=order_dir,
@@ -553,6 +553,9 @@ def get_roms(
     query = db_rom_handler.filter_roms(
         query=unfiltered_query,
         filters=filters,
+        sort_key=sort_key,
+        order_by=order_by,
+        order_dir=order_dir,
         user_id=request.user.id,
         hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
         hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
@@ -593,7 +596,7 @@ def get_roms(
     if with_char_index:
         char_index = db_rom_handler.with_char_index(
             query=query,
-            order_by_attr=order_by_attr,
+            order_by_attr=sort_key.column,
             order_dir=order_dir,
             cache_key=sidecar_cache_key,
         )
