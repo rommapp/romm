@@ -81,11 +81,10 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
 BINLOG_TRIGGER_DDL_ERRNO = 1419
 
 
-def alembic_runs_revisions(command: str, *, pending: bool) -> bool:
-    """Whether this alembic run reaches revision code, trigger DDL included.
+def alembic_command_runs_revisions(command: str, *, pending: bool) -> bool:
+    """Whether this alembic command reaches revision code, trigger DDL included.
 
-    `command` is the `fn` name alembic hands its environment, so anything that
-    emits no DDL of its own (`do_stamp`, `display_version`) falls through.
+    `command` is the `fn` name alembic hands its environment, not the CLI word.
     """
     return command == "downgrade" or (command == "upgrade" and pending)
 

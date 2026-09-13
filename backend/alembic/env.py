@@ -14,7 +14,7 @@ from models.collection import VirtualCollection
 from models.rom import RomMetadata, SiblingRom
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
-    alembic_runs_revisions,
+    alembic_command_runs_revisions,
     is_binlog_trigger_privilege_error,
     trigger_ddl_is_blocked,
 )
@@ -57,7 +57,7 @@ def will_run_revisions() -> bool:
         context.script.get_heads()
     )
     command = getattr(migration_context.opts.get("fn"), "__name__", "upgrade")
-    return alembic_runs_revisions(command, pending=pending)
+    return alembic_command_runs_revisions(command, pending=pending)
 
 
 # Ignore specific models when running migrations
@@ -128,8 +128,7 @@ def run_migrations_online() -> None:
             include_object=include_object,
         )
 
-        # The probe first: one statement, and free on the other dialects, so
-        # only a server that refuses pays for reading the applied heads.
+        # The probe first: one statement, and free on the other dialects.
         if trigger_ddl_is_blocked(connection) and will_run_revisions():
             raise CommandError(TRIGGER_DDL_DENIED)
 

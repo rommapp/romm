@@ -25,7 +25,7 @@ from utils.database import (
     EARLIEST_RELEASE_YEAR,
     LATEST_RELEASE_YEAR,
     MS_PER_DAY,
-    alembic_runs_revisions,
+    alembic_command_runs_revisions,
     day_of_year_ranges,
     is_binlog_trigger_privilege_error,
     is_mariadb,
@@ -127,17 +127,21 @@ class TestReleaseDayRanges:
 
 
 class _DriverError(Exception):
-    """A driver exception carrying the code as an attribute, as both drivers do."""
+    """A driver exception spelling the code in `errno`, as mariadbconnector does."""
 
     def __init__(self, errno: int):
-        # Only the message in `args`, the shape mariadbconnector raises, so the
-        # attribute is the only thing an assertion here can be reading.
+        # Not in `args`, so only the attribute can be satisfying the assertions.
         super().__init__("denied")
         self.errno = errno
 
 
 def _denial(orig: Exception) -> sa.exc.DatabaseError:
     return sa.exc.DatabaseError("DROP TRIGGER IF EXISTS t", None, orig)
+
+
+def _skip_unless_mysql(conn: sa.Connection) -> None:
+    if not (is_mysql(conn) or is_mariadb(conn)):
+        pytest.skip("only MariaDB and MySQL deny trigger DDL")
 
 
 class TestBinlogTriggerGuard:
@@ -160,16 +164,14 @@ class TestBinlogTriggerGuard:
 
     def test_a_server_that_allows_triggers_is_not_blocked(self):
         with sync_engine.connect() as conn:
-            if not (is_mysql(conn) or is_mariadb(conn)):
-                pytest.skip("only MariaDB and MySQL deny trigger DDL")
+            _skip_unless_mysql(conn)
 
             assert not trigger_ddl_is_blocked(conn)
 
     def test_a_denied_probe_leaves_the_connection_usable(self):
         """The probe runs before the migrations, so it must not poison the session."""
         with sync_engine.connect() as conn:
-            if not (is_mysql(conn) or is_mariadb(conn)):
-                pytest.skip("only MariaDB and MySQL deny trigger DDL")
+            _skip_unless_mysql(conn)
 
             denial = _denial(_DriverError(BINLOG_TRIGGER_DDL_ERRNO))
             with patch.object(type(conn), "exec_driver_sql", side_effect=denial):
@@ -184,17 +186,17 @@ class TestRevisionCommandGate:
     @pytest.mark.parametrize("command", ["do_stamp", "display_version"])
     def test_a_command_that_emits_no_ddl_skips_the_probe(self, command: str):
         """Blocking `stamp` would take away the operator's own way out."""
-        assert not alembic_runs_revisions(command, pending=True)
+        assert not alembic_command_runs_revisions(command, pending=True)
 
     def test_an_upgrade_with_nothing_left_to_apply_skips_the_probe(self):
-        assert not alembic_runs_revisions("upgrade", pending=False)
+        assert not alembic_command_runs_revisions("upgrade", pending=False)
 
     def test_an_upgrade_with_pending_revisions_probes(self):
-        assert alembic_runs_revisions("upgrade", pending=True)
+        assert alembic_command_runs_revisions("upgrade", pending=True)
 
     def test_a_downgrade_probes_even_at_head(self):
         """`pending` is False at head, yet a downgrade still runs DROP TRIGGER."""
-        assert alembic_runs_revisions("downgrade", pending=False)
+        assert alembic_command_runs_revisions("downgrade", pending=False)
 
     def test_alembic_still_names_the_closure_this_gate_matches(self):
         """A rename upstream would turn the pre-flight off without a word."""
