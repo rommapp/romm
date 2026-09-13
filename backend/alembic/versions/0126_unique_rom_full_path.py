@@ -71,11 +71,15 @@ def _committing_each_chunk() -> Iterator[sa.Connection]:
 def _backfill() -> None:
     """Fill the digest in primary-key order, one committed chunk at a time."""
     connection = op.get_bind()
-    total = connection.execute(sa.text("SELECT COUNT(*) FROM roms")).scalar_one()
-    if not total:
+    # Counted over the pending rows, not the table, so a run picking up after
+    # a stopped one still logs its way to the denominator it prints.
+    pending = connection.execute(
+        sa.text(f"SELECT COUNT(*) FROM roms WHERE {_PENDING}")  # nosec B608
+    ).scalar_one()
+    if not pending:
         return
 
-    log.info(f"[0126] computing the path digest for {total} roms")
+    log.info(f"[0126] computing the path digest for {pending} roms")
 
     select_chunk = sa.text(
         f"SELECT id FROM roms WHERE {_PENDING} AND id > :cursor "  # nosec B608
@@ -95,7 +99,7 @@ def _backfill() -> None:
 
             connection.execute(update_chunk, {"cursor": cursor, "last": ids[-1]})
             cursor, done = ids[-1], done + len(ids)
-            log.info(f"[0126] {done}/{total} roms")
+            log.info(f"[0126] {done}/{pending} roms")
 
 
 def _create_indexes(indexes: Sequence[tuple[str, list[str], bool]]) -> None:
