@@ -5,23 +5,18 @@ different folders. The path is indexed through a digest because fs_path plus
 fs_name is 5804 bytes of utf8mb4, over InnoDB's 3072-byte key limit; the
 (platform_id, fs_name) index stays for the scan loop, demoted to non-unique.
 
-`roms` is the widest table in the schema (80-odd columns, a JSON metadata blob
-per provider, 30-odd indexes), so every pass over it is the expensive thing
-here and this revision is shaped to make as few as possible:
+Every pass over `roms` is expensive (80-odd columns, a JSON metadata blob per
+provider, 30-odd indexes), so three things here are shaped to avoid one:
 
-- The column is born NOT NULL behind an empty-string default. Turning a column
-  NOT NULL afterwards is the one change InnoDB cannot make without rebuilding
-  the table and every index on it, while adding one with a default is
-  metadata-only (INSTANT on MariaDB 10.3+ and MySQL 8.0.12+, no rewrite on
-  PostgreSQL 11+). Retiring the default afterwards is metadata-only too.
-- The backfill walks the primary key in chunks and commits each one, so a
-  container stopped mid-upgrade keeps the digests it already wrote. A single
-  UPDATE over the whole table holds an undo log the size of the library and
-  rolls all of it back, which on a large library never finishes across
-  restarts.
-- The two indexes are built in one ALTER TABLE on MySQL and MariaDB, which
-  scan the table once per statement. They are not dropped and re-added in that
-  same statement: reusing an index name in one ALTER forces the copy algorithm.
+- The column is born NOT NULL behind an empty-string default, because turning
+  a column NOT NULL later is the one change InnoDB cannot make without
+  rebuilding the table and every index on it. Adding it with a default, and
+  retiring that default afterwards, are both metadata-only.
+- The backfill commits each chunk, so a container stopped mid-upgrade keeps
+  the digests it wrote rather than rolling back the whole library.
+- Both indexes are built in one ALTER TABLE on MySQL and MariaDB, which scan
+  the table once per statement. The stale one is dropped in a statement of its
+  own: reusing an index name within one ALTER forces the copy algorithm.
 
 Revision ID: 0126_unique_rom_full_path
 Revises: 0125_drop_redundant_indexes
@@ -49,10 +44,8 @@ COLUMN_NAME = "full_path_hash"
 LOOKUP_INDEX_NAME = "idx_roms_platform_id_fs_name"
 UNIQUE_INDEX_NAME = "idx_roms_platform_id_full_path_hash"
 
-# Rows per backfill statement. Low enough to keep each transaction's undo log
-# and lock set small on modest hardware, high enough that the per-statement
-# round trip disappears into the work.
-BACKFILL_CHUNK_SIZE = 5_000
+# Rows per backfill statement, following 0084's own backfill.
+BACKFILL_CHUNK_SIZE = 1_000
 
 # Matches a row the backfill has not reached, under either shape the column can
 # have: the default this revision gives it, or the NULL a 5.3.0 alpha left.
@@ -60,18 +53,19 @@ _PENDING = f"({COLUMN_NAME} IS NULL OR {COLUMN_NAME} = '')"
 
 
 @contextmanager
-def _committing_each_chunk() -> Iterator[None]:
-    """Commit as the backfill goes, where the migration owns its transaction.
+def _committing_each_chunk() -> Iterator[sa.Connection]:
+    """Yield the connection to run the backfill on, committing as it goes.
 
-    `autocommit_block` takes over that transaction, which a caller that opened
-    one of its own (the migration tests) never handed to alembic.
+    `autocommit_block` takes over the migration's transaction, which a caller
+    that opened one of its own (the migration tests) never handed to alembic.
     """
     context = op.get_context()
     if context._in_external_transaction:
-        yield
+        yield op.get_bind()
     else:
+        # The block swaps the connection out from under the context.
         with context.autocommit_block():
-            yield
+            yield op.get_bind()
 
 
 def _backfill() -> None:
@@ -92,33 +86,31 @@ def _backfill() -> None:
         f"WHERE {_PENDING} AND id > :cursor AND id <= :last"
     )
 
-    with _committing_each_chunk():
-        # An autocommit block swaps the connection out from under the context.
-        chunked = op.get_bind()
+    with _committing_each_chunk() as connection:
         cursor = done = 0
         while True:
-            ids = chunked.execute(select_chunk, {"cursor": cursor}).scalars().all()
+            ids = connection.execute(select_chunk, {"cursor": cursor}).scalars().all()
             if not ids:
                 break
 
-            chunked.execute(update_chunk, {"cursor": cursor, "last": ids[-1]})
+            connection.execute(update_chunk, {"cursor": cursor, "last": ids[-1]})
             cursor, done = ids[-1], done + len(ids)
             log.info(f"[0126] {done}/{total} roms")
 
 
-def _create_indexes(wanted: Sequence[tuple[str, list[str], bool]]) -> None:
+def _create_indexes(indexes: Sequence[tuple[str, list[str], bool]]) -> None:
     """Build the indexes in a single pass over the table where the dialect can."""
-    if not wanted:
+    if not indexes:
         return
 
     if is_postgresql(op.get_bind()):
-        for name, columns, unique in wanted:
+        for name, columns, unique in indexes:
             op.create_index(name, "roms", columns, unique=unique, if_not_exists=True)
         return
 
     clauses = ", ".join(
         f"ADD {'UNIQUE ' if unique else ''}INDEX {name} ({', '.join(columns)})"
-        for name, columns, unique in wanted
+        for name, columns, unique in indexes
     )
     op.execute(f"ALTER TABLE roms {clauses}")  # nosec B608
 
@@ -148,8 +140,7 @@ def upgrade() -> None:
         _backfill()
 
         if needs_not_null:
-            # Only the alpha installs above reach this, and only they pay for
-            # the table rebuild it costs.
+            # Only an alpha's column reaches this, and only it pays the rebuild.
             with op.batch_alter_table("roms", schema=None) as batch_op:
                 batch_op.alter_column(
                     COLUMN_NAME,
@@ -167,13 +158,13 @@ def upgrade() -> None:
     if lookup_stale:
         op.drop_index(LOOKUP_INDEX_NAME, table_name="roms", if_exists=True)
 
-    wanted: list[tuple[str, list[str], bool]] = []
+    missing: list[tuple[str, list[str], bool]] = []
     if UNIQUE_INDEX_NAME not in indexes:
-        wanted.append((UNIQUE_INDEX_NAME, ["platform_id", COLUMN_NAME], True))
+        missing.append((UNIQUE_INDEX_NAME, ["platform_id", COLUMN_NAME], True))
     if lookup_stale:
-        wanted.append((LOOKUP_INDEX_NAME, ["platform_id", "fs_name"], False))
+        missing.append((LOOKUP_INDEX_NAME, ["platform_id", "fs_name"], False))
 
-    _create_indexes(wanted)
+    _create_indexes(missing)
 
 
 def downgrade() -> None:

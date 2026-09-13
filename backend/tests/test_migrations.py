@@ -143,6 +143,23 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         _load_migration(filename).upgrade()
 
 
+def _add_pending_digest_column(connection: sa.Connection, column: str) -> None:
+    """The column as 0126's ADD COLUMN leaves it, before a digest is written."""
+    connection.execute(
+        sa.text(
+            f"ALTER TABLE roms ADD COLUMN {column} "  # nosec B608
+            f"VARCHAR({FULL_PATH_HASH_LENGTH}) NOT NULL DEFAULT ''"
+        )
+    )
+
+
+def _digest_of(connection: sa.Connection, column: str, rom_id: int) -> str:
+    return connection.execute(
+        sa.text(f"SELECT {column} FROM roms WHERE id = :rom_id"),  # nosec B608
+        {"rom_id": rom_id},
+    ).scalar_one()
+
+
 # None of these is touched by a later revision, so replaying one over the
 # migrated schema has to leave that schema exactly as it found it.
 @pytest.mark.parametrize(
@@ -218,12 +235,7 @@ def test_the_full_path_hash_migration_resumes_an_interrupted_run(rom: Rom):
             migration.upgrade()
 
         columns, indexes = _schema_of(connection, "roms")
-        digest = connection.execute(
-            sa.text(
-                f"SELECT {migration.COLUMN_NAME} FROM roms WHERE id = :rom_id"
-            ),  # nosec B608
-            {"rom_id": rom.id},
-        ).scalar_one()
+        digest = _digest_of(connection, migration.COLUMN_NAME, rom.id)
 
     assert not columns[migration.COLUMN_NAME]
     assert indexes[migration.UNIQUE_INDEX_NAME][1]
@@ -249,12 +261,7 @@ def test_the_full_path_hash_column_is_born_not_null_and_keeps_no_default(rom: Ro
             for column in sa.inspect(connection).get_columns("roms")
             if column["name"] == migration.COLUMN_NAME
         )
-        digest = connection.execute(
-            sa.text(
-                f"SELECT {migration.COLUMN_NAME} FROM roms WHERE id = :rom_id"
-            ),  # nosec B608
-            {"rom_id": rom.id},
-        ).scalar_one()
+        digest = _digest_of(connection, migration.COLUMN_NAME, rom.id)
 
     assert not column["nullable"]
     assert column["default"] is None
@@ -272,20 +279,10 @@ def test_the_full_path_hash_backfill_resumes_over_the_rows_it_already_wrote(rom:
     with sync_engine.begin() as connection:
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
-            connection.execute(
-                sa.text(
-                    f"ALTER TABLE roms ADD COLUMN {migration.COLUMN_NAME} "  # nosec B608
-                    f"VARCHAR({FULL_PATH_HASH_LENGTH}) NOT NULL DEFAULT ''"
-                )
-            )
+            _add_pending_digest_column(connection, migration.COLUMN_NAME)
             migration.upgrade()
 
-        digest = connection.execute(
-            sa.text(
-                f"SELECT {migration.COLUMN_NAME} FROM roms WHERE id = :rom_id"
-            ),  # nosec B608
-            {"rom_id": rom.id},
-        ).scalar_one()
+        digest = _digest_of(connection, migration.COLUMN_NAME, rom.id)
 
     assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
 
@@ -295,25 +292,18 @@ def test_the_full_path_hash_backfill_commits_each_chunk(
 ):
     """A chunk the backfill wrote outlives the migration's own transaction.
 
-    This is what lets a stopped container resume instead of starting over, and
-    it only holds on the autocommit branch, so the migration runs here through
-    the transaction shape alembic builds around it in `env.py` rather than
-    inside a transaction the caller owns.
+    Only the autocommit branch holds that, so this drives the backfill through
+    the transaction shape alembic builds in `env.py` rather than one the caller
+    owns.
     """
     migration = _load_migration("0126_unique_rom_full_path.py")
     monkeypatch.setattr(migration, "BACKFILL_CHUNK_SIZE", 1)
 
-    # Commit the pre-backfill shape first, so the backfill is the only thing
-    # left for the assertion below to catch uncommitted.
+    # Committed up front, so the backfill is the only thing left uncommitted.
     with sync_engine.begin() as connection:
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
-            connection.execute(
-                sa.text(
-                    f"ALTER TABLE roms ADD COLUMN {migration.COLUMN_NAME} "  # nosec B608
-                    f"VARCHAR({FULL_PATH_HASH_LENGTH}) NOT NULL DEFAULT ''"
-                )
-            )
+            _add_pending_digest_column(connection, migration.COLUMN_NAME)
 
     with sync_engine.connect() as connection:
         context = MigrationContext.configure(connection)
@@ -327,13 +317,7 @@ def test_the_full_path_hash_backfill_commits_each_chunk(
                 # A second connection reaches the digest only once the chunk
                 # holding it has committed on its own.
                 with sync_engine.connect() as observer:
-                    digest = observer.execute(
-                        sa.text(
-                            f"SELECT {migration.COLUMN_NAME} "  # nosec B608
-                            "FROM roms WHERE id = :rom_id"
-                        ),
-                        {"rom_id": rom.id},
-                    ).scalar_one()
+                    digest = _digest_of(observer, migration.COLUMN_NAME, rom.id)
 
     assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
 
