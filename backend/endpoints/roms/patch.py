@@ -4,15 +4,10 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import File, Form, HTTPException
-from fastapi import Path as PathVar
-from fastapi import Request, UploadFile, status
-from pydantic import BaseModel
-from starlette.background import BackgroundTask
-from starlette.responses import FileResponse
-
 from config import ROM_PATCHER_MAX_FILE_SIZE_BYTES
 from decorators.auth import protected_route
+from fastapi import File, Form, HTTPException, Request, UploadFile, status
+from fastapi import Path as PathVar
 from handler.auth.constants import Scope
 from handler.auth.dependencies import ResolvedPermissions, get_permissions
 from handler.database import db_rom_handler
@@ -20,7 +15,15 @@ from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from utils.rom_patcher import SUPPORTED_PATCH_EXTENSIONS, PatcherError, apply_patch
+from pydantic import BaseModel
+from starlette.background import BackgroundTask
+from starlette.responses import FileResponse
+from utils.rom_patcher import (
+    SUPPORTED_PATCH_EXTENSIONS,
+    PatcherError,
+    PatcherInputError,
+    apply_patch,
+)
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -58,6 +61,10 @@ async def patch_rom(
         Form(
             description="Custom output file name. If omitted, derived from ROM + patch names.",
         ),
+    ] = None,
+    archive_member_name: Annotated[
+        str | None,
+        Form(description="File inside a ZIP ROM archive to patch."),
     ] = None,
     patch_file: Annotated[
         UploadFile | None,
@@ -150,10 +157,18 @@ async def patch_rom(
             f"ROM file {hl(rom_file.file_name)} with patch {hl(patch_display_name)}"
         )
 
-        validated = await apply_patch(rom_path, patch_path, output_path)
+        validated = await apply_patch(
+            rom_path, patch_path, output_path, archive_member_name
+        )
     except HTTPException:
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise
+    except PatcherInputError as e:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
     except PatcherError as e:
         shutil.rmtree(tmp_dir, ignore_errors=True)
         # Detail may contain server paths from node/RomPatcher.js; keep it server-side.
