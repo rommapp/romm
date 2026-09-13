@@ -5,6 +5,7 @@ from typing import Any, Sequence
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
+from sqlalchemy.schema import CreateColumn
 from sqlalchemy.sql import ColumnElement, func
 
 # Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL
@@ -90,6 +91,33 @@ def has_column(conn: sa.Connection, table: str, column: str) -> bool:
     return column in column_names(conn, table)
 
 
+def add_columns_in_one_alter(
+    conn: sa.Connection, table: str, columns: Sequence[sa.Column]
+) -> None:
+    """Add every missing column of `columns` in a single ALTER TABLE.
+
+    MySQL/MariaDB cannot use ALGORITHM=INSTANT on a table carrying a FULLTEXT
+    index, so `roms` pays a full table copy per ALTER whatever the column is.
+    One statement per revision means one copy instead of one per column.
+
+    Args:
+        columns: the desired columns; those already present are skipped.
+    """
+    missing = [c for c in columns if c.name not in column_names(conn, table)]
+    if not missing:
+        return
+
+    # CreateColumn needs the column bound to a table to render its DDL, and
+    # binding mutates it, so a caller's column survives being passed twice.
+    bound = [column._copy() for column in missing]
+    sa.Table(table, sa.MetaData(), *bound)
+    additions = ", ".join(
+        f"ADD COLUMN {CreateColumn(column).compile(dialect=conn.dialect).string}"
+        for column in bound
+    )
+    conn.execute(sa.text(f"ALTER TABLE {table} {additions}"))  # nosec B608
+
+
 def full_path_digest_sql(conn: sa.Connection) -> str:
     """`models.rom.compute_full_path_hash` spelled in SQL, for 0126's backfill.
 
@@ -103,6 +131,29 @@ def full_path_digest_sql(conn: sa.Connection) -> str:
             "COALESCE(fs_name, ''), 'UTF8')), 'hex')"
         )
     return "SHA2(CONCAT(COALESCE(fs_path, ''), '/', COALESCE(fs_name, '')), 256)"
+
+
+def hltb_main_story_sql(pg: bool) -> str:
+    """`hltb_metadata -> main_story` as an integer, for the generated column.
+
+    0123 adds the column and 0128 indexes it, so the expression lives here
+    rather than in either revision.
+    """
+    if pg:
+        value = "hltb_metadata ->> 'main_story'"
+        return (
+            "CASE WHEN hltb_metadata IS NOT NULL AND hltb_metadata ? 'main_story' "
+            f"AND ({value}) NOT IN ('null', 'None', '0', '0.0') "
+            f"AND ({value}) ~ '^[0-9]+$' "
+            f"THEN ({value})::bigint ELSE NULL END"
+        )
+    value = "CAST(JSON_UNQUOTE(JSON_EXTRACT(hltb_metadata, '$.main_story')) AS CHAR)"
+    return (
+        "CASE WHEN JSON_CONTAINS_PATH(hltb_metadata, 'one', '$.main_story') "
+        f"AND {value} NOT IN ('null', 'None', '0', '0.0') "
+        f"AND {value} REGEXP '^[0-9]+$' "
+        f"THEN CAST({value} AS SIGNED) ELSE NULL END"
+    )
 
 
 def json_array_contains_value(

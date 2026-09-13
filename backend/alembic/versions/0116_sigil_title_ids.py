@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM
 
-from utils.database import is_postgresql
+from utils.database import add_columns_in_one_alter, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0116_sigil_title_ids"
@@ -42,25 +42,22 @@ def upgrade() -> None:
     connection = op.get_bind()
     save_target_layout_enum = _save_target_layout_enum(connection)
 
-    with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(
+    add_columns_in_one_alter(
+        connection,
+        "roms",
+        [
             sa.Column("title_id", sa.String(length=100), nullable=True),
-            if_not_exists=True,
-        )
-        batch_op.add_column(
             sa.Column("save_target", sa.String(length=100), nullable=True),
-            if_not_exists=True,
-        )
-        batch_op.add_column(
             sa.Column("save_target_layout", save_target_layout_enum, nullable=True),
-            if_not_exists=True,
-        )
-        batch_op.create_index(
-            "idx_roms_title_id",
-            ["title_id"],
-            unique=False,
-            if_not_exists=True,
-        )
+        ],
+    )
+    op.create_index(
+        "idx_roms_title_id",
+        "roms",
+        ["title_id"],
+        unique=False,
+        if_not_exists=True,
+    )
 
 
 def downgrade() -> None:

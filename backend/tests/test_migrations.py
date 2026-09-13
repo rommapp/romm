@@ -22,8 +22,11 @@ from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
+    add_columns_in_one_alter,
+    column_names,
     full_path_digest_sql,
     has_column,
+    hltb_main_story_sql,
     is_postgresql,
 )
 
@@ -303,3 +306,42 @@ def test_the_state_disc_file_migration_resumes_an_interrupted_run(drop_column: b
     assert "disc_file_id" in columns
     assert index
     assert "fk_states_disc_file_id" in foreign_keys
+
+
+def test_add_columns_in_one_alter_adds_only_what_is_missing():
+    """The helper the column-adding revisions batch through.
+
+    A revision replayed over its own result must not fail on the duplicate, and
+    a partially-applied one must fill in the rest.
+    """
+    table = "test_add_columns_in_one_alter"
+    with sync_engine.begin() as connection:
+        connection.execute(sa.text(f"DROP TABLE IF EXISTS {table}"))
+        connection.execute(sa.text(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)"))
+
+        wanted = [
+            sa.Column("first", sa.Integer(), nullable=True),
+            sa.Column("second", sa.String(length=64), nullable=True),
+        ]
+        add_columns_in_one_alter(connection, table, wanted)
+        assert column_names(connection, table) == {"id", "first", "second"}
+
+        # Replaying the whole set is a no-op rather than a duplicate-column error.
+        add_columns_in_one_alter(connection, table, wanted)
+
+        # A run that died after the first column fills in only the rest.
+        connection.execute(sa.text(f"ALTER TABLE {table} DROP COLUMN second"))
+        add_columns_in_one_alter(connection, table, wanted)
+        assert column_names(connection, table) == {"id", "first", "second"}
+
+        connection.execute(sa.text(f"DROP TABLE {table}"))
+
+
+def test_the_hltb_expression_is_shared_by_the_revisions_that_use_it():
+    """0123 adds the column and 0128 indexes it, so both must agree on it."""
+    with sync_engine.connect() as connection:
+        pg = is_postgresql(connection)
+        added = _load_migration("0123_recommendation_metadata.py")._added_columns(pg)
+
+    expressions = {name: expr for name, _, expr in added}
+    assert expressions["generated_hltb_main_story"] == hltb_main_story_sql(pg)

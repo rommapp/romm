@@ -18,7 +18,7 @@ Create Date: 2026-09-08 00:00:00.000000
 
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import has_column, is_postgresql
+from utils.database import has_column, hltb_main_story_sql, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0128_hltb_main_story_column"
@@ -29,30 +29,14 @@ depends_on = None
 COLUMN_NAME = "generated_hltb_main_story"
 INDEX_NAME = "idx_roms_hltb_main_story"
 
-_MARIA_VALUE = "CAST(JSON_UNQUOTE(JSON_EXTRACT(hltb_metadata, '$.main_story')) AS CHAR)"
-_MARIA_EXPR = (
-    "CASE WHEN JSON_CONTAINS_PATH(hltb_metadata, 'one', '$.main_story') "
-    f"AND {_MARIA_VALUE} NOT IN ('null', 'None', '0', '0.0') "
-    f"AND {_MARIA_VALUE} REGEXP '^[0-9]+$' "
-    f"THEN CAST({_MARIA_VALUE} AS SIGNED) ELSE NULL END"
-)
-
-_POSTGRES_VALUE = "hltb_metadata ->> 'main_story'"
-_POSTGRES_EXPR = (
-    "CASE WHEN hltb_metadata IS NOT NULL AND hltb_metadata ? 'main_story' "
-    f"AND ({_POSTGRES_VALUE}) NOT IN ('null', 'None', '0', '0.0') "
-    f"AND ({_POSTGRES_VALUE}) ~ '^[0-9]+$' "
-    f"THEN ({_POSTGRES_VALUE})::bigint ELSE NULL END"
-)
-
 
 def upgrade() -> None:
     connection = op.get_bind()
 
-    # MySQL/MariaDB auto-commit each DDL statement, so a run that dies on the
-    # index keeps the column without advancing the alembic version.
+    # 0123 adds this column in the same ALTER as its own generated columns, so
+    # this only fires for a database that stopped between the two revisions.
     if not has_column(connection, "roms", COLUMN_NAME):
-        expr = _POSTGRES_EXPR if is_postgresql(connection) else _MARIA_EXPR
+        expr = hltb_main_story_sql(is_postgresql(connection))
         op.execute(  # nosec B608
             f"ALTER TABLE roms ADD COLUMN {COLUMN_NAME} BIGINT "
             f"GENERATED ALWAYS AS ({expr}) STORED"

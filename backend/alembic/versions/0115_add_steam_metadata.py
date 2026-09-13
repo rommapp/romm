@@ -11,7 +11,7 @@ from alembic import op  # type: ignore[attr-defined]
 from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
-from utils.database import is_postgresql
+from utils.database import add_columns_in_one_alter, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0115_add_steam_metadata"
@@ -106,11 +106,11 @@ def _recreate_triggers(mirrored_columns: list[tuple[str, str]]) -> None:
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("steam_id", sa.Integer(), nullable=True), if_not_exists=True
-        )
-        batch_op.add_column(
+    add_columns_in_one_alter(
+        op.get_bind(),
+        "roms",
+        [
+            sa.Column("steam_id", sa.Integer(), nullable=True),
             sa.Column(
                 "steam_metadata",
                 sa.JSON().with_variant(
@@ -118,11 +118,11 @@ def upgrade() -> None:
                 ),
                 nullable=True,
             ),
-            if_not_exists=True,
-        )
-        batch_op.create_index(
-            "idx_roms_steam_id", ["steam_id"], unique=False, if_not_exists=True
-        )
+        ],
+    )
+    op.create_index(
+        "idx_roms_steam_id", "roms", ["steam_id"], unique=False, if_not_exists=True
+    )
 
     # MySQL/MariaDB auto-commit each DDL, so a crash here can leave the column
     # behind without advancing the alembic version.

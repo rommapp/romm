@@ -11,7 +11,7 @@ from alembic import op  # type: ignore[attr-defined]
 from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
-from utils.database import is_postgresql
+from utils.database import add_columns_in_one_alter, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0114_demozoo_pouet_csdb_metadata"
@@ -112,19 +112,19 @@ def _recreate_triggers(mirrored_columns: list[tuple[str, str]]) -> None:
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("roms", schema=None) as batch_op:
-        for name, column_type in _NEW_ROMS_COLUMNS:
-            batch_op.add_column(
-                sa.Column(name, column_type, nullable=True), if_not_exists=True
-            )
-        for name in _NEW_METADATA_COLUMNS:
-            batch_op.add_column(
-                sa.Column(name, _JSON, nullable=True), if_not_exists=True
-            )
-        for name, _ in _NEW_ROMS_COLUMNS:
-            batch_op.create_index(
-                f"idx_roms_{name}", [name], unique=False, if_not_exists=True
-            )
+    add_columns_in_one_alter(
+        op.get_bind(),
+        "roms",
+        [
+            sa.Column(name, column_type, nullable=True)
+            for name, column_type in _NEW_ROMS_COLUMNS
+        ]
+        + [sa.Column(name, _JSON, nullable=True) for name in _NEW_METADATA_COLUMNS],
+    )
+    for name, _ in _NEW_ROMS_COLUMNS:
+        op.create_index(
+            f"idx_roms_{name}", "roms", [name], unique=False, if_not_exists=True
+        )
 
     existing = {
         col["name"] for col in inspect(op.get_bind()).get_columns("roms_facets")

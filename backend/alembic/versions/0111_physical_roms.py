@@ -9,6 +9,8 @@ Create Date: 2026-07-04 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op
 
+from utils.database import add_columns_in_one_alter
+
 # revision identifiers, used by Alembic.
 revision = "0111_physical_roms"
 down_revision = "0110_walkthrough_docs"
@@ -17,19 +19,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(
+    add_columns_in_one_alter(
+        op.get_bind(),
+        "roms",
+        [
             sa.Column(
                 "is_physical",
                 sa.Boolean(),
                 nullable=False,
                 server_default=sa.false(),
             ),
-            if_not_exists=True,
-        )
-        batch_op.add_column(
-            sa.Column("upc", sa.String(length=64), nullable=True), if_not_exists=True
-        )
+            sa.Column("upc", sa.String(length=64), nullable=True),
+        ],
+    )
 
 
 def downgrade() -> None:

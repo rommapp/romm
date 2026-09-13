@@ -36,7 +36,12 @@ Create Date: 2026-08-08 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import CustomJSON, column_names, is_postgresql
+from utils.database import (
+    CustomJSON,
+    column_names,
+    hltb_main_story_sql,
+    is_postgresql,
+)
 
 # revision identifiers, used by Alembic.
 revision = "0123_recommendation_metadata"
@@ -105,6 +110,7 @@ _TAG_COLUMNS = [
     ("generated_player_perspectives", "player_perspectives"),
 ]
 _RATING_COUNT_COLUMN = "generated_rating_count"
+_HLTB_COLUMN = "generated_hltb_main_story"
 
 # (source, multiplier to milliseconds) for the integer release-date branches.
 # The gamelist string branch follows them; Steam, in epoch seconds, comes last.
@@ -448,6 +454,9 @@ def _added_columns(pg: bool) -> list[tuple[str, str, str]]:
     ]
     count_expr = _postgres_rating_count() if pg else _maria_rating_count()
     columns.append((_RATING_COUNT_COLUMN, "BIGINT", count_expr))
+    # 0128 only indexes this one; it rides along here so the chain pays a
+    # single table rebuild rather than one per generated column.
+    columns.append((_HLTB_COLUMN, "BIGINT", hltb_main_story_sql(pg)))
     return columns
 
 
@@ -655,7 +664,7 @@ def downgrade() -> None:
         pg,
         with_steam=False,
         add=[],
-        drop=[name for name, _ in _TAG_COLUMNS] + [_RATING_COUNT_COLUMN],
+        drop=[name for name, _ in _TAG_COLUMNS] + [_RATING_COUNT_COLUMN, _HLTB_COLUMN],
         view_columns=_BASE_VIEW_COLUMNS,
     )
 
