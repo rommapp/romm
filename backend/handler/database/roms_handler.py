@@ -19,6 +19,7 @@ from sqlalchemy import (
     case,
     cast,
     delete,
+    event,
     false,
     func,
 )
@@ -57,6 +58,7 @@ from handler.database.rom_filters import (
     RomFilterSpec,
 )
 from handler.redis_handler import sync_cache
+from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.base import PRERELEASE_FILENAME_TAGS, compute_file_name_parts
 from models.collection import Collection, CollectionRom, SmartCollection
@@ -316,12 +318,40 @@ def _cache_value_to_str(value: Any) -> str | None:
     return str(value)
 
 
+def _cache_version(key: str) -> str:
+    return _cache_value_to_str(sync_cache.get(key)) or "0"
+
+
 def _filter_values_cache_version() -> str:
-    return _cache_value_to_str(sync_cache.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+    return _cache_version(ROM_FILTERS_CACHE_VERSION_KEY)
 
 
 def _filter_values_cache_keys_key(version: str) -> str:
     return f"filter_values:keys:v{version}"
+
+
+def _user_sort_version_key(user_id: int) -> str:
+    return f"sidecar:user_ver:{user_id}"
+
+
+def _user_sibling_version_key(user_id: int) -> str:
+    return f"sidecar:user_sib_ver:{user_id}"
+
+
+def user_sort_cache_version(user_id: int) -> str:
+    """Version component for one user's RomUser-sorted sidecar cache keys."""
+    return _cache_version(_user_sort_version_key(user_id))
+
+
+def user_sibling_cache_version(user_id: int) -> str:
+    """Version component for one user's grouped sidecar cache keys, moved
+    only by main-sibling picks."""
+    return _cache_version(_user_sibling_version_key(user_id))
+
+
+def sorts_by_rom_user_column(order_by: str) -> bool:
+    """True when this sort key resolves to a per-user RomUser column."""
+    return hasattr(RomUser, order_by) and not hasattr(Rom, order_by)
 
 
 def _sidecar_redis_key(prefix: str, cache_key: str, version: str) -> str:
@@ -536,14 +566,57 @@ RECOMMENDATION_SEED_FIELDS = frozenset(
 )
 
 
-def _invalidate_feed_if_seed_changed(user_id: int, data: dict) -> None:
-    if not RECOMMENDATION_SEED_FIELDS & data.keys():
+def _queue_user_cache_bumps(
+    session: Session,
+    user_id: int,
+    *,
+    sort_keys: bool = False,
+    siblings: bool = False,
+    feed: bool = False,
+) -> None:
+    """Queues per-user cache invalidations for after this transaction
+    commits, so a rollback bumps nothing and a concurrent reader cannot
+    cache pre-commit rows under the new version."""
+    bumps: dict[int, set[str]] = session.info.setdefault("user_cache_bumps", {})
+    flags = bumps.setdefault(user_id, set())
+    flags.update(
+        flag
+        for flag, queued in (("sort", sort_keys), ("sib", siblings), ("feed", feed))
+        if queued
+    )
+    if "user_cache_bumps_armed" in session.info:
         return
+    session.info["user_cache_bumps_armed"] = True
 
-    # Imported here because the recommendation package reads this module.
-    from handler.recommendation import invalidate_cached_feed
+    def _consume(ending_session: Session) -> dict[int, set[str]]:
+        # Popping the state re-arms the next transaction on a reused session.
+        ending_session.info.pop("user_cache_bumps_armed", None)
+        return ending_session.info.pop("user_cache_bumps", {})
 
-    invalidate_cached_feed(user_id)
+    @event.listens_for(session, "after_commit", once=True)
+    def _flush(_session: Session) -> None:
+        # No keys-set bookkeeping: entries under an old version become
+        # unreachable and are reaped by the TTL or the next global bump.
+        for uid, uid_flags in _consume(_session).items():
+            # The write is already durable, so a cache failure only logs;
+            # the stale entry falls to the TTL.
+            try:
+                if "sort" in uid_flags:
+                    sync_cache.incr(_user_sort_version_key(uid))
+                if "sib" in uid_flags:
+                    sync_cache.incr(_user_sibling_version_key(uid))
+                if "feed" in uid_flags:
+                    # Imported here because the recommendation package reads
+                    # this module.
+                    from handler.recommendation import invalidate_cached_feed
+
+                    invalidate_cached_feed(uid)
+            except Exception:
+                log.exception("Failed to bump user %s cache versions", uid)
+
+    @event.listens_for(session, "after_rollback", once=True)
+    def _discard(_session: Session) -> None:
+        _consume(_session)
 
 
 class DBRomsHandler(DBBaseHandler):
@@ -1512,7 +1585,7 @@ class DBRomsHandler(DBBaseHandler):
         query = self._join_rom_user(select(Rom), user_id)
 
         sort_key_is_nullable = False
-        if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
+        if user_id and sorts_by_rom_user_column(order_by):
             order_attr = getattr(RomUser, order_by)
             sort_key_is_nullable = True
         elif order_by in ROM_METADATA_ORDER_COLUMNS:
@@ -2029,6 +2102,9 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomUser:
         rom_user = session.merge(RomUser(rom_id=rom_id, user_id=user_id))
         session.flush()
+        # A fresh row's zero defaults replace NULL sort keys, which moves
+        # this user's RomUser-sorted order.
+        _queue_user_cache_bumps(session, user_id, sort_keys=True)
         return rom_user
 
     @begin_session
@@ -2068,7 +2144,15 @@ class DBRomsHandler(DBBaseHandler):
         if not rom_user:
             return None
 
-        _invalidate_feed_if_seed_changed(rom_user.user_id, data)
+        # Any non-hidden RomUser column can back a sort (hidden already bumps
+        # the global version), and main-sibling picks move grouped sets.
+        _queue_user_cache_bumps(
+            session,
+            rom_user.user_id,
+            sort_keys=bool(data.keys() - {"hidden"}),
+            siblings="is_main_sibling" in data,
+            feed=bool(RECOMMENDATION_SEED_FIELDS & data.keys()),
+        )
 
         if not data.get("is_main_sibling", False):
             return rom_user

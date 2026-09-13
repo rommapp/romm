@@ -76,14 +76,33 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
     return is_db_version_compatible(conn, min_version=min_version)
 
 
+def column_names(conn: sa.Connection, table: str) -> set[str]:
+    """The columns `table` currently carries, for guards over a set of them.
+
+    One reflection answers the whole set; `has_column` per candidate costs one
+    round-trip each.
+    """
+    return {column["name"] for column in sa.inspect(conn).get_columns(table)}
+
+
+def has_column(conn: sa.Connection, table: str, column: str) -> bool:
+    """Whether `table` already carries `column`, which `Inspector` cannot answer."""
+    return column in column_names(conn, table)
+
+
 def full_path_digest_sql(conn: sa.Connection) -> str:
     """`models.rom.compute_full_path_hash` spelled in SQL, for 0126's backfill.
 
     `test_migrations` pins this to the Python function it mirrors.
     """
+    # COALESCE because the Python side reads a NULL as "", while both dialects
+    # would fold the whole concatenation to NULL and fail 0126's NOT NULL step.
     if is_postgresql(conn):
-        return "encode(sha256(convert_to(fs_path || '/' || fs_name, 'UTF8')), 'hex')"
-    return "SHA2(CONCAT(fs_path, '/', fs_name), 256)"
+        return (
+            "encode(sha256(convert_to(COALESCE(fs_path, '') || '/' || "
+            "COALESCE(fs_name, ''), 'UTF8')), 'hex')"
+        )
+    return "SHA2(CONCAT(COALESCE(fs_path, ''), '/', COALESCE(fs_name, '')), 256)"
 
 
 def json_array_contains_value(
