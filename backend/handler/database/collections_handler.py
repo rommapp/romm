@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import (
     Select,
     delete,
+    false,
     insert,
     literal,
     or_,
@@ -26,6 +27,7 @@ from sqlalchemy.orm import (
 
 from config import FRONTEND_RESOURCES_PATH
 from decorators.database import begin_session
+from handler.database.rom_filters import RomFilterParams
 from models.collection import (
     SMART_COLLECTION_MAX_COVERS,
     Collection,
@@ -469,77 +471,6 @@ class DBCollectionsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-    def get_smart_collection_criteria(
-        self, smart_collection: SmartCollection
-    ) -> dict[str, Any]:
-        """Translate stored filter criteria into `filter_roms` keyword arguments.
-
-        `smart_collection_id` is dropped: the create dialog records the route it
-        was opened from, so a smart collection built while viewing another one
-        carries that id, and following it would nest (and could cycle).
-        """
-        criteria = smart_collection.filter_criteria
-
-        # Early versions stored single values under `selected_*` keys, for the
-        # filters that already existed then.
-        def as_list(new_key: str, old_key: str | None = None) -> list[str] | None:
-            value = criteria.get(new_key) or (
-                criteria.get(old_key) if old_key else None
-            )
-            if not value:
-                return None
-            return value if isinstance(value, list) else [value]
-
-        platform_ids = criteria.get("platform_ids")
-        if platform_ids is None and (platform_id := criteria.get("platform_id")):
-            platform_ids = [platform_id]
-
-        return {
-            "platform_ids": platform_ids,
-            "collection_id": criteria.get("collection_id"),
-            "virtual_collection_id": criteria.get("virtual_collection_id"),
-            "search_term": criteria.get("search_term"),
-            "matched": criteria.get("matched"),
-            "favorite": criteria.get("favorite"),
-            "duplicate": criteria.get("duplicate"),
-            "playable": criteria.get("playable"),
-            "has_ra": criteria.get("has_ra"),
-            "has_saves": criteria.get("has_saves"),
-            "has_states": criteria.get("has_states"),
-            "has_soundtrack": criteria.get("has_soundtrack"),
-            "missing": criteria.get("missing"),
-            "physical": criteria.get("physical"),
-            "verified": criteria.get("verified"),
-            "genres": as_list("genres", "selected_genre"),
-            "franchises": as_list("franchises", "selected_franchise"),
-            "collections": as_list("collections", "selected_collection"),
-            "companies": as_list("companies", "selected_company"),
-            "publishers": as_list("publishers"),
-            "developers": as_list("developers"),
-            "age_ratings": as_list("age_ratings", "selected_age_rating"),
-            "regions": as_list("regions", "selected_region"),
-            "languages": as_list("languages", "selected_language"),
-            "tags": as_list("tags", "selected_tag"),
-            "statuses": as_list("statuses", "selected_status"),
-            "player_counts": criteria.get("player_counts"),
-            "metadata_providers": criteria.get("metadata_providers"),
-            "hltb_main_story_min": criteria.get("hltb_main_story_min"),
-            "hltb_main_story_max": criteria.get("hltb_main_story_max"),
-            "genres_logic": criteria.get("genres_logic", "any"),
-            "franchises_logic": criteria.get("franchises_logic", "any"),
-            "collections_logic": criteria.get("collections_logic", "any"),
-            "companies_logic": criteria.get("companies_logic", "any"),
-            "publishers_logic": criteria.get("publishers_logic", "any"),
-            "developers_logic": criteria.get("developers_logic", "any"),
-            "age_ratings_logic": criteria.get("age_ratings_logic", "any"),
-            "regions_logic": criteria.get("regions_logic", "any"),
-            "languages_logic": criteria.get("languages_logic", "any"),
-            "player_counts_logic": criteria.get("player_counts_logic", "any"),
-            "statuses_logic": criteria.get("statuses_logic", "any"),
-            "metadata_providers_logic": criteria.get("metadata_providers_logic", "any"),
-            "tags_logic": criteria.get("tags_logic", "any"),
-        }
-
     def build_smart_collection_query(
         self,
         *,
@@ -560,12 +491,18 @@ class DBCollectionsHandler(DBBaseHandler):
         """
         from handler.database import db_rom_handler
 
+        filters = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+        if filters is None:
+            # Criteria the model rejects: match nothing rather than drop the
+            # constraint, which would show more than the collection claims.
+            return query.filter(false())
+
         return db_rom_handler.filter_roms(
             query=query,
+            filters=filters,
             user_id=user_id,
             include_related=False,
             session=session,
-            **self.get_smart_collection_criteria(smart_collection),
         )
 
     @begin_session

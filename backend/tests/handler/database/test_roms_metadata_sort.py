@@ -14,6 +14,7 @@ on MariaDB/MySQL the ascending sort pays a leading IS NULL term for it.
 import pytest
 
 from handler.database import db_rom_handler
+from handler.database.rom_filters import RomFilterParams
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -124,7 +125,9 @@ class TestMetadataSortQueryShape:
     ):
         query, _ = db_rom_handler.get_roms_query(order_by="first_release_date")
         grouped = db_rom_handler.filter_roms(
-            query=query, order_by="first_release_date", group_by_meta_id=True
+            query=query,
+            filters=RomFilterParams(group_by_meta_id=True),
+            order_by="first_release_date",
         )
         sql = str(grouped)
 

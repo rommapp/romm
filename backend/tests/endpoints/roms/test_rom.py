@@ -1,9 +1,10 @@
 import json
 from datetime import datetime, timezone
+from typing import cast
 from unittest.mock import AsyncMock, patch
 from urllib.parse import unquote
 
-from fastapi import status
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
 from config.config_manager import MetadataMediaType
@@ -2397,3 +2398,20 @@ class TestUnmatchMetadata:
         assert body["igdb_id"] is None
         assert body["name"] == rom.fs_name
         assert body["summary"] == ""
+
+
+def test_rom_filters_stay_individual_query_parameters(client: TestClient):
+    """The filter model must reach clients as one parameter per field.
+
+    FastAPI expands a Pydantic query model only when it is a route's sole query
+    parameter, and `/api/roms` has several others, so the fields are carried by
+    a dependency built from the model. Were that to collapse, the route would
+    document (and accept) a single `filters` parameter instead, which the
+    generated frontend client is built from.
+    """
+    schema = cast(FastAPI, client.app).openapi()
+    parameters = schema["paths"]["/api/roms"]["get"]["parameters"]
+    names = {parameter["name"] for parameter in parameters}
+
+    assert "filters" not in names
+    assert {"genres", "genres_logic", "matched", "platform_ids"} <= names

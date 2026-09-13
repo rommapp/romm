@@ -30,6 +30,7 @@ from sqlalchemy.sql.expression import Select
 from tests.conftest import engine
 
 from handler.database import db_rom_handler
+from handler.database.rom_filters import RomFilterParams
 from models.rom import Rom
 
 # Taken off the model rather than repeated, so these checks read as "the
@@ -58,7 +59,10 @@ def _subqueries(clause, found: list[Subquery] | None = None) -> list[Subquery]:
 def _grouped_query(order_by: str = "", user_id: int | None = None):
     query, _ = db_rom_handler.get_roms_query(order_by=order_by, user_id=user_id)
     return db_rom_handler.filter_roms(
-        query=query, order_by=order_by, group_by_meta_id=True, user_id=user_id
+        query=query,
+        filters=RomFilterParams(group_by_meta_id=True),
+        order_by=order_by,
+        user_id=user_id,
     )
 
 
