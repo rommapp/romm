@@ -9,6 +9,7 @@ user's narrowed gallery be served to everyone under the shared key.
 from typing import Any
 
 import pytest
+
 from handler.database.rom_filters import (
     _SCOPE_FIELDS,
     _UNFILTERED_FIELDS,
