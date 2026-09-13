@@ -76,7 +76,7 @@ _EMPTY_SCAN_STATS: Final[ScanStats] = cast(
 
 
 def _fill_scan_stats(stats: Mapping[str, Any] | None) -> ScanStats | None:
-    """A scan's counters, zeroing any the release that stored them predates.
+    """Zero the counters an older release's stored stats are missing.
 
     A job's meta in Redis outlives the release that wrote it.
     """
