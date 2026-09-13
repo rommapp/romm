@@ -12,11 +12,6 @@ from models.collection import VirtualCollection
 from models.rom import RomMetadata, SiblingRom
 from utils.database import AUTOGENERATE_EXEMPT_INDEX_NAMES
 
-# Generated columns the model declares outright, so autogenerate manages them.
-MODEL_OWNED_GENERATED_COLUMNS = frozenset(
-    {"generated_hltb_main_story", "generated_primary_region"}
-)
-
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -49,17 +44,14 @@ def include_object(object, name, type_, reflected, compare_to):
     if type_ == "index" and name in AUTOGENERATE_EXEMPT_INDEX_NAMES:
         return False
 
-    # The remaining generated_* columns are STORED generated columns whose
-    # expressions differ per dialect and are still written in raw SQL, so they
-    # are hidden from autogenerate to avoid false drops. A column declared with
-    # a dialect-dispatched `Computed` (see models/generated.py) comes off this
-    # list and is compared like any other.
-    if (
-        type_ == "column"
-        and name.startswith("generated_")
-        and name not in MODEL_OWNED_GENERATED_COLUMNS
-    ):
-        return False
+    # generated_* are STORED generated columns. One the model declares with a
+    # dialect-dispatched `Computed` (see models/generated.py) owns its own
+    # expression, so autogenerate compares it; the rest are still raw SQL in the
+    # migrations and stay hidden to avoid false drops. `reflected` is the
+    # database side of that comparison, which is only reached for a column no
+    # model declares, so it is always the hidden case.
+    if type_ == "column" and name.startswith("generated_"):
+        return not reflected and object.computed is not None
 
     return True
 
