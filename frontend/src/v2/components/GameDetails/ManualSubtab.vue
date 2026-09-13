@@ -46,6 +46,9 @@ type ManualEntry = {
   label: string;
   url: string;
   isPrimary: boolean;
+  /** Backing rom file, absent for the scraped manual (a resource, not a file),
+   *  which is what reading progress is keyed on. */
+  fileId: number | null;
   // Manuals can be PDF, Markdown, or plain text; the viewer is picked by
   // extension.
   kind: "pdf" | "md" | "text";
@@ -66,6 +69,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
       label: t("rom.scraped-manual"),
       url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}?v=${cacheBust}`,
       isPrimary: true,
+      fileId: null,
       kind: kindFor(props.rom.path_manual),
     });
   }
@@ -78,6 +82,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
           file.file_name,
         )}?v=${cacheBust}`,
         isPrimary: false,
+        fileId: file.id,
         kind: kindFor(file.file_name),
       });
     }
@@ -154,9 +159,7 @@ function requestDeleteManual() {
   emitter?.emit("showDeleteManualDialog", {
     rom: props.rom,
     isPrimary: entry.isPrimary,
-    fileId: entry.isPrimary
-      ? undefined
-      : Number(entry.id.replace(/^file-/, "")),
+    fileId: entry.fileId ?? undefined,
   });
 }
 </script>
@@ -222,6 +225,8 @@ function requestDeleteManual() {
           v-if="selectedManual.kind === 'md'"
           :key="`${selectedManual.id}-${rom.updated_at}-md`"
           :url="selectedManual.url"
+          :rom-id="rom.id"
+          :file-id="selectedManual.fileId ?? undefined"
           :deletable="canEdit"
           :redownloadable="canEdit && !!rom.url_manual"
           :redownloading="redownloadingManual"
@@ -232,13 +237,17 @@ function requestDeleteManual() {
           v-else-if="selectedManual.kind === 'text'"
           :key="`${selectedManual.id}-${rom.updated_at}-txt`"
           :url="selectedManual.url"
-          deletable
+          :rom-id="rom.id"
+          :file-id="selectedManual.fileId ?? undefined"
+          :deletable="canEdit"
           @delete="requestDeleteManual"
         />
         <PdfViewer
           v-else
           :key="`${selectedManual.id}-${rom.updated_at}-pdf`"
           :pdf-url="selectedManual.url"
+          :rom-id="rom.id"
+          :file-id="selectedManual.fileId ?? undefined"
           :deletable="canEdit"
           :redownloadable="canEdit && !!rom.url_manual"
           :redownloading="redownloadingManual"

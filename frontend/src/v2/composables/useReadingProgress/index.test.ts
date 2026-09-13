@@ -20,7 +20,7 @@ function makeScrollEl(scrollTop: number): HTMLElement {
 function withComposable(
   romId: Ref<number>,
   fileId: Ref<number | null>,
-  scrollEl: Ref<HTMLElement | null>,
+  scrollEl?: Ref<HTMLElement | null>,
 ) {
   let api!: ReturnType<typeof useReadingProgress>;
   const wrapper = mount(
@@ -60,7 +60,7 @@ describe("useReadingProgress", () => {
     expect(updateFileProgress).toHaveBeenCalledWith({
       romId: 1,
       fileId: 10,
-      data: { progress: 0.5, finished: false },
+      data: { progress: 0.5, last_page: null, finished: false },
     });
   });
 
@@ -77,8 +77,36 @@ describe("useReadingProgress", () => {
     expect(updateFileProgress).toHaveBeenCalledWith({
       romId: 3,
       fileId: 20,
-      data: { progress: 1, finished: true },
+      data: { progress: 1, last_page: null, finished: true },
     });
+  });
+
+  it("derives progress from the page for paginated documents", async () => {
+    const { api } = withComposable(ref(2), ref<number | null>(30));
+
+    api.setPage(3, 12);
+    vi.advanceTimersByTime(1000);
+
+    expect(api.progress.value).toBe(0.25);
+    expect(updateFileProgress).toHaveBeenCalledWith({
+      romId: 2,
+      fileId: 30,
+      data: { progress: 0.25, last_page: 3, finished: false },
+    });
+  });
+
+  it("tracks progress without saving when no file backs the document", async () => {
+    const { api } = withComposable(
+      ref(1),
+      ref<number | null>(null),
+      ref(makeScrollEl(250)),
+    );
+
+    api.onScroll();
+    vi.advanceTimersByTime(1000);
+
+    expect(api.progress.value).toBe(0.5);
+    expect(updateFileProgress).not.toHaveBeenCalled();
   });
 
   it("does not re-send a position that was already saved", async () => {

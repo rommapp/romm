@@ -18,7 +18,8 @@ import { useReadingProgress } from "@/v2/composables/useReadingProgress";
 
 const props = defineProps<{
   url: string;
-  /** ROM id + file id enable per-user reading-progress tracking (text only). */
+  /** ROM id + file id persist the reading position; without them the progress
+   *  bar still tracks the session's scroll. */
   romId?: number;
   fileId?: number;
   /** Show a danger-tinted delete button at the end of the toolbar. */
@@ -90,6 +91,7 @@ watch(() => props.url, load, { immediate: true });
             v-bind="activator"
             :href="url"
             :download="fileName"
+            :aria-label="t('common.download')"
             class="r-v2-txtv__btn"
           >
             <RIcon icon="mdi-download" size="18" />
@@ -111,10 +113,12 @@ watch(() => props.url, load, { immediate: true });
       </RTooltip>
     </div>
 
+    <!-- An iframe's scroll position is cross-document, so HTML gets no bar. -->
     <RProgressLinear
-      v-if="fileIdRef != null && !isHtml"
+      v-if="!isHtml"
       :model-value="progress * 100"
-      height="2"
+      :height="2"
+      :aria-label="t('rom.reading-progress')"
       class="r-v2-txtv__progress"
     />
 
@@ -142,7 +146,12 @@ watch(() => props.url, load, { immediate: true });
             </RBtn>
           </template>
         </REmptyState>
-        <div v-else ref="scrollEl" class="r-v2-txtv__scroll" @scroll="onScroll">
+        <div
+          v-else
+          ref="scrollEl"
+          class="r-v2-txtv__scroll"
+          @scroll.passive="onScroll"
+        >
           <pre class="r-v2-txtv__pre">{{ content }}</pre>
         </div>
       </template>

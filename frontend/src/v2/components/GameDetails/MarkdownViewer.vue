@@ -3,15 +3,27 @@
 // chrome as PdfViewer. Manuals can be PDF or Markdown; MediaTab picks the
 // viewer by extension. The file is fetched as text and handed to MdPreview
 // (md-editor-v3), the same renderer used by NotesTab.
-import { RBtn, REmptyState, RIcon, RSpinner, RTooltip } from "@v2/lib";
+import {
+  RBtn,
+  REmptyState,
+  RIcon,
+  RProgressLinear,
+  RSpinner,
+  RTooltip,
+} from "@v2/lib";
 import { MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useReadingProgress } from "@/v2/composables/useReadingProgress";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 
 const props = defineProps<{
   url: string;
+  /** ROM id + file id persist the reading position; without them the progress
+   *  bar still tracks the session's scroll. */
+  romId?: number;
+  fileId?: number;
   /** Show a danger-tinted delete button at the end of the toolbar. */
   deletable?: boolean;
   /** Show a re-download button when a scraped source URL exists. */
@@ -46,6 +58,17 @@ const fileName = computed(() => {
 const content = ref("");
 const loading = ref(false);
 const failed = ref(false);
+const scrollEl = ref<HTMLElement | null>(null);
+
+const romIdRef = computed(() => props.romId ?? 0);
+const fileIdRef = computed(() =>
+  props.romId != null && props.fileId != null ? props.fileId : null,
+);
+const { progress, restore, onScroll } = useReadingProgress(
+  romIdRef,
+  fileIdRef,
+  scrollEl,
+);
 
 async function load() {
   loading.value = true;
@@ -54,6 +77,9 @@ async function load() {
     const res = await fetch(props.url, { credentials: "include" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     content.value = await res.text();
+    // Restore scroll once MdPreview has laid the rendered Markdown out.
+    await nextTick();
+    requestAnimationFrame(() => void restore());
   } catch (err) {
     console.error("Failed to load markdown manual", err);
     failed.value = true;
@@ -78,6 +104,7 @@ watch(() => props.url, load, { immediate: true });
             v-bind="activator"
             :href="url"
             :download="fileName"
+            :aria-label="t('common.download')"
             class="r-v2-mdv__btn"
           >
             <RIcon icon="mdi-download" size="18" />
@@ -114,7 +141,14 @@ watch(() => props.url, load, { immediate: true });
       </RTooltip>
     </div>
 
-    <div class="r-v2-mdv__viewer">
+    <RProgressLinear
+      :model-value="progress * 100"
+      :height="2"
+      :aria-label="t('rom.reading-progress')"
+      class="r-v2-mdv__progress"
+    />
+
+    <div ref="scrollEl" class="r-v2-mdv__viewer" @scroll.passive="onScroll">
       <div v-if="loading" class="r-v2-mdv__center">
         <RSpinner :size="28" />
       </div>
@@ -206,6 +240,10 @@ watch(() => props.url, load, { immediate: true });
 .r-v2-mdv__btn--loading:hover {
   background: transparent;
   color: var(--r-color-fg-secondary);
+}
+
+.r-v2-mdv__progress {
+  flex-shrink: 0;
 }
 
 .r-v2-mdv__viewer {
