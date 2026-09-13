@@ -7,11 +7,11 @@ Create Date: 2026-07-23 00:00:00.000000
 
 """
 
-import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM
 
 from utils.database import is_postgresql
+from utils.roms_columns import SAVE_TARGET_LAYOUT_ENUM, ensure_roms_columns
 
 # revision identifiers, used by Alembic.
 revision = "0116_sigil_title_ids"
@@ -19,42 +19,11 @@ down_revision = "0115_add_steam_metadata"
 branch_labels = None
 depends_on = None
 
-SAVE_TARGET_LAYOUT_VALUES = (
-    "FOLDER_EXACT",
-    "FOLDER_PREFIX",
-    "FILE_EXACT",
-    "FILE_PREFIX",
-    "FOLDER_SPLIT",
-)
-
-
-def _save_target_layout_enum(connection) -> sa.Enum:
-    if is_postgresql(connection):
-        enum = ENUM(
-            *SAVE_TARGET_LAYOUT_VALUES, name="savetargetlayout", create_type=False
-        )
-        enum.create(connection, checkfirst=True)
-        return enum
-    return sa.Enum(*SAVE_TARGET_LAYOUT_VALUES, name="savetargetlayout")
-
 
 def upgrade() -> None:
-    connection = op.get_bind()
-    save_target_layout_enum = _save_target_layout_enum(connection)
+    ensure_roms_columns(op.get_bind())
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("title_id", sa.String(length=100), nullable=True),
-            if_not_exists=True,
-        )
-        batch_op.add_column(
-            sa.Column("save_target", sa.String(length=100), nullable=True),
-            if_not_exists=True,
-        )
-        batch_op.add_column(
-            sa.Column("save_target_layout", save_target_layout_enum, nullable=True),
-            if_not_exists=True,
-        )
         batch_op.create_index(
             "idx_roms_title_id",
             ["title_id"],
@@ -72,4 +41,4 @@ def downgrade() -> None:
 
     connection = op.get_bind()
     if is_postgresql(connection):
-        ENUM(name="savetargetlayout").drop(connection, checkfirst=True)
+        ENUM(name=SAVE_TARGET_LAYOUT_ENUM).drop(connection, checkfirst=True)

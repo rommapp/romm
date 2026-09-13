@@ -24,7 +24,8 @@ Create Date: 2026-07-23 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import CustomJSON, column_names, is_postgresql
+from utils.database import CustomJSON, is_postgresql
+from utils.roms_columns import ensure_roms_columns
 
 # revision identifiers, used by Alembic.
 revision = "0112_publisher_developer_split"
@@ -34,56 +35,15 @@ depends_on = None
 
 
 # ---------------------------------------------------------------------------
-# Generated columns on roms (mirrors 0098's company source precedence/exprs)
+# Generated columns on roms
 # ---------------------------------------------------------------------------
 
-# (generated column, JSON key) added by this migration.
+# (generated column, view alias) added by this migration. Their expressions
+# live in `utils.roms_columns`, which adds them in the shared table copy.
 _NEW_GENERATED = [
     ("generated_publishers", "publishers"),
     ("generated_developers", "developers"),
 ]
-
-# Same provider blobs (and precedence) that back generated_companies in 0098.
-_COMPANY_SOURCES = [
-    "manual_metadata",
-    "igdb_metadata",
-    "ss_metadata",
-    "ra_metadata",
-    "launchbox_metadata",
-    "flashpoint_metadata",
-    "gamelist_metadata",
-]
-
-
-def _maria_array_expr(key: str) -> str:
-    branches = [
-        f"CASE WHEN JSON_LENGTH(JSON_EXTRACT({src}, '$.{key}')) > 0 "
-        f"THEN JSON_EXTRACT({src}, '$.{key}') ELSE NULL END"
-        for src in _COMPANY_SOURCES
-    ]
-    branches.append("JSON_ARRAY()")
-    return "COALESCE(\n    " + ",\n    ".join(branches) + "\n)"
-
-
-def _postgres_array_expr(key: str) -> str:
-    branches = [f"NULLIF({src} -> '{key}', '[]'::jsonb)" for src in _COMPANY_SOURCES]
-    branches.append("'[]'::jsonb")
-    return "COALESCE(\n    " + ",\n    ".join(branches) + "\n)"
-
-
-def _add_generated_columns(pg: bool) -> None:
-    present = column_names(op.get_bind(), "roms")
-    missing = [(name, key) for name, key in _NEW_GENERATED if name not in present]
-    if not missing:
-        return
-
-    json_type = "JSONB" if pg else "JSON"
-    expr = _postgres_array_expr if pg else _maria_array_expr
-    adds = ",\n".join(
-        f"ADD COLUMN {name} {json_type} GENERATED ALWAYS AS ({expr(key)}) STORED"
-        for name, key in missing
-    )
-    op.execute(f"ALTER TABLE roms\n{adds}")  # nosec B608
 
 
 def _drop_generated_columns() -> None:
@@ -382,7 +342,7 @@ def _has_split_metadata(pg: bool) -> bool:
 def upgrade() -> None:
     pg = is_postgresql(op.get_bind())
 
-    _add_generated_columns(pg)
+    ensure_roms_columns(op.get_bind())
     _rebuild_roms_metadata_view(pg, include_new=True)
 
     for facet in ("publishers", "developers"):

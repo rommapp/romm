@@ -24,7 +24,18 @@ from utils.database import (
     POSTGRESQL_FK_INDEXES,
     full_path_digest_sql,
     has_column,
+    is_mariadb,
     is_postgresql,
+)
+from utils.roms_columns import (
+    FULL_PATH_HASH_COLUMN,
+    HLTB_MAIN_STORY_COLUMN,
+    ROMS_METADATA_VIEW_COLUMNS,
+    STEAM_FED_COLUMNS,
+    ensure_roms_columns,
+    has_server_default,
+    rebuild_generated_columns,
+    steam_fed_columns,
 )
 
 # `compare_metadata` yields flat tuples for schema-level diffs, and a list of
@@ -252,21 +263,114 @@ def test_has_column_reflects_the_migrated_schema():
         assert not has_column(connection, "roms", "no_such_column")
 
 
-def test_the_publisher_split_column_add_replays():
-    """0112's generated columns are added once, however often it runs.
+def _roms_alters(connection: sa.Connection) -> list[str]:
+    """Record every ALTER TABLE roms the connection issues from here on."""
+    statements: list[str] = []
 
-    A run that dies on its trigger DDL (error 1419 on a binlog-enabled server
-    without SUPER) leaves these committed, and the replay used to die on the
-    duplicate column rather than resuming at the triggers.
-    """
-    migration = _load_migration("0112_publisher_developer_split.py")
+    @sa.event.listens_for(connection, "before_cursor_execute")
+    def _record(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("ALTER TABLE ROMS"):
+            statements.append(statement)
+
+    return statements
+
+
+def _generation_expression(connection: sa.Connection, column: str) -> str:
+    columns = {c["name"]: c for c in sa.inspect(connection).get_columns("roms")}
+    return columns[column]["computed"]["sqltext"]
+
+
+def test_the_roms_columns_helper_leaves_a_migrated_table_alone():
+    """Every revision calls it, so all but the first must cost nothing."""
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+
+        assert _schema_of(connection, "roms") == before
+        assert alters == []
+
+
+def test_the_roms_columns_helper_adds_every_missing_column_at_once():
+    """A stored and a generated column missing together cost one table copy."""
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            operations.drop_index("idx_roms_hltb_main_story", table_name="roms")
+            operations.drop_column("roms", "upc")
+            operations.drop_column("roms", HLTB_MAIN_STORY_COLUMN)
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+        # 0128 owns the index, so its replay finishes the schema.
+        _replay(connection, "0128_hltb_main_story_column.py")
+
+        assert _schema_of(connection, "roms") == before
+        assert len(alters) == 1
+
+
+def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():
+    """0123 taught the metadata chains to read Steam; an older table is rebuilt."""
+    with sync_engine.begin() as connection:
+        pg = is_postgresql(connection)
+        before = _schema_of(connection, "roms")
+        genres = next(
+            column
+            for column in steam_fed_columns(pg, with_steam=False)
+            if column.name == "generated_genres"
+        )
+        rebuild_generated_columns(
+            connection,
+            add=[genres],
+            drop=[],
+            view_columns=ROMS_METADATA_VIEW_COLUMNS,
+        )
+        assert "steam_metadata" not in _generation_expression(
+            connection, "generated_genres"
+        )
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+
+        assert _schema_of(connection, "roms") == before
+        assert len(alters) == 1
+        for column in STEAM_FED_COLUMNS:
+            assert "steam_metadata" in _generation_expression(connection, column)
+        assert sa.inspect(connection).has_table("roms_metadata")
+
+
+def test_the_roms_columns_helper_fills_the_full_path_digest_where_it_can(rom: Rom):
+    """MariaDB gets the digest in the same copy; the others leave it to 0126."""
+    migration = _load_migration("0126_unique_rom_full_path.py")
 
     with sync_engine.begin() as connection:
-        with Operations.context(MigrationContext.configure(connection)):
-            migration._add_generated_columns(is_postgresql(connection))
+        before = _schema_of(connection, "roms")
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            operations.drop_index(migration.UNIQUE_INDEX_NAME, table_name="roms")
+            operations.drop_column("roms", FULL_PATH_HASH_COLUMN)
 
-        assert has_column(connection, "roms", "generated_publishers")
-        assert has_column(connection, "roms", "generated_developers")
+            ensure_roms_columns(connection)
+
+            column = next(
+                c
+                for c in sa.inspect(connection).get_columns("roms")
+                if c["name"] == FULL_PATH_HASH_COLUMN
+            )
+            assert column["nullable"] is not is_mariadb(connection)
+            assert not has_server_default(connection, FULL_PATH_HASH_COLUMN)
+            if is_mariadb(connection):
+                digest = connection.execute(
+                    sa.text(
+                        f"SELECT {FULL_PATH_HASH_COLUMN} FROM roms WHERE id = :rom_id"  # nosec B608
+                    ),
+                    {"rom_id": rom.id},
+                ).scalar_one()
+                assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
+
+            migration.upgrade()
+
+        assert _schema_of(connection, "roms") == before
 
 
 @pytest.mark.parametrize(
