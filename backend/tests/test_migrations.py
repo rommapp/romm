@@ -268,23 +268,36 @@ def test_the_full_path_hash_column_is_born_not_null_and_keeps_no_default(rom: Ro
     assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
 
 
-def test_the_full_path_hash_backfill_resumes_over_the_rows_it_already_wrote(rom: Rom):
-    """A backfill stopped partway leaves the column filled but the default set.
+def test_the_full_path_hash_backfill_resumes_over_the_rows_it_already_wrote(
+    rom: Rom, second_rom: Rom
+):
+    """A replay finishes the pending rows and leaves the written ones alone.
 
-    The default, not the digest, is what marks the rows as still pending, so a
-    replay has to finish them without a second pass over the whole table.
+    A digest already in the column is what marks a row done, so the run that
+    picks up after a stopped one skips it rather than recomputing the library.
     """
     migration = _load_migration("0126_unique_rom_full_path.py")
+    # Not this rom's real digest, so recomputing it would be visible.
+    already_written = "0" * FULL_PATH_HASH_LENGTH
 
     with sync_engine.begin() as connection:
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
             _add_pending_digest_column(connection, migration.COLUMN_NAME)
+            connection.execute(
+                sa.text(
+                    f"UPDATE roms SET {migration.COLUMN_NAME} = :digest "  # nosec B608
+                    "WHERE id = :rom_id"
+                ),
+                {"digest": already_written, "rom_id": rom.id},
+            )
             migration.upgrade()
 
-        digest = _digest_of(connection, migration.COLUMN_NAME, rom.id)
+        skipped = _digest_of(connection, migration.COLUMN_NAME, rom.id)
+        finished = _digest_of(connection, migration.COLUMN_NAME, second_rom.id)
 
-    assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
+    assert skipped == already_written
+    assert finished == compute_full_path_hash(second_rom.fs_path, second_rom.fs_name)
 
 
 def test_the_full_path_hash_backfill_commits_each_chunk(
