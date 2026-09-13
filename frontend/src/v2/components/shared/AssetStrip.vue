@@ -1,58 +1,43 @@
 <script setup lang="ts">
-// Strip / grid of save/state tiles. Shared between the EmulatorJS pre-game
-// view (selection) and the GameDetails "Save data" subtab (management).
+// Strip / grid of save/state tiles for the EmulatorJS and Stream pre-game
+// views, where the user picks what to resume from. Every tile is a button;
+// the chosen one gets a brand-color ring + check badge so it reads as
+// "you're about to resume from this one". Hovering lifts the tile; tiles are
+// focusable for gamepad/key navigation.
 //
-// State tiles show their 16:9 screenshot prominently; saves fall back
-// to a large save icon. The currently-selected tile gets a brand-color
-// ring + check badge so it reads as "you're about to resume from this
-// one". Hovering lifts the tile; tiles are focusable for gamepad/key
-// navigation.
+// Tiles show their 16:9 capture prominently; whichever kind of asset carries
+// one gets it, and the rest fall back to a type-aware icon.
 //
 // Layout (`layout`), all sharing one tile markup:
-//   * strip (default) - Play view. Single horizontal row, scroll + snap,
-//     never wraps; tiles shrink on narrow screens.
-//   * flow - Save data subtab. Tiles flow into a responsive grid that grows
-//     with its content instead of scrolling.
+//   * strip (default) - single horizontal row, scroll + snap, never wraps;
+//     tiles shrink on narrow screens.
 //   * grid - fixed 4 columns (2 on xs) in a capped, vertically scrolling
 //     box. Source order is preserved, so a newest-first list reads top-left.
 //   * list - rows with no thumbnail and the meta split into columns. Fits
 //     the most entries per pixel, for long save-state histories.
-//
-// Modes (`selectable`):
-//   * selectable (default) — tiles are buttons; clicking emits `select`;
-//     the chosen tile gets a brand ring + check badge.
-//   * manage (selectable=false) — tiles are static; the `#actions` slot
-//     renders below the meta, and `showOwner` adds an author chip.
 import { RAvatar, RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type {
-  SaveSchema,
-  StateSchema,
-  UserSaveSchema,
-  UserStateSchema,
-} from "@/__generated__";
+import type { UserSaveSchema, UserStateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { type Asset, assetScreenshotUrl } from "@/v2/utils/asset";
 import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
 export type AssetType = "save" | "state";
-export type AssetLayout = "strip" | "flow" | "grid" | "list";
-type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
+export type AssetLayout = "strip" | "grid" | "list";
 
 const props = withDefaults(
   defineProps<{
     assets: Asset[];
     type: AssetType;
-    selectable?: boolean;
     selectedId?: number | null;
     showOwner?: boolean;
     layout?: AssetLayout;
   }>(),
   {
-    selectable: true,
     selectedId: null,
     showOwner: false,
     layout: "strip",
@@ -63,10 +48,6 @@ defineEmits<{
   select: [asset: Asset];
 }>();
 
-defineSlots<{
-  actions(props: { asset: Asset }): unknown;
-}>();
-
 const { t, locale } = useI18n();
 
 const emptyLabel = computed(() =>
@@ -74,13 +55,6 @@ const emptyLabel = computed(() =>
     ? t("play.no-saves-available")
     : t("play.no-states-available"),
 );
-
-function screenshotOf(asset: Asset): string | null {
-  if ("screenshot" in asset && asset.screenshot?.download_path) {
-    return asset.screenshot.download_path;
-  }
-  return null;
-}
 
 function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   return "username" in asset && asset.username ? asset : null;
@@ -90,19 +64,17 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 <template>
   <div class="r-asset-strip" :class="`r-asset-strip--${layout}`">
     <div v-if="assets.length > 0" class="r-asset-strip__track">
-      <component
-        :is="selectable ? 'button' : 'div'"
+      <button
         v-for="(asset, i) in assets"
         :key="asset.id"
-        :type="selectable ? 'button' : undefined"
+        type="button"
         class="r-asset-strip__tile r-v2-asset-fade"
         :class="{
-          'r-asset-strip__tile--active': selectable && asset.id === selectedId,
-          'r-asset-strip__tile--static': !selectable,
+          'r-asset-strip__tile--active': asset.id === selectedId,
         }"
         :style="{ '--asset-fade-i': i }"
-        :aria-pressed="selectable ? asset.id === selectedId : undefined"
-        @click="selectable && $emit('select', asset)"
+        :aria-pressed="asset.id === selectedId"
+        @click="$emit('select', asset)"
       >
         <!-- List rows trade the screenshot for density, so the selection
              badge moves out of the thumbnail and leads the row instead. -->
@@ -112,16 +84,16 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
           aria-hidden="true"
         >
           <RIcon
-            v-if="selectable && asset.id === selectedId"
+            v-if="asset.id === selectedId"
             icon="mdi-check-circle"
             size="14"
           />
         </span>
         <div v-else class="r-asset-strip__thumb">
           <div
-            v-if="type === 'state' && screenshotOf(asset)"
+            v-if="assetScreenshotUrl(asset)"
             class="r-asset-strip__thumb-img"
-            :style="{ backgroundImage: toCssUrl(screenshotOf(asset)!) }"
+            :style="{ backgroundImage: toCssUrl(assetScreenshotUrl(asset)!) }"
           />
           <div v-else class="r-asset-strip__thumb-icon">
             <RIcon
@@ -130,7 +102,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
             />
           </div>
           <span
-            v-if="selectable && asset.id === selectedId"
+            v-if="asset.id === selectedId"
             class="r-asset-strip__check"
             aria-hidden="true"
           >
@@ -160,15 +132,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
             <span>{{ ownerOf(asset)!.username }}</span>
           </span>
         </div>
-        <div v-if="!selectable" class="r-asset-strip__actions">
-          <slot name="actions" :asset="asset" />
-        </div>
-        <RTooltip
-          v-if="selectable"
-          activator="parent"
-          location="top"
-          :open-delay="400"
-        >
+        <RTooltip activator="parent" location="top" :open-delay="400">
           <div class="r-asset-strip__tip">
             <span class="r-asset-strip__tip-name">{{ asset.file_name }}</span>
             <span class="r-asset-strip__tip-sub">
@@ -177,7 +141,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
             </span>
           </div>
         </RTooltip>
-      </component>
+      </button>
     </div>
 
     <div v-else class="r-asset-strip__empty">
@@ -216,21 +180,6 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 .r-asset-strip__track::-webkit-scrollbar-thumb {
   background: var(--r-color-border-strong);
   border-radius: 6px;
-}
-
-/* Flow layout (Save data subtab): a responsive grid instead of a single
-   horizontal scroll row. Tiles fill their grid cell, so the per-tile
-   flex-basis below is overridden. */
-.r-asset-strip--flow .r-asset-strip__track {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  overflow: visible;
-  scroll-snap-type: none;
-  padding: 4px 0;
-}
-.r-asset-strip--flow .r-asset-strip__tile {
-  flex: initial;
-  scroll-snap-align: none;
 }
 
 /* Grid layout: the strip's tiles in a capped, vertically scrolling box.
@@ -346,17 +295,6 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 .r-asset-strip__tile:active {
   transform: translateY(0);
 }
-/* Manage mode: tiles are static info cards, not selectable buttons. */
-.r-asset-strip__tile--static {
-  cursor: default;
-}
-.r-asset-strip__tile--static:hover {
-  transform: none;
-}
-.r-asset-strip__tile--static:hover .r-asset-strip__thumb {
-  border-color: transparent;
-}
-
 .r-asset-strip__thumb {
   position: relative;
   width: 100%;
@@ -457,15 +395,6 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Manage mode: action buttons under the tile meta. */
-.r-asset-strip__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
-  padding: 0 2px;
 }
 
 .r-asset-strip__tip {

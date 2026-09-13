@@ -1,13 +1,12 @@
 <script setup lang="ts">
-// Vertical list for saves — paired with <AssetStrip> (tile grid/strip for
-// states). Shared between the EmulatorJS pre-game view (selection) and the
-// GameDetails "Save data" subtab (management).
+// Vertical list of saves or states. Shared between the EmulatorJS pre-game
+// view (selection) and the GameDetails "Save data" subtab (management).
 //
-// Saves never carry a screenshot, so the tile-strip's 16:9 area would
-// be wasted space. This list variant trades the visual thumbnail for
-// information density: each row shows the filename in full, both the
-// relative time AND the exact timestamp, plus the size and emulator
-// chip.
+// Rows favour information density: the filename in full, the relative time
+// AND the exact timestamp, plus the size, emulator and content-hash chips.
+// The leading cell widens into a 16:9 thumbnail when anything in the list
+// has a screenshot — saves carry one as readily as states do, because the
+// player captures a single frame and uploads it with both.
 //
 // Two modes, driven by `selectable`:
 //   * selectable (default) — Play view. Each row is a button; clicking
@@ -18,19 +17,16 @@
 import { RAvatar, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type {
-  SaveSchema,
-  StateSchema,
-  UserSaveSchema,
-  UserStateSchema,
-} from "@/__generated__";
+import type { UserSaveSchema, UserStateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import HashChip from "@/v2/components/shared/HashChip.vue";
+import { type Asset, assetScreenshotUrl } from "@/v2/utils/asset";
+import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
 export type AssetType = "save" | "state";
-type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 
 const props = withDefaults(
   defineProps<{
@@ -44,12 +40,16 @@ const props = withDefaults(
     showOwner?: boolean;
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
+    /** Force the leading cell wide or narrow. Set it when sibling lists
+     *  read as one table and so must agree; otherwise each list decides. */
+    thumbs?: boolean | null;
   }>(),
   {
     selectable: true,
     selectedId: null,
     showOwner: false,
     scrollable: true,
+    thumbs: null,
   },
 );
 
@@ -72,6 +72,20 @@ const emptyLabel = computed(() =>
 function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   return "username" in asset && asset.username ? asset : null;
 }
+
+// Widening is decided per list rather than per row, so the names of rows
+// whose asset happens to lack a screenshot still line up with the rest. A
+// parent rendering sibling lists can override it so they line up with each
+// other too.
+const showThumbs = computed(
+  () =>
+    props.thumbs ??
+    props.assets.some((asset) => assetScreenshotUrl(asset) !== null),
+);
+
+const fallbackIcon = computed(() =>
+  props.type === "save" ? "mdi-content-save" : "mdi-file-outline",
+);
 </script>
 
 <template>
@@ -94,11 +108,17 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
           :aria-pressed="selectable ? asset.id === selectedId : undefined"
           @click="selectable && $emit('select', asset)"
         >
-          <span class="r-asset-list__icon" aria-hidden="true">
-            <RIcon
-              :icon="type === 'save' ? 'mdi-content-save' : 'mdi-file-outline'"
-              size="22"
+          <span
+            class="r-asset-list__icon"
+            :class="{ 'r-asset-list__icon--thumb': showThumbs }"
+            aria-hidden="true"
+          >
+            <span
+              v-if="assetScreenshotUrl(asset)"
+              class="r-asset-list__shot"
+              :style="{ backgroundImage: toCssUrl(assetScreenshotUrl(asset)!) }"
             />
+            <RIcon v-else :icon="fallbackIcon" :size="showThumbs ? 26 : 22" />
           </span>
 
           <span class="r-asset-list__main">
@@ -138,6 +158,17 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
                 <RIcon icon="mdi-weight" size="11" />
                 {{ formatBytes(asset.file_size_bytes) }}
               </span>
+              <!-- A selectable row is a <button>; HashChip is one too, and
+                   nesting them is invalid markup. The hash is a management
+                   detail anyway. -->
+              <HashChip
+                v-if="
+                  !selectable && 'content_hash' in asset && asset.content_hash
+                "
+                :label="t('rom.content-hash')"
+                :value="asset.content_hash"
+                compact
+              />
             </span>
           </span>
 
@@ -165,12 +196,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
             <slot name="actions" :asset="asset" />
           </span>
 
-          <RTooltip
-            v-if="selectable"
-            activator="parent"
-            location="top"
-            :open-delay="400"
-          >
+          <RTooltip activator="parent" location="top" :open-delay="400">
             <div class="r-asset-list__tip">
               <span class="r-asset-list__tip-name">{{ asset.file_name }}</span>
               <span class="r-asset-list__tip-sub">
@@ -287,7 +313,27 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   color: var(--r-color-fg-muted);
   flex-shrink: 0;
 }
-.r-asset-list__item--active .r-asset-list__icon {
+/* Widened into a 16:9 frame when the list has screenshots to show. The
+   gradient is what a screenshot-less row falls back to, behind its icon. */
+.r-asset-list__icon--thumb {
+  width: 96px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    var(--r-color-cover-placeholder),
+    var(--r-color-cover-placeholder-bright)
+  );
+}
+.r-asset-list__shot {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+}
+.r-asset-list__item--active
+  .r-asset-list__icon:not(.r-asset-list__icon--thumb) {
   background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
   color: var(--r-color-brand-primary);
 }
@@ -408,13 +454,37 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 }
 
 /* Tighten the row on small screens so the time column doesn't push
-   the filename off-screen. The exact timestamp is the first to go —
+   the filename off-screen. The exact timestamp is the first to go, and
    the tooltip still has it. */
 html[data-bp~="xs"] .r-asset-list__exact {
   display: none;
 }
+html[data-bp~="xs"] .r-asset-list__icon--thumb {
+  width: 72px;
+}
+/* A phone row has no width to spare, and the thumbnail takes the little
+   there was, so the name gets a line to itself and the time drops beneath
+   it alongside the actions. */
 html[data-bp~="xs"] .r-asset-list__row {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon main main"
+    "icon time trail";
+  row-gap: 6px;
   padding: 8px 10px;
+}
+html[data-bp~="xs"] .r-asset-list__icon {
+  grid-area: icon;
+}
+html[data-bp~="xs"] .r-asset-list__main {
+  grid-area: main;
+}
+html[data-bp~="xs"] .r-asset-list__time {
+  grid-area: time;
+  align-items: flex-start;
+}
+html[data-bp~="xs"] .r-asset-list__actions,
+html[data-bp~="xs"] .r-asset-list__check {
+  grid-area: trail;
 }
 </style>

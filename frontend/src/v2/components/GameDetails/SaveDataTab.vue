@@ -31,14 +31,14 @@ import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import AssetList from "@/v2/components/shared/AssetList.vue";
-import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { assetScreenshotUrl } from "@/v2/utils/asset";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
-// Slot payload from AssetList/AssetStrip is the full save|state union; these
-// narrow it back to the concrete schema the section's handlers expect.
+// Slot payload from AssetList is the full save|state union; these narrow it
+// back to the concrete schema the section's handlers expect.
 type AssetSlot = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 const asSave = (a: AssetSlot) => a as SaveSchema;
 const asState = (a: AssetSlot) => a as StateSchema;
@@ -112,6 +112,15 @@ const communitySaves = computed(() => allSaves.value.filter((s) => !isOwn(s)));
 const myStates = computed(() => allStates.value.filter(isOwn));
 const communityStates = computed(() =>
   allStates.value.filter((s) => !isOwn(s)),
+);
+
+// Mine and Community read as one table, so the leading cell's width is
+// decided across both rather than per section.
+const savesHaveShots = computed(() =>
+  allSaves.value.some((s) => assetScreenshotUrl(s) !== null),
+);
+const statesHaveShots = computed(() =>
+  allStates.value.some((s) => assetScreenshotUrl(s) !== null),
 );
 
 // Badge = total visible items in the subtab (own + community).
@@ -386,6 +395,7 @@ async function toggleStateVisibility(state: StateSchema) {
               type="save"
               :selectable="false"
               :scrollable="false"
+              :thumbs="savesHaveShots"
             >
               <template #actions="{ asset }">
                 <RBtn
@@ -446,6 +456,7 @@ async function toggleStateVisibility(state: StateSchema) {
             type="save"
             :selectable="false"
             :scrollable="false"
+            :thumbs="savesHaveShots"
             show-owner
           >
             <template #actions="{ asset }">
@@ -462,7 +473,8 @@ async function toggleStateVisibility(state: StateSchema) {
         </div>
       </section>
 
-      <!-- States subtab — tile grid (screenshot is the point) -->
+      <!-- States subtab — same row list as saves, with the capture
+           screenshot in the leading cell (issue #4320) -->
       <section v-show="subTab === 'states'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
@@ -506,11 +518,12 @@ async function toggleStateVisibility(state: StateSchema) {
             multiple
             @files="onStateUpload"
           >
-            <AssetStrip
+            <AssetList
               :assets="myStates"
               type="state"
               :selectable="false"
-              layout="flow"
+              :scrollable="false"
+              :thumbs="statesHaveShots"
             >
               <template #actions="{ asset }">
                 <RBtn
@@ -553,7 +566,7 @@ async function toggleStateVisibility(state: StateSchema) {
                   @click="deleteState(asState(asset))"
                 />
               </template>
-            </AssetStrip>
+            </AssetList>
           </RDropzone>
         </div>
 
@@ -566,11 +579,12 @@ async function toggleStateVisibility(state: StateSchema) {
               </h3>
             </div>
           </header>
-          <AssetStrip
+          <AssetList
             :assets="communityStates"
             type="state"
             :selectable="false"
-            layout="flow"
+            :scrollable="false"
+            :thumbs="statesHaveShots"
             show-owner
           >
             <template #actions="{ asset }">
@@ -583,7 +597,7 @@ async function toggleStateVisibility(state: StateSchema) {
                 @click="downloadAsset(asset)"
               />
             </template>
-          </AssetStrip>
+          </AssetList>
         </div>
       </section>
     </div>

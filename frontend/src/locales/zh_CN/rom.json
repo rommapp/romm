@@ -73,6 +73,7 @@
   "confirm-join-title-of": "加入 {user} 的会话？",
   "confirm-launch-protected-body": "您已将“{name}”标记为{status}。仍要玩吗？",
   "confirm-launch-protected-title": "启动这个游戏吗？",
+  "content-hash": "内容哈希值",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "复制下载链接",

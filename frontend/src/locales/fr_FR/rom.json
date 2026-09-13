@@ -73,6 +73,7 @@
   "confirm-join-title-of": "Rejoindre la session de {user} ?",
   "confirm-launch-protected-body": "Vous avez marqué « {name} » comme {status}. Voulez-vous quand même y jouer ?",
   "confirm-launch-protected-title": "Lancer ce jeu ?",
+  "content-hash": "Hachage du contenu",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Copier le lien de téléchargement",
