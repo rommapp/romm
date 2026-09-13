@@ -1,4 +1,4 @@
-from typing import Any, Final, Literal, Mapping, TypedDict, Union, cast
+from typing import Literal, TypedDict, Union
 
 from rq.job import JobStatus
 
@@ -18,23 +18,6 @@ class ScanStats(TypedDict):
     new_firmware: int
     updated_roms: int
     new_files: int
-
-
-# Read off the annotations so a counter added here is filled without a second edit.
-EMPTY_SCAN_STATS: Final[ScanStats] = cast(
-    ScanStats, dict.fromkeys(ScanStats.__annotations__, 0)
-)
-
-
-def fill_scan_stats(stats: Mapping[str, Any] | None) -> ScanStats | None:
-    """A scan's counters, zeroing any the release that stored them predates.
-
-    A job's meta in Redis outlives the release that wrote it.
-    """
-    if stats is None:
-        return None
-
-    return cast(ScanStats, {**EMPTY_SCAN_STATS, **stats})
 
 
 class ScanTaskMeta(TypedDict):
