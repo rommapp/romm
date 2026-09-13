@@ -1,9 +1,10 @@
 import json
 from datetime import datetime, timezone
+from typing import cast
 from unittest.mock import AsyncMock, patch
 from urllib.parse import unquote
 
-from fastapi import status
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
 from config.config_manager import MetadataMediaType
@@ -2408,7 +2409,8 @@ def test_rom_filters_stay_individual_query_parameters(client: TestClient):
     document (and accept) a single `filters` parameter instead, which the
     generated frontend client is built from.
     """
-    parameters = client.app.openapi()["paths"]["/api/roms"]["get"]["parameters"]
+    schema = cast(FastAPI, client.app).openapi()
+    parameters = schema["paths"]["/api/roms"]["get"]["parameters"]
     names = {parameter["name"] for parameter in parameters}
 
     assert "filters" not in names

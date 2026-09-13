@@ -9,6 +9,7 @@ match the filter drops out of the gallery.
 """
 
 import warnings
+from typing import Any
 
 import pytest
 from sqlalchemy.dialects import mysql
@@ -95,9 +96,10 @@ class TestFacetJoinShape:
     def test_every_registered_filter_joins_the_mirror_once(self, spec: RomFilterSpec):
         """`RomFilterSpec.column` being None means many columns, not none:
         `metadata_providers` matches id columns on the mirror too."""
+        selection: dict[str, Any] = {spec.name: ["any-value"]}
         query, _ = db_rom_handler.get_roms_query()
         filtered = db_rom_handler.filter_roms(
-            query=query, filters=RomFilterParams(**{spec.name: ["any-value"]})
+            query=query, filters=RomFilterParams(**selection)
         )
 
         assert str(filtered).count("JOIN roms_facets") == 1

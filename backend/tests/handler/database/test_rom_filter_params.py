@@ -95,33 +95,32 @@ class TestScopeOnly:
         assert scoped.matched is None
 
 
+def _criteria(stored: dict[str, Any]) -> RomFilterParams:
+    """The stored criteria, narrowed: these rows are all well-formed."""
+    criteria = RomFilterParams.from_stored_criteria(stored)
+    assert criteria is not None
+    return criteria
+
+
 class TestFromStoredCriteria:
     def test_it_reads_the_legacy_single_value_keys(self):
-        criteria = RomFilterParams.from_stored_criteria(
-            {"selected_genre": "Shooter", "platform_id": 7}
-        )
+        criteria = _criteria({"selected_genre": "Shooter", "platform_id": 7})
 
         assert criteria.genres == ["Shooter"]
         assert criteria.platform_ids == [7]
 
     def test_current_keys_win_over_the_legacy_ones(self):
-        criteria = RomFilterParams.from_stored_criteria(
-            {"genres": ["RPG"], "selected_genre": "Shooter"}
-        )
+        criteria = _criteria({"genres": ["RPG"], "selected_genre": "Shooter"})
 
         assert criteria.genres == ["RPG"]
 
     def test_it_ignores_keys_that_are_not_filters(self):
-        criteria = RomFilterParams.from_stored_criteria(
-            {"order_by": "name", "matched": True}
-        )
+        criteria = _criteria({"order_by": "name", "matched": True})
 
         assert criteria.matched is True
 
     def test_it_drops_a_nested_smart_collection(self):
-        criteria = RomFilterParams.from_stored_criteria(
-            {"smart_collection_id": 42, "matched": True}
-        )
+        criteria = _criteria({"smart_collection_id": 42, "matched": True})
 
         assert criteria.smart_collection_id is None
         assert criteria.matched is True
