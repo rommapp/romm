@@ -56,13 +56,13 @@ class TestMetadataSortQueryShape:
     def test_orders_by_the_roms_column_with_nulls_last(
         self, mariadb_driver: None, order_by: str, expected_column: str
     ):
-        query, order_column = db_rom_handler.get_roms_query(order_by=order_by)
+        query, sort_key = db_rom_handler.get_roms_query(order_by=order_by)
         sql = str(query)
 
         assert (
             f"ORDER BY roms.{expected_column} IS NULL, roms.{expected_column} ASC"
         ) in sql
-        assert order_column is getattr(Rom, expected_column)
+        assert sort_key.column is getattr(Rom, expected_column)
         # `Rom.metadatum` is a `lazy="joined"` eager load, so one join to the
         # view is expected; the sort must not add a second one.
         assert sql.count("JOIN roms_metadata") == 1
@@ -102,10 +102,10 @@ class TestMetadataSortQueryShape:
         assert ("IS NULL" in order_sql) == emulated
 
     def test_rom_column_sort_is_unchanged(self):
-        query, order_column = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
+        query, sort_key = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
 
         assert "ORDER BY roms.fs_size_bytes ASC" in str(query)
-        assert order_column is Rom.fs_size_bytes
+        assert sort_key.column is Rom.fs_size_bytes
 
     def test_metadata_sort_does_not_join_the_view_for_a_user(
         self, admin_user: User, platform: Platform
@@ -118,6 +118,23 @@ class TestMetadataSortQueryShape:
         # The rom_user join still has to be there, only the self-join goes.
         assert sql.count("JOIN roms_metadata") == 1
         assert "JOIN rom_user" in sql
+
+    def test_grouped_metadata_sort_keeps_the_representative_key(
+        self, mariadb_driver: None
+    ):
+        query, _ = db_rom_handler.get_roms_query(order_by="first_release_date")
+        grouped = db_rom_handler.filter_roms(
+            query=query, order_by="first_release_date", group_by_meta_id=True
+        )
+        sql = str(grouped)
+
+        # Roms-side keys stay on the representative: aggregating one would
+        # push the dedup window off its covering index.
+        assert "group_sort_value" not in sql
+        assert (
+            "ORDER BY roms.generated_first_release_date IS NULL, "
+            "roms.generated_first_release_date ASC"
+        ) in sql
 
 
 class TestMetadataSortResults:
