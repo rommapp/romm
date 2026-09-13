@@ -2771,8 +2771,7 @@ def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
 
 
 def test_pull_state_prefers_embedded_pcsx2_screenshot(rom: Rom, admin_user: User):
-    """PCSX2's own embedded frame beats a browser capture: it's already in
-    hand from the state download and can't be a stale/blank canvas grab."""
+    """PCSX2 embeds its own frame, so the browser capture is never needed."""
     container = {**_container_for(rom), "label": "PCSX2"}
     scanned = _state_for(rom, admin_user, "Game.05.p2s", "pcsx2")
     scanned_shot = _screenshot_for(rom, "Game.05.p2s")
@@ -2808,8 +2807,7 @@ def test_pull_state_prefers_embedded_pcsx2_screenshot(rom: Rom, admin_user: User
 
 
 def test_pull_state_prefers_broker_screenshot_for_retroarch(rom: Rom, admin_user: User):
-    """RetroArch writes its thumbnail off the core's framebuffer at save time,
-    which beats the browser's lagging canvas capture."""
+    """RetroArch's broker writes the frame at save time, so it beats the canvas."""
     container = {**_container_for(rom), "label": "RetroArch"}
     scanned = _state_for(rom, admin_user, "Game.state3", "retroarch")
     scanned_shot = _screenshot_for(rom, "Game.state3")
@@ -2845,11 +2843,10 @@ def test_pull_state_prefers_broker_screenshot_for_retroarch(rom: Rom, admin_user
     assert shot_call.kwargs["file"] == _PNG
 
 
-def test_pull_state_asks_the_retroarch_broker_for_a_screenshot_once(
+def test_pull_state_asks_retroarch_broker_for_screenshot_once(
     rom: Rom, admin_user: User
 ):
-    """With neither a broker thumbnail nor a browser frame the state still
-    syncs, and the broker is not asked the same question twice."""
+    """Neither source has a frame: the state still syncs, on one broker call."""
     container = {**_container_for(rom), "label": "RetroArch"}
     scanned = _state_for(rom, admin_user, "Game.state5", "retroarch")
     with (
@@ -2876,7 +2873,7 @@ def test_pull_state_asks_the_retroarch_broker_for_a_screenshot_once(
     scan_shot.assert_not_awaited()
 
 
-def test_pull_state_falls_back_to_the_browser_frame_for_retroarch(
+def test_pull_state_falls_back_to_browser_frame_for_retroarch(
     rom: Rom, admin_user: User
 ):
     """A broker with no thumbnail for the save leaves the browser frame."""
