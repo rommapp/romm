@@ -1248,8 +1248,8 @@ class DBRomsHandler(DBBaseHandler):
         """Narrow `query` to the roms matching `values` under `spec`."""
         column = spec.column
         if column is None:
-            # PROVIDER_IDS is the only column-less kind: its values name
-            # providers, matched against the id columns they populate on Rom.
+            # PROVIDER_IDS is the only kind without a single column: each
+            # selected provider names its own id column on the mirror.
             return self._filter_by_metadata_providers(
                 query,
                 values=values,
@@ -1276,7 +1276,7 @@ class DBRomsHandler(DBBaseHandler):
         match_none: bool = False,
     ) -> Query:
         """Filter on which metadata providers a ROM matched, keyed off each
-        provider's id column on Rom.
+        provider's id column on the facets mirror.
 
         - "any":  matched at least one of the selected providers.
         - "all":  matched every selected provider.

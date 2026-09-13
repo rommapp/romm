@@ -55,19 +55,29 @@ def as_query_dependency[ModelT: BaseModel](
     carries the fields, each with its own constraints.
     """
 
-    parameters = [
-        inspect.Parameter(
-            name,
-            inspect.Parameter.KEYWORD_ONLY,
-            default=field.get_default(call_default_factory=True),
-            annotation=Annotated[
-                field.annotation,
-                *field.metadata,
-                Query(description=field.description),
-            ],
+    parameters: list[inspect.Parameter] = []
+    for name, field in model.model_fields.items():
+        # A signature default is built once, at decoration time, and a
+        # parameter is named for the field rather than its alias. Neither
+        # shape can be expressed faithfully here, so refuse it at startup
+        # instead of serving a wrong route or one shared mutable default.
+        if field.default_factory is not None:
+            raise TypeError(f"{model.__name__}.{name} has a default_factory")
+        if field.alias is not None:
+            raise TypeError(f"{model.__name__}.{name} has an alias")
+
+        parameters.append(
+            inspect.Parameter(
+                name,
+                inspect.Parameter.KEYWORD_ONLY,
+                default=field.get_default(),
+                annotation=Annotated[
+                    field.annotation,
+                    *field.metadata,
+                    Query(description=field.description),
+                ],
+            )
         )
-        for name, field in model.model_fields.items()
-    ]
 
     def dependency(**kwargs: Any) -> ModelT:
         return model(**kwargs)

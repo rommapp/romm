@@ -16,7 +16,11 @@ from sqlalchemy.exc import SAWarning
 from sqlalchemy.sql.compiler import FROM_LINTING
 
 from handler.database import db_rom_handler
-from handler.database.rom_filters import ROM_FILTER_SPECS, RomFilterParams
+from handler.database.rom_filters import (
+    ROM_FILTER_SPECS,
+    RomFilterParams,
+    RomFilterSpec,
+)
 from models.platform import Platform
 from models.rom import Rom
 
@@ -84,3 +88,27 @@ class TestGroupedMetadataFilterJoin:
         roms = db_rom_handler.get_roms_scalar(genres=["Shooter"], group_by_meta_id=True)
 
         assert [rom.name for rom in roms] == ["b_version"]
+
+
+class TestFacetJoinShape:
+    @pytest.mark.parametrize("spec", ROM_FILTER_SPECS, ids=lambda s: s.name)
+    def test_every_registered_filter_joins_the_mirror_once(self, spec: RomFilterSpec):
+        """`RomFilterSpec.column` being None means many columns, not none.
+
+        `metadata_providers` carries no single column because each selected
+        provider matches its own id column, but those columns are on the mirror
+        too, so skipping its join cross-joins `roms_facets` into the query.
+        """
+        query, _ = db_rom_handler.get_roms_query()
+        filtered = db_rom_handler.filter_roms(
+            query=query, filters=RomFilterParams(**{spec.name: ["any-value"]})
+        )
+
+        assert str(filtered).count("JOIN roms_facets") == 1
+        assert not _cartesian_warnings(filtered)
+
+    def test_no_filter_selected_does_not_join_the_mirror(self):
+        query, _ = db_rom_handler.get_roms_query()
+        filtered = db_rom_handler.filter_roms(query=query, filters=RomFilterParams())
+
+        assert "JOIN roms_facets" not in str(filtered)

@@ -16,9 +16,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import QueryableAttribute
 
+from logger.logger import log
 from models.rom import RomFacets
 
 
@@ -29,7 +30,8 @@ class FilterKind(StrEnum):
     JSON_ARRAY = "json_array"
     # Column holds one scalar; a rom matches when it is among the values.
     SCALAR_IN = "scalar_in"
-    # Values name metadata providers, matched against their id columns on Rom.
+    # Values name metadata providers, each matched against its own id column,
+    # so the spec carries no single column of its own.
     PROVIDER_IDS = "provider_ids"
 
 
@@ -378,7 +380,33 @@ class RomFilterParams(BaseModel):
         ):
             values["platform_ids"] = [platform_id]
 
-        return cls.model_validate(values)
+        return cls._validate_tolerantly(values)
+
+    @classmethod
+    def _validate_tolerantly(cls, values: dict[str, Any]) -> "RomFilterParams":
+        """Validate, dropping the entries that fail rather than raising.
+
+        `filter_criteria` is stored as free-form JSON, so a row can hold a value
+        no field accepts: an out-of-range bound, a null where the model wants a
+        string, a shape an older client wrote. Every caller reads these rows in
+        a loop over all smart collections, so raising on one would stop the rest
+        from refreshing at all. A filter that cannot be honoured is dropped,
+        which is what the criteria reader did before it validated anything.
+        """
+        while True:
+            try:
+                return cls.model_validate(values)
+            except ValidationError as error:
+                dropped = {
+                    str(err["loc"][0])
+                    for err in error.errors()
+                    if err["loc"] and str(err["loc"][0]) in values
+                }
+                if not dropped:
+                    log.warning("Discarding unusable smart collection criteria")
+                    return cls()
+                for field in dropped:
+                    del values[field]
 
     def selected(self, name: str) -> tuple[Sequence[str] | None, str]:
         """The values chosen for a multi-value filter, with its logic operator."""

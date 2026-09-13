@@ -9,7 +9,6 @@ user's narrowed gallery be served to everyone under the shared key.
 from typing import Any
 
 import pytest
-
 from handler.database.rom_filters import (
     _SCOPE_FIELDS,
     _UNFILTERED_FIELDS,
@@ -125,6 +124,36 @@ class TestFromStoredCriteria:
 
         assert criteria.smart_collection_id is None
         assert criteria.matched is True
+
+    # `filter_criteria` is stored as free-form JSON, so any of these can sit in
+    # a real row. Every caller reads them in a loop over all smart collections,
+    # so one raising would stop every later collection from refreshing.
+    @pytest.mark.parametrize(
+        "unusable",
+        [
+            {"collection_id": 0},
+            {"hltb_main_story_min": -1},
+            {"group_by_meta_id": None},
+            {"platform_ids": ["not-an-id"]},
+            {"genres_logic": None},
+            {"statuses": {"not": "a list"}},
+        ],
+    )
+    def test_an_unusable_value_is_dropped_rather_than_raised(self, unusable: dict):
+        criteria = RomFilterParams.from_stored_criteria({"genres": ["RPG"], **unusable})
+
+        assert criteria.genres == ["RPG"]
+        for field in unusable:
+            assert (
+                getattr(criteria, field)
+                == RomFilterParams.model_fields[field].get_default()
+            )
+
+    def test_a_wholly_unusable_row_yields_an_empty_filter(self):
+        criteria = RomFilterParams.from_stored_criteria({"matched": "maybe"})
+
+        assert criteria == RomFilterParams()
+        assert criteria.has_filters() is False
 
 
 class TestRegistryColumns:
