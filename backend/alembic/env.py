@@ -38,8 +38,7 @@ target_metadata = BaseModel.metadata
 # ... etc.
 
 
-# Several migrations keep the `roms_facets` and `virtual_collection_roms` mirrors
-# in sync with triggers, which error 1419 denies outright (issue #3932).
+# Ten revisions install triggers, so a denial blocks the upgrade outright.
 TRIGGER_DDL_DENIED = (
     "The database user is not allowed to create triggers, which RomM's migrations "
     "need: MariaDB and MySQL deny trigger statements while binary logging is on and "
@@ -129,12 +128,15 @@ def run_migrations_online() -> None:
             include_object=include_object,
         )
 
-        if will_run_revisions() and trigger_ddl_is_blocked(connection):
+        # The probe first: one statement, and free on the other dialects, so
+        # only a server that refuses pays for reading the applied heads.
+        if trigger_ddl_is_blocked(connection) and will_run_revisions():
             raise CommandError(TRIGGER_DDL_DENIED)
 
         with context.begin_transaction():
             try:
                 context.run_migrations()
+            # The backstop for a denial the probe above did not catch.
             except DBAPIError as exc:
                 if is_binlog_trigger_privilege_error(exc):
                     raise CommandError(TRIGGER_DDL_DENIED) from exc

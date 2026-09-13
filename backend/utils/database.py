@@ -76,22 +76,18 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
     return is_db_version_compatible(conn, min_version=min_version)
 
 
-# MariaDB and MySQL refuse every trigger statement, `DROP TRIGGER IF EXISTS`
-# included, while binary logging is on, the user lacks SUPER and
-# `log_bin_trust_function_creators` is off.
+# Error 1419, which MariaDB and MySQL raise for every trigger statement while
+# binary logging is on and the user lacks SUPER (issue #3932).
 BINLOG_TRIGGER_DDL_ERRNO = 1419
 
 
-# The alembic commands that execute revisions; `current`, `check`, `stamp` and
-# `revision` load the same env without ever emitting DDL.
-_REVISION_COMMANDS = frozenset({"upgrade", "downgrade"})
-
-
 def alembic_runs_revisions(command: str, *, pending: bool) -> bool:
-    """Whether this alembic command will execute revisions, trigger DDL included."""
-    if command not in _REVISION_COMMANDS:
-        return False
-    return pending or command == "downgrade"
+    """Whether this alembic run reaches revision code, trigger DDL included.
+
+    `command` is the `fn` name alembic hands its environment, so anything that
+    emits no DDL of its own (`do_stamp`, `display_version`) falls through.
+    """
+    return command == "downgrade" or (command == "upgrade" and pending)
 
 
 def is_binlog_trigger_privilege_error(exc: BaseException) -> bool:
@@ -108,8 +104,7 @@ def trigger_ddl_is_blocked(conn: sa.Connection) -> bool:
     """Whether the server refuses the trigger DDL the migrations need.
 
     Dropping a trigger that cannot exist is the cheapest statement that still
-    goes through the privilege check, and it answers for roles and proxied users
-    that reading grants would miss. Rolls `conn` back when the server refuses.
+    goes through the privilege check. Rolls `conn` back on a refusal.
     """
     if not (is_mysql(conn) or is_mariadb(conn)):
         return False
