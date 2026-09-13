@@ -57,7 +57,7 @@ const artHeight = computed(() =>
   width: var(--r-card-art-w);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
 }
 .r-gcs__label {
   /* Match GameCard's `.r-gc__label`: margin-top 7px, font-size 11.5px,
@@ -78,9 +78,9 @@ const artHeight = computed(() =>
 
 /* Hero (16:9) variant — mirrors `GameCard`'s `.r-gc--hero` block. The
    art skeleton picks up its own larger size via the prop-bound CSS
-   vars; here we just widen the container so the centred label sits at
-   the right horizontal width, and bump the label's reserved height to
-   match the hero label's 13px font. */
+   vars; here we just widen the container so the label sits at the right
+   horizontal width, and bump the label's reserved height to match the
+   hero label's 13px font. */
 .r-gcs--hero {
   width: var(--r-hero-w);
 }
