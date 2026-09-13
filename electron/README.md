@@ -36,14 +36,10 @@ as you would in a browser; the shell holds no credentials of its own.
 
 ## Packaging
 
-```bash
-npm run dist       # installers for the current platform, into release/
-npm run dist:dir   # unpacked build, useful for testing
-```
-
-Builds are unsigned. Shipping to end users additionally needs an Apple
-Developer ID plus notarization on macOS, and a code-signing certificate on
-Windows, neither of which is wired up here.
+Not set up yet. Producing installers needs code signing to be useful (an Apple
+Developer ID plus notarization on macOS, a signing certificate on Windows), so
+the packaging toolchain lands with that rather than ahead of it. Until then the
+shell runs from source with `npm run dev`.
 
 ## Emulator configuration
 
