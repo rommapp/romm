@@ -208,9 +208,8 @@ def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | Non
             with zf.open(_SCREENSHOT_ZIP_ENTRY) as entry:
                 data = entry.read(SCREENSHOT_MAX_BYTES + 1)
     except Exception as exc:
-        # No screenshot entry, or the state is not a readable zip. Never fatal,
-        # a corrupt entry (zlib.error, a truncated member) must cost the
-        # thumbnail only: the state itself still syncs.
+        # Never fatal: a missing entry, an unreadable zip or a corrupt member
+        # costs the thumbnail only, the state itself still syncs.
         log.warning("could not extract state screenshot, %s", exc)
         return None
     if not data or len(data) > SCREENSHOT_MAX_BYTES:
@@ -249,10 +248,8 @@ async def take_state_frame(user_id: int, rom_id: int) -> bytes | None:
         return None
 
 
-# Emulators whose broker writes the save's thumbnail off the core's own
-# framebuffer as the state is written, so its frame beats the browser capture.
-# Every other broker has to read that frame back from the GPU on demand, which
-# deadlocks some cores, so there the browser frame goes first.
+# Emulators whose broker writes the thumbnail as the state is saved, rather
+# than reading the framebuffer back on demand, which deadlocks GPU cores.
 _BROKER_FRAME_EMULATORS = frozenset({"retroarch"})
 
 
@@ -442,25 +439,18 @@ async def pull_state_to_library(
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False
-        # An embedded frame comes first: it arrived with the state above, so it
-        # costs no round-trip and can never be a stale capture. The browser
-        # frame and the broker's own then follow in the order this emulator
-        # earns, since the loser of the two is still better than no thumbnail.
-        prefers_broker_frame = emulator in _BROKER_FRAME_EMULATORS
+        # An embedded frame arrived with the state, so it wins. The stash is
+        # drained either way: a leftover frame becomes a later save's thumbnail.
         screenshot = extract_state_screenshot(emulator, content)
-        if screenshot is None and prefers_broker_frame:
+        browser_frame = await take_state_frame(user_id, rom_id)
+        if screenshot is None and (
+            browser_frame is None or emulator in _BROKER_FRAME_EMULATORS
+        ):
             screenshot = await asyncio.to_thread(
                 fetch_state_screenshot, container, slot
             )
-        # Drained on every pull even when it goes unused: a frame left in the
-        # stash outlives its save and becomes a later one's wrong thumbnail.
-        browser_frame = await take_state_frame(user_id, rom_id)
         if screenshot is None:
             screenshot = browser_frame
-        if screenshot is None and not prefers_broker_frame:
-            screenshot = await asyncio.to_thread(
-                fetch_state_screenshot, container, slot
-            )
         try:
             await store_state_asset(
                 user, rom, emulator, filename, content, screenshot, disc_file_id

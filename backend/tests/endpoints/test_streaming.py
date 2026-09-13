@@ -2317,6 +2317,18 @@ def _state_for(rom: Rom, user: User, file_name: str, emulator: str) -> State:
     )
 
 
+def _screenshot_for(rom: Rom, state_stem: str) -> Screenshot:
+    """The thumbnail scan_screenshot() returns for a pulled state."""
+    return Screenshot(
+        file_name=f"{state_stem}.png",
+        file_name_no_tags=state_stem,
+        file_name_no_ext=state_stem,
+        file_extension="png",
+        file_path=f"{rom.platform_slug}/screenshots",
+        file_size_bytes=7,
+    )
+
+
 def test_claim_spawns_state_hydration(client, access_token, rom: Rom):
     """Claiming a session must schedule a background hydration of the
     container's save-state slots from the user's stored states."""
@@ -2700,14 +2712,7 @@ def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
     """Dolphin states embed no frame, so the pull takes the broker's capture."""
     container = {**_container_for(rom), "label": "Dolphin"}
     scanned = _state_for(rom, admin_user, "Game.s03", "dolphin")
-    scanned_shot = Screenshot(
-        file_name="Game.s03.png",
-        file_name_no_tags="Game.s03",
-        file_name_no_ext="Game.s03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned_shot = _screenshot_for(rom, "Game.s03")
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
@@ -2740,14 +2745,7 @@ def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
     """A frame the browser grabbed off the canvas beats asking the broker."""
     container = {**_container_for(rom), "label": "Dolphin"}
     scanned = _state_for(rom, admin_user, "Game.s04", "dolphin")
-    scanned_shot = Screenshot(
-        file_name="Game.s04.png",
-        file_name_no_tags="Game.s04",
-        file_name_no_ext="Game.s04",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned_shot = _screenshot_for(rom, "Game.s04")
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
@@ -2777,14 +2775,7 @@ def test_pull_state_prefers_embedded_pcsx2_screenshot(rom: Rom, admin_user: User
     hand from the state download and can't be a stale/blank canvas grab."""
     container = {**_container_for(rom), "label": "PCSX2"}
     scanned = _state_for(rom, admin_user, "Game.05.p2s", "pcsx2")
-    scanned_shot = Screenshot(
-        file_name="Game.05.p2s.png",
-        file_name_no_tags="Game.05.p2s",
-        file_name_no_ext="Game.05.p2s",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=len(_PNG),
-    )
+    scanned_shot = _screenshot_for(rom, "Game.05.p2s")
     browser_frame = states.PNG_MAGIC + b"browser-frame"
     with (
         patch(
@@ -2821,14 +2812,7 @@ def test_pull_state_prefers_broker_screenshot_for_retroarch(rom: Rom, admin_user
     which beats the browser's lagging canvas capture."""
     container = {**_container_for(rom), "label": "RetroArch"}
     scanned = _state_for(rom, admin_user, "Game.state3", "retroarch")
-    scanned_shot = Screenshot(
-        file_name="Game.state3.png",
-        file_name_no_tags="Game.state3",
-        file_name_no_ext="Game.state3",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=len(_PNG),
-    )
+    scanned_shot = _screenshot_for(rom, "Game.state3")
     browser_frame = states.PNG_MAGIC + b"browser-frame"
     with (
         patch(
@@ -2898,14 +2882,7 @@ def test_pull_state_falls_back_to_the_browser_frame_for_retroarch(
     """A broker with no thumbnail for the save leaves the browser frame."""
     container = {**_container_for(rom), "label": "RetroArch"}
     scanned = _state_for(rom, admin_user, "Game.state4", "retroarch")
-    scanned_shot = Screenshot(
-        file_name="Game.state4.png",
-        file_name_no_tags="Game.state4",
-        file_name_no_ext="Game.state4",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=len(_PNG),
-    )
+    scanned_shot = _screenshot_for(rom, "Game.state4")
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
@@ -3243,14 +3220,7 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
     """A stored state screenshot lands in the screenshots dir under the state's
     stem, so State.screenshot resolves it as the resume-picker thumbnail."""
     db_state_handler.add_state(_state_for(rom, admin_user, "Game.03.p2s", "pcsx2"))
-    scanned = Screenshot(
-        file_name="Game.03.png",
-        file_name_no_tags="Game.03",
-        file_name_no_ext="Game.03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned = _screenshot_for(rom, "Game.03")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch(
@@ -3292,14 +3262,7 @@ def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
 def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
     """End to end: storing a state with a frame binds it as the thumbnail."""
     scanned_state = _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
-    scanned_shot = Screenshot(
-        file_name="Game.03.png",
-        file_name_no_tags="Game.03",
-        file_name_no_ext="Game.03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned_shot = _screenshot_for(rom, "Game.03")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
