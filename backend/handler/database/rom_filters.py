@@ -353,8 +353,11 @@ class RomFilterParams(BaseModel):
     ] = None
 
     @classmethod
-    def from_stored_criteria(cls, criteria: Mapping[str, Any]) -> "RomFilterParams":
-        """Build from a smart collection's stored `filter_criteria`.
+    def from_stored_criteria(
+        cls, criteria: Mapping[str, Any]
+    ) -> "RomFilterParams | None":
+        """Build from a smart collection's stored `filter_criteria`, or None
+        when a stored value cannot be honoured.
 
         `smart_collection_id` is dropped: the create dialog records the route it
         was opened from, so following it would nest (and could cycle).
@@ -374,22 +377,11 @@ class RomFilterParams(BaseModel):
         ):
             values["platform_ids"] = [platform_id]
 
-        return cls._validate_tolerantly(values)
-
-    @classmethod
-    def _validate_tolerantly(cls, values: dict[str, Any]) -> "RomFilterParams":
-        """Validate, dropping entries that fail rather than raising: callers
-        read these rows in a loop over every smart collection, so one unusable
-        value must not stop the rest."""
-        while True:
-            try:
-                return cls.model_validate(values)
-            except ValidationError as error:
-                unusable = {str(err["loc"][0]) for err in error.errors() if err["loc"]}
-                if not unusable & values.keys():
-                    log.warning("Discarding unusable smart collection criteria")
-                    return cls()
-                values = {k: v for k, v in values.items() if k not in unusable}
+        try:
+            return cls.model_validate(values)
+        except ValidationError as error:
+            log.warning("Smart collection criteria rejected: %s", error)
+            return None
 
     def selected(self, name: str) -> tuple[Sequence[str] | None, str]:
         """The values chosen for a multi-value filter, with its logic operator."""

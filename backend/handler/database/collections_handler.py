@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import (
     Select,
     delete,
+    false,
     insert,
     literal,
     or_,
@@ -490,11 +491,15 @@ class DBCollectionsHandler(DBBaseHandler):
         """
         from handler.database import db_rom_handler
 
+        filters = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+        if filters is None:
+            # Criteria the model rejects: match nothing rather than drop the
+            # constraint, which would show more than the collection claims.
+            return query.filter(false())
+
         return db_rom_handler.filter_roms(
             query=query,
-            filters=RomFilterParams.from_stored_criteria(
-                smart_collection.filter_criteria
-            ),
+            filters=filters,
             user_id=user_id,
             include_related=False,
             session=session,

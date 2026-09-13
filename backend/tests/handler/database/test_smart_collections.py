@@ -208,6 +208,25 @@ def test_filter_roms_by_unknown_smart_collection_returns_nothing(
     assert list(roms) == []
 
 
+def test_unusable_criteria_match_nothing_rather_than_everything(
+    platform: Platform, admin_user: User
+):
+    # `filter_criteria` is stored unvalidated, and honouring a row only in part
+    # would drop the constraint that makes it a narrower list than the library.
+    _add_rom(platform, "Rally One")
+    _add_rom(platform, "Rally Two")
+
+    smart_collection = _add_smart_collection(
+        admin_user, {"platform_ids": [platform.id, "not-an-id"]}
+    )
+
+    members = db_collection_handler.get_smart_collection_members(
+        smart_collection, user_id=admin_user.id
+    )
+
+    assert list(members) == []
+
+
 def test_refresh_smart_collection_updates_the_cached_columns(
     platform: Platform, admin_user: User
 ):

@@ -837,7 +837,7 @@ async def download_roms(
     ] = None,
     collection_id: Annotated[
         int | None,
-        Query(description="Download every ROM in this collection as a zip file."),
+        Query(description="Download every ROM in this collection as a zip file.", ge=1),
     ] = None,
     virtual_collection_id: Annotated[
         str | None,
@@ -847,7 +847,10 @@ async def download_roms(
     ] = None,
     smart_collection_id: Annotated[
         int | None,
-        Query(description="Download every ROM in this smart collection as a zip file."),
+        Query(
+            description="Download every ROM in this smart collection as a zip file.",
+            ge=1,
+        ),
     ] = None,
     filename: Annotated[
         str | None,

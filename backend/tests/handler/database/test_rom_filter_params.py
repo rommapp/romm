@@ -127,7 +127,8 @@ class TestFromStoredCriteria:
         assert criteria.matched is True
 
     # `filter_criteria` is free-form JSON, so any of these can sit in a real
-    # row, and one raising would stop every later collection from refreshing.
+    # row. Raising would stop every later collection from refreshing, and
+    # dropping the entry would drop the constraint with it.
     @pytest.mark.parametrize(
         "unusable",
         [
@@ -135,27 +136,19 @@ class TestFromStoredCriteria:
             {"hltb_main_story_min": -1},
             {"group_by_meta_id": None},
             {"platform_ids": ["not-an-id"]},
+            # Partly usable: dropping it would turn "platform 3" into "any".
+            {"platform_ids": [3, "gba"]},
             {"genres_logic": None},
             {"statuses": {"not": "a list"}},
         ],
     )
-    def test_an_unusable_value_is_dropped_rather_than_raised(
+    def test_an_unusable_value_is_rejected_rather_than_raised(
         self, unusable: dict[str, Any]
     ):
-        criteria = RomFilterParams.from_stored_criteria({"genres": ["RPG"], **unusable})
-
-        assert criteria.genres == ["RPG"]
-        for field in unusable:
-            assert (
-                getattr(criteria, field)
-                == RomFilterParams.model_fields[field].get_default()
-            )
-
-    def test_a_wholly_unusable_row_yields_an_empty_filter(self):
-        criteria = RomFilterParams.from_stored_criteria({"matched": "maybe"})
-
-        assert criteria == RomFilterParams()
-        assert criteria.has_filters() is False
+        assert (
+            RomFilterParams.from_stored_criteria({"genres": ["RPG"], **unusable})
+            is None
+        )
 
 
 class TestRegistryColumns:

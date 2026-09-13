@@ -26,6 +26,13 @@ def _add_rom(
     return db_rom_handler.add_rom(rom)
 
 
+def _criteria(smart_collection: SmartCollection) -> RomFilterParams:
+    """The stored criteria, narrowed: these rows are all well-formed."""
+    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+    assert criteria is not None
+    return criteria
+
+
 def _virtual_collection(type: str, name: str):
     return next(
         (
@@ -213,7 +220,7 @@ def test_stored_criteria_normalizes_legacy_selected_status_lists(
         filter_criteria={"selected_status": ["finished", "completed_100"]},
     )
 
-    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+    criteria = _criteria(smart_collection)
 
     assert criteria.statuses == ["finished", "completed_100"]
 
@@ -226,7 +233,7 @@ def test_stored_criteria_wraps_legacy_scalar_values(admin_user: User):
         filter_criteria={"selected_genre": "Shooter", "platform_id": 7},
     )
 
-    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+    criteria = _criteria(smart_collection)
 
     assert criteria.genres == ["Shooter"]
     assert criteria.platform_ids == [7]
@@ -243,7 +250,7 @@ def test_stored_criteria_passes_metadata_providers(admin_user: User):
         },
     )
 
-    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+    criteria = _criteria(smart_collection)
 
     assert criteria.metadata_providers == ["igdb", "moby"]
     assert criteria.metadata_providers_logic == "all"
@@ -263,7 +270,7 @@ def test_stored_criteria_passes_asset_and_soundtrack_filters(
         },
     )
 
-    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+    criteria = _criteria(smart_collection)
 
     assert criteria.has_saves is True
     assert criteria.has_states is True
@@ -280,7 +287,7 @@ def test_stored_criteria_passes_negative_boolean_filters(
         filter_criteria={"matched": False},
     )
 
-    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+    criteria = _criteria(smart_collection)
 
     assert criteria.matched is False
 
@@ -296,7 +303,7 @@ def test_stored_criteria_passes_player_counts(admin_user: User):
         },
     )
 
-    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+    criteria = _criteria(smart_collection)
 
     assert criteria.player_counts == ["2", "4"]
     assert criteria.player_counts_logic == "any"
@@ -313,7 +320,7 @@ def test_stored_criteria_passes_tags(admin_user: User):
         },
     )
 
-    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+    criteria = _criteria(smart_collection)
 
     assert criteria.tags == ["Proto", "Beta"]
     assert criteria.tags_logic == "any"
@@ -331,7 +338,7 @@ def test_stored_criteria_drops_nested_smart_collection_id(
         filter_criteria={"smart_collection_id": 42, "matched": True},
     )
 
-    criteria = RomFilterParams.from_stored_criteria(smart_collection.filter_criteria)
+    criteria = _criteria(smart_collection)
 
     assert criteria.smart_collection_id is None
     assert criteria.matched is True
