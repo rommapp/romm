@@ -211,10 +211,15 @@ jobs:
           docker buildx imagetools create "${tags[@]}" "${sources[@]}"
 
   # The only writer of the final comment, and it needs `prepare`, so the opening
-  # "under way" message can never land on top of the result.
+  # "under way" message can never land on top of the result. The label gate is
+  # the same one the build jobs carry: any label starts a run, and without it
+  # this job would read their `skipped` as a failure.
   report:
     needs: [prepare, build, merge]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    if: |
+      !cancelled() &&
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'build-preview')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
