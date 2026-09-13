@@ -83,8 +83,17 @@ async function onPagesRendered(pdfApp: PdfApp) {
     setPage(pageNumber, pdfApp.pagesCount);
   });
 
+  // The viewer is already interactive while the saved position is in flight,
+  // so a page the user turned to in the meantime wins over the restore.
+  const pageBeforeRestore = pdfApp.page;
   const { lastPage } = await restore();
-  if (lastPage && lastPage > 1 && lastPage <= pdfApp.pagesCount) {
+  const userNavigated = pdfApp.page !== pageBeforeRestore;
+  if (
+    !userNavigated &&
+    lastPage &&
+    lastPage > 1 &&
+    lastPage <= pdfApp.pagesCount
+  ) {
     suppressWhileRestoring();
     pdfApp.page = lastPage;
   } else {
