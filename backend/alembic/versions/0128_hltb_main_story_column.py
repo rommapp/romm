@@ -18,7 +18,7 @@ Create Date: 2026-09-08 00:00:00.000000
 
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import is_postgresql
+from utils.database import has_column, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0128_hltb_main_story_column"
@@ -47,11 +47,17 @@ _POSTGRES_EXPR = (
 
 
 def upgrade() -> None:
-    expr = _POSTGRES_EXPR if is_postgresql(op.get_bind()) else _MARIA_EXPR
-    op.execute(  # nosec B608
-        f"ALTER TABLE roms ADD COLUMN {COLUMN_NAME} BIGINT "
-        f"GENERATED ALWAYS AS ({expr}) STORED"
-    )
+    connection = op.get_bind()
+
+    # MySQL/MariaDB auto-commit each DDL statement, so a run that dies on the
+    # index keeps the column without advancing the alembic version.
+    if not has_column(connection, "roms", COLUMN_NAME):
+        expr = _POSTGRES_EXPR if is_postgresql(connection) else _MARIA_EXPR
+        op.execute(  # nosec B608
+            f"ALTER TABLE roms ADD COLUMN {COLUMN_NAME} BIGINT "
+            f"GENERATED ALWAYS AS ({expr}) STORED"
+        )
+
     op.create_index(INDEX_NAME, "roms", [COLUMN_NAME], if_not_exists=True)
 
 
