@@ -573,10 +573,8 @@ def get_roms(
     # user/order/grouping but not the filters, so anything that narrows `query`
     # has to gate caching or a narrowed list leaks under the shared "all" key.
     #
-    # The filter-value list is gated on the scope alone, because it is computed
-    # with only the scope applied (see below) and so matches the unfiltered
-    # result. Locking it out over a filter it never applies made every
-    # Missing-tab visit recompute the whole library.
+    # The filter-value list is gated on the scope alone: it is computed with
+    # only the scope applied, so a filter it never applies cannot stale it.
     is_unscoped_scope = not filters.has_scope()
     is_unscoped = (
         is_unscoped_scope

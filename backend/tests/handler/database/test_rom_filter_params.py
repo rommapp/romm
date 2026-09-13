@@ -125,9 +125,8 @@ class TestFromStoredCriteria:
         assert criteria.smart_collection_id is None
         assert criteria.matched is True
 
-    # `filter_criteria` is stored as free-form JSON, so any of these can sit in
-    # a real row. Every caller reads them in a loop over all smart collections,
-    # so one raising would stop every later collection from refreshing.
+    # `filter_criteria` is free-form JSON, so any of these can sit in a real
+    # row, and one raising would stop every later collection from refreshing.
     @pytest.mark.parametrize(
         "unusable",
         [
@@ -139,7 +138,9 @@ class TestFromStoredCriteria:
             {"statuses": {"not": "a list"}},
         ],
     )
-    def test_an_unusable_value_is_dropped_rather_than_raised(self, unusable: dict):
+    def test_an_unusable_value_is_dropped_rather_than_raised(
+        self, unusable: dict[str, Any]
+    ):
         criteria = RomFilterParams.from_stored_criteria({"genres": ["RPG"], **unusable})
 
         assert criteria.genres == ["RPG"]

@@ -1470,9 +1470,8 @@ class DBRomsHandler(DBBaseHandler):
                 Rom.generated_hltb_main_story <= filters.hltb_main_story_max
             )
 
-        # Every filter below matches against the facets mirror, so one join
-        # serves all of them. The dedup subquery is derived from `query`, so it
-        # has to land before the filters or that subquery inherits them without
+        # One join serves every filter below. It has to land before them: the
+        # dedup subquery is derived from `query` and would inherit them without
         # it.
         if any(filters.selected(spec.name)[0] for spec in ROM_FILTER_SPECS):
             query = query.outerjoin(RomFacets, RomFacets.rom_id == Rom.id)

@@ -60,10 +60,8 @@ ROM_FILTER_SPECS: tuple[RomFilterSpec, ...] = (
     RomFilterSpec("tags", FilterKind.JSON_ARRAY, RomFacets.tags),
 )
 
-# `statuses` is absent above on purpose: it matches against RomUser, is applied
-# after the grouping window rather than with the rest, and carries the default
-# "hide hidden roms" behaviour, so `filter_roms` owns it directly. It is still
-# one of the filters a client selects values for.
+# `statuses` is absent above on purpose: it matches against RomUser, after the
+# grouping window, carrying the default "hide hidden roms" behaviour.
 
 
 # Filters whose criteria were stored as a single value before they accepted
@@ -101,12 +99,9 @@ _UNFILTERED_FIELDS: frozenset[str] = frozenset(
 
 
 class RomFilterParams(BaseModel):
-    """The filter vocabulary a client can send, shared by every surface.
-
-    Used directly as the query-parameter model of the ROM list endpoint, and
-    rebuilt from a smart collection's stored criteria, so both narrow the
-    library through one set of names rather than two that can drift.
-    """
+    """The filter vocabulary a client can send, shared by every surface: the
+    ROM list endpoint takes it as its query-parameter model and a smart
+    collection's stored criteria rebuild it, so the two cannot drift."""
 
     search_term: Annotated[
         str | None,
@@ -362,8 +357,7 @@ class RomFilterParams(BaseModel):
         """Build from a smart collection's stored `filter_criteria`.
 
         `smart_collection_id` is dropped: the create dialog records the route it
-        was opened from, so a smart collection built while viewing another one
-        carries that id, and following it would nest (and could cycle).
+        was opened from, so following it would nest (and could cycle).
         """
         values: dict[str, Any] = dict(criteria)
         values.pop("smart_collection_id", None)
@@ -384,15 +378,9 @@ class RomFilterParams(BaseModel):
 
     @classmethod
     def _validate_tolerantly(cls, values: dict[str, Any]) -> "RomFilterParams":
-        """Validate, dropping the entries that fail rather than raising.
-
-        `filter_criteria` is stored as free-form JSON, so a row can hold a value
-        no field accepts: an out-of-range bound, a null where the model wants a
-        string, a shape an older client wrote. Every caller reads these rows in
-        a loop over all smart collections, so raising on one would stop the rest
-        from refreshing at all. A filter that cannot be honoured is dropped,
-        which is what the criteria reader did before it validated anything.
-        """
+        """Validate, dropping entries that fail rather than raising: callers
+        read these rows in a loop over every smart collection, so one unusable
+        value must not stop the rest."""
         while True:
             try:
                 return cls.model_validate(values)
@@ -414,10 +402,8 @@ class RomFilterParams(BaseModel):
     def has_filters(self) -> bool:
         """Whether anything narrows the results within that slice.
 
-        Read off the model's own fields rather than a hand-kept list, so a
-        filter added later counts here without anyone remembering to. Callers
-        gate a shared cache on this, so a filter missing from it would serve one
-        user's narrowed library to everyone.
+        Read off the model's own fields, since a filter missing from a
+        hand-kept list would serve one user's narrowed library to everyone.
         """
         return any(
             (value := getattr(self, field)) is not None and value != []

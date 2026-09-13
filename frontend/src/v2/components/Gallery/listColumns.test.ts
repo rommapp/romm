@@ -7,10 +7,8 @@ import {
 
 describe("list column sort keys", () => {
   it("recognises every sortable column as a sort key", () => {
-    // The header only paints the active-sort styling and the direction
-    // arrow when the gallery's order key comes back from `isListSortKey`,
-    // and only toggles to descending on a key it recognises. A sortable
-    // column missing here is silently stuck ascending and unhighlighted.
+    // A sortable column missing here is silently stuck ascending and
+    // unhighlighted: the header reads both off `isListSortKey`.
     for (const column of getListColumns(true).filter(isSortableColumn)) {
       expect(isListSortKey(column.key)).toBe(true);
     }

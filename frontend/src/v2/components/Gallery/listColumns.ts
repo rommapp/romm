@@ -189,10 +189,8 @@ export function isSortableColumn(
   return column.sortable;
 }
 
-// The sort keys list mode can toggle, read off the columns themselves. A
-// hand-kept copy of this drifted: `platform_id` was a sortable column but
-// missing from the copy, so its header never showed as the active sort and
-// could not be toggled to descending.
+// The sort keys list mode can toggle, read off the columns themselves so a
+// sortable column cannot go missing from them.
 const LIST_SORT_KEYS: ReadonlySet<string> = new Set<string>(
   LIST_COLUMNS.filter(isSortableColumn).map((column) => column.key),
 );

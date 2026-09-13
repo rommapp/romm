@@ -93,12 +93,8 @@ class TestGroupedMetadataFilterJoin:
 class TestFacetJoinShape:
     @pytest.mark.parametrize("spec", ROM_FILTER_SPECS, ids=lambda s: s.name)
     def test_every_registered_filter_joins_the_mirror_once(self, spec: RomFilterSpec):
-        """`RomFilterSpec.column` being None means many columns, not none.
-
-        `metadata_providers` carries no single column because each selected
-        provider matches its own id column, but those columns are on the mirror
-        too, so skipping its join cross-joins `roms_facets` into the query.
-        """
+        """`RomFilterSpec.column` being None means many columns, not none:
+        `metadata_providers` matches id columns on the mirror too."""
         query, _ = db_rom_handler.get_roms_query()
         filtered = db_rom_handler.filter_roms(
             query=query, filters=RomFilterParams(**{spec.name: ["any-value"]})

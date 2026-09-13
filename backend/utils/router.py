@@ -57,10 +57,8 @@ def as_query_dependency[ModelT: BaseModel](
 
     parameters: list[inspect.Parameter] = []
     for name, field in model.model_fields.items():
-        # A signature default is built once, at decoration time, and a
-        # parameter is named for the field rather than its alias. Neither
-        # shape can be expressed faithfully here, so refuse it at startup
-        # instead of serving a wrong route or one shared mutable default.
+        # A signature default is built once, and a parameter is named for the
+        # field rather than its alias, so neither shape can be served here.
         if field.default_factory is not None:
             raise TypeError(f"{model.__name__}.{name} has a default_factory")
         if field.alias is not None:
