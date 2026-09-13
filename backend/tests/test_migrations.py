@@ -290,6 +290,58 @@ def test_the_full_path_hash_backfill_resumes_over_the_rows_it_already_wrote(rom:
     assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
 
 
+def test_the_full_path_hash_backfill_commits_each_chunk(
+    rom: Rom, monkeypatch: pytest.MonkeyPatch
+):
+    """A chunk the backfill wrote outlives the migration's own transaction.
+
+    This is what lets a stopped container resume instead of starting over, and
+    it only holds on the autocommit branch, so the migration runs here through
+    the transaction shape alembic builds around it in `env.py` rather than
+    inside a transaction the caller owns.
+    """
+    migration = _load_migration("0126_unique_rom_full_path.py")
+    monkeypatch.setattr(migration, "BACKFILL_CHUNK_SIZE", 1)
+
+    # Commit the pre-backfill shape first, so the backfill is the only thing
+    # left for the assertion below to catch uncommitted.
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            connection.execute(
+                sa.text(
+                    f"ALTER TABLE roms ADD COLUMN {migration.COLUMN_NAME} "  # nosec B608
+                    f"VARCHAR({FULL_PATH_HASH_LENGTH}) NOT NULL DEFAULT ''"
+                )
+            )
+
+    with sync_engine.connect() as connection:
+        context = MigrationContext.configure(connection)
+        # Both nest in env.py: whichever one is real for this dialect is the
+        # transaction the autocommit block hands back.
+        with context.begin_transaction():
+            with context.begin_transaction(_per_migration=True):
+                with Operations.context(context):
+                    migration._backfill()
+
+                # A second connection reaches the digest only once the chunk
+                # holding it has committed on its own.
+                with sync_engine.connect() as observer:
+                    digest = observer.execute(
+                        sa.text(
+                            f"SELECT {migration.COLUMN_NAME} "  # nosec B608
+                            "FROM roms WHERE id = :rom_id"
+                        ),
+                        {"rom_id": rom.id},
+                    ).scalar_one()
+
+    assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+
 def test_the_hltb_migration_resumes_an_interrupted_run():
     """0128 keeps the generated column it already added and builds its index."""
     migration = _load_migration("0128_hltb_main_story_column.py")
