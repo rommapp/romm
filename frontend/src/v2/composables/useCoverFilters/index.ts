@@ -1,4 +1,4 @@
-// useCoverFilters — client-side filtering + sorting over the cover grid
+// useCoverFilters: client-side filtering + sorting over the cover grid
 // (SteamGridDB and Steam) and the per-provider cover row shown in
 // SearchCoverDialog.
 //

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// SearchCoverDialog — global cover-search dialog. Listens for the
+// SearchCoverDialog: global cover-search dialog. Listens for the
 // `showSearchCoverDialog` emitter event (term + optional platformId
 // + optional source rom), queries `sgdbApi.searchCover` for the
-// SteamGridDB and Steam grids, and — when a `rom` is provided — also
+// SteamGridDB and Steam grids, and, when a `rom` is provided, also
 // calls `romApi.searchRom` to surface the cover URLs that IGDB,
 // MobyGames, Screenscraper, Flashpoint, Launchbox and Libretro have
 // for this game. Picking any cover fires `updateUrlCover` with the
@@ -15,7 +15,7 @@
 // endpoint returns the per-provider URLs in one call, so a parallel
 // fetch keeps the surface to a single dialog.
 //
-// Collection-cover edits don't pass a `rom` — they hit the cover grids
+// Collection-cover edits don't pass a `rom`, so they hit the cover grids
 // only (collections don't have provider IDs in the same way).
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
@@ -87,9 +87,6 @@ const gridProviders = computed<
     enabled: !!heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED,
   },
 ]);
-const gridProviderNames = computed(() =>
-  gridProviders.value.map((provider) => provider.name),
-);
 function gridProviderLogo(key: CoverProvider): string {
   const provider = gridProviders.value.find((p) => p.key === key);
   return provider ? sourceLogo(provider.name) : "";
@@ -201,7 +198,7 @@ async function doSearch() {
   const term = searchText.value.trim();
   const source = sourceRom.value;
   try {
-    // Fire the grid search + (optional) provider lookup in parallel —
+    // Fire the grid search + (optional) provider lookup in parallel:
     // neither depends on the other and they both populate independent
     // sections of the same dialog. `allSettled` so a provider-side
     // failure doesn't take down the grid and vice versa.
@@ -251,14 +248,20 @@ async function doSearch() {
             scoreAgainstSourceRom(b, source) - scoreAgainstSourceRom(a, source),
         )
         .at(0);
-      // Drop the grid providers from the providers row — the dialog
-      // already surfaces their full result sets below, listing them
-      // twice (once as a single tile, once as the full set) is just
-      // noise.
+      // Drop a grid provider from the providers row only when its full
+      // result set is in the grid below; listing it twice is noise, but
+      // a grid that came back empty (a timed-out CDN probe, no artwork
+      // on the store page) must not hide the one cover the match found.
+      const inGrid = new Set(
+        covers.value
+          .filter((game) => game.resources.length > 0)
+          .map((game) => game.provider),
+      );
+      const shownInGrid = gridProviders.value
+        .filter((provider) => inGrid.has(provider.key))
+        .map((provider) => provider.name);
       providerCovers.value = best
-        ? getMatchSources(best).filter(
-            (s) => !gridProviderNames.value.includes(s.name),
-          )
+        ? getMatchSources(best).filter((s) => !shownInGrid.includes(s.name))
         : [];
     }
   } finally {

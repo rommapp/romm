@@ -75,6 +75,12 @@ const emit = defineEmits<{
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
     transform var(--r-motion-fast) var(--r-motion-ease-out);
 }
+/* Touch and gamepad need the full hit target; mouse keeps the compact chip. */
+html[data-input="touch"] .provider-filter,
+html[data-input="pad"] .provider-filter {
+  width: var(--r-touch-target);
+  height: var(--r-touch-target);
+}
 .provider-filter:hover:not(:disabled) {
   opacity: 0.85;
   transform: translateY(-1px);
