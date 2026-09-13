@@ -13,6 +13,7 @@ import sqlalchemy as sa
 from handler.database.base_handler import sync_engine
 from utils.database import (
     BINLOG_TRIGGER_DDL_ERRNO,
+    alembic_runs_revisions,
     is_binlog_trigger_privilege_error,
     is_mariadb,
     is_mysql,
@@ -24,7 +25,9 @@ class _DriverError(Exception):
     """A driver exception carrying the server error code, as both drivers do."""
 
     def __init__(self, errno: int):
-        super().__init__(errno, "denied")
+        # `args` carries only the message, as mariadbconnector does, so the
+        # attribute is the only thing the assertions can be reading.
+        super().__init__("denied")
         self.errno = errno
 
 
@@ -73,3 +76,22 @@ def test_a_denied_probe_leaves_the_connection_usable():
             assert trigger_ddl_is_blocked(conn)
 
         assert conn.scalar(sa.text("SELECT 1")) == 1
+
+
+@pytest.mark.parametrize("command", ["current", "check", "stamp", "revision"])
+def test_a_command_that_emits_no_ddl_skips_the_probe(command: str):
+    """Blocking `stamp` would take away the operator's own way out."""
+    assert not alembic_runs_revisions(command, pending=True)
+
+
+def test_an_upgrade_with_nothing_left_to_apply_skips_the_probe():
+    assert not alembic_runs_revisions("upgrade", pending=False)
+
+
+def test_an_upgrade_with_pending_revisions_probes():
+    assert alembic_runs_revisions("upgrade", pending=True)
+
+
+def test_a_downgrade_probes_even_at_head():
+    """`pending` is False at head, yet a downgrade still runs DROP TRIGGER."""
+    assert alembic_runs_revisions("downgrade", pending=False)

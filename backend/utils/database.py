@@ -76,12 +76,22 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
     return is_db_version_compatible(conn, min_version=min_version)
 
 
-# MySQL and MariaDB refuse every trigger statement, `DROP TRIGGER IF EXISTS`
-# included, while binary logging is on and the connected user holds neither
-# SUPER nor BINLOG ADMIN and `log_bin_trust_function_creators` is off.
+# MariaDB and MySQL refuse every trigger statement, `DROP TRIGGER IF EXISTS`
+# included, while binary logging is on, the user lacks SUPER and
+# `log_bin_trust_function_creators` is off.
 BINLOG_TRIGGER_DDL_ERRNO = 1419
 
-_TRIGGER_DDL_PROBE = "romm_trigger_ddl_probe"
+
+# The alembic commands that execute revisions; `current`, `check`, `stamp` and
+# `revision` load the same env without ever emitting DDL.
+_REVISION_COMMANDS = frozenset({"upgrade", "downgrade"})
+
+
+def alembic_runs_revisions(command: str, *, pending: bool) -> bool:
+    """Whether this alembic command will execute revisions, trigger DDL included."""
+    if command not in _REVISION_COMMANDS:
+        return False
+    return pending or command == "downgrade"
 
 
 def is_binlog_trigger_privilege_error(exc: BaseException) -> bool:
@@ -98,15 +108,15 @@ def trigger_ddl_is_blocked(conn: sa.Connection) -> bool:
     """Whether the server refuses the trigger DDL the migrations need.
 
     Dropping a trigger that cannot exist is the cheapest statement that still
-    goes through the server's binary-logging privilege check, and it answers for
-    roles and proxied users that reading grants would miss.
+    goes through the privilege check, and it answers for roles and proxied users
+    that reading grants would miss. Rolls `conn` back when the server refuses.
     """
     if not (is_mysql(conn) or is_mariadb(conn)):
         return False
 
     try:
-        conn.exec_driver_sql(f"DROP TRIGGER IF EXISTS {_TRIGGER_DDL_PROBE}")
-    except sa.exc.DatabaseError as exc:
+        conn.exec_driver_sql("DROP TRIGGER IF EXISTS romm_trigger_ddl_probe")
+    except sa.exc.DBAPIError as exc:
         conn.rollback()
         return is_binlog_trigger_privilege_error(exc)
 

@@ -2,10 +2,9 @@ import sys
 from pathlib import Path
 
 from alembic import context
-from alembic.script import ScriptDirectory
 from alembic.util import CommandError
 from sqlalchemy import create_engine
-from sqlalchemy.exc import DatabaseError
+from sqlalchemy.exc import DBAPIError
 
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
@@ -15,6 +14,7 @@ from models.collection import VirtualCollection
 from models.rom import RomMetadata, SiblingRom
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
+    alembic_runs_revisions,
     is_binlog_trigger_privilege_error,
     trigger_ddl_is_blocked,
 )
@@ -42,18 +42,23 @@ target_metadata = BaseModel.metadata
 # in sync with triggers, which error 1419 denies outright (issue #3932).
 TRIGGER_DDL_DENIED = (
     "The database user is not allowed to create triggers, which RomM's migrations "
-    "need: MySQL and MariaDB deny trigger statements while binary logging is on "
-    "and the user holds neither SUPER nor BINLOG ADMIN (error 1419). Ask an admin "
-    "database user to set 'log_bin_trust_function_creators = 1' under [mysqld] in "
-    "my.cnf, or to run GRANT BINLOG ADMIN ON *.* TO '<romm database user>'@'%', "
-    "then start RomM again. See https://docs.romm.app/latest/install/databases/"
+    "need: MariaDB and MySQL deny trigger statements while binary logging is on and "
+    "the user does not hold SUPER (error 1419). Ask an admin database user to run "
+    "SET GLOBAL log_bin_trust_function_creators = 1, adding it under [mysqld] in "
+    "my.cnf so it survives a restart, or to run "
+    "GRANT SUPER ON *.* TO '<romm database user>'@'%', then start RomM again. "
+    "See https://docs.romm.app/latest/install/databases/"
 )
 
 
-def has_pending_migrations() -> bool:
-    """Whether any revision is still unapplied, so trigger DDL may yet run."""
-    heads = ScriptDirectory.from_config(config).get_heads()
-    return set(context.get_context().get_current_heads()) != set(heads)
+def will_run_revisions() -> bool:
+    """Whether this run reaches revision code, so trigger DDL may yet run."""
+    migration_context = context.get_context()
+    pending = set(migration_context.get_current_heads()) != set(
+        context.script.get_heads()
+    )
+    command = getattr(migration_context.opts.get("fn"), "__name__", "upgrade")
+    return alembic_runs_revisions(command, pending=pending)
 
 
 # Ignore specific models when running migrations
@@ -124,13 +129,13 @@ def run_migrations_online() -> None:
             include_object=include_object,
         )
 
-        if has_pending_migrations() and trigger_ddl_is_blocked(connection):
+        if will_run_revisions() and trigger_ddl_is_blocked(connection):
             raise CommandError(TRIGGER_DDL_DENIED)
 
         with context.begin_transaction():
             try:
                 context.run_migrations()
-            except DatabaseError as exc:
+            except DBAPIError as exc:
                 if is_binlog_trigger_privilege_error(exc):
                     raise CommandError(TRIGGER_DDL_DENIED) from exc
                 raise
