@@ -76,6 +76,47 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
     return is_db_version_compatible(conn, min_version=min_version)
 
 
+# Error 1419, which MariaDB and MySQL raise for every trigger statement while
+# binary logging is on and the user lacks SUPER (issue #3932).
+BINLOG_TRIGGER_DDL_ERRNO = 1419
+
+
+def alembic_command_runs_revisions(command: str, *, pending: bool) -> bool:
+    """Whether this alembic command reaches revision code, trigger DDL included.
+
+    `command` is the `fn` name alembic hands its environment, not the CLI word.
+    """
+    return command == "downgrade" or (command == "upgrade" and pending)
+
+
+def is_binlog_trigger_privilege_error(exc: BaseException) -> bool:
+    """Whether `exc` is the server refusing trigger DDL under binary logging."""
+    orig = getattr(exc, "orig", exc)
+    errno = getattr(orig, "errno", None)
+    if errno is None:
+        args = getattr(orig, "args", ())
+        errno = args[0] if args else None
+    return errno == BINLOG_TRIGGER_DDL_ERRNO
+
+
+def trigger_ddl_is_blocked(conn: sa.Connection) -> bool:
+    """Whether the server refuses the trigger DDL the migrations need.
+
+    Dropping a trigger that cannot exist is the cheapest statement that still
+    goes through the privilege check. Rolls `conn` back on a refusal.
+    """
+    if not (is_mysql(conn) or is_mariadb(conn)):
+        return False
+
+    try:
+        conn.exec_driver_sql("DROP TRIGGER IF EXISTS romm_trigger_ddl_probe")
+    except sa.exc.DBAPIError as exc:
+        conn.rollback()
+        return is_binlog_trigger_privilege_error(exc)
+
+    return False
+
+
 def column_names(conn: sa.Connection, table: str) -> set[str]:
     """The columns `table` currently carries, for guards over a set of them.
 
