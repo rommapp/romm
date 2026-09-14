@@ -14,12 +14,12 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from anyio import Path as AnyioPath
+
 from config import (
     ROM_PATCHER_MAX_CONCURRENCY,
     ROM_PATCHER_MAX_FILE_SIZE_BYTES,
     ROM_PATCHER_TIMEOUT,
 )
-
 from utils.archives import (
     FILE_READ_CHUNK_SIZE,
     ArchiveReadError,
@@ -48,21 +48,14 @@ SUPPORTED_PATCH_EXTENSIONS = frozenset(
 # Bound concurrent operations because each Node subprocess loads a full ROM.
 _patch_semaphore = asyncio.Semaphore(ROM_PATCHER_MAX_CONCURRENCY)
 
-_WRITABLE_ZIP_COMPRESSION_TYPES = {
-    zipfile.ZIP_STORED,
-    zipfile.ZIP_DEFLATED,
-    zipfile.ZIP_BZIP2,
-    zipfile.ZIP_LZMA,
-    zipfile.ZIP_ZSTANDARD,
-}
-
-_ZIP_INPUT_ERRORS = (
-    EOFError,
-    OSError,
-    RuntimeError,
-    NotImplementedError,
-    zipfile.BadZipFile,
-    zlib.error,
+_WRITABLE_ZIP_COMPRESSION_TYPES = frozenset(
+    (
+        zipfile.ZIP_STORED,
+        zipfile.ZIP_DEFLATED,
+        zipfile.ZIP_BZIP2,
+        zipfile.ZIP_LZMA,
+        zipfile.ZIP_ZSTANDARD,
+    )
 )
 
 
@@ -113,7 +106,9 @@ def _extract_zip_member(
             selected_name = selected.filename
     except PatcherInputError:
         raise
-    except _ZIP_INPUT_ERRORS as e:
+    # Looked up at raise time: several test modules reload zipfile, which
+    # rebinds BadZipFile and would let it escape a module-level tuple.
+    except (EOFError, OSError, RuntimeError, zipfile.BadZipFile, zlib.error) as e:
         raise PatcherInputError("The ROM archive could not be read") from e
 
     try:
@@ -147,7 +142,7 @@ def _read_zip_entry(
         with archive.open(entry, "r") as source:
             while chunk := source.read(FILE_READ_CHUNK_SIZE):
                 yield chunk
-    except _ZIP_INPUT_ERRORS as e:
+    except (EOFError, OSError, RuntimeError, zipfile.BadZipFile, zlib.error) as e:
         raise PatcherInputError("The ROM archive could not be read") from e
 
 
@@ -155,11 +150,12 @@ def _rebuild_zip(
     archive_path: Path,
     output_path: Path,
     patched_path: Path,
+    patched_size: int,
     patched_member_name: str,
 ) -> None:
     try:
         source_archive = zipfile.ZipFile(archive_path, "r")
-    except _ZIP_INPUT_ERRORS as e:
+    except (EOFError, OSError, RuntimeError, zipfile.BadZipFile, zlib.error) as e:
         raise PatcherInputError("The ROM archive could not be read") from e
 
     ensure_zipfile_writable()
@@ -178,10 +174,14 @@ def _rebuild_zip(
                     output_archive.writestr(output_entry, b"")
                     continue
 
-                with output_archive.open(
-                    output_entry, "w", force_zip64=True
-                ) as output_file:
-                    if source_entry.filename == patched_member_name:
+                is_patched = source_entry.filename == patched_member_name
+                # Declaring the final size up front lets zipfile pick ZIP64 only
+                # where it is needed, keeping small entries widely readable.
+                output_entry.file_size = (
+                    patched_size if is_patched else source_entry.file_size
+                )
+                with output_archive.open(output_entry, "w") as output_file:
+                    if is_patched:
                         with patched_path.open("rb") as patched_file:
                             shutil.copyfileobj(patched_file, output_file)
                     else:
@@ -227,7 +227,7 @@ async def _apply_binary_patch(
         try:
             err_data = json.loads(stderr.decode())
             message = err_data.get("error", message)
-        except json.JSONDecodeError, UnicodeDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             if stderr:
                 message = stderr.decode(errors="replace").strip()
         raise PatcherError(message)
@@ -239,7 +239,7 @@ async def _apply_binary_patch(
     try:
         result = json.loads(stdout.decode())
         return bool(result.get("validated", True))
-    except json.JSONDecodeError, UnicodeDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return True
 
 
@@ -249,7 +249,12 @@ async def apply_patch(
     output_path: Path,
     archive_member_name: str | None = None,
 ) -> bool:
-    """Apply a patch to a raw ROM or to one member of a ZIP archive."""
+    """Apply a patch to a raw ROM or to one member of a ZIP archive.
+
+    Returns whether the patch's embedded source checksum matched the ROM (always
+    ``True`` for formats that carry no source checksum); the patch is applied
+    either way.
+    """
     async with _patch_semaphore:
         extension = rom_path.suffix.lower()
         if extension != ".zip":
@@ -267,6 +272,9 @@ async def apply_patch(
         )
         patched_path = output_path.parent / "patched_rom"
         validated = await _apply_binary_patch(extracted_path, patch_path, patched_path)
+        # The intermediates are each as large as the ROM; only the rebuilt
+        # archive is streamed back, so don't keep three copies on disk.
+        await AnyioPath(extracted_path).unlink(missing_ok=True)
         patched_size = (await AnyioPath(patched_path).stat()).st_size
         if patched_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
             raise PatcherInputError(
@@ -274,6 +282,12 @@ async def apply_patch(
                 f"({patched_size} bytes, max {ROM_PATCHER_MAX_FILE_SIZE_BYTES})"
             )
         await asyncio.to_thread(
-            _rebuild_zip, rom_path, output_path, patched_path, member_name
+            _rebuild_zip,
+            rom_path,
+            output_path,
+            patched_path,
+            patched_size,
+            member_name,
         )
+        await AnyioPath(patched_path).unlink(missing_ok=True)
         return validated

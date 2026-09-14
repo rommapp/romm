@@ -4,6 +4,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from anyio import Path as AnyioPath
+
 from utils.rom_patcher import (
     SUPPORTED_PATCH_EXTENSIONS,
     PatcherInputError,
@@ -32,8 +34,8 @@ def _fake_patcher(
     validated: bool = True,
 ) -> Callable[[Path, Path, Path], Awaitable[bool]]:
     async def patch(rom_path: Path, _patch_path: Path, output_path: Path) -> bool:
-        assert rom_path.read_bytes() == expected_source
-        output_path.write_bytes(patched_content)
+        assert await AnyioPath(rom_path).read_bytes() == expected_source
+        await AnyioPath(output_path).write_bytes(patched_content)
         return validated
 
     return patch
@@ -89,10 +91,14 @@ async def test_apply_patch_rebuilds_single_member_snes_zip(
         assert archive.comment == b"archive comment"
         assert archive.namelist() == ["Super Metroid.sfc"]
         assert archive.read("Super Metroid.sfc") == b"patched"
-        assert (
-            archive.getinfo("Super Metroid.sfc").compress_type == zipfile.ZIP_DEFLATED
-        )
+        member = archive.getinfo("Super Metroid.sfc")
+        assert member.compress_type == zipfile.ZIP_DEFLATED
+        # A small member must stay readable by minimal unzip implementations.
+        assert member.extract_version < zipfile.ZIP64_VERSION
         assert archive.testzip() is None
+    # The full-size intermediates are dropped once the archive is rebuilt.
+    assert not (tmp_path / "source_rom").exists()
+    assert not (tmp_path / "patched_rom").exists()
 
 
 @pytest.mark.asyncio
