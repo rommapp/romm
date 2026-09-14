@@ -224,7 +224,6 @@ export type { SlotSummarySchema } from './models/SlotSummarySchema';
 export type { SmartCollectionSchema } from './models/SmartCollectionSchema';
 export type { SoundtrackTrackMetaSchema } from './models/SoundtrackTrackMetaSchema';
 export type { SSAgeRating } from './models/SSAgeRating';
-export type { StateFrameResponse } from './models/StateFrameResponse';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
 export type { SteamPlatforms } from './models/SteamPlatforms';

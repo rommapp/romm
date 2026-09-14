@@ -15,7 +15,6 @@ Broker file API (secret-protected, stdlib on the broker side):
 """
 
 import asyncio
-import base64
 import io
 import os
 import re
@@ -34,7 +33,6 @@ from handler.database import (
     db_user_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.redis_handler import async_cache
 from handler.streaming import broker, commands
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import set_session_disc
@@ -189,9 +187,8 @@ def push_state_file(
 
 
 # PCSX2 embeds a PNG of the moment of save inside every .p2s savestate zip
-# under this entry name (pcsx2/SaveState.cpp: EntryFilename_Screenshot).
-# Extracting it gives each pulled state a thumbnail with no broker round-trip,
-# mirroring how in-browser EmulatorJS states carry a screenshot.
+# under this entry name (pcsx2/SaveState.cpp: EntryFilename_Screenshot), which
+# is the fallback for a container that captured no frame of its own.
 _SCREENSHOT_ZIP_ENTRY = "Screenshot.png"
 SCREENSHOT_MAX_BYTES = 16 * 1024 * 1024
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -217,46 +214,10 @@ def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | Non
     return data
 
 
-_FRAME_KEY_PREFIX = "romm:streaming:frame:"
-# Long enough to cover the broker's state write plus the pull retries, short
-# enough that a frame never outlives the save it was captured for.
-_FRAME_TTL_SECONDS = 120
-
-
-def _frame_redis_key(user_id: int, rom_id: int) -> str:
-    return f"{_FRAME_KEY_PREFIX}{user_id}:{rom_id}"
-
-
-async def stash_state_frame(user_id: int, rom_id: int, image: bytes) -> None:
-    """Hold a browser-captured frame until the state it belongs to is pulled."""
-    await async_cache.set(
-        _frame_redis_key(user_id, rom_id),
-        base64.b64encode(image),
-        ex=_FRAME_TTL_SECONDS,
-    )
-
-
-async def take_state_frame(user_id: int, rom_id: int) -> bytes | None:
-    key = _frame_redis_key(user_id, rom_id)
-    raw = await async_cache.get(key)
-    await async_cache.delete(key)
-    if not raw:
-        return None
-    try:
-        return base64.b64decode(raw)
-    except (ValueError, TypeError):
-        return None
-
-
-# Emulators whose broker writes the thumbnail as the state is saved, rather
-# than reading the framebuffer back on demand, which deadlocks GPU cores.
-_BROKER_FRAME_EMULATORS = frozenset({"retroarch"})
-
-
 def fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | None:
-    """GET /state-screenshot from the broker, for emulators whose state files
-    carry no frame of their own. A 404 is the normal "this broker does not
-    capture frames" answer, so it is not logged."""
+    """GET /state-screenshot from the broker: the container's own capture of the
+    stream, taken as the state was saved. A 404 means this state has no frame,
+    so it is not logged."""
     result = broker.get_binary_safe(
         container,
         container.protocol.transfer_route(f"/state-screenshot?slot={slot}"),
@@ -439,18 +400,11 @@ async def pull_state_to_library(
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False
-        # An embedded frame arrived with the state, so it wins. The stash is
-        # drained either way: a leftover frame becomes a later save's thumbnail.
-        screenshot = extract_state_screenshot(emulator, content)
-        browser_frame = await take_state_frame(user_id, rom_id)
-        if screenshot is None and (
-            browser_frame is None or emulator in _BROKER_FRAME_EMULATORS
-        ):
-            screenshot = await asyncio.to_thread(
-                fetch_state_screenshot, container, slot
-            )
+        # The container's capture is the frame the player saw, and it is the
+        # same route for every emulator; an embedded frame only fills a 404.
+        screenshot = await asyncio.to_thread(fetch_state_screenshot, container, slot)
         if screenshot is None:
-            screenshot = browser_frame
+            screenshot = extract_state_screenshot(emulator, content)
         try:
             await store_state_asset(
                 user, rom, emulator, filename, content, screenshot, disc_file_id

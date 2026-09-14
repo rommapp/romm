@@ -900,19 +900,6 @@ async function handleStop(): Promise<void> {
   backToRom();
 }
 
-// The thumbnail for the state about to be written. Best effort: without it the
-// state falls back to whatever frame the emulator can produce for itself, and
-// some cores cannot produce one at all without deadlocking.
-async function pushStreamFrame(): Promise<void> {
-  if (!rom.value) return;
-  try {
-    const frame = await stage.value?.captureFrame();
-    if (frame) await streamingApi.putStateFrame(rom.value.platform_slug, frame);
-  } catch (err) {
-    console.warn("[streaming] Could not capture stream frame:", err);
-  }
-}
-
 async function performSaveAndExit(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
   // The broker's save+kill runs for seconds with the player still on screen,
@@ -929,7 +916,6 @@ async function performSaveAndExit(): Promise<void> {
   let saved: boolean | undefined;
   let released = false;
   try {
-    await pushStreamFrame();
     const result = await streamingStore.saveAndExit(
       rom.value.platform_slug,
       capabilities.value.autosaveSlot,
@@ -972,7 +958,6 @@ async function handleSaveState(): Promise<void> {
   if (isSavingState.value) return;
   isSavingState.value = true;
   try {
-    await pushStreamFrame();
     await streamingApi.saveState(rom.value.platform_slug, streamSlot.value);
   } catch (err) {
     console.warn("[streaming] Could not save state:", err);

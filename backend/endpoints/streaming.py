@@ -36,7 +36,6 @@ from endpoints.responses.streaming import (
     SaveAndExitResponse,
     SaveStateResponse,
     SessionStatusSchema,
-    StateFrameResponse,
     StreamingConfigSchema,
     SwapDiscResponse,
     VolumeResponse,
@@ -225,26 +224,6 @@ async def _session_status(platform: str, request: Request) -> dict[str, Any]:
         "platform": platform,
         "termination": termination,
     }
-
-
-async def _read_capped_body(request: Request, max_bytes: int) -> bytes | None:
-    """The request body, or None once it goes past `max_bytes`.
-
-    `Request.body()` buffers everything the client sends before any check can
-    look at the size, so the cap is applied as the chunks arrive instead.
-    """
-    declared = request.headers.get("content-length")
-    if declared is not None and declared.isdigit() and int(declared) > max_bytes:
-        return None
-
-    chunks: list[bytes] = []
-    size = 0
-    async for chunk in request.stream():
-        size += len(chunk)
-        if size > max_bytes:
-            return None
-        chunks.append(chunk)
-    return b"".join(chunks)
 
 
 def _joinable_container_label(
@@ -1073,31 +1052,6 @@ async def save_state(
         )
 
     return SaveStateResponse(status="saving", slot=req.slot, platform=platform)
-
-
-@protected_route(
-    router.post, "/sessions/{platform}/state-frame", [Scope.ROMS_USER_WRITE]
-)
-async def put_state_frame(request: Request, platform: str) -> StateFrameResponse:
-    """Stash a frame the browser grabbed off the stream canvas, for the state
-    save that follows it to pick up as its thumbnail."""
-    _, session_key, session = await access.resolve_owned_session(platform, request)
-
-    image = await _read_capped_body(request, states.SCREENSHOT_MAX_BYTES)
-    if image is None:
-        raise HTTPException(status_code=413, detail="Frame too large")
-    if not image.startswith(states.PNG_MAGIC):
-        raise HTTPException(status_code=400, detail="Frame must be a PNG")
-
-    rom_id = session.get("rom_id")
-    if not isinstance(rom_id, int):
-        raise HTTPException(status_code=409, detail="Session has no rom")
-
-    await states.stash_state_frame(
-        access.session_owner_id(session, request), rom_id, image
-    )
-    await refresh_session(session_key)
-    return StateFrameResponse(status="ok", platform=platform)
 
 
 @protected_route(
