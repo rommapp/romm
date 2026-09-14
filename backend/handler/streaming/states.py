@@ -196,8 +196,8 @@ PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | None:
     """Pull the embedded frame PNG out of a savestate archive, or None when the
-    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one;
-    the others write the frame as its own file, served by /state-screenshot."""
+    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one, so
+    every other emulator depends on the container's capture alone."""
     if emulator != "pcsx2":
         return None
     try:
