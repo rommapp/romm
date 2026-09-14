@@ -291,10 +291,8 @@ const showManualDiscHint = computed(
 // arrives newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// The archives the broker syncs, scoped to this emulator the same way the
-// states are. Ordered on created_at, then id, because that is what the
-// backend restores by; user_saves arrives ordered on updated_at, which a
-// later content-hash write reshuffles.
+// This emulator's archives, re-sorted (created_at, then id) the way the backend
+// restores: user_saves arrives on updated_at, which a content-hash write moves.
 const emulatorSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
   if (!rom.value || !emulator) return [];
@@ -312,17 +310,13 @@ const newestSave = computed<SaveSchema | null>(
   () => emulatorSaves.value[0] ?? null,
 );
 
-// Only an archive can be restored: a bare save file (uploaded by hand, or
-// written before streaming) carries no layout the broker could put it back
-// from.
+// A bare save file carries no layout the broker could put it back from.
 const restorableSaves = computed<SaveSchema[]>(() =>
   emulatorSaves.value.filter((s) => s.file_name.endsWith(".zip")),
 );
 
-// Offering a choice only means something where the broker empties the save
-// tree before restoring. Everywhere else the restore keeps whichever file
-// the container already holds a newer copy of, so an older pick would
-// silently not apply.
+// A pick only lands where the broker empties the save tree first; elsewhere
+// the container's newer files survive the restore and the pick does nothing.
 const showSavePicker = computed(
   () =>
     (container.value?.supports_save_picker ?? false) &&
@@ -337,10 +331,8 @@ const saveTabSaves = computed<SaveSchema[]>(() =>
 
 const selectedSave = ref<SaveSchema | null>(null);
 
-// Unlike a state, a save has no "none": the claim restores the newest when
-// it names nothing, so the picker always holds a selection and starts on
-// that same newest archive. A pick survives the list recomputing on every
-// rom refresh, and only gives way when the archive it named is gone.
+// Unlike a state, a save has no "none": the claim restores the newest when it
+// names nothing, so the picker always holds a selection.
 watch(
   restorableSaves,
   (saves) => {
@@ -801,7 +793,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         rom.value.id,
         selectedState.value?.id,
         // Left off where the container would refuse it, so the backend
-        // restores the newest archive the way it always has.
+        // restores the newest archive instead.
         showSavePicker.value
           ? (selectedSave.value?.id ?? undefined)
           : undefined,

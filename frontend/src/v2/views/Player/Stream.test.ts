@@ -2,6 +2,7 @@ import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SaveSchema } from "@/__generated__";
+import type { DetailedRom } from "@/stores/roms";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
@@ -138,26 +139,31 @@ const GameCoverStub = defineComponent({
   },
 });
 
-function save(id: number, file_name: string, emulator = "retroarch") {
+function save(
+  id: number,
+  file_name: string,
+  overrides: Partial<SaveSchema> = {},
+): SaveSchema {
   return {
     id,
     file_name,
-    emulator,
+    emulator: "retroarch",
     rom_id: 3,
     user_id: 1,
     created_at: `2026-09-14T0${id}:00:00`,
     updated_at: `2026-09-14T0${id}:00:00`,
-  } as unknown as SaveSchema;
+    ...overrides,
+  } as SaveSchema;
 }
 
-// Newest first, the way the backend orders `user_saves`.
+// Newest first, the order the launch screen sorts into.
 const ARCHIVES = [
   save(3, "Pool [retroarch 2026-09-14 01-20-28].saves.zip"),
   save(2, "Pool [retroarch 2026-09-14 00-50-28].saves.zip"),
   save(1, "Pool [retroarch 2026-09-14 00-20-28].saves.zip"),
 ];
 
-function romWith(saves: SaveSchema[]) {
+function romWith(saves: SaveSchema[]): DetailedRom {
   return {
     id: 3,
     name: "Archer Maclean's 3D Pool (USA)",
@@ -170,7 +176,7 @@ function romWith(saves: SaveSchema[]) {
     all_user_states: [],
     user_screenshots: [],
     metadatum: {},
-  };
+  } as unknown as DetailedRom;
 }
 
 async function launch(opts: {
@@ -256,6 +262,20 @@ describe("Stream save picker", () => {
       (strip(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
     ).toEqual([3, 2, 1]);
     expect(strip(wrapper)!.props("selectedId")).toBe(3);
+  });
+
+  it("leaves another emulator's archives out of the picker", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool [pcsx2 a].saves.zip", { emulator: "pcsx2" }),
+        ...ARCHIVES,
+      ],
+    });
+
+    expect(
+      (strip(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
+    ).toEqual([3, 2, 1]);
   });
 
   it("reports instead of offering where the emulator keeps its save tree", async () => {

@@ -165,10 +165,8 @@ _DISC_SWAP_PLATFORMS = frozenset({"dc", "saturn", "segacd", "turbografx-cd", "do
 # own UI. The frontend shows this as a static hint, not a control.
 _MANUAL_DISC_SWAP_PLATFORMS = frozenset({"ps2"})
 
-# Emulators whose broker empties the save tree before restoring an archive
-# (the webstation broker's `clears_stale_saves`). Anywhere else the restore
-# skips a member the container already holds a newer copy of, so picking
-# anything but the newest archive would silently not apply.
+# Emulators whose broker empties the save tree before restoring an archive (the
+# webstation broker's `clears_stale_saves`), so an older pick still lands.
 _SAVE_PICKER_EMULATORS = frozenset(
     {"eden", "retroarch", "rpcs3", "shadps4", "xemu", "xenia"}
 )

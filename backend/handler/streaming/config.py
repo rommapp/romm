@@ -155,12 +155,7 @@ class ResolvedContainer:
 
     @property
     def supports_save_picker(self) -> bool:
-        """Whether the launch screen may offer a save other than the newest.
-
-        Restoring happens inside activate on the webstation protocol, where the
-        emulator's own clear decides whether an older archive survives the
-        restore's newer-file guard.
-        """
+        """Whether the launch screen may offer a save other than the newest."""
         return self.is_webstation and emulator_clears_saves(self.emulator)
 
     def interchangeable_with(self, other: ResolvedContainer) -> bool:

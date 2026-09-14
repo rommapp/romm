@@ -159,8 +159,7 @@ def _written_by(save: Save, emulator: str) -> bool:
 
 
 def _is_archive(save: Save) -> bool:
-    """A bare save file carries no layout the broker could restore it from, so
-    only an archive qualifies."""
+    """A bare save file carries no layout the broker could restore it from."""
     return save.file_name.endswith(".zip")
 
 
@@ -266,10 +265,8 @@ async def hydrate_saves_to_webstation(
 ) -> str | None:
     """Upload the stored save archive to restore and return the container path.
 
-    The webstation broker restores as part of activate rather than through a
-    push of its own, so hydration here only gets the bytes into place and
-    hands back the path activate names. `save_id` is the player's pick, newest
-    when absent.
+    The webstation broker restores as part of activate, so hydration only gets
+    the bytes into place. `save_id` is the player's pick, newest when absent.
     """
     archive = await _save_archive(user_id, rom_id, container.emulator, save_id)
     if archive is None:

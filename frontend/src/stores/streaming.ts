@@ -138,9 +138,8 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Pass stateId to resume from a specific save state: the backend pushes
    * its file to the broker and the emulator loads it once the game is up.
    * The response's `resume` field reports whether that succeeded.
-   * Pass saveId to restore a specific stored save archive, on a container
-   * whose emulator clears its save tree first (`supports_save_picker`);
-   * without one the newest archive for the emulator is restored.
+   * Pass saveId to restore a specific stored save archive, honoured only where
+   * `supports_save_picker` is set; without one the newest archive is restored.
    * Pass memoryCardId to hydrate a specific memory card (else the backend
    * picks the user's newest card for the emulator, or auto-creates a blank
    * one). The chosen card is wiped-then-replaced onto the container at claim.
