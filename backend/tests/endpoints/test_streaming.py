@@ -3502,6 +3502,21 @@ def test_resolve_save_archive_rejects_a_save_that_is_not_the_players(
     assert exc.value.status_code == 404
 
 
+def test_resolve_save_archive_rejects_a_save_from_another_rom(
+    rom: Rom, second_rom: Rom, admin_user: User
+):
+    """The pick is scoped to the ROM being launched, so the player's own
+    archive for a different game is as unnameable as someone else's."""
+    elsewhere = db_save_handler.add_save(
+        _save_for(second_rom, admin_user, "Other [retroarch a].saves.zip", "retroarch")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), elsewhere.id
+        )
+    assert exc.value.status_code == 404
+
+
 def test_resolve_save_archive_rejects_another_emulators_archive(
     rom: Rom, admin_user: User
 ):

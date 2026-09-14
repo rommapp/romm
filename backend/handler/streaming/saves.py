@@ -184,15 +184,9 @@ def resolve_save_archive(
     Raises 404 for a save that is not the claiming user's own on this ROM, and
     400 when it cannot be restored on this container.
     """
-    save = next(
-        (
-            s
-            for s in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom.id])
-            if s.id == save_id
-        ),
-        None,
-    )
-    if save is None:
+    save = db_save_handler.get_save(user_id=user_id, id=save_id)
+    # Same 404 for another user's save and another ROM's, so neither leaks.
+    if save is None or save.rom_id != rom.id:
         raise HTTPException(status_code=404, detail="Save not found")
 
     if not container.supports_save_picker:
