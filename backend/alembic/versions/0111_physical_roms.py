@@ -1,13 +1,17 @@
 """Add physical-game columns to roms.
 
+`is_physical` and `upc` are declared in `utils.roms_columns`, which adds them in
+the single table copy shared by every 5.3.0 revision that widens `roms`.
+
 Revision ID: 0111_physical_roms
 Revises: 0110_walkthrough_docs
 Create Date: 2026-07-04 00:00:00.000000
 
 """
 
-import sqlalchemy as sa
 from alembic import op
+
+from utils.roms_columns import ensure_roms_columns
 
 # revision identifiers, used by Alembic.
 revision = "0111_physical_roms"
@@ -17,19 +21,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "is_physical",
-                sa.Boolean(),
-                nullable=False,
-                server_default=sa.false(),
-            ),
-            if_not_exists=True,
-        )
-        batch_op.add_column(
-            sa.Column("upc", sa.String(length=64), nullable=True), if_not_exists=True
-        )
+    ensure_roms_columns(op.get_bind())
 
 
 def downgrade() -> None:
