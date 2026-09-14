@@ -213,10 +213,12 @@ def _auth(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _claim(client, token, rom_id, state_id=None):
+def _claim(client, token, rom_id, state_id=None, save_id=None):
     body = {"rom_id": rom_id}
     if state_id is not None:
         body["state_id"] = state_id
+    if save_id is not None:
+        body["save_id"] = save_id
     return client.post("/api/streaming/sessions", json=body, headers=_auth(token))
 
 
@@ -430,6 +432,34 @@ def test_get_config_reports_memory_card_support(client, access_token, rom: Rom):
     supported = {c["platform"]: c["supports_memory_cards"] for c in containers}
     assert supported[rom.platform_slug] is False
     assert supported["ps2"] is True
+
+
+def test_get_config_reports_save_picker_support(client, access_token, rom: Rom):
+    """The picker gate: a pick other than the newest only lands where the
+    broker clears the save tree first, which is a webstation emulator."""
+    clearing = {
+        **_container_for(rom),
+        "protocol": "webstation",
+        "emulator": "retroarch",
+    }
+    keeping = {
+        **_container_for(rom),
+        "platform": "ps2",
+        "protocol": "webstation",
+        "emulator": "pcsx2",
+    }
+    legacy = {**_container_for(rom), "platform": "gba", "emulator": "retroarch"}
+    with _streaming(clearing, keeping, legacy):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    supported = {
+        c["platform"]: c["supports_save_picker"] for c in response.json()["containers"]
+    }
+    assert supported[rom.platform_slug] is True
+    assert supported["ps2"] is False
+    # Restoring is the legacy broker's own business, so RomM cannot promise a
+    # pick survives it.
+    assert supported["gba"] is False
 
 
 def test_memory_card_sync_ignored_on_a_platform_without_a_card(client, access_token):
@@ -3357,6 +3387,208 @@ def test_hydrate_saves_no_matching_save_returns_false(rom: Rom, admin_user: User
         )
     assert ok is False
     push.assert_not_called()
+
+
+def _clearing_webstation(rom: Rom) -> dict:
+    """A webstation container whose emulator empties the save tree before a
+    restore, the only kind that honours a pick other than the newest."""
+    return {
+        **_container_for(rom),
+        "protocol": "webstation",
+        "emulator": "retroarch",
+    }
+
+
+def _three_archives(rom: Rom, user: User) -> list[Save]:
+    """Three stored retroarch archives, oldest first."""
+    return [
+        db_save_handler.add_save(
+            _save_for(rom, user, f"Game [retroarch {tag}].saves.zip", "retroarch", tag)
+        )
+        for tag in ("a", "b", "c")
+    ]
+
+
+def test_hydrate_saves_uploads_the_picked_archive(rom: Rom, admin_user: User):
+    """A pick is restored even when a newer archive exists."""
+    oldest, _, _ = _three_archives(rom, admin_user)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch(
+            "handler.streaming.webstation.upload_archive", return_value="/config/x.zip"
+        ) as upload,
+    ):
+        path = asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id,
+                rom.id,
+                _resolved(_clearing_webstation(rom)),
+                oldest.id,
+            )
+        )
+    assert path == "/config/x.zip"
+    assert upload.call_args[0][2] == oldest.full_path.encode()
+
+
+def test_hydrate_saves_without_a_pick_uploads_the_newest(rom: Rom, admin_user: User):
+    """No pick keeps the behaviour every container had before the picker."""
+    *_, newest = _three_archives(rom, admin_user)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch(
+            "handler.streaming.webstation.upload_archive", return_value="/config/x.zip"
+        ) as upload,
+    ):
+        asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id, rom.id, _resolved(_clearing_webstation(rom))
+            )
+        )
+    assert upload.call_args[0][2] == newest.full_path.encode()
+
+
+def test_hydrate_saves_uploads_nothing_when_the_pick_is_gone(
+    rom: Rom, admin_user: User
+):
+    """Deleted between the pick and the claim. Falling back to the newest would
+    restore a save the player did not choose, so the launch gets none."""
+    _three_archives(rom, admin_user)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch("handler.streaming.webstation.upload_archive") as upload,
+    ):
+        path = asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id, rom.id, _resolved(_clearing_webstation(rom)), 9999
+            )
+        )
+    assert path is None
+    upload.assert_not_called()
+
+
+def test_resolve_save_archive_accepts_the_players_own_archive(
+    rom: Rom, admin_user: User
+):
+    """The happy path the launch screen's picker produces."""
+    archive = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    resolved = saves.resolve_save_archive(
+        admin_user.id, rom, _resolved(_clearing_webstation(rom)), archive.id
+    )
+    assert resolved.id == archive.id
+
+
+def test_resolve_save_archive_rejects_a_save_that_is_not_the_players(
+    rom: Rom, admin_user: User, viewer_user: User
+):
+    """Saves are private, so another player's archive must not be nameable."""
+    theirs = db_save_handler.add_save(
+        _save_for(rom, viewer_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), theirs.id
+        )
+    assert exc.value.status_code == 404
+
+
+def test_resolve_save_archive_rejects_another_emulators_archive(
+    rom: Rom, admin_user: User
+):
+    """Another emulator's archive lays its members out where this one never
+    reads, so the restore would write files the game never opens."""
+    other = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+        )
+    assert exc.value.status_code == 400
+
+
+def test_resolve_save_archive_rejects_a_bare_save_file(rom: Rom, admin_user: User):
+    """A loose save carries no layout the broker could restore it from."""
+    loose = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), loose.id
+        )
+    assert exc.value.status_code == 400
+
+
+def test_resolve_save_archive_rejects_a_pick_where_it_would_not_land(
+    rom: Rom, admin_user: User
+):
+    """An emulator that keeps the container's own save files skips any member
+    it already holds a newer copy of, so honouring the pick would be a lie."""
+    archive = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_webstation_for(rom)), archive.id
+        )
+    assert exc.value.status_code == 400
+
+
+def test_claim_hydrates_the_picked_save(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The claim carries the pick all the way into the activate body."""
+    picked, *_ = _three_archives(rom, admin_user)
+    activate = MagicMock(return_value={"url": "/room/x"})
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch(
+                "handler.filesystem.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=lambda path: path.encode()),
+            ),
+            patch(
+                "handler.streaming.webstation.upload_archive",
+                return_value="/config/picked.zip",
+            ) as upload,
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+        ):
+            r = _claim(client, access_token, rom.id, save_id=picked.id)
+    assert r.status_code == 202
+    assert upload.call_args[0][2] == picked.full_path.encode()
+    assert activate.call_args.kwargs["archive_path"] == "/config/picked.zip"
+
+
+def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The pick is validated before the claim, so a bad one fails cleanly
+    rather than leaving a container wedged behind a refused launch."""
+    loose = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            refused = _claim(client, access_token, rom.id, save_id=loose.id)
+            after = _claim(client, access_token, rom.id)
+    assert refused.status_code == 400
+    activate.assert_called_once()
+    assert after.status_code == 202
 
 
 def test_claim_hydrates_saves_before_launch(client, access_token, rom: Rom):

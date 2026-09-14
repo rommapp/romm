@@ -112,6 +112,10 @@ class ClaimStreamingSessionRequest(BaseModel):
     # before launch and the broker loads its slot once the game is up. Must be
     # the claiming user's own state or a public one shared by another user.
     state_id: Annotated[int, Field(ge=1)] | None = None
+    # Optional save archive to restore. Omitted = the newest one for the
+    # container's emulator, which is the only choice on a container whose
+    # broker does not clear the save tree before a restore.
+    save_id: Annotated[int, Field(ge=1)] | None = None
     # Optional memory card to mount (whole-card sync containers only). Omitted =
     # the user's most-recently-used card for the emulator, or a fresh one on
     # first play. Must be one the claiming user owns.
@@ -263,6 +267,10 @@ async def get_config(request: Request) -> StreamingConfigSchema:
             # Whether this container syncs whole memory cards, so the
             # frontend only offers the card picker where it applies.
             "supports_memory_cards": c.memory_card_sync,
+            # Whether an older save archive still lands on this emulator, so
+            # the frontend only offers the save picker where a pick means
+            # something.
+            "supports_save_picker": c.supports_save_picker,
         }
 
     return StreamingConfigSchema(
@@ -522,6 +530,7 @@ async def _hydrate_saves(
     rom: Rom,
     card: MemoryCard | None,
     blank_card_id: int | None,
+    save_id: int | None = None,
 ) -> str | None:
     """Put the player's save data on the container before the game reads it.
 
@@ -554,7 +563,7 @@ async def _hydrate_saves(
         # Best-effort: a failed upload just means the container keeps its own.
         try:
             return await saves.hydrate_saves_to_webstation(
-                request.user.id, rom.id, container
+                request.user.id, rom.id, container, save_id
             )
         except Exception:
             log.exception("save hydration failed, continuing launch")
@@ -628,6 +637,11 @@ async def claim_session(
         resume_state, resume_slot = states.resolve_resume_state(
             request.user.id, rom, reference, req.state_id
         )
+
+    # Same for the save pick: a save the player cannot restore here has to
+    # fail before the container is reserved, not during the launch.
+    if req.save_id is not None:
+        saves.resolve_save_archive(request.user.id, rom, reference, req.save_id)
 
     # Resolve the memory card to mount before claiming too, so a bad card id
     # fails cleanly (whole-card-sync containers only). May be None on first
@@ -716,7 +730,13 @@ async def claim_session(
         resume_pushed = await states.push_resume_state(container, resume_state)
 
     archive_path = await _hydrate_saves(
-        request, container, session, rom, memory_card, created_blank_card_id
+        request,
+        container,
+        session,
+        rom,
+        memory_card,
+        created_blank_card_id,
+        req.save_id,
     )
 
     # Detached because an activate blocks through pkg and archive extraction,

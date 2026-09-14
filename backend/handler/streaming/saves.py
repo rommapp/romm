@@ -9,12 +9,15 @@ a .zip extension so the whole card set travels as a unit.
 import asyncio
 from datetime import datetime, timezone
 
+from fastapi import HTTPException
+
 from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save
 from handler.streaming import broker, webstation
 from handler.streaming.config import ResolvedContainer
 from logger.logger import log
+from models.assets import Save
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import sanitize_filename
@@ -149,31 +152,90 @@ async def pull_saves_to_library(
     return False
 
 
-async def _newest_save_archive(
-    user_id: int, rom_id: int, emulator: str
-) -> tuple[str, bytes] | None:
-    """The user's most recent stored save archive for this emulator, read off
-    disk. Returns (file name, content), or None when there is nothing to send.
+def _restorable_archives(user_id: int, rom_id: int, emulator: str) -> list[Save]:
+    """The user's stored save archives for this emulator, newest first.
+
+    Only a `.zip` qualifies: a bare save file carries no layout the broker
+    could restore it from, and an archive another emulator wrote lays its
+    members out somewhere this one never reads.
     """
     archives = [
         save
         for save in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
         if (save.emulator or "").lower() == emulator and save.file_name.endswith(".zip")
     ]
-    if not archives:
-        return None
     # Ties on id, because created_at only has second resolution: two archives
-    # written in the same second would otherwise hydrate arbitrarily.
-    newest = max(archives, key=lambda s: (s.created_at, s.id))
+    # written in the same second would otherwise order arbitrarily.
+    return sorted(archives, key=lambda s: (s.created_at, s.id), reverse=True)
+
+
+def resolve_save_archive(
+    user_id: int, rom: Rom, container: ResolvedContainer, save_id: int
+) -> Save:
+    """Validate a pick from the launch screen's save list and return the save.
+
+    Raises 404 for a save that is not the claiming user's own on this ROM, and
+    400 when it cannot be restored on this container.
+    """
+    save = next(
+        (
+            s
+            for s in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom.id])
+            if s.id == save_id
+        ),
+        None,
+    )
+    if save is None:
+        raise HTTPException(status_code=404, detail="Save not found")
+
+    if not container.supports_save_picker:
+        raise HTTPException(
+            status_code=400,
+            detail="This emulator always restores the newest save",
+        )
+    if (save.emulator or "").lower() != container.emulator:
+        raise HTTPException(
+            status_code=400,
+            detail="Save was made by a different emulator",
+        )
+    if not save.file_name.endswith(".zip"):
+        raise HTTPException(
+            status_code=400,
+            detail="Save is not a restorable archive",
+        )
+    return save
+
+
+async def _save_archive(
+    user_id: int, rom_id: int, emulator: str, save_id: int | None = None
+) -> tuple[str, bytes] | None:
+    """The stored save archive to hydrate, read off disk.
+
+    `save_id` names the player's pick, already validated by
+    `resolve_save_archive`; without one the newest archive wins. Returns
+    (file name, content), or None when there is nothing to send.
+    """
+    archives = _restorable_archives(user_id, rom_id, emulator)
+    if save_id is not None:
+        # Deleted between the pick and the claim. Hydrating the newest instead
+        # would restore a save the player did not choose, so send nothing.
+        picked = next((s for s in archives if s.id == save_id), None)
+        if picked is None:
+            log.warning("picked save %d is gone, launching without one", save_id)
+            return None
+    elif archives:
+        picked = archives[0]
+    else:
+        return None
 
     try:
         content = await fs_asset_handler.read_file(
-            f"{newest.file_path}/{newest.file_name}"
+            f"{picked.file_path}/{picked.file_name}"
         )
     except FileNotFoundError:
-        log.warning("stored save missing on disk, %s", newest.file_name)
+        log.warning("stored save missing on disk, %s", picked.file_name)
         return None
-    return newest.file_name, content
+    return picked.file_name, content
 
 
 async def hydrate_saves_to_broker(
@@ -187,10 +249,10 @@ async def hydrate_saves_to_broker(
     if db_user_handler.get_user(user_id) is None or rom is None:
         return False
 
-    newest = await _newest_save_archive(user_id, rom_id, container.emulator)
-    if newest is None:
+    archive = await _save_archive(user_id, rom_id, container.emulator)
+    if archive is None:
         return False
-    file_name, content = newest
+    file_name, content = archive
 
     ok = await asyncio.to_thread(push_save_archive, container, content)
     if ok:
@@ -199,18 +261,19 @@ async def hydrate_saves_to_broker(
 
 
 async def hydrate_saves_to_webstation(
-    user_id: int, rom_id: int, container: ResolvedContainer
+    user_id: int, rom_id: int, container: ResolvedContainer, save_id: int | None = None
 ) -> str | None:
-    """Upload the newest stored save archive and return the container path.
+    """Upload the stored save archive to restore and return the container path.
 
     The webstation broker restores as part of activate rather than through a
     push of its own, so hydration here only gets the bytes into place and
-    hands back the path activate names.
+    hands back the path activate names. `save_id` is the player's pick, newest
+    when absent.
     """
-    newest = await _newest_save_archive(user_id, rom_id, container.emulator)
-    if newest is None:
+    archive = await _save_archive(user_id, rom_id, container.emulator, save_id)
+    if archive is None:
         return None
-    file_name, content = newest
+    file_name, content = archive
 
     path = await asyncio.to_thread(
         webstation.upload_archive, container, f"rom-{rom_id}.zip", content

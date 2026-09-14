@@ -29,6 +29,7 @@ class StreamingContainerSchema(BaseModel):
     capabilities: SlotCapabilitiesSchema
     emulator: str
     supports_memory_cards: bool
+    supports_save_picker: bool
 
 
 class StreamingConfigSchema(BaseModel):

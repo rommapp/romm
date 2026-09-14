@@ -301,10 +301,54 @@ const emulatorSaves = computed<SaveSchema[]>(() => {
   );
 });
 
-// The one the broker restores before boot.
+// The one the broker restores before boot when the claim names none.
 const newestSave = computed<SaveSchema | null>(
   () => emulatorSaves.value[0] ?? null,
 );
+
+// Only an archive can be restored: a bare save file (uploaded by hand, or
+// written before streaming) carries no layout the broker could put it back
+// from.
+const restorableSaves = computed<SaveSchema[]>(() =>
+  emulatorSaves.value.filter((s) => s.file_name.endsWith(".zip")),
+);
+
+// Offering a choice only means something where the broker empties the save
+// tree before restoring. Everywhere else the restore keeps whichever file
+// the container already holds a newer copy of, so an older pick would
+// silently not apply.
+const showSavePicker = computed(
+  () =>
+    (container.value?.supports_save_picker ?? false) &&
+    restorableSaves.value.length > 0,
+);
+
+// What the Saves tab lists: the archives the picker offers where there is
+// one, everything this emulator wrote where the panel only reports.
+const saveTabSaves = computed<SaveSchema[]>(() =>
+  showSavePicker.value ? restorableSaves.value : emulatorSaves.value,
+);
+
+const selectedSave = ref<SaveSchema | null>(null);
+
+// Unlike a state, a save has no "none": the claim restores the newest when
+// it names nothing, so the picker always holds a selection and starts on
+// that same newest archive. A pick survives the list recomputing on every
+// rom refresh, and only gives way when the archive it named is gone.
+watch(
+  restorableSaves,
+  (saves) => {
+    const current = selectedSave.value;
+    if (!current || !saves.some((s) => s.id === current.id)) {
+      selectedSave.value = saves[0] ?? null;
+    }
+  },
+  { immediate: true },
+);
+
+function pickSave(save: SaveSchema): void {
+  selectedSave.value = save;
+}
 
 const streamStates = computed<UserStateSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
@@ -390,7 +434,7 @@ const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
   {
     id: "save",
     label: t("common.saves"),
-    badge: emulatorSaves.value.length,
+    badge: saveTabSaves.value.length,
     icon: "mdi-content-save",
   },
 ]);
@@ -750,6 +794,11 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       const launching = await streamingStore.claimSession(
         rom.value.id,
         selectedState.value?.id,
+        // Left off where the container would refuse it, so the backend
+        // restores the newest archive the way it always has.
+        showSavePicker.value
+          ? (selectedSave.value?.id ?? undefined)
+          : undefined,
         container.value?.supports_memory_cards
           ? (selectedMemoryCardId.value ?? undefined)
           : undefined,
@@ -1373,8 +1422,30 @@ onBeforeUnmount(() => {
             />
           </template>
 
-          <!-- The archive is reported, not offered: loading it is the
-               game's own job. -->
+          <template v-else-if="showSavePicker">
+            <AssetPreview
+              :asset="selectedSave"
+              type="save"
+              :show-heading="false"
+              :clearable="false"
+            />
+            <div class="r-v2-stream__strip-label">
+              <span aria-hidden="true">{{ t("play.all-saves") }}</span>
+              <span class="r-v2-stream__strip-count" aria-hidden="true">{{
+                restorableSaves.length
+              }}</span>
+            </div>
+            <AssetStrip
+              :assets="restorableSaves"
+              type="save"
+              :selected-id="selectedSave?.id ?? null"
+              @select="pickSave($event as SaveSchema)"
+            />
+          </template>
+
+          <!-- Nothing to choose between: this emulator keeps whatever the
+               container already holds, so the archive is reported rather
+               than offered. -->
           <SaveDataPanel v-else :save="newestSave" :platform="platformLabel" />
         </div>
       </RCard>
