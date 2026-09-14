@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy.dialects import mysql
 
 from handler.database import db_rom_handler
+from handler.database.rom_filters import RomFilterParams
 from models.platform import Platform
 from models.rom import Rom, RomUser, RomUserStatus
 from models.user import User
@@ -278,11 +279,10 @@ class TestGroupedRomUserSortResults:
             order_by="last_played", order_dir="desc", user_id=admin_user.id
         )
         grouped = db_rom_handler.filter_roms(
+            filters=RomFilterParams(platform_ids=[platform.id], group_by_meta_id=True),
             query=query,
             order_by="last_played",
             order_dir="desc",
-            platform_ids=[platform.id],
-            group_by_meta_id=True,
             user_id=admin_user.id,
             hidden_rom_ids=[admin_hidden.id],
         )
@@ -306,11 +306,10 @@ class TestGroupedRomUserSortResults:
             order_by="last_played", order_dir="desc", user_id=admin_user.id
         )
         grouped = db_rom_handler.filter_roms(
+            filters=RomFilterParams(platform_ids=[platform.id], group_by_meta_id=True),
             query=query,
             order_by="last_played",
             order_dir="desc",
-            platform_ids=[platform.id],
-            group_by_meta_id=True,
             user_id=admin_user.id,
         )
 
@@ -352,11 +351,10 @@ class TestGroupedRomUserSortResults:
             order_by="last_played", order_dir="desc", user_id=admin_user.id
         )
         grouped = db_rom_handler.filter_roms(
+            filters=RomFilterParams(platform_ids=[platform.id], group_by_meta_id=True),
             query=query,
             order_by="last_played",
             order_dir="desc",
-            platform_ids=[platform.id],
-            group_by_meta_id=True,
             user_id=admin_user.id,
         )
 
@@ -369,10 +367,10 @@ class TestGroupedRomUserSortQueryShape:
             order_by=order_by, order_dir=order_dir, user_id=1
         )
         return db_rom_handler.filter_roms(
+            filters=RomFilterParams(group_by_meta_id=True),
             query=query,
             order_by=order_by,
             order_dir=order_dir,
-            group_by_meta_id=True,
             user_id=1,
         )
 
