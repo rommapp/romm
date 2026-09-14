@@ -40,6 +40,7 @@ from utils.database import CustomJSON, is_postgresql
 from utils.roms_columns import (
     RATING_COUNT_COLUMN,
     ROMS_METADATA_VIEW_COLUMNS,
+    STEAM_METADATA_COLUMN,
     TAG_COLUMNS,
     VIEW,
     ensure_roms_columns,
@@ -53,8 +54,6 @@ revision = "0123_recommendation_metadata"
 down_revision = "0122_rom_similarity"
 branch_labels = None
 depends_on = None
-
-_STEAM = "steam_metadata"
 
 # roms_facets mirrors whose value this migration can change: the Steam-fed
 # columns plus the tag columns it adds.
@@ -198,7 +197,7 @@ def _sync_facets(pg: bool, columns: list[tuple[str, str]]) -> None:
 
 
 def _has_steam_rows() -> bool:
-    probe = f"SELECT 1 FROM roms WHERE {_STEAM} IS NOT NULL LIMIT 1"  # nosec B608
+    probe = f"SELECT 1 FROM roms WHERE {STEAM_METADATA_COLUMN} IS NOT NULL LIMIT 1"  # nosec B608
     return op.get_bind().execute(sa.text(probe)).first() is not None
 
 
@@ -221,7 +220,7 @@ def _vc_rows(pg: bool) -> str:
             f"SELECT DISTINCT r.id, '{type_}', LEFT(j.value, {_VC_NAME_MAX_LENGTH}), "  # nosec B608
             f"r.path_cover_s, r.path_cover_l, NOW(), NOW()\n"
             f"FROM {source}\n"
-            f"WHERE r.{_STEAM} IS NOT NULL AND j.value IS NOT NULL AND j.value != ''"
+            f"WHERE r.{STEAM_METADATA_COLUMN} IS NOT NULL AND j.value IS NOT NULL AND j.value != ''"
         )
     return "\nUNION ALL\n".join(branches)
 
@@ -237,7 +236,7 @@ def _refresh_steam_collections(pg: bool) -> None:
     types = ", ".join(f"'{type_}'" for type_, _ in _VC_TYPES)
     op.execute(
         f"DELETE FROM {_VC_TABLE} WHERE type IN ({types}) "  # nosec B608
-        f"AND rom_id IN (SELECT id FROM roms WHERE {_STEAM} IS NOT NULL)"
+        f"AND rom_id IN (SELECT id FROM roms WHERE {STEAM_METADATA_COLUMN} IS NOT NULL)"
     )
     insert = "INSERT INTO" if pg else "INSERT IGNORE INTO"
     conflict = "\nON CONFLICT DO NOTHING" if pg else ""

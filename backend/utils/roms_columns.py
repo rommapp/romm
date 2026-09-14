@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import ENUM
+from sqlalchemy.engine.interfaces import ReflectedColumn
 from sqlalchemy.schema import CreateColumn
 
 from models.rom import FULL_PATH_HASH_LENGTH
@@ -42,7 +43,7 @@ SAVE_TARGET_LAYOUT_VALUES = (
     "FOLDER_SPLIT",
 )
 
-_STEAM = "steam_metadata"
+STEAM_METADATA_COLUMN = "steam_metadata"
 
 # Provider precedence per array column, as 0098 and 0112 left it; 0123
 # appended Steam at the lowest precedence.
@@ -113,7 +114,7 @@ _DATE_SOURCES = [
     ("launchbox_metadata", 1000),
     ("flashpoint_metadata", 1000),
 ]
-_STEAM_DATE = (_STEAM, 1000)
+_STEAM_DATE = (STEAM_METADATA_COLUMN, 1000)
 
 # (source, key, multiplier to a 0-100 scale) averaged into the rating.
 _RATING_SOURCES = [
@@ -124,7 +125,7 @@ _RATING_SOURCES = [
     ("gamelist_metadata", "rating", 100),
 ]
 # Steam carries the Metacritic score, already on a 0-100 scale.
-_STEAM_RATING = (_STEAM, "total_rating", 1)
+_STEAM_RATING = (STEAM_METADATA_COLUMN, "total_rating", 1)
 
 # The columns 0123 redefined to read Steam. A table still carrying the older
 # expression is rebuilt at the current one.
@@ -400,7 +401,7 @@ def steam_fed_columns(pg: bool, *, with_steam: bool) -> list[GeneratedColumn]:
     columns = []
     for name, sources in STEAM_FED_ARRAY_SOURCES.items():
         key = name[len("generated_") :]
-        chain = sources + [_STEAM] if with_steam else sources
+        chain = sources + [STEAM_METADATA_COLUMN] if with_steam else sources
         columns.append(
             GeneratedColumn(name, "JSONB" if pg else "JSON", array_expr(key, chain))
         )
@@ -476,7 +477,7 @@ PLAIN_COLUMNS = [
     sa.Column("pouet_metadata", CustomJSON()),
     sa.Column("csdb_metadata", CustomJSON()),
     sa.Column("steam_id", sa.Integer()),
-    sa.Column(_STEAM, CustomJSON()),
+    sa.Column(STEAM_METADATA_COLUMN, CustomJSON()),
     sa.Column("title_id", sa.String(length=100)),
     sa.Column("save_target", sa.String(length=100)),
     sa.Column(
@@ -581,8 +582,7 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
     outdated = [
         column
         for column in steam_fed_columns(pg, with_steam=True)
-        if column.name in present
-        and _STEAM not in present[column.name]["computed"]["sqltext"]
+        if column.name in present and not _reads_steam(present[column.name])
     ]
 
     if (
@@ -611,12 +611,14 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
         )  # nosec B608
         if outdated:
             restore_generated_indexes(conn)
-            conn.execute(
-                sa.text(roms_metadata_view_sql(pg, ROMS_METADATA_VIEW_COLUMNS))
-            )
         present = {
             column["name"]: column for column in sa.inspect(conn).get_columns(TABLE)
         }
+
+    # Recreated outside the block above so a run that died between the ALTER
+    # and this statement gets its view back on the replay.
+    if not sa.inspect(conn).has_table(VIEW):
+        conn.execute(sa.text(roms_metadata_view_sql(pg, ROMS_METADATA_VIEW_COLUMNS)))
 
     # The digest default only exists to fill the copy; the model has none. A
     # run that died between the two statements finishes here on the replay.
@@ -652,9 +654,16 @@ def drop_roms_columns(conn: sa.Connection) -> None:
         for column in steam_fed_columns(pg, with_steam=False)
         if column.name in inherited
         and column.name in present
-        and _STEAM in present[column.name]["computed"]["sqltext"]
+        and _reads_steam(present[column.name])
     ]
 
+    if drop and not pg:
+        # PostgreSQL drops an index with its column; MariaDB and MySQL keep a
+        # composite one over the columns that remain, unique and all.
+        for index in sa.inspect(conn).get_indexes(TABLE):
+            columns = {name for name in index["column_names"] if name}
+            if columns & set(drop) and not columns <= set(drop):
+                conn.execute(sa.text(f"DROP INDEX {index['name']} ON {TABLE}"))
     if drop or steam_reading:
         rebuild_generated_columns(
             conn,
@@ -667,6 +676,14 @@ def drop_roms_columns(conn: sa.Connection) -> None:
             ],
         )
     drop_save_target_layout_type(conn)
+
+
+def _reads_steam(column: ReflectedColumn) -> bool:
+    """Whether a reflected generated column already has Steam in its chain."""
+    # A column the engine did not report as generated counts as not reading
+    # Steam, so `ensure_roms_columns` rebuilds it rather than raising.
+    computed = column.get("computed") or {}
+    return STEAM_METADATA_COLUMN in computed.get("sqltext", "")
 
 
 def has_server_default(conn: sa.Connection, column: str) -> bool:

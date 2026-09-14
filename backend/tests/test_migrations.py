@@ -5,8 +5,10 @@ not the other goes unnoticed until autogenerate proposes dropping it.
 """
 
 import importlib.util
+import re
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import alembic.config
 import pytest
@@ -136,10 +138,13 @@ def _load_migration(filename: str) -> ModuleType:
     return migration
 
 
-def _schema_of(
-    connection: sa.Connection, table: str
-) -> tuple[dict[str, bool], dict[str | None, tuple[tuple[str | None, ...], bool]]]:
-    """Columns by nullability and indexes by (columns, uniqueness)."""
+# Columns by nullability and indexes by (columns, uniqueness).
+TableSchema = tuple[
+    dict[str, bool], dict[str | None, tuple[tuple[str | None, ...], bool]]
+]
+
+
+def _schema_of(connection: sa.Connection, table: str) -> TableSchema:
     inspector = sa.inspect(connection)
     return (
         {column["name"]: column["nullable"] for column in inspector.get_columns(table)},
@@ -269,8 +274,15 @@ def _roms_alters(connection: sa.Connection) -> list[str]:
     statements: list[str] = []
 
     @sa.event.listens_for(connection, "before_cursor_execute")
-    def _record(conn, cursor, statement, parameters, context, executemany):
-        if statement.lstrip().upper().startswith("ALTER TABLE ROMS"):
+    def _record(
+        conn: sa.Connection,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        if re.match(r"ALTER TABLE roms\b", statement.lstrip(), re.IGNORECASE):
             statements.append(statement)
 
     return statements
@@ -343,7 +355,7 @@ def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():
 
 def _roms_schema(
     connection: sa.Connection,
-) -> tuple[object, dict[str, str], list[str]]:
+) -> tuple[TableSchema, dict[str, str], list[str]]:
     """`_schema_of` plus every generated expression and what the view projects."""
     inspector = sa.inspect(connection)
     return (
@@ -359,12 +371,24 @@ def _roms_schema(
 
 def test_the_first_roms_columns_revision_downgrades_to_the_schema_it_found():
     """0108 adds every later revision's column, so alone it has to take them all back."""
+    migration = _load_migration("0126_unique_rom_full_path.py")
+
     alembic.config.main(argv=["downgrade", "0107_roms_dedup_cover_index"])
     try:
         with sync_engine.connect() as connection:
             before = _roms_schema(connection)
 
         alembic.config.main(argv=["upgrade", "0108_roms_primary_region"])
+        # 0126 creates this before it is stamped, so a run that died right
+        # after leaves it for the downgrade to meet.
+        with sync_engine.begin() as connection:
+            with Operations.context(MigrationContext.configure(connection)) as ops:
+                ops.create_index(
+                    migration.UNIQUE_INDEX_NAME,
+                    "roms",
+                    ["platform_id", FULL_PATH_HASH_COLUMN],
+                    unique=True,
+                )
         alembic.config.main(argv=["downgrade", "0107_roms_dedup_cover_index"])
 
         with sync_engine.connect() as connection:
@@ -373,6 +397,37 @@ def test_the_first_roms_columns_revision_downgrades_to_the_schema_it_found():
         alembic.config.main(argv=["upgrade", "head"])
 
     assert after == before
+
+
+def test_the_roms_columns_helper_puts_back_a_view_a_run_lost():
+    """A run that died between the ALTER and the CREATE VIEW replays to the view."""
+    with sync_engine.begin() as connection:
+        connection.execute(sa.text("DROP VIEW roms_metadata"))
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+
+        assert sa.inspect(connection).has_table("roms_metadata")
+        assert alters == []
+
+
+def test_the_roms_columns_helper_drops_a_digest_default_a_run_left_behind():
+    """MariaDB fills the digest through a DEFAULT the run removes right after."""
+    with sync_engine.begin() as connection:
+        if not is_mariadb(connection):
+            pytest.skip("only MariaDB gives the column a default")
+        connection.execute(
+            sa.text(
+                f"ALTER TABLE roms ALTER COLUMN {FULL_PATH_HASH_COLUMN} SET DEFAULT ''"
+            )
+        )
+        assert has_server_default(connection, FULL_PATH_HASH_COLUMN)
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+
+        assert not has_server_default(connection, FULL_PATH_HASH_COLUMN)
+        assert len(alters) == 1
 
 
 def test_the_roms_columns_helper_fills_the_full_path_digest_where_it_can(rom: Rom):
