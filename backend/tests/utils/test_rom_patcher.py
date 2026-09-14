@@ -1,6 +1,7 @@
 import zipfile
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from utils.rom_patcher import (
@@ -91,6 +92,40 @@ async def test_apply_patch_rebuilds_single_member_snes_zip(
             archive.getinfo("Super Metroid.sfc").compress_type == zipfile.ZIP_DEFLATED
         )
         assert archive.testzip() is None
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_uses_archive_fallback_for_unsupported_zip_method(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    source = tmp_path / "game.zip"
+    output = tmp_path / "patched.zip"
+    member_name = "game.sfc"
+    _write_zip(source, {member_name: b"source"})
+    data = bytearray(source.read_bytes())
+    encoded_name = member_name.encode()
+    local_header = data.index(encoded_name, data.index(b"PK\x03\x04")) - 30
+    central_header = data.index(encoded_name, data.index(b"PK\x01\x02")) - 46
+    data[local_header + 8 : local_header + 10] = (0xFFFF).to_bytes(2, "little")
+    data[central_header + 10 : central_header + 12] = (0xFFFF).to_bytes(
+        2, "little"
+    )
+    source.write_bytes(data)
+    archive_reader = MagicMock(
+        return_value=iter([(member_name, len(b"source"), iter([b"source"]))])
+    )
+    monkeypatch.setattr(rom_patcher, "read_zip_archive_files", archive_reader)
+    monkeypatch.setattr(
+        rom_patcher,
+        "_apply_binary_patch",
+        _fake_patcher(b"source", b"patched"),
+    )
+
+    await apply_patch(source, tmp_path / "patch.bps", output)
+
+    archive_reader.assert_called_once_with(source, [], [])
+    with zipfile.ZipFile(output) as archive:
+        assert archive.read(member_name) == b"patched"
 
 
 @pytest.mark.asyncio

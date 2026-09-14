@@ -19,6 +19,7 @@ from config import (
     ROM_PATCHER_TIMEOUT,
 )
 
+from utils.archives import ArchiveReadError, read_zip_archive_files
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 from utils.zip_cache import ensure_zipfile_writable
 
@@ -95,17 +96,31 @@ def _extract_zip_member(
             ):
                 raise PatcherInputError("The uncompressed ROM archive is too large")
 
-            with (
-                archive.open(selected, "r") as source,
-                output_path.open("wb") as output,
-            ):
-                shutil.copyfileobj(source, output)
-            if output_path.stat().st_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
-                output_path.unlink(missing_ok=True)
-                raise PatcherInputError("The uncompressed ROM is too large to patch")
-            return selected.filename
+            selected_name = selected.filename
+
+        for name, _size, chunks in read_zip_archive_files(archive_path, [], []):
+            if name != selected_name:
+                for _chunk in chunks:
+                    pass
+                continue
+
+            with output_path.open("wb") as output:
+                for chunk in chunks:
+                    output.write(chunk)
+            break
+        else:
+            raise PatcherInputError(
+                "The selected file was not found uniquely in the ROM archive"
+            )
+
+        if output_path.stat().st_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+            output_path.unlink(missing_ok=True)
+            raise PatcherInputError("The uncompressed ROM is too large to patch")
+        return selected_name
     except PatcherInputError:
         raise
+    except ArchiveReadError as e:
+        raise PatcherInputError("The ROM archive could not be read") from e
     except (
         EOFError,
         OSError,
@@ -200,7 +215,7 @@ async def _apply_binary_patch(
         try:
             err_data = json.loads(stderr.decode())
             message = err_data.get("error", message)
-except (json.JSONDecodeError, UnicodeDecodeError):
+        except (json.JSONDecodeError, UnicodeDecodeError):
             if stderr:
                 message = stderr.decode(errors="replace").strip()
         raise PatcherError(message)
@@ -212,7 +227,7 @@ except (json.JSONDecodeError, UnicodeDecodeError):
     try:
         result = json.loads(stdout.decode())
         return bool(result.get("validated", True))
-    except json.JSONDecodeError, UnicodeDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return True
 
 
