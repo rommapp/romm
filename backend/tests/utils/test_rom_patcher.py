@@ -18,6 +18,7 @@ def _write_zip(
     *,
     comment: bytes = b"",
 ) -> None:
+    rom_patcher.ensure_zipfile_writable()
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.comment = comment
         for name, content in members.items():
@@ -107,9 +108,7 @@ async def test_apply_patch_uses_archive_fallback_for_unsupported_zip_method(
     local_header = data.index(encoded_name, data.index(b"PK\x03\x04")) - 30
     central_header = data.index(encoded_name, data.index(b"PK\x01\x02")) - 46
     data[local_header + 8 : local_header + 10] = (0xFFFF).to_bytes(2, "little")
-    data[central_header + 10 : central_header + 12] = (0xFFFF).to_bytes(
-        2, "little"
-    )
+    data[central_header + 10 : central_header + 12] = (0xFFFF).to_bytes(2, "little")
     source.write_bytes(data)
     archive_reader = MagicMock(
         return_value=iter([(member_name, len(b"source"), iter([b"source"]))])
@@ -207,6 +206,52 @@ async def test_apply_patch_rejects_corrupt_zip(tmp_path: Path):
 
     with pytest.raises(PatcherInputError, match="could not be read"):
         await apply_patch(source, tmp_path / "patch.bps", tmp_path / "patched.zip")
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_reports_zip_input_oserror_as_input_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    source = tmp_path / "game.zip"
+    source.write_bytes(b"input")
+
+    def raise_input_error(*_args: object, **_kwargs: object) -> None:
+        raise OSError("input read failed")
+
+    monkeypatch.setattr(rom_patcher.zipfile, "ZipFile", raise_input_error)
+
+    with pytest.raises(PatcherInputError, match="could not be read"):
+        await apply_patch(source, tmp_path / "patch.bps", tmp_path / "patched.zip")
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_does_not_report_extraction_output_oserror_as_input_error(
+    tmp_path: Path,
+):
+    source = tmp_path / "game.zip"
+    _write_zip(source, {"game.sfc": b"source"})
+    output = tmp_path / "missing" / "patched.zip"
+
+    with pytest.raises(OSError):
+        await apply_patch(source, tmp_path / "patch.bps", output)
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_does_not_report_rebuild_output_oserror_as_input_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    source = tmp_path / "game.zip"
+    output = tmp_path / "patched.zip"
+    _write_zip(source, {"game.sfc": b"source"})
+    output.mkdir()
+    monkeypatch.setattr(
+        rom_patcher,
+        "_apply_binary_patch",
+        _fake_patcher(b"source", b"patched"),
+    )
+
+    with pytest.raises(OSError):
+        await apply_patch(source, tmp_path / "patch.bps", output)
 
 
 @pytest.mark.asyncio

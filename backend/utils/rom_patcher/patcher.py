@@ -10,6 +10,7 @@ import json
 import shutil
 import zipfile
 import zlib
+from collections.abc import Iterator
 from pathlib import Path
 
 from anyio import Path as AnyioPath
@@ -19,7 +20,11 @@ from config import (
     ROM_PATCHER_TIMEOUT,
 )
 
-from utils.archives import ArchiveReadError, read_zip_archive_files
+from utils.archives import (
+    FILE_READ_CHUNK_SIZE,
+    ArchiveReadError,
+    read_zip_archive_files,
+)
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 from utils.zip_cache import ensure_zipfile_writable
 
@@ -50,6 +55,15 @@ _WRITABLE_ZIP_COMPRESSION_TYPES = {
     zipfile.ZIP_LZMA,
     zipfile.ZIP_ZSTANDARD,
 }
+
+_ZIP_INPUT_ERRORS = (
+    EOFError,
+    OSError,
+    RuntimeError,
+    NotImplementedError,
+    zipfile.BadZipFile,
+    zlib.error,
+)
 
 
 class PatcherError(Exception):
@@ -97,7 +111,12 @@ def _extract_zip_member(
                 raise PatcherInputError("The uncompressed ROM archive is too large")
 
             selected_name = selected.filename
+    except PatcherInputError:
+        raise
+    except _ZIP_INPUT_ERRORS as e:
+        raise PatcherInputError("The ROM archive could not be read") from e
 
+    try:
         for name, _size, chunks in read_zip_archive_files(archive_path, [], []):
             if name != selected_name:
                 for _chunk in chunks:
@@ -112,23 +131,23 @@ def _extract_zip_member(
             raise PatcherInputError(
                 "The selected file was not found uniquely in the ROM archive"
             )
-
-        if output_path.stat().st_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
-            output_path.unlink(missing_ok=True)
-            raise PatcherInputError("The uncompressed ROM is too large to patch")
-        return selected_name
-    except PatcherInputError:
-        raise
     except ArchiveReadError as e:
         raise PatcherInputError("The ROM archive could not be read") from e
-    except (
-        EOFError,
-        OSError,
-        RuntimeError,
-        NotImplementedError,
-        zipfile.BadZipFile,
-        zlib.error,
-    ) as e:
+
+    if output_path.stat().st_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+        output_path.unlink(missing_ok=True)
+        raise PatcherInputError("The uncompressed ROM is too large to patch")
+    return selected_name
+
+
+def _read_zip_entry(
+    archive: zipfile.ZipFile, entry: zipfile.ZipInfo
+) -> Iterator[bytes]:
+    try:
+        with archive.open(entry, "r") as source:
+            while chunk := source.read(FILE_READ_CHUNK_SIZE):
+                yield chunk
+    except _ZIP_INPUT_ERRORS as e:
         raise PatcherInputError("The ROM archive could not be read") from e
 
 
@@ -139,18 +158,20 @@ def _rebuild_zip(
     patched_member_name: str,
 ) -> None:
     try:
-        ensure_zipfile_writable()
+        source_archive = zipfile.ZipFile(archive_path, "r")
+    except _ZIP_INPUT_ERRORS as e:
+        raise PatcherInputError("The ROM archive could not be read") from e
+
+    ensure_zipfile_writable()
+    try:
         with (
-            zipfile.ZipFile(archive_path, "r") as source_archive,
+            source_archive,
             zipfile.ZipFile(output_path, "w", allowZip64=True) as output_archive,
         ):
             output_archive.comment = source_archive.comment
             for source_entry in source_archive.infolist():
                 output_entry = copy.copy(source_entry)
-                if (
-                    output_entry.compress_type
-                    not in _WRITABLE_ZIP_COMPRESSION_TYPES
-                ):
+                if output_entry.compress_type not in _WRITABLE_ZIP_COMPRESSION_TYPES:
                     output_entry.compress_type = zipfile.ZIP_DEFLATED
 
                 if source_entry.is_dir():
@@ -164,18 +185,11 @@ def _rebuild_zip(
                         with patched_path.open("rb") as patched_file:
                             shutil.copyfileobj(patched_file, output_file)
                     else:
-                        with source_archive.open(source_entry, "r") as source_file:
-                            shutil.copyfileobj(source_file, output_file)
-    except (
-        EOFError,
-        OSError,
-        RuntimeError,
-        NotImplementedError,
-        zipfile.BadZipFile,
-        zlib.error,
-    ) as e:
+                        for chunk in _read_zip_entry(source_archive, source_entry):
+                            output_file.write(chunk)
+    except PatcherInputError:
         output_path.unlink(missing_ok=True)
-        raise PatcherInputError("The patched ROM archive could not be created") from e
+        raise
 
 
 async def _apply_binary_patch(
@@ -206,16 +220,14 @@ async def _apply_binary_patch(
     except TimeoutError as e:
         proc.kill()
         await proc.wait()
-        raise PatcherError(
-            f"Patching timed out after {ROM_PATCHER_TIMEOUT}s"
-        ) from e
+        raise PatcherError(f"Patching timed out after {ROM_PATCHER_TIMEOUT}s") from e
 
     if proc.returncode != 0:
         message = "Patching failed"
         try:
             err_data = json.loads(stderr.decode())
             message = err_data.get("error", message)
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except json.JSONDecodeError, UnicodeDecodeError:
             if stderr:
                 message = stderr.decode(errors="replace").strip()
         raise PatcherError(message)
@@ -227,7 +239,7 @@ async def _apply_binary_patch(
     try:
         result = json.loads(stdout.decode())
         return bool(result.get("validated", True))
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except json.JSONDecodeError, UnicodeDecodeError:
         return True
 
 
