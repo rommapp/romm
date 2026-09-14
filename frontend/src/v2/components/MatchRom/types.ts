@@ -69,6 +69,10 @@ const SOURCE_DEFS: readonly SourceDef[] = [
   },
 ];
 
+export function sourceLogo(name: SourceName): string {
+  return SOURCE_DEFS.find((def) => def.name === name)?.logo ?? "";
+}
+
 export function getMatchSources(matchedRom: SearchRom): MatchedSource[] {
   const out: MatchedSource[] = [];
   for (const def of SOURCE_DEFS) {

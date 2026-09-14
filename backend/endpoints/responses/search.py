@@ -1,6 +1,10 @@
-from handler.metadata.sgdb_handler import SGDBResource
+from typing import Literal
+
+from handler.metadata.base_handler import CoverResource
 
 from .base import BaseModel
+
+CoverProvider = Literal["sgdb", "steam"]
 
 
 class SearchRomSchema(BaseModel):
@@ -32,5 +36,6 @@ class SearchRomSchema(BaseModel):
 
 
 class SearchCoverSchema(BaseModel):
+    provider: CoverProvider
     name: str
-    resources: list[SGDBResource]
+    resources: list[CoverResource]

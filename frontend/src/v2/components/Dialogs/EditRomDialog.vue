@@ -329,7 +329,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               density="compact"
               :tooltip="t('rom.search-cover')"
               :disabled="
-                !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
+                !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED &&
+                !heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED
               "
               @click="
                 emitter?.emit('showSearchCoverDialog', {

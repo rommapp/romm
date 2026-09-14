@@ -393,7 +393,7 @@
   "search-by-id": "ID",
   "search-by-name": "Название",
   "search-cover": "Найти обложку",
-  "search-cover-hint": "Введите название и нажмите Enter, чтобы искать в SteamGridDB.",
+  "search-cover-hint": "Введите название и нажмите Enter, чтобы искать у поставщиков обложек.",
   "search-failed": "Поиск не удался",
   "search-placeholder": "Поиск по названию, имени файла, хешу…",
   "seek-progress": "{current} из {duration}",
