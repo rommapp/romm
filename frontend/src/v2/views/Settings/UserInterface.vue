@@ -310,6 +310,12 @@ function onVirtualCollectionTypeChange(value: unknown) {
             :disabled="!showHomeWidgets"
           />
           <SettingsToggleRow
+            v-model="widgetAnniversaries"
+            :title="t('settings.widget-anniversaries')"
+            :description="t('settings.widget-anniversaries-desc')"
+            :disabled="!showHomeWidgets"
+          />
+          <SettingsToggleRow
             v-model="widgetLibraryStats"
             :title="t('settings.widget-library-stats')"
             :description="t('settings.widget-library-stats-desc')"
@@ -331,12 +337,6 @@ function onVirtualCollectionTypeChange(value: unknown) {
               />
             </template>
           </SettingsToggleRow>
-          <SettingsToggleRow
-            v-model="widgetAnniversaries"
-            :title="t('settings.widget-anniversaries')"
-            :description="t('settings.widget-anniversaries-desc')"
-            :disabled="!showHomeWidgets"
-          />
         </div>
         <!-- Reorder list — drag handles let users decide the
              left-to-right order the widgets paint on Home. Disabled

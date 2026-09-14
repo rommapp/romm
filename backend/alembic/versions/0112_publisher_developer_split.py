@@ -25,6 +25,7 @@ import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
 from utils.database import CustomJSON, is_postgresql
+from utils.roms_columns import ensure_roms_columns, roms_metadata_view_sql
 
 # revision identifiers, used by Alembic.
 revision = "0112_publisher_developer_split"
@@ -34,51 +35,15 @@ depends_on = None
 
 
 # ---------------------------------------------------------------------------
-# Generated columns on roms (mirrors 0098's company source precedence/exprs)
+# Generated columns on roms
 # ---------------------------------------------------------------------------
 
-# (generated column, JSON key) added by this migration.
+# (generated column, view alias) added by this migration. Their expressions
+# live in `utils.roms_columns`, which adds them in the shared table copy.
 _NEW_GENERATED = [
     ("generated_publishers", "publishers"),
     ("generated_developers", "developers"),
 ]
-
-# Same provider blobs (and precedence) that back generated_companies in 0098.
-_COMPANY_SOURCES = [
-    "manual_metadata",
-    "igdb_metadata",
-    "ss_metadata",
-    "ra_metadata",
-    "launchbox_metadata",
-    "flashpoint_metadata",
-    "gamelist_metadata",
-]
-
-
-def _maria_array_expr(key: str) -> str:
-    branches = [
-        f"CASE WHEN JSON_LENGTH(JSON_EXTRACT({src}, '$.{key}')) > 0 "
-        f"THEN JSON_EXTRACT({src}, '$.{key}') ELSE NULL END"
-        for src in _COMPANY_SOURCES
-    ]
-    branches.append("JSON_ARRAY()")
-    return "COALESCE(\n    " + ",\n    ".join(branches) + "\n)"
-
-
-def _postgres_array_expr(key: str) -> str:
-    branches = [f"NULLIF({src} -> '{key}', '[]'::jsonb)" for src in _COMPANY_SOURCES]
-    branches.append("'[]'::jsonb")
-    return "COALESCE(\n    " + ",\n    ".join(branches) + "\n)"
-
-
-def _add_generated_columns(pg: bool) -> None:
-    json_type = "JSONB" if pg else "JSON"
-    expr = _postgres_array_expr if pg else _maria_array_expr
-    adds = ",\n".join(
-        f"ADD COLUMN {name} {json_type} GENERATED ALWAYS AS ({expr(key)}) STORED"
-        for name, key in _NEW_GENERATED
-    )
-    op.execute(f"ALTER TABLE roms\n{adds}")  # nosec B608
 
 
 def _drop_generated_columns() -> None:
@@ -104,32 +69,12 @@ _BASE_VIEW_COLUMNS = [
 ]
 
 
-def _roms_metadata_view_sql(pg: bool, include_new: bool) -> str:
-    columns = _BASE_VIEW_COLUMNS + (_NEW_GENERATED if include_new else [])
-    projections = []
-    for name, alias in columns:
-        # player_count is text in the view (0098 note), cast to match on PG.
-        if pg and alias == "player_count":
-            projections.append(f"{name}::text AS {alias}")
-        else:
-            projections.append(f"{name} AS {alias}")
-    projection = ",\n    ".join(projections)
-    return (
-        "CREATE VIEW roms_metadata AS\n"  # nosec B608
-        "SELECT\n"
-        "    id AS rom_id,\n"
-        "    NOW() AS created_at,\n"
-        "    NOW() AS updated_at,\n"
-        f"    {projection}\n"
-        "FROM roms"
-    )
-
-
 def _rebuild_roms_metadata_view(pg: bool, include_new: bool) -> None:
     # DROP + CREATE (not REPLACE): PG's CREATE OR REPLACE VIEW cannot drop the
     # trailing columns on downgrade. Nothing depends on this view.
+    columns = _BASE_VIEW_COLUMNS + (_NEW_GENERATED if include_new else [])
     op.execute("DROP VIEW IF EXISTS roms_metadata")
-    op.execute(_roms_metadata_view_sql(pg, include_new))
+    op.execute(roms_metadata_view_sql(pg, columns))
 
 
 # ---------------------------------------------------------------------------
@@ -377,11 +322,15 @@ def _has_split_metadata(pg: bool) -> bool:
 def upgrade() -> None:
     pg = is_postgresql(op.get_bind())
 
-    _add_generated_columns(pg)
+    ensure_roms_columns(op.get_bind())
     _rebuild_roms_metadata_view(pg, include_new=True)
 
-    op.add_column("roms_facets", sa.Column("publishers", CustomJSON(), nullable=True))
-    op.add_column("roms_facets", sa.Column("developers", CustomJSON(), nullable=True))
+    for facet in ("publishers", "developers"):
+        op.add_column(
+            "roms_facets",
+            sa.Column(facet, CustomJSON(), nullable=True),
+            if_not_exists=True,
+        )
     _rebuild_facets_triggers(pg, include_new=True)
     _rebuild_vc_triggers(pg, _VC_ALL_TYPES)
 

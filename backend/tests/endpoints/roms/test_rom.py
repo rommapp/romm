@@ -1,9 +1,10 @@
 import json
 from datetime import datetime, timezone
+from typing import cast
 from unittest.mock import AsyncMock, patch
 from urllib.parse import unquote
 
-from fastapi import status
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
 from config.config_manager import MetadataMediaType
@@ -1848,6 +1849,100 @@ class TestUpdateMetadataIDs:
         SteamHandler,
         "get_rom_by_id",
         return_value=SteamRom(
+            steam_id=MOCK_STEAM_ID,
+            name="Portal 2",
+            summary="The Perpetual Testing Initiative has been expanded.",
+        ),
+    )
+    def test_update_rom_takes_the_summary_the_provider_fetched(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """The match picker sends no summary for a provider that lists none."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"steam_id": str(MOCK_STEAM_ID), "name": "Portal 2"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["summary"] == "The Perpetual Testing Initiative has been expanded."
+
+    @patch.object(
+        FSResourcesHandler,
+        "get_cover",
+        new_callable=AsyncMock,
+        return_value=("path/to/small.png", "path/to/big.png"),
+    )
+    @patch.object(
+        SteamHandler,
+        "get_rom_by_id",
+        return_value=SteamRom(
+            steam_id=MOCK_STEAM_ID, url_cover="https://cdn.example/header.jpg"
+        ),
+    )
+    def test_update_rom_takes_the_cover_the_provider_fetched(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        get_cover_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A match whose row carried no artwork still gets the provider's."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"steam_id": str(MOCK_STEAM_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        assert response.json()["url_cover"] == "https://cdn.example/header.jpg"
+
+    @patch.object(
+        FSResourcesHandler,
+        "get_cover",
+        new_callable=AsyncMock,
+        return_value=("path/to/small.png", "path/to/big.png"),
+    )
+    @patch.object(
+        SteamHandler,
+        "get_rom_by_id",
+        return_value=SteamRom(
+            steam_id=MOCK_STEAM_ID, url_cover="https://cdn.example/header.jpg"
+        ),
+    )
+    def test_update_rom_leaves_a_locked_cover_to_the_user(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        get_cover_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Hand-supplied artwork outranks whatever the provider fetched."""
+        db_rom_handler.update_rom(
+            rom.id, {"url_cover": "", "locked_fields": ["url_cover"]}
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"steam_id": str(MOCK_STEAM_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        assert response.json()["url_cover"] == ""
+        assert db_rom_handler.get_rom(rom.id).locked_fields == ["url_cover"]
+
+    @patch.object(
+        SteamHandler,
+        "get_rom_by_id",
+        return_value=SteamRom(
             steam_id=MOCK_STEAM_ID, steam_metadata={"total_rating": "86"}
         ),
     )
@@ -2397,3 +2492,20 @@ class TestUnmatchMetadata:
         assert body["igdb_id"] is None
         assert body["name"] == rom.fs_name
         assert body["summary"] == ""
+
+
+def test_rom_filters_stay_individual_query_parameters(client: TestClient):
+    """The filter model must reach clients as one parameter per field.
+
+    FastAPI expands a Pydantic query model only when it is a route's sole query
+    parameter, and `/api/roms` has several others, so the fields are carried by
+    a dependency built from the model. Were that to collapse, the route would
+    document (and accept) a single `filters` parameter instead, which the
+    generated frontend client is built from.
+    """
+    schema = cast(FastAPI, client.app).openapi()
+    parameters = schema["paths"]["/api/roms"]["get"]["parameters"]
+    names = {parameter["name"] for parameter in parameters}
+
+    assert "filters" not in names
+    assert {"genres", "genres_logic", "matched", "platform_ids"} <= names

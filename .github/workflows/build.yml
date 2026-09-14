@@ -1,4 +1,4 @@
-name: Build Docker Image and Trigger Docs/Website
+name: Build Docker Image
 
 on:
   # push:
@@ -270,30 +270,3 @@ jobs:
 
           push_variant /tmp/digests/slim "$SLIM_METADATA"
           push_variant /tmp/digests/full "$FULL_METADATA"
-
-  trigger-docs-and-web:
-    # Dispatches into other repositories with a PAT; GITHUB_TOKEN is unused.
-    permissions: {}
-    needs: merge
-    runs-on: ubuntu-latest
-    if: github.event.release.prerelease == false
-    steps:
-      - name: Trigger docs build
-        run: |
-          curl -L -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${DOCS_PAT}" \
-            "https://api.github.com/repos/rommapp/docs/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
-        env:
-          DOCS_PAT: ${{ secrets.DOCS_PAT }}
-
-      - name: Trigger website build
-        run: |
-          curl -L -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${DOCS_PAT}" \
-            "https://api.github.com/repos/rommapp/marketing-site/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
-        env:
-          DOCS_PAT: ${{ secrets.DOCS_PAT }}

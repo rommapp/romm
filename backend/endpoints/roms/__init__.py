@@ -65,6 +65,12 @@ from handler.database import (
     db_save_handler,
 )
 from handler.database.base_handler import sync_session
+from handler.database.rom_filters import RomFilterParams
+from handler.database.roms_handler import (
+    sorts_by_rom_user_column,
+    user_sibling_cache_version,
+    user_sort_cache_version,
+)
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
@@ -121,7 +127,7 @@ from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.m3u import generate_m3u_content, playlist_files
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
-from utils.router import APIRouter
+from utils.router import APIRouter, as_query_dependency
 from utils.screenshots import continue_playing_screenshot
 from utils.validation import ValidationError, parse_comma_separated_ids
 from utils.zip_cache import (
@@ -191,22 +197,29 @@ def build_unscoped_sidecar_cache_key(
     group_by_meta_id: bool,
     is_unscoped: bool,
 ) -> str | None:
-    """Cache key for the unscoped library sidecars (char index, filter values,
-    rom id index). Returns None for scoped/searched sets, which are computed live.
-    The computed values depend on user, ordering and grouping, so all are part
-    of the key.
-
-    What counts as unscoped differs per sidecar, so the caller decides: the char
-    index and the id index narrow with every filter, while the filter-value list
-    is built from a query that only applies platform / collection / search.
+    """Cache key for the unscoped char-index / rom-id-index sidecars; None for
+    scoped/searched sets, which are computed live. Embeds the per-user sort
+    version on RomUser-column sorts and the sibling version on grouped sets,
+    so exactly the writes that move a set rotate its key.
     """
     if not is_unscoped:
         return None
 
-    return (
-        f"all:u{user_id}"
-        f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
-    )
+    user_part = f"u{user_id}"
+    if sorts_by_rom_user_column(order_by, user_id):
+        user_part = f"{user_part}.{user_sort_cache_version(user_id)}"
+    if group_by_meta_id:
+        user_part = f"{user_part}.s{user_sibling_cache_version(user_id)}"
+
+    return f"all:{user_part}:o{order_by}:d{order_dir}:g{int(group_by_meta_id)}"
+
+
+def build_unscoped_filter_values_cache_key(
+    user_id: int, is_unscoped: bool
+) -> str | None:
+    """Filter values ignore ordering and grouping (their query strips both),
+    so one per-user entry serves every sort."""
+    return f"all:u{user_id}" if is_unscoped else None
 
 
 class RomUpdateForm(BaseModel):
@@ -443,9 +456,13 @@ def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
     return days
 
 
+ROM_FILTER_QUERY = as_query_dependency(RomFilterParams)
+
+
 @protected_route(router.get, "", [Scope.ROMS_READ])
 def get_roms(
     request: Request,
+    filters: Annotated[RomFilterParams, Depends(ROM_FILTER_QUERY)],
     with_char_index: Annotated[
         bool,
         Query(description="Whether to get the char index."),
@@ -472,307 +489,6 @@ def get_roms(
             )
         ),
     ] = True,
-    search_term: Annotated[
-        str | None,
-        Query(description="Search term to filter roms."),
-    ] = None,
-    platform_ids: Annotated[
-        list[int] | None,
-        Query(
-            description=(
-                "Platform internal ids. Multiple values are allowed by repeating the"
-                " parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    collection_id: Annotated[
-        int | None,
-        Query(description="Collection internal id.", ge=1),
-    ] = None,
-    virtual_collection_id: Annotated[
-        str | None,
-        Query(description="Virtual collection internal id."),
-    ] = None,
-    smart_collection_id: Annotated[
-        int | None,
-        Query(description="Smart collection internal id.", ge=1),
-    ] = None,
-    matched: Annotated[
-        bool | None,
-        Query(description="Whether the rom matched at least one metadata source."),
-    ] = None,
-    favorite: Annotated[
-        bool | None,
-        Query(description="Whether the rom is marked as favorite."),
-    ] = None,
-    duplicate: Annotated[
-        bool | None,
-        Query(description="Whether the rom is marked as duplicate."),
-    ] = None,
-    last_played: Annotated[
-        bool | None,
-        Query(
-            description="Whether the rom has a last played value for the current user."
-        ),
-    ] = None,
-    playable: Annotated[
-        bool | None,
-        Query(description="Whether the rom is playable from the browser."),
-    ] = None,
-    missing: Annotated[
-        bool | None,
-        Query(description="Whether the rom is missing from the filesystem."),
-    ] = None,
-    physical: Annotated[
-        bool | None,
-        Query(description="Whether the rom is a physical copy with no file."),
-    ] = None,
-    has_ra: Annotated[
-        bool | None,
-        Query(description="Whether the rom has RetroAchievements data."),
-    ] = None,
-    has_saves: Annotated[
-        bool | None,
-        Query(description="Whether the rom has saves for the current user."),
-    ] = None,
-    has_states: Annotated[
-        bool | None,
-        Query(description="Whether the rom has save states for the current user."),
-    ] = None,
-    verified: Annotated[
-        bool | None,
-        Query(description="Whether the rom is verified by Hasheous."),
-    ] = None,
-    has_soundtrack: Annotated[
-        bool | None,
-        Query(description="Whether the rom has any soundtrack files."),
-    ] = None,
-    group_by_meta_id: Annotated[
-        bool,
-        Query(
-            description="Whether to group roms by metadata ID (IGDB / Moby / ScreenScraper / RetroAchievements / LaunchBox)."
-        ),
-    ] = False,
-    genres: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated genre. Multiple values are allowed by repeating the"
-                " parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    franchises: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated franchise. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    collections: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated collection. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    companies: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated company. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    publishers: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated publisher. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    developers: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated developer. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    age_ratings: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated age rating. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    statuses: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Game status, set by the current user. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    regions: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated region tag. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    languages: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated language tag. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    player_counts: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated player count. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    metadata_providers: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Matched metadata provider (igdb, moby, ss, ra, launchbox, hasheous,"
-                " flashpoint, hltb, demozoo, pouet, csdb, steam, gamelist,"
-                " libretro). Multiple values are allowed by"
-                " repeating the parameter, and results that match any of the values"
-                " will be returned."
-            ),
-        ),
-    ] = None,
-    tags: Annotated[
-        list[str] | None,
-        Query(
-            description=(
-                "Associated custom tag (parsed from the filename, e.g. Proto, Beta,"
-                " Demo). Multiple values are allowed by repeating the parameter, and"
-                " results that match any of the values will be returned."
-            ),
-        ),
-    ] = None,
-    # Logic operators for multi-value filters
-    genres_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for genres filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    franchises_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for franchises filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    collections_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for collections filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    companies_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for companies filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    publishers_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for publishers filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    developers_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for developers filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    age_ratings_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for age ratings filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    regions_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for regions filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    languages_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for languages filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    statuses_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for statuses filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    player_counts_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for player counts filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    metadata_providers_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for metadata providers filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    tags_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for tags filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
-        ),
-    ] = "any",
-    hltb_main_story_min: Annotated[
-        int | None,
-        Query(
-            description=(
-                "Minimum HowLongToBeat main story time, in seconds. Roms without"
-                " a HowLongToBeat time are excluded."
-            ),
-            ge=0,
-        ),
-    ] = None,
-    hltb_main_story_max: Annotated[
-        int | None,
-        Query(
-            description=(
-                "Maximum HowLongToBeat main story time, in seconds. Roms without"
-                " a HowLongToBeat time are excluded."
-            ),
-            ge=0,
-        ),
-    ] = None,
     order_by: Annotated[
         str,
         Query(
@@ -822,66 +538,27 @@ def get_roms(
     perms = get_permissions(request)
     parsed_released_days = parse_released_days(released_days)
 
-    unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
+    # Normalised once so the query layer and every cache key agree on case.
+    order_by = order_by.lower()
+    order_dir = order_dir.lower()
+
+    unfiltered_query, sort_key = db_rom_handler.get_roms_query(
         user_id=request.user.id,
-        order_by=order_by.lower(),
-        order_dir=order_dir.lower(),
-        search_term=search_term,
+        order_by=order_by,
+        order_dir=order_dir,
+        search_term=filters.search_term,
     )
 
     # Filter down the query
     query = db_rom_handler.filter_roms(
         query=unfiltered_query,
+        filters=filters,
+        sort_key=sort_key,
+        order_by=order_by,
+        order_dir=order_dir,
         user_id=request.user.id,
         hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
         hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
-        platform_ids=platform_ids,
-        collection_id=collection_id,
-        virtual_collection_id=virtual_collection_id,
-        smart_collection_id=smart_collection_id,
-        search_term=search_term,
-        matched=matched,
-        favorite=favorite,
-        duplicate=duplicate,
-        last_played=last_played,
-        playable=playable,
-        has_ra=has_ra,
-        has_saves=has_saves,
-        has_states=has_states,
-        missing=missing,
-        physical=physical,
-        verified=verified,
-        has_soundtrack=has_soundtrack,
-        genres=genres,
-        franchises=franchises,
-        collections=collections,
-        companies=companies,
-        publishers=publishers,
-        developers=developers,
-        age_ratings=age_ratings,
-        statuses=statuses,
-        regions=regions,
-        languages=languages,
-        player_counts=player_counts,
-        metadata_providers=metadata_providers,
-        tags=tags,
-        hltb_main_story_min=hltb_main_story_min,
-        hltb_main_story_max=hltb_main_story_max,
-        # Logic operators
-        genres_logic=genres_logic,
-        franchises_logic=franchises_logic,
-        collections_logic=collections_logic,
-        companies_logic=companies_logic,
-        publishers_logic=publishers_logic,
-        developers_logic=developers_logic,
-        age_ratings_logic=age_ratings_logic,
-        regions_logic=regions_logic,
-        languages_logic=languages_logic,
-        statuses_logic=statuses_logic,
-        player_counts_logic=player_counts_logic,
-        metadata_providers_logic=metadata_providers_logic,
-        tags_logic=tags_logic,
-        group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
         released_days=parsed_released_days,
         released_before_year=released_before_year,
@@ -892,71 +569,34 @@ def get_roms(
         include_notes=False,
     )
 
-    # Cache only the fully unscoped library scan; any narrowing parameter makes
-    # the result set narrower, so it is computed live. The sidecar cache key
-    # encodes only user/order/grouping, not the filters, so every filter applied
-    # to `query` below must gate caching here or a narrowed list leaks under the
-    # shared "all" key. Bool flags use `is not None` since False is an active
-    # filter. Logic operators are omitted: they only matter when their list
-    # filter is set, which is already covered.
+    # Cache only the fully unscoped library scan: the sidecar cache key encodes
+    # user/order/grouping but not the filters, so anything that narrows `query`
+    # has to gate caching or a narrowed list leaks under the shared "all" key.
     #
-    # The filter-value list is gated separately: it is computed from
-    # `unfiltered_query` with only these scope parameters applied (see below),
-    # so the row-level filters never reach it and its result stays identical to
-    # the unfiltered one. Locking it out of the cache over a filter it does not
-    # apply made every Missing-tab visit recompute the whole library.
-    is_unscoped_scope = not (
-        search_term
-        or platform_ids
-        or collection_id
-        or virtual_collection_id
-        or smart_collection_id
+    # The filter-value list is gated on the scope alone: it is computed with
+    # only the scope applied, so a filter it never applies cannot stale it.
+    is_unscoped_scope = not filters.has_scope()
+    is_unscoped = (
+        is_unscoped_scope
+        and not filters.has_filters()
+        and not updated_after
+        and not parsed_released_days
     )
-    is_unscoped = is_unscoped_scope and not (
-        genres
-        or franchises
-        or collections
-        or companies
-        or publishers
-        or developers
-        or age_ratings
-        or statuses
-        or regions
-        or languages
-        or player_counts
-        or metadata_providers
-        or tags
-        or hltb_main_story_min is not None
-        or hltb_main_story_max is not None
-        or updated_after
-        or matched is not None
-        or favorite is not None
-        or duplicate is not None
-        or last_played is not None
-        or playable is not None
-        or has_ra is not None
-        or has_saves is not None
-        or has_states is not None
-        or missing is not None
-        or physical is not None
-        or verified is not None
-        or has_soundtrack is not None
-        or parsed_released_days
+
+    # One key for both ordered sidecars: the same request must not read the
+    # char index and the id index under different per-user versions.
+    sidecar_cache_key = build_unscoped_sidecar_cache_key(
+        request.user.id, order_by, order_dir, filters.group_by_meta_id, is_unscoped
     )
 
     # Get the char index for the roms
     char_index_dict = {}
     if with_char_index:
-        # Switching sort direction/column (or toggling grouping) must not reuse
-        # a stale index, or the AlphaStrip highlights the wrong letters.
-        char_index_cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
-        )
         char_index = db_rom_handler.with_char_index(
             query=query,
-            order_by_attr=order_by_attr,
-            order_dir=order_dir.lower(),
-            cache_key=char_index_cache_key,
+            order_by_attr=sort_key.column,
+            order_dir=order_dir,
+            cache_key=sidecar_cache_key,
         )
         char_index_dict = {char: index for (char, index) in char_index}
 
@@ -979,21 +619,20 @@ def get_roms(
         # We use the unfiltered query so applied filters don't affect the list
         filter_query = db_rom_handler.filter_roms(
             query=unfiltered_query,
+            # Scope only: the dropdowns list what the applied filters could
+            # still narrow to, so the applied filters themselves are left out.
+            filters=filters.scope_only(),
             user_id=request.user.id,
             hidden_platform_ids=list(perms.hidden_platform_ids),
             hidden_rom_ids=list(perms.hidden_rom_ids),
-            platform_ids=platform_ids,
-            collection_id=collection_id,
-            virtual_collection_id=virtual_collection_id,
-            smart_collection_id=smart_collection_id,
-            search_term=search_term,
         )
-        cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped_scope
-        )
+        # `hidden`, the only RomUser column filter values read, already
+        # bumps the global version, so no per-user version is embedded.
         query_filters = db_rom_handler.with_filter_values(
             query=filter_query,
-            cache_key=cache_key,
+            cache_key=build_unscoped_filter_values_cache_key(
+                request.user.id, is_unscoped_scope
+            ),
         )
         # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
@@ -1003,13 +642,8 @@ def get_roms(
     # out with with_rom_id_index=false and avoid the full-library scan.
     rom_id_index: list[int] = []
     if with_rom_id_index:
-        # Memoise the unscoped library scan (same key scheme as the other
-        # sidecars); scoped/searched sets stay live.
-        rom_id_index_cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
-        )
         rom_id_index = db_rom_handler.get_rom_id_index(
-            query=query, cache_key=rom_id_index_cache_key
+            query=query, cache_key=sidecar_cache_key
         )
 
     # Hydrate the requested page and its additional data
@@ -1038,7 +672,7 @@ def get_roms(
 
             # Continue-playing rail
             screenshot_by_rom: dict[int, str | None] = {}
-            if last_played:
+            if filters.last_played:
                 latest_saves = db_save_handler.get_latest_saves_for_roms(
                     user_id=request.user.id, rom_ids=rom_ids, session=session
                 )
@@ -1153,13 +787,16 @@ def get_random_rom(
     base_query, _ = db_rom_handler.get_roms_query(user_id=request.user.id)
     query = db_rom_handler.filter_roms(
         query=base_query,
+        # This route scopes the pick; it exposes no filters of its own.
+        filters=RomFilterParams(
+            platform_ids=platform_ids,
+            collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
+            smart_collection_id=smart_collection_id,
+        ),
         user_id=request.user.id,
         hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
         hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
-        platform_ids=platform_ids,
-        collection_id=collection_id,
-        virtual_collection_id=virtual_collection_id,
-        smart_collection_id=smart_collection_id,
         include_related=False,
     )
 
@@ -1200,7 +837,7 @@ async def download_roms(
     ] = None,
     collection_id: Annotated[
         int | None,
-        Query(description="Download every ROM in this collection as a zip file."),
+        Query(description="Download every ROM in this collection as a zip file.", ge=1),
     ] = None,
     virtual_collection_id: Annotated[
         str | None,
@@ -1210,7 +847,10 @@ async def download_roms(
     ] = None,
     smart_collection_id: Annotated[
         int | None,
-        Query(description="Download every ROM in this smart collection as a zip file."),
+        Query(
+            description="Download every ROM in this smart collection as a zip file.",
+            ge=1,
+        ),
     ] = None,
     filename: Annotated[
         str | None,
@@ -2269,12 +1909,20 @@ async def update_rom(
             log.error(f"Invalid screenshot URL in update_rom: {str(e)}")
             raise HTTPException(status_code=400, detail=str(e)) from e
 
-    name_value = form_data.name if "name" in provided_fields else rom.name
+    # A provider refetch above may have filled these in, so only fall back to
+    # the stored value when neither the form nor a provider supplied one.
+    name_value = (
+        form_data.name
+        if "name" in provided_fields
+        else cleaned_data.get("name") or rom.name
+    )
     cleaned_data.update(
         {
             "name": name_value,
             "summary": (
-                form_data.summary if "summary" in provided_fields else rom.summary
+                form_data.summary
+                if "summary" in provided_fields
+                else cleaned_data.get("summary") or rom.summary
             ),
         }
     )
@@ -2336,8 +1984,16 @@ async def update_rom(
             )
             locked_fields.add("url_cover")
         else:
+            # A provider refetch may have brought artwork of its own: the form
+            # wins when it posts a cover, and a cover the user locked is never
+            # handed back to a provider.
+            fetched_cover = (
+                None if "url_cover" in locked_fields else cleaned_data.get("url_cover")
+            )
             url_cover = (
-                form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
+                form_data.url_cover
+                if "url_cover" in provided_fields
+                else fetched_cover or rom.url_cover
             )
             try:
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(

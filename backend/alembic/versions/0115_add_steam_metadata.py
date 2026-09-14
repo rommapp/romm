@@ -9,9 +9,9 @@ Create Date: 2026-08-19 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 from sqlalchemy import inspect
-from sqlalchemy.dialects import postgresql
 
 from utils.database import is_postgresql
+from utils.roms_columns import ensure_roms_columns
 
 # revision identifiers, used by Alembic.
 revision = "0115_add_steam_metadata"
@@ -106,20 +106,8 @@ def _recreate_triggers(mirrored_columns: list[tuple[str, str]]) -> None:
 
 
 def upgrade() -> None:
+    ensure_roms_columns(op.get_bind())
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("steam_id", sa.Integer(), nullable=True), if_not_exists=True
-        )
-        batch_op.add_column(
-            sa.Column(
-                "steam_metadata",
-                sa.JSON().with_variant(
-                    postgresql.JSONB(astext_type=sa.Text()), "postgresql"
-                ),
-                nullable=True,
-            ),
-            if_not_exists=True,
-        )
         batch_op.create_index(
             "idx_roms_steam_id", ["steam_id"], unique=False, if_not_exists=True
         )

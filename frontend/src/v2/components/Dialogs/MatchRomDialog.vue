@@ -42,7 +42,8 @@ type SourceName =
   | "Screenscraper"
   | "Flashpoint"
   | "Launchbox"
-  | "Libretro";
+  | "Libretro"
+  | "Steam";
 
 type SourceFilter = {
   name: SourceName;
@@ -111,6 +112,7 @@ const isSSFiltered = ref(true);
 const isFlashpointFiltered = ref(true);
 const isLaunchboxFiltered = ref(true);
 const isLibretroFiltered = ref(true);
+const isSteamFiltered = ref(true);
 
 const sourceFilters = computed<SourceFilter[]>(() => [
   {
@@ -155,6 +157,13 @@ const sourceFilters = computed<SourceFilter[]>(() => [
     enabled: !!heartbeat.value.METADATA_SOURCES.LIBRETRO_API_ENABLED,
     active: isLibretroFiltered.value,
   },
+  {
+    name: "Steam",
+    label: "Steam",
+    logo: "/assets/scrappers/steam.png",
+    enabled: !!heartbeat.value.METADATA_SOURCES.STEAM_API_ENABLED,
+    active: isSteamFiltered.value,
+  },
 ]);
 
 function toggleSourceFilter(name: SourceName) {
@@ -169,6 +178,7 @@ function toggleSourceFilter(name: SourceName) {
     isLaunchboxFiltered.value = !isLaunchboxFiltered.value;
   else if (name === "Libretro")
     isLibretroFiltered.value = !isLibretroFiltered.value;
+  else if (name === "Steam") isSteamFiltered.value = !isSteamFiltered.value;
 }
 
 const filteredMatchedRoms = computed(() =>
@@ -179,7 +189,8 @@ const filteredMatchedRoms = computed(() =>
       (r.ss_id && isSSFiltered.value) ||
       (r.flashpoint_id && isFlashpointFiltered.value) ||
       (r.launchbox_id && isLaunchboxFiltered.value) ||
-      (r.libretro_id && isLibretroFiltered.value),
+      (r.libretro_id && isLibretroFiltered.value) ||
+      (r.steam_id && isSteamFiltered.value),
   ),
 );
 
@@ -236,6 +247,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     flashpoint_id: matchedRom.flashpoint_id || null,
     launchbox_id: matchedRom.launchbox_id || null,
     libretro_id: matchedRom.libretro_id || null,
+    steam_id: matchedRom.steam_id || null,
     name: matchedRom.name || null,
     slug: matchedRom.slug || null,
     summary: matchedRom.summary || null,
@@ -247,6 +259,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
       matchedRom.flashpoint_url_cover ||
       matchedRom.launchbox_url_cover ||
       matchedRom.libretro_url_cover ||
+      matchedRom.steam_url_cover ||
       null,
   };
 
