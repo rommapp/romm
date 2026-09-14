@@ -152,17 +152,24 @@ async def pull_saves_to_library(
     return False
 
 
-def _restorable_archives(user_id: int, rom_id: int, emulator: str) -> list[Save]:
-    """The user's stored save archives for this emulator, newest first.
+def _written_by(save: Save, emulator: str) -> bool:
+    """An archive another emulator wrote lays its members out somewhere this
+    one never reads."""
+    return (save.emulator or "").lower() == emulator
 
-    Only a `.zip` qualifies: a bare save file carries no layout the broker
-    could restore it from, and an archive another emulator wrote lays its
-    members out somewhere this one never reads.
-    """
+
+def _is_archive(save: Save) -> bool:
+    """A bare save file carries no layout the broker could restore it from, so
+    only an archive qualifies."""
+    return save.file_name.endswith(".zip")
+
+
+def _restorable_archives(user_id: int, rom_id: int, emulator: str) -> list[Save]:
+    """The user's stored save archives for this emulator, newest first."""
     archives = [
         save
         for save in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
-        if (save.emulator or "").lower() == emulator and save.file_name.endswith(".zip")
+        if _written_by(save, emulator) and _is_archive(save)
     ]
     # Ties on id, because created_at only has second resolution: two archives
     # written in the same second would otherwise order arbitrarily.
@@ -193,12 +200,12 @@ def resolve_save_archive(
             status_code=400,
             detail="This emulator always restores the newest save",
         )
-    if (save.emulator or "").lower() != container.emulator:
+    if not _written_by(save, container.emulator):
         raise HTTPException(
             status_code=400,
             detail="Save was made by a different emulator",
         )
-    if not save.file_name.endswith(".zip"):
+    if not _is_archive(save):
         raise HTTPException(
             status_code=400,
             detail="Save is not a restorable archive",

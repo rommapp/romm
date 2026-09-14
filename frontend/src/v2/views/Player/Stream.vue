@@ -291,14 +291,20 @@ const showManualDiscHint = computed(
 // arrives newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// The archives the broker syncs, newest-first from the backend, scoped
-// to this emulator the same way the states are.
+// The archives the broker syncs, scoped to this emulator the same way the
+// states are. Ordered on created_at, then id, because that is what the
+// backend restores by; user_saves arrives ordered on updated_at, which a
+// later content-hash write reshuffles.
 const emulatorSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
   if (!rom.value || !emulator) return [];
-  return (rom.value.user_saves ?? []).filter(
-    (s) => (s.emulator ?? "").toLowerCase() === emulator,
-  );
+  return (rom.value.user_saves ?? [])
+    .filter((s) => (s.emulator ?? "").toLowerCase() === emulator)
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
+        b.id - a.id,
+    );
 });
 
 // The one the broker restores before boot when the claim names none.
