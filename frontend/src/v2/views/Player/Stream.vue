@@ -291,8 +291,7 @@ const showManualDiscHint = computed(
 // arrives newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// This emulator's archives, re-sorted (created_at, then id) the way the backend
-// restores: user_saves arrives on updated_at, which a content-hash write moves.
+// user_saves arrives ordered on updated_at; the restore goes by created_at.
 const emulatorSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
   if (!rom.value || !emulator) return [];
@@ -323,8 +322,7 @@ const showSavePicker = computed(
     restorableSaves.value.length > 0,
 );
 
-// What the Saves tab lists: the archives the picker offers where there is
-// one, everything this emulator wrote where the panel only reports.
+// Only archives can be picked; the read-only panel lists bare save files too.
 const saveTabSaves = computed<SaveSchema[]>(() =>
   showSavePicker.value ? restorableSaves.value : emulatorSaves.value,
 );
@@ -1441,9 +1439,8 @@ onBeforeUnmount(() => {
             />
           </template>
 
-          <!-- Nothing to choose between: this emulator keeps whatever the
-               container already holds, so the archive is reported rather
-               than offered. -->
+          <!-- Reported rather than offered: this emulator keeps whatever the
+               container already holds, so a pick would not land. -->
           <SaveDataPanel v-else :save="newestSave" :platform="platformLabel" />
         </div>
       </RCard>
