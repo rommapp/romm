@@ -68,12 +68,6 @@ function isPatchFile(file: RomFileSchema) {
   );
 }
 
-function getZipMembers(file: RomFileSchema | null) {
-  return file && getExt(file.file_name) === ".zip"
-    ? (file.archive_members ?? [])
-    : [];
-}
-
 const selectedRomFile = ref<RomFileSchema | null>(null);
 const selectedPatchFile = ref<RomFileSchema | null>(null);
 const selectedArchiveMemberName = ref<string | null>(null);
@@ -115,7 +109,6 @@ const baseFiles = computed(() =>
 );
 const patchFiles = computed(() => props.rom.files.filter(isPatchFile));
 const hasLibraryPatches = computed(() => patchFiles.value.length > 0);
-const archiveMembers = computed(() => getZipMembers(selectedRomFile.value));
 
 const patchSourceItems = computed(() => [
   { id: "library" as const, label: t("common.library") },
@@ -136,6 +129,12 @@ const hasPatch = computed(() =>
 
 const romExtension = computed(() =>
   selectedRomFile.value ? getExt(selectedRomFile.value.file_name) : "",
+);
+
+const archiveMembers = computed(() =>
+  romExtension.value === ".zip"
+    ? (selectedRomFile.value?.archive_members ?? [])
+    : [],
 );
 
 const filenamePlaceholder = computed(() => {
@@ -168,9 +167,8 @@ watch(
 );
 
 watch(
-  selectedRomFile,
-  (file) => {
-    const members = getZipMembers(file);
+  archiveMembers,
+  (members) => {
     selectedArchiveMemberName.value =
       members.length === 1 ? members[0].name : null;
   },
@@ -455,7 +453,7 @@ const applyLabel = computed(() => {
           :items="archiveMembers"
           item-title="name"
           item-value="name"
-          :label="t('patcher.select-file')"
+          :label="t('patcher.select-archive-member')"
           variant="outlined"
           density="comfortable"
           hide-details

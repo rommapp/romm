@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DetailedRomSchema } from "@/__generated__";
+import type { DetailedRomSchema, RomArchiveMember } from "@/__generated__";
 import PatcherTab from "./PatcherTab.vue";
 
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
@@ -53,6 +53,23 @@ const RBtn = {
   template: `<button :disabled="disabled" @click="$emit('click')"><slot /></button>`,
 };
 
+const archiveMembers: RomArchiveMember[] = [
+  {
+    name: "docs/readme.txt",
+    size: 10,
+    crc_hash: "",
+    md5_hash: "",
+    sha1_hash: "",
+  },
+  {
+    name: "roms/Super Metroid.sfc",
+    size: 90,
+    crc_hash: "",
+    md5_hash: "",
+    sha1_hash: "",
+  },
+];
+
 function rom(): DetailedRomSchema {
   return {
     id: 1,
@@ -69,22 +86,7 @@ function rom(): DetailedRomSchema {
         category: "game",
         file_name: "Super Metroid.zip",
         file_size_bytes: 100,
-        archive_members: [
-          {
-            name: "docs/readme.txt",
-            size: 10,
-            crc_hash: "",
-            md5_hash: "",
-            sha1_hash: "",
-          },
-          {
-            name: "roms/Super Metroid.sfc",
-            size: 90,
-            crc_hash: "",
-            md5_hash: "",
-            sha1_hash: "",
-          },
-        ],
+        archive_members: archiveMembers,
       },
       {
         id: 11,

@@ -4,10 +4,15 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
 
+from fastapi import File, Form, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, UploadFile, status
+from pydantic import BaseModel
+from starlette.background import BackgroundTask
+from starlette.responses import FileResponse
+
 from config import ROM_PATCHER_MAX_FILE_SIZE_BYTES
 from decorators.auth import protected_route
-from fastapi import File, Form, HTTPException, Request, UploadFile, status
-from fastapi import Path as PathVar
 from handler.auth.constants import Scope
 from handler.auth.dependencies import ResolvedPermissions, get_permissions
 from handler.database import db_rom_handler
@@ -15,9 +20,6 @@ from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from pydantic import BaseModel
-from starlette.background import BackgroundTask
-from starlette.responses import FileResponse
 from utils.rom_patcher import (
     SUPPORTED_PATCH_EXTENSIONS,
     PatcherError,
@@ -158,7 +160,7 @@ async def patch_rom(
         )
 
         validated = await apply_patch(
-            rom_path, patch_path, output_path, archive_member_name
+            rom_path, patch_path, output_path, archive_member_name or None
         )
     except HTTPException:
         shutil.rmtree(tmp_dir, ignore_errors=True)

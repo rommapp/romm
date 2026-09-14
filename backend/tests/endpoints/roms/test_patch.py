@@ -1,9 +1,11 @@
 from pathlib import Path
 
 import pytest
-from endpoints.roms import patch as patch_endpoint
+from anyio import Path as AnyioPath
 from fastapi import status
 from fastapi.testclient import TestClient
+
+from endpoints.roms import patch as patch_endpoint
 from handler.database import db_rom_handler
 from models.rom import Rom, RomFile, RomFileCategory
 from utils.rom_patcher import PatcherInputError
@@ -43,7 +45,7 @@ def test_patch_rom_passes_archive_member_and_validation_header(
     ) -> bool:
         nonlocal received_member
         received_member = archive_member_name
-        output_path.write_bytes(b"patched zip")
+        await AnyioPath(output_path).write_bytes(b"patched zip")
         return False
 
     monkeypatch.setattr(
