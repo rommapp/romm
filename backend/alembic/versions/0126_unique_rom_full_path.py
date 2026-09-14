@@ -37,18 +37,11 @@ def upgrade() -> None:
     inspector = sa.inspect(connection)
     columns = {column["name"]: column for column in inspector.get_columns("roms")}
     indexes = {index["name"]: index for index in inspector.get_indexes("roms")}
-    column = columns.get(COLUMN_NAME)
     # Once the column is NOT NULL the backfill is done: no row can still match.
-    unfilled = column is None or column["nullable"]
+    unfilled = columns[COLUMN_NAME]["nullable"]
 
     # A crash mid-migration keeps what it created while the alembic version
     # stays behind, so each step is guarded and a replay resumes where it stopped.
-    if column is None:
-        op.add_column(
-            "roms",
-            sa.Column(COLUMN_NAME, sa.String(length=FULL_PATH_HASH_LENGTH)),
-        )
-
     if unfilled:
         connection.execute(
             sa.text(

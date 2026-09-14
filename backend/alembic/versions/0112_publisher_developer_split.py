@@ -25,7 +25,7 @@ import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
 from utils.database import CustomJSON, is_postgresql
-from utils.roms_columns import ensure_roms_columns
+from utils.roms_columns import ensure_roms_columns, roms_metadata_view_sql
 
 # revision identifiers, used by Alembic.
 revision = "0112_publisher_developer_split"
@@ -69,32 +69,12 @@ _BASE_VIEW_COLUMNS = [
 ]
 
 
-def _roms_metadata_view_sql(pg: bool, include_new: bool) -> str:
-    columns = _BASE_VIEW_COLUMNS + (_NEW_GENERATED if include_new else [])
-    projections = []
-    for name, alias in columns:
-        # player_count is text in the view (0098 note), cast to match on PG.
-        if pg and alias == "player_count":
-            projections.append(f"{name}::text AS {alias}")
-        else:
-            projections.append(f"{name} AS {alias}")
-    projection = ",\n    ".join(projections)
-    return (
-        "CREATE VIEW roms_metadata AS\n"  # nosec B608
-        "SELECT\n"
-        "    id AS rom_id,\n"
-        "    NOW() AS created_at,\n"
-        "    NOW() AS updated_at,\n"
-        f"    {projection}\n"
-        "FROM roms"
-    )
-
-
 def _rebuild_roms_metadata_view(pg: bool, include_new: bool) -> None:
     # DROP + CREATE (not REPLACE): PG's CREATE OR REPLACE VIEW cannot drop the
     # trailing columns on downgrade. Nothing depends on this view.
+    columns = _BASE_VIEW_COLUMNS + (_NEW_GENERATED if include_new else [])
     op.execute("DROP VIEW IF EXISTS roms_metadata")
-    op.execute(_roms_metadata_view_sql(pg, include_new))
+    op.execute(roms_metadata_view_sql(pg, columns))
 
 
 # ---------------------------------------------------------------------------

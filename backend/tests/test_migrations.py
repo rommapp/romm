@@ -35,6 +35,7 @@ from utils.roms_columns import (
     HLTB_MAIN_STORY_COLUMN,
     ROMS_METADATA_VIEW_COLUMNS,
     STEAM_FED_COLUMNS,
+    STEAM_METADATA_COLUMN,
     ensure_roms_columns,
     has_server_default,
     rebuild_generated_columns,
@@ -274,23 +275,20 @@ def _roms_alters(connection: sa.Connection) -> list[str]:
     statements: list[str] = []
 
     @sa.event.listens_for(connection, "before_cursor_execute")
-    def _record(
-        conn: sa.Connection,
-        cursor: Any,
-        statement: str,
-        parameters: Any,
-        context: Any,
-        executemany: bool,
-    ) -> None:
+    def _record(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
         if re.match(r"ALTER TABLE roms\b", statement.lstrip(), re.IGNORECASE):
             statements.append(statement)
 
     return statements
 
 
-def _generation_expression(connection: sa.Connection, column: str) -> str:
-    columns = {c["name"]: c for c in sa.inspect(connection).get_columns("roms")}
-    return columns[column]["computed"]["sqltext"]
+def _generation_expressions(connection: sa.Connection) -> dict[str, str]:
+    """The expression behind every generated column on `roms`."""
+    return {
+        column["name"]: column["computed"]["sqltext"]
+        for column in sa.inspect(connection).get_columns("roms")
+        if column.get("computed")
+    }
 
 
 def test_the_roms_columns_helper_leaves_a_migrated_table_alone():
@@ -307,10 +305,12 @@ def test_the_roms_columns_helper_leaves_a_migrated_table_alone():
 
 def test_the_roms_columns_helper_adds_every_missing_column_at_once():
     """A stored and a generated column missing together cost one table copy."""
+    hltb = _load_migration("0128_hltb_main_story_column.py")
+
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "roms")
         with Operations.context(MigrationContext.configure(connection)) as operations:
-            operations.drop_index("idx_roms_hltb_main_story", table_name="roms")
+            operations.drop_index(hltb.INDEX_NAME, table_name="roms")
             operations.drop_column("roms", "upc")
             operations.drop_column("roms", HLTB_MAIN_STORY_COLUMN)
         alters = _roms_alters(connection)
@@ -339,8 +339,9 @@ def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():
             drop=[],
             view_columns=ROMS_METADATA_VIEW_COLUMNS,
         )
-        assert "steam_metadata" not in _generation_expression(
-            connection, "generated_genres"
+        assert (
+            STEAM_METADATA_COLUMN
+            not in _generation_expressions(connection)["generated_genres"]
         )
         alters = _roms_alters(connection)
 
@@ -348,8 +349,9 @@ def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():
 
         assert _schema_of(connection, "roms") == before
         assert len(alters) == 1
+        expressions = _generation_expressions(connection)
         for column in STEAM_FED_COLUMNS:
-            assert "steam_metadata" in _generation_expression(connection, column)
+            assert STEAM_METADATA_COLUMN in expressions[column]
         assert sa.inspect(connection).has_table("roms_metadata")
 
 
@@ -357,15 +359,11 @@ def _roms_schema(
     connection: sa.Connection,
 ) -> tuple[TableSchema, dict[str, str], list[str]]:
     """`_schema_of` plus every generated expression and what the view projects."""
-    inspector = sa.inspect(connection)
+    view = sa.inspect(connection).get_columns("roms_metadata")
     return (
         _schema_of(connection, "roms"),
-        {
-            column["name"]: column["computed"]["sqltext"]
-            for column in inspector.get_columns("roms")
-            if column.get("computed")
-        },
-        [column["name"] for column in inspector.get_columns("roms_metadata")],
+        _generation_expressions(connection),
+        [column["name"] for column in view],
     )
 
 
@@ -442,12 +440,8 @@ def test_the_roms_columns_helper_fills_the_full_path_digest_where_it_can(rom: Ro
 
             ensure_roms_columns(connection)
 
-            column = next(
-                c
-                for c in sa.inspect(connection).get_columns("roms")
-                if c["name"] == FULL_PATH_HASH_COLUMN
-            )
-            assert column["nullable"] is not is_mariadb(connection)
+            columns, _ = _schema_of(connection, "roms")
+            assert columns[FULL_PATH_HASH_COLUMN] is not is_mariadb(connection)
             assert not has_server_default(connection, FULL_PATH_HASH_COLUMN)
             if is_mariadb(connection):
                 digest = connection.execute(

@@ -1,10 +1,14 @@
-"""The `roms` columns the 5.3.0 revisions add, applied in a single table copy.
+"""The `roms` columns the revisions from 0108 on add, in a single table copy.
 
 Every ALTER TABLE roms copies the table: the FULLTEXT index from 0084 rules out
 an in-place add, and a STORED generated column takes ALGORITHM=COPY on every
 engine. With a JSON blob per provider on each row, that copy is minutes on a
 scraped library, so the first revision to find a column missing adds them all,
 and its downgrade removes whatever a chain that stopped short still carries.
+
+A later release that widens `roms` appends to the catalog below rather than
+starting its own module, so its columns join the same copy. 0108 remains the
+floor the front-loading and `drop_roms_columns` are anchored to.
 """
 
 from dataclasses import dataclass
@@ -14,9 +18,10 @@ from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.engine.interfaces import ReflectedColumn
 from sqlalchemy.schema import CreateColumn
 
-from models.rom import FULL_PATH_HASH_LENGTH
+from models.rom import FULL_PATH_HASH_LENGTH, TITLE_ID_MAX_LENGTH
 from utils.database import (
     CustomJSON,
+    column_names,
     full_path_digest_sql,
     is_mariadb,
     is_postgresql,
@@ -127,25 +132,23 @@ _RATING_SOURCES = [
 # Steam carries the Metacritic score, already on a 0-100 scale.
 _STEAM_RATING = (STEAM_METADATA_COLUMN, "total_rating", 1)
 
-# The columns 0123 redefined to read Steam. A table still carrying the older
-# expression is rebuilt at the current one.
-STEAM_FED_COLUMNS = [
-    *STEAM_FED_ARRAY_SOURCES,
-    "generated_first_release_date",
-    "generated_average_rating",
-]
-
-# 0112 appended these two to 0098's provider-fed array columns; the other
-# Steam-fed columns predate 5.3.0, so this module redefines them but never
-# adds or drops them.
-ADDED_ARRAY_COLUMNS = frozenset({"generated_publishers", "generated_developers"})
-
 # Single-column indexes on generated columns that PostgreSQL drops with the
 # column, so a rebuild recreates them.
 INDEXED_GENERATED_COLUMNS = [
     "generated_first_release_date",
     "generated_average_rating",
 ]
+
+# The columns 0123 redefined to read Steam. A table still carrying the older
+# expression is rebuilt at the current one.
+STEAM_FED_COLUMNS = [*STEAM_FED_ARRAY_SOURCES, *INDEXED_GENERATED_COLUMNS]
+
+# 0112 added the other two Steam-fed columns; these predate 5.3.0, so this
+# module redefines them but never adds or drops them.
+INHERITED_COLUMNS = frozenset(STEAM_FED_COLUMNS) - {
+    "generated_publishers",
+    "generated_developers",
+}
 
 # Every column `roms_metadata` projects, in the order 0123 left it.
 ROMS_METADATA_VIEW_COLUMNS = [
@@ -295,9 +298,8 @@ def _maria_hltb_main_story() -> str:
     )
 
 
-# MariaDB JSON_EXTRACT returns a quoted scalar, so JSON_UNQUOTE runs before the
-# result reaches the varchar. LEFT because `regions` has no length cap of its
-# own and an over-long value would fail the INSERT under strict mode.
+# JSON_EXTRACT yields a quoted scalar, so JSON_UNQUOTE runs first; LEFT caps a
+# value `regions` never did, which would fail the INSERT under strict mode.
 _MARIA_PRIMARY_REGION = (
     f"LEFT(JSON_UNQUOTE(JSON_EXTRACT(regions, '$[0]')), {PRIMARY_REGION_LENGTH})"
 )
@@ -425,7 +427,7 @@ def steam_fed_columns(pg: bool, *, with_steam: bool) -> list[GeneratedColumn]:
 
 
 def generated_columns(pg: bool) -> list[GeneratedColumn]:
-    """Every generated column the 5.3.0 revisions add, at its current definition."""
+    """Every generated column in the catalog, at its current definition."""
     array_expr = _postgres_array_expr if pg else _maria_array_expr
     return [
         GeneratedColumn(
@@ -465,7 +467,7 @@ def drop_save_target_layout_type(conn: sa.Connection) -> None:
         _save_target_layout_type().drop(conn, checkfirst=True)
 
 
-# The stored columns the 5.3.0 revisions add, minus `full_path_hash`.
+# The stored columns in the catalog, minus `full_path_hash`.
 PLAIN_COLUMNS = [
     sa.Column("is_physical", sa.Boolean(), nullable=False, server_default=sa.false()),
     sa.Column("upc", sa.String(length=64)),
@@ -478,8 +480,8 @@ PLAIN_COLUMNS = [
     sa.Column("csdb_metadata", CustomJSON()),
     sa.Column("steam_id", sa.Integer()),
     sa.Column(STEAM_METADATA_COLUMN, CustomJSON()),
-    sa.Column("title_id", sa.String(length=100)),
-    sa.Column("save_target", sa.String(length=100)),
+    sa.Column("title_id", sa.String(length=TITLE_ID_MAX_LENGTH)),
+    sa.Column("save_target", sa.String(length=TITLE_ID_MAX_LENGTH)),
     sa.Column(
         SAVE_TARGET_LAYOUT_COLUMN,
         sa.Enum(*SAVE_TARGET_LAYOUT_VALUES, name=SAVE_TARGET_LAYOUT_ENUM),
@@ -526,13 +528,25 @@ def roms_metadata_view_sql(pg: bool, columns: list[tuple[str, str]]) -> str:
     )
 
 
-def restore_generated_indexes(conn: sa.Connection) -> None:
+def _restore_generated_indexes(conn: sa.Connection) -> None:
     """Recreate the single-column indexes a generated-column rebuild dropped."""
     existing = {index["name"] for index in sa.inspect(conn).get_indexes(TABLE)}
     for column in INDEXED_GENERATED_COLUMNS:
         name = f"idx_{TABLE}_{column}"
         if name not in existing:
             conn.execute(sa.text(f"CREATE INDEX {name} ON {TABLE} ({column})"))
+
+
+def _drop_indexes_spanning(conn: sa.Connection, columns: set[str]) -> None:
+    """Drop the indexes a DROP COLUMN would otherwise narrow rather than remove."""
+    # PostgreSQL drops an index with its column; MariaDB and MySQL keep a
+    # composite one over the columns that remain, unique and all.
+    if not columns or is_postgresql(conn):
+        return
+    for index in sa.inspect(conn).get_indexes(TABLE):
+        spanned = {name for name in index["column_names"] if name}
+        if spanned & columns and not spanned <= columns:
+            conn.execute(sa.text(f"DROP INDEX {index['name']} ON {TABLE}"))
 
 
 def rebuild_generated_columns(
@@ -550,26 +564,23 @@ def rebuild_generated_columns(
         view_columns: what `roms_metadata` projects afterwards.
     """
     pg = is_postgresql(conn)
-    present = {column["name"] for column in sa.inspect(conn).get_columns(TABLE)}
+    present = column_names(conn, TABLE)
     actions = [
         f"DROP COLUMN {name}"
         for name in [column.name for column in add] + drop
         if name in present
     ] + [f"ADD COLUMN {column.ddl}" for column in add]
 
+    _drop_indexes_spanning(conn, {name for name in drop if name in present})
     # The view projects columns being dropped, so it goes first.
     conn.execute(sa.text(f"DROP VIEW IF EXISTS {VIEW}"))
     conn.execute(sa.text(f"ALTER TABLE {TABLE}\n" + ",\n".join(actions)))  # nosec B608
-    restore_generated_indexes(conn)
+    _restore_generated_indexes(conn)
     conn.execute(sa.text(roms_metadata_view_sql(pg, view_columns)))
 
 
 def ensure_roms_columns(conn: sa.Connection) -> None:
-    """Add every column of this module the table lacks, in one ALTER TABLE.
-
-    A no-op once the table has them all, so only the first revision to run on
-    a given database pays for the copy.
-    """
+    """Add every column of this module the table lacks, in one ALTER TABLE."""
     pg = is_postgresql(conn)
     present = {column["name"]: column for column in sa.inspect(conn).get_columns(TABLE)}
 
@@ -585,22 +596,15 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
         if column.name in present and not _reads_steam(present[column.name])
     ]
 
-    if (
-        missing_plain
-        or missing_generated
-        or outdated
-        or (FULL_PATH_HASH_COLUMN not in present)
-    ):
-        actions = [f"DROP COLUMN {column.name}" for column in outdated]
-        actions += [
-            f"ADD COLUMN {_plain_column_ddl(conn, column)}" for column in missing_plain
-        ]
-        if FULL_PATH_HASH_COLUMN not in present:
-            actions.append(f"ADD COLUMN {_full_path_hash_ddl(conn)}")
-        actions += [
-            f"ADD COLUMN {column.ddl}" for column in outdated + missing_generated
-        ]
+    actions = [f"DROP COLUMN {column.name}" for column in outdated]
+    actions += [
+        f"ADD COLUMN {_plain_column_ddl(conn, column)}" for column in missing_plain
+    ]
+    if FULL_PATH_HASH_COLUMN not in present:
+        actions.append(f"ADD COLUMN {_full_path_hash_ddl(conn)}")
+    actions += [f"ADD COLUMN {column.ddl}" for column in outdated + missing_generated]
 
+    if actions:
         if pg and any(c.name == SAVE_TARGET_LAYOUT_COLUMN for c in missing_plain):
             _save_target_layout_type().create(conn, checkfirst=True)
         # PostgreSQL will not drop a column the view projects.
@@ -610,21 +614,16 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
             sa.text(f"ALTER TABLE {TABLE}\n" + ",\n".join(actions))
         )  # nosec B608
         if outdated:
-            restore_generated_indexes(conn)
-        present = {
-            column["name"]: column for column in sa.inspect(conn).get_columns(TABLE)
-        }
+            _restore_generated_indexes(conn)
 
-    # Recreated outside the block above so a run that died between the ALTER
-    # and this statement gets its view back on the replay.
+    # Outside the block above so a run that died between the ALTER and this
+    # statement gets its view back on the replay.
     if not sa.inspect(conn).has_table(VIEW):
         conn.execute(sa.text(roms_metadata_view_sql(pg, ROMS_METADATA_VIEW_COLUMNS)))
 
     # The digest default only exists to fill the copy; the model has none. A
     # run that died between the two statements finishes here on the replay.
-    if FULL_PATH_HASH_COLUMN in present and has_server_default(
-        conn, FULL_PATH_HASH_COLUMN
-    ):
+    if has_server_default(conn, FULL_PATH_HASH_COLUMN):
         conn.execute(
             sa.text(
                 f"ALTER TABLE {TABLE} ALTER COLUMN {FULL_PATH_HASH_COLUMN} DROP DEFAULT"
@@ -635,16 +634,14 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
 def drop_roms_columns(conn: sa.Connection) -> None:
     """Remove every column this module adds, in one ALTER TABLE.
 
-    The reverse of `ensure_roms_columns`, for 0108's downgrade: a chain that
-    stopped short of a later revision still carries that revision's columns.
+    The reverse of `ensure_roms_columns`, for 0108's downgrade.
     """
     pg = is_postgresql(conn)
     present = {column["name"]: column for column in sa.inspect(conn).get_columns(TABLE)}
 
-    inherited = set(STEAM_FED_COLUMNS) - ADDED_ARRAY_COLUMNS
     # Generated columns go first: PostgreSQL will not drop a column one reads.
     owned = [
-        *[c.name for c in generated_columns(pg) if c.name not in inherited],
+        *[c.name for c in generated_columns(pg) if c.name not in INHERITED_COLUMNS],
         *[c.name for c in PLAIN_COLUMNS],
         FULL_PATH_HASH_COLUMN,
     ]
@@ -652,18 +649,11 @@ def drop_roms_columns(conn: sa.Connection) -> None:
     steam_reading = [
         column
         for column in steam_fed_columns(pg, with_steam=False)
-        if column.name in inherited
+        if column.name in INHERITED_COLUMNS
         and column.name in present
         and _reads_steam(present[column.name])
     ]
 
-    if drop and not pg:
-        # PostgreSQL drops an index with its column; MariaDB and MySQL keep a
-        # composite one over the columns that remain, unique and all.
-        for index in sa.inspect(conn).get_indexes(TABLE):
-            columns = {name for name in index["column_names"] if name}
-            if columns & set(drop) and not columns <= set(drop):
-                conn.execute(sa.text(f"DROP INDEX {index['name']} ON {TABLE}"))
     if drop or steam_reading:
         rebuild_generated_columns(
             conn,
@@ -687,7 +677,7 @@ def _reads_steam(column: ReflectedColumn) -> bool:
 
 
 def has_server_default(conn: sa.Connection, column: str) -> bool:
-    """Whether MariaDB, the only engine this module gives one to, still has a default on `column`."""
+    """Whether `column` still has a server default; only MariaDB is ever given one."""
     # information_schema rather than the inspector, which drops an expression
     # default it cannot parse.
     if not is_mariadb(conn):
