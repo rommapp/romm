@@ -17,7 +17,9 @@ release's primary market.
 3072-byte key limit and PostgreSQL's btree tuple limit.
 
 The column's expression lives in `utils.roms_columns`, which adds it along with
-every other column the 5.3.0 revisions put on `roms` in a single table copy.
+every other column the 5.3.0 revisions put on `roms` in a single table copy. The
+downgrade takes back whatever of that set is still there: a chain that stopped
+before a later revision leaves that revision's columns to this one.
 
 Revision ID: 0108_roms_primary_region
 Revises: 0107_roms_dedup_cover_index
@@ -27,7 +29,11 @@ Create Date: 2026-08-21 00:00:00.000000
 
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.roms_columns import PRIMARY_REGION_COLUMN, ensure_roms_columns
+from utils.roms_columns import (
+    PRIMARY_REGION_COLUMN,
+    drop_roms_columns,
+    ensure_roms_columns,
+)
 
 # revision identifiers, used by Alembic.
 revision = "0108_roms_primary_region"
@@ -70,4 +76,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     _rebuild_index(OLD_INDEX_COLUMNS)
-    op.execute(f"ALTER TABLE roms DROP COLUMN {PRIMARY_REGION_COLUMN}")  # nosec B608
+    drop_roms_columns(op.get_bind())

@@ -3,7 +3,8 @@
 Every ALTER TABLE roms copies the table: the FULLTEXT index from 0084 rules out
 an in-place add, and a STORED generated column takes ALGORITHM=COPY on every
 engine. With a JSON blob per provider on each row, that copy is minutes on a
-scraped library, so the first revision to find a column missing adds them all.
+scraped library, so the first revision to find a column missing adds them all,
+and its downgrade removes whatever a chain that stopped short still carries.
 """
 
 from dataclasses import dataclass
@@ -29,6 +30,7 @@ FULL_PATH_HASH_COLUMN = "full_path_hash"
 HLTB_MAIN_STORY_COLUMN = "generated_hltb_main_story"
 RATING_COUNT_COLUMN = "generated_rating_count"
 
+SAVE_TARGET_LAYOUT_COLUMN = "save_target_layout"
 SAVE_TARGET_LAYOUT_ENUM = "savetargetlayout"
 # A snapshot of `models.rom.SaveTargetLayout`, frozen so the enum this creates
 # does not change under a fresh install the day the model grows a member.
@@ -131,6 +133,11 @@ STEAM_FED_COLUMNS = [
     "generated_first_release_date",
     "generated_average_rating",
 ]
+
+# 0112 appended these two to 0098's provider-fed array columns; the other
+# Steam-fed columns predate 5.3.0, so this module redefines them but never
+# adds or drops them.
+ADDED_ARRAY_COLUMNS = frozenset({"generated_publishers", "generated_developers"})
 
 # Single-column indexes on generated columns that PostgreSQL drops with the
 # column, so a rebuild recreates them.
@@ -445,37 +452,38 @@ def generated_columns(pg: bool) -> list[GeneratedColumn]:
     ]
 
 
-def save_target_layout_enum(conn: sa.Connection) -> sa.Enum:
-    """The `save_target_layout` type, created on PostgreSQL if it is missing."""
+def _save_target_layout_type() -> ENUM:
+    """The PostgreSQL type behind `save_target_layout`, which the other engines inline."""
+    return ENUM(
+        *SAVE_TARGET_LAYOUT_VALUES, name=SAVE_TARGET_LAYOUT_ENUM, create_type=False
+    )
+
+
+def drop_save_target_layout_type(conn: sa.Connection) -> None:
     if is_postgresql(conn):
-        enum = ENUM(
-            *SAVE_TARGET_LAYOUT_VALUES, name=SAVE_TARGET_LAYOUT_ENUM, create_type=False
-        )
-        enum.create(conn, checkfirst=True)
-        return enum
-    return sa.Enum(*SAVE_TARGET_LAYOUT_VALUES, name=SAVE_TARGET_LAYOUT_ENUM)
+        _save_target_layout_type().drop(conn, checkfirst=True)
 
 
-def plain_columns(conn: sa.Connection) -> list[sa.Column]:
-    """The stored columns the 5.3.0 revisions add, minus `full_path_hash`."""
-    return [
-        sa.Column(
-            "is_physical", sa.Boolean(), nullable=False, server_default=sa.false()
-        ),
-        sa.Column("upc", sa.String(length=64)),
-        sa.Column("locked_fields", CustomJSON()),
-        sa.Column("demozoo_id", sa.Integer()),
-        sa.Column("pouet_id", sa.Integer()),
-        sa.Column("csdb_id", sa.Integer()),
-        sa.Column("demozoo_metadata", CustomJSON()),
-        sa.Column("pouet_metadata", CustomJSON()),
-        sa.Column("csdb_metadata", CustomJSON()),
-        sa.Column("steam_id", sa.Integer()),
-        sa.Column(_STEAM, CustomJSON()),
-        sa.Column("title_id", sa.String(length=100)),
-        sa.Column("save_target", sa.String(length=100)),
-        sa.Column("save_target_layout", save_target_layout_enum(conn)),
-    ]
+# The stored columns the 5.3.0 revisions add, minus `full_path_hash`.
+PLAIN_COLUMNS = [
+    sa.Column("is_physical", sa.Boolean(), nullable=False, server_default=sa.false()),
+    sa.Column("upc", sa.String(length=64)),
+    sa.Column("locked_fields", CustomJSON()),
+    sa.Column("demozoo_id", sa.Integer()),
+    sa.Column("pouet_id", sa.Integer()),
+    sa.Column("csdb_id", sa.Integer()),
+    sa.Column("demozoo_metadata", CustomJSON()),
+    sa.Column("pouet_metadata", CustomJSON()),
+    sa.Column("csdb_metadata", CustomJSON()),
+    sa.Column("steam_id", sa.Integer()),
+    sa.Column(_STEAM, CustomJSON()),
+    sa.Column("title_id", sa.String(length=100)),
+    sa.Column("save_target", sa.String(length=100)),
+    sa.Column(
+        SAVE_TARGET_LAYOUT_COLUMN,
+        sa.Enum(*SAVE_TARGET_LAYOUT_VALUES, name=SAVE_TARGET_LAYOUT_ENUM),
+    ),
+]
 
 
 def _plain_column_ddl(conn: sa.Connection, column: sa.Column) -> str:
@@ -564,9 +572,7 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
     pg = is_postgresql(conn)
     present = {column["name"]: column for column in sa.inspect(conn).get_columns(TABLE)}
 
-    missing_plain = [
-        column for column in plain_columns(conn) if column.name not in present
-    ]
+    missing_plain = [column for column in PLAIN_COLUMNS if column.name not in present]
     missing_generated = [
         column for column in generated_columns(pg) if column.name not in present
     ]
@@ -595,6 +601,8 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
             f"ADD COLUMN {column.ddl}" for column in outdated + missing_generated
         ]
 
+        if pg and any(c.name == SAVE_TARGET_LAYOUT_COLUMN for c in missing_plain):
+            _save_target_layout_type().create(conn, checkfirst=True)
         # PostgreSQL will not drop a column the view projects.
         if outdated:
             conn.execute(sa.text(f"DROP VIEW IF EXISTS {VIEW}"))
@@ -620,6 +628,45 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
                 f"ALTER TABLE {TABLE} ALTER COLUMN {FULL_PATH_HASH_COLUMN} DROP DEFAULT"
             )
         )
+
+
+def drop_roms_columns(conn: sa.Connection) -> None:
+    """Remove every column this module adds, in one ALTER TABLE.
+
+    The reverse of `ensure_roms_columns`, for 0108's downgrade: a chain that
+    stopped short of a later revision still carries that revision's columns.
+    """
+    pg = is_postgresql(conn)
+    present = {column["name"]: column for column in sa.inspect(conn).get_columns(TABLE)}
+
+    inherited = set(STEAM_FED_COLUMNS) - ADDED_ARRAY_COLUMNS
+    # Generated columns go first: PostgreSQL will not drop a column one reads.
+    owned = [
+        *[c.name for c in generated_columns(pg) if c.name not in inherited],
+        *[c.name for c in PLAIN_COLUMNS],
+        FULL_PATH_HASH_COLUMN,
+    ]
+    drop = [name for name in owned if name in present]
+    steam_reading = [
+        column
+        for column in steam_fed_columns(pg, with_steam=False)
+        if column.name in inherited
+        and column.name in present
+        and _STEAM in present[column.name]["computed"]["sqltext"]
+    ]
+
+    if drop or steam_reading:
+        rebuild_generated_columns(
+            conn,
+            add=steam_reading,
+            drop=drop,
+            view_columns=[
+                projection
+                for projection in ROMS_METADATA_VIEW_COLUMNS
+                if projection[0] in present and projection[0] not in drop
+            ],
+        )
+    drop_save_target_layout_type(conn)
 
 
 def has_server_default(conn: sa.Connection, column: str) -> bool:

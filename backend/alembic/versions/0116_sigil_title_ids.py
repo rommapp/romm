@@ -8,10 +8,8 @@ Create Date: 2026-07-23 00:00:00.000000
 """
 
 from alembic import op
-from sqlalchemy.dialects.postgresql import ENUM
 
-from utils.database import is_postgresql
-from utils.roms_columns import SAVE_TARGET_LAYOUT_ENUM, ensure_roms_columns
+from utils.roms_columns import drop_save_target_layout_type, ensure_roms_columns
 
 # revision identifiers, used by Alembic.
 revision = "0116_sigil_title_ids"
@@ -39,6 +37,4 @@ def downgrade() -> None:
         batch_op.drop_column("save_target", if_exists=True)
         batch_op.drop_column("title_id", if_exists=True)
 
-    connection = op.get_bind()
-    if is_postgresql(connection):
-        ENUM(name=SAVE_TARGET_LAYOUT_ENUM).drop(connection, checkfirst=True)
+    drop_save_target_layout_type(op.get_bind())

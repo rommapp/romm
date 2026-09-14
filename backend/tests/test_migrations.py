@@ -8,6 +8,7 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import alembic.config
 import pytest
 import sqlalchemy as sa
 from alembic.autogenerate import compare_metadata
@@ -338,6 +339,40 @@ def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():
         for column in STEAM_FED_COLUMNS:
             assert "steam_metadata" in _generation_expression(connection, column)
         assert sa.inspect(connection).has_table("roms_metadata")
+
+
+def _roms_schema(
+    connection: sa.Connection,
+) -> tuple[object, dict[str, str], list[str]]:
+    """`_schema_of` plus every generated expression and what the view projects."""
+    inspector = sa.inspect(connection)
+    return (
+        _schema_of(connection, "roms"),
+        {
+            column["name"]: column["computed"]["sqltext"]
+            for column in inspector.get_columns("roms")
+            if column.get("computed")
+        },
+        [column["name"] for column in inspector.get_columns("roms_metadata")],
+    )
+
+
+def test_the_first_roms_columns_revision_downgrades_to_the_schema_it_found():
+    """0108 adds every later revision's column, so alone it has to take them all back."""
+    alembic.config.main(argv=["downgrade", "0107_roms_dedup_cover_index"])
+    try:
+        with sync_engine.connect() as connection:
+            before = _roms_schema(connection)
+
+        alembic.config.main(argv=["upgrade", "0108_roms_primary_region"])
+        alembic.config.main(argv=["downgrade", "0107_roms_dedup_cover_index"])
+
+        with sync_engine.connect() as connection:
+            after = _roms_schema(connection)
+    finally:
+        alembic.config.main(argv=["upgrade", "head"])
+
+    assert after == before
 
 
 def test_the_roms_columns_helper_fills_the_full_path_digest_where_it_can(rom: Rom):
