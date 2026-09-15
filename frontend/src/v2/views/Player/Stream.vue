@@ -63,6 +63,7 @@ import MemoryCardImportDialog from "@/v2/components/Player/MemoryCardImportDialo
 import MemoryCardPicker from "@/v2/components/Player/MemoryCardPicker.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
+import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip, {
   type AssetLayout,
 } from "@/v2/components/shared/AssetStrip.vue";
@@ -324,24 +325,16 @@ const showSavePicker = computed(
     restorableSaves.value.length > 0,
 );
 
-const selectedSave = ref<SaveSchema | null>(null);
-
 // Unlike a state, a save has no "none": the claim restores the newest when it
-// names nothing, so the picker always holds a selection.
-watch(
-  restorableSaves,
-  (saves) => {
-    const current = selectedSave.value;
-    if (!current || !saves.some((s) => s.id === current.id)) {
-      selectedSave.value = saves[0] ?? null;
-    }
-  },
-  { immediate: true },
-);
+// names nothing, so the picker always holds a selection. Holding the id rather
+// than the row lets a pick that is no longer on offer fall back on its own.
+const savePickId = ref<number | null>(null);
 
-function pickSave(save: SaveSchema): void {
-  selectedSave.value = save;
-}
+const selectedSave = computed<SaveSchema | null>(
+  () =>
+    restorableSaves.value.find((s) => s.id === savePickId.value) ??
+    newestSave.value,
+);
 
 const streamStates = computed<UserStateSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
@@ -1428,11 +1421,11 @@ onBeforeUnmount(() => {
                 restorableSaves.length
               }}</span>
             </div>
-            <AssetStrip
+            <AssetList
               :assets="restorableSaves"
               type="save"
               :selected-id="selectedSave?.id ?? null"
-              @select="pickSave($event as SaveSchema)"
+              @select="savePickId = ($event as SaveSchema).id"
             />
           </template>
 

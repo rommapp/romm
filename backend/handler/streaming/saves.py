@@ -168,16 +168,16 @@ def _is_restorable(save: Save, emulator: str) -> bool:
     return _written_by(save, emulator) and _is_archive(save)
 
 
-def _restorable_archives(user_id: int, rom_id: int, emulator: str) -> list[Save]:
-    """The user's stored save archives for this emulator, newest first."""
+def _newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
+    """The user's most recent restorable archive for this emulator."""
     archives = [
         save
         for save in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
         if _is_restorable(save, emulator)
     ]
     # Ties on id, because created_at only has second resolution: two archives
-    # written in the same second would otherwise order arbitrarily.
-    return sorted(archives, key=lambda s: (s.created_at, s.id), reverse=True)
+    # written in the same second would otherwise pick arbitrarily.
+    return max(archives, key=lambda s: (s.created_at, s.id), default=None)
 
 
 def resolve_save_archive(
@@ -211,40 +211,14 @@ def resolve_save_archive(
     return save
 
 
-async def _save_archive(
-    user_id: int, rom_id: int, emulator: str, save_id: int | None = None
-) -> tuple[str, bytes] | None:
-    """The stored save archive to hydrate, read off disk.
-
-    `save_id` names the player's pick, already validated by
-    `resolve_save_archive`; without one the newest archive wins. Returns
-    (file name, content), or None when there is nothing to send.
-    """
-    if save_id is not None:
-        # Deleted (or edited out of reach) between the pick and the claim.
-        # Hydrating the newest instead would restore a save the player did not
-        # choose, so send nothing.
-        picked = db_save_handler.get_save(user_id=user_id, id=save_id)
-        if (
-            picked is None
-            or picked.rom_id != rom_id
-            or not _is_restorable(picked, emulator)
-        ):
-            log.warning("picked save %d is no longer restorable, skipping", save_id)
-            return None
-    else:
-        picked = next(iter(_restorable_archives(user_id, rom_id, emulator)), None)
-        if picked is None:
-            return None
-
+async def _read_archive(save: Save) -> tuple[str, bytes] | None:
+    """The archive's (file name, content), or None when it is gone off disk."""
     try:
-        content = await fs_asset_handler.read_file(
-            f"{picked.file_path}/{picked.file_name}"
-        )
+        content = await fs_asset_handler.read_file(f"{save.file_path}/{save.file_name}")
     except FileNotFoundError:
-        log.warning("stored save missing on disk, %s", picked.file_name)
+        log.warning("stored save missing on disk, %s", save.file_name)
         return None
-    return picked.file_name, content
+    return save.file_name, content
 
 
 async def hydrate_saves_to_broker(
@@ -258,7 +232,10 @@ async def hydrate_saves_to_broker(
     if db_user_handler.get_user(user_id) is None or rom is None:
         return False
 
-    archive = await _save_archive(user_id, rom_id, container.emulator)
+    newest = _newest_restorable(user_id, rom_id, container.emulator)
+    if newest is None:
+        return False
+    archive = await _read_archive(newest)
     if archive is None:
         return False
     file_name, content = archive
@@ -270,14 +247,17 @@ async def hydrate_saves_to_broker(
 
 
 async def hydrate_saves_to_webstation(
-    user_id: int, rom_id: int, container: ResolvedContainer, save_id: int | None = None
+    user_id: int, rom_id: int, container: ResolvedContainer, save: Save | None = None
 ) -> str | None:
     """Upload the stored save archive to restore and return the container path.
 
     The webstation broker restores as part of activate, so hydration only gets
-    the bytes into place. `save_id` is the player's pick, newest when absent.
+    the bytes into place. `save` is the player's pick, newest when absent.
     """
-    archive = await _save_archive(user_id, rom_id, container.emulator, save_id)
+    picked = save or _newest_restorable(user_id, rom_id, container.emulator)
+    if picked is None:
+        return None
+    archive = await _read_archive(picked)
     if archive is None:
         return None
     file_name, content = archive

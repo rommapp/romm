@@ -97,7 +97,7 @@ from handler.streaming.session_store import (
     stamp_launched,
 )
 from logger.logger import log
-from models.assets import MemoryCard, MemoryCardVersion
+from models.assets import MemoryCard, MemoryCardVersion, Save
 from models.rom import Rom
 from models.user import Role
 from utils.m3u import playlist_files
@@ -528,7 +528,7 @@ async def _hydrate_saves(
     rom: Rom,
     card: MemoryCard | None,
     blank_card_id: int | None,
-    save_id: int | None = None,
+    save: Save | None = None,
 ) -> str | None:
     """Put the player's save data on the container before the game reads it.
 
@@ -561,7 +561,7 @@ async def _hydrate_saves(
         # Best-effort: a failed upload just means the container keeps its own.
         try:
             return await saves.hydrate_saves_to_webstation(
-                request.user.id, rom.id, container, save_id
+                request.user.id, rom.id, container, save
             )
         except Exception:
             log.exception("save hydration failed, continuing launch")
@@ -638,8 +638,11 @@ async def claim_session(
 
     # Same for the save pick: a save the player cannot restore here has to
     # fail before the container is reserved, not during the launch.
+    picked_save = None
     if req.save_id is not None:
-        saves.resolve_save_archive(request.user.id, rom, reference, req.save_id)
+        picked_save = saves.resolve_save_archive(
+            request.user.id, rom, reference, req.save_id
+        )
 
     # Resolve the memory card to mount before claiming too, so a bad card id
     # fails cleanly (whole-card-sync containers only). May be None on first
@@ -734,7 +737,7 @@ async def claim_session(
         rom,
         memory_card,
         created_blank_card_id,
-        req.save_id,
+        picked_save,
     )
 
     # Detached because an activate blocks through pkg and archive extraction,

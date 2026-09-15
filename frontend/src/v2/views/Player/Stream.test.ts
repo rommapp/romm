@@ -5,7 +5,7 @@ import type { SaveSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
-import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
+import AssetList from "@/v2/components/shared/AssetList.vue";
 import Stream from "./Stream.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -210,9 +210,9 @@ function preview(wrapper: VueWrapper) {
     .find((p) => p.props("type") === "save");
 }
 
-function strip(wrapper: VueWrapper) {
+function saveList(wrapper: VueWrapper) {
   return wrapper
-    .findAllComponents(AssetStrip)
+    .findAllComponents(AssetList)
     .find((s) => s.props("type") === "save");
 }
 
@@ -225,7 +225,7 @@ describe("Stream save picker", () => {
   it("offers every archive, newest already picked", async () => {
     const wrapper = await launch({ picker: true });
 
-    const list = strip(wrapper);
+    const list = saveList(wrapper);
     expect(list).toBeDefined();
     expect((list!.props("assets") as SaveSchema[]).map((s) => s.id)).toEqual([
       3, 2, 1,
@@ -243,8 +243,8 @@ describe("Stream save picker", () => {
   it("keeps an older pick and sends it on the claim", async () => {
     const wrapper = await launch({ picker: true });
 
-    await strip(wrapper)!.vm.$emit("select", ARCHIVES[2]);
-    expect(strip(wrapper)!.props("selectedId")).toBe(1);
+    await saveList(wrapper)!.vm.$emit("select", ARCHIVES[2]);
+    expect(saveList(wrapper)!.props("selectedId")).toBe(1);
     expect((preview(wrapper)!.props("asset") as SaveSchema).id).toBe(1);
 
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
@@ -258,9 +258,9 @@ describe("Stream save picker", () => {
     });
 
     expect(
-      (strip(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
+      (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
     ).toEqual([3, 2, 1]);
-    expect(strip(wrapper)!.props("selectedId")).toBe(3);
+    expect(saveList(wrapper)!.props("selectedId")).toBe(3);
   });
 
   it("leaves another emulator's archives out of the picker", async () => {
@@ -273,14 +273,14 @@ describe("Stream save picker", () => {
     });
 
     expect(
-      (strip(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
+      (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
     ).toEqual([3, 2, 1]);
   });
 
   it("reports instead of offering where the emulator keeps its save tree", async () => {
     const wrapper = await launch({ picker: false });
 
-    expect(strip(wrapper)).toBeUndefined();
+    expect(saveList(wrapper)).toBeUndefined();
     expect(wrapper.findComponent(SaveDataPanel).exists()).toBe(true);
   });
 
@@ -306,13 +306,13 @@ describe("Stream save picker", () => {
     const wrapper = await launch({ picker: true });
     const vm = wrapper.vm as unknown as { rom: unknown };
 
-    await strip(wrapper)!.vm.$emit("select", ARCHIVES[2]);
-    expect(strip(wrapper)!.props("selectedId")).toBe(1);
+    await saveList(wrapper)!.vm.$emit("select", ARCHIVES[2]);
+    expect(saveList(wrapper)!.props("selectedId")).toBe(1);
 
     // A rom refresh that no longer carries the archive the pick named.
     vm.rom = romWith(ARCHIVES.slice(0, 2));
     await flushPromises();
 
-    expect(strip(wrapper)!.props("selectedId")).toBe(3);
+    expect(saveList(wrapper)!.props("selectedId")).toBe(3);
   });
 });
