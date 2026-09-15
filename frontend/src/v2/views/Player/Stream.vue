@@ -199,9 +199,7 @@ const setBgArt = useBackgroundArt();
 // cartridge reads better without a frame (same rule as EmulatorJS).
 const art = useCoverArt(() => heroRom.value);
 const heroIsAlt = computed(
-  () =>
-    art.style.value !== "cover_path" &&
-    !!(art.coverUrl.value ?? art.fallbackUrl.value),
+  () => art.style.value !== "cover_path" && !!art.coverUrl.value,
 );
 const coverRef = ref<InstanceType<typeof GameCover> | null>(null);
 

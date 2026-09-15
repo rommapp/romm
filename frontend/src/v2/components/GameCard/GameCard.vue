@@ -157,7 +157,6 @@ const art = useCoverArt(() => props.rom, {
   webp: () => props.webp,
 });
 const coverUrl = art.coverUrl;
-const fallbackUrl = art.fallbackUrl;
 const coverAspectRatio = art.ratio;
 // Cover-art PIP — only when an override image (a screenshot) is actually
 // covering the rom's own art, and the consumer opted in.
@@ -166,8 +165,7 @@ const showCoverPip = computed(() => props.coverPip && !!props.coverSrc);
 // artwork floats — but only while a real image renders; with no cover the
 // placeholder keeps its grey box so the title stays readable.
 const isAltStyle = computed(
-  () =>
-    art.style.value !== "cover_path" && !!(coverUrl.value || fallbackUrl.value),
+  () => art.style.value !== "cover_path" && !!coverUrl.value,
 );
 // Forward view-transition morph targets the GameCover's box element.
 const coverRef = ref<InstanceType<typeof GameCover> | null>(null);
@@ -194,7 +192,6 @@ const setBgArt = useBackgroundArt();
 function onHighlight() {
   if (props.static || props.decorative) return;
   if (coverUrl.value) setBgArt(coverUrl.value);
-  else if (fallbackUrl.value) setBgArt(fallbackUrl.value);
 }
 
 // ── Cover hover / focus ─────────────────────────────────────────────

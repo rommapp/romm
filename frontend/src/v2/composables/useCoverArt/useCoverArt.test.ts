@@ -156,19 +156,16 @@ describe("computeCoverArt — cover_path", () => {
     );
     expect(d.coverUrl).toBe("covers/large.webp?ts=2026-09-09T00:00:00");
   });
-  it("exposes url_cover as the fallback and flags no artwork when empty", () => {
-    expect(
-      computeCoverArt(rom({ url_cover: "https://x/c.png" }), "cover_path", {
-        resourcesPath: RES,
-        supportsWebp: false,
-      }).fallbackUrl,
-    ).toBe("https://x/c.png");
-    expect(
-      computeCoverArt(rom({}), "cover_path", {
-        resourcesPath: RES,
-        supportsWebp: false,
-      }).hasArtwork,
-    ).toBe(false);
+  // `url_cover` points at the provider, credentials and all; only what
+  // RomM stored itself is ever handed to a browser (issue #4195).
+  it("never resolves the provider url, and flags no artwork without a local cover", () => {
+    const d = computeCoverArt(
+      rom({ url_cover: "https://x/c.png" }),
+      "cover_path",
+      { resourcesPath: RES, supportsWebp: false },
+    );
+    expect(d.coverUrl).toBeNull();
+    expect(d.hasArtwork).toBe(false);
   });
 });
 
@@ -282,14 +279,13 @@ describe("computeCoverArt — miximage_v2_path", () => {
 });
 
 describe("computeCoverArt — explicit coverSrc override", () => {
-  it("treats an empty-string coverSrc as no override (resolves the rom cover + keeps the url_cover fallback)", () => {
+  it("treats an empty-string coverSrc as no override (resolves the rom cover)", () => {
     const d = computeCoverArt(
-      rom({ path_cover_large: "covers/l.png", url_cover: "https://x/c.png" }),
+      rom({ path_cover_large: "covers/l.png" }),
       "cover_path",
       { resourcesPath: RES, supportsWebp: false, coverSrc: "" },
     );
     expect(d.coverUrl).toBe("covers/l.png");
-    expect(d.fallbackUrl).toBe("https://x/c.png");
   });
 
   it("wins over the resolution chain and disables alt-art / webp", () => {
@@ -304,6 +300,5 @@ describe("computeCoverArt — explicit coverSrc override", () => {
     });
     expect(d.coverUrl).toBe("blob:preview");
     expect(d.isAltArt).toBe(false);
-    expect(d.fallbackUrl).toBeNull();
   });
 });

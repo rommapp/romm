@@ -54,16 +54,16 @@ describe("resolveRomArtwork — cover", () => {
     );
   });
 
-  it("falls back to the provider cover when nothing was stored locally", () => {
+  // The provider url is a record of where the art came from, not something
+  // a browser should be sent to fetch (issue #4195).
+  it("omits the cover rather than sending the viewer to the provider", () => {
     const rom = makeRom([], {
       path_cover_large: "",
       path_cover_small: "",
       url_cover: "https://provider.example/cover.png",
     });
 
-    expect(resolveRomArtwork(rom)[0].url).toBe(
-      "https://provider.example/cover.png",
-    );
+    expect(resolveRomArtwork(rom)).toHaveLength(0);
   });
 
   it("omits the cover when the rom has none", () => {

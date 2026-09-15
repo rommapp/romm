@@ -108,12 +108,7 @@ const art = useCoverArt(() => props.rom, {
 });
 
 const imgError = ref(false);
-const showingImage = computed(
-  () =>
-    !!(art.coverUrl.value || art.fallbackUrl.value) &&
-    !(imgError.value && !art.fallbackUrl.value),
-);
-const showFallback = computed(() => imgError.value && !!art.fallbackUrl.value);
+const showingImage = computed(() => !!art.coverUrl.value && !imgError.value);
 // Alt-art styles float on a transparent box — but only while a real
 // image renders; the placeholder keeps the grey backdrop so its title
 // stays legible.
@@ -130,9 +125,7 @@ const videoEl = ref<HTMLVideoElement | null>(null);
 // <img> load event; it resets whenever the active source changes so a
 // recycled card (virtual scroll) re-plays the reveal for its new art.
 const coverLoaded = ref(false);
-const activeSrc = computed(() =>
-  showFallback.value ? art.fallbackUrl.value : art.coverUrl.value,
-);
+const activeSrc = computed(() => art.coverUrl.value);
 // Rom id to key the measured ratio under — but ONLY when this is the rom's
 // own cover in the gallery's artwork style. With a `coverSrc` override (the
 // cover shows a screenshot / marquee / preview blob instead) the measured
@@ -243,7 +236,7 @@ defineExpose({
   /** The cover box DOM node — for the forward view-transition morph. */
   el: () => rootEl.value,
   /** Resolved cover URL (for the background-art highlight). */
-  resolvedCover: () => art.coverUrl.value ?? art.fallbackUrl.value,
+  resolvedCover: () => art.coverUrl.value,
 });
 </script>
 
@@ -257,11 +250,7 @@ defineExpose({
     <img
       v-if="showingImage"
       ref="imgEl"
-      :src="
-        showFallback
-          ? (art.fallbackUrl.value ?? undefined)
-          : (art.coverUrl.value ?? undefined)
-      "
+      :src="art.coverUrl.value ?? undefined"
       :alt="title"
       :style="{ objectFit: art.objectFit.value }"
       class="game-cover__img"

@@ -63,9 +63,9 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
     {
       key: "cover",
       label: i18n.global.t("rom.media-cover"),
-      // Already an absolute, cache-busted URL (or the external provider
-      // art), so it skips the resources-path prefix scraped paths need.
-      url: rom.path_cover_large || rom.path_cover_small || rom.url_cover,
+      // Already an absolute, cache-busted URL, so it skips the
+      // resources-path prefix scraped paths need.
+      url: rom.path_cover_large || rom.path_cover_small,
       isAbsolute: true,
     },
     {

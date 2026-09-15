@@ -154,11 +154,8 @@ const coverPath = computed(() => {
   return path ? toWebp(path) : null;
 });
 
-const coverFallback = computed(() => currentRom.value?.url_cover ?? null);
-const resolvedCover = computed(() => coverPath.value ?? coverFallback.value);
-
 watch(
-  resolvedCover,
+  coverPath,
   (url) => {
     if (url) setBgArt(url);
   },

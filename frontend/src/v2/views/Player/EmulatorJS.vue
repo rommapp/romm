@@ -165,9 +165,7 @@ const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
 // imperatively on the GameCover via `coverRef` — see onPlay.
 const art = useCoverArt(() => heroRom.value, { context: "player" });
 const heroIsAlt = computed(
-  () =>
-    art.style.value !== "cover_path" &&
-    !!(art.coverUrl.value ?? art.fallbackUrl.value),
+  () => art.style.value !== "cover_path" && !!art.coverUrl.value,
 );
 const coverRef = ref<InstanceType<typeof GameCover> | null>(null);
 

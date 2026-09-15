@@ -238,7 +238,6 @@ function onRowHighlight() {
   const path = item.path_cover_large ?? item.path_cover_small ?? null;
   const coverUrl = path ? toWebpUrl(path, !!props.webp) : null;
   if (coverUrl) setBgArt(coverUrl);
-  else if (item.url_cover) setBgArt(item.url_cover);
 }
 
 function onRowPointerDown(e: PointerEvent) {

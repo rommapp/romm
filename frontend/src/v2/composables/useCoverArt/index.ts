@@ -68,7 +68,6 @@ export type CoverArtRom = Pick<
   | "gamelist_metadata"
   | "path_cover_large"
   | "path_cover_small"
-  | "url_cover"
   | "path_video"
   | "platform_slug"
 >;
@@ -148,8 +147,6 @@ export interface CoverArtDescriptor {
   /** Primary image src — alt artwork, explicit override, or the local
    *  cover chain. Null when the rom has no usable image (→ placeholder). */
   coverUrl: string | null;
-  /** Secondary src tried on `coverUrl` load error (external provider). */
-  fallbackUrl: string | null;
   /** Any real image is available (so the card paints art, not a
    *  placeholder). */
   hasArtwork: boolean;
@@ -204,8 +201,13 @@ export function computeCoverArt(
     coverUrl = local ? toWebpUrl(local, opts.supportsWebp) : local;
   }
 
-  const fallbackUrl = override != null ? null : (rom.url_cover ?? null);
-  const hasArtwork = Boolean(coverUrl || fallbackUrl);
+  // A rom's `url_cover` is the provider's own URL, kept as the record of
+  // where the art came from. Handing it to the browser would send every
+  // viewer off to that provider — with the instance's credentials inline,
+  // in ScreenScraper's case — and would paint art an admin deleted from
+  // the resources folder on purpose (issue #4195). RomM's own resources
+  // are the only image source.
+  const hasArtwork = Boolean(coverUrl);
 
   const physicalAlt = style === "physical_path" && isAltArt;
   const cdBased = physicalAlt && isCDBasedSystem(rom.platform_slug);
@@ -219,7 +221,6 @@ export function computeCoverArt(
 
   return {
     coverUrl,
-    fallbackUrl,
     hasArtwork,
     isAltArt,
     ratio,
@@ -252,7 +253,6 @@ export interface UseCoverArtOptions {
 export interface UseCoverArt {
   style: ComputedRef<BoxartStyle>;
   coverUrl: ComputedRef<string | null>;
-  fallbackUrl: ComputedRef<string | null>;
   hasArtwork: ComputedRef<boolean>;
   isAltArt: ComputedRef<boolean>;
   ratio: ComputedRef<number>;
@@ -304,7 +304,6 @@ export function useCoverArt(
       const src = coverSrc.value ?? null;
       return {
         coverUrl: src,
-        fallbackUrl: null,
         hasArtwork: !!src,
         isAltArt: false,
         ratio: coverRatio(s),
@@ -324,7 +323,6 @@ export function useCoverArt(
   return {
     style,
     coverUrl: computed(() => descriptor.value.coverUrl),
-    fallbackUrl: computed(() => descriptor.value.fallbackUrl),
     hasArtwork: computed(() => descriptor.value.hasArtwork),
     isAltArt: computed(() => descriptor.value.isAltArt),
     ratio: computed(() => descriptor.value.ratio),

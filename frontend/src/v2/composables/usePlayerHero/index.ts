@@ -59,7 +59,7 @@ export function usePlayerHero(rom: Ref<DetailedRom | null>): {
     () => {
       const r = rom.value;
       if (!r) return null;
-      return r.path_cover_large ?? r.path_cover_small ?? r.url_cover ?? null;
+      return r.path_cover_large ?? r.path_cover_small ?? null;
     },
     (url) => {
       if (url) setBgArt(url);
