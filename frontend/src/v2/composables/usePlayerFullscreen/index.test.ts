@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { effectScope, ref, type EffectScope } from "vue";
 import { useFullscreenFallback, usePlayerFullscreen } from "./index";
 
@@ -51,6 +51,26 @@ describe("usePlayerFullscreen", () => {
 
     expect(value.isFullscreen.value).toBe(true);
     expect(el.hasAttribute("data-fullscreen-fallback")).toBe(true);
+  });
+
+  it("reports a failed exit, which leaves a dialog painted over", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const { value } = runInScope(() =>
+      usePlayerFullscreen(ref<HTMLElement | null>(el)),
+    );
+    await value.enter();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    Object.defineProperty(document, "exitFullscreen", {
+      value: () => Promise.reject(new Error("denied")),
+      configurable: true,
+      writable: true,
+    });
+
+    await expect(value.exit()).resolves.toBeUndefined();
+
+    expect(error).toHaveBeenCalledOnce();
+    error.mockRestore();
   });
 
   it("swallows a denied request instead of rejecting", async () => {

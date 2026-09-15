@@ -292,8 +292,7 @@ frontend/
     │   ├── index.ts               # ~825 lines of utilities
     │   ├── covers.ts              # Procedural SVG cover generation
     │   ├── formData.ts            # FormData builder
-    │   ├── tasks.ts               # Task status maps
-    │   └── indexdb-monitor.ts     # IndexedDB change detection
+    │   └── tasks.ts               # Task status maps
     │
     └── __generated__/             # OpenAPI codegen output
         └── models/                # Generated TypeScript interfaces

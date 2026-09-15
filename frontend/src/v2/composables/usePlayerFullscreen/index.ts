@@ -22,7 +22,14 @@ export function useFullscreenFallback(): void {
 
 // A rejected request is a denial (permissions policy, or no user gesture),
 // not a fault to report: the stage simply stays windowed.
-const swallow = (run: () => Promise<void>) => () => run().catch(() => {});
+const swallowDenial = (run: () => Promise<void>) => () => run().catch(() => {});
+
+// A failed exit is not benign: callers exit before opening a body-teleported
+// dialog, which would then be painted over by the fullscreen stage.
+const reportFailure = (run: () => Promise<void>) => () =>
+  run().catch((error: unknown) => {
+    console.error("Failed to exit fullscreen", error);
+  });
 
 /** Fullscreen controls for `target`. */
 export function usePlayerFullscreen(target: MaybeElementRef): {
@@ -39,8 +46,8 @@ export function usePlayerFullscreen(target: MaybeElementRef): {
 
   return {
     isFullscreen,
-    enter: swallow(enter),
-    exit: swallow(exit),
-    toggle: swallow(toggle),
+    enter: swallowDenial(enter),
+    exit: reportFailure(exit),
+    toggle: swallowDenial(toggle),
   };
 }
