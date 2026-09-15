@@ -12,6 +12,9 @@ Broker file API (secret-protected, stdlib on the broker side):
                              save is in flight, so no clock coupling between
                              hosts. Returns raw bytes + X-State-Filename.
   PUT /state-file?filename=NAME - write NAME into the emulator's state dir.
+  GET /state-screenshot?slot=N - the container's own capture of the stream at
+                             the moment of that save, used as the thumbnail.
+                             404 when it captured nothing.
 """
 
 import asyncio
@@ -196,8 +199,8 @@ PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | None:
     """Pull the embedded frame PNG out of a savestate archive, or None when the
-    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one;
-    the others write the frame as its own file, served by /state-screenshot."""
+    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one,
+    and it is reached only when /state-screenshot served nothing."""
     if emulator != "pcsx2":
         return None
     try:
@@ -225,7 +228,14 @@ def fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | N
         max_bytes=SCREENSHOT_MAX_BYTES,
         timeout=broker.TRANSFER_TIMEOUT,
     )
-    return result[1] if result else None
+    if result is None:
+        return None
+    # This source shadows the frame a state embeds for itself, so anything that
+    # is not a PNG has to read as no frame rather than as an unusable one.
+    if not result[1].startswith(PNG_MAGIC):
+        log.warning("broker state screenshot for slot %d is not a PNG", slot)
+        return None
+    return result[1]
 
 
 async def store_state_screenshot(
@@ -404,7 +414,11 @@ async def pull_state_to_library(
         # same route for every emulator; an embedded frame only fills a 404.
         screenshot = await asyncio.to_thread(fetch_state_screenshot, container, slot)
         if screenshot is None:
-            screenshot = extract_state_screenshot(emulator, content)
+            # Off the loop as well: the state body it inflates from runs to
+            # hundreds of megabytes.
+            screenshot = await asyncio.to_thread(
+                extract_state_screenshot, emulator, content
+            )
         try:
             await store_state_asset(
                 user, rom, emulator, filename, content, screenshot, disc_file_id
