@@ -73,6 +73,16 @@ useGridNav(rootEl, {
       variant="brand"
       with-label
     />
+    <!-- Only inside the desktop shell, and only where it has an emulator for
+         the platform. -->
+    <GameActionBtn
+      v-if="actions.canPlayNative.value"
+      :rom="rom"
+      action="native"
+      :size="btnSize"
+      variant="emphasized"
+      with-label
+    />
     <!-- Only rendered while someone else is hosting an open session on this
          ROM, so it sits beside Stream rather than replacing it. -->
     <GameActionBtn

@@ -20,13 +20,16 @@ type Flags = {
   canDelete: boolean;
   canJoinStream: boolean;
   canDownload: boolean;
+  canPlayNative: boolean;
+  nativeLaunching: boolean;
 };
 
-// Not flags: the Join and Stream items render these labels verbatim, so they
-// are held apart from the booleans rather than squeezed into them. How the
+// Not flags: the Join, Stream and Native items render these labels verbatim, so
+// they are held apart from the booleans rather than squeezed into them. How the
 // labels themselves are chosen is useGameActions' own test.
 let joinActionLabel = "";
 let streamActionLabel = "";
+let nativeActionLabel = "";
 
 const flags: Flags = {
   canPlayInBrowser: true,
@@ -41,6 +44,8 @@ const flags: Flags = {
   canEdit: true,
   canDelete: true,
   canJoinStream: false,
+  canPlayNative: false,
+  nativeLaunching: false,
 };
 
 vi.mock("@/v2/composables/useGameActions", () => ({
@@ -59,6 +64,7 @@ vi.mock("@/v2/composables/useGameActions", () => ({
           if (prop === "isFavorited") return { value: false };
           if (prop === "joinActionLabel") return { value: joinActionLabel };
           if (prop === "streamActionLabel") return { value: streamActionLabel };
+          if (prop === "nativeActionLabel") return { value: nativeActionLabel };
           return vi.fn();
         },
       },
@@ -75,10 +81,12 @@ function mountList(
   overrides: Partial<Flags> = {},
   joinLabel = "rom.join-session",
   streamLabel = "rom.stream",
+  nativeLabel = "rom.play-native",
 ) {
   Object.assign(flags, overrides);
   joinActionLabel = joinLabel;
   streamActionLabel = streamLabel;
+  nativeActionLabel = nativeLabel;
   return mount(GameActionsList, {
     props: { rom: { id: 1 } as SimpleRom },
     global: { stubs: { RMenuItem, RDivider } },
@@ -166,13 +174,48 @@ describe("GameActionsList: playing", () => {
     expect(shown).not.toContain("rom.play");
   });
 
-  it("offers neither when the ROM cannot be played", () => {
+  it("offers none of them when the ROM cannot be played", () => {
     const shown = labels(
-      mountList({ canPlayInBrowser: false, canPlayStream: false }),
+      mountList({
+        canPlayInBrowser: false,
+        canPlayStream: false,
+        canPlayNative: false,
+      }),
     );
     expect(shown).not.toContain("rom.play");
     expect(shown).not.toContain("rom.stream");
     expect(shown).not.toContain("rom.stream-on");
+    expect(shown).not.toContain("rom.play-native");
+  });
+});
+
+describe("GameActionsList: playing in a local emulator", () => {
+  it("renders the native label the composable resolved", () => {
+    const wrapper = mountList(
+      { canPlayNative: true, nativeLaunching: false },
+      "rom.join-session",
+      "rom.stream",
+      "rom.play-native-in",
+    );
+    const shown = labels(wrapper);
+    expect(shown).toContain("rom.play-native-in");
+    expect(shown).not.toContain("rom.native-cancel");
+  });
+
+  it("swaps the launch for a cancel while one is in flight", () => {
+    const shown = labels(
+      mountList({ canPlayNative: true, nativeLaunching: true }),
+    );
+    expect(shown).toContain("rom.native-cancel");
+    expect(shown).not.toContain("rom.play-native");
+  });
+
+  it("offers nothing native outside the desktop shell", () => {
+    const shown = labels(
+      mountList({ canPlayNative: false, nativeLaunching: false }),
+    );
+    expect(shown).not.toContain("rom.play-native");
+    expect(shown).not.toContain("rom.native-cancel");
   });
 });
 

@@ -69,6 +69,7 @@ export type GameAction =
   | "play"
   | "stream"
   | "join"
+  | "native"
   | "download"
   | "copy-link"
   | "qr"
@@ -187,6 +188,20 @@ const preset = computed<Preset>(() => {
       label: actions.joinActionLabel.value,
       activeIcon: null,
       onClick: () => void actions.joinStream(),
+      active: false,
+    };
+  }
+  if (props.action === "native") {
+    // The button is the launch's own progress indicator while the shell works,
+    // and cancelling it is what a second press then means.
+    const launching = actions.nativeLaunching.value;
+    return {
+      icon: launching ? "mdi-loading mdi-spin" : "mdi-monitor-play",
+      label: actions.nativeActionLabel.value,
+      activeIcon: null,
+      onClick: launching
+        ? () => void actions.cancelNativeLaunch()
+        : () => void actions.play("native"),
       active: false,
     };
   }

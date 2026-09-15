@@ -55,6 +55,20 @@ function run(fn: () => void | Promise<void>) {
     icon="mdi-play-network"
     @click="run(() => actions.play('stream'))"
   />
+  <!-- The launch and its cancel are separate entries so neither is a control
+       that changes meaning under the pointer. -->
+  <RMenuItem
+    v-if="actions.canPlayNative.value && !actions.nativeLaunching.value"
+    :label="actions.nativeActionLabel.value"
+    icon="mdi-monitor-play"
+    @click="run(() => actions.play('native'))"
+  />
+  <RMenuItem
+    v-if="actions.nativeLaunching.value"
+    :label="t('rom.native-cancel')"
+    icon="mdi-close-circle-outline"
+    @click="run(actions.cancelNativeLaunch)"
+  />
   <RMenuItem
     v-if="actions.canJoinStream.value"
     :label="actions.joinActionLabel.value"

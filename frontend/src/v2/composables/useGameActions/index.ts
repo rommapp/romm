@@ -18,6 +18,7 @@ import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import { useNativeStore } from "@/stores/native";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
@@ -44,8 +45,9 @@ export interface GameActionsOptions {
   coverEl?: () => HTMLElement | null;
 }
 
-/** Which player a launch is asking for. "auto" lets availability decide. */
-export type PlayTarget = "auto" | "local" | "stream";
+/** Which player a launch is asking for. "auto" lets availability decide,
+ *  preferring native, then the stream, then this tab. */
+export type PlayTarget = "auto" | "local" | "stream" | "native";
 
 // Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
@@ -90,8 +92,10 @@ export function useGameActions(
     canPlayPico8,
     canPlayRuffle,
     canPlayStream,
+    canPlayNative,
   } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
+  const nativeStore = useNativeStore();
 
   // Streaming is offered as its own action rather than as the winner of a
   // precedence rule, so each player needs a gate of its own.
@@ -157,6 +161,41 @@ export function useGameActions(
       ? t("rom.join-session-of", { user: joinHostLabel.value })
       : t("rom.join-session"),
   );
+
+  // Names the emulator the desktop shell would start. Local to
+  // `nativeActionLabel`, which is what every surface reads.
+  const nativeLabel = computed(
+    () => nativeStore.labelForPlatform(getRom()?.platform_slug) ?? "",
+  );
+
+  // True from the click until the game reaches the emulator, which is also
+  // exactly as long as the launch can still be cancelled.
+  const nativeLaunching = computed(() => nativeStore.isLaunching(getRom()?.id));
+
+  // The native button is its own progress indicator, so while the shell works
+  // the label says what it is waiting for.
+  const nativeActionLabel = computed(() => {
+    if (!nativeLaunching.value) {
+      return nativeLabel.value
+        ? t("rom.play-native-in", { emulator: nativeLabel.value })
+        : t("rom.play-native");
+    }
+    const state = nativeStore.launchStateFor(getRom()?.id);
+    if (state?.stage === "core" && state.core) {
+      return t("rom.native-installing-core", { core: state.core });
+    }
+    if (state?.stage === "emulator") {
+      return t("rom.native-preparing", {
+        emulator: state.emulator || nativeLabel.value,
+      });
+    }
+    if (state?.progress != null) {
+      return t("rom.native-downloading", {
+        percent: Math.round(state.progress * 100),
+      });
+    }
+    return t("rom.native-starting");
+  });
 
   const isFavorited = computed(() => {
     const rom = getRom();
@@ -315,11 +354,19 @@ export function useGameActions(
       if (!ok) return;
     }
 
+    // Native ends in an IPC call rather than a navigation, so it leaves before
+    // the route-picking below. "auto" prefers it because `canPlayNative` needs
+    // the shell to have resolved an emulator for this platform already.
+    if (player === "native" || (player === "auto" && canPlayNative.value)) {
+      await playNative();
+      return;
+    }
+
     // A platform can be served by both an in-browser core and a streaming
     // container, and they are different products (local latency versus the
     // container's own emulator and save library). The caller says which it
-    // wants; "auto" keeps the single-button surfaces working by preferring
-    // the stream, as they did before either could be asked for by name.
+    // wants; with no native emulator to prefer, "auto" falls to the stream, as
+    // it did before any of the three could be asked for by name.
     const streaming =
       player === "stream" || (player === "auto" && canPlayStream.value);
     const inBrowser = player === "local" || player === "auto";
@@ -361,6 +408,34 @@ export function useGameActions(
     } else {
       router.push(target);
     }
+  }
+
+  // A launch the shell accepted reports itself through the launch state (see
+  // `installNativeLaunchFeedback`), so only a request it never took is
+  // surfaced here. The refusal's own wording is English, hence the console.
+  async function playNative() {
+    const rom = getRom();
+    if (!rom || !canPlayNative.value) return;
+    const refusal = await nativeStore.launch(rom);
+    if (!refusal) return;
+    console.error("[native] The shell refused the launch:", refusal);
+    snackbar.error(
+      t("rom.native-launch-failed", {
+        name: rom.name ?? rom.fs_name_no_ext,
+      }),
+      { icon: "mdi-alert-circle-outline" },
+    );
+  }
+
+  /** Abort a launch still on its way to the emulator. The shell leaves a
+   *  running game alone, so this only reaches one that has yet to start. */
+  async function cancelNativeLaunch() {
+    const rom = getRom();
+    if (!rom) return;
+    await nativeStore.cancel(rom.id);
+    snackbar.info(t("rom.native-canceled"), {
+      icon: "mdi-close-circle-outline",
+    });
   }
 
   // Joining is its own navigation: the stream view claims a container when it
@@ -572,6 +647,10 @@ export function useGameActions(
     canPlay,
     canPlayStream,
     canPlayInBrowser,
+    canPlayNative,
+    nativeActionLabel,
+    nativeLaunching,
+    cancelNativeLaunch,
     streamLabel,
     streamActionLabel,
     canJoinStream,

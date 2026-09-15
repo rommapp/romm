@@ -502,6 +502,12 @@ function onStaticKeydown(e: KeyboardEvent) {
               action="stream"
               variant="brand"
             />
+            <GameActionBtn
+              v-if="actions?.canPlayNative.value"
+              :rom="rom"
+              action="native"
+              variant="emphasized"
+            />
           </div>
 
           <div class="r-gc__overlay-bottom">

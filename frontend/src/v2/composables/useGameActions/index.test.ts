@@ -17,6 +17,7 @@ const locationAssign = vi.fn();
 const confirmFn = vi.fn();
 const startScan = vi.fn(() => true);
 const snackbarInfo = vi.fn();
+const snackbarError = vi.fn();
 const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
@@ -26,6 +27,14 @@ const streamContainer = { value: null as object | null };
 const joinableSession = {
   value: null as { host_username: string | null } | null,
 };
+// Native play: the shell's answer for the platform, plus the launch it is
+// running right now, both of which the composable only reads.
+const nativeEmulator = { value: null as string | null };
+const nativeLaunchState = {
+  value: null as { status: string; stage?: string; progress?: number } | null,
+};
+const nativeLaunch = vi.fn(async () => null as string | null);
+const nativeCancel = vi.fn(async () => {});
 let originalLocation: Location;
 // Granted action keys — `null` means "everything" (the default).
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
@@ -68,6 +77,15 @@ vi.mock("@/stores/streaming", () => ({
     fetchJoinableSessions: vi.fn(),
   }),
 }));
+vi.mock("@/stores/native", () => ({
+  useNativeStore: () => ({
+    labelForPlatform: () => nativeEmulator.value,
+    isLaunching: () => nativeLaunchState.value?.status === "downloading",
+    launchStateFor: () => nativeLaunchState.value,
+    launch: nativeLaunch,
+    cancel: nativeCancel,
+  }),
+}));
 vi.mock("@/utils", () => ({
   getDownloadLink: vi.fn(),
   getDownloadPath: vi.fn(),
@@ -95,6 +113,14 @@ vi.mock("@/v2/composables/useCanPlay", () => ({
         );
       },
     },
+    // Same bargain for native: the shell needs a file to hand the emulator.
+    canPlayNative: {
+      get value() {
+        return (
+          Boolean(getRom()?.has_file_on_disk) && nativeEmulator.value !== null
+        );
+      },
+    },
   }),
 }));
 vi.mock("@/v2/composables/useClipboard", () => ({
@@ -115,7 +141,11 @@ vi.mock("@/v2/composables/useScanTrigger", () => ({
   useScanTrigger: () => ({ startScan }),
 }));
 vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ success: vi.fn(), error: vi.fn(), info: snackbarInfo }),
+  useSnackbar: () => ({
+    success: vi.fn(),
+    error: snackbarError,
+    info: snackbarInfo,
+  }),
 }));
 vi.mock("@/v2/composables/useViewTransition", () => ({
   useViewTransition: () => ({
@@ -155,6 +185,12 @@ beforeEach(() => {
   confirmFn.mockClear();
   startScan.mockClear();
   snackbarInfo.mockClear();
+  snackbarError.mockClear();
+  nativeLaunch.mockClear();
+  nativeLaunch.mockResolvedValue(null);
+  nativeCancel.mockClear();
+  nativeEmulator.value = null;
+  nativeLaunchState.value = null;
   confirmProtectedLaunch.value = true;
   canPlayEJS.value = true;
   canPlayJsDos.value = false;
@@ -384,6 +420,129 @@ describe("useGameActions.play — launch confirmation", () => {
 
     expect(actions.canPlayStream.value).toBe(false);
     expect(actions.canDownload.value).toBe(false);
+  });
+});
+
+describe("useGameActions.play — the native route", () => {
+  it("hands the rom to the shell instead of navigating", async () => {
+    nativeEmulator.value = "RetroArch";
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play("native");
+
+    expect(nativeLaunch).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
+    expect(locationAssign).not.toHaveBeenCalled();
+  });
+
+  it("launches nothing when the shell has no emulator for the platform", async () => {
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play("native");
+
+    expect(nativeLaunch).not.toHaveBeenCalled();
+  });
+
+  // The shell reports a launch it accepted through its own launch state, so
+  // only a request it never took is surfaced from here.
+  it("reports a launch the shell refused outright", async () => {
+    nativeEmulator.value = "RetroArch";
+    nativeLaunch.mockResolvedValue("PCSX2 is still being set up.");
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play("native");
+
+    expect(snackbarError).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays quiet about a launch the shell accepted", async () => {
+    nativeEmulator.value = "RetroArch";
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play("native");
+
+    expect(snackbarError).not.toHaveBeenCalled();
+  });
+
+  it("still confirms a shelved game before launching natively", async () => {
+    confirmFn.mockResolvedValue(false);
+    nativeEmulator.value = "RetroArch";
+    const actions = useGameActions(() => makeRom("retired"));
+
+    await actions.play("native");
+
+    expect(confirmFn).toHaveBeenCalledTimes(1);
+    expect(nativeLaunch).not.toHaveBeenCalled();
+  });
+
+  // A resolved local emulator is as clear as an intent to play locally gets,
+  // so it wins the unqualified call over both other routes.
+  it("is what auto picks ahead of the stream and this tab", async () => {
+    nativeEmulator.value = "RetroArch";
+    streamContainer.value = {};
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(nativeLaunch).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
+    expect(locationAssign).not.toHaveBeenCalled();
+  });
+
+  it("leaves auto on the stream when the shell has no emulator", async () => {
+    streamContainer.value = {};
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(nativeLaunch).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/rom/1/stream");
+  });
+
+  it("cancels through the store and says so", async () => {
+    const actions = useGameActions(() => makeRom());
+
+    await actions.cancelNativeLaunch();
+
+    expect(nativeCancel).toHaveBeenCalledWith(1);
+    expect(snackbarInfo).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useGameActions — the native action label", () => {
+  it("names the emulator the launch would reach", () => {
+    nativeEmulator.value = "RetroArch";
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.nativeActionLabel.value).toBe("rom.play-native-in");
+  });
+
+  it("falls back to a generic label before the shell has answered", () => {
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.nativeActionLabel.value).toBe("rom.play-native");
+  });
+
+  // While the shell works the button is the launch's progress readout, so the
+  // label follows whatever stage the shell reports.
+  it.each([
+    [
+      { status: "downloading", stage: "rom", progress: 0.42 },
+      "rom.native-downloading",
+    ],
+    [
+      { status: "downloading", stage: "core", core: "snes9x" },
+      "rom.native-installing-core",
+    ],
+    [{ status: "downloading", stage: "emulator" }, "rom.native-preparing"],
+    [{ status: "downloading" }, "rom.native-starting"],
+  ])("reads %o as %s", (state, expected) => {
+    nativeEmulator.value = "RetroArch";
+    nativeLaunchState.value = state;
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.nativeActionLabel.value).toBe(expected);
+    expect(actions.nativeLaunching.value).toBe(true);
   });
 });
 
