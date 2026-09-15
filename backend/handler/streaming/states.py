@@ -191,8 +191,7 @@ def push_state_file(
 
 
 # PCSX2 embeds a PNG of the moment of save inside every .p2s savestate zip
-# under this entry name (pcsx2/SaveState.cpp: EntryFilename_Screenshot), which
-# is the fallback for a container that captured no frame of its own.
+# under this entry name (pcsx2/SaveState.cpp: EntryFilename_Screenshot).
 _SCREENSHOT_ZIP_ENTRY = "Screenshot.png"
 SCREENSHOT_MAX_BYTES = 16 * 1024 * 1024
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -204,8 +203,7 @@ def _is_png(data: bytes | None) -> bool:
 
 def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | None:
     """Pull the embedded frame PNG out of a savestate archive, or None when the
-    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one,
-    and it is reached only when /state-screenshot served nothing."""
+    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one."""
     if emulator != "pcsx2":
         return None
     try:
@@ -222,9 +220,8 @@ def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | Non
 
 
 def fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | None:
-    """GET /state-screenshot from the broker: the container's own capture of the
-    stream, taken as the state was saved. A 404 means this state has no frame,
-    so it is not logged."""
+    """GET /state-screenshot from the broker, the container's own capture of the
+    stream as the state was saved. A 404 means no frame, so it is not logged."""
     result = broker.get_binary_safe(
         container,
         container.protocol.transfer_route(f"/state-screenshot?slot={slot}"),
