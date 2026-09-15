@@ -163,14 +163,18 @@ class ResolvedContainer:
         different setups. The emulator names the state and card namespace, and
         whole-card sync decides whether cards are synced at all, so a player
         landing on either has to find their saves in the same place. The
-        protocol decides which controls exist at all (disc swap, joining), and
-        those are advertised from the head of the pool, so a member that
-        disagrees would offer a control that 502s on half the claims."""
+        protocol shape decides which controls exist at all (disc swap,
+        joining), and those are advertised from the head of the pool, so a
+        member whose shape disagrees would offer a control that 502s on half
+        the claims. Compared by type rather than instance: two webstation
+        containers proxied at different subfolders (as same-origin pooling
+        requires, each mounted at its own path) carry distinct `subfolder`
+        values and so are never the same interned instance, but they share the
+        same capabilities and route shapes and are still one pool."""
         return (
             self.emulator == other.emulator
             and self.memory_card_sync == other.memory_card_sync
-            # Protocols are interned per subfolder, so identity is equality.
-            and self.protocol is other.protocol
+            and type(self.protocol) is type(other.protocol)
         )
 
     def memory_card_route(self) -> str:

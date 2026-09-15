@@ -1276,6 +1276,66 @@ def test_a_container_that_disagrees_on_the_emulator_is_not_a_pool_member(caplog)
     assert "not a pool" in caplog.text
 
 
+def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog):
+    """Same-origin pooling proxies each member at its own path, so two real
+    pool members always carry different `subfolder` values and therefore
+    different (non-interned) protocol instances. They must still pool: the
+    subfolder only changes how routes are built, not what the broker can do."""
+    first = {
+        "platform": "ps2",
+        "host": "/streaming",
+        "broker_host": "http://192.168.1.10:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+        "emulator": "pcsx2",
+    }
+    second = {
+        **first,
+        "host": "/streaming-2",
+        "broker_host": "http://192.168.1.11:8000",
+        "subfolder": "/streaming-2",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(first, second):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert [c.broker_host for c in candidates] == [
+        "http://192.168.1.10:8000",
+        "http://192.168.1.11:8000",
+    ]
+    assert "not a pool" not in caplog.text
+
+
+def test_webstation_pool_claim_rolls_over_across_different_subfolders(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """End to end: a second claim on a same-origin webstation pool must reach
+    the free member instead of 409ing on the first one being held."""
+    first = {
+        "platform": rom.platform_slug,
+        "host": "/streaming",
+        "broker_host": "http://192.168.1.20:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+    }
+    second = {
+        **first,
+        "host": "/streaming-2",
+        "broker_host": "http://192.168.1.21:8000",
+        "subfolder": "/streaming-2",
+    }
+    with _streaming(first, second):
+        r1 = _claim_webstation_ok(client, access_token, rom.id)
+        r2 = _claim_webstation_ok(client, viewer_access_token, rom.id)
+    assert [r1.status_code, r2.status_code] == [202, 202]
+    assert r1.json()["container"] == _key_of(first)
+    assert r2.json()["container"] == _key_of(second)
+
+
 def test_the_session_platform_picks_the_config_entry_for_its_container():
     """A container serving several platforms expands into one entry per
     platform under one key, so the admin views must not read an arbitrary one:
