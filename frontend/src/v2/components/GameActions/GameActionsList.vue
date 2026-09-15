@@ -43,10 +43,28 @@ function run(fn: () => void | Promise<void>) {
 
 <template>
   <!-- Primary actions -->
+  <!-- The launch and its cancel are separate entries so neither is a control
+       that changes meaning under the pointer. -->
+  <RMenuItem
+    v-if="actions.canPlayNative.value && !actions.nativeLaunching.value"
+    :label="actions.nativeActionLabel.value"
+    icon="mdi-play"
+    @click="run(() => actions.play('native'))"
+  />
+  <RMenuItem
+    v-if="actions.nativeLaunching.value"
+    :label="t('rom.native-cancel')"
+    icon="mdi-close-circle-outline"
+    @click="run(actions.cancelNativeLaunch)"
+  />
+  <!-- Named and marked for the browser only when the native launch has taken
+       the play glyph above, so two identical rows never sit together. -->
   <RMenuItem
     v-if="actions.canPlayInBrowser.value"
-    :label="t('rom.play')"
-    icon="mdi-play"
+    :label="
+      actions.canPlayNative.value ? t('rom.play-in-browser') : t('rom.play')
+    "
+    :icon="actions.canPlayNative.value ? 'mdi-web' : 'mdi-play'"
     @click="run(() => actions.play('local'))"
   />
   <RMenuItem

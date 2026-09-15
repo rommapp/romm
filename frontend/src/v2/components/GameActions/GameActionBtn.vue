@@ -69,6 +69,7 @@ export type GameAction =
   | "play"
   | "stream"
   | "join"
+  | "native"
   | "download"
   | "copy-link"
   | "qr"
@@ -152,6 +153,10 @@ const hasAnyStatus = computed(() => activeStatusIcons.value.length > 0);
 type Preset = {
   icon: string;
   label: string;
+  /** Accessible name, when the visible label says something else. The native
+   *  launch shows progress while it works but cancels when pressed, and a
+   *  screen reader has to hear what pressing it does. */
+  ariaLabel?: string;
   activeIcon: string | null;
   onClick: (() => void) | null;
   active: boolean;
@@ -187,6 +192,23 @@ const preset = computed<Preset>(() => {
       label: actions.joinActionLabel.value,
       activeIcon: null,
       onClick: () => void actions.joinStream(),
+      active: false,
+    };
+  }
+  if (props.action === "native") {
+    // Carries the play glyph rather than a device one: inside the shell this
+    // is the play button, and its label names where the game will run. The
+    // button is also the launch's own progress indicator while the shell
+    // works, and cancelling is what a second press then means.
+    const launching = actions.nativeLaunching.value;
+    return {
+      icon: launching ? "mdi-loading mdi-spin" : "mdi-play",
+      label: actions.nativeActionLabel.value,
+      ariaLabel: launching ? t("rom.native-cancel") : undefined,
+      activeIcon: null,
+      onClick: launching
+        ? () => void actions.cancelNativeLaunch()
+        : () => void actions.play("native"),
       active: false,
     };
   }
@@ -290,6 +312,10 @@ const displayedIcon = computed(
   () => (preset.value.active && preset.value.activeIcon) || preset.value.icon,
 );
 
+const accessibleName = computed(
+  () => preset.value.ariaLabel ?? preset.value.label,
+);
+
 const moreOpen = ref(false);
 const statusOpen = ref(false);
 // The `collection` action opens a global dialog via emitter rather than a
@@ -369,7 +395,7 @@ function onClick(e: MouseEvent) {
             'r-v2-game-btn--pinned': pinned,
           },
         ]"
-        :aria-label="preset.label"
+        :aria-label="accessibleName"
         @click.prevent.stop
       >
         <RIcon :icon="displayedIcon" />
@@ -418,7 +444,7 @@ function onClick(e: MouseEvent) {
             'r-v2-game-btn--pinned': pinned,
           },
         ]"
-        :aria-label="preset.label"
+        :aria-label="accessibleName"
         @click.prevent.stop
       >
         <span v-if="activeStatusIcons.length > 1" class="r-v2-game-btn__icons">
@@ -523,7 +549,7 @@ function onClick(e: MouseEvent) {
         'r-v2-game-btn--pinned': pinned,
       },
     ]"
-    :aria-label="preset.label"
+    :aria-label="accessibleName"
     @click="onClick"
   >
     <img

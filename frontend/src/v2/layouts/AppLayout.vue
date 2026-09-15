@@ -19,6 +19,7 @@ import {
 } from "vue";
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
+import { useNativeStore } from "@/stores/native";
 import storePlatforms from "@/stores/platforms";
 import storePlaying from "@/stores/playing";
 import { useStreamingStore } from "@/stores/streaming";
@@ -36,6 +37,7 @@ import { installGalleryProvenance } from "@/v2/composables/useGalleryProvenance"
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { installNativeLaunchFeedback } from "@/v2/composables/useNativeLaunch";
 import { installOverlayRouteDismiss } from "@/v2/composables/useOverlayRouteDismiss";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
@@ -73,8 +75,26 @@ watch(
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
 const streamingStore = useStreamingStore();
+const nativeStore = useNativeStore();
 
 const playingStore = storePlaying();
+
+// Snackbars for launches handed to the desktop shell. Installed in setup
+// because it injects the emitter; a no-op outside the shell.
+installNativeLaunchFeedback();
+
+// The native answer is per-platform, so unlike the streaming config the probe
+// needs the platform list. It watches for that list rather than hanging off
+// one fetch, because `fetchPlatforms` resolves empty when another view already
+// has one in flight. Re-probing is cheap: the store skips slugs it has
+// answered.
+watch(
+  () => platformsStore.allPlatforms.map((p) => p.slug).join(","),
+  (slugs) => {
+    if (slugs) void nativeStore.probe(slugs.split(","));
+  },
+  { immediate: true },
+);
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
