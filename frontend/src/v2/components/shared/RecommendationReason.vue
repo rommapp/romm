@@ -18,33 +18,32 @@ const props = defineProps<{
 
 const { t } = useI18n();
 
-const reason = computed(() =>
-  props.seedRomName ? null : (props.reasons[0] ?? null),
-);
+// The seed game wins over the facets when the feed knows it. Its title is
+// the full sentence, which the caption itself has never been wide enough for.
+const caption = computed(() => {
+  if (props.seedRomName) {
+    return {
+      icon: SEED_ICON,
+      text: props.seedRomName,
+      title: t("recommendations.because-you-played", [props.seedRomName]),
+    };
+  }
 
-const icon = computed(() => {
-  if (props.seedRomName) return SEED_ICON;
-  return reason.value ? reasonIcon(reason.value) : null;
+  const reason = props.reasons[0];
+  if (!reason) return null;
+
+  return {
+    icon: reasonIcon(reason),
+    text: reasonLabel(reason, t),
+    title: t("recommendations.why"),
+  };
 });
-
-const text = computed(() => {
-  if (props.seedRomName) return props.seedRomName;
-  return reason.value ? reasonLabel(reason.value, t) : null;
-});
-
-// The seed name alone fits the card where the full sentence never did, so
-// the sentence lives here.
-const title = computed(() =>
-  props.seedRomName
-    ? t("recommendations.because-you-played", [props.seedRomName])
-    : t("recommendations.why"),
-);
 </script>
 
 <template>
-  <span v-if="text" class="rec-reason" :title="title">
-    <RIcon v-if="icon" class="rec-reason__icon" :icon="icon" size="11" />
-    <span class="rec-reason__text">{{ text }}</span>
+  <span v-if="caption" class="rec-reason" :title="caption.title">
+    <RIcon class="rec-reason__icon" :icon="caption.icon" size="11" />
+    <span class="rec-reason__text">{{ caption.text }}</span>
   </span>
 </template>
 
