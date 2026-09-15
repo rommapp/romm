@@ -186,7 +186,7 @@ export default defineStore("heartbeat", {
             : "",
         },
         {
-          name: "Flashpoint Project",
+          name: "Flashpoint",
           value: "flashpoint",
           logo_path: "/assets/scrappers/flashpoint.png",
           disabled: !this.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED

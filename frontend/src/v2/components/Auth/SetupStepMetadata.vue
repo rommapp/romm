@@ -135,24 +135,24 @@ onMounted(() => {
           </p>
         </header>
 
-        <div class="r-setup-metadata__items">
-          <MetadataProviderCard
-            v-for="source in group.providers"
-            :key="source.key"
-            layout="row"
-            class="r-setup-metadata__item"
-            :data-provider="source.key"
-            :data-state="itemDataState(source)"
-            :name="source.name"
-            :logo="source.logo"
-            :status="statusOf(source)"
-            :setup-hint="t(source.setupKey)"
-            :caveat="source.caveatKey ? t(source.caveatKey) : undefined"
-            :dimmed="source.disabled"
-          >
-            <template #description>{{ t(source.descKey) }}</template>
-          </MetadataProviderCard>
-        </div>
+        <ul class="r-setup-metadata__items">
+          <li v-for="source in group.providers" :key="source.key">
+            <MetadataProviderCard
+              layout="row"
+              class="r-setup-metadata__item"
+              :data-provider="source.key"
+              :data-state="itemDataState(source)"
+              :name="source.name"
+              :logo="source.logo"
+              :status="statusOf(source)"
+              :setup-hint="t(source.setupKey)"
+              :caveat="source.caveatKey ? t(source.caveatKey) : undefined"
+              :dimmed="source.disabled"
+            >
+              <template #description>{{ t(source.descKey) }}</template>
+            </MetadataProviderCard>
+          </li>
+        </ul>
       </div>
     </div>
   </section>
@@ -219,9 +219,17 @@ onMounted(() => {
 
 /* ── Items ───────────────────────────────────────────────────────── */
 .r-setup-metadata__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
   gap: var(--r-space-2);
+}
+
+/* The card fills its list cell so rows stay equal-height. */
+.r-setup-metadata__item {
+  height: 100%;
 }
 
 /* Wizard-only state tint on top of the shared card chrome. */

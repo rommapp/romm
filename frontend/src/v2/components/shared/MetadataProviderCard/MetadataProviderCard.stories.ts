@@ -10,7 +10,7 @@ import MetadataProviderCard from "./MetadataProviderCard.vue";
 import type { ProviderCardStatus } from "./types";
 
 const logo = (label: string, color: string) =>
-  `https://placehold.co/96x96/${color}/ffffff?text=${label}`;
+  `https://placehold.co/96x96/${color}/white?text=${label}`;
 
 const ok: ProviderCardStatus = {
   tone: "success",
@@ -63,13 +63,13 @@ export const TileGrid: Story = {
     setup: () => ({ logo, ok, missing }),
     template: `
       <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; max-width: 900px;">
-        <MetadataProviderCard name="IGDB" :logo="logo('IG', '5c16c5')" :status="ok">
+        <MetadataProviderCard name="IGDB" :logo="logo('IG', 'indigo')" :status="ok">
           <template #actions>
             <RBtn variant="translucent" size="small" prepend-icon="mdi-key-variant">Get API key</RBtn>
             <RBtn variant="text" size="small" prepend-icon="mdi-open-in-new">Website</RBtn>
           </template>
         </MetadataProviderCard>
-        <MetadataProviderCard name="LaunchBox" :logo="logo('LB', '185a7c')" :status="ok">
+        <MetadataProviderCard name="LaunchBox" :logo="logo('LB', 'teal')" :status="ok">
           <template #actions>
             <RBtn variant="text" size="small" prepend-icon="mdi-open-in-new">Website</RBtn>
           </template>
@@ -77,7 +77,7 @@ export const TileGrid: Story = {
         <MetadataProviderCard
           name="SteamGridDB"
           subtitle="Cover art"
-          :logo="logo('SG', '1a3d2e')"
+          :logo="logo('SG', 'darkgreen')"
           :status="missing"
           dimmed
         >
@@ -103,7 +103,7 @@ export const RowList: Story = {
         <MetadataProviderCard
           layout="row"
           name="ScreenScraper"
-          :logo="logo('SS', '0a3a5a')"
+          :logo="logo('SS', 'navy')"
           :status="ok"
           setup-hint="SCREENSCRAPER_USER + SCREENSCRAPER_PASSWORD"
         >
@@ -114,7 +114,7 @@ export const RowList: Story = {
         <MetadataProviderCard
           layout="row"
           name="MobyGames"
-          :logo="logo('MG', '4a1a1a')"
+          :logo="logo('MG', 'maroon')"
           :status="checking"
           setup-hint="MOBYGAMES_API_KEY"
           caveat="Free tier is heavily rate-limited"
@@ -126,7 +126,7 @@ export const RowList: Story = {
         <MetadataProviderCard
           layout="row"
           name="LaunchBox"
-          :logo="logo('LB', '185a7c')"
+          :logo="logo('LB', 'teal')"
           :status="disabled"
           setup-hint="LAUNCHBOX_API_ENABLED=true"
           caveat="Windows-centric platform list"
@@ -153,7 +153,7 @@ export const RowReference: Story = {
         <MetadataProviderCard
           layout="row"
           name="IGDB"
-          :logo="logo('IG', '5c16c5')"
+          :logo="logo('IG', 'indigo')"
           setup-hint="IGDB_CLIENT_ID + IGDB_CLIENT_SECRET"
         >
           <template #description>
@@ -163,7 +163,7 @@ export const RowReference: Story = {
         <MetadataProviderCard
           layout="row"
           name="Hasheous"
-          :logo="logo('HA', '3a0a4a')"
+          :logo="logo('HA', 'purple')"
           setup-hint="HASHEOUS_API_ENABLED=true"
           caveat="Proxy: feeds ids into the catalogs"
         >

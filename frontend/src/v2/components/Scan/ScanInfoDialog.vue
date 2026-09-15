@@ -180,6 +180,7 @@ function paragraphs(text: string): string[] {
             v-for="p in group.providers"
             :key="p.key"
             layout="row"
+            name-tag="h4"
             :data-provider="p.key"
             :name="p.name"
             :logo="p.logo"
