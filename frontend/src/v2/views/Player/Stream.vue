@@ -291,13 +291,19 @@ const showManualDiscHint = computed(
 // arrives newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// This emulator's archives, re-sorted (created_at, then id) the way the backend
-// restores: user_saves arrives on updated_at, which a content-hash write moves.
-const emulatorSaves = computed<SaveSchema[]>(() => {
+// What the broker can put back for this emulator: a bare save file carries no
+// layout to restore it from, so only an archive counts. Re-sorted (created_at,
+// then id) the way the backend restores, because user_saves arrives on
+// updated_at, which a content-hash write moves.
+const restorableSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
   if (!rom.value || !emulator) return [];
   return (rom.value.user_saves ?? [])
-    .filter((s) => (s.emulator ?? "").toLowerCase() === emulator)
+    .filter(
+      (s) =>
+        (s.emulator ?? "").toLowerCase() === emulator &&
+        s.file_name.endsWith(".zip"),
+    )
     .sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
@@ -307,12 +313,7 @@ const emulatorSaves = computed<SaveSchema[]>(() => {
 
 // The one the broker restores before boot when the claim names none.
 const newestSave = computed<SaveSchema | null>(
-  () => emulatorSaves.value[0] ?? null,
-);
-
-// A bare save file carries no layout the broker could put it back from.
-const restorableSaves = computed<SaveSchema[]>(() =>
-  emulatorSaves.value.filter((s) => s.file_name.endsWith(".zip")),
+  () => restorableSaves.value[0] ?? null,
 );
 
 // A pick only lands where the broker empties the save tree first; elsewhere
@@ -321,12 +322,6 @@ const showSavePicker = computed(
   () =>
     (container.value?.supports_save_picker ?? false) &&
     restorableSaves.value.length > 0,
-);
-
-// What the Saves tab lists: the archives the picker offers where there is
-// one, everything this emulator wrote where the panel only reports.
-const saveTabSaves = computed<SaveSchema[]>(() =>
-  showSavePicker.value ? restorableSaves.value : emulatorSaves.value,
 );
 
 const selectedSave = ref<SaveSchema | null>(null);
@@ -409,7 +404,7 @@ type ResumeTab = "state" | "save";
 const resumeTab = ref<ResumeTab>("state");
 
 const showResumeTabs = computed(
-  () => supportsStates.value && emulatorSaves.value.length > 0,
+  () => supportsStates.value && restorableSaves.value.length > 0,
 );
 
 // The pick only counts when there is something to pick between.
@@ -432,7 +427,7 @@ const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
   {
     id: "save",
     label: t("common.saves"),
-    badge: saveTabSaves.value.length,
+    badge: restorableSaves.value.length,
     icon: "mdi-content-save",
   },
 ]);
@@ -1442,8 +1437,7 @@ onBeforeUnmount(() => {
           </template>
 
           <!-- Nothing to choose between: this emulator keeps whatever the
-               container already holds, so the archive is reported rather
-               than offered. -->
+               container already holds, so the archive is reported not offered. -->
           <SaveDataPanel v-else :save="newestSave" :platform="platformLabel" />
         </div>
       </RCard>

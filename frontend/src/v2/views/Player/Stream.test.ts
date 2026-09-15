@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => ({
   fetchConfig: vi.fn(),
   getRom: vi.fn(),
   container: null as Record<string, unknown> | null,
-  rom: null as Record<string, unknown> | null,
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -283,6 +282,17 @@ describe("Stream save picker", () => {
 
     expect(strip(wrapper)).toBeUndefined();
     expect(wrapper.findComponent(SaveDataPanel).exists()).toBe(true);
+  });
+
+  it("reports no archive where this emulator only wrote bare files", async () => {
+    // An EmulatorJS save under the same emulator name: the broker restores
+    // archives only, so naming it would promise a restore that never happens.
+    const wrapper = await launch({
+      picker: false,
+      saves: [save(9, "Pool.srm")],
+    });
+
+    expect(wrapper.findComponent(SaveDataPanel).props("save")).toBeNull();
   });
 
   it("sends no pick where the container would not honour one", async () => {

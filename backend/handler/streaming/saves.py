@@ -155,7 +155,7 @@ async def pull_saves_to_library(
 def _written_by(save: Save, emulator: str) -> bool:
     """An archive another emulator wrote lays its members out somewhere this
     one never reads."""
-    return (save.emulator or "").lower() == emulator
+    return (save.emulator or "").lower() == emulator.strip().lower()
 
 
 def _is_archive(save: Save) -> bool:
@@ -163,12 +163,17 @@ def _is_archive(save: Save) -> bool:
     return save.file_name.endswith(".zip")
 
 
+def _is_restorable(save: Save, emulator: str) -> bool:
+    """Whether the broker can put this stored save back on the container."""
+    return _written_by(save, emulator) and _is_archive(save)
+
+
 def _restorable_archives(user_id: int, rom_id: int, emulator: str) -> list[Save]:
     """The user's stored save archives for this emulator, newest first."""
     archives = [
         save
         for save in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
-        if _written_by(save, emulator) and _is_archive(save)
+        if _is_restorable(save, emulator)
     ]
     # Ties on id, because created_at only has second resolution: two archives
     # written in the same second would otherwise order arbitrarily.
@@ -215,18 +220,22 @@ async def _save_archive(
     `resolve_save_archive`; without one the newest archive wins. Returns
     (file name, content), or None when there is nothing to send.
     """
-    archives = _restorable_archives(user_id, rom_id, emulator)
     if save_id is not None:
-        # Deleted between the pick and the claim. Hydrating the newest instead
-        # would restore a save the player did not choose, so send nothing.
-        picked = next((s for s in archives if s.id == save_id), None)
-        if picked is None:
-            log.warning("picked save %d is gone, launching without one", save_id)
+        # Deleted (or edited out of reach) between the pick and the claim.
+        # Hydrating the newest instead would restore a save the player did not
+        # choose, so send nothing.
+        picked = db_save_handler.get_save(user_id=user_id, id=save_id)
+        if (
+            picked is None
+            or picked.rom_id != rom_id
+            or not _is_restorable(picked, emulator)
+        ):
+            log.warning("picked save %d is no longer restorable, skipping", save_id)
             return None
-    elif archives:
-        picked = archives[0]
     else:
-        return None
+        picked = next(iter(_restorable_archives(user_id, rom_id, emulator)), None)
+        if picked is None:
+            return None
 
     try:
         content = await fs_asset_handler.read_file(

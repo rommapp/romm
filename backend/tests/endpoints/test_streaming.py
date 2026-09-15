@@ -3488,6 +3488,33 @@ def test_hydrate_saves_uploads_nothing_when_the_pick_is_gone(
     upload.assert_not_called()
 
 
+def test_hydrate_saves_uploads_nothing_for_another_roms_pick(
+    rom: Rom, second_rom: Rom, admin_user: User
+):
+    """The pick is scoped to the ROM being launched, so an archive the player
+    owns on a different game never rides this claim."""
+    elsewhere = db_save_handler.add_save(
+        _save_for(second_rom, admin_user, "Other [retroarch a].saves.zip", "retroarch")
+    )
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch("handler.streaming.webstation.upload_archive") as upload,
+    ):
+        path = asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id,
+                rom.id,
+                _resolved(_clearing_webstation(rom)),
+                elsewhere.id,
+            )
+        )
+    assert path is None
+    upload.assert_not_called()
+
+
 def test_resolve_save_archive_accepts_the_players_own_archive(
     rom: Rom, admin_user: User
 ):
