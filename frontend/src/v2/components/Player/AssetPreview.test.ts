@@ -50,6 +50,18 @@ describe("AssetPreview stage", () => {
     ).toContain(SHOT);
   });
 
+  // The stage's chrome follows the capture too: a captured save must not get
+  // the flat panel shell a captureless one does.
+  it("drops the save panel chrome once a capture fills the stage", () => {
+    const classesFor = (screenshot: SaveSchema["screenshot"]) =>
+      mountPreview(makeAsset(screenshot), "save")
+        .find(".r-asset-preview__stage")
+        .classes();
+
+    expect(classesFor(shot())).not.toContain("r-asset-preview__stage--save");
+    expect(classesFor(null)).toContain("r-asset-preview__stage--save");
+  });
+
   it("shows a state's capture", () => {
     const wrapper = mountPreview(
       makeAsset(shot()) as unknown as StateSchema,

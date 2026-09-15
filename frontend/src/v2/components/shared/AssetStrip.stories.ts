@@ -1,6 +1,6 @@
-// AssetStrip is the horizontal card variant used for STATES only —
-// saves render through <AssetList> (vertical rows). Stories here are
-// state-focused; see AssetList.stories.ts for the save scenarios.
+// AssetStrip is the tile variant the pre-game pickers use for states;
+// AssetList is the row variant, and both take saves or states. Stories here
+// are state-focused; see AssetList.stories.ts for the row scenarios.
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import type { StateSchema } from "@/__generated__";

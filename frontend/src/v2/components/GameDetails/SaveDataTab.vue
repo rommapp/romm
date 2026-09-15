@@ -34,7 +34,7 @@ import AssetList from "@/v2/components/shared/AssetList.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { assetScreenshotUrl } from "@/v2/utils/asset";
+import { anyAssetHasScreenshot } from "@/v2/utils/asset";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 // Slot payload from AssetList is the full save|state union; these narrow it
@@ -116,12 +116,8 @@ const communityStates = computed(() =>
 
 // Mine and Community read as one table, so the leading cell's width is
 // decided across both rather than per section.
-const savesHaveShots = computed(() =>
-  allSaves.value.some((s) => assetScreenshotUrl(s) !== null),
-);
-const statesHaveShots = computed(() =>
-  allStates.value.some((s) => assetScreenshotUrl(s) !== null),
-);
+const savesHaveShots = computed(() => anyAssetHasScreenshot(allSaves.value));
+const statesHaveShots = computed(() => anyAssetHasScreenshot(allStates.value));
 
 // Badge = total visible items in the subtab (own + community).
 const savesCount = computed(() => allSaves.value.length);
@@ -473,7 +469,7 @@ async function toggleStateVisibility(state: StateSchema) {
         </div>
       </section>
 
-      <!-- States subtab — same row list as saves, with the capture
+      <!-- States subtab: same row list as saves, with the capture
            screenshot in the leading cell (issue #4320) -->
       <section v-show="subTab === 'states'" class="r-v2-saves__panel">
         <!-- Mine -->

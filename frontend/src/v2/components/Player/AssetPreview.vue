@@ -19,12 +19,10 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
-import { assetScreenshotUrl } from "@/v2/utils/asset";
+import { type AssetType, assetScreenshotUrl } from "@/v2/utils/asset";
 import { toCssUrl } from "@/v2/utils/css";
 
 defineOptions({ inheritAttrs: false });
-
-export type AssetType = "save" | "state";
 
 const props = withDefaults(
   defineProps<{
@@ -69,12 +67,13 @@ const emptyText = computed(() =>
     <div
       class="r-asset-preview__stage"
       :class="{
-        'r-asset-preview__stage--save': type === 'save' && asset,
+        'r-asset-preview__stage--save':
+          type === 'save' && asset && !screenshotUrl,
         'r-asset-preview__stage--empty': !asset,
       }"
     >
       <!-- The capture, whichever kind of asset carries it (#4422). -->
-      <div v-if="asset && screenshotUrl" class="r-asset-preview__stage-shot">
+      <div v-if="screenshotUrl" class="r-asset-preview__stage-shot">
         <!-- Blurred cover copy fills the letterbox left by the
              contained frame, so the whole screenshot stays visible
              without dead bars on a stage wider than the frame. -->

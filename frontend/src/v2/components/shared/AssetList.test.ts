@@ -106,6 +106,20 @@ describe("AssetList leading cell", () => {
     expect(wrapper.findAll(".r-asset-list__shot")).toHaveLength(0);
   });
 
+  // The two-row phone layout exists to make room for the thumbnail, so the
+  // row advertises the widened cell for the xs stylesheet to key off.
+  it("marks the row when the cell is widened", () => {
+    expect(
+      mountList([makeAsset({ screenshot: shot("/api/screenshots/1/content") })])
+        .find(".r-asset-list__row")
+        .classes(),
+    ).toContain("r-asset-list__row--thumb");
+
+    expect(
+      mountList([makeAsset()]).find(".r-asset-list__row").classes(),
+    ).not.toContain("r-asset-list__row--thumb");
+  });
+
   it("lets the parent force the cell narrow", () => {
     const wrapper = mountList(
       [makeAsset({ screenshot: shot("/api/screenshots/1/content") })],
@@ -135,10 +149,22 @@ describe("AssetList leading cell", () => {
 
 describe("AssetList manage mode", () => {
   // The row name is CSS-truncated and manage mode has no other way to read it.
-  it("carries a tooltip when rows are not selectable", () => {
+  // It hangs off the name column, not the row: the action buttons carry
+  // tooltips of their own, and a row-wide activator stacks on top of them.
+  it("carries a tooltip on the name column when rows are not selectable", () => {
     const wrapper = mountList([makeAsset()], { selectable: false });
 
-    expect(wrapper.findComponent({ name: "RTooltip" }).exists()).toBe(true);
+    expect(
+      wrapper
+        .find(".r-asset-list__main")
+        .findComponent({ name: "RTooltip" })
+        .exists(),
+    ).toBe(true);
+    expect(
+      wrapper
+        .find(".r-asset-list__actions")
+        .findAllComponents({ name: "RTooltip" }),
+    ).toHaveLength(0);
   });
 
   it("shows a content-hash chip", () => {

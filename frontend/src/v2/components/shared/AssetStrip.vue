@@ -20,13 +20,17 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UserSaveSchema, UserStateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
-import { type Asset, assetScreenshotUrl } from "@/v2/utils/asset";
+import {
+  type Asset,
+  type AssetType,
+  assetFallbackIcon,
+  assetScreenshotUrl,
+} from "@/v2/utils/asset";
 import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
-export type AssetType = "save" | "state";
 export type AssetLayout = "strip" | "grid" | "list";
 
 const props = withDefaults(
@@ -96,10 +100,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
             :style="{ backgroundImage: toCssUrl(assetScreenshotUrl(asset)!) }"
           />
           <div v-else class="r-asset-strip__thumb-icon">
-            <RIcon
-              :icon="type === 'save' ? 'mdi-content-save' : 'mdi-file-outline'"
-              size="28"
-            />
+            <RIcon :icon="assetFallbackIcon(type)" size="28" />
           </div>
           <span
             v-if="asset.id === selectedId"

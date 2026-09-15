@@ -2,11 +2,12 @@
 // Vertical list of saves or states. Shared between the EmulatorJS pre-game
 // view (selection) and the GameDetails "Save data" subtab (management).
 //
-// Rows favour information density: the filename in full, the relative time
-// AND the exact timestamp, plus the size, emulator and content-hash chips.
-// The leading cell widens into a 16:9 thumbnail when anything in the list
-// has a screenshot — saves carry one as readily as states do, because the
-// player captures a single frame and uploads it with both.
+// Rows favour information density: the filename (truncated, with the full
+// string on hover), the relative time AND the exact timestamp, plus the size,
+// emulator and content-hash chips. The leading cell widens into a 16:9
+// thumbnail when anything in the list has a screenshot: saves carry one as
+// readily as states do, because the player captures a single frame and
+// uploads it with both.
 //
 // Two modes, driven by `selectable`:
 //   * selectable (default) — Play view. Each row is a button; clicking
@@ -20,13 +21,17 @@ import { useI18n } from "vue-i18n";
 import type { UserSaveSchema, UserStateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
 import HashChip from "@/v2/components/shared/HashChip.vue";
-import { type Asset, assetScreenshotUrl } from "@/v2/utils/asset";
+import {
+  type Asset,
+  type AssetType,
+  anyAssetHasScreenshot,
+  assetFallbackIcon,
+  assetScreenshotUrl,
+} from "@/v2/utils/asset";
 import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
-
-export type AssetType = "save" | "state";
 
 const props = withDefaults(
   defineProps<{
@@ -78,14 +83,10 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 // parent rendering sibling lists can override it so they line up with each
 // other too.
 const showThumbs = computed(
-  () =>
-    props.thumbs ??
-    props.assets.some((asset) => assetScreenshotUrl(asset) !== null),
+  () => props.thumbs ?? anyAssetHasScreenshot(props.assets),
 );
 
-const fallbackIcon = computed(() =>
-  props.type === "save" ? "mdi-content-save" : "mdi-file-outline",
-);
+const fallbackIcon = computed(() => assetFallbackIcon(props.type));
 </script>
 
 <template>
@@ -104,7 +105,10 @@ const fallbackIcon = computed(() =>
           :is="selectable ? 'button' : 'div'"
           :type="selectable ? 'button' : undefined"
           class="r-asset-list__row"
-          :class="{ 'r-asset-list__row--static': !selectable }"
+          :class="{
+            'r-asset-list__row--static': !selectable,
+            'r-asset-list__row--thumb': showThumbs,
+          }"
           :aria-pressed="selectable ? asset.id === selectedId : undefined"
           @click="selectable && $emit('select', asset)"
         >
@@ -170,6 +174,20 @@ const fallbackIcon = computed(() =>
                 compact
               />
             </span>
+
+            <!-- Anchored to the name column, not the row: on a manage row the
+                 action buttons carry tooltips of their own. -->
+            <RTooltip activator="parent" location="top" :open-delay="400">
+              <div class="r-asset-list__tip">
+                <span class="r-asset-list__tip-name">{{
+                  asset.file_name
+                }}</span>
+                <span class="r-asset-list__tip-sub">
+                  {{ t("rom.updated") }}:
+                  {{ formatTimestamp(asset.updated_at, locale) }}
+                </span>
+              </div>
+            </RTooltip>
           </span>
 
           <span class="r-asset-list__time">
@@ -195,16 +213,6 @@ const fallbackIcon = computed(() =>
           <span v-else class="r-asset-list__actions">
             <slot name="actions" :asset="asset" />
           </span>
-
-          <RTooltip activator="parent" location="top" :open-delay="400">
-            <div class="r-asset-list__tip">
-              <span class="r-asset-list__tip-name">{{ asset.file_name }}</span>
-              <span class="r-asset-list__tip-sub">
-                {{ t("rom.updated") }}:
-                {{ formatTimestamp(asset.updated_at, locale) }}
-              </span>
-            </div>
-          </RTooltip>
         </component>
       </li>
     </ul>
@@ -462,29 +470,32 @@ html[data-bp~="xs"] .r-asset-list__exact {
 html[data-bp~="xs"] .r-asset-list__icon--thumb {
   width: 72px;
 }
+html[data-bp~="xs"] .r-asset-list__row {
+  padding: 8px 10px;
+}
 /* A phone row has no width to spare, and the thumbnail takes the little
    there was, so the name gets a line to itself and the time drops beneath
-   it alongside the actions. */
-html[data-bp~="xs"] .r-asset-list__row {
+   it alongside the actions. Rows keeping the icon square have the width for
+   one line and stay on it. */
+html[data-bp~="xs"] .r-asset-list__row--thumb {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
     "icon main main"
     "icon time trail";
   row-gap: 6px;
-  padding: 8px 10px;
 }
-html[data-bp~="xs"] .r-asset-list__icon {
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__icon {
   grid-area: icon;
 }
-html[data-bp~="xs"] .r-asset-list__main {
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__main {
   grid-area: main;
 }
-html[data-bp~="xs"] .r-asset-list__time {
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__time {
   grid-area: time;
   align-items: flex-start;
 }
-html[data-bp~="xs"] .r-asset-list__actions,
-html[data-bp~="xs"] .r-asset-list__check {
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__actions,
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__check {
   grid-area: trail;
 }
 </style>
