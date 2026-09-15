@@ -9,12 +9,15 @@ a .zip extension so the whole card set travels as a unit.
 import asyncio
 from datetime import datetime, timezone
 
+from fastapi import HTTPException
+
 from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save
 from handler.streaming import broker, webstation
 from handler.streaming.config import ResolvedContainer
 from logger.logger import log
+from models.assets import Save
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import sanitize_filename
@@ -149,31 +152,73 @@ async def pull_saves_to_library(
     return False
 
 
-async def _newest_save_archive(
-    user_id: int, rom_id: int, emulator: str
-) -> tuple[str, bytes] | None:
-    """The user's most recent stored save archive for this emulator, read off
-    disk. Returns (file name, content), or None when there is nothing to send.
-    """
+def _written_by(save: Save, emulator: str) -> bool:
+    """An archive another emulator wrote lays its members out somewhere this
+    one never reads."""
+    return (save.emulator or "").lower() == emulator
+
+
+def _is_archive(save: Save) -> bool:
+    """A bare save file carries no layout the broker could restore it from."""
+    return save.file_name.endswith(".zip")
+
+
+def _is_restorable(save: Save, emulator: str) -> bool:
+    """Whether the broker can put this stored save back on the container."""
+    return _written_by(save, emulator) and _is_archive(save)
+
+
+def _newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
+    """The user's most recent restorable archive for this emulator."""
     archives = [
         save
         for save in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
-        if (save.emulator or "").lower() == emulator and save.file_name.endswith(".zip")
+        if _is_restorable(save, emulator)
     ]
-    if not archives:
-        return None
     # Ties on id, because created_at only has second resolution: two archives
-    # written in the same second would otherwise hydrate arbitrarily.
-    newest = max(archives, key=lambda s: (s.created_at, s.id))
+    # written in the same second would otherwise pick arbitrarily.
+    return max(archives, key=lambda s: (s.created_at, s.id), default=None)
 
-    try:
-        content = await fs_asset_handler.read_file(
-            f"{newest.file_path}/{newest.file_name}"
+
+def resolve_save_archive(
+    user_id: int, rom: Rom, container: ResolvedContainer, save_id: int
+) -> Save:
+    """Validate a pick from the launch screen's save list and return the save.
+
+    Raises 404 for a save that is not the claiming user's own on this ROM, and
+    400 when it cannot be restored on this container.
+    """
+    save = db_save_handler.get_save(user_id=user_id, id=save_id)
+    # Same 404 for another user's save and another ROM's, so neither leaks.
+    if save is None or save.rom_id != rom.id:
+        raise HTTPException(status_code=404, detail="Save not found")
+
+    if not container.supports_save_picker:
+        raise HTTPException(
+            status_code=400,
+            detail="This emulator always restores the newest save",
         )
+    if not _written_by(save, container.emulator):
+        raise HTTPException(
+            status_code=400,
+            detail="Save was made by a different emulator",
+        )
+    if not _is_archive(save):
+        raise HTTPException(
+            status_code=400,
+            detail="Save is not a restorable archive",
+        )
+    return save
+
+
+async def _read_archive(save: Save) -> tuple[str, bytes] | None:
+    """The archive's (file name, content), or None when it is gone off disk."""
+    try:
+        content = await fs_asset_handler.read_file(f"{save.file_path}/{save.file_name}")
     except FileNotFoundError:
-        log.warning("stored save missing on disk, %s", newest.file_name)
+        log.warning("stored save missing on disk, %s", save.file_name)
         return None
-    return newest.file_name, content
+    return save.file_name, content
 
 
 async def hydrate_saves_to_broker(
@@ -187,10 +232,13 @@ async def hydrate_saves_to_broker(
     if db_user_handler.get_user(user_id) is None or rom is None:
         return False
 
-    newest = await _newest_save_archive(user_id, rom_id, container.emulator)
+    newest = _newest_restorable(user_id, rom_id, container.emulator)
     if newest is None:
         return False
-    file_name, content = newest
+    archive = await _read_archive(newest)
+    if archive is None:
+        return False
+    file_name, content = archive
 
     ok = await asyncio.to_thread(push_save_archive, container, content)
     if ok:
@@ -199,18 +247,20 @@ async def hydrate_saves_to_broker(
 
 
 async def hydrate_saves_to_webstation(
-    user_id: int, rom_id: int, container: ResolvedContainer
+    user_id: int, rom_id: int, container: ResolvedContainer, save: Save | None = None
 ) -> str | None:
-    """Upload the newest stored save archive and return the container path.
+    """Upload the stored save archive to restore and return the container path.
 
-    The webstation broker restores as part of activate rather than through a
-    push of its own, so hydration here only gets the bytes into place and
-    hands back the path activate names.
+    The webstation broker restores as part of activate, so hydration only gets
+    the bytes into place. `save` is the player's pick, newest when absent.
     """
-    newest = await _newest_save_archive(user_id, rom_id, container.emulator)
-    if newest is None:
+    picked = save or _newest_restorable(user_id, rom_id, container.emulator)
+    if picked is None:
         return None
-    file_name, content = newest
+    archive = await _read_archive(picked)
+    if archive is None:
+        return None
+    file_name, content = archive
 
     path = await asyncio.to_thread(
         webstation.upload_archive, container, f"rom-{rom_id}.zip", content
