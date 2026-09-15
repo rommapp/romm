@@ -89,7 +89,7 @@ export default defineStore("collections", {
             const fav = collections.find(
               (c) => c.is_favorite && c.user_id === authStore.user?.id,
             );
-            if (fav) this.favoriteCollection = fav;
+            this.favoriteCollection = fav;
 
             resolve(collections);
           })
