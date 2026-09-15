@@ -313,6 +313,7 @@
   "pick-cover": "Kapak seç",
   "pick-track-prompt": "Oynatmaya başlamak için bir parça seçin",
   "play": "Oyna",
+  "play-in-browser": "Tarayıcıda oyna",
   "play-native": "Bu cihazda oyna",
   "play-native-in": "{emulator} ile oyna",
   "play-track": "{title} oynat",

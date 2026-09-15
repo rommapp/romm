@@ -57,9 +57,13 @@ function run(fn: () => void | Promise<void>) {
     icon="mdi-close-circle-outline"
     @click="run(actions.cancelNativeLaunch)"
   />
+  <!-- Named for the browser only when the native launch has taken the plain
+       "Play" above, so an unqualified entry never sits beside it. -->
   <RMenuItem
     v-if="actions.canPlayInBrowser.value"
-    :label="t('rom.play')"
+    :label="
+      actions.canPlayNative.value ? t('rom.play-in-browser') : t('rom.play')
+    "
     icon="mdi-play"
     @click="run(() => actions.play('local'))"
   />

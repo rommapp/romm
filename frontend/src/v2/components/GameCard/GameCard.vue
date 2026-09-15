@@ -497,10 +497,10 @@ function onStaticKeydown(e: KeyboardEvent) {
               variant="emphasized"
             />
             <GameActionBtn
-              v-if="actions?.canPlayInBrowser.value"
+              v-else-if="actions?.canPlayInBrowser.value"
               :rom="rom"
               action="play"
-              :variant="actions?.canPlayNative.value ? 'glass' : 'emphasized'"
+              variant="emphasized"
             />
             <GameActionBtn
               v-if="actions?.canPlayStream.value"

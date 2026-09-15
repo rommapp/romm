@@ -313,6 +313,7 @@
   "pick-cover": "커버 선택",
   "pick-track-prompt": "재생할 트랙을 선택하세요",
   "play": "실행",
+  "play-in-browser": "브라우저에서 플레이",
   "play-native": "이 기기에서 플레이",
   "play-native-in": "{emulator}에서 플레이",
   "play-track": "{title} 재생",

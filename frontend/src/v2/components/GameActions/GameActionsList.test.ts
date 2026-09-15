@@ -163,6 +163,16 @@ describe("GameActionsList: playing", () => {
     expect(shown).toContain("rom.stream");
   });
 
+  // The button says "Play" and launches natively inside the shell, so an
+  // unqualified "Play" here would read as a duplicate of it.
+  it("names the browser route once the native launch owns Play", () => {
+    const shown = labels(
+      mountList({ canPlayInBrowser: true, canPlayNative: true }),
+    );
+    expect(shown).toContain("rom.play-in-browser");
+    expect(shown).not.toContain("rom.play");
+  });
+
   it("renders the stream label the composable resolved", () => {
     const wrapper = mountList(
       { canPlayInBrowser: false, canPlayStream: true },

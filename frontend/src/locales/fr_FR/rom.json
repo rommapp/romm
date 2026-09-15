@@ -313,6 +313,7 @@
   "pick-cover": "Choisir une jaquette",
   "pick-track-prompt": "Choisissez une piste pour commencer la lecture",
   "play": "Jouer",
+  "play-in-browser": "Jouer dans le navigateur",
   "play-native": "Jouer sur cet appareil",
   "play-native-in": "Jouer dans {emulator}",
   "play-track": "Lire {title}",

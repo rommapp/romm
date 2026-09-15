@@ -313,6 +313,7 @@
   "pick-cover": "Alege o copertă",
   "pick-track-prompt": "Alege o piesă pentru a începe redarea",
   "play": "Joacă",
+  "play-in-browser": "Joacă în browser",
   "play-native": "Joacă pe acest dispozitiv",
   "play-native-in": "Joacă în {emulator}",
   "play-track": "Redă {title}",

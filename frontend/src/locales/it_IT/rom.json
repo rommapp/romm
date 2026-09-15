@@ -313,6 +313,7 @@
   "pick-cover": "Scegli una copertina",
   "pick-track-prompt": "Scegli una traccia per iniziare la riproduzione",
   "play": "Gioca",
+  "play-in-browser": "Gioca nel browser",
   "play-native": "Gioca su questo dispositivo",
   "play-native-in": "Gioca in {emulator}",
   "play-track": "Riproduci {title}",

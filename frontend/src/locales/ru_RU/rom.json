@@ -313,6 +313,7 @@
   "pick-cover": "Выбрать обложку",
   "pick-track-prompt": "Выберите трек, чтобы начать воспроизведение",
   "play": "Играть",
+  "play-in-browser": "Играть в браузере",
   "play-native": "Играть на этом устройстве",
   "play-native-in": "Играть в {emulator}",
   "play-track": "Воспроизвести {title}",

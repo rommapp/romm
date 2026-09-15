@@ -313,6 +313,7 @@
   "pick-cover": "選擇封面",
   "pick-track-prompt": "挑選一首音軌開始播放",
   "play": "遊玩",
+  "play-in-browser": "在瀏覽器中遊玩",
   "play-native": "在此裝置上遊玩",
   "play-native-in": "在 {emulator} 中遊玩",
   "play-track": "播放 {title}",

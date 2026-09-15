@@ -2,9 +2,9 @@
 // GameActions — the action row in the game-details header.
 // Composes GameActionBtn atoms that are shared with the GameCard hover
 // overlay so both surfaces stay visually and behaviourally in sync.
-// The leading play route takes the emphasized + withLabel variant (the white
-// pill CTA); every other button is a circular icon button. The `more` action
-// opens the shared GameActionsList.
+// The play route takes the emphasized + withLabel variant (the white pill
+// CTA); every other button is a circular icon button. The `more` action opens
+// the shared GameActionsList.
 //
 // Right-side group (desktop only): completion + rating + difficulty
 // pickers, separated from the main ribbon by a spacer. All three share
@@ -57,11 +57,10 @@ useGridNav(rootEl, {
 
 <template>
   <div ref="rootEl" class="game-actions">
-    <!-- Only inside the desktop shell, and only where it has an emulator for
-         the platform. It leads the ribbon, and demotes the in-browser route
-         behind it: a local emulator is the better game where the user has one.
-         Outside the shell nothing changes, so a browser tab keeps its own
-         primary CTA. -->
+    <!-- One play affordance, and inside the desktop shell it is the native
+         launch: someone who configured a local emulator wants Play to reach
+         it. The in-browser route stays in the overflow menu, where it is still
+         the way to a synced save or a netplay session. -->
     <GameActionBtn
       v-if="actions.canPlayNative.value"
       :rom="rom"
@@ -71,11 +70,11 @@ useGridNav(rootEl, {
       with-label
     />
     <GameActionBtn
-      v-if="actions.canPlayInBrowser.value"
+      v-else-if="actions.canPlayInBrowser.value"
       :rom="rom"
       action="play"
       :size="btnSize"
-      :variant="actions.canPlayNative.value ? 'surface' : 'emphasized'"
+      variant="emphasized"
       with-label
     />
     <GameActionBtn

@@ -313,6 +313,7 @@
   "pick-cover": "Избери корица",
   "pick-track-prompt": "Избери песен, за да започне възпроизвеждането",
   "play": "Играй",
+  "play-in-browser": "Играй в браузъра",
   "play-native": "Играй на това устройство",
   "play-native-in": "Играй в {emulator}",
   "play-track": "Възпроизведи {title}",

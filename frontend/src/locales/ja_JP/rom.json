@@ -313,6 +313,7 @@
   "pick-cover": "カバーを選択",
   "pick-track-prompt": "再生するトラックを選んでください",
   "play": "プレイ",
+  "play-in-browser": "ブラウザでプレイ",
   "play-native": "このデバイスでプレイ",
   "play-native-in": "{emulator} でプレイ",
   "play-track": "{title}を再生",

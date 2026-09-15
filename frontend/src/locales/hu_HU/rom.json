@@ -313,6 +313,7 @@
   "pick-cover": "Borító kiválasztása",
   "pick-track-prompt": "Válassz számot a lejátszás megkezdéséhez",
   "play": "Indítás",
+  "play-in-browser": "Játék a böngészőben",
   "play-native": "Játék ezen az eszközön",
   "play-native-in": "Játék a(z) {emulator} programban",
   "play-track": "{title} lejátszása",

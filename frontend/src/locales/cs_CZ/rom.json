@@ -313,6 +313,7 @@
   "pick-cover": "Vybrat obal",
   "pick-track-prompt": "Vyberte skladbu pro spuštění přehrávání",
   "play": "Hrát",
+  "play-in-browser": "Hrát v prohlížeči",
   "play-native": "Hrát na tomto zařízení",
   "play-native-in": "Hrát v {emulator}",
   "play-track": "Přehrát {title}",
