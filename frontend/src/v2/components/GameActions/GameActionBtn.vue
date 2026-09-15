@@ -153,6 +153,10 @@ const hasAnyStatus = computed(() => activeStatusIcons.value.length > 0);
 type Preset = {
   icon: string;
   label: string;
+  /** Accessible name, when the visible label says something else. The native
+   *  launch shows progress while it works but cancels when pressed, and a
+   *  screen reader has to hear what pressing it does. */
+  ariaLabel?: string;
   activeIcon: string | null;
   onClick: (() => void) | null;
   active: boolean;
@@ -200,6 +204,7 @@ const preset = computed<Preset>(() => {
     return {
       icon: launching ? "mdi-loading mdi-spin" : "mdi-play",
       label: actions.nativeActionLabel.value,
+      ariaLabel: launching ? t("rom.native-cancel") : undefined,
       activeIcon: null,
       onClick: launching
         ? () => void actions.cancelNativeLaunch()
@@ -307,6 +312,10 @@ const displayedIcon = computed(
   () => (preset.value.active && preset.value.activeIcon) || preset.value.icon,
 );
 
+const accessibleName = computed(
+  () => preset.value.ariaLabel ?? preset.value.label,
+);
+
 const moreOpen = ref(false);
 const statusOpen = ref(false);
 // The `collection` action opens a global dialog via emitter rather than a
@@ -386,7 +395,7 @@ function onClick(e: MouseEvent) {
             'r-v2-game-btn--pinned': pinned,
           },
         ]"
-        :aria-label="preset.label"
+        :aria-label="accessibleName"
         @click.prevent.stop
       >
         <RIcon :icon="displayedIcon" />
@@ -435,7 +444,7 @@ function onClick(e: MouseEvent) {
             'r-v2-game-btn--pinned': pinned,
           },
         ]"
-        :aria-label="preset.label"
+        :aria-label="accessibleName"
         @click.prevent.stop
       >
         <span v-if="activeStatusIcons.length > 1" class="r-v2-game-btn__icons">
@@ -540,7 +549,7 @@ function onClick(e: MouseEvent) {
         'r-v2-game-btn--pinned': pinned,
       },
     ]"
-    :aria-label="preset.label"
+    :aria-label="accessibleName"
     @click="onClick"
   >
     <img

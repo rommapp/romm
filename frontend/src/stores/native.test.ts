@@ -39,8 +39,18 @@ vi.mock("@/services/native", () => ({
   },
 }));
 vi.mock("@/stores/config", () => ({ default: () => ({ config: {} }) }));
+// The two rom-shape helpers are stubbed rather than reimplemented: what they
+// answer is `utils`' own test, and what the store does with the answer is this
+// one's. `soleFile` is the knob for "one file on disk" versus "an archive the
+// endpoint builds".
+const soleFile = {
+  value: null as { full_path: string; file_size_bytes: number } | null,
+};
+
 vi.mock("@/utils", () => ({
   getDownloadPath: () => "/api/roms/1/content/game.sfc",
+  getDownloadFileName: () => "served-name.sfc",
+  getSoleRomFile: () => soleFile.value,
   getSupportedEJSCores: () => ["snes9x"],
   resolvePlatformSlug: (slug: string) => slug,
 }));
@@ -71,6 +81,7 @@ beforeEach(() => {
   launchNative.mockResolvedValue({ romId: 1, emulator: "RetroArch" });
   cancelNative.mockClear();
   unsubscribe.mockClear();
+  soleFile.value = { full_path: "snes/game.sfc", file_size_bytes: 4194304 };
 });
 
 describe("useNativeStore.probe", () => {
@@ -151,13 +162,36 @@ describe("useNativeStore.launch", () => {
     expect(launchNative).toHaveBeenCalledWith({
       romId: 1,
       downloadPath: "/api/roms/1/content/game.sfc",
-      fileName: "Chrono Trigger.sfc",
+      fileName: "served-name.sfc",
       platformSlug: "snes",
       cores: ["snes9x"],
       name: "Chrono Trigger",
-      serverPath: "snes/Chrono Trigger.sfc",
+      serverPath: "snes/game.sfc",
       fileSize: 4194304,
     });
+  });
+
+  // The rom's own fs_name is neither what a folder rom is served as nor what
+  // it is stored as, so the request carries what the helper resolved.
+  it("sends the name the endpoint will serve, not the rom's own", async () => {
+    const store = useNativeStore();
+
+    await store.launch(makeRom({ fs_name: "Art Of Fighting" }));
+
+    expect(launchNative.mock.calls[0]?.[0].fileName).toBe("served-name.sfc");
+  });
+
+  // A rom served as an archive built per request has no single path on disk, so
+  // claiming one would point the shell at a file that is not there.
+  it("offers no passthrough for a rom served as a built archive", async () => {
+    soleFile.value = null;
+    const store = useNativeStore();
+
+    await store.launch(makeRom());
+
+    const request = launchNative.mock.calls[0]?.[0];
+    expect(request?.serverPath).toBeUndefined();
+    expect(request?.fileSize).toBeUndefined();
   });
 
   it("resolves with nothing to report when the shell takes the launch", async () => {
@@ -214,6 +248,40 @@ describe("useNativeStore launch state", () => {
     store.install();
 
     expect(emit).toBe(first);
+  });
+
+  // The shell has no cancelled status: it aborts the transfer, so the launch
+  // fails and reports a failed download. That is the cancel, not news.
+  it("owns the failure its own cancel causes, once", async () => {
+    const store = useNativeStore();
+    store.install();
+    emit?.({ romId: 1, status: "downloading", stage: "rom" });
+
+    await store.cancel(1);
+    emit?.({
+      romId: 1,
+      status: "failed",
+      error: { code: "download-failed", message: "Launch cancelled" },
+    });
+
+    expect(store.launchStateFor(1)).toBeNull();
+    expect(store.consumeCancelled(1)).toBe(true);
+    // Answered once, so a later genuine failure still reports.
+    expect(store.consumeCancelled(1)).toBe(false);
+  });
+
+  it("does not swallow a failure for a launch nobody cancelled", () => {
+    const store = useNativeStore();
+    store.install();
+
+    emit?.({
+      romId: 1,
+      status: "failed",
+      error: { code: "emulator-not-found", message: "gone" },
+    });
+
+    expect(store.consumeCancelled(1)).toBe(false);
+    expect(store.launchStateFor(1)?.error?.code).toBe("emulator-not-found");
   });
 
   it("drops the record on a cancel, which the shell never reports", async () => {

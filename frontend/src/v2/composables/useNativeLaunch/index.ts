@@ -43,6 +43,10 @@ export function installNativeLaunchFeedback(): void {
       return;
     }
 
+    // A cancel reaches the frontend as a failed download, so the launch the
+    // user stopped would otherwise be reported to them as broken.
+    if (nativeStore.consumeCancelled(state.romId)) return;
+
     if (state.error?.message) {
       console.error("[native] Launch failed:", state.error.message);
     }

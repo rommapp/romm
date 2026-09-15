@@ -12,7 +12,9 @@ import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
 import type { LaunchState, PlatformSupport } from "@/types/rommNative";
 import {
+  getDownloadFileName,
   getDownloadPath,
+  getSoleRomFile,
   getSupportedEJSCores,
   resolvePlatformSlug,
 } from "@/utils";
@@ -50,6 +52,10 @@ export const useNativeStore = defineStore("native", () => {
   /** Bumped per ROM on every state the shell sends, so `launch()` can tell a
    *  rejection the shell has already explained from one it has not. */
   const stateCount = ref<Record<number, number>>({});
+  /** ROMs whose launch this page cancelled. The shell has no cancelled status:
+   *  it aborts the transfer, which fails the launch, so the failure it then
+   *  reports is the cancel and must not be surfaced as one. */
+  const cancelled = ref(new Set<number>());
 
   let unsubscribe: (() => void) | null = null;
 
@@ -95,6 +101,14 @@ export const useNativeStore = defineStore("native", () => {
     return names.value[romId] ?? "";
   }
 
+  /** Whether this failure is one this page asked for by cancelling. Answers
+   *  once, so a later genuine failure for the same ROM still reports. */
+  function consumeCancelled(romId: number): boolean {
+    if (!cancelled.value.has(romId)) return false;
+    cancelled.value.delete(romId);
+    return true;
+  }
+
   // ── Actions ────────────────────────────────────────────────────────────────
 
   /** Start listening for launch progress. Idempotent, and a no-op without a
@@ -102,12 +116,15 @@ export const useNativeStore = defineStore("native", () => {
   function install(): void {
     if (unsubscribe) return;
     unsubscribe = onNativeLaunchState((state) => {
-      launches.value = { ...launches.value, [state.romId]: state };
       stateCount.value = {
         ...stateCount.value,
         [state.romId]: (stateCount.value[state.romId] ?? 0) + 1,
       };
       if (state.status !== "downloading") starting.value.delete(state.romId);
+      // The record was dropped by the cancel, so the failure it caused must
+      // not put it back.
+      if (state.status === "failed" && cancelled.value.has(state.romId)) return;
+      launches.value = { ...launches.value, [state.romId]: state };
     });
   }
 
@@ -148,16 +165,23 @@ export const useNativeStore = defineStore("native", () => {
    *  the launch state, which carries the error code a rejection cannot. */
   async function launch(rom: SimpleRom): Promise<string | null> {
     const before = stateCount.value[rom.id] ?? 0;
+    // A fresh launch is not the cancelled one, however the last ended.
+    cancelled.value.delete(rom.id);
     starting.value.add(rom.id);
     names.value = {
       ...names.value,
       [rom.id]: rom.name ?? rom.fs_name_no_ext,
     };
+    // Passthrough needs one real file to point at, which a rom served as a
+    // built-on-request archive does not have.
+    const soleFile = getSoleRomFile(rom);
     try {
       await launchNative({
         romId: rom.id,
         downloadPath: getDownloadPath({ rom }),
-        fileName: rom.fs_name,
+        // What the endpoint will actually serve, which for a folder rom is
+        // neither `fs_name` nor `fs_name` with an extension.
+        fileName: getDownloadFileName(rom),
         platformSlug: rom.platform_slug,
         cores: getSupportedEJSCores(
           resolvePlatformSlug(rom.platform_slug, configStore.config),
@@ -165,8 +189,12 @@ export const useNativeStore = defineStore("native", () => {
         name: rom.name ?? undefined,
         // Lets a shell on the same machine as the server play the file where it
         // already is. A shell without library-passthrough downloads instead.
-        serverPath: rom.full_path,
-        fileSize: rom.fs_size_bytes,
+        ...(soleFile
+          ? {
+              serverPath: soleFile.full_path,
+              fileSize: soleFile.file_size_bytes,
+            }
+          : {}),
       });
       return null;
     } catch (error) {
@@ -178,6 +206,7 @@ export const useNativeStore = defineStore("native", () => {
   }
 
   async function cancel(romId: number): Promise<void> {
+    cancelled.value.add(romId);
     await cancelNative(romId);
     starting.value.delete(romId);
     // The shell acknowledges a cancel by dropping the launch rather than by
@@ -195,6 +224,7 @@ export const useNativeStore = defineStore("native", () => {
     launchStateFor,
     isLaunching,
     nameFor,
+    consumeCancelled,
     install,
     probe,
     launch,

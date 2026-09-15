@@ -84,6 +84,20 @@ describe("GameActionBtn: the native action", () => {
     );
   });
 
+  // The visible pill is a progress readout while the shell works, but pressing
+  // it cancels, and a screen reader has to hear what pressing it does.
+  it("announces the cancel, not the progress, while launching", () => {
+    nativeLaunching.value = true;
+    nativeActionLabel.value = "rom.native-downloading";
+    const wrapper = mountNative(true);
+
+    expect(wrapper.find("button").attributes("aria-label")).toBe(
+      "rom.native-cancel",
+    );
+    // The progress stays visible.
+    expect(wrapper.text()).toContain("rom.native-downloading");
+  });
+
   it("renders the composable's label as the accessible name", () => {
     nativeActionLabel.value = "rom.play-native-in";
 
