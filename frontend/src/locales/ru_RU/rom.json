@@ -246,6 +246,7 @@
   "more-actions": "Ещё действия",
   "my-notes": "Мои заметки",
   "native-cancel": "Отменить запуск",
+  "native-cancel-failed": "Не удалось отменить запуск",
   "native-canceled": "Запуск отменён",
   "native-downloading": "Загрузка {percent}%",
   "native-error-download": "Не удалось загрузить {name}",

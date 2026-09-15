@@ -21,13 +21,18 @@ const launchNative = vi.fn(
     emulator: "RetroArch",
   }),
 );
-const cancelNative = vi.fn(async (_romId: number): Promise<void> => {});
+// Resolves true by default: the shell taking the cancel is the ordinary case,
+// and a test that wants a refusal says so.
+const cancelNative = vi.fn(async (_romId: number): Promise<boolean> => true);
 const unsubscribe = vi.fn();
 // The shell's own launch-state stream, so a test can play back what it would
 // send. Captured on install rather than passed in, exactly as the bridge does.
 let emit: ((state: LaunchState) => void) | null = null;
 
-vi.mock("@/services/native", () => ({
+// The bridge calls are stubbed; nativeErrorMessage is kept real, since what
+// the store reports out of a rejection is exactly what it is for.
+vi.mock("@/services/native", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/native")>()),
   isNativeShell: () => shellPresent.value,
   nativeShellVersion: () => "1.2.3",
   fetchPlatformSupport,
@@ -209,6 +214,22 @@ describe("useNativeStore.launch", () => {
     expect(await store.launch(makeRom())).toBe("Chrono Trigger is running.");
   });
 
+  it("reads the message off a LaunchFailure, which is not an Error", async () => {
+    // A shell carrying romm-desktop#11 rejects with a plain object, because the
+    // context bridge drops an Error's own properties. String() on it yields
+    // "[object Object]", which is what the user would have been shown.
+    launchNative.mockRejectedValue({
+      name: "LaunchError",
+      code: "already-running",
+      message: "Chrono Trigger is already running.",
+    });
+    const store = useNativeStore();
+
+    expect(await store.launch(makeRom())).toBe(
+      "Chrono Trigger is already running.",
+    );
+  });
+
   // A failure the shell did report carries an error code this rejection
   // cannot, so it is left to the launch state to surface.
   it("stays quiet when the shell explained the failure itself", async () => {
@@ -282,6 +303,25 @@ describe("useNativeStore launch state", () => {
 
     expect(store.consumeCancelled(1)).toBe(false);
     expect(store.launchStateFor(1)?.error?.code).toBe("emulator-not-found");
+  });
+
+  it("leaves the launch alone when the shell refuses the cancel", async () => {
+    // A refused cancel changes nothing: claiming otherwise would clear a launch
+    // that is still coming, and the mark would swallow its real failure.
+    const store = useNativeStore();
+    store.install();
+    emit?.({ romId: 1, status: "downloading", progress: 0.5 });
+    cancelNative.mockResolvedValueOnce(false);
+
+    expect(await store.cancel(1)).toBe(false);
+    expect(store.launchStateFor(1)?.status).toBe("downloading");
+    // And the failure that follows is reported, not eaten as the cancel.
+    emit?.({
+      romId: 1,
+      status: "failed",
+      error: { code: "download-failed", message: "Connection lost." },
+    });
+    expect(store.consumeCancelled(1)).toBe(false);
   });
 
   it("drops the record on a cancel, which the shell never reports", async () => {

@@ -39,6 +39,11 @@ export function hasNativeCapability(name: string): boolean {
   return Array.isArray(capabilities) && capabilities.includes(name);
 }
 
+/** The shell rejects a bulk query larger than this, whole, so a library with
+ *  more platforms than it has to be asked in batches. Vendored from the
+ *  shell's `MAX_PLATFORM_QUERIES`, like the types above. */
+const MAX_PLATFORM_QUERIES = 512;
+
 /** Ask which of these platforms the shell can launch, keyed by platform slug.
  *  Never throws: a probe that fails means no native play, which is what the
  *  empty answer says. */
@@ -50,7 +55,19 @@ export async function fetchPlatformSupport(
 
   try {
     if (typeof native.getPlatformSupportAll === "function") {
-      return await native.getPlatformSupportAll(queries);
+      const bulk = native.getPlatformSupportAll.bind(native);
+      const answers: Record<string, PlatformSupport> = {};
+      for (let at = 0; at < queries.length; at += MAX_PLATFORM_QUERIES) {
+        const batch = queries.slice(at, at + MAX_PLATFORM_QUERIES);
+        try {
+          Object.assign(answers, await bulk(batch));
+        } catch (error) {
+          // One refused batch is not the rest of the library: a whole-batch
+          // rejection here would otherwise turn native play off everywhere.
+          console.error("[native] Could not probe a batch:", error);
+        }
+      }
+      return answers;
     }
     if (typeof native.getPlatformSupport !== "function") return {};
     const answers = await Promise.all(
@@ -83,16 +100,36 @@ export function launchNative(request: LaunchRequest): Promise<LaunchResult> {
   return native.launch(request);
 }
 
-/** Abort a launch that is still downloading. A running emulator is left alone
- *  by the shell, so this is only meaningful before the game starts. */
-export async function cancelNative(romId: number): Promise<void> {
+/**
+ * Abort a launch that is still downloading. A running emulator is left alone
+ * by the shell, so this is only meaningful before the game starts.
+ *
+ * Answers whether the shell took the cancel. A refusal leaves the launch
+ * running, so a caller that reported it as cancelled anyway would be claiming
+ * something untrue and would swallow the failure that follows.
+ */
+export async function cancelNative(romId: number): Promise<boolean> {
   const native = bridge();
-  if (typeof native?.cancel !== "function") return;
+  if (typeof native?.cancel !== "function") return false;
   try {
     await native.cancel(romId);
+    return true;
   } catch (error) {
     console.error("[native] Could not cancel the launch:", error);
+    return false;
   }
+}
+
+/** The message out of anything the bridge throws. A shell carrying
+ *  rommapp/romm-desktop#11 rejects with a plain LaunchFailure rather than an
+ *  Error, which String() renders as "[object Object]". */
+export function nativeErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const { message } = error as { message: unknown };
+    if (typeof message === "string" && message !== "") return message;
+  }
+  return String(error);
 }
 
 /** Subscribe to launch progress. Returns an unsubscribe function, which is a

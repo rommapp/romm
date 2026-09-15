@@ -32,6 +32,17 @@ vi.mock("@/stores/heartbeat", () => ({
 vi.mock("@/stores/config", () => ({
   default: () => ({ config: { PLATFORMS_VERSIONS: {} } }),
 }));
+// Native support is a property of the machine the page is open on, so it is a
+// knob here like the others. `support` is read only to make the returned
+// function rebuild when the probe lands.
+const nativeSlugs = new Set<string>();
+vi.mock("@/stores/native", () => ({
+  useNativeStore: () => ({
+    support: {},
+    isSupportedPlatform: (slug: string | null | undefined) =>
+      Boolean(slug) && nativeSlugs.has(slug as string),
+  }),
+}));
 // A Pinia setup store unwraps its refs on the instance, so `config` here is
 // the plain object the composable reads, not a ref.
 function mockContainerFor(slug: string | null | undefined) {
@@ -66,6 +77,7 @@ vi.mock("@/locales", () => ({
 }));
 
 beforeEach(() => {
+  nativeSlugs.clear();
   ejsSlugs.clear();
   ruffleSlugs.clear();
   dosboxSlugs.clear();
@@ -126,6 +138,20 @@ describe("usePlatformPlayable", () => {
 });
 
 describe("usePlatformPlayableChecker", () => {
+  it("reports a platform the desktop shell can launch", () => {
+    // PS2 has no in-browser core and no container, and is still playable
+    // inside the shell, which is what the platform index has to sort on.
+    nativeSlugs.add("ps2");
+    const { isPlayable, isStreamable, isNativeSupported } =
+      usePlatformPlayableChecker();
+
+    expect(isPlayable.value("ps2")).toBe(false);
+    expect(isStreamable.value("ps2")).toBe(false);
+    expect(isNativeSupported.value("ps2")).toBe(true);
+    expect(isNativeSupported.value("snes")).toBe(false);
+    expect(isNativeSupported.value(null)).toBe(false);
+  });
+
   it("agrees with the reactive form for the same slug", () => {
     ejsSlugs.add("snes");
     streamContainers.set("ps2", { label: "PCSX2", emulator: "pcsx2" });

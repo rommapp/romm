@@ -246,6 +246,7 @@
   "more-actions": "További műveletek",
   "my-notes": "Jegyzeteim",
   "native-cancel": "Indítás megszakítása",
+  "native-cancel-failed": "Az indítást nem sikerült megszakítani",
   "native-canceled": "Indítás megszakítva",
   "native-downloading": "Letöltés {percent}%",
   "native-error-download": "A(z) {name} letöltése nem sikerült",

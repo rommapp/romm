@@ -246,6 +246,7 @@
   "more-actions": "Daha fazla işlem",
   "my-notes": "Notlarım",
   "native-cancel": "Başlatmayı iptal et",
+  "native-cancel-failed": "Başlatma iptal edilemedi",
   "native-canceled": "Başlatma iptal edildi",
   "native-downloading": "İndiriliyor {percent}%",
   "native-error-download": "{name} indirilemedi",

@@ -40,7 +40,9 @@ const nativeLaunchState = {
   } | null,
 };
 const nativeLaunch = vi.fn(async () => null as string | null);
-const nativeCancel = vi.fn(async () => {});
+// The store answers whether the shell took the cancel; taking it is the
+// ordinary case, and a test that wants a refusal says so.
+const nativeCancel = vi.fn(async (_romId: number) => true);
 let originalLocation: Location;
 // Granted action keys — `null` means "everything" (the default).
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
@@ -512,6 +514,18 @@ describe("useGameActions.play — the native route", () => {
 
     expect(nativeCancel).toHaveBeenCalledWith(1);
     expect(snackbarInfo).toHaveBeenCalledTimes(1);
+  });
+
+  // A refused cancel leaves the game still coming, so saying it was cancelled
+  // would be telling the user something untrue.
+  it("does not claim a cancellation the shell refused", async () => {
+    nativeCancel.mockResolvedValueOnce(false);
+    const actions = useGameActions(() => makeRom());
+
+    await actions.cancelNativeLaunch();
+
+    expect(snackbarInfo).not.toHaveBeenCalled();
+    expect(snackbarError).toHaveBeenCalledTimes(1);
   });
 });
 

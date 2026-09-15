@@ -104,8 +104,9 @@ vi.mock("@/v2/composables/useGalleryViewModeUrl", () => ({
 }));
 
 // Slugs the mocked composable treats as streaming-capable.
-const { streamableSlugs } = vi.hoisted(() => ({
+const { streamableSlugs, nativeSlugs } = vi.hoisted(() => ({
   streamableSlugs: new Set<string>(),
+  nativeSlugs: new Set<string>(),
 }));
 
 vi.mock("@/v2/composables/usePlatformPlayable", () => ({
@@ -113,6 +114,9 @@ vi.mock("@/v2/composables/usePlatformPlayable", () => ({
     isPlayable: ref(() => false),
     isStreamable: ref((slug: string | null | undefined) =>
       slug ? streamableSlugs.has(slug) : false,
+    ),
+    isNativeSupported: ref((slug: string | null | undefined) =>
+      slug ? nativeSlugs.has(slug) : false,
     ),
   }),
 }));
@@ -149,6 +153,7 @@ describe("PlatformsIndex", () => {
     galleryModeState.groupBy = "none";
     galleryModeState.layout = "grid";
     streamableSlugs.clear();
+    nativeSlugs.clear();
     searchState.term = "";
   });
 
@@ -182,6 +187,23 @@ describe("PlatformsIndex", () => {
     const wrapper = mount(PlatformsIndex);
 
     expect(wrapper.text()).toContain("platform.no-platforms-with-games");
+  });
+
+  // Inside the desktop shell a platform with no in-browser core and no
+  // container is still playable, PS2 being the case the feature exists for.
+  it("counts a native-only platform as playable when grouping by playable", () => {
+    galleryModeState.groupBy = "playable";
+    nativeSlugs.add("ps2");
+    const platforms = storePlatforms();
+    platforms.set([platform(1, "PlayStation 2", 5, { slug: "ps2" })]);
+
+    const wrapper = mount(PlatformsIndex);
+
+    const headings = wrapper
+      .findAll(".r-v2-pidx__group-heading")
+      .map((h) => h.text());
+    expect(headings).toContain("Playable");
+    expect(headings).not.toContain("Not playable");
   });
 
   it("counts a streaming-only platform as playable when grouping by playable", () => {

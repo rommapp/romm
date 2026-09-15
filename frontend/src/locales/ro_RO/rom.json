@@ -246,6 +246,7 @@
   "more-actions": "Mai multe acțiuni",
   "my-notes": "Notițele mele",
   "native-cancel": "Anulează lansarea",
+  "native-cancel-failed": "Lansarea nu a putut fi anulată",
   "native-canceled": "Lansare anulată",
   "native-downloading": "Se descarcă {percent}%",
   "native-error-download": "{name} nu a putut fi descărcat",

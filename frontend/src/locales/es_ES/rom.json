@@ -246,6 +246,7 @@
   "more-actions": "Más acciones",
   "my-notes": "Mis notas",
   "native-cancel": "Cancelar inicio",
+  "native-cancel-failed": "No se pudo cancelar el inicio",
   "native-canceled": "Inicio cancelado",
   "native-downloading": "Descargando {percent}%",
   "native-error-download": "No se pudo descargar {name}",

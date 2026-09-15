@@ -246,6 +246,7 @@
   "more-actions": "Další akce",
   "my-notes": "Mé poznámky",
   "native-cancel": "Zrušit spuštění",
+  "native-cancel-failed": "Spuštění nelze zrušit",
   "native-canceled": "Spuštění zrušeno",
   "native-downloading": "Stahování {percent}%",
   "native-error-download": "Hru {name} nelze stáhnout",

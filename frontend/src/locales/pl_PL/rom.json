@@ -246,6 +246,7 @@
   "more-actions": "Więcej akcji",
   "my-notes": "Moje notatki",
   "native-cancel": "Anuluj uruchamianie",
+  "native-cancel-failed": "Nie udało się anulować uruchamiania",
   "native-canceled": "Uruchamianie anulowane",
   "native-downloading": "Pobieranie {percent}%",
   "native-error-download": "Nie udało się pobrać {name}",

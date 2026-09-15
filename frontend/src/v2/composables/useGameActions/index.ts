@@ -437,10 +437,15 @@ export function useGameActions(
   async function cancelNativeLaunch() {
     const rom = getRom();
     if (!rom) return;
-    await nativeStore.cancel(rom.id);
-    snackbar.info(t("rom.native-canceled"), {
-      icon: "mdi-close-circle-outline",
-    });
+    // Only a cancel the shell took is a cancellation. A refused one leaves the
+    // game still coming, and the launch's own state reports how it ends.
+    if (await nativeStore.cancel(rom.id)) {
+      snackbar.info(t("rom.native-canceled"), {
+        icon: "mdi-close-circle-outline",
+      });
+      return;
+    }
+    snackbar.error(t("rom.native-cancel-failed"));
   }
 
   // Joining is its own navigation: the stream view claims a container when it

@@ -5,6 +5,7 @@ import {
   fetchPlatformSupport,
   isNativeShell,
   launchNative,
+  nativeErrorMessage,
   nativeShellVersion,
   onNativeLaunchState,
 } from "@/services/native";
@@ -39,7 +40,12 @@ export const useNativeStore = defineStore("native", () => {
   const available = ref(isNativeShell());
   const shellVersion = ref(nativeShellVersion());
 
-  const support = ref<Record<string, PlatformSupport>>({});
+  // Null prototype: RomM keeps whatever slug a folder is named, so "constructor"
+  // and "toString" are slugs like any other, and on a plain object they would
+  // read as already answered and return an inherited value.
+  const support = ref<Record<string, PlatformSupport>>(
+    Object.create(null) as Record<string, PlatformSupport>,
+  );
 
   /** The shell's last word on each launch, keyed by ROM id. */
   const launches = ref<Record<number, LaunchState>>({});
@@ -152,7 +158,10 @@ export const useNativeStore = defineStore("native", () => {
         ),
       })),
     );
-    const merged = { ...support.value };
+    const merged = Object.assign(
+      Object.create(null) as Record<string, PlatformSupport>,
+      support.value,
+    );
     for (const [slug, answer] of Object.entries(answers)) {
       merged[slug.toLowerCase()] = answer;
     }
@@ -199,25 +208,35 @@ export const useNativeStore = defineStore("native", () => {
       return null;
     } catch (error) {
       if ((stateCount.value[rom.id] ?? 0) > before) return null;
-      return error instanceof Error ? error.message : String(error);
+      return nativeErrorMessage(error);
     } finally {
       starting.value.delete(rom.id);
     }
   }
 
-  async function cancel(romId: number): Promise<void> {
+  /** Ask the shell to abort a launch, answering whether it took the request.
+   *  A refusal changes nothing: the launch is still whatever it was, so the
+   *  mark comes back off and the failure that follows is the real one. */
+  async function cancel(romId: number): Promise<boolean> {
     cancelled.value.add(romId);
-    await cancelNative(romId);
+    if (!(await cancelNative(romId))) {
+      cancelled.value.delete(romId);
+      return false;
+    }
     starting.value.delete(romId);
     // The shell acknowledges a cancel by dropping the launch rather than by
     // reporting a state for it, so the record has to go from here.
     const { [romId]: _dropped, ...rest } = launches.value;
     launches.value = rest;
+    return true;
   }
 
   return {
     available,
     shellVersion,
+    // Exposed for a caller that builds a function inside a computed and needs
+    // it rebuilt when the probe lands, the way streaming exposes its config.
+    support,
     supportForPlatform,
     isSupportedPlatform,
     labelForPlatform,

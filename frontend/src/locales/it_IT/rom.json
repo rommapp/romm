@@ -246,6 +246,7 @@
   "more-actions": "Altre azioni",
   "my-notes": "Mie note",
   "native-cancel": "Annulla avvio",
+  "native-cancel-failed": "Impossibile annullare l'avvio",
   "native-canceled": "Avvio annullato",
   "native-downloading": "Download {percent}%",
   "native-error-download": "Non è stato possibile scaricare {name}",

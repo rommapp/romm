@@ -246,6 +246,7 @@
   "more-actions": "その他の操作",
   "my-notes": "メモ",
   "native-cancel": "起動をキャンセル",
+  "native-cancel-failed": "起動をキャンセルできませんでした",
   "native-canceled": "起動をキャンセルしました",
   "native-downloading": "ダウンロード中 {percent}%",
   "native-error-download": "{name} をダウンロードできませんでした",

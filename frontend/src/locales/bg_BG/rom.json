@@ -246,6 +246,7 @@
   "more-actions": "Още действия",
   "my-notes": "Моите бележки",
   "native-cancel": "Отказ от стартирането",
+  "native-cancel-failed": "Стартирането не можа да бъде отменено",
   "native-canceled": "Стартирането е отказано",
   "native-downloading": "Изтегляне {percent}%",
   "native-error-download": "{name} не можа да бъде изтеглена",

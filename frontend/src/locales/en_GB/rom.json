@@ -246,6 +246,7 @@
   "more-actions": "More actions",
   "my-notes": "My notes",
   "native-cancel": "Cancel launch",
+  "native-cancel-failed": "Could not cancel the launch",
   "native-canceled": "Launch cancelled",
   "native-downloading": "Downloading {percent}%",
   "native-error-download": "Could not download {name}",

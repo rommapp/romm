@@ -246,6 +246,7 @@
   "more-actions": "Weitere Aktionen",
   "my-notes": "Meine Notizen",
   "native-cancel": "Start abbrechen",
+  "native-cancel-failed": "Start konnte nicht abgebrochen werden",
   "native-canceled": "Start abgebrochen",
   "native-downloading": "Wird heruntergeladen {percent}%",
   "native-error-download": "{name} konnte nicht heruntergeladen werden",

@@ -246,6 +246,7 @@
   "more-actions": "更多操作",
   "my-notes": "我的笔记",
   "native-cancel": "取消启动",
+  "native-cancel-failed": "无法取消启动",
   "native-canceled": "已取消启动",
   "native-downloading": "正在下载 {percent}%",
   "native-error-download": "无法下载 {name}",

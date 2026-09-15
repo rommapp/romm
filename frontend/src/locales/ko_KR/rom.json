@@ -246,6 +246,7 @@
   "more-actions": "추가 작업",
   "my-notes": "개인 노트",
   "native-cancel": "실행 취소",
+  "native-cancel-failed": "실행을 취소할 수 없습니다",
   "native-canceled": "실행이 취소되었습니다",
   "native-downloading": "다운로드 중 {percent}%",
   "native-error-download": "{name}을(를) 다운로드할 수 없습니다",
