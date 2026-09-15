@@ -87,4 +87,13 @@ describe("MissingGamesSection", () => {
     expect(params.withFilterValues).toBe(false);
     expect(params.withRomIdIndex).toBe(false);
   });
+
+  // Rows are selectable here, so the selection needs the same bulk actions
+  // it gets in the gallery rather than none at all (issue #4036).
+  it("carries the gallery's bulk actions for a selection", async () => {
+    const wrapper = mountSection();
+    await flushPromises();
+
+    expect(wrapper.findComponent({ name: "SelectionBar" }).exists()).toBe(true);
+  });
 });

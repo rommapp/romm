@@ -245,6 +245,7 @@
   "missing-firmware-none": "未找到缺少的韌體",
   "missing-firmware-tab": "缺失韌體",
   "missing-games-actions": "缺失遊戲動作",
+  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-none": "未找到缺少的 ROM",
   "missing-games-tab": "缺失遊戲",
   "missing-platform-from-fs": "檔案系統中缺失的平台",

@@ -245,6 +245,7 @@
   "missing-firmware-none": "Eksik firmware bulunamadı",
   "missing-firmware-tab": "Eksik firmware",
   "missing-games-actions": "Eksik oyun işlemleri",
+  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-none": "Eksik ROM bulunamadı",
   "missing-games-tab": "Eksik oyunlar",
   "missing-platform-from-fs": "Platform dosya sisteminde bulunamadı",

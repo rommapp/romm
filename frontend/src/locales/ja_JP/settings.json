@@ -245,6 +245,7 @@
   "missing-firmware-none": "不足しているファームウェアは見つかりませんでした",
   "missing-firmware-tab": "不足しているファームウェア",
   "missing-games-actions": "不足ゲームの操作",
+  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-none": "不足しているROMは見つかりませんでした",
   "missing-games-tab": "不足しているゲーム",
   "missing-platform-from-fs": "ファイルシステムから不足しているプラットフォーム",
