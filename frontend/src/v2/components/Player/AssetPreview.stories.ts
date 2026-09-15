@@ -123,6 +123,24 @@ export const SaveSelected: Story = {
   }),
 };
 
+// A state is armed, so the save is the write-back target, not what boots.
+export const SaveAsWriteTarget: Story = {
+  name: "Save · write-back target",
+  render: () => ({
+    components: { AssetPreview },
+    setup: () => ({ asset: makeSave() }),
+    template: `<AssetPreview :asset="asset" type="save" state-armed />`,
+  }),
+};
+
+export const EmptySaveWithStateArmed: Story = {
+  name: "Empty · no save, state armed",
+  render: () => ({
+    components: { AssetPreview },
+    template: `<AssetPreview :asset="null" type="save" state-armed />`,
+  }),
+};
+
 // Long filename should ellipsis cleanly.
 export const LongFilename: Story = {
   name: "Long filename",

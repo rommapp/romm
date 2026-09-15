@@ -9,6 +9,14 @@ import { buildFormInput } from "@/utils/formData";
 
 export const saveApi = api;
 
+// The slot sync clients (Argosy, Tender) file automatic progress under. A
+// null slot is an archival manual upload that is never paired with devices.
+export const AUTOSAVE_SLOT = "autosave";
+
+export function isAutosaveSlot(slot: string | null | undefined): boolean {
+  return slot?.toLowerCase() === AUTOSAVE_SLOT;
+}
+
 type SaveUploadInput = Omit<AddSaveInput, "saveFile" | "screenshotFile"> & {
   saveFile: File;
   screenshotFile?: File;
@@ -27,11 +35,18 @@ async function uploadSaves({
   savesToUpload,
   emulator,
   deviceId,
+  slot,
+  autocleanup,
+  overwrite,
 }: {
   rom: DetailedRomSchema;
   savesToUpload: SaveUploadInput[];
   emulator?: string;
   deviceId?: string;
+  slot?: string;
+  autocleanup?: boolean;
+  /** Skip the stale-device conflict check on a slotted upload. */
+  overwrite?: boolean;
 }) {
   const promises = savesToUpload.map(({ saveFile, screenshotFile }) => {
     const formData = buildFormInput<SaveUploadInput>([
@@ -45,7 +60,14 @@ async function uploadSaves({
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          params: { rom_id: rom.id, emulator, device_id: deviceId },
+          params: {
+            rom_id: rom.id,
+            emulator,
+            device_id: deviceId,
+            slot,
+            autocleanup,
+            overwrite,
+          },
         })
         .then(({ data }) => {
           resolve(data);

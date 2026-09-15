@@ -1,7 +1,7 @@
 import Bowser from "bowser";
 import { type SaveSchema } from "@/__generated__";
 import { type StateSchema } from "@/__generated__";
-import saveApi from "@/services/api/save";
+import saveApi, { AUTOSAVE_SLOT, isAutosaveSlot } from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import { type DetailedRom } from "@/stores/roms";
 
@@ -63,18 +63,24 @@ export async function saveState({
   return null;
 }
 
+// One version per session, like a sync client's end-of-session upload: the
+// first write creates a new save in `slot` (the backend caps the slot's
+// history), and `save`, the version this session already created, is then
+// updated in place so periodic sync does not churn the history.
 export async function saveSave({
   rom,
   save,
   saveFile,
   screenshotFile,
   deviceId,
+  slot = AUTOSAVE_SLOT,
 }: {
   rom: DetailedRom;
   save: SaveSchema | null;
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
   deviceId?: string;
+  slot?: string;
 }): Promise<SaveSchema | null> {
   if (save) {
     try {
@@ -109,6 +115,13 @@ export async function saveSave({
       rom: rom,
       emulator: window.EJS_core,
       deviceId,
+      slot,
+      // Like Argosy: the autosave slot keeps a capped history, named slots
+      // keep every version.
+      autocleanup: isAutosaveSlot(slot),
+      // The launch screen makes the boot source an explicit choice, so the
+      // "slot has a newer save since your last sync" guard does not apply.
+      overwrite: true,
       savesToUpload: [
         {
           saveFile: new File([saveFile], `${filename}.srm`, {

@@ -124,8 +124,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
                 v-if="'slot' in asset && asset.slot"
                 tone="brand"
                 size="x-small"
-                prepend-icon="mdi-bookmark-outline"
-                :label="t('play.slot')"
+                prepend-icon="mdi-content-save-all-outline"
                 :text="asset.slot"
               />
               <RTag

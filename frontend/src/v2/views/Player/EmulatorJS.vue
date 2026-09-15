@@ -21,6 +21,8 @@ import {
   RSliderBtnGroup,
   RSpinner,
   RSwitch,
+  RTextField,
+  RTooltip,
 } from "@v2/lib";
 import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
@@ -39,6 +41,7 @@ import { useI18n } from "vue-i18n";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
+import { AUTOSAVE_SLOT } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
@@ -77,6 +80,13 @@ import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
+import {
+  defaultResumeSelection,
+  pickSave,
+  pickState,
+  slotOptions,
+  type ResumeSelection,
+} from "./resumeSelection";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.
@@ -105,7 +115,7 @@ function focusPlayButton() {
 
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
-const selectedSave = ref<SaveSchema | null>(null);
+const resume = ref<ResumeSelection>({ save: null, state: null });
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 const { backToRom, backToPlatform } = usePlayerNav(
@@ -113,7 +123,6 @@ const { backToRom, backToPlatform } = usePlayerNav(
   () => heroRom.value?.platform_id,
 );
 const isSavesTabSelected = ref(true);
-const selectedState = ref<StateSchema | null>(null);
 const selectedDisc = ref<DiscSelection>(null);
 const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
@@ -264,42 +273,26 @@ async function onPlay() {
 }
 
 function selectSave(save: SaveSchema) {
-  selectedSave.value = save;
-  localStorage.setItem(
-    `player:${rom.value?.platform_slug}:save_id`,
-    save.id.toString(),
-  );
+  resume.value = pickSave(save);
   isSavesTabSelected.value = true;
 }
 
 function unselectSave() {
-  selectedSave.value = null;
-  localStorage.removeItem(`player:${rom.value?.platform_slug}:save_id`);
+  resume.value = { ...resume.value, save: null };
 }
 
 function selectState(state: StateSchema) {
-  selectedState.value = state;
-  localStorage.setItem(
-    `player:${rom.value?.platform_slug}:state_id`,
-    state.id.toString(),
-  );
+  resume.value = pickState(resume.value, state);
   isSavesTabSelected.value = false;
 }
 
 function unselectState() {
-  selectedState.value = null;
-  localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
+  resume.value = { ...resume.value, state: null };
 }
 
 watch(selectedCore, (newSelectedCore) => {
-  if (
-    selectedState.value &&
-    selectedState.value.emulator &&
-    selectedState.value.emulator !== newSelectedCore
-  ) {
-    selectedState.value = null;
-    localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
-  }
+  const armed = resume.value.state;
+  if (armed?.emulator && armed.emulator !== newSelectedCore) unselectState();
 });
 
 onMounted(async () => {
@@ -347,24 +340,11 @@ onMounted(async () => {
     configStore.getEJSDefaultCore(platformSlug),
   );
 
-  // Default selection — save and state are independent, so both can be
-  // armed at once. The bound save is the write-back target for "Save &
-  // Quit" (PUT in place), so we only auto-bind it when the choice is
-  // unambiguous: never silently pick a slot when a state is armed and
-  // there are multiple saves, since loading the state injects a different
-  // SRAM timeline that would overwrite an arbitrary save the user never
-  // picked. In that case the user must select the save slot explicitly.
-  const hasCompatibleState = compatibleStates.value.length > 0;
-
-  if (hasCompatibleState) {
-    selectedState.value = compatibleStates.value[0];
-  }
-  const safeToBindSave =
-    rom.value.user_saves.length === 1 || !hasCompatibleState;
-  if (rom.value.user_saves.length > 0 && safeToBindSave) {
-    selectedSave.value = rom.value.user_saves[0];
-  }
-  isSavesTabSelected.value = !hasCompatibleState;
+  resume.value = defaultResumeSelection(
+    rom.value.user_saves,
+    compatibleStates.value,
+  );
+  isSavesTabSelected.value = !resume.value.state;
 
   selectedDisc.value = resolveRememberedDisc(
     rom.value.id,
@@ -477,17 +457,45 @@ const activeAssets = computed<(SaveSchema | StateSchema)[]>(() =>
 
 const selectedAssetId = computed(() =>
   isSavesTabSelected.value
-    ? (selectedSave.value?.id ?? null)
-    : (selectedState.value?.id ?? null),
+    ? (resume.value.save?.id ?? null)
+    : (resume.value.state?.id ?? null),
 );
 
 const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
-  isSavesTabSelected.value ? selectedSave.value : selectedState.value,
+  isSavesTabSelected.value ? resume.value.save : resume.value.state,
+);
+
+// Slot for saves the session creates. A bound save with a slot fixes it (the
+// picker just shows it); a slot-less legacy save is archived and progress
+// moves to the picked slot. The picker is always rendered on the Saves tab so
+// the panel keeps the same height whether or not a save is selected.
+const NEW_SLOT = "";
+const slotChoice = ref(AUTOSAVE_SLOT);
+const customSlot = ref("");
+const boundSlot = computed(() => resume.value.save?.slot ?? null);
+function onSlotChoice(value: unknown) {
+  slotChoice.value = typeof value === "string" ? value : AUTOSAVE_SLOT;
+}
+const slotItems = computed(() => [
+  ...slotOptions(rom.value?.user_saves ?? []).map((slot) => ({
+    title: slot,
+    value: slot,
+  })),
+  { title: t("play.new-slot"), value: NEW_SLOT },
+]);
+const saveSlot = computed(() =>
+  slotChoice.value === NEW_SLOT
+    ? customSlot.value.trim() || AUTOSAVE_SLOT
+    : slotChoice.value,
 );
 </script>
 
 <template>
-  <section v-if="heroRom" class="r-v2-ejs">
+  <section
+    v-if="heroRom"
+    class="r-v2-ejs"
+    :class="{ 'r-v2-ejs--config': !gameRunning }"
+  >
     <!-- Pre-game configuration -->
     <div v-if="!gameRunning" class="r-v2-ejs__config">
       <!-- Hero: cover + title + Play CTA -->
@@ -562,8 +570,49 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
           <AssetPreview
             :asset="selectedAsset"
             :type="activeAssetTab"
+            :state-armed="!!resume.state"
             @clear="clearSelectedAsset"
           />
+
+          <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
+            <div class="r-v2-ejs__slot-row">
+              <RSelect
+                :model-value="boundSlot ?? slotChoice"
+                :disabled="!!boundSlot"
+                variant="outlined"
+                density="compact"
+                prefix-label="inline"
+                hide-details
+                :items="slotItems"
+                @update:model-value="onSlotChoice"
+              >
+                <template #prefix-label>
+                  <RIcon icon="mdi-content-save-all-outline" size="14" />
+                  {{ t("play.slot") }}
+                </template>
+              </RSelect>
+              <span
+                class="r-v2-ejs__slot-info"
+                tabindex="0"
+                :aria-label="t('play.slot-tooltip')"
+              >
+                <RIcon icon="mdi-information-outline" size="16" />
+                <RTooltip activator="parent" location="top">
+                  {{ t("play.slot-tooltip") }}
+                </RTooltip>
+              </span>
+            </div>
+            <RTextField
+              v-if="!boundSlot && slotChoice === NEW_SLOT"
+              v-model="customSlot"
+              variant="outlined"
+              density="compact"
+              prefix-label="inline"
+              hide-details
+              :label="t('play.slot-name')"
+              :placeholder="AUTOSAVE_SLOT"
+            />
+          </div>
 
           <div
             v-if="activeAssets.length > 0"
@@ -580,21 +629,24 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
 
           <!-- Saves render as a vertical list (no screenshot ⇒ density);
                states keep the horizontal tile strip (screenshot is the
-               point). -->
-          <AssetList
-            v-if="activeAssetTab === 'save'"
-            :assets="activeAssets"
-            type="save"
-            :selected-id="selectedAssetId"
-            @select="pickAsset"
-          />
-          <AssetStrip
-            v-else
-            :assets="activeAssets"
-            type="state"
-            :selected-id="selectedAssetId"
-            @select="pickAsset"
-          />
+               point). The wrapper owns the only scroll on the screen. -->
+          <div class="r-v2-ejs__assets">
+            <AssetList
+              v-if="activeAssetTab === 'save'"
+              :assets="activeAssets"
+              type="save"
+              :selected-id="selectedAssetId"
+              :scrollable="false"
+              @select="pickAsset"
+            />
+            <AssetStrip
+              v-else
+              :assets="activeAssets"
+              type="state"
+              :selected-id="selectedAssetId"
+              @select="pickAsset"
+            />
+          </div>
         </div>
       </RCard>
 
@@ -675,8 +727,9 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
     <div v-else-if="rom" ref="stageRef" class="r-v2-ejs__stage">
       <Player
         :rom="rom"
-        :state="selectedState"
-        :save="selectedSave"
+        :state="resume.state"
+        :save="resume.save"
+        :save-slot="saveSlot"
         :bios="selectedFirmware"
         :core="selectedCore"
         :disc="bootDiscId(selectedDisc)"
@@ -839,6 +892,39 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   flex-direction: column;
   gap: 14px;
   flex: 1;
+  min-height: 0;
+}
+.r-v2-ejs__slot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.r-v2-ejs__slot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.r-v2-ejs__slot-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.r-v2-ejs__slot-info {
+  display: inline-flex;
+  color: var(--r-color-fg-secondary);
+  border-radius: var(--r-radius-pill);
+  cursor: help;
+}
+.r-v2-ejs__slot-info:focus-visible {
+  outline: 2px solid var(--r-color-brand-primary);
+  outline-offset: 2px;
+}
+.r-v2-ejs__assets {
+  flex: 1;
+  min-height: 0;
+  max-height: 380px;
+  overflow-y: auto;
+  scrollbar-color: var(--r-color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 .r-v2-ejs__strip-label {
   display: flex;
@@ -934,6 +1020,38 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   min-height: calc(100vh - var(--r-nav-h));
   display: grid;
   place-items: center;
+}
+
+/* ── Viewport fit ────────────────────────────────────────── */
+/* On screens tall enough for the hero column, the pre-game screen fits the
+   viewport: panels shrink, only the asset list scrolls, and the footer brand
+   stays in view. Shorter or narrower screens fall back to page scroll. */
+@media (min-height: 720px) {
+  .r-v2-ejs--config {
+    height: calc(100vh - var(--r-nav-h));
+    overflow: hidden;
+  }
+  .r-v2-ejs--config .r-v2-ejs__config {
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .r-v2-ejs--config .r-v2-ejs__panel {
+    min-height: 0;
+  }
+  .r-v2-ejs--config .r-v2-ejs__assets {
+    max-height: none;
+  }
+}
+html[data-bp~="md-and-down"] .r-v2-ejs--config {
+  height: auto;
+  overflow: visible;
+}
+html[data-bp~="md-and-down"] .r-v2-ejs--config .r-v2-ejs__config {
+  height: auto;
+  grid-template-rows: none;
+}
+html[data-bp~="md-and-down"] .r-v2-ejs--config .r-v2-ejs__assets {
+  max-height: 380px;
 }
 
 /* ── Responsive ──────────────────────────────────────────── */

@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
+import {
+  computed,
+  inject,
+  onBeforeUnmount,
+  onMounted,
+  onUnmounted,
+  ref,
+} from "vue";
 import { useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 import type {
@@ -11,7 +18,7 @@ import type {
   NetplayICEServer,
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
-import { saveApi as api } from "@/services/api/save";
+import { AUTOSAVE_SLOT, saveApi as api } from "@/services/api/save";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeLanguage from "@/stores/language";
@@ -54,9 +61,17 @@ const props = defineProps<{
   bios: FirmwareSchema | null;
   core: string | null;
   disc: number | null;
+  /** Slot for new saves when the loaded save has none; defaults to autosave. */
+  saveSlot?: string | null;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
+// The save the session booted from, and the version this session has written
+// so far. Loading a save resets the version so the next write opens a new one.
 const saveRef = ref<SaveSchema | null>(props.save);
+const sessionSaveRef = ref<SaveSchema | null>(null);
+const saveSlot = computed(
+  () => saveRef.value?.slot ?? props.saveSlot ?? AUTOSAVE_SLOT,
+);
 const deviceIDRef = ref(authStore.user?.current_device_id ?? undefined);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -301,13 +316,14 @@ function installAutoSaveSync() {
     try {
       const save = await saveSave({
         rom: romRef.value,
-        save: saveRef.value,
+        save: sessionSaveRef.value,
         saveFile: toArrayBuffer(saveFile),
         deviceId: deviceIDRef.value,
+        slot: saveSlot.value,
       });
       if (save) {
         tracker.markUploaded(saveFile);
-        saveRef.value = save;
+        sessionSaveRef.value = save;
         romsStore.update(romRef.value);
         displayMessage("Save synced with server", {
           duration: 3000,
@@ -325,6 +341,7 @@ function installAutoSaveSync() {
 // Saves management
 async function loadSave(save: SaveSchema) {
   saveRef.value = save;
+  sessionSaveRef.value = null;
 
   const { data } = await api.get(save.download_path.replace("/api", ""), {
     responseType: "arraybuffer",
@@ -354,15 +371,17 @@ window.EJS_onSaveSave = async function ({
 }) {
   const save = await saveSave({
     rom: romRef.value,
-    save: saveRef.value,
+    save: sessionSaveRef.value,
     saveFile,
     screenshotFile,
     deviceId: deviceIDRef.value,
+    slot: saveSlot.value,
   });
 
   romsStore.update(romRef.value);
 
   if (save) {
+    sessionSaveRef.value = save;
     displayMessage("Save synced with server", {
       duration: 4000,
       icon: "mdi-cloud-sync",
@@ -556,10 +575,11 @@ window.EJS_onGameStart = async () => {
     // Force a save of the save file
     await saveSave({
       rom: romRef.value,
-      save: saveRef.value,
+      save: sessionSaveRef.value,
       saveFile,
       screenshotFile,
       deviceId: deviceIDRef.value,
+      slot: saveSlot.value,
     });
 
     romsStore.update(romRef.value);

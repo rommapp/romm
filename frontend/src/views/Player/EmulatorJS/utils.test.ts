@@ -1,5 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSaveSyncTracker, installEJSDefaultOptionsTrap } from "./utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SaveSchema } from "@/__generated__";
+import type { DetailedRom } from "@/stores/roms";
+import {
+  createSaveSyncTracker,
+  installEJSDefaultOptionsTrap,
+  saveSave,
+} from "./utils";
+
+const saveApiMocks = vi.hoisted(() => ({
+  uploadSaves: vi.fn(),
+  updateSave: vi.fn(),
+}));
+
+vi.mock("@/services/api/save", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/api/save")>()),
+  default: saveApiMocks,
+}));
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -185,5 +201,57 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
     expect(tracker.shouldUpload(bytes(1, 2, 3, 0))).toBe(false);
+  });
+});
+
+describe("saveSave", () => {
+  const rom = {
+    id: 1,
+    fs_name_no_ext: "game",
+    user_saves: [],
+  } as unknown as DetailedRom;
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+
+  beforeEach(() => {
+    saveApiMocks.uploadSaves.mockReset();
+    saveApiMocks.updateSave.mockReset();
+    saveApiMocks.uploadSaves.mockResolvedValue([
+      { status: "fulfilled", value: { id: 2, slot: "autosave" } },
+    ]);
+    saveApiMocks.updateSave.mockResolvedValue({ data: { id: 3 } });
+  });
+
+  it("updates the version this session already created", async () => {
+    const save = {
+      id: 3,
+      file_name: "a.srm",
+      slot: "main_quest",
+    } as SaveSchema;
+
+    await saveSave({ rom, save, saveFile: bytes, slot: "main_quest" });
+
+    expect(saveApiMocks.updateSave).toHaveBeenCalledOnce();
+    expect(saveApiMocks.uploadSaves).not.toHaveBeenCalled();
+  });
+
+  it("opens a capped autosave version when the session has none", async () => {
+    await saveSave({ rom, save: null, saveFile: bytes });
+
+    expect(saveApiMocks.uploadSaves).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slot: "autosave",
+        autocleanup: true,
+        overwrite: true,
+      }),
+    );
+  });
+
+  it("keeps every version in a named slot", async () => {
+    await saveSave({ rom, save: null, saveFile: bytes, slot: "speedrun" });
+
+    expect(saveApiMocks.updateSave).not.toHaveBeenCalled();
+    expect(saveApiMocks.uploadSaves).toHaveBeenCalledWith(
+      expect.objectContaining({ slot: "speedrun", autocleanup: false }),
+    );
   });
 });
