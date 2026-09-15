@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSaveSyncTracker, installEJSDefaultOptionsTrap } from "./utils";
+import {
+  captureStateScreenshot,
+  createSaveSyncTracker,
+  installEJSDefaultOptionsTrap,
+} from "./utils";
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -185,5 +189,40 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
     expect(tracker.shouldUpload(bytes(1, 2, 3, 0))).toBe(false);
+  });
+});
+
+describe("captureStateScreenshot", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  afterEach(() => {
+    delete (window as any).EJS_emulator;
+  });
+
+  it("reads the live canvas through the game manager", async () => {
+    const shot = new ArrayBuffer(8);
+    (window as any).EJS_emulator = {
+      gameManager: { screenshot: async () => shot },
+    };
+
+    await expect(captureStateScreenshot()).resolves.toBe(shot);
+  });
+
+  // A manual save state still has to reach the server without its picture.
+  it("returns nothing when the emulator has no game manager yet", async () => {
+    (window as any).EJS_emulator = {};
+
+    await expect(captureStateScreenshot()).resolves.toBeUndefined();
+  });
+
+  it("swallows a capture that throws", async () => {
+    (window as any).EJS_emulator = {
+      gameManager: {
+        screenshot: async () => {
+          throw new Error("canvas is gone");
+        },
+      },
+    };
+
+    await expect(captureStateScreenshot()).resolves.toBeUndefined();
   });
 });

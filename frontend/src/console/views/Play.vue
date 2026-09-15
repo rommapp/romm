@@ -36,6 +36,7 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { buildFormInput } from "@/utils/formData";
+import { captureStateScreenshot } from "@/views/Player/EmulatorJS/utils";
 import {
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
@@ -530,19 +531,25 @@ async function boot() {
   // Set up EmulatorJS callbacks
   window.EJS_onSaveState = async function ({
     state: stateFile,
-    screenshot: screenshotFile,
+    screenshot: emulatorScreenshot,
   }: {
     state: ArrayBuffer;
-    screenshot: ArrayBuffer;
+    screenshot?: ArrayBuffer;
   }) {
+    const screenshotFile =
+      (await captureStateScreenshot()) ?? emulatorScreenshot;
     try {
       const formData = buildFormInput<AddStateInput>([
         ["stateFile", new Blob([stateFile]), "state.save"],
-        [
-          "screenshotFile",
-          new Blob([screenshotFile], { type: "image/png" }),
-          "screenshot.png",
-        ],
+        ...(screenshotFile
+          ? ([
+              [
+                "screenshotFile",
+                new Blob([screenshotFile], { type: "image/png" }),
+                "screenshot.png",
+              ],
+            ] as const)
+          : []),
       ]);
 
       await api.post("/states", formData, {

@@ -15,6 +15,20 @@ function buildSaveName(rom: DetailedRom): string {
   return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
 }
 
+// EmulatorJS 4.2.3 hands `EJS_onSaveState` nothing under `screenshot`, and its
+// own canvas capture renders only a slice of the frame even with the upstream
+// fix applied. Reading the live canvas is the path Save & Quit already takes.
+export async function captureStateScreenshot(): Promise<
+  ArrayBuffer | undefined
+> {
+  try {
+    return await window.EJS_emulator?.gameManager?.screenshot();
+  } catch (error) {
+    console.error("Failed to capture a state screenshot", error);
+    return undefined;
+  }
+}
+
 export async function saveState({
   rom,
   stateFile,
