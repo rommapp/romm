@@ -1745,6 +1745,21 @@ class TestDatetimeTagging:
         assert "2020-01-01" not in written_filename
 
 
+class TestSlotValidation:
+    def test_upload_rejects_slot_longer_than_column(
+        self, client, access_token: str, rom: Rom
+    ):
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot={'a' * 256}",
+            files={
+                "saveFile": ("test.sav", BytesIO(b"save"), "application/octet-stream")
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 class TestAutocleanup:
     @pytest.fixture
     def slot_saves(self, admin_user: User, rom: Rom, platform: Platform) -> list[Save]:

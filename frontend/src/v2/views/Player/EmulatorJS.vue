@@ -52,6 +52,7 @@ import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
@@ -102,6 +103,10 @@ const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 const { modality } = useInputModality();
+// Wide and tall enough for the hero column: the pre-game screen fits the
+// viewport and the asset list, not the page, scrolls.
+const { lgAndUp, tall } = useBreakpoint();
+const fitsViewport = computed(() => lgAndUp.value && tall.value);
 const playSession = usePlaySession();
 
 // Ref the Play CTA so we can imperatively focus it on enter (and again
@@ -455,15 +460,10 @@ const activeAssets = computed<(SaveSchema | StateSchema)[]>(() =>
     : compatibleStates.value,
 );
 
-const selectedAssetId = computed(() =>
-  isSavesTabSelected.value
-    ? (resume.value.save?.id ?? null)
-    : (resume.value.state?.id ?? null),
-);
-
 const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   isSavesTabSelected.value ? resume.value.save : resume.value.state,
 );
+const selectedAssetId = computed(() => selectedAsset.value?.id ?? null);
 
 // Slot for saves the session creates. A bound save with a slot fixes it; a
 // slot-less legacy save stays as an archive and progress goes to the pick.
@@ -636,6 +636,7 @@ const saveSlot = computed(() =>
               :assets="activeAssets"
               type="save"
               :selected-id="selectedAssetId"
+              :scrollable="!fitsViewport"
               @select="pickAsset"
             />
             <AssetStrip
@@ -728,7 +729,7 @@ const saveSlot = computed(() =>
         :rom="rom"
         :state="resume.state"
         :save="resume.save"
-        :save-slot="boundSlot ?? saveSlot"
+        :save-slot="saveSlot"
         :bios="selectedFirmware"
         :core="selectedCore"
         :disc="bootDiscId(selectedDisc)"
@@ -1023,30 +1024,22 @@ const saveSlot = computed(() =>
   place-items: center;
 }
 
-/* ── Viewport fit ────────────────────────────────────────── */
-/* Wide and tall enough for the hero column, the pre-game screen fits the
-   viewport and only the asset list scrolls; the hero keeps a scroll fallback. */
+/* ── Viewport fit (see fitsViewport) ─────────────────────── */
 html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs--config {
   height: calc(100vh - var(--r-nav-h));
   height: calc(100dvh - var(--r-nav-h));
   overflow: hidden;
 }
-html[data-bp~="lg-and-up"][data-bp~="tall"]
-  .r-v2-ejs--config
-  .r-v2-ejs__config {
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__config {
   height: 100%;
   grid-template-rows: minmax(0, 1fr) auto;
 }
-html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs--config .r-v2-ejs__panel {
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__panel {
   min-height: 0;
 }
-html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs--config .r-v2-ejs__hero {
+/* The hero cannot shrink, so on a short viewport it scrolls instead of clipping. */
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__hero {
   overflow-y: auto;
-}
-html[data-bp~="lg-and-up"][data-bp~="tall"]
-  .r-v2-ejs--config
-  .r-v2-ejs__assets {
-  --r-asset-list-max-h: none;
 }
 
 /* ── Responsive ──────────────────────────────────────────── */

@@ -10,12 +10,6 @@ function buildStateName(rom: DetailedRom): string {
   return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
 }
 
-// Slotted uploads are timestamped by the backend, which tags the save and its
-// screenshot with the same server-side datetime.
-function buildSaveName(rom: DetailedRom): string {
-  return rom.fs_name_no_ext.trim();
-}
-
 export async function saveState({
   rom,
   stateFile,
@@ -111,7 +105,8 @@ export async function saveSave({
     }
   }
 
-  const filename = buildSaveName(rom);
+  // The backend timestamps slotted uploads, tagging save and screenshot alike.
+  const filename = rom.fs_name_no_ext.trim();
   try {
     const uploadedSaves = await saveApi.uploadSaves({
       rom: rom,
@@ -121,9 +116,8 @@ export async function saveSave({
       // Like Argosy: the autosave slot keeps a capped history, named slots
       // keep every version.
       autocleanup: slot === AUTOSAVE_SLOT,
-      // The launch screen makes the boot source an explicit choice, so the
-      // stale-device guard does not apply. This also skips the backend's
-      // content-hash dedupe, so callers skip byte-identical uploads themselves.
+      // The boot source is an explicit choice on the launch screen, so neither
+      // the stale-device guard nor the hash dedupe applies (callers skip dupes).
       overwrite: true,
       savesToUpload: [
         {
@@ -182,7 +176,8 @@ export function createSaveSyncTracker() {
 function bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
   if (!a || !b) return a === b;
   if (a.byteLength !== b.byteLength) return false;
-  return a.every((byte, i) => byte === b[i]);
+  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 // saveSave needs an ArrayBuffer, and a Uint8Array's own buffer may be shared or

@@ -28,7 +28,7 @@ from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import Save
+from models.assets import SAVE_SLOT_MAX_LENGTH, Save
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.datetime import to_utc
@@ -103,9 +103,8 @@ def _syncs_for_save(
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
 
 
-def _apply_datetime_tag(filename: str, tagged_at: datetime | None = None) -> str:
+def _apply_datetime_tag(filename: str, tagged_at: datetime) -> str:
     name, ext = os.path.splitext(filename)
-    tagged_at = tagged_at or datetime.now(timezone.utc)
     timestamp = tagged_at.strftime("%Y-%m-%d_%H-%M-%S")
 
     if DATETIME_TAG_PATTERN.search(name):
@@ -164,7 +163,7 @@ async def add_save(
     request: Request,
     rom_id: int,
     emulator: str | None = None,
-    slot: str | None = None,
+    slot: Annotated[str | None, Query(max_length=SAVE_SLOT_MAX_LENGTH)] = None,
     device_id: str | None = None,
     session_id: int | None = None,
     overwrite: bool = False,
