@@ -121,6 +121,16 @@ class TestGenerateM3uContent:
         result = generate_m3u_content(files, hidden_folder=False)
         assert result == b"disc1.cue\ndisc2.chd"
 
+    def test_audio_tracks_are_not_discs(self):
+        # A cue's CDDA tracks are data the sheet names, not discs beside it.
+        files = [
+            _make_file("game.cue", "cue"),
+            _make_file("track01.bin", "bin"),
+            _make_file("track02.wav", "wav"),
+        ]
+        result = generate_m3u_content(files, hidden_folder=False)
+        assert result == b"game.cue"
+
 
 class TestPlaylistFiles:
     """The disc swapper reads this directly, so the files themselves matter."""

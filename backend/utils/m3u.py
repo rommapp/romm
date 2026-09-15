@@ -10,10 +10,13 @@ if TYPE_CHECKING:
 # format is privileged over the others.
 DESCRIPTOR_EXTENSIONS = frozenset({"cue", "gdi", "ccd", "mds"})
 
-# The raw tracks those sheets point at. None of them is loadable on its own, so
-# a sheet in the set means its tracks are data rather than discs -- but only
-# those tracks. Anything else present stays a disc in its own right.
-COMPANION_EXTENSIONS = frozenset({"bin", "raw", "img", "sub", "mdf"})
+# The raw tracks those sheets point at, data and CDDA audio alike. None of them
+# is loadable on its own, so a sheet in the set means its tracks are data rather
+# than discs -- but only those tracks. Anything else present stays a disc in its
+# own right. Kept in step with the shell's own list in src/main/discs/m3u.ts.
+COMPANION_EXTENSIONS = frozenset(
+    {"bin", "raw", "img", "sub", "mdf", "wav", "ogg", "flac", "mp3"}
+)
 
 
 def playlist_files(files: list[RomFile]) -> list[RomFile]:
