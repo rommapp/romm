@@ -40,10 +40,18 @@ const tone = computed(() => payload.value?.tone ?? "warning");
 const confirmColor = computed(() =>
   tone.value === "danger" ? "error" : "warning",
 );
+// The hint renders the required string as HTML, which collapses runs of
+// whitespace, so a name carrying a double space (an unidentified platform
+// named from its folder, say) can never be typed back as stored. Compare on
+// the shape the user actually sees.
+function normalize(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 const confirmDisabled = computed(() => {
   const required = payload.value?.requireTyped;
   if (!required) return false;
-  return typed.value.trim() !== required;
+  return normalize(typed.value) !== normalize(required);
 });
 
 function onShow(p: Payload) {
