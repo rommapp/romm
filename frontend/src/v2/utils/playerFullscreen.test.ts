@@ -1,75 +1,74 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { installFullscreenFallback } from "./playerFullscreen";
 
-// The fallback gates on Element.prototype, so the tests move the native
-// methods on and off it rather than faking a user agent.
+// happy-dom ships no Fullscreen API, so the fallback installs by default here
+// and a test opts into the native path by defining the method itself.
 const NATIVE_KEYS = ["requestFullscreen", "webkitRequestFullscreen"] as const;
-const nativeDescriptors = NATIVE_KEYS.map(
-  (key) =>
-    [key, Object.getOwnPropertyDescriptor(Element.prototype, key)] as const,
-);
 
-function withoutNativeFullscreen() {
-  NATIVE_KEYS.forEach((key) => Reflect.deleteProperty(Element.prototype, key));
-}
+let dispose: (() => void) | undefined;
 
-function withNativeFullscreen() {
-  Object.defineProperty(Element.prototype, "requestFullscreen", {
-    value: () => Promise.resolve(),
+function defineNative(key: (typeof NATIVE_KEYS)[number], value: unknown) {
+  Object.defineProperty(Element.prototype, key, {
+    value,
     configurable: true,
     writable: true,
   });
 }
 
-afterEach(() => {
+beforeEach(() => {
   NATIVE_KEYS.forEach((key) => Reflect.deleteProperty(Element.prototype, key));
-  nativeDescriptors.forEach(([key, descriptor]) => {
-    if (descriptor) Object.defineProperty(Element.prototype, key, descriptor);
-  });
+});
+
+// Disposed here rather than inline so a failed assertion cannot leave the
+// document patched for the next test.
+afterEach(() => {
+  dispose?.();
+  dispose = undefined;
+  NATIVE_KEYS.forEach((key) => Reflect.deleteProperty(Element.prototype, key));
   document.body.innerHTML = "";
 });
 
+// The deprecated alias the fallback also defines; lib.dom has no type for it.
+function legacyFullScreen(): unknown {
+  return Reflect.get(document, "fullScreen");
+}
+
+function mountStage() {
+  const el = document.createElement("div");
+  document.body.appendChild(el);
+  return el;
+}
+
 describe("installFullscreenFallback", () => {
   it("stands aside where the native API exists", () => {
-    withNativeFullscreen();
+    defineNative("requestFullscreen", () => Promise.resolve());
     const before = HTMLElement.prototype.requestFullscreen;
 
-    const dispose = installFullscreenFallback();
+    dispose = installFullscreenFallback();
 
     expect(HTMLElement.prototype.requestFullscreen).toBe(before);
-    dispose();
   });
 
   it("stands aside where only the webkit-prefixed API exists (iPad)", () => {
-    withoutNativeFullscreen();
-    Object.defineProperty(Element.prototype, "webkitRequestFullscreen", {
-      value: () => undefined,
-      configurable: true,
-      writable: true,
-    });
+    defineNative("webkitRequestFullscreen", () => undefined);
     const before = HTMLElement.prototype.requestFullscreen;
 
-    const dispose = installFullscreenFallback();
+    dispose = installFullscreenFallback();
 
     expect(HTMLElement.prototype.requestFullscreen).toBe(before);
-    dispose();
   });
 
   it("reports fullscreen as available once installed", () => {
-    withoutNativeFullscreen();
-    const dispose = installFullscreenFallback();
+    dispose = installFullscreenFallback();
 
     expect(document.fullscreenEnabled).toBe(true);
     expect(document.fullscreenElement).toBeNull();
-
-    dispose();
+    expect(legacyFullScreen()).toBe(false);
   });
 
   it("marks the element and fires fullscreenchange on enter", async () => {
-    withoutNativeFullscreen();
-    const dispose = installFullscreenFallback();
-    const el = document.createElement("div");
-    document.body.appendChild(el);
+    dispose = installFullscreenFallback();
+    const el = mountStage();
 
     let changes = 0;
     document.addEventListener("fullscreenchange", () => changes++);
@@ -78,35 +77,30 @@ describe("installFullscreenFallback", () => {
 
     expect(el.hasAttribute("data-fullscreen-fallback")).toBe(true);
     expect(document.fullscreenElement).toBe(el);
+    // The deprecated alias support probes read; see playerFullscreen.ts.
+    expect(legacyFullScreen()).toBe(true);
     expect(changes).toBe(1);
-
-    dispose();
   });
 
   it("clears the element on exit", async () => {
-    withoutNativeFullscreen();
-    const dispose = installFullscreenFallback();
-    const el = document.createElement("div");
-    document.body.appendChild(el);
+    dispose = installFullscreenFallback();
+    const el = mountStage();
 
     await el.requestFullscreen();
     await document.exitFullscreen();
 
     expect(el.hasAttribute("data-fullscreen-fallback")).toBe(false);
     expect(document.fullscreenElement).toBeNull();
-
-    dispose();
+    expect(legacyFullScreen()).toBe(false);
   });
 
   it("restores the patched API and removes its stylesheet on dispose", async () => {
-    withoutNativeFullscreen();
     const styleCount = document.head.querySelectorAll("style").length;
 
-    const dispose = installFullscreenFallback();
-    const el = document.createElement("div");
-    document.body.appendChild(el);
+    const install = installFullscreenFallback();
+    const el = mountStage();
     await el.requestFullscreen();
-    dispose();
+    install();
 
     expect("requestFullscreen" in HTMLElement.prototype).toBe(false);
     expect(document.head.querySelectorAll("style")).toHaveLength(styleCount);

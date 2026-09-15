@@ -53,7 +53,7 @@ import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
-import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
+import { useFullscreenFallback } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -89,11 +89,9 @@ const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
 const playingStore = storePlaying();
 const configStore = storeConfig();
-const { playing, fullScreen } = storeToRefs(playingStore);
+const { playing } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
-// EmulatorJS drives fullscreen through its own control, so no target here:
-// this is for the fallback the library's call goes through.
-usePlayerFullscreen();
+useFullscreenFallback();
 const { modality } = useInputModality();
 const playSession = usePlaySession();
 
@@ -226,7 +224,6 @@ async function onPlay() {
   }
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
-  fullScreen.value = fullscreenOnPlay.value;
   playing.value = true;
 
   const { EJS_NETPLAY_ENABLED } = configStore.config;
@@ -256,7 +253,6 @@ async function onPlay() {
     // leaving the unload guard and the input mute armed.
     gameRunning.value = false;
     playing.value = false;
-    fullScreen.value = false;
   }
 }
 

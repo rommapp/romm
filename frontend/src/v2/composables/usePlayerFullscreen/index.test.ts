@@ -1,79 +1,56 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { effectScope, ref, type EffectScope } from "vue";
-import { usePlayerFullscreen } from "./index";
+import { useFullscreenFallback, usePlayerFullscreen } from "./index";
 
-// happy-dom ships no Fullscreen API, so the fallback installs by default here
-// and a test opts into the native path by defining the method itself.
-const NATIVE_KEYS = ["requestFullscreen", "webkitRequestFullscreen"] as const;
+// happy-dom ships no Fullscreen API, so the fallback installs by default here.
+// The util's own spec covers its behaviour; this covers the composable's.
+const scopes: EffectScope[] = [];
 
-let scope: EffectScope | null = null;
-
-// Stopped in afterEach rather than inline: a failed assertion inside
-// scope.run() would otherwise leave the fallback patched for the next test.
-function runInScope<T>(fn: () => T): T {
-  scope = effectScope();
-  return scope.run(fn) as T;
+function runInScope<T>(fn: () => T): { value: T; scope: EffectScope } {
+  const scope = effectScope();
+  scopes.push(scope);
+  return { value: scope.run(fn) as T, scope };
 }
 
+// Stopped here rather than inline so a failed assertion cannot leave the
+// document patched for the next test.
 afterEach(() => {
-  scope?.stop();
-  scope = null;
-  NATIVE_KEYS.forEach((key) => Reflect.deleteProperty(Element.prototype, key));
+  while (scopes.length) scopes.pop()?.stop();
+  Reflect.deleteProperty(Element.prototype, "requestFullscreen");
   document.body.innerHTML = "";
 });
 
-function mountStage() {
-  const el = document.createElement("div");
-  document.body.appendChild(el);
-  return ref<HTMLElement | null>(el);
-}
-
-describe("usePlayerFullscreen", () => {
-  it("installs the fallback so a stage can go fullscreen without the native API", async () => {
-    const stage = mountStage();
-    const { enter, isFullscreen } = runInScope(() =>
-      usePlayerFullscreen(stage),
-    );
-
-    await enter();
-
-    expect(stage.value?.hasAttribute("data-fullscreen-fallback")).toBe(true);
-    expect(isFullscreen.value).toBe(true);
-  });
-
-  it("exits back out of the fallback", async () => {
-    const stage = mountStage();
-    const { enter, exit, isFullscreen } = runInScope(() =>
-      usePlayerFullscreen(stage),
-    );
-
-    await enter();
-    await exit();
-
-    expect(stage.value?.hasAttribute("data-fullscreen-fallback")).toBe(false);
-    expect(isFullscreen.value).toBe(false);
-  });
-
+describe("useFullscreenFallback", () => {
   it("removes the fallback when the scope is disposed", () => {
-    runInScope(() => usePlayerFullscreen());
+    const { scope } = runInScope(() => useFullscreenFallback());
     expect("requestFullscreen" in HTMLElement.prototype).toBe(true);
 
-    scope?.stop();
+    scope.stop();
 
     expect("requestFullscreen" in HTMLElement.prototype).toBe(false);
   });
 
-  it("stands aside where the native API exists", () => {
-    const native = () => Promise.resolve();
-    Object.defineProperty(Element.prototype, "requestFullscreen", {
-      value: native,
-      configurable: true,
-      writable: true,
-    });
+  it("keeps the fallback while another consumer still holds it", () => {
+    const first = runInScope(() => useFullscreenFallback());
+    runInScope(() => useFullscreenFallback());
 
-    runInScope(() => usePlayerFullscreen(mountStage()));
+    first.scope.stop();
 
-    expect(Element.prototype.requestFullscreen).toBe(native);
+    expect("requestFullscreen" in HTMLElement.prototype).toBe(true);
+  });
+});
+
+describe("usePlayerFullscreen", () => {
+  it("drives the stage through the installed fallback", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const stage = ref<HTMLElement | null>(el);
+
+    const { value } = runInScope(() => usePlayerFullscreen(stage));
+    await value.enter();
+
+    expect(value.isFullscreen.value).toBe(true);
+    expect(el.hasAttribute("data-fullscreen-fallback")).toBe(true);
   });
 
   it("swallows a denied request instead of rejecting", async () => {
@@ -82,8 +59,13 @@ describe("usePlayerFullscreen", () => {
       configurable: true,
       writable: true,
     });
-    const { enter } = runInScope(() => usePlayerFullscreen(mountStage()));
+    const el = document.createElement("div");
+    document.body.appendChild(el);
 
-    await expect(enter()).resolves.toBeUndefined();
+    const { value } = runInScope(() =>
+      usePlayerFullscreen(ref<HTMLElement | null>(el)),
+    );
+
+    await expect(value.enter()).resolves.toBeUndefined();
   });
 });

@@ -1,9 +1,5 @@
 // iPhone exposes no Fullscreen API on non-video elements, so a player's
-// fullscreen control is inert there. We emulate just enough of the API to
-// drive a fixed, viewport-filling stage.
-//
-// No nav-hiding counterpart is needed: players call useStageActive, which
-// unmounts AppNav and BottomNav for the duration of the session.
+// fullscreen control is inert there without this.
 const FULLSCREEN_STYLE = `
   [data-fullscreen-fallback] {
     position: fixed !important;
@@ -17,12 +13,11 @@ const FULLSCREEN_STYLE = `
 
 // Feature-detected rather than sniffed for iOS: iPad has the API behind the
 // webkit prefix and iPhone has none at all, so sniffing would swap a working
-// native implementation for this one on iPad. It also retires the fallback by
-// itself if iPhone ever ships the real API.
-function hasNativeElementFullscreen() {
+// native implementation for this one on iPad.
+function hasElementFullscreen() {
   return (
-    "requestFullscreen" in Element.prototype ||
-    "webkitRequestFullscreen" in Element.prototype
+    "requestFullscreen" in HTMLElement.prototype ||
+    "webkitRequestFullscreen" in HTMLElement.prototype
   );
 }
 
@@ -33,7 +28,7 @@ function hasNativeElementFullscreen() {
  * patched property. A no-op wherever the native API exists.
  */
 export function installFullscreenFallback(): () => void {
-  if (hasNativeElementFullscreen()) {
+  if (hasElementFullscreen()) {
     return () => {};
   }
 
@@ -88,9 +83,8 @@ export function installFullscreenFallback(): () => void {
 
   override(document, "fullscreenEnabled", { get: () => true });
   override(document, "fullscreenElement", { get: () => fullscreenElement });
-  // The deprecated alias for "is the document fullscreen". Support probes
-  // (vueuse's useFullscreen among them) read it to decide the API is usable,
-  // so a polyfill that omits it reads as unsupported and silently no-ops.
+  // Support probes read this deprecated alias to decide the API is usable, so
+  // omitting it makes the polyfill read as unsupported.
   override(document, "fullScreen", { get: () => fullscreenElement !== null });
   override(document, "exitFullscreen", { value: exit, writable: true });
   override(proto, "requestFullscreen", {

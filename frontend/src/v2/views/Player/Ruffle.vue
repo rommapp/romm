@@ -14,7 +14,7 @@ import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
-import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
+import { useFullscreenFallback } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { colorCanvas } from "@/v2/tokens";
@@ -24,9 +24,7 @@ const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
 
 const { t } = useI18n();
 const { fullscreenOnPlay } = useFullscreenPref();
-// Ruffle drives fullscreen through its own control, so no target here:
-// this is for the fallback the library's call goes through.
-usePlayerFullscreen();
+useFullscreenFallback();
 const playingStore = storePlaying();
 const playSession = usePlaySession();
 

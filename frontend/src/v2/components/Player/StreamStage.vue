@@ -259,8 +259,6 @@ watch(
 );
 
 // ── Fullscreen ─────────────────────────────────────────────────────
-// `leaveFullscreen` is called before showing anything teleported to <body>:
-// a fullscreened element paints over the whole page, dialogs included.
 const {
   isFullscreen,
   enter: enterFullscreen,
@@ -268,12 +266,11 @@ const {
   toggle: toggleFullscreen,
 } = usePlayerFullscreen(stageRef);
 
-useEventListener(document, "fullscreenchange", () => {
+const resetStageTop = () => {
   stageTop = null;
-});
-useEventListener(window, "resize", () => {
-  stageTop = null;
-});
+};
+useEventListener(document, "fullscreenchange", resetStageTop);
+useEventListener(window, "resize", resetStageTop);
 useEventListener(window, "message", onFrameAnnounce);
 
 onBeforeUnmount(() => {
@@ -283,7 +280,9 @@ onBeforeUnmount(() => {
 });
 
 // Fullscreen state and its toggle reach the bar as slot props, so only what a
-// parent drives imperatively is exposed here.
+// parent drives imperatively is exposed here. Callers use `leaveFullscreen`
+// before showing anything teleported to <body>: a fullscreened element paints
+// over the whole page, dialogs included.
 defineExpose({
   focusStream,
   postToStream,

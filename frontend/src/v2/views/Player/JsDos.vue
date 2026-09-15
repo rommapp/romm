@@ -13,7 +13,7 @@ import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
-import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
+import { useFullscreenFallback } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
@@ -31,9 +31,7 @@ const { t } = useI18n();
 const authStore = storeAuth();
 const playingStore = storePlaying();
 const { fullscreenOnPlay } = useFullscreenPref();
-// js-dos drives fullscreen through its own control, so no target here:
-// this is for the fallback the library's call goes through.
-usePlayerFullscreen();
+useFullscreenFallback();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
