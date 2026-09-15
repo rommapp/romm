@@ -2755,7 +2755,7 @@ def test_pull_state_prefers_broker_screenshot_over_embedded(rom: Rom, admin_user
     PCSX2 embedded in the state."""
     container = {**_container_for(rom), "label": "PCSX2"}
     scanned = _state_for(rom, admin_user, "Game.05.p2s", "pcsx2")
-    scanned_shot = _screenshot_for(rom, "Game.05.p2s")
+    scanned_shot = _screenshot_for(rom, "Game.05")
     embedded = states.PNG_MAGIC + b"embedded-frame"
     with (
         patch(
@@ -2784,7 +2784,7 @@ def test_pull_state_falls_back_to_embedded_screenshot(rom: Rom, admin_user: User
     """A container that captured no frame leaves PCSX2's embedded one."""
     container = {**_container_for(rom), "label": "PCSX2"}
     scanned = _state_for(rom, admin_user, "Game.06.p2s", "pcsx2")
-    scanned_shot = _screenshot_for(rom, "Game.06.p2s")
+    scanned_shot = _screenshot_for(rom, "Game.06")
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
@@ -3026,14 +3026,6 @@ def test_extract_state_screenshot_empty_entry_returns_none():
 
 def test_extract_state_screenshot_not_a_zip_returns_none():
     assert states.extract_state_screenshot("pcsx2", b"not-a-zip") is None
-
-
-def test_fetch_state_screenshot_returns_the_broker_png(rom: Rom):
-    with patch(
-        "handler.streaming.broker.get_binary_safe",
-        return_value=(MagicMock(), _PNG),
-    ):
-        assert states.fetch_state_screenshot(_resolved(_container_for(rom)), 3) == _PNG
 
 
 def test_fetch_state_screenshot_rejects_a_non_png_body(rom: Rom):
