@@ -155,7 +155,7 @@ async def pull_saves_to_library(
 def _written_by(save: Save, emulator: str) -> bool:
     """An archive another emulator wrote lays its members out somewhere this
     one never reads."""
-    return (save.emulator or "").lower() == emulator.strip().lower()
+    return (save.emulator or "").lower() == emulator
 
 
 def _is_archive(save: Save) -> bool:

@@ -292,10 +292,8 @@ const showManualDiscHint = computed(
 // arrives newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// What the broker can put back for this emulator: a bare save file carries no
-// layout to restore it from, so only an archive counts. Re-sorted (created_at,
-// then id) the way the backend restores, because user_saves arrives on
-// updated_at, which a content-hash write moves.
+// Only an archive carries a layout the broker can restore from. Re-sorted on
+// created_at because user_saves arrives on updated_at, which a rehash moves.
 const restorableSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
   if (!rom.value || !emulator) return [];
@@ -325,9 +323,8 @@ const showSavePicker = computed(
     restorableSaves.value.length > 0,
 );
 
-// Unlike a state, a save has no "none": the claim restores the newest when it
-// names nothing, so the picker always holds a selection. Holding the id rather
-// than the row lets a pick that is no longer on offer fall back on its own.
+// The id rather than the row, so a pick that is no longer on offer falls back
+// to the newest on its own. A save has no "none": the claim restores one either way.
 const savePickId = ref<number | null>(null);
 
 const selectedSave = computed<SaveSchema | null>(
