@@ -251,6 +251,7 @@
   "native-error-download": "{name} не можа да бъде изтеглена",
   "native-error-no-emulator": "За тази платформа не е настроен емулатор",
   "native-error-running": "{name} вече е стартирана",
+  "native-fetching-firmware": "Изтегляне на {firmware}",
   "native-installing-core": "Инсталиране на {core}",
   "native-launch-failed": "{name} не можа да бъде стартирана",
   "native-preparing": "Подготвяне на {emulator}",

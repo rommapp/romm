@@ -251,6 +251,7 @@
   "native-error-download": "{name}을(를) 다운로드할 수 없습니다",
   "native-error-no-emulator": "이 플랫폼에 설정된 에뮬레이터가 없습니다",
   "native-error-running": "{name}이(가) 이미 실행 중입니다",
+  "native-fetching-firmware": "{firmware} 가져오는 중",
   "native-installing-core": "{core} 설치 중",
   "native-launch-failed": "{name}을(를) 실행할 수 없습니다",
   "native-preparing": "{emulator} 준비 중",

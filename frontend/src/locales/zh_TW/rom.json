@@ -251,6 +251,7 @@
   "native-error-download": "無法下載 {name}",
   "native-error-no-emulator": "尚未為此平台設定模擬器",
   "native-error-running": "{name} 已在執行",
+  "native-fetching-firmware": "正在取得 {firmware}",
   "native-installing-core": "正在安裝 {core}",
   "native-launch-failed": "無法啟動 {name}",
   "native-preparing": "正在準備 {emulator}",

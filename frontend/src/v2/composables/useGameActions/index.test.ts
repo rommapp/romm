@@ -31,7 +31,13 @@ const joinableSession = {
 // running right now, both of which the composable only reads.
 const nativeEmulator = { value: null as string | null };
 const nativeLaunchState = {
-  value: null as { status: string; stage?: string; progress?: number } | null,
+  value: null as {
+    status: string;
+    stage?: string;
+    core?: string;
+    firmware?: string;
+    progress?: number;
+  } | null,
 };
 const nativeLaunch = vi.fn(async () => null as string | null);
 const nativeCancel = vi.fn(async () => {});
@@ -533,6 +539,10 @@ describe("useGameActions — the native action label", () => {
     [
       { status: "downloading", stage: "core", core: "snes9x" },
       "rom.native-installing-core",
+    ],
+    [
+      { status: "downloading", stage: "firmware", firmware: "scph5501.bin" },
+      "rom.native-fetching-firmware",
     ],
     [{ status: "downloading", stage: "emulator" }, "rom.native-preparing"],
     [{ status: "downloading" }, "rom.native-starting"],

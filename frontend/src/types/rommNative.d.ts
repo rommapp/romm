@@ -47,9 +47,12 @@ export interface LaunchState {
   /** What is being fetched while downloading. Absent means the ROM.
    *  "emulator" covers both fetching a standalone emulator and the wait while
    *  the user installs it, which has no progress to report. */
-  stage?: "rom" | "core" | "emulator";
+  stage?: "rom" | "core" | "emulator" | "firmware";
   /** The core being installed, while stage is "core". */
   core?: string;
+  /** The firmware file being fetched, while stage is "firmware". Its own field
+   *  rather than borrowing `core`, so neither has to be read as the other. */
+  firmware?: string;
   /** The emulator being set up, while stage is "emulator". */
   emulator?: string;
   /** 0..1 while downloading, absent otherwise. */
@@ -97,7 +100,10 @@ export interface PlatformSupport {
  *  the shell honours, a `LaunchState` field it populates, a change to what an
  *  existing method does. Read through `hasNativeCapability`. */
 export type ShellCapability =
-  "launch-stage" | "library-passthrough" | "platform-support-all";
+  | "launch-stage"
+  | "library-passthrough"
+  | "platform-support-all"
+  | "firmware-mirror";
 
 export interface RommNativeBridge {
   readonly shellVersion: string;

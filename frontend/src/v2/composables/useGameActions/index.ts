@@ -184,6 +184,11 @@ export function useGameActions(
     if (state?.stage === "core" && state.core) {
       return t("rom.native-installing-core", { core: state.core });
     }
+    // Named rather than left to the percentage below, which is absent whenever
+    // the server declares no length.
+    if (state?.stage === "firmware" && state.firmware) {
+      return t("rom.native-fetching-firmware", { firmware: state.firmware });
+    }
     if (state?.stage === "emulator") {
       return t("rom.native-preparing", {
         emulator: state.emulator || nativeLabel.value,

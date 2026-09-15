@@ -251,6 +251,7 @@
   "native-error-download": "Could not download {name}",
   "native-error-no-emulator": "No emulator is set up for this platform",
   "native-error-running": "{name} is already running",
+  "native-fetching-firmware": "Fetching {firmware}",
   "native-installing-core": "Installing {core}",
   "native-launch-failed": "Could not start {name}",
   "native-preparing": "Setting up {emulator}",
