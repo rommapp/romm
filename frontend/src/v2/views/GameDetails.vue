@@ -34,6 +34,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useRomScanRefresh } from "@/v2/composables/useRomScanRefresh";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { overviewScreenshotUrls } from "@/v2/utils/romScreenshots";
 import { isRomVerified } from "@/v2/utils/romVerification";
 
 const route = useRoute();
@@ -286,6 +287,9 @@ const statesCount = computed(() => currentRom.value?.user_states?.length ?? 0);
 const saveDataCount = computed(() => savesCount.value + statesCount.value);
 
 const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
+const overviewScreenshots = computed(() =>
+  currentRom.value ? overviewScreenshotUrls(currentRom.value) : [],
+);
 
 // The patcher tab is always available: a base game file can be patched with
 // one of the ROM's bundled patch files or with a patch uploaded from disk, so
@@ -340,7 +344,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :hltb="currentRom.hltb_metadata"
             :last-played="lastPlayed"
             :revision="currentRom.revision ?? null"
-            :screenshots="currentRom.merged_screenshots ?? []"
+            :screenshots="overviewScreenshots"
             :expansions="expansions"
             :dlcs="dlcs"
             :remakes="remakes"

@@ -23,6 +23,7 @@ export type UserScreenshotSchema = {
     updated_at: string;
     is_gallery?: boolean;
     is_public?: boolean;
+    is_overview?: boolean;
     username: string;
     user_avatar_path?: string;
     user_updated_at?: (string | null);
