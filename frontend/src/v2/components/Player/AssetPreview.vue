@@ -6,8 +6,8 @@
 // jumping when the user switches tabs or clears the selection.
 //
 // What changes inside the stage:
-//   • Any asset carrying a capture: the screenshot. Saves carry one as
-//     readily as states do, so the stage keys off the capture, not the type.
+//   • Any asset carrying a capture: the screenshot. The stage keys off the
+//     capture, not the asset type.
 //   • State without one: the "no screenshot" placeholder.
 //   • Save without one: a featured save graphic (icon + decorative backdrop).
 //   • Empty: the empty-state art for the active type.
@@ -72,7 +72,7 @@ const emptyText = computed(() =>
         'r-asset-preview__stage--empty': !asset,
       }"
     >
-      <!-- The capture, whichever kind of asset carries it (#4422). -->
+      <!-- The capture, whichever kind of asset carries it. -->
       <div v-if="screenshotUrl" class="r-asset-preview__stage-shot">
         <!-- Blurred cover copy fills the letterbox left by the
              contained frame, so the whole screenshot stays visible

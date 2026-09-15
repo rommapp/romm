@@ -67,8 +67,8 @@ beforeEach(() => {
   storeAuth().user = { id: MY_ID } as User;
 });
 
-// Issue #4320: states used to render as 150px AssetStrip tiles that dropped the
-// emulator chip and the exact timestamp and truncated the filename unrecoverably.
+// States get the same row detail as saves: emulator chip, exact timestamp and
+// a filename recoverable from the tooltip.
 describe("SaveDataTab states subtab", () => {
   it("renders states through AssetList, like saves", () => {
     const lists = mountTab()
@@ -81,12 +81,6 @@ describe("SaveDataTab states subtab", () => {
       // The tab owns its own scroll, so the list must not add a second one.
       expect(list.props("scrollable")).toBe(false);
     }
-  });
-
-  it("no longer mounts an AssetStrip", () => {
-    expect(mountTab().findAllComponents({ name: "AssetStrip" })).toHaveLength(
-      0,
-    );
   });
 
   // Mine and Community are separate AssetList instances stacked in one

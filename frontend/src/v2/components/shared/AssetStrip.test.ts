@@ -29,8 +29,8 @@ function mountStrip(selectedId: number | null = null) {
   });
 }
 
-// #4422: the thumb used to be gated on `type === 'state'`, hiding the capture a
-// save carries just as readily.
+// The thumb follows the capture, not the asset type: a save carries one just
+// as readily as a state.
 describe("AssetStrip thumbnails", () => {
   const withShot = (id: number) =>
     ({

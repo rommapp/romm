@@ -242,7 +242,7 @@ export const Empty: Story = {
   }),
 };
 
-// ── States (issue #4320) ─────────────────────────────────────────
+// ── States ───────────────────────────────────────────────────────
 
 // States render through the same list as saves. The capture goes in the
 // leading cell, widened to 16:9 so it's actually readable.
@@ -324,7 +324,7 @@ export const ManageMode: Story = {
   }),
 };
 
-// ── Save detail (issue #4320) ────────────────────────────────────
+// ── Save detail ──────────────────────────────────────────────────
 
 // The content hash companion apps compare, on the rows that carry one. The
 // third save predates the backfill, so its chip is absent rather than empty.

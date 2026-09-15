@@ -2,12 +2,8 @@
 // Vertical list of saves or states. Shared between the EmulatorJS pre-game
 // view (selection) and the GameDetails "Save data" subtab (management).
 //
-// Rows favour information density: the filename (truncated, with the full
-// string on hover), the relative time AND the exact timestamp, plus the size,
-// emulator and content-hash chips. The leading cell widens into a 16:9
-// thumbnail when anything in the list has a screenshot: saves carry one as
-// readily as states do, because the player captures a single frame and
-// uploads it with both.
+// Rows favour information density over the tile strip's artwork. The leading
+// cell widens into a 16:9 thumbnail when anything in the list has a capture.
 //
 // Two modes, driven by `selectable`:
 //   * selectable (default) — Play view. Each row is a button; clicking
@@ -18,14 +14,14 @@
 import { RAvatar, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { UserSaveSchema, UserStateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
 import HashChip from "@/v2/components/shared/HashChip.vue";
 import {
+  ASSET_TYPE_META,
   type Asset,
   type AssetType,
   anyAssetHasScreenshot,
-  assetFallbackIcon,
+  assetOwner,
   assetScreenshotUrl,
 } from "@/v2/utils/asset";
 import { toCssUrl } from "@/v2/utils/css";
@@ -46,7 +42,8 @@ const props = withDefaults(
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
     /** Force the leading cell wide or narrow. Set it when sibling lists
-     *  read as one table and so must agree; otherwise each list decides. */
+     *  read as one table and so must agree; otherwise each list decides.
+     *  Null, not undefined: Vue casts an absent Boolean prop to false. */
     thumbs?: boolean | null;
   }>(),
   {
@@ -68,25 +65,11 @@ defineSlots<{
 
 const { t, locale } = useI18n();
 
-const emptyLabel = computed(() =>
-  props.type === "save"
-    ? t("play.no-saves-available")
-    : t("play.no-states-available"),
-);
+const typeMeta = computed(() => ASSET_TYPE_META[props.type]);
 
-function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
-  return "username" in asset && asset.username ? asset : null;
-}
-
-// Widening is decided per list rather than per row, so the names of rows
-// whose asset happens to lack a screenshot still line up with the rest. A
-// parent rendering sibling lists can override it so they line up with each
-// other too.
 const showThumbs = computed(
   () => props.thumbs ?? anyAssetHasScreenshot(props.assets),
 );
-
-const fallbackIcon = computed(() => assetFallbackIcon(props.type));
 </script>
 
 <template>
@@ -122,27 +105,27 @@ const fallbackIcon = computed(() => assetFallbackIcon(props.type));
               class="r-asset-list__shot"
               :style="{ backgroundImage: toCssUrl(assetScreenshotUrl(asset)!) }"
             />
-            <RIcon v-else :icon="fallbackIcon" :size="showThumbs ? 26 : 22" />
+            <RIcon v-else :icon="typeMeta.icon" :size="showThumbs ? 26 : 22" />
           </span>
 
           <span class="r-asset-list__main">
             <span class="r-asset-list__name">{{ asset.file_name }}</span>
             <span class="r-asset-list__chips">
               <span
-                v-if="showOwner && ownerOf(asset)"
+                v-if="showOwner && assetOwner(asset)"
                 class="r-asset-list__owner"
               >
                 <RAvatar
                   :image="
                     userAvatarUrl({
-                      userId: ownerOf(asset)!.user_id,
-                      avatarPath: ownerOf(asset)!.user_avatar_path,
-                      updatedAt: ownerOf(asset)!.user_updated_at,
+                      userId: assetOwner(asset)!.user_id,
+                      avatarPath: assetOwner(asset)!.user_avatar_path,
+                      updatedAt: assetOwner(asset)!.user_updated_at,
                     })
                   "
                   :size="16"
                 />
-                <span>{{ ownerOf(asset)!.username }}</span>
+                <span>{{ assetOwner(asset)!.username }}</span>
               </span>
               <RTag
                 v-if="'slot' in asset && asset.slot"
@@ -162,9 +145,8 @@ const fallbackIcon = computed(() => assetFallbackIcon(props.type));
                 <RIcon icon="mdi-weight" size="11" />
                 {{ formatBytes(asset.file_size_bytes) }}
               </span>
-              <!-- A selectable row is a <button>; HashChip is one too, and
-                   nesting them is invalid markup. The hash is a management
-                   detail anyway. -->
+              <!-- A selectable row is a <button>, and HashChip is one too,
+                   so nesting them would be invalid markup. -->
               <HashChip
                 v-if="
                   !selectable && 'content_hash' in asset && asset.content_hash
@@ -218,13 +200,8 @@ const fallbackIcon = computed(() => assetFallbackIcon(props.type));
     </ul>
 
     <div v-else class="r-asset-list__empty">
-      <RIcon
-        :icon="
-          type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'
-        "
-        size="28"
-      />
-      <p>{{ emptyLabel }}</p>
+      <RIcon :icon="typeMeta.emptyIcon" size="28" />
+      <p>{{ t(typeMeta.emptyLabelKey) }}</p>
     </div>
   </div>
 </template>
@@ -473,10 +450,8 @@ html[data-bp~="xs"] .r-asset-list__icon--thumb {
 html[data-bp~="xs"] .r-asset-list__row {
   padding: 8px 10px;
 }
-/* A phone row has no width to spare, and the thumbnail takes the little
-   there was, so the name gets a line to itself and the time drops beneath
-   it alongside the actions. Rows keeping the icon square have the width for
-   one line and stay on it. */
+/* The thumbnail takes what little width a phone row has, so the name gets a
+   line to itself. Rows keeping the icon square still fit on one. */
 html[data-bp~="xs"] .r-asset-list__row--thumb {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:

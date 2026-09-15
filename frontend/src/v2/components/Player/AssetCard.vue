@@ -11,12 +11,10 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
-import { assetScreenshotUrl } from "@/v2/utils/asset";
+import { type AssetType, assetScreenshotUrl } from "@/v2/utils/asset";
 import { getEmptyCoverImage } from "@/v2/utils/covers";
 
 defineOptions({ inheritAttrs: false });
-
-export type AssetType = "save" | "state";
 
 const props = defineProps<{
   asset: SaveSchema | StateSchema;
@@ -29,9 +27,8 @@ defineEmits<{
 
 const { t, locale } = useI18n();
 
-// Saves carry a capture as readily as states do. Without one, fall back to a
-// placeholder keyed by the file name so identical filenames render the same
-// colour, a visual cue across the grid that two assets share a base name.
+// Without a capture, fall back to a placeholder keyed by the file name, so
+// two assets sharing a base name render the same colour across the grid.
 const screenshotSrc = computed(
   () =>
     assetScreenshotUrl(props.asset) ??

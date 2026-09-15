@@ -34,14 +34,13 @@ import AssetList from "@/v2/components/shared/AssetList.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { anyAssetHasScreenshot } from "@/v2/utils/asset";
+import { type Asset, anyAssetHasScreenshot } from "@/v2/utils/asset";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 // Slot payload from AssetList is the full save|state union; these narrow it
 // back to the concrete schema the section's handlers expect.
-type AssetSlot = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
-const asSave = (a: AssetSlot) => a as SaveSchema;
-const asState = (a: AssetSlot) => a as StateSchema;
+const asSave = (a: Asset) => a as SaveSchema;
+const asState = (a: Asset) => a as StateSchema;
 
 defineOptions({ inheritAttrs: false });
 
@@ -342,7 +341,7 @@ async function toggleStateVisibility(state: StateSchema) {
     </aside>
 
     <div class="r-v2-saves__content">
-      <!-- Saves subtab — vertical info list -->
+      <!-- Saves subtab: vertical info list -->
       <section v-show="subTab === 'saves'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
@@ -469,8 +468,8 @@ async function toggleStateVisibility(state: StateSchema) {
         </div>
       </section>
 
-      <!-- States subtab: same row list as saves, with the capture
-           screenshot in the leading cell (issue #4320) -->
+      <!-- States subtab: same row list as saves, with the capture in the
+           leading cell -->
       <section v-show="subTab === 'states'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">

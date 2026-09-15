@@ -5,8 +5,7 @@
 // "you're about to resume from this one". Hovering lifts the tile; tiles are
 // focusable for gamepad/key navigation.
 //
-// Tiles show their 16:9 capture prominently; whichever kind of asset carries
-// one gets it, and the rest fall back to a type-aware icon.
+// Tiles lead with the 16:9 capture, falling back to a type-aware icon.
 //
 // Layout (`layout`), all sharing one tile markup:
 //   * strip (default) - single horizontal row, scroll + snap, never wraps;
@@ -18,12 +17,12 @@
 import { RAvatar, RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { UserSaveSchema, UserStateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
 import {
+  ASSET_TYPE_META,
   type Asset,
   type AssetType,
-  assetFallbackIcon,
+  assetOwner,
   assetScreenshotUrl,
 } from "@/v2/utils/asset";
 import { toCssUrl } from "@/v2/utils/css";
@@ -54,15 +53,7 @@ defineEmits<{
 
 const { t, locale } = useI18n();
 
-const emptyLabel = computed(() =>
-  props.type === "save"
-    ? t("play.no-saves-available")
-    : t("play.no-states-available"),
-);
-
-function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
-  return "username" in asset && asset.username ? asset : null;
-}
+const typeMeta = computed(() => ASSET_TYPE_META[props.type]);
 </script>
 
 <template>
@@ -100,7 +91,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
             :style="{ backgroundImage: toCssUrl(assetScreenshotUrl(asset)!) }"
           />
           <div v-else class="r-asset-strip__thumb-icon">
-            <RIcon :icon="assetFallbackIcon(type)" size="28" />
+            <RIcon :icon="typeMeta.icon" size="28" />
           </div>
           <span
             v-if="asset.id === selectedId"
@@ -119,18 +110,21 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
             <span class="r-asset-strip__dot" aria-hidden="true">·</span>
             <span>{{ formatBytes(asset.file_size_bytes) }}</span>
           </p>
-          <span v-if="showOwner && ownerOf(asset)" class="r-asset-strip__owner">
+          <span
+            v-if="showOwner && assetOwner(asset)"
+            class="r-asset-strip__owner"
+          >
             <RAvatar
               :image="
                 userAvatarUrl({
-                  userId: ownerOf(asset)!.user_id,
-                  avatarPath: ownerOf(asset)!.user_avatar_path,
-                  updatedAt: ownerOf(asset)!.user_updated_at,
+                  userId: assetOwner(asset)!.user_id,
+                  avatarPath: assetOwner(asset)!.user_avatar_path,
+                  updatedAt: assetOwner(asset)!.user_updated_at,
                 })
               "
               :size="14"
             />
-            <span>{{ ownerOf(asset)!.username }}</span>
+            <span>{{ assetOwner(asset)!.username }}</span>
           </span>
         </div>
         <RTooltip activator="parent" location="top" :open-delay="400">
@@ -146,13 +140,8 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
     </div>
 
     <div v-else class="r-asset-strip__empty">
-      <RIcon
-        :icon="
-          type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'
-        "
-        size="28"
-      />
-      <p>{{ emptyLabel }}</p>
+      <RIcon :icon="typeMeta.emptyIcon" size="28" />
+      <p>{{ t(typeMeta.emptyLabelKey) }}</p>
     </div>
   </div>
 </template>

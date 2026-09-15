@@ -34,9 +34,8 @@ function mountPreview(
   return shallowMount(AssetPreview, { props: { asset, type } });
 }
 
-// #4422: the stage used to gate the capture on `type === 'state'`, so a save
-// that had one showed the floppy medallion instead -- next to an AssetList row
-// that rendered the very same capture.
+// A save with a capture must get the screenshot shell, not the floppy
+// medallion, so it matches the AssetList row rendering the same capture.
 describe("AssetPreview stage", () => {
   it("shows a save's capture rather than the medallion", () => {
     const wrapper = mountPreview(makeAsset(shot()), "save");
