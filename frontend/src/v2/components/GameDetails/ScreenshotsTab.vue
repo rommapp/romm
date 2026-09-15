@@ -1,14 +1,14 @@
 <script setup lang="ts">
-// ScreenshotsTab — responsive grid of 16:9 screenshot thumbnails. Clicking
+// ScreenshotsTab: responsive grid of 16:9 screenshot thumbnails. Clicking
 // a thumbnail opens RCarousel in fullscreen (lightbox) mode with prev/next
 // navigation, a thumbnail strip, and keyboard / gamepad arrows.
 //
 // Per-item affordances are driven by the item fields + props (the parent,
 // MediaTab, performs the actions):
-//   * delete   — when `deletable` and the item is owned (top-right, hover)
-//   * lock     — when `togglable` and owned: public/private toggle (top-right)
-//   * overview — when `overviewTogglable` and owned: overview inclusion toggle
-//   * username — community items (others' public shots) show an owner chip
+//   * delete: when `deletable` and the item is owned (top-right, hover)
+//   * lock: when `togglable` and owned: public/private toggle (top-right)
+//   * overview: when `overviewTogglable` and owned: overview inclusion toggle
+//   * username: community items (others' public shots) show an owner chip
 import { RAvatar, RBtn, RCarousel, RIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
