@@ -72,14 +72,16 @@ function baselineSaveTrackerFromEmulator() {
   );
 }
 // Writes run one at a time so concurrent writers cannot both open a version;
-// loading a save bumps the generation, which voids writes queued before it.
+// loading a save bumps the generation, which voids writes queued before it,
+// and bytes read while a load is in flight are stale, so they are dropped.
 let saveWrite: Promise<unknown> = Promise.resolve();
 let saveGeneration = 0;
-function writeSave(file: {
-  saveFile: ArrayBuffer;
-  screenshotFile?: ArrayBuffer;
-}): Promise<SaveSchema | null> {
-  const generation = saveGeneration;
+let saveLoading = false;
+function writeSave(
+  file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer },
+  generation = saveGeneration,
+): Promise<SaveSchema | null> {
+  if (saveLoading) return Promise.resolve(null);
   const write = saveWrite.then(async () => {
     if (generation !== saveGeneration) return null;
     const save = await saveSave({
@@ -99,19 +101,22 @@ function writeSave(file: {
   return write;
 }
 // Forced writes (Save button, Save & Quit) wait for the queue, then skip only
-// when no version was opened yet and the SRAM still matches the loaded save.
+// when no version was opened yet and the SRAM still matches a slotted save
+// loaded from the server (a slot-less one still has to reach the slot).
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
 }): Promise<boolean> {
+  const generation = saveGeneration;
   await saveWrite;
   if (
     !sessionSaveRef.value &&
+    loadedSave?.slot &&
     saveTracker.isUploaded(new Uint8Array(file.saveFile))
   ) {
     return true;
   }
-  return (await writeSave(file)) !== null;
+  return (await writeSave(file, generation)) !== null;
 }
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -370,26 +375,31 @@ function installAutoSaveSync() {
 // Saves management
 async function loadSave(save: SaveSchema) {
   saveGeneration += 1;
+  saveLoading = true;
   loadedSave = save;
   sessionSaveRef.value = null;
 
-  const { data } = await api.get(save.download_path.replace("/api", ""), {
-    responseType: "arraybuffer",
-    params: { device_id: deviceIDRef.value },
-  });
-  if (data) {
-    const bytes = new Uint8Array(data);
-    loadEmulatorJSSave(bytes);
-    saveTracker.seed(bytes);
-    displayMessage("Save loaded from server", {
-      duration: 3000,
-      icon: "mdi-cloud-download-outline",
+  try {
+    const { data } = await api.get(save.download_path.replace("/api", ""), {
+      responseType: "arraybuffer",
+      params: { device_id: deviceIDRef.value },
     });
-    return;
-  }
+    if (data) {
+      const bytes = new Uint8Array(data);
+      loadEmulatorJSSave(bytes);
+      saveTracker.seed(bytes);
+      displayMessage("Save loaded from server", {
+        duration: 3000,
+        icon: "mdi-cloud-download-outline",
+      });
+      return;
+    }
 
-  const file = await window.EJS_emulator.selectFile();
-  loadEmulatorJSSave(new Uint8Array(await file.arrayBuffer()));
+    const file = await window.EJS_emulator.selectFile();
+    loadEmulatorJSSave(new Uint8Array(await file.arrayBuffer()));
+  } finally {
+    saveLoading = false;
+  }
 }
 
 window.EJS_onLoadSave = async function () {

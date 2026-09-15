@@ -218,6 +218,11 @@ describe("createSaveSyncTracker", () => {
 
     expect(tracker.shouldUpload(bytes(9))).toBe(false);
     expect(tracker.shouldUpload(bytes(9))).toBe(true);
+
+    // Once something was uploaded, returning to the baseline bytes is a change.
+    tracker.markUploaded(bytes(9));
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
   });
 
   it("compares content, not identity, and treats a resize as a change", () => {

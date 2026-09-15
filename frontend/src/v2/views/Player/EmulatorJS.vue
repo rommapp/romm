@@ -57,7 +57,6 @@ import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
-import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
@@ -109,10 +108,6 @@ const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 const { modality } = useInputModality();
-// Wide and tall enough for the hero column: the pre-game screen fits the
-// viewport and the asset list, not the page, scrolls.
-const { lgAndUp, tall } = useBreakpoint();
-const fitsViewport = computed(() => lgAndUp.value && tall.value);
 const playSession = usePlaySession();
 
 // Ref the Play CTA so we can imperatively focus it on enter (and again
@@ -669,7 +664,7 @@ const saveSlot = computed(() =>
               :assets="activeAssets"
               type="save"
               :selected-id="selectedAssetId"
-              :scrollable="!fitsViewport"
+              :scrollable="false"
               @select="pickAsset"
             />
             <AssetStrip
@@ -1063,7 +1058,9 @@ const saveSlot = computed(() =>
   place-items: center;
 }
 
-/* ── Viewport fit (see fitsViewport) ─────────────────────── */
+/* ── Viewport fit ────────────────────────────────────────── */
+/* Wide and tall enough for the hero column, the pre-game screen fits the
+   viewport and only the asset list scrolls. */
 html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs--config {
   height: calc(100vh - var(--r-nav-h));
   height: calc(100dvh - var(--r-nav-h));

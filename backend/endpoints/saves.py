@@ -103,6 +103,22 @@ def _syncs_for_save(
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
 
 
+async def _remove_save_screenshot(save: Save) -> None:
+    screenshot = save.screenshot
+    if not screenshot:
+        return
+    db_screenshot_handler.delete_screenshot(screenshot.id)
+    try:
+        await fs_asset_handler.remove_file(
+            file_path=f"{screenshot.file_path}/{screenshot.file_name}"
+        )
+    except FileNotFoundError:
+        log.error(
+            f"Screenshot file {hl(screenshot.file_name)} not found for save "
+            f"{hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
+        )
+
+
 def _apply_datetime_tag(filename: str) -> str:
     name, ext = os.path.splitext(filename)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
@@ -345,6 +361,7 @@ async def add_save(
                     await fs_asset_handler.remove_file(old_save.full_path)
                 except FileNotFoundError:
                     log.warning(f"Could not delete old save file: {old_save.full_path}")
+                await _remove_save_screenshot(old_save)
 
     if screenshotFile and screenshotFile.filename:
         try:
@@ -760,15 +777,7 @@ async def delete_saves(
             error = f"Save file {hl(save.file_name)} not found for platform {hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
             log.error(error)
 
-        if save.screenshot:
-            db_screenshot_handler.delete_screenshot(save.screenshot.id)
-
-            try:
-                file_path = f"{save.screenshot.file_path}/{save.screenshot.file_name}"
-                await fs_asset_handler.remove_file(file_path=file_path)
-            except FileNotFoundError:
-                error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
-                log.error(error)
+        await _remove_save_screenshot(save)
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 

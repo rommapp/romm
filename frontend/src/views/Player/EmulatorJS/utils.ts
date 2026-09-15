@@ -175,6 +175,7 @@ export function createSaveSyncTracker() {
     },
     markUploaded(save: Uint8Array) {
       lastUploaded = save;
+      baseline = null;
     },
     // Whether the server already holds these exact bytes.
     isUploaded(save: Uint8Array): boolean {
