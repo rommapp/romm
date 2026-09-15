@@ -12,6 +12,9 @@ Broker file API (secret-protected, stdlib on the broker side):
                              save is in flight, so no clock coupling between
                              hosts. Returns raw bytes + X-State-Filename.
   PUT /state-file?filename=NAME - write NAME into the emulator's state dir.
+  GET /state-screenshot?slot=N - the container's own capture of the stream at
+                             the moment of that save, used as the thumbnail.
+                             404 when it captured nothing.
 """
 
 import asyncio
@@ -19,6 +22,7 @@ import io
 import os
 import re
 import zipfile
+import zlib
 from datetime import datetime, timezone
 from urllib.parse import quote
 
@@ -193,18 +197,21 @@ SCREENSHOT_MAX_BYTES = 16 * 1024 * 1024
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
+def _is_png(data: bytes | None) -> bool:
+    return data is not None and data.startswith(PNG_MAGIC)
+
+
 def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | None:
     """Pull the embedded frame PNG out of a savestate archive, or None when the
-    format carries no embedded screenshot."""
+    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one."""
     if emulator != "pcsx2":
         return None
     try:
         with zipfile.ZipFile(io.BytesIO(state_content)) as zf:
             with zf.open(_SCREENSHOT_ZIP_ENTRY) as entry:
                 data = entry.read(SCREENSHOT_MAX_BYTES + 1)
-    except Exception as exc:
-        # Never fatal: a missing entry, an unreadable zip or a corrupt member
-        # costs the thumbnail only, the state itself still syncs.
+    except (KeyError, zipfile.BadZipFile, zlib.error, EOFError, OSError) as exc:
+        # Never fatal: the state still syncs, it just has no thumbnail.
         log.warning("could not extract state screenshot, %s", exc)
         return None
     if not data or len(data) > SCREENSHOT_MAX_BYTES:
@@ -214,15 +221,22 @@ def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | Non
 
 def fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | None:
     """GET /state-screenshot from the broker, the container's own capture of the
-    stream. A 404 means this state has no frame, so it is not logged."""
+    stream as the state was saved. A 404 means no frame, so it is not logged."""
     result = broker.get_binary_safe(
         container,
         container.protocol.transfer_route(f"/state-screenshot?slot={slot}"),
         "state-screenshot GET",
         max_bytes=SCREENSHOT_MAX_BYTES,
-        timeout=broker.TRANSFER_TIMEOUT,
+        timeout=broker.STATE_SCREENSHOT_TIMEOUT,
     )
-    return result[1] if result else None
+    if result is None:
+        return None
+    # This source shadows the frame a state embeds for itself, so a body that is
+    # not a PNG has to read as no frame rather than as an unusable one.
+    if not _is_png(result[1]):
+        log.warning("broker state screenshot for slot %d is not a PNG", slot)
+        return None
+    return result[1]
 
 
 async def store_state_screenshot(
@@ -234,9 +248,9 @@ async def store_state_screenshot(
     stem with a .png extension. is_gallery stays False (the default) so it never
     shows in the user's screenshot gallery.
     """
-    # Both sources are unverified bytes: a zip entry that only claims to be a
-    # PNG, or whatever the broker returned. Guard here so one check covers both.
-    if not image.startswith(PNG_MAGIC):
+    # The zip entry only claims to be a PNG. The broker's body is checked where
+    # it is chosen, since there the answer decides whether this one is tried.
+    if not _is_png(image):
         log.warning("state screenshot for %s is not a PNG, skipping", state_filename)
         return
 
@@ -401,7 +415,10 @@ async def pull_state_to_library(
         # same route for every emulator; an embedded frame only fills a 404.
         screenshot = await asyncio.to_thread(fetch_state_screenshot, container, slot)
         if screenshot is None:
-            screenshot = extract_state_screenshot(emulator, content)
+            # Off the loop as well: reading the zip copies the whole state body.
+            screenshot = await asyncio.to_thread(
+                extract_state_screenshot, emulator, content
+            )
         try:
             await store_state_asset(
                 user, rom, emulator, filename, content, screenshot, disc_file_id

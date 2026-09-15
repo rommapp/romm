@@ -1,6 +1,10 @@
-from handler.metadata.sgdb_handler import SGDBResource
+from typing import Literal
+
+from handler.metadata.base_handler import CoverResource
 
 from .base import BaseModel
+
+CoverProvider = Literal["sgdb", "steam"]
 
 
 class SearchRomSchema(BaseModel):
@@ -12,6 +16,7 @@ class SearchRomSchema(BaseModel):
     flashpoint_id: str | None = None
     launchbox_id: int | None = None
     demozoo_id: int | None = None
+    steam_id: int | None = None
     libretro_id: str | None = None
     platform_id: int
     name: str
@@ -24,11 +29,13 @@ class SearchRomSchema(BaseModel):
     flashpoint_url_cover: str = ""
     launchbox_url_cover: str = ""
     demozoo_url_cover: str = ""
+    steam_url_cover: str = ""
     libretro_url_cover: str = ""
     is_unidentified: bool
     is_identified: bool
 
 
 class SearchCoverSchema(BaseModel):
+    provider: CoverProvider
     name: str
-    resources: list[SGDBResource]
+    resources: list[CoverResource]

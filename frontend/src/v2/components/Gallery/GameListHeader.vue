@@ -16,6 +16,7 @@ import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   getListColumns,
+  isSortableColumn,
   getListGridTemplate,
   type ListColumn,
   type ListSortKey,
@@ -72,12 +73,8 @@ function onSelectAllClick(e: MouseEvent) {
   }
 }
 
-function isSortable(col: ListColumn): col is ListColumn & { key: ListSortKey } {
-  return col.sortable;
-}
-
 function handleClick(col: ListColumn) {
-  if (!isSortable(col)) return;
+  if (!isSortableColumn(col)) return;
   // Toggle direction when re-clicking the active column; otherwise
   // start the new column at ascending — consistent behaviour with
   // every other sortable table in the app.

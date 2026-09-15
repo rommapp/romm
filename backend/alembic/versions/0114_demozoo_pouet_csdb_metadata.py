@@ -9,9 +9,9 @@ Create Date: 2026-08-16 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 from sqlalchemy import inspect
-from sqlalchemy.dialects import postgresql
 
 from utils.database import is_postgresql
+from utils.roms_columns import ensure_roms_columns
 
 # revision identifiers, used by Alembic.
 revision = "0114_demozoo_pouet_csdb_metadata"
@@ -26,7 +26,6 @@ _NEW_ROMS_COLUMNS: list[tuple[str, sa.types.TypeEngine]] = [
 ]
 _NEW_METADATA_COLUMNS = ["demozoo_metadata", "pouet_metadata", "csdb_metadata"]
 
-_JSON = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")
 
 _BASE_MIRRORED_COLUMNS = [
     ("platform_id", "platform_id"),
@@ -112,15 +111,8 @@ def _recreate_triggers(mirrored_columns: list[tuple[str, str]]) -> None:
 
 
 def upgrade() -> None:
+    ensure_roms_columns(op.get_bind())
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        for name, column_type in _NEW_ROMS_COLUMNS:
-            batch_op.add_column(
-                sa.Column(name, column_type, nullable=True), if_not_exists=True
-            )
-        for name in _NEW_METADATA_COLUMNS:
-            batch_op.add_column(
-                sa.Column(name, _JSON, nullable=True), if_not_exists=True
-            )
         for name, _ in _NEW_ROMS_COLUMNS:
             batch_op.create_index(
                 f"idx_roms_{name}", [name], unique=False, if_not_exists=True

@@ -2347,16 +2347,25 @@ def _state_for(rom: Rom, user: User, file_name: str, emulator: str) -> State:
     )
 
 
-def _screenshot_for(rom: Rom, state_stem: str) -> Screenshot:
-    """The thumbnail scan_screenshot() returns for a pulled state."""
+def _screenshot_for(rom: Rom, stem: str) -> Screenshot:
+    """A scan_screenshot() stand-in on `stem`, the name State.screenshot matches."""
     return Screenshot(
-        file_name=f"{state_stem}.png",
-        file_name_no_tags=state_stem,
-        file_name_no_ext=state_stem,
+        file_name=f"{stem}.png",
+        file_name_no_tags=stem,
+        file_name_no_ext=stem,
         file_extension="png",
         file_path=f"{rom.platform_slug}/screenshots",
         file_size_bytes=7,
     )
+
+
+def _written_screenshot(write_file: AsyncMock) -> bytes:
+    """The bytes stored under the state's .png, from a patched write_file."""
+    calls = [
+        c for c in write_file.await_args_list if c.kwargs["filename"].endswith(".png")
+    ]
+    assert len(calls) == 1, "expected exactly one screenshot write"
+    return calls[0].kwargs["file"]
 
 
 def test_claim_spawns_state_hydration(client, access_token, rom: Rom):
@@ -2776,7 +2785,7 @@ def test_pull_state_prefers_broker_screenshot_over_embedded(rom: Rom, admin_user
     PCSX2 embedded in the state."""
     container = {**_container_for(rom), "label": "PCSX2"}
     scanned = _state_for(rom, admin_user, "Game.05.p2s", "pcsx2")
-    scanned_shot = _screenshot_for(rom, "Game.05.p2s")
+    scanned_shot = _screenshot_for(rom, "Game.05")
     embedded = states.PNG_MAGIC + b"embedded-frame"
     with (
         patch(
@@ -2798,17 +2807,14 @@ def test_pull_state_prefers_broker_screenshot_over_embedded(rom: Rom, admin_user
         )
     assert ok is True
     fetch_shot.assert_called_once()
-    shot_call = next(
-        c for c in wf.await_args_list if c.kwargs["filename"].endswith(".png")
-    )
-    assert shot_call.kwargs["file"] == _PNG
+    assert _written_screenshot(wf) == _PNG
 
 
 def test_pull_state_falls_back_to_embedded_screenshot(rom: Rom, admin_user: User):
     """A container that captured no frame leaves PCSX2's embedded one."""
     container = {**_container_for(rom), "label": "PCSX2"}
     scanned = _state_for(rom, admin_user, "Game.06.p2s", "pcsx2")
-    scanned_shot = _screenshot_for(rom, "Game.06.p2s")
+    scanned_shot = _screenshot_for(rom, "Game.06")
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
@@ -2829,10 +2835,7 @@ def test_pull_state_falls_back_to_embedded_screenshot(rom: Rom, admin_user: User
         )
     assert ok is True
     fetch_shot.assert_called_once()
-    shot_call = next(
-        c for c in wf.await_args_list if c.kwargs["filename"].endswith(".png")
-    )
-    assert shot_call.kwargs["file"] == _PNG
+    assert _written_screenshot(wf) == _PNG
 
 
 def test_pull_state_asks_the_broker_for_a_screenshot_once(rom: Rom, admin_user: User):
@@ -3053,6 +3056,16 @@ def test_extract_state_screenshot_empty_entry_returns_none():
 
 def test_extract_state_screenshot_not_a_zip_returns_none():
     assert states.extract_state_screenshot("pcsx2", b"not-a-zip") is None
+
+
+def test_fetch_state_screenshot_rejects_a_non_png_body(rom: Rom):
+    """A body that is not a PNG has to read as no frame, or it would shadow the
+    frame a state embeds for itself and leave the state with no thumbnail."""
+    with patch(
+        "handler.streaming.broker.get_binary_safe",
+        return_value=(MagicMock(), b"GIF89a-not-a-png"),
+    ):
+        assert states.fetch_state_screenshot(_resolved(_container_for(rom)), 3) is None
 
 
 def test_state_transfer_limits_default_for_an_unlisted_emulator():

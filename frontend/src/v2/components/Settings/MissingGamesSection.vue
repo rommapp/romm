@@ -34,6 +34,7 @@ import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
 import {
+  isListSortKey,
   LIST_ROW_HEIGHT_PX,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
@@ -101,22 +102,11 @@ const selectedPlatformIds = computed<number[]>({
   },
 });
 
-// Map `galleryRoms.orderBy` to the list header's accepted keys. The
-// store may carry a key the list mode doesn't expose (e.g.
-// `last_played`), in which case we paint no active sort.
+// The store may carry a key list mode doesn't expose (e.g. `last_played`),
+// in which case we paint no active sort.
 const listSortKey = computed<ListSortKey | null>(() => {
-  const k = orderBy.value;
-  if (
-    k === "name" ||
-    k === "fs_size_bytes" ||
-    k === "created_at" ||
-    k === "first_release_date" ||
-    k === "average_rating" ||
-    k === "hltb_main_story"
-  ) {
-    return k;
-  }
-  return null;
+  const key = orderBy.value;
+  return isListSortKey(key) ? key : null;
 });
 
 // Virtual items: one entry per absolute position (0 .. total) once

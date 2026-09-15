@@ -140,6 +140,8 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
 
 [tool.uv]
 package = false
+# Source of truth for uv; keep in step with docker/Dockerfile and ./Dockerfile.
+required-version = "==0.12.13"
 exclude-newer = "7 days"
 
 [tool.ty.environment]

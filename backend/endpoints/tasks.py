@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Final
+from typing import Any, Final, Mapping, cast
 
 from fastapi import Body, HTTPException, Request
 from rq import Worker
@@ -13,6 +13,7 @@ from endpoints.responses import (
     CleanupTaskStatusResponse,
     ConversionTaskStatusResponse,
     GenericTaskStatusResponse,
+    ScanStats,
     ScanTaskStatusResponse,
     SyncTaskStatusResponse,
     TaskExecutionResponse,
@@ -68,6 +69,23 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
     )
 
 
+# Read off the annotations so a counter added there is filled without a second edit.
+_EMPTY_SCAN_STATS: Final[ScanStats] = cast(
+    ScanStats, dict.fromkeys(ScanStats.__annotations__, 0)
+)
+
+
+def _fill_scan_stats(stats: Mapping[str, Any] | None) -> ScanStats | None:
+    """Zero the counters an older release's stored stats are missing.
+
+    A job's meta in Redis outlives the release that wrote it.
+    """
+    if stats is None:
+        return None
+
+    return cast(ScanStats, {**_EMPTY_SCAN_STATS, **stats})
+
+
 def _build_task_status_response(
     job: Job,
 ) -> TaskStatusResponse:
@@ -104,7 +122,7 @@ def _build_task_status_response(
         case TaskType.SCAN:
             return ScanTaskStatusResponse(
                 task_type=TaskType.SCAN,
-                meta={"scan_stats": job_meta.get("scan_stats")},
+                meta={"scan_stats": _fill_scan_stats(job_meta.get("scan_stats"))},
                 **common_data,  # trunk-ignore(mypy/typeddict-item)
             )
         case TaskType.CONVERSION:

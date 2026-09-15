@@ -181,6 +181,25 @@ export function getListMinWidth(
 export const LIST_COLUMNS = getListColumns(true);
 export const LIST_GRID_TEMPLATE = getListGridTemplate(true);
 
+/** `sortable` is what makes a column's key a sort key, so the flag is the
+ *  narrowing test. */
+export function isSortableColumn(
+  column: ListColumn,
+): column is ListColumn & { key: ListSortKey } {
+  return column.sortable;
+}
+
+// The sort keys list mode can toggle, read off the columns themselves so a
+// sortable column cannot go missing from them.
+const LIST_SORT_KEYS: ReadonlySet<string> = new Set<string>(
+  LIST_COLUMNS.filter(isSortableColumn).map((column) => column.key),
+);
+
+/** Whether the gallery's current order key is one list mode can sort by. */
+export function isListSortKey(key: string): key is ListSortKey {
+  return LIST_SORT_KEYS.has(key);
+}
+
 // Numeric mirrors of the list-mode tokens so JS consumers (the
 // virtualiser, the cover skeleton block) stay synced with the rendered
 // CSS. Token values are guaranteed to be `<number>px` strings.

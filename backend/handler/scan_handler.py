@@ -213,12 +213,15 @@ def get_priority_ordered_metadata_sources(
             priority_type, cnfg.SCAN_ARTWORK_PRIORITY
         )
 
-    # Filter priority order to only include sources that are available
-    ordered_sources = [
-        MetadataSource(source)
-        for source in priority_order
-        if source in metadata_sources
-    ]
+    # Filter priority order to only include sources that are available. A
+    # source listed twice in config.yml keeps its first position.
+    ordered_sources = list(
+        dict.fromkeys(
+            MetadataSource(source)
+            for source in priority_order
+            if source in metadata_sources
+        )
+    )
 
     # Add any remaining sources that weren't in the priority list
     remaining_sources = [

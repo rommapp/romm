@@ -907,7 +907,7 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | Method | Path     | Scope     | Description                          |
 | ------ | -------- | --------- | ------------------------------------ |
 | GET    | `/roms`  | ROMS_READ | Search metadata across all providers |
-| GET    | `/cover` | ROMS_READ | Search SteamGridDB for cover art     |
+| GET    | `/cover` | ROMS_READ | Search SteamGridDB and Steam covers  |
 
 ### 6.8 Saves (`/api/saves`)
 
@@ -1320,7 +1320,7 @@ Each adapter wraps an external API with authentication, retry logic, and type sa
 | ------------- | -------------------- | ------------------------------------------------- |
 | LaunchBox     | `launchbox_handler/` | Local XML database + remote API, platform mapping |
 | HowLongToBeat | `hltb_handler`       | Game playtime estimates                           |
-| Steam         | `steam_handler`      | Storefront metadata for win/linux/mac only        |
+| Steam         | `steam_handler`      | Storefront metadata (win/linux/mac) and cover art |
 | Hasheous      | `hasheous_handler`   | Hash-based ROM identification                     |
 | TheGamesDB    | `tgdb_handler`       | Alternative game metadata                         |
 | Flashpoint    | `flashpoint_handler` | Browser game archive database                     |
