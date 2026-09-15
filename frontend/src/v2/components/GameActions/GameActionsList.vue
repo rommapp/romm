@@ -48,7 +48,7 @@ function run(fn: () => void | Promise<void>) {
   <RMenuItem
     v-if="actions.canPlayNative.value && !actions.nativeLaunching.value"
     :label="actions.nativeActionLabel.value"
-    icon="mdi-desktop-classic"
+    icon="mdi-play"
     @click="run(() => actions.play('native'))"
   />
   <RMenuItem
@@ -57,14 +57,14 @@ function run(fn: () => void | Promise<void>) {
     icon="mdi-close-circle-outline"
     @click="run(actions.cancelNativeLaunch)"
   />
-  <!-- Named for the browser only when the native launch has taken the plain
-       "Play" above, so an unqualified entry never sits beside it. -->
+  <!-- Named and marked for the browser only when the native launch has taken
+       the play glyph above, so two identical rows never sit together. -->
   <RMenuItem
     v-if="actions.canPlayInBrowser.value"
     :label="
       actions.canPlayNative.value ? t('rom.play-in-browser') : t('rom.play')
     "
-    icon="mdi-play"
+    :icon="actions.canPlayNative.value ? 'mdi-web' : 'mdi-play'"
     @click="run(() => actions.play('local'))"
   />
   <RMenuItem

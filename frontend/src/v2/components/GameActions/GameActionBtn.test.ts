@@ -64,9 +64,7 @@ describe("GameActionBtn: the native action", () => {
     await wrapper.find("button").trigger("click");
 
     expect(play).toHaveBeenCalledWith("native");
-    expect(wrapper.find(".icon").attributes("data-icon")).toBe(
-      "mdi-desktop-classic",
-    );
+    expect(wrapper.find(".icon").attributes("data-icon")).toBe("mdi-play");
   });
 
   // The button doubles as the launch's progress indicator, so a second press
@@ -99,18 +97,22 @@ describe("GameActionBtn: the native action", () => {
   });
 });
 
-// An icon name with no glyph behind it renders as an empty button and nothing
-// fails, so the name is checked against the font RomM actually ships.
-describe("GameActionBtn: the native icon exists", () => {
+// An icon name with no glyph behind it renders as an empty control and nothing
+// fails, so every name the native route introduced is checked against the font
+// RomM actually ships.
+describe("the native play route's icons exist", () => {
   const MDI_CSS = readFileSync(
     "node_modules/@mdi/font/css/materialdesignicons.css",
     "utf8",
   );
 
-  it.each(["mdi-desktop-classic", "mdi-loading", "mdi-spin"])(
-    "%s is a real class in the bundled font",
-    (name) => {
-      expect(MDI_CSS).toContain(`.${name}`);
-    },
-  );
+  it.each([
+    "mdi-play",
+    "mdi-web",
+    "mdi-desktop-classic",
+    "mdi-loading",
+    "mdi-spin",
+  ])("%s is a real class in the bundled font", (name) => {
+    expect(MDI_CSS).toContain(`.${name}`);
+  });
 });

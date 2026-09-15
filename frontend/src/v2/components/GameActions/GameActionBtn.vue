@@ -192,11 +192,13 @@ const preset = computed<Preset>(() => {
     };
   }
   if (props.action === "native") {
-    // The button is the launch's own progress indicator while the shell works,
-    // and cancelling it is what a second press then means.
+    // Carries the play glyph rather than a device one: inside the shell this
+    // is the play button, and its label names where the game will run. The
+    // button is also the launch's own progress indicator while the shell
+    // works, and cancelling is what a second press then means.
     const launching = actions.nativeLaunching.value;
     return {
-      icon: launching ? "mdi-loading mdi-spin" : "mdi-desktop-classic",
+      icon: launching ? "mdi-loading mdi-spin" : "mdi-play",
       label: actions.nativeActionLabel.value,
       activeIcon: null,
       onClick: launching
