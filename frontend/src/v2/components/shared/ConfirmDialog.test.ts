@@ -77,4 +77,24 @@ describe("ConfirmDialog typed confirmation", () => {
 
     expect(confirmButton(wrapper).attributes("disabled")).toBeUndefined();
   });
+
+  it("keeps the action disabled when the phrase is whitespace only", async () => {
+    const wrapper = await promptFor("   ");
+    expect(confirmButton(wrapper).attributes("disabled")).toBeDefined();
+
+    await wrapper.find("input").setValue("   ");
+    expect(confirmButton(wrapper).attributes("disabled")).toBeUndefined();
+  });
+
+  // A no-break space survives rendering, so it is not interchangeable with
+  // the plain space the user would type.
+  it("treats a no-break space as a character of its own", async () => {
+    const wrapper = await promptFor("Philips\u00a0Videopac+");
+
+    await wrapper.find("input").setValue("Philips Videopac+");
+    expect(confirmButton(wrapper).attributes("disabled")).toBeDefined();
+
+    await wrapper.find("input").setValue("Philips\u00a0Videopac+");
+    expect(confirmButton(wrapper).attributes("disabled")).toBeUndefined();
+  });
 });
