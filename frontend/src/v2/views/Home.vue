@@ -508,8 +508,8 @@ function collectionCovers(c: {
         <PlatformTile
           v-for="(p, i) in filledPlatforms"
           v-else
-          :key="`plat-${p.id}`"
           :id="p.id"
+          :key="`plat-${p.id}`"
           class="r-v2-card-fade"
           :style="{ '--card-fade-i': i }"
           :slug="p.slug"
