@@ -166,7 +166,10 @@ _DISC_SWAP_PLATFORMS = frozenset({"dc", "saturn", "segacd", "turbografx-cd", "do
 _MANUAL_DISC_SWAP_PLATFORMS = frozenset({"ps2"})
 
 # Emulators whose broker empties the save tree before restoring an archive (the
-# webstation broker's `clears_stale_saves`), so an older pick still lands.
+# webstation broker's `clears_stale_saves`), so an older pick still lands. That
+# flag lives in the broker's repo, so this is the default a container starts
+# from, not the authority: `clears_stale_saves` in config.yml overrides it for
+# an operator on a fork or a newer broker.
 _SAVE_PICKER_EMULATORS = frozenset(
     {"eden", "retroarch", "rpcs3", "shadps4", "xemu", "xenia"}
 )
@@ -195,8 +198,8 @@ def slot_capabilities(platform: str, emulator: str = "") -> PlatformCapabilities
 
 
 def emulator_clears_saves(emulator: str) -> bool:
-    """Whether restoring a save archive older than the container's own files
-    still lands on this emulator."""
+    """Whether restoring a save archive older than the container's own files is
+    expected to land on this emulator, absent an operator override."""
     return emulator.strip().lower() in _SAVE_PICKER_EMULATORS
 
 

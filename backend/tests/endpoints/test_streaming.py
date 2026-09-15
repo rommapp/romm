@@ -467,6 +467,104 @@ def test_get_config_reports_save_picker_support(client, access_token, rom: Rom):
     assert supported["gba"] is False
 
 
+def test_clears_stale_saves_overrides_the_emulator_default(client, access_token, rom):
+    """The default mirrors a flag that lives in the broker's repo, so an
+    operator on a fork or a newer broker can say what theirs actually does."""
+    turned_on = {
+        **_container_for(rom),
+        "platform": "ps2",
+        "protocol": "webstation",
+        "emulator": "pcsx2",
+        "clears_stale_saves": True,
+    }
+    turned_off = {
+        **_container_for(rom),
+        "platform": "gba",
+        "protocol": "webstation",
+        "emulator": "retroarch",
+        "clears_stale_saves": False,
+    }
+    with _streaming(turned_on, turned_off):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    supported = {
+        c["platform"]: c["supports_save_picker"] for c in response.json()["containers"]
+    }
+    assert supported["ps2"] is True
+    assert supported["gba"] is False
+
+
+def test_clears_stale_saves_is_a_platform_block_override():
+    """It sits alongside memory_card_sync, so one webstation can answer for
+    each emulator it serves rather than for all of them at once."""
+    expanded = _expand(
+        {
+            "host": "http://box:3010",
+            "protocol": "webstation",
+            "clears_stale_saves": True,
+            "platforms": {
+                "ps2": {"emulator": "pcsx2", "clears_stale_saves": False},
+                "snes": "retroarch",
+            },
+        }
+    )
+
+    by_platform = {row.platform: row for row in expanded}
+    assert by_platform["ps2"].clears_stale_saves is False
+    # A block that omits the key falls through to the container.
+    assert by_platform["snes"].clears_stale_saves is True
+
+
+def test_clears_stale_saves_has_no_picker_to_gate_on_a_legacy_container(caplog):
+    """Only the webstation broker takes an archive to restore, so the flag
+    would promise a picker that has no route behind it."""
+    entry = {
+        "platform": "gba",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "retroarch",
+        "clears_stale_saves": True,
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            resolved = _expand(entry)
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert resolved[0].supports_save_picker is False
+    assert "clears_stale_saves" in caplog.text
+
+
+def test_a_container_that_disagrees_on_clearing_saves_is_not_a_pool_member(caplog):
+    """The picker is advertised from the head of the pool, so a member that
+    keeps its own newer files would take the pick and silently discard it."""
+    first = {
+        "platform": "ps2",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "protocol": "webstation",
+        "emulator": "pcsx2",
+        "clears_stale_saves": True,
+    }
+    second = {
+        **first,
+        "host": "http://192.168.1.11:3000",
+        "broker_host": "http://192.168.1.11:8000",
+        "clears_stale_saves": False,
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(first, second):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert [c.clears_stale_saves for c in candidates] == [True]
+    assert "not a pool" in caplog.text
+
+
 def test_memory_card_sync_ignored_on_a_platform_without_a_card(client, access_token):
     """Wii saves live in NAND and sync per file. Honouring memory_card_sync
     there would disable /save-file and silently strand every NAND save."""
