@@ -31,14 +31,19 @@ describe("reasonIcon", () => {
 });
 
 describe("reasonLabel", () => {
-  const t = (key: string) => key;
+  // Stands in for vue-i18n, rendering the key plus anything interpolated
+  // into it. Facets with no value of their own render as the bare key.
+  const t = (key: string, params?: unknown[]) =>
+    [key, ...(params ?? [])].filter(Boolean).join(":");
 
   it("shows the value for facets that are already proper nouns", () => {
     expect(reasonLabel(reason("developer", "Treasure"), t)).toBe("Treasure");
   });
 
-  it("pluralises a decade", () => {
-    expect(reasonLabel(reason("decade", "1990"), t)).toBe("1990s");
+  it("hands a decade's year to the locale's phrasing", () => {
+    expect(reasonLabel(reason("decade", "1990"), t)).toBe(
+      "recommendations.reason-decade:1990",
+    );
   });
 
   it("translates facets with no meaningful value", () => {
