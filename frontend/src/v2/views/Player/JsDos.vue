@@ -13,7 +13,7 @@ import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
-import { useFullscreenFallback } from "@/v2/composables/usePlayerFullscreen";
+import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";

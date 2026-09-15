@@ -53,7 +53,7 @@ import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
-import { useFullscreenFallback } from "@/v2/composables/usePlayerFullscreen";
+import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";

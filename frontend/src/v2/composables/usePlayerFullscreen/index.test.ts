@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { effectScope, ref, type EffectScope } from "vue";
-import { useFullscreenFallback, usePlayerFullscreen } from "./index";
+import { usePlayerFullscreen } from "./index";
 
 // happy-dom ships no Fullscreen API, so the fallback installs by default here.
-// The util's own spec covers its behaviour; this covers the composable's.
 const scopes: EffectScope[] = [];
 
 function runInScope<T>(fn: () => T): { value: T; scope: EffectScope } {
@@ -18,26 +17,6 @@ afterEach(() => {
   while (scopes.length) scopes.pop()?.stop();
   Reflect.deleteProperty(Element.prototype, "requestFullscreen");
   document.body.innerHTML = "";
-});
-
-describe("useFullscreenFallback", () => {
-  it("removes the fallback when the scope is disposed", () => {
-    const { scope } = runInScope(() => useFullscreenFallback());
-    expect("requestFullscreen" in HTMLElement.prototype).toBe(true);
-
-    scope.stop();
-
-    expect("requestFullscreen" in HTMLElement.prototype).toBe(false);
-  });
-
-  it("keeps the fallback while another consumer still holds it", () => {
-    const first = runInScope(() => useFullscreenFallback());
-    runInScope(() => useFullscreenFallback());
-
-    first.scope.stop();
-
-    expect("requestFullscreen" in HTMLElement.prototype).toBe(true);
-  });
 });
 
 describe("usePlayerFullscreen", () => {

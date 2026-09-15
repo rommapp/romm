@@ -93,6 +93,23 @@ describe("installFullscreenFallback", () => {
     expect(legacyFullScreen()).toBe(false);
   });
 
+  it("exits when the fullscreen element leaves the document", async () => {
+    dispose = installFullscreenFallback();
+    const el = mountStage();
+    await el.requestFullscreen();
+
+    const changed = new Promise<void>((resolve) =>
+      document.addEventListener("fullscreenchange", () => resolve(), {
+        once: true,
+      }),
+    );
+    el.remove();
+    await changed;
+
+    expect(document.fullscreenElement).toBeNull();
+    expect(legacyFullScreen()).toBe(false);
+  });
+
   it("restores the patched API and removes its stylesheet on dispose", async () => {
     const styleCount = document.head.querySelectorAll("style").length;
 

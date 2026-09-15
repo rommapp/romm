@@ -63,12 +63,19 @@ export function installFullscreenFallback(): () => void {
     target.dispatchEvent(new Event("fullscreenchange"));
   };
 
+  // The real API exits when its element leaves the document, so watch for that
+  // rather than leave callers holding a detached fullscreenElement.
+  const detachWatcher = new MutationObserver(() => {
+    if (fullscreenElement && !fullscreenElement.isConnected) void exit();
+  });
+
   const enter = (el: HTMLElement) => {
     if (fullscreenElement === el) return Promise.resolve();
     if (fullscreenElement) void exit();
 
     el.setAttribute(FALLBACK_ATTR, "");
     fullscreenElement = el;
+    detachWatcher.observe(document, { childList: true, subtree: true });
     dispatchChange(el);
     return Promise.resolve();
   };
@@ -78,6 +85,7 @@ export function installFullscreenFallback(): () => void {
     if (!el) return Promise.resolve();
     el.removeAttribute(FALLBACK_ATTR);
     fullscreenElement = null;
+    detachWatcher.disconnect();
     dispatchChange(el);
     return Promise.resolve();
   };
@@ -103,6 +111,7 @@ export function installFullscreenFallback(): () => void {
 
   return () => {
     void exit();
+    detachWatcher.disconnect();
     styleEl.remove();
     while (overrides.length) {
       const { target, key, prev } = overrides.pop()!;

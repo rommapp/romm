@@ -14,7 +14,7 @@ import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
-import { useFullscreenFallback } from "@/v2/composables/usePlayerFullscreen";
+import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { colorCanvas } from "@/v2/tokens";
