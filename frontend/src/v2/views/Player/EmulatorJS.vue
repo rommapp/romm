@@ -79,6 +79,7 @@ import {
   bootableFiles,
   rememberDisc,
   resolveRememberedDisc,
+  selectableDiscFiles,
   type DiscSelection,
 } from "@/v2/utils/playerDisc";
 import { resolveInitialFirmware } from "@/v2/utils/playerFirmware";
@@ -167,7 +168,7 @@ const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
 const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
   { title: t("play.all-discs"), value: ALL_DISCS },
-  ...bootableRomFiles.value.map((f) => ({
+  ...selectableDiscFiles(rom.value?.files ?? []).map((f) => ({
     title: f.file_name,
     value: f.id,
   })),
