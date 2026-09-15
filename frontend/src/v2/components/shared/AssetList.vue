@@ -216,11 +216,11 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   scrollbar-color: var(--r-color-border-strong) transparent;
   scrollbar-width: thin;
 }
-/* Internal scroll only in the Play view; the Save data subtab owns its
-   own scroll, so it passes `scrollable=false` and the list grows freely. */
+/* Internal scroll only in the Play view (a fit-to-viewport parent lifts the
+   cap via the custom property); the Save data subtab passes `scrollable=false`. */
 .r-asset-list--scroll .r-asset-list__items {
   overflow-y: auto;
-  max-height: 380px;
+  max-height: var(--r-asset-list-max-h, 380px);
 }
 .r-asset-list__items::-webkit-scrollbar {
   width: 6px;

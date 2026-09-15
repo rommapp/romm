@@ -12,10 +12,8 @@ export const saveApi = api;
 // The slot sync clients (Argosy, Tender) file automatic progress under. A
 // null slot is an archival manual upload that is never paired with devices.
 export const AUTOSAVE_SLOT = "autosave";
-
-export function isAutosaveSlot(slot: string | null | undefined): boolean {
-  return slot?.toLowerCase() === AUTOSAVE_SLOT;
-}
+// Length of the `Save.slot` column; the backend does not validate it.
+export const SAVE_SLOT_MAX_LENGTH = 255;
 
 type SaveUploadInput = Omit<AddSaveInput, "saveFile" | "screenshotFile"> & {
   saveFile: File;
@@ -45,7 +43,7 @@ async function uploadSaves({
   deviceId?: string;
   slot?: string;
   autocleanup?: boolean;
-  /** Skip the stale-device conflict check on a slotted upload. */
+  /** Skip the stale-device conflict check and the content-hash dedupe. */
   overwrite?: boolean;
 }) {
   const promises = savesToUpload.map(({ saveFile, screenshotFile }) => {

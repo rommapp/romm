@@ -1,16 +1,6 @@
 <script setup lang="ts">
-// Big "now showing" preview of the asset the user is about to resume
-// from. States get a "stage" on top (screenshot, or a placeholder when
-// none was captured) and a metadata strip below. Saves never carry a
-// screenshot, so they collapse to a single compact row (icon + the same
-// metadata) and leave the vertical room to the list underneath.
-//
-// The metadata carries the filename + chips + exact timestamp when
-// something is selected, or the start-fresh hint when empty.
-//
-// With a state armed the save no longer boots (the state restores the
-// whole machine, SRAM included), so the save variant relabels itself as
-// the write-back target instead of a resume point.
+// Preview of the asset to resume from: a screenshot stage for states, one
+// compact row for saves (relabelled as the write target when a state is armed).
 import { RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -71,7 +61,7 @@ const emptyText = computed(() =>
   >
     <p v-if="showHeading" class="r-asset-preview__eyebrow">{{ heading }}</p>
 
-    <!-- ── Stage — states only ────────────────────────────────── -->
+    <!-- ── Stage (states only) ────────────────────────────────── -->
     <div
       v-if="type === 'state'"
       class="r-asset-preview__stage"
@@ -121,7 +111,7 @@ const emptyText = computed(() =>
       </button>
     </div>
 
-    <!-- ── Body — meta strip; for saves also the icon and clear ─── -->
+    <!-- ── Body: meta strip, plus badge and clear for saves ────── -->
     <div
       class="r-asset-preview__body"
       :class="{ 'r-asset-preview__body--empty': !asset }"
@@ -294,7 +284,7 @@ const emptyText = computed(() =>
   );
 }
 
-/* ── Save row — badge + meta + clear, no stage ───────────── */
+/* ── Save row: badge + meta + clear, no stage ────────────── */
 .r-asset-preview--save .r-asset-preview__body {
   display: flex;
   align-items: center;
@@ -377,16 +367,12 @@ const emptyText = computed(() =>
 .r-asset-preview__clear--inline {
   position: static;
   flex-shrink: 0;
-}
-.r-asset-preview__clear--inline,
-.r-asset-preview__stage--empty .r-asset-preview__clear {
   border-color: var(--r-color-border);
   background: var(--r-color-bg-elevated);
   color: var(--r-color-fg-secondary);
   backdrop-filter: none;
 }
-.r-asset-preview__clear--inline:hover,
-.r-asset-preview__stage--empty .r-asset-preview__clear:hover {
+.r-asset-preview__clear--inline:hover {
   background: color-mix(
     in srgb,
     var(--r-color-status-base-danger) 18%,

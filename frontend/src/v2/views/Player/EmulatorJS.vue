@@ -41,7 +41,7 @@ import { useI18n } from "vue-i18n";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
-import { AUTOSAVE_SLOT } from "@/services/api/save";
+import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
@@ -465,14 +465,12 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   isSavesTabSelected.value ? resume.value.save : resume.value.state,
 );
 
-// Slot for saves the session creates. A bound save with a slot fixes it (the
-// picker just shows it); a slot-less legacy save is archived and progress
-// moves to the picked slot. The picker is always rendered on the Saves tab so
-// the panel keeps the same height whether or not a save is selected.
-const NEW_SLOT = "";
+// Slot for saves the session creates. A bound save with a slot fixes it; a
+// slot-less legacy save stays as an archive and progress goes to the pick.
+const NEW_SLOT = "__new__";
 const slotChoice = ref(AUTOSAVE_SLOT);
 const customSlot = ref("");
-const boundSlot = computed(() => resume.value.save?.slot ?? null);
+const boundSlot = computed(() => resume.value.save?.slot || null);
 function onSlotChoice(value: unknown) {
   slotChoice.value = typeof value === "string" ? value : AUTOSAVE_SLOT;
 }
@@ -577,6 +575,7 @@ const saveSlot = computed(() =>
           <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
             <div class="r-v2-ejs__slot-row">
               <RSelect
+                class="r-v2-ejs__slot-select"
                 :model-value="boundSlot ?? slotChoice"
                 :disabled="!!boundSlot"
                 variant="outlined"
@@ -591,16 +590,16 @@ const saveSlot = computed(() =>
                   {{ t("play.slot") }}
                 </template>
               </RSelect>
-              <span
+              <button
+                type="button"
                 class="r-v2-ejs__slot-info"
-                tabindex="0"
                 :aria-label="t('play.slot-tooltip')"
               >
                 <RIcon icon="mdi-information-outline" size="16" />
-                <RTooltip activator="parent" location="top">
+                <RTooltip activator="parent" location="top" open-on-tap>
                   {{ t("play.slot-tooltip") }}
                 </RTooltip>
-              </span>
+              </button>
             </div>
             <RTextField
               v-if="!boundSlot && slotChoice === NEW_SLOT"
@@ -609,6 +608,7 @@ const saveSlot = computed(() =>
               density="compact"
               prefix-label="inline"
               hide-details
+              :maxlength="SAVE_SLOT_MAX_LENGTH"
               :label="t('play.slot-name')"
               :placeholder="AUTOSAVE_SLOT"
             />
@@ -636,7 +636,6 @@ const saveSlot = computed(() =>
               :assets="activeAssets"
               type="save"
               :selected-id="selectedAssetId"
-              :scrollable="false"
               @select="pickAsset"
             />
             <AssetStrip
@@ -729,7 +728,7 @@ const saveSlot = computed(() =>
         :rom="rom"
         :state="resume.state"
         :save="resume.save"
-        :save-slot="saveSlot"
+        :save-slot="boundSlot ?? saveSlot"
         :bios="selectedFirmware"
         :core="selectedCore"
         :disc="bootDiscId(selectedDisc)"
@@ -904,24 +903,26 @@ const saveSlot = computed(() =>
   align-items: center;
   gap: 8px;
 }
-.r-v2-ejs__slot-row > :first-child {
-  flex: 1;
+.r-v2-ejs__slot-select {
+  flex: 1 1 auto;
   min-width: 0;
 }
 .r-v2-ejs__slot-info {
+  appearance: none;
   display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--r-color-fg-secondary);
   border-radius: var(--r-radius-pill);
-  cursor: help;
+  cursor: pointer;
 }
-.r-v2-ejs__slot-info:focus-visible {
-  outline: 2px solid var(--r-color-brand-primary);
-  outline-offset: 2px;
+.r-v2-ejs__slot-info:hover {
+  color: var(--r-color-fg);
 }
 .r-v2-ejs__assets {
   flex: 1;
   min-height: 0;
-  max-height: 380px;
   overflow-y: auto;
   scrollbar-color: var(--r-color-border-strong) transparent;
   scrollbar-width: thin;
@@ -1023,35 +1024,29 @@ const saveSlot = computed(() =>
 }
 
 /* ── Viewport fit ────────────────────────────────────────── */
-/* On screens tall enough for the hero column, the pre-game screen fits the
-   viewport: panels shrink, only the asset list scrolls, and the footer brand
-   stays in view. Shorter or narrower screens fall back to page scroll. */
-@media (min-height: 720px) {
-  .r-v2-ejs--config {
-    height: calc(100vh - var(--r-nav-h));
-    overflow: hidden;
-  }
-  .r-v2-ejs--config .r-v2-ejs__config {
-    height: 100%;
-    grid-template-rows: minmax(0, 1fr) auto;
-  }
-  .r-v2-ejs--config .r-v2-ejs__panel {
-    min-height: 0;
-  }
-  .r-v2-ejs--config .r-v2-ejs__assets {
-    max-height: none;
-  }
+/* Wide and tall enough for the hero column, the pre-game screen fits the
+   viewport and only the asset list scrolls; the hero keeps a scroll fallback. */
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs--config {
+  height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
+  overflow: hidden;
 }
-html[data-bp~="md-and-down"] .r-v2-ejs--config {
-  height: auto;
-  overflow: visible;
+html[data-bp~="lg-and-up"][data-bp~="tall"]
+  .r-v2-ejs--config
+  .r-v2-ejs__config {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
-html[data-bp~="md-and-down"] .r-v2-ejs--config .r-v2-ejs__config {
-  height: auto;
-  grid-template-rows: none;
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs--config .r-v2-ejs__panel {
+  min-height: 0;
 }
-html[data-bp~="md-and-down"] .r-v2-ejs--config .r-v2-ejs__assets {
-  max-height: 380px;
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs--config .r-v2-ejs__hero {
+  overflow-y: auto;
+}
+html[data-bp~="lg-and-up"][data-bp~="tall"]
+  .r-v2-ejs--config
+  .r-v2-ejs__assets {
+  --r-asset-list-max-h: none;
 }
 
 /* ── Responsive ──────────────────────────────────────────── */

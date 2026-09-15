@@ -1,7 +1,7 @@
 import Bowser from "bowser";
 import { type SaveSchema } from "@/__generated__";
 import { type StateSchema } from "@/__generated__";
-import saveApi, { AUTOSAVE_SLOT, isAutosaveSlot } from "@/services/api/save";
+import saveApi, { AUTOSAVE_SLOT } from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import { type DetailedRom } from "@/stores/roms";
 
@@ -10,9 +10,10 @@ function buildStateName(rom: DetailedRom): string {
   return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
 }
 
+// Slotted uploads are timestamped by the backend, which tags the save and its
+// screenshot with the same server-side datetime.
 function buildSaveName(rom: DetailedRom): string {
-  const romName = rom.fs_name_no_ext.trim();
-  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
+  return rom.fs_name_no_ext.trim();
 }
 
 export async function saveState({
@@ -63,10 +64,8 @@ export async function saveState({
   return null;
 }
 
-// One version per session, like a sync client's end-of-session upload: the
-// first write creates a new save in `slot` (the backend caps the slot's
-// history), and `save`, the version this session already created, is then
-// updated in place so periodic sync does not churn the history.
+// `save` is the version this session already created: it is updated in place,
+// while a null `save` opens a new version in `slot`.
 export async function saveSave({
   rom,
   save,
@@ -89,18 +88,21 @@ export async function saveSave({
         saveFile: new File([saveFile], save.file_name, {
           type: "application/octet-stream",
         }),
-        screenshotFile:
-          screenshotFile && save.screenshot
-            ? new File([screenshotFile], save.screenshot.file_name, {
-                type: "application/octet-stream",
-              })
-            : undefined,
+        // A version opened by the periodic sync has no screenshot yet; name a
+        // new one after the save so the backend links it by stem.
+        screenshotFile: screenshotFile
+          ? new File(
+              [screenshotFile],
+              save.screenshot?.file_name ?? `${save.file_name_no_ext}.png`,
+              { type: "application/octet-stream" },
+            )
+          : undefined,
         deviceId,
       });
 
-      // Update the save in the rom object
       const index = rom.user_saves.findIndex((s) => s.id === updatedSave.id);
-      rom.user_saves[index] = updatedSave;
+      if (index === -1) rom.user_saves.unshift(updatedSave);
+      else rom.user_saves[index] = updatedSave;
 
       return updatedSave;
     } catch (error) {
@@ -118,9 +120,10 @@ export async function saveSave({
       slot,
       // Like Argosy: the autosave slot keeps a capped history, named slots
       // keep every version.
-      autocleanup: isAutosaveSlot(slot),
+      autocleanup: slot === AUTOSAVE_SLOT,
       // The launch screen makes the boot source an explicit choice, so the
-      // "slot has a newer save since your last sync" guard does not apply.
+      // stale-device guard does not apply. This also skips the backend's
+      // content-hash dedupe, so callers skip byte-identical uploads themselves.
       overwrite: true,
       savesToUpload: [
         {
@@ -166,6 +169,10 @@ export function createSaveSyncTracker() {
     },
     markUploaded(save: Uint8Array) {
       lastUploaded = save;
+    },
+    // Whether the server already holds these exact bytes.
+    isUploaded(save: Uint8Array): boolean {
+      return bytesEqual(save, lastUploaded);
     },
   };
 }

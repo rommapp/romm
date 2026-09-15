@@ -23,14 +23,27 @@ describe("defaultResumeSelection", () => {
     });
   });
 
-  it("arms the newest state and binds the only save as write-back target", () => {
-    const selection = defaultResumeSelection([save(1)], [state(9), state(8)]);
+  it("arms the newest state and keeps the only slotted save as write target", () => {
+    const selection = defaultResumeSelection(
+      [save(1, "main")],
+      [state(9), state(8)],
+    );
 
-    expect(selection).toEqual({ save: save(1), state: state(9) });
+    expect(selection).toEqual({ save: save(1, "main"), state: state(9) });
+  });
+
+  it("leaves a slot-less save unbound when a state is armed", () => {
+    expect(defaultResumeSelection([save(1)], [state(9)])).toEqual({
+      save: null,
+      state: state(9),
+    });
   });
 
   it("leaves the save unbound when a state is armed and several saves exist", () => {
-    const selection = defaultResumeSelection([save(1), save(2)], [state(9)]);
+    const selection = defaultResumeSelection(
+      [save(1, "main"), save(2, "alt")],
+      [state(9)],
+    );
 
     expect(selection).toEqual({ save: null, state: state(9) });
   });
@@ -43,9 +56,16 @@ describe("pickSave", () => {
 });
 
 describe("pickState", () => {
-  it("boots from the state and keeps the bound save for write-back", () => {
+  it("boots from the state and keeps a slotted save for write-back", () => {
+    expect(pickState(pickSave(save(2, "main")), state(9))).toEqual({
+      save: save(2, "main"),
+      state: state(9),
+    });
+  });
+
+  it("drops a slot-less save, which a state neither boots nor writes to", () => {
     expect(pickState(pickSave(save(2)), state(9))).toEqual({
-      save: save(2),
+      save: null,
       state: state(9),
     });
   });
@@ -60,11 +80,18 @@ describe("slotOptions", () => {
     const saves = [
       save(1, "main_quest"),
       save(2, null),
-      save(3, "Autosave"),
+      save(3, "autosave"),
       save(4, "main_quest"),
       save(5, "speedrun"),
     ];
 
     expect(slotOptions(saves)).toEqual(["autosave", "main_quest", "speedrun"]);
+  });
+
+  it("matches slot names exactly, like the backend", () => {
+    expect(slotOptions([save(1, "Autosave")])).toEqual([
+      "autosave",
+      "Autosave",
+    ]);
   });
 });

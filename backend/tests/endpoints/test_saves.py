@@ -1,3 +1,5 @@
+import os
+import re
 from datetime import timedelta
 from io import BytesIO
 from unittest import mock
@@ -1593,6 +1595,63 @@ class TestDatetimeTagging:
         call_args = mock_write.call_args
         written_filename = call_args[1].get("filename") or call_args[0][2]
         assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]", written_filename)
+
+    @mock.patch("endpoints.saves.scan_screenshot", new_callable=mock.AsyncMock)
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_upload_with_slot_tags_screenshot_like_the_save(
+        self,
+        mock_scan,
+        mock_write,
+        mock_scan_screenshot,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+    ):
+        from models.assets import Screenshot
+
+        mock_scan.return_value = Save(
+            file_name="test [2026-01-31_12-00-00].sav",
+            file_name_no_tags="test",
+            file_name_no_ext="test [2026-01-31_12-00-00]",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="main",
+        )
+        mock_scan_screenshot.return_value = Screenshot(
+            file_name="test [2026-01-31_12-00-00].png",
+            file_name_no_tags="test",
+            file_name_no_ext="test [2026-01-31_12-00-00]",
+            file_extension="png",
+            file_path=f"{platform.slug}/screenshots",
+            file_size_bytes=10,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=main",
+            files={
+                "saveFile": ("test.sav", BytesIO(b"save"), "application/octet-stream"),
+                "screenshotFile": ("test.png", BytesIO(b"png"), "image/png"),
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        written = [call.kwargs["filename"] for call in mock_write.call_args_list]
+        assert len(written) == 2
+        save_stem, _ = os.path.splitext(written[0])
+        screenshot_stem, _ = os.path.splitext(written[1])
+        assert save_stem == screenshot_stem
+        assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]$", save_stem)
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
