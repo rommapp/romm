@@ -174,14 +174,6 @@ async function saveState(platform: string, slot = 1) {
   return api.post(`/streaming/sessions/${platform}/save-state`, { slot });
 }
 
-// The frame the browser grabbed off the stream canvas, held server-side until
-// the state save that follows claims it as its thumbnail.
-async function putStateFrame(platform: string, frame: Blob) {
-  return api.post(`/streaming/sessions/${platform}/state-frame`, frame, {
-    headers: { "Content-Type": "image/png" },
-  });
-}
-
 async function loadState(platform: string, slot = 1) {
   return api.post(`/streaming/sessions/${platform}/load-state`, { slot });
 }
@@ -249,7 +241,6 @@ export default {
   setVolume,
   setMute,
   saveState,
-  putStateFrame,
   loadState,
   swapDisc,
   adminListSessions,

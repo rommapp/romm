@@ -163,11 +163,6 @@ class SwapDiscResponse(BaseModel):
     platform: str
 
 
-class StateFrameResponse(BaseModel):
-    status: Literal["ok"]
-    platform: str
-
-
 class JoinableSessionSchema(BaseModel):
     """A session its host opened to other players, plus enough of the ROM to
     draw a cover tile without a second request per session."""
