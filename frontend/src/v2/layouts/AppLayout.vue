@@ -83,6 +83,19 @@ const playingStore = storePlaying();
 // because it injects the emitter; a no-op outside the shell.
 installNativeLaunchFeedback();
 
+// The native answer is per-platform, so unlike the streaming config the probe
+// needs the platform list. It watches for that list rather than hanging off
+// one fetch, because `fetchPlatforms` resolves empty when another view already
+// has one in flight. Re-probing is cheap: the store skips slugs it has
+// answered.
+watch(
+  () => platformsStore.allPlatforms.map((p) => p.slug).join(","),
+  (slugs) => {
+    if (slugs) void nativeStore.probe(slugs.split(","));
+  },
+  { immediate: true },
+);
+
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
 // fetched once the toggle is on, keeping it out of the default bundle.
@@ -170,23 +183,15 @@ onMounted(() => {
   if (platformsStore.allPlatforms.length === 0) {
     void platformsStore.fetchPlatforms().then(() => {
       prefetchPlatformIcons(platformsStore.allPlatforms.map((p) => p.slug));
-      probeNativeSupport();
     });
   } else {
     prefetchPlatformIcons(platformsStore.allPlatforms.map((p) => p.slug));
-    probeNativeSupport();
   }
 
   // Hydrate the streaming config so `containerForPlatform` resolves and
   // the Play CTA shows on streamable platforms. v1 ran this in `Main.vue`.
   void streamingStore.fetchConfig();
 });
-
-// The native answer is per-platform rather than server-wide, so unlike the
-// streaming config it needs the platform list first.
-function probeNativeSupport() {
-  void nativeStore.probe(platformsStore.allPlatforms.map((p) => p.slug));
-}
 
 onBeforeUnmount(() => {
   removeBackMorph?.();
