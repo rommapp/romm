@@ -1339,6 +1339,87 @@ def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog
     assert "not a pool" not in caplog.text
 
 
+def test_a_proxied_host_disagreeing_with_its_subfolder_cannot_be_claimed(caplog):
+    """The broker's room URL is an absolute path built from its own SUBFOLDER,
+    and it replaces the path `host` carries. Mounted at one path while serving
+    another, a claim would route the player to whoever owns that other path, so
+    the entry resolves unclaimable rather than silently misdirecting."""
+    entry = {
+        "platform": "ps2",
+        "host": "/streaming-2",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+        "emulator": "pcsx2",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(entry):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+                listed = streaming.resolve_containers()
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert candidates == []
+    # Still resolved, so the fleet view shows the operator what is wrong.
+    assert [c.key for c in listed] == [""]
+    assert "must be the container's own SUBFOLDER" in caplog.text
+
+
+def test_a_subfolder_left_to_its_default_is_caught_against_the_mount_path(caplog):
+    """The likeliest form of the mistake: a second member proxied at its own
+    path with `subfolder` forgotten, which defaults to /streaming."""
+    entry = {
+        "platform": "ps2",
+        "host": "/streaming-2",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "emulator": "pcsx2",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(entry):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert candidates == []
+
+
+def test_a_container_mounted_at_the_root_agrees_with_an_empty_subfolder():
+    """SUBFOLDER=/ makes the broker's prefix empty and RomM's subfolder "", and
+    a host of "/" is the same mount. Normalization has to see those as equal."""
+    entry = {
+        "platform": "ps2",
+        "host": "/",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "subfolder": "/",
+        "emulator": "pcsx2",
+    }
+    with _streaming(entry):
+        candidates = streaming.containers_for_platform("ps2")
+    assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
+
+
+def test_a_cross_origin_host_may_differ_from_its_subfolder():
+    """A full URL carries its own origin, so the broker's absolute room path
+    lands on it correctly and the two are free to disagree."""
+    entry = {
+        "platform": "ps2",
+        "host": "https://webstation.example.com",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+        "emulator": "pcsx2",
+    }
+    with _streaming(entry):
+        candidates = streaming.containers_for_platform("ps2")
+    assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
+
+
 def test_webstation_pool_claim_rolls_over_across_different_subfolders(
     client, access_token, viewer_access_token, rom: Rom
 ):

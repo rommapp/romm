@@ -23,7 +23,11 @@ from handler.streaming.capabilities import (
     slot_capabilities,
     state_transfer_limits,
 )
-from handler.streaming.protocol import BrokerProtocol, protocol_for
+from handler.streaming.protocol import (
+    BrokerProtocol,
+    WebstationProtocol,
+    protocol_for,
+)
 from logger.logger import log
 
 # Keys a `platforms:` block may override for the one platform it names.
@@ -238,6 +242,19 @@ def _derive_broker_host(entry: dict[str, Any], protocol: BrokerProtocol) -> str 
     return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
 
 
+def _proxy_path_matches_subfolder(host: str, protocol: WebstationProtocol) -> bool:
+    """Whether a same-origin entry's mount path agrees with its subfolder.
+
+    Only a container configured as a path has to agree. A full URL carries an
+    origin of its own for the broker's absolute room path to land on, so there
+    `host` and `subfolder` are free to differ.
+    """
+    host = host.strip()
+    if not host.startswith("/"):
+        return True
+    return host.rstrip("/") == protocol.subfolder
+
+
 def _emulator_namespace(entry: dict[str, Any]) -> str:
     """Namespace for stored states, e.g. 'pcsx2'. Keeps streaming states apart
     from the EmulatorJS states of the same ROM."""
@@ -274,6 +291,27 @@ def _resolve_one(
                 platform,
                 _loggable(entry),
             )
+        elif isinstance(
+            protocol, WebstationProtocol
+        ) and not _proxy_path_matches_subfolder(str(entry.get("host", "")), protocol):
+            # The browser is sent to `host`, but activate answers with an
+            # absolute room path the broker builds from its own SUBFOLDER, and
+            # urljoin lets that path replace the one `host` carries. Mounted at
+            # /streaming-2 while serving /streaming, a claim would hand the
+            # player a URL the proxy routes to whoever owns /streaming: another
+            # container, mid-session, with nothing logged anywhere. Both values
+            # have to be the container's own SUBFOLDER, so refuse the entry
+            # rather than resolve one that can only mislead.
+            log.warning(
+                "container for platform '%s' is proxied at '%s' but declares "
+                "subfolder '%s'; both must be the container's own SUBFOLDER, "
+                "it cannot be claimed: %s",
+                platform,
+                str(entry.get("host", "")).strip(),
+                protocol.subfolder,
+                _loggable(entry),
+            )
+            broker_host = None
 
     emulator = _emulator_namespace(entry)
     card_sync = bool(entry.get("memory_card_sync", False))
