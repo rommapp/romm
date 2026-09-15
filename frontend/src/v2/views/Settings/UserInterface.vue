@@ -465,7 +465,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
     <SettingsSection
       v-if="showShellSettings"
       :title="t('settings.desktop-shell')"
-      icon="mdi-monitor-play"
+      icon="mdi-desktop-classic"
     >
       <div class="r-v2-ui__field">
         <p class="r-v2-ui__desc">

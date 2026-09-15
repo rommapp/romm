@@ -60,7 +60,7 @@ function run(fn: () => void | Promise<void>) {
   <RMenuItem
     v-if="actions.canPlayNative.value && !actions.nativeLaunching.value"
     :label="actions.nativeActionLabel.value"
-    icon="mdi-monitor-play"
+    icon="mdi-desktop-classic"
     @click="run(() => actions.play('native'))"
   />
   <RMenuItem

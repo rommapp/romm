@@ -1,4 +1,5 @@
 import { mount } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "./GameActionBtn.vue";
@@ -64,7 +65,7 @@ describe("GameActionBtn: the native action", () => {
 
     expect(play).toHaveBeenCalledWith("native");
     expect(wrapper.find(".icon").attributes("data-icon")).toBe(
-      "mdi-monitor-play",
+      "mdi-desktop-classic",
     );
   });
 
@@ -96,4 +97,20 @@ describe("GameActionBtn: the native action", () => {
   it("shows that label as text once it is a pill", () => {
     expect(mountNative(true).text()).toContain("rom.play-native");
   });
+});
+
+// An icon name with no glyph behind it renders as an empty button and nothing
+// fails, so the name is checked against the font RomM actually ships.
+describe("GameActionBtn: the native icon exists", () => {
+  const MDI_CSS = readFileSync(
+    "node_modules/@mdi/font/css/materialdesignicons.css",
+    "utf8",
+  );
+
+  it.each(["mdi-desktop-classic", "mdi-loading", "mdi-spin"])(
+    "%s is a real class in the bundled font",
+    (name) => {
+      expect(MDI_CSS).toContain(`.${name}`);
+    },
+  );
 });

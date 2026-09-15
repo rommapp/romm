@@ -38,7 +38,7 @@ export function installNativeLaunchFeedback(): void {
 
     if (state.status === "running") {
       snackbar.success(t("rom.native-running", { name }), {
-        icon: "mdi-monitor-play",
+        icon: "mdi-desktop-classic",
       });
       return;
     }

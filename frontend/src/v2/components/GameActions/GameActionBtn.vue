@@ -196,7 +196,7 @@ const preset = computed<Preset>(() => {
     // and cancelling it is what a second press then means.
     const launching = actions.nativeLaunching.value;
     return {
-      icon: launching ? "mdi-loading mdi-spin" : "mdi-monitor-play",
+      icon: launching ? "mdi-loading mdi-spin" : "mdi-desktop-classic",
       label: actions.nativeActionLabel.value,
       activeIcon: null,
       onClick: launching
