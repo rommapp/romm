@@ -47,7 +47,7 @@ jobs:
         run: uv python install
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Run PostgreSQL Migrations
         working-directory: backend
@@ -104,7 +104,7 @@ jobs:
         run: uv python install
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Start MariaDB
         env:

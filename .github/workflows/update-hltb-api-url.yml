@@ -27,7 +27,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync
+          uv sync --frozen
 
       - name: Run HLTB API URL discovery script
         # Only satisfies the backend config import; discovery authenticates nothing.
