@@ -1,0 +1,72 @@
+import { describe, expect, it, vi } from "vitest";
+import { ref } from "vue";
+import type { CoverResource, SearchCoverSchema } from "@/__generated__";
+import { useCoverFilters } from "./index";
+
+vi.mock("vue-i18n", () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}));
+
+function resource(overrides: Partial<CoverResource> = {}): CoverResource {
+  return {
+    thumb: "https://cdn/thumb.png",
+    url: "https://cdn/grid.png",
+    type: "static",
+    width: 600,
+    height: 900,
+    style: "",
+    author: "",
+    score: 0,
+    nsfw: false,
+    humor: false,
+    epilepsy: false,
+    ...overrides,
+  };
+}
+
+const SGDB: SearchCoverSchema = {
+  provider: "sgdb",
+  name: "Blur",
+  resources: [resource({ style: "alternate", author: "duckdicks", score: 4 })],
+};
+const STEAM: SearchCoverSchema = {
+  provider: "steam",
+  name: "Blur",
+  resources: [resource({ url: "https://steam/header.jpg" })],
+};
+
+function setup(covers: SearchCoverSchema[]) {
+  return useCoverFilters(ref(covers), ref([]));
+}
+
+describe("useCoverFilters providers", () => {
+  it("shows every provider until one is toggled off", () => {
+    const filters = setup([SGDB, STEAM]);
+
+    expect(filters.filteredCovers.value.map((g) => g.provider)).toEqual([
+      "sgdb",
+      "steam",
+    ]);
+
+    filters.toggleProvider("steam");
+    expect(filters.filteredCovers.value.map((g) => g.provider)).toEqual([
+      "sgdb",
+    ]);
+
+    filters.resetFilters();
+    expect(filters.filteredCovers.value).toHaveLength(2);
+  });
+
+  it("keeps the SteamGridDB-only controls off a Steam-only result set", () => {
+    expect(setup([STEAM]).hasSgdbCovers.value).toBe(false);
+    expect(setup([SGDB, STEAM]).hasSgdbCovers.value).toBe(true);
+  });
+
+  it("still counts hidden providers as raw results so the bar stays", () => {
+    const filters = setup([STEAM]);
+    filters.toggleProvider("steam");
+
+    expect(filters.hasRawResults.value).toBe(true);
+    expect(filters.hasResults.value).toBe(false);
+  });
+});

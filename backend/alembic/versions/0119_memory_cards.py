@@ -46,15 +46,18 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["platform_id"], ["platforms.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
     with op.batch_alter_table("memory_cards") as batch_op:
         batch_op.create_index(
             batch_op.f("ix_memory_cards_user_emulator"),
             ["user_id", "emulator"],
+            if_not_exists=True,
         )
         batch_op.create_index(
             batch_op.f("ix_memory_cards_public"),
             ["is_public"],
+            if_not_exists=True,
         )
 
     op.create_table(
@@ -92,15 +95,18 @@ def upgrade() -> None:
             ["memory_card_id"], ["memory_cards.id"], ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
     with op.batch_alter_table("memory_card_versions") as batch_op:
         batch_op.create_index(
             batch_op.f("ix_memory_card_versions_card"),
             ["memory_card_id"],
+            if_not_exists=True,
         )
         batch_op.create_index(
             batch_op.f("ix_memory_card_versions_card_hash"),
             ["memory_card_id", "content_hash"],
+            if_not_exists=True,
         )
 
 
@@ -108,5 +114,5 @@ def downgrade() -> None:
     # drop_table removes the tables' indexes and foreign keys; dropping the
     # FK-backing indexes explicitly first is both redundant and rejected by
     # MariaDB/MySQL.
-    op.drop_table("memory_card_versions")
-    op.drop_table("memory_cards")
+    op.drop_table("memory_card_versions", if_exists=True)
+    op.drop_table("memory_cards", if_exists=True)

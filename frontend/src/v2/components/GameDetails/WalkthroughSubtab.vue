@@ -257,6 +257,8 @@ async function requestDelete() {
           v-if="selected.kind === 'md'"
           :key="`${selected.id}-${rom.updated_at}-md`"
           :url="selected.url"
+          :rom-id="rom.id"
+          :file-id="selected.fileId"
           :deletable="canEdit"
           @delete="requestDelete"
         />
@@ -273,6 +275,8 @@ async function requestDelete() {
           v-else
           :key="`${selected.id}-${rom.updated_at}-pdf`"
           :pdf-url="selected.url"
+          :rom-id="rom.id"
+          :file-id="selected.fileId"
           :deletable="canEdit"
           @delete="requestDelete"
         />

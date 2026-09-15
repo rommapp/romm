@@ -108,6 +108,7 @@
 #       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat (lowest priority)
 #     artwork: # Cover art and screenshots
+#       - sgdb # SteamGridDB (highest priority)
 #       - igdb # IGDB
 #       - moby # MobyGames
 #       - ss # Screenscraper

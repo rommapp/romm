@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import RProgressLinear from "./RProgressLinear.vue";
 
 const meta: Meta<typeof RProgressLinear> = {
@@ -143,13 +143,17 @@ export const LiveTicker: Story = {
     components: { RProgressLinear },
     setup() {
       const value = ref(0);
-      let frame = 0;
-      function step() {
-        frame += 1;
-        value.value = (frame % 100) + 1;
-        requestAnimationFrame(() => setTimeout(step, 80));
-      }
-      step();
+      let timer: ReturnType<typeof setInterval> | undefined;
+      onMounted(() => {
+        let frame = 0;
+        timer = setInterval(() => {
+          frame += 1;
+          value.value = (frame % 100) + 1;
+        }, 80);
+      });
+      onUnmounted(() => {
+        if (timer) clearInterval(timer);
+      });
       return { value };
     },
     template: `

@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, waitFor, within } from "storybook/test";
 import { ref } from "vue";
+import RMenu from "@/v2/lib/menus/RMenu/RMenu.vue";
+import RMenuItem from "@/v2/lib/menus/RMenuItem/RMenuItem.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTooltip from "./RTooltip.vue";
@@ -497,4 +499,105 @@ export const FormHelper: Story = {
       </div>
     `,
   }),
+};
+
+export const DismissedByOverlay: Story = {
+  name: "Dismissed when an overlay opens",
+  render: () => ({
+    components: { RTooltip, RMenu, RMenuItem, RBtn },
+    template: `
+      <div style="padding:48px;display:flex;justify-content:center">
+        <section aria-label="Super Mario World" style="padding:24px;border:1px solid var(--r-color-border);border-radius:8px">
+          Super Mario World
+          <RMenu>
+            <template #activator="{ props }">
+              <RBtn v-bind="props" @click.stop>More actions</RBtn>
+            </template>
+            <RTooltip text="Rename this game" :open-delay="0">
+              <template #activator="{ props: tipProps }">
+                <RMenuItem v-bind="tipProps">Edit</RMenuItem>
+              </template>
+            </RTooltip>
+          </RMenu>
+          <RTooltip activator="parent" text="Super Mario World" :open-delay="0" />
+        </section>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const body = within(document.body);
+    const card = canvas.getByRole("region", { name: /super mario world/i });
+    const activator = canvas.getByRole("button", { name: /more actions/i });
+
+    await step("hovering the card reveals its tooltip", async () => {
+      firePointerEnter(card, "mouse");
+      expect(await body.findByRole("tooltip")).toHaveTextContent(
+        "Super Mario World",
+      );
+    });
+
+    await step(
+      "opening the menu dismisses it, even though the activator swallows the click",
+      async () => {
+        activator.click();
+        expect(await body.findByRole("menu")).toBeInTheDocument();
+        await waitFor(() => expect(body.queryByRole("tooltip")).toBeNull());
+      },
+    );
+
+    await step("re-hovering the covered card does not bring it back", () => {
+      firePointerEnter(card, "mouse");
+      expect(body.queryByRole("tooltip")).toBeNull();
+    });
+
+    await step("a tooltip inside the menu still opens", async () => {
+      const menu = within(await body.findByRole("menu"));
+      firePointerEnter(menu.getByRole("button", { name: /edit/i }), "mouse");
+      expect(await body.findByRole("tooltip")).toHaveTextContent(
+        "Rename this game",
+      );
+    });
+  },
+};
+
+export const PendingOpenCancelledByOverlay: Story = {
+  name: "Pending open cancelled when an overlay opens",
+  render: () => ({
+    components: { RTooltip, RMenu, RMenuItem, RBtn },
+    template: `
+      <div style="padding:48px;display:flex;justify-content:center">
+        <section aria-label="Chrono Trigger" style="padding:24px;border:1px solid var(--r-color-border);border-radius:8px">
+          Chrono Trigger
+          <RMenu>
+            <template #activator="{ props }">
+              <RBtn v-bind="props" @click.stop>More actions</RBtn>
+            </template>
+            <RMenuItem>Edit</RMenuItem>
+          </RMenu>
+          <RTooltip activator="parent" text="Chrono Trigger" />
+        </section>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const body = within(document.body);
+    const card = canvas.getByRole("region", { name: /chrono trigger/i });
+    const activator = canvas.getByRole("button", { name: /more actions/i });
+
+    await step("the menu opens while the reveal is still pending", async () => {
+      firePointerEnter(card, "mouse");
+      expect(body.queryByRole("tooltip")).toBeNull();
+      activator.click();
+      expect(await body.findByRole("menu")).toBeInTheDocument();
+    });
+
+    await step("the tooltip never lands once the delay elapses", async () => {
+      // Real wait: the pending timer is the thing under test, so it has to be
+      // given its full `openDelay` to fire.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(body.queryByRole("tooltip")).toBeNull();
+    });
+  },
 };

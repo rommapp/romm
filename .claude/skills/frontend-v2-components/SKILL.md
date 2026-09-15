@@ -19,9 +19,9 @@ Related skills: `frontend-v2-theming` (tokens/colors), `frontend-v2-input` (focu
 2. **Three component tiers** (below).
 3. **Shared resources are canonical.** Pinia stores, API services, OpenAPI types (`src/__generated__/`), locales, utils — v2 _imports_ them, never forks them. Additive changes to shared resources are allowed; changing a shared store API to work around a v2 call-site issue is not.
 4. **TypeScript strict.** Zero `any` (justify with a comment if unavoidable). No `as unknown as ...`; fix the source or define an intermediate type.
-5. **Universal substitution.** When an `R*` primitive exists, use it. If it doesn't, create or extend it. Never drop to raw HTML or raw Vuetify when a primitive applies.
-6. **Wrapper contract.** Wrappers around Vuetify use `defineOptions({ inheritAttrs: false })` + `v-bind="$attrs"` + slot passthrough, and accept every prop/slot of the wrapped component.
-7. **Layout via Vuetify utility classes + our wrappers, not plain CSS.** Use `d-flex`, `pa-4`, `align-center` directly. Vuetify layout components (`v-row`, `v-col`, `v-container`, `v-spacer`, `v-app`, `v-main`) get wrapped as `R*` on first use (lazy).
+5. **Universal substitution.** When an `R*` primitive exists, use it. If it doesn't, create or extend it. Never drop to raw HTML when a primitive applies.
+6. **Attribute forwarding contract.** A primitive whose root is polymorphic (`<component :is>`) or that forwards to an inner element uses `defineOptions({ inheritAttrs: false })` + `v-bind="$attrs"` + slot passthrough, so call-site attrs and listeners land on the intended node instead of vanishing silently.
+7. **Layout in scoped CSS against tokens.** v2 uses no utility-class framework and no component library: no Tailwind, no Vuetify. Write `display: flex` / `gap: var(--r-space-*)` in the component's own `<style scoped>`. Recurring structure becomes a primitive (`RList`, `RToolbar`, `RCollapsible`, `RVirtualScroller`), not a repeated block of classes.
 8. **Accessibility & performance** are requirements: semantic HTML, focus management, contrast, ARIA on icon-only controls; lazy-load heavy views, virtualize large lists, stable `:key` on every `v-for`.
 
 ---
@@ -44,7 +44,7 @@ If any fails: **shared composite** if generic across features, **feature composi
 
 ### Primitive boundaries
 
-- **Can use**: tokens, other primitives, Vue/Vuetify, generic composables (`useInput*`, `useFocus*`).
+- **Can use**: tokens, other primitives, Vue, generic composables (`useInput*`, `useFocus*`).
 - **Cannot use**: Pinia stores, API services, `emitter`, `router` (a `RouterLink` may be accepted as a prop), `i18n` directly. **No `$t()` in primitives** — text comes via props or slots.
 
 ---
@@ -105,7 +105,7 @@ import { useCan } from "@/v2/composables/useCan";
 1. Don't change shared store APIs to work around a v2 call-site issue. (Fix the call site; the Gallery lesson was calling `romsStore.reset()` from the view, not adding `_fetchSeq` to the store.)
 2. Don't drop to inline role checks — always go through `useCan` (see `frontend-v2-patterns`).
 3. Don't reinvent a surface — dialog/menu/popover/card all go through their primitive; special cases become a new prop, not a parallel surface.
-4. Don't use `v-form` directly — use `RForm`.
+4. Don't hand-roll a `<form>`; use `RForm`.
 5. Don't add backwards-compat shims inside v2: delete removed code; no `// removed`, no renamed-but-unused exports, no deprecated wrappers that just call the new function.
 6. Don't write redundant tests; don't touch v1; never `--no-verify` on commits.
 
@@ -115,10 +115,6 @@ import { useCan } from "@/v2/composables/useCan";
 
 ## Known debt (focused follow-ups)
 
-- **Virtualisation migration** — `RVirtualScroller` (`src/v2/lib/structural/`) needs to absorb `GameGrid`/`LetterGroupedGrid` (structural refactor of `Platform.vue`/`Search.vue`/`Collection.vue`); `useLetterGroups` must become index-based for AlphaStrip scroll-spy.
-- **`useGalleryFilterUrl`** — sync `galleryFilter` store fields to URL query params for bookmarkable links; mark v1 store usage `@deprecated`.
-- **Vue Router scroll restoration** — galleries scroll custom containers (`.r-v2-plat__scroll`), not window; add a Pinia `routeFullPath → offsetTop` map with per-view hooks. Bundle with the virtualisation migration.
-- **`useSocketEvent` composable** — typed socket subscriptions with mount/unmount cleanup (consumers currently wire `socket.on/off` by hand).
 - **When v1 dies**: move `uiVersion` into `UI_SETTINGS_KEYS`; drop `.r-v2-*` scope classes (tokens move to `:root`); simplify `useUISettings` sync; delete `useGameAnimation`; drop the color-string→tone collapser in `NotificationHost`; remove the Vuetify rule arrays in `stores/users.ts`.
 
 Full reference: `docs/FRONTEND_ARCHITECTURE.md`.

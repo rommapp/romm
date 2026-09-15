@@ -2317,6 +2317,27 @@ def _state_for(rom: Rom, user: User, file_name: str, emulator: str) -> State:
     )
 
 
+def _screenshot_for(rom: Rom, stem: str) -> Screenshot:
+    """A scan_screenshot() stand-in on `stem`, the name State.screenshot matches."""
+    return Screenshot(
+        file_name=f"{stem}.png",
+        file_name_no_tags=stem,
+        file_name_no_ext=stem,
+        file_extension="png",
+        file_path=f"{rom.platform_slug}/screenshots",
+        file_size_bytes=7,
+    )
+
+
+def _written_screenshot(write_file: AsyncMock) -> bytes:
+    """The bytes stored under the state's .png, from a patched write_file."""
+    calls = [
+        c for c in write_file.await_args_list if c.kwargs["filename"].endswith(".png")
+    ]
+    assert len(calls) == 1, "expected exactly one screenshot write"
+    return calls[0].kwargs["file"]
+
+
 def test_claim_spawns_state_hydration(client, access_token, rom: Rom):
     """Claiming a session must schedule a background hydration of the
     container's save-state slots from the user's stored states."""
@@ -2696,18 +2717,11 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
     assert db_state.emulator == "pcsx2"
 
 
-def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
+def test_pull_state_takes_the_broker_screenshot(rom: Rom, admin_user: User):
     """Dolphin states embed no frame, so the pull takes the broker's capture."""
     container = {**_container_for(rom), "label": "Dolphin"}
     scanned = _state_for(rom, admin_user, "Game.s03", "dolphin")
-    scanned_shot = Screenshot(
-        file_name="Game.s03.png",
-        file_name_no_tags="Game.s03",
-        file_name_no_ext="Game.s03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned_shot = _screenshot_for(rom, "Game.s03")
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
@@ -2736,29 +2750,22 @@ def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
     assert db_state.screenshot is not None
 
 
-def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
-    """A frame the browser grabbed off the canvas beats asking the broker."""
-    container = {**_container_for(rom), "label": "Dolphin"}
-    scanned = _state_for(rom, admin_user, "Game.s04", "dolphin")
-    scanned_shot = Screenshot(
-        file_name="Game.s04.png",
-        file_name_no_tags="Game.s04",
-        file_name_no_ext="Game.s04",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+def test_pull_state_prefers_broker_screenshot_over_embedded(rom: Rom, admin_user: User):
+    """The container's capture is the frame the player saw, so it beats the one
+    PCSX2 embedded in the state."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    scanned = _state_for(rom, admin_user, "Game.05.p2s", "pcsx2")
+    scanned_shot = _screenshot_for(rom, "Game.05")
+    embedded = states.PNG_MAGIC + b"embedded-frame"
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.s04", b"state-bytes"),
+            return_value=("Game.05.p2s", _p2s_bytes(embedded)),
         ),
         patch(
-            "handler.streaming.states.take_state_frame",
-            new=AsyncMock(return_value=_PNG),
-        ),
-        patch("handler.streaming.states.fetch_state_screenshot") as fetch_shot,
-        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+            "handler.streaming.states.fetch_state_screenshot", return_value=_PNG
+        ) as fetch_shot,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
         patch(
             "handler.asset_store.scan_screenshot",
@@ -2766,41 +2773,63 @@ def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
         ),
     ):
         ok = asyncio.run(
-            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 4)
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 5)
         )
     assert ok is True
-    fetch_shot.assert_not_called()
+    fetch_shot.assert_called_once()
+    assert _written_screenshot(wf) == _PNG
 
 
-def test_state_frame_stashes_capture(client, access_token):
-    """The endpoint holds the frame for the save that follows it."""
-    rom = _rom_on("ps2")
-    with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
-        with patch(
-            "handler.streaming.states.stash_state_frame", new=AsyncMock()
-        ) as stash:
-            r = client.post(
-                f"/api/streaming/sessions/{rom.platform_slug}/state-frame",
-                content=_PNG,
-                headers={**_auth(access_token), "Content-Type": "image/png"},
-            )
-    assert r.status_code == 200
-    stash.assert_awaited_once()
-    assert stash.await_args_list[0].args[2] == _PNG
-
-
-def test_state_frame_rejects_non_png(client, access_token):
-    """Only PNG survives the asset pipeline, so anything else is refused here."""
-    rom = _rom_on("ps2")
-    with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
-        r = client.post(
-            f"/api/streaming/sessions/{rom.platform_slug}/state-frame",
-            content=b"GIF89a-not-a-png",
-            headers={**_auth(access_token), "Content-Type": "image/png"},
+def test_pull_state_falls_back_to_embedded_screenshot(rom: Rom, admin_user: User):
+    """A container that captured no frame leaves PCSX2's embedded one."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    scanned = _state_for(rom, admin_user, "Game.06.p2s", "pcsx2")
+    scanned_shot = _screenshot_for(rom, "Game.06")
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=("Game.06.p2s", _p2s_bytes(_PNG)),
+        ),
+        patch(
+            "handler.streaming.states.fetch_state_screenshot", return_value=None
+        ) as fetch_shot,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
+        patch(
+            "handler.asset_store.scan_screenshot",
+            new=AsyncMock(return_value=scanned_shot),
+        ),
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 6)
         )
-    assert r.status_code == 400
+    assert ok is True
+    fetch_shot.assert_called_once()
+    assert _written_screenshot(wf) == _PNG
+
+
+def test_pull_state_asks_the_broker_for_a_screenshot_once(rom: Rom, admin_user: User):
+    """No frame from either source: the state still syncs, on one broker call."""
+    container = {**_container_for(rom), "label": "RetroArch"}
+    scanned = _state_for(rom, admin_user, "Game.state5", "retroarch")
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=("Game.state5", b"state-bytes"),
+        ),
+        patch(
+            "handler.streaming.states.fetch_state_screenshot", return_value=None
+        ) as fetch_shot,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
+        patch("handler.asset_store.scan_screenshot", new=AsyncMock()) as scan_shot,
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 5)
+        )
+    assert ok is True
+    fetch_shot.assert_called_once()
+    scan_shot.assert_not_awaited()
 
 
 def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
@@ -2999,6 +3028,16 @@ def test_extract_state_screenshot_not_a_zip_returns_none():
     assert states.extract_state_screenshot("pcsx2", b"not-a-zip") is None
 
 
+def test_fetch_state_screenshot_rejects_a_non_png_body(rom: Rom):
+    """A body that is not a PNG has to read as no frame, or it would shadow the
+    frame a state embeds for itself and leave the state with no thumbnail."""
+    with patch(
+        "handler.streaming.broker.get_binary_safe",
+        return_value=(MagicMock(), b"GIF89a-not-a-png"),
+    ):
+        assert states.fetch_state_screenshot(_resolved(_container_for(rom)), 3) is None
+
+
 def test_state_transfer_limits_default_for_an_unlisted_emulator():
     assert state_transfer_limits("pcsx2") == DEFAULT_STATE_TRANSFER
 
@@ -3079,14 +3118,7 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
     """A stored state screenshot lands in the screenshots dir under the state's
     stem, so State.screenshot resolves it as the resume-picker thumbnail."""
     db_state_handler.add_state(_state_for(rom, admin_user, "Game.03.p2s", "pcsx2"))
-    scanned = Screenshot(
-        file_name="Game.03.png",
-        file_name_no_tags="Game.03",
-        file_name_no_ext="Game.03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned = _screenshot_for(rom, "Game.03")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch(
@@ -3128,14 +3160,7 @@ def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
 def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
     """End to end: storing a state with a frame binds it as the thumbnail."""
     scanned_state = _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
-    scanned_shot = Screenshot(
-        file_name="Game.03.png",
-        file_name_no_tags="Game.03",
-        file_name_no_ext="Game.03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned_shot = _screenshot_for(rom, "Game.03")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
