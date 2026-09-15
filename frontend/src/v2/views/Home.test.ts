@@ -10,7 +10,12 @@ import { useStreamingStore, type JoinableSession } from "@/stores/streaming";
 import Home from "./Home.vue";
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    // Renders interpolated values alongside the key, so a caption that drops
+    // its parameter fails here instead of passing on the bare key.
+    t: (key: string, params?: unknown[]) =>
+      [key, ...(params ?? [])].filter(Boolean).join(":"),
+  }),
 }));
 
 const { getLibraryInfo, getRecommendedRoms } = vi.hoisted(() => ({
@@ -245,8 +250,8 @@ describe("Home", () => {
     expect(getRecommendedRoms).toHaveBeenCalledTimes(1);
     const caption = wrapper.find(".rec-reason");
     expect(caption.text()).toBe("Super Metroid");
-    expect(caption.attributes("title")).toContain(
-      "recommendations.because-you-played",
+    expect(caption.attributes("title")).toBe(
+      "recommendations.because-you-played:Super Metroid",
     );
   });
 

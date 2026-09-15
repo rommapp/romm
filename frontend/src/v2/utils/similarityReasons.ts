@@ -30,8 +30,8 @@ const FACET_ICONS: Record<Facet, string> = {
 const TRANSLATED_FACETS: Partial<Record<Facet, string>> = {
   igdb: "recommendations.reason-igdb",
   top_rated: "recommendations.reason-top-rated",
-  // Decades arrive as the starting year ("1990"); each locale suffixes it
-  // its own way, so the phrasing belongs in the locale files.
+  // Decades arrive as the starting year ("1990"), which each locale phrases
+  // in its own way, so the wording belongs in the locale files.
   decade: "recommendations.reason-decade",
 };
 

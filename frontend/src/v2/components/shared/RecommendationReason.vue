@@ -49,15 +49,16 @@ const caption = computed(() => {
 
 <style scoped>
 .rec-reason {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  /* Clip to the card it captions rather than widening the row's scroll
-     track; the token tracks the per-breakpoint card width. */
-  max-width: var(--r-card-art-w);
-  /* Centres the caption under the card's centred title. Auto margins, not
-     `justify-content`, so an over-long caption still truncates from one end. */
-  margin-inline: auto;
+  /* Pinned to the cover's width without widening the row's scroll track, the
+     way GameCard pins its own label. Reading the card-width token instead
+     would miss the sizes GameCard overrides on itself, mobile's among them. */
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
   overflow: hidden;
   font-size: 10.5px;
   font-weight: var(--r-font-weight-medium);
@@ -74,9 +75,8 @@ const caption = computed(() => {
 }
 
 .rec-reason__icon {
-  /* MDI glyphs centre on the em box, which the text's descender space drops
-     ~2px below its optical centre. Transform, not margin: centring absorbs
-     half of a margin, and a whole pixel stays crisp at 1x. */
+  /* MDI glyphs centre on the em box, leaving them ~2px below the text's
+     optical centre. A transform, because centring absorbs half of a margin. */
   transform: translateY(-1px);
 }
 </style>
