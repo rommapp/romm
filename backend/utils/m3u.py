@@ -7,24 +7,29 @@ if TYPE_CHECKING:
 
 # Sheet formats that describe a disc by pointing at raw track files: .cue for
 # BIN/CUE, .gdi for Dreamcast, .ccd for CloneCD and .mds for Alcohol. No one
-# format is privileged over the others, since the tracks any of them reference
-# are not loadable on their own.
+# format is privileged over the others.
 DESCRIPTOR_EXTENSIONS = frozenset({"cue", "gdi", "ccd", "mds"})
+
+# The raw tracks those sheets point at. None of them is loadable on its own, so
+# a sheet in the set means its tracks are data rather than discs -- but only
+# those tracks. Anything else present stays a disc in its own right.
+COMPANION_EXTENSIONS = frozenset({"bin", "raw", "img", "sub", "mdf"})
 
 
 def playlist_files(files: list[RomFile]) -> list[RomFile]:
     """The files of a multi-file ROM that name a playable disc.
 
-    The .m3u itself is never one, and where descriptor files are present only
-    those are, since the raw tracks they reference are not loadable on their
-    own. One home for the rule: the playlist, the download endpoint and the
-    disc swapper all have to agree on which files are discs.
+    The .m3u itself is never one. Where a descriptor is present the raw tracks
+    it references are not discs either, since they are not loadable alone --
+    but a set is not required to be all one format, so a disc that stands on
+    its own (a .chd beside a .gdi) is kept. One home for the rule: the
+    playlist, the download endpoint and the disc swapper all have to agree on
+    which files are discs.
     """
     discs = [f for f in files if f.file_extension.lower() != "m3u"]
-    descriptors = [
-        f for f in discs if f.file_extension.lower() in DESCRIPTOR_EXTENSIONS
-    ]
-    return descriptors or discs
+    if not any(f.file_extension.lower() in DESCRIPTOR_EXTENSIONS for f in discs):
+        return discs
+    return [f for f in discs if f.file_extension.lower() not in COMPANION_EXTENSIONS]
 
 
 def generate_m3u_content(

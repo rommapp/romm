@@ -101,6 +101,26 @@ class TestGenerateM3uContent:
         result = generate_m3u_content(files, hidden_folder=False)
         assert result == b"disc1.gdi\ndisc2.gdi"
 
+    def test_standalone_disc_kept_beside_a_descriptor(self):
+        # A set is not required to be all one format. The .gdi's tracks are
+        # data, but the .chd is a disc that boots on its own.
+        files = [
+            _make_file("disc1.gdi", "gdi"),
+            _make_file("track01.bin", "bin"),
+            _make_file("disc2.chd", "chd"),
+        ]
+        result = generate_m3u_content(files, hidden_folder=False)
+        assert result == b"disc1.gdi\ndisc2.chd"
+
+    def test_standalone_disc_kept_beside_a_cue(self):
+        files = [
+            _make_file("disc1.cue", "cue"),
+            _make_file("disc1.bin", "bin"),
+            _make_file("disc2.chd", "chd"),
+        ]
+        result = generate_m3u_content(files, hidden_folder=False)
+        assert result == b"disc1.cue\ndisc2.chd"
+
 
 class TestPlaylistFiles:
     """The disc swapper reads this directly, so the files themselves matter."""
@@ -118,3 +138,14 @@ class TestPlaylistFiles:
     def test_bare_files_are_all_discs(self):
         discs = [_make_file("disc1.chd", "chd"), _make_file("disc2.chd", "chd")]
         assert playlist_files(discs) == discs
+
+    def test_standalone_disc_survives_a_descriptor(self):
+        gdi = _make_file("disc1.gdi", "gdi")
+        track = _make_file("track01.bin", "bin")
+        chd = _make_file("disc2.chd", "chd")
+        assert playlist_files([gdi, track, chd]) == [gdi, chd]
+
+    def test_bare_tracks_without_a_descriptor_are_discs(self):
+        # Nothing describes them, so they are all there is to play.
+        tracks = [_make_file("track01.bin", "bin"), _make_file("track02.bin", "bin")]
+        assert playlist_files(tracks) == tracks
