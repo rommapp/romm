@@ -103,9 +103,9 @@ def _syncs_for_save(
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
 
 
-def _apply_datetime_tag(filename: str, tagged_at: datetime) -> str:
+def _apply_datetime_tag(filename: str) -> str:
     name, ext = os.path.splitext(filename)
-    timestamp = tagged_at.strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
 
     if DATETIME_TAG_PATTERN.search(name):
         name = DATETIME_TAG_PATTERN.sub("", name)
@@ -201,11 +201,9 @@ async def add_save(
             detail=f"Invalid save filename: {str(exc)}",
         ) from exc
 
-    # One timestamp for the save and its screenshot, which are matched by stem.
-    tagged_at = datetime.now(timezone.utc)
     actual_filename = sanitized_save_filename
     if slot:
-        actual_filename = _apply_datetime_tag(sanitized_save_filename, tagged_at)
+        actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
     saves_path = fs_asset_handler.build_saves_file_path(
         user=request.user,
@@ -356,10 +354,12 @@ async def add_save(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid screenshot filename: {str(exc)}",
             ) from exc
+        # Save.screenshot is matched by stem, so a slotted upload names the
+        # screenshot after the tagged save whatever the client called it.
         if slot:
-            sanitized_screenshot_filename = _apply_datetime_tag(
-                sanitized_screenshot_filename, tagged_at
-            )
+            save_stem, _ = os.path.splitext(actual_filename)
+            _, screenshot_ext = os.path.splitext(sanitized_screenshot_filename)
+            sanitized_screenshot_filename = f"{save_stem}{screenshot_ext}"
 
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id

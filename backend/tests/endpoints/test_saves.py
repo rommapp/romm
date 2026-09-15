@@ -1640,7 +1640,7 @@ class TestDatetimeTagging:
             f"/api/saves?rom_id={rom.id}&slot=main",
             files={
                 "saveFile": ("test.sav", BytesIO(b"save"), "application/octet-stream"),
-                "screenshotFile": ("test.png", BytesIO(b"png"), "image/png"),
+                "screenshotFile": ("shot.png", BytesIO(b"png"), "image/png"),
             },
             headers={"Authorization": f"Bearer {access_token}"},
         )

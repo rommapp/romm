@@ -373,6 +373,12 @@ const emptyText = computed(() =>
   backdrop-filter: blur(6px);
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
+/* 44px hit area around the 28px pill. */
+.r-asset-preview__clear::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
 .r-asset-preview__clear:hover {
   background: color-mix(
     in srgb,
@@ -384,7 +390,7 @@ const emptyText = computed(() =>
 /* Off the screenshot the overlay-style clear button reads too heavy
    against a light surface; switch to a tonal pill. */
 .r-asset-preview__clear--inline {
-  position: static;
+  position: relative;
   flex-shrink: 0;
   border-color: var(--r-color-border);
   background: var(--r-color-bg-elevated);

@@ -65,9 +65,9 @@ const sessionSaveRef = ref<SaveSchema | null>(null);
 const deviceIDRef = ref(authStore.user?.current_device_id ?? undefined);
 // Bytes the server already holds, so forced writes can skip an unchanged SRAM.
 const saveTracker = createSaveSyncTracker();
-function seedSaveTrackerFromEmulator() {
-  // Passing false reads the SRAM without dumping it, so seeding fires no tick.
-  saveTracker.seed(
+function baselineSaveTrackerFromEmulator() {
+  // Passing false reads the SRAM without dumping it, so this fires no tick.
+  saveTracker.baseline(
     window.EJS_emulator?.gameManager?.getSaveFile(false) ?? null,
   );
 }
@@ -98,14 +98,19 @@ function writeSave(file: {
   saveWrite = write.catch(() => null);
   return write;
 }
-// Forced writes (Save button, Save & Quit) wait for the queue so the check
-// sees the latest upload, then skip bytes the server already holds.
+// Forced writes (Save button, Save & Quit) wait for the queue, then skip only
+// when no version was opened yet and the SRAM still matches the loaded save.
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
 }): Promise<boolean> {
   await saveWrite;
-  if (saveTracker.isUploaded(new Uint8Array(file.saveFile))) return true;
+  if (
+    !sessionSaveRef.value &&
+    saveTracker.isUploaded(new Uint8Array(file.saveFile))
+  ) {
+    return true;
+  }
   return (await writeSave(file)) !== null;
 }
 const theme = useTheme();
@@ -523,11 +528,11 @@ window.EJS_onGameStart = async () => {
           setTimeout(resolve, STATE_APPLY_SETTLE_MS),
         );
         await loadState(props.state);
-        seedSaveTrackerFromEmulator();
+        baselineSaveTrackerFromEmulator();
       } else if (props.save) {
         await loadSave(props.save);
       } else {
-        seedSaveTrackerFromEmulator();
+        baselineSaveTrackerFromEmulator();
       }
       if (EJS_ENABLE_AUTO_SAVE_SYNC) {
         try {

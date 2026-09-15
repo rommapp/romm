@@ -208,6 +208,18 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.isUploaded(bytes(1, 2, 3))).toBe(false);
   });
 
+  it("holds a baseline the tick ignores but a forced write still persists", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.baseline(bytes(1, 2, 3));
+
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.isUploaded(bytes(1, 2, 3))).toBe(false);
+
+    expect(tracker.shouldUpload(bytes(9))).toBe(false);
+    expect(tracker.shouldUpload(bytes(9))).toBe(true);
+  });
+
   it("compares content, not identity, and treats a resize as a change", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(null);

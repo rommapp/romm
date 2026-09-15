@@ -149,17 +149,29 @@ export async function saveSave({
 // (#4201). Two agreeing ticks keep a mid-write save from being uploaded (#2349).
 export function createSaveSyncTracker() {
   let lastUploaded: Uint8Array | null = null;
+  let baseline: Uint8Array | null = null;
   let previousTick: Uint8Array | null = null;
   return {
-    // Seeded from the SRAM at launch so the server's own file is not re-uploaded.
+    // Bytes downloaded from the server: neither the tick nor a forced write
+    // needs to send them back.
     seed(save: Uint8Array | null) {
       lastUploaded = save;
+      baseline = save;
+      previousTick = save;
+    },
+    // SRAM restored by a state or a fresh boot: the tick waits for a change,
+    // but a forced write still persists it since the server has no copy.
+    baseline(save: Uint8Array | null) {
+      lastUploaded = null;
+      baseline = save;
       previousTick = save;
     },
     shouldUpload(save: Uint8Array): boolean {
       const stable = bytesEqual(save, previousTick);
       previousTick = save;
-      return stable && !bytesEqual(save, lastUploaded);
+      return (
+        stable && !bytesEqual(save, lastUploaded) && !bytesEqual(save, baseline)
+      );
     },
     markUploaded(save: Uint8Array) {
       lastUploaded = save;

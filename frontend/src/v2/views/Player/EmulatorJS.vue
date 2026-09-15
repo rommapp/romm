@@ -480,24 +480,28 @@ const newerSave = computed(() =>
 
 // Slot for saves the session creates. A bound save with a slot fixes it; a
 // slot-less legacy save stays as an archive and progress goes to the pick.
-const NEW_SLOT = "__new__";
-const slotChoice = ref(AUTOSAVE_SLOT);
+// Select values are namespaced so the "new slot" entry cannot collide with a
+// user-named slot.
+const NEW_SLOT = "new";
+const slotValue = (slot: string) => `slot:${slot}`;
+const slotChoice = ref(slotValue(AUTOSAVE_SLOT));
 const customSlot = ref("");
 const boundSlot = computed(() => resume.value.save?.slot || null);
 function onSlotChoice(value: unknown) {
-  slotChoice.value = typeof value === "string" ? value : AUTOSAVE_SLOT;
+  slotChoice.value =
+    typeof value === "string" ? value : slotValue(AUTOSAVE_SLOT);
 }
 const slotItems = computed(() => [
   ...slotOptions(rom.value?.user_saves ?? []).map((slot) => ({
     title: slot,
-    value: slot,
+    value: slotValue(slot),
   })),
   { title: t("play.new-slot"), value: NEW_SLOT },
 ]);
 const saveSlot = computed(() =>
   slotChoice.value === NEW_SLOT
     ? customSlot.value.trim() || AUTOSAVE_SLOT
-    : slotChoice.value,
+    : slotChoice.value.slice(slotValue("").length),
 );
 </script>
 
@@ -605,7 +609,7 @@ const saveSlot = computed(() =>
             <div class="r-v2-ejs__slot-row">
               <RSelect
                 class="r-v2-ejs__slot-select"
-                :model-value="boundSlot ?? slotChoice"
+                :model-value="boundSlot ? slotValue(boundSlot) : slotChoice"
                 :disabled="!!boundSlot"
                 variant="outlined"
                 density="compact"
@@ -939,6 +943,7 @@ const saveSlot = computed(() =>
 }
 .r-v2-ejs__slot-info {
   appearance: none;
+  position: relative;
   display: inline-flex;
   padding: 0;
   border: 0;
@@ -947,13 +952,18 @@ const saveSlot = computed(() =>
   border-radius: var(--r-radius-pill);
   cursor: pointer;
 }
+/* 44px hit area around the 16px icon without growing the row. */
+.r-v2-ejs__slot-info::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+}
 .r-v2-ejs__slot-info:hover {
   color: var(--r-color-fg);
 }
 .r-v2-ejs__assets {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
   scrollbar-color: var(--r-color-border-strong) transparent;
   scrollbar-width: thin;
 }
@@ -1065,6 +1075,9 @@ html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__config {
 }
 html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__panel {
   min-height: 0;
+}
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__assets {
+  overflow-y: auto;
 }
 /* The hero cannot shrink, so on a short viewport it scrolls instead of clipping. */
 html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__hero {
