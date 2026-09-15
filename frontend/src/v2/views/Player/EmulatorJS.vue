@@ -14,6 +14,7 @@
 // wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
 // + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
 import {
+  RAlert,
   RBtn,
   RCard,
   RIcon,
@@ -46,7 +47,11 @@ import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { areThreadsRequiredForEJSCore, getSupportedEJSCores } from "@/utils";
+import {
+  areThreadsRequiredForEJSCore,
+  formatRelativeDate,
+  getSupportedEJSCores,
+} from "@/utils";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
@@ -83,6 +88,7 @@ import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
   defaultResumeSelection,
+  newerSaveThanState,
   pickSave,
   pickState,
   slotOptions,
@@ -465,6 +471,13 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
 );
 const selectedAssetId = computed(() => selectedAsset.value?.id ?? null);
 
+// A state older than the latest save would roll progress back (#4278).
+const newerSave = computed(() =>
+  resume.value.state
+    ? newerSaveThanState(rom.value?.user_saves ?? [], resume.value.state)
+    : null,
+);
+
 // Slot for saves the session creates. A bound save with a slot fixes it; a
 // slot-less legacy save stays as an archive and progress goes to the pick.
 const NEW_SLOT = "__new__";
@@ -565,6 +578,22 @@ const saveSlot = computed(() =>
         </div>
 
         <div class="r-v2-ejs__resume-body">
+          <RAlert
+            v-if="newerSave"
+            type="warning"
+            density="compact"
+            :text="
+              t('play.newer-save-warning', {
+                time: formatRelativeDate(newerSave.updated_at),
+              })
+            "
+          >
+            <template #append>
+              <RBtn variant="text" size="small" @click="selectSave(newerSave)">
+                {{ t("play.boot-from-save") }}
+              </RBtn>
+            </template>
+          </RAlert>
           <AssetPreview
             :asset="selectedAsset"
             :type="activeAssetTab"

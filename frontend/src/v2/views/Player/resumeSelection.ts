@@ -48,3 +48,15 @@ export function slotOptions(saves: readonly SaveSchema[]): string[] {
     .filter((slot): slot is string => !!slot && slot !== AUTOSAVE_SLOT);
   return [AUTOSAVE_SLOT, ...new Set(named)];
 }
+
+/** The newest save when it postdates the armed state, so the user can be warned. */
+export function newerSaveThanState(
+  saves: readonly SaveSchema[],
+  state: StateSchema,
+): SaveSchema | null {
+  const newest = saves.reduce<SaveSchema | null>(
+    (best, save) => (!best || save.updated_at > best.updated_at ? save : best),
+    null,
+  );
+  return newest && newest.updated_at > state.updated_at ? newest : null;
+}

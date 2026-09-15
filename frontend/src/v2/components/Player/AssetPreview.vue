@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Preview of the asset to resume from: a screenshot stage for states, one
-// compact row for saves (relabelled as the write target when a state is armed).
+// compact row for saves (thumbnail when the save has a screenshot; relabelled
+// as the write target when a state is armed).
 import { RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -118,8 +119,18 @@ const emptyText = computed(() =>
       class="r-asset-preview__body"
       :class="{ 'r-asset-preview__body--empty': !asset }"
     >
-      <div v-if="type === 'save'" class="r-asset-preview__save-badge">
+      <div
+        v-if="type === 'save'"
+        class="r-asset-preview__save-badge"
+        :class="{ 'r-asset-preview__save-badge--shot': screenshotUrl }"
+        :style="
+          screenshotUrl
+            ? { backgroundImage: toCssUrl(screenshotUrl) }
+            : undefined
+        "
+      >
         <RIcon
+          v-if="!screenshotUrl"
           :icon="asset ? 'mdi-content-save' : 'mdi-content-save-outline'"
           size="22"
         />
@@ -313,6 +324,12 @@ const emptyText = computed(() =>
   border-radius: 50%;
   background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
   color: var(--r-color-brand-primary);
+}
+.r-asset-preview__save-badge--shot {
+  width: 71px;
+  border-radius: var(--r-radius-sm);
+  background-size: cover;
+  background-position: center;
 }
 .r-asset-preview__body--empty .r-asset-preview__save-badge {
   background: var(--r-color-bg-elevated);

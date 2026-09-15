@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import {
   defaultResumeSelection,
+  newerSaveThanState,
   pickSave,
   pickState,
   slotOptions,
@@ -93,5 +94,27 @@ describe("slotOptions", () => {
       "autosave",
       "Autosave",
     ]);
+  });
+});
+
+describe("newerSaveThanState", () => {
+  const at = (updated_at: string) => ({ updated_at }) as SaveSchema;
+  const stateAt = (updated_at: string) => ({ updated_at }) as StateSchema;
+
+  it("returns the newest save when it postdates the state", () => {
+    const saves = [at("2026-09-01T10:00:00Z"), at("2026-09-03T10:00:00Z")];
+
+    expect(newerSaveThanState(saves, stateAt("2026-09-02T10:00:00Z"))).toBe(
+      saves[1],
+    );
+  });
+
+  it("returns null when the state is the latest progress", () => {
+    const saves = [at("2026-09-01T10:00:00Z")];
+
+    expect(newerSaveThanState(saves, stateAt("2026-09-02T10:00:00Z"))).toBe(
+      null,
+    );
+    expect(newerSaveThanState([], stateAt("2026-09-02T10:00:00Z"))).toBe(null);
   });
 });
