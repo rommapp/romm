@@ -83,8 +83,12 @@ export default defineStore("collections", {
           .then(({ data: collections }) => {
             this.allCollections = collections;
 
-            // Set the favorite collection
-            const fav = collections.find((c) => c.is_favorite);
+            // Another user's public favorites collection is in this list too,
+            // and writing to it is a 403, so ours is the only valid target.
+            const authStore = storeAuth();
+            const fav = collections.find(
+              (c) => c.is_favorite && c.user_id === authStore.user?.id,
+            );
             if (fav) this.favoriteCollection = fav;
 
             resolve(collections);
