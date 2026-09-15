@@ -585,6 +585,10 @@ async def scan_rom(
     # no id for it never enters the set, so a rescan can't clear what it can't redo.
     attempted_sources: set[MetadataSource] = set()
 
+    # Sources this scan asked and never got an answer from. A miss they did not
+    # rule out is not a coverage gap, so the outcome must not be reported as one.
+    inconclusive_sources: set[MetadataSource] = set()
+
     def resolve_fetch(source: MetadataSource, result: Any, fallback: Any) -> Any:
         """Unwrap a gathered lookup, falling back to an empty match when it failed."""
         if not isinstance(result, BaseException):
@@ -595,6 +599,7 @@ async def scan_rom(
         # A provider that blew up ruled nothing out, so it no longer counts as
         # attempted and a complete rescan keeps the id it already had.
         attempted_sources.discard(source)
+        inconclusive_sources.add(source)
         log.error(
             f"Error fetching {hl(source)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
             extra=LOGGER_MODULE_NAME,
@@ -651,9 +656,14 @@ async def scan_rom(
                 )
             )
         ):
-            return await meta_hasheous_handler.lookup_rom(
+            match, conclusive = await meta_hasheous_handler.lookup_rom(
                 platform.slug, get_match_files()
             )
+            # Hasheous swallows its own failures, so an empty match that is not
+            # conclusive is the only sign the lookup never got an answer.
+            if not conclusive:
+                inconclusive_sources.add(MetadataSource.HASHEOUS)
+            return match, conclusive
 
         return (
             HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
@@ -1473,10 +1483,22 @@ async def scan_rom(
         and not rom_attrs.get("steam_id")
         and not rom_attrs.get("gamelist_id")
     ):
-        log.warning(
-            f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
-            extra=LOGGER_MODULE_NAME,
-        )
+        if inconclusive_sources:
+            # Reporting a plain "not identified" here writes the ROM up as a
+            # coverage gap the providers confirmed, when one of them simply
+            # never answered.
+            silent = ", ".join(hl(source) for source in sorted(inconclusive_sources))
+            log.warning(
+                f"{hl(rom_attrs['fs_name'])} not identified, but {silent} gave "
+                f"no answer, so this is not a confirmed miss - an UNMATCHED "
+                f"scan will retry it {emoji.EMOJI_WARNING}",
+                extra=LOGGER_MODULE_NAME,
+            )
+        else:
+            log.warning(
+                f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
+                extra=LOGGER_MODULE_NAME,
+            )
         return Rom(**rom_attrs)
 
     async def fetch_sgdb_details(playmatch_rom: PlaymatchRomMatch) -> SGDBRom:
