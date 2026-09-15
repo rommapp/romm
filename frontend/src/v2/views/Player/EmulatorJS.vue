@@ -73,9 +73,9 @@ import {
   type DiscSelection,
 } from "@/v2/utils/playerDisc";
 import { resolveInitialFirmware } from "@/v2/utils/playerFirmware";
+import { installIOSFullscreenShim } from "@/v2/utils/playerFullscreen";
 import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
-import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the

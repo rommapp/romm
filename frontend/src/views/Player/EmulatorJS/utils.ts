@@ -310,6 +310,10 @@ function isIOSFullscreenShimRequired() {
   );
 }
 
+/**
+ * @deprecated v1 only. v2 uses `@/v2/utils/playerFullscreen`, which drops the
+ * Vuetify nav selectors below (v2 unmounts its chrome via `useStageActive`).
+ */
 export function installIOSFullscreenShim() {
   if (!isIOSFullscreenShimRequired()) {
     return () => {};
