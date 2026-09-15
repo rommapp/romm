@@ -68,6 +68,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
+import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
 import {
   resolveBezelHost,
   resolveBezelUrl,
@@ -367,6 +368,17 @@ onMounted(async () => {
     await nextTick();
     focusPlayButton();
   }
+});
+
+// Arriving by mouse leaves the page unfocused, and this view has no spatial
+// navigation for the d-pad to walk, so a pad picked up here had no way to
+// reach Play (issue #4397). Landing on it the moment the user switches away
+// from the mouse gives the pad an entry point.
+watch(modality, (next) => {
+  if (gameRunning.value) return;
+  if (!shouldClaimFocusOnModality(next, document.activeElement, document.body))
+    return;
+  nextTick(focusPlayButton);
 });
 
 // Drive the live-activity lifecycle off the deterministic running state:

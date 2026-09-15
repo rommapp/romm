@@ -1,3 +1,5 @@
+import type { InputModality } from "@/v2/composables/useInputModality";
+
 // Whether a search field should grab focus as soon as it appears (a dropdown
 // panel opening, the Search view mounting). Desktop users want type-to-filter
 // immediately; touch-primary devices must NOT autofocus, because focusing the
@@ -11,4 +13,17 @@ export function shouldAutofocusSearch(
 ): boolean {
   if (!win || typeof win.matchMedia !== "function") return true;
   return win.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
+// Whether a switch to a directional input device should pull focus onto a
+// view's primary action. Only pad/keyboard navigate by focus, and only an
+// unfocused page is up for grabs — a user who tabbed somewhere keeps their
+// place.
+export function shouldClaimFocusOnModality(
+  modality: InputModality,
+  active: Element | null,
+  body: Element | null,
+): boolean {
+  if (modality !== "pad" && modality !== "key") return false;
+  return !active || active === body;
 }
