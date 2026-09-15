@@ -127,6 +127,11 @@ def viewer_access_token(viewer_user: User):
     return _access_token(viewer_user)
 
 
+@pytest.fixture
+def editor_access_token(editor_user: User):
+    return _access_token(editor_user)
+
+
 def _mock_cm(enabled=True, containers=None):
     """Return a mock config_manager that yields the given streaming config."""
     cfg = MagicMock()
@@ -1074,24 +1079,48 @@ def _session_raw(container: dict):
     return asyncio.run(async_cache.get(key))
 
 
-def test_pool_claim_falls_through_to_a_free_container(client, access_token, rom: Rom):
-    """A second claim is not a 409 when another container serves the platform."""
+def test_pool_claim_falls_through_to_a_free_container(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Another player's claim is not a 409 when a second container serves the
+    platform. Two players, because the rollover is for whoever did not get a
+    container, not for the one already holding one."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         r1 = _claim_ok(client, access_token, rom.id)
-        r2 = _claim_ok(client, access_token, rom.id)
+        r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert [r1.status_code, r2.status_code] == [202, 202]
     # Config order, so the head of the pool stays warm.
     assert r1.json()["container"] == _key_of(_pool_member(rom, 0))
     assert r2.json()["container"] == _key_of(_pool_member(rom, 1))
 
 
-def test_pool_409s_only_once_every_container_is_held(client, access_token, rom: Rom):
+def test_pool_409s_only_once_every_container_is_held(
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
+):
+    """One player per container, so filling a pool of two takes two of them and
+    the third is the one told the platform is busy."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
-        _claim_ok(client, access_token, rom.id)
-        r3 = _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        r3 = _claim_ok(client, editor_access_token, rom.id)
     assert r3.status_code == 409
     assert "2 containers" in r3.json()["detail"]["message"]
+
+
+def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
+    client, access_token, rom: Rom
+):
+    """The holder claiming again is a 409, not a second container: their status,
+    heartbeat and release all resolve by platform and would only ever find the
+    first session, leaving the second one held until its TTL lapsed."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        r1 = _claim_ok(client, access_token, rom.id)
+        r2 = _claim_ok(client, access_token, rom.id)
+        free = asyncio.run(session_store.get_session(_key_of(_pool_member(rom, 1))))
+    assert [r1.status_code, r2.status_code] == [202, 409]
+    assert r2.json()["detail"]["rom_name"] == rom.name
+    # The second container stayed free for a player who actually needs one.
+    assert free is None
 
 
 def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
@@ -1113,11 +1142,11 @@ def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
 
 
 def test_pool_takes_over_a_stale_session_once_every_container_is_held(
-    client, access_token, viewer_access_token, rom: Rom
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
 ):
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
-        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, editor_access_token, rom.id)
         _age_session_on(
             _pool_member(rom, 1), session_store._STREAMING_SESSION_STALE_SECONDS + 60
         )
@@ -1170,24 +1199,24 @@ def test_an_admin_controls_the_pools_one_active_session(
 
 
 def test_an_admin_cannot_guess_which_of_two_sessions_to_control(
-    client, access_token, viewer_access_token, rom: Rom
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
 ):
     """Two sessions and a path that names neither, so ask rather than pick."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, viewer_access_token, rom.id)
-        _claim_ok(client, viewer_access_token, rom.id)
+        _claim_ok(client, editor_access_token, rom.id)
         r = _volume(client, access_token, rom.platform_slug)
     assert r.status_code == 409
 
 
 def test_admin_release_names_the_container(
-    client, access_token, viewer_access_token, rom: Rom
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
 ):
     """`container` is the key GET /streaming/sessions reports, and it must
     release that member and leave the rest of the pool playing."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, viewer_access_token, rom.id)
-        _claim_ok(client, viewer_access_token, rom.id)
+        _claim_ok(client, editor_access_token, rom.id)
         with patch("handler.streaming.commands.stop", return_value=None):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
