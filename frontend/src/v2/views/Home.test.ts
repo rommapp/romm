@@ -243,7 +243,11 @@ describe("Home", () => {
     await flushPromises();
 
     expect(getRecommendedRoms).toHaveBeenCalledTimes(1);
-    expect(wrapper.text()).toContain("recommendations.because-you-played");
+    const caption = wrapper.find(".rec-reason");
+    expect(caption.text()).toBe("Super Metroid");
+    expect(caption.attributes("title")).toContain(
+      "recommendations.because-you-played",
+    );
   });
 
   it("hides the recommendations row when the feed comes back empty", async () => {

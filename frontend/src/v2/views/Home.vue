@@ -436,13 +436,7 @@ function collectionCovers(c: {
             />
             <RecommendationReason
               :reasons="item.reasons"
-              :label="
-                item.seed_rom_name
-                  ? t('recommendations.because-you-played', [
-                      item.seed_rom_name,
-                    ])
-                  : null
-              "
+              :seed-rom-name="item.seed_rom_name"
             />
           </div>
         </template>
