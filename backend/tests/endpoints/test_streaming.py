@@ -1083,8 +1083,7 @@ def test_pool_claim_falls_through_to_a_free_container(
     client, access_token, viewer_access_token, rom: Rom
 ):
     """Another player's claim is not a 409 when a second container serves the
-    platform. Two players, because the rollover is for whoever did not get a
-    container, not for the one already holding one."""
+    platform. Rollover is for whoever has no container, not for the holder."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         r1 = _claim_ok(client, access_token, rom.id)
         r2 = _claim_ok(client, viewer_access_token, rom.id)
@@ -1110,9 +1109,8 @@ def test_pool_409s_only_once_every_container_is_held(
 def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
     client, access_token, rom: Rom
 ):
-    """The holder claiming again is a 409, not a second container: their status,
-    heartbeat and release all resolve by platform and would only ever find the
-    first session, leaving the second one held until its TTL lapsed."""
+    """The holder claiming again is a 409, not a second container: status,
+    heartbeat and release resolve by platform and would never reach a second."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         r1 = _claim_ok(client, access_token, rom.id)
         r2 = _claim_ok(client, access_token, rom.id)
@@ -1126,9 +1124,8 @@ def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
 def test_a_pool_hands_the_owner_of_a_stale_session_their_own_container_back(
     client, access_token, rom: Rom
 ):
-    """A crashed tab leaves the owner holding a container nothing refreshes.
-    Claiming again has to take that one back, not strand it and reserve a
-    second."""
+    """A crashed tab leaves the owner holding a container nothing refreshes, and
+    claiming again takes that one back rather than reserving a second."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
         _age_session_on(
@@ -1325,10 +1322,8 @@ def test_a_container_that_disagrees_on_the_emulator_is_not_a_pool_member(caplog)
 
 
 def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog):
-    """Same-origin pooling proxies each member at its own path, so two real
-    pool members always carry different `subfolder` values and therefore
-    different (non-interned) protocol instances. They must still pool: the
-    subfolder only changes how routes are built, not what the broker can do."""
+    """Same-origin pool members each carry their own subfolder, and a subfolder
+    only changes how routes are built, not what the broker can do."""
     first = {
         "platform": "ps2",
         "host": "/streaming",
@@ -1359,10 +1354,8 @@ def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog
 
 
 def test_a_proxied_host_disagreeing_with_its_subfolder_cannot_be_claimed(caplog):
-    """The broker's room URL is an absolute path built from its own SUBFOLDER,
-    and it replaces the path `host` carries. Mounted at one path while serving
-    another, a claim would route the player to whoever owns that other path, so
-    the entry resolves unclaimable rather than silently misdirecting."""
+    """The broker's absolute room path replaces the one `host` carries, so a
+    mount that disagrees would route the player to whoever owns that path."""
     entry = {
         "platform": "ps2",
         "host": "/streaming-2",
@@ -1863,9 +1856,8 @@ def test_stale_session_taken_over_on_claim(
 def test_the_owner_of_a_stale_session_can_claim_it_again(
     client, access_token, rom: Rom
 ):
-    """The tab that crashed is how most sessions go stale, and its owner
-    pressing Play is how they come back. Holding a session only bars a second
-    one while the first is still alive."""
+    """A held session bars a second one only while the first is still alive, so
+    the owner of a crashed tab can press Play again."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)

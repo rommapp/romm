@@ -163,15 +163,13 @@ class ResolvedContainer:
         return self.is_webstation and emulator_clears_saves(self.emulator)
 
     def interchangeable_with(self, other: ResolvedContainer) -> bool:
-        """Whether two containers serving a platform are a pool rather than two
-        different setups: a player landing on either has to find their saves in
-        the same place and be offered the same controls, and the head of the
-        pool answers for all of them."""
+        """Whether two containers serving a platform are one pool: a player
+        landing on either finds the same saves and the same controls."""
         return (
             self.emulator == other.emulator
             and self.memory_card_sync == other.memory_card_sync
-            # By name, not instance: same-origin pool members are each proxied
-            # at their own path and so carry a subfolder of their own.
+            # Same-origin pool members are each proxied at their own path, so
+            # they never carry the same protocol object.
             and self.protocol.name == other.protocol.name
         )
 
@@ -236,11 +234,11 @@ def _derive_broker_host(entry: dict[str, Any], protocol: BrokerProtocol) -> str 
     return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
 
 
-def _resolve_broker_host(
+def _claimable_broker_host(
     entry: dict[str, Any], raw_host: str, protocol: BrokerProtocol, platform: str
 ) -> str | None:
-    """The address RomM can call this container's broker on, or None when the
-    entry cannot be claimed and the reason has been logged."""
+    """The address this container's broker answers on, or None when the entry
+    cannot be claimed and the reason has been logged."""
     if not parse_stream_host(raw_host):
         log.warning(
             "container for platform '%s' missing a scheme-bearing host or a "
@@ -265,7 +263,7 @@ def _resolve_broker_host(
     if isinstance(protocol, WebstationProtocol) and not protocol.host_matches_subfolder(
         raw_host
     ):
-        # activate answers with an absolute room path built from the broker's
+        # Activate answers with an absolute room path built from the broker's
         # own SUBFOLDER, which replaces the one `host` carries.
         log.warning(
             "container for platform '%s' is proxied at '%s' but declares "
@@ -298,7 +296,7 @@ def _resolve_one(
     """
     protocol = protocol_for(entry.get("protocol"), entry.get("subfolder"))
     raw_host = str(entry.get("host", ""))
-    broker_host = _resolve_broker_host(entry, raw_host, protocol, platform)
+    broker_host = _claimable_broker_host(entry, raw_host, protocol, platform)
 
     emulator = _emulator_namespace(entry)
     card_sync = bool(entry.get("memory_card_sync", False))

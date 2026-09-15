@@ -190,7 +190,7 @@ LEGACY_PROTOCOL = LegacyBrokerProtocol()
 
 
 # Interned per subfolder, so a fleet of containers configured the same way
-# shares one protocol object rather than allocating one per entry.
+# shares one protocol object.
 @lru_cache(maxsize=None)
 def _webstation_protocol(subfolder: str) -> WebstationProtocol:
     return WebstationProtocol(subfolder)
