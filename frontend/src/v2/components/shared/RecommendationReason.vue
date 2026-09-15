@@ -7,23 +7,19 @@ import { useI18n } from "vue-i18n";
 import type { SimilarityReasonSchema } from "@/__generated__";
 import { reasonIcon, reasonLabel } from "@/v2/utils/similarityReasons";
 
-const SEED_ICON = "mdi-play";
-
 const props = defineProps<{
   reasons: SimilarityReasonSchema[];
-  // Captions the card with the game the recommendation came from, in place
-  // of the first facet.
+  // Captions the card in place of the first facet.
   seedRomName?: string | null;
 }>();
 
 const { t } = useI18n();
 
-// The seed game wins over the facets when the feed knows it. Its title is
-// the full sentence, which the caption itself has never been wide enough for.
+// The sentence goes in the tooltip; it does not fit the cover's width.
 const caption = computed(() => {
   if (props.seedRomName) {
     return {
-      icon: SEED_ICON,
+      icon: "mdi-play",
       text: props.seedRomName,
       title: t("recommendations.because-you-played", [props.seedRomName]),
     };
@@ -53,9 +49,8 @@ const caption = computed(() => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  /* Pinned to the cover's width without widening the row's scroll track, the
-     way GameCard pins its own label. Reading the card-width token instead
-     would miss the sizes GameCard overrides on itself, mobile's among them. */
+  /* Pinned to the cover's width the way GameCard pins its own label, rather
+     than to the card-width token, which GameCard overrides on itself. */
   width: 0;
   min-width: 100%;
   max-width: 100%;
