@@ -83,6 +83,7 @@
     "axe-core": "^4.12.1",
     "browserslist": "^4.28.8",
     "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.8.0",
     "eslint-plugin-vuejs-accessibility": "^2.5.0",
     "globals": "^16.0.0",

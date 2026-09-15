@@ -63,6 +63,7 @@ import MemoryCardImportDialog from "@/v2/components/Player/MemoryCardImportDialo
 import MemoryCardPicker from "@/v2/components/Player/MemoryCardPicker.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
+import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip, {
   type AssetLayout,
 } from "@/v2/components/shared/AssetStrip.vue";
@@ -77,6 +78,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -122,6 +124,7 @@ const selectedDisc = ref<number | null>(null);
 const isSwappingDisc = ref(false);
 
 const gameRunning = computed(() => playerState.value === "playing");
+useStageActive(gameRunning);
 
 // Set by the Join action on the game page. A join attaches to a session
 // someone else is hosting instead of claiming a container, so none of the
@@ -289,19 +292,45 @@ const showManualDiscHint = computed(
 // arrives newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// The archives the broker syncs, newest-first from the backend, scoped
-// to this emulator the same way the states are.
-const emulatorSaves = computed<SaveSchema[]>(() => {
+// Only an archive carries a layout the broker can restore from. Re-sorted on
+// created_at because user_saves arrives on updated_at, which a rehash moves.
+const restorableSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
   if (!rom.value || !emulator) return [];
-  return (rom.value.user_saves ?? []).filter(
-    (s) => (s.emulator ?? "").toLowerCase() === emulator,
-  );
+  return (rom.value.user_saves ?? [])
+    .filter(
+      (s) =>
+        (s.emulator ?? "").toLowerCase() === emulator &&
+        s.file_name.endsWith(".zip"),
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
+        b.id - a.id,
+    );
 });
 
-// The one the broker restores before boot.
+// The one the broker restores before boot when the claim names none.
 const newestSave = computed<SaveSchema | null>(
-  () => emulatorSaves.value[0] ?? null,
+  () => restorableSaves.value[0] ?? null,
+);
+
+// A pick only lands where the broker empties the save tree first; elsewhere
+// the container's newer files survive the restore and the pick does nothing.
+const showSavePicker = computed(
+  () =>
+    (container.value?.supports_save_picker ?? false) &&
+    restorableSaves.value.length > 0,
+);
+
+// The id rather than the row, so a pick that is no longer on offer falls back
+// to the newest on its own. A save has no "none": the claim restores one either way.
+const savePickId = ref<number | null>(null);
+
+const selectedSave = computed<SaveSchema | null>(
+  () =>
+    restorableSaves.value.find((s) => s.id === savePickId.value) ??
+    newestSave.value,
 );
 
 const streamStates = computed<UserStateSchema[]>(() => {
@@ -365,7 +394,7 @@ type ResumeTab = "state" | "save";
 const resumeTab = ref<ResumeTab>("state");
 
 const showResumeTabs = computed(
-  () => supportsStates.value && emulatorSaves.value.length > 0,
+  () => supportsStates.value && restorableSaves.value.length > 0,
 );
 
 // The pick only counts when there is something to pick between.
@@ -388,7 +417,7 @@ const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
   {
     id: "save",
     label: t("common.saves"),
-    badge: emulatorSaves.value.length,
+    badge: restorableSaves.value.length,
     icon: "mdi-content-save",
   },
 ]);
@@ -748,6 +777,11 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       const launching = await streamingStore.claimSession(
         rom.value.id,
         selectedState.value?.id,
+        // Left off where the container would refuse it, so the backend
+        // restores the newest archive instead.
+        showSavePicker.value
+          ? (selectedSave.value?.id ?? undefined)
+          : undefined,
         container.value?.supports_memory_cards
           ? (selectedMemoryCardId.value ?? undefined)
           : undefined,
@@ -898,19 +932,6 @@ async function handleStop(): Promise<void> {
   backToRom();
 }
 
-// The thumbnail for the state about to be written. Best effort: without it the
-// state falls back to whatever frame the emulator can produce for itself, and
-// some cores cannot produce one at all without deadlocking.
-async function pushStreamFrame(): Promise<void> {
-  if (!rom.value) return;
-  try {
-    const frame = await stage.value?.captureFrame();
-    if (frame) await streamingApi.putStateFrame(rom.value.platform_slug, frame);
-  } catch (err) {
-    console.warn("[streaming] Could not capture stream frame:", err);
-  }
-}
-
 async function performSaveAndExit(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
   // The broker's save+kill runs for seconds with the player still on screen,
@@ -924,10 +945,9 @@ async function performSaveAndExit(): Promise<void> {
     return;
   }
   isSavingAndExiting.value = true;
-  let saved = false;
+  let saved: boolean | undefined;
   let released = false;
   try {
-    await pushStreamFrame();
     const result = await streamingStore.saveAndExit(
       rom.value.platform_slug,
       capabilities.value.autosaveSlot,
@@ -970,7 +990,6 @@ async function handleSaveState(): Promise<void> {
   if (isSavingState.value) return;
   isSavingState.value = true;
   try {
-    await pushStreamFrame();
     await streamingApi.saveState(rom.value.platform_slug, streamSlot.value);
   } catch (err) {
     console.warn("[streaming] Could not save state:", err);
@@ -1386,8 +1405,29 @@ onBeforeUnmount(() => {
             />
           </template>
 
-          <!-- The archive is reported, not offered: loading it is the
-               game's own job. -->
+          <template v-else-if="showSavePicker">
+            <AssetPreview
+              :asset="selectedSave"
+              type="save"
+              :show-heading="false"
+              :clearable="false"
+            />
+            <div class="r-v2-stream__strip-label">
+              <span aria-hidden="true">{{ t("play.all-saves") }}</span>
+              <span class="r-v2-stream__strip-count" aria-hidden="true">{{
+                restorableSaves.length
+              }}</span>
+            </div>
+            <AssetList
+              :assets="restorableSaves"
+              type="save"
+              :selected-id="selectedSave?.id ?? null"
+              @select="savePickId = ($event as SaveSchema).id"
+            />
+          </template>
+
+          <!-- Nothing to choose between: this emulator keeps whatever the
+               container already holds, so the archive is reported not offered. -->
           <SaveDataPanel v-else :save="newestSave" :platform="platformLabel" />
         </div>
       </RCard>
@@ -1635,6 +1675,7 @@ onBeforeUnmount(() => {
         </div>
       </template>
       <template #footer>
+        <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and focusing the dialog's action on open is intentional modal UX -->
         <RBtn
           autofocus
           color="primary"
@@ -1643,6 +1684,7 @@ onBeforeUnmount(() => {
         >
           {{ t("play.back-to-game-details") }}
         </RBtn>
+        <!-- eslint-enable vuejs-accessibility/no-autofocus -->
       </template>
     </RDialog>
 
@@ -1664,7 +1706,9 @@ onBeforeUnmount(() => {
         </p>
       </template>
       <template #footer>
+        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- arrow keys rove focus between this container's real buttons, which stay the interactive elements; the listener sits here to catch keydowns bubbling from either of them -->
         <div class="r-v2-stream__exit-actions" @keydown="onExitDialogKeydown">
+          <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and the least destructive action is the intended target -->
           <RBtn
             autofocus
             variant="text"
@@ -1673,6 +1717,7 @@ onBeforeUnmount(() => {
           >
             {{ t("play.keep-playing") }}
           </RBtn>
+          <!-- eslint-enable vuejs-accessibility/no-autofocus -->
           <RBtn
             v-if="isJoining"
             color="error"

@@ -16,6 +16,7 @@ time, hence the compiled-SQL check below.
 import pytest
 
 from handler.database import db_rom_handler
+from handler.database.rom_filters import RomFilterParams
 from handler.database.roms_handler import DBRomsHandler
 from models.platform import Platform
 from models.rom import Rom
@@ -123,10 +124,7 @@ class TestVerifiedPostgresPredicate:
     compiling it (the suite runs on a single driver at a time)."""
 
     @pytest.fixture
-    def postgres_handler(self, monkeypatch: pytest.MonkeyPatch) -> DBRomsHandler:
-        monkeypatch.setattr(
-            "handler.database.roms_handler.ROMM_DB_DRIVER", "postgresql"
-        )
+    def postgres_handler(self, postgres_driver: None) -> DBRomsHandler:
         return db_rom_handler
 
     @pytest.mark.parametrize("verified", [True, False])
@@ -134,7 +132,9 @@ class TestVerifiedPostgresPredicate:
         self, postgres_handler: DBRomsHandler, verified: bool
     ):
         query, _ = postgres_handler.get_roms_query()
-        filtered = postgres_handler.filter_roms(query=query, verified=verified)
+        filtered = postgres_handler.filter_roms(
+            query=query, filters=RomFilterParams(verified=verified)
+        )
 
         sql = str(filtered.compile(compile_kwargs={"literal_binds": True}))
 

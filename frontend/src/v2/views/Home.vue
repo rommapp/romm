@@ -436,13 +436,7 @@ function collectionCovers(c: {
             />
             <RecommendationReason
               :reasons="item.reasons"
-              :label="
-                item.seed_rom_name
-                  ? t('recommendations.because-you-played', [
-                      item.seed_rom_name,
-                    ])
-                  : null
-              "
+              :seed-rom-name="item.seed_rom_name"
             />
           </div>
         </template>
@@ -514,8 +508,8 @@ function collectionCovers(c: {
         <PlatformTile
           v-for="(p, i) in filledPlatforms"
           v-else
-          :key="`plat-${p.id}`"
           :id="p.id"
+          :key="`plat-${p.id}`"
           class="r-v2-card-fade"
           :style="{ '--card-fade-i': i }"
           :slug="p.slug"

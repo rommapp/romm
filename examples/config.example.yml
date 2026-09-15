@@ -62,10 +62,10 @@
 # system:
 #   # Asociate different platform names to your current file system platform names
 #   # [your custom platform folder name]: [RomM platform name]
-#   # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
+#   # Case-insensitive. Batocera, RetroBat and ES-DE folders are already recognised.
 #   platforms:
-#     gc: ngc
 #     ps1: psx
+#     super_nintendo: snes
 
 #   # Asociate one platform to it's main version (IGDB only)
 #   versions:
@@ -108,6 +108,7 @@
 #       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat (lowest priority)
 #     artwork: # Cover art and screenshots
+#       - sgdb # SteamGridDB (highest priority)
 #       - igdb # IGDB
 #       - moby # MobyGames
 #       - ss # Screenscraper
@@ -182,6 +183,10 @@
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
 #   auto_save_sync: false # Upload the save to the server whenever it changes, without Save & Quit
+#   default_cores: # Core preselected per platform, unless overridden on the device
+#     # Use the exact core name, as listed for the platform in the docs
+#     nds: desmume
+#     nintendo-dsi: melonds
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled

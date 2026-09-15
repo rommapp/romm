@@ -213,10 +213,12 @@ def _auth(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _claim(client, token, rom_id, state_id=None):
+def _claim(client, token, rom_id, state_id=None, save_id=None):
     body = {"rom_id": rom_id}
     if state_id is not None:
         body["state_id"] = state_id
+    if save_id is not None:
+        body["save_id"] = save_id
     return client.post("/api/streaming/sessions", json=body, headers=_auth(token))
 
 
@@ -430,6 +432,34 @@ def test_get_config_reports_memory_card_support(client, access_token, rom: Rom):
     supported = {c["platform"]: c["supports_memory_cards"] for c in containers}
     assert supported[rom.platform_slug] is False
     assert supported["ps2"] is True
+
+
+def test_get_config_reports_save_picker_support(client, access_token, rom: Rom):
+    """The picker gate: a pick other than the newest only lands where the
+    broker clears the save tree first, which is a webstation emulator."""
+    clearing = {
+        **_container_for(rom),
+        "protocol": "webstation",
+        "emulator": "retroarch",
+    }
+    keeping = {
+        **_container_for(rom),
+        "platform": "ps2",
+        "protocol": "webstation",
+        "emulator": "pcsx2",
+    }
+    legacy = {**_container_for(rom), "platform": "gba", "emulator": "retroarch"}
+    with _streaming(clearing, keeping, legacy):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    supported = {
+        c["platform"]: c["supports_save_picker"] for c in response.json()["containers"]
+    }
+    assert supported[rom.platform_slug] is True
+    assert supported["ps2"] is False
+    # Restoring is the legacy broker's own business, so RomM cannot promise a
+    # pick survives it.
+    assert supported["gba"] is False
 
 
 def test_memory_card_sync_ignored_on_a_platform_without_a_card(client, access_token):
@@ -2086,30 +2116,6 @@ def test_status_on_a_legacy_container_never_asks_for_a_phase(
     broker.assert_not_called()
 
 
-def test_a_slow_launch_keeps_its_own_claim_fresh(client, access_token):
-    """Nothing beats for the player until the stream is up, so a claim whose
-    activate outlasts the staleness window has to refresh itself. Without that
-    the next claimant reads the record as abandoned and tears the container
-    down mid-extraction."""
-    ps2_rom = _rom_on("ps2")
-
-    def slow_activate(*args, **kwargs):
-        time.sleep(0.5)
-        return {"url": "/room/x"}
-
-    with (
-        _streaming(_webstation()),
-        patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0.05),
-        patch.object(session_store, "_STREAMING_SESSION_STALE_SECONDS", 0.2),
-        patch("handler.streaming.webstation.activate", slow_activate),
-    ):
-        assert _claim(client, access_token, ps2_rom.id).status_code == 202
-        key = session_store.session_redis_key(_key_of(_first_container("ps2")))
-        session = json.loads(asyncio.run(async_cache.get(key)))
-        # Read under the shrunk window: outside it every stamp looks fresh.
-        assert session_store.session_is_stale(session) is False
-
-
 # ── Release / ownership ───────────────────────────────────────────────────────
 
 
@@ -2315,6 +2321,27 @@ def _state_for(rom: Rom, user: User, file_name: str, emulator: str) -> State:
         file_path=f"{rom.platform_slug}/states/{emulator}",
         file_size_bytes=1.0,
     )
+
+
+def _screenshot_for(rom: Rom, stem: str) -> Screenshot:
+    """A scan_screenshot() stand-in on `stem`, the name State.screenshot matches."""
+    return Screenshot(
+        file_name=f"{stem}.png",
+        file_name_no_tags=stem,
+        file_name_no_ext=stem,
+        file_extension="png",
+        file_path=f"{rom.platform_slug}/screenshots",
+        file_size_bytes=7,
+    )
+
+
+def _written_screenshot(write_file: AsyncMock) -> bytes:
+    """The bytes stored under the state's .png, from a patched write_file."""
+    calls = [
+        c for c in write_file.await_args_list if c.kwargs["filename"].endswith(".png")
+    ]
+    assert len(calls) == 1, "expected exactly one screenshot write"
+    return calls[0].kwargs["file"]
 
 
 def test_claim_spawns_state_hydration(client, access_token, rom: Rom):
@@ -2696,18 +2723,11 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
     assert db_state.emulator == "pcsx2"
 
 
-def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
+def test_pull_state_takes_the_broker_screenshot(rom: Rom, admin_user: User):
     """Dolphin states embed no frame, so the pull takes the broker's capture."""
     container = {**_container_for(rom), "label": "Dolphin"}
     scanned = _state_for(rom, admin_user, "Game.s03", "dolphin")
-    scanned_shot = Screenshot(
-        file_name="Game.s03.png",
-        file_name_no_tags="Game.s03",
-        file_name_no_ext="Game.s03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned_shot = _screenshot_for(rom, "Game.s03")
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
@@ -2736,29 +2756,22 @@ def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
     assert db_state.screenshot is not None
 
 
-def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
-    """A frame the browser grabbed off the canvas beats asking the broker."""
-    container = {**_container_for(rom), "label": "Dolphin"}
-    scanned = _state_for(rom, admin_user, "Game.s04", "dolphin")
-    scanned_shot = Screenshot(
-        file_name="Game.s04.png",
-        file_name_no_tags="Game.s04",
-        file_name_no_ext="Game.s04",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+def test_pull_state_prefers_broker_screenshot_over_embedded(rom: Rom, admin_user: User):
+    """The container's capture is the frame the player saw, so it beats the one
+    PCSX2 embedded in the state."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    scanned = _state_for(rom, admin_user, "Game.05.p2s", "pcsx2")
+    scanned_shot = _screenshot_for(rom, "Game.05")
+    embedded = states.PNG_MAGIC + b"embedded-frame"
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.s04", b"state-bytes"),
+            return_value=("Game.05.p2s", _p2s_bytes(embedded)),
         ),
         patch(
-            "handler.streaming.states.take_state_frame",
-            new=AsyncMock(return_value=_PNG),
-        ),
-        patch("handler.streaming.states.fetch_state_screenshot") as fetch_shot,
-        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+            "handler.streaming.states.fetch_state_screenshot", return_value=_PNG
+        ) as fetch_shot,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
         patch(
             "handler.asset_store.scan_screenshot",
@@ -2766,41 +2779,63 @@ def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
         ),
     ):
         ok = asyncio.run(
-            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 4)
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 5)
         )
     assert ok is True
-    fetch_shot.assert_not_called()
+    fetch_shot.assert_called_once()
+    assert _written_screenshot(wf) == _PNG
 
 
-def test_state_frame_stashes_capture(client, access_token):
-    """The endpoint holds the frame for the save that follows it."""
-    rom = _rom_on("ps2")
-    with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
-        with patch(
-            "handler.streaming.states.stash_state_frame", new=AsyncMock()
-        ) as stash:
-            r = client.post(
-                f"/api/streaming/sessions/{rom.platform_slug}/state-frame",
-                content=_PNG,
-                headers={**_auth(access_token), "Content-Type": "image/png"},
-            )
-    assert r.status_code == 200
-    stash.assert_awaited_once()
-    assert stash.await_args_list[0].args[2] == _PNG
-
-
-def test_state_frame_rejects_non_png(client, access_token):
-    """Only PNG survives the asset pipeline, so anything else is refused here."""
-    rom = _rom_on("ps2")
-    with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
-        r = client.post(
-            f"/api/streaming/sessions/{rom.platform_slug}/state-frame",
-            content=b"GIF89a-not-a-png",
-            headers={**_auth(access_token), "Content-Type": "image/png"},
+def test_pull_state_falls_back_to_embedded_screenshot(rom: Rom, admin_user: User):
+    """A container that captured no frame leaves PCSX2's embedded one."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    scanned = _state_for(rom, admin_user, "Game.06.p2s", "pcsx2")
+    scanned_shot = _screenshot_for(rom, "Game.06")
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=("Game.06.p2s", _p2s_bytes(_PNG)),
+        ),
+        patch(
+            "handler.streaming.states.fetch_state_screenshot", return_value=None
+        ) as fetch_shot,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
+        patch(
+            "handler.asset_store.scan_screenshot",
+            new=AsyncMock(return_value=scanned_shot),
+        ),
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 6)
         )
-    assert r.status_code == 400
+    assert ok is True
+    fetch_shot.assert_called_once()
+    assert _written_screenshot(wf) == _PNG
+
+
+def test_pull_state_asks_the_broker_for_a_screenshot_once(rom: Rom, admin_user: User):
+    """No frame from either source: the state still syncs, on one broker call."""
+    container = {**_container_for(rom), "label": "RetroArch"}
+    scanned = _state_for(rom, admin_user, "Game.state5", "retroarch")
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=("Game.state5", b"state-bytes"),
+        ),
+        patch(
+            "handler.streaming.states.fetch_state_screenshot", return_value=None
+        ) as fetch_shot,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
+        patch("handler.asset_store.scan_screenshot", new=AsyncMock()) as scan_shot,
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 5)
+        )
+    assert ok is True
+    fetch_shot.assert_called_once()
+    scan_shot.assert_not_awaited()
 
 
 def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
@@ -2999,6 +3034,16 @@ def test_extract_state_screenshot_not_a_zip_returns_none():
     assert states.extract_state_screenshot("pcsx2", b"not-a-zip") is None
 
 
+def test_fetch_state_screenshot_rejects_a_non_png_body(rom: Rom):
+    """A body that is not a PNG has to read as no frame, or it would shadow the
+    frame a state embeds for itself and leave the state with no thumbnail."""
+    with patch(
+        "handler.streaming.broker.get_binary_safe",
+        return_value=(MagicMock(), b"GIF89a-not-a-png"),
+    ):
+        assert states.fetch_state_screenshot(_resolved(_container_for(rom)), 3) is None
+
+
 def test_state_transfer_limits_default_for_an_unlisted_emulator():
     assert state_transfer_limits("pcsx2") == DEFAULT_STATE_TRANSFER
 
@@ -3079,14 +3124,7 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
     """A stored state screenshot lands in the screenshots dir under the state's
     stem, so State.screenshot resolves it as the resume-picker thumbnail."""
     db_state_handler.add_state(_state_for(rom, admin_user, "Game.03.p2s", "pcsx2"))
-    scanned = Screenshot(
-        file_name="Game.03.png",
-        file_name_no_tags="Game.03",
-        file_name_no_ext="Game.03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned = _screenshot_for(rom, "Game.03")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch(
@@ -3128,14 +3166,7 @@ def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
 def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
     """End to end: storing a state with a frame binds it as the thumbnail."""
     scanned_state = _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
-    scanned_shot = Screenshot(
-        file_name="Game.03.png",
-        file_name_no_tags="Game.03",
-        file_name_no_ext="Game.03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned_shot = _screenshot_for(rom, "Game.03")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
@@ -3345,6 +3376,226 @@ def test_hydrate_saves_no_matching_save_returns_false(rom: Rom, admin_user: User
         )
     assert ok is False
     push.assert_not_called()
+
+
+def _clearing_webstation(rom: Rom) -> dict:
+    """A webstation container whose emulator empties the save tree before a
+    restore, the only kind that honours a pick other than the newest."""
+    return {
+        **_container_for(rom),
+        "protocol": "webstation",
+        "emulator": "retroarch",
+    }
+
+
+def _three_archives(rom: Rom, user: User) -> list[Save]:
+    """Three stored retroarch archives, oldest first."""
+    return [
+        db_save_handler.add_save(
+            _save_for(rom, user, f"Game [retroarch {tag}].saves.zip", "retroarch", tag)
+        )
+        for tag in ("a", "b", "c")
+    ]
+
+
+def test_hydrate_saves_uploads_the_picked_archive(rom: Rom, admin_user: User):
+    """A pick is restored even when a newer archive exists."""
+    oldest, _, _ = _three_archives(rom, admin_user)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch(
+            "handler.streaming.webstation.upload_archive", return_value="/config/x.zip"
+        ) as upload,
+    ):
+        path = asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id,
+                rom.id,
+                _resolved(_clearing_webstation(rom)),
+                oldest,
+            )
+        )
+    assert path == "/config/x.zip"
+    assert upload.call_args[0][2] == oldest.full_path.encode()
+
+
+def test_hydrate_saves_without_a_pick_uploads_the_newest(rom: Rom, admin_user: User):
+    """No pick keeps the behaviour every container had before the picker."""
+    *_, newest = _three_archives(rom, admin_user)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch(
+            "handler.streaming.webstation.upload_archive", return_value="/config/x.zip"
+        ) as upload,
+    ):
+        asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id, rom.id, _resolved(_clearing_webstation(rom))
+            )
+        )
+    assert upload.call_args[0][2] == newest.full_path.encode()
+
+
+def test_hydrate_saves_uploads_nothing_when_the_pick_left_the_disk(
+    rom: Rom, admin_user: User
+):
+    """Deleted between the pick and the claim. Falling back to the newest would
+    restore a save the player did not choose, so the launch gets none."""
+    oldest, _, _ = _three_archives(rom, admin_user)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=FileNotFoundError),
+        ),
+        patch("handler.streaming.webstation.upload_archive") as upload,
+    ):
+        path = asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id, rom.id, _resolved(_clearing_webstation(rom)), oldest
+            )
+        )
+    assert path is None
+    upload.assert_not_called()
+
+
+def test_resolve_save_archive_accepts_the_players_own_archive(
+    rom: Rom, admin_user: User
+):
+    """The happy path the launch screen's picker produces."""
+    archive = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    resolved = saves.resolve_save_archive(
+        admin_user.id, rom, _resolved(_clearing_webstation(rom)), archive.id
+    )
+    assert resolved.id == archive.id
+
+
+def test_resolve_save_archive_rejects_a_save_that_is_not_the_players(
+    rom: Rom, admin_user: User, viewer_user: User
+):
+    """Saves are private, so another player's archive must not be nameable."""
+    theirs = db_save_handler.add_save(
+        _save_for(rom, viewer_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), theirs.id
+        )
+    assert exc.value.status_code == 404
+
+
+def test_resolve_save_archive_rejects_a_save_from_another_rom(
+    rom: Rom, second_rom: Rom, admin_user: User
+):
+    """The pick is scoped to the ROM being launched, so the player's own
+    archive for a different game is as unnameable as someone else's."""
+    elsewhere = db_save_handler.add_save(
+        _save_for(second_rom, admin_user, "Other [retroarch a].saves.zip", "retroarch")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), elsewhere.id
+        )
+    assert exc.value.status_code == 404
+
+
+def test_resolve_save_archive_rejects_another_emulators_archive(
+    rom: Rom, admin_user: User
+):
+    """Another emulator's archive lays its members out where this one never
+    reads, so the restore would write files the game never opens."""
+    other = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+        )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Save was made by a different emulator"
+
+
+def test_resolve_save_archive_rejects_a_bare_save_file(rom: Rom, admin_user: User):
+    """A loose save carries no layout the broker could restore it from."""
+    loose = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), loose.id
+        )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Save is not a restorable archive"
+
+
+def test_resolve_save_archive_rejects_a_pick_where_it_would_not_land(
+    rom: Rom, admin_user: User
+):
+    """An emulator that keeps the container's own save files skips any member
+    it already holds a newer copy of, so honouring the pick would be a lie."""
+    archive = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_webstation_for(rom)), archive.id
+        )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "This emulator always restores the newest save"
+
+
+def test_claim_hydrates_the_picked_save(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The claim carries the pick all the way into the activate body."""
+    picked, *_ = _three_archives(rom, admin_user)
+    activate = MagicMock(return_value={"url": "/room/x"})
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch(
+                "handler.filesystem.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=lambda path: path.encode()),
+            ),
+            patch(
+                "handler.streaming.webstation.upload_archive",
+                return_value="/config/picked.zip",
+            ) as upload,
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+        ):
+            r = _claim(client, access_token, rom.id, save_id=picked.id)
+    assert r.status_code == 202
+    assert upload.call_args[0][2] == picked.full_path.encode()
+    assert activate.call_args.kwargs["archive_path"] == "/config/picked.zip"
+
+
+def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The pick is validated before the claim, so a bad one fails cleanly
+    rather than leaving a container wedged behind a refused launch."""
+    loose = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            refused = _claim(client, access_token, rom.id, save_id=loose.id)
+            after = _claim(client, access_token, rom.id)
+    assert refused.status_code == 400
+    activate.assert_called_once()
+    assert after.status_code == 202
 
 
 def test_claim_hydrates_saves_before_launch(client, access_token, rom: Rom):

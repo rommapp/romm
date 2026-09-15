@@ -1,7 +1,7 @@
-import json
-
+from handler.dump_cache import hget_json
 from handler.redis_handler import async_cache
 from logger.logger import log
+from utils.cache import is_cache_store_ready
 
 from .platforms import get_platform
 from .types import (
@@ -12,18 +12,22 @@ from .types import (
     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_STORE,
 )
 from .utils import deinvert_article, file_name_forms, fold_title
 
 
 class RemoteSource:
     async def get_by_id(self, database_id: int | str) -> dict | None:
-        entry = await async_cache.hget(
-            LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id)
-        )
-        if not entry:
+        return await hget_json(LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id))
+
+    async def _lookup_title_index(self, key: str, field: str) -> dict | None:
+        """Read a title index hit and resolve the database id it holds."""
+        database_id = await hget_json(key, field)
+        if not database_id:
             return None
-        return json.loads(entry)
+
+        return await self.get_by_id(database_id)
 
     async def get_rom(
         self,
@@ -32,10 +36,10 @@ class RemoteSource:
         *,
         assume_cache_present: bool = False,
     ) -> dict | None:
-        if not assume_cache_present and not (
-            await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)
+        if not assume_cache_present and not await is_cache_store_ready(
+            async_cache, LAUNCHBOX_METADATA_STORE, LAUNCHBOX_METADATA_NAME_KEY
         ):
-            log.error("Could not find the Launchbox Metadata.xml file in cache")
+            log.error("Could not find a current Launchbox Metadata.xml in cache")
             return None
 
         lb_platform = get_platform(platform_slug)
@@ -61,32 +65,21 @@ class RemoteSource:
         candidates = list(dict.fromkeys(candidates))
 
         for candidate in candidates:
-            metadata_name_index_entry = await async_cache.hget(
+            entry = await self._lookup_title_index(
                 LAUNCHBOX_METADATA_NAME_KEY, f"{candidate}:{platform_name}"
             )
-            if metadata_name_index_entry:
-                return json.loads(metadata_name_index_entry)
+            if entry:
+                return entry
 
         for candidate in candidates:
-            metadata_alternate_name_index_entry = await async_cache.hget(
+            entry = await self._lookup_title_index(
                 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY, candidate
             )
-            if not metadata_alternate_name_index_entry:
-                continue
-
-            metadata_alternate_name_index_entry = json.loads(
-                metadata_alternate_name_index_entry
-            )
-            database_id = metadata_alternate_name_index_entry["DatabaseID"]
-            metadata_database_index_entry = await async_cache.hget(
-                LAUNCHBOX_METADATA_DATABASE_ID_KEY, database_id
-            )
-            if not metadata_database_index_entry:
+            if not entry:
                 continue
 
             # The alternate name index is not keyed by platform, so a hit can
             # point at a same-titled game on a completely different system.
-            entry = json.loads(metadata_database_index_entry)
             if entry.get("Platform") == platform_name:
                 return entry
 
@@ -98,11 +91,11 @@ class RemoteSource:
             folded = fold_title(candidate)
             if not folded:
                 continue
-            folded_index_entry = await async_cache.hget(
+            entry = await self._lookup_title_index(
                 LAUNCHBOX_METADATA_FOLDED_NAME_KEY, f"{folded}:{platform_name}"
             )
-            if folded_index_entry:
-                return json.loads(folded_index_entry)
+            if entry:
+                return entry
 
         return None
 
@@ -120,13 +113,11 @@ class RemoteSource:
             return None
 
         for candidate in file_name_forms(file_name):
-            entry = await async_cache.hget(
-                LAUNCHBOX_FILES_KEY, f"{candidate}:{platform_name}"
-            )
+            entry = await hget_json(LAUNCHBOX_FILES_KEY, f"{candidate}:{platform_name}")
             if not entry:
                 continue
 
-            game_name = (json.loads(entry).get("GameName") or "").strip()
+            game_name = (entry.get("GameName") or "").strip()
             if not game_name:
                 continue
 
@@ -158,9 +149,9 @@ class RemoteSource:
             candidates.append(stem)
 
         for candidate in candidates:
-            entry = await async_cache.hget(LAUNCHBOX_MAME_KEY, candidate)
+            entry = await hget_json(LAUNCHBOX_MAME_KEY, candidate)
             if entry:
-                return json.loads(entry)
+                return entry
 
         return None
 
@@ -181,11 +172,4 @@ class RemoteSource:
         if not resolved_id:
             return None
 
-        metadata_image_index_entry = await async_cache.hget(
-            LAUNCHBOX_METADATA_IMAGE_KEY, str(resolved_id)
-        )
-
-        if not metadata_image_index_entry:
-            return None
-
-        return json.loads(metadata_image_index_entry)
+        return await hget_json(LAUNCHBOX_METADATA_IMAGE_KEY, str(resolved_id))

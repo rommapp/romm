@@ -9,10 +9,12 @@ actually delete the old entries instead of leaking them until TTL.
 These tests pin down that machinery:
   1. storing a value also registers its key in the version set,
   2. a cache hit returns the exact same shape as the cache miss that filled it,
-  3. `invalidate_filter_values_cache()` deletes the prior version's keys.
+  3. `invalidate_filter_values_cache()` deletes the prior version's keys,
+  4. a rom_user write bumps only the writing user's per-user version.
 """
 
 import json
+from datetime import datetime, timezone
 from typing import cast
 
 import pytest
@@ -23,13 +25,18 @@ from tests.conftest import session as session_factory
 from handler.database import db_rom_handler
 from handler.database.roms_handler import (
     ROM_FILTERS_CACHE_VERSION_KEY,
+    _char_index_redis_key,
     _filter_values_cache_keys_key,
     _filter_values_cache_version,
     _filter_values_redis_key,
+    _rom_id_index_redis_key,
     _store_versioned_cache,
+    user_sibling_cache_version,
+    user_sort_cache_version,
 )
 from handler.redis_handler import sync_cache
 from models.rom import Rom
+from models.user import User
 
 
 @pytest.fixture(autouse=True)
@@ -152,7 +159,7 @@ class TestCacheHitMatchesMiss:
         )
 
         version = _filter_values_cache_version()
-        redis_key = f"char_index:{cache_key}:v{version}"
+        redis_key = _char_index_redis_key(cache_key, version)
         assert sync_cache.get(redis_key) is not None
         # "test_rom" -> first letter "t" at position 0.
         assert dict(miss) == {"t": 0}
@@ -186,7 +193,7 @@ class TestCacheHitMatchesMiss:
         miss = db_rom_handler.get_rom_id_index(query=query, cache_key=cache_key)
 
         version = _filter_values_cache_version()
-        redis_key = f"rom_id_index:{cache_key}:v{version}"
+        redis_key = _rom_id_index_redis_key(cache_key, version)
         assert sync_cache.get(redis_key) is not None
         assert miss == [rom.id]
 
@@ -235,6 +242,105 @@ class TestFilterValuesSchemaDrift:
         assert result["genres"] == ["RPG"]
         # ...and the fresh entry lands under the schema-namespaced key.
         assert sync_cache.get(_filter_values_redis_key(cache_key, version)) is not None
+
+
+# The rom fixtures call add_rom_user, which itself bumps, so every
+# assertion here is a delta from the version the setup left behind.
+class TestRomUserCacheVersion:
+    def test_update_rom_user_bumps_only_that_users_sort_version(
+        self, rom: Rom, admin_user: User
+    ):
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        before = int(user_sort_cache_version(admin_user.id))
+        sibling_before = user_sibling_cache_version(admin_user.id)
+
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"last_played": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+
+        assert int(user_sort_cache_version(admin_user.id)) == before + 1
+        # Another user, the sibling counter, and the global version stay put.
+        assert user_sort_cache_version(admin_user.id + 1) == "0"
+        assert user_sibling_cache_version(admin_user.id) == sibling_before
+        assert _filter_values_cache_version() == "0"
+
+    def test_main_sibling_write_bumps_the_sibling_version(
+        self, rom: Rom, admin_user: User
+    ):
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        before = int(user_sibling_cache_version(admin_user.id))
+
+        db_rom_handler.update_rom_user(rom_user.id, {"is_main_sibling": True})
+
+        assert int(user_sibling_cache_version(admin_user.id)) == before + 1
+
+    def test_hidden_only_write_skips_the_sort_version(self, rom: Rom, admin_user: User):
+        # `hidden` rotates every key through the global bump already.
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        before = user_sort_cache_version(admin_user.id)
+
+        db_rom_handler.update_rom_user(rom_user.id, {"hidden": True})
+
+        assert user_sort_cache_version(admin_user.id) == before
+
+    def test_add_rom_user_bumps_the_sort_version(self, rom: Rom, admin_user: User):
+        # The `rom` fixture already pairs itself with admin_user, so a fresh
+        # row needs a rom of its own.
+        with session_factory.begin() as s:
+            bare_rom = Rom(
+                platform_id=rom.platform_id,
+                name="Bare",
+                slug="bare-slug",
+                fs_name="bare.zip",
+                fs_name_no_tags="bare",
+                fs_name_no_ext="bare",
+                fs_extension="zip",
+                fs_path=rom.fs_path,
+            )
+            s.add(bare_rom)
+            s.flush()
+            bare_rom_id = bare_rom.id
+        before = int(user_sort_cache_version(admin_user.id))
+
+        # A fresh row's zero defaults replace NULL sort keys.
+        db_rom_handler.add_rom_user(rom_id=bare_rom_id, user_id=admin_user.id)
+
+        assert int(user_sort_cache_version(admin_user.id)) == before + 1
+
+    def test_missing_rom_user_does_not_bump(self, admin_user: User):
+        before = user_sort_cache_version(admin_user.id)
+        assert db_rom_handler.update_rom_user(424242, {"rating": 8}) is None
+        assert user_sort_cache_version(admin_user.id) == before
+
+    def test_reused_session_bumps_on_every_commit(self, rom: Rom, admin_user: User):
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        before = int(user_sort_cache_version(admin_user.id))
+
+        with session_factory() as session:
+            db_rom_handler.update_rom_user(rom_user.id, {"rating": 4}, session=session)
+            session.commit()
+            db_rom_handler.update_rom_user(rom_user.id, {"rating": 5}, session=session)
+            session.commit()
+
+        assert int(user_sort_cache_version(admin_user.id)) == before + 2
+
+    def test_rolled_back_write_does_not_bump(self, rom: Rom, admin_user: User):
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        before = user_sort_cache_version(admin_user.id)
+
+        with session_factory() as session:
+            db_rom_handler.update_rom_user(rom_user.id, {"rating": 4}, session=session)
+            session.rollback()
+            # An empty commit after the rollback must not flush the
+            # discarded bumps.
+            session.commit()
+
+        assert user_sort_cache_version(admin_user.id) == before
 
 
 class TestInvalidateFilterValuesCache:

@@ -1,9 +1,10 @@
 """Sorting and range-filtering the gallery by HowLongToBeat main-story time.
 
 `generated_hltb_main_story` (migration 0128) materializes the seconds buried in
-the `hltb_metadata` blob so the length sort walks an index and the range filter
-composes into SQL. A rom with no HowLongToBeat time derives NULL, which is what
-keeps it out of a filtered result.
+the `hltb_metadata` blob so the length sort reads a `roms` column and the range
+filter composes into SQL. A rom with no HowLongToBeat time derives NULL, which
+is what keeps it out of a filtered result. The sort's query shape is pinned
+with the other metadata sorts in `test_roms_metadata_sort.py`.
 """
 
 import pytest
@@ -72,12 +73,6 @@ class TestGeneratedColumn:
 
 
 class TestLengthSort:
-    def test_orders_by_the_indexed_roms_column(self):
-        query, order_column = db_rom_handler.get_roms_query(order_by="hltb_main_story")
-
-        assert "ORDER BY roms.generated_hltb_main_story ASC" in str(query)
-        assert order_column is Rom.generated_hltb_main_story
-
     @pytest.mark.parametrize("order_dir", ["asc", "desc"])
     def test_breaks_ties_on_the_primary_key(self, order_dir: str):
         """Length ties are common (every rom without a HowLongToBeat time is
@@ -109,10 +104,9 @@ class TestLengthSort:
         ordered = [
             rom.name
             for rom in db_rom_handler.get_roms_scalar(order_by="hltb_main_story")
-            if rom.generated_hltb_main_story is not None
         ]
 
-        assert ordered == ["short", "medium", "long"]
+        assert ordered == ["short", "medium", "long", "unknown"]
 
     def test_descending(self, length_roms: None):
         ordered = [
@@ -120,18 +114,9 @@ class TestLengthSort:
             for rom in db_rom_handler.get_roms_scalar(
                 order_by="hltb_main_story", order_dir="desc"
             )
-            if rom.generated_hltb_main_story is not None
         ]
 
-        assert ordered == ["long", "medium", "short"]
-
-    def test_roms_without_a_length_are_still_returned(self, length_roms: None):
-        names = {
-            rom.name
-            for rom in db_rom_handler.get_roms_scalar(order_by="hltb_main_story")
-        }
-
-        assert names == {"short", "medium", "long", "unknown"}
+        assert ordered == ["long", "medium", "short", "unknown"]
 
 
 class TestLengthFilter:

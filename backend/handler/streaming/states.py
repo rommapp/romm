@@ -12,14 +12,17 @@ Broker file API (secret-protected, stdlib on the broker side):
                              save is in flight, so no clock coupling between
                              hosts. Returns raw bytes + X-State-Filename.
   PUT /state-file?filename=NAME - write NAME into the emulator's state dir.
+  GET /state-screenshot?slot=N - the container's own capture of the stream at
+                             the moment of that save, used as the thumbnail.
+                             404 when it captured nothing.
 """
 
 import asyncio
-import base64
 import io
 import os
 import re
 import zipfile
+import zlib
 from datetime import datetime, timezone
 from urllib.parse import quote
 
@@ -34,7 +37,6 @@ from handler.database import (
     db_user_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.redis_handler import async_cache
 from handler.streaming import broker, commands
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import set_session_disc
@@ -190,26 +192,26 @@ def push_state_file(
 
 # PCSX2 embeds a PNG of the moment of save inside every .p2s savestate zip
 # under this entry name (pcsx2/SaveState.cpp: EntryFilename_Screenshot).
-# Extracting it gives each pulled state a thumbnail with no broker round-trip,
-# mirroring how in-browser EmulatorJS states carry a screenshot.
 _SCREENSHOT_ZIP_ENTRY = "Screenshot.png"
 SCREENSHOT_MAX_BYTES = 16 * 1024 * 1024
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
+def _is_png(data: bytes | None) -> bool:
+    return data is not None and data.startswith(PNG_MAGIC)
+
+
 def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | None:
     """Pull the embedded frame PNG out of a savestate archive, or None when the
-    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one;
-    the others write the frame as its own file, served by /state-screenshot."""
+    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one."""
     if emulator != "pcsx2":
         return None
     try:
         with zipfile.ZipFile(io.BytesIO(state_content)) as zf:
             with zf.open(_SCREENSHOT_ZIP_ENTRY) as entry:
                 data = entry.read(SCREENSHOT_MAX_BYTES + 1)
-    except (KeyError, zipfile.BadZipFile, OSError) as exc:
-        # No screenshot entry, or the state is not a readable zip. Not fatal:
-        # the state still syncs, it just has no thumbnail.
+    except (KeyError, zipfile.BadZipFile, zlib.error, EOFError, OSError) as exc:
+        # Never fatal: the state still syncs, it just has no thumbnail.
         log.warning("could not extract state screenshot, %s", exc)
         return None
     if not data or len(data) > SCREENSHOT_MAX_BYTES:
@@ -217,49 +219,24 @@ def extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | Non
     return data
 
 
-_FRAME_KEY_PREFIX = "romm:streaming:frame:"
-# Long enough to cover the broker's state write plus the pull retries, short
-# enough that a frame never outlives the save it was captured for.
-_FRAME_TTL_SECONDS = 120
-
-
-def _frame_redis_key(user_id: int, rom_id: int) -> str:
-    return f"{_FRAME_KEY_PREFIX}{user_id}:{rom_id}"
-
-
-async def stash_state_frame(user_id: int, rom_id: int, image: bytes) -> None:
-    """Hold a browser-captured frame until the state it belongs to is pulled."""
-    await async_cache.set(
-        _frame_redis_key(user_id, rom_id),
-        base64.b64encode(image),
-        ex=_FRAME_TTL_SECONDS,
-    )
-
-
-async def take_state_frame(user_id: int, rom_id: int) -> bytes | None:
-    key = _frame_redis_key(user_id, rom_id)
-    raw = await async_cache.get(key)
-    await async_cache.delete(key)
-    if not raw:
-        return None
-    try:
-        return base64.b64decode(raw)
-    except (ValueError, TypeError):
-        return None
-
-
 def fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | None:
-    """GET /state-screenshot from the broker, for emulators whose state files
-    carry no frame of their own. A 404 is the normal "this broker does not
-    capture frames" answer, so it is not logged."""
+    """GET /state-screenshot from the broker, the container's own capture of the
+    stream as the state was saved. A 404 means no frame, so it is not logged."""
     result = broker.get_binary_safe(
         container,
         container.protocol.transfer_route(f"/state-screenshot?slot={slot}"),
         "state-screenshot GET",
         max_bytes=SCREENSHOT_MAX_BYTES,
-        timeout=broker.TRANSFER_TIMEOUT,
+        timeout=broker.STATE_SCREENSHOT_TIMEOUT,
     )
-    return result[1] if result else None
+    if result is None:
+        return None
+    # This source shadows the frame a state embeds for itself, so a body that is
+    # not a PNG has to read as no frame rather than as an unusable one.
+    if not _is_png(result[1]):
+        log.warning("broker state screenshot for slot %d is not a PNG", slot)
+        return None
+    return result[1]
 
 
 async def store_state_screenshot(
@@ -271,9 +248,9 @@ async def store_state_screenshot(
     stem with a .png extension. is_gallery stays False (the default) so it never
     shows in the user's screenshot gallery.
     """
-    # Both sources are unverified bytes: a zip entry that only claims to be a
-    # PNG, or whatever the broker returned. Guard here so one check covers both.
-    if not image.startswith(PNG_MAGIC):
+    # The zip entry only claims to be a PNG. The broker's body is checked where
+    # it is chosen, since there the answer decides whether this one is tried.
+    if not _is_png(image):
         log.warning("state screenshot for %s is not a PNG, skipping", state_filename)
         return
 
@@ -434,16 +411,13 @@ async def pull_state_to_library(
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False
-        # The browser frame is preferred: it is what the player actually saw,
-        # and capturing it never asks the emulator to read back its own
-        # framebuffer, which is what deadlocks GPU-rendered cores. PCSX2 embeds
-        # a frame in the state file; the rest write one beside it.
-        screenshot = await take_state_frame(user_id, rom_id)
+        # The container's capture is the frame the player saw, and it is the
+        # same route for every emulator; an embedded frame only fills a 404.
+        screenshot = await asyncio.to_thread(fetch_state_screenshot, container, slot)
         if screenshot is None:
-            screenshot = extract_state_screenshot(emulator, content)
-        if screenshot is None:
+            # Off the loop as well: reading the zip copies the whole state body.
             screenshot = await asyncio.to_thread(
-                fetch_state_screenshot, container, slot
+                extract_state_screenshot, emulator, content
             )
         try:
             await store_state_asset(

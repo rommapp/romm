@@ -1,4 +1,5 @@
 import eslint from "@eslint/js";
+import prettierConfig from "eslint-config-prettier/flat";
 import vue from "eslint-plugin-vue";
 import vuea11y from "eslint-plugin-vuejs-accessibility";
 import globals from "globals";
@@ -13,7 +14,17 @@ export default tseslint.config(
   // Storybook config files live outside `src/` and aren't part of the
   // app tsconfig, so type-aware linting can't resolve them.
   {
-    ignores: [".storybook/**"],
+    ignores: [
+      ".storybook/**",
+      "src/__generated__/**",
+      // Build and coverage output: generated, so nothing here is fixable in
+      // source. These only take effect in an `ignores`-only config object.
+      "dist/**",
+      "dist-ssr/**",
+      "dev-dist/**",
+      "storybook-static/**",
+      "coverage/**",
+    ],
   },
   {
     ignores: [
@@ -26,11 +37,7 @@ export default tseslint.config(
       "lerna-debug.log*",
       "node_modules",
       ".DS_Store",
-      "dist",
-      "dist-ssr",
-      "coverage",
       "*.local",
-      "src/__generated__",
       "*.config.js",
       "src/plugins/*.d.ts",
     ],
@@ -47,7 +54,6 @@ export default tseslint.config(
     },
     rules: {
       "vue/multi-word-component-names": "off",
-      "vue/max-attributes-per-line": "off",
       "vue/valid-v-slot": "off",
       "vue/no-use-v-if-with-v-for": "off",
       "vue/component-name-in-template-casing": [
@@ -69,4 +75,7 @@ export default tseslint.config(
       ],
     },
   },
+  // Keep last: Prettier owns formatting, so this switches off every
+  // stylistic rule the two tools would otherwise fight over.
+  prettierConfig,
 );

@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   flushPlaySession: vi.fn(),
   push: vi.fn(),
   setPlaying: vi.fn(),
+  setStageActive: vi.fn(),
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -38,7 +39,10 @@ vi.mock("@/services/api/rom", () => ({
 }));
 
 vi.mock("@/stores/playing", () => ({
-  default: () => ({ setPlaying: mocks.setPlaying }),
+  default: () => ({
+    setPlaying: mocks.setPlaying,
+    setStageActive: mocks.setStageActive,
+  }),
 }));
 
 vi.mock("@/stores/roms", () => ({

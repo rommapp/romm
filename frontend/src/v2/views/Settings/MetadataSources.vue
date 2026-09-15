@@ -1,30 +1,36 @@
 <script setup lang="ts">
-// MetadataSources — v2-native rewrite. Provider tiles grouped by the
-// shared provider taxonomy. Each tile shows:
-//   • A circular logo
-//   • Provider name + tone-coloured `RTag` status chip. Wording adapts
-//     to how the provider is configured: key-based providers (IGDB,
-//     ScreenScraper, MobyGames, RetroAchievements, SteamGridDB) talk
-//     about the API key (missing / invalid / valid); flag-only
-//     providers (LaunchBox, Flashpoint, HowLongToBeat, Hasheous,
-//     PlayMatch) talk about the connection / enabled state.
-//   • A "visit website" `RBtn`, plus a "get API key" `RBtn` shown only
-//     for key-based providers (flag-only providers have no key to get).
+// MetadataSources: v2-native settings view. Provider tiles grouped by
+// the shared provider taxonomy, rendered with the shared
+// MetadataProviderCard (tile layout) from the shared provider registry.
+// Each tile shows the logo, name + tone-coloured status chip, and a
+// footer with a "visit website" button plus a "get API key" button for
+// key-based providers.
+//
+// Status wording adapts to how the provider is configured: key-based
+// providers (IGDB, ScreenScraper, MobyGames, RetroAchievements,
+// SteamGridDB) talk about the API key (missing / invalid / valid);
+// flag-only providers talk about the connection / enabled state.
 //
 // A warning banner sits above the tiles when the build carries no
 // ScreenScraper developer credentials, since nothing on the tile itself
 // can explain why a valid account still gets refused.
-import { RAlert, RBtn, RTag } from "@v2/lib";
+import { RAlert, RBtn } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import MetadataProviderCard from "@/v2/components/shared/MetadataProviderCard/MetadataProviderCard.vue";
+import type { ProviderCardStatus } from "@/v2/components/shared/MetadataProviderCard/types";
 import {
   groupProviders,
   type MetadataProviderGroup,
   type MetadataProviderKey,
 } from "@/v2/utils/metadataProviderGroups";
+import {
+  METADATA_PROVIDER_INFO,
+  type MetadataProviderInfo,
+} from "@/v2/utils/metadataProviderInfo";
 
 defineOptions({ inheritAttrs: false });
 
@@ -36,172 +42,18 @@ const heartbeatStatus = ref<Partial<Record<MetadataProviderKey, boolean>>>({});
 
 type SourceStatus = "missing" | "invalid" | "ok" | "pending";
 
-interface Source {
-  name: string;
-  /** Optional descriptor under the name: what a source contributes, or
-   *  the platforms it covers. */
-  subtitle?: string;
-  key: MetadataProviderKey;
-  logo: string;
-  website: string;
-  docsUrl: string;
-  /** True when the provider is enabled by configuring an API key /
-   *  credentials (so a "get API key" link is meaningful). False for
-   *  free/public providers toggled by a plain `*_API_ENABLED` flag. */
-  requiresKey: boolean;
+interface Source extends MetadataProviderInfo {
   disabled: boolean;
   heartbeat?: boolean;
 }
 
-const sources = computed<Source[]>(() => [
-  {
-    name: "IGDB",
-    key: "igdb",
-    logo: "/assets/scrappers/igdb.png",
-    website: "https://www.igdb.com",
-    docsUrl: "https://api-docs.igdb.com/#account-creation",
-    requiresKey: true,
-    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
-    heartbeat: heartbeatStatus.value.igdb,
-  },
-  {
-    name: "ScreenScraper",
-    key: "ss",
-    logo: "/assets/scrappers/ss.png",
-    website: "https://www.screenscraper.fr",
-    docsUrl: "https://www.screenscraper.fr/membreinscription.php",
-    requiresKey: true,
-    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
-    heartbeat: heartbeatStatus.value.ss,
-  },
-  {
-    name: "MobyGames",
-    key: "moby",
-    logo: "/assets/scrappers/moby.png",
-    website: "https://www.mobygames.com",
-    docsUrl: "https://www.mobygames.com/info/api/",
-    requiresKey: true,
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
-    heartbeat: heartbeatStatus.value.moby,
-  },
-  {
-    name: "LaunchBox",
-    key: "launchbox",
-    logo: "/assets/scrappers/launchbox.png",
-    website: "https://www.launchbox-app.com",
-    docsUrl: "https://gamesdb.launchbox-app.com",
-    requiresKey: false,
-    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
-    heartbeat: heartbeatStatus.value.launchbox,
-  },
-  {
-    name: "Flashpoint Archive",
-    key: "flashpoint",
-    logo: "/assets/scrappers/flashpoint.png",
-    website: "https://flashpointarchive.org",
-    docsUrl: "https://flashpointarchive.org/datahub/Flashpoint_API",
-    requiresKey: false,
-    disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
-    heartbeat: heartbeatStatus.value.flashpoint,
-  },
-  {
-    name: "Steam",
-    subtitle: t("settings.metadata-subtitle-pc"),
-    key: "steam",
-    logo: "/assets/scrappers/steam.png",
-    website: "https://store.steampowered.com",
-    docsUrl: "https://store.steampowered.com",
-    requiresKey: false,
-    disabled: !heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED,
-    heartbeat: heartbeatStatus.value.steam,
-  },
-  {
-    name: "RetroAchievements",
-    subtitle: t("settings.metadata-subtitle-achievements"),
-    key: "ra",
-    logo: "/assets/scrappers/ra.png",
-    website: "https://retroachievements.org",
-    docsUrl: "https://retroachievements.org/APIDemo.php",
-    requiresKey: true,
-    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
-    heartbeat: heartbeatStatus.value.ra,
-  },
-  {
-    name: "SteamGridDB",
-    subtitle: t("settings.metadata-subtitle-cover-art"),
-    key: "sgdb",
-    logo: "/assets/scrappers/sgdb.png",
-    website: "https://www.steamgriddb.com",
-    docsUrl: "https://www.steamgriddb.com/profile/preferences/api",
-    requiresKey: true,
-    disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
-    heartbeat: heartbeatStatus.value.sgdb,
-  },
-  {
-    name: "HowLongToBeat",
-    subtitle: t("settings.metadata-subtitle-completion"),
-    key: "hltb",
-    logo: "/assets/scrappers/hltb.png",
-    website: "https://howlongtobeat.com",
-    docsUrl: "https://howlongtobeat.com",
-    requiresKey: false,
-    disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
-    heartbeat: heartbeatStatus.value.hltb,
-  },
-  {
-    name: "Demozoo",
-    subtitle: t("settings.metadata-subtitle-demoscene"),
-    key: "demozoo",
-    logo: "/assets/scrappers/demozoo.png",
-    website: "https://demozoo.org",
-    docsUrl: "https://demozoo.org/api/docs/",
-    requiresKey: false,
-    disabled: !heartbeat.value.METADATA_SOURCES?.DEMOZOO_API_ENABLED,
-    heartbeat: heartbeatStatus.value.demozoo,
-  },
-  {
-    name: "Pouët",
-    subtitle: t("settings.metadata-subtitle-demoscene"),
-    key: "pouet",
-    logo: "/assets/scrappers/pouet.png",
-    website: "https://www.pouet.net",
-    docsUrl: "https://api.pouet.net/",
-    requiresKey: false,
-    disabled: !heartbeat.value.METADATA_SOURCES?.POUET_API_ENABLED,
-    heartbeat: heartbeatStatus.value.pouet,
-  },
-  {
-    name: "CSDb",
-    subtitle: t("settings.metadata-subtitle-demoscene"),
-    key: "csdb",
-    logo: "/assets/scrappers/csdb.png",
-    website: "https://csdb.dk",
-    docsUrl: "https://csdb.dk/webservice/",
-    requiresKey: false,
-    disabled: !heartbeat.value.METADATA_SOURCES?.CSDB_API_ENABLED,
-    heartbeat: heartbeatStatus.value.csdb,
-  },
-  {
-    name: "Hasheous",
-    key: "hasheous",
-    logo: "/assets/scrappers/hasheous.png",
-    website: "https://hasheous.org",
-    docsUrl: "https://hasheous.org/index.html?page=apidocs",
-    requiresKey: false,
-    disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
-    heartbeat: heartbeatStatus.value.hasheous,
-  },
-  {
-    name: "PlayMatch",
-    key: "playmatch",
-    logo: "/assets/scrappers/playmatch.png",
-    website: "https://github.com/RetroRealm/playmatch",
-    docsUrl: "https://github.com/RetroRealm/playmatch",
-    requiresKey: false,
-    disabled: !heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED,
-    heartbeat: heartbeatStatus.value.playmatch,
-  },
-]);
+const sources = computed<Source[]>(() =>
+  METADATA_PROVIDER_INFO.map((info) => ({
+    ...info,
+    disabled: !heartbeat.value.METADATA_SOURCES?.[info.enabledFlag],
+    heartbeat: heartbeatStatus.value[info.key],
+  })),
+);
 
 const GROUP_LABELS: Record<
   MetadataProviderGroup,
@@ -238,18 +90,11 @@ function statusOf(source: Source): SourceStatus {
   return "pending";
 }
 
-type RTagTone = "neutral" | "brand" | "success" | "danger" | "warning" | "info";
-interface StatusInfo {
-  tone: RTagTone;
-  icon: string;
-  label: string;
-}
-
 // Status chip wording depends on how the provider is configured.
 // Key-based providers speak about the API key; flag-only providers
-// speak about the enabled/connection state — "API key invalid" makes
-// no sense for a provider that has no key.
-function statusInfo(source: Source): StatusInfo {
+// speak about the enabled/connection state, since "API key invalid"
+// makes no sense for a provider that has no key.
+function statusInfo(source: Source): ProviderCardStatus {
   const status = statusOf(source);
   if (status === "ok") {
     return {
@@ -320,34 +165,17 @@ onMounted(() => {
       :icon="group.icon"
     >
       <div class="r-v2-meta__grid" :data-group="group.group">
-        <article
+        <MetadataProviderCard
           v-for="source in group.providers"
           :key="source.key"
-          class="r-v2-meta__card"
           :data-provider="source.key"
-          :class="{
-            'r-v2-meta__card--missing': statusOf(source) === 'missing',
-          }"
+          :name="source.name"
+          :logo="source.logo"
+          :subtitle="source.subtitleKey ? t(source.subtitleKey) : undefined"
+          :status="statusInfo(source)"
+          :dimmed="statusOf(source) === 'missing'"
         >
-          <header class="r-v2-meta__header">
-            <div class="r-v2-meta__logo">
-              <img :src="source.logo" :alt="source.name" />
-            </div>
-            <div class="r-v2-meta__head-text">
-              <span class="r-v2-meta__name">{{ source.name }}</span>
-              <span v-if="source.subtitle" class="r-v2-meta__subtitle">
-                {{ source.subtitle }}
-              </span>
-              <RTag
-                :tone="statusInfo(source).tone"
-                :prepend-icon="statusInfo(source).icon"
-                :text="statusInfo(source).label"
-                size="x-small"
-              />
-            </div>
-          </header>
-
-          <div class="r-v2-meta__actions">
+          <template #actions>
             <RBtn
               v-if="source.requiresKey"
               variant="translucent"
@@ -369,8 +197,8 @@ onMounted(() => {
             >
               {{ t("settings.metadata-website") }}
             </RBtn>
-          </div>
-        </article>
+          </template>
+        </MetadataProviderCard>
       </div>
     </SettingsSection>
   </div>
@@ -390,72 +218,5 @@ html[data-bp~="sm-and-down"] .r-v2-meta__grid {
 }
 html[data-bp~="xs"] .r-v2-meta__grid {
   grid-template-columns: minmax(0, 1fr);
-}
-
-/* Card chrome — bg + 12px radius + overflow hidden so the inner
-   border-top reaches the rounded corners cleanly. */
-.r-v2-meta__card {
-  border-radius: 12px;
-  border: 1px solid var(--r-color-border);
-  background: var(--r-color-surface);
-  overflow: hidden;
-  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-meta__card--missing {
-  opacity: 0.7;
-}
-
-.r-v2-meta__header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 16px 14px;
-}
-
-.r-v2-meta__logo {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  padding: 6px;
-}
-.r-v2-meta__logo img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.r-v2-meta__head-text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-.r-v2-meta__name {
-  font-size: 14px;
-  font-weight: var(--r-font-weight-bold);
-  color: var(--r-color-fg);
-}
-
-.r-v2-meta__subtitle {
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: var(--r-font-weight-semibold);
-}
-
-.r-v2-meta__actions {
-  display: flex;
-  gap: 8px;
-  padding: 12px 14px;
-  border-top: 1px solid var(--r-color-border);
-  background: var(--r-color-bg-elevated);
 }
 </style>

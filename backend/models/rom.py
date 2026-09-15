@@ -1284,9 +1284,11 @@ class RomUser(BaseModel):
     backlogged: Mapped[bool] = mapped_column(default=False)
     now_playing: Mapped[bool] = mapped_column(default=False)
     hidden: Mapped[bool] = mapped_column(default=False)
-    rating: Mapped[int] = mapped_column(default=0)
-    difficulty: Mapped[int] = mapped_column(default=0)
-    completion: Mapped[int] = mapped_column(default=0)
+    # `zero_is_unset`: 0 renders as unset in the UI, exactly like having no
+    # `rom_user` row at all; sorts fold it into the NULL bucket.
+    rating: Mapped[int] = mapped_column(default=0, info={"zero_is_unset": True})
+    difficulty: Mapped[int] = mapped_column(default=0, info={"zero_is_unset": True})
+    completion: Mapped[int] = mapped_column(default=0, info={"zero_is_unset": True})
     status: Mapped[RomUserStatus | None] = mapped_column(
         Enum(RomUserStatus), default=None
     )

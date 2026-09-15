@@ -21,10 +21,10 @@ ARG PYTHON_VERSION=3.14
 ARG PYTHON_ALPINE_SHA256=8caa2adfeb414dfe68d8b257f7aea9e205a400521c2b13b2d2e5e731fb8e70e5
 ARG NODE_VERSION=24.16
 ARG NODE_ALPINE_SHA256=2bdb65ed1dab192432bc31c95f94155ca5ad7fc1392fb7eb7526ab682fa5bf14
-ARG NGINX_VERSION=1.29.5
-ARG NGINX_SHA256=1d13701a5f9f3fb01aaa88cef2344d65b6b5bf6b7d9fa4cf0dca557a8d7702ba
-ARG UV_VERSION=0.11.2
-ARG UV_SHA256=f661eb5c4ea5aae705674c4bc5052a4a0b5148db95452395dbececa1e9e7a1ec
+ARG NGINX_VERSION=1.29.8
+ARG NGINX_SHA256=5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+ARG UV_VERSION=0.12.13
+ARG UV_SHA256=eb47c391d3a252d9d912270dd2b5e234af5493e92039fedb483f1dd1cb5659ce
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -33,7 +33,6 @@ FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA
 # FRONTEND BUILD
 # Built on the native build platform: the output (/front/dist) is static JS/CSS,
 # fully architecture-independent, so there is no need to emulate the target arch.
-# This avoids running `npm ci`/Node under QEMU arm64 emulation, which hangs.
 FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
 WORKDIR /front
 
@@ -58,12 +57,10 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${
 # BACKEND PYTHON BUILD
 FROM python-alias AS backend-build
 
-# git is needed to install streaming-form-data fork
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
     gcc \
-    git \
     libpq-dev \
     mariadb-connector-c-dev \
     musl-dev

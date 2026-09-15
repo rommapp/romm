@@ -59,7 +59,7 @@ const pager = useTrackPager((items) => favorites.merge(items));
 let entriesToken = 0;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
-async function loadEntries(term: string) {
+async function fetchEntries(term: string) {
   const token = ++entriesToken;
   loadingEntries.value = true;
   entriesFailed.value = false;
@@ -88,7 +88,7 @@ function loadTracks(key: string) {
 
 watch(search, (term) => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => void loadEntries(term.trim()), 250);
+  searchTimer = setTimeout(() => void fetchEntries(term.trim()), 250);
 });
 
 watch(
@@ -98,13 +98,13 @@ watch(
 );
 
 // A delete also changes the sidebar's counts, and may empty the picked
-// entry entirely (loadEntries then falls back to the first one).
+// entry entirely (fetchEntries then falls back to the first one).
 watch(
   () => props.refreshToken,
-  () => void loadEntries(search.value.trim()),
+  () => void fetchEntries(search.value.trim()),
 );
 
-void loadEntries("");
+void fetchEntries("");
 
 const panelTracks = computed(() => panelTracksFromCatalog(pager.tracks.value));
 

@@ -32,8 +32,10 @@ const props = withDefaults(
     type: AssetType;
     /** Set false where the surrounding panel already carries the title. */
     showHeading?: boolean;
+    /** Set false where the picker has no empty selection to clear to. */
+    clearable?: boolean;
   }>(),
-  { showHeading: true },
+  { showHeading: true, clearable: true },
 );
 
 defineEmits<{
@@ -120,7 +122,7 @@ const emptyText = computed(() =>
 
       <!-- Clear button — only when something is selected. -->
       <button
-        v-if="asset"
+        v-if="asset && clearable"
         type="button"
         class="r-asset-preview__clear"
         :aria-label="t('common.clear')"

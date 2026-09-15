@@ -4,20 +4,24 @@ const gameKey = (romId: number) => `player:${romId}:core`;
 const platformKey = (platformSlug: string) => `player:${platformSlug}:core`;
 
 /**
- * The first remembered core the platform still supports, else its first core.
+ * The first remembered core the platform still supports, else the core the
+ * instance configures for it, else its first core.
  *
  * Each candidate is validated so a core that is no longer offered (renamed
- * upstream, or gated behind netplay) falls through instead of masking the next.
+ * upstream, or gated behind netplay, or a typo in config.yml) falls through
+ * instead of masking the next.
  */
 export function resolveRememberedCore(
   romId: number,
   platformSlug: string,
   supportedCores: readonly string[],
+  configuredCore?: string | null,
 ): string {
   return (
     [
       localStorage.getItem(gameKey(romId)),
       localStorage.getItem(platformKey(platformSlug)),
+      configuredCore,
     ].find((core): core is string => !!core && supportedCores.includes(core)) ??
     supportedCores[0]
   );

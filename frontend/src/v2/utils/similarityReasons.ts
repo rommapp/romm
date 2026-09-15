@@ -30,6 +30,9 @@ const FACET_ICONS: Record<Facet, string> = {
 const TRANSLATED_FACETS: Partial<Record<Facet, string>> = {
   igdb: "recommendations.reason-igdb",
   top_rated: "recommendations.reason-top-rated",
+  // Decades arrive as the starting year ("1990"), which each locale phrases
+  // in its own way, so the wording belongs in the locale files.
+  decade: "recommendations.reason-decade",
 };
 
 export function reasonIcon(reason: SimilarityReasonSchema): string {
@@ -38,17 +41,8 @@ export function reasonIcon(reason: SimilarityReasonSchema): string {
 
 export function reasonLabel(
   reason: SimilarityReasonSchema,
-  t: (key: string) => string,
+  t: (key: string, params?: unknown[]) => string,
 ): string {
   const translationKey = TRANSLATED_FACETS[reason.facet];
-  if (translationKey) {
-    return t(translationKey);
-  }
-
-  // Decades arrive as the starting year ("1990").
-  if (reason.facet === "decade") {
-    return `${reason.value}s`;
-  }
-
-  return reason.value;
+  return translationKey ? t(translationKey, [reason.value]) : reason.value;
 }

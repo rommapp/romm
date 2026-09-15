@@ -81,6 +81,9 @@ emulatorjs:
       - urls: "turn:global.relay.metered.ca:80"
         username: "user"
         credential: "password"
+  default_cores:
+    nds: desmume
+    Nintendo-DSi: melonds
   settings:
     parallel_n64:
       vsync: disabled

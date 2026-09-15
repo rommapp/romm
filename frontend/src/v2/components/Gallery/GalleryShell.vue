@@ -63,6 +63,7 @@ import {
   getListMinWidth,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
+  isListSortKey,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
@@ -72,6 +73,7 @@ import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
+import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import {
   useGalleryVirtualItems,
@@ -84,15 +86,6 @@ import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
-
-const LIST_SORT_KEYS = new Set<string>([
-  "name",
-  "fs_size_bytes",
-  "created_at",
-  "first_release_date",
-  "average_rating",
-  "hltb_main_story",
-]);
 
 interface Props {
   /** Whether the header slot has content to render. False suppresses
@@ -728,8 +721,8 @@ function setSearch(value: string) {
 // The grid-mode sort goes through the same path (toolbar dropdown), so
 // no separate code path; list just exposes the click affordance.
 const listSortKey = computed<ListSortKey | null>(() => {
-  const k = orderBy.value as string;
-  return LIST_SORT_KEYS.has(k) ? (k as ListSortKey) : null;
+  const key = orderBy.value;
+  return isListSortKey(key) ? key : null;
 });
 
 function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
@@ -780,10 +773,12 @@ onBeforeRouteLeave((_to, from) => {
   gallerySelection.clear();
 });
 
-// Global hotkeys scoped to the gallery shell — Esc clears the
-// selection, Ctrl/Cmd+A selects every currently-loaded rom. Both are
-// guarded against editable elements so the search field's native
-// Cmd+A still selects the input text.
+// Whole-result select-all, shared with the SelectionBar button and
+// the list header checkbox.
+const { selectAll, selectingAll } = useGallerySelectAll();
+
+// Esc clears the selection, Ctrl/Cmd+A selects the whole result; both
+// skip editable elements so the search field's native Cmd+A survives.
 function onShellKey(e: KeyboardEvent) {
   const target = e.target as HTMLElement | null;
   if (
@@ -795,14 +790,17 @@ function onShellKey(e: KeyboardEvent) {
   ) {
     return;
   }
-  if (e.key === "Escape" && gallerySelection.enabled) {
+  // `selectingAll` keeps Esc working while a whole-result fetch is
+  // still in flight with nothing selected yet (clear() abandons it).
+  if (e.key === "Escape" && (gallerySelection.enabled || selectingAll.value)) {
     e.preventDefault();
     gallerySelection.clear();
     return;
   }
   if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
     e.preventDefault();
-    gallerySelection.selectAllLoaded(galleryRoms.byPosition.values());
+    // A held chord repeats keydown at the OS rate; one trigger is enough.
+    if (!e.repeat) void selectAll();
   }
 }
 

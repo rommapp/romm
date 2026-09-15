@@ -55,6 +55,7 @@ import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
+import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -82,6 +83,17 @@ const galleryRomsStore = storeGalleryRoms();
 const { ensureFavoriteCollection } = useFavoriteToggle();
 const { syncCachedRom, removeCachedRoms, refreshAfterUserStateChange } =
   useRomSync();
+// Whole-result select-all, shared with the list header checkbox and
+// Ctrl/Cmd+A.
+const { selectingAll, allSelected, selectAll } = useGallerySelectAll();
+
+// The filtered-result size, so the label says how many "all" is. Falls
+// back to the plain label while the bootstrap hasn't resolved a total.
+const selectAllLabel = computed(() =>
+  galleryRomsStore.total > 0
+    ? t("gallery.selection-select-all-count", { n: galleryRomsStore.total })
+    : t("gallery.selection-select-all"),
+);
 
 const canRefresh = useCan("rom.refresh");
 const canDownload = useCan("rom.download");
@@ -313,6 +325,22 @@ function clear() {
             </template>
           </span>
         </div>
+
+        <!-- Extends the selection to the whole filtered result; the
+             sole grid-mode affordance (list mode has the header checkbox). -->
+        <RTooltip :text="selectAllLabel">
+          <template #activator="{ props: tipProps }">
+            <RBtn
+              v-bind="tipProps"
+              icon="mdi-select-all"
+              variant="text"
+              :loading="selectingAll"
+              :disabled="allSelected"
+              :aria-label="selectAllLabel"
+              @click="selectAll"
+            />
+          </template>
+        </RTooltip>
       </template>
 
       <RDivider vertical class="selection-bar__divider" />
@@ -561,6 +589,12 @@ html[data-bp~="sm-and-down"] .selection-bar--visible {
 html[data-bp~="xs"] .selection-bar__count {
   padding: 0 2px;
   font-size: var(--r-font-size-sm);
+}
+
+/* The count icon is decorative; on xs its width budget goes to the
+   select-all button so the bar still fits a 320px viewport. */
+html[data-bp~="xs"] .selection-bar__count-icon {
+  display: none;
 }
 
 /* Tighten the action row on phones so all buttons + the count + divider

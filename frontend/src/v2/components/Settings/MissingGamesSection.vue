@@ -34,6 +34,7 @@ import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
 import {
+  isListSortKey,
   LIST_ROW_HEIGHT_PX,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
@@ -42,22 +43,14 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import storeGalleryRoms, { type SidecarOptions } from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, { NO_SIDECARS } from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 interface PlatformItem {
   id: number;
   slug: string;
   name: string;
 }
-
-// This tab renders no filter drawer and no AlphaStrip, and sizes its
-// scroller off `total` alone, so all three whole-library aggregates are
-// scans whose results it would discard.
-const NO_SIDECARS: SidecarOptions = {
-  withCharIndex: false,
-  withFilterValues: false,
-  withRomIdIndex: false,
-};
 
 defineOptions({ inheritAttrs: false });
 
@@ -109,22 +102,11 @@ const selectedPlatformIds = computed<number[]>({
   },
 });
 
-// Map `galleryRoms.orderBy` to the list header's accepted keys. The
-// store may carry a key the list mode doesn't expose (e.g.
-// `last_played`), in which case we paint no active sort.
+// The store may carry a key list mode doesn't expose (e.g. `last_played`),
+// in which case we paint no active sort.
 const listSortKey = computed<ListSortKey | null>(() => {
-  const k = orderBy.value;
-  if (
-    k === "name" ||
-    k === "fs_size_bytes" ||
-    k === "created_at" ||
-    k === "first_release_date" ||
-    k === "average_rating" ||
-    k === "hltb_main_story"
-  ) {
-    return k;
-  }
-  return null;
+  const key = orderBy.value;
+  return isListSortKey(key) ? key : null;
 });
 
 // Virtual items: one entry per absolute position (0 .. total) once
@@ -278,6 +260,9 @@ onBeforeUnmount(() => {
   galleryFilter.setFilterMissing(prevFilterMissing);
   galleryFilter.setSelectedFilterPlatforms(prevSelectedPlatforms);
   galleryRoms.resetGallery();
+  // Selection is surface-scoped: drop it so the next gallery's
+  // SelectionBar doesn't resurface picks made on this tab.
+  storeGallerySelection().clear();
 });
 </script>
 

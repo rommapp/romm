@@ -6,11 +6,15 @@ view back in, which re-joins `roms` to itself and leaves the sort key on the
 joined table: the database cannot read that from an index, so it filesorts the
 whole library on every page. The generated columns are indexed on `roms`, so
 these tests pin both the ordering results and the query reading them directly.
+
+NULL sort keys (unmatched roms) land last on every engine and both directions;
+on MariaDB/MySQL the ascending sort pays a leading IS NULL term for it.
 """
 
 import pytest
 
 from handler.database import db_rom_handler
+from handler.database.rom_filters import RomFilterParams
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -47,32 +51,62 @@ class TestMetadataSortQueryShape:
             ("first_release_date", "generated_first_release_date"),
             ("average_rating", "generated_average_rating"),
             ("player_count", "generated_player_count"),
+            ("hltb_main_story", "generated_hltb_main_story"),
         ],
     )
-    def test_orders_by_the_indexed_roms_column(
-        self, order_by: str, expected_column: str
+    def test_orders_by_the_roms_column_with_nulls_last(
+        self, mariadb_driver: None, order_by: str, expected_column: str
     ):
-        query, order_column = db_rom_handler.get_roms_query(order_by=order_by)
+        query, sort_key = db_rom_handler.get_roms_query(order_by=order_by)
         sql = str(query)
 
-        assert f"ORDER BY roms.{expected_column} ASC" in sql
-        assert order_column is getattr(Rom, expected_column)
+        assert (
+            f"ORDER BY roms.{expected_column} IS NULL, roms.{expected_column} ASC"
+        ) in sql
+        assert sort_key.column is getattr(Rom, expected_column)
         # `Rom.metadatum` is a `lazy="joined"` eager load, so one join to the
         # view is expected; the sort must not add a second one.
         assert sql.count("JOIN roms_metadata") == 1
 
-    def test_descending_metadata_sort_keeps_the_roms_column(self):
+    # One dialect matrix for the shared NULL-placement block; the rom_user
+    # family proves its branch separately through the NULLIF shape test.
+    @pytest.mark.parametrize(
+        ("driver", "order_dir", "expected"),
+        [
+            (
+                "mariadb",
+                "asc",
+                "roms.generated_first_release_date IS NULL, "
+                "roms.generated_first_release_date ASC",
+            ),
+            ("mariadb", "desc", "roms.generated_first_release_date DESC"),
+            ("postgres", "asc", "roms.generated_first_release_date ASC NULLS LAST"),
+            ("postgres", "desc", "roms.generated_first_release_date DESC NULLS LAST"),
+        ],
+    )
+    def test_null_placement_per_dialect(
+        self,
+        request: pytest.FixtureRequest,
+        driver: str,
+        order_dir: str,
+        expected: str,
+    ):
+        request.getfixturevalue(f"{driver}_driver")
         query, _ = db_rom_handler.get_roms_query(
-            order_by="first_release_date", order_dir="desc"
+            order_by="first_release_date", order_dir=order_dir
         )
+        order_sql = str(query).split("ORDER BY")[-1]
 
-        assert "ORDER BY roms.generated_first_release_date DESC" in str(query)
+        assert order_sql.strip().startswith(expected)
+        # The emulation term appears only where the engine needs it.
+        emulated = driver == "mariadb" and order_dir == "asc"
+        assert ("IS NULL" in order_sql) == emulated
 
     def test_rom_column_sort_is_unchanged(self):
-        query, order_column = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
+        query, sort_key = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
 
         assert "ORDER BY roms.fs_size_bytes ASC" in str(query)
-        assert order_column is Rom.fs_size_bytes
+        assert sort_key.column is Rom.fs_size_bytes
 
     def test_metadata_sort_does_not_join_the_view_for_a_user(
         self, admin_user: User, platform: Platform
@@ -85,6 +119,25 @@ class TestMetadataSortQueryShape:
         # The rom_user join still has to be there, only the self-join goes.
         assert sql.count("JOIN roms_metadata") == 1
         assert "JOIN rom_user" in sql
+
+    def test_grouped_metadata_sort_keeps_the_representative_key(
+        self, mariadb_driver: None
+    ):
+        query, _ = db_rom_handler.get_roms_query(order_by="first_release_date")
+        grouped = db_rom_handler.filter_roms(
+            query=query,
+            filters=RomFilterParams(group_by_meta_id=True),
+            order_by="first_release_date",
+        )
+        sql = str(grouped)
+
+        # Roms-side keys stay on the representative: aggregating one would
+        # push the dedup window off its covering index.
+        assert "group_sort_value" not in sql
+        assert (
+            "ORDER BY roms.generated_first_release_date IS NULL, "
+            "roms.generated_first_release_date ASC"
+        ) in sql
 
 
 class TestMetadataSortResults:
@@ -127,15 +180,23 @@ class TestMetadataSortResults:
             "four",
         ]
 
-    def test_roms_without_metadata_are_still_returned(self, platform: Platform):
-        """An unmatched rom has no release date, and must not be filtered out."""
+    def test_null_bucket_ties_break_on_the_rom_id(self, platform: Platform):
+        """Unmatched roms stay in the result, trail the dated ones in both
+        directions, and tie inside the bucket on the rom id."""
+        _make_rom(platform, "undated_first")
+        _make_rom(platform, "undated_second")
         _make_rom(platform, "dated", igdb_metadata={"first_release_date": "100000000"})
-        _make_rom(platform, "undated")
 
-        names = _ordered_names(order_by="first_release_date", order_dir="asc")
-
-        # NULL ordering differs per engine, so only membership is asserted.
-        assert sorted(names) == ["dated", "undated"]
+        assert _ordered_names(order_by="first_release_date", order_dir="asc") == [
+            "dated",
+            "undated_first",
+            "undated_second",
+        ]
+        assert _ordered_names(order_by="first_release_date", order_dir="desc") == [
+            "dated",
+            "undated_second",
+            "undated_first",
+        ]
 
     def test_sort_matches_the_values_the_view_exposes(self, platform: Platform):
         rom = _make_rom(

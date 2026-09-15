@@ -94,6 +94,7 @@ async function fetchConfig() {
 async function claimSession(
   romId: number,
   stateId?: number,
+  saveId?: number,
   memoryCardId?: number,
   cardImport?: MemoryCardImport,
   multiplayer?: boolean,
@@ -101,6 +102,7 @@ async function claimSession(
   return api.post<LaunchingSession>("/streaming/sessions", {
     rom_id: romId,
     ...(stateId !== undefined ? { state_id: stateId } : {}),
+    ...(saveId !== undefined ? { save_id: saveId } : {}),
     ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
     ...(cardImport !== undefined ? { card_import: cardImport } : {}),
     ...(multiplayer !== undefined ? { multiplayer } : {}),
@@ -174,14 +176,6 @@ async function saveState(platform: string, slot = 1) {
   return api.post(`/streaming/sessions/${platform}/save-state`, { slot });
 }
 
-// The frame the browser grabbed off the stream canvas, held server-side until
-// the state save that follows claims it as its thumbnail.
-async function putStateFrame(platform: string, frame: Blob) {
-  return api.post(`/streaming/sessions/${platform}/state-frame`, frame, {
-    headers: { "Content-Type": "image/png" },
-  });
-}
-
 async function loadState(platform: string, slot = 1) {
   return api.post(`/streaming/sessions/${platform}/load-state`, { slot });
 }
@@ -249,7 +243,6 @@ export default {
   setVolume,
   setMute,
   saveState,
-  putStateFrame,
   loadState,
   swapDisc,
   adminListSessions,

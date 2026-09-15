@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   galleryRom: null as Record<string, unknown> | null,
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
   setPlaying: vi.fn(),
+  setStageActive: vi.fn(),
   snackbarError: vi.fn(),
   userId: 7,
 }));
@@ -51,7 +52,10 @@ vi.mock("@/stores/auth", () => ({
 }));
 
 vi.mock("@/stores/playing", () => ({
-  default: () => ({ setPlaying: mocks.setPlaying }),
+  default: () => ({
+    setPlaying: mocks.setPlaying,
+    setStageActive: mocks.setStageActive,
+  }),
 }));
 
 vi.mock("@/stores/roms", () => ({

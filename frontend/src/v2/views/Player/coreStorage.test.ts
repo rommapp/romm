@@ -50,6 +50,26 @@ describe("coreStorage", () => {
     expect(resolveRememberedCore(ROM_ID, SLUG, ARCADE_CORES)).toBe("mame2003");
   });
 
+  it("uses the instance default when nothing is remembered", () => {
+    expect(resolveRememberedCore(ROM_ID, SLUG, ARCADE_CORES, "fbneo")).toBe(
+      "fbneo",
+    );
+  });
+
+  it("prefers a remembered core over the instance default", () => {
+    rememberCore(ROM_ID, SLUG, "mame2003_plus");
+
+    expect(resolveRememberedCore(ROM_ID, SLUG, ARCADE_CORES, "fbneo")).toBe(
+      "mame2003_plus",
+    );
+  });
+
+  it("ignores an instance default the platform does not support", () => {
+    expect(resolveRememberedCore(ROM_ID, SLUG, ARCADE_CORES, "melonds")).toBe(
+      "mame2003",
+    );
+  });
+
   it("forgets both keys when the selection is cleared", () => {
     rememberCore(ROM_ID, SLUG, "mame2003_plus");
     rememberCore(ROM_ID, SLUG, null);

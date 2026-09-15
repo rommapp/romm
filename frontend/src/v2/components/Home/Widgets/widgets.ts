@@ -9,7 +9,7 @@ import AnniversaryWidget from "./AnniversaryWidget.vue";
 import LibraryStatsWidget from "./LibraryStatsWidget.vue";
 import RandomPickWidget from "./RandomPickWidget.vue";
 
-export type WidgetId = "randomPick" | "libraryStats" | "anniversaries";
+export type WidgetId = "randomPick" | "anniversaries" | "libraryStats";
 
 export interface WidgetDef {
   id: WidgetId;
@@ -32,18 +32,18 @@ export const WIDGETS: readonly WidgetDef[] = [
     icon: "mdi-dice-5-outline",
   },
   {
-    id: "libraryStats",
-    component: LibraryStatsWidget,
-    enabledKey: "widgetLibraryStats",
-    labelKey: "settings.widget-library-stats",
-    icon: "mdi-chart-box-outline",
-  },
-  {
     id: "anniversaries",
     component: AnniversaryWidget,
     enabledKey: "widgetAnniversaries",
     labelKey: "settings.widget-anniversaries",
     icon: "mdi-calendar-star",
+  },
+  {
+    id: "libraryStats",
+    component: LibraryStatsWidget,
+    enabledKey: "widgetLibraryStats",
+    labelKey: "settings.widget-library-stats",
+    icon: "mdi-chart-box-outline",
   },
 ];
 

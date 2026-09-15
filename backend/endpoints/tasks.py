@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Final
+from typing import Any, Final, Mapping, cast
 
 from fastapi import Body, HTTPException, Request
 from rq import Worker
@@ -13,6 +13,7 @@ from endpoints.responses import (
     CleanupTaskStatusResponse,
     ConversionTaskStatusResponse,
     GenericTaskStatusResponse,
+    ScanStats,
     ScanTaskStatusResponse,
     SyncTaskStatusResponse,
     TaskExecutionResponse,
@@ -68,12 +69,30 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
     )
 
 
+# Read off the annotations so a counter added there is filled without a second edit.
+_EMPTY_SCAN_STATS: Final[ScanStats] = cast(
+    ScanStats, dict.fromkeys(ScanStats.__annotations__, 0)
+)
+
+
+def _fill_scan_stats(stats: Mapping[str, Any] | None) -> ScanStats | None:
+    """Zero the counters an older release's stored stats are missing.
+
+    A job's meta in Redis outlives the release that wrote it.
+    """
+    if stats is None:
+        return None
+
+    return cast(ScanStats, {**_EMPTY_SCAN_STATS, **stats})
+
+
 def _build_task_status_response(
     job: Job,
 ) -> TaskStatusResponse:
     job_meta = job.get_meta()
     task_type = job_meta.get("task_type")
     task_name = job_meta.get("task_name") or get_job_func_name(job)
+    task_key = job_meta.get("task_key") or job.kwargs.get("name")
 
     # Convert datetime objects to ISO format strings
     created_at = job.created_at.isoformat() if job.created_at else None
@@ -82,6 +101,7 @@ def _build_task_status_response(
     enqueued_at = job.enqueued_at.isoformat() if job.enqueued_at else None
 
     common_data = {
+        "task_key": task_key,
         "task_name": task_name,
         "task_id": job.id,
         "status": job.get_status(),
@@ -102,7 +122,7 @@ def _build_task_status_response(
         case TaskType.SCAN:
             return ScanTaskStatusResponse(
                 task_type=TaskType.SCAN,
-                meta={"scan_stats": job_meta.get("scan_stats")},
+                meta={"scan_stats": _fill_scan_stats(job_meta.get("scan_stats"))},
                 **common_data,  # trunk-ignore(mypy/typeddict-item)
             )
         case TaskType.CONVERSION:
@@ -286,6 +306,7 @@ async def run_single_task(
     job = enqueue_task(task_name, task_kwargs=task_kwargs or {})
 
     return {
+        "task_key": task_name,
         "task_name": task_instance.title,
         "task_id": job.id,
         "status": job.get_status() or JobStatus.QUEUED,

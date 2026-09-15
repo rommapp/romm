@@ -412,11 +412,18 @@ HTTP Request
 
 ### Supported Databases
 
-| Database      | Driver                | Status    |
-| ------------- | --------------------- | --------- |
-| MariaDB 10.5+ | `mariadb+pymysql`     | Default   |
-| MySQL 8.0+    | `mysql+pymysql`       | Supported |
-| PostgreSQL    | `postgresql+psycopg2` | Supported |
+| Database       | Driver                | Status    |
+| -------------- | --------------------- | --------- |
+| MariaDB 10.11+ | `mariadb+pymysql`     | Default   |
+| MySQL 8.0+     | `mysql+pymysql`       | Supported |
+| PostgreSQL     | `postgresql+psycopg2` | Supported |
+
+MariaDB 10.5 and 10.6 reached upstream end of life in June 2025 and July 2026, so
+10.11 is the oldest LTS still receiving fixes.
+
+CI runs the test suite against MariaDB 12.3 and PostgreSQL 16, and the migration
+suite additionally against MariaDB 10.11, which predates the 11.6 `uca1400`
+collation default. MySQL has no CI coverage.
 
 ### Engine & Session Setup
 
@@ -900,7 +907,7 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | Method | Path     | Scope     | Description                          |
 | ------ | -------- | --------- | ------------------------------------ |
 | GET    | `/roms`  | ROMS_READ | Search metadata across all providers |
-| GET    | `/cover` | ROMS_READ | Search SteamGridDB for cover art     |
+| GET    | `/cover` | ROMS_READ | Search SteamGridDB and Steam covers  |
 
 ### 6.8 Saves (`/api/saves`)
 
@@ -1313,7 +1320,7 @@ Each adapter wraps an external API with authentication, retry logic, and type sa
 | ------------- | -------------------- | ------------------------------------------------- |
 | LaunchBox     | `launchbox_handler/` | Local XML database + remote API, platform mapping |
 | HowLongToBeat | `hltb_handler`       | Game playtime estimates                           |
-| Steam         | `steam_handler`      | Storefront metadata for win/linux/mac only        |
+| Steam         | `steam_handler`      | Storefront metadata (win/linux/mac) and cover art |
 | Hasheous      | `hasheous_handler`   | Hash-based ROM identification                     |
 | TheGamesDB    | `tgdb_handler`       | Alternative game metadata                         |
 | Flashpoint    | `flashpoint_handler` | Browser game archive database                     |
@@ -1689,6 +1696,8 @@ scan:
 
 emulatorjs:
   debug: false
+  default_cores:
+    nds: desmume # platform slug → core preselected in the player
   netplay:
     enabled: false
     ice_servers:

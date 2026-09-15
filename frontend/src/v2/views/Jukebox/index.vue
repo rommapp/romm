@@ -21,8 +21,7 @@ const { t } = useI18n();
 const canEdit = useCan("rom.edit");
 const soundtrackActions = useSoundtrackActions();
 
-const { mode, search, artist, genre, platform, decade, game, selectedDecade } =
-  useJukeboxUrlState();
+const { mode, artist, genre, platform, decade, game } = useJukeboxUrlState();
 
 interface BrowseConfig {
   icon: string;
@@ -131,11 +130,11 @@ const headerTitle = computed(() =>
 );
 
 const SESSION_MODES = ["play-all", "station", "favorite", "recent"] as const;
-type SessionMode = (typeof SESSION_MODES)[number];
+type SessionModeKey = (typeof SESSION_MODES)[number];
 
 const sessionMode = computed(() =>
   (SESSION_MODES as readonly string[]).includes(mode.value)
-    ? (mode.value as SessionMode)
+    ? (mode.value as SessionModeKey)
     : null,
 );
 

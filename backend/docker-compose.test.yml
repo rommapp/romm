@@ -3,7 +3,7 @@
 #        uv run pytest
 services:
   mariadb:
-    image: mariadb:10.11
+    image: mariadb:12.3.3
     ports:
       - "3306:3306"
     environment:
@@ -27,7 +27,7 @@ services:
       retries: 10
 
   valkey:
-    image: valkey/valkey:7.2
+    image: valkey/valkey:9.0.6
     ports:
       - "6379:6379"
     healthcheck:

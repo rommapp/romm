@@ -88,7 +88,7 @@ def enqueue_task(
         kwargs={"name": name, "task_kwargs": task_kwargs or {}},
         job_timeout=task.timeout,
         result_ttl=TASK_RESULT_TTL,
-        meta=task.job_meta,
+        meta=task.job_meta(name),
         **job_options,
     )
 

@@ -3,10 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import PlayerShell from "./PlayerShell.vue";
 
-const mocks = vi.hoisted(() => ({ push: vi.fn() }));
+const mocks = vi.hoisted(() => ({ push: vi.fn(), setStageActive: vi.fn() }));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
+}));
+
+vi.mock("@/stores/playing", () => ({
+  default: () => ({ setStageActive: mocks.setStageActive }),
 }));
 
 vi.mock("vue-router", () => ({
@@ -59,6 +63,7 @@ function mountShell(
 
 beforeEach(() => {
   mocks.push.mockReset();
+  mocks.setStageActive.mockReset();
 });
 
 describe("PlayerShell", () => {
@@ -132,5 +137,17 @@ describe("PlayerShell", () => {
     expect(
       wrapper.get(".r-v2-player__quit").attributes("disabled"),
     ).toBeDefined();
+  });
+
+  it("mirrors the running stage into the global chrome flag", async () => {
+    const wrapper = mountShell({ running: true });
+    expect(mocks.setStageActive).toHaveBeenLastCalledWith(true);
+
+    await wrapper.setProps({ running: false });
+    expect(mocks.setStageActive).toHaveBeenLastCalledWith(false);
+
+    await wrapper.setProps({ running: true });
+    wrapper.unmount();
+    expect(mocks.setStageActive).toHaveBeenLastCalledWith(false);
   });
 });

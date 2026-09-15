@@ -18,6 +18,8 @@
   "selection-n-selected": "{n} seçildi",
   "selection-refresh-metadata": "Meta verileri yenile",
   "selection-select-all": "Tümünü seç",
+  "selection-select-all-count": "Tümünü seç ({n})",
+  "selection-select-all-fail": "Tüm oyunlar seçilemedi",
   "selection-status": "Durum ayarla",
   "selection-status-fail": "Durum güncellenemedi",
   "selection-status-partial": "{total} oyundan {n} tanesi güncellendi",

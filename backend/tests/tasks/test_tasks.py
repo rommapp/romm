@@ -87,7 +87,7 @@ class TestRemoteFilePullTask:
         mock_client.get.return_value = mock_response
         mock_ctx_httpx_client.get.return_value = mock_client
 
-        result = await task.run(force=True)
+        result = await task.run()
 
         mock_client.get.assert_called_once_with(
             "https://example.com/data.json", timeout=120
@@ -104,7 +104,7 @@ class TestRemoteFilePullTask:
         mock_client.get.side_effect = httpx.HTTPError("Connection failed")
         mock_ctx_httpx_client.get.return_value = mock_client
 
-        result = await task.run(force=True)
+        result = await task.run()
 
         mock_log.error.assert_called()
         assert result is None
@@ -124,7 +124,7 @@ class TestRemoteFilePullTask:
         mock_client.get.return_value = mock_response
         mock_ctx_httpx_client.get.return_value = mock_client
 
-        result = await task.run(force=True)
+        result = await task.run()
 
         # Verify the specific error logging calls
         mock_log.error.assert_any_call(
@@ -133,28 +133,18 @@ class TestRemoteFilePullTask:
         mock_log.error.assert_any_call(http_error)
         assert result is None
 
-    @patch("tasks.tasks.log")
-    async def test_run_disabled_not_forced(self, mock_log, disabled_task):
-        """Test run when task is disabled and not forced"""
-        result = await disabled_task.run(force=False)
-
-        mock_log.info.assert_called_once_with(
-            "Scheduled disabled remote task not enabled, skipping..."
-        )
-        assert result is None
-
     @patch("tasks.tasks.ctx_httpx_client")
-    async def test_run_disabled_but_forced(self, mock_ctx_httpx_client, disabled_task):
-        """Test run when task is disabled but forced"""
+    async def test_run_disabled_still_pulls(self, mock_ctx_httpx_client, disabled_task):
+        """A caller that got this far wants the pull, whatever the setting says."""
         mock_client = AsyncMock()
         mock_response = MagicMock()
-        mock_response.content = b"forced content"
+        mock_response.content = b"remote content"
         mock_client.get.return_value = mock_response
         mock_ctx_httpx_client.get.return_value = mock_client
 
-        result = await disabled_task.run(force=True)
+        result = await disabled_task.run()
 
-        assert result == b"forced content"
+        assert result == b"remote content"
 
 
 class TestRunTaskByName:

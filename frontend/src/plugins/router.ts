@@ -14,7 +14,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
 import {
-  fallbackComponent,
+  notFoundComponent,
   v2Layouts,
   v2RouteComponents,
 } from "@/v2/router/routes";
@@ -68,11 +68,14 @@ export const ROUTES = {
   NOT_FOUND: "404",
 } as const;
 
-// Resolve the v2 component for a given route name, falling back to the
-// "not ready yet" screen so every route at least renders something when the
-// user is on uiVersion=v2.
+// Resolve the v2 component for a given route name, falling back to the 404
+// view so every route renders something when the user is on uiVersion=v2.
 function v2For(routeName: string) {
-  return v2RouteComponents[routeName] ?? fallbackComponent;
+  const component = v2RouteComponents[routeName];
+  if (!component && import.meta.env.DEV) {
+    console.warn(`[v2] route "${routeName}" has no v2 component; showing 404`);
+  }
+  return component ?? notFoundComponent;
 }
 
 const routes = [
@@ -520,7 +523,7 @@ const routes = [
         name: ROUTES.NOT_FOUND,
         components: {
           default: () => import("@/views/404.vue"),
-          v2: v2For(ROUTES.NOT_FOUND),
+          v2: notFoundComponent,
         },
       },
     ],
