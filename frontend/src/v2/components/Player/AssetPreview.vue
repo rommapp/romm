@@ -18,10 +18,12 @@ const props = withDefaults(
     type: AssetType;
     /** Set false where the surrounding panel already carries the title. */
     showHeading?: boolean;
+    /** Set false where the picker has no empty selection to clear to. */
+    clearable?: boolean;
     /** A state boots first, so a save is only where progress is written. */
     stateArmed?: boolean;
   }>(),
-  { showHeading: true, stateArmed: false },
+  { showHeading: true, clearable: true, stateArmed: false },
 );
 
 defineEmits<{
@@ -101,7 +103,7 @@ const emptyText = computed(() =>
 
       <!-- Clear button — only when something is selected. -->
       <button
-        v-if="asset"
+        v-if="asset && clearable"
         type="button"
         class="r-asset-preview__clear"
         :aria-label="t('common.clear')"
@@ -179,7 +181,7 @@ const emptyText = computed(() =>
       </div>
 
       <button
-        v-if="asset && type === 'save'"
+        v-if="asset && type === 'save' && clearable"
         type="button"
         class="r-asset-preview__clear r-asset-preview__clear--inline"
         :aria-label="t('common.clear')"

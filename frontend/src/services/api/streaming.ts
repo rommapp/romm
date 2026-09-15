@@ -94,6 +94,7 @@ async function fetchConfig() {
 async function claimSession(
   romId: number,
   stateId?: number,
+  saveId?: number,
   memoryCardId?: number,
   cardImport?: MemoryCardImport,
   multiplayer?: boolean,
@@ -101,6 +102,7 @@ async function claimSession(
   return api.post<LaunchingSession>("/streaming/sessions", {
     rom_id: romId,
     ...(stateId !== undefined ? { state_id: stateId } : {}),
+    ...(saveId !== undefined ? { save_id: saveId } : {}),
     ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
     ...(cardImport !== undefined ? { card_import: cardImport } : {}),
     ...(multiplayer !== undefined ? { multiplayer } : {}),

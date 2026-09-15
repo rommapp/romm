@@ -165,6 +165,12 @@ _DISC_SWAP_PLATFORMS = frozenset({"dc", "saturn", "segacd", "turbografx-cd", "do
 # own UI. The frontend shows this as a static hint, not a control.
 _MANUAL_DISC_SWAP_PLATFORMS = frozenset({"ps2"})
 
+# Emulators whose broker empties the save tree before restoring an archive (the
+# webstation broker's `clears_stale_saves`), so an older pick still lands.
+_SAVE_PICKER_EMULATORS = frozenset(
+    {"eden", "retroarch", "rpcs3", "shadps4", "xemu", "xenia"}
+)
+
 
 def slot_capabilities(platform: str, emulator: str = "") -> PlatformCapabilities:
     """Save-state and disc capabilities for a platform, or a no-slots default.
@@ -186,6 +192,12 @@ def slot_capabilities(platform: str, emulator: str = "") -> PlatformCapabilities
         "supports_disc_swap": platform in _DISC_SWAP_PLATFORMS,
         "has_manual_disc_swap": platform in _MANUAL_DISC_SWAP_PLATFORMS,
     }
+
+
+def emulator_clears_saves(emulator: str) -> bool:
+    """Whether restoring a save archive older than the container's own files
+    still lands on this emulator."""
+    return emulator.strip().lower() in _SAVE_PICKER_EMULATORS
 
 
 def known_to_lack_memory_card(platform: str) -> bool:
