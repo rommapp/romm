@@ -21,6 +21,9 @@ if TYPE_CHECKING:
     from models.user import User
 
 
+SAVE_SLOT_MAX_LENGTH = 255
+
+
 class BaseAsset(BaseModel):
     __abstract__ = True
 
@@ -98,7 +101,9 @@ class Save(RomAsset):
     )
 
     emulator: Mapped[str | None] = mapped_column(String(length=50))
-    slot: Mapped[str | None] = mapped_column(String(length=255), index=True)
+    slot: Mapped[str | None] = mapped_column(
+        String(length=SAVE_SLOT_MAX_LENGTH), index=True
+    )
     content_hash: Mapped[str | None] = mapped_column(String(length=32))
     origin_device_id: Mapped[str | None] = mapped_column(
         String(length=255),

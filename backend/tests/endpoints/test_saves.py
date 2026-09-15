@@ -1,3 +1,5 @@
+import os
+import re
 from datetime import timedelta
 from io import BytesIO
 from unittest import mock
@@ -1594,6 +1596,63 @@ class TestDatetimeTagging:
         written_filename = call_args[1].get("filename") or call_args[0][2]
         assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]", written_filename)
 
+    @mock.patch("endpoints.saves.scan_screenshot", new_callable=mock.AsyncMock)
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_upload_with_slot_tags_screenshot_like_the_save(
+        self,
+        mock_scan,
+        mock_write,
+        mock_scan_screenshot,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+    ):
+        from models.assets import Screenshot
+
+        mock_scan.return_value = Save(
+            file_name="test [2026-01-31_12-00-00].sav",
+            file_name_no_tags="test",
+            file_name_no_ext="test [2026-01-31_12-00-00]",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="main",
+        )
+        mock_scan_screenshot.return_value = Screenshot(
+            file_name="test [2026-01-31_12-00-00].png",
+            file_name_no_tags="test",
+            file_name_no_ext="test [2026-01-31_12-00-00]",
+            file_extension="png",
+            file_path=f"{platform.slug}/screenshots",
+            file_size_bytes=10,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=main",
+            files={
+                "saveFile": ("test.sav", BytesIO(b"save"), "application/octet-stream"),
+                "screenshotFile": ("shot.png", BytesIO(b"png"), "image/png"),
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        written = [call.kwargs["filename"] for call in mock_write.call_args_list]
+        assert len(written) == 2
+        save_stem, _ = os.path.splitext(written[0])
+        screenshot_stem, _ = os.path.splitext(written[1])
+        assert save_stem == screenshot_stem
+        assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]$", save_stem)
+
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
     )
@@ -1684,6 +1743,21 @@ class TestDatetimeTagging:
         )
         assert len(datetime_matches) == 1
         assert "2020-01-01" not in written_filename
+
+
+class TestSlotValidation:
+    def test_upload_rejects_slot_longer_than_column(
+        self, client, access_token: str, rom: Rom
+    ):
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot={'a' * 256}",
+            files={
+                "saveFile": ("test.sav", BytesIO(b"save"), "application/octet-stream")
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TestAutocleanup:
@@ -1906,6 +1980,104 @@ class TestAutocleanup:
 
         assert response.status_code == status.HTTP_200_OK
         mock_remove.assert_not_called()
+
+
+class TestAutocleanupScreenshots:
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_autocleanup_removes_evicted_screenshots(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+    ):
+        from handler.database import db_save_handler, db_screenshot_handler
+        from models.assets import Screenshot
+
+        base_time = rom.created_at
+        for i in range(3):
+            save = db_save_handler.add_save(
+                Save(
+                    file_name=f"autosave_{i}.sav",
+                    file_name_no_tags=f"autosave_{i}",
+                    file_name_no_ext=f"autosave_{i}",
+                    file_extension="sav",
+                    file_path=f"{platform.slug}/saves",
+                    file_size_bytes=100,
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    slot="autosave",
+                )
+            )
+            db_save_handler.update_save(
+                save.id, {"updated_at": base_time + timedelta(hours=i)}
+            )
+            db_screenshot_handler.add_screenshot(
+                Screenshot(
+                    file_name=f"autosave_{i}.png",
+                    file_name_no_tags=f"autosave_{i}",
+                    file_name_no_ext=f"autosave_{i}",
+                    file_extension="png",
+                    file_path=f"{platform.slug}/screenshots",
+                    file_size_bytes=10,
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                )
+            )
+
+        mock_scan.return_value = Save(
+            file_name="autosave_new.sav",
+            file_name_no_tags="autosave_new",
+            file_name_no_ext="autosave_new",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="autosave",
+        )
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=autosave&autocleanup=true&autocleanup_limit=2",
+            files={
+                "saveFile": (
+                    "autosave_new.sav",
+                    BytesIO(b"new"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        remaining = {
+            save.file_name_no_ext
+            for save in db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
+            )
+        }
+        assert len(remaining) == 2
+        evicted = [i for i in range(3) if f"autosave_{i}" not in remaining]
+        assert len(evicted) >= 1
+        # Every evicted save took its screenshot row and file with it.
+        assert mock_remove.call_count == (4 - len(remaining)) + len(evicted)
+        for i in range(3):
+            screenshot = db_screenshot_handler.get_screenshot(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name=f"autosave_{i}.sav",
+                file_name_no_ext=f"autosave_{i}",
+            )
+            assert (screenshot is None) == (i in evicted)
 
 
 class TestUploadSizeLimit:

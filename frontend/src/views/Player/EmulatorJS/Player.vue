@@ -54,10 +54,70 @@ const props = defineProps<{
   bios: FirmwareSchema | null;
   core: string | null;
   disc: number | null;
+  /** Slot for new saves when the loaded save has none; defaults to autosave. */
+  saveSlot?: string | null;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
-const saveRef = ref<SaveSchema | null>(props.save);
+// The save the session booted from, and the version this session has written
+// so far. Loading a save resets the version so the next write opens a new one.
+let loadedSave: SaveSchema | null = props.save;
+const sessionSaveRef = ref<SaveSchema | null>(null);
 const deviceIDRef = ref(authStore.user?.current_device_id ?? undefined);
+// Bytes the server already holds, so forced writes can skip an unchanged SRAM.
+const saveTracker = createSaveSyncTracker();
+function baselineSaveTrackerFromEmulator() {
+  // Passing false reads the SRAM without dumping it, so this fires no tick.
+  saveTracker.baseline(
+    window.EJS_emulator?.gameManager?.getSaveFile(false) ?? null,
+  );
+}
+// Writes run one at a time so concurrent writers cannot both open a version;
+// loading a save bumps the generation, which voids writes queued before it,
+// and bytes read while a load is in flight are stale, so they are dropped.
+let saveWrite: Promise<unknown> = Promise.resolve();
+let saveGeneration = 0;
+let saveLoading = false;
+function writeSave(
+  file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer },
+  generation = saveGeneration,
+): Promise<SaveSchema | null> {
+  if (saveLoading) return Promise.resolve(null);
+  const write = saveWrite.then(async () => {
+    if (generation !== saveGeneration) return null;
+    const save = await saveSave({
+      rom: romRef.value,
+      save: sessionSaveRef.value,
+      deviceId: deviceIDRef.value,
+      slot: loadedSave?.slot || props.saveSlot || undefined,
+      ...file,
+    });
+    if (save && generation === saveGeneration) {
+      sessionSaveRef.value = save;
+      saveTracker.markUploaded(new Uint8Array(file.saveFile));
+    }
+    return save;
+  });
+  saveWrite = write.catch(() => null);
+  return write;
+}
+// Forced writes (Save button, Save & Quit) wait for the queue, then skip only
+// when no version was opened yet and the SRAM still matches a slotted save
+// loaded from the server (a slot-less one still has to reach the slot).
+async function writeSaveIfChanged(file: {
+  saveFile: ArrayBuffer;
+  screenshotFile?: ArrayBuffer;
+}): Promise<boolean> {
+  const generation = saveGeneration;
+  await saveWrite;
+  if (
+    !sessionSaveRef.value &&
+    loadedSave?.slot &&
+    saveTracker.isUploaded(new Uint8Array(file.saveFile))
+  ) {
+    return true;
+  }
+  return (await writeSave(file, generation)) !== null;
+}
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 const { playing, fullScreen } = storeToRefs(playingStore);
@@ -289,25 +349,15 @@ function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
   if (!emulator?.gameManager || autoSaveSyncEmulator === emulator) return;
   autoSaveSyncEmulator = emulator;
-  const tracker = createSaveSyncTracker();
-  // Passing false reads the SRAM without dumping it, so seeding fires no tick.
-  tracker.seed(emulator.gameManager.getSaveFile(false));
   let uploading = false;
   emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
     if (autoSaveSyncEmulator !== emulator || uploading || !saveFile?.byteLength)
       return;
-    if (!tracker.shouldUpload(saveFile)) return;
+    if (!saveTracker.shouldUpload(saveFile)) return;
     uploading = true;
     try {
-      const save = await saveSave({
-        rom: romRef.value,
-        save: saveRef.value,
-        saveFile: toArrayBuffer(saveFile),
-        deviceId: deviceIDRef.value,
-      });
+      const save = await writeSave({ saveFile: toArrayBuffer(saveFile) });
       if (save) {
-        tracker.markUploaded(saveFile);
-        saveRef.value = save;
         romsStore.update(romRef.value);
         displayMessage("Save synced with server", {
           duration: 3000,
@@ -324,22 +374,32 @@ function installAutoSaveSync() {
 
 // Saves management
 async function loadSave(save: SaveSchema) {
-  saveRef.value = save;
+  saveGeneration += 1;
+  saveLoading = true;
+  loadedSave = save;
+  sessionSaveRef.value = null;
 
-  const { data } = await api.get(save.download_path.replace("/api", ""), {
-    responseType: "arraybuffer",
-  });
-  if (data) {
-    loadEmulatorJSSave(new Uint8Array(data));
-    displayMessage("Save loaded from server", {
-      duration: 3000,
-      icon: "mdi-cloud-download-outline",
+  try {
+    const { data } = await api.get(save.download_path.replace("/api", ""), {
+      responseType: "arraybuffer",
+      params: { device_id: deviceIDRef.value },
     });
-    return;
-  }
+    if (data) {
+      const bytes = new Uint8Array(data);
+      loadEmulatorJSSave(bytes);
+      saveTracker.seed(bytes);
+      displayMessage("Save loaded from server", {
+        duration: 3000,
+        icon: "mdi-cloud-download-outline",
+      });
+      return;
+    }
 
-  const file = await window.EJS_emulator.selectFile();
-  loadEmulatorJSSave(new Uint8Array(await file.arrayBuffer()));
+    const file = await window.EJS_emulator.selectFile();
+    loadEmulatorJSSave(new Uint8Array(await file.arrayBuffer()));
+  } finally {
+    saveLoading = false;
+  }
 }
 
 window.EJS_onLoadSave = async function () {
@@ -352,17 +412,11 @@ window.EJS_onSaveSave = async function ({
   save: saveFile,
   screenshot: screenshotFile,
 }) {
-  const save = await saveSave({
-    rom: romRef.value,
-    save: saveRef.value,
-    saveFile,
-    screenshotFile,
-    deviceId: deviceIDRef.value,
-  });
+  const synced = await writeSaveIfChanged({ saveFile, screenshotFile });
 
   romsStore.update(romRef.value);
 
-  if (save) {
+  if (synced) {
     displayMessage("Save synced with server", {
       duration: 4000,
       icon: "mdi-cloud-sync",
@@ -484,8 +538,11 @@ window.EJS_onGameStart = async () => {
           setTimeout(resolve, STATE_APPLY_SETTLE_MS),
         );
         await loadState(props.state);
+        baselineSaveTrackerFromEmulator();
       } else if (props.save) {
         await loadSave(props.save);
+      } else {
+        baselineSaveTrackerFromEmulator();
       }
       if (EJS_ENABLE_AUTO_SAVE_SYNC) {
         try {
@@ -546,21 +603,11 @@ window.EJS_onGameStart = async () => {
     const stateFile = window.EJS_emulator.gameManager.getState();
     const saveFile = window.EJS_emulator.gameManager.getSaveFile();
 
-    // Force a save of the current state
-    await saveState({
-      rom: romRef.value,
-      stateFile,
-      screenshotFile,
-    });
-
-    // Force a save of the save file
-    await saveSave({
-      rom: romRef.value,
-      save: saveRef.value,
-      saveFile,
-      screenshotFile,
-      deviceId: deviceIDRef.value,
-    });
+    // The state and the save go to different endpoints, so upload both at once
+    await Promise.all([
+      saveState({ rom: romRef.value, stateFile, screenshotFile }),
+      writeSaveIfChanged({ saveFile, screenshotFile }),
+    ]);
 
     romsStore.update(romRef.value);
     immediateExit();
