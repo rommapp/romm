@@ -242,6 +242,7 @@
   "metric-completion": "完成度",
   "metric-difficulty": "難度",
   "metric-rating": "評分",
+  "missing-from-fs-path": "Missing from filesystem: {path}",
   "missing-platform": "檔案系統中缺少平台",
   "more-actions": "更多動作",
   "my-notes": "我的筆記",
