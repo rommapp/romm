@@ -19,6 +19,9 @@ interface Props {
   /** Logo path under /assets/scrappers/. */
   logo: string;
   layout?: "tile" | "row";
+  /** Element rendering the name. Consumers whose surface is navigated
+   *  by headings (the scan reference dialog) pass a heading level. */
+  nameTag?: "span" | "h3" | "h4";
   /** Small uppercase descriptor under the name (tile layout). */
   subtitle?: string;
   status?: ProviderCardStatus;
@@ -32,6 +35,7 @@ interface Props {
 
 withDefaults(defineProps<Props>(), {
   layout: "tile",
+  nameTag: "span",
   subtitle: undefined,
   status: undefined,
   setupHint: undefined,
@@ -59,10 +63,13 @@ defineSlots<{
   >
     <header class="r-provider-card__header">
       <div class="r-provider-card__logo">
-        <RImg :src="logo" :alt="name" width="100%" height="100%" contain />
+        <!-- Decorative: the name sits right next to it. -->
+        <RImg :src="logo" alt="" width="100%" height="100%" contain />
       </div>
       <div class="r-provider-card__head-text">
-        <span class="r-provider-card__name">{{ name }}</span>
+        <component :is="nameTag" class="r-provider-card__name">
+          {{ name }}
+        </component>
         <span v-if="subtitle" class="r-provider-card__subtitle">
           {{ subtitle }}
         </span>
@@ -136,6 +143,7 @@ defineSlots<{
 }
 
 .r-provider-card__name {
+  margin: 0;
   font-weight: var(--r-font-weight-bold);
   color: var(--r-color-fg);
 }
