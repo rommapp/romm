@@ -287,28 +287,24 @@ async def _win_container(
     Raises 409 when every one of them is held, with enough of the holder for
     the launch screen to say what the player is waiting on.
     """
-    # Rolling over to the next free container is for the players who did not get
-    # one, never for the player already holding one. Everything downstream of a
-    # claim is keyed by platform rather than by container - status, heartbeat,
-    # release, save-and-exit all resolve through find_session_for_user, which
-    # answers with the first match - so a second session for the same user would
-    # be one nothing can reach: it would hold a pool slot until its TTL lapsed,
-    # and under whole-card sync both halves would mount the one card that
-    # resolve_card picks per (user, emulator) and the later release would land on
-    # top of the earlier one's writes. A single container refuses this already by
-    # failing SET NX on its only key; a pool has to be told.
+    # Status, heartbeat and release all resolve by platform and answer with the
+    # first match, so a second session for one user is one nothing can reach.
     held = await access.find_session_for_user(candidates, request.user.id)
     if held is not None:
-        _, _, mine = held
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "message": "You already have a session on this platform",
-                "draining": False,
-                "rom_name": access.visible_rom_name(request, mine),
-                "claimed_at": mine.get("claimed_at"),
-            },
-        )
+        holder, _, mine = held
+        if not session_is_stale(mine):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "You already have a session on this platform",
+                    "draining": False,
+                    "rom_name": access.visible_rom_name(request, mine),
+                    "claimed_at": mine.get("claimed_at"),
+                },
+            )
+        # Their own session, abandoned. Take that container back rather than
+        # rolling them onto a free one and stranding this one until its TTL.
+        candidates = [holder]
 
     async def try_claim(candidate: ResolvedContainer) -> bool:
         # SET NX is atomic: exactly one concurrent claim wins the key. The TTL

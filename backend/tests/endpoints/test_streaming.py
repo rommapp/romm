@@ -1123,6 +1123,25 @@ def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
     assert free is None
 
 
+def test_a_pool_hands_the_owner_of_a_stale_session_their_own_container_back(
+    client, access_token, rom: Rom
+):
+    """A crashed tab leaves the owner holding a container nothing refreshes.
+    Claiming again has to take that one back, not strand it and reserve a
+    second."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, access_token, rom.id)
+        _age_session_on(
+            _pool_member(rom, 0), session_store._STREAMING_SESSION_STALE_SECONDS + 60
+        )
+        with patch("handler.streaming.commands.stop", return_value=None):
+            r2 = _claim_ok(client, access_token, rom.id)
+        free = asyncio.run(session_store.get_session(_key_of(_pool_member(rom, 1))))
+    assert r2.status_code == 202
+    assert r2.json()["container"] == _key_of(_pool_member(rom, 0))
+    assert free is None
+
+
 def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -1404,9 +1423,9 @@ def test_a_container_mounted_at_the_root_agrees_with_an_empty_subfolder():
     assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
 
 
-def test_a_cross_origin_host_may_differ_from_its_subfolder():
-    """A full URL carries its own origin, so the broker's absolute room path
-    lands on it correctly and the two are free to disagree."""
+def test_a_bare_origin_host_may_differ_from_its_subfolder():
+    """A host that is only an origin carries no mount path, so the broker's
+    absolute room path lands on it whatever the subfolder says."""
     entry = {
         "platform": "ps2",
         "host": "https://webstation.example.com",
@@ -1418,6 +1437,29 @@ def test_a_cross_origin_host_may_differ_from_its_subfolder():
     with _streaming(entry):
         candidates = streaming.containers_for_platform("ps2")
     assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
+
+
+def test_a_cross_origin_mount_path_is_checked_against_the_subfolder(caplog):
+    """An absolute URL can carry a mount path too, and the broker's room path
+    replaces it exactly as it would on RomM's own origin."""
+    entry = {
+        "platform": "ps2",
+        "host": "https://webstation.example.com/streaming-2",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+        "emulator": "pcsx2",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(entry):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert candidates == []
+    assert "must be the container's own SUBFOLDER" in caplog.text
 
 
 def test_webstation_pool_claim_rolls_over_across_different_subfolders(
@@ -1814,6 +1856,21 @@ def test_stale_session_taken_over_on_claim(
         with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r1.status_code == 202
+    assert r2.status_code == 202
+    stop_broker.assert_called_once()
+
+
+def test_the_owner_of_a_stale_session_can_claim_it_again(
+    client, access_token, rom: Rom
+):
+    """The tab that crashed is how most sessions go stale, and its owner
+    pressing Play is how they come back. Holding a session only bars a second
+    one while the first is still alive."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
+            r2 = _claim_ok(client, access_token, rom.id)
     assert r2.status_code == 202
     stop_broker.assert_called_once()
 

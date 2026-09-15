@@ -164,20 +164,14 @@ class ResolvedContainer:
 
     def interchangeable_with(self, other: ResolvedContainer) -> bool:
         """Whether two containers serving a platform are a pool rather than two
-        different setups. The emulator names the state and card namespace, and
-        whole-card sync decides whether cards are synced at all, so a player
-        landing on either has to find their saves in the same place. The
-        protocol shape decides which controls exist at all (disc swap,
-        joining), and those are advertised from the head of the pool, so a
-        member whose shape disagrees would offer a control that 502s on half
-        the claims. Compared by type rather than instance: two webstation
-        containers proxied at different subfolders (as same-origin pooling
-        requires, each mounted at its own path) carry distinct `subfolder`
-        values and so are never the same interned instance, but they share the
-        same capabilities and route shapes and are still one pool."""
+        different setups: a player landing on either has to find their saves in
+        the same place and be offered the same controls, and the head of the
+        pool answers for all of them."""
         return (
             self.emulator == other.emulator
             and self.memory_card_sync == other.memory_card_sync
+            # By shape, not instance: same-origin pool members are each proxied
+            # at their own path and so carry a subfolder of their own.
             and type(self.protocol) is type(other.protocol)
         )
 
@@ -243,16 +237,13 @@ def _derive_broker_host(entry: dict[str, Any], protocol: BrokerProtocol) -> str 
 
 
 def _proxy_path_matches_subfolder(host: str, protocol: WebstationProtocol) -> bool:
-    """Whether a same-origin entry's mount path agrees with its subfolder.
+    """Whether the path a container is mounted at is the subfolder it serves.
 
-    Only a container configured as a path has to agree. A full URL carries an
-    origin of its own for the broker's absolute room path to land on, so there
-    `host` and `subfolder` are free to differ.
+    A bare origin has no mount path for the broker's absolute room path to
+    disagree with, so only a host carrying one has to match.
     """
-    host = host.strip()
-    if not host.startswith("/"):
-        return True
-    return host.rstrip("/") == protocol.subfolder
+    path = urlparse(host.strip()).path.rstrip("/")
+    return not path or path == protocol.subfolder
 
 
 def _emulator_namespace(entry: dict[str, Any]) -> str:
@@ -271,9 +262,10 @@ def _resolve_one(
     claimed, but the fleet view lists it so the misconfiguration is visible.
     """
     protocol = protocol_for(entry.get("protocol"), entry.get("subfolder"))
+    raw_host = str(entry.get("host", ""))
 
     broker_host: str | None = None
-    if not parse_stream_host(str(entry.get("host", ""))):
+    if not parse_stream_host(raw_host):
         log.warning(
             "container for platform '%s' missing a scheme-bearing host or a "
             "proxied path, it cannot be claimed: %s",
@@ -293,21 +285,15 @@ def _resolve_one(
             )
         elif isinstance(
             protocol, WebstationProtocol
-        ) and not _proxy_path_matches_subfolder(str(entry.get("host", "")), protocol):
-            # The browser is sent to `host`, but activate answers with an
-            # absolute room path the broker builds from its own SUBFOLDER, and
-            # urljoin lets that path replace the one `host` carries. Mounted at
-            # /streaming-2 while serving /streaming, a claim would hand the
-            # player a URL the proxy routes to whoever owns /streaming: another
-            # container, mid-session, with nothing logged anywhere. Both values
-            # have to be the container's own SUBFOLDER, so refuse the entry
-            # rather than resolve one that can only mislead.
+        ) and not _proxy_path_matches_subfolder(raw_host, protocol):
+            # activate answers with an absolute room path built from the
+            # broker's own SUBFOLDER, which replaces the one `host` carries.
             log.warning(
                 "container for platform '%s' is proxied at '%s' but declares "
                 "subfolder '%s'; both must be the container's own SUBFOLDER, "
                 "it cannot be claimed: %s",
                 platform,
-                str(entry.get("host", "")).strip(),
+                raw_host.strip(),
                 protocol.subfolder,
                 _loggable(entry),
             )
@@ -338,7 +324,7 @@ def _resolve_one(
     label = entry.get("label")
     return ResolvedContainer(
         key=broker_host or "",
-        host=str(entry.get("host", "")),
+        host=raw_host,
         broker_host=broker_host,
         protocol=protocol,
         platform=platform,
