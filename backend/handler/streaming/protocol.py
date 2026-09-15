@@ -152,6 +152,15 @@ class WebstationProtocol(BrokerProtocol):
             cleaned = f"/{cleaned}"
         self.subfolder = cleaned.rstrip("/")
 
+    def host_matches_subfolder(self, host: str) -> bool:
+        """Whether a configured host is mounted at the subfolder this serves.
+
+        A bare origin has no mount path for the broker's absolute room path to
+        disagree with, so only a host carrying one has to match.
+        """
+        path = urlparse(host.strip()).path.rstrip("/")
+        return not path or path == self.subfolder
+
     def session_route(self, path: str) -> str:
         return f"{self.subfolder}/api/session{path}"
 

@@ -170,9 +170,9 @@ class ResolvedContainer:
         return (
             self.emulator == other.emulator
             and self.memory_card_sync == other.memory_card_sync
-            # By shape, not instance: same-origin pool members are each proxied
+            # By name, not instance: same-origin pool members are each proxied
             # at their own path and so carry a subfolder of their own.
-            and type(self.protocol) is type(other.protocol)
+            and self.protocol.name == other.protocol.name
         )
 
     def memory_card_route(self) -> str:
@@ -236,14 +236,49 @@ def _derive_broker_host(entry: dict[str, Any], protocol: BrokerProtocol) -> str 
     return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
 
 
-def _proxy_path_matches_subfolder(host: str, protocol: WebstationProtocol) -> bool:
-    """Whether the path a container is mounted at is the subfolder it serves.
+def _resolve_broker_host(
+    entry: dict[str, Any], raw_host: str, protocol: BrokerProtocol, platform: str
+) -> str | None:
+    """The address RomM can call this container's broker on, or None when the
+    entry cannot be claimed and the reason has been logged."""
+    if not parse_stream_host(raw_host):
+        log.warning(
+            "container for platform '%s' missing a scheme-bearing host or a "
+            "proxied path, it cannot be claimed: %s",
+            platform,
+            _loggable(entry),
+        )
+        return None
 
-    A bare origin has no mount path for the broker's absolute room path to
-    disagree with, so only a host carrying one has to match.
-    """
-    path = urlparse(host.strip()).path.rstrip("/")
-    return not path or path == protocol.subfolder
+    broker_host = _derive_broker_host(entry, protocol)
+    if not broker_host:
+        # A proxied host carries no address RomM can call, so the broker is
+        # only reachable if the operator named it.
+        log.warning(
+            "container for platform '%s' has no reachable broker, set "
+            "broker_host, it cannot be claimed: %s",
+            platform,
+            _loggable(entry),
+        )
+        return None
+
+    if isinstance(protocol, WebstationProtocol) and not protocol.host_matches_subfolder(
+        raw_host
+    ):
+        # activate answers with an absolute room path built from the broker's
+        # own SUBFOLDER, which replaces the one `host` carries.
+        log.warning(
+            "container for platform '%s' is proxied at '%s' but declares "
+            "subfolder '%s'; both must be the container's own SUBFOLDER, "
+            "it cannot be claimed: %s",
+            platform,
+            raw_host.strip(),
+            protocol.subfolder,
+            _loggable(entry),
+        )
+        return None
+
+    return broker_host
 
 
 def _emulator_namespace(entry: dict[str, Any]) -> str:
@@ -263,41 +298,7 @@ def _resolve_one(
     """
     protocol = protocol_for(entry.get("protocol"), entry.get("subfolder"))
     raw_host = str(entry.get("host", ""))
-
-    broker_host: str | None = None
-    if not parse_stream_host(raw_host):
-        log.warning(
-            "container for platform '%s' missing a scheme-bearing host or a "
-            "proxied path, it cannot be claimed: %s",
-            platform,
-            _loggable(entry),
-        )
-    else:
-        broker_host = _derive_broker_host(entry, protocol)
-        if not broker_host:
-            # A proxied host carries no address RomM can call, so the broker is
-            # only reachable if the operator named it.
-            log.warning(
-                "container for platform '%s' has no reachable broker, set "
-                "broker_host, it cannot be claimed: %s",
-                platform,
-                _loggable(entry),
-            )
-        elif isinstance(
-            protocol, WebstationProtocol
-        ) and not _proxy_path_matches_subfolder(raw_host, protocol):
-            # activate answers with an absolute room path built from the
-            # broker's own SUBFOLDER, which replaces the one `host` carries.
-            log.warning(
-                "container for platform '%s' is proxied at '%s' but declares "
-                "subfolder '%s'; both must be the container's own SUBFOLDER, "
-                "it cannot be claimed: %s",
-                platform,
-                raw_host.strip(),
-                protocol.subfolder,
-                _loggable(entry),
-            )
-            broker_host = None
+    broker_host = _resolve_broker_host(entry, raw_host, protocol, platform)
 
     emulator = _emulator_namespace(entry)
     card_sync = bool(entry.get("memory_card_sync", False))
