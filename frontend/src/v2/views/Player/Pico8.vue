@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Plays PICO-8 carts through the FAKE-08 WebAssembly runtime.
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
-import { useEventListener, useFullscreen } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
@@ -13,6 +13,7 @@ import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
@@ -47,7 +48,7 @@ const {
   isFullscreen,
   enter: enterFullscreen,
   toggle: toggleFullscreen,
-} = useFullscreen(stage);
+} = usePlayerFullscreen(stage);
 
 let runtime: Pico8Runtime | null = null;
 let audio: Pico8Audio | null = null;
@@ -259,7 +260,7 @@ async function onPlay() {
 
     loading.value = false;
     playSession.start(currentRom);
-    if (fullscreenOnPlay.value) void enterFullscreen().catch(() => {});
+    if (fullscreenOnPlay.value) void enterFullscreen();
     startLoop();
   } catch (error) {
     nextRuntime?.dispose();

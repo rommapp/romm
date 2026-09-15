@@ -12,9 +12,6 @@ export default defineStore("playing", {
     setPlaying(playing: boolean) {
       this.playing = playing;
     },
-    setFullScreen(fullScreen: boolean) {
-      this.fullScreen = fullScreen;
-    },
     setStageActive(stageActive: boolean) {
       this.stageActive = stageActive;
     },

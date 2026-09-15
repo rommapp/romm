@@ -1,13 +1,11 @@
-import Bowser from "bowser";
-
-// iOS Safari exposes no Fullscreen API on non-video elements, so EmulatorJS's
-// fullscreen button is inert there. We emulate just enough of the API for it
-// to drive a fixed, viewport-filling stage.
+// iPhone exposes no Fullscreen API on non-video elements, so a player's
+// fullscreen control is inert there. We emulate just enough of the API to
+// drive a fixed, viewport-filling stage.
 //
-// v2 needs no nav-hiding counterpart: the player calls useStageActive, which
+// No nav-hiding counterpart is needed: players call useStageActive, which
 // unmounts AppNav and BottomNav for the duration of the session.
 const FULLSCREEN_STYLE = `
-  [data-ios-fullscreen-active] {
+  [data-fullscreen-fallback] {
     position: fixed !important;
     inset: 0 !important;
     width: 100vw !important;
@@ -17,23 +15,25 @@ const FULLSCREEN_STYLE = `
   }
 `;
 
-function isShimRequired() {
-  const osName = Bowser.getParser(navigator.userAgent).getOSName(true);
+// Feature-detected rather than sniffed for iOS: iPad has the API behind the
+// webkit prefix and iPhone has none at all, so sniffing would swap a working
+// native implementation for this one on iPad. It also retires the fallback by
+// itself if iPhone ever ships the real API.
+function hasNativeElementFullscreen() {
   return (
-    osName === "ios" ||
-    // iPadOS 13+ reports as macOS with touch support, so fall back to that check.
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    "requestFullscreen" in Element.prototype ||
+    "webkitRequestFullscreen" in Element.prototype
   );
 }
 
 /**
- * Patches the Fullscreen API on iOS so the in-player fullscreen control works.
+ * Patches the Fullscreen API where the platform has none for elements.
  *
  * Returns: a disposer that exits the emulated fullscreen and restores every
- * patched property. A no-op on platforms with real fullscreen support.
+ * patched property. A no-op wherever the native API exists.
  */
-export function installIOSFullscreenShim(): () => void {
-  if (!isShimRequired()) {
+export function installFullscreenFallback(): () => void {
+  if (hasNativeElementFullscreen()) {
     return () => {};
   }
 
@@ -71,7 +71,7 @@ export function installIOSFullscreenShim(): () => void {
     if (fullscreenElement === el) return Promise.resolve();
     if (fullscreenElement) void exit();
 
-    el.setAttribute("data-ios-fullscreen-active", "");
+    el.setAttribute("data-fullscreen-fallback", "");
     fullscreenElement = el;
     dispatchChange(el);
     return Promise.resolve();
@@ -80,7 +80,7 @@ export function installIOSFullscreenShim(): () => void {
   const exit = () => {
     const el = fullscreenElement;
     if (!el) return Promise.resolve();
-    el.removeAttribute("data-ios-fullscreen-active");
+    el.removeAttribute("data-fullscreen-fallback");
     fullscreenElement = null;
     dispatchChange(el);
     return Promise.resolve();
@@ -88,6 +88,10 @@ export function installIOSFullscreenShim(): () => void {
 
   override(document, "fullscreenEnabled", { get: () => true });
   override(document, "fullscreenElement", { get: () => fullscreenElement });
+  // The deprecated alias for "is the document fullscreen". Support probes
+  // (vueuse's useFullscreen among them) read it to decide the API is usable,
+  // so a polyfill that omits it reads as unsupported and silently no-ops.
+  override(document, "fullScreen", { get: () => fullscreenElement !== null });
   override(document, "exitFullscreen", { value: exit, writable: true });
   override(proto, "requestFullscreen", {
     value: function (this: HTMLElement) {

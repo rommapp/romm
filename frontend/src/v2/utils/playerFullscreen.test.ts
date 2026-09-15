@@ -1,49 +1,63 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { installIOSFullscreenShim } from "./playerFullscreen";
+import { installFullscreenFallback } from "./playerFullscreen";
 
-// happy-dom defines these on Navigator.prototype, so the overrides below are
-// own properties we delete again rather than descriptors we restore.
-const PATCHED_NAV_KEYS = ["platform", "maxTouchPoints"] as const;
+// The fallback gates on Element.prototype, so the tests move the native
+// methods on and off it rather than faking a user agent.
+const NATIVE_KEYS = ["requestFullscreen", "webkitRequestFullscreen"] as const;
+const nativeDescriptors = NATIVE_KEYS.map(
+  (key) =>
+    [key, Object.getOwnPropertyDescriptor(Element.prototype, key)] as const,
+);
 
-function setNav(platform: string, maxTouchPoints: number) {
-  Object.defineProperty(navigator, "platform", {
-    value: platform,
-    configurable: true,
-  });
-  Object.defineProperty(navigator, "maxTouchPoints", {
-    value: maxTouchPoints,
-    configurable: true,
-  });
+function withoutNativeFullscreen() {
+  NATIVE_KEYS.forEach((key) => Reflect.deleteProperty(Element.prototype, key));
 }
 
-// The shim keys off iPadOS 13+, which reports as MacIntel with touch support.
-function pretendIOS() {
-  setNav("MacIntel", 5);
-}
-
-function pretendDesktop() {
-  setNav("Win32", 0);
+function withNativeFullscreen() {
+  Object.defineProperty(Element.prototype, "requestFullscreen", {
+    value: () => Promise.resolve(),
+    configurable: true,
+    writable: true,
+  });
 }
 
 afterEach(() => {
-  PATCHED_NAV_KEYS.forEach((key) => Reflect.deleteProperty(navigator, key));
+  NATIVE_KEYS.forEach((key) => Reflect.deleteProperty(Element.prototype, key));
+  nativeDescriptors.forEach(([key, descriptor]) => {
+    if (descriptor) Object.defineProperty(Element.prototype, key, descriptor);
+  });
   document.body.innerHTML = "";
 });
 
-describe("installIOSFullscreenShim", () => {
-  it("leaves the Fullscreen API untouched off iOS", () => {
-    pretendDesktop();
+describe("installFullscreenFallback", () => {
+  it("stands aside where the native API exists", () => {
+    withNativeFullscreen();
     const before = HTMLElement.prototype.requestFullscreen;
 
-    const dispose = installIOSFullscreenShim();
+    const dispose = installFullscreenFallback();
+
+    expect(HTMLElement.prototype.requestFullscreen).toBe(before);
+    dispose();
+  });
+
+  it("stands aside where only the webkit-prefixed API exists (iPad)", () => {
+    withoutNativeFullscreen();
+    Object.defineProperty(Element.prototype, "webkitRequestFullscreen", {
+      value: () => undefined,
+      configurable: true,
+      writable: true,
+    });
+    const before = HTMLElement.prototype.requestFullscreen;
+
+    const dispose = installFullscreenFallback();
 
     expect(HTMLElement.prototype.requestFullscreen).toBe(before);
     dispose();
   });
 
   it("reports fullscreen as available once installed", () => {
-    pretendIOS();
-    const dispose = installIOSFullscreenShim();
+    withoutNativeFullscreen();
+    const dispose = installFullscreenFallback();
 
     expect(document.fullscreenEnabled).toBe(true);
     expect(document.fullscreenElement).toBeNull();
@@ -52,8 +66,8 @@ describe("installIOSFullscreenShim", () => {
   });
 
   it("marks the element and fires fullscreenchange on enter", async () => {
-    pretendIOS();
-    const dispose = installIOSFullscreenShim();
+    withoutNativeFullscreen();
+    const dispose = installFullscreenFallback();
     const el = document.createElement("div");
     document.body.appendChild(el);
 
@@ -62,7 +76,7 @@ describe("installIOSFullscreenShim", () => {
 
     await el.requestFullscreen();
 
-    expect(el.hasAttribute("data-ios-fullscreen-active")).toBe(true);
+    expect(el.hasAttribute("data-fullscreen-fallback")).toBe(true);
     expect(document.fullscreenElement).toBe(el);
     expect(changes).toBe(1);
 
@@ -70,33 +84,32 @@ describe("installIOSFullscreenShim", () => {
   });
 
   it("clears the element on exit", async () => {
-    pretendIOS();
-    const dispose = installIOSFullscreenShim();
+    withoutNativeFullscreen();
+    const dispose = installFullscreenFallback();
     const el = document.createElement("div");
     document.body.appendChild(el);
 
     await el.requestFullscreen();
     await document.exitFullscreen();
 
-    expect(el.hasAttribute("data-ios-fullscreen-active")).toBe(false);
+    expect(el.hasAttribute("data-fullscreen-fallback")).toBe(false);
     expect(document.fullscreenElement).toBeNull();
 
     dispose();
   });
 
   it("restores the patched API and removes its stylesheet on dispose", async () => {
-    pretendIOS();
-    const before = HTMLElement.prototype.requestFullscreen;
+    withoutNativeFullscreen();
     const styleCount = document.head.querySelectorAll("style").length;
 
-    const dispose = installIOSFullscreenShim();
+    const dispose = installFullscreenFallback();
     const el = document.createElement("div");
     document.body.appendChild(el);
     await el.requestFullscreen();
     dispose();
 
-    expect(HTMLElement.prototype.requestFullscreen).toBe(before);
+    expect("requestFullscreen" in HTMLElement.prototype).toBe(false);
     expect(document.head.querySelectorAll("style")).toHaveLength(styleCount);
-    expect(el.hasAttribute("data-ios-fullscreen-active")).toBe(false);
+    expect(el.hasAttribute("data-fullscreen-fallback")).toBe(false);
   });
 });

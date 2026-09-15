@@ -53,6 +53,7 @@ import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -73,7 +74,6 @@ import {
   type DiscSelection,
 } from "@/v2/utils/playerDisc";
 import { resolveInitialFirmware } from "@/v2/utils/playerFirmware";
-import { installIOSFullscreenShim } from "@/v2/utils/playerFullscreen";
 import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
@@ -91,6 +91,9 @@ const playingStore = storePlaying();
 const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
+// EmulatorJS drives fullscreen through its own control, so no target here:
+// this is for the fallback the library's call goes through.
+usePlayerFullscreen();
 const { modality } = useInputModality();
 const playSession = usePlaySession();
 
@@ -119,7 +122,6 @@ const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
-const removeIOSFullscreenShim = ref<(() => void) | null>(null);
 
 useUnloadGuard(gameRunning);
 useStageActive(gameRunning);
@@ -218,9 +220,6 @@ async function onPlay() {
     await new Promise((resolve) => setTimeout(resolve, insertMs));
   }
 
-  removeIOSFullscreenShim.value?.();
-  removeIOSFullscreenShim.value = installIOSFullscreenShim();
-
   if (rom.value) {
     rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
     rememberDisc(rom.value.id, selectedDisc.value);
@@ -252,8 +251,6 @@ async function onPlay() {
       await attemptLoad(EJS_NETPLAY_ENABLED ? LOCAL_PATH : CDN_PATH);
     }
   } catch (err) {
-    removeIOSFullscreenShim.value?.();
-    removeIOSFullscreenShim.value = null;
     console.error("[Play] Emulator load failure:", err);
     // No emulator booted, so drop back to the config screen instead of
     // leaving the unload guard and the input mute armed.
@@ -424,8 +421,6 @@ onBeforeUnmount(() => {
   // stays true and pad/hotkey navigation is dead until a reload.
   playing.value = false;
   window.EJS_emulator?.callEvent("exit");
-  removeIOSFullscreenShim.value?.();
-  removeIOSFullscreenShim.value = null;
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
   window.removeEventListener("gamepad:buttondown", onGamepadButton);

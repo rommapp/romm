@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useEventListener } from "@vueuse/core";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 
 // The surface a streaming session renders into: the container's iframe, the
 // auto-hiding control bar over it, and the focus handling the emulator needs
@@ -49,7 +50,6 @@ const frameSrc = computed(() => {
 const stageRef = ref<HTMLElement | null>(null);
 const streamFrame = ref<HTMLIFrameElement | null>(null);
 const isUIVisible = ref(true);
-const isFullscreen = ref(false);
 // Whether the frame let us listen inside it. A cross-origin container never
 // reports its pointer, so it gets the edge strip instead.
 const sameOrigin = ref(false);
@@ -259,37 +259,18 @@ watch(
 );
 
 // ── Fullscreen ─────────────────────────────────────────────────────
-async function enterFullscreen(): Promise<void> {
-  try {
-    await stageRef.value?.requestFullscreen();
-  } catch {
-    // Fullscreen denied (permissions policy / gesture requirement).
-  }
-}
+// `leaveFullscreen` is called before showing anything teleported to <body>:
+// a fullscreened element paints over the whole page, dialogs included.
+const {
+  isFullscreen,
+  enter: enterFullscreen,
+  exit: leaveFullscreen,
+  toggle: toggleFullscreen,
+} = usePlayerFullscreen(stageRef);
 
-// Drop out of fullscreen before showing anything teleported to <body>: a
-// fullscreened element paints over the whole page, dialogs included.
-async function leaveFullscreen(): Promise<void> {
-  if (!document.fullscreenElement) return;
-  try {
-    await document.exitFullscreen();
-  } catch (error) {
-    // Worst case the dialog opens behind fullscreen, so this is not fatal, but
-    // it is invisible from the UI and worth surfacing to anyone debugging it.
-    console.warn("Failed to exit fullscreen", error);
-  }
-}
-
-async function toggleFullscreen(): Promise<void> {
-  if (document.fullscreenElement) await leaveFullscreen();
-  else await enterFullscreen();
-}
-
-function onFullscreenChange(): void {
-  isFullscreen.value = !!document.fullscreenElement;
+useEventListener(document, "fullscreenchange", () => {
   stageTop = null;
-}
-useEventListener(document, "fullscreenchange", onFullscreenChange);
+});
 useEventListener(window, "resize", () => {
   stageTop = null;
 });
