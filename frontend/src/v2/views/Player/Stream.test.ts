@@ -234,6 +234,24 @@ describe("Stream save picker", () => {
     expect((preview(wrapper)!.props("asset") as SaveSchema).id).toBe(3);
   });
 
+  it("dates the rows by the timestamp it sorted them on", async () => {
+    // A content-hash rewrite moves updated_at without touching the save, so
+    // showing it would date the second row "now" in a newest-first list.
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(1, "Pool [retroarch a].saves.zip", {
+          updated_at: "2026-09-15T12:00:00",
+        }),
+        ...ARCHIVES.slice(0, 2),
+      ],
+    });
+
+    expect((saveList(wrapper)!.props("assets") as SaveSchema[])[0].id).toBe(3);
+    expect(saveList(wrapper)!.props("timestamp")).toBe("created");
+    expect(preview(wrapper)!.props("timestamp")).toBe("created");
+  });
+
   it("has no clear button: the claim always restores something", async () => {
     const wrapper = await launch({ picker: true });
 

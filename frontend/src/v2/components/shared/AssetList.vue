@@ -30,6 +30,7 @@ import { userAvatarUrl } from "@/v2/utils/userAvatar";
 defineOptions({ inheritAttrs: false });
 
 export type AssetType = "save" | "state";
+export type AssetTimestamp = "updated" | "created";
 type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 
 const props = withDefaults(
@@ -44,12 +45,16 @@ const props = withDefaults(
     showOwner?: boolean;
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
+    /** Which timestamp the rows show. Set it to whatever the caller ordered
+     *  the list by, so the newest row is the one that reads newest. */
+    timestamp?: AssetTimestamp;
   }>(),
   {
     selectable: true,
     selectedId: null,
     showOwner: false,
     scrollable: true,
+    timestamp: "updated",
   },
 );
 
@@ -68,6 +73,14 @@ const emptyLabel = computed(() =>
     ? t("play.no-saves-available")
     : t("play.no-states-available"),
 );
+
+const timeLabel = computed(() =>
+  props.timestamp === "created" ? t("rom.created") : t("rom.updated"),
+);
+
+function timeOf(asset: Asset): string {
+  return props.timestamp === "created" ? asset.created_at : asset.updated_at;
+}
 
 function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   return "username" in asset && asset.username ? asset : null;
@@ -142,10 +155,10 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 
           <span class="r-asset-list__time">
             <span class="r-asset-list__relative">
-              {{ formatRelativeDate(asset.updated_at) }}
+              {{ formatRelativeDate(timeOf(asset)) }}
             </span>
             <span class="r-asset-list__exact">
-              {{ formatTimestamp(asset.updated_at, locale) }}
+              {{ formatTimestamp(timeOf(asset), locale) }}
             </span>
           </span>
 
@@ -173,8 +186,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
             <div class="r-asset-list__tip">
               <span class="r-asset-list__tip-name">{{ asset.file_name }}</span>
               <span class="r-asset-list__tip-sub">
-                {{ t("rom.updated") }}:
-                {{ formatTimestamp(asset.updated_at, locale) }}
+                {{ timeLabel }}: {{ formatTimestamp(timeOf(asset), locale) }}
               </span>
             </div>
           </RTooltip>
