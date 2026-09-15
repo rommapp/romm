@@ -23,6 +23,7 @@
   "rom-file": "ROM文件",
   "search-patch-library": "在游戏库中搜索补丁",
   "search-rom-library": "在游戏库中搜索 ROM",
+  "select-archive-member": "Select file inside archive",
   "select-file": "选择文件",
   "select-patch-file": "选择补丁文件",
   "start-typing": "输入以开始搜索…",
