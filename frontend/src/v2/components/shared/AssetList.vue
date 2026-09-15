@@ -124,8 +124,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
                 v-if="'slot' in asset && asset.slot"
                 tone="brand"
                 size="x-small"
-                prepend-icon="mdi-bookmark-outline"
-                :label="t('play.slot')"
+                prepend-icon="mdi-content-save-all-outline"
                 :text="asset.slot"
               />
               <RTag
@@ -217,8 +216,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   scrollbar-color: var(--r-color-border-strong) transparent;
   scrollbar-width: thin;
 }
-/* Internal scroll only in the Play view; the Save data subtab owns its
-   own scroll, so it passes `scrollable=false` and the list grows freely. */
+/* Internal scroll only where the parent does not own scrolling. */
 .r-asset-list--scroll .r-asset-list__items {
   overflow-y: auto;
   max-height: 380px;

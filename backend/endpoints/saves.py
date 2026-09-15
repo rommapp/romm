@@ -28,7 +28,7 @@ from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import Save
+from models.assets import SAVE_SLOT_MAX_LENGTH, Save
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.datetime import to_utc
@@ -103,6 +103,22 @@ def _syncs_for_save(
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
 
 
+async def _remove_save_screenshot(save: Save) -> None:
+    screenshot = save.screenshot
+    if not screenshot:
+        return
+    db_screenshot_handler.delete_screenshot(screenshot.id)
+    try:
+        await fs_asset_handler.remove_file(
+            file_path=f"{screenshot.file_path}/{screenshot.file_name}"
+        )
+    except FileNotFoundError:
+        log.error(
+            f"Screenshot file {hl(screenshot.file_name)} not found for save "
+            f"{hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
+        )
+
+
 def _apply_datetime_tag(filename: str) -> str:
     name, ext = os.path.splitext(filename)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
@@ -163,7 +179,7 @@ async def add_save(
     request: Request,
     rom_id: int,
     emulator: str | None = None,
-    slot: str | None = None,
+    slot: Annotated[str | None, Query(max_length=SAVE_SLOT_MAX_LENGTH)] = None,
     device_id: str | None = None,
     session_id: int | None = None,
     overwrite: bool = False,
@@ -345,6 +361,7 @@ async def add_save(
                     await fs_asset_handler.remove_file(old_save.full_path)
                 except FileNotFoundError:
                     log.warning(f"Could not delete old save file: {old_save.full_path}")
+                await _remove_save_screenshot(old_save)
 
     if screenshotFile and screenshotFile.filename:
         try:
@@ -354,6 +371,12 @@ async def add_save(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid screenshot filename: {str(exc)}",
             ) from exc
+        # Save.screenshot is matched by stem, so a slotted upload names the
+        # screenshot after the tagged save whatever the client called it.
+        if slot:
+            save_stem, _ = os.path.splitext(actual_filename)
+            _, screenshot_ext = os.path.splitext(sanitized_screenshot_filename)
+            sanitized_screenshot_filename = f"{save_stem}{screenshot_ext}"
 
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
@@ -754,15 +777,7 @@ async def delete_saves(
             error = f"Save file {hl(save.file_name)} not found for platform {hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
             log.error(error)
 
-        if save.screenshot:
-            db_screenshot_handler.delete_screenshot(save.screenshot.id)
-
-            try:
-                file_path = f"{save.screenshot.file_path}/{save.screenshot.file_name}"
-                await fs_asset_handler.remove_file(file_path=file_path)
-            except FileNotFoundError:
-                error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
-                log.error(error)
+        await _remove_save_screenshot(save)
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
