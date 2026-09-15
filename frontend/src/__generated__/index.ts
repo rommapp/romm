@@ -38,6 +38,7 @@ export type { Body_update_collection_api_collections__id__put } from './models/B
 export type { Body_update_memory_card_visibility_api_memory_cards__id__visibility_put } from './models/Body_update_memory_card_visibility_api_memory_cards__id__visibility_put';
 export type { Body_update_platform_api_platforms__id__put } from './models/Body_update_platform_api_platforms__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
+export type { Body_update_rom_screenshot_overview_api_roms__id__screenshots__file_id__overview_put } from './models/Body_update_rom_screenshot_overview_api_roms__id__screenshots__file_id__overview_put';
 export type { Body_update_save_api_saves__id__put } from './models/Body_update_save_api_saves__id__put';
 export type { Body_update_save_visibility_api_saves__id__visibility_put } from './models/Body_update_save_visibility_api_saves__id__visibility_put';
 export type { Body_update_screenshot_api_screenshots__id__put } from './models/Body_update_screenshot_api_screenshots__id__put';

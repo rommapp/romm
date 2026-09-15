@@ -75,6 +75,7 @@ def test_upload_screenshot_success(
     assert screenshots[0].file_name == "shot1.png"
     assert screenshots[0].file_path == f"{game_folder_rom.full_path}/screenshots"
     assert screenshots[0].file_size_bytes == len(PNG_BYTES)
+    assert screenshots[0].is_on_overview is False
 
 
 def test_upload_screenshot_upserts_on_reupload(
@@ -115,6 +116,59 @@ def test_upload_screenshot_rejects_invalid_extension(
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Unsupported image file type" in response.json()["detail"]
+
+
+# ---------- PUT /api/roms/{id}/screenshots/{file_id}/overview ----------
+
+
+def test_show_screenshot_on_overview(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+):
+    shot = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=game_folder_rom.id,
+            file_name="shot1.png",
+            file_path=f"{game_folder_rom.full_path}/screenshots",
+            file_size_bytes=len(PNG_BYTES),
+            category=RomFileCategory.SCREENSHOT,
+        )
+    )
+
+    response = client.put(
+        f"/api/roms/{game_folder_rom.id}/screenshots/{shot.id}/overview",
+        json={"is_on_overview": True},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    refreshed = db_rom_handler.get_rom_file_by_id(shot.id)
+    assert refreshed is not None and refreshed.is_on_overview is True
+
+
+def test_show_non_screenshot_on_overview_returns_404(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+):
+    manual = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=game_folder_rom.id,
+            file_name="english.pdf",
+            file_path=f"{game_folder_rom.full_path}/manual",
+            file_size_bytes=10,
+            category=RomFileCategory.MANUAL,
+        )
+    )
+
+    response = client.put(
+        f"/api/roms/{game_folder_rom.id}/screenshots/{manual.id}/overview",
+        json={"is_on_overview": True},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 # ---------- DELETE /api/roms/{id}/screenshots/{file_id} ----------
