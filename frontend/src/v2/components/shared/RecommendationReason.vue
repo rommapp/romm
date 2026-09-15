@@ -70,8 +70,8 @@ const caption = computed(() => {
 }
 
 .rec-reason__icon {
-  /* MDI glyphs centre on the em box, leaving them ~2px below the text's
-     optical centre. A transform, because centring absorbs half of a margin. */
+  /* MDI glyphs center on the em box, leaving them ~2px below the text's
+     optical center. A transform, because centering absorbs half of a margin. */
   transform: translateY(-1px);
 }
 </style>
