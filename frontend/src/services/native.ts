@@ -72,9 +72,9 @@ export async function fetchPlatformSupport(
   }
 }
 
-/** Start a ROM in a locally installed emulator. The rejection carries only a
- *  message, because an error code does not survive the shell's IPC boundary;
- *  the code is on the `failed` launch state the shell emits alongside it. */
+/** Start a ROM in a locally installed emulator. An older shell drops the error
+ *  code crossing its IPC boundary, so the code is read off the `failed` launch
+ *  state emitted alongside the rejection. */
 export function launchNative(request: LaunchRequest): Promise<LaunchResult> {
   const native = bridge();
   if (typeof native?.launch !== "function") {

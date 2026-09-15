@@ -162,7 +162,7 @@ export const useNativeStore = defineStore("native", () => {
   /** Hand a ROM to the shell to launch, resolving with an error message only
    *  when the shell never took the request (no bridge, a malformed request, a
    *  game already running). A launch it accepted and then failed is left to
-   *  the launch state, which carries the error code a rejection cannot. */
+   *  the launch state, whose error code every shell version reports. */
   async function launch(rom: SimpleRom): Promise<string | null> {
     const before = stateCount.value[rom.id] ?? 0;
     // A fresh launch is not the cancelled one, however the last ended.
