@@ -280,9 +280,7 @@ onBeforeUnmount(() => {
 });
 
 // Fullscreen state and its toggle reach the bar as slot props, so only what a
-// parent drives imperatively is exposed here. Callers use `leaveFullscreen`
-// before showing anything teleported to <body>: a fullscreened element paints
-// over the whole page, dialogs included.
+// parent drives imperatively is exposed here.
 defineExpose({
   focusStream,
   postToStream,

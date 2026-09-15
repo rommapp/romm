@@ -77,7 +77,6 @@ describe("installFullscreenFallback", () => {
 
     expect(el.hasAttribute("data-fullscreen-fallback")).toBe(true);
     expect(document.fullscreenElement).toBe(el);
-    // The deprecated alias support probes read; see playerFullscreen.ts.
     expect(legacyFullScreen()).toBe(true);
     expect(changes).toBe(1);
   });

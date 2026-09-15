@@ -5,17 +5,11 @@ import { onScopeDispose, type ShallowRef } from "vue";
 import { installFullscreenFallback } from "@/v2/utils/playerFullscreen";
 
 // Refcounted because the patch is process-global while its callers are scoped:
-// nesting or overlapping players would otherwise stack private patch layers
-// and restore them in teardown order.
+// overlapping consumers would otherwise stack private patch layers.
 let consumers = 0;
 let removeFallback: (() => void) | null = null;
 
-/**
- * Patches the Fullscreen API for this scope where the platform lacks it.
- *
- * Players whose emulator library drives fullscreen itself need only this: the
- * fallback patches the same prototype the library reaches for.
- */
+/** Patches the Fullscreen API for this scope where the platform lacks it. */
 export function useFullscreenFallback(): void {
   if (consumers++ === 0) removeFallback = installFullscreenFallback();
 

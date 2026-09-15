@@ -1,7 +1,5 @@
 // useFullscreenPref — shared "start in fullscreen on play?" preference.
-// Backs every player view, so flipping it in one persists across the rest.
-// Uses the same localStorage key v1 writes to (`emulation.fullScreenOnPlay`),
-// so the toggle stays in sync with the v1 UI.
+// Keyed on `emulation.fullScreenOnPlay` so the toggle stays in sync with v1.
 import { useLocalStorage, type RemovableRef } from "@vueuse/core";
 
 const fullscreenOnPlay = useLocalStorage<boolean>(

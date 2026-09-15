@@ -1,19 +1,20 @@
 // iPhone exposes no Fullscreen API on non-video elements, so a player's
 // fullscreen control is inert there without this.
+const FALLBACK_ATTR = "data-fullscreen-fallback";
+
 const FULLSCREEN_STYLE = `
-  [data-fullscreen-fallback] {
+  [${FALLBACK_ATTR}] {
     position: fixed !important;
     inset: 0 !important;
     width: 100vw !important;
     height: 100svh !important;
     z-index: 99999 !important;
-    background: var(--r-color-canvas-bg) !important;
+    background: var(--r-color-canvas-bg, black) !important;
   }
 `;
 
-// Feature-detected rather than sniffed for iOS: iPad has the API behind the
-// webkit prefix and iPhone has none at all, so sniffing would swap a working
-// native implementation for this one on iPad.
+// Feature-detected, not sniffed: iPad has the API behind the webkit prefix, so
+// sniffing iOS would swap a working native implementation for this one.
 function hasElementFullscreen() {
   return (
     "requestFullscreen" in HTMLElement.prototype ||
@@ -66,7 +67,7 @@ export function installFullscreenFallback(): () => void {
     if (fullscreenElement === el) return Promise.resolve();
     if (fullscreenElement) void exit();
 
-    el.setAttribute("data-fullscreen-fallback", "");
+    el.setAttribute(FALLBACK_ATTR, "");
     fullscreenElement = el;
     dispatchChange(el);
     return Promise.resolve();
@@ -75,7 +76,7 @@ export function installFullscreenFallback(): () => void {
   const exit = () => {
     const el = fullscreenElement;
     if (!el) return Promise.resolve();
-    el.removeAttribute("data-fullscreen-fallback");
+    el.removeAttribute(FALLBACK_ATTR);
     fullscreenElement = null;
     dispatchChange(el);
     return Promise.resolve();
