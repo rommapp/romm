@@ -379,6 +379,7 @@
   "screenshot-num-open": "스크린샷 {n} 열기",
   "screenshot-num-thumb": "스크린샷 {n} 썸네일",
   "screenshot-overview-failed": "개요를 업데이트할 수 없습니다: {error}",
+  "screenshot-overview-requires-public": "개요에 추가하려면 공개로 전환하세요",
   "screenshot-public": "공개",
   "screenshot-remove-failed": "스크린샷 삭제에 실패했습니다: {error}",
   "screenshot-remove-from-overview": "개요에서 제거",

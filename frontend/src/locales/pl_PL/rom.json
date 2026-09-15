@@ -379,6 +379,7 @@
   "screenshot-num-open": "Otwórz zrzut ekranu {n}",
   "screenshot-num-thumb": "Miniatura zrzutu ekranu {n}",
   "screenshot-overview-failed": "Nie udało się zaktualizować przeglądu: {error}",
+  "screenshot-overview-requires-public": "Upublicznij, aby dodać do przeglądu",
   "screenshot-public": "Publiczne",
   "screenshot-remove-failed": "Nie udało się usunąć zrzutu ekranu: {error}",
   "screenshot-remove-from-overview": "Usuń z przeglądu",

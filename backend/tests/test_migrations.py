@@ -172,7 +172,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0123_recommendation_metadata.py", "roms"),
         ("0126_unique_rom_full_path.py", "roms"),
         ("0128_hltb_main_story_column.py", "roms"),
-        ("0129_screenshots_on_overview.py", "rom_files"),
+        ("0129_screenshots_on_overview.py", "screenshots"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(

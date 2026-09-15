@@ -10,7 +10,15 @@ describe("ScreenshotsTab overview toggle", () => {
   it("emits the selected overview state", async () => {
     const wrapper = shallowMount(ScreenshotsTab, {
       props: {
-        screenshots: [{ id: 4, url: "/shot.png", isOnOverview: false }],
+        screenshots: [
+          {
+            id: 4,
+            url: "/shot.png",
+            isOwn: true,
+            isPublic: true,
+            isOnOverview: false,
+          },
+        ],
         overviewTogglable: true,
       },
     });
@@ -32,5 +40,29 @@ describe("ScreenshotsTab overview toggle", () => {
     expect(
       wrapper.find('[aria-label="rom.screenshot-add-to-overview"]').exists(),
     ).toBe(false);
+  });
+
+  it("disables overview inclusion for private screenshots", () => {
+    const wrapper = shallowMount(ScreenshotsTab, {
+      props: {
+        screenshots: [
+          {
+            id: 4,
+            url: "/shot.png",
+            isOwn: true,
+            isPublic: false,
+            isOnOverview: false,
+            overviewDisabled: true,
+          },
+        ],
+        overviewTogglable: true,
+      },
+    });
+
+    const toggle = wrapper.find(
+      '[aria-label="rom.screenshot-overview-requires-public"]',
+    );
+    expect(toggle.exists()).toBe(true);
+    expect(toggle.attributes("disabled")).toBeDefined();
   });
 });

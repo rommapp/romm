@@ -379,6 +379,7 @@
   "screenshot-num-open": "Отвори екранна снимка {n}",
   "screenshot-num-thumb": "Миниатюра на екранна снимка {n}",
   "screenshot-overview-failed": "Общият преглед не може да се актуализира: {error}",
+  "screenshot-overview-requires-public": "Направи публична, за да я добавиш към общия преглед",
   "screenshot-public": "Публична",
   "screenshot-remove-failed": "Неуспешно премахване на екранната снимка: {error}",
   "screenshot-remove-from-overview": "Премахни от общия преглед",

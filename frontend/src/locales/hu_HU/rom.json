@@ -379,6 +379,7 @@
   "screenshot-num-open": "{n}. képernyőkép megnyitása",
   "screenshot-num-thumb": "{n}. képernyőkép bélyegképe",
   "screenshot-overview-failed": "Az áttekintés nem frissíthető: {error}",
+  "screenshot-overview-requires-public": "Tedd nyilvánossá az áttekintéshez adáshoz",
   "screenshot-public": "Nyilvános",
   "screenshot-remove-failed": "A képernyőkép eltávolítása nem sikerült: {error}",
   "screenshot-remove-from-overview": "Eltávolítás az áttekintésből",

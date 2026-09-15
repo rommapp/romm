@@ -25,6 +25,7 @@ export type ScreenshotItem = {
   isOwn?: boolean;
   isPublic?: boolean;
   isOnOverview?: boolean;
+  overviewDisabled?: boolean;
   username?: string;
   userId?: number | null;
   userAvatarPath?: string | null;
@@ -70,7 +71,7 @@ function canToggle(shot: ScreenshotItem): boolean {
 }
 function canToggleOverview(shot: ScreenshotItem): boolean {
   return (
-    Boolean(props.overviewTogglable) && shot.id != null && shot.isOwn !== false
+    Boolean(props.overviewTogglable) && shot.id != null && shot.isOwn === true
   );
 }
 </script>
@@ -132,15 +133,20 @@ function canToggleOverview(shot: ScreenshotItem): boolean {
           variant="flat"
           :color="shot.isOnOverview ? 'primary' : 'var(--r-color-fg-muted)'"
           :loading="overviewTogglingId === shot.id"
+          :disabled="shot.overviewDisabled"
           :aria-label="
-            shot.isOnOverview
-              ? t('rom.screenshot-remove-from-overview')
-              : t('rom.screenshot-add-to-overview')
+            shot.overviewDisabled
+              ? t('rom.screenshot-overview-requires-public')
+              : shot.isOnOverview
+                ? t('rom.screenshot-remove-from-overview')
+                : t('rom.screenshot-add-to-overview')
           "
           :title="
-            shot.isOnOverview
-              ? t('rom.screenshot-remove-from-overview')
-              : t('rom.screenshot-add-to-overview')
+            shot.overviewDisabled
+              ? t('rom.screenshot-overview-requires-public')
+              : shot.isOnOverview
+                ? t('rom.screenshot-remove-from-overview')
+                : t('rom.screenshot-add-to-overview')
           "
           @click="emit('toggle-overview', shot.id!, !shot.isOnOverview)"
         />

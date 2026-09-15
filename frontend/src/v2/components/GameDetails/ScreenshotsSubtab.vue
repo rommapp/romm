@@ -85,8 +85,7 @@ const romScreenshots = computed<ScreenshotItem[]>(() => {
     if (!IMAGE_EXTENSIONS.has(ext)) continue;
     out.push({
       id: file.id,
-      url: romFileScreenshotUrl(file, props.rom.updated_at),
-      isOnOverview: file.is_on_overview,
+      url: romFileScreenshotUrl(file),
     });
   }
   return out;
@@ -103,6 +102,8 @@ const myScreenshots = computed<ScreenshotItem[]>(() =>
       url: s.download_path,
       isOwn: true,
       isPublic: Boolean(s.is_public),
+      isOnOverview: Boolean(s.is_overview),
+      overviewDisabled: !s.is_public,
     })),
 );
 
@@ -239,15 +240,11 @@ async function toggleVisibility(id: number, isPublic: boolean) {
 
 const overviewTogglingId = ref<number | null>(null);
 
-async function toggleRomOverview(id: number, isOnOverview: boolean) {
+async function toggleMyOverview(id: number, isOnOverview: boolean) {
   if (overviewTogglingId.value != null) return;
   overviewTogglingId.value = id;
   try {
-    await romApi.setScreenshotOverview({
-      romId: props.rom.id,
-      fileId: id,
-      isOnOverview,
-    });
+    await screenshotApi.setScreenshotOverview({ id, isOverview: isOnOverview });
     await refreshRom();
   } catch (error: unknown) {
     snackbar.error(
@@ -313,10 +310,7 @@ async function toggleRomOverview(id: number, isOnOverview: boolean) {
         <ScreenshotsTab
           :screenshots="romScreenshots"
           :deletable="canEditRom"
-          :overview-togglable="canEditRom"
-          :overview-toggling-id="overviewTogglingId"
           @delete="deleteRomScreenshot"
-          @toggle-overview="toggleRomOverview"
         />
       </RDropzone>
     </section>
@@ -364,9 +358,12 @@ async function toggleRomOverview(id: number, isOnOverview: boolean) {
           :screenshots="myScreenshots"
           deletable
           togglable
+          overview-togglable
           :toggling-id="togglingId"
+          :overview-toggling-id="overviewTogglingId"
           @delete="deleteMyScreenshot"
           @toggle-visibility="toggleVisibility"
+          @toggle-overview="toggleMyOverview"
         />
       </RDropzone>
     </section>

@@ -379,6 +379,7 @@
   "screenshot-num-open": "Otevřít screenshot {n}",
   "screenshot-num-thumb": "Náhled screenshotu {n}",
   "screenshot-overview-failed": "Přehled se nepodařilo aktualizovat: {error}",
+  "screenshot-overview-requires-public": "Pro přidání do přehledu nastavte jako veřejné",
   "screenshot-public": "Veřejné",
   "screenshot-remove-failed": "Nepodařilo se odstranit screenshot: {error}",
   "screenshot-remove-from-overview": "Odebrat z přehledu",

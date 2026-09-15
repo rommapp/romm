@@ -379,6 +379,7 @@
   "screenshot-num-open": "スクリーンショット{n}を開く",
   "screenshot-num-thumb": "スクリーンショット{n}のサムネイル",
   "screenshot-overview-failed": "概要を更新できませんでした：{error}",
+  "screenshot-overview-requires-public": "概要に追加するには公開してください",
   "screenshot-public": "公開",
   "screenshot-remove-failed": "スクリーンショットの削除に失敗しました：{error}",
   "screenshot-remove-from-overview": "概要から削除",

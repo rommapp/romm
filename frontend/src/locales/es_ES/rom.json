@@ -379,6 +379,7 @@
   "screenshot-num-open": "Abrir captura {n}",
   "screenshot-num-thumb": "Miniatura de captura {n}",
   "screenshot-overview-failed": "No se pudo actualizar el resumen: {error}",
+  "screenshot-overview-requires-public": "Hazla pública para añadirla al resumen",
   "screenshot-public": "Pública",
   "screenshot-remove-failed": "No se pudo eliminar la captura: {error}",
   "screenshot-remove-from-overview": "Quitar del resumen",

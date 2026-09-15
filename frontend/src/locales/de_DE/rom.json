@@ -379,6 +379,7 @@
   "screenshot-num-open": "Screenshot {n} öffnen",
   "screenshot-num-thumb": "Screenshot {n} Vorschau",
   "screenshot-overview-failed": "Übersicht konnte nicht aktualisiert werden: {error}",
+  "screenshot-overview-requires-public": "Zum Hinzufügen zur Übersicht veröffentlichen",
   "screenshot-public": "Öffentlich",
   "screenshot-remove-failed": "Screenshot konnte nicht entfernt werden: {error}",
   "screenshot-remove-from-overview": "Aus der Übersicht entfernen",

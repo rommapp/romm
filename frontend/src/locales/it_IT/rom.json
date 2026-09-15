@@ -379,6 +379,7 @@
   "screenshot-num-open": "Apri screenshot {n}",
   "screenshot-num-thumb": "Miniatura screenshot {n}",
   "screenshot-overview-failed": "Impossibile aggiornare la panoramica: {error}",
+  "screenshot-overview-requires-public": "Rendilo pubblico per aggiungerlo alla panoramica",
   "screenshot-public": "Pubblico",
   "screenshot-remove-failed": "Impossibile rimuovere lo screenshot: {error}",
   "screenshot-remove-from-overview": "Rimuovi dalla panoramica",

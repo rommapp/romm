@@ -18,9 +18,9 @@ depends_on = None
 
 def upgrade() -> None:
     op.add_column(
-        "rom_files",
+        "screenshots",
         sa.Column(
-            "is_on_overview",
+            "is_overview",
             sa.Boolean(),
             nullable=False,
             server_default=sa.text("false"),
@@ -30,4 +30,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column("rom_files", "is_on_overview", if_exists=True)
+    op.drop_column("screenshots", "is_overview", if_exists=True)

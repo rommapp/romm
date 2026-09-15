@@ -305,7 +305,6 @@ class RomFile(BaseModel):
         Enum(RomFileCategory), default=None
     )
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
-    is_on_overview: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     rom: Mapped[Rom] = relationship(back_populates="files")
     track_meta: Mapped[TrackMeta | None] = relationship(

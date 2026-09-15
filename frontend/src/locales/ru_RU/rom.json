@@ -379,6 +379,7 @@
   "screenshot-num-open": "Открыть скриншот {n}",
   "screenshot-num-thumb": "Миниатюра скриншота {n}",
   "screenshot-overview-failed": "Не удалось обновить обзор: {error}",
+  "screenshot-overview-requires-public": "Сделайте публичной, чтобы добавить в обзор",
   "screenshot-public": "Публичная",
   "screenshot-remove-failed": "Не удалось удалить скриншот: {error}",
   "screenshot-remove-from-overview": "Убрать из обзора",

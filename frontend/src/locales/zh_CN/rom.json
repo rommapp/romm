@@ -379,6 +379,7 @@
   "screenshot-num-open": "打开截图 {n}",
   "screenshot-num-thumb": "截图 {n} 缩略图",
   "screenshot-overview-failed": "无法更新概览：{error}",
+  "screenshot-overview-requires-public": "设为公开后添加到概览",
   "screenshot-public": "公开",
   "screenshot-remove-failed": "移除截图失败：{error}",
   "screenshot-remove-from-overview": "从概览中移除",

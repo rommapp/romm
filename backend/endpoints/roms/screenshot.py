@@ -1,7 +1,7 @@
 import os
 from typing import Annotated
 
-from fastapi import Body, Header, HTTPException
+from fastapi import Header, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
 from fastapi.responses import Response
@@ -148,40 +148,6 @@ async def add_rom_screenshots(
         )
 
     return Response(status_code=status.HTTP_201_CREATED)
-
-
-@protected_route(
-    router.put,
-    "/{id}/screenshots/{file_id}/overview",
-    [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def update_rom_screenshot_overview(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
-    is_on_overview: Annotated[bool, Body(embed=True)],
-) -> Response:
-    """Toggle an uploaded ROM screenshot on the overview."""
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
-
-    rom_file = db_rom_handler.get_rom_file_by_id(file_id)
-    if (
-        not rom_file
-        or rom_file.rom_id != rom.id
-        or rom_file.category != RomFileCategory.SCREENSHOT
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Screenshot file not found",
-        )
-
-    db_rom_handler.update_rom_file(rom_file.id, {"is_on_overview": is_on_overview})
-    return Response()
 
 
 @protected_route(

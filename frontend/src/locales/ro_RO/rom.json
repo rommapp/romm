@@ -379,6 +379,7 @@
   "screenshot-num-open": "Deschide captura {n}",
   "screenshot-num-thumb": "Miniatura capturii {n}",
   "screenshot-overview-failed": "Prezentarea nu a putut fi actualizată: {error}",
+  "screenshot-overview-requires-public": "Fă-o publică pentru a o adăuga în prezentare",
   "screenshot-public": "Publică",
   "screenshot-remove-failed": "Eliminarea capturii de ecran a eșuat: {error}",
   "screenshot-remove-from-overview": "Elimină din prezentare",

@@ -379,6 +379,7 @@
   "screenshot-num-open": "{n}. ekran görüntüsünü aç",
   "screenshot-num-thumb": "{n}. ekran görüntüsü küçük resmi",
   "screenshot-overview-failed": "Genel bakış güncellenemedi: {error}",
+  "screenshot-overview-requires-public": "Genel bakışa eklemek için herkese açık yap",
   "screenshot-public": "Herkese açık",
   "screenshot-remove-failed": "Ekran görüntüsü kaldırılamadı: {error}",
   "screenshot-remove-from-overview": "Genel bakıştan kaldır",

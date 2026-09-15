@@ -24,7 +24,6 @@ export type RomFileSchema = {
     chd_sha1_hash: (string | null);
     archive_members: (Array<RomArchiveMember> | null);
     category: (RomFileCategory | null);
-    is_on_overview?: boolean;
     track_meta?: (TrackMetaSchema | null);
     doc_meta?: (DocMetaSchema | null);
 };

@@ -379,6 +379,7 @@
   "screenshot-num-open": "Open screenshot {n}",
   "screenshot-num-thumb": "Screenshot {n} thumbnail",
   "screenshot-overview-failed": "Couldn't update the overview: {error}",
+  "screenshot-overview-requires-public": "Make public to add to overview",
   "screenshot-public": "Public",
   "screenshot-remove-failed": "Failed to remove screenshot: {error}",
   "screenshot-remove-from-overview": "Remove from overview",

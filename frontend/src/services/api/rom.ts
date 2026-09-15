@@ -867,20 +867,6 @@ async function removeScreenshot({
   return api.delete(`/roms/${romId}/screenshots/${fileId}`);
 }
 
-async function setScreenshotOverview({
-  romId,
-  fileId,
-  isOnOverview,
-}: {
-  romId: number;
-  fileId: number;
-  isOnOverview: boolean;
-}) {
-  return api.put(`/roms/${romId}/screenshots/${fileId}/overview`, {
-    is_on_overview: isOnOverview,
-  });
-}
-
 async function getSoundtrackMetadata({
   romId,
   signal,
@@ -1172,7 +1158,6 @@ export default {
   getSoundtrackMetadata,
   uploadScreenshots,
   removeScreenshot,
-  setScreenshotOverview,
   updateUserRomProps,
   deleteRoms,
   createRomNote,

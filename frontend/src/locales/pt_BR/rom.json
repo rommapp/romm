@@ -379,6 +379,7 @@
   "screenshot-num-open": "Abrir captura de tela {n}",
   "screenshot-num-thumb": "Miniatura da captura de tela {n}",
   "screenshot-overview-failed": "Não foi possível atualizar a visão geral: {error}",
+  "screenshot-overview-requires-public": "Torne pública para adicionar à visão geral",
   "screenshot-public": "Pública",
   "screenshot-remove-failed": "Falha ao remover a captura de tela: {error}",
   "screenshot-remove-from-overview": "Remover da visão geral",

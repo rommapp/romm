@@ -19,5 +19,6 @@ export type ScreenshotSchema = {
     updated_at: string;
     is_gallery?: boolean;
     is_public?: boolean;
+    is_overview?: boolean;
 };
 

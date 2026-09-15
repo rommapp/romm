@@ -9,7 +9,10 @@ export function overviewScreenshotUrls(rom: DetailedRom): string[] {
   return [
     ...(rom.merged_screenshots ?? []),
     ...(rom.files ?? [])
-      .filter((file) => file.category === "screenshot" && file.is_on_overview)
+      .filter((file) => file.category === "screenshot")
       .map((file) => romFileScreenshotUrl(file)),
+    ...(rom.all_user_screenshots ?? [])
+      .filter((screenshot) => screenshot.is_public && screenshot.is_overview)
+      .map((screenshot) => screenshot.download_path),
   ].filter((url, index, urls) => urls.indexOf(url) === index);
 }

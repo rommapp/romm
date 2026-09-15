@@ -379,6 +379,7 @@
   "screenshot-num-open": "Ouvrir la capture d'écran {n}",
   "screenshot-num-thumb": "Miniature de la capture d'écran {n}",
   "screenshot-overview-failed": "Impossible de mettre à jour l’aperçu : {error}",
+  "screenshot-overview-requires-public": "Rendez-la publique pour l’ajouter à l’aperçu",
   "screenshot-public": "Publique",
   "screenshot-remove-failed": "Échec de la suppression de la capture d'écran : {error}",
   "screenshot-remove-from-overview": "Retirer de l’aperçu",
