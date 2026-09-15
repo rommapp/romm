@@ -43,18 +43,6 @@ function run(fn: () => void | Promise<void>) {
 
 <template>
   <!-- Primary actions -->
-  <RMenuItem
-    v-if="actions.canPlayInBrowser.value"
-    :label="t('rom.play')"
-    icon="mdi-play"
-    @click="run(() => actions.play('local'))"
-  />
-  <RMenuItem
-    v-if="actions.canPlayStream.value"
-    :label="actions.streamActionLabel.value"
-    icon="mdi-play-network"
-    @click="run(() => actions.play('stream'))"
-  />
   <!-- The launch and its cancel are separate entries so neither is a control
        that changes meaning under the pointer. -->
   <RMenuItem
@@ -68,6 +56,18 @@ function run(fn: () => void | Promise<void>) {
     :label="t('rom.native-cancel')"
     icon="mdi-close-circle-outline"
     @click="run(actions.cancelNativeLaunch)"
+  />
+  <RMenuItem
+    v-if="actions.canPlayInBrowser.value"
+    :label="t('rom.play')"
+    icon="mdi-play"
+    @click="run(() => actions.play('local'))"
+  />
+  <RMenuItem
+    v-if="actions.canPlayStream.value"
+    :label="actions.streamActionLabel.value"
+    icon="mdi-play-network"
+    @click="run(() => actions.play('stream'))"
   />
   <RMenuItem
     v-if="actions.canJoinStream.value"

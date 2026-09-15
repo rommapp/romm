@@ -491,22 +491,22 @@ function onStaticKeydown(e: KeyboardEvent) {
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
             <GameActionBtn
+              v-if="actions?.canPlayNative.value"
+              :rom="rom"
+              action="native"
+              variant="emphasized"
+            />
+            <GameActionBtn
               v-if="actions?.canPlayInBrowser.value"
               :rom="rom"
               action="play"
-              variant="emphasized"
+              :variant="actions?.canPlayNative.value ? 'glass' : 'emphasized'"
             />
             <GameActionBtn
               v-if="actions?.canPlayStream.value"
               :rom="rom"
               action="stream"
               variant="brand"
-            />
-            <GameActionBtn
-              v-if="actions?.canPlayNative.value"
-              :rom="rom"
-              action="native"
-              variant="emphasized"
             />
           </div>
 

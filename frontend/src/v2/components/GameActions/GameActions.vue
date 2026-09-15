@@ -2,9 +2,9 @@
 // GameActions — the action row in the game-details header.
 // Composes GameActionBtn atoms that are shared with the GameCard hover
 // overlay so both surfaces stay visually and behaviourally in sync.
-// The Play button uses the emphasized + withLabel variant to match the
-// original white pill CTA; every other button is a circular glass icon
-// button. The `more` action opens the shared GameActionsList.
+// The leading play route takes the emphasized + withLabel variant (the white
+// pill CTA); every other button is a circular icon button. The `more` action
+// opens the shared GameActionsList.
 //
 // Right-side group (desktop only): completion + rating + difficulty
 // pickers, separated from the main ribbon by a spacer. All three share
@@ -43,8 +43,8 @@ const btnSize = computed<"default" | "large">(() =>
 // itself the row; cells are every action button (`.r-v2-game-btn`) plus
 // the right-side metrics (`.r-v2-metric-btn`), skipping the layout
 // spacer. On pad-modality autofocus, `focusFirst` lands on the first
-// rendered button — Play if available (template renders it first when
-// `canPlay`), otherwise Download.
+// rendered button — the native launch inside the desktop shell, else Play,
+// else Download.
 const rootEl = ref<HTMLElement | null>(null);
 useGridNav(rootEl, {
   getRows: () => (rootEl.value ? [rootEl.value] : []),
@@ -57,12 +57,25 @@ useGridNav(rootEl, {
 
 <template>
   <div ref="rootEl" class="game-actions">
+    <!-- Only inside the desktop shell, and only where it has an emulator for
+         the platform. It leads the ribbon, and demotes the in-browser route
+         behind it: a local emulator is the better game where the user has one.
+         Outside the shell nothing changes, so a browser tab keeps its own
+         primary CTA. -->
+    <GameActionBtn
+      v-if="actions.canPlayNative.value"
+      :rom="rom"
+      action="native"
+      :size="btnSize"
+      variant="emphasized"
+      with-label
+    />
     <GameActionBtn
       v-if="actions.canPlayInBrowser.value"
       :rom="rom"
       action="play"
       :size="btnSize"
-      variant="emphasized"
+      :variant="actions.canPlayNative.value ? 'surface' : 'emphasized'"
       with-label
     />
     <GameActionBtn
@@ -71,16 +84,6 @@ useGridNav(rootEl, {
       action="stream"
       :size="btnSize"
       variant="brand"
-      with-label
-    />
-    <!-- Only inside the desktop shell, and only where it has an emulator for
-         the platform. -->
-    <GameActionBtn
-      v-if="actions.canPlayNative.value"
-      :rom="rom"
-      action="native"
-      :size="btnSize"
-      variant="emphasized"
       with-label
     />
     <!-- Only rendered while someone else is hosting an open session on this
