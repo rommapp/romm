@@ -10,14 +10,15 @@
 // translate by section and harder to restyle. Embedding the text as
 // typed arrays here keeps the layout flexible. If i18n becomes
 // necessary, each row maps cleanly to a key.
-import { RAvatar, RDialog, RIcon, RTabNav } from "@v2/lib";
+import { RDialog, RIcon, RTabNav } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import MetadataProviderCard from "@/v2/components/shared/MetadataProviderCard/MetadataProviderCard.vue";
 import {
   groupProviders,
   SETUP_GROUP_LABELS,
-  type MetadataProviderKey,
 } from "@/v2/utils/metadataProviderGroups";
+import { METADATA_PROVIDER_INFO } from "@/v2/utils/metadataProviderInfo";
 
 defineProps<{
   modelValue: boolean;
@@ -99,139 +100,13 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
   },
 ]);
 
-interface ProviderRow {
-  key: MetadataProviderKey;
-  name: string;
-  /** Logo path under /assets/scrappers/. Matches the same scheme the
-   *  heartbeat store uses so consumers and reference share assets. */
-  logo: string;
-  /** Locale key for the description. Shared with the setup wizard's
-   *  Step 3 so both views show the exact same text. */
-  descKey: string;
-  /** Locale key for the "how to configure" / env-var hint. */
-  setupKey: string;
-  /** Locale key for the optional warning / caveat pill. */
-  caveatKey?: string;
-}
-
-const LOGO_BASE = "/assets/scrappers";
-
-// Static reference set — every text string lives under the wizard's
-// `setup.*` locale namespace so the Setup Wizard's Step 3 and this
-// dialog never drift.
-const providers: ProviderRow[] = [
-  {
-    key: "igdb",
-    name: "IGDB",
-    logo: `${LOGO_BASE}/igdb.png`,
-    descKey: "setup.provider-igdb-desc",
-    setupKey: "setup.provider-igdb-setup",
-  },
-  {
-    key: "ss",
-    name: "ScreenScraper",
-    logo: `${LOGO_BASE}/ss.png`,
-    descKey: "setup.provider-ss-desc",
-    setupKey: "setup.provider-ss-setup",
-  },
-  {
-    key: "moby",
-    name: "MobyGames",
-    logo: `${LOGO_BASE}/moby.png`,
-    descKey: "setup.provider-moby-desc",
-    setupKey: "setup.provider-moby-setup",
-    caveatKey: "setup.provider-moby-caveat",
-  },
-  {
-    key: "launchbox",
-    name: "LaunchBox",
-    logo: `${LOGO_BASE}/launchbox.png`,
-    descKey: "setup.provider-launchbox-desc",
-    setupKey: "setup.provider-launchbox-setup",
-    caveatKey: "setup.provider-launchbox-caveat",
-  },
-  {
-    key: "flashpoint",
-    name: "Flashpoint",
-    logo: `${LOGO_BASE}/flashpoint.png`,
-    descKey: "setup.provider-flashpoint-desc",
-    setupKey: "setup.provider-flashpoint-setup",
-  },
-  {
-    key: "demozoo",
-    name: "Demozoo",
-    logo: `${LOGO_BASE}/demozoo.png`,
-    descKey: "setup.provider-demozoo-desc",
-    setupKey: "setup.provider-demozoo-setup",
-    caveatKey: "setup.provider-demozoo-caveat",
-  },
-  {
-    key: "pouet",
-    name: "Pouët",
-    logo: `${LOGO_BASE}/pouet.png`,
-    descKey: "setup.provider-pouet-desc",
-    setupKey: "setup.provider-pouet-setup",
-    caveatKey: "setup.provider-pouet-caveat",
-  },
-  {
-    key: "csdb",
-    name: "CSDb",
-    logo: `${LOGO_BASE}/csdb.png`,
-    descKey: "setup.provider-csdb-desc",
-    setupKey: "setup.provider-csdb-setup",
-    caveatKey: "setup.provider-csdb-caveat",
-  },
-  {
-    key: "steam",
-    name: "Steam",
-    logo: `${LOGO_BASE}/steam.png`,
-    descKey: "setup.provider-steam-desc",
-    setupKey: "setup.provider-steam-setup",
-    caveatKey: "setup.provider-steam-caveat",
-  },
-  {
-    key: "ra",
-    name: "RetroAchievements",
-    logo: `${LOGO_BASE}/ra.png`,
-    descKey: "setup.provider-ra-desc",
-    setupKey: "setup.provider-ra-setup",
-    caveatKey: "setup.provider-ra-caveat",
-  },
-  {
-    key: "sgdb",
-    name: "SteamGridDB",
-    logo: `${LOGO_BASE}/sgdb.png`,
-    descKey: "setup.provider-sgdb-desc",
-    setupKey: "setup.provider-sgdb-setup",
-    caveatKey: "setup.provider-sgdb-caveat",
-  },
-  {
-    key: "hltb",
-    name: "How Long To Beat",
-    logo: `${LOGO_BASE}/hltb.png`,
-    descKey: "setup.provider-hltb-desc",
-    setupKey: "setup.provider-hltb-setup",
-    caveatKey: "setup.provider-hltb-caveat",
-  },
-  {
-    key: "hasheous",
-    name: "Hasheous",
-    logo: `${LOGO_BASE}/hasheous.png`,
-    descKey: "setup.proxy-hasheous-desc",
-    setupKey: "setup.proxy-hasheous-setup",
-    caveatKey: "setup.proxy-hasheous-caveat",
-  },
-  {
-    key: "playmatch",
-    name: "PlayMatch",
-    logo: `${LOGO_BASE}/playmatch.png`,
-    descKey: "setup.proxy-playmatch-desc",
-    setupKey: "setup.proxy-playmatch-setup",
-    caveatKey: "setup.proxy-playmatch-caveat",
-  },
-];
-
-const providerGroups = groupProviders(providers, SETUP_GROUP_LABELS);
+// Static reference set: names, logos and `setup.*` locale keys come
+// from the shared provider registry so the Setup Wizard's Step 3 and
+// this dialog never drift.
+const providerGroups = groupProviders(
+  METADATA_PROVIDER_INFO,
+  SETUP_GROUP_LABELS,
+);
 
 // Split a multi-line description on double-newline so each paragraph
 // renders in its own `<p>`. Single newlines stay inline.
@@ -301,38 +176,19 @@ function paragraphs(text: string): string[] {
               {{ t(group.hintKey) }}
             </p>
           </header>
-          <article
+          <MetadataProviderCard
             v-for="p in group.providers"
             :key="p.key"
-            class="r-v2-scan-info__row r-v2-scan-info__row--provider"
+            layout="row"
+            name-tag="h4"
             :data-provider="p.key"
+            :name="p.name"
+            :logo="p.logo"
+            :setup-hint="t(p.setupKey)"
+            :caveat="p.caveatKey ? t(p.caveatKey) : undefined"
           >
-            <div class="r-v2-scan-info__row-head">
-              <RAvatar
-                :image="p.logo"
-                size="28"
-                rounded="sm"
-                class="r-v2-scan-info__logo"
-              />
-              <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
-            </div>
-            <div class="r-v2-scan-info__row-desc">
-              <p class="r-v2-scan-info__para">{{ t(p.descKey) }}</p>
-              <div class="r-v2-scan-info__meta">
-                <span class="r-v2-scan-info__pill">
-                  <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ t(p.setupKey) }}
-                </span>
-                <span
-                  v-if="p.caveatKey"
-                  class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
-                >
-                  <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ t(p.caveatKey) }}
-                </span>
-              </div>
-            </div>
-          </article>
+            <template #description>{{ t(p.descKey) }}</template>
+          </MetadataProviderCard>
         </section>
       </div>
     </template>
@@ -398,22 +254,6 @@ function paragraphs(text: string): string[] {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
 }
-/* Provider row — the left column hosts logo + name as a vertical stack
-   instead of just text, so the column width is the visual identity
-   anchor for the row. */
-.r-v2-scan-info__row--provider {
-  align-items: start;
-}
-.r-v2-scan-info__row-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.r-v2-scan-info__logo {
-  flex-shrink: 0;
-  background: var(--r-color-surface);
-}
 .r-v2-scan-info__row-name {
   margin: 0;
   font-size: 13px;
@@ -421,7 +261,7 @@ function paragraphs(text: string): string[] {
   color: var(--r-color-fg);
   align-self: flex-start;
   min-width: 0;
-  /* Long names like "How Long To Beat" wrap inside the 140px column. */
+  /* Long titles wrap inside the 140px column. */
   overflow-wrap: anywhere;
 }
 .r-v2-scan-info__row-desc {
@@ -434,43 +274,6 @@ function paragraphs(text: string): string[] {
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--r-color-fg-secondary);
-}
-
-.r-v2-scan-info__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 2px;
-}
-/* Setup / caveat tags. `--r-radius-sm` to echo the parent card's
-   `--r-radius-md` without doubling its curve — child corners read as
-   "inside" the card instead of contrasting with it. */
-.r-v2-scan-info__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: var(--r-radius-sm);
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-  font-family:
-    var(--r-font-family-mono, ui-monospace), SFMono-Regular, monospace;
-}
-.r-v2-scan-info__pill--warn {
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-warning) 14%,
-    transparent
-  );
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-status-base-warning) 36%,
-    transparent
-  );
-  color: var(--r-color-warning);
-  font-family: inherit;
 }
 
 .r-v2-scan-info__doc-link {
@@ -494,10 +297,5 @@ function paragraphs(text: string): string[] {
 html[data-bp~="sm-and-down"] .r-v2-scan-info__row {
   grid-template-columns: 1fr;
   gap: 8px;
-}
-html[data-bp~="sm-and-down"] .r-v2-scan-info__row-head {
-  /* Inline logo + name with a separator from the description below. */
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--r-color-border);
 }
 </style>

@@ -31,6 +31,8 @@ const mdAndDown = useMediaQuery("(max-width: 1279.98px)");
 const lgAndUp = useMediaQuery("(min-width: 1280px)");
 const lgAndDown = useMediaQuery("(max-width: 1919.98px)");
 const xlAndUp = useMediaQuery("(min-width: 1920px)");
+// Height tier for layouts that fit the viewport instead of scrolling the page.
+const tall = useMediaQuery("(min-height: 720px)");
 
 export function useBreakpoint(): {
   xs: Ref<boolean>;
@@ -41,6 +43,7 @@ export function useBreakpoint(): {
   lgAndUp: Ref<boolean>;
   lgAndDown: Ref<boolean>;
   xlAndUp: Ref<boolean>;
+  tall: Ref<boolean>;
 } {
   return {
     xs,
@@ -51,6 +54,7 @@ export function useBreakpoint(): {
     lgAndUp,
     lgAndDown,
     xlAndUp,
+    tall,
   };
 }
 
@@ -69,6 +73,7 @@ const TOKENS: ReadonlyArray<readonly [Ref<boolean>, string]> = [
   [lgAndUp, "lg-and-up"],
   [lgAndDown, "lg-and-down"],
   [xlAndUp, "xl-and-up"],
+  [tall, "tall"],
 ];
 
 let installed = false;

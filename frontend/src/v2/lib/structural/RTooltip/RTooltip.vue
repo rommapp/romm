@@ -45,6 +45,10 @@ import {
   useSlots,
   watch,
 } from "vue";
+import {
+  isUnderOpenEscapable,
+  onEscapableOpen,
+} from "../../overlays/RDialog/escapeStack.js";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -171,6 +175,8 @@ function clearTimers() {
 }
 function show() {
   if (props.disabled || !hasContent.value) return;
+  // A tip whose activator the overlay covers would paint on top of it.
+  if (isUnderOpenEscapable(reference.value)) return;
   clearTimers();
   const d = Number(props.openDelay) || 0;
   if (d <= 0) {
@@ -368,6 +374,13 @@ function detachFromParent() {
   parent.removeEventListener("click", onActivatorClick);
 }
 
+// A tip paints above every overlay in the z-index ladder, so an overlay
+// opening dismisses it outright, ignoring `closeDelay`.
+const unsubscribeOverlayDismiss = onEscapableOpen(() => {
+  clearTimers();
+  if (isOpen.value) setOpen(false);
+});
+
 onMounted(() => {
   // For the slot pattern, the reference is the first child rendered
   // by the slot — we read it from the wrapper span on mount.
@@ -381,6 +394,7 @@ onBeforeUnmount(() => {
   detachFromParent();
   clearTimers();
   teardownOutsideClose();
+  unsubscribeOverlayDismiss();
 });
 
 // ── Slot activator wrapper ──────────────────────────────────────

@@ -63,6 +63,7 @@ import MemoryCardImportDialog from "@/v2/components/Player/MemoryCardImportDialo
 import MemoryCardPicker from "@/v2/components/Player/MemoryCardPicker.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
+import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip, {
   type AssetLayout,
 } from "@/v2/components/shared/AssetStrip.vue";
@@ -291,12 +292,17 @@ const showManualDiscHint = computed(
 // arrives newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// user_saves arrives ordered on updated_at; the restore goes by created_at.
-const emulatorSaves = computed<SaveSchema[]>(() => {
+// Only an archive carries a layout the broker can restore from. Re-sorted on
+// created_at because user_saves arrives on updated_at, which a rehash moves.
+const restorableSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
   if (!rom.value || !emulator) return [];
   return (rom.value.user_saves ?? [])
-    .filter((s) => (s.emulator ?? "").toLowerCase() === emulator)
+    .filter(
+      (s) =>
+        (s.emulator ?? "").toLowerCase() === emulator &&
+        s.file_name.endsWith(".zip"),
+    )
     .sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
@@ -306,12 +312,7 @@ const emulatorSaves = computed<SaveSchema[]>(() => {
 
 // The one the broker restores before boot when the claim names none.
 const newestSave = computed<SaveSchema | null>(
-  () => emulatorSaves.value[0] ?? null,
-);
-
-// A bare save file carries no layout the broker could put it back from.
-const restorableSaves = computed<SaveSchema[]>(() =>
-  emulatorSaves.value.filter((s) => s.file_name.endsWith(".zip")),
+  () => restorableSaves.value[0] ?? null,
 );
 
 // A pick only lands where the broker empties the save tree first; elsewhere
@@ -322,29 +323,15 @@ const showSavePicker = computed(
     restorableSaves.value.length > 0,
 );
 
-// Only archives can be picked; the read-only panel lists bare save files too.
-const saveTabSaves = computed<SaveSchema[]>(() =>
-  showSavePicker.value ? restorableSaves.value : emulatorSaves.value,
+// The id rather than the row, so a pick that is no longer on offer falls back
+// to the newest on its own. A save has no "none": the claim restores one either way.
+const savePickId = ref<number | null>(null);
+
+const selectedSave = computed<SaveSchema | null>(
+  () =>
+    restorableSaves.value.find((s) => s.id === savePickId.value) ??
+    newestSave.value,
 );
-
-const selectedSave = ref<SaveSchema | null>(null);
-
-// Unlike a state, a save has no "none": the claim restores the newest when it
-// names nothing, so the picker always holds a selection.
-watch(
-  restorableSaves,
-  (saves) => {
-    const current = selectedSave.value;
-    if (!current || !saves.some((s) => s.id === current.id)) {
-      selectedSave.value = saves[0] ?? null;
-    }
-  },
-  { immediate: true },
-);
-
-function pickSave(save: SaveSchema): void {
-  selectedSave.value = save;
-}
 
 const streamStates = computed<UserStateSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
@@ -407,7 +394,7 @@ type ResumeTab = "state" | "save";
 const resumeTab = ref<ResumeTab>("state");
 
 const showResumeTabs = computed(
-  () => supportsStates.value && emulatorSaves.value.length > 0,
+  () => supportsStates.value && restorableSaves.value.length > 0,
 );
 
 // The pick only counts when there is something to pick between.
@@ -430,7 +417,7 @@ const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
   {
     id: "save",
     label: t("common.saves"),
-    badge: saveTabSaves.value.length,
+    badge: restorableSaves.value.length,
     icon: "mdi-content-save",
   },
 ]);
@@ -1431,16 +1418,16 @@ onBeforeUnmount(() => {
                 restorableSaves.length
               }}</span>
             </div>
-            <AssetStrip
+            <AssetList
               :assets="restorableSaves"
               type="save"
               :selected-id="selectedSave?.id ?? null"
-              @select="pickSave($event as SaveSchema)"
+              @select="savePickId = ($event as SaveSchema).id"
             />
           </template>
 
-          <!-- Reported rather than offered: this emulator keeps whatever the
-               container already holds, so a pick would not land. -->
+          <!-- Nothing to choose between: this emulator keeps whatever the
+               container already holds, so the archive is reported not offered. -->
           <SaveDataPanel v-else :save="newestSave" :platform="platformLabel" />
         </div>
       </RCard>

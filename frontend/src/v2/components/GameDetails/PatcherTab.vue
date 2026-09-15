@@ -70,6 +70,7 @@ function isPatchFile(file: RomFileSchema) {
 
 const selectedRomFile = ref<RomFileSchema | null>(null);
 const selectedPatchFile = ref<RomFileSchema | null>(null);
+const selectedArchiveMemberName = ref<string | null>(null);
 
 // The patch can come from the ROM's bundled files ("library") or be uploaded
 // from disk ("upload") so users don't have to store patches until needed.
@@ -130,6 +131,12 @@ const romExtension = computed(() =>
   selectedRomFile.value ? getExt(selectedRomFile.value.file_name) : "",
 );
 
+const archiveMembers = computed(() =>
+  romExtension.value === ".zip"
+    ? (selectedRomFile.value?.archive_members ?? [])
+    : [],
+);
+
 const filenamePlaceholder = computed(() => {
   if (selectedRomFile.value && activePatchName.value) {
     const romBase = selectedRomFile.value.file_name.replace(/\.[^.]+$/, "");
@@ -155,6 +162,15 @@ watch(
     uploadedPatch.value = null;
     // Preselect the ROM's own platform as the upload target.
     selectedPlatformId.value = props.rom.platform_id;
+  },
+  { immediate: true },
+);
+
+watch(
+  archiveMembers,
+  (members) => {
+    selectedArchiveMemberName.value =
+      members.length === 1 ? members[0].name : null;
   },
   { immediate: true },
 );
@@ -225,6 +241,9 @@ async function patchRom() {
     }
     if (customFileName.value) {
       form.append("output_file_name", customFileName.value);
+    }
+    if (selectedArchiveMemberName.value) {
+      form.append("archive_member_name", selectedArchiveMemberName.value);
     }
 
     const response = await api.post(
@@ -325,6 +344,7 @@ async function uploadPatchedFile(file: File, platformId: number) {
 const canApply = computed(
   () =>
     !!selectedRomFile.value &&
+    (archiveMembers.value.length <= 1 || !!selectedArchiveMemberName.value) &&
     hasPatch.value &&
     !applying.value &&
     (downloadLocally.value || saveIntoRomM.value) &&
@@ -426,6 +446,27 @@ const applyLabel = computed(() => {
             {{ formatBytes(selectedRomFile.file_size_bytes) }}
           </span>
         </div>
+
+        <RSelect
+          v-if="archiveMembers.length > 1"
+          v-model="selectedArchiveMemberName"
+          :items="archiveMembers"
+          item-title="name"
+          item-value="name"
+          :label="t('patcher.select-archive-member')"
+          variant="outlined"
+          density="comfortable"
+          hide-details
+        >
+          <template #item="{ props: itemProps, item }">
+            <li v-bind="itemProps" class="r-v2-patch__file-row">
+              <span class="r-select__item-title">{{ item.raw.name }}</span>
+              <span class="r-v2-patch__file-size">
+                {{ formatBytes(item.raw.size) }}
+              </span>
+            </li>
+          </template>
+        </RSelect>
 
         <p v-if="baseFiles.length === 0" class="r-v2-patch__warn">
           {{ t("patcher.no-files") }}

@@ -1,3 +1,4 @@
+import asyncio
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -5,6 +6,7 @@ import pytest
 
 from adapters.services.steam_types import SteamAppDetails
 from handler.metadata.steam_handler import (
+    STEAM_SEARCH_RESULT_LIMIT,
     SteamHandler,
     _parse_release_date,
     extract_steam_metadata,
@@ -47,6 +49,9 @@ def _handler(search_result=None, details=None) -> tuple[SteamHandler, MagicMock]
     service.get_app_details = AsyncMock(return_value=details)
     service.get_library_capsule_url = AsyncMock(
         return_value="https://cdn.example/library_600x900.jpg"
+    )
+    service.get_header_image_url = AsyncMock(
+        return_value="https://cdn.example/header.jpg"
     )
     handler.steam_service = service
     return handler, service
@@ -221,3 +226,191 @@ async def test_heartbeat_reports_reachability():
 @patch("handler.metadata.steam_handler.STEAM_API_ENABLED", False)
 async def test_heartbeat_false_when_disabled():
     assert await _handler(details=CYBERPUNK)[0].heartbeat() is False
+
+
+async def test_get_matched_roms_by_name_lists_candidates():
+    """The picker offers the store hits, not just the best-scoring one."""
+    handler, service = _handler(
+        search_result=[
+            {"type": "app", "name": "Blur", "id": 49800},
+            {"type": "app", "name": "Blur Demo", "id": 49801},
+            {"type": "dlc", "name": "Blur: Powered Up Pack", "id": 49802},
+        ]
+    )
+
+    roms = await handler.get_matched_roms_by_name("Blur", "win")
+
+    assert [rom["steam_id"] for rom in roms] == [49800, 49801]
+    assert roms[0]["name"] == "Blur"
+    assert roms[0]["url_cover"] == "https://cdn.example/library_600x900.jpg"
+    # Applying a match refetches the app by ID, so the picker skips the pages.
+    service.get_app_details.assert_not_awaited()
+
+
+async def test_get_matched_roms_by_name_filters_by_operating_system():
+    handler, _ = _handler(
+        search_result=[
+            {
+                "type": "app",
+                "name": "Windows Only",
+                "id": 1,
+                "platforms": {"windows": True, "mac": False, "linux": False},
+            },
+            {
+                "type": "app",
+                "name": "Also On Mac",
+                "id": 2,
+                "platforms": {"windows": True, "mac": True, "linux": False},
+            },
+        ]
+    )
+
+    roms = await handler.get_matched_roms_by_name("Game", "mac")
+
+    assert [rom["steam_id"] for rom in roms] == [2]
+
+
+async def test_get_matched_roms_by_name_caps_the_candidate_list():
+    handler, _ = _handler(
+        search_result=[
+            {"type": "app", "name": f"Game {index}", "id": index}
+            for index in range(1, 31)
+        ]
+    )
+
+    roms = await handler.get_matched_roms_by_name("Game", "win")
+
+    assert len(roms) == STEAM_SEARCH_RESULT_LIMIT
+
+
+async def test_get_matched_roms_by_name_keeps_covers_optional():
+    handler, service = _handler(
+        search_result=[{"type": "app", "name": "Blur", "id": 1}]
+    )
+    service.get_library_capsule_url = AsyncMock(return_value=None)
+
+    roms = await handler.get_matched_roms_by_name("Blur", "win")
+
+    assert roms[0]["url_cover"] == ""
+
+
+@pytest.mark.parametrize("platform_slug", ["snes", "n64"])
+async def test_get_matched_roms_by_name_skips_non_pc_platforms(platform_slug: str):
+    handler, service = _handler(
+        search_result=[{"type": "app", "name": "Blur", "id": 1}]
+    )
+
+    assert await handler.get_matched_roms_by_name("Blur", platform_slug) == []
+    service.search_apps.assert_not_awaited()
+
+
+@patch("handler.metadata.steam_handler.STEAM_API_ENABLED", False)
+async def test_get_matched_roms_by_name_returns_empty_when_disabled():
+    handler, service = _handler(
+        search_result=[{"type": "app", "name": "Blur", "id": 1}]
+    )
+
+    assert await handler.get_matched_roms_by_name("Blur", "win") == []
+    service.search_apps.assert_not_awaited()
+
+
+async def test_get_matched_rom_by_id_skips_non_pc_platforms():
+    handler, service = _handler(details=CYBERPUNK)
+
+    assert await handler.get_matched_rom_by_id(1091500, "snes") == {"steam_id": None}
+    service.get_app_details.assert_not_awaited()
+
+
+async def test_get_matched_rom_by_id_returns_the_app():
+    handler, _ = _handler(details=CYBERPUNK)
+
+    rom = await handler.get_matched_rom_by_id(1091500, "win")
+
+    assert rom["steam_id"] == 1091500
+    assert rom["name"] == "Cyberpunk 2077"
+
+
+async def test_get_matched_roms_by_name_gives_up_on_slow_covers():
+    """A CDN that never answers must not hold the picker open."""
+    handler, service = _handler(
+        search_result=[{"type": "app", "name": "Blur", "id": 1}]
+    )
+
+    async def never_answers(app_id: int) -> str:
+        await asyncio.sleep(30)
+        return "https://cdn.example/never.jpg"
+
+    service.get_library_capsule_url = never_answers
+
+    with patch("handler.metadata.steam_handler.STEAM_COVER_PROBE_TIMEOUT", 0.01):
+        roms = await handler.get_matched_roms_by_name("Blur", "win")
+
+    assert [rom["steam_id"] for rom in roms] == [1]
+    assert roms[0]["url_cover"] == ""
+
+
+async def test_get_details_offers_the_capsule_and_the_header_per_hit():
+    """The cover picker gets both store assets, portrait first."""
+    handler, service = _handler(
+        search_result=[
+            {"type": "app", "name": "Blur", "id": 49800},
+            {"type": "dlc", "name": "Blur: Powered Up Pack", "id": 49802},
+        ]
+    )
+
+    covers = await handler.get_details("Blur")
+
+    assert [cover["name"] for cover in covers] == ["Blur"]
+    resources = covers[0]["resources"]
+    assert [(r["url"], r["width"], r["height"]) for r in resources] == [
+        ("https://cdn.example/library_600x900.jpg", 600, 900),
+        ("https://cdn.example/header.jpg", 460, 215),
+    ]
+    assert all(r["type"] == "static" and not r["nsfw"] for r in resources)
+    service.get_app_details.assert_not_awaited()
+
+
+async def test_get_details_drops_hits_with_no_artwork():
+    handler, service = _handler(
+        search_result=[
+            {"type": "app", "name": "Blur", "id": 1},
+            {"type": "app", "name": "Blur Demo", "id": 2},
+        ]
+    )
+    service.get_library_capsule_url = AsyncMock(
+        side_effect=lambda app_id: "https://cdn.example/1.jpg" if app_id == 1 else None
+    )
+    service.get_header_image_url = AsyncMock(return_value=None)
+
+    covers = await handler.get_details("Blur")
+
+    assert [cover["name"] for cover in covers] == ["Blur"]
+    assert [r["url"] for r in covers[0]["resources"]] == ["https://cdn.example/1.jpg"]
+
+
+async def test_get_details_returns_empty_when_disabled():
+    handler, service = _handler(
+        search_result=[{"type": "app", "name": "Blur", "id": 1}]
+    )
+
+    with patch("handler.metadata.steam_handler.STEAM_API_ENABLED", False):
+        assert await handler.get_details("Blur") == []
+
+    service.search_apps.assert_not_awaited()
+
+
+async def test_get_details_gives_up_on_slow_covers():
+    """A CDN that never answers costs the Steam covers, not the dialog."""
+    handler, service = _handler(
+        search_result=[{"type": "app", "name": "Blur", "id": 1}]
+    )
+
+    async def never_answers(app_id: int) -> str:
+        await asyncio.sleep(30)
+        return "https://cdn.example/never.jpg"
+
+    service.get_library_capsule_url = never_answers
+    service.get_header_image_url = never_answers
+
+    with patch("handler.metadata.steam_handler.STEAM_COVER_PROBE_TIMEOUT", 0.01):
+        assert await handler.get_details("Blur") == []

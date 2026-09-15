@@ -66,7 +66,7 @@ export const UI_SETTINGS_KEYS = {
   // the registry doesn't leave dangling entries in user storage.
   widgetOrder: {
     key: "settings.widgetOrder",
-    default: "randomPick,libraryStats,anniversaries",
+    default: "randomPick,anniversaries,libraryStats",
   },
 
   // Platforms drawer

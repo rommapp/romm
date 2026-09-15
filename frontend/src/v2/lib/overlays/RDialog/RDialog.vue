@@ -106,6 +106,7 @@ const stackEntry: EscapableEntry = {
   get persistent() {
     return props.persistent;
   },
+  panel: () => panelRef.value,
 };
 
 watch(

@@ -27,7 +27,9 @@ const config: StorybookConfig = {
     // no place in Storybook. Flatten the plugin tree (vite plugins can be
     // arrays of plugins) and strip anything PWA related.
     function isBlocked(name: string) {
-      return name.startsWith("vite-plugin-pwa");
+      // romm:precompress writes .gz siblings for nginx; storybook-static is
+      // never served by nginx, so they would be dead weight.
+      return name.startsWith("vite-plugin-pwa") || name === "romm:precompress";
     }
     function keep(plugin: unknown): unknown[] {
       if (!plugin) return [];

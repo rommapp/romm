@@ -78,6 +78,28 @@ class BaseRom(TypedDict):
     url_manual: NotRequired[str]
 
 
+class CoverResource(TypedDict):
+    """One piece of artwork the manual cover search offers, in the shape
+    SteamGridDB grids have, so every provider fills the same picker."""
+
+    thumb: str
+    url: str
+    type: str
+    width: int
+    height: int
+    style: str
+    author: str
+    score: int
+    nsfw: bool
+    humor: bool
+    epilepsy: bool
+
+
+class CoverResult(TypedDict):
+    name: str
+    resources: list[CoverResource]
+
+
 SENSITIVE_KEYS = {
     "Authorization",
     "Client-ID",
