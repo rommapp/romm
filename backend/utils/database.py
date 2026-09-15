@@ -1,6 +1,7 @@
 import json
 from datetime import date
 from typing import Any, Sequence
+from uuid import uuid4
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
@@ -99,17 +100,27 @@ def is_binlog_trigger_privilege_error(exc: BaseException) -> bool:
     return errno == BINLOG_TRIGGER_DDL_ERRNO
 
 
+def probe_trigger_name() -> str:
+    """A trigger name no schema can already hold, for the privilege probe.
+
+    Trigger names are schema-wide, so a fixed one could name an operator's own
+    trigger and the probe would really drop it.
+    """
+    return f"romm_trigger_ddl_probe_{uuid4().hex}"
+
+
 def trigger_ddl_is_blocked(conn: sa.Connection) -> bool:
     """Whether the server refuses the trigger DDL the migrations need.
 
     Dropping a trigger that cannot exist is the cheapest statement that still
-    goes through the privilege check. Rolls `conn` back on a refusal.
+    goes through the privilege check, and the only error it can raise is the
+    refusal itself. Rolls `conn` back on one.
     """
     if not (is_mysql(conn) or is_mariadb(conn)):
         return False
 
     try:
-        conn.exec_driver_sql("DROP TRIGGER IF EXISTS romm_trigger_ddl_probe")
+        conn.exec_driver_sql(f"DROP TRIGGER IF EXISTS {probe_trigger_name()}")
     except sa.exc.DBAPIError as exc:
         conn.rollback()
         return is_binlog_trigger_privilege_error(exc)

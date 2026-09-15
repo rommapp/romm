@@ -30,6 +30,7 @@ from utils.database import (
     is_binlog_trigger_privilege_error,
     is_mariadb,
     is_mysql,
+    probe_trigger_name,
     release_day_ranges,
     trigger_ddl_is_blocked,
 )
@@ -161,6 +162,10 @@ class TestBinlogTriggerGuard:
 
     def test_an_exception_without_a_code_is_not_a_denial(self):
         assert not is_binlog_trigger_privilege_error(RuntimeError("boom"))
+
+    def test_the_probe_cannot_name_a_trigger_the_schema_already_holds(self):
+        """Trigger names are schema-wide, so a fixed one would be a real drop."""
+        assert probe_trigger_name() != probe_trigger_name()
 
     def test_a_server_that_allows_triggers_is_not_blocked(self):
         with sync_engine.connect() as conn:
