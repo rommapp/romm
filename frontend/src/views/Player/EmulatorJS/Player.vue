@@ -245,20 +245,22 @@ function displayMessage(
   message: string,
   {
     duration,
-    className = "msg-info",
-    icon = "",
+    className,
+    icon,
   }: {
     duration: number;
-    className?: "msg-info" | "msg-error" | "msg-success";
+    className?: "msg-error" | "msg-success";
     icon?: string;
   },
 ) {
   window.EJS_emulator?.displayMessage(message, duration);
   const element = document.querySelector("#game .ejs_message");
   if (element) {
-    element.classList.add(className, icon);
+    const classes = [className, icon].filter((c): c is string => !!c);
+    if (classes.length === 0) return;
+    element.classList.add(...classes);
     setTimeout(() => {
-      element.classList.remove(className, icon);
+      element.classList.remove(...classes);
     }, duration);
   }
 }
@@ -618,16 +620,23 @@ onUnmounted(() => {
   display: none;
 }
 
+/* EmulatorJS raises its own messages through this element and adds none of
+   RomM's classes, so the unclassed state has to be legible. */
 #game .ejs_message {
-  visibility: hidden;
   margin: 1rem;
   padding: 0.25rem 0.75rem;
   border-radius: 4px;
+  background-color: rgba(var(--v-theme-romm-blue));
   color: white;
   text-transform: uppercase;
   display: flex;
   align-items: center;
   filter: opacity(0.85) drop-shadow(0 0 0.5rem rgba(0, 0, 0, 0.5));
+}
+
+/* A message expires by having its text cleared, not the element removed. */
+#game .ejs_message:empty {
+  visibility: hidden;
 }
 
 #game .ejs_message::before {
@@ -636,18 +645,11 @@ onUnmounted(() => {
   font: normal normal normal 24px / 1 "Material Design Icons";
 }
 
-#game .ejs_message.msg-info {
-  visibility: visible;
-  background-color: rgba(var(--v-theme-romm-blue));
-}
-
 #game .ejs_message.msg-error {
-  visibility: visible;
   background-color: rgba(var(--v-theme-romm-red));
 }
 
 #game .ejs_message.msg-success {
-  visibility: visible;
   background-color: rgba(var(--v-theme-romm-green));
 }
 </style>
