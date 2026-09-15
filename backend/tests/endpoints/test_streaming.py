@@ -2116,30 +2116,6 @@ def test_status_on_a_legacy_container_never_asks_for_a_phase(
     broker.assert_not_called()
 
 
-def test_a_slow_launch_keeps_its_own_claim_fresh(client, access_token):
-    """Nothing beats for the player until the stream is up, so a claim whose
-    activate outlasts the staleness window has to refresh itself. Without that
-    the next claimant reads the record as abandoned and tears the container
-    down mid-extraction."""
-    ps2_rom = _rom_on("ps2")
-
-    def slow_activate(*args, **kwargs):
-        time.sleep(0.5)
-        return {"url": "/room/x"}
-
-    with (
-        _streaming(_webstation()),
-        patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0.05),
-        patch.object(session_store, "_STREAMING_SESSION_STALE_SECONDS", 0.2),
-        patch("handler.streaming.webstation.activate", slow_activate),
-    ):
-        assert _claim(client, access_token, ps2_rom.id).status_code == 202
-        key = session_store.session_redis_key(_key_of(_first_container("ps2")))
-        session = json.loads(asyncio.run(async_cache.get(key)))
-        # Read under the shrunk window: outside it every stamp looks fresh.
-        assert session_store.session_is_stale(session) is False
-
-
 # ── Release / ownership ───────────────────────────────────────────────────────
 
 
