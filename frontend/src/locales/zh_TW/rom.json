@@ -73,6 +73,7 @@
   "confirm-join-title-of": "加入 {user} 的工作階段？",
   "confirm-launch-protected-body": "您已將「{name}」標記為{status}。仍要玩嗎？",
   "confirm-launch-protected-title": "啟動這個遊戲嗎？",
+  "content-hash": "內容雜湊值",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "複製下載連結",

@@ -73,6 +73,7 @@
   "confirm-join-title-of": "Csatlakozol {user} munkamenetéhez?",
   "confirm-launch-protected-body": "A(z) „{name}“ játékot {status} állapotúnak jelölted. Mindenképp játszani szeretnél vele?",
   "confirm-launch-protected-title": "Elindítod ezt a játékot?",
+  "content-hash": "Tartalom hash-értéke",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Letöltési link másolása",

@@ -73,6 +73,7 @@
   "confirm-join-title-of": "Join {user}'s session?",
   "confirm-launch-protected-body": "You marked \"{name}\" as {status}. Do you want to play it anyway?",
   "confirm-launch-protected-title": "Launch this game?",
+  "content-hash": "Content hash",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Copy download link",

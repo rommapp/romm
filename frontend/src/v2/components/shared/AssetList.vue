@@ -1,13 +1,9 @@
 <script setup lang="ts">
-// Vertical list for saves — paired with <AssetStrip> (tile grid/strip for
-// states). Shared between the EmulatorJS pre-game view (selection) and the
-// GameDetails "Save data" subtab (management).
+// Vertical list of saves or states. Shared between the EmulatorJS pre-game
+// view (selection) and the GameDetails "Save data" subtab (management).
 //
-// Saves never carry a screenshot, so the tile-strip's 16:9 area would
-// be wasted space. This list variant trades the visual thumbnail for
-// information density: each row shows the filename in full, both the
-// relative time AND the exact timestamp, plus the size and emulator
-// chip.
+// Rows favour information density over the tile strip's artwork. The leading
+// cell widens into a 16:9 thumbnail when anything in the list has a capture.
 //
 // Two modes, driven by `selectable`:
 //   * selectable (default) — Play view. Each row is a button; clicking
@@ -18,19 +14,20 @@
 import { RAvatar, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type {
-  SaveSchema,
-  StateSchema,
-  UserSaveSchema,
-  UserStateSchema,
-} from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import HashChip from "@/v2/components/shared/HashChip.vue";
+import {
+  ASSET_TYPE_META,
+  type Asset,
+  type AssetType,
+  anyAssetHasScreenshot,
+  assetOwner,
+  assetScreenshotUrl,
+} from "@/v2/utils/asset";
+import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
-
-export type AssetType = "save" | "state";
-type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 
 const props = withDefaults(
   defineProps<{
@@ -44,12 +41,17 @@ const props = withDefaults(
     showOwner?: boolean;
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
+    /** Force the leading cell wide or narrow. Set it when sibling lists
+     *  read as one table and so must agree; otherwise each list decides.
+     *  Null, not undefined: Vue casts an absent Boolean prop to false. */
+    thumbs?: boolean | null;
   }>(),
   {
     selectable: true,
     selectedId: null,
     showOwner: false,
     scrollable: true,
+    thumbs: null,
   },
 );
 
@@ -63,15 +65,11 @@ defineSlots<{
 
 const { t, locale } = useI18n();
 
-const emptyLabel = computed(() =>
-  props.type === "save"
-    ? t("play.no-saves-available")
-    : t("play.no-states-available"),
-);
+const typeMeta = computed(() => ASSET_TYPE_META[props.type]);
 
-function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
-  return "username" in asset && asset.username ? asset : null;
-}
+const showThumbs = computed(
+  () => props.thumbs ?? anyAssetHasScreenshot(props.assets),
+);
 </script>
 
 <template>
@@ -90,35 +88,44 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
           :is="selectable ? 'button' : 'div'"
           :type="selectable ? 'button' : undefined"
           class="r-asset-list__row"
-          :class="{ 'r-asset-list__row--static': !selectable }"
+          :class="{
+            'r-asset-list__row--static': !selectable,
+            'r-asset-list__row--thumb': showThumbs,
+          }"
           :aria-pressed="selectable ? asset.id === selectedId : undefined"
           @click="selectable && $emit('select', asset)"
         >
-          <span class="r-asset-list__icon" aria-hidden="true">
-            <RIcon
-              :icon="type === 'save' ? 'mdi-content-save' : 'mdi-file-outline'"
-              size="22"
+          <span
+            class="r-asset-list__icon"
+            :class="{ 'r-asset-list__icon--thumb': showThumbs }"
+            aria-hidden="true"
+          >
+            <span
+              v-if="assetScreenshotUrl(asset)"
+              class="r-asset-list__shot"
+              :style="{ backgroundImage: toCssUrl(assetScreenshotUrl(asset)!) }"
             />
+            <RIcon v-else :icon="typeMeta.icon" :size="showThumbs ? 26 : 22" />
           </span>
 
           <span class="r-asset-list__main">
             <span class="r-asset-list__name">{{ asset.file_name }}</span>
             <span class="r-asset-list__chips">
               <span
-                v-if="showOwner && ownerOf(asset)"
+                v-if="showOwner && assetOwner(asset)"
                 class="r-asset-list__owner"
               >
                 <RAvatar
                   :image="
                     userAvatarUrl({
-                      userId: ownerOf(asset)!.user_id,
-                      avatarPath: ownerOf(asset)!.user_avatar_path,
-                      updatedAt: ownerOf(asset)!.user_updated_at,
+                      userId: assetOwner(asset)!.user_id,
+                      avatarPath: assetOwner(asset)!.user_avatar_path,
+                      updatedAt: assetOwner(asset)!.user_updated_at,
                     })
                   "
                   :size="16"
                 />
-                <span>{{ ownerOf(asset)!.username }}</span>
+                <span>{{ assetOwner(asset)!.username }}</span>
               </span>
               <RTag
                 v-if="'slot' in asset && asset.slot"
@@ -138,7 +145,31 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
                 <RIcon icon="mdi-weight" size="11" />
                 {{ formatBytes(asset.file_size_bytes) }}
               </span>
+              <!-- A selectable row is a <button>, and HashChip is one too,
+                   so nesting them would be invalid markup. -->
+              <HashChip
+                v-if="
+                  !selectable && 'content_hash' in asset && asset.content_hash
+                "
+                :label="t('rom.content-hash')"
+                :value="asset.content_hash"
+                compact
+              />
             </span>
+
+            <!-- Anchored to the name column, not the row: on a manage row the
+                 action buttons carry tooltips of their own. -->
+            <RTooltip activator="parent" location="top" :open-delay="400">
+              <div class="r-asset-list__tip">
+                <span class="r-asset-list__tip-name">{{
+                  asset.file_name
+                }}</span>
+                <span class="r-asset-list__tip-sub">
+                  {{ t("rom.updated") }}:
+                  {{ formatTimestamp(asset.updated_at, locale) }}
+                </span>
+              </div>
+            </RTooltip>
           </span>
 
           <span class="r-asset-list__time">
@@ -164,33 +195,13 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
           <span v-else class="r-asset-list__actions">
             <slot name="actions" :asset="asset" />
           </span>
-
-          <RTooltip
-            v-if="selectable"
-            activator="parent"
-            location="top"
-            :open-delay="400"
-          >
-            <div class="r-asset-list__tip">
-              <span class="r-asset-list__tip-name">{{ asset.file_name }}</span>
-              <span class="r-asset-list__tip-sub">
-                {{ t("rom.updated") }}:
-                {{ formatTimestamp(asset.updated_at, locale) }}
-              </span>
-            </div>
-          </RTooltip>
         </component>
       </li>
     </ul>
 
     <div v-else class="r-asset-list__empty">
-      <RIcon
-        :icon="
-          type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'
-        "
-        size="28"
-      />
-      <p>{{ emptyLabel }}</p>
+      <RIcon :icon="typeMeta.emptyIcon" size="28" />
+      <p>{{ t(typeMeta.emptyLabelKey) }}</p>
     </div>
   </div>
 </template>
@@ -287,7 +298,27 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   color: var(--r-color-fg-muted);
   flex-shrink: 0;
 }
-.r-asset-list__item--active .r-asset-list__icon {
+/* Widened into a 16:9 frame when the list has screenshots to show. The
+   gradient is what a screenshot-less row falls back to, behind its icon. */
+.r-asset-list__icon--thumb {
+  width: 96px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    var(--r-color-cover-placeholder),
+    var(--r-color-cover-placeholder-bright)
+  );
+}
+.r-asset-list__shot {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+}
+.r-asset-list__item--active
+  .r-asset-list__icon:not(.r-asset-list__icon--thumb) {
   background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
   color: var(--r-color-brand-primary);
 }
@@ -408,13 +439,38 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 }
 
 /* Tighten the row on small screens so the time column doesn't push
-   the filename off-screen. The exact timestamp is the first to go —
+   the filename off-screen. The exact timestamp is the first to go, and
    the tooltip still has it. */
 html[data-bp~="xs"] .r-asset-list__exact {
   display: none;
 }
+html[data-bp~="xs"] .r-asset-list__icon--thumb {
+  width: 72px;
+}
 html[data-bp~="xs"] .r-asset-list__row {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
   padding: 8px 10px;
+}
+/* The thumbnail takes what little width a phone row has, so the name gets a
+   line to itself. Rows keeping the icon square still fit on one. */
+html[data-bp~="xs"] .r-asset-list__row--thumb {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon main main"
+    "icon time trail";
+  row-gap: 6px;
+}
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__icon {
+  grid-area: icon;
+}
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__main {
+  grid-area: main;
+}
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__time {
+  grid-area: time;
+  align-items: flex-start;
+}
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__actions,
+html[data-bp~="xs"] .r-asset-list__row--thumb .r-asset-list__check {
+  grid-area: trail;
 }
 </style>

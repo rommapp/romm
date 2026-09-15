@@ -73,6 +73,7 @@
   "confirm-join-title-of": "Te alături sesiunii lui {user}?",
   "confirm-launch-protected-body": "Ai marcat „{name}“ ca {status}. Vrei să îl joci oricum?",
   "confirm-launch-protected-title": "Pornești acest joc?",
+  "content-hash": "Hash conținut",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Copiază linkul de descărcare",

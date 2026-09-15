@@ -578,9 +578,10 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             <span class="r-v2-ejs__strip-count">{{ activeAssets.length }}</span>
           </div>
 
-          <!-- Saves render as a vertical list (no screenshot ⇒ density);
-               states keep the horizontal tile strip (screenshot is the
-               point). -->
+          <!-- Saves render as a vertical list for density; states keep the
+               horizontal tile strip, where the capture leads. Both carry a
+               capture, so the list widens its leading cell when one is
+               present. -->
           <AssetList
             v-if="activeAssetTab === 'save'"
             :assets="activeAssets"

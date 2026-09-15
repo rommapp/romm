@@ -73,6 +73,7 @@
   "confirm-join-title-of": "{user} adlı kullanıcının oturumuna katılmak istiyor musun?",
   "confirm-launch-protected-body": "\"{name}\" oyununu {status} olarak işaretlediniz. Yine de oynamak istiyor musunuz?",
   "confirm-launch-protected-title": "Bu oyun başlatılsın mı?",
+  "content-hash": "İçerik hash değeri",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "İndirme bağlantısını kopyala",

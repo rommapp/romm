@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // AssetCard (v2) — feature composite for the save/state pickers shown
-// before launching EmulatorJS. Renders a 16:9 screenshot (states),
-// filename, emulator + size chips, and a relative "updated" line.
+// before launching EmulatorJS. Renders a 16:9 capture, filename,
+// emulator + size chips, and a relative "updated" line.
 //
 // Lives in `components/Player/` because it knows about SaveSchema /
 // StateSchema — domain coupling means it can't be a /lib primitive.
@@ -11,11 +11,10 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { type AssetType, assetScreenshotUrl } from "@/v2/utils/asset";
 import { getEmptyCoverImage } from "@/v2/utils/covers";
 
 defineOptions({ inheritAttrs: false });
-
-export type AssetType = "save" | "state";
 
 const props = defineProps<{
   asset: SaveSchema | StateSchema;
@@ -28,16 +27,13 @@ defineEmits<{
 
 const { t, locale } = useI18n();
 
-// States carry a screenshot; saves don't. Fall back to a placeholder
-// keyed by the file name so identical filenames render the same colour
-// — visual cue across the grid that two assets share a base name.
-const screenshotSrc = computed(() => {
-  if (!("screenshot" in props.asset)) return null;
-  return (
-    props.asset.screenshot?.download_path ??
-    getEmptyCoverImage(props.asset.file_name, 16 / 9)
-  );
-});
+// Without a capture, fall back to a placeholder keyed by the file name, so
+// two assets sharing a base name render the same colour across the grid.
+const screenshotSrc = computed(
+  () =>
+    assetScreenshotUrl(props.asset) ??
+    getEmptyCoverImage(props.asset.file_name, 16 / 9),
+);
 
 const updatedText = computed(() =>
   formatTimestamp(props.asset.updated_at, locale.value),
