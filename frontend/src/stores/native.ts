@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import romApi from "@/services/api/rom";
 import {
   cancelNative,
   fetchPlatformSupport,
@@ -9,7 +10,6 @@ import {
   nativeShellVersion,
   onNativeLaunchState,
 } from "@/services/native";
-import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
 import type { LaunchState, PlatformSupport } from "@/types/rommNative";
