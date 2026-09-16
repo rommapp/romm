@@ -1,8 +1,6 @@
 <script setup lang="ts">
-// Tile strip or grid of saves/states, shared between the launch screens
-// (selection) and the GameDetails "Save data" subtab (management). See the
-// props for the layouts and modes; `groupBy="emulator"` folds the tiles into
-// one collapsible group per core, loadable cores first.
+// Tile strip or grid of saves/states, shared by the launch screens (selection)
+// and the Save data subtab (management). `groupBy` folds the tiles per core.
 import { RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// Vertical list for saves, paired with <AssetStrip> (tile grid/strip for
-// states). Shared between the EmulatorJS and Stream launch screens
-// (selection) and the GameDetails "Save data" subtab (management).
+// Vertical list for saves, paired with <AssetStrip>. Shared by the launch
+// screens (selection) and the Save data subtab (management).
 //
 // Saves group by slot (archives last), newest version first with the older
 // ones folded; a save's screenshot, when it has one, is the row thumbnail.
