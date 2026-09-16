@@ -3,7 +3,11 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
-import { RECOMMENDED_ROMS_LIMIT } from "@/services/api/rom";
+import {
+  RECENT_PLAYED_ROMS_LIMIT,
+  RECENT_ROMS_LIMIT,
+  RECOMMENDED_ROMS_LIMIT,
+} from "@/services/api/rom";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -28,14 +32,12 @@ vi.mock("@/services/api/setup", () => ({
   default: { getLibraryInfo },
 }));
 
-// The loading rows size themselves from these limits, so the mock mirrors the
-// real module's values.
-vi.mock("@/services/api/rom", () => ({
-  default: { getRecommendedRoms },
-  RECENT_PLAYED_ROMS_LIMIT: 15,
-  RECENT_ROMS_LIMIT: 15,
-  RECOMMENDED_ROMS_LIMIT: 15,
-}));
+// Only the feed request is stubbed; the limit constants come from the real
+// module so these tests assert against the numbers the view actually reads.
+vi.mock("@/services/api/rom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/api/rom")>();
+  return { ...actual, default: { ...actual.default, getRecommendedRoms } };
+});
 
 vi.mock("@v2/lib", () => ({
   RChip: defineComponent({ template: "<span><slot /></span>" }),
@@ -194,6 +196,17 @@ function stubHomeFetches(populated: boolean) {
   return { platforms, collections, roms };
 }
 
+/** Hold the three card rows in their loading state: a request that never
+ *  settles leaves each `fetching*` flag set, since the view clears it in a
+ *  `finally`. */
+function holdRowsLoading() {
+  const roms = storeRoms();
+  const pending = () => new Promise<never>(() => {});
+  vi.spyOn(roms, "fetchRecentRoms").mockImplementation(pending);
+  vi.spyOn(roms, "fetchContinuePlayingRoms").mockImplementation(pending);
+  getRecommendedRoms.mockReturnValue(pending());
+}
+
 function mountHome() {
   return mount(Home, {
     global: {
@@ -272,21 +285,22 @@ describe("Home", () => {
     expect(wrapper.text()).not.toContain("recommendations.for-you");
   });
 
-  it("paints one skeleton per recommended slot while the feed loads", async () => {
+  it.each([
+    ["home.continue-playing", RECENT_PLAYED_ROMS_LIMIT],
+    ["recommendations.for-you", RECOMMENDED_ROMS_LIMIT],
+    ["home.recently-added", RECENT_ROMS_LIMIT],
+  ])("paints one skeleton per requested slot in %s", async (title, limit) => {
     stubHomeFetches(true);
-    // A feed that never settles holds the row in its loading state.
-    getRecommendedRoms.mockReturnValue(new Promise(() => {}));
+    holdRowsLoading();
 
     const wrapper = mountHome();
     await nextTick();
 
     const row = wrapper
       .findAll("section")
-      .find((section) => section.text().startsWith("recommendations.for-you"));
+      .find((section) => section.text().startsWith(title));
 
-    expect(row?.findAll('[data-test="game-skeleton"]')).toHaveLength(
-      RECOMMENDED_ROMS_LIMIT,
-    );
+    expect(row?.findAll('[data-test="game-skeleton"]')).toHaveLength(limit);
   });
 
   it("keeps the home page usable when the feed request fails", async () => {
