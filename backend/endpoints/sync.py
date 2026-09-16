@@ -16,6 +16,7 @@ from endpoints.responses.sync import (
     SyncOperationSchema,
     SyncSessionSchema,
 )
+from endpoints.sockets.sync import emit_sync_conflict
 from handler.auth.constants import Scope
 from handler.database import (
     db_device_handler,
@@ -115,7 +116,7 @@ class SyncCompletePayload(BaseModel):
 
 
 @protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])
-def negotiate_sync(
+async def negotiate_sync(
     request: Request,
     payload: SyncNegotiatePayload,
 ) -> SyncNegotiateResponse:
@@ -337,6 +338,23 @@ def negotiate_sync(
         f"{total_upload} uploads, {total_download} downloads, "
         f"{total_conflict} conflicts, {total_no_op} no-ops"
     )
+
+    # Never fatal: the emitter dials Redis, and a negotiation must not fail
+    # because the user could not be notified.
+    for op in operations:
+        if op.action != "conflict":
+            continue
+        try:
+            await emit_sync_conflict(
+                user_id=request.user.id,
+                device_id=device.id,
+                session_id=sync_session.id,
+                file_name=op.file_name,
+                rom_id=op.rom_id,
+                reason=op.reason,
+            )
+        except Exception as e:  # noqa: BLE001
+            log.warning(f"Failed to emit sync:conflict for {op.file_name}: {e}")
 
     return SyncNegotiateResponse(
         session_id=sync_session.id,

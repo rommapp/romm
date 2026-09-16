@@ -41,6 +41,7 @@ import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { installStageActiveClass } from "@/v2/composables/useStageActive";
+import { installSyncConflictToast } from "@/v2/composables/useSyncConflictToast";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
 installPermissionsHydration();
@@ -49,6 +50,9 @@ installPermissionsHydration();
 // route the user is on (navbar indicator + /scan view consume the same
 // store state).
 installScanLifecycle();
+// Global save-sync conflict wiring: a conflict detected by the server is
+// re-reported on every negotiation, so the toast dedupes per page session.
+installSyncConflictToast();
 // Mirror useBreakpoint() refs onto <html data-bp="…"> so scoped styles
 // can branch on viewport via `html[data-bp~="xs"] .foo { … }` instead of
 // hardcoding `@media (max-width: …)` values across every SFC.

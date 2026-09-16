@@ -1017,3 +1017,115 @@ class TestSyncCompleteWithPlaySessions:
         data = response.json()
         assert data["session"]["status"] == "COMPLETED"
         assert data["play_session_ingest"] is None
+
+
+class TestNegotiateConflictEvents:
+    """A negotiating client has nowhere to resolve a conflict, so the socket
+    event is the only surface the user gets."""
+
+    @staticmethod
+    def _device_with_history(device_id: str, admin_user: User, save: Save) -> Device:
+        """A device whose last sync of `save` was an hour ago."""
+        device = db_device_handler.add_device(
+            Device(id=device_id, user_id=admin_user.id, sync_enabled=True)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id,
+            save_id=save.id,
+            synced_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        return device
+
+    @staticmethod
+    def _changed_client_save(save: Save) -> dict:
+        return {
+            "rom_id": save.rom_id,
+            "file_name": save.file_name,
+            "slot": save.slot,
+            "content_hash": "hash_the_server_never_saw",
+            "updated_at": "2099-01-01T00:00:00Z",
+            "file_size_bytes": 100,
+        }
+
+    def test_conflict_emits_socket_event(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        device = self._device_with_history("neg-conflict-dev", admin_user, save)
+
+        with mock.patch(
+            "endpoints.sync.emit_sync_conflict", new_callable=mock.AsyncMock
+        ) as emit:
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._changed_client_save(save)],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_conflict"] == 1
+        emit.assert_awaited_once()
+        assert emit.await_args is not None
+        assert emit.await_args.kwargs == {
+            "user_id": admin_user.id,
+            "device_id": device.id,
+            "session_id": data["session_id"],
+            "file_name": save.file_name,
+            "rom_id": save.rom_id,
+            "reason": "Both sides changed since last sync",
+        }
+
+    def test_no_conflict_negotiation_emits_nothing(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """A negotiated no_op is not a conflict, so it must stay silent."""
+        device = db_device_handler.add_device(
+            Device(id="neg-calm-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_device_save_sync_handler.set_untracked(
+            device_id=device.id, save_id=save.id, untracked=True
+        )
+
+        with mock.patch(
+            "endpoints.sync.emit_sync_conflict", new_callable=mock.AsyncMock
+        ) as emit:
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._changed_client_save(save)],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_conflict"] == 0
+        assert any(op["action"] == "no_op" for op in data["operations"])
+        emit.assert_not_awaited()
+
+    def test_emit_failure_leaves_the_negotiation_intact(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """An unreachable Redis must not stop a client from syncing."""
+        device = self._device_with_history("neg-conflict-down", admin_user, save)
+
+        with mock.patch(
+            "endpoints.sync.emit_sync_conflict",
+            new_callable=mock.AsyncMock,
+            side_effect=RuntimeError("redis is down"),
+        ):
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._changed_client_save(save)],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total_conflict"] == 1
