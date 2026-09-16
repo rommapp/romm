@@ -88,12 +88,17 @@ import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
+  chosenSlot,
   defaultResumeSelection,
+  existingSlot,
+  isSlotChoice,
   newerSaveThanState,
   pickSave,
   pickState,
-  slotOptions,
+  slotChoiceKey,
+  slotChoices,
   type ResumeSelection,
+  type SlotChoice,
 } from "./resumeSelection";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
@@ -481,29 +486,16 @@ const newerSave = computed(() =>
 
 // Slot for saves the session creates. A bound save with a slot fixes it; a
 // slot-less legacy save stays as an archive and progress goes to the pick.
-// Select values are namespaced so the "new slot" entry cannot collide with a
-// user-named slot.
-const NEW_SLOT = "new";
-const slotValue = (slot: string) => `slot:${slot}`;
-const slotChoice = ref(slotValue(AUTOSAVE_SLOT));
+const slotChoice = ref<SlotChoice>(existingSlot(AUTOSAVE_SLOT));
 const customSlot = ref("");
 const boundSlot = computed(() => resume.value.save?.slot || null);
+const slotItems = computed(() => slotChoices(rom.value?.user_saves ?? []));
+const slotChoiceTitle = (choice: SlotChoice) =>
+  choice.kind === "new" ? t("play.new-slot") : choice.slot;
 function onSlotChoice(value: unknown) {
-  slotChoice.value =
-    typeof value === "string" ? value : slotValue(AUTOSAVE_SLOT);
+  if (isSlotChoice(value)) slotChoice.value = value;
 }
-const slotItems = computed(() => [
-  ...slotOptions(rom.value?.user_saves ?? []).map((slot) => ({
-    title: slot,
-    value: slotValue(slot),
-  })),
-  { title: t("play.new-slot"), value: NEW_SLOT },
-]);
-const saveSlot = computed(() =>
-  slotChoice.value === NEW_SLOT
-    ? customSlot.value.trim() || AUTOSAVE_SLOT
-    : slotChoice.value.slice(slotValue("").length),
-);
+const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 </script>
 
 <template>
@@ -610,13 +602,16 @@ const saveSlot = computed(() =>
             <div class="r-v2-ejs__slot-row">
               <RSelect
                 class="r-v2-ejs__slot-select"
-                :model-value="boundSlot ? slotValue(boundSlot) : slotChoice"
+                :model-value="boundSlot ? existingSlot(boundSlot) : slotChoice"
                 :disabled="!!boundSlot"
                 variant="outlined"
                 density="compact"
                 prefix-label="inline"
                 hide-details
                 :items="slotItems"
+                :item-title="slotChoiceTitle"
+                :item-value="slotChoiceKey"
+                return-object
                 @update:model-value="onSlotChoice"
               >
                 <template #prefix-label>
@@ -636,7 +631,7 @@ const saveSlot = computed(() =>
               </button>
             </div>
             <RTextField
-              v-if="!boundSlot && slotChoice === NEW_SLOT"
+              v-if="!boundSlot && slotChoice.kind === 'new'"
               v-model="customSlot"
               variant="outlined"
               density="compact"
