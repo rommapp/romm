@@ -73,27 +73,30 @@ export function chosenSlot(choice: SlotChoice, newSlotName: string): string {
   return newSlotName.trim() || AUTOSAVE_SLOT;
 }
 
-/** The newest compatible state when it postdates the picked save. */
-export function newerStateThanSave(
-  compatibleStates: readonly StateSchema[],
-  save: SaveSchema,
-): StateSchema | null {
-  const newest = compatibleStates.reduce<StateSchema | null>(
-    (best, state) =>
-      !best || state.updated_at > best.updated_at ? state : best,
-    null,
-  );
-  return newest && newest.updated_at > save.updated_at ? newest : null;
-}
+export type NewerAsset =
+  { kind: "save"; asset: SaveSchema } | { kind: "state"; asset: StateSchema };
 
-/** The newest save when it postdates the armed state, so the user can be warned. */
-export function newerSaveThanState(
+/**
+ * The newest save or compatible state when it postdates what boots, so the
+ * user can be warned before older progress rolls the newer back.
+ */
+export function newerThanPick(
   saves: readonly SaveSchema[],
-  state: StateSchema,
-): SaveSchema | null {
-  const newest = saves.reduce<SaveSchema | null>(
-    (best, save) => (!best || save.updated_at > best.updated_at ? save : best),
+  compatibleStates: readonly StateSchema[],
+  selection: ResumeSelection,
+): NewerAsset | null {
+  const picked = selection.state ?? selection.save;
+  if (!picked) return null;
+  const candidates: NewerAsset[] = [
+    ...saves.map((asset) => ({ kind: "save", asset }) as const),
+    ...compatibleStates.map((asset) => ({ kind: "state", asset }) as const),
+  ];
+  const newest = candidates.reduce<NewerAsset | null>(
+    (best, candidate) =>
+      !best || candidate.asset.updated_at > best.asset.updated_at
+        ? candidate
+        : best,
     null,
   );
-  return newest && newest.updated_at > state.updated_at ? newest : null;
+  return newest && newest.asset.updated_at > picked.updated_at ? newest : null;
 }

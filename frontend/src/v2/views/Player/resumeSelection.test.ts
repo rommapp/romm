@@ -6,8 +6,7 @@ import {
   defaultResumeSelection,
   existingSlot,
   isSlotChoice,
-  newerSaveThanState,
-  newerStateThanSave,
+  newerThanPick,
   pickSave,
   pickState,
   preferredSlot,
@@ -131,47 +130,48 @@ describe("isSlotChoice", () => {
   });
 });
 
-describe("newerStateThanSave", () => {
-  const at = (updated_at: string) => ({ updated_at }) as SaveSchema;
-  const stateAt = (updated_at: string) => ({ updated_at }) as StateSchema;
+describe("newerThanPick", () => {
+  const at = (id: number, updated_at: string) =>
+    ({ id, updated_at }) as SaveSchema;
+  const stateAt = (id: number, updated_at: string) =>
+    ({ id, updated_at }) as StateSchema;
 
-  it("returns the newest state when it postdates the save", () => {
+  it("points at the newest asset of either kind", () => {
+    const saves = [at(1, "2026-09-03T10:00:00Z")];
     const states = [
-      stateAt("2026-09-01T10:00:00Z"),
-      stateAt("2026-09-03T10:00:00Z"),
+      stateAt(9, "2026-09-01T10:00:00Z"),
+      stateAt(8, "2026-09-05T10:00:00Z"),
     ];
 
-    expect(newerStateThanSave(states, at("2026-09-02T10:00:00Z"))).toBe(
-      states[1],
-    );
+    expect(newerThanPick(saves, states, pickState(states[0]))).toEqual({
+      kind: "state",
+      asset: states[1],
+    });
+    expect(newerThanPick(saves, [states[0]], pickState(states[0]))).toEqual({
+      kind: "save",
+      asset: saves[0],
+    });
   });
 
-  it("returns null when the save is the latest progress", () => {
-    const states = [stateAt("2026-09-01T10:00:00Z")];
+  it("warns about a newer save even when a save is picked", () => {
+    const saves = [
+      at(1, "2026-09-01T10:00:00Z"),
+      at(2, "2026-09-02T10:00:00Z"),
+    ];
 
-    expect(newerStateThanSave(states, at("2026-09-02T10:00:00Z"))).toBe(null);
-    expect(newerStateThanSave([], at("2026-09-02T10:00:00Z"))).toBe(null);
-  });
-});
-
-describe("newerSaveThanState", () => {
-  const at = (updated_at: string) => ({ updated_at }) as SaveSchema;
-  const stateAt = (updated_at: string) => ({ updated_at }) as StateSchema;
-
-  it("returns the newest save when it postdates the state", () => {
-    const saves = [at("2026-09-01T10:00:00Z"), at("2026-09-03T10:00:00Z")];
-
-    expect(newerSaveThanState(saves, stateAt("2026-09-02T10:00:00Z"))).toBe(
-      saves[1],
-    );
+    expect(newerThanPick(saves, [], pickSave(saves[0]))).toEqual({
+      kind: "save",
+      asset: saves[1],
+    });
   });
 
-  it("returns null when the state is the latest progress", () => {
-    const saves = [at("2026-09-01T10:00:00Z")];
+  it("stays quiet when the pick is the latest progress or nothing is picked", () => {
+    const saves = [at(1, "2026-09-03T10:00:00Z")];
+    const states = [stateAt(9, "2026-09-02T10:00:00Z")];
 
-    expect(newerSaveThanState(saves, stateAt("2026-09-02T10:00:00Z"))).toBe(
+    expect(newerThanPick(saves, states, pickSave(saves[0]))).toBe(null);
+    expect(newerThanPick(saves, states, { save: null, state: null })).toBe(
       null,
     );
-    expect(newerSaveThanState([], stateAt("2026-09-02T10:00:00Z"))).toBe(null);
   });
 });

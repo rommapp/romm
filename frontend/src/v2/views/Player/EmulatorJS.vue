@@ -92,8 +92,7 @@ import {
   defaultResumeSelection,
   existingSlot,
   isSlotChoice,
-  newerSaveThanState,
-  newerStateThanSave,
+  newerThanPick,
   pickSave,
   pickState,
   preferredSlot,
@@ -505,17 +504,19 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
 );
 const selectedAssetId = computed(() => selectedAsset.value?.id ?? null);
 
-// Booting the older of save and state would roll progress back (#4278).
-const newerSave = computed(() =>
-  resume.value.state
-    ? newerSaveThanState(rom.value?.user_saves ?? [], resume.value.state)
-    : null,
+// Booting anything but the latest progress would roll it back (#4278).
+const newerAsset = computed(() =>
+  newerThanPick(
+    rom.value?.user_saves ?? [],
+    compatibleStates.value,
+    resume.value,
+  ),
 );
-const newerState = computed(() =>
-  resume.value.save
-    ? newerStateThanSave(compatibleStates.value, resume.value.save)
-    : null,
-);
+function bootFromNewer() {
+  if (!newerAsset.value) return;
+  if (newerAsset.value.kind === "save") selectSave(newerAsset.value.asset);
+  else selectState(newerAsset.value.asset);
+}
 
 // Slot for saves the session creates. A bound save with a slot fixes it; a
 // slot-less legacy save stays as an archive and progress goes to the pick.
@@ -620,42 +621,25 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
               @clear="clearSelectedAsset"
             />
             <RAlert
-              v-if="newerSave"
+              v-if="newerAsset"
               type="warning"
               density="compact"
               :text="
-                t('play.newer-save-warning', {
-                  time: formatRelativeDate(newerSave.updated_at),
-                })
+                t(
+                  newerAsset.kind === 'save'
+                    ? 'play.newer-save-warning'
+                    : 'play.newer-state-warning',
+                  { time: formatRelativeDate(newerAsset.asset.updated_at) },
+                )
               "
             >
               <template #actions>
-                <RBtn
-                  variant="outlined"
-                  size="small"
-                  @click="selectSave(newerSave)"
-                >
-                  {{ t("play.boot-from-save") }}
-                </RBtn>
-              </template>
-            </RAlert>
-            <RAlert
-              v-if="newerState"
-              type="warning"
-              density="compact"
-              :text="
-                t('play.newer-state-warning', {
-                  time: formatRelativeDate(newerState.updated_at),
-                })
-              "
-            >
-              <template #actions>
-                <RBtn
-                  variant="outlined"
-                  size="small"
-                  @click="selectState(newerState)"
-                >
-                  {{ t("play.boot-from-state") }}
+                <RBtn variant="outlined" size="small" @click="bootFromNewer">
+                  {{
+                    newerAsset.kind === "save"
+                      ? t("play.boot-from-save")
+                      : t("play.boot-from-state")
+                  }}
                 </RBtn>
               </template>
             </RAlert>
