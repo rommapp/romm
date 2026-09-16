@@ -363,20 +363,12 @@ function visibleVersions(group: SlotGroup): Asset[] {
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-  scrollbar-color: var(--r-color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 /* Internal scroll only where the parent does not own scrolling. */
 .r-asset-list--scroll .r-asset-list__groups {
   overflow-y: auto;
   max-height: 380px;
-}
-.r-asset-list__groups::-webkit-scrollbar {
-  width: 6px;
-}
-.r-asset-list__groups::-webkit-scrollbar-thumb {
-  background: var(--r-color-border-strong);
-  border-radius: 6px;
+  padding-right: 10px;
 }
 
 .r-asset-list__group {

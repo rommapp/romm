@@ -1043,8 +1043,6 @@ html[data-bp~="md-and-up"]
 .r-v2-ejs__assets {
   flex: 1;
   min-height: 0;
-  scrollbar-color: var(--r-color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 .r-v2-ejs__strip-label {
   display: flex;
@@ -1159,6 +1157,8 @@ html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__panel {
 }
 html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__assets {
   overflow-y: auto;
+  /* Keeps the rows off the app-wide scrollbar. */
+  padding-right: 10px;
 }
 /* The hero cannot shrink, so on a short viewport it scrolls instead of clipping. */
 html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__hero {
