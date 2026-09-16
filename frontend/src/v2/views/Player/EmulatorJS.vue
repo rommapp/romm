@@ -704,11 +704,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           </div>
 
           <div class="r-v2-ejs__resume-main">
-            <div
-              v-if="activeAssets.length > 0"
-              class="r-v2-ejs__strip-label"
-              aria-hidden="true"
-            >
+            <div class="r-v2-ejs__strip-label" aria-hidden="true">
               <span>{{
                 activeAssetTab === "save"
                   ? t("play.all-saves")

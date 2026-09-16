@@ -59,7 +59,7 @@ function mountList(props: { selectedId?: number; type?: "save" | "state" }) {
 }
 
 const titles = (wrapper: ReturnType<typeof mountList>) =>
-  wrapper.findAll(".r-asset-list__group-title").map((el) => el.text());
+  wrapper.findAll(".r-asset-group-head__title").map((el) => el.text());
 const names = (wrapper: ReturnType<typeof mountList>) =>
   wrapper.findAll(".r-asset-list__name").map((el) => el.text());
 
@@ -72,7 +72,7 @@ describe("AssetList slot grouping", () => {
       "main_quest",
       "play.slot-none",
     ]);
-    expect(wrapper.findAll(".r-asset-list__group-count")).toHaveLength(3);
+    expect(wrapper.findAll(".r-asset-group-head__count")).toHaveLength(3);
   });
 
   it("shows only the newest version per slot until unfolded", async () => {

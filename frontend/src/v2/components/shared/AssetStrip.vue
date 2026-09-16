@@ -6,6 +6,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatTimestamp } from "@/utils";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
+import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
@@ -145,36 +146,25 @@ const fadeIndex = computed(() =>
     class="r-asset-strip"
     :class="[`r-asset-strip--${layout}`, { 'r-asset-strip--grouped': groupBy }]"
   >
-    <div
-      v-for="group in groups"
-      :key="group.key"
-      class="r-asset-strip__group"
-      :class="{ 'r-asset-strip__group--disabled': group.disabled }"
-    >
-      <button
+    <div v-for="group in groups" :key="group.key" class="r-asset-strip__group">
+      <AssetGroupHead
         v-if="groupBy"
-        type="button"
-        class="r-asset-strip__group-head"
-        :aria-expanded="isOpen(group)"
-        @click="fold.toggle(group)"
+        icon="mdi-chip"
+        icon-tone="warning"
+        :title="group.label"
+        :muted="group.disabled"
+        :count="group.assets.length"
+        foldable
+        :expanded="isOpen(group)"
+        @toggle="fold.toggle(group)"
       >
-        <RIcon icon="mdi-chip" size="14" class="r-asset-strip__group-icon" />
-        <span class="r-asset-strip__group-title">{{ group.label }}</span>
         <RTag
           v-if="group.disabled"
           tone="neutral"
           size="x-small"
           :text="t('play.core-not-loadable')"
         />
-        <span class="r-asset-strip__group-count">{{
-          group.assets.length
-        }}</span>
-        <RIcon
-          icon="mdi-chevron-down"
-          size="16"
-          class="r-asset-strip__group-chevron"
-        />
-      </button>
+      </AssetGroupHead>
 
       <RExpandTransition>
         <div v-show="isOpen(group)" class="r-asset-strip__track">
@@ -319,54 +309,6 @@ const fadeIndex = computed(() =>
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
-.r-asset-strip__group-head {
-  appearance: none;
-  border: 0;
-  background: none;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
-  border-radius: var(--r-radius-sm);
-  font: inherit;
-  text-align: left;
-  color: var(--r-color-fg-secondary);
-  cursor: pointer;
-  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-asset-strip__group-head:hover {
-  background: color-mix(in srgb, var(--r-color-fg) 8%, transparent);
-}
-/* Same tone as the emulator tag on the tiles. */
-.r-asset-strip__group-icon {
-  color: var(--r-color-warning);
-}
-.r-asset-strip__group-title {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--r-color-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-asset-strip__group--disabled .r-asset-strip__group-title {
-  color: var(--r-color-fg-muted);
-}
-.r-asset-strip__group-count {
-  margin-left: auto;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-.r-asset-strip__group-chevron {
-  transition: transform var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-asset-strip__group-head[aria-expanded="true"] .r-asset-strip__group-chevron {
-  transform: rotate(180deg);
-}
-
 .r-asset-strip__track {
   display: flex;
   gap: 10px;
