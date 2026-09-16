@@ -589,6 +589,13 @@ async def scan_rom(
     # rule out is not a coverage gap, so the outcome must not be reported as one.
     inconclusive_sources: set[MetadataSource] = set()
 
+    def note_inconclusive(source: MetadataSource) -> None:
+        """Record a source that was consulted and never answered."""
+        # It ruled nothing out, so it stops counting as attempted too and a
+        # complete rescan keeps the id it already had.
+        attempted_sources.discard(source)
+        inconclusive_sources.add(source)
+
     def resolve_fetch(source: MetadataSource, result: Any, fallback: Any) -> Any:
         """Unwrap a gathered lookup, falling back to an empty match when it failed."""
         if not isinstance(result, BaseException):
@@ -596,10 +603,7 @@ async def scan_rom(
         if not isinstance(result, Exception):
             raise result
 
-        # A provider that blew up ruled nothing out, so it no longer counts as
-        # attempted and a complete rescan keeps the id it already had.
-        attempted_sources.discard(source)
-        inconclusive_sources.add(source)
+        note_inconclusive(source)
         log.error(
             f"Error fetching {hl(source)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
             extra=LOGGER_MODULE_NAME,
@@ -660,9 +664,10 @@ async def scan_rom(
                 platform.slug, get_match_files()
             )
             # Hasheous swallows its own failures, so an empty match that is not
-            # conclusive is the only sign the lookup never got an answer.
-            if not conclusive:
-                inconclusive_sources.add(MetadataSource.HASHEOUS)
+            # conclusive is the only sign the lookup never got an answer. A
+            # disabled handler reports the same flag without being consulted.
+            if not conclusive and meta_hasheous_handler.is_enabled():
+                note_inconclusive(MetadataSource.HASHEOUS)
             return match, conclusive
 
         return (
@@ -1012,7 +1017,7 @@ async def scan_rom(
                 return SSRom(ss_id=None)
             finally:
                 if short_circuited:
-                    attempted_sources.discard(MetadataSource.SS)
+                    note_inconclusive(MetadataSource.SS)
 
         return SSRom(ss_id=None)
 
@@ -1101,7 +1106,10 @@ async def scan_rom(
                 )
             )
         ):
-            attempted_sources.add(MetadataSource.HASHEOUS)
+            # The hash lookup is the only thing that identifies a rom here, so one
+            # that never answered leaves a complete rescan nothing to redo.
+            if MetadataSource.HASHEOUS not in inconclusive_sources:
+                attempted_sources.add(MetadataSource.HASHEOUS)
             (
                 igdb_game,
                 ra_game,
