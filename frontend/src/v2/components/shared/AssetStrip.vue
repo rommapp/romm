@@ -337,12 +337,12 @@ function toggleGroup(group: AssetGroup) {
   gap: 4px;
   min-width: 0;
 }
-/* Each core sits on its own band in the emulator tone, so the gaps
-   between sections read as separators. */
+/* Each core sits on its own neutral band, so the gaps between sections
+   read as separators. */
 .r-asset-strip--grouped .r-asset-strip__group {
   padding: 6px 8px 8px;
   border-radius: var(--r-radius-md);
-  background: color-mix(in srgb, var(--r-color-warning) 8%, transparent);
+  background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 .r-asset-strip__group-head {
   appearance: none;
@@ -361,7 +361,7 @@ function toggleGroup(group: AssetGroup) {
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-asset-strip__group-head:hover {
-  background: color-mix(in srgb, var(--r-color-warning) 12%, transparent);
+  background: color-mix(in srgb, var(--r-color-fg) 8%, transparent);
 }
 /* Same tone as the emulator tag on the tiles. */
 .r-asset-strip__group-icon {
