@@ -984,7 +984,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  /* Between the preview section and the list section when stacked. */
+  gap: 20px;
   flex: 1;
   min-height: 0;
 }
