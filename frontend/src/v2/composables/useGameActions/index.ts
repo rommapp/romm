@@ -294,18 +294,23 @@ export function useGameActions(
     );
   });
 
+  // Launching a game the user deliberately shelved asks first. `retired` /
+  // `never_playing` encode an opt-in "don't play" intent; the prompt is
+  // gated by a per-user preference (on by default).
+  const needsLaunchConfirm = computed(() => {
+    const status = getRom()?.rom_user?.status;
+    return (
+      confirmProtectedLaunch.value &&
+      (status === "retired" || status === "never_playing")
+    );
+  });
+
   async function play(player: PlayTarget = "auto") {
     const rom = getRom();
     if (!rom) return;
 
-    // Guard launching a game the user deliberately shelved. `retired` /
-    // `never_playing` encode an opt-in "don't play" intent, so confirm
-    // before booting one. Gated by a per-user preference (on by default).
     const status = rom.rom_user?.status;
-    if (
-      confirmProtectedLaunch.value &&
-      (status === "retired" || status === "never_playing")
-    ) {
+    if (needsLaunchConfirm.value) {
       const ok = await confirm({
         title: t("rom.confirm-launch-protected-title"),
         body: t("rom.confirm-launch-protected-body", {
@@ -598,6 +603,7 @@ export function useGameActions(
     setStatus,
     setStatusEnum,
     setScore,
+    needsLaunchConfirm,
     play,
     playPath,
     goToPlatform,

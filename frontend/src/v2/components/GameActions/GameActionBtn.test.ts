@@ -5,6 +5,7 @@ import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "./GameActionBtn.vue";
 
 const play = vi.fn();
+const needsLaunchConfirm = { value: false };
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -18,6 +19,7 @@ vi.mock("@/v2/composables/useGameActions", () => ({
   GAME_ACTIONS_KEY: Symbol("game-actions"),
   useGameActions: () => ({
     play,
+    needsLaunchConfirm,
     playPath: (player: string) =>
       player === "stream" ? "/rom/1/stream" : "/rom/1/ejs",
     streamActionLabel: { value: "rom.stream" },
@@ -55,6 +57,7 @@ function click(el: Element, init: MouseEventInit = {}): boolean {
 
 beforeEach(() => {
   play.mockClear();
+  needsLaunchConfirm.value = false;
 });
 
 describe("GameActionBtn: launch links", () => {
@@ -88,6 +91,22 @@ describe("GameActionBtn: launch links", () => {
 
     expect(click(wrapper.get("a").element, { ctrlKey: true })).toBe(false);
     expect(play).not.toHaveBeenCalled();
+  });
+
+  it("leaves a non-primary click to the browser too", () => {
+    const wrapper = mountBtn({ link: true });
+
+    expect(click(wrapper.get("a").element, { button: 1 })).toBe(false);
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it("keeps a shelved game's launch as a button so it always confirms", () => {
+    needsLaunchConfirm.value = true;
+    const wrapper = mountBtn({ link: true });
+
+    expect(wrapper.find("a").exists()).toBe(false);
+    click(wrapper.get("button.r-v2-game-btn").element, { ctrlKey: true });
+    expect(play).toHaveBeenCalledWith("local");
   });
 
   it("keeps the other actions as buttons even when asked to link", () => {

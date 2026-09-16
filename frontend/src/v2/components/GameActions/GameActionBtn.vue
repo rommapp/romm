@@ -301,9 +301,10 @@ const displayedIcon = computed(
 );
 
 // Only the launch actions lead to a document of their own; with `link` they
-// render as anchors to it so the player can be opened in a new tab.
+// render as anchors to it so the player can be opened in a new tab. A shelved
+// game keeps the button: every launch must pass `play()`'s confirmation.
 const linkHref = computed<string | null>(() => {
-  if (!props.link) return null;
+  if (!props.link || actions.needsLaunchConfirm.value) return null;
   if (props.action === "play") return actions.playPath("local");
   if (props.action === "stream") return actions.playPath("stream");
   return null;
@@ -352,11 +353,11 @@ function clearAllStatus() {
   statusOpen.value = false;
 }
 
-// Modified clicks on a launch anchor stay with the browser (new tab); plain
-// ones still go through `play()` for its confirmation and full-document load.
+// Modified and non-primary clicks on a launch anchor stay with the browser
+// (new tab); plain ones still go through `play()` for its full-document load.
 function onClick(e: MouseEvent) {
   if (props.action === "more" || props.action === "status") return;
-  if (linkHref.value && opensInNewContext(e)) return;
+  if (linkHref.value && (e.button !== 0 || opensInNewContext(e))) return;
   e.preventDefault();
   e.stopPropagation();
   if (props.action === "collection") collectionOpen.value = true;

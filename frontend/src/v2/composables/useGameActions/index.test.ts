@@ -387,6 +387,30 @@ describe("useGameActions.play — launch confirmation", () => {
   });
 });
 
+describe("useGameActions.needsLaunchConfirm", () => {
+  it.each(["retired", "never_playing"] as const)(
+    "asks before launching a %s game",
+    (status) => {
+      expect(
+        useGameActions(() => makeRom(status)).needsLaunchConfirm.value,
+      ).toBe(true);
+    },
+  );
+
+  it("asks nothing for a game that is not shelved", () => {
+    expect(useGameActions(() => makeRom()).needsLaunchConfirm.value).toBe(
+      false,
+    );
+  });
+
+  it("asks nothing when the preference is disabled", () => {
+    confirmProtectedLaunch.value = false;
+    expect(
+      useGameActions(() => makeRom("retired")).needsLaunchConfirm.value,
+    ).toBe(false);
+  });
+});
+
 describe("useGameActions.playPath", () => {
   it("points the local launch at EmulatorJS", () => {
     const actions = useGameActions(() => makeRom());
