@@ -193,6 +193,10 @@ export function createSaveSyncTracker() {
   let lastUploaded: Uint8Array | null = null;
   let baseline: Uint8Array | null = null;
   let previousTick: Uint8Array | null = null;
+  // Bytes the server does not hold: neither the last upload nor the SRAM the
+  // session started from.
+  const hasChanges = (save: Uint8Array): boolean =>
+    !bytesEqual(save, lastUploaded) && !bytesEqual(save, baseline);
   return {
     // Bytes downloaded from the server: neither the tick nor a forced write
     // needs to send them back.
@@ -211,10 +215,11 @@ export function createSaveSyncTracker() {
     shouldUpload(save: Uint8Array): boolean {
       const stable = bytesEqual(save, previousTick);
       previousTick = save;
-      return (
-        stable && !bytesEqual(save, lastUploaded) && !bytesEqual(save, baseline)
-      );
+      return stable && hasChanges(save);
     },
+    // Leaving the player cannot wait for a second tick, so it uploads on
+    // this alone.
+    hasChanges,
     markUploaded(save: Uint8Array) {
       lastUploaded = save;
       baseline = null;

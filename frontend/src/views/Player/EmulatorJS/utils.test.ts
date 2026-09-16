@@ -186,6 +186,18 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
   });
 
+  it("reports pending changes without waiting for a second tick", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    expect(tracker.hasChanges(bytes(9, 9))).toBe(false);
+    expect(tracker.hasChanges(a)).toBe(true);
+    tracker.markUploaded(a);
+    expect(tracker.hasChanges(bytes(1, 2, 3))).toBe(false);
+    tracker.baseline(b);
+    expect(tracker.hasChanges(bytes(4, 5, 6))).toBe(false);
+    expect(tracker.hasChanges(a)).toBe(true);
+  });
+
   it("never uploads a value that keeps changing between ticks", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(null);

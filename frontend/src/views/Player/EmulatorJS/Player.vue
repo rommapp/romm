@@ -2,7 +2,7 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 import type {
   FirmwareSchema,
@@ -345,10 +345,13 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 const STATE_APPLY_SETTLE_MS = 500;
 
 // Periodic save upload on the "saveSaveFiles" tick (see createSaveSyncTracker).
-// EmulatorJS flushes the SRAM only on its "System Save interval" (5 minutes by
-// default), so a faster flush here gets an in-game save to the server seconds
-// after the game writes it.
-const SAVE_SYNC_POLL_MS = 5000;
+// The core exposes no write hook for its SRAM and EmulatorJS flushes it only on
+// its "System Save interval" (5 minutes by default), so polling it every second
+// is what gets an in-game save to the server right after the game writes it.
+const SAVE_SYNC_POLL_MS = 1000;
+// Each tick copies and compares the whole SRAM, so the interval grows with it
+// past 1 MB (1 ms of work per second either way) rather than hitching big saves.
+const SAVE_SYNC_BYTES_PER_MS = 1024;
 // EmulatorJS has no `off`: the handler stays subscribed and this slot is what
 // tells it the component still owns it.
 let autoSaveSyncEmulator: object | null = null;
@@ -378,15 +381,38 @@ function installAutoSaveSync() {
       uploading = false;
     }
   });
-  autoSaveSyncTimer = setInterval(() => {
-    if (emulator.started) emulator.gameManager.saveSaveFiles();
-  }, SAVE_SYNC_POLL_MS);
+  const sramBytes = emulator.gameManager.getSaveFile(false)?.byteLength ?? 0;
+  autoSaveSyncTimer = setInterval(
+    () => {
+      if (emulator.started) emulator.gameManager.saveSaveFiles();
+    },
+    Math.max(SAVE_SYNC_POLL_MS, sramBytes / SAVE_SYNC_BYTES_PER_MS),
+  );
 }
 function uninstallAutoSaveSync() {
   autoSaveSyncEmulator = null;
   if (autoSaveSyncTimer) clearInterval(autoSaveSyncTimer);
   autoSaveSyncTimer = null;
 }
+// A save written right before Quit or a back navigation has not had its two
+// ticks yet, so leaving the player uploads whatever the server lacks.
+async function flushPendingSave() {
+  const emulator = window.EJS_emulator;
+  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
+  uninstallAutoSaveSync();
+  emulator.pause();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
+  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  try {
+    if (await writeSave({ saveFile: toArrayBuffer(saveFile) })) {
+      romsStore.update(romRef.value);
+    }
+  } catch (error) {
+    console.error("Save sync on exit failed", error);
+  }
+}
+onBeforeRouteLeave(flushPendingSave);
 
 // Saves management
 async function loadSave(save: SaveSchema) {
