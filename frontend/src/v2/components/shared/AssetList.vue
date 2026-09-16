@@ -12,11 +12,13 @@
 //   * manage (selectable=false) — Save data subtab. Rows are static; the
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
-import { RAvatar, RBtn, RIcon, RTag, RTooltip } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { RBtn, RIcon, RTag, RTooltip } from "@v2/lib";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
+import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byUpdatedDesc,
   ownerOf,
@@ -27,7 +29,6 @@ import {
   type AssetType,
 } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
-import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -113,30 +114,19 @@ const groups = computed<SlotGroup[]>(() => {
   );
 });
 
-// Older versions stay folded until opened, or until one of them is selected;
-// an explicit toggle wins until the selection moves into the group again.
-const openGroups = ref(new Map<string, boolean>());
-function holdsOlderSelection(group: SlotGroup): boolean {
-  return (
+// Older versions stay folded until opened or until one of them is selected.
+const fold = useGroupFold<SlotGroup>({
+  groups,
+  keyOf: (group) => group.key,
+  holdsSelection: (group) =>
     props.selectable &&
-    group.versions.slice(1).some((asset) => asset.id === props.selectedId)
-  );
-}
+    group.versions.slice(1).some((asset) => asset.id === props.selectedId),
+  defaultOpen: () => false,
+  selectedId: () => props.selectedId,
+});
 function isExpanded(group: SlotGroup): boolean {
-  if (!grouped.value) return true;
-  return openGroups.value.get(group.key) ?? holdsOlderSelection(group);
+  return !grouped.value || fold.isOpen(group);
 }
-function toggleExpanded(group: SlotGroup) {
-  openGroups.value.set(group.key, !isExpanded(group));
-}
-watch(
-  () => props.selectedId,
-  () => {
-    for (const group of groups.value) {
-      if (holdsOlderSelection(group)) openGroups.value.delete(group.key);
-    }
-  },
-);
 function visibleVersions(group: SlotGroup): Asset[] {
   return isExpanded(group) ? group.versions : group.versions.slice(0, 1);
 }
@@ -169,19 +159,10 @@ const fadeIndex = computed(() =>
           <span class="r-asset-list__group-title">
             {{ group.slot ?? t("play.slot-none") }}
           </span>
-          <span v-if="showOwner && group.owner" class="r-asset-list__owner">
-            <RAvatar
-              :image="
-                userAvatarUrl({
-                  userId: group.owner.user_id,
-                  avatarPath: group.owner.user_avatar_path,
-                  updatedAt: group.owner.user_updated_at,
-                })
-              "
-              :size="16"
-            />
-            <span>{{ group.owner.username }}</span>
-          </span>
+          <AssetOwnerChip
+            v-if="showOwner && group.owner"
+            :owner="group.owner"
+          />
           <span class="r-asset-list__group-count">
             {{ t("play.slot-versions", group.versions.length) }}
           </span>
@@ -228,22 +209,10 @@ const fadeIndex = computed(() =>
               <span class="r-asset-list__main">
                 <span class="r-asset-list__name">{{ asset.file_name }}</span>
                 <span class="r-asset-list__chips">
-                  <span
+                  <AssetOwnerChip
                     v-if="!grouped && showOwner && ownerOf(asset)"
-                    class="r-asset-list__owner"
-                  >
-                    <RAvatar
-                      :image="
-                        userAvatarUrl({
-                          userId: ownerOf(asset)!.user_id,
-                          avatarPath: ownerOf(asset)!.user_avatar_path,
-                          updatedAt: ownerOf(asset)!.user_updated_at,
-                        })
-                      "
-                      :size="16"
-                    />
-                    <span>{{ ownerOf(asset)!.username }}</span>
-                  </span>
+                    :owner="ownerOf(asset)!"
+                  />
                   <RTag
                     v-if="grouped && i === 0 && group.versions.length > 1"
                     tone="brand"
@@ -316,7 +285,7 @@ const fadeIndex = computed(() =>
             isExpanded(group) ? 'mdi-chevron-up' : 'mdi-chevron-down'
           "
           :aria-expanded="isExpanded(group)"
-          @click="toggleExpanded(group)"
+          @click="fold.toggle(group)"
         >
           {{
             isExpanded(group)
@@ -524,16 +493,6 @@ const fadeIndex = computed(() =>
   font-size: 10px;
   color: var(--r-color-fg-secondary);
 }
-/* Author chip on community rows: avatar + username. */
-.r-asset-list__owner {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg);
-}
-
 .r-asset-list__time {
   display: flex;
   flex-direction: column;

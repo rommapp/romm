@@ -91,6 +91,7 @@ import {
   isSlotChoice,
   preferredSlot,
   slotChoiceKey,
+  slotChoiceTitle,
   slotChoices,
   slotForSave,
   type SlotChoice,
@@ -526,8 +527,6 @@ const slotChoice = ref<SlotChoice>(existingSlot(AUTOSAVE_SLOT));
 const customSlot = ref("");
 const boundSlot = computed(() => resume.value.save?.slot || null);
 const slotItems = computed(() => slotChoices(rom.value?.user_saves ?? []));
-const slotChoiceTitle = (choice: SlotChoice) =>
-  choice.kind === "new" ? t("play.new-slot") : choice.slot;
 function onSlotChoice(value: unknown) {
   if (isSlotChoice(value)) slotChoice.value = value;
 }
@@ -616,79 +615,89 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           :class="{ 'r-v2-ejs__resume-body--split': !isSavesTabSelected }"
         >
           <div class="r-v2-ejs__resume-side">
-            <AssetPreview
-              :asset="selectedAsset"
-              :type="activeAssetTab"
-              :state-armed="!!resume.state"
-              @clear="clearSelectedAsset"
-            />
-            <RAlert
-              v-if="newerAsset"
-              type="warning"
-              density="compact"
-              :text="
-                t(
-                  newerAsset.kind === 'save'
-                    ? 'play.newer-save-warning'
-                    : 'play.newer-state-warning',
-                  { time: formatRelativeDate(newerAsset.asset.updated_at) },
-                )
-              "
+            <div
+              v-if="!isSavesTabSelected"
+              class="r-v2-ejs__strip-label"
+              aria-hidden="true"
             >
-              <template #actions>
-                <RBtn variant="outlined" size="small" @click="bootFromNewer">
-                  {{
-                    newerAsset.kind === "save"
-                      ? t("play.boot-from-save")
-                      : t("play.boot-from-state")
-                  }}
-                </RBtn>
-              </template>
-            </RAlert>
+              <span>{{ t("play.resume-from-state") }}</span>
+            </div>
+            <div class="r-v2-ejs__resume-side-body">
+              <AssetPreview
+                :asset="selectedAsset"
+                :type="activeAssetTab"
+                :show-heading="isSavesTabSelected"
+                :state-armed="!!resume.state"
+                @clear="clearSelectedAsset"
+              />
+              <RAlert
+                v-if="newerAsset"
+                type="warning"
+                density="compact"
+                :text="
+                  t(
+                    newerAsset.kind === 'save'
+                      ? 'play.newer-save-warning'
+                      : 'play.newer-state-warning',
+                    { time: formatRelativeDate(newerAsset.asset.updated_at) },
+                  )
+                "
+              >
+                <template #actions>
+                  <RBtn variant="outlined" size="small" @click="bootFromNewer">
+                    {{
+                      newerAsset.kind === "save"
+                        ? t("play.boot-from-save")
+                        : t("play.boot-from-state")
+                    }}
+                  </RBtn>
+                </template>
+              </RAlert>
 
-            <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
-              <div class="r-v2-ejs__slot-row">
-                <RSelect
-                  class="r-v2-ejs__slot-select"
-                  :model-value="slotChoice"
-                  :disabled="!!boundSlot"
+              <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
+                <div class="r-v2-ejs__slot-row">
+                  <RSelect
+                    class="r-v2-ejs__slot-select"
+                    :model-value="slotChoice"
+                    :disabled="!!boundSlot"
+                    variant="outlined"
+                    density="compact"
+                    prefix-label="inline"
+                    hide-details
+                    :items="slotItems"
+                    :item-title="slotChoiceTitle"
+                    :item-value="slotChoiceKey"
+                    return-object
+                    @update:model-value="onSlotChoice"
+                  >
+                    <template #prefix-label>
+                      <RIcon icon="mdi-content-save-all-outline" size="14" />
+                      {{ t("play.slot") }}
+                    </template>
+                  </RSelect>
+                  <button
+                    type="button"
+                    class="r-v2-ejs__slot-info"
+                    :aria-label="t('play.slot-tooltip')"
+                  >
+                    <RIcon icon="mdi-information-outline" size="16" />
+                    <RTooltip activator="parent" location="top" open-on-tap>
+                      {{ t("play.slot-tooltip") }}
+                    </RTooltip>
+                  </button>
+                </div>
+                <RTextField
+                  v-if="!boundSlot && slotChoice.kind === 'new'"
+                  v-model="customSlot"
                   variant="outlined"
                   density="compact"
                   prefix-label="inline"
                   hide-details
-                  :items="slotItems"
-                  :item-title="slotChoiceTitle"
-                  :item-value="slotChoiceKey"
-                  return-object
-                  @update:model-value="onSlotChoice"
-                >
-                  <template #prefix-label>
-                    <RIcon icon="mdi-content-save-all-outline" size="14" />
-                    {{ t("play.slot") }}
-                  </template>
-                </RSelect>
-                <button
-                  type="button"
-                  class="r-v2-ejs__slot-info"
-                  :aria-label="t('play.slot-tooltip')"
-                >
-                  <RIcon icon="mdi-information-outline" size="16" />
-                  <RTooltip activator="parent" location="top" open-on-tap>
-                    {{ t("play.slot-tooltip") }}
-                  </RTooltip>
-                </button>
+                  :maxlength="SAVE_SLOT_MAX_LENGTH"
+                  :label="t('play.slot-name')"
+                  :placeholder="AUTOSAVE_SLOT"
+                />
               </div>
-              <RTextField
-                v-if="!boundSlot && slotChoice.kind === 'new'"
-                v-model="customSlot"
-                variant="outlined"
-                density="compact"
-                prefix-label="inline"
-                hide-details
-                :maxlength="SAVE_SLOT_MAX_LENGTH"
-                :label="t('play.slot-name')"
-                :placeholder="AUTOSAVE_SLOT"
-              />
             </div>
           </div>
 
@@ -977,6 +986,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   min-height: 0;
 }
 .r-v2-ejs__resume-side,
+.r-v2-ejs__resume-side-body,
 .r-v2-ejs__resume-main {
   display: flex;
   flex-direction: column;
@@ -988,25 +998,40 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   flex: 1;
 }
 /* States on a wide screen: the grid keeps the panel's width and the preview
-   column stays fixed. Saves keep the stacked column, their rows are wide. */
+   column stays fixed. Saves keep the stacked column, their rows are wide.
+   Both columns subgrid their label and content rows, so the two labels and
+   then the stage and the first tile row line up. */
 html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  grid-template-rows: minmax(0, 1fr);
-  align-items: start;
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 10px;
+}
+html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split .r-v2-ejs__resume-main,
+html[data-bp~="md-and-up"]
+  .r-v2-ejs__resume-body--split
+  .r-v2-ejs__resume-side {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 2;
+  gap: 0;
 }
 html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-body--split
   .r-v2-ejs__resume-main {
   order: -1;
-  height: 100%; /* 6px plus the tile track's 4px top padding equals the preview's
-     label-to-stage gap, so the stage lines up with the first tile row. */
-  gap: 6px;
 }
 html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-body--split
   .r-v2-ejs__strip-label {
   margin-top: 0;
+}
+/* The tile track keeps a 4px inset for its hover lift; match it. */
+html[data-bp~="md-and-up"]
+  .r-v2-ejs__resume-body--split
+  .r-v2-ejs__resume-side-body {
+  padding-top: 4px;
 }
 /* Beside the grid the stage can afford the screenshots' own ratio, which
    also gives the empty copy room. */

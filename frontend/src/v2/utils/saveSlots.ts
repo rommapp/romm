@@ -1,4 +1,5 @@
 import type { SaveSchema } from "@/__generated__";
+import i18n from "@/locales";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
 
 /** The slot of the newest slotted save, where progress should keep going. */
@@ -38,6 +39,10 @@ export function slotChoices(
     ...[AUTOSAVE_SLOT, ...new Set(named)].map(existingSlot),
     NEW_SLOT_CHOICE,
   ];
+}
+
+export function slotChoiceTitle(choice: SlotChoice): string {
+  return choice.kind === "new" ? i18n.global.t("play.new-slot") : choice.slot;
 }
 
 /** Identity for select matching: no slot name can collide with the new entry. */

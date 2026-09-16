@@ -196,6 +196,38 @@ class DBSavesHandler(DBBaseHandler):
         return session.query(Save).filter_by(id=id).one()
 
     @begin_session
+    def prune_slot(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        keep: int,
+        session: Session = None,  # type: ignore
+    ) -> list[tuple[str, str, str]]:
+        """Delete every version of a slot past the ``keep`` newest.
+
+        The rows are locked while they are listed and deleted, so two uploads
+        pruning the same slot cannot both keep a version the other dropped.
+
+        Returns:
+            ``(file_path, file_name, file_name_no_ext)`` of each deleted version.
+        """
+        rows = session.execute(
+            select(Save.id, Save.file_path, Save.file_name, Save.file_name_no_ext)
+            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
+            .order_by(desc(Save.updated_at), desc(Save.id))
+            .offset(keep)
+            .with_for_update()
+        ).all()
+        if rows:
+            session.execute(
+                delete(Save)
+                .where(Save.id.in_([row.id for row in rows]))
+                .execution_options(synchronize_session="evaluate")
+            )
+        return [(row.file_path, row.file_name, row.file_name_no_ext) for row in rows]
+
+    @begin_session
     def delete_save(
         self,
         id: int,

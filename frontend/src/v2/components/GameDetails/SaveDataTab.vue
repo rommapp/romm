@@ -139,6 +139,9 @@ const uploadDialog = ref<{ type: AssetType; files: File[] } | null>(null);
 function openUpload(type: AssetType, files: File[] = []) {
   uploadDialog.value = { type, files };
 }
+function closeUpload() {
+  uploadDialog.value = null;
+}
 // The cores the player offers plus whatever the existing states carry.
 const uploadCores = computed(() => {
   const cores = new Set(
@@ -629,7 +632,7 @@ async function toggleStateVisibility(state: StateSchema) {
       :saves="mySaves"
       :cores="uploadCores"
       :initial-files="uploadDialog?.files ?? []"
-      @update:model-value="(open: boolean) => !open && (uploadDialog = null)"
+      @update:model-value="!$event && closeUpload()"
       @submit="onUploadSubmit"
     />
   </div>

@@ -1760,33 +1760,50 @@ class TestSlotValidation:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+def _seed_slot_saves(
+    admin_user: User, rom: Rom, platform: Platform, slot: str, count: int
+) -> list[Save]:
+    """``count`` versions of ``slot``, one hour apart, oldest first."""
+    from datetime import datetime, timedelta, timezone
+
+    saves = []
+    base_time = datetime.now(timezone.utc) - timedelta(hours=20)
+    for i in range(count):
+        created = db_save_handler.add_save(
+            _slot_save(admin_user, rom, platform, f"{slot}_{i}", slot, 100 + i)
+        )
+        db_save_handler.update_save(
+            created.id, {"updated_at": base_time + timedelta(hours=i)}
+        )
+        saves.append(created)
+    return saves
+
+
+def _slot_save(
+    admin_user: User,
+    rom: Rom,
+    platform: Platform,
+    stem: str,
+    slot: str | None,
+    size: int = 100,
+) -> Save:
+    return Save(
+        file_name=f"{stem}.sav",
+        file_name_no_tags=stem,
+        file_name_no_ext=stem,
+        file_extension="sav",
+        file_path=f"{platform.slug}/saves",
+        file_size_bytes=size,
+        rom_id=rom.id,
+        user_id=admin_user.id,
+        slot=slot,
+    )
+
+
 class TestAutocleanup:
     @pytest.fixture
     def slot_saves(self, admin_user: User, rom: Rom, platform: Platform) -> list[Save]:
-        from datetime import datetime, timedelta, timezone
-
-        from handler.database import db_save_handler
-
-        saves = []
-        base_time = datetime.now(timezone.utc) - timedelta(hours=20)
-        for i in range(15):
-            save = Save(
-                file_name=f"autosave_{i}.sav",
-                file_name_no_tags=f"autosave_{i}",
-                file_name_no_ext=f"autosave_{i}",
-                file_extension="sav",
-                file_path=f"{platform.slug}/saves",
-                file_size_bytes=100 + i,
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                slot="autosave",
-            )
-            created = db_save_handler.add_save(save)
-            db_save_handler.update_save(
-                created.id, {"updated_at": base_time + timedelta(hours=i)}
-            )
-            saves.append(created)
-        return saves
+        return _seed_slot_saves(admin_user, rom, platform, "autosave", 15)
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -1987,29 +2004,7 @@ class TestSlotRetention:
     def named_slot_saves(
         self, admin_user: User, rom: Rom, platform: Platform
     ) -> list[Save]:
-        from datetime import datetime, timedelta, timezone
-
-        saves = []
-        base_time = datetime.now(timezone.utc) - timedelta(hours=20)
-        for i in range(5):
-            created = db_save_handler.add_save(
-                Save(
-                    file_name=f"main_quest_{i}.sav",
-                    file_name_no_tags=f"main_quest_{i}",
-                    file_name_no_ext=f"main_quest_{i}",
-                    file_extension="sav",
-                    file_path=f"{platform.slug}/saves",
-                    file_size_bytes=100 + i,
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                    slot="main_quest",
-                )
-            )
-            db_save_handler.update_save(
-                created.id, {"updated_at": base_time + timedelta(hours=i)}
-            )
-            saves.append(created)
-        return saves
+        return _seed_slot_saves(admin_user, rom, platform, "main_quest", 5)
 
     def _upload(self, client, access_token: str, rom: Rom, query: str = ""):
         return client.post(
@@ -2051,16 +2046,8 @@ class TestSlotRetention:
         admin_user: User,
         named_slot_saves: list[Save],
     ):
-        mock_scan.return_value = Save(
-            file_name="main_quest_new.sav",
-            file_name_no_tags="main_quest_new",
-            file_name_no_ext="main_quest_new",
-            file_extension="sav",
-            file_path=f"{platform.slug}/saves",
-            file_size_bytes=100,
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            slot="main_quest",
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "main_quest_new", "main_quest"
         )
 
         with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 3):
@@ -2092,16 +2079,8 @@ class TestSlotRetention:
         admin_user: User,
         named_slot_saves: list[Save],
     ):
-        mock_scan.return_value = Save(
-            file_name="main_quest_new.sav",
-            file_name_no_tags="main_quest_new",
-            file_name_no_ext="main_quest_new",
-            file_extension="sav",
-            file_path=f"{platform.slug}/saves",
-            file_size_bytes=100,
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            slot="main_quest",
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "main_quest_new", "main_quest"
         )
 
         with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 4):
@@ -2134,16 +2113,8 @@ class TestSlotRetention:
         admin_user: User,
         named_slot_saves: list[Save],
     ):
-        mock_scan.return_value = Save(
-            file_name="main_quest_new.sav",
-            file_name_no_tags="main_quest_new",
-            file_name_no_ext="main_quest_new",
-            file_extension="sav",
-            file_path=f"{platform.slug}/saves",
-            file_size_bytes=100,
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            slot="main_quest",
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "main_quest_new", "main_quest"
         )
 
         with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 2):
@@ -2176,16 +2147,8 @@ class TestSlotRetention:
         admin_user: User,
         named_slot_saves: list[Save],
     ):
-        mock_scan.return_value = Save(
-            file_name="main_quest_new.sav",
-            file_name_no_tags="main_quest_new",
-            file_name_no_ext="main_quest_new",
-            file_extension="sav",
-            file_path=f"{platform.slug}/saves",
-            file_size_bytes=100,
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            slot="main_quest",
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "main_quest_new", "main_quest"
         )
 
         with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 0):
@@ -2214,15 +2177,8 @@ class TestSlotRetention:
         admin_user: User,
         named_slot_saves: list[Save],
     ):
-        mock_scan.return_value = Save(
-            file_name="main_quest_new.sav",
-            file_name_no_tags="main_quest_new",
-            file_name_no_ext="main_quest_new",
-            file_extension="sav",
-            file_path=f"{platform.slug}/saves",
-            file_size_bytes=100,
-            rom_id=rom.id,
-            user_id=admin_user.id,
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "main_quest_new", None
         )
 
         with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 1):

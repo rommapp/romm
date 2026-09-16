@@ -1,4 +1,5 @@
 import type { SaveSchema, StateSchema } from "@/__generated__";
+import { newest } from "@/v2/utils/assets";
 
 // What the player boots from and where progress is written back. A state
 // restores the whole machine, SRAM included, so it wins at boot.
@@ -50,16 +51,13 @@ export function newerThanPick(
 ): NewerAsset | null {
   const picked = selection.state ?? selection.save;
   if (!picked) return null;
-  const candidates: NewerAsset[] = [
-    ...saves.map((asset) => ({ kind: "save", asset }) as const),
-    ...compatibleStates.map((asset) => ({ kind: "state", asset }) as const),
-  ];
-  const newest = candidates.reduce<NewerAsset | null>(
-    (best, candidate) =>
-      !best || candidate.asset.updated_at > best.asset.updated_at
-        ? candidate
-        : best,
-    null,
-  );
-  return newest && newest.asset.updated_at > picked.updated_at ? newest : null;
+  const save = newest(saves);
+  const state = newest(compatibleStates);
+  const candidate: NewerAsset | null =
+    state && (!save || state.updated_at > save.updated_at)
+      ? { kind: "state", asset: state }
+      : save && { kind: "save", asset: save };
+  return candidate && candidate.asset.updated_at > picked.updated_at
+    ? candidate
+    : null;
 }

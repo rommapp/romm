@@ -1,26 +1,18 @@
 <script setup lang="ts">
 // UploadAssetDialog: the slot for saves, or the core for states, plus the
 // files to send. The Save data tab owns the upload.
-import {
-  RBtn,
-  RChip,
-  RDialog,
-  RDropzone,
-  RForm,
-  RIcon,
-  RSelect,
-  RTextField,
-} from "@v2/lib";
+import { RBtn, RDialog, RForm, RIcon, RSelect, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema } from "@/__generated__";
 import { SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
-import { formatBytes } from "@/utils";
+import PendingFilesDropzone from "@/v2/components/shared/PendingFilesDropzone.vue";
 import type { AssetType } from "@/v2/utils/assets";
 import {
   chosenSlot,
   isSlotChoice,
   slotChoiceKey,
+  slotChoiceTitle,
   slotChoices,
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
@@ -60,21 +52,26 @@ const newSlotName = ref("");
 const core = ref("");
 const files = ref<File[]>([]);
 const formRef = ref<InstanceType<typeof RForm> | null>(null);
-const filledDz = ref<InstanceType<typeof RDropzone> | null>(null);
 
 const slotItems = computed<UploadSlot[]>(() => [
   NO_SLOT,
   ...slotChoices(props.saves),
 ]);
-const slotTitle = (choice: UploadSlot) => {
-  if (choice.kind === "none") return t("play.slot-none");
-  return choice.kind === "new" ? t("play.new-slot") : choice.slot;
-};
+const slotTitle = (choice: UploadSlot) =>
+  choice.kind === "none" ? t("play.slot-none") : slotChoiceTitle(choice);
 const slotKey = (choice: UploadSlot) =>
   choice.kind === "none" ? "none" : slotChoiceKey(choice);
+function isUploadSlot(value: unknown): value is UploadSlot {
+  return (
+    isSlotChoice(value) ||
+    (typeof value === "object" &&
+      value !== null &&
+      "kind" in value &&
+      value.kind === "none")
+  );
+}
 function onSlot(value: unknown) {
-  if (isSlotChoice(value)) slot.value = value;
-  else if (value === NO_SLOT) slot.value = NO_SLOT;
+  if (isUploadSlot(value)) slot.value = value;
 }
 
 const coreItems = computed(() => [
@@ -98,10 +95,6 @@ watch(
 function addFiles(picked: File[]) {
   const seen = new Set(files.value.map((f) => f.name));
   files.value = [...files.value, ...picked.filter((f) => !seen.has(f.name))];
-}
-
-function removeFile(name: string) {
-  files.value = files.value.filter((f) => f.name !== name);
 }
 
 function close() {
@@ -175,61 +168,10 @@ async function submit() {
             {{ t("common.core") }}
           </template>
         </RSelect>
-        <RDropzone
-          v-if="files.length === 0"
-          :title="t('common.dropzone-title')"
-          :hint="t('common.dropzone-hint')"
-          :active-title="t('common.dropzone-drag-over')"
+        <PendingFilesDropzone
+          v-model="files"
           :input-label="t('common.upload')"
-          multiple
-          @files="addFiles"
         />
-        <RDropzone
-          v-else
-          ref="filledDz"
-          overlay
-          :release-label="t('common.dropzone-drag-over')"
-          :input-label="t('common.upload')"
-          multiple
-          @files="addFiles"
-        >
-          <div class="r-v2-upload-asset__filled">
-            <header class="r-v2-upload-asset__head">
-              <span>
-                {{ t("common.upload-files-selected", { count: files.length }) }}
-              </span>
-              <RBtn
-                variant="text"
-                size="small"
-                prepend-icon="mdi-plus"
-                @click="filledDz?.open()"
-              >
-                {{ t("common.add") }}
-              </RBtn>
-            </header>
-            <ul class="r-v2-upload-asset__list">
-              <li
-                v-for="f in files"
-                :key="f.name"
-                class="r-v2-upload-asset__row"
-              >
-                <RIcon icon="mdi-file-outline" size="14" />
-                <span class="r-v2-upload-asset__name">{{ f.name }}</span>
-                <RChip size="x-small" variant="translucent">
-                  {{ formatBytes(f.size) }}
-                </RChip>
-                <RBtn
-                  variant="text"
-                  size="x-small"
-                  icon="mdi-close"
-                  color="danger"
-                  :aria-label="t('common.remove')"
-                  @click="removeFile(f.name)"
-                />
-              </li>
-            </ul>
-          </div>
-        </RDropzone>
       </RForm>
     </template>
     <template #footer>
@@ -255,46 +197,5 @@ async function submit() {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.r-v2-upload-asset__filled {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.r-v2-upload-asset__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.85rem;
-}
-
-.r-v2-upload-asset__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 240px;
-  overflow-y: auto;
-}
-
-.r-v2-upload-asset__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.r-v2-upload-asset__name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.85rem;
 }
 </style>

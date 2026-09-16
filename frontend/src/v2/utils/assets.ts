@@ -22,10 +22,12 @@ export function byUpdatedDesc(a: Asset, b: Asset): number {
   return b.updated_at.localeCompare(a.updated_at);
 }
 
-export function newestUpdatedAt(assets: readonly Asset[]): string {
-  return assets.reduce(
-    (best, asset) => (asset.updated_at > best ? asset.updated_at : best),
-    "",
+export function newest<T extends { updated_at: string }>(
+  items: readonly T[],
+): T | null {
+  return items.reduce<T | null>(
+    (best, item) => (!best || item.updated_at > best.updated_at ? item : best),
+    null,
   );
 }
 

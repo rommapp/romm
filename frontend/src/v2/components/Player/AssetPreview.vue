@@ -213,10 +213,6 @@ const emptyText = computed(() =>
 
 .r-asset-preview__eyebrow {
   margin: 0;
-  /* Same row height as the list label beside it, so the two line up. */
-  display: flex;
-  align-items: center;
-  min-height: 18px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 10px;

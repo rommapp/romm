@@ -1,37 +1,15 @@
 <script setup lang="ts">
-// Strip / grid of save/state tiles. Shared between the EmulatorJS pre-game
-// view (selection) and the GameDetails "Save data" subtab (management).
-//
-// State tiles show their 16:9 screenshot prominently; saves fall back
-// to a large save icon. The currently-selected tile gets a brand-color
-// ring + check badge so it reads as "you're about to resume from this
-// one". Hovering lifts the tile; tiles are focusable for gamepad/key
-// navigation.
-//
-// Layout (`layout`), all sharing one tile markup:
-//   * strip (default) - Play view. Single horizontal row, scroll + snap,
-//     never wraps; tiles shrink on narrow screens.
-//   * flow - Save data subtab. Tiles flow into a responsive grid that grows
-//     with its content instead of scrolling.
-//   * grid - fixed 4 columns (2 on xs) in a capped, vertically scrolling
-//     box. Source order is preserved, so a newest-first list reads top-left.
-//   * list - rows with no thumbnail and the meta split into columns. Fits
-//     the most entries per pixel, for long save-state histories.
-//
-// Modes (`selectable`):
-//   * selectable (default) — tiles are buttons; clicking emits `select`;
-//     the chosen tile gets a brand ring + check badge.
-//   * manage (selectable=false) — tiles are static; the `#actions` slot
-//     renders below the meta, and `showOwner` adds an author chip.
-//
-// `groupBy="emulator"` folds the tiles into one collapsible group per core,
-// loadable cores first; a group whose tiles are all disabled starts closed.
-import { RAvatar, RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+// Tile strip or grid of saves/states, shared between the launch screens
+// (selection) and the GameDetails "Save data" subtab (management). See the
+// props for the layouts and modes; `groupBy="emulator"` folds the tiles into
+// one collapsible group per core, loadable cores first.
+import { RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
+import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
-  newestUpdatedAt,
   ownerOf,
   screenshotOf,
   staggerIndex,
@@ -39,7 +17,6 @@ import {
   type AssetType,
 } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
-import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -94,11 +71,21 @@ interface AssetGroup {
   assets: Asset[];
   /** Every tile disabled: nothing in this group can be picked. */
   disabled: boolean;
+  newest: string;
 }
 
 const groups = computed<AssetGroup[]>(() => {
+  if (props.assets.length === 0) return [];
   if (!props.groupBy) {
-    return [{ key: "all", label: "", assets: props.assets, disabled: false }];
+    return [
+      {
+        key: "all",
+        label: "",
+        assets: props.assets,
+        disabled: false,
+        newest: "",
+      },
+    ];
   }
   const byKey = new Map<string, AssetGroup>();
   for (const asset of props.assets) {
@@ -110,52 +97,34 @@ const groups = computed<AssetGroup[]>(() => {
         label: key || t("play.any-core"),
         assets: [],
         disabled: true,
+        newest: "",
       };
       byKey.set(key, group);
     }
     group.assets.push(asset);
     if (!reasonOf(asset)) group.disabled = false;
+    if (asset.updated_at > group.newest) group.newest = asset.updated_at;
   }
-  const newest = new Map(
-    [...byKey.values()].map((group) => [
-      group.key,
-      newestUpdatedAt(group.assets),
-    ]),
-  );
   return [...byKey.values()].sort(
     (a, b) =>
       Number(a.disabled) - Number(b.disabled) ||
-      newest.get(b.key)!.localeCompare(newest.get(a.key)!),
+      b.newest.localeCompare(a.newest),
   );
 });
 
-// Loadable groups start open and a group opens when it takes the selection;
-// an explicit toggle wins until the selection moves into the group again.
-const openGroups = ref(new Map<string, boolean>());
-function holdsSelection(group: AssetGroup): boolean {
-  return (
+// Loadable groups start open; a group opens when it takes the selection.
+const fold = useGroupFold<AssetGroup>({
+  groups,
+  keyOf: (group) => group.key,
+  holdsSelection: (group) =>
     props.selectable &&
-    group.assets.some((asset) => asset.id === props.selectedId)
-  );
-}
+    group.assets.some((asset) => asset.id === props.selectedId),
+  defaultOpen: (group) => !group.disabled,
+  selectedId: () => props.selectedId,
+});
 function isOpen(group: AssetGroup): boolean {
-  if (!props.groupBy) return true;
-  return (
-    openGroups.value.get(group.key) ??
-    (holdsSelection(group) || !group.disabled)
-  );
+  return !props.groupBy || fold.isOpen(group);
 }
-function toggleGroup(group: AssetGroup) {
-  openGroups.value.set(group.key, !isOpen(group));
-}
-watch(
-  () => props.selectedId,
-  () => {
-    for (const group of groups.value) {
-      if (holdsSelection(group)) openGroups.value.delete(group.key);
-    }
-  },
-);
 
 const fadeIndex = computed(() =>
   staggerIndex(
@@ -170,7 +139,7 @@ const fadeIndex = computed(() =>
     :class="[`r-asset-strip--${layout}`, { 'r-asset-strip--grouped': groupBy }]"
   >
     <div
-      v-for="group in assets.length > 0 ? groups : []"
+      v-for="group in groups"
       :key="group.key"
       class="r-asset-strip__group"
       :class="{ 'r-asset-strip__group--disabled': group.disabled }"
@@ -180,7 +149,7 @@ const fadeIndex = computed(() =>
         type="button"
         class="r-asset-strip__group-head"
         :aria-expanded="isOpen(group)"
-        @click="toggleGroup(group)"
+        @click="fold.toggle(group)"
       >
         <RIcon icon="mdi-chip" size="14" class="r-asset-strip__group-icon" />
         <span class="r-asset-strip__group-title">{{ group.label }}</span>
@@ -263,22 +232,12 @@ const fadeIndex = computed(() =>
                 <span class="r-asset-strip__dot" aria-hidden="true">·</span>
                 <span>{{ formatBytes(asset.file_size_bytes) }}</span>
               </p>
-              <span
+              <AssetOwnerChip
                 v-if="showOwner && ownerOf(asset)"
+                :owner="ownerOf(asset)!"
+                :size="14"
                 class="r-asset-strip__owner"
-              >
-                <RAvatar
-                  :image="
-                    userAvatarUrl({
-                      userId: ownerOf(asset)!.user_id,
-                      avatarPath: ownerOf(asset)!.user_avatar_path,
-                      updatedAt: ownerOf(asset)!.user_updated_at,
-                    })
-                  "
-                  :size="14"
-                />
-                <span>{{ ownerOf(asset)!.username }}</span>
-              </span>
+              />
             </div>
             <div v-if="!selectable" class="r-asset-strip__actions">
               <slot name="actions" :asset="asset" />

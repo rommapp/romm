@@ -28,7 +28,7 @@ from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import SAVE_SLOT_MAX_LENGTH, Save
+from models.assets import SAVE_SLOT_MAX_LENGTH, Save, Screenshot
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.datetime import to_utc
@@ -103,42 +103,43 @@ def _syncs_for_save(
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
 
 
-async def _remove_save_screenshot(save: Save) -> None:
-    screenshot = save.screenshot
+async def _remove_file(file_path: str, what: str) -> None:
+    try:
+        await fs_asset_handler.remove_file(file_path=file_path)
+    except FileNotFoundError:
+        log.error(f"{what} {hl(file_path)} not found on disk")
+
+
+async def _remove_screenshot(screenshot: Screenshot | None) -> None:
     if not screenshot:
         return
     db_screenshot_handler.delete_screenshot(screenshot.id)
-    try:
-        await fs_asset_handler.remove_file(
-            file_path=f"{screenshot.file_path}/{screenshot.file_name}"
-        )
-    except FileNotFoundError:
-        log.error(
-            f"Screenshot file {hl(screenshot.file_name)} not found for save "
-            f"{hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
-        )
+    await _remove_file(
+        f"{screenshot.file_path}/{screenshot.file_name}", "Screenshot file"
+    )
 
 
 async def _delete_save(save: Save) -> None:
-    """Drop a save row with its file and screenshot; a missing file is only logged."""
+    """Drop a save row with its file and screenshot."""
     db_save_handler.delete_save(save.id)
-    try:
-        await fs_asset_handler.remove_file(file_path=save.full_path)
-    except FileNotFoundError:
-        log.error(
-            f"Save file {hl(save.file_name)} not found for platform "
-            f"{hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
-        )
-    await _remove_save_screenshot(save)
+    await _remove_file(save.full_path, "Save file")
+    await _remove_screenshot(save.screenshot)
 
 
 async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
-    """Drop every version of ``slot`` past the ``keep`` newest."""
-    slot_saves = db_save_handler.get_saves(
-        user_id=user_id, rom_ids=[rom_id], slot=slot, order_by="updated_at"
-    )
-    for old_save in slot_saves[keep:]:
-        await _delete_save(old_save)
+    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
+    for file_path, file_name, file_name_no_ext in db_save_handler.prune_slot(
+        user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
+    ):
+        await _remove_file(f"{file_path}/{file_name}", "Save file")
+        await _remove_screenshot(
+            db_screenshot_handler.get_screenshot(
+                rom_id=rom_id,
+                user_id=user_id,
+                file_name=file_name,
+                file_name_no_ext=file_name_no_ext,
+            )
+        )
 
 
 def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:

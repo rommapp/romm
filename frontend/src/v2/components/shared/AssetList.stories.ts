@@ -16,15 +16,13 @@ function shot(hue: number): ScreenshotSchema {
   } as ScreenshotSchema;
 }
 
-let nextId = 1;
-
 // One version in `slot`, `hoursAgo` old. Pass `slot: null` for an archive.
 function makeSave(
+  id: number,
   slot: string | null,
   hoursAgo: number,
   overrides: Partial<SaveSchema> = {},
 ): SaveSchema {
-  const id = nextId++;
   const at = new Date(NOW - hoursAgo * HOUR).toISOString();
   // Slotted uploads carry the backend's datetime tag; archives keep their name.
   const stem = slot
@@ -52,23 +50,27 @@ function makeSave(
   } as SaveSchema;
 }
 
-// A slot with `count` versions, newest `hoursAgo` old, one per session.
-function makeSlot(slot: string, count: number, hoursAgo: number): SaveSchema[] {
+// A slot with `count` versions from `firstId`, newest `hoursAgo` old.
+function makeSlot(
+  slot: string,
+  count: number,
+  hoursAgo: number,
+  firstId: number,
+): SaveSchema[] {
   return Array.from({ length: count }).map((_, i) =>
-    makeSave(slot, hoursAgo + i * 26, {
+    makeSave(firstId + i, slot, hoursAgo + i * 26, {
       screenshot: shot((i * 47 + slot.length * 31) % 360),
     }),
   );
 }
 
 function library(): SaveSchema[] {
-  nextId = 1;
   return [
-    ...makeSlot("autosave", 4, 1),
-    ...makeSlot("main_quest", 6, 30),
-    ...makeSlot("speedrun", 1, 200),
-    makeSave(null, 500),
-    makeSave(null, 900, { emulator: null }),
+    ...makeSlot("autosave", 4, 1, 1),
+    ...makeSlot("main_quest", 6, 30, 5),
+    ...makeSlot("speedrun", 1, 200, 11),
+    makeSave(12, null, 500),
+    makeSave(13, null, 900, { emulator: null }),
   ];
 }
 
@@ -137,14 +139,13 @@ export const OlderVersionSelected: Story = {
 export const ArchiveOnly: Story = {
   name: "Archive only (no slots)",
   render: () => {
-    nextId = 1;
     const saves = [
-      makeSave(null, 3),
-      makeSave(null, 50, {
+      makeSave(1, null, 3),
+      makeSave(2, null, 50, {
         file_name:
           "the_legend_of_zelda_a_link_to_the_past_speedrun_attempt_27.srm",
       }),
-      makeSave(null, 400, { emulator: null }),
+      makeSave(3, null, 400, { emulator: null }),
     ];
     return selectable(saves, null);
   },
@@ -154,8 +155,7 @@ export const ArchiveOnly: Story = {
 export const SingleSave: Story = {
   name: "Single save",
   render: () => {
-    nextId = 1;
-    const saves = makeSlot("autosave", 1, 2);
+    const saves = makeSlot("autosave", 1, 2, 1);
     return selectable(saves, saves[0].id);
   },
 };
