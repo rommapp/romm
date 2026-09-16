@@ -33,10 +33,12 @@ REFRESH_LOCK_POLL_SECONDS = 0.1
 async def _refresh_lock(rom_id: int) -> AsyncIterator[None]:
     key = f"rom_files_refresh:{rom_id}"
     token = uuid4().hex
-    while not await async_cache.set(
-        key, token, nx=True, ex=REFRESH_LOCK_TIMEOUT_SECONDS
-    ):
+    for _ in range(int(REFRESH_LOCK_TIMEOUT_SECONDS / REFRESH_LOCK_POLL_SECONDS)):
+        if await async_cache.set(key, token, nx=True, ex=REFRESH_LOCK_TIMEOUT_SECONDS):
+            break
         await asyncio.sleep(REFRESH_LOCK_POLL_SECONDS)
+    else:
+        raise TimeoutError(f"Timed out waiting to refresh the files of ROM {rom_id}")
     try:
         yield
     finally:
