@@ -9,6 +9,7 @@
 // Per-ROM action menus are not app-wide: each GameCard owns its own
 // `MoreMenu` dropdown on the three-dots button. Right-click is left to
 // the browser so "Open in new tab" etc. keep working.
+import { useEventListener, useThrottleFn } from "@vueuse/core";
 import {
   defineAsyncComponent,
   onBeforeUnmount,
@@ -97,6 +98,22 @@ watch(
     void nativeStore.probe(platformsStore.allPlatforms.map((p) => p.slug));
   },
   { immediate: true },
+);
+
+// The answer describes the user's machine, so installing an emulator (through
+// the shell's own settings or anywhere else) changes it with nothing here to
+// notice. Re-asked when the window comes back, which is when whatever did the
+// installing has just been in front. Throttled because alt-tabbing is cheap
+// and the shell answers this off the filesystem; a no-op outside the shell.
+const NATIVE_REPROBE_THROTTLE_MS = 10_000;
+useEventListener(
+  window,
+  "focus",
+  useThrottleFn(() => {
+    const slugs = platformsStore.allPlatforms.map((p) => p.slug);
+    if (slugs.length === 0) return;
+    void nativeStore.probe(slugs, { force: true });
+  }, NATIVE_REPROBE_THROTTLE_MS),
 );
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).

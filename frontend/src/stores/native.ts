@@ -135,11 +135,21 @@ export const useNativeStore = defineStore("native", () => {
     });
   }
 
-  /** Ask the shell which of these platforms it can launch, and cache the
-   *  answers. Platforms already answered are skipped, so this can be called
-   *  again as the library grows. The cores come from the same EJS map the
-   *  in-browser Play button reads. */
-  async function probe(slugs: string[]): Promise<void> {
+  /**
+   * Ask the shell which of these platforms it can launch, and cache the
+   * answers. Platforms already answered are skipped, so this can be called
+   * again as the library grows. The cores come from the same EJS map the
+   * in-browser Play button reads.
+   *
+   * Args:
+   *   force: re-ask about platforms already answered, for when the machine
+   *     itself may have changed. Answers are merged rather than cleared
+   *     first, so an affordance does not blink out while the shell replies.
+   */
+  async function probe(
+    slugs: string[],
+    { force = false }: { force?: boolean } = {},
+  ): Promise<void> {
     install();
     if (!available.value) return;
 
@@ -147,7 +157,7 @@ export const useNativeStore = defineStore("native", () => {
       slugs
         .filter(Boolean)
         .map((slug) => slug.toLowerCase())
-        .filter((slug) => !(slug in support.value)),
+        .filter((slug) => force || !(slug in support.value)),
     );
     if (wanted.size === 0) return;
 

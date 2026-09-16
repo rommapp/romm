@@ -151,6 +151,39 @@ describe("useNativeStore.probe", () => {
     expect(store.isSupportedPlatform("ps2")).toBe(true);
   });
 
+  // An emulator installed while the page is open changes the answer, and the
+  // cached "no" would otherwise outlive it for the rest of the session.
+  it("re-asks about answered platforms when forced", async () => {
+    fetchPlatformSupport.mockResolvedValue({
+      ps2: { supported: false, reason: "no-emulator-configured" },
+    });
+    const store = useNativeStore();
+    await store.probe(["ps2"]);
+    fetchPlatformSupport.mockResolvedValue({
+      ps2: { supported: true, emulator: "PCSX2" },
+    });
+
+    await store.probe(["ps2"], { force: true });
+
+    expect(store.isSupportedPlatform("ps2")).toBe(true);
+    expect(store.labelForPlatform("ps2")).toBe("PCSX2");
+  });
+
+  // A forced probe the shell cannot answer must not take away an affordance
+  // that was working a moment ago.
+  it("keeps the answers it has when a forced re-ask comes back empty", async () => {
+    fetchPlatformSupport.mockResolvedValue({
+      snes: { supported: true, emulator: "RetroArch" },
+    });
+    const store = useNativeStore();
+    await store.probe(["snes"]);
+    fetchPlatformSupport.mockResolvedValue({});
+
+    await store.probe(["snes"], { force: true });
+
+    expect(store.isSupportedPlatform("snes")).toBe(true);
+  });
+
   it("asks nothing at all outside the desktop shell", async () => {
     shellPresent.value = false;
     const store = useNativeStore();
