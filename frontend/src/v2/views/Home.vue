@@ -88,6 +88,16 @@ async function loadRecommendations() {
   }
 }
 
+/** A row's count once it means something. While the list is in flight the row
+ *  shows placeholders, so the chip stays off rather than reading 0 and then
+ *  jumping to the real number. */
+function knownCount(
+  fetching: boolean,
+  list: readonly unknown[],
+): number | undefined {
+  return fetching && !list.length ? undefined : list.length;
+}
+
 // Multiplayer sessions other users are hosting right now. Nothing pushes a
 // session start, so the list is polled while the page is open. Only the
 // leading fetch forces past the store's freshness window; later ticks defer
@@ -389,7 +399,7 @@ function collectionCovers(c: {
           (continuePlayingRoms.length || fetchingContinue)
         "
         :title="t('home.continue-playing')"
-        :count="continuePlayingRoms.length"
+        :count="knownCount(fetchingContinue, continuePlayingRoms)"
       >
         <template #icon>
           <RIcon icon="mdi-play" size="20" />
@@ -421,16 +431,22 @@ function collectionCovers(c: {
           (recommendedRoms.length || fetchingRecommendations)
         "
         :title="t('recommendations.for-you')"
-        :count="recommendedRoms.length"
+        :count="knownCount(fetchingRecommendations, recommendedRoms)"
       >
         <template #icon>
           <RIcon icon="mdi-lightbulb-on-outline" size="20" />
         </template>
         <template v-if="fetchingRecommendations && !recommendedRoms.length">
-          <GameCardSkeleton
+          <div
             v-for="n in RECOMMENDED_ROMS_LIMIT"
             :key="`fys-${n}`"
-          />
+            class="r-v2-home__rec"
+          >
+            <GameCardSkeleton />
+            <span class="r-v2-home__rec-caption">
+              <RSkeletonBlock width="60%" :height="10" />
+            </span>
+          </div>
         </template>
         <template v-else>
           <div
@@ -456,7 +472,7 @@ function collectionCovers(c: {
       <CardRow
         v-if="showRecentRoms"
         :title="t('home.recently-added')"
-        :count="recentRoms.length"
+        :count="knownCount(fetchingRecent, recentRoms)"
       >
         <template #icon>
           <RIcon icon="mdi-shimmer" size="20" />
@@ -500,7 +516,7 @@ function collectionCovers(c: {
       <CardRow
         v-if="showPlatforms"
         :title="t('common.platforms')"
-        :count="filledPlatforms.length"
+        :count="knownCount(fetchingPlatforms, filledPlatforms)"
         gap="16px"
       >
         <template #icon>
@@ -534,7 +550,7 @@ function collectionCovers(c: {
       <CardRow
         v-if="showCollections && (allCollections.length || fetchingCollections)"
         :title="t('common.collections')"
-        :count="allCollections.length"
+        :count="knownCount(fetchingCollections, allCollections)"
         gap="16px"
       >
         <template #icon>
@@ -561,7 +577,7 @@ function collectionCovers(c: {
           (smartCollections.length || fetchingSmartCollections)
         "
         :title="t('common.smart-collections')"
-        :count="smartCollections.length"
+        :count="knownCount(fetchingSmartCollections, smartCollections)"
         gap="16px"
       >
         <template #icon>
@@ -590,7 +606,7 @@ function collectionCovers(c: {
           (virtualCollections.length || fetchingVirtualCollections)
         "
         :title="t('common.virtual-collections')"
-        :count="virtualCollections.length"
+        :count="knownCount(fetchingVirtualCollections, virtualCollections)"
         gap="16px"
       >
         <template #icon>
@@ -635,6 +651,15 @@ function collectionCovers(c: {
   flex-direction: column;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* Only the recommended cards carry a caption, so only their placeholder has to
+   reserve it. The height is RecommendationReason's line box (10.5px at the
+   app's 1.4 line-height); the bar inside stays thinner than the caption. */
+.r-v2-home__rec-caption {
+  height: 15px;
+  display: flex;
+  align-items: center;
 }
 
 /* ── Empty library state ─────────────────────────────────────────

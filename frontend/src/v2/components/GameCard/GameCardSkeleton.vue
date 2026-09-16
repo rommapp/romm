@@ -48,7 +48,9 @@ const artHeight = computed(() =>
       :height="artHeight"
       :rounded="hero ? 'lg' : 'md'"
     />
-    <RSkeletonBlock class="r-gcs__label" width="60%" :height="hero ? 14 : 11" />
+    <span class="r-gcs__label">
+      <RSkeletonBlock width="60%" :height="hero ? 14 : 11" />
+    </span>
   </div>
 </template>
 
@@ -60,12 +62,16 @@ const artHeight = computed(() =>
   align-items: center;
 }
 .r-gcs__label {
-  /* Match GameCard's `.r-gc__label`: margin-top 7px, font-size 11.5px,
-     line-height ~16px → reserve ~16px so total card+label height lines
-     up to the same number of pixels regardless of which slot kind
-     renders. */
-  margin-top: 7px !important;
+  /* The line box GameCard's `.r-gc__label` occupies (11.5px at the app's 1.4
+     line-height). It sits on this wrapper rather than on the bar, whose height
+     has to stay inline: a class height on the block itself loses to that inline
+     value and the reserved pixels never appear. */
+  width: var(--r-card-art-w);
   height: 16px;
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Default skeleton derives its art height from the active cover ratio,
@@ -85,6 +91,7 @@ const artHeight = computed(() =>
   width: var(--r-hero-w);
 }
 .r-gcs--hero .r-gcs__label {
+  width: var(--r-hero-w);
   height: 18px;
 }
 

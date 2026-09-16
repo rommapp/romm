@@ -2,10 +2,9 @@
 // RSkeletonBlock — shimmer placeholder. Owns shape, sizing, and the
 // animation style directly — no skeleton-loader abstraction.
 //
-// `inheritAttrs` is left at the Vue default — class/style passed from
-// the parent merge into the root span automatically. Without this,
-// parent-supplied positioning classes (e.g. `class="r-gcs__label"`
-// adding margin-top) are silently dropped, and the skeleton sits flush
+// `inheritAttrs` is left at the Vue default: class/style passed from the
+// parent merge into the root span automatically. Without this, a caller's
+// positioning class is silently dropped and the skeleton sits flush
 // against its sibling.
 
 interface Props {
