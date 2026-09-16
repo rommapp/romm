@@ -481,7 +481,7 @@
   "update-success": "ROM 更新成功！",
   "updated": "更新時間",
   "updating": "正在更新 ROM…",
-  "upload-core-hint": "建立這些檔案所用的模擬器，播放器據此判斷能用什麼載入。",
+  "upload-core-hint": "建立這些檔案所用的模擬器。",
   "upload-cover": "上傳封面",
   "upload-destination": "目的地",
   "upload-file-exists": "{name} 已存在於此資料夾中",

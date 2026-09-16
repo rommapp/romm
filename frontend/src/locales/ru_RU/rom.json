@@ -481,7 +481,7 @@
   "update-success": "ROM успешно обновлён!",
   "updated": "Обновлено",
   "updating": "Обновление ROM…",
-  "upload-core-hint": "Эмулятор, в котором они созданы, чтобы плеер знал, чем их можно загрузить.",
+  "upload-core-hint": "Эмулятор, в котором они созданы.",
   "upload-cover": "Загрузить обложку",
   "upload-destination": "Назначение",
   "upload-file-exists": "{name} уже существует в этой папке",

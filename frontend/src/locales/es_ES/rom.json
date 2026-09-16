@@ -481,7 +481,7 @@
   "update-success": "¡ROM actualizada con éxito!",
   "updated": "Actualizado",
   "updating": "Actualizando ROM…",
-  "upload-core-hint": "El emulador con el que se crearon, para que el reproductor sepa qué puede cargarlos.",
+  "upload-core-hint": "El emulador con el que se crearon.",
   "upload-cover": "Subir portada",
   "upload-destination": "Destino",
   "upload-file-exists": "{name} ya existe en esta carpeta",

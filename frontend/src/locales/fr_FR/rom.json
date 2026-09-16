@@ -481,7 +481,7 @@
   "update-success": "ROM mise à jour avec succès !",
   "updated": "Mis à jour",
   "updating": "Mise à jour de la ROM…",
-  "upload-core-hint": "L'émulateur avec lequel ils ont été créés, pour que le lecteur sache ce qui peut les charger.",
+  "upload-core-hint": "L'émulateur avec lequel ils ont été créés.",
   "upload-cover": "Téléverser une jaquette",
   "upload-destination": "Destination",
   "upload-file-exists": "{name} existe déjà dans ce dossier",

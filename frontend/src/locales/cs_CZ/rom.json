@@ -481,7 +481,7 @@
   "update-success": "ROM úspěšně aktualizována!",
   "updated": "Aktualizováno",
   "updating": "Aktualizace ROM…",
-  "upload-core-hint": "Emulátor, ve kterém vznikly, aby přehrávač věděl, co je dokáže načíst.",
+  "upload-core-hint": "Emulátor, ve kterém vznikly.",
   "upload-cover": "Nahrát obal",
   "upload-destination": "Cíl",
   "upload-file-exists": "{name} v této složce již existuje",

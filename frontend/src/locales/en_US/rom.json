@@ -481,7 +481,7 @@
   "update-success": "ROM updated successfully!",
   "updated": "Updated",
   "updating": "Updating ROM…",
-  "upload-core-hint": "The emulator these were made with, so the player knows what can load them.",
+  "upload-core-hint": "The emulator these were made with.",
   "upload-cover": "Upload cover",
   "upload-destination": "Destination",
   "upload-file-exists": "{name} already exists in this folder",

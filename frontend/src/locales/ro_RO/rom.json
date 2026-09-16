@@ -481,7 +481,7 @@
   "update-success": "ROM-ul a fost actualizat cu succes!",
   "updated": "Actualizat",
   "updating": "Se actualizează ROM-ul…",
-  "upload-core-hint": "Emulatorul cu care au fost create, ca playerul să știe ce le poate încărca.",
+  "upload-core-hint": "Emulatorul cu care au fost create.",
   "upload-cover": "Încarcă coperta",
   "upload-destination": "Destinație",
   "upload-file-exists": "{name} există deja în acest folder",

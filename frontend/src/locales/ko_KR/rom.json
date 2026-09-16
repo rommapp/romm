@@ -481,7 +481,7 @@
   "update-success": "ROM이 성공적으로 업데이트되었습니다!",
   "updated": "업데이트",
   "updating": "ROM 업데이트 중…",
-  "upload-core-hint": "이 파일을 만든 에뮬레이터입니다. 플레이어가 무엇으로 불러올 수 있는지 알 수 있습니다.",
+  "upload-core-hint": "이 파일을 만든 에뮬레이터입니다.",
   "upload-cover": "커버 업로드",
   "upload-destination": "업로드 위치",
   "upload-file-exists": "{name}은(는) 이 폴더에 이미 존재합니다",

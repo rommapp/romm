@@ -141,10 +141,15 @@ async function submit() {
           :item-title="slotTitle"
           :item-value="slotKey"
           return-object
-          :label="t('play.slot')"
+          prefix-label="inline"
           :hint="t('rom.upload-slot-hint')"
           @update:model-value="onSlot"
-        />
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-content-save-all-outline" size="14" />
+            {{ t("play.slot") }}
+          </template>
+        </RSelect>
         <RTextField
           v-if="type === 'save' && slot.kind === 'new'"
           v-model="newSlotName"
@@ -157,9 +162,14 @@ async function submit() {
           v-if="type === 'state'"
           v-model="core"
           :items="coreItems"
-          :label="t('common.core')"
+          prefix-label="inline"
           :hint="t('rom.upload-core-hint')"
-        />
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-chip" size="14" />
+            {{ t("common.core") }}
+          </template>
+        </RSelect>
         <RDropzone
           v-if="files.length === 0"
           :title="t('common.dropzone-title')"

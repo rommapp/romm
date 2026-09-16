@@ -481,7 +481,7 @@
   "update-success": "A ROM frissítése sikeresen megtörtént!",
   "updated": "Frissítve",
   "updating": "ROM frissítése…",
-  "upload-core-hint": "Az emulátor, amellyel készültek, hogy a lejátszó tudja, mi tudja betölteni őket.",
+  "upload-core-hint": "Az emulátor, amellyel készültek.",
   "upload-cover": "Borító feltöltése",
   "upload-destination": "Cél",
   "upload-file-exists": "{name} már létezik ebben a mappában",

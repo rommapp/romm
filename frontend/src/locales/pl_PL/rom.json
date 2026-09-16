@@ -481,7 +481,7 @@
   "update-success": "ROM został pomyślnie zaktualizowany!",
   "updated": "Zaktualizowano",
   "updating": "Aktualizowanie ROM-u…",
-  "upload-core-hint": "Emulator, w którym powstały, aby odtwarzacz wiedział, co może je wczytać.",
+  "upload-core-hint": "Emulator, w którym powstały.",
   "upload-cover": "Prześlij okładkę",
   "upload-destination": "Miejsce docelowe",
   "upload-file-exists": "{name} już istnieje w tym folderze",

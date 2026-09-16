@@ -481,7 +481,7 @@
   "update-success": "ROMが正常に更新されました！",
   "updated": "更新日時",
   "updating": "ROMを更新中…",
-  "upload-core-hint": "作成に使ったエミュレーター。プレイヤーがどれで読み込めるか判断できます。",
+  "upload-core-hint": "作成に使ったエミュレーター。",
   "upload-cover": "カバーをアップロード",
   "upload-destination": "アップロード先",
   "upload-file-exists": "{name} はこのフォルダにすでに存在します",
