@@ -48,6 +48,7 @@ import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, { NO_SIDECARS } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 interface PlatformItem {
   id: number;
@@ -241,7 +242,9 @@ async function cleanupAll() {
       await galleryRoms.fetchInitialMetadata(NO_SIDECARS);
     }
   } catch (err) {
-    snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
+    snackbar.error(
+      t("settings.couldnt-queue-cleanup", { error: errorMessage(err) }),
+    );
   } finally {
     cleaningUp.value = false;
   }

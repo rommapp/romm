@@ -1,26 +1,27 @@
 // usePlayerNav — the two back links every v2 player view carries. The route id
 // is used rather than the hero's, so the links work during the seed window.
-import { useRouter } from "vue-router";
+import { computed, type ComputedRef } from "vue";
+import type { RouteLocationRaw } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 
 export function usePlayerNav(
   romId: number,
   platformId: () => number | null | undefined,
 ): {
-  backToRom: () => void;
-  backToPlatform: () => void;
+  romRoute: RouteLocationRaw;
+  /** Undefined until the hero says which platform the rom belongs to. */
+  platformRoute: ComputedRef<RouteLocationRaw | undefined>;
 } {
-  const router = useRouter();
+  const romRoute: RouteLocationRaw = {
+    name: ROUTES.ROM,
+    params: { rom: romId },
+  };
 
-  function backToRom() {
-    router.push({ name: ROUTES.ROM, params: { rom: romId } });
-  }
-
-  function backToPlatform() {
+  const platformRoute = computed<RouteLocationRaw | undefined>(() => {
     const platform = platformId();
-    if (platform == null) return;
-    router.push({ name: ROUTES.PLATFORM, params: { platform } });
-  }
+    if (platform == null) return undefined;
+    return { name: ROUTES.PLATFORM, params: { platform } };
+  });
 
-  return { backToRom, backToPlatform };
+  return { romRoute, platformRoute };
 }

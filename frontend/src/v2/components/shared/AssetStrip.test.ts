@@ -45,7 +45,7 @@ describe("AssetStrip grouped by core", () => {
     const wrapper = mountStrip({ groupBy: "emulator" });
 
     expect(
-      wrapper.findAll(".r-asset-strip__group-title").map((el) => el.text()),
+      wrapper.findAll(".r-asset-group-head__title").map((el) => el.text()),
     ).toEqual(["snes9x", "mgba", "play.any-core"]);
     expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual([
       "play.latest-version",
@@ -65,7 +65,7 @@ describe("AssetStrip grouped by core", () => {
   it("shows the emulator tag and no Latest when ungrouped", () => {
     const wrapper = mountStrip();
 
-    expect(wrapper.findAll(".r-asset-strip__group-title")).toHaveLength(0);
+    expect(wrapper.findAll(".r-asset-group-head__title")).toHaveLength(0);
     expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual([
       "snes9x",
       "snes9x",

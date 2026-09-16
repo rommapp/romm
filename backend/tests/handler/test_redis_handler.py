@@ -1,5 +1,6 @@
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
+import pytest
 from rq import Worker
 from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobError
 from rq.job import Job, JobStatus
@@ -10,6 +11,8 @@ from handler.redis_handler import (
     get_job_kwargs,
     get_job_status,
     get_worker_current_job,
+    has_live_worker,
+    low_prio_queue,
 )
 
 
@@ -112,3 +115,35 @@ class TestGetWorkerCurrentJob:
         worker = self._worker(side_effect=NoSuchJobError)
 
         assert get_worker_current_job(worker) is None
+
+
+class TestHasLiveWorker:
+    @staticmethod
+    def _worker(state: str, death_date: str | None = None) -> MagicMock:
+        worker = MagicMock(spec=Worker)
+        worker.get_state.return_value = state
+        worker.death_date = death_date
+        return worker
+
+    @pytest.mark.parametrize(
+        ("workers", "expected"),
+        [
+            ([], False),
+            ([("suspended", None)], False),
+            ([("idle", "2026-09-16T10:00:00")], False),
+            ([("suspended", None), ("idle", None)], True),
+            ([("busy", None)], True),
+        ],
+        ids=["none-registered", "suspended", "announced-dead", "one-live", "busy"],
+    )
+    def test_counts_only_workers_that_would_take_a_job(
+        self, workers: list[tuple[str, str | None]], expected: bool
+    ):
+        registered = [self._worker(state, death) for state, death in workers]
+
+        with patch(
+            "handler.redis_handler.Worker.all", return_value=registered
+        ) as mock_all:
+            assert has_live_worker(low_prio_queue) is expected
+
+        mock_all.assert_called_once_with(queue=low_prio_queue)

@@ -137,7 +137,7 @@ const firmwareOptions = ref<FirmwareSchema[]>([]);
 const resume = ref<ResumeSelection>({ save: null, state: null });
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
-const { backToRom, backToPlatform } = usePlayerNav(
+const { romRoute, platformRoute } = usePlayerNav(
   romId,
   () => heroRom.value?.platform_id,
 );
@@ -588,7 +588,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
             variant="text"
             size="small"
             prepend-icon="mdi-arrow-left"
-            @click="backToRom"
+            :to="romRoute"
           >
             {{ t("play.back-to-game-details") }}
           </RBtn>
@@ -596,7 +596,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
             variant="text"
             size="small"
             prepend-icon="mdi-view-grid-outline"
-            @click="backToPlatform"
+            :to="platformRoute"
+            :disabled="!platformRoute"
           >
             {{ t("play.back-to-gallery") }}
           </RBtn>
@@ -704,11 +705,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           </div>
 
           <div class="r-v2-ejs__resume-main">
-            <div
-              v-if="activeAssets.length > 0"
-              class="r-v2-ejs__strip-label"
-              aria-hidden="true"
-            >
+            <div class="r-v2-ejs__strip-label" aria-hidden="true">
               <span>{{
                 activeAssetTab === "save"
                   ? t("play.all-saves")

@@ -244,7 +244,6 @@ function renderPanel(
         <div style="padding:14px;display:flex;flex-direction:column;gap:14px;flex:1">
           <AssetPreview :asset="selectedAsset" :type="activeTab" @clear="clear" />
           <div
-            v-if="activeAssets.length > 0"
             style="
               display:flex;
               align-items:center;

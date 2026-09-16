@@ -4,11 +4,11 @@
 //
 // Groups mirror the v2 user-menu IA so the dropdown and the in-page
 // navigator share the same mental model:
-//   • Account  — profile + UI prefs
-//   • Library  — folder mappings, providers, paired devices
-//   • System   — admin + server stats
-//   • Tools    — controller debug (developer-leaning, kept here so it
-//                inherits the same chrome as everything else)
+//   • Account: profile + UI prefs
+//   • Library: folder mappings, providers, paired devices
+//   • System: admin + server stats
+//   • Tools: jukebox, controller debug (developer-leaning, kept here so
+//            it inherits the same chrome as everything else)
 //
 // Each entry is a <router-link>; the active state is driven by Vue
 // Router's `router-link-active` (we add `--active` via active-class). Items
@@ -151,6 +151,13 @@ const groups = computed<Group[]>(() => {
       key: "tools",
       label: t("settings.group-tools"),
       entries: [
+        {
+          icon: "mdi-music-box-multiple-outline",
+          label: t("common.jukebox"),
+          to: { name: ROUTES.MUSIC },
+          visible: true,
+          badge: t("common.beta"),
+        },
         {
           icon: "mdi-controller",
           label: t("settings.controller-debug"),

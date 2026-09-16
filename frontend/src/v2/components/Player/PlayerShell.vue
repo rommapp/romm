@@ -31,7 +31,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { backToRom, backToPlatform } = usePlayerNav(
+const { romRoute, platformRoute } = usePlayerNav(
   props.romId,
   () => props.heroRom?.platform_id,
 );
@@ -83,7 +83,7 @@ useStageActive(() => props.running);
             variant="text"
             size="small"
             prepend-icon="mdi-arrow-left"
-            @click="backToRom"
+            :to="romRoute"
           >
             {{ t("play.back-to-game-details") }}
           </RBtn>
@@ -92,7 +92,8 @@ useStageActive(() => props.running);
             variant="text"
             size="small"
             prepend-icon="mdi-view-grid-outline"
-            @click="backToPlatform"
+            :to="platformRoute"
+            :disabled="!platformRoute"
           >
             {{ t("play.back-to-gallery") }}
           </RBtn>

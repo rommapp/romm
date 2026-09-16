@@ -423,7 +423,7 @@ function closeDialog() {
 }
 
 .r-v2-del-rom__append {
-  padding: 10px 14px 0;
+  padding: 10px 14px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;

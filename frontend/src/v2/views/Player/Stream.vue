@@ -40,7 +40,6 @@ import {
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import type { SaveSchema, UserStateSchema } from "@/__generated__";
-import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import streamingApi, {
   isMemoryCardImportDetail,
@@ -76,6 +75,7 @@ import { useInputModality } from "@/v2/composables/useInputModality";
 import { useMultiplayerPref } from "@/v2/composables/useMultiplayerPref";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import { useStageActive } from "@/v2/composables/useStageActive";
@@ -1041,14 +1041,12 @@ const stateActionBusy = computed(
 );
 
 // ── Navigation ─────────────────────────────────────────────────────
+const { romRoute, platformRoute } = usePlayerNav(
+  Number(morphRomId.value),
+  () => heroRom.value?.platform_id,
+);
 function backToRom() {
-  router.push({ name: ROUTES.ROM, params: { rom: rom.value?.id } });
-}
-function backToPlatform() {
-  router.push({
-    name: ROUTES.PLATFORM,
-    params: { platform: rom.value?.platform_id },
-  });
+  router.push(romRoute);
 }
 
 // ── Exit guard (big-picture safety) ────────────────────────────────
@@ -1320,7 +1318,7 @@ onBeforeUnmount(() => {
             variant="text"
             size="small"
             prepend-icon="mdi-arrow-left"
-            @click="backToRom"
+            :to="romRoute"
           >
             {{ t("play.back-to-game-details") }}
           </RBtn>
@@ -1328,7 +1326,8 @@ onBeforeUnmount(() => {
             variant="text"
             size="small"
             prepend-icon="mdi-view-grid-outline"
-            @click="backToPlatform"
+            :to="platformRoute"
+            :disabled="!platformRoute"
           >
             {{ t("play.back-to-gallery") }}
           </RBtn>

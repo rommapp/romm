@@ -1,21 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaveSchema } from "@/__generated__";
+import type { StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import {
+  buildStateFormData,
+  captureStateScreenshot,
   createSaveSyncTracker,
   installEJSDefaultOptionsTrap,
+  pollSaveFiles,
+  resolveStateScreenshot,
   saveSave,
+  saveSaveOnUnload,
+  saveState,
 } from "./utils";
 
 const saveApiMocks = vi.hoisted(() => ({
   uploadSaves: vi.fn(),
   updateSave: vi.fn(),
+  sendSaveOnUnload: vi.fn(),
+}));
+const stateApiMocks = vi.hoisted(() => ({
+  uploadStates: vi.fn(),
 }));
 
 vi.mock("@/services/api/save", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/api/save")>()),
   default: saveApiMocks,
 }));
+vi.mock("@/services/api/state", () => ({ default: stateApiMocks }));
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -177,6 +189,18 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
   });
 
+  it("reports pending changes without waiting for a second tick", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    expect(tracker.hasChanges(bytes(9, 9))).toBe(false);
+    expect(tracker.hasChanges(a)).toBe(true);
+    tracker.markUploaded(a);
+    expect(tracker.hasChanges(bytes(1, 2, 3))).toBe(false);
+    tracker.baseline(b);
+    expect(tracker.hasChanges(bytes(4, 5, 6))).toBe(false);
+    expect(tracker.hasChanges(a)).toBe(true);
+  });
+
   it("never uploads a value that keeps changing between ticks", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(null);
@@ -231,6 +255,192 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
     expect(tracker.shouldUpload(bytes(1, 2, 3, 0))).toBe(false);
+  });
+});
+
+describe("pollSaveFiles", () => {
+  const emulatorWith = (sramBytes: number) => ({
+    started: true,
+    gameManager: {
+      saveSaveFiles: vi.fn(),
+      getSaveFile: () => new Uint8Array(sramBytes),
+    },
+  });
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("flushes every second while the game runs and stops on demand", () => {
+    const emulator = emulatorWith(128 * 1024);
+    const stop = pollSaveFiles(emulator);
+
+    vi.advanceTimersByTime(2000);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledTimes(2);
+
+    emulator.started = false;
+    vi.advanceTimersByTime(1000);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledTimes(2);
+
+    emulator.started = true;
+    stop();
+    vi.advanceTimersByTime(5000);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledTimes(2);
+  });
+
+  it("slows down for a save too big to copy every second", () => {
+    const emulator = emulatorWith(4 * 1024 * 1024);
+    const stop = pollSaveFiles(emulator);
+
+    vi.advanceTimersByTime(4095);
+    expect(emulator.gameManager.saveSaveFiles).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledOnce();
+    stop();
+  });
+});
+
+describe("captureStateScreenshot", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  afterEach(() => {
+    delete (window as any).EJS_emulator;
+  });
+
+  it("reads the live canvas through the game manager", async () => {
+    const shot = new ArrayBuffer(8);
+    (window as any).EJS_emulator = {
+      gameManager: { screenshot: async () => shot },
+    };
+
+    await expect(captureStateScreenshot()).resolves.toBe(shot);
+  });
+
+  // A manual save state still has to reach the server without its picture.
+  it("returns nothing when the emulator has no game manager yet", async () => {
+    (window as any).EJS_emulator = {};
+
+    await expect(captureStateScreenshot()).resolves.toBeUndefined();
+  });
+
+  it("swallows a capture that throws", async () => {
+    (window as any).EJS_emulator = {
+      gameManager: {
+        screenshot: async () => {
+          throw new Error("canvas is gone");
+        },
+      },
+    };
+
+    await expect(captureStateScreenshot()).resolves.toBeUndefined();
+  });
+});
+
+describe("resolveStateScreenshot", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  afterEach(() => {
+    delete (window as any).EJS_emulator;
+  });
+
+  it("prefers the live canvas over what EmulatorJS passed", async () => {
+    const live = new ArrayBuffer(8);
+    (window as any).EJS_emulator = {
+      gameManager: { screenshot: async () => live },
+    };
+
+    await expect(resolveStateScreenshot(new ArrayBuffer(4))).resolves.toBe(
+      live,
+    );
+  });
+
+  it("falls back to EmulatorJS's picture when the canvas gives none", async () => {
+    const fallback = new ArrayBuffer(4);
+    (window as any).EJS_emulator = {};
+
+    await expect(resolveStateScreenshot(fallback)).resolves.toBe(fallback);
+    await expect(resolveStateScreenshot()).resolves.toBeUndefined();
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+});
+
+describe("saveState", () => {
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+  let rom: DetailedRom;
+
+  beforeEach(() => {
+    rom = {
+      id: 1,
+      fs_name_no_ext: "game",
+      user_states: [],
+    } as unknown as DetailedRom;
+    stateApiMocks.uploadStates.mockReset();
+    stateApiMocks.uploadStates.mockResolvedValue([
+      { status: "fulfilled", value: { id: 7 } as StateSchema },
+    ]);
+  });
+
+  it("uploads the screenshot named after the state", async () => {
+    await saveState({ rom, stateFile: bytes, screenshotFile: bytes });
+
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    expect(statesToUpload[0].screenshotFile.name).toMatch(/^game \[.*\]\.png$/);
+    expect(rom.user_states).toEqual([{ id: 7 }]);
+  });
+
+  it("still uploads the state when there is no screenshot", async () => {
+    await saveState({ rom, stateFile: bytes });
+
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    expect(statesToUpload[0].screenshotFile).toBeUndefined();
+  });
+});
+
+describe("saveSaveOnUnload", () => {
+  const rom = { id: 1, fs_name_no_ext: "game " } as unknown as DetailedRom;
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+
+  beforeEach(() => {
+    saveApiMocks.sendSaveOnUnload.mockReset().mockReturnValue(true);
+  });
+
+  it("opens a capped autosave version named after the rom", () => {
+    expect(saveSaveOnUnload({ rom, save: null, saveFile: bytes })).toBe(true);
+
+    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0][0];
+    expect(request).toMatchObject({
+      save: null,
+      slot: "autosave",
+      autocleanup: true,
+    });
+    expect(request.saveFile.name).toBe("game.srm");
+  });
+
+  it("updates the session's version under its own name", () => {
+    const save = {
+      id: 3,
+      file_name: "a.srm",
+      slot: "main_quest",
+    } as SaveSchema;
+
+    saveSaveOnUnload({ rom, save, saveFile: bytes, slot: "main_quest" });
+
+    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0][0];
+    expect(request).toMatchObject({
+      save,
+      slot: "main_quest",
+      autocleanup: false,
+    });
+    expect(request.saveFile.name).toBe("a.srm");
+  });
+});
+
+describe("buildStateFormData", () => {
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+
+  it("adds the screenshot part only when there is a picture", () => {
+    expect(
+      buildStateFormData(bytes, bytes).get("screenshotFile"),
+    ).toBeInstanceOf(Blob);
+    expect(buildStateFormData(bytes).get("screenshotFile")).toBeNull();
+    expect(buildStateFormData(bytes).get("stateFile")).toBeInstanceOf(Blob);
   });
 });
 
