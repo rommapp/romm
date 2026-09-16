@@ -163,12 +163,18 @@ declare global {
   }
 }
 
+function isCoreCompatible(asset: { emulator?: string | null }): boolean {
+  return !asset.emulator || asset.emulator === selectedCore.value;
+}
 const compatibleStates = computed(
-  () =>
-    rom.value?.user_states.filter(
-      (s) => !s.emulator || s.emulator === selectedCore.value,
-    ) ?? [],
+  () => rom.value?.user_states.filter(isCoreCompatible) ?? [],
 );
+const stateCount = computed(() => rom.value?.user_states.length ?? 0);
+// Other emulators' states stay listed, disabled, so the count adds up.
+function stateDisabledReason(asset: { emulator?: string | null }) {
+  if (isCoreCompatible(asset)) return null;
+  return t("play.state-incompatible-core", { emulator: asset.emulator });
+}
 
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
@@ -447,7 +453,10 @@ const assetTabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
   {
     id: "state",
     label: t("common.states"),
-    badge: compatibleStates.value.length,
+    badge:
+      compatibleStates.value.length === stateCount.value
+        ? stateCount.value
+        : `${compatibleStates.value.length}/${stateCount.value}`,
     icon: "mdi-file",
   },
 ]);
@@ -466,11 +475,24 @@ function clearSelectedAsset() {
   else unselectState();
 }
 
-const activeAssets = computed<(SaveSchema | StateSchema)[]>(() =>
-  isSavesTabSelected.value
-    ? (rom.value?.user_saves ?? [])
-    : compatibleStates.value,
-);
+// Loadable states lead; the rest trail, disabled, in their own order.
+const activeAssets = computed<(SaveSchema | StateSchema)[]>(() => {
+  if (isSavesTabSelected.value) return rom.value?.user_saves ?? [];
+  const states = rom.value?.user_states ?? [];
+  return [
+    ...compatibleStates.value,
+    ...states.filter((s) => !isCoreCompatible(s)),
+  ];
+});
+const stripCount = computed(() => {
+  if (isSavesTabSelected.value) return String(activeAssets.value.length);
+  const compatible = compatibleStates.value.length;
+  if (compatible === stateCount.value) return String(stateCount.value);
+  return t("play.compatible-of-total", {
+    compatible,
+    total: stateCount.value,
+  });
+});
 
 const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   isSavesTabSelected.value ? resume.value.save : resume.value.state,
@@ -653,7 +675,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                 ? t("play.all-saves")
                 : t("play.all-states")
             }}</span>
-            <span class="r-v2-ejs__strip-count">{{ activeAssets.length }}</span>
+            <span class="r-v2-ejs__strip-count">{{ stripCount }}</span>
           </div>
 
           <!-- Saves render as a vertical list (no screenshot ⇒ density);
@@ -673,6 +695,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
               :assets="activeAssets"
               type="state"
               :selected-id="selectedAssetId"
+              :disabled-reason="stateDisabledReason"
+              layout="flow"
               @select="pickAsset"
             />
           </div>

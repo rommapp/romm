@@ -50,12 +50,15 @@ const props = withDefaults(
     selectedId?: number | null;
     showOwner?: boolean;
     layout?: AssetLayout;
+    /** Why an asset cannot be picked here; a reason disables its tile. */
+    disabledReason?: (asset: Asset) => string | null;
   }>(),
   {
     selectable: true,
     selectedId: null,
     showOwner: false,
     layout: "strip",
+    disabledReason: undefined,
   },
 );
 
@@ -85,6 +88,10 @@ function screenshotOf(asset: Asset): string | null {
 function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   return "username" in asset && asset.username ? asset : null;
 }
+
+function reasonOf(asset: Asset): string | null {
+  return props.selectable ? (props.disabledReason?.(asset) ?? null) : null;
+}
 </script>
 
 <template>
@@ -99,10 +106,12 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
         :class="{
           'r-asset-strip__tile--active': selectable && asset.id === selectedId,
           'r-asset-strip__tile--static': !selectable,
+          'r-asset-strip__tile--disabled': reasonOf(asset),
         }"
         :style="{ '--asset-fade-i': i }"
         :aria-pressed="selectable ? asset.id === selectedId : undefined"
-        @click="selectable && $emit('select', asset)"
+        :aria-disabled="reasonOf(asset) ? true : undefined"
+        @click="selectable && !reasonOf(asset) && $emit('select', asset)"
       >
         <!-- List rows trade the screenshot for density, so the selection
              badge moves out of the thumbnail and leads the row instead. -->
@@ -174,6 +183,9 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
             <span class="r-asset-strip__tip-sub">
               {{ t("rom.updated") }}:
               {{ formatTimestamp(asset.updated_at, locale) }}
+            </span>
+            <span v-if="reasonOf(asset)" class="r-asset-strip__tip-reason">
+              {{ reasonOf(asset) }}
             </span>
           </div>
         </RTooltip>
@@ -356,6 +368,18 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 .r-asset-strip__tile--static:hover .r-asset-strip__thumb {
   border-color: transparent;
 }
+/* Kept visible so the count adds up; the tooltip carries the reason. */
+.r-asset-strip__tile--disabled {
+  cursor: not-allowed;
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+.r-asset-strip__tile--disabled:hover {
+  transform: none;
+}
+.r-asset-strip__tile--disabled:hover .r-asset-strip__thumb {
+  border-color: transparent;
+}
 
 .r-asset-strip__thumb {
   position: relative;
@@ -478,6 +502,10 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   font-size: 12px;
   font-weight: var(--r-font-weight-semibold);
   word-break: break-all;
+}
+.r-asset-strip__tip-reason {
+  font-size: 11px;
+  color: var(--r-color-warning);
 }
 .r-asset-strip__tip-sub {
   font-size: 11px;
