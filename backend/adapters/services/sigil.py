@@ -1,8 +1,11 @@
 import asyncio
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final
 
 from logger.logger import log
+from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
+from utils.m3u import first_playlist_entry
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 try:
@@ -71,6 +74,15 @@ class SigilService:
         sigil_slug = SIGIL_PLATFORM_SLUGS.get(platform_slug)
         if sigil_slug is None:
             return None
+
+        # A playlist is identified by its first disc.
+        if file_path.lower().endswith(".m3u"):
+            entry = await asyncio.to_thread(first_playlist_entry, Path(file_path))
+            if entry is None or entry.name.lower().endswith(
+                tuple(COMPRESSED_FILE_EXTENSIONS)
+            ):
+                return None
+            file_path = str(entry)
 
         try:
             result = await asyncio.to_thread(

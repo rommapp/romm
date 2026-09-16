@@ -62,7 +62,6 @@ from utils.archives import (
 )
 from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
-from utils.m3u import first_playlist_entry
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
@@ -294,14 +293,11 @@ NON_BINARY_FILE_CATEGORIES: Final = DOCUMENT_CATEGORIES | {
     RomFileCategory.CHEAT,
 }
 
-# Containers and playlists only point at a ROM binary, so sigil can't read them.
-_NON_BINARY_SUFFIXES: Final = (*ARCHIVE_READERS, ".m3u")
-
 
 def _holds_title_id(path: Path, category: RomFileCategory | None) -> bool:
-    """Whether sigil can read a title id straight from this file."""
+    """Whether sigil can read a title id from this file."""
     return (
-        not path.name.lower().endswith(_NON_BINARY_SUFFIXES)
+        not path.name.lower().endswith(tuple(ARCHIVE_READERS))
         and category not in NON_BINARY_FILE_CATEGORIES
     )
 
@@ -310,7 +306,6 @@ def _holds_title_id(path: Path, category: RomFileCategory | None) -> bool:
 class _TitleIdSource:
     path: Path
     rom_file: RomFile
-    is_rom_level: bool
     unchanged: bool = False
 
     def order(self) -> tuple[Path, str]:
@@ -603,11 +598,6 @@ class FSRomsHandler(FSHandler):
 
         async def _extract_title_id(source: _TitleIdSource) -> None:
             """Read the source's title id, recording it and any category it settles."""
-            # Only Switch needs a per-file content type; one extraction is
-            # enough elsewhere.
-            if not sigil_platform or (sigil_extractions and not is_switch):
-                return
-
             extraction = await sigil_service.extract_title_id(
                 rom.platform_slug, str(source.path)
             )
@@ -625,7 +615,7 @@ class FSRomsHandler(FSHandler):
                     TitleIdEmbedCandidate(
                         rom_file=source.rom_file,
                         extraction=extraction,
-                        is_rom_level=source.is_rom_level,
+                        is_rom_level=not is_multi_part,
                     )
                 )
 
@@ -645,8 +635,8 @@ class FSRomsHandler(FSHandler):
         rom_dir = Path(abs_fs_path, rom.fs_name)
         rom_ext = f".{rom.fs_extension.lower()}" if rom.fs_extension else ""
 
-        # Check if rom is a multi-part rom
-        if await AnyioPath(f"{abs_fs_path}/{rom.fs_name}").is_dir():
+        is_multi_part = await AnyioPath(f"{abs_fs_path}/{rom.fs_name}").is_dir()
+        if is_multi_part:
             rel_rom_dir = str(rom_dir.relative_to(self.base_path))
             entries = await asyncio.to_thread(self._list_rom_dir, rom_dir, cnfg)
             if existing_by_key is not None:
@@ -680,7 +670,6 @@ class FSRomsHandler(FSHandler):
             for f_path, file_name, st in entries:
                 is_top_level = f_path == rom_dir
                 rel_dir = f_path.relative_to(self.base_path)
-                abs_file_path = Path(f_path, file_name)
                 row = (
                     existing_by_key.get((str(rel_dir), file_name))
                     if existing_by_key is not None
@@ -699,13 +688,19 @@ class FSRomsHandler(FSHandler):
                     )
                 ):
                     rom_files.append(row)
-                    if _holds_title_id(abs_file_path, row.category):
+                    # Switch settles each file's category, so an unchanged
+                    # file there has nothing left to read.
+                    if (
+                        sigil_platform
+                        and not is_switch
+                        and _holds_title_id(Path(f_path, file_name), row.category)
+                    ):
                         title_id_sources.append(
-                            _TitleIdSource(
-                                abs_file_path, row, is_rom_level=False, unchanged=True
-                            )
+                            _TitleIdSource(Path(f_path, file_name), row, unchanged=True)
                         )
                     continue
+
+                abs_file_path = Path(f_path, file_name)
 
                 if hashable_platform:
                     try:
@@ -755,10 +750,8 @@ class FSRomsHandler(FSHandler):
                 )
                 # Extract from every ROM file (base, updates and DLC in
                 # subfolders), not just the top-level one.
-                if _holds_title_id(abs_file_path, rom_file.category):
-                    title_id_sources.append(
-                        _TitleIdSource(abs_file_path, rom_file, is_rom_level=False)
-                    )
+                if sigil_platform and _holds_title_id(abs_file_path, rom_file.category):
+                    title_id_sources.append(_TitleIdSource(abs_file_path, rom_file))
                 rom_files.append(rom_file)
         elif (
             existing_by_key is not None
@@ -912,25 +905,18 @@ class FSRomsHandler(FSHandler):
             )
             rom_files.append(rom_file)
             # Archives keep hashes only; sigil reads title ids from the ROM
-            # binary itself, which for a playlist is its first disc.
-            title_id_source: Path | None = rom_dir
-            if rom_ext == ".m3u" and sigil_platform:
-                title_id_source = await asyncio.to_thread(first_playlist_entry, rom_dir)
-            if title_id_source is not None and _holds_title_id(
-                title_id_source, rom_file.category
-            ):
-                title_id_sources.append(
-                    _TitleIdSource(title_id_source, rom_file, is_rom_level=True)
-                )
+            # binary itself.
+            if sigil_platform and _holds_title_id(rom_dir, rom_file.category):
+                title_id_sources.append(_TitleIdSource(rom_dir, rom_file))
 
         # Directory listings come back in no fixed order, and a multi-disc
         # ROM is identified by its first disc, whose stored id stands while
-        # that disc is unchanged.
+        # that disc is unchanged. Only Switch reads past it, for each file's
+        # content type.
         for source in sorted(title_id_sources, key=_TitleIdSource.order):
-            if not source.unchanged:
-                await _extract_title_id(source)
-            elif not is_switch:
+            if source.unchanged or (sigil_extractions and not is_switch):
                 break
+            await _extract_title_id(source)
 
         if top_level_changed:
             crc_hash = crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else ""
