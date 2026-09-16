@@ -741,6 +741,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                 :selected-id="selectedAssetId"
                 :disabled-reason="stateDisabledReason"
                 layout="flow"
+                group-by="emulator"
                 @select="pickAsset"
               />
             </div>

@@ -23,8 +23,11 @@
 //     the chosen tile gets a brand ring + check badge.
 //   * manage (selectable=false) — tiles are static; the `#actions` slot
 //     renders below the meta, and `showOwner` adds an author chip.
-import { RAvatar, RIcon, RTooltip } from "@v2/lib";
-import { computed } from "vue";
+//
+// `groupBy="emulator"` folds the tiles into one collapsible group per core,
+// loadable cores first; a group whose tiles are all disabled starts closed.
+import { RAvatar, RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   SaveSchema,
@@ -52,6 +55,7 @@ const props = withDefaults(
     layout?: AssetLayout;
     /** Why an asset cannot be picked here; a reason disables its tile. */
     disabledReason?: (asset: Asset) => string | null;
+    groupBy?: "emulator";
   }>(),
   {
     selectable: true,
@@ -59,6 +63,7 @@ const props = withDefaults(
     showOwner: false,
     layout: "strip",
     disabledReason: undefined,
+    groupBy: undefined,
   },
 );
 
@@ -92,107 +97,218 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
 function reasonOf(asset: Asset): string | null {
   return props.selectable ? (props.disabledReason?.(asset) ?? null) : null;
 }
+
+interface AssetGroup {
+  key: string;
+  label: string;
+  /** Source order, so a newest-first list reads top-left. */
+  assets: Asset[];
+  /** Every tile disabled: nothing in this group can be picked. */
+  disabled: boolean;
+}
+
+const newestOf = (assets: Asset[]) =>
+  assets.reduce((best, a) => (a.updated_at > best ? a.updated_at : best), "");
+
+const groups = computed<AssetGroup[]>(() => {
+  if (!props.groupBy) {
+    return [{ key: "all", label: "", assets: props.assets, disabled: false }];
+  }
+  const byKey = new Map<string, AssetGroup>();
+  for (const asset of props.assets) {
+    const key = asset.emulator ?? "";
+    let group = byKey.get(key);
+    if (!group) {
+      group = {
+        key,
+        label: key || t("play.any-core"),
+        assets: [],
+        disabled: true,
+      };
+      byKey.set(key, group);
+    }
+    group.assets.push(asset);
+    if (!reasonOf(asset)) group.disabled = false;
+  }
+  return [...byKey.values()].sort(
+    (a, b) =>
+      Number(a.disabled) - Number(b.disabled) ||
+      newestOf(b.assets).localeCompare(newestOf(a.assets)),
+  );
+});
+
+// Keeps the entrance stagger continuous across groups.
+const fadeIndex = computed(() => {
+  const order = new Map<number, number>();
+  for (const group of groups.value) {
+    for (const asset of group.assets) order.set(asset.id, order.size);
+  }
+  return order;
+});
+
+// A group opens on its own while it holds the selection.
+const openGroups = ref(new Map<string, boolean>());
+function isOpen(group: AssetGroup): boolean {
+  if (!props.groupBy) return true;
+  if (
+    props.selectable &&
+    group.assets.some((asset) => asset.id === props.selectedId)
+  ) {
+    return true;
+  }
+  return openGroups.value.get(group.key) ?? !group.disabled;
+}
+function toggleGroup(group: AssetGroup) {
+  const next = new Map(openGroups.value);
+  next.set(group.key, !isOpen(group));
+  openGroups.value = next;
+}
 </script>
 
 <template>
-  <div class="r-asset-strip" :class="`r-asset-strip--${layout}`">
-    <div v-if="assets.length > 0" class="r-asset-strip__track">
-      <component
-        :is="selectable ? 'button' : 'div'"
-        v-for="(asset, i) in assets"
-        :key="asset.id"
-        :type="selectable ? 'button' : undefined"
-        class="r-asset-strip__tile r-v2-asset-fade"
-        :class="{
-          'r-asset-strip__tile--active': selectable && asset.id === selectedId,
-          'r-asset-strip__tile--static': !selectable,
-          'r-asset-strip__tile--disabled': reasonOf(asset),
-        }"
-        :style="{ '--asset-fade-i': i }"
-        :aria-pressed="selectable ? asset.id === selectedId : undefined"
-        :aria-disabled="reasonOf(asset) ? true : undefined"
-        @click="selectable && !reasonOf(asset) && $emit('select', asset)"
+  <div
+    class="r-asset-strip"
+    :class="[`r-asset-strip--${layout}`, { 'r-asset-strip--grouped': groupBy }]"
+  >
+    <div
+      v-for="group in assets.length > 0 ? groups : []"
+      :key="group.key"
+      class="r-asset-strip__group"
+      :class="{ 'r-asset-strip__group--disabled': group.disabled }"
+    >
+      <button
+        v-if="groupBy"
+        type="button"
+        class="r-asset-strip__group-head"
+        :aria-expanded="isOpen(group)"
+        @click="toggleGroup(group)"
       >
-        <!-- List rows trade the screenshot for density, so the selection
-             badge moves out of the thumbnail and leads the row instead. -->
-        <span
-          v-if="layout === 'list'"
-          class="r-asset-strip__mark"
-          aria-hidden="true"
-        >
-          <RIcon
-            v-if="selectable && asset.id === selectedId"
-            icon="mdi-check-circle"
-            size="14"
-          />
-        </span>
-        <div v-else class="r-asset-strip__thumb">
-          <div
-            v-if="type === 'state' && screenshotOf(asset)"
-            class="r-asset-strip__thumb-img"
-            :style="{ backgroundImage: toCssUrl(screenshotOf(asset)!) }"
-          />
-          <div v-else class="r-asset-strip__thumb-icon">
-            <RIcon
-              :icon="type === 'save' ? 'mdi-content-save' : 'mdi-file-outline'"
-              size="28"
-            />
-          </div>
-          <span
-            v-if="selectable && asset.id === selectedId"
-            class="r-asset-strip__check"
-            aria-hidden="true"
+        <RIcon icon="mdi-chip" size="14" />
+        <span class="r-asset-strip__group-title">{{ group.label }}</span>
+        <RTag
+          v-if="group.disabled"
+          tone="neutral"
+          size="x-small"
+          :text="t('play.core-not-loadable')"
+        />
+        <span class="r-asset-strip__group-count">{{
+          group.assets.length
+        }}</span>
+        <RIcon
+          icon="mdi-chevron-down"
+          size="16"
+          class="r-asset-strip__group-chevron"
+        />
+      </button>
+
+      <RExpandTransition>
+        <div v-show="isOpen(group)" class="r-asset-strip__track">
+          <component
+            :is="selectable ? 'button' : 'div'"
+            v-for="asset in group.assets"
+            :key="asset.id"
+            :type="selectable ? 'button' : undefined"
+            class="r-asset-strip__tile r-v2-asset-fade"
+            :class="{
+              'r-asset-strip__tile--active':
+                selectable && asset.id === selectedId,
+              'r-asset-strip__tile--static': !selectable,
+              'r-asset-strip__tile--disabled': reasonOf(asset),
+            }"
+            :style="{ '--asset-fade-i': fadeIndex.get(asset.id) }"
+            :aria-pressed="selectable ? asset.id === selectedId : undefined"
+            :aria-disabled="reasonOf(asset) ? true : undefined"
+            @click="selectable && !reasonOf(asset) && $emit('select', asset)"
           >
-            <RIcon icon="mdi-check" size="14" />
-          </span>
-        </div>
-        <div class="r-asset-strip__meta">
-          <p class="r-asset-strip__name">
-            {{ asset.file_name }}
-          </p>
-          <p class="r-asset-strip__sub">
-            <span>{{ formatRelativeDate(asset.updated_at) }}</span>
-            <span class="r-asset-strip__dot" aria-hidden="true">·</span>
-            <span>{{ formatBytes(asset.file_size_bytes) }}</span>
-          </p>
-          <span v-if="showOwner && ownerOf(asset)" class="r-asset-strip__owner">
-            <RAvatar
-              :image="
-                userAvatarUrl({
-                  userId: ownerOf(asset)!.user_id,
-                  avatarPath: ownerOf(asset)!.user_avatar_path,
-                  updatedAt: ownerOf(asset)!.user_updated_at,
-                })
-              "
-              :size="14"
-            />
-            <span>{{ ownerOf(asset)!.username }}</span>
-          </span>
-        </div>
-        <div v-if="!selectable" class="r-asset-strip__actions">
-          <slot name="actions" :asset="asset" />
-        </div>
-        <RTooltip
-          v-if="selectable"
-          activator="parent"
-          location="top"
-          :open-delay="400"
-        >
-          <div class="r-asset-strip__tip">
-            <span class="r-asset-strip__tip-name">{{ asset.file_name }}</span>
-            <span class="r-asset-strip__tip-sub">
-              {{ t("rom.updated") }}:
-              {{ formatTimestamp(asset.updated_at, locale) }}
+            <!-- List rows trade the screenshot for density, so the selection
+             badge moves out of the thumbnail and leads the row instead. -->
+            <span
+              v-if="layout === 'list'"
+              class="r-asset-strip__mark"
+              aria-hidden="true"
+            >
+              <RIcon
+                v-if="selectable && asset.id === selectedId"
+                icon="mdi-check-circle"
+                size="14"
+              />
             </span>
-            <span v-if="reasonOf(asset)" class="r-asset-strip__tip-reason">
-              {{ reasonOf(asset) }}
-            </span>
-          </div>
-        </RTooltip>
-      </component>
+            <div v-else class="r-asset-strip__thumb">
+              <div
+                v-if="type === 'state' && screenshotOf(asset)"
+                class="r-asset-strip__thumb-img"
+                :style="{ backgroundImage: toCssUrl(screenshotOf(asset)!) }"
+              />
+              <div v-else class="r-asset-strip__thumb-icon">
+                <RIcon
+                  :icon="
+                    type === 'save' ? 'mdi-content-save' : 'mdi-file-outline'
+                  "
+                  size="28"
+                />
+              </div>
+              <span
+                v-if="selectable && asset.id === selectedId"
+                class="r-asset-strip__check"
+                aria-hidden="true"
+              >
+                <RIcon icon="mdi-check" size="14" />
+              </span>
+            </div>
+            <div class="r-asset-strip__meta">
+              <p class="r-asset-strip__name">
+                {{ asset.file_name }}
+              </p>
+              <p class="r-asset-strip__sub">
+                <span>{{ formatRelativeDate(asset.updated_at) }}</span>
+                <span class="r-asset-strip__dot" aria-hidden="true">·</span>
+                <span>{{ formatBytes(asset.file_size_bytes) }}</span>
+              </p>
+              <span
+                v-if="showOwner && ownerOf(asset)"
+                class="r-asset-strip__owner"
+              >
+                <RAvatar
+                  :image="
+                    userAvatarUrl({
+                      userId: ownerOf(asset)!.user_id,
+                      avatarPath: ownerOf(asset)!.user_avatar_path,
+                      updatedAt: ownerOf(asset)!.user_updated_at,
+                    })
+                  "
+                  :size="14"
+                />
+                <span>{{ ownerOf(asset)!.username }}</span>
+              </span>
+            </div>
+            <div v-if="!selectable" class="r-asset-strip__actions">
+              <slot name="actions" :asset="asset" />
+            </div>
+            <RTooltip
+              v-if="selectable"
+              activator="parent"
+              location="top"
+              :open-delay="400"
+            >
+              <div class="r-asset-strip__tip">
+                <span class="r-asset-strip__tip-name">{{
+                  asset.file_name
+                }}</span>
+                <span class="r-asset-strip__tip-sub">
+                  {{ t("rom.updated") }}:
+                  {{ formatTimestamp(asset.updated_at, locale) }}
+                </span>
+                <span v-if="reasonOf(asset)" class="r-asset-strip__tip-reason">
+                  {{ reasonOf(asset) }}
+                </span>
+              </div>
+            </RTooltip>
+          </component>
+        </div>
+      </RExpandTransition>
     </div>
 
-    <div v-else class="r-asset-strip__empty">
+    <div v-if="assets.length === 0" class="r-asset-strip__empty">
       <RIcon
         :icon="
           type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'
@@ -207,6 +323,57 @@ function reasonOf(asset: Asset): string | null {
 <style scoped>
 .r-asset-strip {
   width: 100%;
+}
+
+/* ── Groups (groupBy) ────────────────────────────────────── */
+.r-asset-strip--grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.r-asset-strip__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.r-asset-strip__group-head {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+  font: inherit;
+  text-align: left;
+  color: var(--r-color-fg-secondary);
+  cursor: pointer;
+}
+.r-asset-strip__group-title {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--r-color-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r-asset-strip__group--disabled .r-asset-strip__group-title {
+  color: var(--r-color-fg-muted);
+}
+.r-asset-strip__group-count {
+  margin-left: auto;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.r-asset-strip__group-chevron {
+  transition: transform var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-asset-strip__group-head[aria-expanded="true"] .r-asset-strip__group-chevron {
+  transform: rotate(180deg);
 }
 
 .r-asset-strip__track {

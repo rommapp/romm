@@ -511,6 +511,7 @@ async function toggleStateVisibility(state: StateSchema) {
               type="state"
               :selectable="false"
               layout="flow"
+              group-by="emulator"
             >
               <template #actions="{ asset }">
                 <RBtn
@@ -571,6 +572,7 @@ async function toggleStateVisibility(state: StateSchema) {
             type="state"
             :selectable="false"
             layout="flow"
+            group-by="emulator"
             show-owner
           >
             <template #actions="{ asset }">
