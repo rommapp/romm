@@ -294,7 +294,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(async () => {
-  autoSaveSyncEmulator = null;
+  uninstallAutoSaveSync();
   emitter?.off("saveSelected", loadSave);
   emitter?.off("stateSelected", loadState);
   window.EJS_emulator?.callEvent("exit");
@@ -344,10 +344,15 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 // frames rendered before loadState takes cleanly.
 const STATE_APPLY_SETTLE_MS = 500;
 
-// Periodic save upload on EmulatorJS' "System Save interval" tick (see
-// createSaveSyncTracker). EmulatorJS has no `off`, so the handler stays
-// subscribed and this slot is what tells it the component still owns it.
+// Periodic save upload on the "saveSaveFiles" tick (see createSaveSyncTracker).
+// EmulatorJS flushes the SRAM only on its "System Save interval" (5 minutes by
+// default), so a faster flush here gets an in-game save to the server seconds
+// after the game writes it.
+const SAVE_SYNC_POLL_MS = 5000;
+// EmulatorJS has no `off`: the handler stays subscribed and this slot is what
+// tells it the component still owns it.
 let autoSaveSyncEmulator: object | null = null;
+let autoSaveSyncTimer: ReturnType<typeof setInterval> | null = null;
 function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
   if (!emulator?.gameManager || autoSaveSyncEmulator === emulator) return;
@@ -373,6 +378,14 @@ function installAutoSaveSync() {
       uploading = false;
     }
   });
+  autoSaveSyncTimer = setInterval(() => {
+    if (emulator.started) emulator.gameManager.saveSaveFiles();
+  }, SAVE_SYNC_POLL_MS);
+}
+function uninstallAutoSaveSync() {
+  autoSaveSyncEmulator = null;
+  if (autoSaveSyncTimer) clearInterval(autoSaveSyncTimer);
+  autoSaveSyncTimer = null;
 }
 
 // Saves management
@@ -585,7 +598,7 @@ window.EJS_onGameStart = async () => {
 
   const exitEmulation = createExitEmulationButton();
   exitEmulation.addEventListener("click", async () => {
-    autoSaveSyncEmulator = null;
+    uninstallAutoSaveSync();
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
     romsStore.update(romRef.value);
     immediateExit();
@@ -593,7 +606,7 @@ window.EJS_onGameStart = async () => {
 
   const saveAndQuit = createSaveQuitButton();
   saveAndQuit.addEventListener("click", async () => {
-    autoSaveSyncEmulator = null;
+    uninstallAutoSaveSync();
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
     // Grab the screenshot while the game is still running (EmulatorJS reads
