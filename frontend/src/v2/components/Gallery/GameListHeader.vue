@@ -209,8 +209,9 @@ function handleClick(col: ListColumn) {
 /* Select-all checkbox sitting in the leading column. Visuals come
    from RCheckbox in bare/circle mode — same animation language as
    the GameCard / GameListRow checkboxes so the three reads as one
-   family. */
+   family. Centred on the column the way the body rows centre theirs,
+   so the tick sits over every row's tick. */
 .game-list-header__check {
-  margin-left: 4px;
+  justify-self: center;
 }
 </style>

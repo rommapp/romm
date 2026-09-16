@@ -458,13 +458,18 @@ function onRowPointerEnd() {
                selection chrome only appears once a real row exists. -->
         </div>
         <div
-          v-else-if="col.key === 'name'"
-          class="game-list-row__cell game-list-row__title"
+          v-else-if="col.key === 'cover'"
+          class="game-list-row__cell game-list-row__cover"
         >
           <RSkeletonBlock
             :width="LIST_COVER_WIDTH_PX"
             :height="LIST_COVER_HEIGHT_PX"
           />
+        </div>
+        <div
+          v-else-if="col.key === 'name'"
+          class="game-list-row__cell game-list-row__title"
+        >
           <div class="game-list-row__meta">
             <RSkeletonBlock width="60%" :height="12" />
             <RSkeletonBlock width="40%" :height="10" />

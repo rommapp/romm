@@ -15,7 +15,11 @@ import { useI18n } from "vue-i18n";
 import type { RecommendedRomSchema } from "@/__generated__";
 import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
-import romApi from "@/services/api/rom";
+import romApi, {
+  RECENT_PLAYED_ROMS_LIMIT,
+  RECENT_ROMS_LIMIT,
+  RECOMMENDED_ROMS_LIMIT,
+} from "@/services/api/rom";
 import setupApi, { type SetupLibraryInfo } from "@/services/api/setup";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
@@ -391,7 +395,10 @@ function collectionCovers(c: {
           <RIcon icon="mdi-play" size="20" />
         </template>
         <template v-if="fetchingContinue && !continuePlayingRoms.length">
-          <GameCardSkeleton v-for="n in 4" :key="`cs-${n}`" />
+          <GameCardSkeleton
+            v-for="n in RECENT_PLAYED_ROMS_LIMIT"
+            :key="`cs-${n}`"
+          />
         </template>
         <template v-else>
           <GameCard
@@ -420,7 +427,10 @@ function collectionCovers(c: {
           <RIcon icon="mdi-lightbulb-on-outline" size="20" />
         </template>
         <template v-if="fetchingRecommendations && !recommendedRoms.length">
-          <GameCardSkeleton v-for="n in 6" :key="`fys-${n}`" />
+          <GameCardSkeleton
+            v-for="n in RECOMMENDED_ROMS_LIMIT"
+            :key="`fys-${n}`"
+          />
         </template>
         <template v-else>
           <div
@@ -452,7 +462,7 @@ function collectionCovers(c: {
           <RIcon icon="mdi-shimmer" size="20" />
         </template>
         <template v-if="fetchingRecent && !recentRoms.length">
-          <GameCardSkeleton v-for="n in 6" :key="`rs-${n}`" />
+          <GameCardSkeleton v-for="n in RECENT_ROMS_LIMIT" :key="`rs-${n}`" />
         </template>
         <div v-else-if="!recentRoms.length" class="r-v2-home__empty">
           {{ t("home.no-games-yet") }}

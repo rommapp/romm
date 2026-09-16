@@ -2,7 +2,8 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, ref } from "vue";
+import { defineComponent, nextTick, ref } from "vue";
+import { RECOMMENDED_ROMS_LIMIT } from "@/services/api/rom";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -27,8 +28,13 @@ vi.mock("@/services/api/setup", () => ({
   default: { getLibraryInfo },
 }));
 
+// The loading rows size themselves from these limits, so the mock mirrors the
+// real module's values.
 vi.mock("@/services/api/rom", () => ({
   default: { getRecommendedRoms },
+  RECENT_PLAYED_ROMS_LIMIT: 15,
+  RECENT_ROMS_LIMIT: 15,
+  RECOMMENDED_ROMS_LIMIT: 15,
 }));
 
 vi.mock("@v2/lib", () => ({
@@ -44,7 +50,9 @@ vi.mock("@/v2/components/Collections/CollectionTile.vue", () => ({
 
 vi.mock("@/v2/components/GameCard", () => ({
   GameCard: defineComponent({ template: "<div />" }),
-  GameCardSkeleton: defineComponent({ template: "<div />" }),
+  GameCardSkeleton: defineComponent({
+    template: '<div data-test="game-skeleton" />',
+  }),
 }));
 
 vi.mock("@/v2/components/shared/CardRow.vue", () => ({
@@ -262,6 +270,23 @@ describe("Home", () => {
     await flushPromises();
 
     expect(wrapper.text()).not.toContain("recommendations.for-you");
+  });
+
+  it("paints one skeleton per recommended slot while the feed loads", async () => {
+    stubHomeFetches(true);
+    // A feed that never settles holds the row in its loading state.
+    getRecommendedRoms.mockReturnValue(new Promise(() => {}));
+
+    const wrapper = mountHome();
+    await nextTick();
+
+    const row = wrapper
+      .findAll("section")
+      .find((section) => section.text().startsWith("recommendations.for-you"));
+
+    expect(row?.findAll('[data-test="game-skeleton"]')).toHaveLength(
+      RECOMMENDED_ROMS_LIMIT,
+    );
   });
 
   it("keeps the home page usable when the feed request fails", async () => {
