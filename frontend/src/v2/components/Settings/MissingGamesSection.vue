@@ -8,7 +8,9 @@
 // the gallery's selected-platforms (so this tab starts from a known
 // state), then bootstrap metadata. The sortable column header and the
 // platform multi-select feed the same store inputs the real galleries
-// use; cleanup-all is the only missing-games-specific control. On
+// use; delete-all is the only missing-games-specific control, and the
+// gallery's SelectionBar carries the bulk actions for a hand-picked set
+// (minus download, since these rows point at files that are gone). On
 // unmount we restore the caller's filter so the next gallery view they
 // land on doesn't inherit `filterMissing=true`.
 //
@@ -33,6 +35,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
+import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
   isListSortKey,
   LIST_ROW_HEIGHT_PX,
@@ -221,7 +224,7 @@ async function cleanupAll() {
   const ok = await confirm({
     title: t("common.confirm-deletion"),
     body: t("settings.cleanup-all-confirm", { platform: platformLabel }),
-    confirmText: t("settings.cleanup-all"),
+    confirmText: t("settings.missing-games-delete-all"),
     tone: "danger",
     requireTyped: "DELETE",
   });
@@ -317,7 +320,11 @@ onBeforeUnmount(() => {
         <RTag
           v-if="metadataLoaded"
           prepend-icon="mdi-folder-question-outline"
-          :text="total"
+          :text="
+            t('settings.missing-games-count', total, {
+              named: { count: total.toLocaleString() },
+            })
+          "
           tone="neutral"
         />
         <RMenu location="bottom end" :offset="6" width="220px">
@@ -333,7 +340,7 @@ onBeforeUnmount(() => {
             />
           </template>
           <RMenuItem
-            :label="t('settings.cleanup-all')"
+            :label="t('settings.missing-games-delete-all')"
             icon="mdi-delete-outline"
             variant="danger"
             :disabled="cleaningUp || showEmpty"
@@ -373,6 +380,8 @@ onBeforeUnmount(() => {
         </template>
       </RVirtualScroller>
     </div>
+
+    <SelectionBar hide-download />
   </div>
 </template>
 
