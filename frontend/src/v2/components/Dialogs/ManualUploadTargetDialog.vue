@@ -10,6 +10,10 @@ import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
+import {
+  ROM_UPLOAD_FOLDERS,
+  useRomFileUpload,
+} from "@/v2/composables/useRomFileUpload";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -19,22 +23,12 @@ const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { refetchRom } = useRomSync();
+const { uploadFiles } = useRomFileUpload();
 const uploadStore = storeUpload();
 
-const TARGETS = {
-  resources: {
-    upload: romApi.uploadManuals,
-    successKey: "rom.manuals-upload-success",
-    skippedKey: "rom.manuals-upload-skipped",
-  },
-  folder: {
-    upload: romApi.uploadManualFiles,
-    successKey: "rom.manual-files-upload-success",
-    skippedKey: "rom.manual-files-upload-skipped",
-  },
-} as const;
-
-type UploadTarget = keyof typeof TARGETS;
+// The resources copy replaces the scraped manual on the ROM record; the folder
+// copy is a ROM file like any other upload.
+type UploadTarget = "resources" | "folder";
 
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
@@ -57,25 +51,24 @@ const handleShow = (payload: Events["showManualUploadTargetDialog"]) => {
 emitter?.on("showManualUploadTargetDialog", handleShow);
 onBeforeUnmount(() => emitter?.off("showManualUploadTargetDialog", handleShow));
 
-async function handleUploadResult(
-  responses: PromiseSettledResult<unknown>[],
-  successKey: string,
-  skippedKey: string,
-  target: DetailedRom,
-) {
+async function uploadToResources(targetRom: DetailedRom, targetFiles: File[]) {
+  const responses = await romApi.uploadManuals({
+    romId: targetRom.id,
+    filesToUpload: targetFiles,
+  });
   const successful = responses.filter((r) => r.status === "fulfilled").length;
   const failed = responses.length - successful;
 
   if (failed === 0) uploadStore.reset();
 
   if (successful > 0) {
-    snackbar.success(t(successKey, { count: successful, failed }), {
-      icon: "mdi-check-bold",
-      timeout: 3000,
-    });
-    await refetchRom(target.id);
+    snackbar.success(
+      t("rom.manuals-upload-success", { count: successful, failed }),
+      { icon: "mdi-check-bold", timeout: 3000 },
+    );
+    await refetchRom(targetRom.id);
   } else {
-    snackbar.warning(t(skippedKey), {
+    snackbar.warning(t("rom.manuals-upload-skipped"), {
       icon: "mdi-close-circle",
       timeout: 5000,
     });
@@ -87,12 +80,11 @@ async function uploadTo(
   targetRom: DetailedRom,
   targetFiles: File[],
 ) {
-  const { upload, successKey, skippedKey } = TARGETS[target];
-  const responses = await upload({
-    romId: targetRom.id,
-    filesToUpload: targetFiles,
-  });
-  await handleUploadResult(responses, successKey, skippedKey, targetRom);
+  if (target === "folder") {
+    await uploadFiles(targetRom, ROM_UPLOAD_FOLDERS.manual, targetFiles);
+    return;
+  }
+  await uploadToResources(targetRom, targetFiles);
 }
 
 // Serialized so a drop mid-upload waits rather than replacing the one running.
