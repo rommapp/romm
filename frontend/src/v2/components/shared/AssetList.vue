@@ -378,12 +378,12 @@ function visibleVersions(group: SlotGroup): Asset[] {
   flex-direction: column;
   gap: 4px;
 }
-/* Each slot sits on its own tinted band, so the gaps between sections
+/* Each slot sits on its own neutral band, so the gaps between sections
    read as separators. */
 .r-asset-list__group--slot {
   padding: 6px 8px 8px;
   border-radius: var(--r-radius-md);
-  background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
+  background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 
 .r-asset-list__group-head {
