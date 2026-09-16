@@ -150,7 +150,7 @@ export const ArchiveOnly: Story = {
   },
 };
 
-// One slot, one version — the most common case for new players.
+// One slot, one version, the most common case for new players.
 export const SingleSave: Story = {
   name: "Single save",
   render: () => {

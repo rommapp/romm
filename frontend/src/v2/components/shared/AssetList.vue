@@ -3,10 +3,8 @@
 // states). Shared between the EmulatorJS and Stream launch screens
 // (selection) and the GameDetails "Save data" subtab (management).
 //
-// Saves follow the sync clients' slot model: rows group by slot, newest
-// version first, with older versions folded behind a toggle. Slot-less saves
-// are manual archives and sit in their own group. A save written by the
-// browser player carries a screenshot, shown as the row thumbnail.
+// Saves group by slot (archives last), newest version first with the older
+// ones folded; a save's screenshot, when it has one, is the row thumbnail.
 //
 // Two modes, driven by `selectable`:
 //   * selectable (default) — Play view. Each row is a button; clicking
@@ -15,30 +13,29 @@
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
 import { RAvatar, RBtn, RIcon, RTag, RTooltip } from "@v2/lib";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type {
-  SaveSchema,
-  StateSchema,
-  UserSaveSchema,
-  UserStateSchema,
-} from "@/__generated__";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import {
+  byUpdatedDesc,
+  ownerOf,
+  screenshotOf,
+  staggerIndex,
+  type Asset,
+  type AssetOwner,
+  type AssetType,
+} from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
-export type AssetType = "save" | "state";
-type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
-type Owner = UserSaveSchema | UserStateSchema;
-
 interface SlotGroup {
   key: string;
   /** Null for the archive of slot-less saves and for ungrouped states. */
   slot: string | null;
-  owner: Owner | null;
+  owner: AssetOwner | null;
   /** Newest first. */
   versions: Asset[];
 }
@@ -55,12 +52,15 @@ const props = withDefaults(
     showOwner?: boolean;
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
+    /** Off for lists whose saves are not slot versions (stream archives). */
+    groupBySlot?: boolean;
   }>(),
   {
     selectable: true,
     selectedId: null,
     showOwner: false,
     scrollable: true,
+    groupBySlot: true,
   },
 );
 
@@ -80,23 +80,12 @@ const emptyLabel = computed(() =>
     : t("play.no-states-available"),
 );
 
-function ownerOf(asset: Asset): Owner | null {
-  return "username" in asset && asset.username ? asset : null;
-}
-
-function screenshotOf(asset: Asset): string | null {
-  return asset.screenshot?.download_path ?? null;
-}
-
 function slotOf(asset: Asset): string | null {
   return "slot" in asset && asset.slot ? asset.slot : null;
 }
 
 // Only saves have slots; states render as one flat, headerless group.
-const grouped = computed(() => props.type === "save");
-
-const byUpdatedDesc = (a: Asset, b: Asset) =>
-  b.updated_at.localeCompare(a.updated_at);
+const grouped = computed(() => props.type === "save" && props.groupBySlot);
 
 // Autosave leads, named slots follow by recency, and the archive closes the
 // list. Community lists key by owner too so two users' slots never merge.
@@ -124,33 +113,37 @@ const groups = computed<SlotGroup[]>(() => {
   );
 });
 
-// Keeps the entrance stagger continuous across groups.
-const fadeIndex = computed(() => {
-  const order = new Map<number, number>();
-  for (const group of groups.value) {
-    for (const asset of group.versions) order.set(asset.id, order.size);
-  }
-  return order;
-});
-
-// Older versions stay folded unless the user opens them or one is selected.
-const expandedKeys = ref(new Set<string>());
-function isExpanded(group: SlotGroup): boolean {
-  if (!grouped.value || expandedKeys.value.has(group.key)) return true;
+// Older versions stay folded until opened, or until one of them is selected;
+// an explicit toggle wins until the selection moves into the group again.
+const openGroups = ref(new Map<string, boolean>());
+function holdsOlderSelection(group: SlotGroup): boolean {
   return (
     props.selectable &&
     group.versions.slice(1).some((asset) => asset.id === props.selectedId)
   );
 }
-function toggleExpanded(group: SlotGroup) {
-  const next = new Set(expandedKeys.value);
-  if (isExpanded(group)) next.delete(group.key);
-  else next.add(group.key);
-  expandedKeys.value = next;
+function isExpanded(group: SlotGroup): boolean {
+  if (!grouped.value) return true;
+  return openGroups.value.get(group.key) ?? holdsOlderSelection(group);
 }
+function toggleExpanded(group: SlotGroup) {
+  openGroups.value.set(group.key, !isExpanded(group));
+}
+watch(
+  () => props.selectedId,
+  () => {
+    for (const group of groups.value) {
+      if (holdsOlderSelection(group)) openGroups.value.delete(group.key);
+    }
+  },
+);
 function visibleVersions(group: SlotGroup): Asset[] {
   return isExpanded(group) ? group.versions : group.versions.slice(0, 1);
 }
+
+const fadeIndex = computed(() =>
+  staggerIndex(groups.value.map(visibleVersions)),
+);
 </script>
 
 <template>

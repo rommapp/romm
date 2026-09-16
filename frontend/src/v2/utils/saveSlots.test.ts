@@ -7,6 +7,7 @@ import {
   preferredSlot,
   slotChoiceKey,
   slotChoices,
+  slotForSave,
 } from "./saveSlots";
 
 const save = (id: number, slot: string | null = null) => ({ id, slot });
@@ -86,5 +87,14 @@ describe("isSlotChoice", () => {
     expect(isSlotChoice("slot:main")).toBe(false);
     expect(isSlotChoice({ kind: "other" })).toBe(false);
     expect(isSlotChoice(null)).toBe(false);
+  });
+});
+
+describe("slotForSave", () => {
+  it("follows a slotted save and keeps the choice for an archive", () => {
+    expect(slotForSave(save(1, "main"), existingSlot("autosave"))).toEqual(
+      existingSlot("main"),
+    );
+    expect(slotForSave(save(2), NEW_SLOT_CHOICE)).toBe(NEW_SLOT_CHOICE);
   });
 });

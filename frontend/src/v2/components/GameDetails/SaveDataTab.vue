@@ -30,15 +30,17 @@ import type {
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 import { getSupportedEJSCores } from "@/utils";
 import UploadAssetDialog, {
-  type UploadAssetType,
+  type UploadAssetPayload,
 } from "@/v2/components/GameDetails/UploadAssetDialog.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import type { AssetType } from "@/v2/utils/assets";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
@@ -95,6 +97,7 @@ watch(
 );
 
 const authStore = storeAuth();
+const configStore = storeConfig();
 const { user } = storeToRefs(authStore);
 const myId = computed(() => user.value?.id ?? null);
 
@@ -132,31 +135,32 @@ const subtabDefs = computed<SubtabDef[]>(() => [
 // ---------- Upload / refresh plumbing ----------
 // Every upload goes through the dialog, which asks saves for a slot and
 // states for a core; dropped files land in it pre-picked.
-const uploadDialog = ref<{ type: UploadAssetType; files: File[] } | null>(null);
-function openUpload(type: UploadAssetType, files: File[] = []) {
+const uploadDialog = ref<{ type: AssetType; files: File[] } | null>(null);
+function openUpload(type: AssetType, files: File[] = []) {
   uploadDialog.value = { type, files };
 }
-// The platform's cores plus whatever the existing states were tagged with.
+// The cores the player offers plus whatever the existing states carry.
 const uploadCores = computed(() => {
-  const cores = new Set(getSupportedEJSCores(props.rom.platform_slug));
+  const cores = new Set(
+    getSupportedEJSCores(
+      props.rom.platform_slug,
+      configStore.config.EJS_NETPLAY_ENABLED,
+    ),
+  );
   for (const state of myStates.value) {
     if (state.emulator) cores.add(state.emulator);
   }
   return [...cores];
 });
 async function onUploadSubmit({
+  type,
   files,
   slot,
   emulator,
-}: {
-  files: File[];
-  slot: string | null;
-  emulator: string | null;
-}) {
-  const type = uploadDialog.value?.type;
+}: UploadAssetPayload) {
   uploadDialog.value = null;
   if (type === "save") await onSaveUpload(files, slot);
-  else if (type === "state") await onStateUpload(files, emulator);
+  else await onStateUpload(files, emulator);
 }
 const uploadingSaves = ref(false);
 const uploadingStates = ref(false);
@@ -174,10 +178,12 @@ async function onSaveUpload(files: File[], slot: string | null) {
 
   uploadingSaves.value = true;
   try {
+    // A manual upload into a slot is a new version even if the bytes match.
     const results = await saveApi.uploadSaves({
       rom: props.rom,
       savesToUpload: files.map((saveFile) => ({ saveFile })),
       slot: slot ?? undefined,
+      overwrite: slot !== null,
     });
     const successful = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.length - successful;

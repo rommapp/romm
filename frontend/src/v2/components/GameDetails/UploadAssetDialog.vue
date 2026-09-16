@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// UploadAssetDialog: pick the slot for saves, or the core states were made
-// with, then the files to send. The Save data tab owns the upload, and
-// closes the dialog first.
+// UploadAssetDialog: the slot for saves, or the core for states, plus the
+// files to send. The Save data tab owns the upload.
 import {
   RBtn,
   RChip,
@@ -17,6 +16,7 @@ import { useI18n } from "vue-i18n";
 import type { SaveSchema } from "@/__generated__";
 import { SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import { formatBytes } from "@/utils";
+import type { AssetType } from "@/v2/utils/assets";
 import {
   chosenSlot,
   isSlotChoice,
@@ -24,9 +24,14 @@ import {
   slotChoices,
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
-import { required } from "@/v2/utils/validation";
+import { notBlank } from "@/v2/utils/validation";
 
-export type UploadAssetType = "save" | "state";
+export interface UploadAssetPayload {
+  type: AssetType;
+  files: File[];
+  slot: string | null;
+  emulator: string | null;
+}
 
 // A manual upload may also stay out of every slot, as an archive.
 type UploadSlot = SlotChoice | { kind: "none" };
@@ -34,7 +39,7 @@ const NO_SLOT: UploadSlot = { kind: "none" };
 
 const props = defineProps<{
   modelValue: boolean;
-  type: UploadAssetType;
+  type: AssetType;
   /** Own saves, whose slots the picker offers. */
   saves: Pick<SaveSchema, "slot">[];
   /** Cores the states may have been made with. */
@@ -45,9 +50,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "update:modelValue": [value: boolean];
-  submit: [
-    payload: { files: File[]; slot: string | null; emulator: string | null },
-  ];
+  submit: [payload: UploadAssetPayload];
 }>();
 
 const { t } = useI18n();
@@ -86,8 +89,10 @@ watch(
     slot.value = NO_SLOT;
     newSlotName.value = "";
     core.value = "";
-    files.value = [...props.initialFiles];
+    files.value = [];
+    addFiles(props.initialFiles);
   },
+  { immediate: true },
 );
 
 function addFiles(picked: File[]) {
@@ -109,6 +114,7 @@ async function submit() {
   if (result && !result.valid) return;
   const picked = slot.value;
   emit("submit", {
+    type: props.type,
     files: files.value,
     slot:
       props.type === "save" && picked.kind !== "none"
@@ -125,7 +131,6 @@ async function submit() {
     icon="mdi-cloud-upload-outline"
     width="520"
     @update:model-value="emit('update:modelValue', $event)"
-    @close="close"
   >
     <template #header>
       <span>{{
@@ -133,7 +138,7 @@ async function submit() {
       }}</span>
     </template>
     <template #content>
-      <RForm ref="formRef" class="r-v2-upload-asset">
+      <RForm ref="formRef" class="r-v2-upload-asset" @submit="submit">
         <RSelect
           v-if="type === 'save'"
           :model-value="slot"
@@ -154,7 +159,7 @@ async function submit() {
           v-if="type === 'save' && slot.kind === 'new'"
           v-model="newSlotName"
           :label="t('play.slot-name')"
-          :rules="[required()]"
+          :rules="[notBlank()]"
           :maxlength="SAVE_SLOT_MAX_LENGTH"
           autocomplete="off"
         />

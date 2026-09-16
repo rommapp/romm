@@ -16,7 +16,7 @@
 //   • title — header (alternatively `title` prop)
 //   • prepend — replaces the auto-picked icon
 //   • append — extra content on the trailing edge
-//   • actions — a row of controls under the body text
+//   • actions: a row of controls under the body text
 //
 // v-model controls visibility. When `closable` is set, clicking the
 // X emits `click:close` and flips `modelValue` to false; the leave

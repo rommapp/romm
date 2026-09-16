@@ -119,18 +119,26 @@ async def _remove_save_screenshot(save: Save) -> None:
         )
 
 
+async def _delete_save(save: Save) -> None:
+    """Drop a save row with its file and screenshot; a missing file is only logged."""
+    db_save_handler.delete_save(save.id)
+    try:
+        await fs_asset_handler.remove_file(file_path=save.full_path)
+    except FileNotFoundError:
+        log.error(
+            f"Save file {hl(save.file_name)} not found for platform "
+            f"{hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
+        )
+    await _remove_save_screenshot(save)
+
+
 async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
-    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
+    """Drop every version of ``slot`` past the ``keep`` newest."""
     slot_saves = db_save_handler.get_saves(
         user_id=user_id, rom_ids=[rom_id], slot=slot, order_by="updated_at"
     )
     for old_save in slot_saves[keep:]:
-        db_save_handler.delete_save(old_save.id)
-        try:
-            await fs_asset_handler.remove_file(old_save.full_path)
-        except FileNotFoundError:
-            log.warning(f"Could not delete old save file: {old_save.full_path}")
-        await _remove_save_screenshot(old_save)
+        await _delete_save(old_save)
 
 
 def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
@@ -138,7 +146,7 @@ def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
     limits = [MAX_SAVES_PER_SLOT] if MAX_SAVES_PER_SLOT else []
     if autocleanup:
         limits.append(autocleanup_limit)
-    return min(limits) if limits else None
+    return min(limits, default=None)
 
 
 def _apply_datetime_tag(filename: str) -> str:
@@ -775,19 +783,10 @@ async def delete_saves(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         affected_rom_ids.add(save.rom_id)
-        db_save_handler.delete_save(save_id)
-
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
-        try:
-            file_path = f"{save.file_path}/{save.file_name}"
-            await fs_asset_handler.remove_file(file_path=file_path)
-        except FileNotFoundError:
-            error = f"Save file {hl(save.file_name)} not found for platform {hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
-            log.error(error)
-
-        await _remove_save_screenshot(save)
+        await _delete_save(save)
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 

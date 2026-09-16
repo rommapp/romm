@@ -1,7 +1,9 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
-import UploadAssetDialog from "./UploadAssetDialog.vue";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, nextTick, type PropType } from "vue";
+import UploadAssetDialog, {
+  type UploadAssetPayload,
+} from "./UploadAssetDialog.vue";
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -23,22 +25,23 @@ const RForm = {
   template: `<form><slot /></form>`,
 };
 // Emits the raw item in object mode and its value otherwise, like RSelect.
-const RSelect = {
+const RSelect = defineComponent({
   props: {
-    modelValue: { type: null, default: undefined },
-    items: { type: Array, default: () => [] },
-    itemTitle: { type: [String, Function], default: "title" },
+    modelValue: {
+      type: null as unknown as PropType<unknown>,
+      default: undefined,
+    },
+    items: { type: Array as PropType<unknown[]>, default: () => [] },
+    itemTitle: {
+      type: [String, Function] as PropType<
+        string | ((item: unknown) => string)
+      >,
+      default: "title",
+    },
     returnObject: { type: Boolean, default: false },
   },
   emits: ["update:modelValue"],
-  setup(
-    props: {
-      items: unknown[];
-      itemTitle: string | ((item: unknown) => string);
-      returnObject: boolean;
-    },
-    { emit }: { emit: (event: "update:modelValue", value: unknown) => void },
-  ) {
+  setup(props, { emit }) {
     const titleOf = (item: unknown) =>
       typeof props.itemTitle === "function"
         ? props.itemTitle(item)
@@ -51,7 +54,7 @@ const RSelect = {
     return { titleOf, pick };
   },
   template: `<select @change="pick"><option v-for="(i, n) in items" :key="n">{{ titleOf(i) }}</option></select>`,
-};
+});
 const RTextField = {
   props: { modelValue: { type: String, default: "" } },
   emits: ["update:modelValue"],
@@ -72,8 +75,6 @@ const RBtn = {
   emits: ["click"],
   template: `<button class="btn" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
 };
-
-type Payload = { files: File[]; slot: string | null; emulator: string | null };
 
 function mountDialog(
   type: "save" | "state",
@@ -120,10 +121,16 @@ async function choose(
 async function submitted(wrapper: ReturnType<typeof mountDialog>) {
   await uploadButton(wrapper).trigger("click");
   await nextTick();
-  return (wrapper.emitted("submit")?.[0] as [Payload] | undefined)?.[0];
+  return (
+    wrapper.emitted("submit")?.[0] as [UploadAssetPayload] | undefined
+  )?.[0];
 }
 
 describe("UploadAssetDialog", () => {
+  afterEach(() => {
+    formValid.value = true;
+  });
+
   it("keeps Upload disabled until a file is picked, then uploads as an archive", async () => {
     const wrapper = mountDialog("save");
     expect(uploadButton(wrapper).attributes("disabled")).toBeDefined();
@@ -132,7 +139,7 @@ describe("UploadAssetDialog", () => {
     expect(uploadButton(wrapper).attributes("disabled")).toBeUndefined();
 
     const payload = await submitted(wrapper);
-    expect(payload).toMatchObject({ slot: null, emulator: null });
+    expect(payload).toMatchObject({ type: "save", slot: null, emulator: null });
     expect(payload!.files.map((f) => f.name)).toEqual(["game.srm"]);
   });
 
@@ -169,7 +176,6 @@ describe("UploadAssetDialog", () => {
     await choose(wrapper, 0, 3);
 
     expect(await submitted(wrapper)).toBeUndefined();
-    formValid.value = true;
   });
 
   it("asks states only for the core", async () => {

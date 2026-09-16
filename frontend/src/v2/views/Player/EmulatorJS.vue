@@ -92,11 +92,13 @@ import {
   preferredSlot,
   slotChoiceKey,
   slotChoices,
+  slotForSave,
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
+  clearState,
   defaultResumeSelection,
   newerThanPick,
   pickSave,
@@ -173,6 +175,9 @@ const compatibleStates = computed(
   () => rom.value?.user_states.filter(isCoreCompatible) ?? [],
 );
 const stateCount = computed(() => rom.value?.user_states.length ?? 0);
+const allStatesCompatible = computed(
+  () => compatibleStates.value.length === stateCount.value,
+);
 // Other emulators' states stay listed, disabled, so the count adds up.
 function stateDisabledReason(asset: { emulator?: string | null }) {
   if (isCoreCompatible(asset)) return null;
@@ -287,8 +292,11 @@ async function onPlay() {
   }
 }
 
+// A slotted save fixes the write slot, and it stays put for the session
+// even when a state later displaces the save.
 function selectSave(save: SaveSchema) {
   resume.value = pickSave(save);
+  slotChoice.value = slotForSave(save, slotChoice.value);
   isSavesTabSelected.value = true;
 }
 
@@ -296,16 +304,13 @@ function unselectSave() {
   resume.value = { ...resume.value, save: null };
 }
 
-// The picked save's slot carries over as the write target for the session.
 function selectState(state: StateSchema) {
-  const previousSlot = resume.value.save?.slot;
-  resume.value = pickState(state);
-  if (previousSlot) slotChoice.value = existingSlot(previousSlot);
+  resume.value = pickState(resume.value, state);
   isSavesTabSelected.value = false;
 }
 
 function unselectState() {
-  resume.value = { ...resume.value, state: null };
+  resume.value = clearState(resume.value);
 }
 
 watch(selectedCore, (newSelectedCore) => {
@@ -460,10 +465,9 @@ const assetTabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
   {
     id: "state",
     label: t("common.states"),
-    badge:
-      compatibleStates.value.length === stateCount.value
-        ? stateCount.value
-        : `${compatibleStates.value.length}/${stateCount.value}`,
+    badge: allStatesCompatible.value
+      ? stateCount.value
+      : `${compatibleStates.value.length}/${stateCount.value}`,
     icon: "mdi-file",
   },
 ]);
@@ -482,21 +486,17 @@ function clearSelectedAsset() {
   else unselectState();
 }
 
-// Loadable states lead; the rest trail, disabled, in their own order.
-const activeAssets = computed<(SaveSchema | StateSchema)[]>(() => {
-  if (isSavesTabSelected.value) return rom.value?.user_saves ?? [];
-  const states = rom.value?.user_states ?? [];
-  return [
-    ...compatibleStates.value,
-    ...states.filter((s) => !isCoreCompatible(s)),
-  ];
-});
+const activeAssets = computed<(SaveSchema | StateSchema)[]>(() =>
+  isSavesTabSelected.value
+    ? (rom.value?.user_saves ?? [])
+    : (rom.value?.user_states ?? []),
+);
 const stripCount = computed(() => {
-  if (isSavesTabSelected.value) return String(activeAssets.value.length);
-  const compatible = compatibleStates.value.length;
-  if (compatible === stateCount.value) return String(stateCount.value);
+  if (isSavesTabSelected.value || allStatesCompatible.value) {
+    return String(activeAssets.value.length);
+  }
   return t("play.compatible-of-total", {
-    compatible,
+    compatible: compatibleStates.value.length,
     total: stateCount.value,
   });
 });
@@ -650,9 +650,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
               <div class="r-v2-ejs__slot-row">
                 <RSelect
                   class="r-v2-ejs__slot-select"
-                  :model-value="
-                    boundSlot ? existingSlot(boundSlot) : slotChoice
-                  "
+                  :model-value="slotChoice"
                   :disabled="!!boundSlot"
                   variant="outlined"
                   density="compact"
@@ -708,9 +706,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
               <span class="r-v2-ejs__strip-count">{{ stripCount }}</span>
             </div>
 
-            <!-- Saves render as a vertical list (no screenshot ⇒ density);
-               states keep the horizontal tile strip (screenshot is the
-               point). The wrapper owns the only scroll on the screen. -->
+            <!-- Saves as slot rows, states as a grid grouped by core. The
+               wrapper owns the only scroll on the screen. -->
             <div class="r-v2-ejs__assets">
               <AssetList
                 v-if="activeAssetTab === 'save'"
@@ -990,9 +987,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 .r-v2-ejs__resume-main {
   flex: 1;
 }
-/* States on a wide screen: the tile grid takes the panel's width and the
-   preview, warning and slot picker sit in a fixed side column so the grid
-   never shrinks. Saves keep the stacked column, their rows are wide. */
+/* States on a wide screen: the grid keeps the panel's width and the preview
+   column stays fixed. Saves keep the stacked column, their rows are wide. */
 html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);

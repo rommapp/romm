@@ -5,6 +5,8 @@ import type { SaveSchema, StateSchema } from "@/__generated__";
 export interface ResumeSelection {
   save: SaveSchema | null;
   state: StateSchema | null;
+  /** The save a picked state displaced, restored when the state is cleared. */
+  aside?: SaveSchema | null;
 }
 
 /** The newest compatible state, else the newest save; never both. */
@@ -21,9 +23,17 @@ export function pickSave(save: SaveSchema): ResumeSelection {
   return { save, state: null };
 }
 
-/** A picked state carries its own SRAM, so no save stays bound. */
-export function pickState(state: StateSchema): ResumeSelection {
-  return { save: null, state };
+/** A picked state carries its own SRAM, so the picked save steps aside. */
+export function pickState(
+  selection: ResumeSelection,
+  state: StateSchema,
+): ResumeSelection {
+  return { save: null, state, aside: selection.save ?? selection.aside };
+}
+
+/** Clearing the state hands the boot back to the save it displaced. */
+export function clearState(selection: ResumeSelection): ResumeSelection {
+  return { save: selection.aside ?? null, state: null };
 }
 
 export type NewerAsset =

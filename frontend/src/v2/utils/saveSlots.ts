@@ -50,3 +50,11 @@ export function chosenSlot(choice: SlotChoice, newSlotName: string): string {
   if (choice.kind === "existing") return choice.slot;
   return newSlotName.trim() || AUTOSAVE_SLOT;
 }
+
+/** A slotted save fixes the write slot; an archive leaves the choice as is. */
+export function slotForSave(
+  save: Pick<SaveSchema, "slot">,
+  current: SlotChoice,
+): SlotChoice {
+  return save.slot ? existingSlot(save.slot) : current;
+}

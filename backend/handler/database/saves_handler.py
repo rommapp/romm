@@ -113,7 +113,8 @@ class DBSavesHandler(DBBaseHandler):
         if order_by:
             order_col = getattr(Save, order_by)
             order_fn = asc if order_dir == "asc" else desc
-            query = query.order_by(order_fn(order_col))
+            # Timestamps tie at second resolution; the id keeps the order stable.
+            query = query.order_by(order_fn(order_col), order_fn(Save.id))
 
         if only_fields:
             query = query.options(load_only(*only_fields))

@@ -27,23 +27,23 @@
 // `groupBy="emulator"` folds the tiles into one collapsible group per core,
 // loadable cores first; a group whose tiles are all disabled starts closed.
 import { RAvatar, RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type {
-  SaveSchema,
-  StateSchema,
-  UserSaveSchema,
-  UserStateSchema,
-} from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import {
+  newestUpdatedAt,
+  ownerOf,
+  screenshotOf,
+  staggerIndex,
+  type Asset,
+  type AssetType,
+} from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
-export type AssetType = "save" | "state";
 export type AssetLayout = "strip" | "flow" | "grid" | "list";
-type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 
 const props = withDefaults(
   defineProps<{
@@ -83,17 +83,6 @@ const emptyLabel = computed(() =>
     : t("play.no-states-available"),
 );
 
-function screenshotOf(asset: Asset): string | null {
-  if ("screenshot" in asset && asset.screenshot?.download_path) {
-    return asset.screenshot.download_path;
-  }
-  return null;
-}
-
-function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
-  return "username" in asset && asset.username ? asset : null;
-}
-
 function reasonOf(asset: Asset): string | null {
   return props.selectable ? (props.disabledReason?.(asset) ?? null) : null;
 }
@@ -106,9 +95,6 @@ interface AssetGroup {
   /** Every tile disabled: nothing in this group can be picked. */
   disabled: boolean;
 }
-
-const newestOf = (assets: Asset[]) =>
-  assets.reduce((best, a) => (a.updated_at > best ? a.updated_at : best), "");
 
 const groups = computed<AssetGroup[]>(() => {
   if (!props.groupBy) {
@@ -130,39 +116,52 @@ const groups = computed<AssetGroup[]>(() => {
     group.assets.push(asset);
     if (!reasonOf(asset)) group.disabled = false;
   }
+  const newest = new Map(
+    [...byKey.values()].map((group) => [
+      group.key,
+      newestUpdatedAt(group.assets),
+    ]),
+  );
   return [...byKey.values()].sort(
     (a, b) =>
       Number(a.disabled) - Number(b.disabled) ||
-      newestOf(b.assets).localeCompare(newestOf(a.assets)),
+      newest.get(b.key)!.localeCompare(newest.get(a.key)!),
   );
 });
 
-// Keeps the entrance stagger continuous across groups.
-const fadeIndex = computed(() => {
-  const order = new Map<number, number>();
-  for (const group of groups.value) {
-    for (const asset of group.assets) order.set(asset.id, order.size);
-  }
-  return order;
-});
-
-// A group opens on its own while it holds the selection.
+// Loadable groups start open and a group opens when it takes the selection;
+// an explicit toggle wins until the selection moves into the group again.
 const openGroups = ref(new Map<string, boolean>());
-function isOpen(group: AssetGroup): boolean {
-  if (!props.groupBy) return true;
-  if (
+function holdsSelection(group: AssetGroup): boolean {
+  return (
     props.selectable &&
     group.assets.some((asset) => asset.id === props.selectedId)
-  ) {
-    return true;
-  }
-  return openGroups.value.get(group.key) ?? !group.disabled;
+  );
+}
+function isOpen(group: AssetGroup): boolean {
+  if (!props.groupBy) return true;
+  return (
+    openGroups.value.get(group.key) ??
+    (holdsSelection(group) || !group.disabled)
+  );
 }
 function toggleGroup(group: AssetGroup) {
-  const next = new Map(openGroups.value);
-  next.set(group.key, !isOpen(group));
-  openGroups.value = next;
+  openGroups.value.set(group.key, !isOpen(group));
 }
+watch(
+  () => props.selectedId,
+  () => {
+    for (const group of groups.value) {
+      if (holdsSelection(group)) openGroups.value.delete(group.key);
+    }
+  },
+);
+
+const fadeIndex = computed(() =>
+  staggerIndex(
+    groups.value.map((group) => (isOpen(group) ? group.assets : [])),
+  ),
+);
 </script>
 
 <template>
