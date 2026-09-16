@@ -225,6 +225,7 @@ async def add_save(
 
     # Keep at least the save just uploaded, and cap what a client can retain
     autocleanup_limit = max(1, min(autocleanup_limit, MAX_AUTOCLEANUP_LIMIT))
+    keep = _slot_retention(autocleanup, autocleanup_limit)
 
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
@@ -320,6 +321,9 @@ async def add_save(
                 await fs_asset_handler.remove_file(f"{saves_path}/{actual_filename}")
             except FileNotFoundError:
                 pass
+            # A retry still counts as an upload to the slot, so the cap applies.
+            if keep is not None:
+                await _prune_slot(request.user.id, rom.id, slot, keep)
             return _build_save_schema(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
@@ -378,7 +382,6 @@ async def add_save(
     if session_id:
         _increment_session_counter(session_id, request.user.id)
 
-    keep = _slot_retention(autocleanup, autocleanup_limit)
     if slot and keep is not None:
         await _prune_slot(request.user.id, rom.id, slot, keep)
 

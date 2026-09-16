@@ -2165,6 +2165,40 @@ class TestSlotRetention:
         "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_duplicate_upload_still_prunes_the_slot(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        named_slot_saves: list[Save],
+    ):
+        newest = named_slot_saves[-1]
+        db_save_handler.update_save(newest.id, {"content_hash": "deadbeef"})
+        scanned = _slot_save(admin_user, rom, platform, "main_quest_new", "main_quest")
+        scanned.content_hash = "deadbeef"
+        mock_scan.return_value = scanned
+
+        with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 3):
+            response = self._upload(client, access_token, rom, "&slot=main_quest")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["id"] == newest.id
+        remaining = self._remaining(admin_user, rom, "main_quest")
+        assert len(remaining) == 3
+        assert "main_quest_new" not in remaining
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
     def test_slotless_uploads_are_never_pruned(
         self,
         mock_scan,
