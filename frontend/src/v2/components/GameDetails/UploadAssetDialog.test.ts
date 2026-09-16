@@ -151,15 +151,15 @@ describe("UploadAssetDialog", () => {
     expect(await submitted(wrapper)).toMatchObject({ slot: "main_quest" });
   });
 
-  it("names a new slot and tags the core", async () => {
+  it("names a new slot and asks saves for nothing else", async () => {
     const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
+    expect(wrapper.findAll("select")).toHaveLength(1);
     await choose(wrapper, 0, 3);
     await wrapper.get("input.slot-name").setValue("  speedrun ");
-    await choose(wrapper, 1, 1);
 
     expect(await submitted(wrapper)).toMatchObject({
       slot: "speedrun",
-      emulator: "mgba",
+      emulator: null,
     });
   });
 
@@ -175,6 +175,12 @@ describe("UploadAssetDialog", () => {
   it("asks states only for the core", async () => {
     const wrapper = mountDialog("state", [new File(["x"], "a.state")]);
     expect(wrapper.findAll("select")).toHaveLength(1);
+
+    expect(wrapper.findAll("option").map((o) => o.text())).toEqual([
+      "play.any-core",
+      "mgba",
+      "builtin",
+    ]);
 
     await choose(wrapper, 0, 2);
     expect(await submitted(wrapper)).toMatchObject({

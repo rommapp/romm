@@ -130,17 +130,17 @@ const subtabDefs = computed<SubtabDef[]>(() => [
 ]);
 
 // ---------- Upload / refresh plumbing ----------
-// Every upload goes through the dialog, which asks for the slot and the
-// core; dropped files land in it pre-picked.
+// Every upload goes through the dialog, which asks saves for a slot and
+// states for a core; dropped files land in it pre-picked.
 const uploadDialog = ref<{ type: UploadAssetType; files: File[] } | null>(null);
 function openUpload(type: UploadAssetType, files: File[] = []) {
   uploadDialog.value = { type, files };
 }
-// The platform's cores plus whatever the existing assets were tagged with.
+// The platform's cores plus whatever the existing states were tagged with.
 const uploadCores = computed(() => {
   const cores = new Set(getSupportedEJSCores(props.rom.platform_slug));
-  for (const asset of [...mySaves.value, ...myStates.value]) {
-    if (asset.emulator) cores.add(asset.emulator);
+  for (const state of myStates.value) {
+    if (state.emulator) cores.add(state.emulator);
   }
   return [...cores];
 });
@@ -155,7 +155,7 @@ async function onUploadSubmit({
 }) {
   const type = uploadDialog.value?.type;
   uploadDialog.value = null;
-  if (type === "save") await onSaveUpload(files, slot, emulator);
+  if (type === "save") await onSaveUpload(files, slot);
   else if (type === "state") await onStateUpload(files, emulator);
 }
 const uploadingSaves = ref(false);
@@ -169,11 +169,7 @@ async function refreshRom() {
   await refetchRom(props.rom.id);
 }
 
-async function onSaveUpload(
-  files: File[],
-  slot: string | null,
-  emulator: string | null,
-) {
+async function onSaveUpload(files: File[], slot: string | null) {
   if (files.length === 0 || uploadingSaves.value) return;
 
   uploadingSaves.value = true;
@@ -182,7 +178,6 @@ async function onSaveUpload(
       rom: props.rom,
       savesToUpload: files.map((saveFile) => ({ saveFile })),
       slot: slot ?? undefined,
-      emulator: emulator ?? undefined,
     });
     const successful = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.length - successful;

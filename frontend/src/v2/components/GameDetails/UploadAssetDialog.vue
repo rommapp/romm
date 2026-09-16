@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// UploadAssetDialog: pick the slot (saves) and the core the files were made
+// UploadAssetDialog: pick the slot for saves, or the core states were made
 // with, then the files to send. The Save data tab owns the upload, and
 // closes the dialog first.
 import {
@@ -37,7 +37,7 @@ const props = defineProps<{
   type: UploadAssetType;
   /** Own saves, whose slots the picker offers. */
   saves: Pick<SaveSchema, "slot">[];
-  /** Cores the files may have been made with. */
+  /** Cores the states may have been made with. */
   cores: string[];
   /** Files dropped on the tab, already picked when the dialog opens. */
   initialFiles: File[];
@@ -114,7 +114,7 @@ async function submit() {
       props.type === "save" && picked.kind !== "none"
         ? chosenSlot(picked, newSlotName.value)
         : null,
-    emulator: core.value || null,
+    emulator: props.type === "state" ? core.value || null : null,
   });
 }
 </script>
@@ -154,6 +154,7 @@ async function submit() {
           autocomplete="off"
         />
         <RSelect
+          v-if="type === 'state'"
           v-model="core"
           :items="coreItems"
           :label="t('common.core')"
