@@ -18,6 +18,7 @@ import {
   v2Layouts,
   v2RouteComponents,
 } from "@/v2/router/routes";
+import { crossDocumentRevealInFlight } from "@/v2/utils/crossDocumentNav";
 
 export const ROUTES = {
   SETUP: "setup",
@@ -743,6 +744,9 @@ router.beforeResolve(async (to, from) => {
   // into the browser's top layer for the crossfade, briefly floating it over
   // the fixed navbar. Skip them — matching `scrollBehavior` above.
   if (to.path === from.path) return;
+  // The launch's first navigation lands while the cross-document reveal still
+  // has the screen, where a same-document transition is skipped.
+  if (crossDocumentRevealInFlight()) return;
   const viewTransition = startViewTransition();
   await viewTransition.captured;
 });

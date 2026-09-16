@@ -39,6 +39,12 @@
         var style = document.createElement("style");
         style.textContent = "@view-transition { navigation: auto; }";
         document.head.append(style);
+
+        // Hand the reveal to crossDocumentNav.ts; the router's first navigation
+        // lands inside this transition, where a same-document one is skipped.
+        addEventListener("pagereveal", function (event) {
+          window.__rommXdocReveal = event.viewTransition;
+        });
       })();
     </script>
   </head>

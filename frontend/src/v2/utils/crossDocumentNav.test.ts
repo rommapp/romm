@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { armCrossDocumentTransition } from "./crossDocumentNav";
+import {
+  armCrossDocumentTransition,
+  crossDocumentRevealInFlight,
+} from "./crossDocumentNav";
 
 // Read back by the parser-blocking script in index.html, which cannot import.
 const NAV_KEY = "romm-xdoc-nav";
@@ -42,5 +45,50 @@ describe("armCrossDocumentTransition", () => {
     });
     expect(() => armCrossDocumentTransition("/rom/1/ejs")).not.toThrow();
     expect(optIns()).toHaveLength(0);
+  });
+});
+
+describe("crossDocumentRevealInFlight", () => {
+  const reveal = {} as ViewTransition;
+  const asActive = (value: unknown) => {
+    (
+      document as Document & { activeViewTransition?: unknown }
+    ).activeViewTransition = value;
+  };
+
+  afterEach(() => {
+    delete window.__rommXdocReveal;
+    delete (document as Document & { activeViewTransition?: unknown })
+      .activeViewTransition;
+  });
+
+  it("is false in a document the boot script did not reveal", () => {
+    expect(crossDocumentRevealInFlight()).toBe(false);
+  });
+
+  it("is false when the reveal carried no transition", () => {
+    window.__rommXdocReveal = null;
+    asActive(reveal);
+    expect(crossDocumentRevealInFlight()).toBe(false);
+  });
+
+  it("is true while the reveal is the transition on screen", () => {
+    window.__rommXdocReveal = reveal;
+    asActive(reveal);
+    expect(crossDocumentRevealInFlight()).toBe(true);
+  });
+
+  it("is false once the reveal has ended", () => {
+    window.__rommXdocReveal = reveal;
+    asActive(null);
+    expect(crossDocumentRevealInFlight()).toBe(false);
+  });
+
+  // A transition the app started itself is preempted by the next one rather
+  // than skipping it, so only the reveal may block the router.
+  it("is false when a later app transition has the screen", () => {
+    window.__rommXdocReveal = reveal;
+    asActive({} as ViewTransition);
+    expect(crossDocumentRevealInFlight()).toBe(false);
   });
 });
