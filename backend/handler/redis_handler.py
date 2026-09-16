@@ -8,7 +8,7 @@ from redis.asyncio import Redis as AsyncRedis
 from rq import Queue, Worker
 from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobError
 from rq.job import Job, JobStatus
-from rq.worker import WorkerStatus
+from rq.suspension import is_suspended
 
 from config import IS_PYTEST_RUN, REDIS_URL
 from logger.logger import log
@@ -165,17 +165,7 @@ def get_worker_current_job(worker: Worker) -> Job | None:
 
 
 def has_live_worker(queue: Queue) -> bool:
-    """Whether a worker registered on ``queue`` is alive and not suspended.
-
-    Args:
-        queue: The RQ Queue whose worker set to read
-
-    Returns:
-        Whether a job enqueued on it would be picked up
-    """
+    """Whether a job enqueued on ``queue`` would be picked up."""
     # A crashed worker stays registered until its key TTL lapses, so this can
     # still say yes for a few minutes after a kill.
-    return any(
-        worker.get_state() != WorkerStatus.SUSPENDED
-        for worker in Worker.all(queue=queue)
-    )
+    return Worker.count(queue=queue) > 0 and not is_suspended(redis_client)

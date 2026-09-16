@@ -1,8 +1,8 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { AxiosError } from "axios";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storePlatforms from "@/stores/platforms";
+import { serverError } from "@/test-utils/serverError";
 import MissingFirmwareSection from "./MissingFirmwareSection.vue";
 
 const { getFirmware, runTask, getTaskById, confirm, snackbarError } =
@@ -30,12 +30,6 @@ vi.mock("@/v2/composables/useConfirm", () => ({
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: snackbarError }),
 }));
-
-function serverError(detail: string) {
-  return Object.assign(new AxiosError("HTTP 503"), {
-    response: { data: { detail } },
-  });
-}
 
 const PS1 = {
   id: 1,

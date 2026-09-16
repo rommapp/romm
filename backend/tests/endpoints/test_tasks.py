@@ -244,30 +244,15 @@ class TestRunSingleTask:
             yield mocked
 
     @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
-    @patch(
-        "endpoints.tasks.RUNNABLE_TASKS",
-        {
-            "test_task": Mock(
-                spec=Task,
-                task_type=TaskType.CLEANUP,
-                title="Test Task",
-                description="Test Description",
-                enabled=True,
-                manual_run=True,
-                can_run_manually=True,
-                timeout=300,
-                run=Mock(),
-            ),
-        },
-    )
     def test_run_single_task_success(
-        self, mock_enqueue, client, access_token, task_worker_listening
+        self, mock_enqueue, client, access_token, mock_task, task_worker_listening
     ):
         """Test successful running of a single task"""
-        response = client.post(
-            "/api/tasks/run/test_task",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+        with patch("endpoints.tasks.RUNNABLE_TASKS", {"test_task": mock_task}):
+            response = client.post(
+                "/api/tasks/run/test_task",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()

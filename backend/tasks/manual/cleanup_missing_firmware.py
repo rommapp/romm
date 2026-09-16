@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import cast
 
 from endpoints.responses import MissingFirmwareCleanupStats
 from handler.database import db_firmware_handler
@@ -24,12 +25,7 @@ class CleanupMissingFirmwareStats:
         update_job_meta({"cleanup_stats": self.to_dict()})
 
     def to_dict(self) -> MissingFirmwareCleanupStats:
-        return MissingFirmwareCleanupStats(
-            platform_ids=self.platform_ids,
-            firmware_found=self.firmware_found,
-            firmware_deleted=self.firmware_deleted,
-            errors=self.errors,
-        )
+        return cast(MissingFirmwareCleanupStats, asdict(self))
 
 
 class CleanupMissingFirmwareTask(Task):

@@ -118,30 +118,15 @@ class TestGetWorkerCurrentJob:
 
 
 class TestHasLiveWorker:
-    @staticmethod
-    def _worker(state: str) -> MagicMock:
-        worker = MagicMock(spec=Worker)
-        worker.get_state.return_value = state
-        return worker
-
     @pytest.mark.parametrize(
-        ("states", "expected"),
-        [
-            ([], False),
-            (["suspended"], False),
-            (["suspended", "idle"], True),
-            (["busy"], True),
-        ],
-        ids=["none-registered", "suspended", "one-live", "busy"],
+        ("registered", "suspended", "expected"),
+        [(0, False, False), (1, True, False), (1, False, True), (2, False, True)],
     )
-    def test_counts_only_workers_that_would_take_a_job(
-        self, states: list[str], expected: bool
+    def test_needs_a_registered_worker_that_is_not_suspended(
+        self, registered: int, suspended: bool, expected: bool
     ):
-        workers = [self._worker(state) for state in states]
-
-        with patch(
-            "handler.redis_handler.Worker.all", return_value=workers
-        ) as mock_all:
+        with (
+            patch("handler.redis_handler.Worker.count", return_value=registered),
+            patch("handler.redis_handler.is_suspended", return_value=suspended),
+        ):
             assert has_live_worker(low_prio_queue) is expected
-
-        mock_all.assert_called_once_with(queue=low_prio_queue)

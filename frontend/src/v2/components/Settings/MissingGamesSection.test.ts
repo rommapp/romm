@@ -1,9 +1,9 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { AxiosError } from "axios";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { SimpleRom } from "@/stores/roms";
+import { serverError } from "@/test-utils/serverError";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import MissingGamesSection from "./MissingGamesSection.vue";
 
@@ -46,12 +46,6 @@ vi.mock("@/v2/composables/useWebpSupport", () => ({
   useWebpSupport: () => ({ supportsWebp: { value: true } }),
 }));
 
-function serverError(detail: string) {
-  return Object.assign(new AxiosError("HTTP 503"), {
-    response: { data: { detail } },
-  });
-}
-
 function mountSection() {
   return mount(MissingGamesSection, {
     global: {
@@ -77,7 +71,7 @@ describe("MissingGamesSection", () => {
     setActivePinia(createPinia());
     getRoms.mockReset();
     getRoms.mockResolvedValue({
-      data: { total: 0, items: [], char_index: {}, rom_id_index: [] },
+      data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
     });
     runTask.mockReset();
     runTask.mockResolvedValue({ data: { task_id: "job-1" } });
@@ -121,10 +115,6 @@ describe("MissingGamesSection", () => {
   });
 
   it("tells why the server refused the cleanup", async () => {
-    // The action is disabled while the list is empty.
-    getRoms.mockResolvedValue({
-      data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
-    });
     confirm.mockResolvedValue(true);
     runTask.mockRejectedValue(serverError("No task worker is listening"));
     const wrapper = mountSection();

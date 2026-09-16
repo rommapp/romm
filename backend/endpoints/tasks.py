@@ -90,7 +90,9 @@ def _fill_scan_stats(stats: Mapping[str, Any] | None) -> ScanStats | None:
 
 
 def _fill_cleanup_stats(stats: Mapping[str, Any] | None) -> CleanupStats | None:
-    """Widen the single platform an older release's stored stats named."""
+    """Widen the single platform a 5.2.0 job's stored stats named."""
+    # Job meta lives for TASK_RESULT_TTL, so this only ever meets jobs that
+    # finished just before an upgrade.
     if stats is None or "platform_id" not in stats:
         return cast(CleanupStats | None, stats)
 
