@@ -9,6 +9,7 @@ import {
   newerSaveThanState,
   pickSave,
   pickState,
+  preferredSlot,
   slotChoiceKey,
   slotChoices,
 } from "./resumeSelection";
@@ -29,26 +30,10 @@ describe("defaultResumeSelection", () => {
     });
   });
 
-  it("arms the newest state and keeps the only slotted save as write target", () => {
+  it("arms the newest state and binds no save", () => {
     const selection = defaultResumeSelection(
-      [save(1, "main")],
+      [save(1, "main"), save(2)],
       [state(9), state(8)],
-    );
-
-    expect(selection).toEqual({ save: save(1, "main"), state: state(9) });
-  });
-
-  it("leaves a slot-less save unbound when a state is armed", () => {
-    expect(defaultResumeSelection([save(1)], [state(9)])).toEqual({
-      save: null,
-      state: state(9),
-    });
-  });
-
-  it("leaves the save unbound when a state is armed and several saves exist", () => {
-    const selection = defaultResumeSelection(
-      [save(1, "main"), save(2, "alt")],
-      [state(9)],
     );
 
     expect(selection).toEqual({ save: null, state: state(9) });
@@ -62,18 +47,21 @@ describe("pickSave", () => {
 });
 
 describe("pickState", () => {
-  it("boots from the state and keeps a slotted save for write-back", () => {
-    expect(pickState(pickSave(save(2, "main")), state(9))).toEqual({
-      save: save(2, "main"),
-      state: state(9),
-    });
+  it("boots from the state and drops any picked save", () => {
+    expect(pickState(state(9))).toEqual({ save: null, state: state(9) });
+  });
+});
+
+describe("preferredSlot", () => {
+  it("follows the newest slotted save and skips archives", () => {
+    expect(preferredSlot([save(1), save(2, "main"), save(3, "alt")])).toBe(
+      "main",
+    );
   });
 
-  it("drops a slot-less save, which a state neither boots nor writes to", () => {
-    expect(pickState(pickSave(save(2)), state(9))).toEqual({
-      save: null,
-      state: state(9),
-    });
+  it("falls back to autosave when nothing is slotted", () => {
+    expect(preferredSlot([])).toBe("autosave");
+    expect(preferredSlot([save(1)])).toBe("autosave");
   });
 });
 

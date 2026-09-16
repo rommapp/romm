@@ -95,6 +95,7 @@ import {
   newerSaveThanState,
   pickSave,
   pickState,
+  preferredSlot,
   slotChoiceKey,
   slotChoices,
   type ResumeSelection,
@@ -293,8 +294,11 @@ function unselectSave() {
   resume.value = { ...resume.value, save: null };
 }
 
+// The picked save's slot carries over as the write target for the session.
 function selectState(state: StateSchema) {
-  resume.value = pickState(resume.value, state);
+  const previousSlot = resume.value.save?.slot;
+  resume.value = pickState(state);
+  if (previousSlot) slotChoice.value = existingSlot(previousSlot);
   isSavesTabSelected.value = false;
 }
 
@@ -356,6 +360,7 @@ onMounted(async () => {
     rom.value.user_saves,
     compatibleStates.value,
   );
+  slotChoice.value = existingSlot(preferredSlot(rom.value.user_saves));
   isSavesTabSelected.value = !resume.value.state;
 
   selectedDisc.value = resolveRememberedDisc(
@@ -602,6 +607,12 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           :class="{ 'r-v2-ejs__resume-body--split': !isSavesTabSelected }"
         >
           <div class="r-v2-ejs__resume-side">
+            <AssetPreview
+              :asset="selectedAsset"
+              :type="activeAssetTab"
+              :state-armed="!!resume.state"
+              @clear="clearSelectedAsset"
+            />
             <RAlert
               v-if="newerSave"
               type="warning"
@@ -614,7 +625,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
             >
               <template #actions>
                 <RBtn
-                  variant="text"
+                  variant="outlined"
                   size="small"
                   @click="selectSave(newerSave)"
                 >
@@ -622,12 +633,6 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                 </RBtn>
               </template>
             </RAlert>
-            <AssetPreview
-              :asset="selectedAsset"
-              :type="activeAssetTab"
-              :state-armed="!!resume.state"
-              @clear="clearSelectedAsset"
-            />
 
             <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
               <div class="r-v2-ejs__slot-row">

@@ -257,10 +257,9 @@ function close(evt: MouseEvent) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin-top: 6px;
-  /* Pull the text buttons' padding back to the body's left edge. */
-  margin-left: -8px;
+  margin-top: 8px;
 }
 
 /* ── Close button — own hover halo so it reads as separate ────── */

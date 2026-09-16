@@ -170,7 +170,7 @@ export const ActionsSlot: Story = {
       <RAlert type="warning" density="compact" style="width:320px"
         text="A save from 2 hours ago is newer than this state. Resuming the state may roll your progress back.">
         <template #actions>
-          <RBtn variant="text" size="small">Boot from save</RBtn>
+          <RBtn variant="outlined" size="small">Boot from save</RBtn>
         </template>
       </RAlert>
     `,

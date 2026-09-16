@@ -8,24 +8,13 @@ export interface ResumeSelection {
   state: StateSchema | null;
 }
 
-// With a state armed the save only names the slot new versions go to, so a
-// slot-less (archival) save has nothing to contribute.
-function writeTarget(save: SaveSchema | null): SaveSchema | null {
-  return save?.slot ? save : null;
-}
-
-/**
- * Newest compatible state, plus a save only when the write-back choice is
- * unambiguous: with several saves and a state armed the slot stays unpicked.
- */
+/** The newest compatible state, else the newest save; never both. */
 export function defaultResumeSelection(
   saves: readonly SaveSchema[],
   compatibleStates: readonly StateSchema[],
 ): ResumeSelection {
   const state = compatibleStates[0] ?? null;
-  const save = saves[0] ?? null;
-  if (!state) return { save, state };
-  return { save: saves.length === 1 ? writeTarget(save) : null, state };
+  return { save: state ? null : (saves[0] ?? null), state };
 }
 
 /** A picked save is the boot source, so any armed state is disarmed. */
@@ -33,12 +22,14 @@ export function pickSave(save: SaveSchema): ResumeSelection {
   return { save, state: null };
 }
 
-/** A picked state boots first; a slotted bound save stays as the write target. */
-export function pickState(
-  selection: ResumeSelection,
-  state: StateSchema,
-): ResumeSelection {
-  return { save: writeTarget(selection.save), state };
+/** A picked state carries its own SRAM, so no save stays bound. */
+export function pickState(state: StateSchema): ResumeSelection {
+  return { save: null, state };
+}
+
+/** The slot of the newest slotted save, where progress should keep going. */
+export function preferredSlot(saves: readonly SaveSchema[]): string {
+  return saves.find((save) => save.slot)?.slot ?? AUTOSAVE_SLOT;
 }
 
 // Where the session files new saves: a slot already in use, or one the user
