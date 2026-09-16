@@ -1,7 +1,10 @@
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
-from redis.asyncio.lock import Lock
 from sqlalchemy import inspect as sa_inspect
 
 from config.config_manager import config_manager as cm
@@ -20,14 +23,27 @@ ROM_LEVEL_HASH_COLUMNS = ("crc_hash", "md5_hash", "sha1_hash", "ra_hash")
 # A refresh lists the folder and then deletes every row the listing missed, so
 # two of them running for the same rom (parallel uploads into one folder) would
 # let the slower listing drop what the faster one just registered. The lock
-# lives in Redis because the uploads may land on different gunicorn workers.
+# lives in Redis because the uploads may land on different gunicorn workers,
+# and is a plain SET NX so it also works without Lua scripting.
 REFRESH_LOCK_TIMEOUT_SECONDS = 600
+REFRESH_LOCK_POLL_SECONDS = 0.1
 
 
-def _refresh_lock(rom_id: int) -> Lock:
-    return async_cache.lock(
-        f"rom_files_refresh:{rom_id}", timeout=REFRESH_LOCK_TIMEOUT_SECONDS
-    )
+@asynccontextmanager
+async def _refresh_lock(rom_id: int) -> AsyncIterator[None]:
+    key = f"rom_files_refresh:{rom_id}"
+    token = uuid4().hex
+    while not await async_cache.set(
+        key, token, nx=True, ex=REFRESH_LOCK_TIMEOUT_SECONDS
+    ):
+        await asyncio.sleep(REFRESH_LOCK_POLL_SECONDS)
+    try:
+        yield
+    finally:
+        # Only the owner releases; an expired lock may belong to someone else.
+        held = await async_cache.get(key)
+        if held in (token, token.encode()):
+            await async_cache.delete(key)
 
 
 @dataclass(frozen=True)
