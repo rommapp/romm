@@ -1,31 +1,22 @@
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import { AUTOSAVE_SLOT } from "@/services/api/save";
+import { newest } from "@/v2/utils/assets";
 
 // What the player boots from and where progress is written back. A state
 // restores the whole machine, SRAM included, so it wins at boot.
 export interface ResumeSelection {
   save: SaveSchema | null;
   state: StateSchema | null;
+  /** The save a picked state displaced, restored when the state is cleared. */
+  aside?: SaveSchema | null;
 }
 
-// With a state armed the save only names the slot new versions go to, so a
-// slot-less (archival) save has nothing to contribute.
-function writeTarget(save: SaveSchema | null): SaveSchema | null {
-  return save?.slot ? save : null;
-}
-
-/**
- * Newest compatible state, plus a save only when the write-back choice is
- * unambiguous: with several saves and a state armed the slot stays unpicked.
- */
+/** The newest compatible state, else the newest save; never both. */
 export function defaultResumeSelection(
   saves: readonly SaveSchema[],
   compatibleStates: readonly StateSchema[],
 ): ResumeSelection {
   const state = compatibleStates[0] ?? null;
-  const save = saves[0] ?? null;
-  if (!state) return { save, state };
-  return { save: saves.length === 1 ? writeTarget(save) : null, state };
+  return { save: state ? null : (saves[0] ?? null), state };
 }
 
 /** A picked save is the boot source, so any armed state is disarmed. */
@@ -33,30 +24,40 @@ export function pickSave(save: SaveSchema): ResumeSelection {
   return { save, state: null };
 }
 
-/** A picked state boots first; a slotted bound save stays as the write target. */
+/** A picked state carries its own SRAM, so the picked save steps aside. */
 export function pickState(
   selection: ResumeSelection,
   state: StateSchema,
 ): ResumeSelection {
-  return { save: writeTarget(selection.save), state };
+  return { save: null, state, aside: selection.save ?? selection.aside };
 }
 
-/** Slots a new save can go to: autosave first, then every slot in use. */
-export function slotOptions(saves: readonly SaveSchema[]): string[] {
-  const named = saves
-    .map((save) => save.slot)
-    .filter((slot): slot is string => !!slot && slot !== AUTOSAVE_SLOT);
-  return [AUTOSAVE_SLOT, ...new Set(named)];
+/** Clearing the state hands the boot back to the save it displaced. */
+export function clearState(selection: ResumeSelection): ResumeSelection {
+  return { save: selection.aside ?? null, state: null };
 }
 
-/** The newest save when it postdates the armed state, so the user can be warned. */
-export function newerSaveThanState(
+export type NewerAsset =
+  { kind: "save"; asset: SaveSchema } | { kind: "state"; asset: StateSchema };
+
+/**
+ * The newest save or compatible state when it postdates what boots, so the
+ * user can be warned before older progress rolls the newer back.
+ */
+export function newerThanPick(
   saves: readonly SaveSchema[],
-  state: StateSchema,
-): SaveSchema | null {
-  const newest = saves.reduce<SaveSchema | null>(
-    (best, save) => (!best || save.updated_at > best.updated_at ? save : best),
-    null,
-  );
-  return newest && newest.updated_at > state.updated_at ? newest : null;
+  compatibleStates: readonly StateSchema[],
+  selection: ResumeSelection,
+): NewerAsset | null {
+  const picked = selection.state ?? selection.save;
+  if (!picked) return null;
+  const save = newest(saves);
+  const state = newest(compatibleStates);
+  const candidate: NewerAsset | null =
+    state && (!save || state.updated_at > save.updated_at)
+      ? { kind: "state", asset: state }
+      : save && { kind: "save", asset: save };
+  return candidate && candidate.asset.updated_at > picked.updated_at
+    ? candidate
+    : null;
 }

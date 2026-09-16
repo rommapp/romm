@@ -408,3 +408,48 @@ class TestRomIdsScope:
         response = client.get(f"/api/states?{rom_ids}", headers=_auth(access_token))
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+@mock.patch(
+    "handler.asset_store.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+)
+def test_delete_state_removes_file_and_screenshot(
+    mock_remove,
+    client,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    admin_user: User,
+    state: State,
+):
+    db_screenshot_handler.add_screenshot(
+        Screenshot(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="test_state.png",
+            file_name_no_tags="test_state",
+            file_name_no_ext="test_state",
+            file_extension="png",
+            file_path=f"{platform.slug}/screenshots",
+            file_size_bytes=3,
+        )
+    )
+
+    response = client.post(
+        "/api/states/delete",
+        json={"states": [state.id]},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert db_state_handler.get_state(user_id=admin_user.id, id=state.id) is None
+    assert (
+        db_screenshot_handler.get_screenshot(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="test_state.state",
+            file_name_no_ext="test_state",
+        )
+        is None
+    )
+    assert mock_remove.call_count == 2

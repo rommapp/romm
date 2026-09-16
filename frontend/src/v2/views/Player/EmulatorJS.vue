@@ -91,14 +91,25 @@ import {
 } from "@/v2/utils/playerDisc";
 import { resolveInitialFirmware } from "@/v2/utils/playerFirmware";
 import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
+import {
+  chosenSlot,
+  existingSlot,
+  isSlotChoice,
+  preferredSlot,
+  slotChoiceKey,
+  slotChoiceTitle,
+  slotChoices,
+  slotForSave,
+  type SlotChoice,
+} from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
+  clearState,
   defaultResumeSelection,
-  newerSaveThanState,
+  newerThanPick,
   pickSave,
   pickState,
-  slotOptions,
   type ResumeSelection,
 } from "./resumeSelection";
 
@@ -170,12 +181,21 @@ declare global {
   }
 }
 
+function isCoreCompatible(asset: { emulator?: string | null }): boolean {
+  return !asset.emulator || asset.emulator === selectedCore.value;
+}
 const compatibleStates = computed(
-  () =>
-    rom.value?.user_states.filter(
-      (s) => !s.emulator || s.emulator === selectedCore.value,
-    ) ?? [],
+  () => rom.value?.user_states.filter(isCoreCompatible) ?? [],
 );
+const stateCount = computed(() => rom.value?.user_states.length ?? 0);
+const allStatesCompatible = computed(
+  () => compatibleStates.value.length === stateCount.value,
+);
+// Other emulators' states stay listed, disabled, so the count adds up.
+function stateDisabledReason(asset: { emulator?: string | null }) {
+  if (isCoreCompatible(asset)) return null;
+  return t("play.state-incompatible-core", { emulator: asset.emulator });
+}
 
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
@@ -367,8 +387,11 @@ async function onPlay() {
   }
 }
 
+// A slotted save fixes the write slot, and it stays put for the session
+// even when a state later displaces the save.
 function selectSave(save: SaveSchema) {
   resume.value = pickSave(save);
+  slotChoice.value = slotForSave(save, slotChoice.value);
   isSavesTabSelected.value = true;
 }
 
@@ -382,7 +405,7 @@ function selectState(state: StateSchema) {
 }
 
 function unselectState() {
-  resume.value = { ...resume.value, state: null };
+  resume.value = clearState(resume.value);
 }
 
 watch(selectedCore, (newSelectedCore) => {
@@ -439,6 +462,7 @@ onMounted(async () => {
     rom.value.user_saves,
     compatibleStates.value,
   );
+  slotChoice.value = existingSlot(preferredSlot(rom.value.user_saves));
   isSavesTabSelected.value = !resume.value.state;
 
   selectedDisc.value = resolveRememberedDisc(
@@ -536,7 +560,9 @@ const assetTabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
   {
     id: "state",
     label: t("common.states"),
-    badge: compatibleStates.value.length,
+    badge: allStatesCompatible.value
+      ? stateCount.value
+      : `${compatibleStates.value.length}/${stateCount.value}`,
     icon: "mdi-file",
   },
 ]);
@@ -558,46 +584,54 @@ function clearSelectedAsset() {
 const activeAssets = computed<(SaveSchema | StateSchema)[]>(() =>
   isSavesTabSelected.value
     ? (rom.value?.user_saves ?? [])
-    : compatibleStates.value,
+    : (rom.value?.user_states ?? []),
 );
+const stripCount = computed(() => {
+  if (isSavesTabSelected.value || allStatesCompatible.value) {
+    return String(activeAssets.value.length);
+  }
+  return t("play.compatible-of-total", {
+    compatible: compatibleStates.value.length,
+    total: stateCount.value,
+  });
+});
 
 const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   isSavesTabSelected.value ? resume.value.save : resume.value.state,
 );
 const selectedAssetId = computed(() => selectedAsset.value?.id ?? null);
+// Both tabs share the title-over-content rhythm, so the view owns the titles.
+const previewTitle = computed(() => {
+  if (!isSavesTabSelected.value) return t("play.resume-from-state");
+  return resume.value.state
+    ? t("play.save-progress-to")
+    : t("play.resume-from-save");
+});
 
-// A state older than the latest save would roll progress back (#4278).
-const newerSave = computed(() =>
-  resume.value.state
-    ? newerSaveThanState(rom.value?.user_saves ?? [], resume.value.state)
-    : null,
+// Booting anything but the latest progress would roll it back (#4278).
+const newerAsset = computed(() =>
+  newerThanPick(
+    rom.value?.user_saves ?? [],
+    compatibleStates.value,
+    resume.value,
+  ),
 );
+function bootFromNewer() {
+  if (!newerAsset.value) return;
+  if (newerAsset.value.kind === "save") selectSave(newerAsset.value.asset);
+  else selectState(newerAsset.value.asset);
+}
 
 // Slot for saves the session creates. A bound save with a slot fixes it; a
 // slot-less legacy save stays as an archive and progress goes to the pick.
-// Select values are namespaced so the "new slot" entry cannot collide with a
-// user-named slot.
-const NEW_SLOT = "new";
-const slotValue = (slot: string) => `slot:${slot}`;
-const slotChoice = ref(slotValue(AUTOSAVE_SLOT));
+const slotChoice = ref<SlotChoice>(existingSlot(AUTOSAVE_SLOT));
 const customSlot = ref("");
 const boundSlot = computed(() => resume.value.save?.slot || null);
+const slotItems = computed(() => slotChoices(rom.value?.user_saves ?? []));
 function onSlotChoice(value: unknown) {
-  slotChoice.value =
-    typeof value === "string" ? value : slotValue(AUTOSAVE_SLOT);
+  if (isSlotChoice(value)) slotChoice.value = value;
 }
-const slotItems = computed(() => [
-  ...slotOptions(rom.value?.user_saves ?? []).map((slot) => ({
-    title: slot,
-    value: slotValue(slot),
-  })),
-  { title: t("play.new-slot"), value: NEW_SLOT },
-]);
-const saveSlot = computed(() =>
-  slotChoice.value === NEW_SLOT
-    ? customSlot.value.trim() || AUTOSAVE_SLOT
-    : slotChoice.value.slice(slotValue("").length),
-);
+const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 </script>
 
 <template>
@@ -701,7 +735,8 @@ const saveSlot = computed(() =>
         </div>
       </RCard>
 
-      <!-- Resume: tabs + preview + horizontal strip -->
+      <!-- Resume: tabs, then preview over the saves list, or the states grid
+           beside the preview on wide screens. -->
       <RCard
         v-if="!nativeOnly"
         class="r-v2-ejs__panel r-v2-ejs__resume"
@@ -717,104 +752,129 @@ const saveSlot = computed(() =>
           />
         </div>
 
-        <div class="r-v2-ejs__resume-body">
-          <RAlert
-            v-if="newerSave"
-            type="warning"
-            density="compact"
-            :text="
-              t('play.newer-save-warning', {
-                time: formatRelativeDate(newerSave.updated_at),
-              })
-            "
-          >
-            <template #append>
-              <RBtn variant="text" size="small" @click="selectSave(newerSave)">
-                {{ t("play.boot-from-save") }}
-              </RBtn>
-            </template>
-          </RAlert>
-          <AssetPreview
-            :asset="selectedAsset"
-            :type="activeAssetTab"
-            :state-armed="!!resume.state"
-            @clear="clearSelectedAsset"
-          />
-
-          <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
-            <div class="r-v2-ejs__slot-row">
-              <RSelect
-                class="r-v2-ejs__slot-select"
-                :model-value="boundSlot ? slotValue(boundSlot) : slotChoice"
-                :disabled="!!boundSlot"
-                variant="outlined"
-                density="compact"
-                prefix-label="inline"
-                hide-details
-                :items="slotItems"
-                @update:model-value="onSlotChoice"
-              >
-                <template #prefix-label>
-                  <RIcon icon="mdi-content-save-all-outline" size="14" />
-                  {{ t("play.slot") }}
-                </template>
-              </RSelect>
-              <button
-                type="button"
-                class="r-v2-ejs__slot-info"
-                :aria-label="t('play.slot-tooltip')"
-              >
-                <RIcon icon="mdi-information-outline" size="16" />
-                <RTooltip activator="parent" location="top" open-on-tap>
-                  {{ t("play.slot-tooltip") }}
-                </RTooltip>
-              </button>
+        <div
+          class="r-v2-ejs__resume-body"
+          :class="{ 'r-v2-ejs__resume-body--split': !isSavesTabSelected }"
+        >
+          <div class="r-v2-ejs__resume-side">
+            <div class="r-v2-ejs__strip-label">
+              <span>{{ previewTitle }}</span>
             </div>
-            <RTextField
-              v-if="!boundSlot && slotChoice === NEW_SLOT"
-              v-model="customSlot"
-              variant="outlined"
-              density="compact"
-              prefix-label="inline"
-              hide-details
-              :maxlength="SAVE_SLOT_MAX_LENGTH"
-              :label="t('play.slot-name')"
-              :placeholder="AUTOSAVE_SLOT"
-            />
+            <div class="r-v2-ejs__resume-side-body">
+              <AssetPreview
+                :asset="selectedAsset"
+                :type="activeAssetTab"
+                :show-heading="false"
+                :state-armed="!!resume.state"
+                @clear="clearSelectedAsset"
+              />
+              <RAlert
+                v-if="newerAsset"
+                type="warning"
+                density="compact"
+                :text="
+                  t(
+                    newerAsset.kind === 'save'
+                      ? 'play.newer-save-warning'
+                      : 'play.newer-state-warning',
+                    { time: formatRelativeDate(newerAsset.asset.updated_at) },
+                  )
+                "
+              >
+                <template #actions>
+                  <RBtn variant="outlined" size="small" @click="bootFromNewer">
+                    {{
+                      newerAsset.kind === "save"
+                        ? t("play.boot-from-save")
+                        : t("play.boot-from-state")
+                    }}
+                  </RBtn>
+                </template>
+              </RAlert>
+
+              <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
+                <div class="r-v2-ejs__slot-row">
+                  <RSelect
+                    class="r-v2-ejs__slot-select"
+                    :model-value="slotChoice"
+                    :disabled="!!boundSlot"
+                    variant="outlined"
+                    density="compact"
+                    prefix-label="inline"
+                    hide-details
+                    :items="slotItems"
+                    :item-title="slotChoiceTitle"
+                    :item-value="slotChoiceKey"
+                    return-object
+                    @update:model-value="onSlotChoice"
+                  >
+                    <template #prefix-label>
+                      <RIcon icon="mdi-content-save-all-outline" size="14" />
+                      {{ t("play.slot") }}
+                    </template>
+                  </RSelect>
+                  <button
+                    type="button"
+                    class="r-v2-ejs__slot-info"
+                    :aria-label="t('play.slot-tooltip')"
+                  >
+                    <RIcon icon="mdi-information-outline" size="16" />
+                    <RTooltip activator="parent" location="top" open-on-tap>
+                      {{ t("play.slot-tooltip") }}
+                    </RTooltip>
+                  </button>
+                </div>
+                <RTextField
+                  v-if="!boundSlot && slotChoice.kind === 'new'"
+                  v-model="customSlot"
+                  variant="outlined"
+                  density="compact"
+                  prefix-label="inline"
+                  hide-details
+                  :maxlength="SAVE_SLOT_MAX_LENGTH"
+                  :label="t('play.slot-name')"
+                  :placeholder="AUTOSAVE_SLOT"
+                />
+              </div>
+            </div>
           </div>
 
-          <div
-            v-if="activeAssets.length > 0"
-            class="r-v2-ejs__strip-label"
-            aria-hidden="true"
-          >
-            <span>{{
-              activeAssetTab === "save"
-                ? t("play.all-saves")
-                : t("play.all-states")
-            }}</span>
-            <span class="r-v2-ejs__strip-count">{{ activeAssets.length }}</span>
-          </div>
+          <div class="r-v2-ejs__resume-main">
+            <div
+              v-if="activeAssets.length > 0"
+              class="r-v2-ejs__strip-label"
+              aria-hidden="true"
+            >
+              <span>{{
+                activeAssetTab === "save"
+                  ? t("play.all-saves")
+                  : t("play.all-states")
+              }}</span>
+              <span class="r-v2-ejs__strip-count">{{ stripCount }}</span>
+            </div>
 
-          <!-- Saves render as a vertical list (no screenshot ⇒ density);
-               states keep the horizontal tile strip (screenshot is the
-               point). The wrapper owns the only scroll on the screen. -->
-          <div class="r-v2-ejs__assets">
-            <AssetList
-              v-if="activeAssetTab === 'save'"
-              :assets="activeAssets"
-              type="save"
-              :selected-id="selectedAssetId"
-              :scrollable="false"
-              @select="pickAsset"
-            />
-            <AssetStrip
-              v-else
-              :assets="activeAssets"
-              type="state"
-              :selected-id="selectedAssetId"
-              @select="pickAsset"
-            />
+            <!-- Saves as slot rows, states as a grid grouped by core. The
+               wrapper owns the only scroll on the screen. -->
+            <div class="r-v2-ejs__assets">
+              <AssetList
+                v-if="activeAssetTab === 'save'"
+                :assets="activeAssets"
+                type="save"
+                :selected-id="selectedAssetId"
+                :scrollable="false"
+                @select="pickAsset"
+              />
+              <AssetStrip
+                v-else
+                :assets="activeAssets"
+                type="state"
+                :selected-id="selectedAssetId"
+                :disabled-reason="stateDisabledReason"
+                layout="flow"
+                group-by="emulator"
+                @select="pickAsset"
+              />
+            </div>
           </div>
         </div>
       </RCard>
@@ -1088,9 +1148,53 @@ const saveSlot = computed(() =>
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  /* Between the preview section and the list section when stacked. */
+  gap: 20px;
   flex: 1;
   min-height: 0;
+}
+.r-v2-ejs__resume-side,
+.r-v2-ejs__resume-side-body,
+.r-v2-ejs__resume-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+}
+.r-v2-ejs__resume-main {
+  flex: 1;
+}
+/* States on a wide screen: the grid keeps the panel's width and the preview
+   column stays fixed. Saves keep the stacked column, their rows are wide.
+   Both columns subgrid their title and content rows, keeping the columns'
+   own 14px gap, the same title-to-content distance the saves tab has. */
+html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 14px;
+}
+html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split .r-v2-ejs__resume-main,
+html[data-bp~="md-and-up"]
+  .r-v2-ejs__resume-body--split
+  .r-v2-ejs__resume-side {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 2;
+}
+html[data-bp~="md-and-up"]
+  .r-v2-ejs__resume-body--split
+  .r-v2-ejs__resume-main {
+  order: -1;
+}
+/* Beside the grid the stage can afford the screenshots' own ratio, which
+   also gives the empty copy room. */
+html[data-bp~="md-and-up"]
+  .r-v2-ejs__resume-body--split
+  :deep(.r-asset-preview__stage) {
+  aspect-ratio: 16 / 9;
 }
 .r-v2-ejs__slot {
   display: flex;
@@ -1129,8 +1233,6 @@ const saveSlot = computed(() =>
 .r-v2-ejs__assets {
   flex: 1;
   min-height: 0;
-  scrollbar-color: var(--r-color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 .r-v2-ejs__strip-label {
   display: flex;
@@ -1141,7 +1243,8 @@ const saveSlot = computed(() =>
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--r-color-fg-secondary);
-  margin-top: 4px;
+  /* The count chip's height, so a title without one sits on the same row. */
+  min-height: 18px;
 }
 .r-v2-ejs__strip-count {
   display: inline-grid;
@@ -1245,6 +1348,8 @@ html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__panel {
 }
 html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__assets {
   overflow-y: auto;
+  /* Keeps the rows off the app-wide scrollbar. */
+  padding-right: 10px;
 }
 /* The hero cannot shrink, so on a short viewport it scrolls instead of clipping. */
 html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__hero {

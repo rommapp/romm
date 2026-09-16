@@ -334,6 +334,8 @@ MAX_ASSET_UPLOAD_SIZE_BYTES: Final[int] = safe_int(
 MAX_AUTOCLEANUP_LIMIT: Final[int] = max(
     1, safe_int(_get_env("MAX_AUTOCLEANUP_LIMIT"), 100)
 )
+# Versions the server keeps per save slot whatever the client asks; 0 disables.
+MAX_SAVES_PER_SLOT: Final[int] = max(0, safe_int(_get_env("MAX_SAVES_PER_SLOT"), 50))
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()
