@@ -5,10 +5,29 @@ import pytest
 from fastapi import status
 from rq.exceptions import NoSuchJobError
 
-from handler.redis_handler import redis_client
+from handler.redis_handler import low_prio_queue, redis_client, scan_queue
 from tasks.manual.cleanup_missing_firmware import CleanupMissingFirmwareStats
 from tasks.manual.cleanup_missing_roms import CleanupMissingRomsStats
 from tasks.tasks import Task, TaskType
+
+
+def _live_worker() -> Mock:
+    worker = Mock(death_date=None)
+    worker.get_state.return_value = "idle"
+    return worker
+
+
+@pytest.fixture(autouse=True)
+def task_queue_worker():
+    """A live worker on the task queue, so a run is accepted unless a test
+    takes it away."""
+    worker = _live_worker()
+
+    def workers_for(connection=None, queue=None, **_kwargs):
+        return [worker] if queue is low_prio_queue else []
+
+    with patch("endpoints.tasks.Worker.all", side_effect=workers_for) as mocked:
+        yield mocked
 
 
 def _job_with_meta(meta: dict[str, Any]) -> Mock:
@@ -256,11 +275,10 @@ class TestRunSingleTask:
     )
     def test_run_single_task_success(self, mock_enqueue, client, access_token):
         """Test successful running of a single task"""
-        with patch("endpoints.tasks.Worker.all", return_value=[Mock()]):
-            response = client.post(
-                "/api/tasks/run/test_task",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
+        response = client.post(
+            "/api/tasks/run/test_task",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -300,6 +318,48 @@ class TestRunSingleTask:
 
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "worker" in response.json()["detail"]
+        mock_enqueue.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "workers_for",
+        [
+            # A scan worker does not serve the task queue.
+            lambda connection=None, queue=None, **_: (
+                [_live_worker()] if queue is scan_queue else []
+            ),
+            # One that announced its death or was suspended does not count.
+            lambda connection=None, queue=None, **_: [Mock(death_date="gone")],
+            lambda connection=None, queue=None, **_: [
+                Mock(death_date=None, **{"get_state.return_value": "suspended"})
+            ],
+        ],
+        ids=["scan-worker-only", "dead-worker", "suspended-worker"],
+    )
+    @patch("endpoints.tasks.enqueue_task")
+    @patch(
+        "endpoints.tasks.RUNNABLE_TASKS",
+        {
+            "test_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Test Task",
+                enabled=True,
+                manual_run=True,
+                can_run_manually=True,
+                run=Mock(),
+            ),
+        },
+    )
+    def test_only_a_live_worker_on_the_task_queue_counts(
+        self, mock_enqueue, client, access_token, workers_for
+    ):
+        with patch("endpoints.tasks.Worker.all", side_effect=workers_for):
+            response = client.post(
+                "/api/tasks/run/test_task",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         mock_enqueue.assert_not_called()
 
     @patch("endpoints.tasks.RUNNABLE_TASKS", {})

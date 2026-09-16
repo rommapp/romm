@@ -2,10 +2,11 @@ from datetime import datetime, timezone
 from typing import Any, Final, Mapping, cast
 
 from fastapi import Body, HTTPException, Request, status
-from rq import Worker
+from rq import Queue, Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
 from rq.registry import FailedJobRegistry, FinishedJobRegistry
+from rq.worker import WorkerStatus
 
 from config import ENABLE_RESCAN_ON_FILESYSTEM_CHANGE, RESCAN_ON_FILESYSTEM_CHANGE_DELAY
 from decorators.auth import protected_route
@@ -274,6 +275,19 @@ async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
 TASK_KWARGS = Body(default=None)
 
 
+def _listening_workers(queue: Queue) -> list[Worker]:
+    """Registered workers of ``queue`` that are alive and not suspended.
+
+    A crashed worker stays registered until its TTL expires, which RQ's own
+    maintenance sweep bounds; this filters the ones that told us they left.
+    """
+    return [
+        worker
+        for worker in Worker.all(queue=queue, connection=redis_client)
+        if worker.death_date is None and worker.get_state() != WorkerStatus.SUSPENDED
+    ]
+
+
 @protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
 async def run_single_task(
     request: Request,
@@ -302,8 +316,8 @@ async def run_single_task(
             detail=f"Task '{task_name}' cannot be run",
         )
 
-    # Without a worker the job would sit queued while the UI reports it done.
-    if not Worker.all(queue=low_prio_queue, connection=redis_client):
+    # Without a worker the job would sit queued while the UI waits on it.
+    if not _listening_workers(low_prio_queue):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="No task worker is running, so the task cannot be queued",

@@ -128,12 +128,23 @@ uv run python3 main.py
 
 #### - Run the task workers
 
-Manual tasks (the missing ROMs and firmware cleanups, folder sync) and the scheduled jobs run on an RQ worker, and scans on a worker of their own. Without them a task stays queued.
+Manual tasks (the missing ROMs and firmware cleanups, folder sync) and every scheduled job run on RQ workers, and scans on a worker of their own. Without them a task stays queued. Each command is a foreground process, so run them in separate terminals. The Redis URL below matches the `REDIS_*` defaults in `.env`; adjust it if you changed them.
 
 ```sh
 cd backend
 uv run rq worker --url redis://127.0.0.1:6379/0 --worker-class handler.rq_worker.RomMWorker --with-scheduler high default low
+```
+
+```sh
+cd backend
 uv run rq worker --url redis://127.0.0.1:6379/0 --worker-class handler.rq_worker.RomMWorker scans
+```
+
+`--with-scheduler` only releases delayed jobs. The recurring schedule itself is registered by the RQ cron process, which the workers then execute:
+
+```sh
+cd backend
+RQ_REDIS_URL=redis://127.0.0.1:6379/0 uv run rq cron tasks.cron_config
 ```
 
 ### Setting up the frontend
