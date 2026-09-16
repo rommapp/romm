@@ -12,10 +12,7 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type {
-  Body_add_state_api_states_post as AddStateInput,
-  FirmwareSchema,
-} from "@/__generated__";
+import type { FirmwareSchema } from "@/__generated__";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
@@ -35,8 +32,10 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
-import { buildFormInput } from "@/utils/formData";
-import { captureStateScreenshot } from "@/views/Player/EmulatorJS/utils";
+import {
+  buildStateFormData,
+  resolveStateScreenshot,
+} from "@/views/Player/EmulatorJS/utils";
 import {
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
@@ -536,21 +535,9 @@ async function boot() {
     state: ArrayBuffer;
     screenshot?: ArrayBuffer;
   }) {
-    const screenshotFile =
-      (await captureStateScreenshot()) ?? emulatorScreenshot;
+    const screenshotFile = await resolveStateScreenshot(emulatorScreenshot);
     try {
-      const formData = buildFormInput<AddStateInput>([
-        ["stateFile", new Blob([stateFile]), "state.save"],
-        ...(screenshotFile
-          ? ([
-              [
-                "screenshotFile",
-                new Blob([screenshotFile], { type: "image/png" }),
-                "screenshot.png",
-              ],
-            ] as const)
-          : []),
-      ]);
+      const formData = buildStateFormData(stateFile, screenshotFile);
 
       await api.post("/states", formData, {
         headers: { "Content-Type": "multipart/form-data" },

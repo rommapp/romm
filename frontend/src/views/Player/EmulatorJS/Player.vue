@@ -26,7 +26,7 @@ import {
 } from "@/utils";
 import {
   saveSave,
-  captureStateScreenshot,
+  resolveStateScreenshot,
   saveState,
   loadEmulatorJSSave,
   loadEmulatorJSState,
@@ -461,7 +461,7 @@ window.EJS_onSaveState = async function ({
   state: stateFile,
   screenshot: emulatorScreenshot,
 }) {
-  const screenshotFile = (await captureStateScreenshot()) ?? emulatorScreenshot;
+  const screenshotFile = await resolveStateScreenshot(emulatorScreenshot);
   const state = await saveState({
     rom: romRef.value,
     stateFile,

@@ -1,22 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaveSchema } from "@/__generated__";
+import type { StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import {
+  buildStateFormData,
   captureStateScreenshot,
   createSaveSyncTracker,
   installEJSDefaultOptionsTrap,
+  resolveStateScreenshot,
   saveSave,
+  saveState,
 } from "./utils";
 
 const saveApiMocks = vi.hoisted(() => ({
   uploadSaves: vi.fn(),
   updateSave: vi.fn(),
 }));
+const stateApiMocks = vi.hoisted(() => ({
+  uploadStates: vi.fn(),
+}));
 
 vi.mock("@/services/api/save", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/api/save")>()),
   default: saveApiMocks,
 }));
+vi.mock("@/services/api/state", () => ({ default: stateApiMocks }));
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -267,6 +275,77 @@ describe("captureStateScreenshot", () => {
     };
 
     await expect(captureStateScreenshot()).resolves.toBeUndefined();
+  });
+});
+
+describe("resolveStateScreenshot", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  afterEach(() => {
+    delete (window as any).EJS_emulator;
+  });
+
+  it("prefers the live canvas over what EmulatorJS passed", async () => {
+    const live = new ArrayBuffer(8);
+    (window as any).EJS_emulator = {
+      gameManager: { screenshot: async () => live },
+    };
+
+    await expect(resolveStateScreenshot(new ArrayBuffer(4))).resolves.toBe(
+      live,
+    );
+  });
+
+  it("falls back to EmulatorJS's picture when the canvas gives none", async () => {
+    const fallback = new ArrayBuffer(4);
+    (window as any).EJS_emulator = {};
+
+    await expect(resolveStateScreenshot(fallback)).resolves.toBe(fallback);
+    await expect(resolveStateScreenshot()).resolves.toBeUndefined();
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+});
+
+describe("saveState", () => {
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+  let rom: DetailedRom;
+
+  beforeEach(() => {
+    rom = {
+      id: 1,
+      fs_name_no_ext: "game",
+      user_states: [],
+    } as unknown as DetailedRom;
+    stateApiMocks.uploadStates.mockReset();
+    stateApiMocks.uploadStates.mockResolvedValue([
+      { status: "fulfilled", value: { id: 7 } as StateSchema },
+    ]);
+  });
+
+  it("uploads the screenshot named after the state", async () => {
+    await saveState({ rom, stateFile: bytes, screenshotFile: bytes });
+
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    expect(statesToUpload[0].screenshotFile.name).toMatch(/^game \[.*\]\.png$/);
+    expect(rom.user_states).toEqual([{ id: 7 }]);
+  });
+
+  it("still uploads the state when there is no screenshot", async () => {
+    await saveState({ rom, stateFile: bytes });
+
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    expect(statesToUpload[0].screenshotFile).toBeUndefined();
+  });
+});
+
+describe("buildStateFormData", () => {
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+
+  it("adds the screenshot part only when there is a picture", () => {
+    expect(
+      buildStateFormData(bytes, bytes).get("screenshotFile"),
+    ).toBeInstanceOf(Blob);
+    expect(buildStateFormData(bytes).get("screenshotFile")).toBeNull();
+    expect(buildStateFormData(bytes).get("stateFile")).toBeInstanceOf(Blob);
   });
 });
 

@@ -1,9 +1,13 @@
 import Bowser from "bowser";
-import { type SaveSchema } from "@/__generated__";
-import { type StateSchema } from "@/__generated__";
+import {
+  type Body_add_state_api_states_post as AddStateInput,
+  type SaveSchema,
+  type StateSchema,
+} from "@/__generated__";
 import saveApi, { AUTOSAVE_SLOT } from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import { type DetailedRom } from "@/stores/roms";
+import { buildFormInput } from "@/utils/formData";
 
 function buildStateName(rom: DetailedRom): string {
   const romName = rom.fs_name_no_ext.trim();
@@ -22,6 +26,30 @@ export async function captureStateScreenshot(): Promise<
     console.error("Failed to capture a state screenshot", error);
     return undefined;
   }
+}
+
+/** The picture for a save state: the live canvas, else what EmulatorJS passed. */
+export async function resolveStateScreenshot(
+  emulatorScreenshot?: ArrayBuffer,
+): Promise<ArrayBuffer | undefined> {
+  return (await captureStateScreenshot()) ?? emulatorScreenshot;
+}
+
+/** Console-mode state upload; without a picture there is no screenshot part. */
+export function buildStateFormData(
+  stateFile: ArrayBuffer,
+  screenshotFile?: ArrayBuffer,
+): FormData {
+  return buildFormInput<AddStateInput>([
+    ["stateFile", new Blob([stateFile]), "state.save"],
+    [
+      "screenshotFile",
+      screenshotFile
+        ? new Blob([screenshotFile], { type: "image/png" })
+        : undefined,
+      "screenshot.png",
+    ],
+  ]);
 }
 
 export async function saveState({
