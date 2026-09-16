@@ -1002,8 +1002,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 }
 /* States on a wide screen: the grid keeps the panel's width and the preview
    column stays fixed. Saves keep the stacked column, their rows are wide.
-   Both columns subgrid their label and content rows, so the two labels and
-   then the stage and the first tile row line up. */
+   Both columns subgrid their title and content rows, keeping the columns'
+   own 14px gap, the same title-to-content distance the saves tab has. */
 html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
@@ -1018,7 +1018,6 @@ html[data-bp~="md-and-up"]
   display: grid;
   grid-template-rows: subgrid;
   grid-row: span 2;
-  gap: 0;
 }
 html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-body--split
