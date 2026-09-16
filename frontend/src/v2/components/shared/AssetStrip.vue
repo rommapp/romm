@@ -486,7 +486,6 @@ const fadeIndex = computed(() =>
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   text-align: left;
   cursor: pointer;
   border-radius: var(--r-radius-md);
@@ -523,11 +522,12 @@ const fadeIndex = computed(() =>
   border-color: transparent;
 }
 
+/* One card: the screenshot fills the top, the tinted body sits flush below. */
 .r-asset-strip__thumb {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: var(--r-radius-md);
+  border-radius: var(--r-radius-md) var(--r-radius-md) 0 0;
   overflow: hidden;
   background: var(--r-color-cover-placeholder);
   border: 2px solid transparent;
@@ -575,14 +575,13 @@ const fadeIndex = computed(() =>
   box-shadow: 0 2px 6px color-mix(in srgb, black 35%, transparent);
 }
 
-/* The card's lower half, so the facts and the actions read as part of it. */
 .r-asset-strip__body {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-  padding: 6px 6px 8px;
-  border-radius: var(--r-radius-md);
+  padding: 8px 8px 10px;
+  border-radius: 0 0 var(--r-radius-md) var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 .r-asset-strip--list .r-asset-strip__body {
