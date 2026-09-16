@@ -212,6 +212,20 @@ describe("EmulatorJS launch screen — play routes", () => {
     ]);
   });
 
+  // The shell sends "RetroArch (snes9x)" / "PCSX2 (to install)"; the qualifier
+  // does not fit beside the label and overflowed the button.
+  it.each([
+    ["RetroArch (snes9x)", "play.play-native-in:RetroArch"],
+    ["PCSX2 (to install)", "play.play-native-in:PCSX2"],
+    ["RetroArch (Flatpak)", "play.play-native-in:RetroArch"],
+    ["PCSX2", "play.play-native-in:PCSX2"],
+  ])("names %s on the button as %s", async (emulator, expected) => {
+    mocks.canPlayNative = true;
+    mocks.emulator = emulator;
+
+    expect(playLabels(await launchScreen())[0]).toBe(expected);
+  });
+
   it("falls back to an unnamed native label when no emulator resolves", async () => {
     mocks.canPlayNative = true;
 
@@ -270,6 +284,19 @@ describe("EmulatorJS launch screen — a launch in flight", () => {
 
     expect(playLabels(wrapper)[0]).toBe("play.native-downloading:42");
     expect(wrapper.text()).toContain("play.native-cancel");
+  });
+
+  it("drops the qualifier from the emulator the shell is setting up", async () => {
+    mocks.launchState = {
+      romId: 7,
+      status: "downloading",
+      stage: "emulator",
+      emulator: "RetroArch (snes9x)",
+    } as LaunchState;
+
+    expect(playLabels(await launchScreen())[0]).toBe(
+      "play.native-preparing:RetroArch",
+    );
   });
 
   it("names the stage the shell reports over the raw percentage", async () => {

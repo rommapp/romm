@@ -235,8 +235,16 @@ const nativeOnly = computed(() => canPlayNative.value && !canPlayEJS.value);
 
 const nativeLaunching = computed(() => nativeStore.isLaunching(romId));
 
-const nativeEmulator = computed(
-  () => nativeStore.labelForPlatform(heroRom.value?.platform_slug) ?? "",
+// The shell qualifies the emulator with the core it would load, or with a hint
+// that it has yet to be installed ("RetroArch (snes9x)", "PCSX2 (to install)").
+// The button names the emulator alone: the qualifier does not fit beside it,
+// and the launch's own progress readout says what is being set up.
+function emulatorName(label: string | null | undefined): string {
+  return (label ?? "").replace(/\s*\([^()]*\)\s*$/, "").trim();
+}
+
+const nativeEmulator = computed(() =>
+  emulatorName(nativeStore.labelForPlatform(heroRom.value?.platform_slug)),
 );
 
 // The native button is its own progress readout, so while the shell works the
@@ -258,7 +266,7 @@ const nativeLabel = computed(() => {
   }
   if (state?.stage === "emulator") {
     return t("play.native-preparing", {
-      emulator: state.emulator || nativeEmulator.value,
+      emulator: emulatorName(state.emulator) || nativeEmulator.value,
     });
   }
   if (state?.progress != null) {
@@ -1042,6 +1050,13 @@ const saveSlot = computed(() =>
 /* The in-browser route below a native launch, which holds the brand glow. */
 .r-v2-ejs__play--secondary {
   box-shadow: none;
+}
+/* A user-configured emulator can be named anything, so the label is clipped
+   rather than allowed to run out of the button. */
+.r-v2-ejs__play :deep(.r-btn__label) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .r-v2-ejs__hero-links {
   display: flex;
