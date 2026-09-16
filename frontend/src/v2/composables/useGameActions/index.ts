@@ -29,10 +29,12 @@ import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { confirmJoinStream } from "@/v2/composables/useJoinStreamConfirm";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
+import { armCrossDocumentTransition } from "@/v2/utils/crossDocumentNav";
 
 export interface GameActionsOptions {
   /** Resolver for the cover element to morph from when `play()` navigates to
@@ -65,6 +67,7 @@ export function useGameActions(
   const { t } = useI18n();
   const router = useRouter();
   const { morphTransition } = useViewTransition();
+  const { enabled: reducedMotion } = useReducedMotion();
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
   const confirm = useConfirm();
@@ -330,7 +333,11 @@ export function useGameActions(
     const launch = launchTarget(player);
     if (!launch) return;
     const target = launch.path;
+    // SharedArrayBuffer needs the COOP/COEP headers that nginx attaches only to
+    // the player document, so this is a hard load; arming it is what lets the
+    // two documents crossfade instead of cutting.
     if (ISOLATED_PLAYERS.has(launch.player)) {
+      if (!reducedMotion.value) armCrossDocumentTransition(target);
       window.location.assign(target);
       return;
     }

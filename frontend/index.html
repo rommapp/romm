@@ -15,6 +15,32 @@
     <meta name="theme-color" content="#2a0145" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RomM</title>
+    <script>
+      // Opt this document into a cross-document view transition when, and only
+      // when, a player launch sent it here. Both ends have to opt in: the
+      // launch arms the outgoing document (see
+      // frontend/src/v2/utils/crossDocumentNav.ts, which repeats this key and
+      // at-rule), and the descriptor is added here rather than in the
+      // stylesheet so that no other navigation between two pages of the app
+      // opts in and cross-fades. This has to be a classic parser-blocking head
+      // script, because the opt-in is read before the document's first frame.
+      (function () {
+        var launchTo = null;
+        try {
+          // Always consume the marker: a launch that never completed must not
+          // decorate whatever load comes next.
+          launchTo = sessionStorage.getItem("romm-xdoc-nav");
+          sessionStorage.removeItem("romm-xdoc-nav");
+        } catch (error) {
+          // Storage can throw (private mode); no transition, nothing else.
+        }
+        if (launchTo !== location.pathname) return;
+
+        var style = document.createElement("style");
+        style.textContent = "@view-transition { navigation: auto; }";
+        document.head.append(style);
+      })();
+    </script>
   </head>
 
   <body>

@@ -23,6 +23,7 @@ const canPlayJsDos = { value: false };
 const canPlayPico8 = { value: false };
 const canPlayRuffle = { value: false };
 const streamContainer = { value: null as object | null };
+const reducedMotion = { value: false };
 const joinableSession = {
   value: null as { host_username: string | null } | null,
 };
@@ -117,6 +118,9 @@ vi.mock("@/v2/composables/useScanTrigger", () => ({
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: vi.fn(), info: snackbarInfo }),
 }));
+vi.mock("@/v2/composables/useReducedMotion", () => ({
+  useReducedMotion: () => ({ enabled: reducedMotion }),
+}));
 vi.mock("@/v2/composables/useViewTransition", () => ({
   useViewTransition: () => ({
     morphTransition: (_opts: unknown, cb: () => void) => cb(),
@@ -152,6 +156,7 @@ afterAll(() => {
 beforeEach(() => {
   push.mockClear();
   locationAssign.mockClear();
+  sessionStorage.clear();
   confirmFn.mockClear();
   startScan.mockClear();
   snackbarInfo.mockClear();
@@ -163,6 +168,9 @@ beforeEach(() => {
   streamContainer.value = null;
   joinableSession.value = null;
   grantedActions.value = null;
+  reducedMotion.value = false;
+  // Arming appends an opt-in to the document, which outlives a single test.
+  document.head.querySelectorAll("style").forEach((s) => s.remove());
 });
 
 describe("useGameActions.joinStream", () => {
@@ -263,6 +271,42 @@ describe("useGameActions.play — launch confirmation", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  // The incoming player document's head script reads the marker before its
+  // first frame, so it has to be in storage by the time the load starts.
+  it("arms the player document before the browser starts loading it", async () => {
+    let markedAtAssign: string | null = "not written";
+    let optedInAtAssign = false;
+    locationAssign.mockImplementationOnce(() => {
+      markedAtAssign = sessionStorage.getItem("romm-xdoc-nav");
+      optedInAtAssign = Array.from(
+        document.head.querySelectorAll("style"),
+      ).some((s) => s.textContent?.includes("@view-transition") ?? false);
+    });
+    const actions = useGameActions(() => makeRom(null));
+
+    await actions.play();
+
+    expect(markedAtAssign).toBe("/rom/1/ejs");
+    expect(optedInAtAssign).toBe(true);
+  });
+
+  // Both ends have to opt in, so the reduced-motion gate sits on the launch:
+  // arming neither end is what makes this a plain hard load.
+  it("leaves both ends unarmed when motion is reduced", async () => {
+    reducedMotion.value = true;
+    const actions = useGameActions(() => makeRom(null));
+
+    await actions.play();
+
+    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
+    expect(sessionStorage.getItem("romm-xdoc-nav")).toBeNull();
+    expect(
+      Array.from(document.head.querySelectorAll("style")).some(
+        (s) => s.textContent?.includes("@view-transition") ?? false,
+      ),
+    ).toBe(false);
+  });
+
   it.each(["retired", "never_playing"] as const)(
     "asks before launching a %s game and aborts on cancel",
     async (status) => {
@@ -301,6 +345,8 @@ describe("useGameActions.play — launch confirmation", () => {
 
     expect(push).toHaveBeenCalledWith("/rom/1/stream");
     expect(locationAssign).not.toHaveBeenCalled();
+    // Same-document navigation: nothing to hand off to a new document.
+    expect(sessionStorage.getItem("romm-xdoc-nav")).toBeNull();
   });
 
   it("goes to EmulatorJS when asked for the local player, stream or not", async () => {
@@ -354,6 +400,7 @@ describe("useGameActions.play — launch confirmation", () => {
 
     expect(push).toHaveBeenCalledWith("/rom/1/ruffle");
     expect(locationAssign).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("romm-xdoc-nav")).toBeNull();
   });
 
   it("keeps SPA navigation for PICO-8", async () => {
@@ -375,6 +422,7 @@ describe("useGameActions.play — launch confirmation", () => {
 
     expect(locationAssign).toHaveBeenCalledWith("/rom/1/jsdos");
     expect(push).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("romm-xdoc-nav")).toBe("/rom/1/jsdos");
   });
 
   it("offers neither streaming nor download without a file behind the rom", () => {
