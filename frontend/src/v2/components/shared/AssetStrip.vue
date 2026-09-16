@@ -223,32 +223,34 @@ const fadeIndex = computed(() =>
                 <RIcon icon="mdi-check" size="14" />
               </span>
             </div>
-            <div class="r-asset-strip__meta">
-              <p class="r-asset-strip__name">
-                {{ asset.file_name }}
-              </p>
-              <AssetChips
-                :asset="asset"
-                :latest="
-                  !!groupBy &&
-                  group.assets.length > 1 &&
-                  asset.updated_at === group.newest
-                "
-                :show-emulator="!groupBy"
-              />
-              <AssetTimestamp
-                :date="asset.updated_at"
-                class="r-asset-strip__time"
-              />
-              <AssetOwnerChip
-                v-if="showOwner && ownerOf(asset)"
-                :owner="ownerOf(asset)!"
-                :size="14"
-                class="r-asset-strip__owner"
-              />
-            </div>
-            <div v-if="!selectable" class="r-asset-strip__actions">
-              <slot name="actions" :asset="asset" />
+            <div class="r-asset-strip__body">
+              <div class="r-asset-strip__meta">
+                <p class="r-asset-strip__name">
+                  {{ asset.file_name }}
+                </p>
+                <AssetChips
+                  :asset="asset"
+                  :latest="
+                    !!groupBy &&
+                    group.assets.length > 1 &&
+                    asset.updated_at === group.newest
+                  "
+                  :show-emulator="!groupBy"
+                />
+                <AssetTimestamp
+                  :date="asset.updated_at"
+                  class="r-asset-strip__time"
+                />
+                <AssetOwnerChip
+                  v-if="showOwner && ownerOf(asset)"
+                  :owner="ownerOf(asset)!"
+                  :size="14"
+                  class="r-asset-strip__owner"
+                />
+              </div>
+              <div v-if="!selectable" class="r-asset-strip__actions">
+                <slot name="actions" :asset="asset" />
+              </div>
             </div>
             <RTooltip
               v-if="selectable"
@@ -573,11 +575,24 @@ const fadeIndex = computed(() =>
   box-shadow: 0 2px 6px color-mix(in srgb, black 35%, transparent);
 }
 
+/* The card's lower half, so the facts and the actions read as part of it. */
+.r-asset-strip__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 6px 8px;
+  border-radius: var(--r-radius-md);
+  background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
+}
+.r-asset-strip--list .r-asset-strip__body {
+  display: contents;
+}
+
 .r-asset-strip__meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 0 2px;
   min-width: 0;
 }
 
