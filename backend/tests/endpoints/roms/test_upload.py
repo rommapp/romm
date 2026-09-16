@@ -365,10 +365,13 @@ def _start_into_rom(
     folder: str | None,
     total_size: int,
     platform_id: int | None = None,
+    overwrite: bool = False,
 ):
-    target: dict[str, int | str] = {"rom_id": rom.id}
+    target: dict[str, int | str | bool] = {"rom_id": rom.id}
     if folder is not None:
         target["folder"] = folder
+    if overwrite:
+        target["overwrite"] = True
     return client.post(
         "/api/roms/upload/start",
         headers={
@@ -390,9 +393,16 @@ def _upload_into_rom(
     filename: str,
     folder: str | None,
     data: bytes,
+    overwrite: bool = False,
 ):
     start = _start_into_rom(
-        client, token, rom, filename=filename, folder=folder, total_size=len(data)
+        client,
+        token,
+        rom,
+        filename=filename,
+        folder=folder,
+        total_size=len(data),
+        overwrite=overwrite,
     )
     assert start.status_code == status.HTTP_201_CREATED, start.json()
     upload_id = start.json()["upload_id"]
@@ -522,6 +532,40 @@ def test_start_into_rom_rejects_existing_destination(
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
+
+
+def test_overwrite_replaces_an_existing_file(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    rom = _folder_rom(
+        platform, admin_user, rom_upload_fs, {"game.bin": b"game", "hack/x.ips": b"old"}
+    )
+
+    refused = _start_into_rom(
+        client, access_token, rom, filename="x.ips", folder="hack", total_size=3
+    )
+    assert refused.status_code == status.HTTP_409_CONFLICT
+
+    response = _upload_into_rom(
+        client,
+        access_token,
+        rom,
+        filename="x.ips",
+        folder="hack",
+        data=b"new",
+        overwrite=True,
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    on_disk = rom_upload_fs / rom.fs_path / ROM_FOLDER / "hack" / "x.ips"
+    assert on_disk.read_bytes() == b"new"
+    rows = [f for f in db_rom_handler.get_rom(rom.id).files if f.file_name == "x.ips"]
+    assert len(rows) == 1
+    assert rows[0].file_size_bytes == 3
 
 
 def test_complete_registers_nested_file(

@@ -488,6 +488,8 @@
   "upload-manual": "Upload manual",
   "upload-new-folder": "Nová složka…",
   "upload-new-folder-hint": "Relativně ke složce hry, např. hack/v2",
+  "upload-overwrite-body": "{names} v této složce již existuje a bude nahrazen novým nahráním. | {names} v této složce již existují a budou nahrazeny novými nahráními.",
+  "upload-overwrite-title": "Přepsat {n} existující soubor? | Přepsat {n} existující soubory?",
   "upload-saves": "Nahrát uložené pozice",
   "upload-screenshots": "Nahrát screenshoty",
   "upload-slot-hint": "Uložené pozice ve slotu se synchronizují se zařízeními; bez slotu zůstává soubor ručním archivem.",

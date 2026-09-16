@@ -44,6 +44,7 @@ async function uploadRomChunked({
   file,
   romId,
   folder,
+  overwrite = false,
 }: {
   platformId: number;
   file: File;
@@ -51,6 +52,8 @@ async function uploadRomChunked({
   romId?: number;
   /** Subfolder inside the ROM folder; empty or omitted for the root. */
   folder?: string;
+  /** Replace a file of the same name in the ROM folder. */
+  overwrite?: boolean;
 }): Promise<void> {
   const uploadStore = storeUpload();
   const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
@@ -59,7 +62,11 @@ async function uploadRomChunked({
   // percent-encoded name and the body the real one.
   const target: UploadTargetPayload = {
     filename: file.name,
-    ...(romId !== undefined && { rom_id: romId, ...(folder && { folder }) }),
+    ...(romId !== undefined && {
+      rom_id: romId,
+      ...(folder && { folder }),
+      ...(overwrite && { overwrite }),
+    }),
   };
   const { data: startData } = await api.post("/roms/upload/start", target, {
     headers: {
@@ -133,11 +140,13 @@ async function uploadRoms({
   filesToUpload,
   romId,
   folder,
+  overwrite,
 }: {
   platformId: number;
   filesToUpload: File[];
   romId?: number;
   folder?: string;
+  overwrite?: boolean;
 }) {
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
@@ -145,7 +154,7 @@ async function uploadRoms({
   const promises = filesToUpload.map((file) => {
     uploadStore.start(file.name);
 
-    return uploadRomChunked({ platformId, file, romId, folder })
+    return uploadRomChunked({ platformId, file, romId, folder, overwrite })
       .then(() => null as null)
       .catch((error) => {
         uploadStore.fail(

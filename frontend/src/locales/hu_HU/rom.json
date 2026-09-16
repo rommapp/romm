@@ -488,6 +488,8 @@
   "upload-manual": "Upload manual",
   "upload-new-folder": "Új mappa…",
   "upload-new-folder-hint": "A játék mappájához képest, pl. hack/v2",
+  "upload-overwrite-body": "{names} már létezik ebben a mappában, és az új feltöltés felülírja. | {names} már léteznek ebben a mappában, és az új feltöltések felülírják.",
+  "upload-overwrite-title": "Felülírja a(z) {n} meglévő fájlt? | Felülírja a(z) {n} meglévő fájlt?",
   "upload-saves": "Mentések feltöltése",
   "upload-screenshots": "Képernyőképek feltöltése",
   "upload-slot-hint": "A helyre tett mentések részt vesznek az eszközszinkronban; hely nélkül a fájl kézi archívum marad.",

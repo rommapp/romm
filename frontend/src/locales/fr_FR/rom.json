@@ -488,6 +488,8 @@
   "upload-manual": "Upload manual",
   "upload-new-folder": "Nouveau dossier…",
   "upload-new-folder-hint": "Relatif au dossier du jeu, par ex. hack/v2",
+  "upload-overwrite-body": "{names} existe déjà dans ce dossier et sera remplacé par le nouvel envoi. | {names} existent déjà dans ce dossier et seront remplacés par les nouveaux envois.",
+  "upload-overwrite-title": "Écraser {n} fichier existant ? | Écraser {n} fichiers existants ?",
   "upload-saves": "Téléverser des sauvegardes",
   "upload-screenshots": "Téléverser des captures d'écran",
   "upload-slot-hint": "Les sauvegardes dans un emplacement rejoignent la synchronisation des appareils ; sans emplacement, le fichier reste une archive manuelle.",

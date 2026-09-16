@@ -2,8 +2,9 @@
 //
 // The Files tab targets any subfolder and the Media subtabs target the folder
 // the scanner maps to their category, but the upload itself is the same:
-// confirm the single-file promotion, stream through the chunked upload,
-// report the outcome and refetch the ROM.
+// confirm the single-file promotion, stream through the chunked upload, ask
+// before replacing a file the folder already holds, report the outcome and
+// refetch the ROM.
 import axios from "axios";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -36,6 +37,17 @@ export interface RomFileUploadOutcome {
 }
 
 const NOTHING_UPLOADED: RomFileUploadOutcome = { uploaded: 0, failed: 0 };
+
+type Attempt = { file: File; result: PromiseSettledResult<unknown> };
+
+/** The server refuses a name the folder already holds with a 409. */
+function isExisting({ result }: Attempt): boolean {
+  return (
+    result.status === "rejected" &&
+    axios.isAxiosError(result.reason) &&
+    result.reason.response?.status === 409
+  );
+}
 
 export function useRomFileUpload() {
   const { t } = useI18n();
@@ -77,12 +89,47 @@ export function useRomFileUpload() {
 
     inFlight.value += 1;
     try {
-      const results = await romApi.uploadRoms({
-        platformId: rom.platform_id,
-        romId: rom.id,
-        folder,
-        filesToUpload: files,
-      });
+      const send = async (batch: File[], overwrite = false) => {
+        const results = await romApi.uploadRoms({
+          platformId: rom.platform_id,
+          romId: rom.id,
+          folder,
+          filesToUpload: batch,
+          ...(overwrite && { overwrite }),
+        });
+        return batch.map((file, i) => ({ file, result: results[i] }));
+      };
+
+      let attempts = await send(files);
+      const existing = attempts.filter(isExisting);
+      if (existing.length > 0) {
+        attempts = attempts.filter((attempt) => !isExisting(attempt));
+        const names = existing.map(({ file }) => file.name).join(", ");
+        const ok = await confirm({
+          title: t("rom.upload-overwrite-title", existing.length, {
+            named: { n: existing.length },
+          }),
+          body: t("rom.upload-overwrite-body", existing.length, {
+            named: { names },
+          }),
+          confirmText: t("common.overwrite"),
+          tone: "danger",
+        });
+        if (ok) {
+          // The refused entries are still in the toast; the retry re-adds them.
+          uploadStore.clearFinished();
+          attempts = [
+            ...attempts,
+            ...(await send(
+              existing.map(({ file }) => file),
+              true,
+            )),
+          ];
+        }
+      }
+      if (attempts.length === 0) return NOTHING_UPLOADED;
+
+      const results = attempts.map(({ result }) => result);
       const uploaded = results.filter((r) => r.status === "fulfilled").length;
       const failed = results.length - uploaded;
       if (uploaded > 0) {
@@ -99,13 +146,12 @@ export function useRomFileUpload() {
           icon: "mdi-close-circle",
         });
       }
-      // allSettled keeps the input order, so the index maps back to the file.
-      const firstFailed = results.findIndex((r) => r.status === "rejected");
-      if (firstFailed >= 0) {
-        const rejected = results[firstFailed] as PromiseRejectedResult;
-        snackbar.error(
-          failureMessage(files[firstFailed].name, rejected.reason),
-        );
+      const firstFailed = attempts.find(
+        ({ result }) => result.status === "rejected",
+      );
+      if (firstFailed) {
+        const rejected = firstFailed.result as PromiseRejectedResult;
+        snackbar.error(failureMessage(firstFailed.file.name, rejected.reason));
       }
       if (failed === 0) uploadStore.reset();
       if (alive.value && uploaded > 0) await refetchRom(rom.id);

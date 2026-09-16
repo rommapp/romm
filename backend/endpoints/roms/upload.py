@@ -221,7 +221,7 @@ async def _resolve_destination(request: Request, session: dict) -> UploadDestina
 
     rom = _get_upload_rom(request, rom_id, session["platform_id"])
     return await _prepare_rom_destination(
-        rom, session["folder"], filename, overwrite=False
+        rom, session["folder"], filename, overwrite=session["overwrite"]
     )
 
 
@@ -241,6 +241,10 @@ class UploadTargetPayload(BaseModel):
     filename: str | None = Field(
         default=None,
         description="The file name. Takes precedence over the header, which cannot carry characters outside Latin-1.",
+    )
+    overwrite: bool = Field(
+        default=False,
+        description="Replace a file of the same name in the ROM's folder instead of refusing the upload.",
     )
 
 
@@ -284,6 +288,7 @@ async def start_chunked_upload(
         filename = target.filename
     safe_filename = _sanitized_filename(filename)
     rom_id = target.rom_id if target else None
+    overwrite = bool(target and target.overwrite and rom_id is not None)
     rel_folder = ""
 
     if rom_id is None:
@@ -302,7 +307,9 @@ async def start_chunked_upload(
         rom = _get_upload_rom(request, rom_id, platform_id)
         try:
             rel_folder = parse_upload_folder(target.folder if target else "")
-            resolve_upload_destination(rom, rel_folder, safe_filename)
+            resolve_upload_destination(
+                rom, rel_folder, safe_filename, overwrite=overwrite
+            )
         except UploadRejectedException as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -326,6 +333,7 @@ async def start_chunked_upload(
         "user_id": request.user.id,
         "rom_id": rom_id,
         "folder": rel_folder,
+        "overwrite": overwrite,
     }
     await _save_session(upload_id, session)
 
@@ -503,7 +511,7 @@ async def complete_chunked_upload(
         destination = await _resolve_destination(request, session)
         staged = staging_path(destination.location)
         await _assemble_chunks(upload_id, session, staged)
-        await _commit(destination, staged, overwrite=False)
+        await _commit(destination, staged, overwrite=session["overwrite"])
     finally:
         await _cleanup_upload_state(upload_id)
 

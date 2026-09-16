@@ -488,6 +488,8 @@
   "upload-manual": "Kılavuz yükle",
   "upload-new-folder": "Yeni klasör…",
   "upload-new-folder-hint": "Oyun klasörüne göre, örn. hack/v2",
+  "upload-overwrite-body": "{names} bu klasörde zaten mevcut ve yeni yüklemeyle değiştirilecek. | {names} bu klasörde zaten mevcut ve yeni yüklemelerle değiştirilecek.",
+  "upload-overwrite-title": "{n} mevcut dosyanın üzerine yazılsın mı? | {n} mevcut dosyanın üzerine yazılsın mı?",
   "upload-saves": "Kayıt yükle",
   "upload-screenshots": "Ekran görüntüsü yükle",
   "upload-slot-hint": "Yuvadaki kayıtlar cihaz eşitlemesine katılır; yuva yoksa dosya elle alınmış bir arşiv olarak kalır.",

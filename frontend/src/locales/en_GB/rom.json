@@ -488,6 +488,8 @@
   "upload-manual": "Upload manual",
   "upload-new-folder": "New folder…",
   "upload-new-folder-hint": "Relative to the game folder, e.g. hack/v2",
+  "upload-overwrite-body": "{names} already exists in this folder and will be replaced by the new upload. | {names} already exist in this folder and will be replaced by the new uploads.",
+  "upload-overwrite-title": "Overwrite {n} existing file? | Overwrite {n} existing files?",
   "upload-saves": "Upload saves",
   "upload-screenshots": "Upload screenshots",
   "upload-slot-hint": "Slotted saves join device sync; without a slot the file stays a manual archive.",

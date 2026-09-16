@@ -488,6 +488,8 @@
   "upload-manual": "Upload manual",
   "upload-new-folder": "Nueva carpeta…",
   "upload-new-folder-hint": "Relativa a la carpeta del juego, p. ej. hack/v2",
+  "upload-overwrite-body": "{names} ya existe en esta carpeta y se reemplazará con la nueva subida. | {names} ya existen en esta carpeta y se reemplazarán con las nuevas subidas.",
+  "upload-overwrite-title": "¿Sobrescribir {n} archivo existente? | ¿Sobrescribir {n} archivos existentes?",
   "upload-saves": "Subir partidas",
   "upload-screenshots": "Subir capturas",
   "upload-slot-hint": "Las partidas con ranura entran en la sincronización de dispositivos; sin ranura el archivo queda como copia manual.",

@@ -488,6 +488,8 @@
   "upload-manual": "上传手册",
   "upload-new-folder": "新建文件夹…",
   "upload-new-folder-hint": "相对于游戏文件夹，例如 hack/v2",
+  "upload-overwrite-body": "{names} 已存在于此文件夹中，将被新上传的文件替换。 | {names} 已存在于此文件夹中，将被新上传的文件替换。",
+  "upload-overwrite-title": "覆盖 {n} 个已有文件？ | 覆盖 {n} 个已有文件？",
   "upload-saves": "上传存档",
   "upload-screenshots": "上传截图",
   "upload-slot-hint": "带存档位的存档会参与设备同步；没有存档位的文件将作为手动存档保留。",

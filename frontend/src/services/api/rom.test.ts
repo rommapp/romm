@@ -136,6 +136,23 @@ describe("romApi.uploadRoms", () => {
     );
   });
 
+  it("asks the server to replace an existing file only when told to", async () => {
+    await romApi.uploadRoms({
+      platformId: 3,
+      romId: 42,
+      folder: "hack",
+      overwrite: true,
+      filesToUpload: [new File(["abc"], "fix.ips")],
+    });
+
+    expect(startCall().body).toEqual({
+      filename: "fix.ips",
+      rom_id: 42,
+      folder: "hack",
+      overwrite: true,
+    });
+  });
+
   it("treats an empty folder as the rom root", async () => {
     await romApi.uploadRoms({
       platformId: 3,

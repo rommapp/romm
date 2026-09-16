@@ -488,6 +488,8 @@
   "upload-manual": "Upload manual",
   "upload-new-folder": "Nowy folder…",
   "upload-new-folder-hint": "Względem folderu gry, np. hack/v2",
+  "upload-overwrite-body": "{names} już istnieje w tym folderze i zostanie zastąpiony nowym plikiem. | {names} już istnieją w tym folderze i zostaną zastąpione nowymi plikami.",
+  "upload-overwrite-title": "Nadpisać {n} istniejący plik? | Nadpisać {n} istniejące pliki?",
   "upload-saves": "Prześlij zapisy",
   "upload-screenshots": "Prześlij zrzuty ekranu",
   "upload-slot-hint": "Zapisy w slocie biorą udział w synchronizacji urządzeń; bez slotu plik pozostaje ręcznym archiwum.",

@@ -19,5 +19,9 @@ export type UploadTargetPayload = {
      * The file name. Takes precedence over the header, which cannot carry characters outside Latin-1.
      */
     filename?: (string | null);
+    /**
+     * Replace a file of the same name in the ROM's folder instead of refusing the upload.
+     */
+    overwrite?: boolean;
 };
 

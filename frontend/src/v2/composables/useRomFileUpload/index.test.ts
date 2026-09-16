@@ -34,6 +34,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 const folderRom = { id: 1, platform_id: 7, has_simple_single_file: false };
 const singleFileRom = { ...folderRom, has_simple_single_file: true };
 const files = [new File(["x"], "track.mp3")];
+const exists = { isAxiosError: true, response: { status: 409 } };
 
 describe("useRomFileUpload", () => {
   beforeEach(() => {
@@ -80,11 +81,52 @@ describe("useRomFileUpload", () => {
     expect(uploadRoms).not.toHaveBeenCalled();
   });
 
-  it("explains a duplicate and keeps the failed entry in the upload toast", async () => {
+  it("asks before replacing an existing file and retries with overwrite", async () => {
+    const both = [new File(["x"], "track.mp3"), new File(["y"], "b.mp3")];
+    uploadRoms
+      .mockResolvedValueOnce([
+        { status: "fulfilled", value: null },
+        { status: "rejected", reason: exists },
+      ])
+      .mockResolvedValueOnce([{ status: "fulfilled", value: null }]);
+    const { uploadFiles } = useRomFileUpload();
+
+    const outcome = await uploadFiles(folderRom, "soundtrack", both);
+
+    expect(outcome).toEqual({ uploaded: 2, failed: 0 });
+    expect(confirmFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "rom.upload-overwrite-title",
+        confirmText: "common.overwrite",
+        tone: "danger",
+      }),
+    );
+    expect(uploadRoms).toHaveBeenLastCalledWith(
+      expect.objectContaining({ filesToUpload: [both[1]], overwrite: true }),
+    );
+    expect(snackbar.error).not.toHaveBeenCalled();
+    expect(refetchRom).toHaveBeenCalledWith(1);
+  });
+
+  it("drops a file the user declines to overwrite without complaint", async () => {
+    uploadRoms.mockResolvedValue([{ status: "rejected", reason: exists }]);
+    confirmFn.mockResolvedValue(false);
+    const { uploadFiles } = useRomFileUpload();
+
+    const outcome = await uploadFiles(folderRom, "soundtrack", files);
+
+    expect(outcome).toEqual({ uploaded: 0, failed: 0 });
+    expect(uploadRoms).toHaveBeenCalledOnce();
+    expect(snackbar.error).not.toHaveBeenCalled();
+    expect(snackbar.warning).not.toHaveBeenCalled();
+    expect(refetchRom).not.toHaveBeenCalled();
+  });
+
+  it("explains a rejected file and keeps the failed entry in the upload toast", async () => {
     uploadRoms.mockResolvedValue([
       {
         status: "rejected",
-        reason: { isAxiosError: true, response: { status: 409 } },
+        reason: { isAxiosError: true, response: { status: 400 } },
       },
     ]);
     const uploadStore = storeUpload();
@@ -94,7 +136,7 @@ describe("useRomFileUpload", () => {
     const outcome = await uploadFiles(folderRom, "soundtrack", files);
 
     expect(outcome).toEqual({ uploaded: 0, failed: 1 });
-    expect(snackbar.error).toHaveBeenCalledWith("rom.upload-file-exists");
+    expect(snackbar.error).toHaveBeenCalledWith("rom.upload-file-rejected");
     expect(snackbar.warning).toHaveBeenCalledWith(
       "rom.no-files-uploaded",
       expect.anything(),
@@ -106,7 +148,10 @@ describe("useRomFileUpload", () => {
   it("tracks in-flight uploads", async () => {
     let release: (() => void) | undefined;
     uploadRoms.mockImplementationOnce(
-      () => new Promise((resolve) => (release = () => resolve([]))),
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve([{ status: "fulfilled", value: null }]);
+        }),
     );
     const { uploading, uploadFiles } = useRomFileUpload();
 

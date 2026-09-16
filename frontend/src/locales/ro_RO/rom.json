@@ -488,6 +488,8 @@
   "upload-manual": "Upload manual",
   "upload-new-folder": "Folder nou…",
   "upload-new-folder-hint": "Relativ la folderul jocului, de ex. hack/v2",
+  "upload-overwrite-body": "{names} există deja în acest folder și va fi înlocuit de noua încărcare. | {names} există deja în acest folder și vor fi înlocuite de noile încărcări.",
+  "upload-overwrite-title": "Suprascrii {n} fișier existent? | Suprascrii {n} fișiere existente?",
   "upload-saves": "Încarcă salvări",
   "upload-screenshots": "Încarcă capturi de ecran",
   "upload-slot-hint": "Salvările dintr-un slot intră în sincronizarea dispozitivelor; fără slot fișierul rămâne o arhivă manuală.",
