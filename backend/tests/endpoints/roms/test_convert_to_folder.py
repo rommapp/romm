@@ -22,15 +22,6 @@ def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-@pytest.fixture
-def real_library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point fs_rom_handler at a real temp library so FS moves actually happen."""
-    lib = tmp_path / "library"
-    lib.mkdir()
-    monkeypatch.setattr(fs_rom_handler, "base_path", lib.resolve())
-    return lib
-
-
 def _single_file_rom(
     platform: Platform,
     admin_user: User,

@@ -1,40 +1,27 @@
-import os
 from typing import Annotated
 
 from fastapi import Header, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
 from fastapi.responses import Response
-from starlette.requests import ClientDisconnect
-from streaming_form_data import StreamingFormDataParser
-from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
 from endpoints.responses.rom import SoundtrackTrackMetaSchema, TrackMetaSchema
+from endpoints.roms.upload import receive_rom_file
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.rom_conversion import promote_single_file_to_folder
+from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import RomFile, RomFileCategory, TrackMeta
-from utils.audio_tags import (
-    ALLOWED_AUDIO_EXTENSIONS,
-    extract_audio_meta,
-    is_allowed_audio_file,
-    persist_embedded_cover,
-    remove_persisted_cover,
-    track_meta_columns,
-)
+from models.rom import RomFileCategory
+from utils.audio_tags import remove_persisted_cover
 from utils.router import APIRouter
 
 router = APIRouter()
-
-SOUNDTRACK_FOLDER = "soundtrack"
 
 
 @protected_route(
@@ -90,7 +77,7 @@ async def add_rom_soundtracks(
         ),
     ],
 ) -> Response:
-    """Upload a soundtrack audio file for a multi-file ROM."""
+    """Upload a soundtrack audio file into the ROM's soundtrack/ subfolder."""
 
     rom = db_rom_handler.get_rom(id)
     if not rom:
@@ -98,121 +85,9 @@ async def add_rom_soundtracks(
 
     assert_rom_visible(request, rom)
 
-    if rom.has_simple_single_file:
-        try:
-            rom = await promote_single_file_to_folder(rom)
-        except RomAlreadyExistsException as exc:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-            ) from exc
-
-    try:
-        safe_filename = fs_rom_handler._sanitize_filename(filename)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid upload filename: {exc}",
-        ) from exc
-
-    # Reject rather than silently strip — otherwise the client's form-field
-    # name won't match what we register with the parser below.
-    if safe_filename != filename:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Upload filename must be a plain file name, not a path",
-        )
-
-    if not is_allowed_audio_file(safe_filename):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Unsupported audio file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_AUDIO_EXTENSIONS))}"
-            ),
-        )
-
-    soundtrack_dir_rel = f"{rom.full_path}/{SOUNDTRACK_FOLDER}"
-    file_rel_path = f"{soundtrack_dir_rel}/{safe_filename}"
-    file_location = fs_rom_handler.validate_path(file_rel_path)
-    log.info(f"Uploading soundtrack to {hl(str(file_location))}")
-
-    await fs_rom_handler.make_directory(soundtrack_dir_rel)
-
-    parser = StreamingFormDataParser(headers=request.headers)
-    parser.register("x-upload-platform", NullTarget())
-    parser.register(safe_filename, FileTarget(str(file_location)))
-
-    def cleanup_partial_file():
-        if file_location.exists():
-            file_location.unlink()
-
-    try:
-        async for chunk in request.stream():
-            parser.data_received(chunk)
-    except ClientDisconnect:
-        log.error("Client disconnected during upload")
-        cleanup_partial_file()
-        raise
-    except Exception as exc:
-        log.error("Error uploading soundtrack", exc_info=exc)
-        cleanup_partial_file()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="There was an error uploading the soundtrack",
-        ) from exc
-
-    stat = os.stat(file_location)
-    audio_meta = extract_audio_meta(str(file_location))
-    cols = track_meta_columns(audio_meta) if audio_meta else None
-    existing = db_rom_handler.get_rom_file_by_path(
-        rom_id=rom.id, file_path=soundtrack_dir_rel, file_name=safe_filename
+    await receive_rom_file(
+        request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK], filename
     )
-    if existing:
-        # Reuploading: drop stale cover first so a new id-based path can replace it.
-        if existing.track_meta and existing.track_meta.cover_path:
-            remove_persisted_cover(existing.track_meta.cover_path)
-        saved = db_rom_handler.update_rom_file(
-            existing.id,
-            {
-                "file_size_bytes": stat.st_size,
-                "last_modified": stat.st_mtime,
-                "category": RomFileCategory.SOUNDTRACK,
-                "missing_from_fs": False,
-            },
-        )
-        if cols:
-            db_rom_handler.upsert_track_meta(existing.id, rom.id, cols)
-        else:
-            db_rom_handler.delete_track_meta(existing.id)
-    else:
-        saved = db_rom_handler.add_rom_file(
-            RomFile(
-                rom_id=rom.id,
-                file_name=safe_filename,
-                file_path=soundtrack_dir_rel,
-                file_size_bytes=stat.st_size,
-                last_modified=stat.st_mtime,
-                category=RomFileCategory.SOUNDTRACK,
-                track_meta=(TrackMeta(rom_id=rom.id, **cols) if cols else None),
-            )
-        )
-
-    if saved and audio_meta and audio_meta.get("has_embedded_cover"):
-        cover_path = persist_embedded_cover(
-            audio_full_path=str(file_location),
-            platform_id=rom.platform_id,
-            rom_id=rom.id,
-            file_id=saved.id,
-        )
-        if cover_path:
-            db_rom_handler.upsert_track_meta(
-                saved.id, rom.id, {"cover_path": cover_path}
-            )
-        else:
-            log.error(f"[audio_tags] cover persist failed for {file_location}")
-            db_rom_handler.upsert_track_meta(
-                saved.id, rom.id, {"has_embedded_cover": False}
-            )
 
     return Response(status_code=status.HTTP_201_CREATED)
 

@@ -8,21 +8,21 @@
 //   * Subtab always rendered; the empty state drives the upload CTA
 //   * The panel doubles as a drag-and-drop target (same affordance as the
 //     Upload / Patcher views): drop files anywhere over it to upload
-//   * Upload goes through `romApi.uploadSoundtracks`
+//   * Upload goes through `useRomFileUpload`, into the soundtrack/ folder
 //
 // The soundtrack player is reused from v1 for now.
 import { RBtn, RDropzone, REmptyState, RIcon } from "@v2/lib";
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
-import storeUpload from "@/stores/upload";
 import { useCan } from "@/v2/composables/useCan";
-import { useConfirm } from "@/v2/composables/useConfirm";
+import {
+  ROM_UPLOAD_FOLDERS,
+  useRomFileUpload,
+} from "@/v2/composables/useRomFileUpload";
 import { useRomSoundtrack } from "@/v2/composables/useRomSoundtrack";
 import { useRomSync } from "@/v2/composables/useRomSync";
-import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
 
 const ManualSubtab = defineAsyncComponent(
@@ -42,16 +42,14 @@ const ArtworkSubtab = defineAsyncComponent(
 );
 
 const props = defineProps<{ rom: DetailedRom }>();
-const snackbar = useSnackbar();
-const confirm = useConfirm();
 const soundtrackActions = useSoundtrackActions();
+const { uploadFiles } = useRomFileUpload();
 const {
   tracks: soundtrackTracks,
   loading: soundtrackLoading,
   fallbackArtUrl: soundtrackArtUrl,
 } = useRomSoundtrack(() => props.rom);
 const { refetchRom } = useRomSync();
-const uploadStore = storeUpload();
 const { t } = useI18n();
 
 // Soundtrack upload / delete both gate on the ROM write grant, so read-only
@@ -110,19 +108,6 @@ watch(
   },
 );
 
-// ---------- Single-file -> folder conversion ----------
-// Soundtracks live inside the ROM folder, so uploading one to a single-file
-// ROM promotes it to a folder ROM in place (the backend does this
-// automatically on upload). Warn first since it is not reversible.
-async function confirmFolderConversionIfNeeded(): Promise<boolean> {
-  if (!props.rom.has_simple_single_file) return true;
-  return confirm({
-    title: t("rom.convert-to-folder-title"),
-    body: t("rom.convert-to-folder-body"),
-    tone: "warning",
-  });
-}
-
 // ---------- Subtab nav ----------
 // We render the subtab list manually (not via RTabNav) because each
 // subtab's content panel owns its own section header with title +
@@ -169,37 +154,7 @@ async function refreshRom() {
 
 // ---------- File handlers (shared by file input + drag-and-drop) ----------
 async function handleSoundtrackFiles(files: File[]) {
-  if (files.length === 0) return;
-  if (!(await confirmFolderConversionIfNeeded())) return;
-
-  const responses = await romApi.uploadSoundtracks({
-    romId: props.rom.id,
-    filesToUpload: files,
-  });
-
-  const successful = responses.filter((r) => r.status === "fulfilled").length;
-  const failed = responses.length - successful;
-
-  if (failed === 0) uploadStore.reset();
-
-  if (successful > 0) {
-    snackbar.success(
-      failed
-        ? t("rom.tracks-uploaded-with-failed", successful, {
-            named: { n: successful, failed },
-          })
-        : t("rom.tracks-uploaded-n", successful, {
-            named: { n: successful },
-          }),
-      { icon: "mdi-check-bold", timeout: 3000 },
-    );
-    await refreshRom();
-  } else {
-    snackbar.warning(t("rom.no-tracks-uploaded"), {
-      icon: "mdi-close-circle",
-      timeout: 5000,
-    });
-  }
+  await uploadFiles(props.rom, ROM_UPLOAD_FOLDERS.soundtrack, files);
 }
 
 async function deleteSoundtrack(fileId: number) {
