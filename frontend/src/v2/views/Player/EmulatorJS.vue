@@ -620,16 +620,15 @@ const saveSlot = computed(() =>
           <p class="r-v2-ejs__subtitle">{{ platformLabel }}</p>
         </div>
         <!-- Someone who has an emulator installed on this machine came to the
-             page for it, so it leads and the in-browser route follows. -->
+             page for it, so it leads and keeps the play glyph; the in-browser
+             route follows, marked for the browser. -->
         <RBtn
           v-if="canPlayNative"
           size="x-large"
           variant="flat"
           color="primary"
           block
-          :prepend-icon="
-            nativeLaunching ? 'mdi-loading mdi-spin' : 'mdi-desktop-classic'
-          "
+          :prepend-icon="nativeLaunching ? 'mdi-loading mdi-spin' : 'mdi-play'"
           class="r-v2-ejs__play"
           :loading="!rom"
           :disabled="!rom || nativeLaunching"
@@ -656,7 +655,7 @@ const saveSlot = computed(() =>
           :variant="canPlayNative ? 'outlined' : 'flat'"
           :color="canPlayNative ? undefined : 'primary'"
           block
-          prepend-icon="mdi-play"
+          :prepend-icon="canPlayNative ? 'mdi-web' : 'mdi-play'"
           class="r-v2-ejs__play"
           :class="{ 'r-v2-ejs__play--secondary': canPlayNative }"
           :loading="!rom"

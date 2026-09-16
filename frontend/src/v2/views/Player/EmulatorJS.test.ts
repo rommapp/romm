@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
+import { RBtn } from "@v2/lib";
 import type { DetailedRom } from "@/stores/roms";
 import type { LaunchState } from "@/types/rommNative";
 import EmulatorJS from "./EmulatorJS.vue";
@@ -176,6 +177,13 @@ function playLabels(wrapper: VueWrapper): string[] {
   return wrapper.findAll(".r-v2-ejs__play").map((btn) => btn.text());
 }
 
+function playIcons(wrapper: VueWrapper): unknown[] {
+  return wrapper
+    .findAllComponents(RBtn)
+    .filter((btn) => btn.classes().includes("r-v2-ejs__play"))
+    .map((btn) => btn.props("prependIcon"));
+}
+
 beforeEach(() => {
   mocks.getRom.mockResolvedValue({ data: ROM });
   mocks.getFirmware.mockResolvedValue({ data: [] });
@@ -207,6 +215,16 @@ describe("EmulatorJS launch screen — play routes", () => {
     mocks.canPlayNative = true;
 
     expect(playLabels(await launchScreen())[0]).toBe("play.play-native");
+  });
+
+  it("keeps the play glyph on the launch and marks the other for the browser", async () => {
+    mocks.canPlayNative = true;
+
+    expect(playIcons(await launchScreen())).toEqual(["mdi-play", "mdi-web"]);
+  });
+
+  it("leaves the play glyph on the lone in-browser button", async () => {
+    expect(playIcons(await launchScreen())).toEqual(["mdi-play"]);
   });
 
   it("hands the rom to the shell when the native button is pressed", async () => {
