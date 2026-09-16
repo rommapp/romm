@@ -318,11 +318,10 @@ def _holds_title_id(path: Path, category: RomFileCategory | None) -> bool:
 class _TitleIdSource:
     path: Path
     rom_file: RomFile
-    unchanged: bool = False
 
-    def order(self) -> tuple[Path, str]:
+    def order(self) -> tuple[Path, str, str]:
         """A folder's own files before its subfolders', each by name."""
-        return self.path.parent, self.path.name.casefold()
+        return self.path.parent, self.path.name.casefold(), self.path.name
 
 
 # Exclusion patterns holding one of these need fnmatch; the rest match literally.
@@ -676,6 +675,7 @@ class FSRomsHandler(FSHandler):
             for f_path, file_name, st in entries:
                 is_top_level = f_path == rom_dir
                 rel_dir = f_path.relative_to(self.base_path)
+                abs_file_path = Path(f_path, file_name)
                 row = (
                     existing_by_key.get((str(rel_dir), file_name))
                     if existing_by_key is not None
@@ -694,19 +694,9 @@ class FSRomsHandler(FSHandler):
                     )
                 ):
                     rom_files.append(row)
-                    # Switch settles each file's category, so an unchanged
-                    # file there has nothing left to read.
-                    if (
-                        sigil_platform
-                        and not is_switch
-                        and _holds_title_id(Path(f_path, file_name), row.category)
-                    ):
-                        title_id_sources.append(
-                            _TitleIdSource(Path(f_path, file_name), row, unchanged=True)
-                        )
+                    if sigil_platform and _holds_title_id(abs_file_path, row.category):
+                        title_id_sources.append(_TitleIdSource(abs_file_path, row))
                     continue
-
-                abs_file_path = Path(f_path, file_name)
 
                 if hashable_platform:
                     try:
@@ -767,6 +757,8 @@ class FSRomsHandler(FSHandler):
         ):
             rom_files.append(flat_row)
             top_level_changed = False
+            if sigil_platform and _holds_title_id(rom_dir, flat_row.category):
+                title_id_sources.append(_TitleIdSource(rom_dir, flat_row))
         elif hashable_platform and rom_ext in ARCHIVE_READERS:
             # Multi-file archive: compute a composite hash across all
             # internal entries (in ASCII path order) for hash-database
@@ -918,7 +910,7 @@ class FSRomsHandler(FSHandler):
         # Listings come in no fixed order; a ROM is identified by its first disc,
         # and only Switch reads past it for each file's content type.
         for source in sorted(title_id_sources, key=_TitleIdSource.order):
-            if source.unchanged or (sigil_extractions and not is_switch):
+            if sigil_extractions and not is_switch:
                 break
             await _extract_title_id(source)
 

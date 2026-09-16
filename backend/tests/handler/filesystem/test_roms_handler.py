@@ -25,6 +25,7 @@ from handler.filesystem.base_handler import (
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
+    _TitleIdSource,
     category_matches,
     mtime_matches,
 )
@@ -2204,19 +2205,19 @@ class TestSigilTitleIdExtraction:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("changed_file", "expected_title_id"),
+        "changed_file",
         [
-            pytest.param("Game (Disc 1).chd", "SLUS-00001", id="first-disc-changed"),
-            pytest.param("Bonus/Game (Disc 2).chd", None, id="first-disc-unchanged"),
+            pytest.param("Game (Disc 1).chd", id="first-disc-changed"),
+            pytest.param("Bonus/Game (Disc 2).chd", id="later-disc-changed"),
+            pytest.param(None, id="nothing-changed"),
         ],
     )
-    async def test_incremental_rescan_reads_the_first_disc_only_when_it_changed(
+    async def test_incremental_rescan_rereads_the_first_disc(
         self,
         tmp_path: Path,
         sigil_config: Config,
         stub_ra_hasher: None,
-        changed_file: str,
-        expected_title_id: str | None,
+        changed_file: str | None,
     ):
         handler = make_sigil_handler(tmp_path)
         file_names = ["Game (Disc 1).chd", "Bonus/Game (Disc 2).chd"]
@@ -2240,7 +2241,48 @@ class TestSigilTitleIdExtraction:
         with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)):
             parsed = await handler.get_rom_files(rom, existing_files=rows)
 
-        assert parsed.identity.title_id == expected_title_id
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.parametrize(
+        "names",
+        [
+            pytest.param(["game.chd", "Game.chd"], id="lowercase-listed-first"),
+            pytest.param(["Game.chd", "game.chd"], id="uppercase-listed-first"),
+        ],
+    )
+    def test_names_differing_only_in_case_sort_the_same_either_way(
+        self, names: list[str]
+    ):
+        sources = [
+            _TitleIdSource(Path("/roms/Game") / name, RomFile(file_name=name))
+            for name in names
+        ]
+
+        ordered = sorted(sources, key=_TitleIdSource.order)
+
+        assert [source.path.name for source in ordered] == ["Game.chd", "game.chd"]
+
+    @pytest.mark.asyncio
+    async def test_incremental_rescan_rereads_an_unchanged_flat_rom(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, PS2_PLATFORM, "Game (Disc 1).chd")
+        path = tmp_path / "ps2/roms/Game (Disc 1).chd"
+        st = path.stat()
+        row = RomFile(
+            rom_id=rom.id,
+            file_name=path.name,
+            file_path="ps2/roms",
+            file_size_bytes=st.st_size,
+            last_modified=st.st_mtime,
+            md5_hash="stored-md5",
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)):
+            parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.identity.title_id == "SLUS-00001"
 
     @pytest.mark.asyncio
     async def test_playlist_rom_is_handed_to_sigil(

@@ -38,6 +38,17 @@ class TestFirstPlaylistEntry:
 
         assert first_playlist_entry(m3u) == disc
 
+    def test_prefers_a_literal_backslash_in_the_file_name(self, tmp_path):
+        literal = tmp_path / "Game\\Disc 1.chd"
+        literal.write_bytes(b"x" * 10)
+        nested = tmp_path / "Game" / "Disc 1.chd"
+        nested.parent.mkdir()
+        nested.write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("Game\\Disc 1.chd\n")
+
+        assert first_playlist_entry(m3u) == literal
+
     def test_resolves_absolute_entry_as_is(self, tmp_path):
         disc = tmp_path / "elsewhere" / "disc.rvz"
         disc.parent.mkdir()

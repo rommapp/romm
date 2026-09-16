@@ -33,17 +33,21 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
     except OSError:
         return None
     for line in lines:
-        # Playlists written on Windows separate folders with backslashes.
-        entry = line.strip().replace("\\", "/")
+        entry = line.strip()
         if not entry or entry.startswith("#"):
             continue
-        entry_path = Path(entry)
-        if not entry_path.is_absolute():
-            entry_path = m3u_path.parent / entry_path
-        try:
-            return entry_path if entry_path.is_file() else None
-        except OSError:
-            return None
+        # Playlists written on Windows separate folders with backslashes, which
+        # a POSIX file name may also contain, so the literal path is tried first.
+        for candidate in dict.fromkeys((entry, entry.replace("\\", "/"))):
+            entry_path = Path(candidate)
+            if not entry_path.is_absolute():
+                entry_path = m3u_path.parent / entry_path
+            try:
+                if entry_path.is_file():
+                    return entry_path
+            except OSError:
+                return None
+        return None
     return None
 
 
