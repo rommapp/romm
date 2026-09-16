@@ -183,7 +183,7 @@ function toggleGroup(group: AssetGroup) {
         :aria-expanded="isOpen(group)"
         @click="toggleGroup(group)"
       >
-        <RIcon icon="mdi-chip" size="14" />
+        <RIcon icon="mdi-chip" size="14" class="r-asset-strip__group-icon" />
         <span class="r-asset-strip__group-title">{{ group.label }}</span>
         <RTag
           v-if="group.disabled"
@@ -337,19 +337,29 @@ function toggleGroup(group: AssetGroup) {
   gap: 4px;
   min-width: 0;
 }
+/* A tinted band, so the section reads apart from the tiles below it. */
 .r-asset-strip__group-head {
   appearance: none;
   border: 0;
-  background: none;
+  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 2px;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--r-radius-sm);
   font: inherit;
   text-align: left;
   color: var(--r-color-fg-secondary);
   cursor: pointer;
+  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-asset-strip__group-head:hover {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 16%, transparent);
+}
+/* Same tone as the emulator tag on the tiles. */
+.r-asset-strip__group-icon {
+  color: var(--r-color-warning);
 }
 .r-asset-strip__group-title {
   font-size: 11px;

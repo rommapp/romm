@@ -170,6 +170,8 @@ function visibleVersions(group: SlotGroup): Asset[] {
                 : 'mdi-archive-outline'
             "
             size="14"
+            class="r-asset-list__group-icon"
+            :class="{ 'r-asset-list__group-icon--slot': group.slot }"
           />
           <span class="r-asset-list__group-title">
             {{ group.slot ?? t("play.slot-none") }}
@@ -377,12 +379,21 @@ function visibleVersions(group: SlotGroup): Asset[] {
   gap: 4px;
 }
 
+/* A tinted band, so the slot reads apart from its version rows. */
 .r-asset-list__group-head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 2px;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--r-radius-sm);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
   color: var(--r-color-fg-secondary);
+}
+.r-asset-list__group-icon {
+  color: var(--r-color-fg-muted);
+}
+.r-asset-list__group-icon--slot {
+  color: var(--r-color-brand-primary);
 }
 .r-asset-list__group-title {
   font-size: 11px;
