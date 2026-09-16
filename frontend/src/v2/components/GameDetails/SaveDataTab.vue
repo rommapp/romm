@@ -30,11 +30,17 @@ import type {
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
+import { getSupportedEJSCores } from "@/utils";
+import UploadAssetDialog, {
+  type UploadAssetPayload,
+} from "@/v2/components/GameDetails/UploadAssetDialog.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import type { AssetType } from "@/v2/utils/assets";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
@@ -91,6 +97,7 @@ watch(
 );
 
 const authStore = storeAuth();
+const configStore = storeConfig();
 const { user } = storeToRefs(authStore);
 const myId = computed(() => user.value?.id ?? null);
 
@@ -126,11 +133,38 @@ const subtabDefs = computed<SubtabDef[]>(() => [
 ]);
 
 // ---------- Upload / refresh plumbing ----------
-// Overlay-mode dropzone refs so the section-header "Upload" buttons can
-// open the native picker via `.open()`; the empty-state CTA dropzones
-// are self-contained (click-to-browse + drag-and-drop).
-const saveDz = ref<InstanceType<typeof RDropzone> | null>(null);
-const stateDz = ref<InstanceType<typeof RDropzone> | null>(null);
+// Every upload goes through the dialog, which asks saves for a slot and
+// states for a core; dropped files land in it pre-picked.
+const uploadDialog = ref<{ type: AssetType; files: File[] } | null>(null);
+function openUpload(type: AssetType, files: File[] = []) {
+  uploadDialog.value = { type, files };
+}
+function closeUpload() {
+  uploadDialog.value = null;
+}
+// The cores the player offers plus whatever the existing states carry.
+const uploadCores = computed(() => {
+  const cores = new Set(
+    getSupportedEJSCores(
+      props.rom.platform_slug,
+      configStore.config.EJS_NETPLAY_ENABLED,
+    ),
+  );
+  for (const state of myStates.value) {
+    if (state.emulator) cores.add(state.emulator);
+  }
+  return [...cores];
+});
+async function onUploadSubmit({
+  type,
+  files,
+  slot,
+  emulator,
+}: UploadAssetPayload) {
+  uploadDialog.value = null;
+  if (type === "save") await onSaveUpload(files, slot);
+  else await onStateUpload(files, emulator);
+}
 const uploadingSaves = ref(false);
 const uploadingStates = ref(false);
 
@@ -142,14 +176,17 @@ async function refreshRom() {
   await refetchRom(props.rom.id);
 }
 
-async function onSaveUpload(files: File[]) {
+async function onSaveUpload(files: File[], slot: string | null) {
   if (files.length === 0 || uploadingSaves.value) return;
 
   uploadingSaves.value = true;
   try {
+    // A manual upload into a slot is a new version even if the bytes match.
     const results = await saveApi.uploadSaves({
       rom: props.rom,
       savesToUpload: files.map((saveFile) => ({ saveFile })),
+      slot: slot ?? undefined,
+      overwrite: slot !== null,
     });
     const successful = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.length - successful;
@@ -176,7 +213,7 @@ async function onSaveUpload(files: File[]) {
   }
 }
 
-async function onStateUpload(files: File[]) {
+async function onStateUpload(files: File[], emulator: string | null) {
   if (files.length === 0 || uploadingStates.value) return;
 
   uploadingStates.value = true;
@@ -184,6 +221,7 @@ async function onStateUpload(files: File[]) {
     const results = await stateApi.uploadStates({
       rom: props.rom,
       statesToUpload: files.map((stateFile) => ({ stateFile })),
+      emulator: emulator ?? undefined,
     });
     const successful = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.length - successful;
@@ -354,7 +392,7 @@ async function toggleStateVisibility(state: StateSchema) {
               prepend-icon="mdi-cloud-upload-outline"
               :loading="uploadingSaves"
               :disabled="uploadingSaves"
-              @click="saveDz?.open()"
+              @click="openUpload('save')"
             >
               {{ t("common.upload") }}
             </RBtn>
@@ -368,18 +406,17 @@ async function toggleStateVisibility(state: StateSchema) {
             :input-label="t('rom.upload-saves')"
             :disabled="uploadingSaves"
             multiple
-            @files="onSaveUpload"
+            @files="openUpload('save', $event)"
           />
 
           <RDropzone
             v-else
-            ref="saveDz"
             overlay
             :release-label="t('common.dropzone-drag-over')"
             :input-label="t('rom.upload-saves')"
             :disabled="uploadingSaves"
             multiple
-            @files="onSaveUpload"
+            @files="openUpload('save', $event)"
           >
             <AssetList
               :assets="mySaves"
@@ -479,7 +516,7 @@ async function toggleStateVisibility(state: StateSchema) {
               prepend-icon="mdi-cloud-upload-outline"
               :loading="uploadingStates"
               :disabled="uploadingStates"
-              @click="stateDz?.open()"
+              @click="openUpload('state')"
             >
               {{ t("common.upload") }}
             </RBtn>
@@ -493,24 +530,24 @@ async function toggleStateVisibility(state: StateSchema) {
             :input-label="t('rom.upload-states')"
             :disabled="uploadingStates"
             multiple
-            @files="onStateUpload"
+            @files="openUpload('state', $event)"
           />
 
           <RDropzone
             v-else
-            ref="stateDz"
             overlay
             :release-label="t('common.dropzone-drag-over')"
             :input-label="t('rom.upload-states')"
             :disabled="uploadingStates"
             multiple
-            @files="onStateUpload"
+            @files="openUpload('state', $event)"
           >
             <AssetStrip
               :assets="myStates"
               type="state"
               :selectable="false"
               layout="flow"
+              group-by="emulator"
             >
               <template #actions="{ asset }">
                 <RBtn
@@ -571,6 +608,7 @@ async function toggleStateVisibility(state: StateSchema) {
             type="state"
             :selectable="false"
             layout="flow"
+            group-by="emulator"
             show-owner
           >
             <template #actions="{ asset }">
@@ -587,6 +625,16 @@ async function toggleStateVisibility(state: StateSchema) {
         </div>
       </section>
     </div>
+
+    <UploadAssetDialog
+      :model-value="uploadDialog !== null"
+      :type="uploadDialog?.type ?? 'save'"
+      :saves="mySaves"
+      :cores="uploadCores"
+      :initial-files="uploadDialog?.files ?? []"
+      @update:model-value="!$event && closeUpload()"
+      @submit="onUploadSubmit"
+    />
   </div>
 </template>
 

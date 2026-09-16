@@ -1422,6 +1422,7 @@ onBeforeUnmount(() => {
               :assets="restorableSaves"
               type="save"
               :selected-id="selectedSave?.id ?? null"
+              :group-by-slot="false"
               @select="savePickId = ($event as SaveSchema).id"
             />
           </template>
