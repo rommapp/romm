@@ -1,8 +1,11 @@
 """Tests for sync endpoints."""
 
+import asyncio
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+from typing import Any
 from unittest import mock
 
 from fastapi import status
@@ -16,6 +19,7 @@ from handler.database import (
 )
 from models.assets import Save
 from models.device import Device, SyncMode
+from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 from utils.validation import MAX_ROM_IDS_PER_QUERY
@@ -741,13 +745,19 @@ class TestNegotiateAdvanced:
                 content_hash=content_hash,
             )
 
-        with mock.patch(
-            "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
-        ), mock.patch(
-            "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
-        ), mock.patch(
-            "endpoints.saves.scan_save",
-            new=mock.AsyncMock(side_effect=make_scanned),
+        with (
+            mock.patch(
+                "endpoints.saves.fs_asset_handler.write_file",
+                new_callable=mock.AsyncMock,
+            ),
+            mock.patch(
+                "endpoints.saves.fs_asset_handler.remove_file",
+                new_callable=mock.AsyncMock,
+            ),
+            mock.patch(
+                "endpoints.saves.scan_save",
+                new=mock.AsyncMock(side_effect=make_scanned),
+            ),
         ):
             return client.post(
                 f"/api/saves?rom_id={rom.id}&slot=autosave&emulator=eden"
@@ -1017,3 +1027,216 @@ class TestSyncCompleteWithPlaySessions:
         data = response.json()
         assert data["session"]["status"] == "COMPLETED"
         assert data["play_session_ingest"] is None
+
+
+class TestNegotiateConflictEvents:
+    """A negotiating client has nowhere to resolve a conflict, so the socket
+    event is the only surface the user gets."""
+
+    @staticmethod
+    def _device_with_history(device_id: str, admin_user: User, save: Save) -> Device:
+        """A device whose last sync of `save` was an hour ago."""
+        device = db_device_handler.add_device(
+            Device(id=device_id, user_id=admin_user.id, sync_enabled=True)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id,
+            save_id=save.id,
+            synced_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        return device
+
+    @staticmethod
+    def _changed_client_save(save: Save) -> dict:
+        return {
+            "rom_id": save.rom_id,
+            "file_name": save.file_name,
+            "slot": save.slot,
+            "content_hash": "hash_the_server_never_saw",
+            "updated_at": "2099-01-01T00:00:00Z",
+            "file_size_bytes": 100,
+        }
+
+    def test_conflict_emits_socket_event(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        device = self._device_with_history("neg-conflict-dev", admin_user, save)
+
+        with mock.patch(
+            "endpoints.sync.emit_sync_conflict", new_callable=mock.AsyncMock
+        ) as emit:
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._changed_client_save(save)],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_conflict"] == 1
+        emit.assert_awaited_once()
+        assert emit.await_args is not None
+        assert emit.await_args.kwargs == {
+            "user_id": admin_user.id,
+            "device_id": device.id,
+            "session_id": data["session_id"],
+            "file_name": save.file_name,
+            "rom_id": save.rom_id,
+            "reason": "Both sides changed since last sync",
+        }
+
+    def test_no_conflict_negotiation_emits_nothing(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """A negotiated no_op is not a conflict, so it must stay silent."""
+        device = db_device_handler.add_device(
+            Device(id="neg-calm-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_device_save_sync_handler.set_untracked(
+            device_id=device.id, save_id=save.id, untracked=True
+        )
+
+        with mock.patch(
+            "endpoints.sync.emit_sync_conflict", new_callable=mock.AsyncMock
+        ) as emit:
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._changed_client_save(save)],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_conflict"] == 0
+        assert any(op["action"] == "no_op" for op in data["operations"])
+        emit.assert_not_awaited()
+
+    def test_emit_failure_leaves_the_negotiation_intact(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """An unreachable Redis must not stop a client from syncing."""
+        device = self._device_with_history("neg-conflict-down", admin_user, save)
+
+        with mock.patch(
+            "endpoints.sync.emit_sync_conflict",
+            new_callable=mock.AsyncMock,
+            side_effect=RuntimeError("redis is down"),
+        ):
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._changed_client_save(save)],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total_conflict"] == 1
+
+    def test_slow_notification_does_not_stall_the_negotiation(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """Notification latency must not scale with the number of conflicts."""
+        device = self._device_with_history("neg-conflict-slow", admin_user, save)
+
+        async def hang(**_kwargs: Any) -> None:
+            await asyncio.sleep(30)
+
+        with (
+            mock.patch(
+                "endpoints.sync.emit_sync_conflict",
+                new_callable=mock.AsyncMock,
+                side_effect=hang,
+            ),
+            mock.patch("endpoints.sync.CONFLICT_NOTIFY_TIMEOUT_S", 0.01),
+        ):
+            started = time.monotonic()
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._changed_client_save(save)],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            elapsed = time.monotonic() - started
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total_conflict"] == 1
+        assert elapsed < 10
+
+    def test_wide_conflict_set_bounds_concurrent_emits(
+        self,
+        client,
+        access_token: str,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+    ):
+        """Each emit opens its own Redis connection, so the fan-out is capped."""
+        device = db_device_handler.add_device(
+            Device(id="neg-conflict-wide", user_id=admin_user.id, sync_enabled=True)
+        )
+        saves = [
+            db_save_handler.add_save(
+                Save(
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    file_name=f"wide_{index}.sav",
+                    file_name_no_tags=f"wide_{index}",
+                    file_name_no_ext=f"wide_{index}",
+                    file_extension="sav",
+                    emulator="test_emulator",
+                    slot=f"slot-{index}",
+                    file_path=f"{platform.slug}/saves/test_emulator",
+                    file_size_bytes=1.0,
+                )
+            )
+            for index in range(6)
+        ]
+        for save in saves:
+            db_device_save_sync_handler.upsert_sync(
+                device_id=device.id,
+                save_id=save.id,
+                synced_at=datetime.now(timezone.utc) - timedelta(hours=1),
+            )
+
+        live = 0
+        peak = 0
+        cap = 2
+
+        async def track(**_kwargs: Any) -> None:
+            nonlocal live, peak
+            live += 1
+            peak = max(peak, live)
+            await asyncio.sleep(0.05)
+            live -= 1
+
+        with (
+            mock.patch(
+                "endpoints.sync.emit_sync_conflict",
+                new_callable=mock.AsyncMock,
+                side_effect=track,
+            ) as emit,
+            mock.patch("endpoints.sync.CONFLICT_NOTIFY_MAX_CONCURRENCY", cap),
+        ):
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._changed_client_save(save) for save in saves],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total_conflict"] == len(saves)
+        assert emit.await_count == len(saves)
+        assert peak == cap

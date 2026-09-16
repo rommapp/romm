@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from fastapi import HTTPException, Request, status
@@ -16,6 +17,7 @@ from endpoints.responses.sync import (
     SyncOperationSchema,
     SyncSessionSchema,
 )
+from endpoints.sockets.sync import emit_sync_conflict
 from handler.auth.constants import Scope
 from handler.database import (
     db_device_handler,
@@ -38,6 +40,11 @@ router = APIRouter(
     prefix="/sync",
     tags=["sync"],
 )
+
+# The emitter dials Redis once per conflict, so a pathological conflict set is
+# bounded two ways: a deadline on the wait, and a cap on live connections.
+CONFLICT_NOTIFY_TIMEOUT_S = 2.0
+CONFLICT_NOTIFY_MAX_CONCURRENCY = 8
 
 
 class ClientSaveState(BaseModel):
@@ -112,6 +119,43 @@ class SyncCompletePayload(BaseModel):
     operations_completed: int = 0
     operations_failed: int = 0
     play_sessions: list[SyncPlaySessionEntry] | None = None
+
+
+async def _notify_conflicts(
+    user_id: int,
+    device_id: str,
+    session_id: int,
+    conflict_ops: list[SyncOperationSchema],
+) -> None:
+    """Emit one sync:conflict event per operation, batched and bounded."""
+    limiter = asyncio.Semaphore(CONFLICT_NOTIFY_MAX_CONCURRENCY)
+
+    async def emit_one(op: SyncOperationSchema) -> None:
+        async with limiter:
+            await emit_sync_conflict(
+                user_id=user_id,
+                device_id=device_id,
+                session_id=session_id,
+                file_name=op.file_name,
+                rom_id=op.rom_id,
+                reason=op.reason,
+            )
+
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                *(emit_one(op) for op in conflict_ops),
+                return_exceptions=True,
+            ),
+            timeout=CONFLICT_NOTIFY_TIMEOUT_S,
+        )
+        for op, emit_result in zip(conflict_ops, results, strict=True):
+            if isinstance(emit_result, BaseException):
+                log.warning(
+                    f"Failed to emit sync:conflict for {op.file_name}: {emit_result}"
+                )
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"Failed to emit {len(conflict_ops)} sync:conflict events: {e}")
 
 
 @protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])
@@ -337,6 +381,19 @@ def negotiate_sync(
         f"{total_upload} uploads, {total_download} downloads, "
         f"{total_conflict} conflicts, {total_no_op} no-ops"
     )
+
+    # The route stays sync so the negotiation's DB work keeps running in the
+    # threadpool; only the emit crosses to a loop, and it is never fatal.
+    conflict_ops = [op for op in operations if op.action == "conflict"]
+    if conflict_ops:
+        asyncio.run(
+            _notify_conflicts(
+                user_id=request.user.id,
+                device_id=device.id,
+                session_id=sync_session.id,
+                conflict_ops=conflict_ops,
+            )
+        )
 
     return SyncNegotiateResponse(
         session_id=sync_session.id,
