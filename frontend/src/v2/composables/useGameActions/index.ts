@@ -49,11 +49,6 @@ export type PlayTarget = "auto" | "local" | "stream";
 
 type PlayerSlug = "stream" | "jsdos" | "ejs" | "pico8" | "ruffle";
 
-// EmulatorJS and js-dos need SharedArrayBuffer. Nginx only attaches the
-// necessary COOP/COEP headers to the player document, so an SPA navigation
-// cannot enable cross-origin isolation: these load the document directly.
-const ISOLATED_PLAYERS: ReadonlySet<PlayerSlug> = new Set(["jsdos", "ejs"]);
-
 // Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -327,25 +322,20 @@ export function useGameActions(
       if (!ok) return;
     }
 
-    const launch = launchTarget(player);
-    if (!launch) return;
-    const target = launch.path;
-    if (ISOLATED_PLAYERS.has(launch.player)) {
-      window.location.assign(target);
-      return;
-    }
+    const target = playPath(player);
+    if (!target) return;
 
     // The launch "load" flourish (disc/cartridge insert) lives on the
-    // player view itself — see EmulatorJS's onPlay — so navigation is
+    // player view itself (see EmulatorJS's onPlay), so navigation is
     // immediate here. When the caller supplies a cover element (the gallery
-    // card / detail hero), morph it into the player's hero cover — same
+    // card / detail hero), morph it into the player's hero cover: the same
     // `rom-cover-<id>` tag the player paints statically. Degrades to a plain
     // push where view transitions aren't available.
     const el = options.coverEl?.();
     if (el) {
       // Await the push inside the transition so the browser snapshots the
       // player view *after* it has rendered its hero cover (which carries the
-      // same `rom-cover-<id>` tag) — otherwise there's no element to morph to.
+      // same `rom-cover-<id>` tag); otherwise there's no element to morph to.
       morphTransition({ el, name: `rom-cover-${rom.id}` }, async () => {
         await router.push(target);
       });
@@ -359,9 +349,8 @@ export function useGameActions(
   // container's own emulator and save library). The caller says which it
   // wants; "auto" keeps the single-button surfaces working by preferring
   // the stream, as they did before either could be asked for by name.
-  function launchTarget(
-    player: PlayTarget,
-  ): { player: PlayerSlug; path: string } | null {
+  /** Path `play(player)` opens; surfaces rendering the launch as a link point at it too. */
+  function playPath(player: PlayTarget = "auto"): string | null {
     const rom = getRom();
     if (!rom) return null;
     let slug: PlayerSlug | null = null;
@@ -371,12 +360,7 @@ export function useGameActions(
     else if (canPlayEJS.value) slug = "ejs";
     else if (canPlayPico8.value) slug = "pico8";
     else if (canPlayRuffle.value) slug = "ruffle";
-    return slug ? { player: slug, path: `/rom/${rom.id}/${slug}` } : null;
-  }
-
-  /** Path `play(player)` would open, for surfaces that render the launch as a link. */
-  function playPath(player: PlayTarget = "auto"): string | null {
-    return launchTarget(player)?.path ?? null;
+    return slug ? `/rom/${rom.id}/${slug}` : null;
   }
 
   // Joining is its own navigation: the stream view claims a container when it

@@ -862,6 +862,17 @@ All synthesized with sine/noise blend, exponential envelopes, low-pass filter, a
 - Fullscreen support
 - Background color customization
 
+### Cross-origin isolation (v2 players)
+
+Threaded EmulatorJS cores need `SharedArrayBuffer`, which browsers expose only in a cross-origin isolated document. Nginx attaches `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` to the player URLs alone (`docker/nginx/templates/default.conf.template`), because under that policy the rest of the app cannot embed third-party images (provider covers in Match ROM).
+
+A v2 player view is reached by SPA navigation, so it is not isolated on arrival. Two composables cover that:
+
+- `useIsolatedLaunch(player, romId, isIntent)` reloads the view into an isolated document when a launch needs it. The view defines the `Intent` the reload cannot carry in the URL, calls `relaunch(intent)` when `hasSharedArrayBuffer()` is false, and boots from `intent` on mount. `relaunch()` returns false when the view already came from such a reload: the context cannot be isolated (plain HTTP, or a proxy dropping the headers), so the view reports that instead of looping.
+- `usePlayerExit(runtimeBound)` leaves the view by a full navigation when the document is isolated, or when the player's runtime cannot be injected twice (EmulatorJS declares globals), so the app resumes in a fresh document. Otherwise leaving is an SPA navigation.
+
+To add an EmulatorJS core that needs threads, add it to `areThreadsRequiredForEJSCore` in `utils/index.ts`; nothing else changes. To add a player that needs isolation, use both composables the way `v2/views/Player/EmulatorJS.vue` does. A player whose runtime needs no `SharedArrayBuffer` (js-dos) only needs `usePlayerExit()`.
+
 ### Platform Detection
 
 `utils/index.ts` provides:

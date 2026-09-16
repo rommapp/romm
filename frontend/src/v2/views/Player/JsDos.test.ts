@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   getRom: vi.fn(),
   locationReplace: vi.fn(),
   playSessionStart: vi.fn(),
-  push: vi.fn(),
+  push: vi.fn(() => Promise.resolve()),
   confirm: vi.fn(),
   galleryRom: null as Record<string, unknown> | null,
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
@@ -113,6 +113,13 @@ const rom = {
 
 let originalLocation: Location;
 
+function setIsolated(isolated: boolean) {
+  Object.defineProperty(window, "crossOriginIsolated", {
+    configurable: true,
+    value: isolated,
+  });
+}
+
 beforeAll(() => {
   originalLocation = window.location;
   Object.defineProperty(window, "location", {
@@ -160,6 +167,7 @@ function injectedUrls(): string[] {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  setIsolated(false);
   stubRuntimeProbe("text/javascript");
   mocks.galleryRom = null;
   mocks.routeLeaveGuard = null;
@@ -187,12 +195,14 @@ function mountView(): VueWrapper {
   });
 }
 
+// The runtime script defines `Dos` once it has loaded, so the stub lands
+// after the mount has injected it.
 async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
+  const wrapper = mountView();
+  await flushPromises();
   window.Dos = vi.fn(
     (_element: HTMLDivElement, _options: Partial<JsDosOptions>) => handle,
   );
-  const wrapper = mountView();
-  await flushPromises();
   await wrapper.get(".r-v2-player__play").trigger("click");
   await nextTick();
   return wrapper;
@@ -231,6 +241,14 @@ describe("JsDos runtime loading", () => {
     expect(injectedUrls()).toEqual(
       expect.arrayContaining([`${CDN}/js-dos.css`, `${CDN}/js-dos.js`]),
     );
+  });
+
+  it("injects the runtime once per document", async () => {
+    window.Dos = vi.fn();
+    mountView();
+    await flushPromises();
+
+    expect(injectedUrls()).toEqual([]);
   });
 
   it("points the emulator payloads at whichever base served the runtime", async () => {
@@ -273,7 +291,7 @@ describe("JsDos player exit", () => {
     wrapper.unmount();
   });
 
-  it("hard-navigates after saving without awaiting stop", async () => {
+  it("leaves within the app after saving without awaiting stop", async () => {
     const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
 
@@ -282,11 +300,47 @@ describe("JsDos player exit", () => {
 
     expect(handle.save).toHaveBeenCalledOnce();
     expect(handle.stop).toHaveBeenCalledOnce();
-    expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.push).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.locationReplace).not.toHaveBeenCalled();
     expect(mocks.flushPlaySession).toHaveBeenCalledOnce();
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
     wrapper.unmount();
     expect(handle.stop).toHaveBeenCalledOnce();
+  });
+
+  // A player document opened directly is cross-origin isolated, and the rest
+  // of the app cannot embed third-party images under that policy.
+  it("replaces an isolated document after saving", async () => {
+    setIsolated(true);
+    const handle = makeHandle();
+    const wrapper = await mountPlayer(handle);
+
+    await wrapper.get(".r-v2-player__quit").trigger("click");
+    await flushPromises();
+
+    expect(handle.save).toHaveBeenCalledOnce();
+    expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.push).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("lets a departure from the launch view through", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(mocks.routeLeaveGuard?.({ fullPath: "/platform/2" })).toBe(true);
+    expect(mocks.locationReplace).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("replaces an isolated document on departure from the launch view", async () => {
+    setIsolated(true);
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(mocks.routeLeaveGuard?.({ fullPath: "/platform/2" })).toBe(false);
+    expect(mocks.locationReplace).toHaveBeenCalledWith("/platform/2");
+    wrapper.unmount();
   });
 
   it("keeps the player open when the final save is not confirmed", async () => {
@@ -300,6 +354,7 @@ describe("JsDos player exit", () => {
       "play.stream-save-unconfirmed",
     );
     expect(handle.stop).not.toHaveBeenCalled();
+    expect(mocks.push).not.toHaveBeenCalled();
     expect(mocks.locationReplace).not.toHaveBeenCalled();
     expect(mocks.flushPlaySession).not.toHaveBeenCalled();
     expect(mocks.setPlaying).not.toHaveBeenCalledWith(false);
@@ -320,7 +375,7 @@ describe("JsDos player exit", () => {
     expect(handle.stop).toHaveBeenCalledOnce();
     expect(mocks.flushPlaySession).toHaveBeenCalledOnce();
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
-    expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.push).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
 
@@ -336,7 +391,7 @@ describe("JsDos player exit", () => {
       "play.stream-save-unconfirmed",
     );
     expect(handle.stop).not.toHaveBeenCalled();
-    expect(mocks.locationReplace).not.toHaveBeenCalled();
+    expect(mocks.push).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -356,7 +411,7 @@ describe("JsDos player exit", () => {
 
     finishSave?.(true);
     await flushPromises();
-    expect(mocks.locationReplace).toHaveBeenCalledOnce();
+    expect(mocks.push).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 
@@ -376,12 +431,12 @@ describe("JsDos player exit", () => {
 
     finishSave?.(true);
     await flushPromises();
-    expect(mocks.locationReplace).toHaveBeenCalledOnce();
-    expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.push).toHaveBeenCalledOnce();
+    expect(mocks.push).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
 
-  it("converts route departure into a saved hard navigation", async () => {
+  it("saves before following a route departure", async () => {
     const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
 
@@ -389,7 +444,7 @@ describe("JsDos player exit", () => {
     await flushPromises();
 
     expect(handle.save).toHaveBeenCalledOnce();
-    expect(mocks.locationReplace).toHaveBeenCalledWith("/platform/2");
+    expect(mocks.push).toHaveBeenCalledWith("/platform/2");
     wrapper.unmount();
   });
 

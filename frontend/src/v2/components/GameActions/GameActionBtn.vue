@@ -354,7 +354,8 @@ function clearAllStatus() {
 }
 
 // Modified and non-primary clicks on a launch anchor stay with the browser
-// (new tab); plain ones still go through `play()` for its full-document load.
+// (new tab); plain ones still go through `play()` for its confirmation and
+// cover morph.
 function onClick(e: MouseEvent) {
   if (props.action === "more" || props.action === "status") return;
   if (linkHref.value && (e.button !== 0 || opensInNewContext(e))) return;

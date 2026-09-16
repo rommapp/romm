@@ -14,6 +14,7 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
@@ -21,7 +22,8 @@ import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 
 const JSDOS_LOCAL_BASE = "/assets/jsdos";
 // Fallback for slim images and the dev server, which ship no local copy. Pinned
-// to the image's JSDOS_VERSION; jsDelivr sends the CORP the player's COEP needs.
+// to the image's JSDOS_VERSION; jsDelivr sends the CORP a directly opened player
+// document needs under its COEP.
 const JSDOS_CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
 
 // Where the runtime actually came from, so the emulator payloads follow it.
@@ -35,6 +37,7 @@ useFullscreenFallback();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const exit = usePlayerExit();
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -46,6 +49,8 @@ let dos: JsDosProps | null = null;
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
 async function loadRuntime() {
+  // The runtime outlives the view within the document, so inject it once.
+  if (window.Dos) return;
   jsDosAssetBase = (await isJsResource(`${JSDOS_LOCAL_BASE}/js-dos.js`))
     ? JSDOS_LOCAL_BASE
     : JSDOS_CDN_BASE;
@@ -147,7 +152,7 @@ async function leavePlayer(destination: string) {
   }
 
   teardown();
-  window.location.replace(destination);
+  exit.leave(destination);
 }
 
 function onlyQuit() {
@@ -166,6 +171,8 @@ onMounted(async () => {
 });
 
 onBeforeRouteLeave((to) => {
+  // With nothing running there is nothing to save first.
+  if (!dos) return exit.guard(to);
   void leavePlayer(to.fullPath);
   return false;
 });
