@@ -565,6 +565,25 @@ def test_a_container_that_disagrees_on_clearing_saves_is_not_a_pool_member(caplo
     assert "not a pool" in caplog.text
 
 
+def test_legacy_containers_still_pool_under_an_inert_clearing_flag():
+    """The flag is logged as having no effect without a webstation broker, so
+    it must not quietly split a pool that would otherwise be one."""
+    first = {
+        "platform": "ps2",
+        "host": "http://192.168.1.10:3000",
+        "emulator": "pcsx2",
+        "clears_stale_saves": True,
+    }
+    second = {
+        **first,
+        "host": "http://192.168.1.11:3000",
+        "clears_stale_saves": False,
+    }
+    with _streaming(first, second):
+        candidates = streaming.containers_for_platform("ps2")
+    assert len(candidates) == 2
+
+
 def test_memory_card_sync_ignored_on_a_platform_without_a_card(client, access_token):
     """Wii saves live in NAND and sync per file. Honouring memory_card_sync
     there would disable /save-file and silently strand every NAND save."""

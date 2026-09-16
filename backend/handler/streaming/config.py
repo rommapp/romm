@@ -178,9 +178,9 @@ class ResolvedContainer:
             self.emulator == other.emulator
             and self.memory_card_sync == other.memory_card_sync
             # The picker is advertised from the head of the pool, so a member
-            # that does not clear would take the pick and let its own newer
-            # files overwrite the restored archive, with no error anywhere.
-            and self.clears_stale_saves == other.clears_stale_saves
+            # without it would take the pick and let its own newer files
+            # overwrite the restored archive, with no error anywhere.
+            and self.supports_save_picker == other.supports_save_picker
             # Same-origin pool members are each proxied at their own path, so
             # they never carry the same protocol object.
             and self.protocol.name == other.protocol.name
