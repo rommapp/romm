@@ -909,10 +909,8 @@ class FSRomsHandler(FSHandler):
             if sigil_platform and _holds_title_id(rom_dir, rom_file.category):
                 title_id_sources.append(_TitleIdSource(rom_dir, rom_file))
 
-        # Directory listings come back in no fixed order, and a multi-disc
-        # ROM is identified by its first disc, whose stored id stands while
-        # that disc is unchanged. Only Switch reads past it, for each file's
-        # content type.
+        # Listings come in no fixed order; a ROM is identified by its first disc,
+        # and only Switch reads past it for each file's content type.
         for source in sorted(title_id_sources, key=_TitleIdSource.order):
             if source.unchanged or (sigil_extractions and not is_switch):
                 break
