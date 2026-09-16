@@ -118,15 +118,32 @@ class TestGetWorkerCurrentJob:
 
 
 class TestHasLiveWorker:
+    @staticmethod
+    def _worker(state: str, death_date: str | None = None) -> MagicMock:
+        worker = MagicMock(spec=Worker)
+        worker.get_state.return_value = state
+        worker.death_date = death_date
+        return worker
+
     @pytest.mark.parametrize(
-        ("registered", "suspended", "expected"),
-        [(0, False, False), (1, True, False), (1, False, True), (2, False, True)],
+        ("workers", "expected"),
+        [
+            ([], False),
+            ([("suspended", None)], False),
+            ([("idle", "2026-09-16T10:00:00")], False),
+            ([("suspended", None), ("idle", None)], True),
+            ([("busy", None)], True),
+        ],
+        ids=["none-registered", "suspended", "announced-dead", "one-live", "busy"],
     )
-    def test_needs_a_registered_worker_that_is_not_suspended(
-        self, registered: int, suspended: bool, expected: bool
+    def test_counts_only_workers_that_would_take_a_job(
+        self, workers: list[tuple[str, str | None]], expected: bool
     ):
-        with (
-            patch("handler.redis_handler.Worker.count", return_value=registered),
-            patch("handler.redis_handler.is_suspended", return_value=suspended),
-        ):
+        registered = [self._worker(state, death) for state, death in workers]
+
+        with patch(
+            "handler.redis_handler.Worker.all", return_value=registered
+        ) as mock_all:
             assert has_live_worker(low_prio_queue) is expected
+
+        mock_all.assert_called_once_with(queue=low_prio_queue)
