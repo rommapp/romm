@@ -85,21 +85,23 @@ import {
 } from "@/v2/utils/playerDisc";
 import { resolveInitialFirmware } from "@/v2/utils/playerFirmware";
 import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
-import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
-import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
   chosenSlot,
-  defaultResumeSelection,
   existingSlot,
   isSlotChoice,
-  newerThanPick,
-  pickSave,
-  pickState,
   preferredSlot,
   slotChoiceKey,
   slotChoices,
-  type ResumeSelection,
   type SlotChoice,
+} from "@/v2/utils/saveSlots";
+import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
+import { rememberCore, resolveRememberedCore } from "./coreStorage";
+import {
+  defaultResumeSelection,
+  newerThanPick,
+  pickSave,
+  pickState,
+  type ResumeSelection,
 } from "./resumeSelection";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
