@@ -491,7 +491,7 @@ function onStaticKeydown(e: KeyboardEvent) {
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
             <GameActionBtn
-              v-if="actions?.canPlayInBrowser.value"
+              v-if="actions?.canPlayLocally.value"
               :rom="rom"
               action="play"
               variant="emphasized"

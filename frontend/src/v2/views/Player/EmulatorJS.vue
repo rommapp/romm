@@ -4,8 +4,12 @@
 // resolution) is ported verbatim from `src/views/Player/EmulatorJS/Base.vue`
 // so behaviour stays identical; only the chrome is v2.
 //
+// Inside the RomM desktop shell the hero leads with the native launch, above
+// the in-browser one; a platform the shell alone can run opens this page with
+// the hero by itself, since nothing EmulatorJS owns applies to that launch.
+//
 // Layout — three columns:
-//   1. Hero: cover + title + Play CTA + back links.
+//   1. Hero: cover + title + play CTAs + back links.
 //   2. Resume: tabs (Saves/States), big <AssetPreview> of the selected
 //      asset, and an <AssetStrip> below to swap between options inline.
 //   3. Setup: disc / core / firmware + fullscreen + clear-cache.
@@ -44,6 +48,7 @@ import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import storeConfig from "@/stores/config";
+import { useNativeStore } from "@/stores/native";
 import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -57,6 +62,7 @@ import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
+import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
@@ -107,6 +113,7 @@ const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
 const playingStore = storePlaying();
 const configStore = storeConfig();
+const nativeStore = useNativeStore();
 const { playing } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
@@ -117,8 +124,13 @@ const playSession = usePlaySession();
 // when the user comes back from a running session). RBtn forwards to
 // its rendered <button>/<a>, but resolving the DOM node via a class
 // query is simpler and survives the lazy-load of the inner element.
+// The first one is the primary route, which is the native launch where the
+// desktop shell offers one; a launch already in flight disables it, so the
+// in-browser route below takes the focus instead.
 function focusPlayButton() {
-  const btn = document.querySelector<HTMLElement>(".r-v2-ejs__play");
+  const btn = document.querySelector<HTMLElement>(
+    ".r-v2-ejs__play:not([disabled])",
+  );
   btn?.focus({ preventScroll: true });
 }
 
@@ -214,6 +226,73 @@ const bezelHost = ref<HTMLElement | null>(null);
 useEventListener(document, "fullscreenchange", () => {
   bezelHost.value = resolveBezelHost(document.fullscreenElement);
 });
+
+const { canPlayEJS, canPlayNative } = useCanPlay(() => heroRom.value);
+
+// A platform the shell can run but no in-browser core can. Everything this
+// page offers besides the hero belongs to EmulatorJS, so none of it is shown.
+const nativeOnly = computed(() => canPlayNative.value && !canPlayEJS.value);
+
+const nativeLaunching = computed(() => nativeStore.isLaunching(romId));
+
+const nativeEmulator = computed(
+  () => nativeStore.labelForPlatform(heroRom.value?.platform_slug) ?? "",
+);
+
+// The native button is its own progress readout, so while the shell works the
+// label says what it is waiting for.
+const nativeLabel = computed(() => {
+  if (!nativeLaunching.value) {
+    return nativeEmulator.value
+      ? t("play.play-native-in", { emulator: nativeEmulator.value })
+      : t("play.play-native");
+  }
+  const state = nativeStore.launchStateFor(romId);
+  if (state?.stage === "core" && state.core) {
+    return t("play.native-installing-core", { core: state.core });
+  }
+  // Named rather than left to the percentage below, which is absent whenever
+  // the server declares no length.
+  if (state?.stage === "firmware" && state.firmware) {
+    return t("play.native-fetching-firmware", { firmware: state.firmware });
+  }
+  if (state?.stage === "emulator") {
+    return t("play.native-preparing", {
+      emulator: state.emulator || nativeEmulator.value,
+    });
+  }
+  if (state?.progress != null) {
+    return t("play.native-downloading", {
+      percent: Math.round(state.progress * 100),
+    });
+  }
+  return t("play.native-starting");
+});
+
+// A launch the shell accepted reports itself through the launch state (see
+// `installNativeLaunchFeedback`), so only a request it never took is surfaced
+// here. The refusal's own wording is English, hence the console.
+async function onPlayNative() {
+  if (!rom.value) return;
+  const refusal = await nativeStore.launch(rom.value);
+  if (!refusal) return;
+  console.error("[native] The shell refused the launch:", refusal);
+  snackbar.error(t("play.native-launch-failed", { name: title.value }), {
+    icon: "mdi-alert-circle-outline",
+  });
+}
+
+// Only a cancel the shell took is a cancellation. A refused one leaves the
+// game still coming, and the launch's own state reports how it ends.
+async function onCancelNative() {
+  if (await nativeStore.cancel(romId)) {
+    snackbar.info(t("play.native-canceled"), {
+      icon: "mdi-close-circle-outline",
+    });
+    return;
+  }
+  snackbar.error(t("play.native-cancel-failed"));
+}
 
 async function onPlay() {
   // Threaded cores need SharedArrayBuffer, which browsers only expose on a
@@ -513,8 +592,11 @@ const saveSlot = computed(() =>
     :class="{ 'r-v2-ejs--config': !gameRunning }"
   >
     <!-- Pre-game configuration -->
-    <div v-if="!gameRunning" class="r-v2-ejs__config">
-      <!-- Hero: cover + title + Play CTA -->
+    <div
+      v-if="!gameRunning"
+      :class="nativeOnly ? 'r-v2-ejs__solo' : 'r-v2-ejs__config'"
+    >
+      <!-- Hero: cover + title + play CTAs -->
       <RCard class="r-v2-ejs__panel r-v2-ejs__hero" variant="flat">
         <div
           class="r-v2-ejs__cover"
@@ -537,18 +619,51 @@ const saveSlot = computed(() =>
           <h1 class="r-v2-ejs__title">{{ title }}</h1>
           <p class="r-v2-ejs__subtitle">{{ platformLabel }}</p>
         </div>
+        <!-- Someone who has an emulator installed on this machine came to the
+             page for it, so it leads and the in-browser route follows. -->
         <RBtn
+          v-if="canPlayNative"
           size="x-large"
           variant="flat"
           color="primary"
           block
+          :prepend-icon="
+            nativeLaunching ? 'mdi-loading mdi-spin' : 'mdi-desktop-classic'
+          "
+          class="r-v2-ejs__play"
+          :loading="!rom"
+          :disabled="!rom || nativeLaunching"
+          @click="onPlayNative"
+        >
+          {{ nativeLabel }}
+        </RBtn>
+        <!-- Its own control rather than a second press on the button above, so
+             neither changes meaning under the pointer. -->
+        <RBtn
+          v-if="nativeLaunching"
+          variant="text"
+          size="small"
+          color="error"
+          block
+          prepend-icon="mdi-close-circle-outline"
+          @click="onCancelNative"
+        >
+          {{ t("play.native-cancel") }}
+        </RBtn>
+        <RBtn
+          v-if="!nativeOnly"
+          size="x-large"
+          :variant="canPlayNative ? 'outlined' : 'flat'"
+          :color="canPlayNative ? undefined : 'primary'"
+          block
           prepend-icon="mdi-play"
           class="r-v2-ejs__play"
+          :class="{ 'r-v2-ejs__play--secondary': canPlayNative }"
           :loading="!rom"
           :disabled="!rom"
           @click="onPlay"
         >
-          {{ t("play.play") }}
+          {{ canPlayNative ? t("play.play-in-browser") : t("play.play") }}
         </RBtn>
         <div class="r-v2-ejs__hero-links">
           <RBtn
@@ -571,7 +686,11 @@ const saveSlot = computed(() =>
       </RCard>
 
       <!-- Resume: tabs + preview + horizontal strip -->
-      <RCard class="r-v2-ejs__panel r-v2-ejs__resume" variant="flat">
+      <RCard
+        v-if="!nativeOnly"
+        class="r-v2-ejs__panel r-v2-ejs__resume"
+        variant="flat"
+      >
         <div class="r-v2-ejs__panel-head">
           <RSliderBtnGroup
             variant="tab"
@@ -685,7 +804,11 @@ const saveSlot = computed(() =>
       </RCard>
 
       <!-- Setup: disc / core / firmware / fullscreen / clear cache -->
-      <RCard class="r-v2-ejs__panel r-v2-ejs__setup" variant="flat">
+      <RCard
+        v-if="!nativeOnly"
+        class="r-v2-ejs__panel r-v2-ejs__setup"
+        variant="flat"
+      >
         <div class="r-v2-ejs__panel-head r-v2-ejs__panel-head--label">
           <RIcon icon="mdi-cog-outline" size="14" />
           <span>{{ t("common.settings") }}</span>
@@ -748,7 +871,7 @@ const saveSlot = computed(() =>
         </div>
       </RCard>
 
-      <div class="r-v2-ejs__brand">
+      <div v-if="!nativeOnly" class="r-v2-ejs__brand">
         <span>{{ t("play.powered-by") }}</span>
         <img
           src="/assets/emulatorjs/emulatorjs-logotype.svg"
@@ -810,6 +933,16 @@ const saveSlot = computed(() =>
   max-width: 1280px;
   margin: 0 auto;
   align-items: stretch;
+}
+
+/* Native-only: the hero is the whole page, so it gets its own wrapper rather
+   than a column of the grid above and the breakpoint rules that reshape it. */
+.r-v2-ejs__solo {
+  display: grid;
+  grid-template-columns: minmax(0, 380px);
+  justify-content: center;
+  max-width: 1280px;
+  margin: 0 auto;
 }
 
 /* Shared glass-panel skin — single visual vocabulary across panels. */
@@ -906,6 +1039,10 @@ const saveSlot = computed(() =>
   letter-spacing: 0.02em;
   box-shadow: 0 10px 24px
     color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
+}
+/* The in-browser route below a native launch, which holds the brand glow. */
+.r-v2-ejs__play--secondary {
+  box-shadow: none;
 }
 .r-v2-ejs__hero-links {
   display: flex;

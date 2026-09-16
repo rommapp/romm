@@ -1,0 +1,280 @@
+import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent } from "vue";
+import type { DetailedRom } from "@/stores/roms";
+import type { LaunchState } from "@/types/rommNative";
+import EmulatorJS from "./EmulatorJS.vue";
+
+const mocks = vi.hoisted(() => ({
+  getRom: vi.fn(),
+  getFirmware: vi.fn(),
+  launch: vi.fn(),
+  cancel: vi.fn(),
+  canPlayEJS: true,
+  canPlayNative: false,
+  emulator: null as string | null,
+  launching: false,
+  launchState: null as LaunchState | null,
+}));
+
+vi.mock("vue-i18n", () => ({
+  useI18n: () => ({
+    // Rendered params matter to the progress readout, so they are kept.
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}:${Object.values(params).join(",")}` : key,
+  }),
+}));
+
+vi.mock("@/services/api/rom", () => ({ default: { getRom: mocks.getRom } }));
+
+vi.mock("@/services/api/firmware", () => ({
+  default: { getFirmware: mocks.getFirmware },
+}));
+
+vi.mock("@/services/api/save", () => ({
+  AUTOSAVE_SLOT: "autosave",
+  SAVE_SLOT_MAX_LENGTH: 32,
+}));
+
+vi.mock("@/stores/config", () => ({
+  default: () => ({
+    config: { EJS_NETPLAY_ENABLED: false },
+    getEJSDefaultCore: () => null,
+    getEJSCoreOptions: () => ({}),
+  }),
+}));
+
+vi.mock("@/stores/playing", async () => {
+  const { ref } = await import("vue");
+  return { default: () => ({ playing: ref(false) }) };
+});
+
+vi.mock("@/stores/native", () => ({
+  useNativeStore: () => ({
+    isLaunching: () => mocks.launching,
+    labelForPlatform: () => mocks.emulator,
+    launchStateFor: () => mocks.launchState,
+    launch: mocks.launch,
+    cancel: mocks.cancel,
+  }),
+}));
+
+vi.mock("@/utils", () => ({
+  areThreadsRequiredForEJSCore: () => false,
+  formatRelativeDate: (value: string) => value,
+  getSupportedEJSCores: () => [],
+}));
+
+vi.mock("@/v2/composables/useCanPlay", async () => {
+  const { computed } = await import("vue");
+  return {
+    useCanPlay: () => ({
+      canPlayEJS: computed(() => mocks.canPlayEJS),
+      canPlayNative: computed(() => mocks.canPlayNative),
+    }),
+  };
+});
+
+vi.mock("@/v2/composables/useActivityPresence", () => ({
+  useActivityPresence: () => ({
+    start: vi.fn(),
+    stopHeartbeat: vi.fn(),
+    emitStop: vi.fn(),
+  }),
+}));
+
+vi.mock("@/v2/composables/useCoverArt", async () => {
+  const { computed } = await import("vue");
+  return {
+    useCoverArt: () => ({
+      style: computed(() => "cover_path"),
+      coverUrl: computed(() => null),
+      fallbackUrl: computed(() => null),
+    }),
+  };
+});
+
+vi.mock("@/v2/composables/useFullscreenFallback", () => ({
+  useFullscreenFallback: vi.fn(),
+}));
+
+vi.mock("@/v2/composables/useFullscreenPref", async () => {
+  const { ref } = await import("vue");
+  return { useFullscreenPref: () => ({ fullscreenOnPlay: ref(false) }) };
+});
+
+vi.mock("@/v2/composables/useInputModality", async () => {
+  const { ref } = await import("vue");
+  return { useInputModality: () => ({ modality: ref("mouse") }) };
+});
+
+vi.mock("@/v2/composables/usePlaySession", () => ({
+  usePlaySession: () => ({ start: vi.fn(), flush: vi.fn() }),
+}));
+
+vi.mock("@/v2/composables/usePlayerHero", async () => {
+  const { computed, ref } = await import("vue");
+  return {
+    usePlayerHero: (rom: { value: DetailedRom | null }) => ({
+      romId: 7,
+      heroRom: ref(rom.value ?? ROM),
+      title: computed(() => ROM.name),
+      platformLabel: computed(() => "PlayStation 2"),
+    }),
+  };
+});
+
+vi.mock("@/v2/composables/usePlayerNav", () => ({
+  usePlayerNav: () => ({ backToRom: vi.fn(), backToPlatform: vi.fn() }),
+}));
+
+vi.mock("@/v2/composables/useSnackbar", () => ({
+  useSnackbar: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  }),
+}));
+
+vi.mock("@/v2/composables/useStageActive", () => ({ useStageActive: vi.fn() }));
+
+vi.mock("@/v2/composables/useUnloadGuard", () => ({ useUnloadGuard: vi.fn() }));
+
+const ROM = {
+  id: 7,
+  name: "Shadow of the Colossus",
+  platform_id: 4,
+  platform_slug: "ps2",
+  has_file_on_disk: true,
+  files: [],
+  user_saves: [],
+  user_states: [],
+  user_screenshots: [],
+} as unknown as DetailedRom;
+
+// The launch flourish reaches into the cover, so the stub has to answer.
+const GameCoverStub = defineComponent({
+  setup(_, { expose }) {
+    expose({ playLoad: () => 0 });
+    return () => null;
+  },
+});
+
+async function launchScreen(): Promise<VueWrapper> {
+  const wrapper = mount(EmulatorJS, {
+    shallow: true,
+    global: {
+      renderStubDefaultSlot: true,
+      stubs: { GameCover: GameCoverStub },
+    },
+  });
+  await flushPromises();
+  return wrapper;
+}
+
+function playLabels(wrapper: VueWrapper): string[] {
+  return wrapper.findAll(".r-v2-ejs__play").map((btn) => btn.text());
+}
+
+beforeEach(() => {
+  mocks.getRom.mockResolvedValue({ data: ROM });
+  mocks.getFirmware.mockResolvedValue({ data: [] });
+  mocks.launch.mockResolvedValue(null);
+  mocks.cancel.mockResolvedValue(true);
+  mocks.canPlayEJS = true;
+  mocks.canPlayNative = false;
+  mocks.emulator = null;
+  mocks.launching = false;
+  mocks.launchState = null;
+});
+
+describe("EmulatorJS launch screen — play routes", () => {
+  it("offers only the in-browser route outside the desktop shell", async () => {
+    expect(playLabels(await launchScreen())).toEqual(["play.play"]);
+  });
+
+  it("puts the native launch above the in-browser one, and names both", async () => {
+    mocks.canPlayNative = true;
+    mocks.emulator = "PCSX2";
+
+    expect(playLabels(await launchScreen())).toEqual([
+      "play.play-native-in:PCSX2",
+      "play.play-in-browser",
+    ]);
+  });
+
+  it("falls back to an unnamed native label when no emulator resolves", async () => {
+    mocks.canPlayNative = true;
+
+    expect(playLabels(await launchScreen())[0]).toBe("play.play-native");
+  });
+
+  it("hands the rom to the shell when the native button is pressed", async () => {
+    mocks.canPlayNative = true;
+    const wrapper = await launchScreen();
+
+    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+
+    expect(mocks.launch).toHaveBeenCalledWith(ROM);
+  });
+});
+
+describe("EmulatorJS launch screen — a platform only the shell can run", () => {
+  beforeEach(() => {
+    mocks.canPlayEJS = false;
+    mocks.canPlayNative = true;
+  });
+
+  it("drops everything EmulatorJS owns, leaving the native launch", async () => {
+    const wrapper = await launchScreen();
+
+    expect(playLabels(wrapper)).toEqual(["play.play-native"]);
+    expect(wrapper.find(".r-v2-ejs__resume").exists()).toBe(false);
+    expect(wrapper.find(".r-v2-ejs__setup").exists()).toBe(false);
+    expect(wrapper.find(".r-v2-ejs__brand").exists()).toBe(false);
+  });
+});
+
+describe("EmulatorJS launch screen — a launch in flight", () => {
+  beforeEach(() => {
+    mocks.canPlayNative = true;
+    mocks.launching = true;
+  });
+
+  it("reads the shell's progress off the button and offers a cancel", async () => {
+    mocks.launchState = {
+      romId: 7,
+      status: "downloading",
+      progress: 0.42,
+    } as LaunchState;
+    const wrapper = await launchScreen();
+
+    expect(playLabels(wrapper)[0]).toBe("play.native-downloading:42");
+    expect(wrapper.text()).toContain("play.native-cancel");
+  });
+
+  it("names the stage the shell reports over the raw percentage", async () => {
+    mocks.launchState = {
+      romId: 7,
+      status: "downloading",
+      stage: "firmware",
+      firmware: "scph5501.bin",
+      progress: 0.1,
+    } as LaunchState;
+
+    expect(playLabels(await launchScreen())[0]).toBe(
+      "play.native-fetching-firmware:scph5501.bin",
+    );
+  });
+
+  it("asks the shell to abort when the cancel is pressed", async () => {
+    const wrapper = await launchScreen();
+    const cancel = wrapper
+      .findAll("r-btn-stub")
+      .find((btn) => btn.text() === "play.native-cancel");
+
+    await cancel?.trigger("click");
+
+    expect(mocks.cancel).toHaveBeenCalledWith(7);
+  });
+});

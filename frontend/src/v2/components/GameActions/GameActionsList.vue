@@ -44,7 +44,7 @@ function run(fn: () => void | Promise<void>) {
 <template>
   <!-- Primary actions -->
   <RMenuItem
-    v-if="actions.canPlayInBrowser.value"
+    v-if="actions.canPlayLocally.value"
     :label="t('rom.play')"
     icon="mdi-play"
     @click="run(() => actions.play('local'))"

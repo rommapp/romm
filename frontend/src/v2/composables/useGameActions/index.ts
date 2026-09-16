@@ -90,6 +90,7 @@ export function useGameActions(
     canPlayPico8,
     canPlayRuffle,
     canPlayStream,
+    canPlayNative,
   } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
 
@@ -101,6 +102,13 @@ export function useGameActions(
       canPlayJsDos.value ||
       canPlayPico8.value ||
       canPlayRuffle.value,
+  );
+
+  // Whether the Play button has a play page to open. The desktop shell's own
+  // emulator is offered from that page alongside the in-browser core, so a
+  // platform only the shell can run still needs the button.
+  const canPlayLocally = computed(
+    () => canPlayInBrowser.value || canPlayNative.value,
   );
 
   // Download, the copied link and the QR code all resolve to the download
@@ -344,6 +352,10 @@ export function useGameActions(
     if (streaming && canPlayStream.value) path = `/rom/${rom.id}/stream`;
     else if (inBrowser && canPlayPico8.value) path = `/rom/${rom.id}/pico8`;
     else if (inBrowser && canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
+    // Last, because the play page offers the native launch beside whichever
+    // in-browser core the branches above would have picked. Reached only when
+    // none of them can run the platform, which is why it needs no isolation.
+    else if (inBrowser && canPlayNative.value) path = `/rom/${rom.id}/ejs`;
     if (!path) return;
     const target = path;
     // When the caller supplies a cover element (the gallery card / detail
@@ -571,7 +583,7 @@ export function useGameActions(
     canDownload,
     canPlay,
     canPlayStream,
-    canPlayInBrowser,
+    canPlayLocally,
     streamLabel,
     streamActionLabel,
     canJoinStream,
