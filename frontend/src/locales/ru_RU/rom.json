@@ -242,6 +242,7 @@
   "metric-completion": "Прохождение",
   "metric-difficulty": "Сложность",
   "metric-rating": "Рейтинг",
+  "missing-from-fs-path": "Missing from filesystem: {path}",
   "missing-platform": "Платформа отсутствует в файловой системе",
   "more-actions": "Ещё действия",
   "my-notes": "Мои заметки",
