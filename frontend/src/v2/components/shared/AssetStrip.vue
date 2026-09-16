@@ -428,7 +428,6 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip--list .r-asset-strip__tile {
   border-width: 0;
-  box-shadow: none;
   flex: initial;
   flex-direction: row;
   align-items: center;
@@ -477,8 +476,8 @@ const fadeIndex = computed(() =>
 
 .r-asset-strip__tile {
   appearance: none;
-  /* The ring for hover and selection wraps the whole card. */
-  border: 2px solid transparent;
+  /* Same resting, hover and selected border as the save rows. */
+  border: 1px solid var(--r-color-border);
   background: transparent;
   padding: 0;
   flex: 0 0 140px;
@@ -503,8 +502,7 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip__tile--active {
   border-color: var(--r-color-brand-primary);
-  box-shadow: 0 6px 18px
-    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 .r-asset-strip__tile:active {
   transform: translateY(0);
@@ -515,7 +513,7 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip__tile--static:hover {
   transform: none;
-  border-color: transparent;
+  border-color: var(--r-color-border);
 }
 /* Kept visible so the count adds up; the tooltip carries the reason. */
 .r-asset-strip__tile--disabled {
@@ -525,7 +523,7 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip__tile--disabled:hover {
   transform: none;
-  border-color: transparent;
+  border-color: var(--r-color-border);
 }
 
 /* One card: the screenshot fills the top, the tinted body sits flush below. */
@@ -533,7 +531,7 @@ const fadeIndex = computed(() =>
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: calc(var(--r-radius-md) - 2px) calc(var(--r-radius-md) - 2px) 0
+  border-radius: calc(var(--r-radius-md) - 1px) calc(var(--r-radius-md) - 1px) 0
     0;
   overflow: hidden;
   background: var(--r-color-cover-placeholder);
@@ -578,8 +576,8 @@ const fadeIndex = computed(() =>
   gap: 6px;
   min-width: 0;
   padding: 8px 8px 10px;
-  border-radius: 0 0 calc(var(--r-radius-md) - 2px)
-    calc(var(--r-radius-md) - 2px);
+  border-radius: 0 0 calc(var(--r-radius-md) - 1px)
+    calc(var(--r-radius-md) - 1px);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 .r-asset-strip--list .r-asset-strip__body {
