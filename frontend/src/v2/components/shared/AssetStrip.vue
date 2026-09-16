@@ -496,9 +496,15 @@ const fadeIndex = computed(() =>
     background var(--r-motion-fast) var(--r-motion-ease-out),
     border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
+/* The entrance animation sits on the tile itself, so its final frame would
+   pin the transform; releasing the fill lets the hover lift through. */
+.r-asset-strip__tile.r-v2-asset-fade {
+  animation-fill-mode: backwards;
+}
 .r-asset-strip__tile:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   border-color: var(--r-color-border-strong);
+  background: var(--r-color-surface);
 }
 .r-asset-strip__tile--active {
   border-color: var(--r-color-brand-primary);
@@ -514,6 +520,7 @@ const fadeIndex = computed(() =>
 .r-asset-strip__tile--static:hover {
   transform: none;
   border-color: var(--r-color-border);
+  background: transparent;
 }
 /* Kept visible so the count adds up; the tooltip carries the reason. */
 .r-asset-strip__tile--disabled {
@@ -524,6 +531,7 @@ const fadeIndex = computed(() =>
 .r-asset-strip__tile--disabled:hover {
   transform: none;
   border-color: var(--r-color-border);
+  background: transparent;
 }
 
 /* One card: the screenshot fills the top, the tinted body sits flush below. */
