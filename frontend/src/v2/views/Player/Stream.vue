@@ -293,9 +293,8 @@ const showManualDiscHint = computed(
 const selectedState = ref<UserStateSchema | null>(null);
 
 // Only an archive carries a layout the broker can restore from. Re-sorted on
-// created_at because user_saves arrives on updated_at, which a rehash moves.
-// The rows show created_at too, so the tile that reads newest is the one a
-// claim restores by default.
+// created_at because user_saves arrives on updated_at, which a rehash moves;
+// the rows are dated on created_at to match.
 const restorableSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
   if (!rom.value || !emulator) return [];

@@ -165,11 +165,9 @@ _DISC_SWAP_PLATFORMS = frozenset({"dc", "saturn", "segacd", "turbografx-cd", "do
 # own UI. The frontend shows this as a static hint, not a control.
 _MANUAL_DISC_SWAP_PLATFORMS = frozenset({"ps2"})
 
-# Emulators whose broker empties the save tree before restoring an archive (the
-# webstation broker's `clears_stale_saves`), so an older pick still lands. That
-# flag lives in the broker's repo, so this is the default a container starts
-# from, not the authority: `clears_stale_saves` in config.yml overrides it for
-# an operator on a fork or a newer broker.
+# Emulators whose broker empties the save tree before restoring an archive, so
+# an older pick still lands. The flag lives in the broker's repo, so this is
+# only the default: `clears_stale_saves` in config.yml overrides it.
 _SAVE_PICKER_EMULATORS = frozenset(
     {"eden", "retroarch", "rpcs3", "shadps4", "xemu", "xenia"}
 )

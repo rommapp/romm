@@ -153,9 +153,8 @@ class ResolvedContainer:
     memory_card_sync: bool
     """Whole-card sync, already checked against the platform having a card."""
     clears_stale_saves: bool
-    """Whether this container's broker empties the save tree before restoring
-    an archive, which is what lets a pick older than the container's own files
-    land. Defaults to what the emulator is known to do."""
+    """Whether the broker empties the save tree before restoring, which is what
+    lets a pick older than the container's own files land."""
     broker_secret: str
     library_path: str
     """Where the container sees the ROM library, when it differs from RomM's."""

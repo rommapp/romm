@@ -447,8 +447,6 @@ class StreamingContainer(TypedDict):
     memory_card_sync: NotRequired[bool]
     # Whether this broker empties the save tree before restoring an archive,
     # which is what lets the launch screen offer a save other than the newest.
-    # Defaults to what the emulator is known to do; set it when running a fork
-    # or a broker newer than this RomM.
     clears_stale_saves: NotRequired[bool]
     # Broker dialect. Omitted (or "broker") is the per-emulator mod contract;
     # "webstation" is the LSIO webstation container's activate/exit contract.
