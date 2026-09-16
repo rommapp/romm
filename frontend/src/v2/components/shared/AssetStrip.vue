@@ -72,6 +72,8 @@ interface AssetGroup {
   /** Every tile disabled: nothing in this group can be picked. */
   disabled: boolean;
   newest: string;
+  /** The tile tagged "Latest": first in source order among the newest. */
+  newestId: number | null;
 }
 
 const groups = computed<AssetGroup[]>(() => {
@@ -84,6 +86,7 @@ const groups = computed<AssetGroup[]>(() => {
         assets: props.assets,
         disabled: false,
         newest: "",
+        newestId: null,
       },
     ];
   }
@@ -98,12 +101,16 @@ const groups = computed<AssetGroup[]>(() => {
         assets: [],
         disabled: true,
         newest: "",
+        newestId: null,
       };
       byKey.set(key, group);
     }
     group.assets.push(asset);
     if (!reasonOf(asset)) group.disabled = false;
-    if (asset.updated_at > group.newest) group.newest = asset.updated_at;
+    if (asset.updated_at > group.newest) {
+      group.newest = asset.updated_at;
+      group.newestId = asset.id;
+    }
   }
   return [...byKey.values()].sort(
     (a, b) =>
@@ -233,7 +240,7 @@ const fadeIndex = computed(() =>
                   :latest="
                     !!groupBy &&
                     group.assets.length > 1 &&
-                    asset.updated_at === group.newest
+                    asset.id === group.newestId
                   "
                   :show-emulator="!groupBy"
                 />
@@ -413,9 +420,8 @@ const fadeIndex = computed(() =>
   scroll-snap-align: none;
 }
 
-/* List layout: no thumbnail, meta split into columns. `display: contents` on
-   the sub line promotes its date and size spans into the row's own flex flow,
-   which is what turns them into columns without forking the tile markup. */
+/* List layout: no thumbnail; name, chips, owner and timestamp share one row,
+   the timestamp last on a fixed width so its right edge lines up. */
 .r-asset-strip--list .r-asset-strip__track {
   display: flex;
   flex-direction: column;
@@ -465,7 +471,8 @@ const fadeIndex = computed(() =>
   min-width: 0;
 }
 .r-asset-strip--list .r-asset-strip__time {
-  flex: 0 0 auto;
+  order: 1;
+  flex: 0 0 96px;
   align-items: flex-end;
 }
 .r-asset-strip--list .r-asset-strip__owner {
