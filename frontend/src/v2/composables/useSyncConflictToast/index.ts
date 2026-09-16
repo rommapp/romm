@@ -34,7 +34,7 @@ export function installSyncConflictToast(): void {
   }
 
   useSocketEvent<SyncConflictSocketPayload>("sync:conflict", (payload) => {
-    const key = `${payload.rom_id}:${payload.file_name}`;
+    const key = `${payload.device_id}:${payload.rom_id}:${payload.file_name}`;
     if (seen.has(key)) return;
     seen.add(key);
 

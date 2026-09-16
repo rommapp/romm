@@ -123,4 +123,13 @@ describe("useSyncConflictToast", () => {
 
     expect(toasts).toHaveLength(2);
   });
+
+  it("toasts per device, so a second device's conflict is not swallowed", () => {
+    install();
+    const handler = handlers.get("sync:conflict");
+    handler?.(conflict());
+    handler?.(conflict({ device_id: "dev-2" }));
+
+    expect(toasts).toHaveLength(2);
+  });
 });

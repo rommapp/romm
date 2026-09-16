@@ -41,9 +41,10 @@ router = APIRouter(
     tags=["sync"],
 )
 
-# The emitter dials Redis once per conflict, so this bounds a pathological case:
-# a client's launch must not queue behind its own notification infrastructure.
+# The emitter dials Redis once per conflict, so a pathological conflict set is
+# bounded two ways: a deadline on the wait, and a cap on live connections.
 CONFLICT_NOTIFY_TIMEOUT_S = 2.0
+CONFLICT_NOTIFY_MAX_CONCURRENCY = 8
 
 
 class ClientSaveState(BaseModel):
@@ -127,20 +128,23 @@ async def _notify_conflicts(
     conflict_ops: list[SyncOperationSchema],
 ) -> None:
     """Emit one sync:conflict event per operation, batched and bounded."""
+    limiter = asyncio.Semaphore(CONFLICT_NOTIFY_MAX_CONCURRENCY)
+
+    async def emit_one(op: SyncOperationSchema) -> None:
+        async with limiter:
+            await emit_sync_conflict(
+                user_id=user_id,
+                device_id=device_id,
+                session_id=session_id,
+                file_name=op.file_name,
+                rom_id=op.rom_id,
+                reason=op.reason,
+            )
+
     try:
         results = await asyncio.wait_for(
             asyncio.gather(
-                *(
-                    emit_sync_conflict(
-                        user_id=user_id,
-                        device_id=device_id,
-                        session_id=session_id,
-                        file_name=op.file_name,
-                        rom_id=op.rom_id,
-                        reason=op.reason,
-                    )
-                    for op in conflict_ops
-                ),
+                *(emit_one(op) for op in conflict_ops),
                 return_exceptions=True,
             ),
             timeout=CONFLICT_NOTIFY_TIMEOUT_S,
