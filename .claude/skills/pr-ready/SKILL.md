@@ -86,5 +86,9 @@ Finish with one consolidated summary rather than four transcripts: the security
 verdict, what steps 2 and 3 changed by area, which checks ran and their results,
 and anything still needing a human decision.
 
+The summary also carries what the PR description needs and the transcripts hold: the
+screenshots step 4 captured, as paths the user can drag into the `Screenshots` section,
+and the `mermaid` block for a change that moved a boundary.
+
 Four passes in one session is a lot of context. For a very large diff, run the
 steps in separate sessions against the same `$RANGE`.
