@@ -132,7 +132,7 @@ ENV PATH="/app/.venv/bin:${PATH}"
 ARG SIGIL_VERSION=3310920370fbf07005e7add1003e285fbe2c21c4
 # One layer, so the clone and the cmake tree never reach the image.
 # trunk-ignore(hadolint/DL3003)
-RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git /tmp/argosy-sigil \
+RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git /tmp/argosy-sigil \
     && cd /tmp/argosy-sigil \
     && git checkout "${SIGIL_VERSION}" \
     && git submodule update --init --recursive \
