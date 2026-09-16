@@ -584,7 +584,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         </div>
       </RCard>
 
-      <!-- Resume: tabs + preview + horizontal strip -->
+      <!-- Resume: tabs, then the asset list beside the preview (stacked on
+           small screens, preview first). -->
       <RCard class="r-v2-ejs__panel r-v2-ejs__resume" variant="flat">
         <div class="r-v2-ejs__panel-head">
           <RSliderBtnGroup
@@ -597,108 +598,118 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         </div>
 
         <div class="r-v2-ejs__resume-body">
-          <RAlert
-            v-if="newerSave"
-            type="warning"
-            density="compact"
-            :text="
-              t('play.newer-save-warning', {
-                time: formatRelativeDate(newerSave.updated_at),
-              })
-            "
-          >
-            <template #append>
-              <RBtn variant="text" size="small" @click="selectSave(newerSave)">
-                {{ t("play.boot-from-save") }}
-              </RBtn>
-            </template>
-          </RAlert>
-          <AssetPreview
-            :asset="selectedAsset"
-            :type="activeAssetTab"
-            :state-armed="!!resume.state"
-            @clear="clearSelectedAsset"
-          />
+          <div class="r-v2-ejs__resume-side">
+            <RAlert
+              v-if="newerSave"
+              type="warning"
+              density="compact"
+              :text="
+                t('play.newer-save-warning', {
+                  time: formatRelativeDate(newerSave.updated_at),
+                })
+              "
+            >
+              <template #append>
+                <RBtn
+                  variant="text"
+                  size="small"
+                  @click="selectSave(newerSave)"
+                >
+                  {{ t("play.boot-from-save") }}
+                </RBtn>
+              </template>
+            </RAlert>
+            <AssetPreview
+              :asset="selectedAsset"
+              :type="activeAssetTab"
+              :state-armed="!!resume.state"
+              @clear="clearSelectedAsset"
+            />
 
-          <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
-            <div class="r-v2-ejs__slot-row">
-              <RSelect
-                class="r-v2-ejs__slot-select"
-                :model-value="boundSlot ? existingSlot(boundSlot) : slotChoice"
-                :disabled="!!boundSlot"
+            <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
+              <div class="r-v2-ejs__slot-row">
+                <RSelect
+                  class="r-v2-ejs__slot-select"
+                  :model-value="
+                    boundSlot ? existingSlot(boundSlot) : slotChoice
+                  "
+                  :disabled="!!boundSlot"
+                  variant="outlined"
+                  density="compact"
+                  prefix-label="inline"
+                  hide-details
+                  :items="slotItems"
+                  :item-title="slotChoiceTitle"
+                  :item-value="slotChoiceKey"
+                  return-object
+                  @update:model-value="onSlotChoice"
+                >
+                  <template #prefix-label>
+                    <RIcon icon="mdi-content-save-all-outline" size="14" />
+                    {{ t("play.slot") }}
+                  </template>
+                </RSelect>
+                <button
+                  type="button"
+                  class="r-v2-ejs__slot-info"
+                  :aria-label="t('play.slot-tooltip')"
+                >
+                  <RIcon icon="mdi-information-outline" size="16" />
+                  <RTooltip activator="parent" location="top" open-on-tap>
+                    {{ t("play.slot-tooltip") }}
+                  </RTooltip>
+                </button>
+              </div>
+              <RTextField
+                v-if="!boundSlot && slotChoice.kind === 'new'"
+                v-model="customSlot"
                 variant="outlined"
                 density="compact"
                 prefix-label="inline"
                 hide-details
-                :items="slotItems"
-                :item-title="slotChoiceTitle"
-                :item-value="slotChoiceKey"
-                return-object
-                @update:model-value="onSlotChoice"
-              >
-                <template #prefix-label>
-                  <RIcon icon="mdi-content-save-all-outline" size="14" />
-                  {{ t("play.slot") }}
-                </template>
-              </RSelect>
-              <button
-                type="button"
-                class="r-v2-ejs__slot-info"
-                :aria-label="t('play.slot-tooltip')"
-              >
-                <RIcon icon="mdi-information-outline" size="16" />
-                <RTooltip activator="parent" location="top" open-on-tap>
-                  {{ t("play.slot-tooltip") }}
-                </RTooltip>
-              </button>
+                :maxlength="SAVE_SLOT_MAX_LENGTH"
+                :label="t('play.slot-name')"
+                :placeholder="AUTOSAVE_SLOT"
+              />
             </div>
-            <RTextField
-              v-if="!boundSlot && slotChoice.kind === 'new'"
-              v-model="customSlot"
-              variant="outlined"
-              density="compact"
-              prefix-label="inline"
-              hide-details
-              :maxlength="SAVE_SLOT_MAX_LENGTH"
-              :label="t('play.slot-name')"
-              :placeholder="AUTOSAVE_SLOT"
-            />
           </div>
 
-          <div
-            v-if="activeAssets.length > 0"
-            class="r-v2-ejs__strip-label"
-            aria-hidden="true"
-          >
-            <span>{{
-              activeAssetTab === "save"
-                ? t("play.all-saves")
-                : t("play.all-states")
-            }}</span>
-            <span class="r-v2-ejs__strip-count">{{ stripCount }}</span>
-          </div>
+          <div class="r-v2-ejs__resume-main">
+            <div
+              v-if="activeAssets.length > 0"
+              class="r-v2-ejs__strip-label"
+              aria-hidden="true"
+            >
+              <span>{{
+                activeAssetTab === "save"
+                  ? t("play.all-saves")
+                  : t("play.all-states")
+              }}</span>
+              <span class="r-v2-ejs__strip-count">{{ stripCount }}</span>
+            </div>
 
-          <!-- Saves render as a vertical list (no screenshot ⇒ density);
+            <!-- Saves render as a vertical list (no screenshot ⇒ density);
                states keep the horizontal tile strip (screenshot is the
                point). The wrapper owns the only scroll on the screen. -->
-          <div class="r-v2-ejs__assets">
-            <AssetList
-              v-if="activeAssetTab === 'save'"
-              :assets="activeAssets"
-              type="save"
-              :selected-id="selectedAssetId"
-              :scrollable="false"
-              @select="pickAsset"
-            />
-            <AssetStrip
-              v-else
-              :assets="activeAssets"
-              type="state"
-              :selected-id="selectedAssetId"
-              :disabled-reason="stateDisabledReason"
-              layout="flow"
-              @select="pickAsset"
-            />
+            <div class="r-v2-ejs__assets">
+              <AssetList
+                v-if="activeAssetTab === 'save'"
+                :assets="activeAssets"
+                type="save"
+                :selected-id="selectedAssetId"
+                :scrollable="false"
+                @select="pickAsset"
+              />
+              <AssetStrip
+                v-else
+                :assets="activeAssets"
+                type="state"
+                :selected-id="selectedAssetId"
+                :disabled-reason="stateDisabledReason"
+                layout="flow"
+                @select="pickAsset"
+              />
+            </div>
           </div>
         </div>
       </RCard>
@@ -946,6 +957,29 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   gap: 14px;
   flex: 1;
   min-height: 0;
+}
+.r-v2-ejs__resume-side,
+.r-v2-ejs__resume-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+}
+.r-v2-ejs__resume-main {
+  flex: 1;
+}
+/* Wide enough, the list takes the panel's width and the preview, warning
+   and slot picker sit in a fixed side column so the list never shrinks. */
+html[data-bp~="md-and-up"] .r-v2-ejs__resume-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: start;
+}
+html[data-bp~="md-and-up"] .r-v2-ejs__resume-main {
+  order: -1;
+  height: 100%;
 }
 .r-v2-ejs__slot {
   display: flex;
