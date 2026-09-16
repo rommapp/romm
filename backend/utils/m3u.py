@@ -1,9 +1,36 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from models.rom import RomFile
+
+
+def first_playlist_entry(m3u_path: Path) -> Path | None:
+    """Resolve an .m3u playlist to the first disc file it points at.
+
+    The first non-empty, non-comment line is the disc, taken relative to the
+    playlist's folder unless absolute. Playlists written on Windows separate
+    folders with backslashes. Returns None when the playlist can't be read or
+    that entry doesn't exist on disk.
+    """
+    try:
+        lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        entry = line.strip().replace("\\", "/")
+        if not entry or entry.startswith("#"):
+            continue
+        entry_path = Path(entry)
+        if not entry_path.is_absolute():
+            entry_path = m3u_path.parent / entry_path
+        try:
+            return entry_path if entry_path.is_file() else None
+        except OSError:
+            return None
+    return None
 
 
 def playlist_files(files: list[RomFile]) -> list[RomFile]:

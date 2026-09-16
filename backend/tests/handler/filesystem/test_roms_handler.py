@@ -1734,6 +1734,7 @@ class TestFSRomsHandler:
 SIGIL_PATCH_TARGET = "adapters.services.sigil.SigilService.extract_title_id"
 
 SWITCH_PLATFORM = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+PS2_PLATFORM = Platform(name="PlayStation 2", slug="ps2", fs_slug="ps2")
 
 
 @pytest.fixture
@@ -2130,6 +2131,93 @@ class TestSigilTitleIdExtraction:
             fs_path="psx/roms",
             platform=platform,
         )
+
+        mock_extract = AsyncMock()
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_not_awaited()
+        assert parsed.identity.title_id is None
+
+    @pytest.mark.asyncio
+    async def test_multi_disc_rom_is_identified_by_its_first_disc(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            PS2_PLATFORM,
+            "Game",
+            ["Game (Disc 1).chd", "Game (Disc 2).chd"],
+        )
+        list_rom_dir = handler._list_rom_dir
+
+        async def extract(_platform_slug: str, file_path: str):
+            disc = "SLUS-00001" if "Disc 1" in file_path else "SLUS-00002"
+            return SigilExtractionResult(
+                title_id=disc, save_target=disc, usage="folder-prefix"
+            )
+
+        with (
+            patch.object(
+                handler,
+                "_list_rom_dir",
+                side_effect=lambda rom_dir, cnfg: list_rom_dir(rom_dir, cnfg)[::-1],
+            ),
+            patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=extract)),
+        ):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    async def test_playlist_rom_reads_its_first_disc(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, PS2_PLATFORM, "Game.m3u")
+        roms_path = tmp_path / "ps2/roms"
+        (roms_path / "Game (Disc 1).chd").write_bytes(b"disc-1")
+        (roms_path / "Game (Disc 2).chd").write_bytes(b"disc-2")
+        (roms_path / "Game.m3u").write_text("Game (Disc 1).chd\nGame (Disc 2).chd\n")
+
+        extraction = SigilExtractionResult(
+            title_id="SLUS-21359",
+            save_target="BASLUS-21359",
+            usage="folder-prefix",
+        )
+        mock_extract = AsyncMock(return_value=extraction)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_awaited_once_with(
+            "ps2", str(roms_path / "Game (Disc 1).chd")
+        )
+        assert parsed.identity.title_id == "SLUS-21359"
+        assert [rf.file_name for rf in parsed.rom_files] == ["Game.m3u"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "playlist",
+        [
+            pytest.param("Game (Disc 1).chd\n", id="missing-disc"),
+            pytest.param("Game.zip\n", id="archive-disc"),
+        ],
+    )
+    async def test_playlist_rom_without_a_readable_disc_skips_extraction(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        stub_ra_hasher: None,
+        playlist: str,
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, PS2_PLATFORM, "Game.m3u")
+        roms_path = tmp_path / "ps2/roms"
+        (roms_path / "Game.zip").write_bytes(b"archive")
+        (roms_path / "Game.m3u").write_text(playlist)
 
         mock_extract = AsyncMock()
 
