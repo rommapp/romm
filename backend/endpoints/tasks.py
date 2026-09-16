@@ -2,15 +2,15 @@ from datetime import datetime, timezone
 from typing import Any, Final, Mapping, cast
 
 from fastapi import Body, HTTPException, Request, status
-from rq import Queue, Worker
+from rq import Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
 from rq.registry import FailedJobRegistry, FinishedJobRegistry
-from rq.worker import WorkerStatus
 
 from config import ENABLE_RESCAN_ON_FILESYSTEM_CHANGE, RESCAN_ON_FILESYSTEM_CHANGE_DELAY
 from decorators.auth import protected_route
 from endpoints.responses import (
+    CleanupStats,
     CleanupTaskStatusResponse,
     ConversionTaskStatusResponse,
     GenericTaskStatusResponse,
@@ -28,6 +28,7 @@ from handler.redis_handler import (
     ALL_QUEUES,
     get_job_func_name,
     get_worker_current_job,
+    has_live_worker,
     low_prio_queue,
     redis_client,
 )
@@ -88,6 +89,19 @@ def _fill_scan_stats(stats: Mapping[str, Any] | None) -> ScanStats | None:
     return cast(ScanStats, {**_EMPTY_SCAN_STATS, **stats})
 
 
+def _fill_cleanup_stats(stats: Mapping[str, Any] | None) -> CleanupStats | None:
+    """Widen the single platform a 5.2.0 job's stored stats named."""
+    # Job meta lives for TASK_RESULT_TTL, so this only ever meets jobs that
+    # finished just before an upgrade.
+    if stats is None or "platform_id" not in stats:
+        return cast(CleanupStats | None, stats)
+
+    legacy = {**stats}
+    platform_id = legacy.pop("platform_id")
+    legacy["platform_ids"] = [platform_id] if platform_id is not None else None
+    return cast(CleanupStats, legacy)
+
+
 def _build_task_status_response(
     job: Job,
 ) -> TaskStatusResponse:
@@ -142,7 +156,9 @@ def _build_task_status_response(
         case TaskType.CLEANUP:
             return CleanupTaskStatusResponse(
                 task_type=TaskType.CLEANUP,
-                meta={"cleanup_stats": job_meta.get("cleanup_stats")},
+                meta={
+                    "cleanup_stats": _fill_cleanup_stats(job_meta.get("cleanup_stats"))
+                },
                 **common_data,  # trunk-ignore(mypy/typeddict-item)
             )
         case TaskType.SYNC:
@@ -275,19 +291,6 @@ async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
 TASK_KWARGS = Body(default=None)
 
 
-def _listening_workers(queue: Queue) -> list[Worker]:
-    """Registered workers of ``queue`` that are alive and not suspended.
-
-    A crashed worker stays registered until its TTL expires, which RQ's own
-    maintenance sweep bounds; this filters the ones that told us they left.
-    """
-    return [
-        worker
-        for worker in Worker.all(queue=queue, connection=redis_client)
-        if worker.death_date is None and worker.get_state() != WorkerStatus.SUSPENDED
-    ]
-
-
 @protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
 async def run_single_task(
     request: Request,
@@ -317,15 +320,15 @@ async def run_single_task(
         )
 
     # Without a worker the job would sit queued while the UI waits on it.
-    if not _listening_workers(low_prio_queue):
+    if not has_live_worker(low_prio_queue):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No task worker is running, so the task cannot be queued",
+            detail="No task worker is listening, so the task cannot be queued",
         )
 
     # The caller's arguments are nested rather than spread, so a body cannot
     # name a different task than the one this route just authorized.
-    job = enqueue_task(task_name, task_kwargs=task_kwargs or {})
+    job = enqueue_task(task_name, queue=low_prio_queue, task_kwargs=task_kwargs or {})
 
     return {
         "task_key": task_name,
