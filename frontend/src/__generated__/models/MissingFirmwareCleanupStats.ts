@@ -2,10 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type MissingRomsCleanupStats = {
+export type MissingFirmwareCleanupStats = {
     platform_ids: (Array<number> | null);
-    roms_found: number;
-    roms_deleted: number;
+    firmware_found: number;
+    firmware_deleted: number;
     errors: number;
 };
 
