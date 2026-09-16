@@ -233,7 +233,6 @@ class RAHasherService:
         # resolve the playlist to that disc so the native-hash dispatch below
         # sees it (issue #3797).
         if file_path.lower().endswith(".m3u"):
-            # rcheevos hashes the first playlist entry, so resolve the same one.
             entry = await asyncio.to_thread(first_playlist_entry, Path(file_path))
             if entry is not None:
                 entry_str = str(entry)

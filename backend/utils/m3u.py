@@ -8,18 +8,19 @@ if TYPE_CHECKING:
 
 
 def first_playlist_entry(m3u_path: Path) -> Path | None:
-    """Resolve an .m3u playlist to the first disc file it points at.
+    """Resolve an .m3u playlist to the first disc file it lists.
 
-    The first non-empty, non-comment line is the disc, taken relative to the
-    playlist's folder unless absolute. Playlists written on Windows separate
-    folders with backslashes. Returns None when the playlist can't be read or
-    that entry doesn't exist on disk.
+    Returns:
+        The first non-comment entry, relative to the playlist's folder unless
+        absolute, or None when the playlist can't be read or that entry isn't
+        a file on disk.
     """
     try:
         lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
     except OSError:
         return None
     for line in lines:
+        # Playlists written on Windows separate folders with backslashes.
         entry = line.strip().replace("\\", "/")
         if not entry or entry.startswith("#"):
             continue
