@@ -6,6 +6,8 @@ from fastapi import status
 from rq.exceptions import NoSuchJobError
 
 from handler.redis_handler import redis_client
+from tasks.manual.cleanup_missing_firmware import CleanupMissingFirmwareStats
+from tasks.manual.cleanup_missing_roms import CleanupMissingRomsStats
 from tasks.tasks import Task, TaskType
 
 
@@ -410,6 +412,41 @@ class TestGetTasksStatus:
 
 class TestGetTaskById:
     """Test suite for the get_task_by_id endpoint"""
+
+    @pytest.mark.parametrize(
+        "stats",
+        [
+            CleanupMissingRomsStats(platform_ids=[3], roms_found=2, roms_deleted=2),
+            CleanupMissingFirmwareStats(firmware_found=1, firmware_deleted=1),
+        ],
+    )
+    @patch("endpoints.tasks.Job.fetch")
+    def test_a_finished_cleanup_reports_its_stats(
+        self, mock_job_fetch, client, access_token, stats
+    ):
+        mock_job = Mock()
+        for field in ("enqueued_at", "created_at", "started_at", "ended_at"):
+            setattr(mock_job, field, Mock())
+            getattr(mock_job, field).isoformat.return_value = "2023-01-01T00:00:00"
+        mock_job.get_meta.return_value = {
+            "task_key": "cleanup_missing_roms",
+            "task_type": TaskType.CLEANUP,
+            "cleanup_stats": stats.to_dict(),
+        }
+        mock_job.func_name = "tasks.tasks.run_task_by_name"
+        mock_job.kwargs = {"name": "cleanup_missing_roms"}
+        mock_job.get_status.return_value = "finished"
+        mock_job.id = "cleanup-job"
+        mock_job.result = stats.to_dict()
+        mock_job_fetch.return_value = mock_job
+
+        response = client.get(
+            "/api/tasks/cleanup-job",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["meta"]["cleanup_stats"] == stats.to_dict()
 
     @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_success(self, mock_job_fetch, client, access_token):
