@@ -1,9 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SaveSchema } from "@/__generated__";
+import type { DetailedRom } from "@/stores/roms";
 import {
   captureStateScreenshot,
   createSaveSyncTracker,
   installEJSDefaultOptionsTrap,
+  saveSave,
 } from "./utils";
+
+const saveApiMocks = vi.hoisted(() => ({
+  uploadSaves: vi.fn(),
+  updateSave: vi.fn(),
+}));
+
+vi.mock("@/services/api/save", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/api/save")>()),
+  default: saveApiMocks,
+}));
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -183,6 +196,36 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
   });
 
+  it("knows which bytes the server already holds", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(bytes(1, 2, 3));
+
+    expect(tracker.isUploaded(bytes(1, 2, 3))).toBe(true);
+    expect(tracker.isUploaded(bytes(1, 2, 4))).toBe(false);
+
+    tracker.markUploaded(bytes(1, 2, 4));
+
+    expect(tracker.isUploaded(bytes(1, 2, 4))).toBe(true);
+    expect(tracker.isUploaded(bytes(1, 2, 3))).toBe(false);
+  });
+
+  it("holds a baseline the tick ignores but a forced write still persists", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.baseline(bytes(1, 2, 3));
+
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.isUploaded(bytes(1, 2, 3))).toBe(false);
+
+    expect(tracker.shouldUpload(bytes(9))).toBe(false);
+    expect(tracker.shouldUpload(bytes(9))).toBe(true);
+
+    // Once something was uploaded, returning to the baseline bytes is a change.
+    tracker.markUploaded(bytes(9));
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+  });
+
   it("compares content, not identity, and treats a resize as a change", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(null);
@@ -224,5 +267,86 @@ describe("captureStateScreenshot", () => {
     };
 
     await expect(captureStateScreenshot()).resolves.toBeUndefined();
+  });
+});
+
+describe("saveSave", () => {
+  const save = { id: 3, file_name: "a.srm", slot: "main_quest" } as SaveSchema;
+  const updated = { ...save, file_size_bytes: 4 } as SaveSchema;
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+  let rom: DetailedRom;
+
+  beforeEach(() => {
+    rom = {
+      id: 1,
+      fs_name_no_ext: "game",
+      user_saves: [],
+    } as unknown as DetailedRom;
+    saveApiMocks.uploadSaves.mockReset();
+    saveApiMocks.updateSave.mockReset();
+    saveApiMocks.uploadSaves.mockResolvedValue([
+      { status: "fulfilled", value: { id: 2, slot: "autosave" } },
+    ]);
+    saveApiMocks.updateSave.mockResolvedValue({ data: updated });
+  });
+
+  it("updates the version this session already created", async () => {
+    rom.user_saves.push(save);
+
+    await saveSave({ rom, save, saveFile: bytes, slot: "main_quest" });
+
+    expect(saveApiMocks.updateSave).toHaveBeenCalledOnce();
+    expect(saveApiMocks.uploadSaves).not.toHaveBeenCalled();
+    expect(rom.user_saves).toEqual([updated]);
+  });
+
+  it("names a first screenshot after the version it updates", async () => {
+    const shot = new Uint8Array([9]).buffer;
+    const versioned = { ...save, file_name_no_ext: "a [t]" } as SaveSchema;
+
+    await saveSave({
+      rom,
+      save: versioned,
+      saveFile: bytes,
+      screenshotFile: shot,
+    });
+
+    const { screenshotFile } = saveApiMocks.updateSave.mock.calls[0][0];
+    expect(screenshotFile.name).toBe("a [t].png");
+  });
+
+  it("lists an updated version the rom did not know about", async () => {
+    await saveSave({ rom, save, saveFile: bytes, slot: "main_quest" });
+
+    expect(rom.user_saves).toEqual([updated]);
+  });
+
+  it("opens a capped autosave version when the session has none", async () => {
+    await saveSave({ rom, save: null, saveFile: bytes });
+
+    expect(saveApiMocks.uploadSaves).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slot: "autosave",
+        autocleanup: true,
+        overwrite: true,
+      }),
+    );
+    expect(rom.user_saves).toEqual([{ id: 2, slot: "autosave" }]);
+  });
+
+  it("leaves the datetime tag of a slotted upload to the backend", async () => {
+    await saveSave({ rom, save: null, saveFile: bytes });
+
+    const { savesToUpload } = saveApiMocks.uploadSaves.mock.calls[0][0];
+    expect(savesToUpload[0].saveFile.name).toBe("game.srm");
+  });
+
+  it("keeps every version in a named slot", async () => {
+    await saveSave({ rom, save: null, saveFile: bytes, slot: "speedrun" });
+
+    expect(saveApiMocks.updateSave).not.toHaveBeenCalled();
+    expect(saveApiMocks.uploadSaves).toHaveBeenCalledWith(
+      expect.objectContaining({ slot: "speedrun", autocleanup: false }),
+    );
   });
 });

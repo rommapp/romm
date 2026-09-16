@@ -549,7 +549,6 @@ async def _identify_rom(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
-    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
@@ -745,7 +744,6 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
         newly_added=newly_added,
         launchbox_remote_enabled=launchbox_remote_enabled,
-        playmatch_enabled=playmatch_enabled,
         socket_manager=socket_manager,
     )
 
@@ -794,7 +792,6 @@ async def _scan_selected_roms(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
-    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
@@ -849,7 +846,6 @@ async def _scan_selected_roms(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
-                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 scanned_rom_ids=scanned_rom_ids,
@@ -881,7 +877,6 @@ async def _identify_platform(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
-    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
@@ -996,7 +991,6 @@ async def _identify_platform(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
-                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 scanned_rom_ids=scanned_rom_ids,
@@ -1108,7 +1102,6 @@ async def scan_platforms(
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
-    playmatch_enabled: bool = True,
     platform_fs_slugs: list[str] | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
@@ -1290,7 +1283,6 @@ async def scan_platforms(
                     roms_ids=roms_ids,
                     metadata_sources=metadata_sources,
                     launchbox_remote_enabled=launchbox_remote_enabled,
-                    playmatch_enabled=playmatch_enabled,
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
                     scanned_rom_ids=scanned_rom_ids,
@@ -1314,7 +1306,6 @@ async def scan_platforms(
                     roms_ids=roms_ids,
                     metadata_sources=metadata_sources,
                     launchbox_remote_enabled=launchbox_remote_enabled,
-                    playmatch_enabled=playmatch_enabled,
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
                     scanned_rom_ids=scanned_rom_ids,
@@ -1474,7 +1465,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
-    playmatch_enabled = bool(options.get("playmatch_enabled", True))
 
     if DEV_MODE:
         return await scan_platforms(
@@ -1483,7 +1473,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             scan_type=scan_type,
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
-            playmatch_enabled=playmatch_enabled,
             platform_fs_slugs=platform_fs_slugs,
         )
 
@@ -1498,7 +1487,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         scan_type=scan_type,
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
-        playmatch_enabled=playmatch_enabled,
         platform_fs_slugs=platform_fs_slugs,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,

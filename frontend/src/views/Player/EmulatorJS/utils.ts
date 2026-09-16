@@ -1,16 +1,11 @@
 import Bowser from "bowser";
 import { type SaveSchema } from "@/__generated__";
 import { type StateSchema } from "@/__generated__";
-import saveApi from "@/services/api/save";
+import saveApi, { AUTOSAVE_SLOT } from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import { type DetailedRom } from "@/stores/roms";
 
 function buildStateName(rom: DetailedRom): string {
-  const romName = rom.fs_name_no_ext.trim();
-  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
-}
-
-function buildSaveName(rom: DetailedRom): string {
   const romName = rom.fs_name_no_ext.trim();
   return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
 }
@@ -77,18 +72,22 @@ export async function saveState({
   return null;
 }
 
+// `save` is the version this session already created: it is updated in place,
+// while a null `save` opens a new version in `slot`.
 export async function saveSave({
   rom,
   save,
   saveFile,
   screenshotFile,
   deviceId,
+  slot = AUTOSAVE_SLOT,
 }: {
   rom: DetailedRom;
   save: SaveSchema | null;
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
   deviceId?: string;
+  slot?: string;
 }): Promise<SaveSchema | null> {
   if (save) {
     try {
@@ -97,18 +96,21 @@ export async function saveSave({
         saveFile: new File([saveFile], save.file_name, {
           type: "application/octet-stream",
         }),
-        screenshotFile:
-          screenshotFile && save.screenshot
-            ? new File([screenshotFile], save.screenshot.file_name, {
-                type: "application/octet-stream",
-              })
-            : undefined,
+        // A version opened by the periodic sync has no screenshot yet; name a
+        // new one after the save so the backend links it by stem.
+        screenshotFile: screenshotFile
+          ? new File(
+              [screenshotFile],
+              save.screenshot?.file_name ?? `${save.file_name_no_ext}.png`,
+              { type: "application/octet-stream" },
+            )
+          : undefined,
         deviceId,
       });
 
-      // Update the save in the rom object
       const index = rom.user_saves.findIndex((s) => s.id === updatedSave.id);
-      rom.user_saves[index] = updatedSave;
+      if (index === -1) rom.user_saves.unshift(updatedSave);
+      else rom.user_saves[index] = updatedSave;
 
       return updatedSave;
     } catch (error) {
@@ -117,12 +119,20 @@ export async function saveSave({
     }
   }
 
-  const filename = buildSaveName(rom);
+  // The backend timestamps slotted uploads, tagging save and screenshot alike.
+  const filename = rom.fs_name_no_ext.trim();
   try {
     const uploadedSaves = await saveApi.uploadSaves({
       rom: rom,
       emulator: window.EJS_core,
       deviceId,
+      slot,
+      // Like Argosy: the autosave slot keeps a capped history, named slots
+      // keep every version.
+      autocleanup: slot === AUTOSAVE_SLOT,
+      // The boot source is an explicit choice on the launch screen, so neither
+      // the stale-device guard nor the hash dedupe applies (callers skip dupes).
+      overwrite: true,
       savesToUpload: [
         {
           saveFile: new File([saveFile], `${filename}.srm`, {
@@ -153,20 +163,37 @@ export async function saveSave({
 // (#4201). Two agreeing ticks keep a mid-write save from being uploaded (#2349).
 export function createSaveSyncTracker() {
   let lastUploaded: Uint8Array | null = null;
+  let baseline: Uint8Array | null = null;
   let previousTick: Uint8Array | null = null;
   return {
-    // Seeded from the SRAM at launch so the server's own file is not re-uploaded.
+    // Bytes downloaded from the server: neither the tick nor a forced write
+    // needs to send them back.
     seed(save: Uint8Array | null) {
       lastUploaded = save;
+      baseline = save;
+      previousTick = save;
+    },
+    // SRAM restored by a state or a fresh boot: the tick waits for a change,
+    // but a forced write still persists it since the server has no copy.
+    baseline(save: Uint8Array | null) {
+      lastUploaded = null;
+      baseline = save;
       previousTick = save;
     },
     shouldUpload(save: Uint8Array): boolean {
       const stable = bytesEqual(save, previousTick);
       previousTick = save;
-      return stable && !bytesEqual(save, lastUploaded);
+      return (
+        stable && !bytesEqual(save, lastUploaded) && !bytesEqual(save, baseline)
+      );
     },
     markUploaded(save: Uint8Array) {
       lastUploaded = save;
+      baseline = null;
+    },
+    // Whether the server already holds these exact bytes.
+    isUploaded(save: Uint8Array): boolean {
+      return bytesEqual(save, lastUploaded);
     },
   };
 }
@@ -176,7 +203,8 @@ export function createSaveSyncTracker() {
 function bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
   if (!a || !b) return a === b;
   if (a.byteLength !== b.byteLength) return false;
-  return a.every((byte, i) => byte === b[i]);
+  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 // saveSave needs an ArrayBuffer, and a Uint8Array's own buffer may be shared or

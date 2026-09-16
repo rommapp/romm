@@ -47,6 +47,8 @@ interface Props {
   label?: string;
   placeholder?: string;
   type?: string;
+  /** Native input length cap. */
+  maxlength?: number;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
   prependInnerIcon?: string;
@@ -110,6 +112,7 @@ const props = withDefaults(defineProps<Props>(), {
   modelValue: undefined,
   label: undefined,
   placeholder: undefined,
+  maxlength: undefined,
   type: "text",
   variant: "outlined",
   density: "comfortable",
@@ -473,6 +476,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         class="r-text-field__input r-text-field__input--multiline"
         :value="modelValue ?? ''"
         :placeholder="effectivePlaceholder"
+        :maxlength="maxlength"
         :name="name"
         :autocomplete="autocomplete"
         :disabled="disabled"
@@ -493,6 +497,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :value="modelValue ?? ''"
         :type="type"
         :placeholder="effectivePlaceholder"
+        :maxlength="maxlength"
         :name="name"
         :autocomplete="autocomplete"
         :disabled="disabled"
