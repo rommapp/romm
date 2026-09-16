@@ -242,6 +242,7 @@
   "metric-completion": "Befejezés",
   "metric-difficulty": "Nehézség",
   "metric-rating": "Értékelés",
+  "missing-from-fs-path": "Missing from filesystem: {path}",
   "missing-platform": "Hiányzó platform a fájlrendszerből",
   "more-actions": "További műveletek",
   "my-notes": "Jegyzeteim",

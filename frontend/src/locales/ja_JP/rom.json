@@ -242,6 +242,7 @@
   "metric-completion": "完了度",
   "metric-difficulty": "難易度",
   "metric-rating": "評価",
+  "missing-from-fs-path": "Missing from filesystem: {path}",
   "missing-platform": "ファイルシステムにプラットフォームが存在しません",
   "more-actions": "その他の操作",
   "my-notes": "メモ",

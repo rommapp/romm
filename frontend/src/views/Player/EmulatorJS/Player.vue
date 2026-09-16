@@ -26,6 +26,7 @@ import {
 } from "@/utils";
 import {
   saveSave,
+  resolveStateScreenshot,
   saveState,
   loadEmulatorJSSave,
   loadEmulatorJSState,
@@ -174,7 +175,7 @@ declare global {
     EJS_disableBatchBootup: boolean;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: {
-      screenshot: ArrayBuffer;
+      screenshot?: ArrayBuffer;
       state: ArrayBuffer;
     }) => void;
     EJS_onLoadState: () => void;
@@ -458,8 +459,9 @@ window.EJS_onLoadState = async function () {
 
 window.EJS_onSaveState = async function ({
   state: stateFile,
-  screenshot: screenshotFile,
+  screenshot: emulatorScreenshot,
 }) {
+  const screenshotFile = await resolveStateScreenshot(emulatorScreenshot);
   const state = await saveState({
     rom: romRef.value,
     stateFile,

@@ -2,6 +2,9 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { AxiosError } from "axios";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
+import type { SimpleRom } from "@/stores/roms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 import MissingGamesSection from "./MissingGamesSection.vue";
 
 const { getRoms, runTask, getTaskById, confirm, snackbarError } = vi.hoisted(
@@ -139,5 +142,29 @@ describe("MissingGamesSection", () => {
     expect(snackbarError).toHaveBeenCalledWith(
       "settings.couldnt-queue-cleanup: No task worker is running",
     );
+  });
+
+  // Rows are selectable here, so the selection needs the same bulk actions
+  // it gets in the gallery rather than none at all (issue #4036).
+  it("raises the gallery's bulk actions once a row is selected", async () => {
+    const wrapper = mountSection();
+    await flushPromises();
+    const bar = wrapper.findComponent({ name: "SelectionBar" });
+    expect(bar.classes()).not.toContain("selection-bar--visible");
+
+    storeGallerySelection().toggle({ id: 1, name: "Game 1" } as SimpleRom, 0);
+    await nextTick();
+
+    expect(bar.classes()).toContain("selection-bar--visible");
+  });
+
+  // These rows point at files that are gone, so a download can only 404.
+  it("keeps download off the bar", async () => {
+    const wrapper = mountSection();
+    await flushPromises();
+
+    expect(
+      wrapper.findComponent({ name: "SelectionBar" }).props("hideDownload"),
+    ).toBe(true);
   });
 });

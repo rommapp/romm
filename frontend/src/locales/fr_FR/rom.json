@@ -242,6 +242,7 @@
   "metric-completion": "Complétion",
   "metric-difficulty": "Difficulté",
   "metric-rating": "Note",
+  "missing-from-fs-path": "Missing from filesystem: {path}",
   "missing-platform": "Plateforme manquante du système de fichiers",
   "more-actions": "Plus d'actions",
   "my-notes": "Mes notes",

@@ -242,6 +242,7 @@
   "metric-completion": "Finalizare",
   "metric-difficulty": "Dificultate",
   "metric-rating": "Evaluare",
+  "missing-from-fs-path": "Missing from filesystem: {path}",
   "missing-platform": "Platformă lipsă din sistemul de fișiere",
   "more-actions": "Mai multe acțiuni",
   "my-notes": "Notițele mele",
