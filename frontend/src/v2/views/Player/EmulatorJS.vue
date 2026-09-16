@@ -506,6 +506,13 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   isSavesTabSelected.value ? resume.value.save : resume.value.state,
 );
 const selectedAssetId = computed(() => selectedAsset.value?.id ?? null);
+// Both tabs share the title-over-content rhythm, so the view owns the titles.
+const previewTitle = computed(() => {
+  if (!isSavesTabSelected.value) return t("play.resume-from-state");
+  return resume.value.state
+    ? t("play.save-progress-to")
+    : t("play.resume-from-save");
+});
 
 // Booting anything but the latest progress would roll it back (#4278).
 const newerAsset = computed(() =>
@@ -615,18 +622,14 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           :class="{ 'r-v2-ejs__resume-body--split': !isSavesTabSelected }"
         >
           <div class="r-v2-ejs__resume-side">
-            <div
-              v-if="!isSavesTabSelected"
-              class="r-v2-ejs__strip-label"
-              aria-hidden="true"
-            >
-              <span>{{ t("play.resume-from-state") }}</span>
+            <div class="r-v2-ejs__strip-label">
+              <span>{{ previewTitle }}</span>
             </div>
             <div class="r-v2-ejs__resume-side-body">
               <AssetPreview
                 :asset="selectedAsset"
                 :type="activeAssetTab"
-                :show-heading="isSavesTabSelected"
+                :show-heading="false"
                 :state-armed="!!resume.state"
                 @clear="clearSelectedAsset"
               />
@@ -1006,7 +1009,7 @@ html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split {
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   grid-template-rows: auto minmax(0, 1fr);
   column-gap: 14px;
-  row-gap: 10px;
+  row-gap: 14px;
 }
 html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split .r-v2-ejs__resume-main,
 html[data-bp~="md-and-up"]
@@ -1021,17 +1024,6 @@ html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-body--split
   .r-v2-ejs__resume-main {
   order: -1;
-}
-html[data-bp~="md-and-up"]
-  .r-v2-ejs__resume-body--split
-  .r-v2-ejs__strip-label {
-  margin-top: 0;
-}
-/* The tile track keeps a 4px inset for its hover lift; match it. */
-html[data-bp~="md-and-up"]
-  .r-v2-ejs__resume-body--split
-  .r-v2-ejs__resume-side-body {
-  padding-top: 4px;
 }
 /* Beside the grid the stage can afford the screenshots' own ratio, which
    also gives the empty copy room. */
@@ -1087,7 +1079,8 @@ html[data-bp~="md-and-up"]
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--r-color-fg-secondary);
-  margin-top: 4px;
+  /* The count chip's height, so a title without one sits on the same row. */
+  min-height: 18px;
 }
 .r-v2-ejs__strip-count {
   display: inline-grid;
