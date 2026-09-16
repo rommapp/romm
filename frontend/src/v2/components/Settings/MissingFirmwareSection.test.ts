@@ -17,12 +17,10 @@ const { getFirmware, runTask, getTaskById, confirm, snackbarError } =
 vi.mock("@/services/api/firmware", () => ({ default: { getFirmware } }));
 vi.mock("@/services/api/task", () => ({ default: { runTask, getTaskById } }));
 
-// Error messages keep their `error` parameter so the tests can see what
-// reached the snackbar.
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({
-    t: (key: string, params?: { error?: string }) =>
-      params?.error ? `${key}: ${params.error}` : key,
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}::${JSON.stringify(params)}` : key,
   }),
 }));
 
@@ -33,21 +31,10 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: snackbarError }),
 }));
 
-// The server's reason for a refused request, as axios delivers it.
 function serverError(detail: string) {
-  return new AxiosError(
-    "Request failed with status code 503",
-    "ERR_BAD_RESPONSE",
-    undefined,
-    undefined,
-    {
-      status: 503,
-      statusText: "Service Unavailable",
-      data: { detail },
-      headers: {},
-      config: {} as never,
-    },
-  );
+  return Object.assign(new AxiosError("HTTP 503"), {
+    response: { data: { detail } },
+  });
 }
 
 const PS1 = {
@@ -266,7 +253,7 @@ describe("MissingFirmwareSection", () => {
   });
 
   it("tells why the server refused the cleanup", async () => {
-    runTask.mockRejectedValue(serverError("No task worker is running"));
+    runTask.mockRejectedValue(serverError("No task worker is listening"));
     const wrapper = mountSection();
     await flushPromises();
 
@@ -274,7 +261,7 @@ describe("MissingFirmwareSection", () => {
     await flushPromises();
 
     expect(snackbarError).toHaveBeenCalledWith(
-      "settings.couldnt-queue-cleanup: No task worker is running",
+      'settings.couldnt-queue-cleanup::{"error":"No task worker is listening"}',
     );
   });
 
@@ -284,7 +271,7 @@ describe("MissingFirmwareSection", () => {
     await flushPromises();
 
     expect(snackbarError).toHaveBeenCalledWith(
-      "settings.couldnt-fetch-missing-firmware: Database unavailable",
+      'settings.couldnt-fetch-missing-firmware::{"error":"Database unavailable"}',
     );
   });
 });

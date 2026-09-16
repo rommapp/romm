@@ -22,12 +22,10 @@ vi.mock("@/services/api/task", () => ({
   default: { runTask, getTaskById },
 }));
 
-// Error messages keep their `error` parameter so the tests can see what
-// reached the snackbar.
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({
-    t: (key: string, params?: { error?: string }) =>
-      params?.error ? `${key}: ${params.error}` : key,
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}::${JSON.stringify(params)}` : key,
   }),
 }));
 
@@ -47,6 +45,12 @@ const RMenuStub = {
 vi.mock("@/v2/composables/useWebpSupport", () => ({
   useWebpSupport: () => ({ supportsWebp: { value: true } }),
 }));
+
+function serverError(detail: string) {
+  return Object.assign(new AxiosError("HTTP 503"), {
+    response: { data: { detail } },
+  });
+}
 
 function mountSection() {
   return mount(MissingGamesSection, {
@@ -117,22 +121,12 @@ describe("MissingGamesSection", () => {
   });
 
   it("tells why the server refused the cleanup", async () => {
+    // The action is disabled while the list is empty.
+    getRoms.mockResolvedValue({
+      data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
+    });
     confirm.mockResolvedValue(true);
-    runTask.mockRejectedValue(
-      new AxiosError(
-        "Request failed with status code 503",
-        "ERR_BAD_RESPONSE",
-        undefined,
-        undefined,
-        {
-          status: 503,
-          statusText: "Service Unavailable",
-          data: { detail: "No task worker is running" },
-          headers: {},
-          config: {} as never,
-        },
-      ),
-    );
+    runTask.mockRejectedValue(serverError("No task worker is listening"));
     const wrapper = mountSection();
     await flushPromises();
 
@@ -140,7 +134,7 @@ describe("MissingGamesSection", () => {
     await flushPromises();
 
     expect(snackbarError).toHaveBeenCalledWith(
-      "settings.couldnt-queue-cleanup: No task worker is running",
+      'settings.couldnt-queue-cleanup::{"error":"No task worker is listening"}',
     );
   });
 
