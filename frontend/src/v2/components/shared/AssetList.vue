@@ -17,6 +17,7 @@ import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
 import { formatTimestamp } from "@/utils";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
+import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
@@ -146,28 +147,20 @@ const fadeIndex = computed(() =>
         class="r-asset-list__group"
         :class="{ 'r-asset-list__group--slot': grouped }"
       >
-        <div v-if="grouped" class="r-asset-list__group-head">
-          <RIcon
-            :icon="
-              group.slot
-                ? 'mdi-content-save-all-outline'
-                : 'mdi-archive-outline'
-            "
-            size="14"
-            class="r-asset-list__group-icon"
-            :class="{ 'r-asset-list__group-icon--slot': group.slot }"
-          />
-          <span class="r-asset-list__group-title">
-            {{ group.slot ?? t("play.slot-none") }}
-          </span>
+        <AssetGroupHead
+          v-if="grouped"
+          :icon="
+            group.slot ? 'mdi-content-save-all-outline' : 'mdi-archive-outline'
+          "
+          :icon-tone="group.slot ? 'brand' : 'muted'"
+          :title="group.slot ?? t('play.slot-none')"
+          :count="t('play.slot-versions', group.versions.length)"
+        >
           <AssetOwnerChip
             v-if="showOwner && group.owner"
             :owner="group.owner"
           />
-          <span class="r-asset-list__group-count">
-            {{ t("play.slot-versions", group.versions.length) }}
-          </span>
-        </div>
+        </AssetGroupHead>
 
         <ul class="r-asset-list__items">
           <li
@@ -300,21 +293,19 @@ const fadeIndex = computed(() =>
 
 .r-asset-list__groups {
   margin: 0;
-  /* Top padding gives the first row breathing room and absorbs the
-     -1px lift on hover/active so it never clips against the panel
-     edge. Bottom padding keeps the same gutter at the other end. */
-  padding: 4px 0;
+  padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
 }
-/* Internal scroll only where the parent does not own scrolling. */
+/* Internal scroll only where the parent does not own scrolling. The
+   vertical padding absorbs the rows' -1px hover lift at the scroll edges. */
 .r-asset-list--scroll .r-asset-list__groups {
   overflow-y: auto;
   max-height: 380px;
-  padding-right: 10px;
+  padding: 4px 10px 4px 0;
 }
 
 .r-asset-list__group {
@@ -328,36 +319,6 @@ const fadeIndex = computed(() =>
   padding: 6px 8px 8px;
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
-}
-
-.r-asset-list__group-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
-  color: var(--r-color-fg-secondary);
-}
-.r-asset-list__group-icon {
-  color: var(--r-color-fg-muted);
-}
-.r-asset-list__group-icon--slot {
-  color: var(--r-color-brand-primary);
-}
-.r-asset-list__group-title {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--r-color-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-asset-list__group-count {
-  margin-left: auto;
-  font-size: 10px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
 .r-asset-list__items {
