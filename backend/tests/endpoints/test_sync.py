@@ -1,8 +1,11 @@
 """Tests for sync endpoints."""
 
+import asyncio
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+from typing import Any
 from unittest import mock
 
 from fastapi import status
@@ -1129,3 +1132,35 @@ class TestNegotiateConflictEvents:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["total_conflict"] == 1
+
+    def test_slow_notification_does_not_stall_the_negotiation(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """Notification latency must not scale with the number of conflicts."""
+        device = self._device_with_history("neg-conflict-slow", admin_user, save)
+
+        async def hang(**_kwargs: Any) -> None:
+            await asyncio.sleep(30)
+
+        with (
+            mock.patch(
+                "endpoints.sync.emit_sync_conflict",
+                new_callable=mock.AsyncMock,
+                side_effect=hang,
+            ),
+            mock.patch("endpoints.sync.CONFLICT_NOTIFY_TIMEOUT_S", 0.01),
+        ):
+            started = time.monotonic()
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._changed_client_save(save)],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            elapsed = time.monotonic() - started
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total_conflict"] == 1
+        assert elapsed < 10

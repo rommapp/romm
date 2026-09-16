@@ -32,9 +32,11 @@ const cachedRom = {
   name: "Pokemon Violet",
   fs_name: "pokemon_violet.zip",
 };
+const blankNameRom = { id: 8, name: "", fs_name: "blank_name.zip" };
 vi.mock("@/v2/stores/galleryRoms", () => ({
   default: () => ({
-    getRomById: (id: number) => (id === cachedRom.id ? cachedRom : null),
+    getRomById: (id: number) =>
+      [cachedRom, blankNameRom].find((rom) => rom.id === id) ?? null,
   }),
 }));
 
@@ -89,6 +91,16 @@ describe("useSyncConflictToast", () => {
     expect(toasts[0]).toMatchObject({
       color: "warning",
       msg: `rom.save-conflict-detected:${cachedRom.name}`,
+    });
+  });
+
+  it("falls back to the file name when the ROM's name is blank", () => {
+    install();
+    handlers.get("sync:conflict")?.(conflict({ rom_id: blankNameRom.id }));
+
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]).toMatchObject({
+      msg: `rom.save-conflict-detected:${blankNameRom.fs_name}`,
     });
   });
 

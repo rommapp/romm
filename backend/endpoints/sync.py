@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from fastapi import HTTPException, Request, status
@@ -39,6 +40,10 @@ router = APIRouter(
     prefix="/sync",
     tags=["sync"],
 )
+
+# The emitter dials Redis once per conflict, so this bounds a pathological case:
+# a client's launch must not queue behind its own notification infrastructure.
+CONFLICT_NOTIFY_TIMEOUT_S = 2.0
 
 
 class ClientSaveState(BaseModel):
@@ -339,22 +344,37 @@ async def negotiate_sync(
         f"{total_conflict} conflicts, {total_no_op} no-ops"
     )
 
-    # Never fatal: the emitter dials Redis, and a negotiation must not fail
-    # because the user could not be notified.
-    for op in operations:
-        if op.action != "conflict":
-            continue
+    # Never fatal, and never slow: a negotiation must not fail or stall because
+    # the user could not be notified. The events go out together so the wait
+    # stays constant rather than growing with the number of conflicts.
+    conflict_ops = [op for op in operations if op.action == "conflict"]
+    if conflict_ops:
         try:
-            await emit_sync_conflict(
-                user_id=request.user.id,
-                device_id=device.id,
-                session_id=sync_session.id,
-                file_name=op.file_name,
-                rom_id=op.rom_id,
-                reason=op.reason,
+            results = await asyncio.wait_for(
+                asyncio.gather(
+                    *(
+                        emit_sync_conflict(
+                            user_id=request.user.id,
+                            device_id=device.id,
+                            session_id=sync_session.id,
+                            file_name=op.file_name,
+                            rom_id=op.rom_id,
+                            reason=op.reason,
+                        )
+                        for op in conflict_ops
+                    ),
+                    return_exceptions=True,
+                ),
+                timeout=CONFLICT_NOTIFY_TIMEOUT_S,
             )
+            for op, emit_result in zip(conflict_ops, results, strict=True):
+                if isinstance(emit_result, BaseException):
+                    log.warning(
+                        f"Failed to emit sync:conflict for {op.file_name}: "
+                        f"{emit_result}"
+                    )
         except Exception as e:  # noqa: BLE001
-            log.warning(f"Failed to emit sync:conflict for {op.file_name}: {e}")
+            log.warning(f"Failed to emit {len(conflict_ops)} sync:conflict events: {e}")
 
     return SyncNegotiateResponse(
         session_id=sync_session.id,

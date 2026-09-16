@@ -29,7 +29,8 @@ export function installSyncConflictToast(): void {
       galleryRomsStore.getRomById(romId) ??
       (romsStore.currentRom?.id === romId ? romsStore.currentRom : null) ??
       romsStore.recentRoms.find((recent) => recent.id === romId);
-    return rom ? (rom.name ?? rom.fs_name) : null;
+    // `name` is nullable and can be blank, so this is a truthy fallback.
+    return rom ? rom.name || rom.fs_name : null;
   }
 
   useSocketEvent<SyncConflictSocketPayload>("sync:conflict", (payload) => {
