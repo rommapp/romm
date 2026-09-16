@@ -258,6 +258,7 @@
   "no-tasks-in-history": "Keine Aufgaben in der Historie",
   "no-tokens-help": "Keine Tokens — erstelle eines, um Geräte zu koppeln.",
   "open-shell-settings": "Einstellungen der Anwendung öffnen",
+  "open-shell-settings-failed": "Die Einstellungen der Desktop-App konnten nicht geöffnet werden",
   "order-platforms-by": "Plattformen sortieren nach",
   "override-grant": "Granted",
   "override-grant-own": "Granted (own items only)",

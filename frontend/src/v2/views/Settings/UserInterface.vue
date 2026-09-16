@@ -33,16 +33,26 @@ import { isBoxartStyle } from "@/v2/composables/useCoverArt";
 import { useCrtMode } from "@/v2/composables/useCrtMode";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t } = useI18n();
 const uiVersion = useUiVersion();
 const { enabled: debugEnabled } = useDebugMode();
 const collectionsStore = storeCollections();
 const nativeStore = useNativeStore();
+const snackbar = useSnackbar();
 
 // The shell's settings are a file on the user's own machine, so this only asks
 // it to open them: RomM never reads or writes what is in there.
 const showShellSettings = nativeStore.available && canOpenNativeSettings();
+
+// A missing or unwritable configuration fails inside the shell, where the user
+// cannot see it, so the button would otherwise look like it does nothing.
+async function onOpenShellSettings() {
+  if (!(await openNativeSettings())) {
+    snackbar.error(t("settings.open-shell-settings-failed"));
+  }
+}
 
 const {
   theme: selectedTheme,
@@ -479,7 +489,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
           variant="outlined"
           size="small"
           prepend-icon="mdi-cog-outline"
-          @click="openNativeSettings"
+          @click="onOpenShellSettings"
         >
           {{ t("settings.open-shell-settings") }}
         </RBtn>

@@ -258,6 +258,7 @@
   "no-tasks-in-history": "Nu există sarcini în istoric",
   "no-tokens-help": "Niciun token — creează unul pentru a începe asocierea dispozitivelor.",
   "open-shell-settings": "Deschide setările aplicației",
+  "open-shell-settings-failed": "Setările aplicației desktop nu au putut fi deschise",
   "order-platforms-by": "Ordonează platformele după",
   "override-grant": "Granted",
   "override-grant-own": "Granted (own items only)",

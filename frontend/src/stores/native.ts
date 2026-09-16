@@ -108,8 +108,10 @@ export const useNativeStore = defineStore("native", () => {
     return names.value[romId] ?? "";
   }
 
-  /** Whether this failure is one this page asked for by cancelling. Answers
-   *  once, so a later genuine failure for the same ROM still reports. */
+  /** Whether a cancel is outstanding for this ROM. Answers once, so a later
+   *  genuine failure for the same ROM still reports, and callers clear the mark
+   *  on any other ending too: a cancel the shell never took must not silence
+   *  the failure of a launch that went on running. */
   function consumeCancelled(romId: number): boolean {
     if (!cancelled.value.has(romId)) return false;
     cancelled.value.delete(romId);
@@ -128,9 +130,20 @@ export const useNativeStore = defineStore("native", () => {
         [state.romId]: (stateCount.value[state.romId] ?? 0) + 1,
       };
       if (state.status !== "downloading") starting.value.delete(state.romId);
-      // The record was dropped by the cancel, so the failure it caused must
-      // not put it back.
-      if (state.status === "failed" && cancelled.value.has(state.romId)) return;
+      if (cancelled.value.has(state.romId)) {
+        // An aborted transfer is how a cancel the shell took comes back, so
+        // that failure belongs to the cancel and the record it dropped stays
+        // dropped.
+        if (
+          state.status === "failed" &&
+          state.error?.code === "download-failed"
+        )
+          return;
+        // Any other ending means the cancel never landed. The mark comes off
+        // so the launch reports itself, rather than being silenced by a
+        // cancellation that did not happen.
+        if (state.status !== "downloading") cancelled.value.delete(state.romId);
+      }
       launches.value = { ...launches.value, [state.romId]: state };
     });
   }
@@ -208,15 +221,23 @@ export const useNativeStore = defineStore("native", () => {
     };
     // A gallery list is fetched without file entries, so a card's rom has none
     // and both helpers below would answer from the rom's own name. Fetched
-    // rather than guessed, and a failure leaves the rom as it came.
+    // rather than guessed.
     const detailed = await withRomFiles(rom);
+    // `fs_name` is the served name for an ordinary single-file rom, but a
+    // nested one is served as the file inside it, so without the entries there
+    // is nothing to name the download and the shell would cache it under a name
+    // no emulator opens. Better to say so than to launch something broken.
+    if ((detailed.files ?? []).length === 0 && rom.has_nested_single_file) {
+      starting.value.delete(rom.id);
+      return "The rom's files could not be read.";
+    }
     // Passthrough needs one real file to point at, which a rom served as a
     // built-on-request archive does not have.
     const soleFile = getSoleRomFile(detailed);
     try {
       await launchNative({
         romId: rom.id,
-        downloadPath: getDownloadPath({ rom }),
+        downloadPath: getDownloadPath({ rom: detailed }),
         // What the endpoint will actually serve, which for a folder rom is
         // neither `fs_name` nor `fs_name` with an extension.
         fileName: getDownloadFileName(detailed),
@@ -243,13 +264,11 @@ export const useNativeStore = defineStore("native", () => {
     }
   }
 
-  /** Ask the shell to abort a launch, answering whether it took the request.
-   *  A refusal changes nothing: the launch is still whatever it was, so the
-   *  mark comes back off and the failure that follows is the real one. */
+  /** Ask the shell to abort a launch, answering whether the request reached it.
+   *  Delivery is not acceptance: the shell returns silently when the emulator
+   *  has already started, so the mark this leaves only claims a cancellation
+   *  once an aborted transfer actually arrives (see `consumeCancelled`). */
   async function cancel(romId: number): Promise<boolean> {
-    // Marked only once the shell has taken the cancel. Marking on the way in
-    // would suppress a failure that arrived while this was in flight and had
-    // nothing to do with the cancel, which is the one the user needs to see.
     if (!(await cancelNative(romId))) return false;
     cancelled.value.add(romId);
     starting.value.delete(romId);

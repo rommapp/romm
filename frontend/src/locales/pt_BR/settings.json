@@ -258,6 +258,7 @@
   "no-tasks-in-history": "Nenhuma tarefa no histórico",
   "no-tokens-help": "Nenhum token — crie um para começar a parear dispositivos.",
   "open-shell-settings": "Abrir as configurações do aplicativo",
+  "open-shell-settings-failed": "Não foi possível abrir as configurações do aplicativo de desktop",
   "order-platforms-by": "Ordenar plataformas por",
   "override-grant": "Concedido",
   "override-grant-own": "Concedido (apenas itens próprios)",

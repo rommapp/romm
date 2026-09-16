@@ -258,6 +258,7 @@
   "no-tasks-in-history": "Nessuna attività nella cronologia",
   "no-tokens-help": "Nessun token — creane uno per iniziare ad associare dispositivi.",
   "open-shell-settings": "Apri le impostazioni dell'applicazione",
+  "open-shell-settings-failed": "Non è stato possibile aprire le impostazioni dell'app desktop",
   "order-platforms-by": "Ordina piattaforme per",
   "override-grant": "Granted",
   "override-grant-own": "Granted (own items only)",

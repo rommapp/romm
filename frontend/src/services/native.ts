@@ -63,19 +63,28 @@ export async function fetchPlatformSupport(
       return answers;
     }
     if (typeof native.getPlatformSupport !== "function") return {};
-    const answers = await Promise.all(
-      queries.map(async (query) => {
-        try {
-          return [query.platformSlug, await native.getPlatformSupport(query)];
-        } catch {
-          // One unanswerable platform should not lose the rest of the library.
-          return null;
-        }
-      }),
-    );
-    return Object.fromEntries(
-      answers.filter((entry): entry is [string, PlatformSupport] => !!entry),
-    );
+    // One call per platform on a shell without the bulk method. Asked in the
+    // same batches, so a library of folder-named platforms cannot open a
+    // renderer-to-main call per platform at once, which is the storm the bulk
+    // method exists to avoid.
+    const answers: Record<string, PlatformSupport> = {};
+    for (let at = 0; at < queries.length; at += MAX_PLATFORM_QUERIES) {
+      const batch = queries.slice(at, at + MAX_PLATFORM_QUERIES);
+      const settled = await Promise.all(
+        batch.map(async (query) => {
+          try {
+            return [query.platformSlug, await native.getPlatformSupport(query)];
+          } catch {
+            // One unanswerable platform should not lose the rest of the library.
+            return null;
+          }
+        }),
+      );
+      for (const entry of settled) {
+        if (entry) answers[entry[0] as string] = entry[1] as PlatformSupport;
+      }
+    }
+    return answers;
   } catch (error) {
     console.error("[native] Could not probe platform support:", error);
     return {};
@@ -97,9 +106,11 @@ export function launchNative(request: LaunchRequest): Promise<LaunchResult> {
  * Abort a launch that is still downloading. A running emulator is left alone
  * by the shell, so this is only meaningful before the game starts.
  *
- * Answers whether the shell took the cancel. A refusal leaves the launch
- * running, so a caller that reported it as cancelled anyway would be claiming
- * something untrue and would swallow the failure that follows.
+ * Answers whether the request reached the shell, which is all a `Promise<void>`
+ * can tell us: the shell's `cancel` returns silently both when it knows no such
+ * launch and when the emulator has already started. What actually happened is
+ * read off the launch state, where an aborted transfer arrives as a failure the
+ * caller matches against the cancel it asked for.
  */
 export async function cancelNative(romId: number): Promise<boolean> {
   const native = bridge();
@@ -146,12 +157,17 @@ export function canOpenNativeSettings(): boolean {
   return hasMethod("openSettings");
 }
 
-export async function openNativeSettings(): Promise<void> {
+/** Ask the shell to show its own settings, answering whether it did. A missing
+ *  or unwritable configuration fails here, and a caller that ignored it would
+ *  leave the button looking like it does nothing. */
+export async function openNativeSettings(): Promise<boolean> {
   const native = bridge();
-  if (typeof native?.openSettings !== "function") return;
+  if (typeof native?.openSettings !== "function") return false;
   try {
     await native.openSettings();
+    return true;
   } catch (error) {
     console.error("[native] Could not open the shell settings:", error);
+    return false;
   }
 }

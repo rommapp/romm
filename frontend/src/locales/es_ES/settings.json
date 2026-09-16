@@ -258,6 +258,7 @@
   "no-tasks-in-history": "No hay tareas en el historial",
   "no-tokens-help": "Crea tu primer token API para emparejar dispositivos.",
   "open-shell-settings": "Abrir la configuración de la aplicación",
+  "open-shell-settings-failed": "No se pudo abrir la configuración de la aplicación de escritorio",
   "order-platforms-by": "Ordenar plataformas por",
   "override-grant": "Granted",
   "override-grant-own": "Granted (own items only)",

@@ -258,6 +258,7 @@
   "no-tasks-in-history": "歷史記錄中無任務",
   "no-tokens-help": "沒有權杖 — 建立一個以開始配對裝置。",
   "open-shell-settings": "開啟用戶端設定",
+  "open-shell-settings-failed": "無法開啟桌面應用程式的設定",
   "order-platforms-by": "平台排序依據",
   "override-grant": "Granted",
   "override-grant-own": "Granted (own items only)",

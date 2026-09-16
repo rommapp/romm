@@ -58,7 +58,12 @@ const soleFile = {
 };
 
 vi.mock("@/utils", () => ({
-  getDownloadPath: () => "/api/roms/1/content/game.sfc",
+  // Keyed off the rom handed in, like getSoleRomFile: the served name differs
+  // for a nested rom, so a test can tell which rom the store used.
+  getDownloadPath: ({ rom }: { rom: { files?: unknown[] } }) =>
+    (rom.files ?? []).length > 0
+      ? "/api/roms/1/content/inner.sfc"
+      : "/api/roms/1/content/folder",
   getDownloadFileName: () => "served-name.sfc",
   // Keyed off the rom handed in, so a test can tell whether the store used the
   // rom it was given or the one it fetched file entries for.
@@ -214,7 +219,7 @@ describe("useNativeStore.launch", () => {
 
     expect(launchNative).toHaveBeenCalledWith({
       romId: 1,
-      downloadPath: "/api/roms/1/content/game.sfc",
+      downloadPath: "/api/roms/1/content/inner.sfc",
       fileName: "served-name.sfc",
       platformSlug: "snes",
       cores: ["snes9x"],
@@ -232,6 +237,46 @@ describe("useNativeStore.launch", () => {
     await store.launch(makeRom({ fs_name: "Art Of Fighting" }));
 
     expect(launchNative.mock.calls[0]?.[0].fileName).toBe("served-name.sfc");
+  });
+
+  // Both the path and the name come from the fetched entries: a gallery card's
+  // rom carries none, and the two would then disagree about what is served.
+  it("builds the download path from the rom it fetched the files for", async () => {
+    const store = useNativeStore();
+
+    await store.launch(makeRom({ files: [] }));
+
+    expect(launchNative.mock.calls[0]?.[0].downloadPath).toBe(
+      "/api/roms/1/content/inner.sfc",
+    );
+  });
+
+  // `fs_name` is the served name for an ordinary rom but names the folder of a
+  // nested one, so a guess there caches the file under a name nothing opens.
+  it("refuses a nested rom whose files it could not read", async () => {
+    getRom.mockRejectedValueOnce(new Error("offline"));
+    const store = useNativeStore();
+
+    const refusal = await store.launch(
+      makeRom({
+        files: [],
+        has_nested_single_file: true,
+      } as Partial<SimpleRom>),
+    );
+
+    expect(refusal).toBeTruthy();
+    expect(launchNative).not.toHaveBeenCalled();
+    expect(store.isLaunching(1)).toBe(false);
+  });
+
+  it("launches an ordinary rom whose files it could not read", async () => {
+    getRom.mockRejectedValueOnce(new Error("offline"));
+    const store = useNativeStore();
+
+    const refusal = await store.launch(makeRom({ files: [] }));
+
+    expect(refusal).toBeNull();
+    expect(launchNative).toHaveBeenCalledTimes(1);
   });
 
   // A rom served as an archive built per request has no single path on disk, so
@@ -369,6 +414,36 @@ describe("useNativeStore launch state", () => {
     expect(store.consumeCancelled(1)).toBe(true);
     // Answered once, so a later genuine failure still reports.
     expect(store.consumeCancelled(1)).toBe(false);
+  });
+
+  // Delivery is not acceptance: the shell returns silently when the emulator
+  // has already started, so a launch that went on running must still report.
+  it("reports a failure that is not the cancelled transfer", async () => {
+    const store = useNativeStore();
+    store.install();
+    emit?.({ romId: 1, status: "downloading", stage: "rom" });
+
+    await store.cancel(1);
+    emit?.({
+      romId: 1,
+      status: "failed",
+      error: { code: "emulator-not-found", message: "gone" },
+    });
+
+    expect(store.consumeCancelled(1)).toBe(false);
+    expect(store.launchStateFor(1)?.error?.code).toBe("emulator-not-found");
+  });
+
+  it("drops the cancel when the game started anyway", async () => {
+    const store = useNativeStore();
+    store.install();
+    emit?.({ romId: 1, status: "downloading", stage: "rom" });
+
+    await store.cancel(1);
+    emit?.({ romId: 1, status: "running" });
+
+    expect(store.consumeCancelled(1)).toBe(false);
+    expect(store.launchStateFor(1)?.status).toBe("running");
   });
 
   it("does not swallow a failure for a launch nobody cancelled", () => {

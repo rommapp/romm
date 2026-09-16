@@ -43,9 +43,15 @@ export function installNativeLaunchFeedback(): void {
       return;
     }
 
-    // A cancel reaches the frontend as a failed download, so the launch the
-    // user stopped would otherwise be reported to them as broken.
-    if (nativeStore.consumeCancelled(state.romId)) return;
+    // A cancel the shell took reaches the frontend as an aborted download, and
+    // the store leaves the mark on only for that one failure. So this is the
+    // cancellation landing, and the only place it can honestly be reported.
+    if (nativeStore.consumeCancelled(state.romId)) {
+      snackbar.info(t("play.native-canceled"), {
+        icon: "mdi-close-circle-outline",
+      });
+      return;
+    }
 
     if (state.error?.message) {
       console.error("[native] Launch failed:", state.error.message);

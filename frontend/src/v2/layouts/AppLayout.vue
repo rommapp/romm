@@ -90,12 +90,14 @@ installNativeLaunchFeedback();
 // has one in flight. Re-probing is cheap: the store skips slugs it has
 // answered.
 watch(
-  // Joined only to compare cheaply: a slug comes from a folder name and may
-  // contain a comma, so the probe reads the list rather than a split of this.
-  () => platformsStore.allPlatforms.map((p) => p.slug).join(","),
-  (joined) => {
-    if (!joined) return;
-    void nativeStore.probe(platformsStore.allPlatforms.map((p) => p.slug));
+  // Serialized rather than joined: a slug comes from a folder name and may
+  // contain a comma, so ["a,b"] and ["a", "b"] would compare equal and a list
+  // that changed between them would never be probed.
+  () => JSON.stringify(platformsStore.allPlatforms.map((p) => p.slug)),
+  () => {
+    const slugs = platformsStore.allPlatforms.map((p) => p.slug);
+    if (slugs.length === 0) return;
+    void nativeStore.probe(slugs);
   },
   { immediate: true },
 );

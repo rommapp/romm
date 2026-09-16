@@ -258,6 +258,7 @@
   "no-tasks-in-history": "Нет задач в истории",
   "no-tokens-help": "Нет токенов — создайте один, чтобы начать привязывать устройства.",
   "open-shell-settings": "Открыть настройки приложения",
+  "open-shell-settings-failed": "Не удалось открыть настройки настольного приложения",
   "order-platforms-by": "Сортировать платформы по",
   "override-grant": "Granted",
   "override-grant-own": "Granted (own items only)",

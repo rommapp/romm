@@ -178,6 +178,19 @@ function playLabels(wrapper: VueWrapper): string[] {
   return wrapper.findAll(".r-v2-ejs__play").map((btn) => btn.text());
 }
 
+function playDisabled(wrapper: VueWrapper): unknown[] {
+  return wrapper
+    .findAllComponents(RBtn)
+    .filter((btn) => btn.classes().includes("r-v2-ejs__play"))
+    .map((btn) => btn.props("disabled"));
+}
+
+function cancelBtn(wrapper: VueWrapper) {
+  return wrapper
+    .findAllComponents(RBtn)
+    .find((btn) => btn.classes().includes("r-v2-ejs__native-cancel"));
+}
+
 function playIcons(wrapper: VueWrapper): unknown[] {
   return wrapper
     .findAllComponents(RBtn)
@@ -313,13 +326,37 @@ describe("EmulatorJS launch screen — a launch in flight", () => {
     );
   });
 
-  it("asks the shell to abort when the cancel is pressed", async () => {
+  // Booting a core here would run a second session for the same game while the
+  // shell is still fetching it.
+  it("closes the in-browser route while the shell is working", async () => {
+    expect(playDisabled(await launchScreen())).toEqual([true, true]);
+  });
+
+  // The control stays on screen while the shell answers, so a second press
+  // would ask twice and report twice.
+  it("asks once however often the cancel is pressed", async () => {
+    let release: () => void = () => {};
+    mocks.cancel.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          release = () => resolve(true);
+        }),
+    );
     const wrapper = await launchScreen();
-    const cancel = wrapper
-      .findAll("r-btn-stub")
-      .find((btn) => btn.text() === "play.native-cancel");
+    const cancel = cancelBtn(wrapper);
 
     await cancel?.trigger("click");
+    await cancel?.trigger("click");
+    release();
+    await flushPromises();
+
+    expect(mocks.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks the shell to abort when the cancel is pressed", async () => {
+    const wrapper = await launchScreen();
+
+    await cancelBtn(wrapper)?.trigger("click");
 
     expect(mocks.cancel).toHaveBeenCalledWith(7);
   });

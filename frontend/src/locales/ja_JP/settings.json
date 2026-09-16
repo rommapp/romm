@@ -258,6 +258,7 @@
   "no-tasks-in-history": "履歴にタスクがありません",
   "no-tokens-help": "トークンがありません — 作成してデバイスのペアリングを開始してください。",
   "open-shell-settings": "アプリの設定を開く",
+  "open-shell-settings-failed": "デスクトップアプリの設定を開けませんでした",
   "order-platforms-by": "プラットフォームの並び順",
   "override-grant": "Granted",
   "override-grant-own": "Granted (own items only)",

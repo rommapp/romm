@@ -290,16 +290,23 @@ async function onPlayNative() {
   });
 }
 
-// Only a cancel the shell took is a cancellation. A refused one leaves the
-// game still coming, and the launch's own state reports how it ends.
+// Held from the click until the request settles: the control stays on screen
+// while the shell answers, and a second press would ask twice and report twice.
+const cancelling = ref(false);
+
+// Whether the launch actually stopped is the shell's to say, and it says it by
+// aborting the transfer (see `installNativeLaunchFeedback`). Only a request
+// that never reached it is reported from here.
 async function onCancelNative() {
-  if (await nativeStore.cancel(romId)) {
-    snackbar.info(t("play.native-canceled"), {
-      icon: "mdi-close-circle-outline",
-    });
-    return;
+  if (cancelling.value) return;
+  cancelling.value = true;
+  try {
+    if (!(await nativeStore.cancel(romId))) {
+      snackbar.error(t("play.native-cancel-failed"));
+    }
+  } finally {
+    cancelling.value = false;
   }
-  snackbar.error(t("play.native-cancel-failed"));
 }
 
 async function onPlay() {
@@ -652,7 +659,9 @@ const saveSlot = computed(() =>
           size="small"
           color="error"
           block
+          class="r-v2-ejs__native-cancel"
           prepend-icon="mdi-close-circle-outline"
+          :disabled="cancelling"
           @click="onCancelNative"
         >
           {{ t("play.native-cancel") }}
@@ -667,7 +676,7 @@ const saveSlot = computed(() =>
           class="r-v2-ejs__play"
           :class="{ 'r-v2-ejs__play--secondary': canPlayNative }"
           :loading="!rom"
-          :disabled="!rom"
+          :disabled="!rom || nativeLaunching"
           @click="onPlay"
         >
           {{ canPlayNative ? t("play.play-in-browser") : t("play.play") }}
@@ -1050,6 +1059,10 @@ const saveSlot = computed(() =>
 /* The in-browser route below a native launch, which holds the brand glow. */
 .r-v2-ejs__play--secondary {
   box-shadow: none;
+}
+/* Secondary in weight, not in reach: `small` is 32px and touch wants 44px. */
+.r-v2-ejs__native-cancel {
+  min-height: var(--r-touch-target);
 }
 /* A user-configured emulator can be named anything, so the label is clipped
    rather than allowed to run out of the button. */

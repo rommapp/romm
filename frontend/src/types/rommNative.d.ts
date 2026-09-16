@@ -53,6 +53,12 @@ export interface LaunchState {
   /** The firmware file being fetched, while stage is "firmware". Its own field
    *  rather than borrowing `core`, so neither has to be read as the other. */
   firmware?: string;
+  /** The file being fetched out of a multi-disc set, and its place in that set,
+   *  so a transfer per disc is not read as one restarting at 0%. Not every file
+   *  is a disc of its own: a sheet's tracks are fetched with it. */
+  file?: string;
+  fileIndex?: number;
+  fileCount?: number;
   /** The emulator being set up, while stage is "emulator". */
   emulator?: string;
   /** 0..1 while downloading, absent otherwise. */
@@ -103,7 +109,8 @@ export type ShellCapability =
   | "launch-stage"
   | "library-passthrough"
   | "platform-support-all"
-  | "firmware-mirror";
+  | "firmware-mirror"
+  | "multi-disc";
 
 export interface RommNativeBridge {
   readonly shellVersion: string;
