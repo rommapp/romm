@@ -8,9 +8,9 @@
 // the gallery's selected-platforms (so this tab starts from a known
 // state), then bootstrap metadata. The sortable column header and the
 // platform multi-select feed the same store inputs the real galleries
-// use; cleanup-all is the only missing-games-specific control, and the
-// gallery's SelectionBar carries the bulk actions for a hand-picked set.
-// On
+// use; delete-all is the only missing-games-specific control, and the
+// gallery's SelectionBar carries the bulk actions for a hand-picked set
+// (minus download, since these rows point at files that are gone). On
 // unmount we restore the caller's filter so the next gallery view they
 // land on doesn't inherit `filterMissing=true`.
 //
@@ -224,7 +224,7 @@ async function cleanupAll() {
   const ok = await confirm({
     title: t("common.confirm-deletion"),
     body: t("settings.cleanup-all-confirm", { platform: platformLabel }),
-    confirmText: t("settings.cleanup-all"),
+    confirmText: t("settings.missing-games-delete-all"),
     tone: "danger",
     requireTyped: "DELETE",
   });
@@ -340,7 +340,7 @@ onBeforeUnmount(() => {
             />
           </template>
           <RMenuItem
-            :label="t('settings.cleanup-all')"
+            :label="t('settings.missing-games-delete-all')"
             icon="mdi-delete-outline"
             variant="danger"
             :disabled="cleaningUp || showEmpty"
@@ -381,7 +381,7 @@ onBeforeUnmount(() => {
       </RVirtualScroller>
     </div>
 
-    <SelectionBar />
+    <SelectionBar hide-download />
   </div>
 </template>
 

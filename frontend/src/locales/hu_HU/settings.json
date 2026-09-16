@@ -246,6 +246,7 @@
   "missing-firmware-tab": "Hiányzó firmware",
   "missing-games-actions": "Hiányzó játékok műveletei",
   "missing-games-count": "{count} missing game | {count} missing games",
+  "missing-games-delete-all": "Delete all missing games",
   "missing-games-none": "Nem találhatók hiányzó ROM-ok",
   "missing-games-tab": "Hiányzó játékok",
   "missing-platform-from-fs": "Hiányzó platform a fájlrendszerből",
