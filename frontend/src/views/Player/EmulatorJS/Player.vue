@@ -36,6 +36,8 @@ import {
   createSaveQuitButton,
   createExitEmulationButton,
   createSaveSyncTracker,
+  bytesEqual,
+  pollSaveFiles,
   saveSaveOnUnload,
   toArrayBuffer,
 } from "./utils";
@@ -79,6 +81,8 @@ function baselineSaveTrackerFromEmulator() {
 let saveWrite: Promise<unknown> = Promise.resolve();
 let saveGeneration = 0;
 let saveLoading = false;
+// The bytes of the write on the wire, for the unload path to leave alone.
+let inFlightSave: Uint8Array | null = null;
 function writeSave(
   file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer },
   generation = saveGeneration,
@@ -86,18 +90,24 @@ function writeSave(
   if (saveLoading) return Promise.resolve(null);
   const write = saveWrite.then(async () => {
     if (generation !== saveGeneration) return null;
-    const save = await saveSave({
-      rom: romRef.value,
-      save: sessionSaveRef.value,
-      deviceId: deviceIDRef.value,
-      slot: loadedSave?.slot || props.saveSlot || undefined,
-      ...file,
-    });
-    if (save && generation === saveGeneration) {
-      sessionSaveRef.value = save;
-      saveTracker.markUploaded(new Uint8Array(file.saveFile));
+    const bytes = new Uint8Array(file.saveFile);
+    inFlightSave = bytes;
+    try {
+      const save = await saveSave({
+        rom: romRef.value,
+        save: sessionSaveRef.value,
+        deviceId: deviceIDRef.value,
+        slot: loadedSave?.slot || props.saveSlot || undefined,
+        ...file,
+      });
+      if (save && generation === saveGeneration) {
+        sessionSaveRef.value = save;
+        saveTracker.markUploaded(bytes);
+      }
+      return save;
+    } finally {
+      inFlightSave = null;
     }
-    return save;
   });
   saveWrite = write.catch(() => null);
   return write;
@@ -299,6 +309,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(async () => {
+  disposed = true;
   window.removeEventListener("beforeunload", onBeforeUnload);
   window.removeEventListener("pagehide", onPageHide);
   uninstallAutoSaveSync();
@@ -351,21 +362,17 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 // frames rendered before loadState takes cleanly.
 const STATE_APPLY_SETTLE_MS = 500;
 
-// Periodic save upload on the "saveSaveFiles" tick (see createSaveSyncTracker).
-// The core exposes no write hook for its SRAM and EmulatorJS flushes it only on
-// its "System Save interval" (5 minutes by default), so polling it every second
-// is what gets an in-game save to the server right after the game writes it.
-const SAVE_SYNC_POLL_MS = 1000;
-// Each tick copies and compares the whole SRAM, so the interval grows with it
-// past 1 MB (1 ms of work per second either way) rather than hitching big saves.
-const SAVE_SYNC_BYTES_PER_MS = 1024;
-// EmulatorJS has no `off`: the handler stays subscribed and this slot is what
-// tells it the component still owns it.
+// Periodic save upload on the "saveSaveFiles" tick that pollSaveFiles fires
+// (see createSaveSyncTracker). EmulatorJS has no `off`: the handler stays
+// subscribed and this slot is what tells it the component still owns it.
 let autoSaveSyncEmulator: object | null = null;
-let autoSaveSyncTimer: ReturnType<typeof setInterval> | null = null;
+let stopSavePolling: (() => void) | null = null;
+// The boot path awaits before installing, so it may land after unmount.
+let disposed = false;
 function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
-  if (!emulator?.gameManager || autoSaveSyncEmulator === emulator) return;
+  if (disposed || !emulator?.gameManager) return;
+  if (autoSaveSyncEmulator === emulator) return;
   autoSaveSyncEmulator = emulator;
   let uploading = false;
   emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
@@ -389,18 +396,12 @@ function installAutoSaveSync() {
       uploading = false;
     }
   });
-  const sramBytes = emulator.gameManager.getSaveFile(false)?.byteLength ?? 0;
-  autoSaveSyncTimer = setInterval(
-    () => {
-      if (emulator.started) emulator.gameManager.saveSaveFiles();
-    },
-    Math.max(SAVE_SYNC_POLL_MS, sramBytes / SAVE_SYNC_BYTES_PER_MS),
-  );
+  stopSavePolling = pollSaveFiles(emulator);
 }
 function uninstallAutoSaveSync() {
   autoSaveSyncEmulator = null;
-  if (autoSaveSyncTimer) clearInterval(autoSaveSyncTimer);
-  autoSaveSyncTimer = null;
+  stopSavePolling?.();
+  stopSavePolling = null;
 }
 // A save written right before Quit or a back navigation has not had its two
 // ticks yet, so leaving the player uploads whatever the server lacks.
@@ -427,6 +428,8 @@ onBeforeRouteLeave(flushPendingSave);
 // that prompt is the only way to keep it.
 let unloadSave: Uint8Array | null = null;
 function onBeforeUnload(event: BeforeUnloadEvent) {
+  // A close cancelled earlier leaves the bytes it captured behind.
+  unloadSave = null;
   const emulator = window.EJS_emulator;
   if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
   if (saveLoading) return;
@@ -436,10 +439,15 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
   // EmulatorJS tears the core down on this event, and a cancelled close has
   // to keep the game running.
   event.stopImmediatePropagation();
+  // preventDefault covers the current spec, returnValue the older browsers.
   event.preventDefault();
+  event.returnValue = "";
 }
 function onPageHide() {
   if (!unloadSave || !saveTracker.hasChanges(unloadSave)) return;
+  // These bytes are already on the wire: a second POST would only open a
+  // duplicate version.
+  if (inFlightSave && bytesEqual(inFlightSave, unloadSave)) return;
   saveSaveOnUnload({
     rom: romRef.value,
     save: sessionSaveRef.value,
@@ -661,8 +669,8 @@ window.EJS_onGameStart = async () => {
 
   const exitEmulation = createExitEmulationButton();
   exitEmulation.addEventListener("click", async () => {
-    uninstallAutoSaveSync();
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
+    await flushPendingSave();
     romsStore.update(romRef.value);
     immediateExit();
   });

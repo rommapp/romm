@@ -7,6 +7,7 @@ import {
   captureStateScreenshot,
   createSaveSyncTracker,
   installEJSDefaultOptionsTrap,
+  pollSaveFiles,
   resolveStateScreenshot,
   saveSave,
   saveSaveOnUnload,
@@ -254,6 +255,47 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
     expect(tracker.shouldUpload(bytes(1, 2, 3, 0))).toBe(false);
+  });
+});
+
+describe("pollSaveFiles", () => {
+  const emulatorWith = (sramBytes: number) => ({
+    started: true,
+    gameManager: {
+      saveSaveFiles: vi.fn(),
+      getSaveFile: () => new Uint8Array(sramBytes),
+    },
+  });
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("flushes every second while the game runs and stops on demand", () => {
+    const emulator = emulatorWith(128 * 1024);
+    const stop = pollSaveFiles(emulator);
+
+    vi.advanceTimersByTime(2000);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledTimes(2);
+
+    emulator.started = false;
+    vi.advanceTimersByTime(1000);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledTimes(2);
+
+    emulator.started = true;
+    stop();
+    vi.advanceTimersByTime(5000);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledTimes(2);
+  });
+
+  it("slows down for a save too big to copy every second", () => {
+    const emulator = emulatorWith(4 * 1024 * 1024);
+    const stop = pollSaveFiles(emulator);
+
+    vi.advanceTimersByTime(4095);
+    expect(emulator.gameManager.saveSaveFiles).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledOnce();
+    stop();
   });
 });
 

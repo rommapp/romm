@@ -269,11 +269,48 @@ export function createSaveSyncTracker() {
 
 // EmulatorJS reads each tick off the FS into a fresh buffer, so the tracker can
 // hold on to one rather than fingerprint it.
-function bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
+export function bytesEqual(
+  a: Uint8Array | null,
+  b: Uint8Array | null,
+): boolean {
   if (!a || !b) return a === b;
   if (a.byteLength !== b.byteLength) return false;
   for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+// The core exposes no write hook for its SRAM and EmulatorJS flushes it only on
+// its "System Save interval" (5 minutes by default), so polling it every second
+// is what gets an in-game save to the server right after the game writes it.
+export const SAVE_SYNC_POLL_MS = 1000;
+// Each tick copies and compares the whole SRAM, so the interval grows with it
+// past 1 MB (1 ms of work per second either way) rather than hitching big saves.
+const SAVE_SYNC_BYTES_PER_MS = 1024;
+
+interface PollableEmulator {
+  started: boolean;
+  gameManager: {
+    saveSaveFiles(): void;
+    getSaveFile(save: boolean): Uint8Array | null;
+  };
+}
+
+/**
+ * Flushes the SRAM on a timer while the game runs, firing EmulatorJS'
+ * "saveSaveFiles" tick.
+ *
+ * Returns:
+ *   A function that stops the timer.
+ */
+export function pollSaveFiles(emulator: PollableEmulator): () => void {
+  const sramBytes = emulator.gameManager.getSaveFile(false)?.byteLength ?? 0;
+  const timer = setInterval(
+    () => {
+      if (emulator.started) emulator.gameManager.saveSaveFiles();
+    },
+    Math.max(SAVE_SYNC_POLL_MS, sramBytes / SAVE_SYNC_BYTES_PER_MS),
+  );
+  return () => clearInterval(timer);
 }
 
 // saveSave needs an ArrayBuffer, and a Uint8Array's own buffer may be shared or
