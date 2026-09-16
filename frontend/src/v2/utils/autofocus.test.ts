@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldAutofocusSearch } from "./autofocus";
+import { shouldAutofocusSearch, shouldClaimFocusOnModality } from "./autofocus";
 
 function fakeWindow(matches: boolean): Window {
   return {
@@ -20,5 +20,24 @@ describe("shouldAutofocusSearch", () => {
   it("defaults to autofocus when matchMedia is unavailable (SSR / old env)", () => {
     expect(shouldAutofocusSearch(undefined)).toBe(true);
     expect(shouldAutofocusSearch({} as unknown as Window)).toBe(true);
+  });
+});
+
+describe("shouldClaimFocusOnModality", () => {
+  const body = document.body;
+  const button = document.createElement("button");
+
+  it("claims an unfocused page for a pad or a keyboard", () => {
+    expect(shouldClaimFocusOnModality("pad", body, body)).toBe(true);
+    expect(shouldClaimFocusOnModality("key", null, body)).toBe(true);
+  });
+
+  it("leaves a focused element alone", () => {
+    expect(shouldClaimFocusOnModality("pad", button, body)).toBe(false);
+  });
+
+  it("ignores devices that do not navigate by focus", () => {
+    expect(shouldClaimFocusOnModality("mouse", body, body)).toBe(false);
+    expect(shouldClaimFocusOnModality("touch", body, body)).toBe(false);
   });
 });

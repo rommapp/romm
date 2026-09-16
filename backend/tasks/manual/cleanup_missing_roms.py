@@ -1,6 +1,7 @@
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import asdict, dataclass
+from typing import Any, cast
 
+from endpoints.responses import MissingRomsCleanupStats
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
@@ -24,13 +25,8 @@ class CleanupMissingRomsStats:
 
         update_job_meta({"cleanup_stats": self.to_dict()})
 
-    def to_dict(self) -> dict:
-        return {
-            "platform_ids": self.platform_ids,
-            "roms_found": self.roms_found,
-            "roms_deleted": self.roms_deleted,
-            "errors": self.errors,
-        }
+    def to_dict(self) -> MissingRomsCleanupStats:
+        return cast(MissingRomsCleanupStats, asdict(self))
 
 
 class CleanupMissingRomsTask(Task):
@@ -45,7 +41,9 @@ class CleanupMissingRomsTask(Task):
         )
 
     @initialize_context()
-    async def run(self, platform_ids: list[int] | None = None) -> dict:
+    async def run(
+        self, platform_ids: list[int] | None = None
+    ) -> MissingRomsCleanupStats:
         """Clean up ROMs that are flagged as missing from the filesystem."""
         log.info(f"Starting {self.title} task...")
 

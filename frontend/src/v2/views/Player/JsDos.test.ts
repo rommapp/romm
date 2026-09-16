@@ -174,6 +174,8 @@ function mountView(): VueWrapper {
     global: {
       stubs: {
         RBtn: {
+          name: "RBtn",
+          props: ["to"],
           emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },
@@ -261,15 +263,10 @@ describe("JsDos player exit", () => {
     const wrapper = mountView();
     await nextTick();
 
-    const buttons = wrapper.findAll("button");
-    await buttons[1]!.trigger("click");
-    await buttons[2]!.trigger("click");
+    const [, toRom, toPlatform] = wrapper.findAllComponents({ name: "RBtn" });
 
-    expect(mocks.push).toHaveBeenNthCalledWith(1, {
-      name: "rom",
-      params: { rom: 1 },
-    });
-    expect(mocks.push).toHaveBeenNthCalledWith(2, {
+    expect(toRom!.props("to")).toEqual({ name: "rom", params: { rom: 1 } });
+    expect(toPlatform!.props("to")).toEqual({
       name: "platform",
       params: { platform: 2 },
     });

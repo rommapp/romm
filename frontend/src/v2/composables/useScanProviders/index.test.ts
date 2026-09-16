@@ -126,12 +126,11 @@ describe("useScanProviders Playmatch gate", () => {
 });
 
 describe("useScanProviders scan payload", () => {
-  it("sends the expanded provider list and the playmatch flag", () => {
+  it("sends the expanded provider list and both hash matchers", () => {
     const { buildScanPayload } = useScanProviders();
     expect(buildScanPayload()).toEqual({
-      apis: ["igdb", "ss", "moby", "ra", "hasheous"],
+      apis: ["igdb", "ss", "moby", "ra", "hasheous", "playmatch"],
       launchbox_remote_enabled: true,
-      playmatch_enabled: true,
     });
   });
 
@@ -140,7 +139,7 @@ describe("useScanProviders scan payload", () => {
     const { buildScanPayload } = useScanProviders();
     const payload = buildScanPayload();
     expect(payload.apis).not.toContain("hasheous");
-    expect(payload.playmatch_enabled).toBe(false);
+    expect(payload.apis).not.toContain("playmatch");
   });
 
   it("persists the explicit picks, leaving All-mode groups empty", async () => {
