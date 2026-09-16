@@ -7,11 +7,16 @@ from pathlib import Path
 from uuid import uuid4
 
 from config import ROM_UPLOAD_ASSEMBLING_EXT
+from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.filesystem.resources_handler import ALLOWED_MANUAL_EXTENSIONS
+from handler.filesystem.roms_handler import category_for_path_parts
 from handler.rom_conversion import promote_single_file_to_folder
 from handler.rom_files import refresh_rom_files
 from logger.logger import log
-from models.rom import Rom, RomFileCategory
+from models.rom import DocSource, Rom, RomFile, RomFileCategory
+from utils.audio_tags import ALLOWED_AUDIO_EXTENSIONS
+from utils.media_types import ALLOWED_DOCUMENT_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS
 
 # The folder each media route uploads into. The scanner maps these names back to
 # the category, so a file landing here is registered the same way a scan would.
@@ -20,6 +25,16 @@ CATEGORY_UPLOAD_FOLDERS: dict[RomFileCategory, str] = {
     RomFileCategory.WALKTHROUGH: "walkthrough",
     RomFileCategory.SCREENSHOT: "screenshots",
     RomFileCategory.SOUNDTRACK: "soundtrack",
+}
+
+
+# What a folder the scanner maps to a media category may receive, so a file the
+# tab could never show is refused before it lands.
+CATEGORY_FILE_TYPES: dict[RomFileCategory, tuple[str, frozenset[str]]] = {
+    RomFileCategory.MANUAL: ("manual", ALLOWED_MANUAL_EXTENSIONS),
+    RomFileCategory.WALKTHROUGH: ("walkthrough", ALLOWED_DOCUMENT_EXTENSIONS),
+    RomFileCategory.SCREENSHOT: ("image", ALLOWED_IMAGE_EXTENSIONS),
+    RomFileCategory.SOUNDTRACK: ("audio", ALLOWED_AUDIO_EXTENSIONS),
 }
 
 
@@ -81,6 +96,18 @@ def parse_upload_folder(folder: str) -> str:
     return "/".join(segments)
 
 
+def assert_allowed_in_folder(folder: str, filename: str) -> None:
+    """Refuse a file the category the folder maps to cannot hold."""
+    category = category_for_path_parts(folder.lower().split("/"))
+    if category is None or category not in CATEGORY_FILE_TYPES:
+        return
+    label, extensions = CATEGORY_FILE_TYPES[category]
+    if os.path.splitext(filename)[1].lower() not in extensions:
+        raise UploadRejectedException(
+            f"Unsupported {label} file type. Allowed: {', '.join(sorted(extensions))}"
+        )
+
+
 def resolve_upload_destination(
     rom: Rom, folder: str, filename: str, *, overwrite: bool = False
 ) -> tuple[str, Path]:
@@ -88,11 +115,12 @@ def resolve_upload_destination(
     ROM, kept inside the folder a lone file gets promoted into.
 
     Raises:
-        UploadRejectedException: The destination is unusable or the scanner
-            would never register the file.
+        UploadRejectedException: The destination is unusable, the folder's
+            category cannot hold the file, or the scanner would never register it.
         UploadConflictException: A file of that name is already there (or will
             be, once promoted), unless `overwrite` allows replacing it.
     """
+    assert_allowed_in_folder(folder, filename)
     if fs_rom_handler.is_excluded_multi_part(filename):
         raise UploadRejectedException(
             f"File {filename} would be ignored by the scanner"
@@ -178,11 +206,13 @@ def _move_into_place(location: Path, staged: Path, *, overwrite: bool) -> None:
 
 async def commit_upload(
     destination: UploadDestination, staged: Path, *, overwrite: bool = False
-) -> None:
+) -> RomFile | None:
     """Move the staged bytes into place and register the file on its ROM.
 
     The staged file is removed whatever the outcome.
 
+    Returns:
+        The registered file row, or None for a platform folder upload.
     Raises:
         UploadConflictException: The name got taken while the bytes arrived.
         UploadNotRegisteredException: The file is in place but the ROM's rows
@@ -191,15 +221,29 @@ async def commit_upload(
     _move_into_place(destination.location, staged, overwrite=overwrite)
     log.info(f"Upload complete: {destination.location}")
 
-    if destination.rom is None:
-        return
+    rom = destination.rom
+    if rom is None:
+        return None
     try:
-        await refresh_rom_files(destination.rom)
+        await refresh_rom_files(rom)
     except Exception as exc:
-        log.error(
-            f"Error registering uploaded file for ROM {destination.rom.id}",
-            exc_info=exc,
-        )
+        log.error(f"Error registering uploaded file for ROM {rom.id}", exc_info=exc)
         raise UploadNotRegisteredException(
             "File uploaded but not registered yet, run a quick scan"
         ) from exc
+
+    rom_file = db_rom_handler.get_rom_file_by_path(
+        rom_id=rom.id,
+        file_path=destination.rel_dir,
+        file_name=destination.location.name,
+    )
+    # A scan records no provenance; an upload is one, whichever route took it.
+    if (
+        rom_file
+        and rom_file.category == RomFileCategory.WALKTHROUGH
+        and rom_file.doc_meta is None
+    ):
+        db_rom_handler.upsert_doc_meta(
+            rom_file_id=rom_file.id, rom_id=rom.id, values={"source": DocSource.UPLOAD}
+        )
+    return rom_file

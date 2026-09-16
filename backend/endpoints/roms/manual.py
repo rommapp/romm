@@ -215,15 +215,6 @@ async def add_rom_manual_file(
 
     assert_rom_visible(request, rom)
 
-    if not _is_allowed_manual_file(filename):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Unsupported manual file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_MANUAL_EXTENSIONS))}"
-            ),
-        )
-
     await receive_rom_file(
         request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.MANUAL], filename
     )

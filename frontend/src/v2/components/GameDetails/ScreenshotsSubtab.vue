@@ -2,9 +2,9 @@
 // ScreenshotsSubtab — the Media tab's Screenshots panel. Three sections:
 //
 //   * ROM        — shared library screenshots stored in the ROM's
-//                  `screenshots/` folder (RomFile, category SCREENSHOT). Only
-//                  folder-based multi-file ROMs can host them. Public to every
-//                  user who can see the ROM. Upload → `useRomFileUpload`.
+//                  `screenshots/` folder (RomFile, category SCREENSHOT). A
+//                  single-file ROM is promoted to a folder on upload. Public to
+//                  every user who can see the ROM. Upload → `useRomFileUpload`.
 //   * Mine       — per-user screenshots stored under the user's asset folder.
 //                  Private by default, with a per-item public/private toggle.
 //                  Any ROM. Upload → `screenshotApi.uploadGalleryScreenshots`.

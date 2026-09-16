@@ -35,7 +35,7 @@ from handler.rom_upload import (
     staging_path,
 )
 from logger.logger import log
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -149,9 +149,9 @@ async def _prepare_rom_destination(
 
 async def _commit(
     destination: UploadDestination, staged: Path, *, overwrite: bool
-) -> None:
+) -> RomFile | None:
     try:
-        await commit_upload(destination, staged, overwrite=overwrite)
+        return await commit_upload(destination, staged, overwrite=overwrite)
     except UploadConflictException as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
@@ -164,9 +164,13 @@ async def _commit(
 
 async def receive_rom_file(
     request: Request, rom: Rom, folder: str, filename: str
-) -> UploadDestination:
+) -> RomFile | None:
     """Stream a single-file multipart body into a subfolder of the ROM and
-    register it the way a chunked upload is, replacing a file of the same name."""
+    register it the way a chunked upload is, replacing a file of the same name.
+
+    Returns:
+        The registered file row, or None when the scanner did not list it.
+    """
     safe_filename = _sanitized_filename(filename)
     destination = await _prepare_rom_destination(
         rom, folder, safe_filename, overwrite=True
@@ -200,8 +204,7 @@ async def receive_rom_file(
             detail=f"The upload body has no file part named {safe_filename}",
         )
 
-    await _commit(destination, staged, overwrite=True)
-    return destination
+    return await _commit(destination, staged, overwrite=True)
 
 
 async def _resolve_destination(request: Request, session: dict) -> UploadDestination:
@@ -284,7 +287,7 @@ async def start_chunked_upload(
         )
 
     platform_fs_slug = db_platform.fs_slug
-    if target and target.filename:
+    if target and target.filename is not None:
         filename = target.filename
     safe_filename = _sanitized_filename(filename)
     rom_id = target.rom_id if target else None

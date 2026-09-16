@@ -25,17 +25,11 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import DocSource, RomFile, RomFileCategory
-from utils.media_types import ALLOWED_DOCUMENT_EXTENSIONS
 from utils.router import APIRouter
 
 router = APIRouter()
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
-
-
-def _is_allowed_walkthrough_file(file_name: str) -> bool:
-    _, ext = os.path.splitext(file_name)
-    return ext.lower() in ALLOWED_DOCUMENT_EXTENSIONS
 
 
 def _slugify(value: str, fallback: str = "walkthrough") -> str:
@@ -88,28 +82,14 @@ async def add_rom_walkthrough_file(
 
     assert_rom_visible(request, rom)
 
-    if not _is_allowed_walkthrough_file(filename):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Unsupported walkthrough file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_DOCUMENT_EXTENSIONS))}"
-            ),
-        )
-
-    destination = await receive_rom_file(
+    rom_file = await receive_rom_file(
         request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.WALKTHROUGH], filename
-    )
-
-    rom_file = db_rom_handler.get_rom_file_by_path(
-        rom_id=rom.id, file_path=destination.rel_dir, file_name=filename
     )
     if rom_file:
         db_rom_handler.upsert_doc_meta(
             rom_file_id=rom_file.id,
             rom_id=rom.id,
             values={
-                "source": DocSource.UPLOAD,
                 "author": _decode_header(author),
                 "title": _decode_header(title),
             },

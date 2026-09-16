@@ -18,11 +18,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
-from utils.audio_tags import (
-    ALLOWED_AUDIO_EXTENSIONS,
-    is_allowed_audio_file,
-    remove_persisted_cover,
-)
+from utils.audio_tags import remove_persisted_cover
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -88,15 +84,6 @@ async def add_rom_soundtracks(
         raise RomNotFoundInDatabaseException(id)
 
     assert_rom_visible(request, rom)
-
-    if not is_allowed_audio_file(filename):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Unsupported audio file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_AUDIO_EXTENSIONS))}"
-            ),
-        )
 
     await receive_rom_file(
         request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK], filename
