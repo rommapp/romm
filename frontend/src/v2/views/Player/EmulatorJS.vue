@@ -584,8 +584,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         </div>
       </RCard>
 
-      <!-- Resume: tabs, then the asset list beside the preview (stacked on
-           small screens, preview first). -->
+      <!-- Resume: tabs, then preview over the saves list, or the states grid
+           beside the preview on wide screens. -->
       <RCard class="r-v2-ejs__panel r-v2-ejs__resume" variant="flat">
         <div class="r-v2-ejs__panel-head">
           <RSliderBtnGroup
@@ -597,7 +597,10 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           />
         </div>
 
-        <div class="r-v2-ejs__resume-body">
+        <div
+          class="r-v2-ejs__resume-body"
+          :class="{ 'r-v2-ejs__resume-body--split': !isSavesTabSelected }"
+        >
           <div class="r-v2-ejs__resume-side">
             <RAlert
               v-if="newerSave"
@@ -609,7 +612,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                 })
               "
             >
-              <template #append>
+              <template #actions>
                 <RBtn
                   variant="text"
                   size="small"
@@ -969,15 +972,18 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 .r-v2-ejs__resume-main {
   flex: 1;
 }
-/* Wide enough, the list takes the panel's width and the preview, warning
-   and slot picker sit in a fixed side column so the list never shrinks. */
-html[data-bp~="md-and-up"] .r-v2-ejs__resume-body {
+/* States on a wide screen: the tile grid takes the panel's width and the
+   preview, warning and slot picker sit in a fixed side column so the grid
+   never shrinks. Saves keep the stacked column, their rows are wide. */
+html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   grid-template-rows: minmax(0, 1fr);
   align-items: start;
 }
-html[data-bp~="md-and-up"] .r-v2-ejs__resume-main {
+html[data-bp~="md-and-up"]
+  .r-v2-ejs__resume-body--split
+  .r-v2-ejs__resume-main {
   order: -1;
   height: 100%;
 }
