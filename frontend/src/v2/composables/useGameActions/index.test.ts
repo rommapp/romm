@@ -380,6 +380,8 @@ describe("useGameActions.play — launch confirmation", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  // The same page, so the same kind of navigation: an SPA push here would
+  // morph the cover into a page that an in-browser core hard-loads.
   it("opens the play page for a platform only the desktop shell can run", async () => {
     canPlayEJS.value = false;
     canPlayNative.value = true;
@@ -387,8 +389,8 @@ describe("useGameActions.play — launch confirmation", () => {
 
     await actions.play();
 
-    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
-    expect(locationAssign).not.toHaveBeenCalled();
+    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("keeps the isolated load when a core can run it natively too", async () => {

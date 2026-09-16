@@ -352,10 +352,15 @@ export function useGameActions(
     if (streaming && canPlayStream.value) path = `/rom/${rom.id}/stream`;
     else if (inBrowser && canPlayPico8.value) path = `/rom/${rom.id}/pico8`;
     else if (inBrowser && canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
-    // Last, because the play page offers the native launch beside whichever
-    // in-browser core the branches above would have picked. Reached only when
-    // none of them can run the platform, which is why it needs no isolation.
-    else if (inBrowser && canPlayNative.value) path = `/rom/${rom.id}/ejs`;
+    else if (inBrowser && canPlayNative.value) {
+      // Last, because the play page offers the native launch beside whichever
+      // in-browser core the branches above would have picked. Loaded the same
+      // way as the isolated route above, even though nothing here needs
+      // isolation: the one page must not arrive two different ways, one
+      // morphing the cover and one not.
+      window.location.assign(`/rom/${rom.id}/ejs`);
+      return;
+    }
     if (!path) return;
     const target = path;
     // When the caller supplies a cover element (the gallery card / detail
