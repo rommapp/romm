@@ -100,6 +100,20 @@ export async function saveState({
   return null;
 }
 
+// Session saves are named after the ROM; a version updated in place keeps
+// its name.
+function sessionSaveFile(
+  rom: DetailedRom,
+  save: SaveSchema | null,
+  bytes: ArrayBuffer,
+): File {
+  return new File(
+    [bytes],
+    save ? save.file_name : `${rom.fs_name_no_ext.trim()}.srm`,
+    { type: "application/octet-stream" },
+  );
+}
+
 // `save` is the version this session already created: it is updated in place,
 // while a null `save` opens a new version in `slot`.
 export async function saveSave({
@@ -121,9 +135,7 @@ export async function saveSave({
     try {
       const { data: updatedSave } = await saveApi.updateSave({
         save: save,
-        saveFile: new File([saveFile], save.file_name, {
-          type: "application/octet-stream",
-        }),
+        saveFile: sessionSaveFile(rom, save, saveFile),
         // A version opened by the periodic sync has no screenshot yet; name a
         // new one after the save so the backend links it by stem.
         screenshotFile: screenshotFile
@@ -163,9 +175,7 @@ export async function saveSave({
       overwrite: true,
       savesToUpload: [
         {
-          saveFile: new File([saveFile], `${filename}.srm`, {
-            type: "application/octet-stream",
-          }),
+          saveFile: sessionSaveFile(rom, null, saveFile),
           screenshotFile: screenshotFile
             ? new File([screenshotFile], `${filename}.png`, {
                 type: "application/octet-stream",
@@ -185,6 +195,32 @@ export async function saveSave({
   }
 
   return null;
+}
+
+// The unload counterpart of saveSave: nothing awaits it, so the rom's list is
+// left alone. False when the save is too big for a keepalive body.
+export function saveSaveOnUnload({
+  rom,
+  save,
+  saveFile,
+  deviceId,
+  slot = AUTOSAVE_SLOT,
+}: {
+  rom: DetailedRom;
+  save: SaveSchema | null;
+  saveFile: ArrayBuffer;
+  deviceId?: string;
+  slot?: string;
+}): boolean {
+  return saveApi.sendSaveOnUnload({
+    rom,
+    save,
+    saveFile: sessionSaveFile(rom, save, saveFile),
+    emulator: window.EJS_core,
+    deviceId,
+    slot,
+    autocleanup: slot === AUTOSAVE_SLOT,
+  });
 }
 
 // Per EmulatorJS "saveSaveFiles" tick, whether the SRAM is worth uploading

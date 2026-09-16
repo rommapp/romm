@@ -36,6 +36,7 @@ import {
   createSaveQuitButton,
   createExitEmulationButton,
   createSaveSyncTracker,
+  saveSaveOnUnload,
   toArrayBuffer,
 } from "./utils";
 
@@ -259,6 +260,10 @@ installEJSDefaultOptionsTrap();
 
 onMounted(() => {
   window.scrollTo(0, 0);
+  // Registered before EmulatorJS binds its own unload handler, so the
+  // pending-save check runs first.
+  window.addEventListener("beforeunload", onBeforeUnload);
+  window.addEventListener("pagehide", onPageHide);
   if (props.bios) {
     localStorage.setItem(
       `player:${romRef.value.platform_slug}:bios_id`,
@@ -294,6 +299,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(async () => {
+  window.removeEventListener("beforeunload", onBeforeUnload);
+  window.removeEventListener("pagehide", onPageHide);
   uninstallAutoSaveSync();
   emitter?.off("saveSelected", loadSave);
   emitter?.off("stateSelected", loadState);
@@ -413,6 +420,33 @@ async function flushPendingSave() {
   }
 }
 onBeforeRouteLeave(flushPendingSave);
+// Closing the tab cancels requests in flight, so a save the tick has not
+// uploaded goes out on `pagehide` with fetch keepalive, which the browser caps
+// at 64 KB. `beforeunload` asks first while one is pending: for a bigger save
+// that prompt is the only way to keep it.
+let unloadSave: Uint8Array | null = null;
+function onBeforeUnload(event: BeforeUnloadEvent) {
+  const emulator = window.EJS_emulator;
+  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
+  if (saveLoading) return;
+  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
+  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  unloadSave = saveFile;
+  // EmulatorJS tears the core down on this event, and a cancelled close has
+  // to keep the game running.
+  event.stopImmediatePropagation();
+  event.preventDefault();
+}
+function onPageHide() {
+  if (!unloadSave || !saveTracker.hasChanges(unloadSave)) return;
+  saveSaveOnUnload({
+    rom: romRef.value,
+    save: sessionSaveRef.value,
+    saveFile: toArrayBuffer(unloadSave),
+    deviceId: deviceIDRef.value,
+    slot: loadedSave?.slot || props.saveSlot || undefined,
+  });
+}
 
 // Saves management
 async function loadSave(save: SaveSchema) {
