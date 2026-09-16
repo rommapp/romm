@@ -15,10 +15,8 @@ export function shouldAutofocusSearch(
   return win.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
-// Whether a switch to a directional input device should pull focus onto a
-// view's primary action. Only pad/keyboard navigate by focus, and only an
-// unfocused page is up for grabs — a user who tabbed somewhere keeps their
-// place.
+// Whether a modality switch should pull focus onto a view's primary action:
+// only pad/key navigate by focus, and only an unfocused page is up for grabs.
 export function shouldClaimFocusOnModality(
   modality: InputModality,
   active: Element | null,
