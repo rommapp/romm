@@ -14,6 +14,7 @@
 // wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
 // + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
 import {
+  RAlert,
   RBtn,
   RCard,
   RIcon,
@@ -21,6 +22,8 @@ import {
   RSliderBtnGroup,
   RSpinner,
   RSwitch,
+  RTextField,
+  RTooltip,
 } from "@v2/lib";
 import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
@@ -39,17 +42,23 @@ import { useI18n } from "vue-i18n";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
+import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { areThreadsRequiredForEJSCore, getSupportedEJSCores } from "@/utils";
+import {
+  areThreadsRequiredForEJSCore,
+  formatRelativeDate,
+  getSupportedEJSCores,
+} from "@/utils";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
+import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
@@ -59,6 +68,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
+import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
 import {
   resolveBezelHost,
   resolveBezelUrl,
@@ -70,13 +80,21 @@ import {
   bootableFiles,
   rememberDisc,
   resolveRememberedDisc,
+  selectableDiscFiles,
   type DiscSelection,
 } from "@/v2/utils/playerDisc";
 import { resolveInitialFirmware } from "@/v2/utils/playerFirmware";
 import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
-import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
+import {
+  defaultResumeSelection,
+  newerSaveThanState,
+  pickSave,
+  pickState,
+  slotOptions,
+  type ResumeSelection,
+} from "./resumeSelection";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.
@@ -89,8 +107,9 @@ const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
 const playingStore = storePlaying();
 const configStore = storeConfig();
-const { playing, fullScreen } = storeToRefs(playingStore);
+const { playing } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
+useFullscreenFallback();
 const { modality } = useInputModality();
 const playSession = usePlaySession();
 
@@ -105,7 +124,7 @@ function focusPlayButton() {
 
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
-const selectedSave = ref<SaveSchema | null>(null);
+const resume = ref<ResumeSelection>({ save: null, state: null });
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 const { backToRom, backToPlatform } = usePlayerNav(
@@ -113,13 +132,11 @@ const { backToRom, backToPlatform } = usePlayerNav(
   () => heroRom.value?.platform_id,
 );
 const isSavesTabSelected = ref(true);
-const selectedState = ref<StateSchema | null>(null);
 const selectedDisc = ref<DiscSelection>(null);
 const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
-const removeIOSFullscreenShim = ref<(() => void) | null>(null);
 
 useUnloadGuard(gameRunning);
 useStageActive(gameRunning);
@@ -152,7 +169,7 @@ const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
 const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
   { title: t("play.all-discs"), value: ALL_DISCS },
-  ...bootableRomFiles.value.map((f) => ({
+  ...selectableDiscFiles(rom.value?.files ?? []).map((f) => ({
     title: f.file_name,
     value: f.id,
   })),
@@ -218,16 +235,12 @@ async function onPlay() {
     await new Promise((resolve) => setTimeout(resolve, insertMs));
   }
 
-  removeIOSFullscreenShim.value?.();
-  removeIOSFullscreenShim.value = installIOSFullscreenShim();
-
   if (rom.value) {
     rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
     rememberDisc(rom.value.id, selectedDisc.value);
   }
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
-  fullScreen.value = fullscreenOnPlay.value;
   playing.value = true;
 
   const { EJS_NETPLAY_ENABLED } = configStore.config;
@@ -252,54 +265,35 @@ async function onPlay() {
       await attemptLoad(EJS_NETPLAY_ENABLED ? LOCAL_PATH : CDN_PATH);
     }
   } catch (err) {
-    removeIOSFullscreenShim.value?.();
-    removeIOSFullscreenShim.value = null;
     console.error("[Play] Emulator load failure:", err);
     // No emulator booted, so drop back to the config screen instead of
     // leaving the unload guard and the input mute armed.
     gameRunning.value = false;
     playing.value = false;
-    fullScreen.value = false;
   }
 }
 
 function selectSave(save: SaveSchema) {
-  selectedSave.value = save;
-  localStorage.setItem(
-    `player:${rom.value?.platform_slug}:save_id`,
-    save.id.toString(),
-  );
+  resume.value = pickSave(save);
   isSavesTabSelected.value = true;
 }
 
 function unselectSave() {
-  selectedSave.value = null;
-  localStorage.removeItem(`player:${rom.value?.platform_slug}:save_id`);
+  resume.value = { ...resume.value, save: null };
 }
 
 function selectState(state: StateSchema) {
-  selectedState.value = state;
-  localStorage.setItem(
-    `player:${rom.value?.platform_slug}:state_id`,
-    state.id.toString(),
-  );
+  resume.value = pickState(resume.value, state);
   isSavesTabSelected.value = false;
 }
 
 function unselectState() {
-  selectedState.value = null;
-  localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
+  resume.value = { ...resume.value, state: null };
 }
 
 watch(selectedCore, (newSelectedCore) => {
-  if (
-    selectedState.value &&
-    selectedState.value.emulator &&
-    selectedState.value.emulator !== newSelectedCore
-  ) {
-    selectedState.value = null;
-    localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
-  }
+  const armed = resume.value.state;
+  if (armed?.emulator && armed.emulator !== newSelectedCore) unselectState();
 });
 
 onMounted(async () => {
@@ -347,24 +341,11 @@ onMounted(async () => {
     configStore.getEJSDefaultCore(platformSlug),
   );
 
-  // Default selection — save and state are independent, so both can be
-  // armed at once. The bound save is the write-back target for "Save &
-  // Quit" (PUT in place), so we only auto-bind it when the choice is
-  // unambiguous: never silently pick a slot when a state is armed and
-  // there are multiple saves, since loading the state injects a different
-  // SRAM timeline that would overwrite an arbitrary save the user never
-  // picked. In that case the user must select the save slot explicitly.
-  const hasCompatibleState = compatibleStates.value.length > 0;
-
-  if (hasCompatibleState) {
-    selectedState.value = compatibleStates.value[0];
-  }
-  const safeToBindSave =
-    rom.value.user_saves.length === 1 || !hasCompatibleState;
-  if (rom.value.user_saves.length > 0 && safeToBindSave) {
-    selectedSave.value = rom.value.user_saves[0];
-  }
-  isSavesTabSelected.value = !hasCompatibleState;
+  resume.value = defaultResumeSelection(
+    rom.value.user_saves,
+    compatibleStates.value,
+  );
+  isSavesTabSelected.value = !resume.value.state;
 
   selectedDisc.value = resolveRememberedDisc(
     rom.value.id,
@@ -380,13 +361,26 @@ onMounted(async () => {
     configBiosFile: coreOptions["bios_file"],
   });
 
-  // Autofocus the Play CTA so gamepad/keyboard users land on the
-  // primary action without an extra Tab. Mouse / touch keep the
-  // default no-autofocus behaviour.
-  if (modality.value === "pad" || modality.value === "key") {
+  // Land gamepad/keyboard users on the primary action without an extra Tab.
+  if (
+    shouldClaimFocusOnModality(
+      modality.value,
+      document.activeElement,
+      document.body,
+    )
+  ) {
     await nextTick();
     focusPlayButton();
   }
+});
+
+// This view has no spatial navigation for a d-pad to walk, so landing on Play
+// the moment the user picks up a pad is the only entry point into the view.
+watch(modality, (next) => {
+  if (gameRunning.value) return;
+  if (!shouldClaimFocusOnModality(next, document.activeElement, document.body))
+    return;
+  nextTick(focusPlayButton);
 });
 
 // Drive the live-activity lifecycle off the deterministic running state:
@@ -424,8 +418,6 @@ onBeforeUnmount(() => {
   // stays true and pad/hotkey navigation is dead until a reload.
   playing.value = false;
   window.EJS_emulator?.callEvent("exit");
-  removeIOSFullscreenShim.value?.();
-  removeIOSFullscreenShim.value = null;
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
   window.removeEventListener("gamepad:buttondown", onGamepadButton);
@@ -475,19 +467,51 @@ const activeAssets = computed<(SaveSchema | StateSchema)[]>(() =>
     : compatibleStates.value,
 );
 
-const selectedAssetId = computed(() =>
-  isSavesTabSelected.value
-    ? (selectedSave.value?.id ?? null)
-    : (selectedState.value?.id ?? null),
+const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
+  isSavesTabSelected.value ? resume.value.save : resume.value.state,
+);
+const selectedAssetId = computed(() => selectedAsset.value?.id ?? null);
+
+// A state older than the latest save would roll progress back (#4278).
+const newerSave = computed(() =>
+  resume.value.state
+    ? newerSaveThanState(rom.value?.user_saves ?? [], resume.value.state)
+    : null,
 );
 
-const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
-  isSavesTabSelected.value ? selectedSave.value : selectedState.value,
+// Slot for saves the session creates. A bound save with a slot fixes it; a
+// slot-less legacy save stays as an archive and progress goes to the pick.
+// Select values are namespaced so the "new slot" entry cannot collide with a
+// user-named slot.
+const NEW_SLOT = "new";
+const slotValue = (slot: string) => `slot:${slot}`;
+const slotChoice = ref(slotValue(AUTOSAVE_SLOT));
+const customSlot = ref("");
+const boundSlot = computed(() => resume.value.save?.slot || null);
+function onSlotChoice(value: unknown) {
+  slotChoice.value =
+    typeof value === "string" ? value : slotValue(AUTOSAVE_SLOT);
+}
+const slotItems = computed(() => [
+  ...slotOptions(rom.value?.user_saves ?? []).map((slot) => ({
+    title: slot,
+    value: slotValue(slot),
+  })),
+  { title: t("play.new-slot"), value: NEW_SLOT },
+]);
+const saveSlot = computed(() =>
+  slotChoice.value === NEW_SLOT
+    ? customSlot.value.trim() || AUTOSAVE_SLOT
+    : slotChoice.value.slice(slotValue("").length),
 );
 </script>
 
 <template>
-  <section v-if="heroRom" class="r-v2-ejs">
+  <section
+    v-if="heroRom"
+    class="r-v2-ejs"
+    :class="{ 'r-v2-ejs--config': !gameRunning }"
+  >
     <!-- Pre-game configuration -->
     <div v-if="!gameRunning" class="r-v2-ejs__config">
       <!-- Hero: cover + title + Play CTA -->
@@ -559,11 +583,70 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
         </div>
 
         <div class="r-v2-ejs__resume-body">
+          <RAlert
+            v-if="newerSave"
+            type="warning"
+            density="compact"
+            :text="
+              t('play.newer-save-warning', {
+                time: formatRelativeDate(newerSave.updated_at),
+              })
+            "
+          >
+            <template #append>
+              <RBtn variant="text" size="small" @click="selectSave(newerSave)">
+                {{ t("play.boot-from-save") }}
+              </RBtn>
+            </template>
+          </RAlert>
           <AssetPreview
             :asset="selectedAsset"
             :type="activeAssetTab"
+            :state-armed="!!resume.state"
             @clear="clearSelectedAsset"
           />
+
+          <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
+            <div class="r-v2-ejs__slot-row">
+              <RSelect
+                class="r-v2-ejs__slot-select"
+                :model-value="boundSlot ? slotValue(boundSlot) : slotChoice"
+                :disabled="!!boundSlot"
+                variant="outlined"
+                density="compact"
+                prefix-label="inline"
+                hide-details
+                :items="slotItems"
+                @update:model-value="onSlotChoice"
+              >
+                <template #prefix-label>
+                  <RIcon icon="mdi-content-save-all-outline" size="14" />
+                  {{ t("play.slot") }}
+                </template>
+              </RSelect>
+              <button
+                type="button"
+                class="r-v2-ejs__slot-info"
+                :aria-label="t('play.slot-tooltip')"
+              >
+                <RIcon icon="mdi-information-outline" size="16" />
+                <RTooltip activator="parent" location="top" open-on-tap>
+                  {{ t("play.slot-tooltip") }}
+                </RTooltip>
+              </button>
+            </div>
+            <RTextField
+              v-if="!boundSlot && slotChoice === NEW_SLOT"
+              v-model="customSlot"
+              variant="outlined"
+              density="compact"
+              prefix-label="inline"
+              hide-details
+              :maxlength="SAVE_SLOT_MAX_LENGTH"
+              :label="t('play.slot-name')"
+              :placeholder="AUTOSAVE_SLOT"
+            />
+          </div>
 
           <div
             v-if="activeAssets.length > 0"
@@ -580,21 +663,24 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
 
           <!-- Saves render as a vertical list (no screenshot ⇒ density);
                states keep the horizontal tile strip (screenshot is the
-               point). -->
-          <AssetList
-            v-if="activeAssetTab === 'save'"
-            :assets="activeAssets"
-            type="save"
-            :selected-id="selectedAssetId"
-            @select="pickAsset"
-          />
-          <AssetStrip
-            v-else
-            :assets="activeAssets"
-            type="state"
-            :selected-id="selectedAssetId"
-            @select="pickAsset"
-          />
+               point). The wrapper owns the only scroll on the screen. -->
+          <div class="r-v2-ejs__assets">
+            <AssetList
+              v-if="activeAssetTab === 'save'"
+              :assets="activeAssets"
+              type="save"
+              :selected-id="selectedAssetId"
+              :scrollable="false"
+              @select="pickAsset"
+            />
+            <AssetStrip
+              v-else
+              :assets="activeAssets"
+              type="state"
+              :selected-id="selectedAssetId"
+              @select="pickAsset"
+            />
+          </div>
         </div>
       </RCard>
 
@@ -675,8 +761,9 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
     <div v-else-if="rom" ref="stageRef" class="r-v2-ejs__stage">
       <Player
         :rom="rom"
-        :state="selectedState"
-        :save="selectedSave"
+        :state="resume.state"
+        :save="resume.save"
+        :save-slot="saveSlot"
         :bios="selectedFirmware"
         :core="selectedCore"
         :disc="bootDiscId(selectedDisc)"
@@ -839,6 +926,47 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   flex-direction: column;
   gap: 14px;
   flex: 1;
+  min-height: 0;
+}
+.r-v2-ejs__slot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.r-v2-ejs__slot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.r-v2-ejs__slot-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.r-v2-ejs__slot-info {
+  appearance: none;
+  position: relative;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--r-color-fg-secondary);
+  border-radius: var(--r-radius-pill);
+  cursor: pointer;
+}
+/* 44px hit area around the 16px icon without growing the row. */
+.r-v2-ejs__slot-info::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+}
+.r-v2-ejs__slot-info:hover {
+  color: var(--r-color-fg);
+}
+.r-v2-ejs__assets {
+  flex: 1;
+  min-height: 0;
+  scrollbar-color: var(--r-color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 .r-v2-ejs__strip-label {
   display: flex;
@@ -934,6 +1062,29 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   min-height: calc(100vh - var(--r-nav-h));
   display: grid;
   place-items: center;
+}
+
+/* ── Viewport fit ────────────────────────────────────────── */
+/* Wide and tall enough for the hero column, the pre-game screen fits the
+   viewport and only the asset list scrolls. */
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs--config {
+  height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
+  overflow: hidden;
+}
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__config {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__panel {
+  min-height: 0;
+}
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__assets {
+  overflow-y: auto;
+}
+/* The hero cannot shrink, so on a short viewport it scrolls instead of clipping. */
+html[data-bp~="lg-and-up"][data-bp~="tall"] .r-v2-ejs__hero {
+  overflow-y: auto;
 }
 
 /* ── Responsive ──────────────────────────────────────────── */
