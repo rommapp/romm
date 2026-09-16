@@ -401,7 +401,7 @@ function closeDialog() {
         :searched="searched"
         @confirm="onBodyConfirm"
       />
-      <!-- Saving overlay — blurs the whole dialog body, padding included,
+      <!-- Saving overlay: blurs the whole dialog body, padding included,
            under a centered spinner so the user sees the update is in
            flight. The dialog stays modal (no scrim click / Escape) until
            closeDialog runs in the `finally` of `onBodyConfirm`. -->
