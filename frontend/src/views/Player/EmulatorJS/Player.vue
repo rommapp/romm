@@ -379,6 +379,7 @@ function installAutoSaveSync() {
         romsStore.update(romRef.value);
         displayMessage("Save synced with server", {
           duration: 3000,
+          className: "msg-success",
           icon: "mdi-cloud-sync",
         });
       }
@@ -495,6 +496,7 @@ window.EJS_onSaveSave = async function ({
   if (synced) {
     displayMessage("Save synced with server", {
       duration: 4000,
+      className: "msg-success",
       icon: "mdi-cloud-sync",
     });
   } else {
@@ -550,6 +552,7 @@ window.EJS_onSaveState = async function ({
   if (state) {
     displayMessage("State synced with server", {
       duration: 4000,
+      className: "msg-success",
       icon: "mdi-cloud-sync",
     });
   } else {
@@ -743,35 +746,58 @@ onUnmounted(() => {
 }
 
 /* EmulatorJS raises its own messages through this element and adds none of
-   RomM's classes, so the unclassed state has to be legible. */
+   RomM's classes, so the unclassed state has to be legible. It wears the v2
+   toast's glass panel; the fallbacks keep it readable under the v1 theme. */
 #game .ejs_message {
-  margin: 1rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  background-color: rgba(var(--v-theme-romm-blue));
-  color: white;
-  text-transform: uppercase;
+  top: 16px;
+  left: 16px;
+  margin: 0;
+  padding: 10px 12px;
+  max-width: min(420px, calc(100% - 32px));
   display: flex;
   align-items: center;
-  filter: opacity(0.85) drop-shadow(0 0 0.5rem rgba(0, 0, 0, 0.5));
+  gap: 10px;
+  border: 1px solid
+    var(--r-color-border-strong, rgba(var(--v-theme-on-surface), 0.15));
+  border-radius: var(--r-radius-md, 8px);
+  background: var(--r-color-toast-bg, rgba(var(--v-theme-surface), 0.92));
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 10px 28px color-mix(in srgb, black 45%, transparent),
+    0 2px 6px color-mix(in srgb, black 30%, transparent);
+  color: var(--r-color-fg, rgb(var(--v-theme-on-surface)));
+  font: 13px / 1.45 var(--r-font-family-sans, inherit);
+  text-shadow: none;
+  transition:
+    opacity var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out),
+    transform var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out);
 }
 
-/* A message expires by having its text cleared, not the element removed. */
+/* A message expires by having its text cleared, not the element removed, so
+   the empty state is where it fades out. */
 #game .ejs_message:empty {
+  opacity: 0;
+  transform: translateY(-6px);
   visibility: hidden;
+  transition:
+    opacity var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out),
+    transform var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out),
+    visibility 0s var(--r-motion-fast, 160ms);
 }
 
+/* The icon class lands on the message itself, so the glyph is its ::before,
+   tinted by tone like the v2 toast icon. */
 #game .ejs_message::before {
-  margin-right: 8px;
-  font-size: 20px !important;
-  font: normal normal normal 24px / 1 "Material Design Icons";
+  flex-shrink: 0;
+  font: normal normal normal 18px / 1 "Material Design Icons";
+  color: var(--r-color-brand-primary, rgb(var(--v-theme-romm-blue)));
 }
 
-#game .ejs_message.msg-error {
-  background-color: rgba(var(--v-theme-romm-red));
+#game .ejs_message.msg-success::before {
+  color: var(--r-color-success, rgb(var(--v-theme-romm-green)));
 }
 
-#game .ejs_message.msg-success {
-  background-color: rgba(var(--v-theme-romm-green));
+#game .ejs_message.msg-error::before {
+  color: var(--r-color-danger-fg, rgb(var(--v-theme-romm-red)));
 }
 </style>
