@@ -93,6 +93,7 @@ import {
   existingSlot,
   isSlotChoice,
   newerSaveThanState,
+  newerStateThanSave,
   pickSave,
   pickState,
   preferredSlot,
@@ -504,10 +505,15 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
 );
 const selectedAssetId = computed(() => selectedAsset.value?.id ?? null);
 
-// A state older than the latest save would roll progress back (#4278).
+// Booting the older of save and state would roll progress back (#4278).
 const newerSave = computed(() =>
   resume.value.state
     ? newerSaveThanState(rom.value?.user_saves ?? [], resume.value.state)
+    : null,
+);
+const newerState = computed(() =>
+  resume.value.save
+    ? newerStateThanSave(compatibleStates.value, resume.value.save)
     : null,
 );
 
@@ -630,6 +636,26 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                   @click="selectSave(newerSave)"
                 >
                   {{ t("play.boot-from-save") }}
+                </RBtn>
+              </template>
+            </RAlert>
+            <RAlert
+              v-if="newerState"
+              type="warning"
+              density="compact"
+              :text="
+                t('play.newer-state-warning', {
+                  time: formatRelativeDate(newerState.updated_at),
+                })
+              "
+            >
+              <template #actions>
+                <RBtn
+                  variant="outlined"
+                  size="small"
+                  @click="selectState(newerState)"
+                >
+                  {{ t("play.boot-from-state") }}
                 </RBtn>
               </template>
             </RAlert>

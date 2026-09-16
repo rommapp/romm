@@ -7,6 +7,7 @@ import {
   existingSlot,
   isSlotChoice,
   newerSaveThanState,
+  newerStateThanSave,
   pickSave,
   pickState,
   preferredSlot,
@@ -127,6 +128,29 @@ describe("isSlotChoice", () => {
     expect(isSlotChoice("slot:main")).toBe(false);
     expect(isSlotChoice({ kind: "other" })).toBe(false);
     expect(isSlotChoice(null)).toBe(false);
+  });
+});
+
+describe("newerStateThanSave", () => {
+  const at = (updated_at: string) => ({ updated_at }) as SaveSchema;
+  const stateAt = (updated_at: string) => ({ updated_at }) as StateSchema;
+
+  it("returns the newest state when it postdates the save", () => {
+    const states = [
+      stateAt("2026-09-01T10:00:00Z"),
+      stateAt("2026-09-03T10:00:00Z"),
+    ];
+
+    expect(newerStateThanSave(states, at("2026-09-02T10:00:00Z"))).toBe(
+      states[1],
+    );
+  });
+
+  it("returns null when the save is the latest progress", () => {
+    const states = [stateAt("2026-09-01T10:00:00Z")];
+
+    expect(newerStateThanSave(states, at("2026-09-02T10:00:00Z"))).toBe(null);
+    expect(newerStateThanSave([], at("2026-09-02T10:00:00Z"))).toBe(null);
   });
 });
 

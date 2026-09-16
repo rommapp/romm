@@ -73,6 +73,19 @@ export function chosenSlot(choice: SlotChoice, newSlotName: string): string {
   return newSlotName.trim() || AUTOSAVE_SLOT;
 }
 
+/** The newest compatible state when it postdates the picked save. */
+export function newerStateThanSave(
+  compatibleStates: readonly StateSchema[],
+  save: SaveSchema,
+): StateSchema | null {
+  const newest = compatibleStates.reduce<StateSchema | null>(
+    (best, state) =>
+      !best || state.updated_at > best.updated_at ? state : best,
+    null,
+  );
+  return newest && newest.updated_at > save.updated_at ? newest : null;
+}
+
 /** The newest save when it postdates the armed state, so the user can be warned. */
 export function newerSaveThanState(
   saves: readonly SaveSchema[],
