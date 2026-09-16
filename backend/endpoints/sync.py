@@ -120,8 +120,42 @@ class SyncCompletePayload(BaseModel):
     play_sessions: list[SyncPlaySessionEntry] | None = None
 
 
+async def _notify_conflicts(
+    user_id: int,
+    device_id: str,
+    session_id: int,
+    conflict_ops: list[SyncOperationSchema],
+) -> None:
+    """Emit one sync:conflict event per operation, batched and bounded."""
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                *(
+                    emit_sync_conflict(
+                        user_id=user_id,
+                        device_id=device_id,
+                        session_id=session_id,
+                        file_name=op.file_name,
+                        rom_id=op.rom_id,
+                        reason=op.reason,
+                    )
+                    for op in conflict_ops
+                ),
+                return_exceptions=True,
+            ),
+            timeout=CONFLICT_NOTIFY_TIMEOUT_S,
+        )
+        for op, emit_result in zip(conflict_ops, results, strict=True):
+            if isinstance(emit_result, BaseException):
+                log.warning(
+                    f"Failed to emit sync:conflict for {op.file_name}: {emit_result}"
+                )
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"Failed to emit {len(conflict_ops)} sync:conflict events: {e}")
+
+
 @protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])
-async def negotiate_sync(
+def negotiate_sync(
     request: Request,
     payload: SyncNegotiatePayload,
 ) -> SyncNegotiateResponse:
@@ -344,37 +378,18 @@ async def negotiate_sync(
         f"{total_conflict} conflicts, {total_no_op} no-ops"
     )
 
-    # Never fatal, and never slow: a negotiation must not fail or stall because
-    # the user could not be notified. The events go out together so the wait
-    # stays constant rather than growing with the number of conflicts.
+    # The route stays sync so the negotiation's DB work keeps running in the
+    # threadpool; only the emit crosses to a loop, and it is never fatal.
     conflict_ops = [op for op in operations if op.action == "conflict"]
     if conflict_ops:
-        try:
-            results = await asyncio.wait_for(
-                asyncio.gather(
-                    *(
-                        emit_sync_conflict(
-                            user_id=request.user.id,
-                            device_id=device.id,
-                            session_id=sync_session.id,
-                            file_name=op.file_name,
-                            rom_id=op.rom_id,
-                            reason=op.reason,
-                        )
-                        for op in conflict_ops
-                    ),
-                    return_exceptions=True,
-                ),
-                timeout=CONFLICT_NOTIFY_TIMEOUT_S,
+        asyncio.run(
+            _notify_conflicts(
+                user_id=request.user.id,
+                device_id=device.id,
+                session_id=sync_session.id,
+                conflict_ops=conflict_ops,
             )
-            for op, emit_result in zip(conflict_ops, results, strict=True):
-                if isinstance(emit_result, BaseException):
-                    log.warning(
-                        f"Failed to emit sync:conflict for {op.file_name}: "
-                        f"{emit_result}"
-                    )
-        except Exception as e:  # noqa: BLE001
-            log.warning(f"Failed to emit {len(conflict_ops)} sync:conflict events: {e}")
+        )
 
     return SyncNegotiateResponse(
         session_id=sync_session.id,
