@@ -1,5 +1,6 @@
 import { RBtn } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { DetailedRom } from "@/stores/roms";
@@ -294,5 +295,27 @@ describe("EmulatorJS launch screen — a launch in flight", () => {
     await cancel?.trigger("click");
 
     expect(mocks.cancel).toHaveBeenCalledWith(7);
+  });
+});
+
+// An icon class the font does not define renders as an empty circle rather
+// than failing, so the name alone is never evidence that a glyph exists.
+describe("the native affordances' icons", () => {
+  const MDI_CSS = readFileSync(
+    "node_modules/@mdi/font/css/materialdesignicons.css",
+    "utf8",
+  );
+
+  it.each([
+    "mdi-play",
+    "mdi-web",
+    "mdi-loading",
+    "mdi-spin",
+    "mdi-close-circle-outline",
+    "mdi-desktop-classic",
+  ])("%s is a real class in the bundled font", (name) => {
+    // Matched on the rule the font actually declares, not the bare name, or
+    // "mdi-play" would be satisfied by "mdi-playlist-play".
+    expect(MDI_CSS).toMatch(new RegExp(`\\.${name}::?before`));
   });
 });
