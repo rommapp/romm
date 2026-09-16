@@ -11,12 +11,14 @@
 //   * manage (selectable=false) — Save data subtab. Rows are static; the
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
-import { RBtn, RIcon, RTag, RTooltip } from "@v2/lib";
+import { RBtn, RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
-import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { formatTimestamp } from "@/utils";
+import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
+import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byUpdatedDesc,
@@ -212,33 +214,14 @@ const fadeIndex = computed(() =>
                     v-if="!grouped && showOwner && ownerOf(asset)"
                     :owner="ownerOf(asset)!"
                   />
-                  <RTag
-                    v-if="grouped && i === 0 && group.versions.length > 1"
-                    tone="brand"
-                    size="x-small"
-                    :text="t('play.latest-version')"
+                  <AssetChips
+                    :asset="asset"
+                    :latest="grouped && i === 0 && group.versions.length > 1"
                   />
-                  <RTag
-                    v-if="asset.emulator"
-                    tone="warning"
-                    size="x-small"
-                    :text="asset.emulator"
-                  />
-                  <span class="r-asset-list__chip">
-                    <RIcon icon="mdi-weight" size="11" />
-                    {{ formatBytes(asset.file_size_bytes) }}
-                  </span>
                 </span>
               </span>
 
-              <span class="r-asset-list__time">
-                <span class="r-asset-list__relative">
-                  {{ formatRelativeDate(asset.updated_at) }}
-                </span>
-                <span class="r-asset-list__exact">
-                  {{ formatTimestamp(asset.updated_at, locale) }}
-                </span>
-              </span>
+              <AssetTimestamp :date="asset.updated_at" align="end" />
 
               <span
                 v-if="selectable"
@@ -481,34 +464,6 @@ const fadeIndex = computed(() =>
   gap: 4px;
   align-items: center;
 }
-.r-asset-list__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 6px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-pill);
-  font-size: 10px;
-  color: var(--r-color-fg-secondary);
-}
-.r-asset-list__time {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  flex-shrink: 0;
-}
-.r-asset-list__relative {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
-}
-.r-asset-list__exact {
-  font-size: 10px;
-  color: var(--r-color-fg-muted);
-  font-variant-numeric: tabular-nums;
-}
 
 .r-asset-list__check {
   display: grid;
@@ -566,12 +521,6 @@ const fadeIndex = computed(() =>
   opacity: 0.85;
 }
 
-/* Tighten the row on small screens so the time column doesn't push
-   the filename off-screen. The exact timestamp is the first to go —
-   the tooltip still has it. */
-html[data-bp~="xs"] .r-asset-list__exact {
-  display: none;
-}
 html[data-bp~="xs"] .r-asset-list__row {
   padding: 8px 10px;
 }

@@ -4,8 +4,10 @@
 import { RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { formatTimestamp } from "@/utils";
+import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
+import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   ownerOf,
@@ -225,11 +227,19 @@ const fadeIndex = computed(() =>
               <p class="r-asset-strip__name">
                 {{ asset.file_name }}
               </p>
-              <p class="r-asset-strip__sub">
-                <span>{{ formatRelativeDate(asset.updated_at) }}</span>
-                <span class="r-asset-strip__dot" aria-hidden="true">·</span>
-                <span>{{ formatBytes(asset.file_size_bytes) }}</span>
-              </p>
+              <AssetChips
+                :asset="asset"
+                :latest="
+                  !!groupBy &&
+                  group.assets.length > 1 &&
+                  asset.updated_at === group.newest
+                "
+                :show-emulator="!groupBy"
+              />
+              <AssetTimestamp
+                :date="asset.updated_at"
+                class="r-asset-strip__time"
+              />
               <AssetOwnerChip
                 v-if="showOwner && ownerOf(asset)"
                 :owner="ownerOf(asset)!"
@@ -451,18 +461,9 @@ const fadeIndex = computed(() =>
   flex: 1;
   min-width: 0;
 }
-.r-asset-strip--list .r-asset-strip__sub {
-  display: contents;
-}
-.r-asset-strip--list .r-asset-strip__sub > span:first-child {
-  flex: 0 0 96px;
-}
-.r-asset-strip--list .r-asset-strip__sub > span:last-child {
-  flex: 0 0 64px;
-  text-align: right;
-}
-.r-asset-strip--list .r-asset-strip__dot {
-  display: none;
+.r-asset-strip--list .r-asset-strip__time {
+  flex: 0 0 auto;
+  align-items: flex-end;
 }
 .r-asset-strip--list .r-asset-strip__owner {
   flex: 0 0 auto;
@@ -575,7 +576,7 @@ const fadeIndex = computed(() =>
 .r-asset-strip__meta {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 4px;
   padding: 0 2px;
   min-width: 0;
 }
@@ -591,18 +592,6 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip__tile--active .r-asset-strip__name {
   color: var(--r-color-brand-primary);
-}
-
-.r-asset-strip__sub {
-  margin: 0;
-  font-size: 10px;
-  color: var(--r-color-fg-muted);
-  display: flex;
-  gap: 4px;
-  align-items: baseline;
-}
-.r-asset-strip__dot {
-  opacity: 0.6;
 }
 
 /* Author chip on community tiles: avatar + username. */
