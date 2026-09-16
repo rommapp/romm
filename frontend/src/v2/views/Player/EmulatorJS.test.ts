@@ -1,7 +1,7 @@
+import { RBtn } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
-import { RBtn } from "@v2/lib";
 import type { DetailedRom } from "@/stores/roms";
 import type { LaunchState } from "@/types/rommNative";
 import EmulatorJS from "./EmulatorJS.vue";
