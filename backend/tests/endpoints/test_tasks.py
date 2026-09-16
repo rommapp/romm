@@ -25,6 +25,13 @@ def _job_with_meta(meta: dict[str, Any]) -> Mock:
     return job
 
 
+@pytest.fixture(autouse=True)
+def task_worker_listening():
+    """A live task worker, so a run is accepted unless a test takes it away."""
+    with patch("endpoints.tasks.has_live_worker", return_value=True) as mocked:
+        yield mocked
+
+
 @pytest.fixture
 def mock_task():
     """Create a mock task for testing"""
@@ -236,12 +243,6 @@ class TestListTasks:
 
 class TestRunSingleTask:
     """Test suite for the run_single_task endpoint"""
-
-    @pytest.fixture(autouse=True)
-    def task_worker_listening(self):
-        """A live task worker, so a run is accepted unless a test takes it away."""
-        with patch("endpoints.tasks.has_live_worker", return_value=True) as mocked:
-            yield mocked
 
     @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
     def test_run_single_task_success(
