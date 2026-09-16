@@ -427,6 +427,8 @@ const fadeIndex = computed(() =>
   padding: 2px;
 }
 .r-asset-strip--list .r-asset-strip__tile {
+  border-width: 0;
+  box-shadow: none;
   flex: initial;
   flex-direction: row;
   align-items: center;
@@ -475,7 +477,8 @@ const fadeIndex = computed(() =>
 
 .r-asset-strip__tile {
   appearance: none;
-  border: 0;
+  /* The ring for hover and selection wraps the whole card. */
+  border: 2px solid transparent;
   background: transparent;
   padding: 0;
   flex: 0 0 140px;
@@ -491,10 +494,17 @@ const fadeIndex = computed(() =>
   border-radius: var(--r-radius-md);
   transition:
     transform var(--r-motion-fast) var(--r-motion-ease-out),
-    background var(--r-motion-fast) var(--r-motion-ease-out);
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-asset-strip__tile:hover {
   transform: translateY(-2px);
+  border-color: var(--r-color-border-strong);
+}
+.r-asset-strip__tile--active {
+  border-color: var(--r-color-brand-primary);
+  box-shadow: 0 6px 18px
+    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
 }
 .r-asset-strip__tile:active {
   transform: translateY(0);
@@ -505,8 +515,6 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip__tile--static:hover {
   transform: none;
-}
-.r-asset-strip__tile--static:hover .r-asset-strip__thumb {
   border-color: transparent;
 }
 /* Kept visible so the count adds up; the tooltip carries the reason. */
@@ -517,8 +525,6 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip__tile--disabled:hover {
   transform: none;
-}
-.r-asset-strip__tile--disabled:hover .r-asset-strip__thumb {
   border-color: transparent;
 }
 
@@ -527,19 +533,10 @@ const fadeIndex = computed(() =>
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: var(--r-radius-md) var(--r-radius-md) 0 0;
+  border-radius: calc(var(--r-radius-md) - 2px) calc(var(--r-radius-md) - 2px) 0
+    0;
   overflow: hidden;
   background: var(--r-color-cover-placeholder);
-  border: 2px solid transparent;
-  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-asset-strip__tile:hover .r-asset-strip__thumb {
-  border-color: var(--r-color-border-strong);
-}
-.r-asset-strip__tile--active .r-asset-strip__thumb {
-  border-color: var(--r-color-brand-primary);
-  box-shadow: 0 6px 18px
-    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
 }
 
 .r-asset-strip__thumb-img {
@@ -581,7 +578,8 @@ const fadeIndex = computed(() =>
   gap: 6px;
   min-width: 0;
   padding: 8px 8px 10px;
-  border-radius: 0 0 var(--r-radius-md) var(--r-radius-md);
+  border-radius: 0 0 calc(var(--r-radius-md) - 2px)
+    calc(var(--r-radius-md) - 2px);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 .r-asset-strip--list .r-asset-strip__body {
