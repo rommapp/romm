@@ -99,7 +99,6 @@ import {
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
-  clearState,
   defaultResumeSelection,
   newerThanPick,
   pickSave,
@@ -306,12 +305,12 @@ function unselectSave() {
 }
 
 function selectState(state: StateSchema) {
-  resume.value = pickState(resume.value, state);
+  resume.value = pickState(state);
   isSavesTabSelected.value = false;
 }
 
 function unselectState() {
-  resume.value = clearState(resume.value);
+  resume.value = { ...resume.value, state: null };
 }
 
 watch(selectedCore, (newSelectedCore) => {

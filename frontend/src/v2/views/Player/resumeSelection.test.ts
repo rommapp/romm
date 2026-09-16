@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import {
-  clearState,
   defaultResumeSelection,
   newerThanPick,
   pickSave,
@@ -41,34 +40,8 @@ describe("pickSave", () => {
 });
 
 describe("pickState", () => {
-  it("boots from the state and sets the picked save aside", () => {
-    expect(pickState(pickSave(save(2)), state(9))).toEqual({
-      save: null,
-      state: state(9),
-      aside: save(2),
-    });
-  });
-
-  it("keeps the aside save across a second state pick", () => {
-    const first = pickState(pickSave(save(2)), state(9));
-
-    expect(pickState(first, state(8)).aside).toEqual(save(2));
-  });
-});
-
-describe("clearState", () => {
-  it("restores the save the state displaced", () => {
-    expect(clearState(pickState(pickSave(save(2)), state(9)))).toEqual({
-      save: save(2),
-      state: null,
-    });
-  });
-
-  it("leaves nothing picked when the state was the default", () => {
-    expect(clearState(defaultResumeSelection([save(1)], [state(9)]))).toEqual({
-      save: null,
-      state: null,
-    });
+  it("boots from the state and drops any picked save", () => {
+    expect(pickState(state(9))).toEqual({ save: null, state: state(9) });
   });
 });
 
@@ -85,23 +58,11 @@ describe("newerThanPick", () => {
       stateAt(8, "2026-09-05T10:00:00Z"),
     ];
 
-    expect(
-      newerThanPick(
-        saves,
-        states,
-        pickState({ save: null, state: null }, states[0]),
-      ),
-    ).toEqual({
+    expect(newerThanPick(saves, states, pickState(states[0]))).toEqual({
       kind: "state",
       asset: states[1],
     });
-    expect(
-      newerThanPick(
-        saves,
-        [states[0]],
-        pickState({ save: null, state: null }, states[0]),
-      ),
-    ).toEqual({
+    expect(newerThanPick(saves, [states[0]], pickState(states[0]))).toEqual({
       kind: "save",
       asset: saves[0],
     });

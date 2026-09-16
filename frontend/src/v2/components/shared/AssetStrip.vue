@@ -4,8 +4,10 @@
 import { RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { formatTimestamp } from "@/utils";
+import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
+import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   ownerOf,
@@ -70,6 +72,8 @@ interface AssetGroup {
   /** Every tile disabled: nothing in this group can be picked. */
   disabled: boolean;
   newest: string;
+  /** The tile tagged "Latest": first in source order among the newest. */
+  newestId: number | null;
 }
 
 const groups = computed<AssetGroup[]>(() => {
@@ -82,6 +86,7 @@ const groups = computed<AssetGroup[]>(() => {
         assets: props.assets,
         disabled: false,
         newest: "",
+        newestId: null,
       },
     ];
   }
@@ -96,12 +101,16 @@ const groups = computed<AssetGroup[]>(() => {
         assets: [],
         disabled: true,
         newest: "",
+        newestId: null,
       };
       byKey.set(key, group);
     }
     group.assets.push(asset);
     if (!reasonOf(asset)) group.disabled = false;
-    if (asset.updated_at > group.newest) group.newest = asset.updated_at;
+    if (asset.updated_at > group.newest) {
+      group.newest = asset.updated_at;
+      group.newestId = asset.id;
+    }
   }
   return [...byKey.values()].sort(
     (a, b) =>
@@ -221,24 +230,34 @@ const fadeIndex = computed(() =>
                 <RIcon icon="mdi-check" size="14" />
               </span>
             </div>
-            <div class="r-asset-strip__meta">
-              <p class="r-asset-strip__name">
-                {{ asset.file_name }}
-              </p>
-              <p class="r-asset-strip__sub">
-                <span>{{ formatRelativeDate(asset.updated_at) }}</span>
-                <span class="r-asset-strip__dot" aria-hidden="true">·</span>
-                <span>{{ formatBytes(asset.file_size_bytes) }}</span>
-              </p>
-              <AssetOwnerChip
-                v-if="showOwner && ownerOf(asset)"
-                :owner="ownerOf(asset)!"
-                :size="14"
-                class="r-asset-strip__owner"
-              />
-            </div>
-            <div v-if="!selectable" class="r-asset-strip__actions">
-              <slot name="actions" :asset="asset" />
+            <div class="r-asset-strip__body">
+              <div class="r-asset-strip__meta">
+                <p class="r-asset-strip__name">
+                  {{ asset.file_name }}
+                </p>
+                <AssetChips
+                  :asset="asset"
+                  :latest="
+                    !!groupBy &&
+                    group.assets.length > 1 &&
+                    asset.id === group.newestId
+                  "
+                  :show-emulator="!groupBy"
+                />
+                <AssetTimestamp
+                  :date="asset.updated_at"
+                  class="r-asset-strip__time"
+                />
+                <AssetOwnerChip
+                  v-if="showOwner && ownerOf(asset)"
+                  :owner="ownerOf(asset)!"
+                  :size="14"
+                  class="r-asset-strip__owner"
+                />
+              </div>
+              <div v-if="!selectable" class="r-asset-strip__actions">
+                <slot name="actions" :asset="asset" />
+              </div>
             </div>
             <RTooltip
               v-if="selectable"
@@ -401,9 +420,8 @@ const fadeIndex = computed(() =>
   scroll-snap-align: none;
 }
 
-/* List layout: no thumbnail, meta split into columns. `display: contents` on
-   the sub line promotes its date and size spans into the row's own flex flow,
-   which is what turns them into columns without forking the tile markup. */
+/* List layout: no thumbnail; name, chips, owner and timestamp share one row,
+   the timestamp last on a fixed width so its right edge lines up. */
 .r-asset-strip--list .r-asset-strip__track {
   display: flex;
   flex-direction: column;
@@ -415,6 +433,7 @@ const fadeIndex = computed(() =>
   padding: 2px;
 }
 .r-asset-strip--list .r-asset-strip__tile {
+  border-width: 0;
   flex: initial;
   flex-direction: row;
   align-items: center;
@@ -451,18 +470,10 @@ const fadeIndex = computed(() =>
   flex: 1;
   min-width: 0;
 }
-.r-asset-strip--list .r-asset-strip__sub {
-  display: contents;
-}
-.r-asset-strip--list .r-asset-strip__sub > span:first-child {
+.r-asset-strip--list .r-asset-strip__time {
+  order: 1;
   flex: 0 0 96px;
-}
-.r-asset-strip--list .r-asset-strip__sub > span:last-child {
-  flex: 0 0 64px;
-  text-align: right;
-}
-.r-asset-strip--list .r-asset-strip__dot {
-  display: none;
+  align-items: flex-end;
 }
 .r-asset-strip--list .r-asset-strip__owner {
   flex: 0 0 auto;
@@ -472,7 +483,8 @@ const fadeIndex = computed(() =>
 
 .r-asset-strip__tile {
   appearance: none;
-  border: 0;
+  /* Same resting, hover and selected border as the save rows. */
+  border: 1px solid var(--r-color-border);
   background: transparent;
   padding: 0;
   flex: 0 0 140px;
@@ -483,16 +495,27 @@ const fadeIndex = computed(() =>
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   text-align: left;
   cursor: pointer;
   border-radius: var(--r-radius-md);
   transition:
     transform var(--r-motion-fast) var(--r-motion-ease-out),
-    background var(--r-motion-fast) var(--r-motion-ease-out);
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+/* The entrance animation sits on the tile itself, so its final frame would
+   pin the transform; releasing the fill lets the hover lift through. */
+.r-asset-strip__tile.r-v2-asset-fade {
+  animation-fill-mode: backwards;
 }
 .r-asset-strip__tile:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
+  border-color: var(--r-color-border-strong);
+  background: var(--r-color-surface);
+}
+.r-asset-strip__tile--active {
+  border-color: var(--r-color-brand-primary);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 .r-asset-strip__tile:active {
   transform: translateY(0);
@@ -503,9 +526,8 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip__tile--static:hover {
   transform: none;
-}
-.r-asset-strip__tile--static:hover .r-asset-strip__thumb {
-  border-color: transparent;
+  border-color: var(--r-color-border);
+  background: transparent;
 }
 /* Kept visible so the count adds up; the tooltip carries the reason. */
 .r-asset-strip__tile--disabled {
@@ -515,28 +537,19 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip__tile--disabled:hover {
   transform: none;
-}
-.r-asset-strip__tile--disabled:hover .r-asset-strip__thumb {
-  border-color: transparent;
+  border-color: var(--r-color-border);
+  background: transparent;
 }
 
+/* One card: the screenshot fills the top, the tinted body sits flush below. */
 .r-asset-strip__thumb {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: var(--r-radius-md);
+  border-radius: calc(var(--r-radius-md) - 1px) calc(var(--r-radius-md) - 1px) 0
+    0;
   overflow: hidden;
   background: var(--r-color-cover-placeholder);
-  border: 2px solid transparent;
-  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-asset-strip__tile:hover .r-asset-strip__thumb {
-  border-color: var(--r-color-border-strong);
-}
-.r-asset-strip__tile--active .r-asset-strip__thumb {
-  border-color: var(--r-color-brand-primary);
-  box-shadow: 0 6px 18px
-    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
 }
 
 .r-asset-strip__thumb-img {
@@ -572,11 +585,24 @@ const fadeIndex = computed(() =>
   box-shadow: 0 2px 6px color-mix(in srgb, black 35%, transparent);
 }
 
+.r-asset-strip__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 8px 10px;
+  border-radius: 0 0 calc(var(--r-radius-md) - 1px)
+    calc(var(--r-radius-md) - 1px);
+  background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
+}
+.r-asset-strip--list .r-asset-strip__body {
+  display: contents;
+}
+
 .r-asset-strip__meta {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 0 2px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -591,18 +617,6 @@ const fadeIndex = computed(() =>
 }
 .r-asset-strip__tile--active .r-asset-strip__name {
   color: var(--r-color-brand-primary);
-}
-
-.r-asset-strip__sub {
-  margin: 0;
-  font-size: 10px;
-  color: var(--r-color-fg-muted);
-  display: flex;
-  gap: 4px;
-  align-items: baseline;
-}
-.r-asset-strip__dot {
-  opacity: 0.6;
 }
 
 /* Author chip on community tiles: avatar + username. */
