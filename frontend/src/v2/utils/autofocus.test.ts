@@ -24,7 +24,7 @@ describe("shouldAutofocusSearch", () => {
 });
 
 describe("shouldClaimFocusOnModality", () => {
-  const body = document.createElement("body");
+  const body = document.body;
   const button = document.createElement("button");
 
   it("claims an unfocused page for a pad or a keyboard", () => {

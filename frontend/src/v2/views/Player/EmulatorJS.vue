@@ -361,19 +361,21 @@ onMounted(async () => {
     configBiosFile: coreOptions["bios_file"],
   });
 
-  // Autofocus the Play CTA so gamepad/keyboard users land on the
-  // primary action without an extra Tab. Mouse / touch keep the
-  // default no-autofocus behaviour.
-  if (modality.value === "pad" || modality.value === "key") {
+  // Land gamepad/keyboard users on the primary action without an extra Tab.
+  if (
+    shouldClaimFocusOnModality(
+      modality.value,
+      document.activeElement,
+      document.body,
+    )
+  ) {
     await nextTick();
     focusPlayButton();
   }
 });
 
-// Arriving by mouse leaves the page unfocused, and this view has no spatial
-// navigation for the d-pad to walk, so a pad picked up here had no way to
-// reach Play (issue #4397). Landing on it the moment the user switches away
-// from the mouse gives the pad an entry point.
+// This view has no spatial navigation for a d-pad to walk, so landing on Play
+// the moment the user picks up a pad is the only entry point into the view.
 watch(modality, (next) => {
   if (gameRunning.value) return;
   if (!shouldClaimFocusOnModality(next, document.activeElement, document.body))
