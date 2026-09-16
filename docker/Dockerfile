@@ -147,6 +147,16 @@ RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATOR
     7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
     rm -f "${EMULATORJS_VERSION}.7z"
 
+# Backport of EmulatorJS 9a12941, unreleased as of 4.2.3. Drop when
+# EMULATORJS_VERSION reaches 4.3.0.
+RUN set -eu; \
+    sed -i 's|t\.endsWith("/")?this\.gameManager\.FS\.mkdir(t):|t.endsWith("/")?this.gameManager.FS.analyzePath(t).exists\|\|this.gameManager.FS.mkdir(t):|' \
+        /emulatorjs/data/emulator.min.js; \
+    grep -q 'analyzePath(t).exists||this.gameManager.FS.mkdir(t)' /emulatorjs/data/emulator.min.js; \
+    sed -i 's|^\( *\)this\.gameManager\.FS\.mkdir(fileName);$|\1if (!this.gameManager.FS.analyzePath(fileName).exists) this.gameManager.FS.mkdir(fileName);|' \
+        /emulatorjs/data/src/emulator.js; \
+    grep -q 'analyzePath(fileName).exists) this.gameManager.FS.mkdir(fileName)' /emulatorjs/data/src/emulator.js
+
 ARG RUFFLE_VERSION=nightly-2025-08-14
 ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
 ARG RUFFLE_SHA256=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
