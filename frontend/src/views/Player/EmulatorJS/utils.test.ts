@@ -7,14 +7,17 @@ import {
   captureStateScreenshot,
   createSaveSyncTracker,
   installEJSDefaultOptionsTrap,
+  pollSaveFiles,
   resolveStateScreenshot,
   saveSave,
+  saveSaveOnUnload,
   saveState,
 } from "./utils";
 
 const saveApiMocks = vi.hoisted(() => ({
   uploadSaves: vi.fn(),
   updateSave: vi.fn(),
+  sendSaveOnUnload: vi.fn(),
 }));
 const stateApiMocks = vi.hoisted(() => ({
   uploadStates: vi.fn(),
@@ -186,6 +189,18 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
   });
 
+  it("reports pending changes without waiting for a second tick", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    expect(tracker.hasChanges(bytes(9, 9))).toBe(false);
+    expect(tracker.hasChanges(a)).toBe(true);
+    tracker.markUploaded(a);
+    expect(tracker.hasChanges(bytes(1, 2, 3))).toBe(false);
+    tracker.baseline(b);
+    expect(tracker.hasChanges(bytes(4, 5, 6))).toBe(false);
+    expect(tracker.hasChanges(a)).toBe(true);
+  });
+
   it("never uploads a value that keeps changing between ticks", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(null);
@@ -240,6 +255,47 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
     expect(tracker.shouldUpload(bytes(1, 2, 3, 0))).toBe(false);
+  });
+});
+
+describe("pollSaveFiles", () => {
+  const emulatorWith = (sramBytes: number) => ({
+    started: true,
+    gameManager: {
+      saveSaveFiles: vi.fn(),
+      getSaveFile: () => new Uint8Array(sramBytes),
+    },
+  });
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("flushes every second while the game runs and stops on demand", () => {
+    const emulator = emulatorWith(128 * 1024);
+    const stop = pollSaveFiles(emulator);
+
+    vi.advanceTimersByTime(2000);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledTimes(2);
+
+    emulator.started = false;
+    vi.advanceTimersByTime(1000);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledTimes(2);
+
+    emulator.started = true;
+    stop();
+    vi.advanceTimersByTime(5000);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledTimes(2);
+  });
+
+  it("slows down for a save too big to copy every second", () => {
+    const emulator = emulatorWith(4 * 1024 * 1024);
+    const stop = pollSaveFiles(emulator);
+
+    vi.advanceTimersByTime(4095);
+    expect(emulator.gameManager.saveSaveFiles).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(emulator.gameManager.saveSaveFiles).toHaveBeenCalledOnce();
+    stop();
   });
 });
 
@@ -334,6 +390,45 @@ describe("saveState", () => {
 
     const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
     expect(statesToUpload[0].screenshotFile).toBeUndefined();
+  });
+});
+
+describe("saveSaveOnUnload", () => {
+  const rom = { id: 1, fs_name_no_ext: "game " } as unknown as DetailedRom;
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+
+  beforeEach(() => {
+    saveApiMocks.sendSaveOnUnload.mockReset().mockReturnValue(true);
+  });
+
+  it("opens a capped autosave version named after the rom", () => {
+    expect(saveSaveOnUnload({ rom, save: null, saveFile: bytes })).toBe(true);
+
+    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0][0];
+    expect(request).toMatchObject({
+      save: null,
+      slot: "autosave",
+      autocleanup: true,
+    });
+    expect(request.saveFile.name).toBe("game.srm");
+  });
+
+  it("updates the session's version under its own name", () => {
+    const save = {
+      id: 3,
+      file_name: "a.srm",
+      slot: "main_quest",
+    } as SaveSchema;
+
+    saveSaveOnUnload({ rom, save, saveFile: bytes, slot: "main_quest" });
+
+    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0][0];
+    expect(request).toMatchObject({
+      save,
+      slot: "main_quest",
+      autocleanup: false,
+    });
+    expect(request.saveFile.name).toBe("a.srm");
   });
 });
 

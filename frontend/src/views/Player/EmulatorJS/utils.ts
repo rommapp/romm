@@ -100,6 +100,20 @@ export async function saveState({
   return null;
 }
 
+// Session saves are named after the ROM; a version updated in place keeps
+// its name.
+function sessionSaveFile(
+  rom: DetailedRom,
+  save: SaveSchema | null,
+  bytes: ArrayBuffer,
+): File {
+  return new File(
+    [bytes],
+    save ? save.file_name : `${rom.fs_name_no_ext.trim()}.srm`,
+    { type: "application/octet-stream" },
+  );
+}
+
 // `save` is the version this session already created: it is updated in place,
 // while a null `save` opens a new version in `slot`.
 export async function saveSave({
@@ -121,9 +135,7 @@ export async function saveSave({
     try {
       const { data: updatedSave } = await saveApi.updateSave({
         save: save,
-        saveFile: new File([saveFile], save.file_name, {
-          type: "application/octet-stream",
-        }),
+        saveFile: sessionSaveFile(rom, save, saveFile),
         // A version opened by the periodic sync has no screenshot yet; name a
         // new one after the save so the backend links it by stem.
         screenshotFile: screenshotFile
@@ -163,9 +175,7 @@ export async function saveSave({
       overwrite: true,
       savesToUpload: [
         {
-          saveFile: new File([saveFile], `${filename}.srm`, {
-            type: "application/octet-stream",
-          }),
+          saveFile: sessionSaveFile(rom, null, saveFile),
           screenshotFile: screenshotFile
             ? new File([screenshotFile], `${filename}.png`, {
                 type: "application/octet-stream",
@@ -187,12 +197,42 @@ export async function saveSave({
   return null;
 }
 
+// The unload counterpart of saveSave: nothing awaits it, so the rom's list is
+// left alone. False when the save is too big for a keepalive body.
+export function saveSaveOnUnload({
+  rom,
+  save,
+  saveFile,
+  deviceId,
+  slot = AUTOSAVE_SLOT,
+}: {
+  rom: DetailedRom;
+  save: SaveSchema | null;
+  saveFile: ArrayBuffer;
+  deviceId?: string;
+  slot?: string;
+}): boolean {
+  return saveApi.sendSaveOnUnload({
+    rom,
+    save,
+    saveFile: sessionSaveFile(rom, save, saveFile),
+    emulator: window.EJS_core,
+    deviceId,
+    slot,
+    autocleanup: slot === AUTOSAVE_SLOT,
+  });
+}
+
 // Per EmulatorJS "saveSaveFiles" tick, whether the SRAM is worth uploading
 // (#4201). Two agreeing ticks keep a mid-write save from being uploaded (#2349).
 export function createSaveSyncTracker() {
   let lastUploaded: Uint8Array | null = null;
   let baseline: Uint8Array | null = null;
   let previousTick: Uint8Array | null = null;
+  // Bytes the server does not hold: neither the last upload nor the SRAM the
+  // session started from.
+  const hasChanges = (save: Uint8Array): boolean =>
+    !bytesEqual(save, lastUploaded) && !bytesEqual(save, baseline);
   return {
     // Bytes downloaded from the server: neither the tick nor a forced write
     // needs to send them back.
@@ -211,10 +251,11 @@ export function createSaveSyncTracker() {
     shouldUpload(save: Uint8Array): boolean {
       const stable = bytesEqual(save, previousTick);
       previousTick = save;
-      return (
-        stable && !bytesEqual(save, lastUploaded) && !bytesEqual(save, baseline)
-      );
+      return stable && hasChanges(save);
     },
+    // Leaving the player cannot wait for a second tick, so it uploads on
+    // this alone.
+    hasChanges,
     markUploaded(save: Uint8Array) {
       lastUploaded = save;
       baseline = null;
@@ -228,11 +269,48 @@ export function createSaveSyncTracker() {
 
 // EmulatorJS reads each tick off the FS into a fresh buffer, so the tracker can
 // hold on to one rather than fingerprint it.
-function bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
+export function bytesEqual(
+  a: Uint8Array | null,
+  b: Uint8Array | null,
+): boolean {
   if (!a || !b) return a === b;
   if (a.byteLength !== b.byteLength) return false;
   for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+// The core exposes no write hook for its SRAM and EmulatorJS flushes it only on
+// its "System Save interval" (5 minutes by default), so polling it every second
+// is what gets an in-game save to the server right after the game writes it.
+export const SAVE_SYNC_POLL_MS = 1000;
+// Each tick copies and compares the whole SRAM, so the interval grows with it
+// past 1 MB (1 ms of work per second either way) rather than hitching big saves.
+const SAVE_SYNC_BYTES_PER_MS = 1024;
+
+interface PollableEmulator {
+  started: boolean;
+  gameManager: {
+    saveSaveFiles(): void;
+    getSaveFile(save: boolean): Uint8Array | null;
+  };
+}
+
+/**
+ * Flushes the SRAM on a timer while the game runs, firing EmulatorJS'
+ * "saveSaveFiles" tick.
+ *
+ * Returns:
+ *   A function that stops the timer.
+ */
+export function pollSaveFiles(emulator: PollableEmulator): () => void {
+  const sramBytes = emulator.gameManager.getSaveFile(false)?.byteLength ?? 0;
+  const timer = setInterval(
+    () => {
+      if (emulator.started) emulator.gameManager.saveSaveFiles();
+    },
+    Math.max(SAVE_SYNC_POLL_MS, sramBytes / SAVE_SYNC_BYTES_PER_MS),
+  );
+  return () => clearInterval(timer);
 }
 
 // saveSave needs an ArrayBuffer, and a Uint8Array's own buffer may be shared or
