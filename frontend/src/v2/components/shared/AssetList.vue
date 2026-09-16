@@ -378,15 +378,19 @@ function visibleVersions(group: SlotGroup): Asset[] {
   flex-direction: column;
   gap: 4px;
 }
+/* Each slot sits on its own tinted band, so the gaps between sections
+   read as separators. */
+.r-asset-list__group--slot {
+  padding: 6px 8px 8px;
+  border-radius: var(--r-radius-md);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
+}
 
-/* A tinted band, so the slot reads apart from its version rows. */
 .r-asset-list__group-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  border-radius: var(--r-radius-sm);
-  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
+  padding: 4px 2px;
   color: var(--r-color-fg-secondary);
 }
 .r-asset-list__group-icon {
