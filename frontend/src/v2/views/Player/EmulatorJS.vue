@@ -990,7 +990,21 @@ html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-body--split
   .r-v2-ejs__resume-main {
   order: -1;
-  height: 100%;
+  height: 100%; /* 6px plus the tile track's 4px top padding equals the preview's
+     label-to-stage gap, so the stage lines up with the first tile row. */
+  gap: 6px;
+}
+html[data-bp~="md-and-up"]
+  .r-v2-ejs__resume-body--split
+  .r-v2-ejs__strip-label {
+  margin-top: 0;
+}
+/* Beside the grid the stage can afford the screenshots' own ratio, which
+   also gives the empty copy room. */
+html[data-bp~="md-and-up"]
+  .r-v2-ejs__resume-body--split
+  :deep(.r-asset-preview__stage) {
+  aspect-ratio: 16 / 9;
 }
 .r-v2-ejs__slot {
   display: flex;

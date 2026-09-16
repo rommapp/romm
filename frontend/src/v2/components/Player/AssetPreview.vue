@@ -94,7 +94,7 @@ const emptyText = computed(() =>
       <!-- Empty: friendly art. -->
       <div v-else class="r-asset-preview__stage-fill">
         <div class="r-asset-preview__empty-art">
-          <RIcon icon="mdi-image-area" size="40" />
+          <RIcon icon="mdi-image-area" size="24" />
         </div>
         <p class="r-asset-preview__empty-title">{{ emptyText }}</p>
         <p class="r-asset-preview__empty-hint">
@@ -213,6 +213,10 @@ const emptyText = computed(() =>
 
 .r-asset-preview__eyebrow {
   margin: 0;
+  /* Same row height as the list label beside it, so the two line up. */
+  display: flex;
+  align-items: center;
+  min-height: 18px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 10px;
@@ -274,11 +278,11 @@ const emptyText = computed(() =>
   inset: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   justify-content: center;
   color: var(--r-color-fg-muted);
-  padding: 16px;
+  padding: 12px;
   text-align: center;
 }
 .r-asset-preview__stage-fill p {
@@ -340,8 +344,9 @@ const emptyText = computed(() =>
 .r-asset-preview__empty-art {
   display: grid;
   place-items: center;
-  width: 60px;
-  height: 60px;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--r-color-bg-elevated);
   color: var(--r-color-fg-muted);
