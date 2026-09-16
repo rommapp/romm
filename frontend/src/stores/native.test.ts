@@ -44,6 +44,11 @@ vi.mock("@/services/native", async (importOriginal) => ({
   },
 }));
 vi.mock("@/stores/config", () => ({ default: () => ({ config: {} }) }));
+// A gallery card's rom carries no file entries, so the store fetches them.
+const getRom = vi.fn(async (_args: { romId: number }) => ({
+  data: { files: [{ full_path: "psx/disc.chd", file_size_bytes: 700 }] },
+}));
+vi.mock("@/services/api/rom", () => ({ default: { getRom } }));
 // The two rom-shape helpers are stubbed rather than reimplemented: what they
 // answer is `utils`' own test, and what the store does with the answer is this
 // one's. `soleFile` is the knob for "one file on disk" versus "an archive the
@@ -55,7 +60,10 @@ const soleFile = {
 vi.mock("@/utils", () => ({
   getDownloadPath: () => "/api/roms/1/content/game.sfc",
   getDownloadFileName: () => "served-name.sfc",
-  getSoleRomFile: () => soleFile.value,
+  // Keyed off the rom handed in, so a test can tell whether the store used the
+  // rom it was given or the one it fetched file entries for.
+  getSoleRomFile: (rom: { files?: unknown[] }) =>
+    (rom.files ?? []).length > 0 ? soleFile.value : null,
   getSupportedEJSCores: () => ["snes9x"],
   resolvePlatformSlug: (slug: string) => slug,
 }));
@@ -72,6 +80,8 @@ function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
     full_path: "snes/Chrono Trigger.sfc",
     platform_slug: "snes",
     has_file_on_disk: true,
+    // As a single-rom endpoint answers. A gallery card passes `files: []`.
+    files: [{ full_path: "snes/game.sfc", file_size_bytes: 4194304 }],
     ...overrides,
   } as unknown as SimpleRom;
 }
@@ -85,6 +95,11 @@ beforeEach(() => {
   launchNative.mockClear();
   launchNative.mockResolvedValue({ romId: 1, emulator: "RetroArch" });
   cancelNative.mockClear();
+  cancelNative.mockResolvedValue(true);
+  getRom.mockClear();
+  getRom.mockResolvedValue({
+    data: { files: [{ full_path: "psx/disc.chd", file_size_bytes: 700 }] },
+  });
   unsubscribe.mockClear();
   soleFile.value = { full_path: "snes/game.sfc", file_size_bytes: 4194304 };
 });
@@ -199,6 +214,38 @@ describe("useNativeStore.launch", () => {
     expect(request?.fileSize).toBeUndefined();
   });
 
+  // /api/roms omits file entries unless asked, so a rom straight off a gallery
+  // card cannot say what the download endpoint will serve it as.
+  it("fetches the file entries a gallery card's rom does not carry", async () => {
+    const store = useNativeStore();
+
+    await store.launch(makeRom({ files: [] }));
+
+    expect(getRom).toHaveBeenCalledWith({ romId: 1 });
+    // The fetched entries are what passthrough is then built from.
+    expect(launchNative.mock.calls[0]?.[0].serverPath).toBe("snes/game.sfc");
+  });
+
+  it("asks for nothing when the rom already carries its files", async () => {
+    const store = useNativeStore();
+
+    await store.launch(makeRom());
+
+    expect(getRom).not.toHaveBeenCalled();
+    expect(launchNative.mock.calls[0]?.[0].serverPath).toBe("snes/game.sfc");
+  });
+
+  // Nothing about reading the files may fail a launch: the shell can still
+  // download what the endpoint serves, it just cannot play it in place.
+  it("launches anyway when the files cannot be read", async () => {
+    getRom.mockRejectedValue(new Error("offline"));
+    const store = useNativeStore();
+
+    expect(await store.launch(makeRom({ files: [] }))).toBeNull();
+    expect(launchNative).toHaveBeenCalledTimes(1);
+    expect(launchNative.mock.calls[0]?.[0].serverPath).toBeUndefined();
+  });
+
   it("resolves with nothing to report when the shell takes the launch", async () => {
     const store = useNativeStore();
 
@@ -303,6 +350,33 @@ describe("useNativeStore launch state", () => {
 
     expect(store.consumeCancelled(1)).toBe(false);
     expect(store.launchStateFor(1)?.error?.code).toBe("emulator-not-found");
+  });
+
+  // The mark goes on only once the shell has taken the cancel, so a failure
+  // that arrives while the request is in flight is still the user's to see.
+  it("reports a failure that lands while a cancel is in flight", async () => {
+    const store = useNativeStore();
+    store.install();
+    // A no-op default rather than null: assigned inside the executor, which
+    // control-flow analysis cannot see, so a nullable here narrows to never.
+    let accept: (taken: boolean) => void = () => {};
+    cancelNative.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          accept = resolve;
+        }),
+    );
+
+    const pending = store.cancel(1);
+    emit?.({
+      romId: 1,
+      status: "failed",
+      error: { code: "emulator-not-found", message: "No PCSX2 here." },
+    });
+    // Nothing has suppressed it: this failure is not the cancel's.
+    expect(store.consumeCancelled(1)).toBe(false);
+    accept(false);
+    expect(await pending).toBe(false);
   });
 
   it("leaves the launch alone when the shell refuses the cancel", async () => {

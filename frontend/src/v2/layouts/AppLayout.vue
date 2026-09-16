@@ -89,9 +89,12 @@ installNativeLaunchFeedback();
 // has one in flight. Re-probing is cheap: the store skips slugs it has
 // answered.
 watch(
+  // Joined only to compare cheaply: a slug comes from a folder name and may
+  // contain a comma, so the probe reads the list rather than a split of this.
   () => platformsStore.allPlatforms.map((p) => p.slug).join(","),
-  (slugs) => {
-    if (slugs) void nativeStore.probe(slugs.split(","));
+  (joined) => {
+    if (!joined) return;
+    void nativeStore.probe(platformsStore.allPlatforms.map((p) => p.slug));
   },
   { immediate: true },
 );

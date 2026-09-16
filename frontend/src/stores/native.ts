@@ -9,6 +9,7 @@ import {
   nativeShellVersion,
   onNativeLaunchState,
 } from "@/services/native";
+import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
 import type { LaunchState, PlatformSupport } from "@/types/rommNative";
@@ -168,6 +169,20 @@ export const useNativeStore = defineStore("native", () => {
     support.value = merged;
   }
 
+  /** The rom with its file entries, fetched when the copy in hand has none.
+   *  `/api/roms` omits them unless asked (`with_files`), so a rom off a gallery
+   *  card cannot say what the download endpoint will serve it as. */
+  async function withRomFiles(rom: SimpleRom): Promise<SimpleRom> {
+    if ((rom.files ?? []).length > 0) return rom;
+    try {
+      const { data } = await romApi.getRom({ romId: rom.id });
+      return { ...rom, files: data.files };
+    } catch (error) {
+      console.error("[native] Could not read the rom's files:", error);
+      return rom;
+    }
+  }
+
   /** Hand a ROM to the shell to launch, resolving with an error message only
    *  when the shell never took the request (no bridge, a malformed request, a
    *  game already running). A launch it accepted and then failed is left to
@@ -181,16 +196,20 @@ export const useNativeStore = defineStore("native", () => {
       ...names.value,
       [rom.id]: rom.name ?? rom.fs_name_no_ext,
     };
+    // A gallery list is fetched without file entries, so a card's rom has none
+    // and both helpers below would answer from the rom's own name. Fetched
+    // rather than guessed, and a failure leaves the rom as it came.
+    const detailed = await withRomFiles(rom);
     // Passthrough needs one real file to point at, which a rom served as a
     // built-on-request archive does not have.
-    const soleFile = getSoleRomFile(rom);
+    const soleFile = getSoleRomFile(detailed);
     try {
       await launchNative({
         romId: rom.id,
         downloadPath: getDownloadPath({ rom }),
         // What the endpoint will actually serve, which for a folder rom is
         // neither `fs_name` nor `fs_name` with an extension.
-        fileName: getDownloadFileName(rom),
+        fileName: getDownloadFileName(detailed),
         platformSlug: rom.platform_slug,
         cores: getSupportedEJSCores(
           resolvePlatformSlug(rom.platform_slug, configStore.config),
@@ -218,11 +237,11 @@ export const useNativeStore = defineStore("native", () => {
    *  A refusal changes nothing: the launch is still whatever it was, so the
    *  mark comes back off and the failure that follows is the real one. */
   async function cancel(romId: number): Promise<boolean> {
+    // Marked only once the shell has taken the cancel. Marking on the way in
+    // would suppress a failure that arrived while this was in flight and had
+    // nothing to do with the cancel, which is the one the user needs to see.
+    if (!(await cancelNative(romId))) return false;
     cancelled.value.add(romId);
-    if (!(await cancelNative(romId))) {
-      cancelled.value.delete(romId);
-      return false;
-    }
     starting.value.delete(romId);
     // The shell acknowledges a cancel by dropping the launch rather than by
     // reporting a state for it, so the record has to go from here.
