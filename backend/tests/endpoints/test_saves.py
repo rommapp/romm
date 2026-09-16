@@ -1982,6 +1982,258 @@ class TestAutocleanup:
         mock_remove.assert_not_called()
 
 
+class TestSlotRetention:
+    @pytest.fixture
+    def named_slot_saves(
+        self, admin_user: User, rom: Rom, platform: Platform
+    ) -> list[Save]:
+        from datetime import datetime, timedelta, timezone
+
+        saves = []
+        base_time = datetime.now(timezone.utc) - timedelta(hours=20)
+        for i in range(5):
+            created = db_save_handler.add_save(
+                Save(
+                    file_name=f"main_quest_{i}.sav",
+                    file_name_no_tags=f"main_quest_{i}",
+                    file_name_no_ext=f"main_quest_{i}",
+                    file_extension="sav",
+                    file_path=f"{platform.slug}/saves",
+                    file_size_bytes=100 + i,
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    slot="main_quest",
+                )
+            )
+            db_save_handler.update_save(
+                created.id, {"updated_at": base_time + timedelta(hours=i)}
+            )
+            saves.append(created)
+        return saves
+
+    def _upload(self, client, access_token: str, rom: Rom, query: str = ""):
+        return client.post(
+            f"/api/saves?rom_id={rom.id}{query}",
+            files={
+                "saveFile": (
+                    "main_quest_new.sav",
+                    BytesIO(b"new save"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    def _remaining(self, admin_user: User, rom: Rom, slot: str | None) -> list[str]:
+        return [
+            save.file_name_no_ext
+            for save in db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], slot=slot
+            )
+        ]
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_named_slot_keeps_only_the_newest_versions(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        named_slot_saves: list[Save],
+    ):
+        mock_scan.return_value = Save(
+            file_name="main_quest_new.sav",
+            file_name_no_tags="main_quest_new",
+            file_name_no_ext="main_quest_new",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="main_quest",
+        )
+
+        with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 3):
+            response = self._upload(client, access_token, rom, "&slot=main_quest")
+
+        assert response.status_code == status.HTTP_200_OK
+        remaining = self._remaining(admin_user, rom, "main_quest")
+        assert len(remaining) == 3
+        assert "main_quest_new" in remaining
+        assert {"main_quest_0", "main_quest_1", "main_quest_2"}.isdisjoint(remaining)
+        assert mock_remove.call_count == 3
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_tighter_client_autocleanup_wins_over_server_cap(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        named_slot_saves: list[Save],
+    ):
+        mock_scan.return_value = Save(
+            file_name="main_quest_new.sav",
+            file_name_no_tags="main_quest_new",
+            file_name_no_ext="main_quest_new",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="main_quest",
+        )
+
+        with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 4):
+            response = self._upload(
+                client,
+                access_token,
+                rom,
+                "&slot=main_quest&autocleanup=true&autocleanup_limit=2",
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(self._remaining(admin_user, rom, "main_quest")) == 2
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_server_cap_bounds_a_looser_client_autocleanup(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        named_slot_saves: list[Save],
+    ):
+        mock_scan.return_value = Save(
+            file_name="main_quest_new.sav",
+            file_name_no_tags="main_quest_new",
+            file_name_no_ext="main_quest_new",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="main_quest",
+        )
+
+        with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 2):
+            response = self._upload(
+                client,
+                access_token,
+                rom,
+                "&slot=main_quest&autocleanup=true&autocleanup_limit=10",
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(self._remaining(admin_user, rom, "main_quest")) == 2
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_zero_cap_keeps_every_version(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        named_slot_saves: list[Save],
+    ):
+        mock_scan.return_value = Save(
+            file_name="main_quest_new.sav",
+            file_name_no_tags="main_quest_new",
+            file_name_no_ext="main_quest_new",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="main_quest",
+        )
+
+        with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 0):
+            response = self._upload(client, access_token, rom, "&slot=main_quest")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(self._remaining(admin_user, rom, "main_quest")) == 6
+        mock_remove.assert_not_called()
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_slotless_uploads_are_never_pruned(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        named_slot_saves: list[Save],
+    ):
+        mock_scan.return_value = Save(
+            file_name="main_quest_new.sav",
+            file_name_no_tags="main_quest_new",
+            file_name_no_ext="main_quest_new",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+        )
+
+        with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 1):
+            response = self._upload(client, access_token, rom)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(self._remaining(admin_user, rom, "main_quest")) == 5
+        assert len(self._remaining(admin_user, rom, None)) == 6
+        mock_remove.assert_not_called()
+
+
 class TestAutocleanupScreenshots:
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock

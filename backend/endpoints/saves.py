@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
-from config import MAX_AUTOCLEANUP_LIMIT
+from config import MAX_AUTOCLEANUP_LIMIT, MAX_SAVES_PER_SLOT
 from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummarySchema
 from endpoints.responses.device import DeviceSyncSchema
@@ -117,6 +117,28 @@ async def _remove_save_screenshot(save: Save) -> None:
             f"Screenshot file {hl(screenshot.file_name)} not found for save "
             f"{hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
         )
+
+
+async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
+    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
+    slot_saves = db_save_handler.get_saves(
+        user_id=user_id, rom_ids=[rom_id], slot=slot, order_by="updated_at"
+    )
+    for old_save in slot_saves[keep:]:
+        db_save_handler.delete_save(old_save.id)
+        try:
+            await fs_asset_handler.remove_file(old_save.full_path)
+        except FileNotFoundError:
+            log.warning(f"Could not delete old save file: {old_save.full_path}")
+        await _remove_save_screenshot(old_save)
+
+
+def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
+    """Versions to keep in a slot: the tighter of the client's ask and the server cap."""
+    limits = [MAX_SAVES_PER_SLOT] if MAX_SAVES_PER_SLOT else []
+    if autocleanup:
+        limits.append(autocleanup_limit)
+    return min(limits) if limits else None
 
 
 def _apply_datetime_tag(filename: str) -> str:
@@ -347,21 +369,9 @@ async def add_save(
     if session_id:
         _increment_session_counter(session_id, request.user.id)
 
-    if slot and autocleanup:
-        slot_saves = db_save_handler.get_saves(
-            user_id=request.user.id,
-            rom_ids=[rom.id],
-            slot=slot,
-            order_by="updated_at",
-        )
-        if len(slot_saves) > autocleanup_limit:
-            for old_save in slot_saves[autocleanup_limit:]:
-                db_save_handler.delete_save(old_save.id)
-                try:
-                    await fs_asset_handler.remove_file(old_save.full_path)
-                except FileNotFoundError:
-                    log.warning(f"Could not delete old save file: {old_save.full_path}")
-                await _remove_save_screenshot(old_save)
+    keep = _slot_retention(autocleanup, autocleanup_limit)
+    if slot and keep is not None:
+        await _prune_slot(request.user.id, rom.id, slot, keep)
 
     if screenshotFile and screenshotFile.filename:
         try:
