@@ -32,7 +32,7 @@
   "cleanup-all-confirm": "This will permanently delete all missing ROMs{platform} from the database and their resource directories. This action cannot be undone.",
   "cleanup-firmware-confirm": "Cette action supprimera définitivement de la base de données chaque entrée de firmware{platform} dont le fichier est absent du système de fichiers. Rien n'est supprimé du disque.",
   "cleanup-firmware-queued": "Tâche de nettoyage mise en file d'attente, les firmwares manquants seront supprimés sous peu",
-  "cleanup-queued": "Tâche de nettoyage mise en file d'attente — les ROMs manquantes seront supprimées sous peu",
+  "cleanup-queued": "Tâche de nettoyage mise en file d'attente, les ROMs manquantes seront supprimées sous peu",
   "client-api-tokens": "Client API Tokens",
   "client-token-confirm-delete": "Are you sure you want to revoke this token? Any device using it will lose access.",
   "client-token-confirm-regenerate": "This will invalidate the current credential. Any device using the old token will need to be re-paired.",

@@ -254,10 +254,11 @@ class TestRunSingleTask:
     )
     def test_run_single_task_success(self, mock_enqueue, client, access_token):
         """Test successful running of a single task"""
-        response = client.post(
-            "/api/tasks/run/test_task",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+        with patch("endpoints.tasks.Worker.all", return_value=[Mock()]):
+            response = client.post(
+                "/api/tasks/run/test_task",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -270,6 +271,34 @@ class TestRunSingleTask:
         assert "enqueued_at" in data
 
         mock_enqueue.assert_called_once()
+
+    @patch("endpoints.tasks.enqueue_task")
+    @patch(
+        "endpoints.tasks.RUNNABLE_TASKS",
+        {
+            "test_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Test Task",
+                enabled=True,
+                manual_run=True,
+                can_run_manually=True,
+                run=Mock(),
+            ),
+        },
+    )
+    def test_run_single_task_without_a_worker_is_refused(
+        self, mock_enqueue, client, access_token
+    ):
+        with patch("endpoints.tasks.Worker.all", return_value=[]):
+            response = client.post(
+                "/api/tasks/run/test_task",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "worker" in response.json()["detail"]
+        mock_enqueue.assert_not_called()
 
     @patch("endpoints.tasks.RUNNABLE_TASKS", {})
     def test_run_single_task_not_found(self, client, access_token):

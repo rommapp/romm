@@ -126,6 +126,16 @@ cd backend
 uv run python3 main.py
 ```
 
+#### - Run the task workers
+
+Manual tasks (the missing ROMs and firmware cleanups, folder sync) and the scheduled jobs run on an RQ worker, and scans on a worker of their own. Without them a task stays queued.
+
+```sh
+cd backend
+uv run rq worker --url redis://127.0.0.1:6379/0 --worker-class handler.rq_worker.RomMWorker --with-scheduler high default low
+uv run rq worker --url redis://127.0.0.1:6379/0 --worker-class handler.rq_worker.RomMWorker scans
+```
+
 ### Setting up the frontend
 
 #### - Install node.js dependencies

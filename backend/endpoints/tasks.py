@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any, Final, Mapping, cast
 
-from fastapi import Body, HTTPException, Request
+from fastapi import Body, HTTPException, Request, status
 from rq import Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
@@ -27,6 +27,7 @@ from handler.redis_handler import (
     ALL_QUEUES,
     get_job_func_name,
     get_worker_current_job,
+    low_prio_queue,
     redis_client,
 )
 from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
@@ -299,6 +300,13 @@ async def run_single_task(
         raise HTTPException(
             status_code=400,
             detail=f"Task '{task_name}' cannot be run",
+        )
+
+    # Without a worker the job would sit queued while the UI reports it done.
+    if not Worker.all(queue=low_prio_queue, connection=redis_client):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No task worker is running, so the task cannot be queued",
         )
 
     # The caller's arguments are nested rather than spread, so a body cannot
