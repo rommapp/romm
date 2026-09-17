@@ -1,4 +1,5 @@
 # Stages:
+#   - python-runtime: Patch the Python image's libraries before they ship
 #   - frontend-build: Build frontend
 #   - backend-build: Build backend environment
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
@@ -29,8 +30,13 @@ ARG UV_SHA256=eb47c391d3a252d9d912270dd2b5e234af5493e92039fedb483f1dd1cb5659ce
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
 
-# production-stage copies /usr/lib from here over its own, so this stage needs
-# the same patches, or the stale libs land in the final image.
+
+# PATCHED PYTHON RUNTIME
+# production-stage copies /usr/lib from here over its own, so these libraries
+# need the same patches, or the stale ones land in the final image. Kept apart
+# from python-alias so that busting this layer's cache (see `no-cache-filters`
+# in build.yml) does not also rebuild the venv and the sigil bindings.
+FROM python-alias AS python-runtime
 RUN apk upgrade --no-cache
 
 
@@ -240,11 +246,11 @@ RUN apk upgrade --no-cache && apk add --no-cache \
 # TODO: Replace with a bundled installation of Python using `uv`, when it is supported.
 #       Related issue: https://github.com/astral-sh/uv/issues/7865
 ARG PYTHON_VERSION
-COPY --from=python-alias /usr/lib/* /usr/lib/
-COPY --from=python-alias /usr/local/bin/* /usr/local/bin/
-COPY --from=python-alias /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
-COPY --from=python-alias /usr/local/lib/libpython* /usr/local/lib/
-COPY --from=python-alias /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
+COPY --from=python-runtime /usr/lib/* /usr/lib/
+COPY --from=python-runtime /usr/local/bin/* /usr/local/bin/
+COPY --from=python-runtime /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
+COPY --from=python-runtime /usr/local/lib/libpython* /usr/local/lib/
+COPY --from=python-runtime /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
