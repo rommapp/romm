@@ -51,9 +51,8 @@ const entries = computed<Entry[]>(() => {
 </template>
 
 <style scoped>
-/* One grid row per line (label, value, subcount) shared by every column, so a
-   label that wraps cannot push its own value and subcount out of line with
-   the neighbouring columns. */
+/* Columns share the container's rows so a wrapped label cannot push its own
+   value and subcount out of line. */
 .r-v2-det-hltb {
   display: grid;
   grid-auto-flow: column;
@@ -86,8 +85,7 @@ const entries = computed<Entry[]>(() => {
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--r-color-fg-faint);
-  /* A label too long for its equal-width column breaks rather than spilling
-     over the divider. */
+  /* Break an over-long label instead of spilling over the divider. */
   overflow-wrap: break-word;
 }
 .r-v2-det-hltb__value {
