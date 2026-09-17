@@ -132,7 +132,7 @@ onBeforeUnmount(() => {
    backdrop art is dropped in this mode), just reads as murky. Swap it for a
    flat opaque surface so the fixed bar stays a clean, solid strip as content
    scrolls under it. */
-:global(html.r-v2-reduced-motion) .r-v2-nav-bar::before {
+html.r-v2-reduced-motion .r-v2-nav-bar::before {
   background: var(--r-color-bg);
   backdrop-filter: none;
 }
