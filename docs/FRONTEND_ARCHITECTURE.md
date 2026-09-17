@@ -862,6 +862,19 @@ All synthesized with sine/noise blend, exponential envelopes, low-pass filter, a
 - Fullscreen support
 - Background color customization
 
+### Cross-origin isolation (v2 players)
+
+Threaded EmulatorJS cores need `SharedArrayBuffer`, which browsers expose only in a cross-origin isolated document. Nginx attaches `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` to the player URLs alone (`docker/nginx/templates/default.conf.template`), because under that policy the rest of the app cannot embed third-party images (provider covers in Match ROM).
+
+A v2 player view is reached by SPA navigation, so it is not isolated on arrival. Two composables cover that:
+
+- `useIsolatedLaunch(player, romId, isIntent)` reloads the view into an isolated document when a launch needs it. The view defines the `Intent` the reload cannot carry in the URL, calls `relaunch(intent)` when `hasSharedArrayBuffer()` is false, and boots from `intent` on mount. `relaunch()` returns false, and the view reports the context instead, when the reload would not help: outside a secure context (the headers alone never expose `SharedArrayBuffer`), where storage refused to keep the selection, or from a view that already came from such a reload.
+- `usePlayerExit(runtimeBound)` leaves the view by a full navigation when the document is isolated, or when the player's runtime cannot be injected twice (EmulatorJS declares top-level classes), so the app resumes in a fresh document. Otherwise leaving is an SPA navigation. `guard` is the `onBeforeRouteLeave` form, `leave(path)` the programmatic one, and `departing` tells an unload prompt that this exit is the view's own.
+
+To add an EmulatorJS core that needs threads, add it to `areThreadsRequiredForEJSCore` in `utils/index.ts`; nothing else changes. To add a player that needs isolation, use both composables the way `v2/views/Player/EmulatorJS.vue` does, and track `runtimeBound` from the moment the runtime is injected rather than from the global it eventually defines. A player whose runtime needs no `SharedArrayBuffer` (js-dos) only needs `usePlayerExit()`.
+
+The dev server has no nginx in front of it, so `scripts/playerIsolationHeaders.ts` answers the same URLs with the same headers. It is one entry per entry of the nginx map, and the two are meant to be edited together.
+
 ### Platform Detection
 
 `utils/index.ts` provides:
