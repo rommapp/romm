@@ -225,6 +225,9 @@ class AdminContainerSchema(BaseModel):
     configured: bool
     """False for a container with no usable broker address: it can never be
     claimed, and saying so beats listing it as idle."""
+    draining: bool = False
+    """The previous session's exit work is still running, so the container is
+    held by nobody and about to come free."""
     session: ContainerSessionSchema | None = None
 
 

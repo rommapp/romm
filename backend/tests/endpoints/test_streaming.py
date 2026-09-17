@@ -1224,6 +1224,34 @@ def test_pool_409s_only_once_every_container_is_held(
     assert "2 containers" in r3.json()["detail"]["message"]
 
 
+def test_a_busy_pool_names_the_holder_while_a_member_drains(
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
+):
+    """A drain marker names nobody, so reading only the head of the pool told
+    the waiting player the platform was saving while another member played on."""
+    head, tail = _pool_member(rom, 0), _pool_member(rom, 1)
+    with _streaming(head, tail):
+        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        holder = json.loads(_session_raw(tail))
+        assert (
+            asyncio.run(
+                session_store.claim_drain_marker(
+                    _key_of(head), json.loads(_session_raw(head))
+                )
+            )
+            is not None
+        )
+        r = _claim_ok(client, editor_access_token, rom.id)
+
+    assert r.status_code == 409
+    detail = r.json()["detail"]
+    # One member is about to come free, which is what "try again shortly" says.
+    assert detail["draining"] is True
+    assert detail["rom_name"] == rom.name
+    assert detail["claimed_at"] == holder["claimed_at"]
+
+
 def test_a_claim_never_lands_in_a_later_pool(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -1853,6 +1881,49 @@ def _claim_webstation_ok(client, token, rom_id):
         "handler.streaming.webstation.activate", return_value={"url": "/room/x"}
     ):
         return _claim(client, token, rom_id)
+
+
+def test_containers_reports_a_container_that_is_still_saving(
+    client, access_token, rom: Rom
+):
+    """A drain marker has no owner, so the row read as idle while the previous
+    session's state was still coming out of the container."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        assert (
+            asyncio.run(
+                session_store.claim_drain_marker(
+                    _key_of(container), json.loads(_session_raw(container))
+                )
+            )
+            is not None
+        )
+        rows = _containers(client, access_token).json()["containers"]
+
+    assert rows[0]["draining"] is True
+    assert rows[0]["session"] is None
+
+
+def test_a_desktop_refused_over_a_drain_says_it_is_saving(client, access_token):
+    """Nobody holds a draining container, so "in use" names no one and the
+    admin needs to hear that waiting is enough."""
+    ps2_rom = _rom_on("ps2")
+    container = _webstation()
+    with _streaming(container):
+        _claim_webstation_ok(client, access_token, ps2_rom.id)
+        assert (
+            asyncio.run(
+                session_store.claim_drain_marker(
+                    _key_of(container), json.loads(_session_raw(container))
+                )
+            )
+            is not None
+        )
+        response, _ = _desktop(client, access_token, _key_of(container))
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["draining"] is True
 
 
 def test_containers_lists_one_row_per_container(client, access_token):

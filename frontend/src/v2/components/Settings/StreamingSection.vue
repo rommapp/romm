@@ -92,6 +92,9 @@ async function release(container: AdminStreamingContainer): Promise<void> {
 
 function sessionState(container: AdminStreamingContainer): string {
   const session = container.session;
+  // A drain marker holds the container with nobody behind it, so there is no
+  // session to describe and calling it idle invites a claim that still fails.
+  if (container.draining) return t("settings.streaming-draining");
   if (!session) return t("settings.streaming-idle");
   return [
     session.desktop
@@ -183,7 +186,11 @@ onMounted(load);
             variant="outlined"
             density="compact"
             prepend-icon="mdi-desktop-classic"
-            :disabled="!container.configured || !!container.session"
+            :disabled="
+              !container.configured ||
+              !!container.session ||
+              !!container.draining
+            "
             @click="openDesktop(container)"
           >
             {{ t("settings.streaming-open-desktop") }}

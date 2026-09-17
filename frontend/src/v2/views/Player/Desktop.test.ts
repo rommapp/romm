@@ -1,4 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
+import { AxiosError } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import Desktop from "./Desktop.vue";
@@ -77,6 +78,20 @@ async function openDesktop(): Promise<VueWrapper> {
   return mounted;
 }
 
+async function refuseDesktop(detail: unknown): Promise<VueWrapper> {
+  mocks.claimDesktop.mockRejectedValue(
+    Object.assign(new AxiosError("HTTP 409"), {
+      response: { status: 409, data: { detail } },
+    }),
+  );
+  mounted = mount(Desktop, {
+    shallow: true,
+    global: { stubs: { StreamStage: StreamStageStub } },
+  });
+  await flushPromises();
+  return mounted;
+}
+
 function vmOf(wrapper: VueWrapper): DesktopVm {
   return wrapper.vm as unknown as DesktopVm;
 }
@@ -128,5 +143,36 @@ describe("Desktop session-ended notices", () => {
 
     expect(mocks.releaseSessionKeepalive).not.toHaveBeenCalled();
     expect(mocks.releaseSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("Desktop refused claims", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = null;
+  });
+
+  it("names the game holding the container", async () => {
+    const wrapper = await refuseDesktop({
+      rom_name: "Ico",
+      claimed_at: "2026-09-17T10:00:00",
+      draining: false,
+    });
+
+    expect(vmOf(wrapper).errorMessage).toBe("play.desktop-error-occupied");
+  });
+
+  it("says to come back when the container is still saving", async () => {
+    const wrapper = await refuseDesktop({
+      rom_name: null,
+      claimed_at: null,
+      draining: true,
+    });
+
+    expect(vmOf(wrapper).errorMessage).toBe("play.stream-occupied-draining");
   });
 });

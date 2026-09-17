@@ -414,16 +414,21 @@ async def _reserve_container(
         if await try_claim(candidate):
             return candidate
 
-    # Report the head of the pool as the holder: with one container that is the
-    # only holder, and with several the player just needs to know the platform
-    # is busy.
-    existing = await get_session(candidates[0].key) or {}
     # A drain marker belongs to nobody: the previous session is over and its
-    # exit state is still coming out of the container, so rom_name and
-    # claimed_at are both blank and "in use" would name no one. The player who
-    # just pressed save-and-exit sees this, and needs to be told to wait rather
-    # than that somebody else took their platform.
-    draining = bool(existing.get("draining"))
+    # exit state is still coming out of the container, so it carries no
+    # rom_name and no claimed_at. One member draining is worth telling the
+    # player about, since that container is about to come free, but the holder
+    # has to come from a live session or the message names no one.
+    snapshots = [await get_session(candidate.key) or {} for candidate in candidates]
+    draining = any(snapshot.get("draining") for snapshot in snapshots)
+    existing = next(
+        (
+            snapshot
+            for snapshot in snapshots
+            if snapshot and not snapshot.get("draining")
+        ),
+        {},
+    )
     if draining:
         message = "The previous session is still saving, try again shortly"
     elif len(candidates) == 1:
@@ -1330,7 +1335,11 @@ async def list_containers(request: Request) -> AdminContainersResponse:
     containers: list[dict[str, Any]] = []
     for container_key, entries in containers_by_key().items():
         first = entries[0]
-        session = await get_live_session(container_key) if container_key else None
+        held = await get_session(container_key) if container_key else None
+        # A drain marker holds the key with no owner. Reported as its own state
+        # rather than as a session, since there is nobody to name or release.
+        draining = bool(held and held.get("draining"))
+        session = None if draining else held
         user_id = session.get("user_id") if session else None
         user = db_user_handler.get_user(user_id) if isinstance(user_id, int) else None
         containers.append(
@@ -1343,6 +1352,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
                 # A container whose host has no scheme has an empty key and can
                 # never be claimed, so surface it rather than listing it as idle.
                 "configured": bool(container_key),
+                "draining": draining,
                 "session": (
                     {
                         "platform": session.get("platform"),
@@ -1416,6 +1426,9 @@ async def claim_desktop_session(
             status_code=409,
             detail={
                 "message": "Container in use",
+                # Same shape as a game claim's 409: a drain marker means the
+                # previous session is still saving, not that anyone holds it.
+                "draining": bool(existing.get("draining")),
                 "rom_name": access.visible_rom_name(request, existing),
                 "claimed_at": existing.get("claimed_at"),
             },
