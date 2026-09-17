@@ -1977,10 +1977,9 @@ def test_an_unnamed_heartbeat_skips_the_callers_desktop(
             _claim_webstation_ok(client, viewer_access_token, ps2_rom.id).status_code
             == 202
         )
-        assert (
-            _claim_webstation_ok(client, access_token, ps2_rom.id).json()["container"]
-            == _key_of(second)
-        )
+        assert _claim_webstation_ok(client, access_token, ps2_rom.id).json()[
+            "container"
+        ] == _key_of(second)
         with (
             patch("handler.streaming.commands.stop", return_value=None),
             patch("handler.streaming.background.spawn_sync_task"),
@@ -2240,6 +2239,29 @@ def test_stale_session_taken_over_on_claim(
     assert r1.status_code == 202
     assert r2.status_code == 202
     stop_broker.assert_called_once()
+
+
+def test_a_swept_session_is_torn_down_with_its_own_platforms_record(
+    client, access_token, viewer_access_token
+):
+    """One container serves ps2 and ngc on different emulators, so an ngc claim
+    sweeping a stale ps2 session must tear it down as pcsx2: the state and the
+    card coming out of the container are that emulator's, not the claimant's."""
+    ps2_rom = _rom_on("ps2")
+    ngc_rom = _rom_on("ngc")
+    with _streaming(_nested()):
+        _claim_ok(client, access_token, ps2_rom.id)
+        _age_session_on(_nested(), session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        with (
+            patch("handler.streaming.commands.stop", return_value=3) as stop,
+            patch(
+                "handler.streaming.states.pull_state_to_library", new=AsyncMock()
+            ) as pull_state,
+        ):
+            r = _claim_ok(client, viewer_access_token, ngc_rom.id)
+    assert r.status_code == 202
+    assert stop.call_args.args[0].emulator == "pcsx2"
+    assert pull_state.call_args.args[2].emulator == "pcsx2"
 
 
 def test_the_owner_of_a_stale_session_can_claim_it_again(

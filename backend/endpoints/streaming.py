@@ -392,8 +392,17 @@ async def _reserve_container(
             platform,
             existing.get("user_id"),
         )
+        # A container serves several platforms, so the session being swept may
+        # be another one's: its state, saves and card belong to that emulator,
+        # not to the one this claim would run.
+        record = (
+            container_for_session(
+                containers_by_key(), candidate.key, existing.get("platform")
+            )
+            or candidate
+        )
         if not await lifecycle.await_teardown_within_budget(
-            candidate,
+            record,
             candidate.key,
             existing,
             max(0.0, deadline - time.monotonic()),
