@@ -8,8 +8,8 @@
       <path fill="#111" d="m50 23.34-.35-.05A4.5 4.5 0 0 1 47 21.97L35.56 10.1c-.3-.33-.86-.1-.86.35V27.5c0 .27.22.5.5.5h13.78c1.48 0 2.67-1.2 2.67-2.67v-.1a1.9 1.9 0 0 0-1.67-1.89zm-10.81.2a1.8 1.8 0 1 1 0-3.58 1.8 1.8 0 0 1 0 3.58" />
     </g>
     <!--  -->
-    <text fill="#151515" font-family="Arial" font-size="21" font-weight="bold">
-      <tspan x="70" y="51">Backed by PostHog</tspan>
+    <text fill="#151515" font-family="Arial" font-size="19" font-weight="bold">
+      <tspan x="70" y="51">Supported by PostHog</tspan>
     </text>
     <text fill="#f54e00" font-family="Arial" font-size="12" font-weight="bold">
       <tspan x="70" y="26">SUPPORTING OPEN SOURCE</tspan>
