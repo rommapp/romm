@@ -15,6 +15,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import storePlaying from "@/stores/playing";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
@@ -29,8 +30,18 @@ const store = useSoundtrackPlayer();
 const { track, hasNext } = storeToRefs(store);
 const { smAndDown } = useBreakpoint();
 const visible = useMiniPlayerVisible();
+const playingStore = storePlaying();
 
 const audioEl = ref<HTMLAudioElement | null>(null);
+
+// On phones the mini player lives in the top bar, which a running game hides,
+// so the music pauses rather than play on with no controls.
+watch(
+  () => playingStore.stageActive,
+  (active) => {
+    if (active && smAndDown.value) audioEl.value?.pause();
+  },
+);
 
 // Generation token — bumped every time we reassign `src`. Any async
 // `play()` promise resolves against the token current when it was

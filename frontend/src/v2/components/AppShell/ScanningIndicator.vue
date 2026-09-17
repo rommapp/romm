@@ -20,11 +20,14 @@ import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import storeScanning from "@/stores/scanning";
+import { toBrowserLocale } from "@/utils";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
+const { xs } = useBreakpoint();
 const { scanning, scanStats } = storeToRefs(storeScanning());
 
 const visible = computed(() => scanning.value && route.path !== "/scan");
@@ -45,9 +48,21 @@ const progress = computed(() =>
   hasTotal.value ? Math.min(100, (scanned.value / total.value) * 100) : 0,
 );
 
+// Phones shorten large counts (1.8K / 4.6K) so the pill always fits beside
+// the mini player.
+const compactCount = computed(
+  () =>
+    new Intl.NumberFormat(toBrowserLocale(locale.value), {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }),
+);
+
 const counterLabel = computed(() => {
   if (!hasTotal.value) return null;
-  return `${scanned.value} / ${total.value}`;
+  const format = (n: number) =>
+    xs.value ? compactCount.value.format(n) : String(n);
+  return `${format(scanned.value)} / ${format(total.value)}`;
 });
 </script>
 

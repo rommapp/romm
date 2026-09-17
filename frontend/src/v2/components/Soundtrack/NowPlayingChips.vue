@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// The scrolling band of track details under a now-playing caption. The queue
-// position always leads, so the band is never empty.
+// The scrolling band of track details under a now-playing caption, led by the
+// queue position; it is empty only while no track is shown.
 import { RChip, RMarquee } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -20,6 +20,7 @@ const { t } = useI18n();
 type Chip = { icon: string; label: string; color?: string };
 
 const chips = computed<Chip[]>(() => {
+  if (props.position <= 0 || props.total <= 0) return [];
   const tags = props.tags;
   const list: Chip[] = [
     {
