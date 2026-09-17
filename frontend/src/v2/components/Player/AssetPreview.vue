@@ -6,6 +6,7 @@ import { RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
+import { useStreamingStore } from "@/stores/streaming";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
 import { dateOf, type AssetDateField } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
@@ -41,6 +42,7 @@ defineEmits<{
 }>();
 
 const { t, locale } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 
 const screenshotUrl = computed(() => {
   if (!props.asset) return null;
@@ -184,7 +186,7 @@ const emptyText = computed(() =>
             v-if="asset.emulator"
             tone="warning"
             size="x-small"
-            :text="asset.emulator"
+            :text="emulatorLabel(asset.emulator)"
           />
         </div>
         <p class="r-asset-preview__exact">

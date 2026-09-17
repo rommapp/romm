@@ -46,6 +46,7 @@ import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import {
   areThreadsRequiredForEJSCore,
@@ -129,6 +130,7 @@ const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
 const playingStore = storePlaying();
 const configStore = storeConfig();
+const { emulatorLabel } = useStreamingStore();
 const { playing } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
@@ -227,7 +229,9 @@ const allStatesCompatible = computed(
 // Other emulators' states stay listed, disabled, so the count adds up.
 function stateDisabledReason(asset: { emulator?: string | null }) {
   if (isCoreCompatible(asset)) return null;
-  return t("play.state-incompatible-core", { emulator: asset.emulator });
+  return t("play.state-incompatible-core", {
+    emulator: emulatorLabel(asset.emulator),
+  });
 }
 
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
