@@ -54,12 +54,27 @@ def rom_is_visible(request: Request, rom: Rom | None) -> bool:
     return get_permissions(request).can_see_rom(rom.id, rom.platform_id)
 
 
+def session_rom(session: dict[str, Any]) -> Rom | None:
+    """The ROM a session is running, None for a desktop or a deleted entry."""
+    rom_id = session.get("rom_id")
+    return db_rom_handler.get_rom_simple(rom_id) if rom_id is not None else None
+
+
 def session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
     """Can the caller see the ROM a session is running?"""
-    rom_id = session.get("rom_id")
-    if rom_id is None:
-        return True
-    return rom_is_visible(request, db_rom_handler.get_rom_simple(rom_id))
+    return rom_is_visible(request, session_rom(session))
+
+
+def session_is_joinable(
+    request: Request, session: dict[str, Any], rom: Rom | None
+) -> bool:
+    """Whether a live session is one this caller may ask to join: its host opted
+    into multiplayer, it is somebody else's, and its ROM is not hidden."""
+    return (
+        bool(session.get("multiplayer"))
+        and session.get("user_id") != request.user.id
+        and rom_is_visible(request, rom)
+    )
 
 
 def assert_session_rom_visible(

@@ -1103,16 +1103,13 @@ async def join_session(
             session = await get_live_session(candidate.key)
             if session is None:
                 continue
-            # Same filter the joinable listing applies, so the button and the
-            # join agree on what is joinable. A member that fails it is not the
-            # answer and must not mask a later one that is.
-            if not session.get("multiplayer"):
-                continue
             if not session_platform_matches(session, platform):
                 continue
-            if session.get("user_id") == request.user.id:
-                continue
-            if not access.session_rom_is_visible(request, session):
+            # A member the caller cannot join is not the answer and must not
+            # mask a later one that is.
+            if not access.session_is_joinable(
+                request, session, access.session_rom(session)
+            ):
                 continue
             found = (candidate, session)
             break
@@ -1510,19 +1507,10 @@ async def list_joinable_sessions(
 
     sessions: list[dict[str, Any]] = []
     async for container_key, s in iter_live_sessions():
-        if not s.get("multiplayer"):
-            continue
-        if s.get("user_id") == request.user.id:
-            continue
         if rom_id is not None and s.get("rom_id") != rom_id:
             continue
-        session_rom_id = s.get("rom_id")
-        rom = (
-            db_rom_handler.get_rom_simple(session_rom_id)
-            if session_rom_id is not None
-            else None
-        )
-        if not access.rom_is_visible(request, rom):
+        rom = access.session_rom(s)
+        if not access.session_is_joinable(request, s, rom):
             continue
 
         user_id = s.get("user_id")
@@ -1532,7 +1520,7 @@ async def list_joinable_sessions(
                 "container": container_key,
                 "label": _joinable_container_label(grouped, container_key),
                 "platform": s.get("platform"),
-                "rom_id": session_rom_id,
+                "rom_id": s.get("rom_id"),
                 "rom_name": s.get("rom_name"),
                 "host_username": host.username if host else None,
                 "claimed_at": s.get("claimed_at"),
