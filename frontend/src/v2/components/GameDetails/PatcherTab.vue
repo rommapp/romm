@@ -760,14 +760,12 @@ const applyLabel = computed(() => {
   text-overflow: ellipsis;
 }
 
-/* Single-file display (no picker) — name + size chip. */
 .r-v2-patch__or {
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 
+/* Single-file display (no picker): name + size chip. */
 .r-v2-patch__file-single {
   display: flex;
   align-items: center;

@@ -115,9 +115,8 @@ function updateOverflow() {
   overflowEnd.value = track.scrollLeft < maxScroll - 1;
 }
 
-function revealActive(behavior: ScrollBehavior) {
+function reveal(el: HTMLElement | null | undefined, behavior: ScrollBehavior) {
   const track = trackEl.value;
-  const el = btnEls.get(props.modelValue);
   if (!track || !el || props.orientation !== "horizontal") return;
   const start = el.offsetLeft - EDGE_PX;
   const end = el.offsetLeft + el.offsetWidth + EDGE_PX - track.clientWidth;
@@ -126,6 +125,16 @@ function revealActive(behavior: ScrollBehavior) {
   } else if (end > track.scrollLeft) {
     track.scrollTo({ left: end, behavior });
   }
+}
+
+function revealActive(behavior: ScrollBehavior) {
+  reveal(btnEls.get(props.modelValue), behavior);
+}
+
+// The browser's own focus scroll stops at the edge, under the fade and chevron.
+function onTrackFocusIn(event: FocusEvent) {
+  const el = event.target as HTMLElement;
+  if (el.matches(":focus-visible")) reveal(el, scrollBehavior());
 }
 
 function scrollPage(direction: 1 | -1) {
@@ -228,6 +237,7 @@ onBeforeUnmount(() => {
       ref="trackEl"
       class="r-tab-nav__track"
       @scroll.passive="updateOverflow"
+      @focusin="onTrackFocusIn"
     >
       <button
         v-for="t in visibleItems"
@@ -280,6 +290,7 @@ onBeforeUnmount(() => {
       tabindex="-1"
       aria-hidden="true"
       class="r-tab-nav__edge r-tab-nav__edge--start"
+      @mousedown.prevent
       @click="scrollPage(-1)"
     >
       <RIcon icon="mdi-chevron-left" size="18" />
@@ -290,6 +301,7 @@ onBeforeUnmount(() => {
       tabindex="-1"
       aria-hidden="true"
       class="r-tab-nav__edge r-tab-nav__edge--end"
+      @mousedown.prevent
       @click="scrollPage(1)"
     >
       <RIcon icon="mdi-chevron-right" size="18" />
@@ -300,6 +312,9 @@ onBeforeUnmount(() => {
 <style scoped>
 .r-tab-nav {
   position: relative;
+  /* The track scrolls, not the nav, so without this a flex or grid parent
+     sizes the nav to every tab and the strip overflows instead of scrolling. */
+  min-width: 0;
 }
 .r-tab-nav__track {
   display: flex;
@@ -387,9 +402,8 @@ onBeforeUnmount(() => {
      the button's own background. The underlined variant raises this to 1. */
   position: relative;
   z-index: 0;
-  /* Keep natural width so the horizontal nav scrolls on overflow
-     (`.r-tab-nav--horizontal { overflow-x: auto }`) instead of squishing
-     the tabs below their content on narrow viewports. */
+  /* Keep natural width so the horizontal track scrolls on overflow
+     instead of squishing the tabs below their content on narrow viewports. */
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -428,7 +442,7 @@ onBeforeUnmount(() => {
 
 /* ---------- Focus ----------
    The global modality-gated ring (global.css) is an `outline`, which the
-   nav's `overflow-y: hidden` clip slices into two vertical slivers on
+   track's `overflow-y: hidden` clip slices into two vertical slivers on
    either side of the focused tab. Suppress it and paint a contained,
    rounded highlight that lives INSIDE the button (a pseudo-element, so
    nothing can be clipped away). Gated to keyboard / pad exactly like the
@@ -506,7 +520,7 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
 }
 
 /* ---------- Pill variant ---------- */
-.r-tab-nav--pill {
+.r-tab-nav--pill .r-tab-nav__track {
   gap: 4px;
 }
 .r-tab-nav--pill .r-tab-nav__btn {

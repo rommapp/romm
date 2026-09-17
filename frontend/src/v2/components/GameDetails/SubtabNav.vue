@@ -226,6 +226,14 @@ function select(id: T) {
   background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
   color: var(--r-color-brand-primary);
 }
+/* The list is a scroll container that clips the global outline ring, so paint
+   the key / pad focus inside the button instead. */
+html:not([data-input]) .r-v2-subtab-nav__btn:focus-visible,
+html[data-input="key"] .r-v2-subtab-nav__btn:focus-visible,
+html[data-input="pad"] .r-v2-subtab-nav__btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--r-color-focus);
+}
 .r-v2-subtab-nav__label {
   flex: 1;
 }

@@ -617,11 +617,8 @@ async function refreshRom() {
     </aside>
 
     <div class="r-v2-files__content">
-      <!-- Section header: the subtab nav already names the section, so the
-           header skips a redundant title and just hosts the upload action on
-           the right (next to the folder picker on phones). Download-all /
-           Copy-link are covered by the selection toolbar below (select-all
-           then act). -->
+      <!-- No title: the subtab nav already names the section. Bulk download
+           and copy-link live in the selection toolbar below. -->
       <header
         v-if="smAndDown || (filteredFiles.length > 0 && canUpload)"
         class="r-v2-files__section-head"
