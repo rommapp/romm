@@ -1,17 +1,14 @@
 <script setup lang="ts">
-// NowPlayingPill — the mini player's top-bar form on phones: a pill with the
-// cover spinning inside a playback progress ring, the track title looping
-// beside it, and play / pause plus next. The cover and title open the full
-// mini player as a bottom sheet. On the narrowest screens the title steps
-// aside while the scan indicator is up, so the bar never overflows.
-import { RBtn, RMarquee, RMenu, RProgressCircular } from "@v2/lib";
+// NowPlayingPill — the mini player's top-bar form on phones: a compact pill
+// with the cover spinning inside a playback progress ring, then previous,
+// play / pause and next. The cover opens the full mini player as a bottom
+// sheet.
+import { RBtn, RMenu, RProgressCircular } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import storeScanning from "@/stores/scanning";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
-import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
 import { playerCoverUrl } from "@/v2/utils/soundtrackTracks";
 
@@ -19,16 +16,19 @@ defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const store = useSoundtrackPlayer();
-const { track, meta, isPlaying, isBuffering, currentTime, duration, hasNext } =
-  storeToRefs(store);
-const { scanning } = storeToRefs(storeScanning());
-const { xs } = useBreakpoint();
+const {
+  meta,
+  isPlaying,
+  isBuffering,
+  currentTime,
+  duration,
+  hasPrevious,
+  hasNext,
+} = storeToRefs(store);
 const visible = useMiniPlayerVisible();
 
 const open = ref(false);
 const coverUrl = computed(() => playerCoverUrl(meta.value));
-const title = computed(() => meta.value.title || track.value?.fileName || "");
-const showTitle = computed(() => !(xs.value && scanning.value));
 const progress = computed(() =>
   duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0,
 );
@@ -48,8 +48,9 @@ const progress = computed(() =>
       <template #activator="{ props: menuProps }">
         <RBtn
           v-bind="menuProps"
+          :icon="true"
           variant="text"
-          class="r-v2-np-pill__trigger"
+          class="r-v2-np-pill__cover"
           :aria-label="t('rom.soundtrack-player')"
         >
           <RProgressCircular
@@ -66,18 +67,20 @@ const progress = computed(() =>
               alt=""
             />
           </RProgressCircular>
-          <RMarquee
-            v-if="showTitle"
-            :key="track?.fileId"
-            class="r-v2-np-pill__title"
-          >
-            {{ title }}
-          </RMarquee>
         </RBtn>
       </template>
       <NowPlayingCard />
     </RMenu>
 
+    <RBtn
+      icon="mdi-skip-previous"
+      variant="text"
+      size="small"
+      :disabled="!hasPrevious"
+      :tooltip="t('rom.soundtrack-previous')"
+      :aria-label="t('rom.soundtrack-previous')"
+      @click="store.previous()"
+    />
     <RBtn
       :icon="isPlaying ? 'mdi-pause' : 'mdi-play'"
       variant="text"
@@ -107,7 +110,6 @@ const progress = computed(() =>
 .r-v2-np-pill {
   display: flex;
   align-items: center;
-  min-width: 0;
   height: var(--r-nav-pill-h);
   padding: 0 2px 0 0;
   background: var(--r-color-surface);
@@ -115,11 +117,10 @@ const progress = computed(() =>
   border-radius: var(--r-radius-pill);
 }
 
-.r-v2-np-pill__trigger {
-  min-width: 0 !important;
-  height: auto !important;
-  padding: 0 4px 0 0 !important;
-  border-radius: var(--r-radius-pill) !important;
+.r-v2-np-pill__cover {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: var(--r-radius-full) !important;
 }
 
 .r-v2-np-pill__disc {
@@ -139,18 +140,6 @@ const progress = computed(() =>
   to {
     transform: rotate(360deg);
   }
-}
-
-/* Shrinks before the bar overflows on the narrowest phones. */
-.r-v2-np-pill__title {
-  flex: 0 1 160px;
-  font-size: var(--r-font-size-sm);
-}
-
-/* Portrait phones cap the title and let it loop instead of widening the pill. */
-html[data-bp~="xs"] .r-v2-np-pill__title {
-  flex-basis: 88px;
-  width: 88px;
 }
 </style>
 
