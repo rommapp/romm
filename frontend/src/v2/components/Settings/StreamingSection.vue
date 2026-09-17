@@ -90,7 +90,7 @@ async function release(container: AdminStreamingContainer): Promise<void> {
   }
 }
 
-function sessionLabel(container: AdminStreamingContainer): string {
+function sessionState(container: AdminStreamingContainer): string {
   const session = container.session;
   if (!session) return t("settings.streaming-idle");
   const parts = [
@@ -177,7 +177,7 @@ onMounted(load);
             {{ t("settings.streaming-unusable") }}
           </span>
           <span v-else class="r-v2-streaming__state">
-            {{ sessionLabel(container) }}
+            {{ sessionState(container) }}
           </span>
         </div>
 
@@ -219,7 +219,8 @@ onMounted(load);
 }
 
 .r-v2-streaming__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
@@ -231,7 +232,6 @@ onMounted(load);
 
 .r-v2-streaming__icon {
   color: var(--r-color-fg-muted);
-  flex-shrink: 0;
 }
 .r-v2-streaming__icon--busy {
   color: var(--r-color-brand-primary);
@@ -241,8 +241,6 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   gap: 2px;
-  flex: 1;
-  min-width: 0;
 }
 
 .r-v2-streaming__name {
@@ -263,17 +261,12 @@ onMounted(load);
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-shrink: 0;
 }
 
-/* The actions do not shrink, so on a phone they take their own line under
-   the details, indented past the icon (18px) and the row gap (12px). */
-html[data-bp~="xs"] .r-v2-streaming__row {
-  flex-wrap: wrap;
-}
+/* On a phone the actions would squeeze the details to nothing, so they drop
+   to their own line under the details column. */
 html[data-bp~="xs"] .r-v2-streaming__actions {
-  flex-basis: 100%;
-  padding-inline-start: 30px;
+  grid-column: 2 / -1;
 }
 
 .r-v2-streaming__warning {

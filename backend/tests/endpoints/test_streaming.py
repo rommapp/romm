@@ -1387,6 +1387,7 @@ def test_admin_release_ends_a_session_on_a_container_outside_the_pool(
     )
     with _streaming(_webstation(), outside):
         key = _key_of(outside)
+        assert key not in [c.key for c in streaming.containers_for_platform("ps2")]
         assert _desktop(client, access_token, key)[0].status_code == 200
         with patch("handler.streaming.commands.stop", return_value=None):
             r = client.delete(
