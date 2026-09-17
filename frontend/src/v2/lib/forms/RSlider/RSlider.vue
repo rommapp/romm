@@ -133,6 +133,34 @@ function onPointerUp() {
 function onChange() {
   emit("end", props.modelValue);
 }
+
+// Touch browsers don't drag a rotated range input, so the vertical slider
+// reads the pointer itself; the native input still serves keys and a11y.
+const THUMB_SIZE = 14;
+
+function valueAtPointer(evt: PointerEvent): number {
+  const rect = (evt.currentTarget as HTMLElement).getBoundingClientRect();
+  const travel = rect.height - THUMB_SIZE;
+  const ratio = (rect.bottom - THUMB_SIZE / 2 - evt.clientY) / travel;
+  const range = props.max - props.min;
+  const raw = props.min + Math.max(0, Math.min(1, ratio)) * range;
+  const stepped =
+    props.min + Math.round((raw - props.min) / props.step) * props.step;
+  return Math.max(props.min, Math.min(props.max, stepped));
+}
+
+function onVerticalPointerDown(evt: PointerEvent) {
+  if (!props.vertical || props.disabled || props.readonly) return;
+  (evt.currentTarget as HTMLElement).setPointerCapture(evt.pointerId);
+  dragging.value = true;
+  emit("start", props.modelValue);
+  emit("update:modelValue", valueAtPointer(evt));
+}
+
+function onVerticalPointerMove(evt: PointerEvent) {
+  if (!props.vertical || !dragging.value) return;
+  emit("update:modelValue", valueAtPointer(evt));
+}
 </script>
 
 <template>
@@ -153,6 +181,10 @@ function onChange() {
       '--r-slider-percent': `${percent}%`,
       '--r-slider-percent-num': String(percent),
     }"
+    @pointerdown="onVerticalPointerDown"
+    @pointermove="onVerticalPointerMove"
+    @pointerup="vertical && onPointerUp()"
+    @pointercancel="vertical && onPointerUp()"
   >
     <span v-if="showLeftBadge" class="r-slider__badge r-slider__badge--left">
       <slot name="value" :value="modelValue" :percent="percent">
@@ -242,6 +274,10 @@ function onChange() {
   height: 100%;
   container-type: size;
   touch-action: none;
+  cursor: pointer;
+}
+.r-slider--vertical .r-slider__native {
+  pointer-events: none;
 }
 .r-slider--vertical .r-slider__core {
   position: absolute;
