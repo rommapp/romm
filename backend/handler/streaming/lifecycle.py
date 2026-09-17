@@ -348,9 +348,8 @@ async def teardown_released_session(
 
     keepalive = _hold_reservation(session_key, token, session)
     try:
-        # A force-release, not the player closing their own game: another user, or
-        # a reason, which only the admin panel sends, even as the playing account.
-        # Noted before the quiesce so a poll during it still finds the reason.
+        # A force-release rather than the player quitting: another user, or a reason,
+        # which only the admin panel sends. Before the quiesce, so a poll finds it.
         if session.get("user_id") != acting_user_id or reason is not None:
             await record_termination(
                 session, session_key, ended_by=acting_username, reason=reason
