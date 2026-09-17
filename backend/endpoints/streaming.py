@@ -196,9 +196,8 @@ async def _session_status(
     request: Request,
     candidates: list[ResolvedContainer] | None = None,
 ) -> dict[str, Any]:
-    """Whether the caller still holds this platform's session, and if not, why
-    it ended. Read-only, so it is safe to poll. `candidates` defaults to the
-    platform's pool."""
+    """Whether the caller holds a session among `candidates` (the platform's pool
+    by default), and if not, why it ended. Read-only, so it is safe to poll."""
     if candidates is None:
         candidates = containers_for_platform(platform)
     if not candidates:
@@ -944,11 +943,8 @@ async def heartbeat_session(
         )
     _, session_key, _ = found
 
-    # Merging rather than writing the copy read above keeps a swap that landed
-    # in between; refusing a draining session, or a claim that changed hands,
-    # keeps a heartbeat from making a container look live for the wrong holder.
-    # Either returns None, meaning the claim is gone and reporting "active"
-    # would leave the client beating a session it no longer holds.
+    # Merging keeps a swap that landed since the read. Refusing a draining or
+    # re-claimed session returns None, so the client stops beating a dead claim.
     try:
         refreshed = await mutate_session(
             session_key,
