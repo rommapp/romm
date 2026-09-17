@@ -229,7 +229,7 @@ const fadeIndex = computed(() =>
               <AssetTimestamp
                 class="r-asset-list__time"
                 :date="dateOf(asset, timestamp)"
-                :align="xs && !selectable ? 'start' : 'end'"
+                :align="xs ? 'start' : 'end'"
               />
 
               <span
@@ -498,34 +498,35 @@ const fadeIndex = computed(() =>
   opacity: 0.85;
 }
 
+/* Phones: the timestamp and the actions or check drop to a row of their own
+   under the text, so the name gets the full width and wraps. */
 html[data-bp~="xs"] .r-asset-list__row {
   padding: 8px 10px;
-}
-/* Manage mode on phones: the timestamp and actions drop to a row of their
-   own under the text, so the name gets the full width and wraps. */
-html[data-bp~="xs"] .r-asset-list__row--static {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
     "icon main main"
     ". time actions";
   gap: 4px 10px;
 }
-html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__icon {
+html[data-bp~="xs"] .r-asset-list__icon {
   grid-area: icon;
   align-self: start;
 }
-html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__main {
+html[data-bp~="xs"] .r-asset-list__main {
   grid-area: main;
 }
-html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__name {
+html[data-bp~="xs"] .r-asset-list__name {
   white-space: normal;
   overflow-wrap: anywhere;
 }
-html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__time {
+html[data-bp~="xs"] .r-asset-list__time {
   grid-area: time;
 }
-html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__actions {
+html[data-bp~="xs"] .r-asset-list__check,
+html[data-bp~="xs"] .r-asset-list__actions {
   grid-area: actions;
+}
+html[data-bp~="xs"] .r-asset-list__actions {
   margin-block: -4px;
 }
 </style>
