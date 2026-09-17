@@ -257,7 +257,7 @@ class RomFileSchema(BaseModel):
     is_top_level: bool
     created_at: UTCDatetime
     updated_at: UTCDatetime
-    last_modified: UTCDatetime
+    last_modified: UTCDatetime | None
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None

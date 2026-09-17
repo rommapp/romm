@@ -806,6 +806,51 @@ def test_get_romfile_hidden_rom_returns_404(
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_get_romfile_returns_a_visible_file(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    # Validating the schema reads `is_top_level` off a RomFile the handler has
+    # already detached, so the parent rom has to come along in the load.
+    response = client.get(
+        f"/api/roms/{rom_file.id}/files",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["rom_id"] == rom.id
+    assert body["full_path"] == rom_file.full_path
+    assert body["is_top_level"] is True
+    # No category stored, so the schema defaults a top-level file to a game file.
+    assert body["category"] == "game"
+    # Never scanned, so no mtime was recorded.
+    assert body["last_modified"] is None
+
+
+def test_get_romfile_nested_file_is_not_top_level(
+    client: TestClient, access_token: str, rom: Rom
+):
+    nested = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="manual.txt",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/extras",
+            file_size_bytes=10,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{nested.id}/files",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["is_top_level"] is False
+    # Only a top-level file picks up the game-file default.
+    assert body["category"] is None
+
+
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 @patch.object(

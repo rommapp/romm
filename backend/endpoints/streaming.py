@@ -1162,8 +1162,8 @@ async def swap_disc(
     if rom_file is None or rom_file.rom_id != rom_id:
         raise HTTPException(status_code=404, detail="File does not belong to this rom")
 
-    # Loaded separately: the file comes back detached, so reaching its rom from
-    # there is a lazy load with no session behind it.
+    # The file row's own rom load is narrow, and the swap reads the playlist
+    # entries off the full rom.
     rom = db_rom_handler.get_rom(rom_id)
     if rom is None:
         raise HTTPException(status_code=404, detail="Rom not found")

@@ -2536,7 +2536,13 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta))
+            .options(
+                selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
+                # `is_top_level` reads `rom.full_path`, and callers validate the
+                # row as a schema after this session has closed.
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+            )
             .filter_by(id=id)
             .limit(1)
         )
