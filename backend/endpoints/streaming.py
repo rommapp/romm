@@ -910,6 +910,8 @@ async def save_and_exit_session(
 
     await lifecycle.record_play_session(session)
     await lifecycle.clear_session_activity(session_key, session)
+    # Before the key goes, so a claim that wins it next waits for the pull.
+    await lifecycle.collect_exit_saves(container, session)
 
     # Sync the exit save to the library. With wait=false the broker save may
     # still be running; the pull blocks on the broker until it finishes.
@@ -973,8 +975,6 @@ async def save_and_exit_session(
             )
         except StreamingSessionContended:
             released = False
-
-    await lifecycle.collect_exit_saves(container, session)
 
     if not released:
         log.error("save-and-exit could not give up session %s", session_key)

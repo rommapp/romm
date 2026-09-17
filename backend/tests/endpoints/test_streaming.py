@@ -4721,6 +4721,36 @@ def test_an_exit_holds_the_next_claim_until_its_saves_are_filed(
             assert asyncio.run(async_cache.exists(key)) == 0
 
 
+def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """With no state to wait on, the key is deleted outright, so a claim can win
+    it the moment it goes and has to find the pull already pending."""
+    key = saves._save_pull_redis_key(admin_user.id, rom.id)
+    pending_at_release: list[int] = []
+    real_release = streaming.release_own_session
+
+    async def release_after_looking(*args, **kwargs):
+        pending_at_release.append(await async_cache.exists(key))
+        return await real_release(*args, **kwargs)
+
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.commands.save_and_exit", return_value=(False, 10)),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch.object(streaming, "release_own_session", release_after_looking),
+        ):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+        asyncio.run(async_cache.delete(key))
+    assert r.status_code == 200
+    assert pending_at_release == [1]
+
+
 def test_a_claim_waits_for_a_running_save_pull():
     async def scenario() -> bool:
         await saves.mark_save_pull_pending(1, 2)
