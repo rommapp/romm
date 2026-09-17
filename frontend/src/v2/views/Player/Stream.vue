@@ -112,7 +112,9 @@ const containerHost = ref<string>("");
 const isSavingAndExiting = ref(false);
 const isSavingState = ref(false);
 const isLoadingState = ref(false);
-const volume = ref(100);
+// Matches the room's first-visit level: retro games mix far louder than a
+// webcam mic. Never sent on its own, so the room's saved level still wins.
+const volume = ref(60);
 const isMuted = ref(false);
 // Set from a 428 on claim: the container holds a memory card nobody has
 // decided about yet. The claim is not held open, the answer is replayed on a
