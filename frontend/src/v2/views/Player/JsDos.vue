@@ -13,6 +13,10 @@ import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import {
+  hasSharedArrayBuffer,
+  useIsolatedLaunch,
+} from "@/v2/composables/useIsolatedLaunch";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
@@ -28,7 +32,11 @@ useFullscreenFallback();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const exit = usePlayerExit();
+// A launch isolates the document and boots an emulator into it, and the rest
+// of the app cannot live there, so a player that ran hands the tab back a
+// fresh document.
+let runtimeBound = false;
+const exit = usePlayerExit(() => runtimeBound);
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -39,10 +47,25 @@ let dos: JsDosProps | null = null;
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
+// The DOSBox-X backend is a threaded build, so it needs SharedArrayBuffer. No
+// pre-play selection has to survive the reload that isolates the document, so
+// the intent is a bare marker saying the launch is already on its second leg.
+const isRelaunch = (value: unknown): value is true => value === true;
+const {
+  intent: relaunched,
+  relaunching,
+  relaunch: relaunchIsolated,
+} = useIsolatedLaunch<true>("jsdos", romId, isRelaunch);
+
 async function onPlay() {
   const currentRom = rom.value;
   const userId = authStore.user?.id;
   if (!currentRom || userId == null) return;
+
+  if (!hasSharedArrayBuffer()) {
+    if (!relaunchIsolated(true)) snackbar.error(t("play.https-required"));
+    return;
+  }
 
   // Resolves at once when the mount-time load already landed, and waits for it
   // otherwise, so the emulator payloads always follow the base it served from.
@@ -71,6 +94,7 @@ async function onPlay() {
   }
 
   // DOSBox-X provides Windows support.
+  runtimeBound = true;
   dos = dosFactory(stage.value, {
     url: getDownloadPath({ rom: currentRom }),
     backend: "dosboxX",
@@ -154,6 +178,8 @@ onMounted(async () => {
 
   const romResponse = await romApi.getRom({ romId });
   rom.value = romResponse.data;
+
+  if (relaunched) void onPlay();
 });
 
 onBeforeRouteLeave((to) => {
@@ -172,7 +198,7 @@ onBeforeUnmount(teardown);
     :title="title"
     :platform-label="platformLabel"
     :rom-id="romId"
-    :ready="!!rom"
+    :ready="!!rom && !relaunching"
     :running="gameRunning"
     :quitting="quitting"
     @play="onPlay"

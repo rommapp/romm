@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   flushPlaySession: vi.fn(),
   getRom: vi.fn(),
   loadRuntime: vi.fn(),
+  locationReload: vi.fn(),
   locationReplace: vi.fn(),
   playSessionStart: vi.fn(),
   routerReplace: vi.fn(() => Promise.resolve()),
@@ -123,10 +124,16 @@ const CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
 
 let originalLocation: Location;
 
+// The launch needs SharedArrayBuffer for the threaded DOSBox-X build, and a
+// document that has it is one the reload no longer has to produce.
 function setIsolated(isolated: boolean) {
   Object.defineProperty(window, "crossOriginIsolated", {
     configurable: true,
     value: isolated,
+  });
+  Object.defineProperty(window, "SharedArrayBuffer", {
+    configurable: true,
+    value: isolated ? ArrayBuffer : undefined,
   });
 }
 
@@ -134,7 +141,11 @@ beforeAll(() => {
   originalLocation = window.location;
   Object.defineProperty(window, "location", {
     configurable: true,
-    value: { ...originalLocation, replace: mocks.locationReplace },
+    value: {
+      ...originalLocation,
+      reload: mocks.locationReload,
+      replace: mocks.locationReplace,
+    },
   });
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
@@ -150,7 +161,8 @@ afterAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  setIsolated(false);
+  sessionStorage.clear();
+  setIsolated(true);
   mocks.loadRuntime.mockResolvedValue(LOCAL_BASE);
   mocks.galleryRom = null;
   mocks.routeLeaveGuard = null;
@@ -232,6 +244,62 @@ describe("JsDos runtime loading", () => {
   });
 });
 
+// Threaded DOSBox-X needs SharedArrayBuffer, which only a cross-origin
+// isolated document exposes, and an SPA navigation reaches the view without
+// one. See useIsolatedLaunch.
+describe("JsDos isolated launch", () => {
+  function setSecureContext(secure: boolean) {
+    Object.defineProperty(window, "isSecureContext", {
+      configurable: true,
+      value: secure,
+    });
+  }
+
+  it("reloads into an isolated document instead of booting without one", async () => {
+    setIsolated(false);
+    setSecureContext(true);
+    const wrapper = mountView();
+    await flushPromises();
+    window.Dos = vi.fn();
+
+    await wrapper.get(".r-v2-player__play").trigger("click");
+    await flushPromises();
+
+    expect(window.Dos).not.toHaveBeenCalled();
+    expect(mocks.locationReload).toHaveBeenCalledOnce();
+    expect(sessionStorage.getItem("player:1:jsdos:launch")).toBe("true");
+    wrapper.unmount();
+  });
+
+  it("boots straight away on the other side of the reload", async () => {
+    sessionStorage.setItem("player:1:jsdos:launch", "true");
+    const handle = makeHandle();
+    const factory = vi.fn(() => handle);
+    window.Dos = factory;
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(factory).toHaveBeenCalledOnce();
+    expect(mocks.playSessionStart).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+
+  it("reports the context when no reload can produce one", async () => {
+    setIsolated(false);
+    setSecureContext(false);
+    const wrapper = mountView();
+    await flushPromises();
+    window.Dos = vi.fn();
+
+    await wrapper.get(".r-v2-player__play").trigger("click");
+    await flushPromises();
+
+    expect(mocks.locationReload).not.toHaveBeenCalled();
+    expect(mocks.snackbarError).toHaveBeenCalledWith("play.https-required");
+    wrapper.unmount();
+  });
+});
+
 describe("JsDos player exit", () => {
   it("reports when the runtime defined no factory", async () => {
     const wrapper = mountView();
@@ -263,7 +331,7 @@ describe("JsDos player exit", () => {
     wrapper.unmount();
   });
 
-  it("leaves within the app after saving without awaiting stop", async () => {
+  it("replaces the document after saving without awaiting stop", async () => {
     const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
 
@@ -272,8 +340,8 @@ describe("JsDos player exit", () => {
 
     expect(handle.save).toHaveBeenCalledOnce();
     expect(handle.stop).toHaveBeenCalledOnce();
-    expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
-    expect(mocks.locationReplace).not.toHaveBeenCalled();
+    expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
     expect(mocks.flushPlaySession).toHaveBeenCalledOnce();
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
     wrapper.unmount();
@@ -297,20 +365,24 @@ describe("JsDos player exit", () => {
   });
 
   it("lets a departure from the launch view through", async () => {
+    setIsolated(false);
     const wrapper = mountView();
     await flushPromises();
 
-    expect(mocks.routeLeaveGuard?.({ fullPath: "/platform/2" })).toBe(true);
+    await expect(
+      mocks.routeLeaveGuard?.({ fullPath: "/platform/2" }),
+    ).resolves.toBe(true);
     expect(mocks.locationReplace).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
   it("replaces an isolated document on departure from the launch view", async () => {
-    setIsolated(true);
     const wrapper = mountView();
     await flushPromises();
 
-    expect(mocks.routeLeaveGuard?.({ fullPath: "/platform/2" })).toBe(false);
+    await expect(
+      mocks.routeLeaveGuard?.({ fullPath: "/platform/2" }),
+    ).resolves.toBe(false);
     expect(mocks.locationReplace).toHaveBeenCalledWith("/platform/2");
     wrapper.unmount();
   });
@@ -347,7 +419,7 @@ describe("JsDos player exit", () => {
     expect(handle.stop).toHaveBeenCalledOnce();
     expect(mocks.flushPlaySession).toHaveBeenCalledOnce();
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
-    expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
 
@@ -363,7 +435,7 @@ describe("JsDos player exit", () => {
       "play.stream-save-unconfirmed",
     );
     expect(handle.stop).not.toHaveBeenCalled();
-    expect(mocks.routerReplace).not.toHaveBeenCalled();
+    expect(mocks.locationReplace).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -383,7 +455,7 @@ describe("JsDos player exit", () => {
 
     finishSave?.(true);
     await flushPromises();
-    expect(mocks.routerReplace).toHaveBeenCalledOnce();
+    expect(mocks.locationReplace).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 
@@ -403,8 +475,8 @@ describe("JsDos player exit", () => {
 
     finishSave?.(true);
     await flushPromises();
-    expect(mocks.routerReplace).toHaveBeenCalledOnce();
-    expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.locationReplace).toHaveBeenCalledOnce();
+    expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
 
@@ -416,7 +488,7 @@ describe("JsDos player exit", () => {
     await flushPromises();
 
     expect(handle.save).toHaveBeenCalledOnce();
-    expect(mocks.routerReplace).toHaveBeenCalledWith("/platform/2");
+    expect(mocks.locationReplace).toHaveBeenCalledWith("/platform/2");
     wrapper.unmount();
   });
 

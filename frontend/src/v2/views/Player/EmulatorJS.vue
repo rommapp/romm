@@ -171,7 +171,14 @@ const {
 // cannot host another launch. Tracked from the injection, which a departure
 // taken mid-load would otherwise outrun.
 let runtimeInjected = false;
-const exit = usePlayerExit(() => runtimeInjected);
+const playerRef = ref<{ flushPendingSave: () => Promise<void> } | null>(null);
+const exit = usePlayerExit(
+  () => runtimeInjected,
+  async () => {
+    await playerRef.value?.flushPendingSave();
+    endSession();
+  },
+);
 
 // A departure while a game runs is deliberate, so the unload prompt stays
 // quiet for the full navigation it turns into.
@@ -192,7 +199,8 @@ function endSession() {
   presence.stop();
 }
 // A full navigation out of the view unmounts nothing, so the session also
-// closes on pagehide; flush() is idempotent, so no path records it twice.
+// closes on the way out and, for a tab close, on pagehide. Both are
+// idempotent, so no path records the session twice.
 useEventListener(window, "pagehide", endSession);
 
 declare global {
@@ -871,6 +879,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
     <!-- Running state -->
     <div v-else-if="rom" ref="stageRef" class="r-v2-ejs__stage">
       <Player
+        ref="playerRef"
         :rom="rom"
         :state="resume.state"
         :save="resume.save"
