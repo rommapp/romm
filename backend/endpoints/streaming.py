@@ -358,7 +358,7 @@ async def _reserve_container(
         candidates, request.user.id, platform=platform
     )
     if held is not None:
-        holder, _, mine = held
+        own_container, _, mine = held
         if not session_is_stale(mine):
             raise HTTPException(
                 status_code=409,
@@ -371,7 +371,7 @@ async def _reserve_container(
             )
         # Their own session, abandoned. Take that container back rather than
         # rolling them onto a free one and stranding this one until its TTL.
-        candidates = [holder]
+        candidates = [own_container]
 
     async def try_claim(candidate: ResolvedContainer) -> bool:
         # SET NX is atomic: exactly one concurrent claim wins the key. The TTL
@@ -441,7 +441,7 @@ async def _reserve_container(
     # has to come from a live session or the message names no one.
     snapshots = [await get_session(candidate.key) or {} for candidate in candidates]
     draining = any(snapshot.get("draining") for snapshot in snapshots)
-    existing = next(
+    holder = next(
         (
             snapshot
             for snapshot in snapshots
@@ -460,8 +460,8 @@ async def _reserve_container(
         detail={
             "message": message,
             "draining": draining,
-            "rom_name": access.visible_rom_name(request, existing),
-            "claimed_at": existing.get("claimed_at"),
+            "rom_name": access.visible_rom_name(request, holder),
+            "claimed_at": holder.get("claimed_at"),
         },
     )
 

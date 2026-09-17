@@ -426,7 +426,7 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
 
 
 async def stamp_launched(
-    session_key: str, claim: dict[str, Any], host: str | None = None
+    session_key: str, claim: dict[str, Any], host: str | None
 ) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.

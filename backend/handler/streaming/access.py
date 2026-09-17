@@ -173,7 +173,7 @@ async def resolve_named_container(
 
 
 async def resolve_owned_session(
-    platform: str, request: Request, *, include_desktop: bool = False
+    platform: str, request: Request
 ) -> tuple[ResolvedContainer, str, dict[str, Any]]:
     """Find the caller's session for this platform in its first pool.
 
@@ -194,7 +194,8 @@ async def resolve_owned_session(
         session = await get_live_session(session_key)
         if session is None:
             continue
-        if not _session_in_scope(session, platform, include_desktop):
+        # These routes act on a game; a desktop is reached by naming it.
+        if not _session_in_scope(session, platform, include_desktop=False):
             continue
         if session.get("user_id") == request.user.id:
             return candidate, session_key, session

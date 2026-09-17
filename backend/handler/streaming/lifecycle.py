@@ -396,7 +396,7 @@ async def _teardown_abandoned_session(
     session_key: str,
     session: dict[str, Any],
     *,
-    claimed_by: int | None = None,
+    claimed_by: int,
 ) -> bool:
     """Free a container whose owner vanished without releasing (heartbeat went
     stale). Same order as an owner release: stop the emulator so the card is
@@ -470,7 +470,7 @@ async def await_teardown_within_budget(
     session: dict[str, Any],
     budget: float,
     *,
-    claimed_by: int | None = None,
+    claimed_by: int,
 ) -> bool:
     """Tear down an abandoned session, but only wait `budget` seconds for it.
 
