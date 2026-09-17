@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   loadRuntime: vi.fn(),
   locationReplace: vi.fn(),
   playSessionStart: vi.fn(),
-  push: vi.fn(() => Promise.resolve()),
+  routerReplace: vi.fn(() => Promise.resolve()),
   confirm: vi.fn(),
   galleryRom: null as Record<string, unknown> | null,
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
@@ -37,7 +37,7 @@ vi.mock("vue-router", () => ({
     mocks.routeLeaveGuard = guard;
   },
   useRoute: () => ({ params: { rom: "1" } }),
-  useRouter: () => ({ push: mocks.push }),
+  useRouter: () => ({ replace: mocks.routerReplace }),
 }));
 
 vi.mock("@/plugins/router", () => ({
@@ -272,7 +272,7 @@ describe("JsDos player exit", () => {
 
     expect(handle.save).toHaveBeenCalledOnce();
     expect(handle.stop).toHaveBeenCalledOnce();
-    expect(mocks.push).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
     expect(mocks.locationReplace).not.toHaveBeenCalled();
     expect(mocks.flushPlaySession).toHaveBeenCalledOnce();
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
@@ -292,7 +292,7 @@ describe("JsDos player exit", () => {
 
     expect(handle.save).toHaveBeenCalledOnce();
     expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
-    expect(mocks.push).not.toHaveBeenCalled();
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -326,7 +326,7 @@ describe("JsDos player exit", () => {
       "play.stream-save-unconfirmed",
     );
     expect(handle.stop).not.toHaveBeenCalled();
-    expect(mocks.push).not.toHaveBeenCalled();
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
     expect(mocks.locationReplace).not.toHaveBeenCalled();
     expect(mocks.flushPlaySession).not.toHaveBeenCalled();
     expect(mocks.setPlaying).not.toHaveBeenCalledWith(false);
@@ -347,7 +347,7 @@ describe("JsDos player exit", () => {
     expect(handle.stop).toHaveBeenCalledOnce();
     expect(mocks.flushPlaySession).toHaveBeenCalledOnce();
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
-    expect(mocks.push).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
 
@@ -363,7 +363,7 @@ describe("JsDos player exit", () => {
       "play.stream-save-unconfirmed",
     );
     expect(handle.stop).not.toHaveBeenCalled();
-    expect(mocks.push).not.toHaveBeenCalled();
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -383,7 +383,7 @@ describe("JsDos player exit", () => {
 
     finishSave?.(true);
     await flushPromises();
-    expect(mocks.push).toHaveBeenCalledOnce();
+    expect(mocks.routerReplace).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 
@@ -403,8 +403,8 @@ describe("JsDos player exit", () => {
 
     finishSave?.(true);
     await flushPromises();
-    expect(mocks.push).toHaveBeenCalledOnce();
-    expect(mocks.push).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.routerReplace).toHaveBeenCalledOnce();
+    expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
 
@@ -416,7 +416,7 @@ describe("JsDos player exit", () => {
     await flushPromises();
 
     expect(handle.save).toHaveBeenCalledOnce();
-    expect(mocks.push).toHaveBeenCalledWith("/platform/2");
+    expect(mocks.routerReplace).toHaveBeenCalledWith("/platform/2");
     wrapper.unmount();
   });
 

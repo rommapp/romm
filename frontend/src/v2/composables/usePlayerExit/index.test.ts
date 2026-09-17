@@ -9,12 +9,12 @@ import {
 } from "vitest";
 import { usePlayerExit } from "./index";
 
-const push = vi.fn();
+const replace = vi.fn();
 const locationReplace = vi.fn();
 let originalLocation: Location;
 
 vi.mock("vue-router", () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ replace }),
 }));
 
 function setIsolated(isolated: boolean) {
@@ -40,7 +40,7 @@ afterAll(() => {
 });
 
 afterEach(() => {
-  push.mockClear();
+  replace.mockClear();
   locationReplace.mockClear();
   setIsolated(false);
 });
@@ -51,7 +51,7 @@ describe("usePlayerExit", () => {
 
     exit.leave("/rom/1");
 
-    expect(push).toHaveBeenCalledWith("/rom/1");
+    expect(replace).toHaveBeenCalledWith("/rom/1");
     expect(locationReplace).not.toHaveBeenCalled();
     expect(exit.departing.value).toBe(false);
   });
@@ -63,7 +63,7 @@ describe("usePlayerExit", () => {
     exit.leave("/rom/1");
 
     expect(locationReplace).toHaveBeenCalledWith("/rom/1");
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("replaces the document once a runtime is bound to it", () => {
@@ -72,7 +72,7 @@ describe("usePlayerExit", () => {
     exit.leave("/rom/1");
 
     expect(locationReplace).toHaveBeenCalledWith("/rom/1");
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("lets a route departure through when nothing binds the document", () => {

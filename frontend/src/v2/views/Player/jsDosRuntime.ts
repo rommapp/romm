@@ -11,6 +11,8 @@ const LOCAL_BASE = "/assets/jsdos";
 const CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
 
 let pending: Promise<string> | null = null;
+// A retry after a failed script load would otherwise stack a second stylesheet.
+let styledBase: string | null = null;
 
 /** Load the runtime, resolving with the base the emulator payloads follow. */
 export function loadJsDosRuntime(): Promise<string> {
@@ -27,10 +29,13 @@ async function inject(): Promise<string> {
     ? LOCAL_BASE
     : CDN_BASE;
 
-  const css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = `${base}/js-dos.css`;
-  document.head.appendChild(css);
+  if (styledBase !== base) {
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = `${base}/js-dos.css`;
+    document.head.appendChild(css);
+    styledBase = base;
+  }
 
   await loadScript(`${base}/js-dos.js`);
   return base;

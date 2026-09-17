@@ -13,15 +13,16 @@ type Middleware = (
   next: () => void,
 ) => void;
 
-/** Drive the plugin's server hook and hand back the middleware it registered. */
-function middleware(): Middleware {
+type ServerHook = "configureServer" | "configurePreviewServer";
+
+/** Drive one of the plugin's server hooks and hand back its middleware. */
+function middleware(hook: ServerHook = "configureServer"): Middleware {
   let registered: Middleware | undefined;
-  const { configureServer } = playerIsolationHeaders() as unknown as {
-    configureServer: (server: {
-      middlewares: { use: (fn: Middleware) => void };
-    }) => void;
-  };
-  configureServer({
+  const plugin = playerIsolationHeaders() as unknown as Record<
+    ServerHook,
+    (server: { middlewares: { use: (fn: Middleware) => void } }) => void
+  >;
+  plugin[hook]({
     middlewares: {
       use: (fn) => {
         registered = fn;
@@ -32,10 +33,13 @@ function middleware(): Middleware {
   return registered;
 }
 
-function headersFor(url: string | undefined): Record<string, string> {
+function headersFor(
+  url: string | undefined,
+  hook?: ServerHook,
+): Record<string, string> {
   const headers: Record<string, string> = {};
   const next = vi.fn();
-  middleware()(
+  middleware(hook)(
     { url },
     {
       setHeader: (name, value) => {
@@ -89,6 +93,13 @@ describe("playerIsolationHeaders", () => {
 
   it("passes a request with no URL through", () => {
     expect(headersFor(undefined)).toEqual({});
+  });
+
+  // `vite preview` has no nginx in front of it either.
+  it("isolates a player document on the preview server too", () => {
+    expect(headersFor("/rom/1/ejs", "configurePreviewServer")).toEqual(
+      ISOLATED,
+    );
   });
 });
 

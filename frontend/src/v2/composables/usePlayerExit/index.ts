@@ -14,7 +14,11 @@ export function usePlayerExit(
 ): {
   /** True once an exit is replacing the document, so an unload prompt can stand down. */
   departing: Ref<boolean>;
-  /** Go to `path`, by a full navigation when the document is bound. */
+  /**
+   * Go to `path` in place of the player, by a full navigation when the document
+   * is bound. The player is replaced either way, so Back never re-enters the
+   * view it just left and relaunches the game.
+   */
   leave: (path: string) => void;
   /** `onBeforeRouteLeave` guard: lets a departure through unless bound. */
   guard: (to: Pick<RouteLocationNormalized, "fullPath">) => boolean;
@@ -33,7 +37,7 @@ export function usePlayerExit(
 
   function leave(path: string): void {
     if (documentBound()) replaceDocument(path);
-    else void router.push(path);
+    else void router.replace(path);
   }
 
   function guard(to: Pick<RouteLocationNormalized, "fullPath">): boolean {
