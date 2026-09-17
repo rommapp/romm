@@ -87,9 +87,7 @@ class DBPlatformsHandler(DBBaseHandler):
         hidden_platform_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> list[int]:
-        """Ids only, deliberately off `with_firmware`: its eager firmware load
-        fires even when only the id is wanted.
-        """
+        """Ids only, deliberately off `with_firmware`: its eager load fires anyway."""
         query = select(Platform).order_by(Platform.name.asc())
 
         if hidden_platform_ids:
