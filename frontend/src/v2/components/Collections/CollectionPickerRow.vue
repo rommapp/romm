@@ -162,16 +162,16 @@ const isFull = computed(() => props.state === "all");
   background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
 }
 
-:global(.r-v2.r-v2-light) .pick-row__name {
+.r-v2.r-v2-light .pick-row__name {
   color: color-mix(in srgb, var(--r-color-fg) 92%, transparent);
 }
-:global(.r-v2.r-v2-light) .pick-row__count {
+.r-v2.r-v2-light .pick-row__count {
   color: color-mix(in srgb, var(--r-color-fg) 50%, transparent);
 }
-:global(.r-v2.r-v2-light) .pick-row:hover {
+.r-v2.r-v2-light .pick-row:hover {
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
-:global(.r-v2.r-v2-light) .pick-row__tick {
+.r-v2.r-v2-light .pick-row__tick {
   border-color: color-mix(in srgb, var(--r-color-fg) 15%, transparent);
 }
 </style>

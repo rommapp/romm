@@ -20,6 +20,7 @@ import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byUpdatedDesc,
@@ -82,6 +83,7 @@ defineSlots<{
 }>();
 
 const { t, locale } = useI18n();
+const { xs } = useBreakpoint();
 
 const emptyLabel = computed(() =>
   props.type === "save"
@@ -224,7 +226,11 @@ const fadeIndex = computed(() =>
                 </span>
               </span>
 
-              <AssetTimestamp :date="dateOf(asset, timestamp)" align="end" />
+              <AssetTimestamp
+                class="r-asset-list__time"
+                :date="dateOf(asset, timestamp)"
+                :align="xs ? 'start' : 'end'"
+              />
 
               <span
                 v-if="selectable"
@@ -492,7 +498,35 @@ const fadeIndex = computed(() =>
   opacity: 0.85;
 }
 
+/* Phones: the timestamp and the actions or check drop to a row of their own
+   under the text, so the name gets the full width and wraps. */
 html[data-bp~="xs"] .r-asset-list__row {
-  padding: 8px 10px;
+  padding: var(--r-space-2) var(--r-space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon main main"
+    ". time actions";
+  gap: var(--r-space-1) var(--r-space-3);
+}
+html[data-bp~="xs"] .r-asset-list__icon {
+  grid-area: icon;
+  align-self: start;
+}
+html[data-bp~="xs"] .r-asset-list__main {
+  grid-area: main;
+}
+html[data-bp~="xs"] .r-asset-list__name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html[data-bp~="xs"] .r-asset-list__time {
+  grid-area: time;
+}
+html[data-bp~="xs"] .r-asset-list__check,
+html[data-bp~="xs"] .r-asset-list__actions {
+  grid-area: actions;
+}
+html[data-bp~="xs"] .r-asset-list__actions {
+  margin-block: calc(-1 * var(--r-space-1));
 }
 </style>

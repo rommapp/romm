@@ -164,11 +164,9 @@ def get_firmware_identifiers(
         list[int]: List of firmware IDs
     """
     perms = get_permissions(request)
-    firmware = db_firmware_handler.list_firmware(
-        only_fields=[Firmware.id],
+    return db_firmware_handler.list_firmware_ids(
         hidden_platform_ids=perms.hidden_platform_ids,
     )
-    return [f.id for f in firmware]
 
 
 @protected_route(

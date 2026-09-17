@@ -245,7 +245,6 @@
   "missing-firmware-none": "No missing firmware found",
   "missing-firmware-tab": "Missing firmware",
   "missing-games-actions": "Missing games actions",
-  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-delete-all": "Delete all missing games",
   "missing-games-none": "No missing ROMs found",
   "missing-games-tab": "Missing games",

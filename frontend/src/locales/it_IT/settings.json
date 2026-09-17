@@ -245,7 +245,6 @@
   "missing-firmware-none": "Nessun firmware mancante trovato",
   "missing-firmware-tab": "Firmware mancante",
   "missing-games-actions": "Azioni per giochi mancanti",
-  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-delete-all": "Delete all missing games",
   "missing-games-none": "Nessuna ROM mancante trovata",
   "missing-games-tab": "Giochi mancanti",

@@ -311,6 +311,9 @@ onBeforeUnmount(() => {
    to 0, so the grids just fill the width as before). */
 .r-table__scroll {
   overflow-x: auto;
+  /* Rows rise 6px as they enter; clipping keeps that from flashing a
+     vertical scrollbar, since the table never scrolls vertically itself. */
+  overflow-y: hidden;
   scrollbar-width: thin;
 }
 .r-table__header,

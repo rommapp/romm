@@ -82,6 +82,19 @@ export function isUnderOpenEscapable(el: Node | null): boolean {
   return !panel.contains(el);
 }
 
+/** True when `node` sits in an overlay opened after `entry`, such as a menu
+ *  nested in it, so a press there does not count as outside `entry`. */
+export function isInsideEscapableAbove(
+  entry: EscapableEntry,
+  node: Node,
+): boolean {
+  const idx = stack.indexOf(entry);
+  if (idx === -1) return false;
+  return stack
+    .slice(idx + 1)
+    .some((above) => above.panel?.()?.contains(node) ?? false);
+}
+
 /** True when at least one non-persistent escapable overlay is open.
  *  Persistent layers still count as "open" — they block back-style
  *  dismiss the same way Esc is a no-op for them, so the user gets

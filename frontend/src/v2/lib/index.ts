@@ -22,6 +22,7 @@ export * from "./primitives/REmptyState";
 export * from "./primitives/RIcon";
 export * from "./primitives/RImg";
 export * from "./primitives/RLetterHeading";
+export * from "./primitives/RMarquee";
 export * from "./primitives/RProgressCircular";
 export * from "./primitives/RProgressLinear";
 export * from "./primitives/RSkeletonBlock";
