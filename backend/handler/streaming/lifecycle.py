@@ -146,9 +146,9 @@ async def collect_exit_saves(
     desktop) has nowhere to file one, so neither schedules anything.
 
     One home for the rule: every teardown path files a session's saves the same
-    way, and under the session's owner rather than whoever ended it. The pull is
-    marked pending here rather than inside the task, so a claim arriving on the
-    heels of the release waits for it whether the task has started or not.
+    way, and under the session's owner rather than whoever ended it. Marked
+    pending before the task starts, so a claim on the heels of the release waits
+    for it either way.
     """
     rom_id = session.get("rom_id")
     user_id = session.get("user_id")
@@ -351,10 +351,8 @@ async def teardown_released_session(
         # Leave a note when this is a force-release rather than a player closing
         # their own game. A different user is the obvious case; a reason covers
         # the rest, since only the admin panel sends one and an admin can be
-        # logged in as the same account that is playing in another tab. It goes
-        # out before the drain: the session ended when the marker landed, and
-        # the quiesce below is seconds of broker round trips in which the
-        # displaced player's poll would otherwise find no reason at all.
+        # logged in as the same account that is playing in another tab. Before
+        # the drain, so a poll during the quiesce still finds a reason.
         if session.get("user_id") != acting_user_id or reason is not None:
             await record_termination(
                 session, session_key, ended_by=acting_username, reason=reason
@@ -431,10 +429,9 @@ async def _teardown_abandoned_session(
     keepalive = asyncio.ensure_future(hold_drain_marker(session_key, token))
     try:
         # That tab may still be showing the stream, so leave the same note an
-        # admin force-release does rather than letting the picture simply stop,
-        # and leave it before the drain so a poll inside that window finds it.
-        # Not for the owner coming back: the note would reach the tab that just
-        # claimed this container and end the claim it is starting.
+        # admin force-release does rather than letting the picture simply stop.
+        # Not for the owner coming back: it would end the claim their new tab is
+        # starting.
         if session.get("user_id") != claimed_by:
             await record_termination(
                 session, session_key, ended_by=None, reason="abandoned"

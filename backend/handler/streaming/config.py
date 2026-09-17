@@ -619,12 +619,9 @@ def container_for_session(
 
 
 def configured_emulator(platform: str) -> str:
-    """The emulator the container a claim wins serves this platform with.
-
-    Empty when no container can be claimed for it: slot ceilings are read off
-    this, so the answer has to come from the pool a claim walks rather than
-    from whichever record the file happens to list first.
-    """
+    """The emulator the container a claim wins serves this platform with, empty
+    when nothing can be claimed for it. Slot ceilings are read off this, so it
+    has to come from the pool a claim walks."""
     pool = containers_for_platform(platform)
     return pool[0].emulator if pool else ""
 

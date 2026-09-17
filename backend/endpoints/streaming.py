@@ -350,10 +350,9 @@ async def _reserve_container(
     platform: str,
 ) -> ResolvedContainer:
     """Walk the platform's containers and claim the first one available."""
-    # Status, heartbeat and release resolve by platform and answer with the
-    # first match, so a second game session on one platform is one nothing can
-    # reach. A session of theirs elsewhere (another platform, or a desktop) is
-    # not in the way; that container simply fails the reservation below.
+    # Status, heartbeat and release answer with the first match on a platform,
+    # so a second game session there is one nothing can reach. A session of
+    # theirs elsewhere is not in the way: that container fails the claim below.
     held = await access.find_session_for_user(
         candidates, request.user.id, platform=platform
     )
@@ -434,11 +433,9 @@ async def _reserve_container(
         if await try_claim(candidate):
             return candidate
 
-    # A drain marker belongs to nobody: the previous session is over and its
-    # exit state is still coming out of the container, so it carries no
-    # rom_name and no claimed_at. One member draining is worth telling the
-    # player about, since that container is about to come free, but the holder
-    # has to come from a live session or the message names no one.
+    # A drain marker belongs to nobody, so it carries no rom_name and no
+    # claimed_at. Worth reporting, since that container is about to come free,
+    # but the holder has to come from a live session or the message names no one.
     snapshots = [await get_session(candidate.key) or {} for candidate in candidates]
     draining = any(snapshot.get("draining") for snapshot in snapshots)
     holder = next(

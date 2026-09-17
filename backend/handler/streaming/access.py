@@ -114,10 +114,10 @@ def _session_in_scope(
     include_desktop: bool,
     claimed_at: str | None = None,
 ) -> bool:
-    """Whether a stored session is one the route asked about. A container serves
-    several platforms and holds one session, so the owner alone does not
-    identify it, a desktop only answers to the caller that named it, and a claim
-    is the holder plus the moment they took it."""
+    """Whether a stored session is the one the route asked about: the owner alone
+    does not say, since a container holds one session across several platforms,
+    a desktop answers only to a caller that named it, and a claim is its holder
+    plus the moment they took it."""
     if not include_desktop and session_is_desktop(session):
         return False
     if claimed_at is not None and session.get("claimed_at") != claimed_at:
