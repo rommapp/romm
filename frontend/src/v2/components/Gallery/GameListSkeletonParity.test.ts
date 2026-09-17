@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { RomMetadataSchema, RomUserSchema } from "@/__generated__";
 import type { SimpleRom } from "@/v2/stores/galleryRoms";
 import GameListRow from "./GameListRow.vue";
 import GameListSkeletonRow from "./GameListSkeletonRow.vue";
@@ -32,24 +33,135 @@ function rightEdges(row: HTMLElement): boolean[] {
   );
 }
 
-const ROM = {
+const ROM_USER: RomUserSchema = {
   id: 1,
-  name: "Chrono Trigger",
-  fs_name: "Chrono Trigger.sfc",
-  fs_name_no_ext: "Chrono Trigger",
-  platform_id: 1,
-  fs_size_bytes: 4_194_304,
+  user_id: 1,
+  rom_id: 1,
   created_at: "2026-01-02T00:00:00Z",
-  languages: [],
-  regions: [],
-  metadatum: { first_release_date: "1995-08-11", average_rating: 9.1 },
+  updated_at: "2026-01-02T00:00:00Z",
+  last_played: null,
+  is_main_sibling: true,
+  backlogged: false,
+  now_playing: false,
+  hidden: false,
+  rating: 0,
+  difficulty: 0,
+  completion: 0,
+  status: null,
+};
+
+const METADATUM: RomMetadataSchema = {
+  rom_id: 1,
+  genres: [],
+  franchises: [],
+  collections: [],
+  companies: [],
+  publishers: [],
+  developers: [],
+  game_modes: [],
+  age_ratings: [],
+  player_count: "1",
+  first_release_date: Date.UTC(1995, 7, 11),
+  average_rating: 9.1,
+};
+
+/** A complete `SimpleRom`, so a new required field breaks the build instead of
+ *  hiding behind a cast. Tests override only the fields they read. */
+const ROM_DEFAULTS: SimpleRom = {
+  id: 1,
+  igdb_id: null,
+  sgdb_id: null,
+  moby_id: null,
+  ss_id: null,
+  ra_id: null,
+  launchbox_id: null,
+  hasheous_id: null,
+  tgdb_id: null,
+  flashpoint_id: null,
+  hltb_id: null,
+  demozoo_id: null,
+  pouet_id: null,
+  csdb_id: null,
+  steam_id: null,
+  gamelist_id: null,
+  libretro_id: null,
+  platform_id: 1,
+  platform_slug: "snes",
+  platform_fs_slug: "snes",
+  platform_custom_name: null,
+  platform_display_name: "Super Nintendo",
+  fs_name: "Chrono Trigger.sfc",
+  fs_name_no_tags: "Chrono Trigger",
+  fs_name_no_ext: "Chrono Trigger",
+  fs_extension: "sfc",
+  fs_path: "snes/Chrono Trigger.sfc",
+  fs_size_bytes: 4_194_304,
+  name: "Chrono Trigger",
+  name_sort_key: "chrono trigger",
+  slug: "chrono-trigger",
+  summary: null,
+  alternative_names: [],
+  youtube_video_id: null,
+  metadatum: METADATUM,
+  igdb_metadata: null,
+  moby_metadata: null,
+  ss_metadata: null,
+  launchbox_metadata: null,
+  hasheous_metadata: null,
+  flashpoint_metadata: null,
   hltb_metadata: { main_story: 23 },
-  rom_user: {},
-} as unknown as SimpleRom;
+  demozoo_metadata: null,
+  pouet_metadata: null,
+  csdb_metadata: null,
+  steam_metadata: null,
+  gamelist_metadata: null,
+  manual_metadata: null,
+  path_cover_small: null,
+  path_cover_large: null,
+  url_cover: null,
+  has_manual: false,
+  has_soundtrack: false,
+  path_manual: null,
+  url_manual: null,
+  path_video: null,
+  is_unidentified: false,
+  is_identified: true,
+  revision: null,
+  regions: ["USA"],
+  languages: ["en"],
+  tags: [],
+  crc_hash: null,
+  md5_hash: null,
+  sha1_hash: null,
+  ra_hash: null,
+  title_id: null,
+  save_target: null,
+  save_target_layout: null,
+  has_simple_single_file: true,
+  has_nested_single_file: false,
+  has_multiple_files: false,
+  full_path: "/romm/library/snes/Chrono Trigger.sfc",
+  created_at: "2026-01-02T00:00:00Z",
+  updated_at: "2026-01-02T00:00:00Z",
+  missing_from_fs: false,
+  is_physical: false,
+  has_file_on_disk: true,
+  upc: null,
+  has_notes: false,
+  rom_user: ROM_USER,
+  merged_screenshots: [],
+  merged_ra_metadata: null,
+  files: [],
+  sibling_roms: [],
+};
+
+function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
+  return { ...ROM_DEFAULTS, ...overrides };
+}
 
 function mountHydratedRow() {
   return mount(GameListRow, {
-    props: { rom: ROM },
+    props: { rom: rom() },
     global: {
       stubs: {
         GameActionBtn: true,
