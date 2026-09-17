@@ -145,6 +145,7 @@ onMounted(() => {
           prepend-icon="mdi-memory"
           :text="rows.length"
           tone="neutral"
+          class="r-v2-missing-fw__count"
         />
         <RMenu location="bottom end" :offset="6" width="240px">
           <template #activator="{ props: activatorProps }">
@@ -235,9 +236,15 @@ onMounted(() => {
 
 .r-v2-missing-fw__actions {
   display: flex;
+  align-self: stretch;
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+/* Stretch to the toolbar row so the chip matches the select and kebab. */
+.r-v2-missing-fw__count {
+  align-self: stretch;
 }
 
 .r-v2-missing-fw__list {
