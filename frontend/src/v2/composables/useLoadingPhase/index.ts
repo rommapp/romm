@@ -1,8 +1,8 @@
 // Picks skeleton, empty or content for a loading view. Until loading outlasts
-// `delayMs` the last settled phase stays up, so a fast load never flashes.
+// the skeleton delay the last settled phase stays up, so a fast load never flashes.
+import { refAutoReset } from "@vueuse/core";
 import {
   nextTick,
-  onScopeDispose,
   shallowRef,
   toValue,
   watchEffect,
@@ -22,12 +22,10 @@ export const SKELETON_MIN_MS = 300;
 export function useLoadingPhase(
   loading: MaybeRefOrGetter<boolean>,
   empty: MaybeRefOrGetter<boolean>,
-  delayMs: MaybeRefOrGetter<number> = SKELETON_DELAY_MS,
 ): Readonly<ShallowRef<LoadingPhase>> {
-  const skeletonDue = useDelayedFlag(loading, delayMs);
+  const skeletonDue = useDelayedFlag(loading, SKELETON_DELAY_MS);
   const phase = shallowRef<LoadingPhase>("idle");
-  const holdingSkeleton = shallowRef(false);
-  let holdTimer: ReturnType<typeof setTimeout> | null = null;
+  const holdingSkeleton = refAutoReset(false, SKELETON_MIN_MS);
   // Empty at setup often means a fetch that only starts in onMounted, so the
   // first "empty" waits a tick for that load to begin.
   const ready = shallowRef(false);
@@ -44,15 +42,7 @@ export function useLoadingPhase(
     } else if (skeletonDue.value && phase.value !== "skeleton") {
       phase.value = "skeleton";
       holdingSkeleton.value = true;
-      holdTimer = setTimeout(() => {
-        holdTimer = null;
-        holdingSkeleton.value = false;
-      }, SKELETON_MIN_MS);
     }
-  });
-
-  onScopeDispose(() => {
-    if (holdTimer) clearTimeout(holdTimer);
   });
 
   return phase;

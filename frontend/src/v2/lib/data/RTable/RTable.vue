@@ -235,15 +235,13 @@ onBeforeUnmount(() => {
         </template>
 
         <template v-else-if="phase === 'empty'">
-          <slot name="empty">
-            <REmptyState
-              variant="plain"
-              size="small"
-              :icon="emptyIcon"
-              :icon-size="32"
-              :title="emptyMessage"
-            />
-          </slot>
+          <REmptyState
+            variant="plain"
+            size="small"
+            :icon="emptyIcon"
+            :icon-size="32"
+            :title="emptyMessage"
+          />
         </template>
 
         <template v-else-if="phase === 'content'">

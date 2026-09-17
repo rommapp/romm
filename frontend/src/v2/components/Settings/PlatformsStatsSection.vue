@@ -76,6 +76,12 @@ const orderItems = computed<SliderBtnGroupItem<OrderBy>[]>(() => [
   },
 ]);
 
+const emptyState = computed(() =>
+  searchQuery.value.trim()
+    ? { icon: "mdi-magnify-close", title: t("settings.no-matching-platforms") }
+    : { icon: "mdi-folder-question", title: t("settings.no-platforms") },
+);
+
 const sortedPlatforms = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
   let list = [...filledPlatforms.value];
@@ -331,15 +337,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
           class="r-v2-plat-stats__bar"
         />
       </a>
-      <REmptyState
-        v-if="sortedPlatforms.length === 0"
-        :icon="searchQuery.trim() ? 'mdi-magnify-close' : 'mdi-folder-question'"
-        :title="
-          searchQuery.trim()
-            ? t('settings.no-matching-platforms')
-            : t('settings.no-platforms')
-        "
-      />
+      <REmptyState v-if="sortedPlatforms.length === 0" v-bind="emptyState" />
     </div>
   </section>
 </template>

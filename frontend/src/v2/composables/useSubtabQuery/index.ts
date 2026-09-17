@@ -1,6 +1,7 @@
 // Binds a details tab's active subtab to the route's `?subtab=` param.
 import { shallowRef, watch, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 export function useSubtabQuery<T extends string>(
   tabId: string,
@@ -21,11 +22,7 @@ export function useSubtabQuery<T extends string>(
   const subtab = shallowRef(fromRoute() ?? fallback) as Ref<T>;
 
   watch(subtab, (value) => {
-    if (route.query.subtab === value) return;
-    void router.replace({
-      path: route.path,
-      query: { ...route.query, subtab: value },
-    });
+    if (route.query.subtab !== value) patchQuery(router, { subtab: value });
   });
 
   watch([() => route.query.tab, () => route.query.subtab], () => {

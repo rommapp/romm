@@ -8,7 +8,7 @@
 // an admin needs: open its desktop to configure the emulator inside it, and
 // end whatever session is holding it.
 import { RBtn, REmptyState, RIcon, RSpinner } from "@v2/lib";
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -34,6 +34,25 @@ const enabled = ref(false);
 const loadFailed = ref(false);
 const containers = ref<AdminStreamingContainer[]>([]);
 const releasing = ref<string | null>(null);
+
+const emptyState = computed<{ icon: string; title: string } | null>(() => {
+  if (loadFailed.value) {
+    return {
+      icon: "mdi-alert-circle-outline",
+      title: t("settings.streaming-load-failed"),
+    };
+  }
+  if (!enabled.value) {
+    return { icon: "mdi-monitor-off", title: t("settings.streaming-disabled") };
+  }
+  if (containers.value.length === 0) {
+    return {
+      icon: "mdi-monitor-dashboard",
+      title: t("settings.streaming-none"),
+    };
+  }
+  return null;
+});
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -120,26 +139,7 @@ onMounted(load);
       <RSpinner />
     </div>
 
-    <REmptyState
-      v-else-if="loadFailed"
-      size="small"
-      icon="mdi-alert-circle-outline"
-      :title="t('settings.streaming-load-failed')"
-    />
-
-    <REmptyState
-      v-else-if="!enabled"
-      size="small"
-      icon="mdi-monitor-off"
-      :title="t('settings.streaming-disabled')"
-    />
-
-    <REmptyState
-      v-else-if="containers.length === 0"
-      size="small"
-      icon="mdi-monitor-dashboard"
-      :title="t('settings.streaming-none')"
-    />
+    <REmptyState v-else-if="emptyState" size="small" v-bind="emptyState" />
 
     <template v-else>
       <div

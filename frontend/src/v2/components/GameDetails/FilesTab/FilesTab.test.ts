@@ -25,7 +25,11 @@ vi.mock("vue-i18n", () => ({
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: routeQuery, path: "/rom/1", params: {} }),
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({
+    replace: vi.fn(),
+    push: vi.fn(),
+    currentRoute: { value: { query: routeQuery } },
+  }),
 }));
 vi.mock("@/services/api/rom", () => ({
   default: { uploadRoms, deleteRomFile: vi.fn() },

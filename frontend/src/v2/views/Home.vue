@@ -282,7 +282,7 @@ function collectionCovers(c: {
     <!-- Empty library state — shown when nothing has been ingested
          yet. Hides every section underneath so the user lands on a
          decision (upload vs scan), not on a row of skeletons. -->
-    <section v-if="phase === 'empty'" class="r-v2-home-empty">
+    <section v-if="phase === 'empty'" class="r-v2-home-empty r-v2-asset-fade">
       <div class="r-v2-home-empty__hero">
         <RIcon
           icon="mdi-controller-classic-outline"
@@ -300,7 +300,7 @@ function collectionCovers(c: {
              disk" telemetry from both entry points. -->
         <div
           v-if="libraryInfo && detectedPlatformCount + detectedGameCount > 0"
-          class="r-v2-home-empty__detected"
+          class="r-v2-home-empty__detected r-v2-asset-fade"
         >
           <RChip
             size="small"
@@ -678,8 +678,6 @@ function collectionCovers(c: {
   padding: var(--r-space-10) var(--r-space-6);
   min-height: 60vh;
   justify-content: center;
-  animation: r-v2-home-fade-in var(--r-motion-slow) var(--r-motion-ease-out)
-    both;
 }
 
 .r-v2-home-empty__hero {
@@ -720,20 +718,6 @@ function collectionCovers(c: {
   justify-content: center;
   gap: var(--r-space-2);
   margin-top: var(--r-space-2);
-  animation: r-v2-home-fade-in var(--r-motion-med) var(--r-motion-ease-out) both;
-}
-
-@keyframes r-v2-home-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .r-v2-home-empty,
-  .r-v2-home-empty__detected {
-    animation: none;
-  }
 }
 
 .r-v2-home-empty__choices {
