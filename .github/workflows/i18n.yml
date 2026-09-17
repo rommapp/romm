@@ -5,7 +5,8 @@ on:
     paths:
       - "frontend/src/locales/**/*.json"
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   check-translations:
