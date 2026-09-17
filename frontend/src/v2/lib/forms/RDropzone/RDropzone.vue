@@ -5,6 +5,7 @@
 //   * CTA (default): renders an empty-state call-to-action — icon, title,
 //     hint, and click/keyboard to browse. The whole surface is the drop
 //     target and brightens while dragging over it.
+//     `compact` lays it out as a single row for tight panels.
 //   * Overlay (`overlay` prop): renders the default slot (the consumer's
 //     filled content — a file list, a grid, a card) and floats a "release to
 //     upload" overlay over it while dragging. Use the exposed `open()` to wire
@@ -30,6 +31,8 @@ interface Props {
   disabled?: boolean;
   /** Overlay mode: render the default slot + a drag-over overlay. */
   overlay?: boolean;
+  /** CTA mode only: one row with a small icon beside the title and hint. */
+  compact?: boolean;
   // CTA copy / icons (ignored in overlay mode except `activeIcon`).
   title?: string;
   hint?: string;
@@ -95,6 +98,7 @@ defineExpose({ open, isOver: isOverDropZone });
     :class="{
       'r-dropzone--active': isOverDropZone && !disabled,
       'r-dropzone--disabled': disabled,
+      'r-dropzone--compact': compact,
     }"
   >
     <input
@@ -139,7 +143,7 @@ defineExpose({ open, isOver: isOverDropZone });
     >
       <RIcon
         :icon="isOverDropZone ? activeIcon : icon"
-        size="44"
+        :size="compact ? 24 : 44"
         color="primary"
         :class="{ 'r-dropzone__cta-icon--pulse': isOverDropZone && !disabled }"
       />
@@ -213,6 +217,22 @@ defineExpose({ open, isOver: isOverDropZone });
   color: var(--r-color-fg-muted);
   max-width: 360px;
   line-height: 1.5;
+}
+.r-dropzone--compact .r-dropzone__cta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  justify-items: start;
+  column-gap: 12px;
+  row-gap: 2px;
+  padding: 12px 16px;
+  text-align: left;
+}
+.r-dropzone--compact .r-dropzone__cta > .r-icon {
+  grid-row: span 2;
+}
+.r-dropzone--compact .r-dropzone__cta-title {
+  font-size: 13px;
 }
 .r-dropzone__cta-icon--pulse {
   animation: r-dropzone-pulse 1.4s ease-in-out infinite;
