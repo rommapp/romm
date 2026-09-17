@@ -19,7 +19,7 @@
 // rather than `items` so the cell still renders during loading or
 // when the row points at a slug not in the catalogue).
 import { RAvatar, RIcon, RPlatformIcon, RSelect, RTag } from "@v2/lib";
-import { computed, useSlots } from "vue";
+import { computed, ref, useSlots } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import { platformCategoryToIcon } from "@/utils";
@@ -97,7 +97,7 @@ interface Props {
   loading?: boolean;
   label?: string;
   placeholder?: string;
-  /** Games-first menu + divider. Default false; opt in at call sites. */
+  /** Games-first menu + divider until the user types in panel search. Default false. */
   promoteFilled?: boolean;
   searchPlaceholder?: string;
   variant?: "outlined" | "filled" | "underlined" | "plain";
@@ -160,16 +160,22 @@ const forwardedSlotNames = computed(() =>
   ),
 );
 
-// Games-first split; `orderedItems` / `dividerAfter` use it when `promoteFilled`.
+// Games-first split when the panel opens; typing in search turns it off.
 const promotion = computed(() => promotePlatformsWithGamesFirst(props.items));
 
-const orderedItems = computed(() => {
+const panelSearch = ref("");
+const partitionMenu = computed(
+  () => props.promoteFilled && panelSearch.value.length === 0,
+);
+
+const listItems = computed(() => {
   if (!props.promoteFilled) return props.items;
+  if (panelSearch.value.length > 0) return props.items;
   return [...promotion.value.promoted, ...promotion.value.remaining];
 });
 
 const dividerAfter = computed(() => {
-  if (!props.promoteFilled) return undefined;
+  if (!partitionMenu.value) return undefined;
   const { promoted, remaining } = promotion.value;
 
   // if there's nothing to promote, or nothing to remain, we don't need to divide.
@@ -194,13 +200,17 @@ function platformForValue(value: unknown): Platform | undefined {
 function onUpdate(v: unknown) {
   emit("update:modelValue", v as number | string | number[] | string[] | null);
 }
+
+function onPanelSearch(query: string) {
+  panelSearch.value = query;
+}
 </script>
 
 <template>
   <RSelect
     v-bind="$attrs"
     :model-value="modelValue"
-    :items="orderedItems"
+    :items="listItems"
     item-title="display_name"
     :item-value="itemKey"
     :multiple="multiple"
@@ -221,6 +231,7 @@ function onUpdate(v: unknown) {
     :prepend-inner-icon="prependInnerIcon"
     :divider-after="dividerAfter"
     @update:model-value="onUpdate"
+    @update:search="onPanelSearch"
   >
     <!-- Selection — consumer slot wins; otherwise icon + name. -->
     <template #selection="slotProps">

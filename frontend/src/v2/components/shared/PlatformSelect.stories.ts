@@ -31,7 +31,7 @@ function makePlatform(overrides: Partial<Platform> = {}): Platform {
 
 const TIE_ROM_COUNT = 256;
 
-/** A–Z catalogue with empties first (FilterDrawer / store order before promotion). */
+/** Empties first in `items` (store order); promotion runs when the menu opens. */
 const MIXED_PLATFORM_CATALOG: Platform[] = [
   makePlatform({
     id: 101,
@@ -91,11 +91,41 @@ const MIXED_PLATFORM_CATALOG: Platform[] = [
   }),
 ];
 
+function menuRowTitles(): string[] {
+  return Array.from(document.querySelectorAll(".r-select__list > li")).map(
+    (li) =>
+      li.classList.contains("r-select__divider")
+        ? "---"
+        : (li.querySelector(".r-select__item-title")?.textContent?.trim() ??
+          ""),
+  );
+}
+
+function promoteFilledRender() {
+  return () => ({
+    components: { PlatformSelect },
+    setup() {
+      const value = ref<number | null>(null);
+      const items = ref<Platform[]>([...MIXED_PLATFORM_CATALOG]);
+      return { value, items };
+    },
+    template: `<PlatformSelect v-model="value" :items="items" label="Platforms" :promote-filled="true" />`,
+  });
+}
+
+async function openMenu(canvasElement: HTMLElement) {
+  await userEvent.click(
+    within(canvasElement).getByRole("button", { name: "Platforms" }),
+  );
+  await waitFor(() => {
+    expect(document.querySelector(".r-select__panel")).not.toBeNull();
+  });
+}
+
 const meta: Meta<typeof PlatformSelect> = {
   title: "Shared/PlatformSelect",
   component: PlatformSelect,
   parameters: {
-    // Global preview uses centered layout; menus need headroom below the field.
     layout: "padded",
   },
   decorators: [
@@ -108,10 +138,8 @@ const meta: Meta<typeof PlatformSelect> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const LABEL = "Platforms";
-
-// promoteFilled is off: menu order must match `items` as passed (no reorder).
-export const PlatformSelectDefault: Story = {
+export const CallerOrder: Story = {
+  name: "Caller order (promotion off)",
   render: () => ({
     components: { PlatformSelect },
     setup() {
@@ -123,8 +151,61 @@ export const PlatformSelectDefault: Story = {
   }),
 };
 
-// Opt-in preview: filled platforms first (name sort), divider, then empties.
-export const PlatformSelectorPromoteFilled: Story = {
+export const PromotedOnPage: Story = {
+  name: "Promotion on — on page",
+  render: promoteFilledRender(),
+};
+
+export const PromotedOpenMenu: Story = {
+  name: "Promotion on — open menu, do not type",
+  render: promoteFilledRender(),
+  play: async ({ canvasElement, step }) => {
+    await step("open menu (do not type in search)", async () => {
+      await openMenu(canvasElement);
+    });
+
+    await step("partitioned list", async () => {
+      const { promoted, remaining } = promotePlatformsWithGamesFirst(
+        MIXED_PLATFORM_CATALOG,
+      );
+      expect(menuRowTitles()).toEqual([
+        ...promoted.map((p) => p.display_name),
+        "---",
+        ...remaining.map((p) => p.display_name),
+      ]);
+    });
+  },
+};
+
+export const PromotedTypingInSearch: Story = {
+  name: "Promotion on — typing in panel search",
+  render: promoteFilledRender(),
+  play: async ({ canvasElement, step }) => {
+    await step("open menu", async () => {
+      await openMenu(canvasElement);
+    });
+
+    await step("type in panel search", async () => {
+      const search = document.querySelector(
+        ".r-select__search input",
+      ) as HTMLInputElement;
+      expect(search).not.toBeNull();
+      await userEvent.click(search);
+      await userEvent.type(search, "g");
+    });
+
+    await step("no partition; caller item order", async () => {
+      await waitFor(() => {
+        const rows = menuRowTitles();
+        expect(rows).not.toContain("---");
+        expect(rows).toEqual(["Adventure Game Studio", "Game Boy Advance"]);
+      });
+    });
+  },
+};
+
+export const PromotedSearchDisabled: Story = {
+  name: "Promotion on — search field disabled",
   render: () => ({
     components: { PlatformSelect },
     setup() {
@@ -132,44 +213,29 @@ export const PlatformSelectorPromoteFilled: Story = {
       const items = ref<Platform[]>([...MIXED_PLATFORM_CATALOG]);
       return { value, items };
     },
-    template: `<PlatformSelect v-model="value" :items="items" label="Platforms" :promote-filled="true" />`,
+    template: `<PlatformSelect v-model="value" :items="items" label="Platforms" :promote-filled="true" :searchable="false" />`,
   }),
   play: async ({ canvasElement, step }) => {
     await step("open menu", async () => {
-      await userEvent.click(
-        within(canvasElement).getByRole("button", { name: LABEL }),
-      );
-      await waitFor(() => {
-        expect(document.querySelector(".r-select__panel")).not.toBeNull();
-      });
+      await openMenu(canvasElement);
+      expect(document.querySelector(".r-select__search")).toBeNull();
     });
 
-    await step(
-      "filled block, divider, then empty block (promote on)",
-      async () => {
-        const { promoted, remaining } = promotePlatformsWithGamesFirst(
-          MIXED_PLATFORM_CATALOG,
-        );
-        const rows = Array.from(
-          document.querySelectorAll(".r-select__list > li"),
-        ).map((li) =>
-          li.classList.contains("r-select__divider")
-            ? "---"
-            : (li.querySelector(".r-select__item-title")?.textContent?.trim() ??
-              ""),
-        );
-        expect(rows).toEqual([
-          ...promoted.map((p) => p.display_name),
-          "---",
-          ...remaining.map((p) => p.display_name),
-        ]);
-      },
-    );
+    await step("still partitioned", async () => {
+      const { promoted, remaining } = promotePlatformsWithGamesFirst(
+        MIXED_PLATFORM_CATALOG,
+      );
+      expect(menuRowTitles()).toEqual([
+        ...promoted.map((p) => p.display_name),
+        "---",
+        ...remaining.map((p) => p.display_name),
+      ]);
+    });
   },
 };
 
-// promoteFilled on but every row empty: no divider, name sort only.
-export const PlatformSelectorPromoteButNotFilled: Story = {
+export const PromotedAllLibrariesEmpty: Story = {
+  name: "Promotion on — every library empty",
   render: () => ({
     components: { PlatformSelect },
     setup() {
