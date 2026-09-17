@@ -1,9 +1,7 @@
 // useIsolatedLaunch: reloading a player view into a cross-origin isolated
-// document, which is the only kind that exposes SharedArrayBuffer. Nginx
-// attaches the COOP/COEP headers to the player URLs, so reloading the view is
-// what isolates it, and the pre-play selection crosses as an intent kept per
-// tab. Pair it with usePlayerExit, which drops the isolation on the way out.
-// EmulatorJS.vue and JsDos.vue are the two callers.
+// document, the only kind that exposes SharedArrayBuffer. Nginx isolates the
+// player URLs, so the reload is what earns it, and the pre-play selection
+// crosses as an intent kept per tab. See also usePlayerExit.
 import { ref, type Ref } from "vue";
 
 export function hasSharedArrayBuffer(): boolean {
