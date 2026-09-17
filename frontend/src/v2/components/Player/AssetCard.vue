@@ -28,8 +28,8 @@ defineEmits<{
 
 const { t, locale } = useI18n();
 
-// States carry a screenshot; saves don't. Fall back to a placeholder
-// keyed by the file name so identical filenames render the same colour
+// Fall back to a placeholder keyed by the file name so identical
+// filenames render the same colour
 // — visual cue across the grid that two assets share a base name.
 const screenshotSrc = computed(() => {
   if (!("screenshot" in props.asset)) return null;

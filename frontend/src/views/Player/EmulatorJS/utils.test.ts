@@ -4,11 +4,11 @@ import type { StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import {
   buildStateFormData,
-  captureStateScreenshot,
+  captureScreenshot,
   createSaveSyncTracker,
   installEJSDefaultOptionsTrap,
   pollSaveFiles,
-  resolveStateScreenshot,
+  resolveScreenshot,
   saveSave,
   saveSaveOnUnload,
   saveState,
@@ -299,7 +299,7 @@ describe("pollSaveFiles", () => {
   });
 });
 
-describe("captureStateScreenshot", () => {
+describe("captureScreenshot", () => {
   /* eslint-disable @typescript-eslint/no-explicit-any */
   afterEach(() => {
     delete (window as any).EJS_emulator;
@@ -311,14 +311,14 @@ describe("captureStateScreenshot", () => {
       gameManager: { screenshot: async () => shot },
     };
 
-    await expect(captureStateScreenshot()).resolves.toBe(shot);
+    await expect(captureScreenshot()).resolves.toBe(shot);
   });
 
-  // A manual save state still has to reach the server without its picture.
+  // A save or state still has to reach the server without its picture.
   it("returns nothing when the emulator has no game manager yet", async () => {
     (window as any).EJS_emulator = {};
 
-    await expect(captureStateScreenshot()).resolves.toBeUndefined();
+    await expect(captureScreenshot()).resolves.toBeUndefined();
   });
 
   it("swallows a capture that throws", async () => {
@@ -330,11 +330,19 @@ describe("captureStateScreenshot", () => {
       },
     };
 
-    await expect(captureStateScreenshot()).resolves.toBeUndefined();
+    await expect(captureScreenshot()).resolves.toBeUndefined();
+  });
+
+  it("treats an empty readback as no picture", async () => {
+    (window as any).EJS_emulator = {
+      gameManager: { screenshot: async () => new ArrayBuffer(0) },
+    };
+
+    await expect(captureScreenshot()).resolves.toBeUndefined();
   });
 });
 
-describe("resolveStateScreenshot", () => {
+describe("resolveScreenshot", () => {
   /* eslint-disable @typescript-eslint/no-explicit-any */
   afterEach(() => {
     delete (window as any).EJS_emulator;
@@ -346,17 +354,15 @@ describe("resolveStateScreenshot", () => {
       gameManager: { screenshot: async () => live },
     };
 
-    await expect(resolveStateScreenshot(new ArrayBuffer(4))).resolves.toBe(
-      live,
-    );
+    await expect(resolveScreenshot(new ArrayBuffer(4))).resolves.toBe(live);
   });
 
   it("falls back to EmulatorJS's picture when the canvas gives none", async () => {
     const fallback = new ArrayBuffer(4);
     (window as any).EJS_emulator = {};
 
-    await expect(resolveStateScreenshot(fallback)).resolves.toBe(fallback);
-    await expect(resolveStateScreenshot()).resolves.toBeUndefined();
+    await expect(resolveScreenshot(fallback)).resolves.toBe(fallback);
+    await expect(resolveScreenshot()).resolves.toBeUndefined();
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */
 });

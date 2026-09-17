@@ -14,25 +14,25 @@ function buildStateName(rom: DetailedRom): string {
   return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
 }
 
-// EmulatorJS 4.2.3 hands `EJS_onSaveState` nothing under `screenshot`, and its
-// own canvas capture renders only a slice of the frame even with the upstream
-// fix applied. Reading the live canvas is the path Save & Quit already takes.
-export async function captureStateScreenshot(): Promise<
-  ArrayBuffer | undefined
-> {
+// EmulatorJS 4.2.3 hands `EJS_onSaveState` nothing under `screenshot` and its
+// own capture renders only a slice of the frame, so every picture RomM stores
+// is read off the live canvas, which means capturing before any pause.
+export async function captureScreenshot(): Promise<ArrayBuffer | undefined> {
   try {
-    return await window.EJS_emulator?.gameManager?.screenshot();
+    const screenshot = await window.EJS_emulator?.gameManager?.screenshot();
+    // An empty buffer is a failed readback, not a picture.
+    return screenshot?.byteLength ? screenshot : undefined;
   } catch (error) {
-    console.error("Failed to capture a state screenshot", error);
+    console.error("Failed to capture a screenshot", error);
     return undefined;
   }
 }
 
-/** The picture for a save state: the live canvas, else what EmulatorJS passed. */
-export async function resolveStateScreenshot(
+/** The picture for a save or a state: the live canvas, else EmulatorJS'. */
+export async function resolveScreenshot(
   emulatorScreenshot?: ArrayBuffer,
 ): Promise<ArrayBuffer | undefined> {
-  return (await captureStateScreenshot()) ?? emulatorScreenshot;
+  return (await captureScreenshot()) ?? emulatorScreenshot;
 }
 
 /** Console-mode state upload; without a picture there is no screenshot part. */
@@ -136,8 +136,8 @@ export async function saveSave({
       const { data: updatedSave } = await saveApi.updateSave({
         save: save,
         saveFile: sessionSaveFile(rom, save, saveFile),
-        // A version opened by the periodic sync has no screenshot yet; name a
-        // new one after the save so the backend links it by stem.
+        // Reuse the picture's name so an update replaces it in place; a
+        // version without one takes the save's stem, which links the two.
         screenshotFile: screenshotFile
           ? new File(
               [screenshotFile],

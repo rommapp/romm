@@ -26,7 +26,8 @@ import {
 } from "@/utils";
 import {
   saveSave,
-  resolveStateScreenshot,
+  captureScreenshot,
+  resolveScreenshot,
   saveState,
   loadEmulatorJSSave,
   loadEmulatorJSState,
@@ -381,7 +382,12 @@ function installAutoSaveSync() {
     if (!saveTracker.shouldUpload(saveFile)) return;
     uploading = true;
     try {
-      const save = await writeSave({ saveFile: toArrayBuffer(saveFile) });
+      // The capture needs the game running, so it happens on the tick.
+      const screenshotFile = await captureScreenshot();
+      const save = await writeSave({
+        saveFile: toArrayBuffer(saveFile),
+        screenshotFile,
+      });
       if (save) {
         romsStore.update(romRef.value);
         displayMessage("Save synced with server", {
@@ -498,8 +504,9 @@ window.EJS_onLoadSave = async function () {
 
 window.EJS_onSaveSave = async function ({
   save: saveFile,
-  screenshot: screenshotFile,
+  screenshot: emulatorScreenshot,
 }) {
+  const screenshotFile = await resolveScreenshot(emulatorScreenshot);
   const synced = await writeSaveIfChanged({ saveFile, screenshotFile });
 
   romsStore.update(romRef.value);
@@ -547,7 +554,7 @@ window.EJS_onSaveState = async function ({
   state: stateFile,
   screenshot: emulatorScreenshot,
 }) {
-  const screenshotFile = await resolveStateScreenshot(emulatorScreenshot);
+  const screenshotFile = await resolveScreenshot(emulatorScreenshot);
   const state = await saveState({
     rom: romRef.value,
     stateFile,
@@ -683,21 +690,23 @@ window.EJS_onGameStart = async () => {
     uninstallAutoSaveSync();
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
-    // Grab the screenshot while the game is still running (EmulatorJS reads
-    // the live canvas), then pause before serializing state/save. Reading
-    // state from a running threaded core (SNES, N64) races the worker thread
-    // and yields torn buffers, producing corrupt states that never load.
-    const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
+    // Grab the state's screenshot while the game is still running (EmulatorJS
+    // reads the live canvas), then pause before serializing state/save.
+    // Reading state from a running threaded core (SNES, N64) races the worker
+    // thread and yields torn buffers, producing corrupt states.
+    const screenshotFile = await captureScreenshot();
     window.EJS_emulator.pause();
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const stateFile = window.EJS_emulator.gameManager.getState();
     const saveFile = window.EJS_emulator.gameManager.getSaveFile();
 
-    // The state and the save go to different endpoints, so upload both at once
+    // The state and the save go to different endpoints, so upload both at
+    // once. The save carries no picture here: an in-game save gets its own
+    // when the sync tick uploads it.
     await Promise.all([
       saveState({ rom: romRef.value, stateFile, screenshotFile }),
-      writeSaveIfChanged({ saveFile, screenshotFile }),
+      writeSaveIfChanged({ saveFile }),
     ]);
 
     romsStore.update(romRef.value);
