@@ -8,15 +8,34 @@ import { installPendingSaveSync } from "./index";
 const queue = { entries: [] as { id: string; romId: number }[] };
 // The server takes everything unless a test says otherwise.
 async function acceptAll() {
-  const romIds = queue.entries.map((entry) => entry.romId);
+  const taken = queue.entries.map((entry) => ({
+    romId: entry.romId,
+    name: "Game",
+    cover: null,
+  }));
   queue.entries = [];
-  return romIds;
+  return taken;
 }
 const syncPendingSaves = vi.fn(acceptAll);
 
 vi.mock("@/services/pending-save", () => ({
   default: { list: async () => queue.entries },
   syncPendingSaves: () => syncPendingSaves(),
+  hasPendingSaves: async () => queue.entries.length > 0,
+}));
+
+const success = vi.fn();
+vi.mock("@/v2/composables/useSnackbar", () => ({
+  useSnackbar: () => ({
+    success,
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  }),
+}));
+
+vi.mock("vue-i18n", () => ({
+  useI18n: () => ({ t: (key: string) => key }),
 }));
 
 vi.mock("@/services/api/rom", () => ({
@@ -56,6 +75,7 @@ describe("installPendingSaveSync", () => {
     isOffline.value = false;
     syncPendingSaves.mockReset();
     syncPendingSaves.mockImplementation(acceptAll);
+    success.mockClear();
   });
 
   afterEach(() => {
@@ -121,6 +141,18 @@ describe("installPendingSaveSync", () => {
     await settle();
 
     expect(syncPendingSaves).toHaveBeenCalledTimes(1);
+  });
+
+  it("says which game just reached the server", async () => {
+    queue.entries = [{ id: "1:a", romId: 1 }];
+
+    install();
+    await settle();
+
+    expect(success).toHaveBeenCalledWith(
+      "play.last-save-synced",
+      expect.objectContaining({ image: null }),
+    );
   });
 
   it("waits for the server to come back", async () => {

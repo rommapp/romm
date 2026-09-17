@@ -3,22 +3,32 @@
 // player has already drawn its save picker, so the save would land behind the
 // choice the user just made.
 import { onScopeDispose, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import pendingSaveStore, { syncPendingSaves } from "@/services/pending-save";
+import {
+  hasPendingSaves,
+  syncPendingSaves,
+  type SyncedSave,
+} from "@/services/pending-save";
 import storePlaying from "@/stores/playing";
 import storeRoms from "@/stores/roms";
 import { useServerConnection } from "@/v2/composables/useServerConnection";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 // Long enough that a server that is up but refusing the save is not hammered.
 const RETRY_MS = 30_000;
 
+// Two shells must not both be draining the same rows into the same server.
+let draining = false;
+
 export function installPendingSaveSync() {
   const playingStore = storePlaying();
   const romsStore = storeRoms();
+  const snackbar = useSnackbar();
+  const { t } = useI18n();
   const { isOffline } = useServerConnection();
 
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let draining = false;
 
   function stopRetrying() {
     if (timer === null) return;
@@ -26,10 +36,19 @@ export function installPendingSaveSync() {
     timer = null;
   }
 
+  function announce(synced: SyncedSave[]) {
+    for (const save of synced) {
+      snackbar.success(t("play.last-save-synced", { game: save.name }), {
+        image: save.cover,
+        timeout: 5000,
+      });
+    }
+  }
+
   // A save that just landed is one the open details view is showing stale.
-  async function refresh(romIds: number[]) {
+  async function refresh(synced: SyncedSave[]) {
     const current = romsStore.currentRom?.id;
-    if (!current || !romIds.includes(current)) return;
+    if (!current || !synced.some((save) => save.romId === current)) return;
     try {
       const { data } = await romApi.getRom({ romId: current });
       romsStore.setCurrentRom(data);
@@ -48,11 +67,14 @@ export function installPendingSaveSync() {
       // The player retries its own session every second while a game runs, and
       // a version opened from under it is one that session would not know about.
       if (!playingStore.playing && !isOffline.value) {
-        await refresh(await syncPendingSaves());
+        const synced = await syncPendingSaves();
+        announce(synced);
+        await refresh(synced);
       }
       stopRetrying();
-      const queued = (await pendingSaveStore.list()).length > 0;
-      if (queued) timer = setTimeout(() => void drain(), RETRY_MS);
+      if (await hasPendingSaves()) {
+        timer = setTimeout(() => void drain(), RETRY_MS);
+      }
     } finally {
       draining = false;
     }

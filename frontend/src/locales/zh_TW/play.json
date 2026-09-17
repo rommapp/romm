@@ -56,6 +56,7 @@
   "jsdos-browser-save-warning": "js-dos 存檔僅保存在此瀏覽器中，不會與 RomM 同步。",
   "jsdos-quit-without-saving": "不儲存最近的進度並退出嗎？",
   "keep-playing": "繼續遊戲",
+  "last-save-synced": "{game} 的最近存檔已同步。",
   "latest-version": "最新",
   "launch-extracting-archive": "正在解壓縮封存檔",
   "launch-extracting-pkg": "正在安裝遊戲檔案",

@@ -24,6 +24,8 @@ export interface SnackbarOptions {
   icon?: string;
   /** Stable id — useful when deduplicating repeated notifications. */
   id?: number;
+  /** Artwork shown in place of the icon, e.g. the cover of the game it concerns. */
+  image?: string | null;
 }
 
 const TONE_TO_COLOR: Record<SnackbarTone, string> = {

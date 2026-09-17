@@ -56,6 +56,7 @@
   "jsdos-browser-save-warning": "Pozice js-dos se ukládají pouze v tomto prohlížeči a nesynchronizují se s RomM.",
   "jsdos-quit-without-saving": "Ukončit bez uložení posledního postupu?",
   "keep-playing": "Pokračovat ve hře",
+  "last-save-synced": "Poslední uložená pozice pro {game} byla synchronizována.",
   "latest-version": "Nejnovější",
   "launch-extracting-archive": "Rozbalování archivu",
   "launch-extracting-pkg": "Instalace herních souborů",

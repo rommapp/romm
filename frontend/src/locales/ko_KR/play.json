@@ -56,6 +56,7 @@
   "jsdos-browser-save-warning": "js-dos 저장 데이터는 이 브라우저에만 저장되며 RomM과 동기화되지 않습니다.",
   "jsdos-quit-without-saving": "최근 진행 상황을 저장하지 않고 종료하시겠습니까?",
   "keep-playing": "계속 플레이",
+  "last-save-synced": "{game}의 마지막 저장 데이터를 동기화했습니다.",
   "latest-version": "최신",
   "launch-extracting-archive": "아카이브 압축을 푸는 중",
   "launch-extracting-pkg": "게임 파일을 설치하는 중",

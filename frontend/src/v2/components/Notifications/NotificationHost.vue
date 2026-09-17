@@ -22,6 +22,7 @@ type Toast = {
   id: number;
   msg: string;
   icon?: string;
+  image?: string | null;
   tone: ToastTone;
   timer?: number;
 };
@@ -61,6 +62,7 @@ function push(status: SnackbarStatus) {
     id,
     msg: status.msg,
     icon: iconFor(tone, status.icon),
+    image: status.image,
     tone,
   };
   toasts.value = [...toasts.value, toast];
@@ -97,8 +99,14 @@ onBeforeUnmount(() => {
         :class="[`r-v2-toast--${toast.tone}`]"
         role="alert"
       >
+        <img
+          v-if="toast.image"
+          :src="toast.image"
+          alt=""
+          class="r-v2-toast__art"
+        />
         <RIcon
-          v-if="toast.icon"
+          v-else-if="toast.icon"
           :icon="toast.icon"
           size="18"
           class="r-v2-toast__icon"
@@ -147,6 +155,14 @@ onBeforeUnmount(() => {
   color: var(--r-color-fg);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.r-v2-toast__art {
+  flex-shrink: 0;
+  width: 28px;
+  height: 38px;
+  border-radius: var(--r-radius-xs, 4px);
+  object-fit: cover;
 }
 
 /* Tone accents — a tinted icon + a coloured left edge. Keeps the glass

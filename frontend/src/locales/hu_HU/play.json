@@ -56,6 +56,7 @@
   "jsdos-browser-save-warning": "A js-dos mentések csak ebben a böngészőben tárolódnak, és nem szinkronizálódnak a RomM-mal.",
   "jsdos-quit-without-saving": "Kilépés a legutóbbi előrehaladás mentése nélkül?",
   "keep-playing": "Játék folytatása",
+  "last-save-synced": "A(z) {game} legutóbbi mentése szinkronizálva.",
   "latest-version": "Legújabb",
   "launch-extracting-archive": "Archívum kicsomagolása",
   "launch-extracting-pkg": "Játékfájlok telepítése",

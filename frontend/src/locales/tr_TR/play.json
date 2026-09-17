@@ -56,6 +56,7 @@
   "jsdos-browser-save-warning": "js-dos kayıtları yalnızca bu tarayıcıda saklanır ve RomM ile eşitlenmez.",
   "jsdos-quit-without-saving": "Son ilerlemeyi kaydetmeden çıkılsın mı?",
   "keep-playing": "Oynamaya devam et",
+  "last-save-synced": "{game} için son kayıt eşitlendi.",
   "latest-version": "En yeni",
   "launch-extracting-archive": "Arşiv çıkarılıyor",
   "launch-extracting-pkg": "Oyun dosyaları yükleniyor",

@@ -56,6 +56,7 @@
   "jsdos-browser-save-warning": "js-dos saves are stored only in this browser and are not synced with RomM.",
   "jsdos-quit-without-saving": "Quit without saving recent progress?",
   "keep-playing": "Keep playing",
+  "last-save-synced": "Last save synced for {game}.",
   "latest-version": "Latest",
   "launch-extracting-archive": "Unpacking the archive",
   "launch-extracting-pkg": "Installing the game files",

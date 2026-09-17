@@ -56,6 +56,7 @@
   "jsdos-browser-save-warning": "Las partidas de js-dos se almacenan solo en este navegador y no se sincronizan con RomM.",
   "jsdos-quit-without-saving": "¿Salir sin guardar el progreso reciente?",
   "keep-playing": "Seguir jugando",
+  "last-save-synced": "Se ha sincronizado la última partida guardada de {game}.",
   "latest-version": "Más reciente",
   "launch-extracting-archive": "Extrayendo el archivo",
   "launch-extracting-pkg": "Instalando los archivos del juego",

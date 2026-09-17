@@ -56,6 +56,7 @@
   "jsdos-browser-save-warning": "js-dos のセーブデータはこのブラウザーにのみ保存され、RomM とは同期されません。",
   "jsdos-quit-without-saving": "最近の進行状況を保存せずに終了しますか？",
   "keep-playing": "プレイを続ける",
+  "last-save-synced": "{game} の最後のセーブデータを同期しました。",
   "latest-version": "最新",
   "launch-extracting-archive": "アーカイブを展開しています",
   "launch-extracting-pkg": "ゲームファイルをインストールしています",

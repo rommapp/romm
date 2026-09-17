@@ -56,6 +56,7 @@
   "jsdos-browser-save-warning": "js-dos-Spielstände werden nur in diesem Browser gespeichert und nicht mit RomM synchronisiert.",
   "jsdos-quit-without-saving": "Beenden, ohne den letzten Fortschritt zu speichern?",
   "keep-playing": "Weiterspielen",
+  "last-save-synced": "Letzter Spielstand für {game} synchronisiert.",
   "latest-version": "Neueste",
   "launch-extracting-archive": "Archiv wird entpackt",
   "launch-extracting-pkg": "Spieldateien werden installiert",
