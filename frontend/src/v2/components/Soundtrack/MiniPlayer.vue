@@ -38,11 +38,30 @@ const audioEl = ref<HTMLAudioElement | null>(null);
 // current state. Same idiom as v1's mini player.
 let loadToken = 0;
 
+// Track loads, seeks and short stalls often resolve within a second; buffering
+// is only reported once a wait outlasts that, so the covers don't flash.
+const BUFFERING_DELAY_MS = 1000;
+let bufferingTimer: ReturnType<typeof setTimeout> | undefined;
+
+function setBuffered() {
+  clearTimeout(bufferingTimer);
+  store.setBuffering(false);
+}
+
+function scheduleBuffering() {
+  clearTimeout(bufferingTimer);
+  bufferingTimer = setTimeout(
+    () => store.setBuffering(true),
+    BUFFERING_DELAY_MS,
+  );
+}
+
 onMounted(() => {
   store.setAudioRef(audioEl.value);
 });
 
 onBeforeUnmount(() => {
+  clearTimeout(bufferingTimer);
   store.setAudioRef(null);
 });
 
@@ -51,6 +70,9 @@ watch(track, async (t) => {
   if (!el) return;
   const token = ++loadToken;
   if (t) {
+    // The store flags a new track as buffering; hold that back like any wait.
+    setBuffered();
+    scheduleBuffering();
     el.src = t.url;
     try {
       el.load();
@@ -66,6 +88,7 @@ watch(track, async (t) => {
       // through `@error`.
     }
   } else {
+    setBuffered();
     el.pause();
     el.removeAttribute("src");
     try {
@@ -78,7 +101,7 @@ watch(track, async (t) => {
 
 function onPlay() {
   store.setPlaying(true);
-  store.setBuffering(false);
+  setBuffered();
 }
 function onPause() {
   store.setPlaying(false);
@@ -94,12 +117,13 @@ function onLoadedMetadata() {
   if (audioEl.value) store.setDuration(audioEl.value.duration || 0);
 }
 function onWaiting() {
-  store.setBuffering(true);
+  scheduleBuffering();
 }
 function onCanPlay() {
-  store.setBuffering(false);
+  setBuffered();
 }
 function onError() {
+  clearTimeout(bufferingTimer);
   store.setError();
   // Snackbar payload still uses v1's `snackbarShow` event shape —
   // when v1 is removed, switch to `useSnackbar()` here.
