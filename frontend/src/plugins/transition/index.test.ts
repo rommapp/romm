@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { expectNoUnhandledRejection } from "@/test-utils/unhandledRejection";
 import {
   skippedReady,
@@ -11,6 +11,38 @@ afterEach(() => {
 });
 
 describe("startViewTransition", () => {
+  it("invokes the callback once when the native API is available", async () => {
+    stubStartViewTransition(Promise.resolve());
+    const callback = vi.fn(async () => {});
+
+    const transition = startViewTransition(callback);
+    await transition.captured;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it("invokes the callback once when a native transition is preempted", async () => {
+    stubStartViewTransition(skippedReady());
+    const callback = vi.fn(async () => {});
+
+    const transition = startViewTransition(callback);
+    await transition.ready;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it("invokes the callback once and resolves its promises without the native API", async () => {
+    const callback = vi.fn(async () => {});
+
+    const transition = startViewTransition(callback);
+
+    await expect(transition.captured).resolves.toBeUndefined();
+    await expect(transition.updateCallbackDone).resolves.toBeUndefined();
+    await expect(transition.ready).resolves.toBeUndefined();
+    await expect(transition.finished).resolves.toBeUndefined();
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
   it("resolves ready when the browser skips a preempted transition", async () => {
     stubStartViewTransition(skippedReady());
 
