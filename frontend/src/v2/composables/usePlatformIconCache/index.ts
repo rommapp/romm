@@ -23,6 +23,25 @@ export function getCachedPlatformIcon(slug: string): string | undefined {
   return cache.get(slug.toLowerCase());
 }
 
+/** Blob URL for one candidate, or null when it is missing or unreadable. */
+async function fetchCandidateUrl(
+  key: string,
+  ext: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`/assets/platforms/${key}.${ext}`);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    // The SPA fallback answers with 200 + HTML, which must not reach the
+    // cache. Trust blob.type: the parser sets it, the header does not.
+    if (!blob.type || !blob.type.startsWith("image/")) return null;
+    return URL.createObjectURL(blob);
+  } catch {
+    // A transport failure on one extension must not abandon the other.
+    return null;
+  }
+}
+
 async function fetchOne(slug: string): Promise<void> {
   const key = slug.toLowerCase();
   if (cache.has(key) || inflight.has(key)) return;
@@ -30,17 +49,12 @@ async function fetchOne(slug: string): Promise<void> {
   try {
     // Over half the catalogue ships `.ico` with no `.svg`, so both are tried.
     for (const ext of ["svg", "ico"]) {
-      const res = await fetch(`/assets/platforms/${key}.${ext}`);
-      if (!res.ok) continue;
-      const blob = await res.blob();
-      // The SPA fallback answers with 200 + HTML, which must not reach the
-      // cache. Trust blob.type: the parser sets it, the header does not.
-      if (!blob.type || !blob.type.startsWith("image/")) continue;
-      cache.set(key, URL.createObjectURL(blob));
-      return;
+      const url = await fetchCandidateUrl(key, ext);
+      if (url) {
+        cache.set(key, url);
+        return;
+      }
     }
-  } catch {
-    // Swallow: `CachedPlatformIcon` falls through to its own chain on a miss.
   } finally {
     inflight.delete(key);
   }

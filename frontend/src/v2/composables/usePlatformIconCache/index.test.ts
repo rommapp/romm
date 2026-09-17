@@ -84,6 +84,26 @@ describe("prefetchPlatformIcons", () => {
     expect(getCachedPlatformIcon("dc")).toBe("blob:cached");
   });
 
+  it("keeps probing after a candidate fails in transport", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith(".svg")) throw new Error("connection reset");
+      return {
+        ok: true,
+        blob: async () => new Blob(["x"], { type: "image/x-icon" }),
+      };
+    });
+    const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();
+
+    prefetchPlatformIcons(["saturn"]);
+    await settle();
+
+    expect(urls()).toEqual([
+      "/assets/platforms/saturn.svg",
+      "/assets/platforms/saturn.ico",
+    ]);
+    expect(getCachedPlatformIcon("saturn")).toBe("blob:cached");
+  });
+
   it("caches nothing for a platform with no asset at all", async () => {
     respondWith({});
     const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();

@@ -4,15 +4,8 @@ import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
 
-// RPlatformIcon renders the icon served from /assets/platforms, which is keyed
-// by RomM's canonical slug, so `slug` is tried before the on-disk folder name:
-//   1. {slug}.svg
-//   2. {slug}.ico
-//   3. {fsSlug}.svg
-//   4. {fsSlug}.ico
-//   5. default.ico
-//
-// `fsSlug` falls back to `slug`; `name` stays an alias for `slug`.
+// Platform assets are keyed by canonical slug, so `slug` is tried before the
+// filesystem folder name.
 //
 // Hover tooltip uses RTooltip (v2 glass skin) instead of the native
 // browser `title=` so the bubble matches the rest of the UI. Disable
@@ -21,7 +14,7 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   /** Primary slug (platform.name in the stores). */
   name?: string;
-  /** Alias accepted for callers using `slug`. */
+  /** Alias for `name`. */
   slug?: string;
   /** Filesystem slug, tried only after `slug` when the two differ. */
   fsSlug?: string;
