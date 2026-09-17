@@ -2244,14 +2244,27 @@ class TestSigilTitleIdExtraction:
         assert parsed.identity.title_id == "SLUS-00001"
 
     @pytest.mark.parametrize(
-        "names",
+        ("names", "expected"),
         [
-            pytest.param(["game.chd", "Game.chd"], id="lowercase-listed-first"),
-            pytest.param(["Game.chd", "game.chd"], id="uppercase-listed-first"),
+            pytest.param(
+                ["game.chd", "Game.chd"],
+                ["Game.chd", "game.chd"],
+                id="lowercase-listed-first",
+            ),
+            pytest.param(
+                ["Game.chd", "game.chd"],
+                ["Game.chd", "game.chd"],
+                id="uppercase-listed-first",
+            ),
+            pytest.param(
+                ["Game (Disc 10).chd", "Game (Disc 2).chd"],
+                ["Game (Disc 2).chd", "Game (Disc 10).chd"],
+                id="disc-numbers",
+            ),
         ],
     )
-    def test_names_differing_only_in_case_sort_the_same_either_way(
-        self, names: list[str]
+    def test_sources_sort_by_disc_then_exact_name(
+        self, names: list[str], expected: list[str]
     ):
         sources = [
             _TitleIdSource(Path("/roms/Game") / name, RomFile(file_name=name))
@@ -2260,21 +2273,7 @@ class TestSigilTitleIdExtraction:
 
         ordered = sorted(sources, key=_TitleIdSource.order)
 
-        assert [source.path.name for source in ordered] == ["Game.chd", "game.chd"]
-
-    def test_disc_numbers_sort_numerically(self):
-        names = ["Game (Disc 10).chd", "Game (Disc 2).chd"]
-        sources = [
-            _TitleIdSource(Path("/roms/Game") / name, RomFile(file_name=name))
-            for name in names
-        ]
-
-        ordered = sorted(sources, key=_TitleIdSource.order)
-
-        assert [source.path.name for source in ordered] == [
-            "Game (Disc 2).chd",
-            "Game (Disc 10).chd",
-        ]
+        assert [source.path.name for source in ordered] == expected
 
     @pytest.mark.asyncio
     async def test_incremental_rescan_rereads_an_unchanged_flat_rom(

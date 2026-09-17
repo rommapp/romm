@@ -42,6 +42,7 @@ from models.rom import (
     RomIdentity,
     SaveTargetLayout,
     TrackMeta,
+    compute_name_sort_key,
 )
 from utils import switch
 from utils.archives import (
@@ -60,7 +61,7 @@ from utils.archives import (
     read_zip_archive_files,
     read_zip_file,
 )
-from utils.filesystem import COMPRESSED_FILE_EXTENSIONS, iter_files
+from utils.filesystem import COMPRESSED_FILE_SUFFIXES, iter_files
 from utils.hashing import crc32_to_hex
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -309,22 +310,8 @@ NON_BINARY_FILE_CATEGORIES: Final = DOCUMENT_CATEGORIES | {
 def _holds_title_id(path: Path, category: RomFileCategory | None) -> bool:
     """Whether sigil can read a title id from this file."""
     return (
-        not path.name.lower().endswith(tuple(COMPRESSED_FILE_EXTENSIONS))
+        not path.name.lower().endswith(COMPRESSED_FILE_SUFFIXES)
         and category not in NON_BINARY_FILE_CATEGORIES
-    )
-
-
-_DIGIT_RUN_RE: Final = re.compile(r"(\d+)")
-_NameKey = tuple[tuple[int, str], ...]
-
-
-def _natural_name_key(name: str) -> _NameKey:
-    """A name split into text and number runs, so "Disc 2" precedes "Disc 10"."""
-    # The -1 keeps text and numbers in separate lanes, never compared to each other.
-    return tuple(
-        (int(part), "") if part.isdigit() else (-1, part)
-        for part in _DIGIT_RUN_RE.split(name)
-        if part
     )
 
 
@@ -333,13 +320,13 @@ class _TitleIdSource:
     path: Path
     rom_file: RomFile
 
-    def order(self) -> tuple[Path, _NameKey, str]:
-        """A folder's own files before its subfolders', each by name."""
-        return (
-            self.path.parent,
-            _natural_name_key(self.path.name.casefold()),
-            self.path.name,
-        )
+    def order(self) -> tuple[Path, str, str]:
+        """A folder's own files before its subfolders', each by name.
+
+        The name sorts naturally, so "Disc 2" precedes "Disc 10", and the exact
+        name breaks the tie between two names differing only in case.
+        """
+        return self.path.parent, compute_name_sort_key(self.path.name), self.path.name
 
 
 # Exclusion patterns holding one of these need fnmatch; the rest match literally.
@@ -929,9 +916,9 @@ class FSRomsHandler(FSHandler):
         # Listings come in no fixed order; a ROM is identified by its first disc,
         # and only Switch reads past it for each file's content type.
         for source in sorted(title_id_sources, key=_TitleIdSource.order):
+            await _extract_title_id(source)
             if sigil_extractions and not is_switch:
                 break
-            await _extract_title_id(source)
 
         if top_level_changed:
             crc_hash = crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else ""

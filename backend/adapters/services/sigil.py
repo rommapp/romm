@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Final
 
 from logger.logger import log
-from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
+from utils.filesystem import COMPRESSED_FILE_SUFFIXES
 from utils.m3u import first_playlist_entry
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -78,11 +78,13 @@ class SigilService:
         # A playlist is identified by its first disc.
         if file_path.lower().endswith(".m3u"):
             entry = await asyncio.to_thread(first_playlist_entry, Path(file_path))
-            if entry is None or entry.name.lower().endswith(
-                tuple(COMPRESSED_FILE_EXTENSIONS)
-            ):
+            if entry is None:
                 return None
             file_path = str(entry)
+
+        # Sigil reads a binary, never the container holding one.
+        if file_path.lower().endswith(COMPRESSED_FILE_SUFFIXES):
+            return None
 
         try:
             result = await asyncio.to_thread(

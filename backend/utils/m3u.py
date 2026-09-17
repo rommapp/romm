@@ -38,7 +38,10 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
             continue
         # Playlists written on Windows separate folders with backslashes, which
         # a POSIX file name may also contain, so the literal path is tried first.
-        for candidate in dict.fromkeys((entry, entry.replace("\\", "/"))):
+        candidates = [entry]
+        if "\\" in entry:
+            candidates.append(entry.replace("\\", "/"))
+        for candidate in candidates:
             entry_path = Path(candidate)
             if not entry_path.is_absolute():
                 entry_path = m3u_path.parent / entry_path
