@@ -410,6 +410,7 @@ function seekValueText(v: number): string {
             <RChip
               v-for="(c, i) in headerChips(activeMeta)"
               :key="`h-${i}`"
+              class="r-v2-stp__chip"
               size="small"
               variant="translucent"
               :color="c.color"
@@ -789,10 +790,14 @@ function seekValueText(v: number): string {
 
 .r-v2-stp__chips {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: var(--r-space-1);
   margin-top: var(--r-space-1);
-  overflow: hidden;
+}
+
+/* A chip wider than the header (a long album name) ellipsizes its label. */
+.r-v2-stp__chip {
+  max-width: 100%;
 }
 
 .r-v2-stp__now-hint {
@@ -953,11 +958,6 @@ function seekValueText(v: number): string {
     font-size: var(--r-font-size-2xl);
     -webkit-line-clamp: 3;
     line-clamp: 3;
-  }
-
-  .r-v2-stp--wide .r-v2-stp__chips {
-    flex-wrap: wrap;
-    overflow: visible;
   }
 
   .r-v2-stp--wide .r-v2-stp__controls {
