@@ -68,7 +68,7 @@ async def delete_rom_screenshot(
 ) -> Response:
     """Delete a single screenshot file from a ROM."""
 
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility_label(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 

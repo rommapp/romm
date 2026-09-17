@@ -29,7 +29,7 @@ from models.permission import PermAction, PermEntity
 if TYPE_CHECKING:
     from models.firmware import Firmware
     from models.platform import Platform
-    from models.rom import Rom, RomVisibility
+    from models.rom import Rom, RomVisibility, RomVisibilityLabel
 
 
 def get_permissions(request: Request) -> ResolvedPermissions:
@@ -106,7 +106,7 @@ def assert_admin(request: Request) -> ResolvedPermissions:
 # download endpoints, which carry no permission context to resolve.
 def assert_rom_visible(
     request: Request,
-    rom: Rom | RomVisibility,
+    rom: Rom | RomVisibility | RomVisibilityLabel,
     *,
     not_found_detail: str | None = None,
 ) -> None:

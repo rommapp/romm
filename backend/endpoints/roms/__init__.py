@@ -2213,7 +2213,7 @@ async def delete_roms(
     errors = []
 
     for id in roms:
-        rom = db_rom_handler.get_rom(id)
+        rom = db_rom_handler.get_rom_deletion_target(id)
 
         # Hidden roms are masked as not-found rather than reported deletable.
         if not rom or not perms.can_see_rom(rom.id, rom.platform_id):
@@ -2299,7 +2299,7 @@ async def update_rom_user(
     ] = False,
 ) -> RomUserSchema:
     """Update rom data associated to the current user."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
