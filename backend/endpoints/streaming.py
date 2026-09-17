@@ -905,7 +905,11 @@ async def save_and_exit_session(
 
 
 @protected_route(router.post, "/sessions/{platform}/heartbeat", [Scope.ROMS_USER_WRITE])
-async def heartbeat_session(request: Request, platform: str) -> SessionStatusSchema:
+async def heartbeat_session(
+    request: Request,
+    platform: str,
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
+) -> SessionStatusSchema:
     """Refresh the session's liveness stamp and report whether it still exists.
 
     The frontend calls this every ~30s while a session is active. A session
@@ -915,17 +919,27 @@ async def heartbeat_session(request: Request, platform: str) -> SessionStatusSch
     Reports `ended` rather than raising 404 when the caller no longer holds the
     session, so a force-released player learns why on the poll they are already
     making rather than watching a dead stream.
+
+    `container` names the claim to refresh, needed for a desktop on a container
+    the platform's pool leaves out.
     """
-    candidates = containers_for_platform(platform)
-    if not candidates:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No streaming container configured for platform '{platform}'",
+    if container_key is not None:
+        _, session_key, session = await access.resolve_named_container(
+            platform, container_key
         )
-    found = await access.find_session_for_user(candidates, request.user.id)
-    if found is None:
-        return SessionStatusSchema(**await _session_status(platform, request))
-    _, session_key, _ = found
+        if session is None or session.get("user_id") != request.user.id:
+            return SessionStatusSchema(**await _session_status(platform, request))
+    else:
+        candidates = containers_for_platform(platform)
+        if not candidates:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No streaming container configured for platform '{platform}'",
+            )
+        found = await access.find_session_for_user(candidates, request.user.id)
+        if found is None:
+            return SessionStatusSchema(**await _session_status(platform, request))
+        _, session_key, _ = found
 
     # Merging rather than writing the copy read above keeps a swap that landed
     # in between; refusing a draining session keeps a heartbeat from making a

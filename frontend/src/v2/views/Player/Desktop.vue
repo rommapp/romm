@@ -98,7 +98,7 @@ const HEARTBEAT_MS = 30_000;
 useIntervalFn(() => {
   if (!holdsClaim.value || !platform.value) return;
   void streamingApi
-    .heartbeatSession(platform.value)
+    .heartbeatSession(platform.value, containerKey.value)
     .catch((err) =>
       console.warn("[streaming] Could not heartbeat the desktop session:", err),
     );

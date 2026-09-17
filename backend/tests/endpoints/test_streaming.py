@@ -1374,16 +1374,22 @@ def test_admin_release_rejects_a_container_that_serves_another_platform(
     assert r.status_code == 404
 
 
+def _outside_the_ps2_pool() -> dict:
+    """A second webstation that disagrees with `_webstation()` on the ps2
+    emulator, so the ps2 pool leaves it out."""
+    return _webstation(
+        host="http://192.168.1.11:3000",
+        broker_host="http://192.168.1.11:8000",
+        platforms={"ps2": "play", "ngc": "dolphin"},
+    )
+
+
 def test_admin_release_ends_a_session_on_a_container_outside_the_pool(
     client, access_token
 ):
     """A container that disagrees with the pool on an emulator is left out of it,
     but an admin can still end its session by naming it."""
-    outside = _webstation(
-        host="http://192.168.1.11:3000",
-        broker_host="http://192.168.1.11:8000",
-        platforms={"ps2": "play", "ngc": "dolphin"},
-    )
+    outside = _outside_the_ps2_pool()
     with _streaming(_webstation(), outside):
         key = _key_of(outside)
         assert key not in [c.key for c in streaming.containers_for_platform("ps2")]
@@ -1397,6 +1403,46 @@ def test_admin_release_ends_a_session_on_a_container_outside_the_pool(
         assert r.status_code == 200
         assert r.json()["status"] == "released"
         assert _session_raw(outside) is None
+
+
+def test_heartbeat_naming_the_container_refreshes_a_desktop_outside_the_pool(
+    client, access_token
+):
+    """The platform's pool scan cannot see this container, so only the named key
+    keeps its desktop claim fresh."""
+    outside = _outside_the_ps2_pool()
+    with _streaming(_webstation(), outside):
+        key = _key_of(outside)
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        _age_session_on(outside, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(access_token),
+        )
+        session = json.loads(_session_raw(outside))
+    assert r.status_code == 200
+    assert r.json()["status"] == "active"
+    assert not session_store.session_is_stale(session)
+
+
+def test_heartbeat_naming_a_container_leaves_another_users_session_alone(
+    client, access_token, viewer_access_token
+):
+    outside = _outside_the_ps2_pool()
+    with _streaming(_webstation(), outside):
+        key = _key_of(outside)
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        _age_session_on(outside, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(viewer_access_token),
+        )
+        session = json.loads(_session_raw(outside))
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert session_store.session_is_stale(session)
 
 
 def test_status_finds_the_termination_on_whichever_container_held_it(
