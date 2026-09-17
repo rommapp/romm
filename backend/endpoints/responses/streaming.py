@@ -60,6 +60,12 @@ class SessionStatusSchema(BaseModel):
     extraction_phase: str | None = None
     """Set while a webstation broker unpacks a pkg or archive, which is the
     part of a launch long enough that the player needs to see something."""
+    host: str | None = None
+    """The room URL of a session already up, for a tab that missed the
+    launch-ready push. None until the launch returns."""
+    container: str | None = None
+    """The container the session was found on, so a recovering tab names the
+    claim it holds on every release and heartbeat."""
     termination: SessionTerminationSchema | None = None
 
 

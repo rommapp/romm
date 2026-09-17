@@ -2652,7 +2652,8 @@ def test_heartbeat_for_unknown_platform_returns_404(client, access_token, rom: R
 
 
 def test_status_reports_active_for_owner(client, access_token, rom: Rom):
-    with _streaming(_container_for(rom)):
+    container = _container_for(rom)
+    with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
@@ -2664,7 +2665,35 @@ def test_status_reports_active_for_owner(client, access_token, rom: Rom):
         "platform": rom.platform_slug,
         "extraction_phase": None,
         "termination": None,
+        "host": container["host"],
+        "container": _key_of(container),
     }
+
+
+def test_status_carries_the_room_the_launch_answered_with(client, access_token):
+    """launch-ready is pushed once: a tab that was reloading when the game came
+    up has only the poll to find its way back into the stream."""
+    rom = _rom_on("ps2")
+    container = _webstation()
+    with _streaming(container):
+        assert _claim_webstation_ok(client, access_token, rom.id).status_code == 202
+        r = client.get(
+            "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+        )
+    assert r.status_code == 200
+    assert r.json()["host"].endswith("/room/x")
+    assert r.json()["container"] == _key_of(container)
+
+
+def test_a_desktop_records_the_room_it_opened(client, access_token):
+    """Same recovery for the desktop: the room the activate answered with is
+    only ever returned once, so the session has to keep it."""
+    container = _webstation()
+    with _streaming(container):
+        response, _ = _desktop(client, access_token, _key_of(container))
+        assert response.status_code == 200
+        session = json.loads(_session_raw(container))
+    assert session["host"] == response.json()["host"]
 
 
 def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
@@ -2958,12 +2987,8 @@ def test_status_stops_asking_the_broker_once_the_launch_returned(client, access_
             r = client.get(
                 "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
             )
-    assert r.json() == {
-        "status": "active",
-        "platform": "ps2",
-        "extraction_phase": None,
-        "termination": None,
-    }
+    assert r.json()["status"] == "active"
+    assert r.json()["extraction_phase"] is None
     broker.assert_not_called()
 
 
@@ -2980,12 +3005,8 @@ def test_status_on_a_legacy_container_never_asks_for_a_phase(
                 f"/api/streaming/sessions/{rom.platform_slug}/status",
                 headers=_auth(access_token),
             )
-    assert r.json() == {
-        "status": "active",
-        "platform": rom.platform_slug,
-        "extraction_phase": None,
-        "termination": None,
-    }
+    assert r.json()["status"] == "active"
+    assert r.json()["extraction_phase"] is None
     broker.assert_not_called()
 
 

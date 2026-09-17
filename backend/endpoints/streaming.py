@@ -219,7 +219,14 @@ async def _session_status(
     )
     if found is not None:
         container, _, session = found
-        status: dict[str, Any] = {"status": "active", "platform": platform}
+        status: dict[str, Any] = {
+            "status": "active",
+            "platform": platform,
+            # The room the launch answered with, so a tab that missed the
+            # launch-ready push can enter the stream off a poll.
+            "host": session.get("host"),
+            "container": container.key,
+        }
         # An activate that has not returned yet leaves no launched_at behind.
         # Gating the broker round trip on it keeps this route pure Redis for
         # the rest of the session, which is the part that gets polled forever.
@@ -1457,7 +1464,7 @@ async def claim_desktop_session(
     room_url = str(launch_result.get("url", "")) if launch_result else ""
     host = room_url_on(container.host, room_url)
 
-    await stamp_launched(session_key, session)
+    await stamp_launched(session_key, session, host=host)
     log.info("desktop session claimed, container=%s", session_key)
     return DesktopSessionSchema(
         container=session_key,

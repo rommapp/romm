@@ -425,9 +425,14 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
             return
 
 
-async def stamp_launched(session_key: str, claim: dict[str, Any]) -> None:
+async def stamp_launched(
+    session_key: str, claim: dict[str, Any], host: str | None = None
+) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
+
+    The room URL is recorded with it: the launch reply is the only place it
+    exists, and the status poll is how a tab that missed the push gets in.
 
     Guarded on the claim it was made for, like `set_session_disc`: an activate
     outlives the claim when a release lands while it runs, and an unguarded
@@ -440,7 +445,10 @@ async def stamp_launched(session_key: str, claim: dict[str, Any]) -> None:
     try:
         await mutate_session(
             session_key,
-            {"launched_at": datetime.now(timezone.utc).isoformat()},
+            {
+                "launched_at": datetime.now(timezone.utc).isoformat(),
+                **({"host": host} if host else {}),
+            },
             require=lambda current: same_claim(current, claim),
         )
     except StreamingSessionContended:

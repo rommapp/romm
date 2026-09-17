@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   claimSession: vi.fn(),
   fetchConfig: vi.fn(),
   getRom: vi.fn(),
+  fetchSessionStatus: vi.fn(),
   heartbeatSession: vi.fn(),
   releaseSession: vi.fn(),
   releaseSessionKeepalive: vi.fn(),
@@ -65,7 +66,7 @@ vi.mock("@/stores/streaming", () => ({
     containerForPlatform: () => mocks.container,
     platformCapabilities: () => ({}),
     fetchConfig: mocks.fetchConfig,
-    fetchSessionStatus: vi.fn(),
+    fetchSessionStatus: mocks.fetchSessionStatus,
     forgetJoinableSession: vi.fn(),
     heartbeatSession: mocks.heartbeatSession,
     joinSession: vi.fn(),
@@ -368,6 +369,7 @@ type StreamVm = {
   playerState: string;
   endedDialogOpen: boolean;
   holdsClaim: boolean;
+  containerHost: string;
 };
 
 function vmOf(wrapper: VueWrapper): StreamVm {
@@ -515,6 +517,52 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     );
+    wrapper.unmount();
+  });
+});
+
+describe("Stream launch recovery", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
+  it("enters the stream when the poll finds the game already up", async () => {
+    // launch-ready is pushed once, so a socket that dropped during the launch
+    // left the tab loading over a game that was running.
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.heartbeatSession.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+      container: CLAIM.container,
+    });
+
+    await mocks.presenceTick?.();
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("playing");
+    expect(vmOf(wrapper).containerHost).toBe(
+      "http://webstation-dev:8080/room/x",
+    );
+    wrapper.unmount();
+  });
+
+  it("keeps waiting while the launch has no room yet", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.heartbeatSession.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: null,
+      container: CLAIM.container,
+    });
+
+    await mocks.presenceTick?.();
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("loading");
     wrapper.unmount();
   });
 });

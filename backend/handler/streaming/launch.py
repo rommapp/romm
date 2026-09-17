@@ -111,7 +111,8 @@ async def run_launch(
         claim_hold.cancel()
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
-    await stamp_launched(session_key, session)
+    host = container.protocol.stream_url(container.host, launch_result)
+    await stamp_launched(session_key, session, host=host)
     await lifecycle.publish_session_activity(session_key, session)
 
     # The webstation broker's deferred load waits for its emulator to report
@@ -126,7 +127,7 @@ async def run_launch(
         LaunchReadyPayload(
             platform=platform,
             container=session_key,
-            host=container.protocol.stream_url(container.host, launch_result),
+            host=host,
             resume=resume_pushed if resume_state is not None else None,
         ).model_dump(),
     )

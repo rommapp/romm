@@ -518,13 +518,18 @@ async function handleSessionStatus(
 ): Promise<void> {
   // Null means the poll failed, not that the session is gone. A transient
   // network error must never tear down a live game.
-  if (!status || status.status !== "ended") return;
+  if (!status) return;
   // Already leaving under our own power (stop, save-and-exit, unload).
   if (!sessionActive.value) return;
   // The socket push arrives per-user, not per-platform (one room for every
   // stream the account touches), so a stale event for a different platform
   // must not tear down the one actually on screen.
   if (rom.value && status.platform !== rom.value.platform_slug) return;
+
+  if (status.status === "active") {
+    await enterRunningSession(status);
+    return;
+  }
 
   // Leave fullscreen before anything else. RDialog teleports to <body>,
   // outside the stage, so the notice would otherwise be painted under a
@@ -547,6 +552,22 @@ async function handleSessionStatus(
 
   endedNotice.value = status.termination ?? null;
   endedDialogOpen.value = true;
+}
+
+// launch-ready is pushed once, so a socket that dropped while the game came up
+// leaves the tab loading over a session that is running. The poll answers with
+// the room the launch recorded, which is the way back in.
+async function enterRunningSession(status: SessionStatus): Promise<void> {
+  if (playerState.value !== "loading" || !status.host) return;
+  // The 202 named it, except for a tab that came back without one.
+  claimedContainer.value ??= status.container ?? null;
+  launchPhase.value = null;
+  containerHost.value = status.host;
+  playerState.value = "playing";
+  if (fullscreenOnPlay.value) {
+    await nextTick();
+    await stage.value?.enterFullscreen();
+  }
 }
 
 function dismissEndedDialog(): void {
