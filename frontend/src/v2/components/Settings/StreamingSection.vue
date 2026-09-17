@@ -93,8 +93,22 @@ async function release(container: AdminStreamingContainer): Promise<void> {
 function sessionLabel(container: AdminStreamingContainer): string {
   const session = container.session;
   if (!session) return t("settings.streaming-idle");
-  if (session.desktop) return t("settings.streaming-desktop-session");
-  return session.rom_name ?? t("settings.streaming-unknown-game");
+  const parts = [
+    session.desktop
+      ? t("settings.streaming-desktop-session")
+      : (session.rom_name ?? t("settings.streaming-unknown-game")),
+  ];
+  if (session.claimed_at) {
+    parts.push(
+      t("settings.streaming-since", {
+        time: formatTimestamp(session.claimed_at, locale.value),
+      }),
+    );
+  }
+  if (session.username) {
+    parts.push(t("settings.streaming-by", { user: session.username }));
+  }
+  return parts.join(" ");
 }
 
 onMounted(load);
@@ -164,42 +178,32 @@ onMounted(load);
           </span>
           <span v-else class="r-v2-streaming__state">
             {{ sessionLabel(container) }}
-            <template v-if="container.session?.claimed_at">
-              {{
-                t("settings.streaming-since", {
-                  time: formatTimestamp(container.session.claimed_at, locale),
-                })
-              }}
-            </template>
-            <template v-if="container.session?.username">
-              {{
-                t("settings.streaming-by", { user: container.session.username })
-              }}
-            </template>
           </span>
         </div>
 
-        <RBtn
-          v-if="container.supports_desktop"
-          variant="outlined"
-          density="compact"
-          prepend-icon="mdi-desktop-classic"
-          :disabled="!container.configured || !!container.session"
-          @click="openDesktop(container)"
-        >
-          {{ t("settings.streaming-open-desktop") }}
-        </RBtn>
-        <RBtn
-          variant="text"
-          density="compact"
-          color="error"
-          prepend-icon="mdi-stop"
-          :disabled="!container.session"
-          :loading="releasing === container.container"
-          @click="release(container)"
-        >
-          {{ t("settings.streaming-release") }}
-        </RBtn>
+        <div class="r-v2-streaming__actions">
+          <RBtn
+            v-if="container.supports_desktop"
+            variant="outlined"
+            density="compact"
+            prepend-icon="mdi-desktop-classic"
+            :disabled="!container.configured || !!container.session"
+            @click="openDesktop(container)"
+          >
+            {{ t("settings.streaming-open-desktop") }}
+          </RBtn>
+          <RBtn
+            variant="text"
+            density="compact"
+            color="error"
+            prepend-icon="mdi-stop"
+            :disabled="!container.session"
+            :loading="releasing === container.container"
+            @click="release(container)"
+          >
+            {{ t("settings.streaming-release") }}
+          </RBtn>
+        </div>
       </div>
     </template>
   </SettingsSection>
@@ -253,6 +257,23 @@ onMounted(load);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.r-v2-streaming__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* The actions do not shrink, so on a phone they take their own line under
+   the details, indented past the icon (18px) and the row gap (12px). */
+html[data-bp~="xs"] .r-v2-streaming__row {
+  flex-wrap: wrap;
+}
+html[data-bp~="xs"] .r-v2-streaming__actions {
+  flex-basis: 100%;
+  padding-inline-start: 30px;
 }
 
 .r-v2-streaming__warning {
