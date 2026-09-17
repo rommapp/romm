@@ -625,7 +625,7 @@ async def claim_session(
     The ROM's filesystem path is derived server-side from its database row -
     the client only supplies a ROM id, never a path.
     Returns 404 if the ROM doesn't exist or no container serves its platform.
-    Returns 409 if every container serving the platform is occupied.
+    Returns 409 if every container in the platform's first pool is occupied.
     Returns 428 if the container's pre-existing memory card needs a decision.
     """
     rom = db_rom_handler.get_rom(req.rom_id)
@@ -926,7 +926,7 @@ async def heartbeat_session(
     making rather than watching a dead stream.
 
     `container` names the claim to refresh, needed for a desktop on a container
-    the platform's pool leaves out.
+    outside the platform's first pool.
     """
     user_id = request.user.id
     # A named claim answers for itself: another session the caller holds on the

@@ -108,8 +108,8 @@ async def find_session_for_user(
 
 
 def named_container(platform: str, container_key: str) -> ResolvedContainer:
-    """A container serving a platform, found by key so one the pool leaves out
-    stays reachable. Raises 404 when the key names no such container."""
+    """A container serving a platform, found by key so one in a later pool stays
+    reachable. Raises 404 when the key names no such container."""
     candidate = entry_for_platform(containers_by_key().get(container_key, []), platform)
     if candidate is None:
         raise HTTPException(

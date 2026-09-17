@@ -3,13 +3,15 @@
 The raw YAML is loose: a container may serve one platform or a map of them, and
 may leave its broker host to be derived. Resolution is memoized until the config
 changes, so an unusable container is reported once rather than once per lookup.
+A platform's containers form pools of interchangeable members, and a game claim
+only walks the first.
 """
 
 from __future__ import annotations
 
 import json
 import secrets
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse, urlunparse
@@ -518,38 +520,61 @@ def resolve_containers() -> tuple[ResolvedContainer, ...]:
         for row, platform in _platform_entries(dict(entry)):
             resolved.append(_resolve_one(row, platform, entry.get("label")))
 
+    _warn_about_later_pools(resolved)
     _cache_fingerprint = fingerprint
     _cached = tuple(resolved)
     return _cached
 
 
-def containers_for_platform(platform: str) -> list[ResolvedContainer]:
-    """Every container serving a platform, in config order.
+def _pools(containers: Iterable[ResolvedContainer]) -> list[list[ResolvedContainer]]:
+    """Group containers into pools of interchangeable members. A pool sits at its
+    first member's config position, and members keep config order."""
+    pools: list[list[ResolvedContainer]] = []
+    for container in containers:
+        pool = next((p for p in pools if p[0].interchangeable_with(container)), None)
+        if pool is None:
+            pools.append([container])
+        else:
+            pool.append(container)
+    return pools
 
-    More than one entry is a pool and the claim takes the first free one, so a
-    container that disagrees with the head on emulator or card sync is not a
-    pool member and is left out.
-    """
-    lower = platform.lower()
-    candidates: list[ResolvedContainer] = []
-    for container in resolve_containers():
-        if container.platform.lower() != lower:
-            continue
-        if not container.key:
-            # Nothing to dial, so a claim would have nowhere to go. The fleet
-            # view still lists it, which is where the operator sees why.
-            continue
-        if candidates and not candidates[0].interchangeable_with(container):
+
+def _warn_about_later_pools(resolved: Sequence[ResolvedContainer]) -> None:
+    """Name every container a game claim can never reach, once per config."""
+    by_platform: dict[str, list[ResolvedContainer]] = {}
+    for container in resolved:
+        if container.key:
+            by_platform.setdefault(container.platform.lower(), []).append(container)
+    for containers in by_platform.values():
+        later = [c.key for pool in _pools(containers)[1:] for c in pool]
+        if later:
             log.warning(
-                "container for platform '%s' disagrees with the first one on "
-                "emulator, memory card sync or protocol, so it is not a pool "
-                "member, skipping: %s",
-                platform,
-                container.key,
+                "containers for platform '%s' disagree on emulator, memory card "
+                "sync, save picker or protocol, so game claims only use the first "
+                "pool; never claimed for a game: %s",
+                containers[0].platform,
+                ", ".join(later),
             )
-            continue
-        candidates.append(container)
-    return candidates
+
+
+def pools_for_platform(platform: str) -> list[list[ResolvedContainer]]:
+    """Every container serving a platform, grouped into pools. A container that
+    matches no other is a pool of one."""
+    lower = platform.lower()
+    return _pools(
+        container
+        for container in resolve_containers()
+        # Nothing to dial, so a claim would have nowhere to go. The fleet view
+        # still lists it, which is where the operator sees why.
+        if container.key and container.platform.lower() == lower
+    )
+
+
+def containers_for_platform(platform: str) -> list[ResolvedContainer]:
+    """The platform's first pool, which a game claim walks for the first free
+    container, in config order."""
+    pools = pools_for_platform(platform)
+    return pools[0] if pools else []
 
 
 def containers_by_key() -> dict[str, list[ResolvedContainer]]:
