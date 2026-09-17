@@ -282,10 +282,6 @@ function closeDialog() {
           />
         </li>
       </ul>
-
-      <div v-else class="r-v2-mng-coll__empty">
-        {{ t("collection.no-collections-yet-hint") }}
-      </div>
     </template>
   </RDialog>
 </template>
@@ -337,13 +333,6 @@ function closeDialog() {
   gap: 0;
   max-height: 360px;
   overflow-y: auto;
-}
-
-.r-v2-mng-coll__empty {
-  padding: 24px 16px;
-  color: var(--r-color-fg-muted);
-  font-size: 13px;
-  text-align: center;
 }
 </style>
 

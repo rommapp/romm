@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
 const KEY = "settings.v2.crtMode";
+const REDUCED_MOTION_KEY = "settings.v2.reducedMotion";
 
 // `enabled` is a module-level singleton created at import time, so it reads
 // localStorage exactly once on load. Re-import the module fresh after seeding
@@ -55,6 +56,26 @@ describe("useCrtMode", () => {
     toggle();
     await nextTick();
     expect(localStorage.getItem(KEY)).toBe("true");
+  });
+
+  it("stays off under reduced motion without erasing the saved choice", async () => {
+    localStorage.setItem(KEY, "true");
+    localStorage.setItem(REDUCED_MOTION_KEY, "true");
+    const { enabled } = await loadFresh();
+
+    expect(enabled.value).toBe(false);
+    expect(localStorage.getItem(KEY)).toBe("true");
+  });
+
+  it("turns reduced motion off when switched on", async () => {
+    localStorage.setItem(REDUCED_MOTION_KEY, "true");
+    const { enabled } = await loadFresh();
+
+    enabled.value = true;
+    await nextTick();
+
+    expect(enabled.value).toBe(true);
+    expect(localStorage.getItem(REDUCED_MOTION_KEY)).toBe("false");
   });
 
   it("shares a single instance across calls within a load", async () => {

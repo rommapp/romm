@@ -37,7 +37,12 @@
 // search-input debounce, URL filter sync. Each view supplies its
 // header and its own resource-load flow. List rows own their per-row
 // fetch lifecycle internally (mount = entered overscan window).
-import { RDivider, RLetterHeading, RVirtualScroller } from "@v2/lib";
+import {
+  RDivider,
+  REmptyState,
+  RLetterHeading,
+  RVirtualScroller,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -97,6 +102,8 @@ interface Props {
   autofocusSearch?: boolean;
   /** Empty-state message shown when the gallery resolves with zero items. */
   emptyMessage: string;
+  /** Empty-state icon, shared with not-found mode. */
+  emptyIcon?: string;
   /** "Not found" mode — replaces all body items with a single empty row. */
   notFound?: boolean;
   /** Override the empty-state message in not-found mode. */
@@ -118,6 +125,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   autofocusSearch: false,
+  emptyIcon: "mdi-gamepad-variant-outline",
   notFound: false,
   notFoundMessage: undefined,
   showPlatformBadge: true,
@@ -132,10 +140,6 @@ defineSlots<{
    * of the content. Must NOT carry a divider of its own; the shell
    * paints the single divider at the bottom of the prepend band. */
   header(): unknown;
-  /** Override the empty-state body. Receives `{ message }` (the
-   * resolved empty / not-found message) so the override can decide
-   * between text vs. a boxed illustration. Default: plain text. */
-  empty(props: { message: string }): unknown;
 }>();
 
 useGalleryFilterUrl();
@@ -1028,9 +1032,10 @@ defineExpose({
             v-else-if="itemKind(item as GalleryItem) === 'empty'"
             class="r-v2-shell__empty"
           >
-            <slot name="empty" :message="asEmpty(item as GalleryItem).message">
-              {{ asEmpty(item as GalleryItem).message }}
-            </slot>
+            <REmptyState
+              :icon="emptyIcon"
+              :title="asEmpty(item as GalleryItem).message"
+            />
           </div>
 
           <div
@@ -1226,10 +1231,7 @@ html[data-bp~="xs"] .r-v2-shell {
    with the Home dashboard rows. */
 
 .r-v2-shell__empty {
-  padding: 80px 0;
-  color: var(--r-color-fg-faint);
-  font-size: 13.5px;
-  text-align: center;
+  padding: var(--r-space-6) 0;
 }
 
 /* Toolbar — both layers share the same internal styling. Transparent

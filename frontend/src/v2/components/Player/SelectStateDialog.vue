@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // v2 SelectStateDialog — same pattern as SelectSaveDialog, but listens for
 // `selectStateDialog` and emits `stateSelected`.
-import { RBtn, RDialog, RIcon } from "@v2/lib";
+import { RBtn, RDialog, REmptyState } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -62,10 +62,11 @@ function closeDialog() {
           @click="onCardClick(state)"
         />
       </div>
-      <div v-else class="r-v2-state-picker__empty">
-        <RIcon icon="mdi-help-rhombus-outline" size="48" />
-        <p>{{ t("rom.no-states-found") }}</p>
-      </div>
+      <REmptyState
+        v-else
+        icon="mdi-help-rhombus-outline"
+        :title="t('rom.no-states-found')"
+      />
     </template>
     <template #footer>
       <div style="flex: 1" />
@@ -86,19 +87,5 @@ function closeDialog() {
 
 .r-v2-state-picker__item {
   cursor: pointer;
-}
-
-.r-v2-state-picker__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 48px 0;
-  color: var(--r-color-fg-muted);
-}
-.r-v2-state-picker__empty p {
-  margin: 0;
-  font-size: 14px;
 }
 </style>

@@ -75,11 +75,11 @@ const emit = defineEmits<{
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
     transform var(--r-motion-fast) var(--r-motion-ease-out);
 }
-/* Touch and gamepad need the full hit target; mouse keeps the compact chip. */
-html[data-input="touch"] .provider-filter,
-html[data-input="pad"] .provider-filter {
-  width: var(--r-touch-target);
-  height: var(--r-touch-target);
+/* Phone and tablet widths get a bigger chip to tap, stopping short of the
+   full 44px target so the whole provider row still fits a phone. */
+html[data-bp~="sm-and-down"] .provider-filter {
+  width: 36px;
+  height: 36px;
 }
 .provider-filter:hover:not(:disabled) {
   opacity: 0.85;

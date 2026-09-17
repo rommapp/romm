@@ -11,7 +11,7 @@
 //   * manage (selectable=false) — Save data subtab. Rows are static; the
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
-import { RBtn, RIcon, RTooltip } from "@v2/lib";
+import { RBtn, REmptyState, RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
@@ -287,15 +287,13 @@ const fadeIndex = computed(() =>
       </li>
     </ul>
 
-    <div v-else class="r-asset-list__empty">
-      <RIcon
-        :icon="
-          type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'
-        "
-        size="28"
-      />
-      <p>{{ emptyLabel }}</p>
-    </div>
+    <REmptyState
+      v-else
+      size="small"
+      :icon="type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'"
+      :icon-size="28"
+      :title="emptyLabel"
+    />
   </div>
 </template>
 
@@ -463,23 +461,6 @@ const fadeIndex = computed(() =>
 
 .r-asset-list__fold {
   align-self: flex-start;
-}
-
-.r-asset-list__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px 12px;
-  color: var(--r-color-fg-muted);
-  text-align: center;
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
-}
-.r-asset-list__empty p {
-  margin: 0;
-  font-size: 12px;
 }
 
 .r-asset-list__tip {

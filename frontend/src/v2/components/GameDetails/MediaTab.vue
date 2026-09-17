@@ -12,9 +12,8 @@
 //
 // The soundtrack player is reused from v1 for now.
 import { RBtn, RDropzone, REmptyState } from "@v2/lib";
-import { computed, defineAsyncComponent, ref, watch } from "vue";
+import { computed, defineAsyncComponent, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
 import type { DetailedRom } from "@/stores/roms";
 import SubtabNav, {
   type SubtabNavItem,
@@ -28,6 +27,7 @@ import {
 import { useRomSoundtrack } from "@/v2/composables/useRomSoundtrack";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
+import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
 
 const ManualSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ManualSubtab.vue"),
@@ -73,44 +73,10 @@ const validSubtabs = [
 ] as const;
 type Subtab = (typeof validSubtabs)[number];
 
-const route = useRoute();
-const router = useRouter();
-
-const subTab = ref<Subtab>(
-  validSubtabs.includes(route.query.subtab as Subtab)
-    ? (route.query.subtab as Subtab)
-    : "manual",
-);
-
-watch(subTab, (value) => {
-  if (route.query.subtab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, subtab: value },
-    });
-  }
-});
-
-watch(
-  () => route.query.subtab,
-  (value) => {
-    if (typeof value === "string" && validSubtabs.includes(value as Subtab)) {
-      subTab.value = value as Subtab;
-    }
-  },
-);
-
-// When the user navigates away from the Media tab, drop the subtab query
-// param so stale state doesn't leak onto other tabs.
-watch(
-  () => route.query.tab,
-  (value) => {
-    if (value !== "media" && route.query.subtab) {
-      const rest = { ...route.query };
-      delete rest.subtab;
-      router.replace({ path: route.path, query: rest });
-    }
-  },
+const subTab = useSubtabQuery<Subtab>(
+  "media",
+  (value) => validSubtabs.includes(value as Subtab),
+  "manual",
 );
 
 // ---------- Subtab nav ----------

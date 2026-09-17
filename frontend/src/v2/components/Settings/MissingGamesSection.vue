@@ -44,6 +44,7 @@ import {
 } from "@/v2/components/Gallery/listColumns";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -81,6 +82,13 @@ let prevSelectedPlatforms: Platform[] = [];
 
 const cleaningUp = ref(false);
 const platformSearch = ref("");
+// The store still holds the previous gallery until onMounted resets it.
+const bootstrapped = ref(false);
+
+const phase = useLoadingPhase(
+  () => !bootstrapped.value || !metadataLoaded.value || initialFetching.value,
+  () => total.value === 0,
+);
 
 const platformItems = computed<PlatformItem[]>(() =>
   allPlatforms.value
@@ -114,15 +122,14 @@ const listSortKey = computed<ListSortKey | null>(() => {
   return isListSortKey(key) ? key : null;
 });
 
-// Virtual items: one entry per absolute position (0 .. total) once
-// metadata is loaded; bootstrap-phase placeholders before then so the
-// table never collapses to "empty" between the fetch firing and total
-// resolving.
+// One entry per absolute position (0 .. total) once metadata is loaded;
+// before then, skeleton placeholders once the skeleton is due.
 type VItem =
   { kind: "list-row"; position: number } | { kind: "skeleton"; key: number };
 
 const virtualItems = computed<VItem[]>(() => {
   if (!metadataLoaded.value) {
+    if (phase.value !== "skeleton") return [];
     return Array.from({ length: 8 }, (_, i) => ({
       kind: "skeleton" as const,
       key: i,
@@ -152,10 +159,6 @@ function rowPosition(item: unknown): number {
   const v = item as VItem;
   return isListRow(v) ? v.position : -1;
 }
-
-const showEmpty = computed(
-  () => metadataLoaded.value && !initialFetching.value && total.value === 0,
-);
 
 function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(key);
@@ -259,6 +262,7 @@ onMounted(() => {
   galleryFilter.setSelectedFilterPlatforms([]);
   galleryRoms.setOrderBy("name");
   galleryRoms.setOrderDir("asc");
+  bootstrapped.value = true;
   void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
 });
 
@@ -344,46 +348,40 @@ onBeforeUnmount(() => {
             :label="t('settings.missing-games-delete-all')"
             icon="mdi-delete-outline"
             variant="danger"
-            :disabled="cleaningUp || showEmpty"
+            :disabled="cleaningUp || phase !== 'content'"
             @click="cleanupAll"
           />
         </RMenu>
       </div>
     </div>
 
-    <div
-      class="r-v2-missing__list"
-      :class="{ 'r-v2-missing__list--empty': showEmpty }"
-    >
-      <REmptyState
-        v-if="showEmpty"
-        icon="mdi-folder-question-outline"
-        :title="t('settings.missing-games-none')"
+    <REmptyState
+      v-if="phase === 'empty'"
+      icon="mdi-folder-question-outline"
+      :title="t('settings.missing-games-none')"
+    />
+    <div v-else-if="phase !== 'idle'" class="r-v2-missing__list">
+      <GameListHeader
+        :sort-key="listSortKey"
+        :sort-dir="orderDir"
+        @sort="onListSort"
       />
-
-      <template v-else>
-        <GameListHeader
-          :sort-key="listSortKey"
-          :sort-dir="orderDir"
-          @sort="onListSort"
-        />
-        <RVirtualScroller
-          :items="virtualItems"
-          :get-item-height="vItemHeight"
-          :overscan="25"
-          class="r-v2-missing__scroller"
-          @update:viewport-range="onViewportRange"
-        >
-          <template #default="{ item }">
-            <GameListRow
-              v-if="isListRow(item as VItem)"
-              :position="rowPosition(item)"
-              :webp="supportsWebp"
-            />
-            <GameListSkeletonRow v-else />
-          </template>
-        </RVirtualScroller>
-      </template>
+      <RVirtualScroller
+        :items="virtualItems"
+        :get-item-height="vItemHeight"
+        :overscan="25"
+        class="r-v2-missing__scroller"
+        @update:viewport-range="onViewportRange"
+      >
+        <template #default="{ item }">
+          <GameListRow
+            v-if="isListRow(item as VItem)"
+            :position="rowPosition(item)"
+            :webp="supportsWebp"
+          />
+          <GameListSkeletonRow v-else />
+        </template>
+      </RVirtualScroller>
     </div>
 
     <SelectionBar hide-download />
@@ -443,9 +441,10 @@ onBeforeUnmount(() => {
   margin-left: auto;
 }
 
-/* Stretch to the toolbar row so the chip matches the select and kebab. */
+/* Stretched to the toolbar row and pill-shaped to pair with the kebab. */
 .r-v2-missing__count {
   align-self: stretch;
+  border-radius: var(--r-radius-pill);
 }
 
 /* List frame — the column header sits at the top, the virtualiser
@@ -461,10 +460,6 @@ onBeforeUnmount(() => {
   border-radius: var(--r-radius-md);
   overflow: hidden;
   background: var(--r-color-bg-elevated);
-}
-
-.r-v2-missing__list--empty {
-  flex: none;
 }
 
 .r-v2-missing__scroller {

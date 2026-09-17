@@ -29,6 +29,10 @@ vi.mock("@v2/lib", () => ({
     props: { label: { type: String, default: "" } },
     template: "<h2>{{ label }}</h2>",
   }),
+  REmptyState: defineComponent({
+    props: { title: { type: String, default: "" } },
+    template: '<div class="empty-state">{{ title }}</div>',
+  }),
   RSkeletonBlock: defineComponent({ template: "<div />" }),
 }));
 
@@ -59,13 +63,6 @@ vi.mock("@/v2/components/Platforms/PlatformTile.vue", () => ({
     },
     template:
       '<div class="platform-tile">{{ displayName }} {{ romCount }}</div>',
-  }),
-}));
-
-vi.mock("@/v2/components/shared/EmptyState.vue", () => ({
-  default: defineComponent({
-    props: { message: { type: String, default: "" } },
-    template: '<div class="empty-state">{{ message }}</div>',
   }),
 }));
 
