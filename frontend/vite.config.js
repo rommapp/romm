@@ -150,14 +150,7 @@ export default defineConfig(({ mode }) => {
         },
       }),
       precompress(),
-      playerIsolationHeaders(
-        fileURLToPath(
-          new URL(
-            "../docker/nginx/templates/default.conf.template",
-            import.meta.url,
-          ),
-        ),
-      ),
+      playerIsolationHeaders(),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",

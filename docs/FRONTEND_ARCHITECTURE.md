@@ -873,7 +873,7 @@ A v2 player view is reached by SPA navigation, so it is not isolated on arrival.
 
 To add an EmulatorJS core that needs threads, add it to `areThreadsRequiredForEJSCore` in `utils/index.ts`; nothing else changes. To add a player that needs isolation, use both composables the way `v2/views/Player/EmulatorJS.vue` does, and track `runtimeBound` from the moment the runtime is injected rather than from the global it eventually defines. js-dos needs isolation unconditionally (the DOSBox-X backend is a threaded build), so `JsDos.vue` relaunches on every launch that did not arrive isolated and carries no intent beyond a marker.
 
-The dev server and `vite preview` have no nginx in front of them, so `scripts/playerIsolationHeaders.ts` answers the same URLs with the same headers. It parses the patterns out of the nginx template rather than restating them, and throws when that file yields none, so the template stays the only list.
+The dev server and `vite preview` have no nginx in front of them, so `scripts/playerIsolationHeaders.ts` answers the same URLs with the same headers. It restates the template's patterns, since the production build runs from `frontend/` alone and cannot read that file, and its test fails when the two drift.
 
 ### Platform Detection
 

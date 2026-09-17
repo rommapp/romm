@@ -1,9 +1,8 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
-  isolatedPlayerUrls,
+  ISOLATED_PLAYER_URLS,
   playerIsolationHeaders,
 } from "../scripts/playerIsolationHeaders";
 
@@ -12,6 +11,26 @@ const TEMPLATE = resolve(
   process.cwd(),
   "../docker/nginx/templates/default.conf.template",
 );
+
+// The dev container mounts frontend/ alone, so the template is out of reach
+// there; CI always has the whole repo, where the drift has to be caught.
+const TEMPLATE_REACHABLE = existsSync(TEMPLATE) || Boolean(process.env.CI);
+
+// The `~<pattern> "<header>";` entries of one map. nginx delimits those
+// patterns by whitespace, so they carry no escaping to undo.
+const MAP_ENTRY = /^\s*~(\S+)\s+"(?:require-corp|same-origin)";/gm;
+
+/** The patterns of the `$request_uri` map feeding `variable`, as regex sources. */
+function mapPatterns(variable: string): string[] {
+  const template = readFileSync(TEMPLATE, "utf8");
+  const block = new RegExp(
+    `map \\$request_uri \\$${variable}\\s*\\{([^}]*)\\}`,
+  ).exec(template);
+  if (!block) throw new Error(`No $${variable} map in ${TEMPLATE}`);
+  return [...block[1]!.matchAll(MAP_ENTRY)].map(
+    (entry) => new RegExp(entry[1]!).source,
+  );
+}
 
 type Middleware = (
   req: { url?: string },
@@ -24,7 +43,7 @@ type ServerHook = "configureServer" | "configurePreviewServer";
 /** Drive one of the plugin's server hooks and hand back its middleware. */
 function middleware(hook: ServerHook = "configureServer"): Middleware {
   let registered: Middleware | undefined;
-  const plugin = playerIsolationHeaders(TEMPLATE) as unknown as Record<
+  const plugin = playerIsolationHeaders() as unknown as Record<
     ServerHook,
     (server: { middlewares: { use: (fn: Middleware) => void } }) => void
   >;
@@ -63,39 +82,6 @@ const ISOLATED = {
   "Cross-Origin-Opener-Policy": "same-origin",
 };
 
-/** A template holding `body` where the real one holds its maps. */
-function templateWith(body: string): string {
-  const dir = mkdtempSync(join(tmpdir(), "romm-nginx-"));
-  const path = join(dir, "default.conf.template");
-  writeFileSync(path, body, "utf8");
-  return path;
-}
-
-describe("isolatedPlayerUrls", () => {
-  it("reads the patterns the shipped template isolates", () => {
-    const patterns = isolatedPlayerUrls(TEMPLATE);
-
-    expect(patterns.some((p) => p.test("/rom/1/ejs"))).toBe(true);
-    expect(patterns.some((p) => p.test("/console/rom/1/play"))).toBe(true);
-  });
-
-  // The template is the only list, so a rename that silently isolates nothing
-  // would leave the dev server serving no headers at all.
-  it("refuses a template with no map entries", () => {
-    const path = templateWith(
-      'map $request_uri $coep_header {\n  default "";\n}\n',
-    );
-
-    expect(() => isolatedPlayerUrls(path)).toThrow(/No COOP\/COEP map entries/);
-  });
-
-  it("refuses a template that is not there", () => {
-    expect(() =>
-      isolatedPlayerUrls("/nowhere/default.conf.template"),
-    ).toThrow();
-  });
-});
-
 describe("playerIsolationHeaders", () => {
   it.each([
     "/rom/1/ejs",
@@ -132,12 +118,16 @@ describe("playerIsolationHeaders", () => {
   });
 });
 
-// The plugin config is what vite.config.js passes it, and a moved template
-// would otherwise only surface as a dev server serving no headers.
-describe("the template vite.config.js points at", () => {
-  it("is the one the tests read", () => {
-    expect(readFileSync("vite.config.js", "utf8")).toContain(
-      "../docker/nginx/templates/default.conf.template",
-    );
-  });
+// The plugin restates the nginx maps instead of reading them, and each map is
+// checked on its own: a URL isolated by one header alone leaves
+// SharedArrayBuffer unavailable just as an unlisted one does.
+describe.skipIf(!TEMPLATE_REACHABLE)("the nginx COOP/COEP maps", () => {
+  it.each(["coep_header", "coop_header"])(
+    "the %s map holds the patterns the plugin restates",
+    (variable) => {
+      expect(mapPatterns(variable).sort()).toEqual(
+        ISOLATED_PLAYER_URLS.map((pattern) => pattern.source).sort(),
+      );
+    },
+  );
 });
