@@ -56,6 +56,8 @@
   "category-translation": "Перевод",
   "category-update": "Обновление",
   "category-walkthrough": "Walkthrough",
+  "chip-disc-n": "Диск {n}",
+  "chip-track-n": "Трек {n}",
   "clear-all": "Очистить всё",
   "clear-field": "Очистить {field}",
   "collection-add-failed": "Не удалось добавить в коллекцию",

@@ -56,6 +56,8 @@
   "category-translation": "翻訳",
   "category-update": "アップデート",
   "category-walkthrough": "Walkthrough",
+  "chip-disc-n": "ディスク{n}",
+  "chip-track-n": "トラック{n}",
   "clear-all": "すべてクリア",
   "clear-field": "{field}をクリア",
   "collection-add-failed": "コレクションに追加できませんでした",

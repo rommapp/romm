@@ -56,6 +56,8 @@
   "category-translation": "Übersetzung",
   "category-update": "Update",
   "category-walkthrough": "Walkthrough",
+  "chip-disc-n": "Disc {n}",
+  "chip-track-n": "Track {n}",
   "clear-all": "Alle löschen",
   "clear-field": "{field} leeren",
   "collection-add-failed": "Konnte nicht zur Sammlung hinzugefügt werden",

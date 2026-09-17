@@ -56,6 +56,8 @@
   "category-translation": "翻译",
   "category-update": "更新",
   "category-walkthrough": "攻略",
+  "chip-disc-n": "碟片 {n}",
+  "chip-track-n": "曲目 {n}",
   "clear-all": "全部清除",
   "clear-field": "清除 {field}",
   "collection-add-failed": "无法添加到收藏",

@@ -56,6 +56,8 @@
   "category-translation": "Překlad",
   "category-update": "Aktualizace",
   "category-walkthrough": "Walkthrough",
+  "chip-disc-n": "Disk {n}",
+  "chip-track-n": "Skladba {n}",
   "clear-all": "Vymazat vše",
   "clear-field": "Vymazat {field}",
   "collection-add-failed": "Nepodařilo se přidat do kolekce",
