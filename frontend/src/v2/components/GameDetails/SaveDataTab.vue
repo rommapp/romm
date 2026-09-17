@@ -14,9 +14,8 @@
 // user navigates to a sibling tab.
 import { RBtn, RDropzone } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
 import type {
   DetailedRomSchema,
   SaveSchema,
@@ -42,6 +41,7 @@ import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
 import type { AssetType } from "@/v2/utils/assets";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
@@ -61,42 +61,10 @@ const { smAndDown } = useBreakpoint();
 const validSubtabs = ["saves", "states"] as const;
 type Subtab = (typeof validSubtabs)[number];
 
-const route = useRoute();
-const router = useRouter();
-
-const subTab = ref<Subtab>(
-  validSubtabs.includes(route.query.subtab as Subtab)
-    ? (route.query.subtab as Subtab)
-    : "saves",
-);
-
-watch(subTab, (value) => {
-  if (route.query.subtab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, subtab: value },
-    });
-  }
-});
-watch(
-  () => route.query.subtab,
-  (value) => {
-    if (typeof value === "string" && validSubtabs.includes(value as Subtab)) {
-      subTab.value = value as Subtab;
-    }
-  },
-);
-// When the user navigates away from this tab, drop the subtab param
-// so it doesn't leak onto sibling tabs.
-watch(
-  () => route.query.tab,
-  (value) => {
-    if (value !== "save-data" && route.query.subtab) {
-      const rest = { ...route.query };
-      delete rest.subtab;
-      router.replace({ path: route.path, query: rest });
-    }
-  },
+const subTab = useSubtabQuery<Subtab>(
+  "save-data",
+  (value) => validSubtabs.includes(value as Subtab),
+  "saves",
 );
 
 const authStore = storeAuth();

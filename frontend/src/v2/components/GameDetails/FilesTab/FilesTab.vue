@@ -59,6 +59,7 @@ import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useRomFileUpload } from "@/v2/composables/useRomFileUpload";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
 import { errorMessage } from "@/v2/utils/errorMessage";
 import FileRow from "./FileRow.vue";
 import FilesSummary from "./FilesSummary.vue";
@@ -298,15 +299,11 @@ const validSubtabIds = computed(
 );
 
 // ---------- Subtab state (URL-persisted via `?subtab=`) ----------
-function readSubtabFromRoute(): Subtab {
-  const raw = route.query.subtab;
-  if (typeof raw === "string" && validSubtabIds.value.has(raw as Subtab)) {
-    return raw as Subtab;
-  }
-  return "all";
-}
-
-const subTab = ref<Subtab>(readSubtabFromRoute());
+const subTab = useSubtabQuery<Subtab>(
+  "files",
+  (value) => validSubtabIds.value.has(value),
+  "all",
+);
 
 // If the currently-selected subtab no longer has files (e.g. after a
 // rom refresh dropped that category), snap back to "all" so the user
@@ -317,41 +314,6 @@ watch(
     if (!ids.has(subTab.value)) subTab.value = "all";
   },
   { flush: "post" },
-);
-
-watch(subTab, (value) => {
-  if (route.query.subtab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, subtab: value },
-    });
-  }
-});
-
-watch(
-  () => route.query.subtab,
-  (value) => {
-    if (
-      typeof value === "string" &&
-      validSubtabIds.value.has(value as Subtab) &&
-      value !== subTab.value
-    ) {
-      subTab.value = value as Subtab;
-    }
-  },
-);
-
-// When the user navigates away from the Files tab, drop the subtab
-// param so it doesn't leak onto sibling tabs (mirrors MediaTab).
-watch(
-  () => route.query.tab,
-  (value) => {
-    if (value !== "files" && route.query.subtab) {
-      const rest = { ...route.query };
-      delete rest.subtab;
-      router.replace({ path: route.path, query: rest });
-    }
-  },
 );
 
 // ---------- Filtered file list (driven by the active subtab) ----------

@@ -15,7 +15,7 @@ const { uploadRoms, refetchRom, confirmFn, snackbar, routeQuery, grants } =
       warning: vi.fn(),
       info: vi.fn(),
     },
-    routeQuery: { subtab: undefined as string | undefined },
+    routeQuery: { tab: "files", subtab: undefined as string | undefined },
     grants: { upload: true, delete: false },
   }));
 
