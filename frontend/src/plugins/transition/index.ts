@@ -33,7 +33,9 @@ export function startViewTransition(
       }
     });
     viewTransition.updateCallbackDone = nativeViewTransition.updateCallbackDone;
-    viewTransition.ready = nativeViewTransition.ready;
+    // A preempted transition is skipped, which rejects `ready` with AbortError.
+    // Callers only await `captured`, so absorb the skip.
+    viewTransition.ready = nativeViewTransition.ready.catch(() => {});
     viewTransition.finished = nativeViewTransition.finished;
     viewTransition.skipTransition =
       nativeViewTransition.skipTransition.bind(nativeViewTransition);

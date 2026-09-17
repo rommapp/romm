@@ -86,6 +86,10 @@ export function useViewTransition() {
       await navigate();
     });
 
+    // `navigate()` starts the router's transition while this one is still
+    // capturing, so the browser skips this one. Absorb the `ready` rejection.
+    transition.ready.catch(() => {});
+
     // Clean up the inline style after the transition finishes — the
     // source element usually unmounts during navigate(), but if a route
     // keeps it alive (kept-alive view, error mid-nav, …) we don't want a
