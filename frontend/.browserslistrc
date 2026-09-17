@@ -1,6 +1,6 @@
 # Browser support baseline for the RomM frontend. Matches Tailwind v4's
 # minimum targets. This is the single source of truth for browser support:
-# vite.config.js derives Lightning CSS's `build.cssTarget` from it (so the
+# vite.config.ts derives Lightning CSS's `build.cssTarget` from it (so the
 # production build prefixes/down-levels CSS for exactly these browsers), and
 # any other tooling reads the same file. Expressed as floors, not pinned
 # versions, and the actual version data comes from caniuse-lite.

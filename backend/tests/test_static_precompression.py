@@ -8,7 +8,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NGINX_CONF = REPO_ROOT / "docker" / "nginx" / "default.conf"
 NGINX_TEMPLATE = REPO_ROOT / "docker" / "nginx" / "templates" / "default.conf.template"
-VITE_CONFIG = REPO_ROOT / "frontend" / "vite.config.js"
+VITE_CONFIG = REPO_ROOT / "frontend" / "vite.config.ts"
 PRECOMPRESS_PLUGIN = REPO_ROOT / "frontend" / "scripts" / "precompress.ts"
 
 # Served from the frontend build, where every .gz sibling is one the build wrote.
@@ -129,6 +129,6 @@ def test_build_threshold_matches_nginx_gzip_min_length() -> None:
 def test_build_precompresses() -> None:
     config = VITE_CONFIG.read_text()
     assert re.search(r"\bprecompress\(\)", config), (
-        "vite.config.js no longer runs the precompress plugin, so the "
+        "vite.config.ts no longer runs the precompress plugin, so the "
         "gzip_static locations would have nothing to serve"
     )

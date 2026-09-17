@@ -122,7 +122,7 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 frontend/
 ├── index.html                     # HTML entry point (<div id="app">)
 ├── package.json                   # Dependencies & scripts
-├── vite.config.js                 # Vite build config with plugins
+├── vite.config.ts                 # Vite build config with plugins
 ├── tsconfig.json                  # TypeScript configuration
 ├── eslint.config.js               # ESLint flat config
 ├── .nvmrc                         # Node 24
