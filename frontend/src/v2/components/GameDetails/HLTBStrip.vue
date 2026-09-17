@@ -76,6 +76,21 @@ const entries = computed<Entry[]>(() => {
   border-right: none;
 }
 
+/* Chrome and Edge below 117 ignore subgrid, so stack each column on its own
+   there; equal columns survive, the shared rows do not. */
+@supports not (grid-template-rows: subgrid) {
+  .r-v2-det-hltb {
+    display: flex;
+  }
+  .r-v2-det-hltb__item {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 4px;
+  }
+}
+
 .r-v2-det-hltb__label {
   font-size: 10px;
   font-weight: var(--r-font-weight-bold);
