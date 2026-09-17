@@ -339,4 +339,50 @@ html[data-input="mouse"]
 .r-v2-stp__row-fav--on {
   color: var(--r-color-fav);
 }
+
+/* Phones: the title takes the full width and the actions share the subtitle's
+   line; the play button subgrids the row so its text shares their tracks. */
+html[data-bp~="xs"] .r-v2-stp__row {
+  height: 56px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-rows: 1fr auto auto 1fr;
+  gap: 0 var(--r-space-2);
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-btn {
+  grid-area: 1 / 1 / -1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-template-rows: subgrid;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-lead {
+  grid-area: 1 / 1 / -1 / 2;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-meta {
+  display: contents;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-title {
+  grid-area: 2 / 2 / 3 / -1;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-subtitle {
+  grid-area: 3 / 2 / 4 / 3;
+  align-self: center;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-right {
+  grid-area: 3 / 3 / 4 / 4;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-duration {
+  min-width: 0;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-size {
+  display: none;
+}
 </style>

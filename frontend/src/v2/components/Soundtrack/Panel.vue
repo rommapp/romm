@@ -21,14 +21,17 @@ import useSoundtrackPlayer, {
   type PlayerTrack,
 } from "@/stores/soundtrackPlayer";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import type { PanelTrack } from "@/v2/utils/soundtrackTracks";
 import { formatTrackTime } from "@/v2/utils/time";
 import TrackRow from "./TrackRow.vue";
 
-// Row height must match `.r-v2-stp__row` in TrackRow's stylesheet.
+// Row heights must match `.r-v2-stp__row` (and its xs override) in TrackRow's
+// stylesheet, plus the 4px gap.
 const ROW_HEIGHT = 52;
+const ROW_HEIGHT_XS = 60;
 
 // The shared store owns volume / muted state so the same widget can sit in
 // the mini-player too.
@@ -66,6 +69,8 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const favorites = useMusicFavorites();
 const canEditPlaylists = useCan("playlist.edit");
+const { xs } = useBreakpoint();
+const rowHeight = computed(() => (xs.value ? ROW_HEIGHT_XS : ROW_HEIGHT));
 
 const player = useSoundtrackPlayer();
 const {
@@ -500,7 +505,7 @@ function seekValueText(v: number): string {
           v-else-if="displayedTracks.length"
           class="r-v2-stp__list"
           :items="displayedTracks"
-          :get-item-height="() => ROW_HEIGHT"
+          :get-item-height="() => rowHeight"
           :get-item-key="(item: unknown) => (item as PanelTrack).id"
           @update:viewport-range="onViewportRange"
         >

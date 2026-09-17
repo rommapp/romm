@@ -267,8 +267,7 @@ html[data-bp~="xs"] .jukebox__entries :deep(.r-list-item__append) {
   display: none;
 }
 
-html[data-bp~="xs"] .jukebox__player :deep(.r-v2-stp__row-duration),
-html[data-bp~="xs"] .jukebox__player :deep(.r-v2-stp__row-size) {
+html[data-bp~="xs"] .jukebox__player :deep(.r-v2-stp__row-duration) {
   display: none;
 }
 </style>
