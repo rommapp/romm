@@ -15,7 +15,11 @@ import { useI18n } from "vue-i18n";
 import type { RecommendedRomSchema } from "@/__generated__";
 import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
-import romApi from "@/services/api/rom";
+import romApi, {
+  RECENT_PLAYED_ROMS_LIMIT,
+  RECENT_ROMS_LIMIT,
+  RECOMMENDED_ROMS_LIMIT,
+} from "@/services/api/rom";
 import setupApi, { type SetupLibraryInfo } from "@/services/api/setup";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
@@ -82,6 +86,15 @@ async function loadRecommendations() {
   } finally {
     fetchingRecommendations.value = false;
   }
+}
+
+/** A row's count, or `undefined` while its list is in flight so the chip does
+ *  not read 0 and then jump to the real number. */
+function knownCount(
+  fetching: boolean,
+  list: readonly unknown[],
+): number | undefined {
+  return fetching && !list.length ? undefined : list.length;
 }
 
 // Multiplayer sessions other users are hosting right now. Nothing pushes a
@@ -385,13 +398,16 @@ function collectionCovers(c: {
           (continuePlayingRoms.length || fetchingContinue)
         "
         :title="t('home.continue-playing')"
-        :count="continuePlayingRoms.length"
+        :count="knownCount(fetchingContinue, continuePlayingRoms)"
       >
         <template #icon>
           <RIcon icon="mdi-play" size="20" />
         </template>
         <template v-if="fetchingContinue && !continuePlayingRoms.length">
-          <GameCardSkeleton v-for="n in 4" :key="`cs-${n}`" />
+          <GameCardSkeleton
+            v-for="n in RECENT_PLAYED_ROMS_LIMIT"
+            :key="`cs-${n}`"
+          />
         </template>
         <template v-else>
           <GameCard
@@ -414,13 +430,22 @@ function collectionCovers(c: {
           (recommendedRoms.length || fetchingRecommendations)
         "
         :title="t('recommendations.for-you')"
-        :count="recommendedRoms.length"
+        :count="knownCount(fetchingRecommendations, recommendedRoms)"
       >
         <template #icon>
           <RIcon icon="mdi-lightbulb-on-outline" size="20" />
         </template>
         <template v-if="fetchingRecommendations && !recommendedRoms.length">
-          <GameCardSkeleton v-for="n in 6" :key="`fys-${n}`" />
+          <div
+            v-for="n in RECOMMENDED_ROMS_LIMIT"
+            :key="`fys-${n}`"
+            class="r-v2-home__rec"
+          >
+            <GameCardSkeleton />
+            <span class="r-v2-home__rec-caption">
+              <RSkeletonBlock width="60%" :height="10" />
+            </span>
+          </div>
         </template>
         <template v-else>
           <div
@@ -446,13 +471,13 @@ function collectionCovers(c: {
       <CardRow
         v-if="showRecentRoms"
         :title="t('home.recently-added')"
-        :count="recentRoms.length"
+        :count="knownCount(fetchingRecent, recentRoms)"
       >
         <template #icon>
           <RIcon icon="mdi-shimmer" size="20" />
         </template>
         <template v-if="fetchingRecent && !recentRoms.length">
-          <GameCardSkeleton v-for="n in 6" :key="`rs-${n}`" />
+          <GameCardSkeleton v-for="n in RECENT_ROMS_LIMIT" :key="`rs-${n}`" />
         </template>
         <div v-else-if="!recentRoms.length" class="r-v2-home__empty">
           {{ t("home.no-games-yet") }}
@@ -490,7 +515,7 @@ function collectionCovers(c: {
       <CardRow
         v-if="showPlatforms"
         :title="t('common.platforms')"
-        :count="filledPlatforms.length"
+        :count="knownCount(fetchingPlatforms, filledPlatforms)"
         gap="16px"
       >
         <template #icon>
@@ -524,7 +549,7 @@ function collectionCovers(c: {
       <CardRow
         v-if="showCollections && (allCollections.length || fetchingCollections)"
         :title="t('common.collections')"
-        :count="allCollections.length"
+        :count="knownCount(fetchingCollections, allCollections)"
         gap="16px"
       >
         <template #icon>
@@ -551,7 +576,7 @@ function collectionCovers(c: {
           (smartCollections.length || fetchingSmartCollections)
         "
         :title="t('common.smart-collections')"
-        :count="smartCollections.length"
+        :count="knownCount(fetchingSmartCollections, smartCollections)"
         gap="16px"
       >
         <template #icon>
@@ -580,7 +605,7 @@ function collectionCovers(c: {
           (virtualCollections.length || fetchingVirtualCollections)
         "
         :title="t('common.virtual-collections')"
-        :count="virtualCollections.length"
+        :count="knownCount(fetchingVirtualCollections, virtualCollections)"
         gap="16px"
       >
         <template #icon>
@@ -625,6 +650,14 @@ function collectionCovers(c: {
   flex-direction: column;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* Only the recommended placeholders carry a caption, so only they reserve it
+   (RecommendationReason's 10.5px line box at the app's 1.4 line-height). */
+.r-v2-home__rec-caption {
+  height: 15px;
+  display: flex;
+  align-items: center;
 }
 
 /* ── Empty library state ─────────────────────────────────────────
