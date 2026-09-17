@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "Adjon meg egy játéknevet vagy egy UPC-t",
   "physical-upc": "UPC / vonalkód",
   "pick-cover": "Borító kiválasztása",
-  "pick-track-prompt": "Válassz számot a lejátszás megkezdéséhez",
   "play": "Indítás",
   "play-track": "{title} lejátszása",
   "player-count": "Játékosok",

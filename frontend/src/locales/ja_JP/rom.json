@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "ゲーム名または UPC を入力してください",
   "physical-upc": "UPC / バーコード",
   "pick-cover": "カバーを選択",
-  "pick-track-prompt": "再生するトラックを選んでください",
   "play": "プレイ",
   "play-track": "{title}を再生",
   "player-count": "プレイヤー",

@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "Bir oyun adı veya UPC girin",
   "physical-upc": "UPC / barkod",
   "pick-cover": "Kapak seç",
-  "pick-track-prompt": "Oynatmaya başlamak için bir parça seçin",
   "play": "Oyna",
   "play-track": "{title} oynat",
   "player-count": "Oyuncular",

@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "Въведете име на игра или UPC",
   "physical-upc": "UPC / баркод",
   "pick-cover": "Избери корица",
-  "pick-track-prompt": "Избери песен, за да започне възпроизвеждането",
   "play": "Играй",
   "play-track": "Възпроизведи {title}",
   "player-count": "Играчи",

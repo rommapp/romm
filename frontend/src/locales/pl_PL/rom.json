@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "Podaj nazwę gry lub UPC",
   "physical-upc": "UPC / kod kreskowy",
   "pick-cover": "Wybierz okładkę",
-  "pick-track-prompt": "Wybierz utwór, aby rozpocząć odtwarzanie",
   "play": "Graj",
   "play-track": "Odtwórz {title}",
   "player-count": "Gracze",

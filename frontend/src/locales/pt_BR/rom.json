@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "Informe um nome de jogo ou um UPC",
   "physical-upc": "UPC / código de barras",
   "pick-cover": "Escolher uma capa",
-  "pick-track-prompt": "Escolha uma faixa para começar a tocar",
   "play": "Jogar",
   "play-track": "Reproduzir {title}",
   "player-count": "Jogadores",

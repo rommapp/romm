@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "请输入游戏名称或 UPC",
   "physical-upc": "UPC / 条形码",
   "pick-cover": "选择封面",
-  "pick-track-prompt": "选择一首曲目开始播放",
   "play": "开始游玩",
   "play-track": "播放 {title}",
   "player-count": "人数",

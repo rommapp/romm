@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "Zadejte název hry nebo UPC",
   "physical-upc": "UPC / čárový kód",
   "pick-cover": "Vybrat obal",
-  "pick-track-prompt": "Vyberte skladbu pro spuštění přehrávání",
   "play": "Hrát",
   "play-track": "Přehrát {title}",
   "player-count": "Hráči",

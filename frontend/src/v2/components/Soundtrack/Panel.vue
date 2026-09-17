@@ -400,8 +400,8 @@ function seekValueText(v: number): string {
               {{ t("rom.tracks-n", trackCount, { named: { n: trackCount } }) }}
             </span>
           </div>
-          <h3 class="r-v2-stp__now-title">
-            {{ activeTrack ? activeTitle : t("rom.pick-track-prompt") }}
+          <h3 v-if="activeTrack" class="r-v2-stp__now-title">
+            {{ activeTitle }}
           </h3>
           <div v-if="activeMeta?.artist" class="r-v2-stp__now-artist">
             {{ activeMeta.artist }}
@@ -598,8 +598,8 @@ function seekValueText(v: number): string {
   pointer-events: none;
 }
 
-/* Hero: stacked layout by default: art + text side by side, transport
-   strip underneath spanning the full width. */
+/* Hero: stacked by default, art + text side by side over the transport strip.
+   Top-aligned so the art stays put while the chips load under the title. */
 .r-v2-stp__hero {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -607,7 +607,7 @@ function seekValueText(v: number): string {
     "stage body"
     "controls controls";
   gap: var(--r-space-3) var(--r-space-4);
-  align-items: center;
+  align-items: start;
 }
 
 /* Stage: the square art with the vinyl tucked behind it. */
@@ -923,7 +923,6 @@ function seekValueText(v: number): string {
       "body"
       "controls";
     align-content: start;
-    align-items: start;
     gap: var(--r-space-5);
     min-height: 0;
     overflow: hidden auto;
@@ -978,6 +977,7 @@ html[data-bp~="xs"] .r-v2-stp__stage {
 
 html[data-bp~="xs"] .r-v2-stp__controls {
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--r-space-2);
 }
 

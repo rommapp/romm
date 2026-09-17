@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "Введите название игры или UPC",
   "physical-upc": "UPC / штрихкод",
   "pick-cover": "Выбрать обложку",
-  "pick-track-prompt": "Выберите трек, чтобы начать воспроизведение",
   "play": "Играть",
   "play-track": "Воспроизвести {title}",
   "player-count": "Игроки",

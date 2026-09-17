@@ -300,7 +300,6 @@
   "physical-name-or-upc-required": "게임 이름 또는 UPC를 입력하세요",
   "physical-upc": "UPC / 바코드",
   "pick-cover": "커버 선택",
-  "pick-track-prompt": "재생할 트랙을 선택하세요",
   "play": "실행",
   "play-track": "{title} 재생",
   "player-count": "플레이어",
