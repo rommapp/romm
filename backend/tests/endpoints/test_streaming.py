@@ -328,6 +328,8 @@ def test_get_config_ships_the_emulator_labels(client, access_token):
     labels = r.json()["emulator_labels"]
     assert labels["pcsx2"] == "PCSX2"
     assert labels["play"] == "Play!"
+    # The id a save carries, with no platform to pick a core from.
+    assert labels["retroarch"] == "RetroArch"
 
 
 def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_token):

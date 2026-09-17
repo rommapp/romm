@@ -54,6 +54,8 @@ _EMULATOR_DISPLAY_NAMES: dict[str, str] = {
     "pcsx2": "PCSX2",
     "play": "Play!",
     "ppsspp": "PPSSPP",
+    # Platform-less name; emulator_display_label names the core instead.
+    "retroarch": "RetroArch",
     "rpcs3": "RPCS3",
     "shadps4": "shadPS4",
     "xemu": "xemu",
