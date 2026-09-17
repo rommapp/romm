@@ -333,7 +333,7 @@ async function onLogout() {
   border-radius: var(--r-radius-pill) !important;
   padding: 3px 12px 3px 3px !important;
   color: var(--r-color-fg) !important;
-  height: auto !important;
+  height: var(--r-nav-pill-h) !important;
   min-width: 0 !important;
   opacity: 1;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);

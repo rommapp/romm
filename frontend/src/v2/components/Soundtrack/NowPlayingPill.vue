@@ -108,7 +108,8 @@ const progress = computed(() =>
   display: flex;
   align-items: center;
   min-width: 0;
-  padding: 1px 2px 1px 1px;
+  height: var(--r-nav-pill-h);
+  padding: 0 2px 0 0;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-pill);
@@ -144,6 +145,12 @@ const progress = computed(() =>
 .r-v2-np-pill__title {
   flex: 0 1 160px;
   font-size: var(--r-font-size-sm);
+}
+
+/* Portrait phones cap the title and let it loop instead of widening the pill. */
+html[data-bp~="xs"] .r-v2-np-pill__title {
+  flex-basis: 88px;
+  width: 88px;
 }
 </style>
 

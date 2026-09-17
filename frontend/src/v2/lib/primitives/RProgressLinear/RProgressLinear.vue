@@ -42,6 +42,9 @@ interface Props {
   /** Diagonal stripe overlay — keeps the bar feeling active even when
    *  `modelValue` isn't changing. Ignored when `indeterminate`. */
   striped?: boolean;
+  /** A glow sweeping the unfilled track, for work that is still running
+   *  between value updates. Ignored when `indeterminate`. */
+  stream?: boolean;
   /** Accessible label. Defaults to "Progress". */
   ariaLabel?: string;
 }
@@ -55,6 +58,7 @@ const props = withDefaults(defineProps<Props>(), {
   bgColor: undefined,
   rounded: true,
   striped: false,
+  stream: false,
   ariaLabel: undefined,
 });
 
@@ -131,6 +135,11 @@ const wrapperStyle = computed(() => {
       class="r-progress-linear__buffer"
       :style="{ width: `${clampedBuffer}%` }"
     />
+    <div
+      v-if="stream && !indeterminate"
+      class="r-progress-linear__stream"
+      :style="{ insetInlineStart: `${clampedValue}%` }"
+    />
     <div class="r-progress-linear__fill" :style="fillStyle" />
   </div>
 </template>
@@ -191,6 +200,38 @@ const wrapperStyle = computed(() => {
   }
 }
 
+/* Stream — a soft glow travels the unfilled track from the fill's edge to
+   the end, on a loop. */
+.r-progress-linear__stream {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  overflow: hidden;
+  transition: inset-inline-start var(--r-motion-med) var(--r-motion-ease-out);
+}
+.r-progress-linear__stream::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 40%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--r-prog-color),
+    transparent
+  );
+  animation: r-progress-stream 1.6s ease-in-out infinite;
+}
+@keyframes r-progress-stream {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
 /* Indeterminate — single block slides across the track on a loop.
    `inset-inline-*` so RTL flips the direction automatically without
    a separate keyframe set. */
@@ -218,8 +259,13 @@ const wrapperStyle = computed(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .r-progress-linear__fill,
-  .r-progress-linear__buffer {
+  .r-progress-linear__buffer,
+  .r-progress-linear__stream {
     transition: none;
+  }
+  .r-progress-linear__stream::after {
+    animation: none;
+    opacity: 0;
   }
   .r-progress-linear--striped .r-progress-linear__fill,
   .r-progress-linear--indeterminate .r-progress-linear__fill {

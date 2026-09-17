@@ -2,20 +2,18 @@
 // ScanningIndicator — live status pill that appears in the AppNav
 // right cluster whenever a library scan is in progress.
 //
-// Three signals stack inside the pill:
-//   * a spinner on the leading edge for "something is happening",
+// Two signals stack inside the pill:
 //   * a counter (scanned / total when known, scanned-only as soon
 //     as the backend has reported a total ≥ scanned),
 //   * a thin progress bar pinned to the bottom edge — determinate
-//     when `total_roms` is known, indeterminate otherwise (the
-//     scanner discovers files as it goes, so totals show up after
-//     the first platform finishes).
+//     with a glow streaming ahead of the fill when `total_roms` is
+//     known, indeterminate otherwise (the scanner discovers files as
+//     it goes, so totals show up after the first platform finishes).
 //
 // Click jumps to /scan so the user can inspect the live log.
-// Hidden on /scan itself. Honours `prefers-reduced-motion` by
-// dropping the shimmer + pulse animations; the spinner + progress
-// bar keep moving since they communicate live data, not affect.
-import { RIcon, RProgressLinear, RSpinner, RTooltip } from "@v2/lib";
+// Hidden on /scan itself. Under reduced motion the progress bar keeps
+// filling but drops its streaming glow.
+import { RIcon, RProgressLinear, RTooltip } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -68,7 +66,6 @@ const counterLabel = computed(() => {
           :aria-label="t('scan.scanning-library')"
         >
           <span class="r-scan-indicator__row">
-            <RSpinner size="14" color="primary" />
             <span class="r-scan-indicator__label">
               {{ t("scan.scanning") }}
             </span>
@@ -93,6 +90,7 @@ const counterLabel = computed(() => {
             :height="2"
             color="primary"
             :rounded="false"
+            stream
           />
         </router-link>
       </template>
@@ -111,7 +109,7 @@ const counterLabel = computed(() => {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  height: 32px;
+  height: var(--r-nav-pill-h);
   padding: 0 12px;
   border-radius: var(--r-radius-pill);
   background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
@@ -138,8 +136,8 @@ const counterLabel = computed(() => {
   );
 }
 
-/* Content row sits above the bottom-pinned progress bar — top-aligned
-   inside the pill so the counter's baseline matches the spinner's. */
+/* Content row sits above the bottom-pinned progress bar, with the counter
+   centred on the label or radar glyph. */
 .r-scan-indicator__row {
   display: inline-flex;
   align-items: center;
