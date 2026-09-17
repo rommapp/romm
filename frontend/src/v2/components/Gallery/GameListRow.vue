@@ -40,6 +40,8 @@ import {
   getListGridTemplate,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
+  LIST_TITLE_SKELETON_BARS,
+  LIST_TITLE_SKELETON_GAP_PX,
 } from "./listColumns";
 
 defineOptions({ inheritAttrs: false });
@@ -66,9 +68,6 @@ interface Props {
   /** Include the `platform` column. Mirrors `GameListHeader` so the row
    * stays aligned with the column header above it. */
   showPlatformColumn?: boolean;
-  /** Cover column width (px) — shared with the header so the title column
-   * aligns. Set by the shell from the gallery's widest cover. */
-  coverWidth?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -76,12 +75,11 @@ const props = withDefaults(defineProps<Props>(), {
   rom: undefined,
   webp: false,
   showPlatformColumn: true,
-  coverWidth: 48,
 });
 
 const emit = defineEmits<{
-  /** Forwards the cover's measured natural ratio so the shell can size the
-   *  cover column to the gallery's widest cover. */
+  /** Forwards the cover's measured natural ratio so the shell's flow-packer
+   *  can pack the grid by true cover shape. */
   (e: "ratio", payload: { romId: number; ratio: number }): void;
 }>();
 
@@ -123,11 +121,9 @@ function onCheckboxClick(e: MouseEvent) {
 }
 
 const gridStyle = computed(() => ({
-  gridTemplateColumns: getListGridTemplate(
-    props.showPlatformColumn,
-    props.coverWidth,
-  ),
+  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
 }));
+const titleSkeletonGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
 
 const platformMeta = computed(() => {
   const item = rom.value;
@@ -467,9 +463,13 @@ function onRowPointerEnd() {
           v-else-if="col.key === 'name'"
           class="game-list-row__cell game-list-row__title"
         >
-          <div class="game-list-row__meta">
-            <RSkeletonBlock width="60%" :height="12" />
-            <RSkeletonBlock width="40%" :height="10" />
+          <div class="game-list-row__meta" :style="titleSkeletonGapStyle">
+            <RSkeletonBlock
+              v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
+              :key="i"
+              :width="bar.width"
+              :height="bar.height"
+            />
           </div>
         </div>
         <div v-else-if="col.key === 'platform_id'" class="game-list-row__cell">
