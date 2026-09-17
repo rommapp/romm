@@ -1,24 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { expectNoUnhandledRejection } from "@/test-utils/unhandledRejection";
+import {
+  skippedReady,
+  stubStartViewTransition,
+} from "@/test-utils/viewTransition";
 import { startViewTransition } from "./index";
-
-const skipped = () => new DOMException("Transition was skipped", "AbortError");
-
-// happy-dom has no View Transitions API, so the native call is always stubbed.
-// The stub runs the update callback, as the browser does even when it skips.
-function stubNativeTransition(ready: Promise<void>) {
-  Object.defineProperty(document, "startViewTransition", {
-    configurable: true,
-    value: vi.fn((callback?: () => Promise<void>) => {
-      void callback?.();
-      return {
-        updateCallbackDone: Promise.resolve(),
-        ready,
-        finished: Promise.resolve(),
-        skipTransition: () => {},
-      };
-    }),
-  });
-}
 
 afterEach(() => {
   Reflect.deleteProperty(document, "startViewTransition");
@@ -26,13 +12,15 @@ afterEach(() => {
 
 describe("startViewTransition", () => {
   it("resolves ready when the browser skips a preempted transition", async () => {
-    stubNativeTransition(Promise.reject(skipped()));
+    stubStartViewTransition(skippedReady());
 
     await expect(startViewTransition().ready).resolves.toBeUndefined();
   });
 
   it("keeps a ready failure that is not a preemption skip", async () => {
-    stubNativeTransition(Promise.reject(new Error("navigation setup failed")));
+    stubStartViewTransition(
+      Promise.reject(new Error("navigation setup failed")),
+    );
 
     await expect(startViewTransition().ready).rejects.toThrow(
       "navigation setup failed",
@@ -40,18 +28,11 @@ describe("startViewTransition", () => {
   });
 
   it("leaves no unhandled rejection behind when a transition is preempted", async () => {
-    const unhandled = vi.fn();
-    process.on("unhandledRejection", unhandled);
-    try {
-      stubNativeTransition(Promise.reject(skipped()));
+    await expectNoUnhandledRejection(async () => {
+      stubStartViewTransition(skippedReady());
 
       const transition = startViewTransition();
       await transition.captured;
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(unhandled).not.toHaveBeenCalled();
-    } finally {
-      process.off("unhandledRejection", unhandled);
-    }
+    });
   });
 });

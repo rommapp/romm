@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RouteLocationNormalized, Router } from "vue-router";
+import { expectNoUnhandledRejection } from "@/test-utils/unhandledRejection";
+import {
+  skippedReady,
+  stubStartViewTransition,
+} from "@/test-utils/viewTransition";
 import { installBackMorph, useViewTransition } from "./index";
 
 vi.mock("@/plugins/router", () => ({
@@ -15,28 +20,6 @@ vi.mock("@/plugins/router", () => ({
 vi.mock("@/v2/composables/useReducedMotion", () => ({
   useReducedMotion: () => ({ enabled: { value: false } }),
 }));
-
-const skipped = () =>
-  Promise.reject(new DOMException("Transition was skipped", "AbortError"));
-
-// happy-dom has no View Transitions API, so the native call is always stubbed.
-// The stub runs the update callback, as the browser does even when it skips.
-function stubNativeTransition(ready: Promise<void>) {
-  const finished = Promise.resolve();
-  Object.defineProperty(document, "startViewTransition", {
-    configurable: true,
-    value: vi.fn((callback?: () => Promise<void>) => {
-      void callback?.();
-      return {
-        updateCallbackDone: Promise.resolve(),
-        ready,
-        finished,
-        skipTransition: () => {},
-      };
-    }),
-  });
-  return finished;
-}
 
 afterEach(() => {
   Reflect.deleteProperty(document, "startViewTransition");
@@ -57,22 +40,10 @@ function captureBackMorphGuard() {
   return guards[0];
 }
 
-async function expectNoUnhandledRejection(run: () => Promise<void>) {
-  const unhandled = vi.fn();
-  process.on("unhandledRejection", unhandled);
-  try {
-    await run();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(unhandled).not.toHaveBeenCalled();
-  } finally {
-    process.off("unhandledRejection", unhandled);
-  }
-}
-
 describe("morphTransition", () => {
   it("absorbs the skip the router's own transition causes", async () => {
     await expectNoUnhandledRejection(async () => {
-      stubNativeTransition(skipped());
+      stubStartViewTransition(skippedReady());
       const { morphTransition } = useViewTransition();
 
       morphTransition(
@@ -83,7 +54,7 @@ describe("morphTransition", () => {
   });
 
   it("clears the morph tag once the transition finishes", async () => {
-    const finished = stubNativeTransition(Promise.resolve());
+    const finished = stubStartViewTransition(Promise.resolve());
     const el = document.createElement("div");
     document.body.appendChild(el);
     const { morphTransition } = useViewTransition();
@@ -101,7 +72,7 @@ describe("morphTransition", () => {
 describe("installBackMorph", () => {
   it("absorbs the skip a navigation during capture causes", async () => {
     await expectNoUnhandledRejection(async () => {
-      stubNativeTransition(skipped());
+      stubStartViewTransition(skippedReady());
       const guard = captureBackMorphGuard();
       const romRoute = { name: "rom", params: { rom: "18" } };
       const platformRoute = { name: "platform", params: { platform: "2" } };
