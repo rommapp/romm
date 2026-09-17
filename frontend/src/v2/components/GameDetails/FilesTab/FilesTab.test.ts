@@ -94,9 +94,6 @@ function mountTab(r = rom()) {
         RCheckbox: true,
         REmptyState: true,
         RIcon: true,
-        RTooltip: {
-          template: `<div><slot name="activator" :props="{}" /></div>`,
-        },
         RBtn: {
           props: ["disabled", "icon"],
           emits: ["click"],
@@ -108,10 +105,16 @@ function mountTab(r = rom()) {
   });
 }
 
+function buttonByLabel(wrapper: ReturnType<typeof mountTab>, label: string) {
+  return wrapper.findAll("button.btn").find((b) => b.text() === label);
+}
+
 function uploadButton(wrapper: ReturnType<typeof mountTab>) {
-  return wrapper
-    .findAll("button.btn")
-    .find((b) => b.text() === "common.upload");
+  return buttonByLabel(wrapper, "common.upload");
+}
+
+function uploadToFolderButton(wrapper: ReturnType<typeof mountTab>) {
+  return buttonByLabel(wrapper, "rom.upload-to-folder");
 }
 
 async function pickFile(wrapper: ReturnType<typeof mountTab>, name: string) {
@@ -140,6 +143,7 @@ describe("FilesTab uploads", () => {
     const wrapper = mountTab();
 
     expect(uploadButton(wrapper)).toBeUndefined();
+    expect(uploadToFolderButton(wrapper)).toBeUndefined();
   });
 
   it("sends files straight into the active folder", async () => {
@@ -147,6 +151,7 @@ describe("FilesTab uploads", () => {
     const click = vi.spyOn(HTMLInputElement.prototype, "click");
     const wrapper = mountTab();
 
+    expect(uploadToFolderButton(wrapper)).toBeUndefined();
     await uploadButton(wrapper)!.trigger("click");
     expect(click).toHaveBeenCalled();
     await pickFile(wrapper, "fix.ips");
@@ -179,7 +184,8 @@ describe("FilesTab uploads", () => {
   it("asks for a destination from All files", async () => {
     const wrapper = mountTab();
 
-    await uploadButton(wrapper)!.trigger("click");
+    expect(uploadButton(wrapper)).toBeUndefined();
+    await uploadToFolderButton(wrapper)!.trigger("click");
     expect(wrapper.get(".dialog").attributes("data-open")).toBe("true");
 
     const dialog = wrapper.findComponent(UploadFilesDialogStub);

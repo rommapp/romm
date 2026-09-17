@@ -107,7 +107,7 @@
   "multiplayer-hint": "Shows a Join button on this game's page and keeps chat and webcam visible.",
   "mute": "Mute",
   "new-memory-card": "New card",
-  "new-slot": "New slot…",
+  "new-slot": "+ New slot",
   "newer-save-warning": "A save from {time} is newer than your pick. Resuming it may roll your progress back.",
   "newer-state-warning": "A state from {time} is newer than your pick. Resuming it may roll your progress back.",
   "no-memory-cards": "No memory cards yet",

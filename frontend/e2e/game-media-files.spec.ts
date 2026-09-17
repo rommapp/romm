@@ -113,6 +113,16 @@ test.describe("Media tab write affordances (admin)", () => {
   });
 });
 
+// "All files" has no destination of its own, so it offers "Upload to folder";
+// a folder subtab offers Upload straight into that folder.
+function uploadButton(page: Page): Locator {
+  return page.getByRole("button", { name: "Upload", exact: true });
+}
+
+function uploadToFolderButton(page: Page): Locator {
+  return page.getByRole("button", { name: "Upload to folder", exact: true });
+}
+
 test.describe("Files tab write affordances", () => {
   test.describe("read-only user", () => {
     test.use({ storageState: STORAGE_STATE.viewer });
@@ -123,22 +133,36 @@ test.describe("Files tab write affordances", () => {
       await openTab(page, "Files");
 
       await expect(
-        page.getByRole("button", { name: "Upload", exact: true }),
-      ).toHaveCount(0);
+        page.locator(".r-v2-files__subtab-btn").first(),
+      ).toBeVisible();
+      await expect(uploadButton(page)).toHaveCount(0);
+      await expect(uploadToFolderButton(page)).toHaveCount(0);
     });
   });
 
   test.describe("admin", () => {
     test.use({ storageState: STORAGE_STATE.admin });
 
-    test("gets the upload button", async ({ page }) => {
+    test("gets Upload to folder from All files", async ({ page }) => {
       await seedUiState(page, "dark");
       await gotoFirstRom(page);
       await openTab(page, "Files");
 
-      await expect(
-        page.getByRole("button", { name: "Upload", exact: true }),
-      ).toBeVisible();
+      await expect(uploadToFolderButton(page)).toBeVisible();
+      await expect(uploadButton(page)).toHaveCount(0);
+    });
+
+    test("gets Upload from a folder subtab", async ({ page }) => {
+      await seedUiState(page, "dark");
+      await gotoFirstRom(page);
+      await openTab(page, "Files");
+      await page
+        .locator(".r-v2-files__subtab-btn:not(.r-v2-files__subtab-btn--active)")
+        .first()
+        .click();
+
+      await expect(uploadButton(page)).toBeVisible();
+      await expect(uploadToFolderButton(page)).toHaveCount(0);
     });
   });
 });

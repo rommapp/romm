@@ -28,8 +28,8 @@ describe("preferredSlot", () => {
 describe("slotChoices", () => {
   it("offers autosave and a new slot even when no save exists yet", () => {
     expect(slotChoices([])).toEqual([
-      existingSlot("autosave"),
       NEW_SLOT_CHOICE,
+      existingSlot("autosave"),
     ]);
   });
 
@@ -43,18 +43,18 @@ describe("slotChoices", () => {
     ];
 
     expect(slotChoices(saves)).toEqual([
+      NEW_SLOT_CHOICE,
       existingSlot("autosave"),
       existingSlot("main_quest"),
       existingSlot("speedrun"),
-      NEW_SLOT_CHOICE,
     ]);
   });
 
   it("matches slot names exactly, like the backend", () => {
     expect(slotChoices([save(1, "Autosave")])).toEqual([
+      NEW_SLOT_CHOICE,
       existingSlot("autosave"),
       existingSlot("Autosave"),
-      NEW_SLOT_CHOICE,
     ]);
   });
 });
