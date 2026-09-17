@@ -31,6 +31,14 @@ describe("startViewTransition", () => {
     await expect(startViewTransition().ready).resolves.toBeUndefined();
   });
 
+  it("keeps a ready failure that is not a preemption skip", async () => {
+    stubNativeTransition(Promise.reject(new Error("navigation setup failed")));
+
+    await expect(startViewTransition().ready).rejects.toThrow(
+      "navigation setup failed",
+    );
+  });
+
   it("leaves no unhandled rejection behind when a transition is preempted", async () => {
     const unhandled = vi.fn();
     process.on("unhandledRejection", unhandled);
