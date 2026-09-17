@@ -23,7 +23,6 @@ import {
   RSpinner,
   RSwitch,
   RTextField,
-  RTooltip,
 } from "@v2/lib";
 import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
@@ -88,6 +87,7 @@ import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
 import {
   chosenSlot,
   existingSlot,
+  isNewSlotChoice,
   isSlotChoice,
   preferredSlot,
   slotChoiceKey,
@@ -658,37 +658,26 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
               </RAlert>
 
               <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
-                <div class="r-v2-ejs__slot-row">
-                  <RSelect
-                    class="r-v2-ejs__slot-select"
-                    :model-value="slotChoice"
-                    :disabled="!!boundSlot"
-                    variant="outlined"
-                    density="compact"
-                    prefix-label="inline"
-                    hide-details
-                    :items="slotItems"
-                    :item-title="slotChoiceTitle"
-                    :item-value="slotChoiceKey"
-                    return-object
-                    @update:model-value="onSlotChoice"
-                  >
-                    <template #prefix-label>
-                      <RIcon icon="mdi-content-save-all-outline" size="14" />
-                      {{ t("play.slot") }}
-                    </template>
-                  </RSelect>
-                  <button
-                    type="button"
-                    class="r-v2-ejs__slot-info"
-                    :aria-label="t('play.slot-tooltip')"
-                  >
-                    <RIcon icon="mdi-information-outline" size="16" />
-                    <RTooltip activator="parent" location="top" open-on-tap>
-                      {{ t("play.slot-tooltip") }}
-                    </RTooltip>
-                  </button>
-                </div>
+                <RSelect
+                  :model-value="slotChoice"
+                  :disabled="!!boundSlot"
+                  variant="outlined"
+                  density="compact"
+                  prefix-label="inline"
+                  hide-details
+                  :items="slotItems"
+                  :item-title="slotChoiceTitle"
+                  :item-value="slotChoiceKey"
+                  return-object
+                  :divider-after="isNewSlotChoice"
+                  :info="t('play.slot-tooltip')"
+                  @update:model-value="onSlotChoice"
+                >
+                  <template #prefix-label>
+                    <RIcon icon="mdi-content-save-all-outline" size="14" />
+                    {{ t("play.slot") }}
+                  </template>
+                </RSelect>
                 <RTextField
                   v-if="!boundSlot && slotChoice.kind === 'new'"
                   v-model="customSlot"
@@ -1032,35 +1021,6 @@ html[data-bp~="md-and-up"]
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.r-v2-ejs__slot-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.r-v2-ejs__slot-select {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.r-v2-ejs__slot-info {
-  appearance: none;
-  position: relative;
-  display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--r-color-fg-secondary);
-  border-radius: var(--r-radius-pill);
-  cursor: pointer;
-}
-/* 44px hit area around the 16px icon without growing the row. */
-.r-v2-ejs__slot-info::before {
-  content: "";
-  position: absolute;
-  inset: -14px;
-}
-.r-v2-ejs__slot-info:hover {
-  color: var(--r-color-fg);
 }
 .r-v2-ejs__assets {
   flex: 1;

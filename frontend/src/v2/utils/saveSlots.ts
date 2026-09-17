@@ -28,7 +28,7 @@ export function isSlotChoice(value: unknown): value is SlotChoice {
   );
 }
 
-/** Autosave first, then every slot in use, then the entry for a new slot. */
+/** The entry for a new slot first, then autosave and every slot in use. */
 export function slotChoices(
   saves: readonly Pick<SaveSchema, "slot">[],
 ): SlotChoice[] {
@@ -36,9 +36,14 @@ export function slotChoices(
     .map((save) => save.slot)
     .filter((slot): slot is string => !!slot && slot !== AUTOSAVE_SLOT);
   return [
-    ...[AUTOSAVE_SLOT, ...new Set(named)].map(existingSlot),
     NEW_SLOT_CHOICE,
+    ...[AUTOSAVE_SLOT, ...new Set(named)].map(existingSlot),
   ];
+}
+
+/** Pickers set the new-slot entry apart from the slots that already exist. */
+export function isNewSlotChoice(choice: { kind: string }): boolean {
+  return choice.kind === "new";
 }
 
 export function slotChoiceTitle(choice: SlotChoice): string {
