@@ -241,11 +241,14 @@ async def _session_status(
             )
         return status
     # The tombstone is keyed per container, so with a pool the caller's notice
-    # can sit under any of them.
+    # can sit under any of them, and another claim's is not the answer.
     termination = None
     for candidate in candidates:
-        termination = await get_termination(candidate.key, request.user.id)
-        if termination is not None:
+        notice = await get_termination(candidate.key, request.user.id)
+        if notice is not None and access.notice_in_scope(
+            notice, platform, include_desktop
+        ):
+            termination = notice
             break
     return {
         "status": "ended",

@@ -110,6 +110,14 @@ def _session_in_scope(
     return platform is None or session_platform_matches(session, platform)
 
 
+def notice_in_scope(
+    notice: dict[str, Any], platform: str, include_desktop: bool
+) -> bool:
+    """Whether a notice answers for the claim a route asked about: it records the
+    ended claim's platform and kind, so a session's scope holds for its tombstone."""
+    return _session_in_scope(notice, platform, include_desktop)
+
+
 async def find_session_for_user(
     candidates: list[ResolvedContainer],
     user_id: int,

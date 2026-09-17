@@ -1654,6 +1654,76 @@ def test_status_finds_the_termination_on_whichever_container_held_it(
     assert r.json()["termination"]["reason"] == "maintenance"
 
 
+def test_status_does_not_report_a_desktop_notice_to_a_game_poll(client, access_token):
+    """One tombstone per container and one room per user, so the poll has to
+    scope the notice the same way it scopes the session it looked for."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_webstation()):
+        key = _key_of(_webstation())
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            ended = client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key, "reason": "patching the host"},
+                headers=_auth(access_token),
+            )
+        assert ended.status_code == 200
+        r = client.get(
+            f"/api/streaming/sessions/{ps2_rom.platform_slug}/status",
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert r.json()["termination"] is None
+
+
+def test_a_desktop_beat_still_learns_why_its_claim_ended(client, access_token):
+    """The desktop names its container, which is what puts its own notice in
+    scope: nothing else would tell that tab it was taken away."""
+    with _streaming(_webstation()):
+        key = _key_of(_webstation())
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key, "reason": "patching the host"},
+                headers=_auth(access_token),
+            )
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(access_token),
+        )
+    assert r.json()["status"] == "ended"
+    notice = r.json()["termination"]
+    assert notice["reason"] == "patching the host"
+    assert notice["desktop"] is True
+    assert notice["container"] == key
+
+
+def test_status_does_not_report_a_notice_from_another_platform(client, access_token):
+    """A container serving two platforms files both notices under one key, so
+    the ngc session ending is not an answer for the ps2 tab."""
+    ngc_rom = _rom_on("ngc")
+    with _streaming(_nested()):
+        _claim_ok(client, access_token, ngc_rom.id)
+        with patch("handler.streaming.commands.stop", return_value=None):
+            client.delete(
+                "/api/streaming/sessions/ngc",
+                params={"reason": "patching the host"},
+                headers=_auth(access_token),
+            )
+        r = client.get(
+            "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+        )
+        ngc = client.get(
+            "/api/streaming/sessions/ngc/status", headers=_auth(access_token)
+        )
+    assert r.json()["status"] == "ended"
+    assert r.json()["termination"] is None
+    assert ngc.json()["termination"]["reason"] == "patching the host"
+
+
 def test_heartbeat_refreshes_the_session_on_the_container_that_holds_it(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -2819,26 +2889,6 @@ def test_a_termination_notice_names_the_container_it_ended(
     notice = r.json()["termination"]
     assert notice["container"] == _key_of(_container_for(rom))
     assert notice["desktop"] is False
-
-
-def test_a_desktop_termination_notice_says_it_was_a_desktop(client, access_token):
-    """A game tab must not act on the end of the admin desktop it shares an
-    account with."""
-    with _streaming(_webstation()):
-        key = _key_of(_webstation())
-        assert _desktop(client, access_token, key)[0].status_code == 200
-        with patch("handler.streaming.commands.stop", return_value=None):
-            client.delete(
-                "/api/streaming/sessions/ps2",
-                params={"container": key, "reason": "clearing the container"},
-                headers=_auth(access_token),
-            )
-        r = client.get(
-            "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
-        )
-    notice = r.json()["termination"]
-    assert notice["desktop"] is True
-    assert notice["container"] == key
 
 
 def test_a_termination_notice_lands_before_the_drain(
