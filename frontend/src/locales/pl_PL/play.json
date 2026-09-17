@@ -139,6 +139,7 @@
   "save-data-none-note": "Zagraj i zapisz w grze. Synchronizacja nastąpi po zakończeniu sesji.",
   "save-data-note": "Przywrócone na konsolę przed uruchomieniem. Wczytaj je z menu samej gry.",
   "save-data-synced": "Zsynchronizowano",
+  "save-not-synced": "Twój ostatni zapis nie dotarł na serwer. Jest przechowywany w tej przeglądarce i zostanie zsynchronizowany przy następnym uruchomieniu tej gry.",
   "save-progress-to": "Zapisuj postęp do",
   "save-slot": "Miejsce zapisu",
   "save-state": "Zapisz stan",

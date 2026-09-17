@@ -139,6 +139,7 @@
   "save-data-none-note": "先遊玩，然後在遊戲內存檔。工作階段結束時會同步回來。",
   "save-data-note": "啟動前已還原到主機。請從遊戲本身的選單中讀取。",
   "save-data-synced": "已同步",
+  "save-not-synced": "你最近的存檔尚未上傳到伺服器。它保存在此瀏覽器中，下次遊玩該遊戲時會自動同步。",
   "save-progress-to": "進度儲存至",
   "save-slot": "存檔格",
   "save-state": "儲存即時存檔",

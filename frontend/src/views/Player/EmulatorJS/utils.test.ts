@@ -5,6 +5,7 @@ import type { DetailedRom } from "@/stores/roms";
 import {
   buildStateFormData,
   captureScreenshot,
+  storedScreenshotFor,
   createSaveSyncTracker,
   installEJSDefaultOptionsTrap,
   pollSaveFiles,
@@ -365,6 +366,54 @@ describe("resolveScreenshot", () => {
     await expect(resolveScreenshot()).resolves.toBeUndefined();
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */
+});
+
+describe("storedScreenshotFor", () => {
+  const shot = new Uint8Array([9, 9]).buffer;
+  const pendingFor = (saveBytes: ArrayBuffer) => ({
+    romId: 1,
+    saveBytes,
+    screenshotBytes: shot,
+    capturedAt: 0,
+  });
+
+  it("hands back the frame kept for these exact bytes", () => {
+    const saveBytes = new Uint8Array([1, 2, 3]).buffer;
+
+    expect(
+      storedScreenshotFor(
+        pendingFor(saveBytes),
+        new Uint8Array([1, 2, 3]).buffer,
+      ),
+    ).toBe(shot);
+  });
+
+  // The game wrote again, so the stored frame pictures a moment that has passed.
+  it("drops the frame once the save has moved on", () => {
+    const saveBytes = new Uint8Array([1, 2, 3]).buffer;
+
+    expect(
+      storedScreenshotFor(
+        pendingFor(saveBytes),
+        new Uint8Array([1, 2, 4]).buffer,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("has nothing to offer without a pending save", () => {
+    expect(
+      storedScreenshotFor(null, new Uint8Array([1]).buffer),
+    ).toBeUndefined();
+  });
+
+  it("keeps bytes that were stored without a frame frameless", () => {
+    const saveBytes = new Uint8Array([1, 2, 3]).buffer;
+    const pending = { romId: 1, saveBytes, capturedAt: 0 };
+
+    expect(
+      storedScreenshotFor(pending, new Uint8Array([1, 2, 3]).buffer),
+    ).toBeUndefined();
+  });
 });
 
 describe("saveState", () => {

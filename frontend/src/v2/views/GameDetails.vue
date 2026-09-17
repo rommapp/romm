@@ -14,6 +14,7 @@ import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame, SimilarRomSchema } from "@/__generated__";
 import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
+import pendingSaveStore from "@/services/pending-save";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
@@ -30,9 +31,11 @@ import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useRomScanRefresh } from "@/v2/composables/useRomScanRefresh";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
 import { patchQuery } from "@/v2/utils/routeQuery";
@@ -66,6 +69,21 @@ useRightStickScroll(panelEl);
 // The files badge and every tab read `currentRom`, so the view owns the
 // post-scan refetch rather than the Files tab.
 useRomScanRefresh();
+
+// The player replaces the document on its way out, which takes any toast it
+// raised with it, so a save the browser is still holding is announced here
+// instead. Launching the game again is what uploads it.
+const snackbar = useSnackbar();
+const isAlive = useIsAlive();
+watch(
+  () => currentRom.value?.id ?? null,
+  async (romId) => {
+    if (!romId) return;
+    const pending = await pendingSaveStore.read(romId);
+    if (pending && isAlive.value) snackbar.warning(t("play.save-not-synced"));
+  },
+  { immediate: true },
+);
 
 onBeforeRouteUpdate(async (to) => {
   const nextId = parseInt(to.params.rom as string);

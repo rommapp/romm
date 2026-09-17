@@ -139,6 +139,7 @@
   "save-data-none-note": "Juega y guarda dentro del juego. Se sincronizará al terminar la sesión.",
   "save-data-note": "Restaurado en la consola antes de iniciar. Cárgalo desde el menú del propio juego.",
   "save-data-synced": "Sincronizado",
+  "save-not-synced": "Tu última partida guardada no ha llegado al servidor. Se conserva en este navegador y se sincronizará la próxima vez que juegues a este juego.",
   "save-progress-to": "Guardar progreso en",
   "save-slot": "Ranura de guardado",
   "save-state": "Guardar estado",

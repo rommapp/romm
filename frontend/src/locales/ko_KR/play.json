@@ -139,6 +139,7 @@
   "save-data-none-note": "플레이한 뒤 게임에서 저장하세요. 세션이 끝나면 동기화됩니다.",
   "save-data-note": "실행 전에 콘솔로 복원됩니다. 게임 자체 메뉴에서 불러오세요.",
   "save-data-synced": "동기화됨",
+  "save-not-synced": "마지막 저장 데이터가 서버에 전달되지 않았습니다. 이 브라우저에 보관되며 다음에 이 게임을 플레이할 때 동기화됩니다.",
   "save-progress-to": "진행 상황 저장 위치",
   "save-slot": "저장 슬롯",
   "save-state": "상태 저장",

@@ -139,6 +139,7 @@
   "save-data-none-note": "先游玩，然后在游戏内存档。会话结束时会同步回来。",
   "save-data-note": "启动前已还原到主机。请从游戏自身的菜单中读取。",
   "save-data-synced": "已同步",
+  "save-not-synced": "你最近的存档尚未上传到服务器。它保存在此浏览器中，下次游玩该游戏时会自动同步。",
   "save-progress-to": "进度保存到",
   "save-slot": "存档位",
   "save-state": "保存即时存档",

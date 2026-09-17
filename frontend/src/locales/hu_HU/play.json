@@ -139,6 +139,7 @@
   "save-data-none-note": "Játssz, majd ments a játékon belül. A munkamenet végén szinkronizálódik.",
   "save-data-note": "Indítás előtt visszaállítva a konzolra. Töltsd be a játék saját menüjéből.",
   "save-data-synced": "Szinkronizálva",
+  "save-not-synced": "A legutóbbi mentésed nem jutott el a kiszolgálóra. Ebben a böngészőben tárolódik, és a játék következő indításakor szinkronizálódik.",
   "save-progress-to": "Haladás mentése ide",
   "save-slot": "Mentési hely",
   "save-state": "Állapot mentése",

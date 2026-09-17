@@ -139,6 +139,7 @@
   "save-data-none-note": "Oyna, sonra oyun içinde kaydet. Oturum bitince eşitlenir.",
   "save-data-note": "Başlatmadan önce konsola geri yüklendi. Oyunun kendi menüsünden yükle.",
   "save-data-synced": "Eşitlendi",
+  "save-not-synced": "Son kaydınız sunucuya ulaşmadı. Bu tarayıcıda saklanıyor ve bu oyunu bir sonraki oynayışınızda eşitlenecek.",
   "save-progress-to": "İlerlemeyi şuraya kaydet",
   "save-slot": "Kayıt yuvası",
   "save-state": "Durumu kaydet",

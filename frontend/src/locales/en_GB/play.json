@@ -139,6 +139,7 @@
   "save-data-none-note": "Play, then save in-game. It syncs back when the session ends.",
   "save-data-note": "Restored to the console before launch. Load it from the game's own menu.",
   "save-data-synced": "Synced",
+  "save-not-synced": "Your last save has not reached the server. It is kept in this browser and will sync the next time you play this game.",
   "save-progress-to": "Save progress to",
   "save-slot": "Save slot",
   "save-state": "Save state",

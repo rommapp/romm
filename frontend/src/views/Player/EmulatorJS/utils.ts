@@ -6,6 +6,7 @@ import {
 } from "@/__generated__";
 import saveApi, { AUTOSAVE_SLOT } from "@/services/api/save";
 import stateApi from "@/services/api/state";
+import { type PendingSave } from "@/services/pending-save";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
 
@@ -33,6 +34,24 @@ export async function resolveScreenshot(
   emulatorScreenshot?: ArrayBuffer,
 ): Promise<ArrayBuffer | undefined> {
   return (await captureScreenshot()) ?? emulatorScreenshot;
+}
+
+/**
+ * The frame already held for these exact save bytes, if a sync stored one.
+ *
+ * Returns:
+ *   The stored picture, or undefined when the bytes have moved on since.
+ */
+export function storedScreenshotFor(
+  pending: PendingSave | null,
+  saveBytes: ArrayBuffer,
+): ArrayBuffer | undefined {
+  if (!pending) return undefined;
+  const sameBytes = bytesEqual(
+    new Uint8Array(pending.saveBytes),
+    new Uint8Array(saveBytes),
+  );
+  return sameBytes ? pending.screenshotBytes : undefined;
 }
 
 /** Console-mode state upload; without a picture there is no screenshot part. */
