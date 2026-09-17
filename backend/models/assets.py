@@ -87,6 +87,7 @@ class Screenshot(RomAsset):
     # defaults, only the gallery upload endpoint sets `is_gallery=True`.
     is_gallery: Mapped[bool] = mapped_column(default=False)
     is_public: Mapped[bool] = mapped_column(default=False)
+    is_overview: Mapped[bool] = mapped_column(default=False)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="screenshots")
     user: Mapped[User] = relationship(lazy="joined", back_populates="screenshots")

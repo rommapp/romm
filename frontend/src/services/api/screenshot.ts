@@ -98,9 +98,22 @@ async function setScreenshotVisibility({
   });
 }
 
+async function setScreenshotOverview({
+  id,
+  isOverview,
+}: {
+  id: number;
+  isOverview: boolean;
+}) {
+  return api.put<ScreenshotSchema>(`/screenshots/${id}`, {
+    is_overview: isOverview,
+  });
+}
+
 export default {
   uploadScreenshots,
   uploadGalleryScreenshots,
   deleteScreenshot,
   setScreenshotVisibility,
+  setScreenshotOverview,
 };

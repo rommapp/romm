@@ -32,6 +32,7 @@ class BaseAsset(BaseModel):
 class ScreenshotSchema(BaseAsset):
     is_gallery: bool = False
     is_public: bool = False
+    is_overview: bool = False
 
 
 class UserScreenshotSchema(ScreenshotSchema):

@@ -171,9 +171,10 @@ def download_screenshot(
 async def update_screenshot(
     request: Request,
     id: Annotated[int, PathVar(description="Screenshot internal id.", ge=1)],
-    is_public: Annotated[bool, Body(embed=True)],
+    is_public: Annotated[bool | None, Body(embed=True)] = None,
+    is_overview: Annotated[bool | None, Body(embed=True)] = None,
 ) -> ScreenshotSchema:
-    """Toggle a gallery screenshot's public/private visibility (owner only)."""
+    """Update an uploaded screenshot's visibility and overview placement."""
     screenshot = db_screenshot_handler.get_screenshot_by_id(id)
     if not screenshot or screenshot.user_id != request.user.id:
         raise HTTPException(
@@ -181,7 +182,27 @@ async def update_screenshot(
             detail="Screenshot not found",
         )
 
-    updated = db_screenshot_handler.update_screenshot(id, {"is_public": is_public})
+    if is_overview is not None and not screenshot.is_gallery:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Screenshot not found",
+        )
+
+    updates = {
+        key: value
+        for key, value in {
+            "is_public": is_public,
+            "is_overview": is_overview,
+        }.items()
+        if value is not None
+    }
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No screenshot properties provided",
+        )
+
+    updated = db_screenshot_handler.update_screenshot(id, updates)
     return ScreenshotSchema.model_validate(updated)
 
 

@@ -56,6 +56,7 @@ def test_upload_gallery_screenshot_sets_flags(
     data = response.json()
     assert data["is_gallery"] is True
     assert data["is_public"] is False
+    assert data["is_overview"] is False
 
 
 @mock.patch(
@@ -94,6 +95,48 @@ def test_update_visibility_owner(client, access_token: str, screenshot: Screensh
 
     refreshed = db_screenshot_handler.get_screenshot_by_id(screenshot.id)
     assert refreshed is not None and refreshed.is_public is True
+
+
+def test_update_overview_owner(
+    client,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    admin_user: User,
+):
+    screenshot = _add_screenshot(
+        rom,
+        platform,
+        admin_user.id,
+        "overview",
+        is_gallery=True,
+        is_public=True,
+    )
+
+    response = client.put(
+        f"/api/screenshots/{screenshot.id}",
+        json={"is_overview": True},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["is_overview"] is True
+    refreshed = db_screenshot_handler.get_screenshot_by_id(screenshot.id)
+    assert refreshed is not None and refreshed.is_overview is True
+
+
+def test_update_overview_rejects_non_gallery_screenshot(
+    client,
+    access_token: str,
+    screenshot: Screenshot,
+):
+    response = client.put(
+        f"/api/screenshots/{screenshot.id}",
+        json={"is_overview": True},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_update_visibility_other_user_returns_404(

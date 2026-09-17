@@ -1,13 +1,14 @@
 <script setup lang="ts">
-// ScreenshotsTab — responsive grid of 16:9 screenshot thumbnails. Clicking
+// ScreenshotsTab: responsive grid of 16:9 screenshot thumbnails. Clicking
 // a thumbnail opens RCarousel in fullscreen (lightbox) mode with prev/next
 // navigation, a thumbnail strip, and keyboard / gamepad arrows.
 //
 // Per-item affordances are driven by the item fields + props (the parent,
 // MediaTab, performs the actions):
-//   * delete   — when `deletable` and the item is owned (top-right, hover)
-//   * lock     — when `togglable` and owned: public/private toggle (top-right)
-//   * username — community items (others' public shots) show an owner chip
+//   * delete: when `deletable` and the item is owned (top-right, hover)
+//   * lock: when `togglable` and owned: public/private toggle (top-right)
+//   * overview: when `overviewTogglable` and owned: overview inclusion toggle
+//   * username: community items (others' public shots) show an owner chip
 import { RAvatar, RBtn, RCarousel, RIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -23,6 +24,8 @@ export type ScreenshotItem = {
   id?: number;
   isOwn?: boolean;
   isPublic?: boolean;
+  isOnOverview?: boolean;
+  overviewDisabled?: boolean;
   username?: string;
   userId?: number | null;
   userAvatarPath?: string | null;
@@ -34,10 +37,13 @@ const props = defineProps<{
   deletable?: boolean;
   togglable?: boolean;
   togglingId?: number | null;
+  overviewTogglable?: boolean;
+  overviewTogglingId?: number | null;
 }>();
 const emit = defineEmits<{
   delete: [id: number];
   "toggle-visibility": [id: number, isPublic: boolean];
+  "toggle-overview": [id: number, isOnOverview: boolean];
 }>();
 
 const { t } = useI18n();
@@ -62,6 +68,11 @@ function canDelete(shot: ScreenshotItem): boolean {
 }
 function canToggle(shot: ScreenshotItem): boolean {
   return Boolean(props.togglable) && shot.id != null && shot.isOwn === true;
+}
+function canToggleOverview(shot: ScreenshotItem): boolean {
+  return (
+    Boolean(props.overviewTogglable) && shot.id != null && shot.isOwn === true
+  );
 }
 </script>
 
@@ -111,6 +122,34 @@ function canToggle(shot: ScreenshotItem): boolean {
       </div>
 
       <div class="r-v2-det-shots__actions">
+        <RBtn
+          v-if="canToggleOverview(shot)"
+          :icon="
+            shot.isOnOverview
+              ? 'mdi-view-dashboard'
+              : 'mdi-view-dashboard-outline'
+          "
+          size="small"
+          variant="flat"
+          :color="shot.isOnOverview ? 'primary' : 'var(--r-color-fg-muted)'"
+          :loading="overviewTogglingId === shot.id"
+          :disabled="shot.overviewDisabled"
+          :aria-label="
+            shot.overviewDisabled
+              ? t('rom.screenshot-overview-requires-public')
+              : shot.isOnOverview
+                ? t('rom.screenshot-remove-from-overview')
+                : t('rom.screenshot-add-to-overview')
+          "
+          :title="
+            shot.overviewDisabled
+              ? t('rom.screenshot-overview-requires-public')
+              : shot.isOnOverview
+                ? t('rom.screenshot-remove-from-overview')
+                : t('rom.screenshot-add-to-overview')
+          "
+          @click="emit('toggle-overview', shot.id!, !shot.isOnOverview)"
+        />
         <RBtn
           v-if="canToggle(shot)"
           :icon="shot.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'"

@@ -31,6 +31,7 @@ import {
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { romFileScreenshotUrl } from "@/v2/utils/romScreenshots";
 
 const ScreenshotsTab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
@@ -65,7 +66,6 @@ const canEditRom = useCan("rom.edit");
 
 // ---------- ROM (shared) screenshots — RomFile-backed ----------
 const romScreenshots = computed<ScreenshotItem[]>(() => {
-  const cacheBust = encodeURIComponent(props.rom.updated_at);
   const out: ScreenshotItem[] = [];
   for (const file of props.rom.files ?? []) {
     const rel = file.full_path
@@ -79,9 +79,7 @@ const romScreenshots = computed<ScreenshotItem[]>(() => {
     if (!IMAGE_EXTENSIONS.has(ext)) continue;
     out.push({
       id: file.id,
-      url: `/api/roms/${file.id}/files/content/${encodeURIComponent(
-        file.file_name,
-      )}?v=${cacheBust}`,
+      url: romFileScreenshotUrl(file),
     });
   }
   return out;
@@ -98,6 +96,8 @@ const myScreenshots = computed<ScreenshotItem[]>(() =>
       url: s.download_path,
       isOwn: true,
       isPublic: Boolean(s.is_public),
+      isOnOverview: Boolean(s.is_overview),
+      overviewDisabled: !s.is_public,
     })),
 );
 
@@ -224,6 +224,24 @@ async function toggleVisibility(id: number, isPublic: boolean) {
     togglingId.value = null;
   }
 }
+
+const overviewTogglingId = ref<number | null>(null);
+
+async function toggleMyOverview(id: number, isOnOverview: boolean) {
+  if (overviewTogglingId.value != null) return;
+  overviewTogglingId.value = id;
+  try {
+    await screenshotApi.setScreenshotOverview({ id, isOverview: isOnOverview });
+    await refreshRom();
+  } catch (error: unknown) {
+    snackbar.error(
+      t("rom.screenshot-overview-failed", { error: errorMessage(error) }),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    overviewTogglingId.value = null;
+  }
+}
 </script>
 
 <template>
@@ -327,9 +345,12 @@ async function toggleVisibility(id: number, isPublic: boolean) {
           :screenshots="myScreenshots"
           deletable
           togglable
+          overview-togglable
           :toggling-id="togglingId"
+          :overview-toggling-id="overviewTogglingId"
           @delete="deleteMyScreenshot"
           @toggle-visibility="toggleVisibility"
+          @toggle-overview="toggleMyOverview"
         />
       </RDropzone>
     </section>

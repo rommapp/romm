@@ -257,7 +257,7 @@ const coverSource = computed(() => {
     <!-- 3. Info grid -->
     <InfoGrid :sections="sections" />
 
-    <!-- 4. Screenshots — scraped metadata images, read-only here. -->
+    <!-- 4. Screenshots -->
     <div v-if="screenshots.length" class="overview-tab__section">
       <h4 class="overview-tab__section-heading">
         <RIcon icon="mdi-image-multiple-outline" size="14" />
