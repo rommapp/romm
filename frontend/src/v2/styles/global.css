@@ -19,6 +19,17 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Opaque track: a transparent one lets the route crossfade's snapshot, with the
+   blurred art bleeding into the gutter, show through and swallow the thumb. */
+html.r-v2 {
+  scrollbar-color: color-mix(
+      in srgb,
+      var(--r-color-brand-primary) 35%,
+      transparent
+    )
+    var(--r-color-bg);
+}
+
 /* Responsive page padding — `--r-row-pad` is consumed everywhere as the
    horizontal gutter for page rows / toolbars / nav / widgets. Shrinking
    it here tightens every consumer at once on narrower viewports, so
