@@ -7,6 +7,8 @@ import {
   it,
   vi,
 } from "vitest";
+// Re-imported per case below, but the bases are the same strings either way.
+import { CDN_BASE as CDN, LOCAL_BASE as LOCAL } from "./jsDosRuntime";
 
 const mocks = vi.hoisted(() => ({
   isJsResource: vi.fn(),
@@ -17,9 +19,6 @@ vi.mock("@/v2/utils/scriptLoader", () => ({
   isJsResource: mocks.isJsResource,
   loadScript: mocks.loadScript,
 }));
-
-const LOCAL = "/assets/jsdos";
-const CDN = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
 
 // The loader is a module-level singleton, so each case starts from a document
 // that has never loaded it.
