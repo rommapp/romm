@@ -245,7 +245,6 @@
   "missing-firmware-none": "Nu s-a găsit firmware lipsă",
   "missing-firmware-tab": "Firmware lipsă",
   "missing-games-actions": "Acțiuni jocuri lipsă",
-  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-delete-all": "Delete all missing games",
   "missing-games-none": "Nu s-au găsit ROM-uri lipsă",
   "missing-games-tab": "Jocuri lipsă",

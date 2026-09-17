@@ -136,11 +136,10 @@ const isPending = computed(() => favorites.isPending(props.track.id));
 </template>
 
 <style scoped>
-/* Fixed height: RVirtualScroller positions rows from `getItemHeight`, so the
-   rendered row must match ROW_HEIGHT in Panel.vue (48px + 4px gap). */
+/* Panel sets the height and gap, the same numbers it gives RVirtualScroller. */
 .r-v2-stp__row {
-  height: 48px;
-  margin-bottom: 4px;
+  height: var(--stp-row-h);
+  margin-bottom: var(--stp-row-gap);
   box-sizing: border-box;
   display: flex;
   align-items: stretch;
@@ -181,7 +180,8 @@ html[data-input="touch"] .r-v2-stp__row--active:hover {
 
 /* Leading cell: queue position / play glyph / equalizer / spinner. */
 .r-v2-stp__row-lead {
-  flex: 0 0 34px;
+  width: 34px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
 }
@@ -338,5 +338,53 @@ html[data-input="mouse"]
 
 .r-v2-stp__row-fav--on {
   color: var(--r-color-fav);
+}
+
+/* Phones: the title takes the full width and the actions share the subtitle's
+   line; the play button subgrids the row so its text shares their tracks. */
+html[data-bp~="xs"] .r-v2-stp__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: 1fr auto auto 1fr;
+  row-gap: 0;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-btn {
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-lead {
+  grid-row: 1 / -1;
+  grid-column: 1;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-meta {
+  display: contents;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-title {
+  grid-row: 2;
+  grid-column: 2 / -1;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-subtitle {
+  grid-area: 3 / 2;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-right {
+  grid-area: 3 / 3;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-duration {
+  min-width: 0;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-size {
+  display: none;
 }
 </style>

@@ -45,6 +45,14 @@ vi.mock("vue-i18n", () => ({
   }),
 }));
 
+// Importing the real router also pulls in its lazy auth views, which can still
+// be loading when the test environment tears down.
+vi.mock("@/plugins/router", () => ({
+  default: {},
+  ROUTES: {},
+  isAuthExemptRoute: () => false,
+}));
+
 vi.mock("@/services/api/collection", () => ({
   default: {
     addRomsToCollection,

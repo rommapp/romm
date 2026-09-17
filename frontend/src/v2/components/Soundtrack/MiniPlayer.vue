@@ -1,50 +1,34 @@
 <script setup lang="ts">
-// MiniPlayer — v2-native persistent soundtrack player.
-//
-// Owns the single app-wide `<audio>` element (the v1 mini-player used
-// to own it). The shared `useSoundtrackPlayer` store binds to this
-// element via `setAudioRef`; every other surface (the soundtrack
-// panel inside GameDetails, the now-playing strip) reads through the
-// store and drives playback by calling store methods. Keeping the
-// audio element here means it survives route changes and the user
-// can leave the soundtrack subtab without the music cutting out.
-//
-// The visible mini-card only paints when there's a track loaded AND
-// the user isn't already on the full soundtrack panel — otherwise the
-// two surfaces would race for the same playback affordance.
-import { RBtn, RSlider, RSpinner } from "@v2/lib";
+// Owns the app-wide `<audio>` element, so playback survives route changes. The
+// card floats on desktop; on phones the top bar's NowPlayingPill opens it.
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
-import { ROUTES } from "@/plugins/router";
+import storePlaying from "@/stores/playing";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
-import VolumeControl from "@/v2/components/Soundtrack/VolumeControl.vue";
-import { isJukeboxPlayerMode } from "@/v2/utils/jukebox";
-import { formatTrackTime } from "@/v2/utils/time";
+import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const route = useRoute();
-const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const store = useSoundtrackPlayer();
-const {
-  track,
-  meta,
-  isPlaying,
-  isBuffering,
-  currentTime,
-  duration,
-  hasPrevious,
-  hasNext,
-  isShuffled,
-} = storeToRefs(store);
+const { track, hasNext } = storeToRefs(store);
+const { smAndDown } = useBreakpoint();
+const visible = useMiniPlayerVisible();
+const playingStore = storePlaying();
 
 const audioEl = ref<HTMLAudioElement | null>(null);
+
+// On phones the mini player lives in the top bar, which a running game hides,
+// so the music pauses rather than play on with no controls.
+watch([() => playingStore.stageActive, smAndDown], ([active, phone]) => {
+  if (active && phone) audioEl.value?.pause();
+});
 
 // Generation token — bumped every time we reassign `src`. Any async
 // `play()` promise resolves against the token current when it was
@@ -52,33 +36,30 @@ const audioEl = ref<HTMLAudioElement | null>(null);
 // current state. Same idiom as v1's mini player.
 let loadToken = 0;
 
-const onFullSoundtrackPlayer = computed(() => {
-  const onJukeboxPlayer =
-    route.name === ROUTES.MUSIC && isJukeboxPlayerMode(route.params.mode);
-  const onGameSoundtrack =
-    route.name === "rom" &&
-    route.query.tab === "media" &&
-    route.query.subtab === "soundtrack";
-  return onJukeboxPlayer || onGameSoundtrack;
-});
+// Track loads, seeks and short stalls often resolve within a second; buffering
+// is only reported once a wait outlasts that, so the covers don't flash.
+const BUFFERING_DELAY_MS = 1000;
+let bufferingTimer: ReturnType<typeof setTimeout> | undefined;
 
-const showMiniPlayer = computed(
-  () => track.value !== null && !onFullSoundtrackPlayer.value,
-);
+function setBuffered() {
+  clearTimeout(bufferingTimer);
+  store.setBuffering(false);
+}
 
-const coverUrl = computed(
-  () =>
-    meta.value.coverUrl ??
-    meta.value.folderCoverUrl ??
-    meta.value.gameArtworkUrl ??
-    "/assets/default/album_cover.jpg",
-);
+function scheduleBuffering() {
+  clearTimeout(bufferingTimer);
+  bufferingTimer = setTimeout(
+    () => store.setBuffering(true),
+    BUFFERING_DELAY_MS,
+  );
+}
 
 onMounted(() => {
   store.setAudioRef(audioEl.value);
 });
 
 onBeforeUnmount(() => {
+  clearTimeout(bufferingTimer);
   store.setAudioRef(null);
 });
 
@@ -87,6 +68,9 @@ watch(track, async (t) => {
   if (!el) return;
   const token = ++loadToken;
   if (t) {
+    // The store flags a new track as buffering; hold that back like any wait.
+    store.setBuffering(false);
+    scheduleBuffering();
     el.src = t.url;
     try {
       el.load();
@@ -102,6 +86,7 @@ watch(track, async (t) => {
       // through `@error`.
     }
   } else {
+    setBuffered();
     el.pause();
     el.removeAttribute("src");
     try {
@@ -114,7 +99,7 @@ watch(track, async (t) => {
 
 function onPlay() {
   store.setPlaying(true);
-  store.setBuffering(false);
+  setBuffered();
 }
 function onPause() {
   store.setPlaying(false);
@@ -130,12 +115,13 @@ function onLoadedMetadata() {
   if (audioEl.value) store.setDuration(audioEl.value.duration || 0);
 }
 function onWaiting() {
-  store.setBuffering(true);
+  scheduleBuffering();
 }
 function onCanPlay() {
-  store.setBuffering(false);
+  setBuffered();
 }
 function onError() {
+  clearTimeout(bufferingTimer);
   store.setError();
   // Snackbar payload still uses v1's `snackbarShow` event shape —
   // when v1 is removed, switch to `useSnackbar()` here.
@@ -144,26 +130,6 @@ function onError() {
     icon: "mdi-alert",
     color: "red",
     timeout: 3000,
-  });
-}
-
-function seekValueText(v: number): string {
-  return t("rom.seek-progress", {
-    current: formatTrackTime(v),
-    duration: formatTrackTime(duration.value),
-  });
-}
-
-function openRom() {
-  if (!track.value) return;
-  // Land on the soundtrack subtab directly so the full player takes
-  // over — landing on Overview instead would leave the user one
-  // extra click from the surface they were just driving via the
-  // mini-player.
-  router.push({
-    name: "rom",
-    params: { rom: track.value.romId },
-    query: { tab: "media", subtab: "soundtrack" },
   });
 }
 </script>
@@ -187,118 +153,8 @@ function openRom() {
   />
 
   <Transition name="r-v2-mp-slide">
-    <div
-      v-if="showMiniPlayer && track"
-      class="r-v2-mp"
-      role="region"
-      :aria-label="t('rom.soundtrack-player')"
-    >
-      <!-- Top row: cover + meta + close/open-rom -->
-      <div class="r-v2-mp__top">
-        <div class="r-v2-mp__disc" aria-hidden="true">
-          <div
-            class="r-v2-mp__disc-rotor"
-            :class="{ 'r-v2-mp__disc-rotor--spinning': isPlaying }"
-          >
-            <img :src="coverUrl" class="r-v2-mp__disc-img" alt="" />
-          </div>
-          <div v-if="isBuffering" class="r-v2-mp__disc-buffering">
-            <RSpinner :size="20" :width="2" color="white" />
-          </div>
-        </div>
-
-        <div class="r-v2-mp__meta">
-          <div class="r-v2-mp__title" :title="meta.title || track.fileName">
-            {{ meta.title || track.fileName }}
-          </div>
-          <div v-if="meta.artist" class="r-v2-mp__artist" :title="meta.artist">
-            {{ meta.artist }}
-          </div>
-        </div>
-
-        <div class="r-v2-mp__top-actions">
-          <RBtn
-            icon="mdi-open-in-new"
-            variant="text"
-            size="small"
-            :tooltip="t('rom.soundtrack-open-rom-tooltip')"
-            :aria-label="t('rom.soundtrack-open-rom-tooltip')"
-            @click="openRom"
-          />
-          <RBtn
-            icon="mdi-close"
-            variant="text"
-            size="small"
-            :tooltip="t('rom.soundtrack-close-player')"
-            :aria-label="t('rom.soundtrack-close-player')"
-            @click="store.stop()"
-          />
-        </div>
-      </div>
-
-      <!-- Transport row: prev / play / next / volume -->
-      <div class="r-v2-mp__transport">
-        <RBtn
-          icon="mdi-skip-previous"
-          variant="text"
-          size="small"
-          :disabled="!hasPrevious"
-          :tooltip="t('rom.soundtrack-previous')"
-          :aria-label="t('rom.soundtrack-previous')"
-          @click="store.previous()"
-        />
-        <RBtn
-          :icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
-          variant="text"
-          size="large"
-          :tooltip="
-            isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
-          "
-          :aria-label="
-            isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
-          "
-          @click="store.togglePlayPause()"
-        />
-        <RBtn
-          icon="mdi-skip-next"
-          variant="text"
-          size="small"
-          :disabled="!hasNext"
-          :tooltip="t('rom.soundtrack-next')"
-          :aria-label="t('rom.soundtrack-next')"
-          @click="store.next()"
-        />
-        <span class="r-v2-mp__transport-spacer" />
-        <VolumeControl size="small" />
-        <RBtn
-          icon="mdi-shuffle"
-          :variant="isShuffled ? 'translucent' : 'text'"
-          size="small"
-          :color="isShuffled ? 'primary' : undefined"
-          :aria-pressed="isShuffled"
-          :tooltip="t('common.shuffle')"
-          :aria-label="t('common.shuffle')"
-          @click="store.toggleShuffle()"
-        />
-      </div>
-
-      <!-- Seek row -->
-      <div class="r-v2-mp__seek">
-        <span class="r-v2-mp__time">{{ formatTrackTime(currentTime) }}</span>
-        <RSlider
-          :model-value="currentTime"
-          :max="duration || 0"
-          :step="0.1"
-          color="primary"
-          class="r-v2-mp__seek-slider"
-          :aria-label="t('rom.soundtrack-seek')"
-          :aria-valuetext="seekValueText(currentTime)"
-          @update:model-value="(v: number) => store.seek(v)"
-        />
-        <span class="r-v2-mp__time r-v2-mp__time--right">
-          {{ formatTrackTime(duration) }}
-        </span>
-      </div>
+    <div v-if="visible && !smAndDown" class="r-v2-mp">
+      <NowPlayingCard />
     </div>
   </Transition>
 </template>
@@ -315,10 +171,6 @@ function openRom() {
   z-index: var(--r-z-toast, 2200);
   width: 380px;
   max-width: calc(100vw - 32px);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
   background: var(--r-color-panel);
   border: 1px solid var(--r-color-panel-border);
   border-radius: var(--r-radius-lg);
@@ -326,150 +178,7 @@ function openRom() {
     0 20px 60px color-mix(in srgb, black 70%, transparent),
     0 4px 20px color-mix(in srgb, black 40%, transparent);
   backdrop-filter: blur(28px);
-  color: var(--r-color-fg);
-}
-
-/* On sm-and-down the fixed bottom tab bar (BottomNav) occupies the
-   bottom edge, so lift the player above it (+ its safe-area inset)
-   instead of letting the two overlap. */
-html[data-bp~="sm-and-down"] .r-v2-mp {
-  bottom: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 16px);
-}
-
-/* ── Top row ────────────────────────────────────────────────── */
-.r-v2-mp__top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.r-v2-mp__disc {
-  position: relative;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
   overflow: hidden;
-  background: var(--r-color-bg);
-  border: 1px solid var(--r-color-border);
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 2px color-mix(in srgb, black 50%, transparent);
-}
-.r-v2-mp__disc-rotor {
-  position: absolute;
-  inset: 0;
-  transform-origin: 50% 50%;
-  transform-box: border-box;
-  animation: r-v2-mp-spin 12s linear infinite;
-  animation-play-state: paused;
-}
-.r-v2-mp__disc-rotor--spinning {
-  animation-play-state: running;
-}
-
-.r-v2-mp__disc-img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-/* Static vinyl-record spindle — gives the rotation a fixed visual
-   reference so the spin reads as motion rather than a flat circle. */
-.r-v2-mp__disc::after {
-  content: "";
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--r-color-bg);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, black 50%, transparent);
-}
-.r-v2-mp__disc-buffering {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, black 45%, transparent);
-  z-index: 3;
-}
-
-@keyframes r-v2-mp-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .r-v2-mp__disc-rotor {
-    animation: none;
-  }
-}
-
-.r-v2-mp__meta {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.r-v2-mp__title {
-  font-size: var(--r-font-size-sm);
-  font-weight: var(--r-font-weight-semibold);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-v2-mp__artist {
-  font-size: var(--r-font-size-xs);
-  color: var(--r-color-fg-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.r-v2-mp__top-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-/* ── Transport row ──────────────────────────────────────────── */
-.r-v2-mp__transport {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.r-v2-mp__transport-spacer {
-  flex: 1;
-}
-
-/* ── Seek row ───────────────────────────────────────────────── */
-.r-v2-mp__seek {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.r-v2-mp__seek-slider {
-  flex: 1;
-}
-.r-v2-mp__time {
-  font-variant-numeric: tabular-nums;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  min-width: 36px;
-}
-.r-v2-mp__time--right {
-  text-align: right;
 }
 
 /* ── Enter / leave motion ───────────────────────────────────── */

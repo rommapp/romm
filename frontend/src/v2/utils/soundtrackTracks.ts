@@ -2,6 +2,7 @@
 // own files, the music catalog) normalize into it here.
 import type { MusicTrackSchema, TrackMetaSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
+import type { PlayerMeta } from "@/stores/soundtrackPlayer";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 
 export interface PanelTrack {
@@ -121,4 +122,27 @@ export function romFolderCoverUrl(rom: DetailedRom): string | undefined {
     )
     .sort((a, b) => a.file_name.localeCompare(b.file_name))[0];
   return cover ? romFileUrl(cover.id, cover.file_name) : undefined;
+}
+
+/** The audio tags the now-playing surfaces show, from either track source. */
+export type NowPlayingTags = Partial<
+  Pick<
+    TrackMetaSchema,
+    "artist" | "album" | "genre" | "year" | "track" | "disc"
+  >
+>;
+
+/** The line under a now-playing title: the album, else the artist. */
+export function nowPlayingCaption(tags: NowPlayingTags | undefined): string {
+  return tags?.album || tags?.artist || "";
+}
+
+/** The mini player's cover: the track's own art, then the ROM's. */
+export function playerCoverUrl(meta: PlayerMeta): string {
+  return (
+    meta.coverUrl ??
+    meta.folderCoverUrl ??
+    meta.gameArtworkUrl ??
+    "/assets/default/album_cover.jpg"
+  );
 }

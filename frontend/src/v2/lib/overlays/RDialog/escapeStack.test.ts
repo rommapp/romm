@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type EscapableEntry,
+  isInsideEscapableAbove,
   isUnderOpenEscapable,
   onEscapableOpen,
   popEscapable,
@@ -83,5 +84,28 @@ describe("isUnderOpenEscapable", () => {
     push(entry());
 
     expect(isUnderOpenEscapable(document.createElement("button"))).toBe(false);
+  });
+});
+
+describe("isInsideEscapableAbove", () => {
+  it("finds a node in an overlay opened after the entry, not before it", () => {
+    const outerPanel = document.createElement("div");
+    const innerPanel = document.createElement("div");
+    const inInner = innerPanel.appendChild(document.createElement("input"));
+    const inOuter = outerPanel.appendChild(document.createElement("button"));
+    const outer = entry(outerPanel);
+    const inner = entry(innerPanel);
+    push(outer);
+    push(inner);
+
+    expect(isInsideEscapableAbove(outer, inInner)).toBe(true);
+    expect(isInsideEscapableAbove(outer, inOuter)).toBe(false);
+    expect(isInsideEscapableAbove(inner, inOuter)).toBe(false);
+  });
+
+  it("is false for an entry that is not open", () => {
+    const panel = document.createElement("div");
+    push(entry(panel));
+    expect(isInsideEscapableAbove(entry(), panel)).toBe(false);
   });
 });

@@ -112,7 +112,7 @@ const tabModel = computed<string>({
       {{ t("settings.config-file-not-writable-desc") }}
     </RAlert>
 
-    <RTabNav v-model="tabModel" :items="tabs" class="r-v2-lib__tabs" />
+    <RTabNav v-model="tabModel" :items="tabs" />
 
     <FolderMappingsSection v-if="tab === 'mapping'" />
     <ExcludedSection v-else-if="tab === 'excluded'" />
@@ -120,9 +120,3 @@ const tabModel = computed<string>({
     <MissingFirmwareSection v-else-if="tab === 'missing-firmware'" />
   </div>
 </template>
-
-<style scoped>
-.r-v2-lib__tabs {
-  margin-bottom: 20px;
-}
-</style>

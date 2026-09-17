@@ -3,8 +3,10 @@ import type { MusicTrackSchema, TrackMetaSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import {
   isAudioFile,
+  nowPlayingCaption,
   panelTracksFromCatalog,
   panelTracksFromRom,
+  playerCoverUrl,
   romFolderCoverUrl,
 } from "./soundtrackTracks";
 
@@ -108,5 +110,32 @@ describe("romFolderCoverUrl", () => {
 
   it("is undefined when the folder has no image", () => {
     expect(romFolderCoverUrl(rom([romFile(1, "song.mp3")]))).toBeUndefined();
+  });
+});
+
+describe("nowPlayingCaption", () => {
+  it("prefers the album and falls back to the artist", () => {
+    expect(nowPlayingCaption({ album: "OST", artist: "Composer" })).toBe("OST");
+    expect(nowPlayingCaption({ album: null, artist: "Composer" })).toBe(
+      "Composer",
+    );
+    expect(nowPlayingCaption({})).toBe("");
+    expect(nowPlayingCaption(undefined)).toBe("");
+  });
+});
+
+describe("playerCoverUrl", () => {
+  it("walks from the track's art to the ROM's, then the default", () => {
+    expect(
+      playerCoverUrl({ coverUrl: "/track.jpg", gameArtworkUrl: "/game.jpg" }),
+    ).toBe("/track.jpg");
+    expect(
+      playerCoverUrl({
+        folderCoverUrl: "/folder.jpg",
+        gameArtworkUrl: "/game.jpg",
+      }),
+    ).toBe("/folder.jpg");
+    expect(playerCoverUrl({ gameArtworkUrl: "/game.jpg" })).toBe("/game.jpg");
+    expect(playerCoverUrl({})).toBe("/assets/default/album_cover.jpg");
   });
 });
