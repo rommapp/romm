@@ -1,24 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { expectNoUnhandledRejection } from "@/test-utils/unhandledRejection";
+import {
+  skippedReady,
+  stubStartViewTransition,
+} from "@/test-utils/viewTransition";
 import { startViewTransition } from "./index";
-
-const skipped = () => new DOMException("Transition was skipped", "AbortError");
-
-// happy-dom has no View Transitions API, so the native call is always stubbed.
-// The stub runs the update callback, as the browser does even when it skips.
-function stubNativeTransition(ready: Promise<void>) {
-  Object.defineProperty(document, "startViewTransition", {
-    configurable: true,
-    value: vi.fn((callback?: () => Promise<void>) => {
-      void callback?.();
-      return {
-        updateCallbackDone: Promise.resolve(),
-        ready,
-        finished: Promise.resolve(),
-        skipTransition: () => {},
-      };
-    }),
-  });
-}
 
 afterEach(() => {
   Reflect.deleteProperty(document, "startViewTransition");
@@ -26,7 +12,7 @@ afterEach(() => {
 
 describe("startViewTransition", () => {
   it("invokes the callback once when the native API is available", async () => {
-    stubNativeTransition(Promise.resolve());
+    stubStartViewTransition(Promise.resolve());
     const callback = vi.fn(async () => {});
 
     const transition = startViewTransition(callback);
@@ -36,11 +22,11 @@ describe("startViewTransition", () => {
   });
 
   it("invokes the callback once when a native transition is preempted", async () => {
-    stubNativeTransition(Promise.reject(skipped()));
+    stubStartViewTransition(skippedReady());
     const callback = vi.fn(async () => {});
 
     const transition = startViewTransition(callback);
-    await transition.ready.catch(() => {});
+    await transition.ready;
 
     expect(callback).toHaveBeenCalledTimes(1);
   });
@@ -55,5 +41,30 @@ describe("startViewTransition", () => {
     await expect(transition.ready).resolves.toBeUndefined();
     await expect(transition.finished).resolves.toBeUndefined();
     expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves ready when the browser skips a preempted transition", async () => {
+    stubStartViewTransition(skippedReady());
+
+    await expect(startViewTransition().ready).resolves.toBeUndefined();
+  });
+
+  it("keeps a ready failure that is not a preemption skip", async () => {
+    stubStartViewTransition(
+      Promise.reject(new Error("navigation setup failed")),
+    );
+
+    await expect(startViewTransition().ready).rejects.toThrow(
+      "navigation setup failed",
+    );
+  });
+
+  it("leaves no unhandled rejection behind when a transition is preempted", async () => {
+    await expectNoUnhandledRejection(async () => {
+      stubStartViewTransition(skippedReady());
+
+      const transition = startViewTransition();
+      await transition.captured;
+    });
   });
 });

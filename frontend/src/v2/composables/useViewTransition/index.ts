@@ -25,6 +25,7 @@
 import { nextTick, ref } from "vue";
 import type { RouteLocationNormalized, Router } from "vue-router";
 import { ROUTES } from "@/plugins/router";
+import { absorbPreemptionSkip } from "@/plugins/transition";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 // Routes that paint a `rom-cover-<id>` hero, so any pair of them can morph.
@@ -85,6 +86,10 @@ export function useViewTransition() {
     const transition = document.startViewTransition(async () => {
       await navigate();
     });
+
+    // `navigate()` starts the router's transition while this one is still
+    // capturing, so the browser skips this one.
+    void absorbPreemptionSkip(transition.ready);
 
     // Clean up the inline style after the transition finishes — the
     // source element usually unmounts during navigate(), but if a route
@@ -169,6 +174,9 @@ export function installBackMorph(router: Router): () => void {
         await nextTick();
         await nextTick();
       });
+      // A navigation during the capture phase preempts this transition, same
+      // as the forward morph's.
+      void absorbPreemptionSkip(transition.ready);
       transition.finished.finally(() => {
         pendingMorphName.value = null;
       });

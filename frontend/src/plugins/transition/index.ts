@@ -6,6 +6,16 @@ interface ViewTransition {
   skipTransition: () => void;
 }
 
+// A transition the browser preempts is skipped, which rejects `ready` with
+// AbortError. Rethrow anything else so real transition failures stay visible.
+export function absorbPreemptionSkip(ready: Promise<void>): Promise<void> {
+  return ready.catch((reason: unknown) => {
+    if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+      throw reason;
+    }
+  });
+}
+
 export function startViewTransition(
   callback?: () => Promise<void>,
 ): ViewTransition {
@@ -38,7 +48,7 @@ export function startViewTransition(
   return {
     captured,
     updateCallbackDone: nativeViewTransition.updateCallbackDone,
-    ready: nativeViewTransition.ready,
+    ready: absorbPreemptionSkip(nativeViewTransition.ready),
     finished: nativeViewTransition.finished,
     skipTransition:
       nativeViewTransition.skipTransition.bind(nativeViewTransition),
