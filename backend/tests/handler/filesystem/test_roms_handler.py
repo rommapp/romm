@@ -2262,6 +2262,20 @@ class TestSigilTitleIdExtraction:
 
         assert [source.path.name for source in ordered] == ["Game.chd", "game.chd"]
 
+    def test_disc_numbers_sort_numerically(self):
+        names = ["Game (Disc 10).chd", "Game (Disc 2).chd"]
+        sources = [
+            _TitleIdSource(Path("/roms/Game") / name, RomFile(file_name=name))
+            for name in names
+        ]
+
+        ordered = sorted(sources, key=_TitleIdSource.order)
+
+        assert [source.path.name for source in ordered] == [
+            "Game (Disc 2).chd",
+            "Game (Disc 10).chd",
+        ]
+
     @pytest.mark.asyncio
     async def test_incremental_rescan_rereads_an_unchanged_flat_rom(
         self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None

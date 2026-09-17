@@ -42,11 +42,8 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
             entry_path = Path(candidate)
             if not entry_path.is_absolute():
                 entry_path = m3u_path.parent / entry_path
-            try:
-                if entry_path.is_file():
-                    return entry_path
-            except OSError:
-                return None
+            if entry_path.is_file():
+                return entry_path
         return None
     return None
 

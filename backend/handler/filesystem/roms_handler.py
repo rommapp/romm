@@ -60,7 +60,7 @@ from utils.archives import (
     read_zip_archive_files,
     read_zip_file,
 )
-from utils.filesystem import iter_files
+from utils.filesystem import COMPRESSED_FILE_EXTENSIONS, iter_files
 from utils.hashing import crc32_to_hex
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -309,8 +309,22 @@ NON_BINARY_FILE_CATEGORIES: Final = DOCUMENT_CATEGORIES | {
 def _holds_title_id(path: Path, category: RomFileCategory | None) -> bool:
     """Whether sigil can read a title id from this file."""
     return (
-        not path.name.lower().endswith(tuple(ARCHIVE_READERS))
+        not path.name.lower().endswith(tuple(COMPRESSED_FILE_EXTENSIONS))
         and category not in NON_BINARY_FILE_CATEGORIES
+    )
+
+
+_DIGIT_RUN_RE: Final = re.compile(r"(\d+)")
+_NameKey = tuple[tuple[int, str], ...]
+
+
+def _natural_name_key(name: str) -> _NameKey:
+    """A name split into text and number runs, so "Disc 2" precedes "Disc 10"."""
+    # The -1 keeps text and numbers in separate lanes, never compared to each other.
+    return tuple(
+        (int(part), "") if part.isdigit() else (-1, part)
+        for part in _DIGIT_RUN_RE.split(name)
+        if part
     )
 
 
@@ -319,9 +333,13 @@ class _TitleIdSource:
     path: Path
     rom_file: RomFile
 
-    def order(self) -> tuple[Path, str, str]:
+    def order(self) -> tuple[Path, _NameKey, str]:
         """A folder's own files before its subfolders', each by name."""
-        return self.path.parent, self.path.name.casefold(), self.path.name
+        return (
+            self.path.parent,
+            _natural_name_key(self.path.name.casefold()),
+            self.path.name,
+        )
 
 
 # Exclusion patterns holding one of these need fnmatch; the rest match literally.
@@ -596,10 +614,16 @@ class FSRomsHandler(FSHandler):
         # non-hashable platforms like Switch.
         sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
         is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
+        is_multi_part = await AnyioPath(f"{abs_fs_path}/{rom.fs_name}").is_dir()
         sigil_extractions: list[SigilExtractionResult] = []
         embed_candidates: list[TitleIdEmbedCandidate] = []
         title_id_sources: list[_TitleIdSource] = []
         sigil_service = SigilService()
+
+        def _record_title_id_source(path: Path, rom_file: RomFile) -> None:
+            """Queue a file for extraction when sigil can read a title id from it."""
+            if sigil_platform and _holds_title_id(path, rom_file.category):
+                title_id_sources.append(_TitleIdSource(path, rom_file))
 
         async def _extract_title_id(source: _TitleIdSource) -> None:
             """Read the source's title id, recording it and any category it settles."""
@@ -640,7 +664,6 @@ class FSRomsHandler(FSHandler):
         rom_dir = Path(abs_fs_path, rom.fs_name)
         rom_ext = f".{rom.fs_extension.lower()}" if rom.fs_extension else ""
 
-        is_multi_part = await AnyioPath(f"{abs_fs_path}/{rom.fs_name}").is_dir()
         if is_multi_part:
             rel_rom_dir = str(rom_dir.relative_to(self.base_path))
             entries = await asyncio.to_thread(self._list_rom_dir, rom_dir, cnfg)
@@ -694,8 +717,7 @@ class FSRomsHandler(FSHandler):
                     )
                 ):
                     rom_files.append(row)
-                    if sigil_platform and _holds_title_id(abs_file_path, row.category):
-                        title_id_sources.append(_TitleIdSource(abs_file_path, row))
+                    _record_title_id_source(abs_file_path, row)
                     continue
 
                 if hashable_platform:
@@ -746,8 +768,7 @@ class FSRomsHandler(FSHandler):
                 )
                 # Extract from every ROM file (base, updates and DLC in
                 # subfolders), not just the top-level one.
-                if sigil_platform and _holds_title_id(abs_file_path, rom_file.category):
-                    title_id_sources.append(_TitleIdSource(abs_file_path, rom_file))
+                _record_title_id_source(abs_file_path, rom_file)
                 rom_files.append(rom_file)
         elif (
             existing_by_key is not None
@@ -757,8 +778,7 @@ class FSRomsHandler(FSHandler):
         ):
             rom_files.append(flat_row)
             top_level_changed = False
-            if sigil_platform and _holds_title_id(rom_dir, flat_row.category):
-                title_id_sources.append(_TitleIdSource(rom_dir, flat_row))
+            _record_title_id_source(rom_dir, flat_row)
         elif hashable_platform and rom_ext in ARCHIVE_READERS:
             # Multi-file archive: compute a composite hash across all
             # internal entries (in ASCII path order) for hash-database
@@ -904,8 +924,7 @@ class FSRomsHandler(FSHandler):
             rom_files.append(rom_file)
             # Archives keep hashes only; sigil reads title ids from the ROM
             # binary itself.
-            if sigil_platform and _holds_title_id(rom_dir, rom_file.category):
-                title_id_sources.append(_TitleIdSource(rom_dir, rom_file))
+            _record_title_id_source(rom_dir, rom_file)
 
         # Listings come in no fixed order; a ROM is identified by its first disc,
         # and only Switch reads past it for each file's content type.
