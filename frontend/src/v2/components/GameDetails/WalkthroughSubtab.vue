@@ -46,7 +46,12 @@ type WalkthroughEntry = {
   kind: ViewerKind;
 };
 
-const props = defineProps<{ rom: DetailedRom }>();
+const props = defineProps<{
+  rom: DetailedRom;
+  /** Drop the Upload button when the parent renders it elsewhere (through
+   *  the exposed `openUpload`). */
+  hideUpload?: boolean;
+}>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const { refetchRom } = useRomSync();
@@ -127,6 +132,12 @@ async function confirmFolderConversionIfNeeded(): Promise<boolean> {
 
 // ---------- Upload ----------
 const walkthroughDz = ref<InstanceType<typeof RDropzone> | null>(null);
+const canUpload = computed(() => entries.value.length > 0 && canEdit.value);
+
+defineExpose({
+  canUpload,
+  openUpload: () => walkthroughDz.value?.open(),
+});
 
 async function handleFiles(files: File[]) {
   await uploadFiles(props.rom, ROM_UPLOAD_FOLDERS.walkthrough, files);
@@ -199,6 +210,7 @@ async function requestDelete() {
       <div v-if="canEdit" class="r-v2-wt__url">
         <RTextField
           v-model="gamefaqsUrl"
+          class="r-v2-wt__url-field"
           :placeholder="t('rom.walkthrough-url-label')"
           density="compact"
           variant="outlined"
@@ -273,7 +285,7 @@ async function requestDelete() {
       </div>
     </RDropzone>
 
-    <div v-if="entries.length > 0 && canEdit">
+    <div v-if="canUpload && !hideUpload">
       <RBtn
         block
         variant="outlined"
@@ -323,6 +335,21 @@ async function requestDelete() {
   min-height: 30rem;
   display: flex;
   flex-direction: column;
+}
+/* Phones: the entry picker and the URL form each take a full row, with the
+   field shrinking so the "add from URL" button never pushes past the edge. */
+html[data-bp~="sm-and-down"] .r-v2-wt__spacer {
+  display: none;
+}
+html[data-bp~="sm-and-down"] .r-v2-wt__select,
+html[data-bp~="sm-and-down"] .r-v2-wt__url {
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: none;
+}
+html[data-bp~="sm-and-down"] .r-v2-wt__url-field {
+  flex: 1;
+  min-width: 0;
 }
 .r-v2-wt__viewer {
   flex: 1;

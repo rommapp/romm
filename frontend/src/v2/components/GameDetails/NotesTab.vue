@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// NotesTab — per-ROM notes with a left index (own + community sections)
-// and a right pane that swaps between MdPreview (read) and MdEditor
-// (edit-in-place). Public/private toggles via a single icon button (no
-// dialog), edits save inline, and the active note is URL-persistent via
-// `?note=<id>` so links deep-link straight to a specific note.
+// NotesTab: per-ROM notes with a left index (own + community sections;
+// a grouped note picker on phones) and a right pane that swaps between
+// MdPreview (read) and MdEditor (edit-in-place). Public/private toggles via a
+// single icon button (no dialog), edits save inline, and the active note is
+// URL-persistent via `?note=<id>` so links deep-link straight to a specific
+// note.
 import {
   REmptyState,
   RAvatar,
@@ -23,6 +24,10 @@ import type { UserNoteSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
+import SubtabNav, {
+  type SubtabNavItem,
+} from "@/v2/components/GameDetails/SubtabNav.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -42,6 +47,7 @@ const route = useRoute();
 const router = useRouter();
 const { isLight: isLightTheme } = useThemeMode();
 const { user } = storeToRefs(authStore);
+const { smAndDown } = useBreakpoint();
 
 const mdTheme = computed<"light" | "dark">(() =>
   isLightTheme.value ? "light" : "dark",
@@ -68,6 +74,44 @@ const communityNotes = computed<UserNoteSchema[]>(() =>
     .slice()
     .sort((a, b) => a.title.localeCompare(b.title)),
 );
+
+// Picker entries for phones, own notes first, matching the desktop index.
+const noteNavItems = computed<SubtabNavItem[]>(() => [
+  ...myNotes.value.map((n) => ({
+    id: String(n.id),
+    label: n.title,
+    group: t("rom.my-notes"),
+  })),
+  ...communityNotes.value.map((n) => ({
+    id: String(n.id),
+    label: n.title,
+    group: t("rom.notes-community"),
+  })),
+]);
+
+// Row decorations keyed by picker id: an author avatar and name for
+// community notes, a lock for private own notes.
+const noteNavExtras = computed(() => {
+  const extras = new Map<
+    string,
+    { author: { name: string; avatar: string } | null; locked: boolean }
+  >();
+  for (const n of myNotes.value) {
+    extras.set(String(n.id), { author: null, locked: !n.is_public });
+  }
+  for (const n of communityNotes.value) {
+    const avatar = userAvatarUrl({
+      userId: n.user_id,
+      avatarPath: n.user_avatar_path,
+      updatedAt: n.user_updated_at,
+    });
+    extras.set(String(n.id), {
+      author: { name: n.username, avatar },
+      locked: false,
+    });
+  }
+  return extras;
+});
 
 const hasAnyNotes = computed(
   () => myNotes.value.length > 0 || communityNotes.value.length > 0,
@@ -320,7 +364,46 @@ function fmtDate(iso: string): string {
     </REmptyState>
 
     <div v-else class="r-v2-notes__body">
-      <aside class="r-v2-notes__index">
+      <SubtabNav
+        v-if="smAndDown && !editForm"
+        :model-value="selectedNoteId === null ? '' : String(selectedNoteId)"
+        :items="noteNavItems"
+        variant="menu"
+        @update:model-value="(id) => selectNote(Number(id))"
+      >
+        <template #item-append="{ item }">
+          <span
+            v-if="noteNavExtras.get(item.id)?.author"
+            class="r-v2-notes__nav-author"
+          >
+            <RAvatar
+              :image="noteNavExtras.get(item.id)?.author?.avatar"
+              size="18"
+            />
+            <span>{{ noteNavExtras.get(item.id)?.author?.name }}</span>
+          </span>
+          <RIcon
+            v-else-if="noteNavExtras.get(item.id)?.locked"
+            icon="mdi-lock"
+            size="13"
+            class="r-v2-notes__nav-lock"
+          />
+        </template>
+        <template #actions>
+          <RBtn
+            :disabled="!canCreate"
+            variant="outlined"
+            size="small"
+            density="comfortable"
+            prepend-icon="mdi-plus"
+            @click="startAdd"
+          >
+            {{ t("rom.notes-add") }}
+          </RBtn>
+        </template>
+      </SubtabNav>
+
+      <aside v-if="!smAndDown" class="r-v2-notes__index">
         <template v-if="myNotes.length > 0">
           <div class="r-v2-notes__group-label">{{ t("rom.my-notes") }}</div>
           <ul class="r-v2-notes__group">
@@ -661,7 +744,7 @@ function fmtDate(iso: string): string {
 .r-v2-notes__nav-item--rich {
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: var(--r-space-2);
   padding: 10px 12px;
 }
 .r-v2-notes__nav-title {
@@ -705,7 +788,7 @@ function fmtDate(iso: string): string {
 .r-v2-notes__pane-title-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-2);
   min-width: 0;
   flex: 1;
 }
@@ -808,10 +891,7 @@ function fmtDate(iso: string): string {
   font-style: italic;
 }
 
-html[data-bp~="xs"] .r-v2-notes__body {
+html[data-bp~="sm-and-down"] .r-v2-notes__body {
   grid-template-columns: 1fr;
-}
-html[data-bp~="xs"] .r-v2-notes__index {
-  position: static;
 }
 </style>

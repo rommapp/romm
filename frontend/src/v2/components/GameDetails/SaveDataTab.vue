@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // SaveDataTab — Saves + States, each its own subtab with badge counts
 // and per-tab Upload affordance. Layout mirrors ScreenshotsSubtab: a
-// vertical subtab list on the left (navigation only — no inline action
-// panel), and per-section headers in the content column with the
+// vertical subtab list on the left (a subtab picker above the content on
+// phones; navigation only, no inline action panel), and per-section
+// headers in the content column with the
 // Upload button on the right when the section already has items. Empty
 // sections promote the dropzone CTA (the dropzone owns the upload
 // affordance there).
@@ -15,7 +16,7 @@
 // URL-persistent subtab selection via `?subtab=` so deep-linking
 // into a specific list works and stale state doesn't leak when the
 // user navigates to a sibling tab.
-import { RBtn, RDropzone, RIcon } from "@v2/lib";
+import { RBtn, RDropzone } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -33,11 +34,15 @@ import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import { getSupportedEJSCores } from "@/utils";
 import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
+import SubtabNav, {
+  type SubtabNavItem,
+} from "@/v2/components/GameDetails/SubtabNav.vue";
 import UploadAssetDialog, {
   type UploadAssetPayload,
 } from "@/v2/components/GameDetails/UploadAssetDialog.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -54,6 +59,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
 const { t } = useI18n();
+const { smAndDown } = useBreakpoint();
 
 // ---------- Subtab state (URL-persisted via `?subtab=`) ----------
 const validSubtabs = ["saves", "states"] as const;
@@ -127,10 +133,19 @@ const savesCount = computed(() => allSaves.value.length);
 const statesCount = computed(() => allStates.value.length);
 
 // ---------- Subtab nav definitions ----------
-type SubtabDef = { id: Subtab; label: string; icon: string };
-const subtabDefs = computed<SubtabDef[]>(() => [
-  { id: "saves", label: t("rom.saves-tab"), icon: "mdi-content-save-outline" },
-  { id: "states", label: t("rom.states-tab"), icon: "mdi-camera-outline" },
+const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => [
+  {
+    id: "saves",
+    label: t("rom.saves-tab"),
+    icon: "mdi-content-save-outline",
+    badge: savesCount.value,
+  },
+  {
+    id: "states",
+    label: t("rom.states-tab"),
+    icon: "mdi-camera-outline",
+    badge: statesCount.value,
+  },
 ]);
 
 // ---------- Upload / refresh plumbing ----------
@@ -168,6 +183,19 @@ async function onUploadSubmit({
 }
 const uploadingSaves = ref(false);
 const uploadingStates = ref(false);
+
+// On phones the active subtab's Upload moves from the "Mine" section header
+// into the subtab picker's row.
+const pickerRowUpload = computed(() => {
+  if (subTab.value === "saves") {
+    return mySaves.value.length > 0
+      ? { type: "save" as const, busy: uploadingSaves.value }
+      : null;
+  }
+  return myStates.value.length > 0
+    ? { type: "state" as const, busy: uploadingStates.value }
+    : null;
+});
 
 const snackbar = useSnackbar();
 const confirm = useConfirm();
@@ -342,37 +370,29 @@ async function toggleStateVisibility(state: StateSchema) {
 
 <template>
   <div class="r-v2-saves">
-    <aside class="r-v2-saves__sidebar">
-      <ul
-        class="r-v2-saves__subtabs"
-        role="tablist"
-        aria-orientation="vertical"
-      >
-        <li v-for="tab in subtabDefs" :key="tab.id" class="r-v2-saves__subtab">
-          <button
-            type="button"
-            role="tab"
-            class="r-v2-saves__subtab-btn"
-            :class="{
-              'r-v2-saves__subtab-btn--active': subTab === tab.id,
-            }"
-            :aria-selected="subTab === tab.id"
-            @click="subTab = tab.id"
-          >
-            <RIcon :icon="tab.icon" size="16" />
-            <span class="r-v2-saves__subtab-label">{{ tab.label }}</span>
-            <span
-              v-if="
-                (tab.id === 'saves' && savesCount) ||
-                (tab.id === 'states' && statesCount)
-              "
-              class="r-v2-saves__subtab-badge"
-            >
-              {{ tab.id === "saves" ? savesCount : statesCount }}
-            </span>
-          </button>
-        </li>
-      </ul>
+    <SubtabNav
+      v-if="smAndDown"
+      v-model="subTab"
+      :items="subtabDefs"
+      variant="menu"
+    >
+      <template #actions>
+        <RBtn
+          v-if="pickerRowUpload"
+          variant="outlined"
+          size="small"
+          density="comfortable"
+          prepend-icon="mdi-cloud-upload-outline"
+          :loading="pickerRowUpload.busy"
+          :disabled="pickerRowUpload.busy"
+          @click="openUpload(pickerRowUpload.type)"
+        >
+          {{ t("common.upload") }}
+        </RBtn>
+      </template>
+    </SubtabNav>
+    <aside v-else class="r-v2-saves__sidebar">
+      <SubtabNav v-model="subTab" :items="subtabDefs" />
     </aside>
 
     <div class="r-v2-saves__content">
@@ -387,7 +407,7 @@ async function toggleStateVisibility(state: StateSchema) {
               </h3>
             </div>
             <RBtn
-              v-if="mySaves.length > 0"
+              v-if="mySaves.length > 0 && !smAndDown"
               variant="outlined"
               size="small"
               prepend-icon="mdi-cloud-upload-outline"
@@ -478,7 +498,7 @@ async function toggleStateVisibility(state: StateSchema) {
               </h3>
             </div>
             <RBtn
-              v-if="myStates.length > 0"
+              v-if="myStates.length > 0 && !smAndDown"
               variant="outlined"
               size="small"
               prepend-icon="mdi-cloud-upload-outline"
@@ -587,59 +607,6 @@ async function toggleStateVisibility(state: StateSchema) {
   flex-shrink: 0;
 }
 
-/* Subtab list — navigation only. Per-section actions (Upload) live
-   in the content column's section headers, not under the sidebar. */
-.r-v2-saves__subtabs {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.r-v2-saves__subtab {
-  display: flex;
-  flex-direction: column;
-}
-.r-v2-saves__subtab-btn {
-  width: 100%;
-  appearance: none;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg-muted);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: var(--r-font-weight-medium);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-saves__subtab-btn:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-.r-v2-saves__subtab-btn--active {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
-  color: var(--r-color-brand-primary);
-}
-.r-v2-saves__subtab-label {
-  flex: 1;
-}
-.r-v2-saves__subtab-badge {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, currentColor 18%, transparent);
-}
-
 .r-v2-saves__content {
   flex: 1;
   min-width: 0;
@@ -677,11 +644,8 @@ async function toggleStateVisibility(state: StateSchema) {
   color: var(--r-color-fg);
 }
 
-html[data-bp~="xs"] .r-v2-saves {
+html[data-bp~="sm-and-down"] .r-v2-saves {
   flex-direction: column;
   gap: 14px;
-}
-html[data-bp~="xs"] .r-v2-saves__sidebar {
-  width: auto;
 }
 </style>
