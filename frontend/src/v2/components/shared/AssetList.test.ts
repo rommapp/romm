@@ -6,6 +6,9 @@ import AssetList from "./AssetList.vue";
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key, locale: "en_US" }),
 }));
+vi.mock("@/stores/streaming", () => ({
+  useStreamingStore: () => ({ emulatorLabel: (id: string) => id }),
+}));
 
 const RBtn = {
   emits: ["click"],

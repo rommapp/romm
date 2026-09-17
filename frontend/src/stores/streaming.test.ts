@@ -14,6 +14,7 @@ describe("platformCapabilities disc flags", () => {
     const store = useStreamingStore();
     store.config = {
       enabled: true,
+      emulator_labels: {},
       containers: [
         {
           platform: "dc",
@@ -40,6 +41,25 @@ describe("platformCapabilities disc flags", () => {
   it("reports no disc swap for an unconfigured platform", () => {
     const store = useStreamingStore();
     expect(store.platformCapabilities("dc").supportsDiscSwap).toBe(false);
+  });
+});
+
+describe("emulator labels", () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it("names an emulator by the label the backend ships", () => {
+    const store = useStreamingStore();
+    store.config = {
+      enabled: true,
+      containers: [],
+      emulator_labels: { play: "Play!" },
+    };
+    expect(store.emulatorLabel("play")).toBe("Play!");
+  });
+
+  it("falls back to the id for an emulator it was told nothing about", () => {
+    const store = useStreamingStore();
+    expect(store.emulatorLabel("snes9x")).toBe("snes9x");
   });
 });
 

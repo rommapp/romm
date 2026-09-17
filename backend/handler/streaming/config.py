@@ -52,6 +52,7 @@ _EMULATOR_DISPLAY_NAMES: dict[str, str] = {
     "eden": "Eden",
     "flycast": "Flycast",
     "pcsx2": "PCSX2",
+    "play": "Play!",
     "ppsspp": "PPSSPP",
     "rpcs3": "RPCS3",
     "shadps4": "shadPS4",
@@ -119,6 +120,12 @@ _RETROARCH_CORE_NAMES: dict[str, str] = {
     "wonderswan-color": "Beetle WonderSwan",
     "zxs": "Fuse",
 }
+
+
+def emulator_labels() -> dict[str, str]:
+    """Display name per emulator id, for surfaces that label an id they were
+    handed rather than one they resolved (a save's `emulator`, say)."""
+    return dict(_EMULATOR_DISPLAY_NAMES)
 
 
 def emulator_display_label(emulator: str, platform: str) -> str:

@@ -6,6 +6,11 @@ import AssetChips from "./AssetChips.vue";
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
+vi.mock("@/stores/streaming", () => ({
+  useStreamingStore: () => ({
+    emulatorLabel: (id: string) => (id === "play" ? "Play!" : id),
+  }),
+}));
 
 const RTag = {
   props: { text: { type: String, default: "" } },
@@ -14,7 +19,9 @@ const RTag = {
 
 const save = { file_size_bytes: 2048, emulator: "snes9x" } as SaveSchema;
 
-function chips(props: { latest?: boolean; showEmulator?: boolean } = {}) {
+function chips(
+  props: { latest?: boolean; showEmulator?: boolean; asset?: SaveSchema } = {},
+) {
   return mount(AssetChips, {
     props: { asset: save, ...props },
     global: { stubs: { RTag, RIcon: true } },
@@ -27,6 +34,12 @@ describe("AssetChips", () => {
 
     expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual(["snes9x"]);
     expect(wrapper.get(".r-asset-chips__size").text()).toContain("2 KB");
+  });
+
+  it("names the emulator the way the backend labels it", () => {
+    const wrapper = chips({ asset: { ...save, emulator: "play" } });
+
+    expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual(["Play!"]);
   });
 
   it("tags the latest version and can hide the emulator", () => {

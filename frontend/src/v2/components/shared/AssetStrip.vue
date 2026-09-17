@@ -4,6 +4,7 @@
 import { RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useStreamingStore } from "@/stores/streaming";
 import { formatTimestamp } from "@/utils";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
@@ -54,6 +55,7 @@ defineSlots<{
 }>();
 
 const { t, locale } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 
 const emptyLabel = computed(() =>
   props.type === "save"
@@ -98,7 +100,7 @@ const groups = computed<AssetGroup[]>(() => {
     if (!group) {
       group = {
         key,
-        label: key || t("play.any-core"),
+        label: emulatorLabel(key) || t("play.any-core"),
         assets: [],
         disabled: true,
         newest: "",

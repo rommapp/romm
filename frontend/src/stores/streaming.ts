@@ -39,6 +39,7 @@ export const useStreamingStore = defineStore("streaming", () => {
   const config = ref<StreamingConfig>({
     enabled: false,
     containers: [],
+    emulator_labels: {},
   });
   const launchingSession = ref<LaunchingSession | null>(null);
   const loading = ref(false);
@@ -77,6 +78,15 @@ export const useStreamingStore = defineStore("streaming", () => {
     const container = containerForPlatform(slug);
     if (!container) return null;
     return container.label || container.emulator || null;
+  }
+
+  /**
+   * What to call an emulator a save or state is tagged with. The backend owns
+   * the display names, so an id it does not name is shown as it stands.
+   */
+  function emulatorLabel(emulator: string | null | undefined): string {
+    if (!emulator) return "";
+    return config.value.emulator_labels[emulator] ?? emulator;
   }
 
   /**
@@ -121,6 +131,7 @@ export const useStreamingStore = defineStore("streaming", () => {
       config.value = {
         enabled: data.enabled ?? false,
         containers: data.containers ?? [],
+        emulator_labels: data.emulator_labels ?? {},
       };
     } catch (err) {
       error.value = String(err);
@@ -392,6 +403,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     isEnabled,
     containerForPlatform,
     containerLabelForPlatform,
+    emulatorLabel,
     platformCapabilities,
     fetchConfig,
     claimSession,

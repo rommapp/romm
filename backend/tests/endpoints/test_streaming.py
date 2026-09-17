@@ -320,6 +320,16 @@ def test_get_config_ships_platform_capabilities(client, access_token):
     }
 
 
+def test_get_config_ships_the_emulator_labels(client, access_token):
+    """Saves and states are tagged with the emulator that wrote them, so the
+    display names ride along rather than being copied into the frontend."""
+    with _streaming({"platform": "ps2", "host": "http://192.168.1.10:3000"}):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    labels = r.json()["emulator_labels"]
+    assert labels["pcsx2"] == "PCSX2"
+    assert labels["play"] == "Play!"
+
+
 def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_token):
     """RetroArch serves dozens of platforms, none of them listed by name. Without
     a fallback they all reported no states and the player offered no save

@@ -35,6 +35,9 @@ class StreamingContainerSchema(BaseModel):
 class StreamingConfigSchema(BaseModel):
     enabled: bool
     containers: list[StreamingContainerSchema]
+    emulator_labels: dict[str, str]
+    """Display name per emulator id, so a save or state tagged with one can be
+    labelled without a second copy of the map on the frontend."""
 
 
 class SessionTerminationSchema(BaseModel):

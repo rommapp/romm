@@ -71,6 +71,7 @@ from handler.streaming.config import (
     container_for_session,
     containers_by_key,
     containers_for_platform,
+    emulator_labels,
     resolve_containers,
     streaming_enabled,
 )
@@ -302,7 +303,9 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         }
 
     return StreamingConfigSchema(
-        enabled=streaming_enabled(), containers=list(safe_containers.values())
+        enabled=streaming_enabled(),
+        containers=list(safe_containers.values()),
+        emulator_labels=emulator_labels(),
     )
 
 
