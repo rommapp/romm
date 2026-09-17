@@ -302,10 +302,11 @@ export const useStreamingStore = defineStore("streaming", () => {
    */
   async function heartbeatSession(
     platform: string,
+    container?: string,
   ): Promise<SessionStatus | null> {
     if (!platform) return null;
     try {
-      const { data } = await streamingApi.heartbeatSession(platform);
+      const { data } = await streamingApi.heartbeatSession(platform, container);
       return data;
     } catch (err) {
       console.warn("[streaming] Could not heartbeat session:", err);

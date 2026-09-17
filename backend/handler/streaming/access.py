@@ -107,25 +107,34 @@ async def find_session_for_user(
     return None
 
 
+def named_container(platform: str, container_key: str) -> ResolvedContainer:
+    """One named container serving a platform.
+
+    Found by key rather than through the pool, so a session on a container left
+    out of the pool can still be reached. Raises 404 when the key names no
+    container serving this platform.
+    """
+    candidate = entry_for_platform(containers_by_key().get(container_key, []), platform)
+    if candidate is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container '{container_key}' for platform '{platform}'",
+        )
+    return candidate
+
+
 async def resolve_named_container(
     platform: str, container_key: str
 ) -> tuple[ResolvedContainer, str, dict[str, Any] | None]:
-    """One named container serving a platform, plus whatever session it holds.
-
-    Found by key rather than through the pool, so a session on a container left
-    out of the pool can still be ended.
+    """A named container plus whatever session it holds.
 
     Returns (container, session_key, session), the session being None when the
-    container is free or draining. Raises 404 when the key names no container
-    serving this platform.
+    container is free or draining.
     """
-    entries = containers_by_key().get(container_key, []) if container_key else []
-    candidate = entry_for_platform(entries, platform)
-    if candidate is not None:
-        return candidate, container_key, await get_live_session(container_key)
-    raise HTTPException(
-        status_code=404,
-        detail=f"No streaming container '{container_key}' for platform '{platform}'",
+    return (
+        named_container(platform, container_key),
+        container_key,
+        await get_live_session(container_key),
     )
 
 

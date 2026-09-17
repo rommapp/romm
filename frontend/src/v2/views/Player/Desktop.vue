@@ -15,6 +15,7 @@ import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import streamingApi from "@/services/api/streaming";
+import { useStreamingStore } from "@/stores/streaming";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
@@ -23,6 +24,7 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const confirm = useConfirm();
+const streamingStore = useStreamingStore();
 
 const containerKey = computed(() => String(route.query.container ?? ""));
 
@@ -95,20 +97,17 @@ async function release(): Promise<boolean> {
 // stale window, and nothing else here touches the claim.
 const HEARTBEAT_MS = 30_000;
 
-useIntervalFn(() => {
-  if (!holdsClaim.value || !platform.value) return;
-  void streamingApi
-    .heartbeatSession(platform.value, containerKey.value)
-    .then(({ data }) => {
-      // Ended elsewhere: dropping the claim keeps a later exit from releasing
-      // whoever holds the container next.
-      if (data.status !== "ended") return;
-      holdsClaim.value = false;
-      state.value = "exited";
-    })
-    .catch((err) =>
-      console.warn("[streaming] Could not heartbeat the desktop session:", err),
-    );
+useIntervalFn(async () => {
+  if (!holdsClaim.value) return;
+  const status = await streamingStore.heartbeatSession(
+    platform.value,
+    containerKey.value,
+  );
+  // Ended elsewhere: dropping the claim keeps a later exit from releasing
+  // whoever holds the container next.
+  if (status?.status !== "ended") return;
+  holdsClaim.value = false;
+  state.value = "exited";
 }, HEARTBEAT_MS);
 
 function backToAdministration(): void {

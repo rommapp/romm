@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import secrets
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse, urlunparse
@@ -561,7 +562,7 @@ def containers_by_key() -> dict[str, list[ResolvedContainer]]:
 
 
 def entry_for_platform(
-    entries: list[ResolvedContainer], platform: str
+    entries: Sequence[ResolvedContainer], platform: str
 ) -> ResolvedContainer | None:
     """The record among one container's entries that serves this platform."""
     lower = platform.lower()
@@ -583,11 +584,8 @@ def container_for_session(
 
 def configured_emulator(platform: str) -> str:
     """The emulator a configured container serves this platform with, if any."""
-    lower = platform.lower()
-    for container in resolve_containers():
-        if container.platform.lower() == lower:
-            return container.emulator
-    return ""
+    entry = entry_for_platform(resolve_containers(), platform)
+    return entry.emulator if entry else ""
 
 
 def streaming_enabled() -> bool:

@@ -1431,20 +1431,21 @@ def test_heartbeat_naming_a_released_container_reports_ended(client, access_toke
     not answer for the named one."""
     outside = _outside_the_ps2_pool()
     with _streaming(_webstation(), outside):
+        key = _key_of(outside)
         assert (
             _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
         )
-        assert _desktop(client, access_token, _key_of(outside))[0].status_code == 200
+        assert _desktop(client, access_token, key)[0].status_code == 200
         with patch("handler.streaming.commands.stop", return_value=None):
             released = client.delete(
                 "/api/streaming/sessions/ps2",
-                params={"container": _key_of(outside)},
+                params={"container": key},
                 headers=_auth(access_token),
             )
         assert released.status_code == 200
         r = client.post(
             "/api/streaming/sessions/ps2/heartbeat",
-            params={"container": _key_of(outside)},
+            params={"container": key},
             headers=_auth(access_token),
         )
     assert r.status_code == 200
