@@ -40,7 +40,7 @@ export interface ListColumn {
   /** Column alignment, applied to the header label and the cell body. */
   align?: "start" | "end";
   /** Digit-bearing value, rendered in tabular figures so the column reads
-   *  as a grid. Dates are numeric but stay start-aligned. */
+   *  as a grid. */
   numeric?: boolean;
   /** Skeleton placeholder width (px) for this column's loading state.
    * `undefined` means the column owns a custom skeleton shape — the
@@ -83,7 +83,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
       key: "created_at",
       label: "Added",
       sortable: true,
-      align: "start",
+      align: "end",
       numeric: true,
       skeletonWidth: 64,
     },
@@ -91,7 +91,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
       key: "first_release_date",
       label: "Released",
       sortable: true,
-      align: "start",
+      align: "end",
       numeric: true,
       skeletonWidth: 40,
     },

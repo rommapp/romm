@@ -595,8 +595,8 @@ function onRowPointerEnd() {
   text-overflow: ellipsis;
 }
 
-/* Quantity columns pin to the column's right edge, so a stack of sizes
-   reads as one edge (the unit suffix) instead of a ragged one. */
+/* Quantities and dates pin to the column's right edge, so the digits line up
+   down the column instead of stepping with the unit or month width. */
 .game-list-row__cell--end {
   text-align: end;
 }
