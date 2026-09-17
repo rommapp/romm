@@ -247,7 +247,6 @@
   "missing-firmware-none": "Nebyl nalezen žádný chybějící firmware",
   "missing-firmware-tab": "Chybějící firmware",
   "missing-games-actions": "Akce pro chybějící hry",
-  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-delete-all": "Delete all missing games",
   "missing-games-none": "Nebyly nalezeny žádné chybějící ROM",
   "missing-games-tab": "Chybějící hry",

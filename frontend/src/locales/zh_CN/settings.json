@@ -247,7 +247,6 @@
   "missing-firmware-none": "未找到缺失的固件",
   "missing-firmware-tab": "缺失固件",
   "missing-games-actions": "缺失游戏操作",
-  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-delete-all": "Delete all missing games",
   "missing-games-none": "未找到缺失的 ROM",
   "missing-games-tab": "缺失游戏",

@@ -25,7 +25,6 @@ from models.permission import PermAction, PermEntity
 from models.platform import (
     CUSTOM_NAME_MAX_LENGTH,
     DESCRIPTION_MAX_LENGTH,
-    Platform,
 )
 from utils.platforms import get_filesystem_platforms, get_supported_platforms
 from utils.router import APIRouter
@@ -88,11 +87,9 @@ def get_platform_identifiers(
     """Retrieve platform identifiers."""
 
     perms = get_permissions(request)
-    platforms = db_platform_handler.get_platforms(
-        only_fields=[Platform.id],
+    return db_platform_handler.get_platform_ids(
         hidden_platform_ids=perms.hidden_platform_ids,
     )
-    return [p.id for p in platforms]
 
 
 @protected_route(router.get, "/supported", [Scope.PLATFORMS_READ])

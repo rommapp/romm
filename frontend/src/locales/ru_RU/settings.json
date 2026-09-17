@@ -247,7 +247,6 @@
   "missing-firmware-none": "Отсутствующие прошивки не найдены",
   "missing-firmware-tab": "Отсутствующие прошивки",
   "missing-games-actions": "Действия с отсутствующими играми",
-  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-delete-all": "Delete all missing games",
   "missing-games-none": "Отсутствующие ROM не найдены",
   "missing-games-tab": "Отсутствующие игры",

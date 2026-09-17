@@ -333,7 +333,7 @@ async function onLogout() {
   border-radius: var(--r-radius-pill) !important;
   padding: 3px 12px 3px 3px !important;
   color: var(--r-color-fg) !important;
-  height: auto !important;
+  height: var(--r-nav-pill-h) !important;
   min-width: 0 !important;
   opacity: 1;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
@@ -350,6 +350,16 @@ async function onLogout() {
 .r-v2-user__name {
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
+}
+
+/* Phones keep the trigger to the avatar so the top bar always has the same
+   room for the scan indicator and the mini player. */
+html[data-bp~="xs"] .r-v2-user {
+  padding: 3px !important;
+}
+html[data-bp~="xs"] .r-v2-user__name,
+html[data-bp~="xs"] .r-v2-user__chevron {
+  display: none;
 }
 
 /* Group section inside the dropdown — small uppercase label above each

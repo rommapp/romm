@@ -247,7 +247,6 @@
   "missing-firmware-none": "Няма намерен липсващ фърмуер",
   "missing-firmware-tab": "Липсващ фърмуер",
   "missing-games-actions": "Действия за липсващи игри",
-  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-delete-all": "Delete all missing games",
   "missing-games-none": "Няма намерени липсващи ROM-ове",
   "missing-games-tab": "Липсващи игри",

@@ -247,7 +247,6 @@
   "missing-firmware-none": "Nie znaleziono brakującego oprogramowania",
   "missing-firmware-tab": "Brakujące oprogramowanie",
   "missing-games-actions": "Akcje brakujących gier",
-  "missing-games-count": "{count} missing game | {count} missing games",
   "missing-games-delete-all": "Delete all missing games",
   "missing-games-none": "Nie znaleziono brakujących ROM-ów",
   "missing-games-tab": "Brakujące gry",

@@ -19,6 +19,7 @@
 // own scroll, so the Settings document scroll stays separate.
 import {
   RBtn,
+  REmptyState,
   RIcon,
   RMenu,
   RMenuItem,
@@ -323,12 +324,9 @@ onBeforeUnmount(() => {
         <RTag
           v-if="metadataLoaded"
           prepend-icon="mdi-folder-question-outline"
-          :text="
-            t('settings.missing-games-count', total, {
-              named: { count: total.toLocaleString() },
-            })
-          "
+          :text="total.toLocaleString()"
           tone="neutral"
+          class="r-v2-missing__count"
         />
         <RMenu location="bottom end" :offset="6" width="220px">
           <template #activator="{ props: activatorProps }">
@@ -353,35 +351,39 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="r-v2-missing__list">
-      <GameListHeader
-        :sort-key="listSortKey"
-        :sort-dir="orderDir"
-        @sort="onListSort"
+    <div
+      class="r-v2-missing__list"
+      :class="{ 'r-v2-missing__list--empty': showEmpty }"
+    >
+      <REmptyState
+        v-if="showEmpty"
+        icon="mdi-folder-question-outline"
+        :title="t('settings.missing-games-none')"
       />
 
-      <div v-if="showEmpty" class="r-v2-missing__empty">
-        <RIcon icon="mdi-folder-question-outline" :size="48" />
-        <p>{{ t("settings.missing-games-none") }}</p>
-      </div>
-
-      <RVirtualScroller
-        v-else
-        :items="virtualItems"
-        :get-item-height="vItemHeight"
-        :overscan="25"
-        class="r-v2-missing__scroller"
-        @update:viewport-range="onViewportRange"
-      >
-        <template #default="{ item }">
-          <GameListRow
-            v-if="isListRow(item as VItem)"
-            :position="rowPosition(item)"
-            :webp="supportsWebp"
-          />
-          <GameListSkeletonRow v-else />
-        </template>
-      </RVirtualScroller>
+      <template v-else>
+        <GameListHeader
+          :sort-key="listSortKey"
+          :sort-dir="orderDir"
+          @sort="onListSort"
+        />
+        <RVirtualScroller
+          :items="virtualItems"
+          :get-item-height="vItemHeight"
+          :overscan="25"
+          class="r-v2-missing__scroller"
+          @update:viewport-range="onViewportRange"
+        >
+          <template #default="{ item }">
+            <GameListRow
+              v-if="isListRow(item as VItem)"
+              :position="rowPosition(item)"
+              :webp="supportsWebp"
+            />
+            <GameListSkeletonRow v-else />
+          </template>
+        </RVirtualScroller>
+      </template>
     </div>
 
     <SelectionBar hide-download />
@@ -435,9 +437,15 @@ onBeforeUnmount(() => {
    slack the platform-select absorbs. */
 .r-v2-missing__actions {
   display: flex;
+  align-self: stretch;
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+/* Stretch to the toolbar row so the chip matches the select and kebab. */
+.r-v2-missing__count {
+  align-self: stretch;
 }
 
 /* List frame — the column header sits at the top, the virtualiser
@@ -455,20 +463,12 @@ onBeforeUnmount(() => {
   background: var(--r-color-bg-elevated);
 }
 
+.r-v2-missing__list--empty {
+  flex: none;
+}
+
 .r-v2-missing__scroller {
   flex: 1;
   min-height: 0;
-}
-
-.r-v2-missing__empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 48px 24px;
-  color: var(--r-color-fg-muted);
-  text-align: center;
 }
 </style>
