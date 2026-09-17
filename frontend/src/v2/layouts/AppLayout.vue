@@ -31,6 +31,7 @@ import SoundtrackMiniPlayer from "@/v2/components/Soundtrack/MiniPlayer.vue";
 import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
 import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
 import { installPermissionsHydration } from "@/v2/composables/useCan";
+import { useCrtMode } from "@/v2/composables/useCrtMode";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { installGalleryProvenance } from "@/v2/composables/useGalleryProvenance";
 import { useGamepad } from "@/v2/composables/useGamepad";
@@ -61,14 +62,22 @@ installStageActiveClass();
 // (not the shell root) for the same reason as the theme classes: Vuetify
 // teleports overlays outside the app tree, and this keeps the flag reachable
 // there too.
-const { enabled: reducedMotion } = useReducedMotion();
+const { enabled: reducedMotion, toggle: toggleReducedMotion } =
+  useReducedMotion();
+// The reduced-motion neutralize breaks CRT mode's endless animations, so the
+// two exclude each other; with both saved on, reduced motion wins.
+const { enabled: crtMode } = useCrtMode();
 watch(
   reducedMotion,
   (on) => {
     document.documentElement.classList.toggle("r-v2-reduced-motion", on);
+    if (on) crtMode.value = false;
   },
   { immediate: true },
 );
+watch(crtMode, (on) => {
+  if (on && reducedMotion.value) toggleReducedMotion();
+});
 
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
