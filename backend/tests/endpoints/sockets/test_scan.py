@@ -1823,8 +1823,8 @@ class TestScopedScanSkipsLibraryWork:
 
         # Returning a real ScanStats: a bare AsyncMock's return value is another
         # AsyncMock, whose to_dict() would leak a coroutine out of finish().
-        async def fake_identify(**kwargs):
-            return kwargs["scan_stats"]
+        async def fake_identify(*, scan_stats: ScanStats, **_: object) -> ScanStats:
+            return scan_stats
 
         return {
             "scoped": mocker.patch.object(
