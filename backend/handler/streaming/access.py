@@ -112,9 +112,8 @@ async def resolve_named_container(
 ) -> tuple[ResolvedContainer, str, dict[str, Any] | None]:
     """One named container serving a platform, plus whatever session it holds.
 
-    Looked up by key rather than through the platform's pool: a container left
-    out of the pool can still hold a session, and naming it is how that
-    session gets ended.
+    Found by key rather than through the pool, so a session on a container left
+    out of the pool can still be ended.
 
     Returns (container, session_key, session), the session being None when the
     container is free or draining. Raises 404 when the key names no container

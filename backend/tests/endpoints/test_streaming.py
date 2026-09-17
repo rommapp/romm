@@ -1377,9 +1377,8 @@ def test_admin_release_rejects_a_container_that_serves_another_platform(
 def test_admin_release_ends_a_session_on_a_container_outside_the_pool(
     client, access_token
 ):
-    """A second container that disagrees with the first on an emulator is not
-    a pool member, but its desktop is still a session an admin must be able to
-    end by naming the container."""
+    """A container that disagrees with the pool on an emulator is left out of it,
+    but an admin can still end its session by naming it."""
     outside = _webstation(
         host="http://192.168.1.11:3000",
         broker_host="http://192.168.1.11:8000",

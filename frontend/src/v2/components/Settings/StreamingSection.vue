@@ -248,6 +248,8 @@ onMounted(load);
 .r-v2-streaming__state {
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-muted);
+}
+.r-v2-streaming__meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -255,12 +257,12 @@ onMounted(load);
 
 .r-v2-streaming__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
 
-/* On a phone the actions would squeeze the details to nothing, so they drop
-   to their own line under the details column. */
+/* On a phone the actions drop under the details instead of squeezing them out. */
 html[data-bp~="xs"] .r-v2-streaming__actions {
   grid-column: 2 / -1;
 }
