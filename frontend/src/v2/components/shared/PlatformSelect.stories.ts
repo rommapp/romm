@@ -29,9 +29,9 @@ function makePlatform(overrides: Partial<Platform> = {}): Platform {
   };
 }
 
-const TIE_ROM_COUNT = 256;
+/** Catalog-scale rom counts; PSX is NTSC-U + NTSC-J (~1,278 + ~2,278). */
+const PSX_CATALOG_ROM_COUNT = 1278 + 2278;
 
-/** Empties first in `items` (store order); promotion runs when the menu opens. */
 const MIXED_PLATFORM_CATALOG: Platform[] = [
   makePlatform({
     id: 101,
@@ -59,28 +59,28 @@ const MIXED_PLATFORM_CATALOG: Platform[] = [
     slug: "gba",
     name: "Game Boy Advance",
     display_name: "Game Boy Advance",
-    rom_count: 42,
+    rom_count: 1537,
   }),
   makePlatform({
     id: 5,
     slug: "n64",
     name: "Nintendo 64",
     display_name: "Nintendo 64",
-    rom_count: 18,
+    rom_count: 389,
   }),
   makePlatform({
     id: 6,
     slug: "psx",
     name: "PlayStation",
     display_name: "PlayStation",
-    rom_count: TIE_ROM_COUNT,
+    rom_count: PSX_CATALOG_ROM_COUNT,
   }),
   makePlatform({
     id: 7,
     slug: "snes",
     name: "Super Nintendo",
     display_name: "Super Nintendo",
-    rom_count: TIE_ROM_COUNT,
+    rom_count: 722,
   }),
   makePlatform({
     id: 8,
@@ -173,6 +173,15 @@ export const PromotedOpenMenu: Story = {
         "---",
         ...remaining.map((p) => p.display_name),
       ]);
+    });
+
+    await step("rom count badges when partitioned", async () => {
+      const gbaRow = document.querySelector(
+        ".r-select__list > li:not(.r-select__divider)",
+      );
+      expect(
+        gbaRow?.querySelector(".r-v2-platsel__rom-badge")?.textContent,
+      ).toBe("1537");
     });
   },
 };

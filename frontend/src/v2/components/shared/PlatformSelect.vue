@@ -24,6 +24,7 @@ import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import { platformCategoryToIcon } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import { formatPlatformRomCount } from "./formatPlatformRomCount";
 import { promotePlatformsWithGamesFirst } from "./platformsWithGamesFirst";
 
 // Per-platform scrapper match indicators — mini avatar per metadata
@@ -284,6 +285,15 @@ function onPanelSearch(query: string) {
             :show-tooltip="false"
           />
           <span class="r-select__item-title">{{ slotProps.item.title }}</span>
+          <RTag
+            v-if="promoteFilled && !showMeta"
+            size="x-small"
+            tone="plain"
+            class="r-v2-platsel__rom-badge"
+            :text="
+              formatPlatformRomCount((slotProps.item.raw as Platform).rom_count)
+            "
+          />
           <template v-if="showMeta">
             <span class="r-v2-platsel__meta">
               <RTag
@@ -358,7 +368,11 @@ function onPanelSearch(query: string) {
             <RTag
               class="r-v2-platsel__count"
               size="small"
-              :text="String((slotProps.item.raw as Platform).rom_count)"
+              :text="
+                formatPlatformRomCount(
+                  (slotProps.item.raw as Platform).rom_count,
+                )
+              "
             />
           </template>
         </li>
@@ -455,5 +469,10 @@ function onPanelSearch(query: string) {
 .r-v2-platsel__chip-icon {
   display: inline-flex;
   align-items: center;
+}
+.r-v2-platsel__rom-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--r-color-fg-muted);
 }
 </style>
