@@ -13,7 +13,9 @@
 // spread on any element you want — it carries `class` (including the
 // active/selected/disabled state), `role`, `aria-*`, click/hover
 // handlers, and the index data attribute. The row default is a `<li>`
-// styled by `.r-select__item`.
+// styled by `.r-select__item`. `dividerAfter` draws a divider below the
+// rows it matches. `#append-label` adds a trailing well that mirrors the
+// inline prefix label; `info` fills it with an info icon and tooltip.
 import {
   autoUpdate,
   flip,
@@ -34,11 +36,13 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { useInputModality } from "@/v2/composables/useInputModality";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
 import RTag from "../../primitives/RTag/RTag.vue";
+import RTooltip from "../../structural/RTooltip/RTooltip.vue";
 import { useRFormRegistration } from "../RForm/context";
 import RTextField from "../RTextField/RTextField.vue";
 
@@ -130,6 +134,12 @@ interface Props {
   /** Label used by the "All" row in the menu and as the activator
    *  display when nothing is selected. Defaults to "All". */
   allOptionLabel?: string;
+  /** Items it matches get a divider below their row, setting them apart
+   *  from the ones that follow. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dividerAfter?: (item: any) => boolean;
+  /** Tip revealed from an info icon in the trailing label well. */
+  info?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -168,6 +178,8 @@ const props = withDefaults(defineProps<Props>(), {
   chipTone: "brand",
   showAllOption: false,
   allOptionLabel: "All",
+  dividerAfter: undefined,
+  info: undefined,
 });
 
 const emit = defineEmits<{
@@ -699,6 +711,7 @@ function openMenu() {
   if (props.disabled || props.readonly) return;
   if (isOpen.value) return;
   isOpen.value = true;
+  infoOpen.value = false;
   activeIndex.value = Math.max(
     0,
     filteredItems.value.findIndex((it) => isSelected(it.value)),
@@ -837,11 +850,19 @@ function onSearchKey(evt: KeyboardEvent) {
 
 // ── Focus tracking for the activator chrome ────────────────────
 const focused = ref(false);
+// The info icon sits inside the activator, so keyboard or pad focus on the
+// field stands in for focus on the icon.
+const { modality } = useInputModality();
+const infoOpen = ref(false);
 function onActivatorFocus(evt: FocusEvent) {
   focused.value = true;
+  if (props.info && (modality.value === "key" || modality.value === "pad")) {
+    infoOpen.value = true;
+  }
   emit("focus", evt);
 }
 function onActivatorBlur(evt: FocusEvent) {
+  infoOpen.value = false;
   // If focus moves into the panel (search input), keep `focused`.
   const next = evt.relatedTarget as Node | null;
   if (next && panelRef.value?.contains(next)) return;
@@ -863,6 +884,15 @@ const stackedLabelOn = computed(() => props.prefixLabel === "stacked");
 const hasPrependInner = computed(
   () => !!props.prependInnerIcon || !!slots["prepend-inner"],
 );
+const hasAppendLabel = computed(() => !!slots["append-label"] || !!props.info);
+
+const describedBy = computed(() => {
+  const ids = [
+    showDetails.value && `${fieldId}-details`,
+    hasAppendLabel.value && `${fieldId}-append-label`,
+  ].filter(Boolean);
+  return ids.length > 0 ? ids.join(" ") : undefined;
+});
 </script>
 
 <template>
@@ -906,7 +936,7 @@ const hasPrependInner = computed(
       :aria-expanded="isOpen"
       :aria-label="effectiveAriaLabel"
       :aria-invalid="hasError || undefined"
-      :aria-describedby="showDetails ? `${fieldId}-details` : undefined"
+      :aria-describedby="describedBy"
       @click="toggleMenu"
       @keydown="onActivatorKey"
       @focus="onActivatorFocus"
@@ -1092,6 +1122,30 @@ const hasPrependInner = computed(
           size="x-small"
         />
       </span>
+
+      <!-- Hidden from the field's name and read as its description instead;
+           swallows clicks so an info tooltip inside doesn't toggle the menu. -->
+      <span
+        v-if="hasAppendLabel"
+        :id="`${fieldId}-append-label`"
+        class="r-select__label r-select__label--append"
+        aria-hidden="true"
+        @click.stop
+        @mousedown.stop
+      >
+        <slot name="append-label">
+          <RIcon icon="mdi-information-outline" size="16" />
+          <span class="r-select__info-text">{{ info }}</span>
+          <RTooltip
+            v-model="infoOpen"
+            activator="parent"
+            location="top"
+            open-on-tap
+          >
+            {{ info }}
+          </RTooltip>
+        </slot>
+      </span>
     </button>
 
     <!-- Details row — error or hint. -->
@@ -1184,55 +1238,65 @@ const hasPrependInner = computed(
               <slot name="no-data">No options</slot>
             </li>
 
-            <slot
+            <template
               v-for="(item, i) in filteredItems"
               :key="`${i}-${String(item.value)}`"
-              name="item"
-              :item="{ title: item.title, value: item.value, raw: item.raw }"
-              :index="i"
-              :active="i === activeIndex"
-              :selected="isSelected(item.value)"
-              :props="{
-                class: [
-                  'r-select__item',
-                  {
+            >
+              <slot
+                name="item"
+                :item="{ title: item.title, value: item.value, raw: item.raw }"
+                :index="i"
+                :active="i === activeIndex"
+                :selected="isSelected(item.value)"
+                :props="{
+                  class: [
+                    'r-select__item',
+                    {
+                      'r-select__item--active': i === activeIndex,
+                      'r-select__item--selected': isSelected(item.value),
+                      'r-select__item--disabled': item.disabled,
+                    },
+                  ],
+                  role: 'option',
+                  'aria-selected': isSelected(item.value),
+                  'aria-disabled': item.disabled || undefined,
+                  'data-r-select-index': i,
+                  tabindex: -1,
+                  onClick: () => selectItem(item),
+                  onMouseenter: () => (activeIndex = i),
+                }"
+              >
+                <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/interactive-supports-focus, vuejs-accessibility/mouse-events-have-key-events -- option rows are pointer targets; the listbox-level keydown (Up/Down/Enter/Esc) drives keyboard selection and roving activeIndex -->
+                <li
+                  role="option"
+                  class="r-select__item"
+                  :class="{
                     'r-select__item--active': i === activeIndex,
                     'r-select__item--selected': isSelected(item.value),
                     'r-select__item--disabled': item.disabled,
-                  },
-                ],
-                role: 'option',
-                'aria-selected': isSelected(item.value),
-                'aria-disabled': item.disabled || undefined,
-                'data-r-select-index': i,
-                tabindex: -1,
-                onClick: () => selectItem(item),
-                onMouseenter: () => (activeIndex = i),
-              }"
-            >
-              <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/interactive-supports-focus, vuejs-accessibility/mouse-events-have-key-events -- option rows are pointer targets; the listbox-level keydown (Up/Down/Enter/Esc) drives keyboard selection and roving activeIndex -->
+                  }"
+                  :aria-selected="isSelected(item.value)"
+                  :data-r-select-index="i"
+                  @click="selectItem(item)"
+                  @mouseenter="activeIndex = i"
+                >
+                  <span class="r-select__item-title">{{ item.title }}</span>
+                  <RIcon
+                    v-if="isSelected(item.value)"
+                    icon="mdi-check"
+                    class="r-select__item-check"
+                    size="x-small"
+                  />
+                </li>
+              </slot>
               <li
-                role="option"
-                class="r-select__item"
-                :class="{
-                  'r-select__item--active': i === activeIndex,
-                  'r-select__item--selected': isSelected(item.value),
-                  'r-select__item--disabled': item.disabled,
-                }"
-                :aria-selected="isSelected(item.value)"
-                :data-r-select-index="i"
-                @click="selectItem(item)"
-                @mouseenter="activeIndex = i"
+                v-if="dividerAfter?.(item.raw) && i < filteredItems.length - 1"
+                class="r-select__divider"
+                aria-hidden="true"
               >
-                <span class="r-select__item-title">{{ item.title }}</span>
-                <RIcon
-                  v-if="isSelected(item.value)"
-                  icon="mdi-check"
-                  class="r-select__item-check"
-                  size="x-small"
-                />
+                <RDivider />
               </li>
-            </slot>
+            </template>
           </ul>
         </div>
       </Transition>
@@ -1556,13 +1620,13 @@ const hasPrependInner = computed(
   align-self: flex-start;
   padding-inline-start: 2px;
 }
-.r-select__label--inline {
+.r-select__label--inline,
+.r-select__label--append {
   align-self: stretch;
   display: inline-flex;
   align-items: center;
   padding: 0 10px;
   background: var(--r-color-bg-elevated);
-  border-right: 1px solid var(--r-color-border);
   font-size: 11px;
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.08em;
@@ -1573,14 +1637,41 @@ const hasPrependInner = computed(
   text-overflow: ellipsis;
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-right-color var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-select__label--inline {
+  border-right: 1px solid var(--r-color-border);
+}
+.r-select__label--append {
+  flex-shrink: 0;
+  border-left: 1px solid var(--r-color-border);
+  cursor: default;
 }
 .r-select--inline.r-select--focused .r-select__label--inline {
   border-right-color: var(--r-tf-color);
 }
 .r-select--inline.r-select--error .r-select__label--inline {
   border-right-color: var(--r-color-danger);
+}
+.r-select--focused .r-select__label--append {
+  border-left-color: var(--r-tf-color);
+}
+.r-select--error .r-select__label--append {
+  border-left-color: var(--r-color-danger);
+}
+.r-select__field:has(.r-select__label--append) {
+  overflow: hidden;
+}
+/* Read through the field's aria-describedby; the tooltip shows it on
+   screen. */
+.r-select__info-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .r-select--inline .r-select__field {
   padding-inline-start: 0;
