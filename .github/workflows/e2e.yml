@@ -22,7 +22,8 @@ on:
       - uv.lock
       - .python-version
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   e2e:
