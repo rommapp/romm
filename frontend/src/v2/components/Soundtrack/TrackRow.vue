@@ -137,7 +137,8 @@ const isPending = computed(() => favorites.isPending(props.track.id));
 
 <style scoped>
 /* Fixed height: RVirtualScroller positions rows from `getItemHeight`, so the
-   rendered row must match ROW_HEIGHT in Panel.vue (48px + 4px gap). */
+   height and margin must match ROW_HEIGHT / ROW_HEIGHT_XS and ROW_GAP in
+   Panel.vue. */
 .r-v2-stp__row {
   height: 48px;
   margin-bottom: 4px;
@@ -355,6 +356,7 @@ html[data-bp~="xs"] .r-v2-stp__row-btn {
   display: grid;
   grid-template-columns: subgrid;
   grid-template-rows: subgrid;
+  row-gap: 0;
 }
 
 html[data-bp~="xs"] .r-v2-stp__row-lead {

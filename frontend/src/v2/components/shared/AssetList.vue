@@ -525,6 +525,6 @@ html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__time {
 }
 html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__actions {
   grid-area: actions;
-  margin-bottom: -4px;
+  margin-block: -4px;
 }
 </style>

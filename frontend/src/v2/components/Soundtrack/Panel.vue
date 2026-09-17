@@ -29,9 +29,10 @@ import { formatTrackTime } from "@/v2/utils/time";
 import TrackRow from "./TrackRow.vue";
 
 // Row heights must match `.r-v2-stp__row` (and its xs override) in TrackRow's
-// stylesheet, plus the 4px gap.
-const ROW_HEIGHT = 52;
-const ROW_HEIGHT_XS = 60;
+// stylesheet; ROW_GAP is its bottom margin.
+const ROW_HEIGHT = 48;
+const ROW_HEIGHT_XS = 56;
+const ROW_GAP = 4;
 
 // The shared store owns volume / muted state so the same widget can sit in
 // the mini-player too.
@@ -71,6 +72,15 @@ const favorites = useMusicFavorites();
 const canEditPlaylists = useCan("playlist.edit");
 const { xs } = useBreakpoint();
 const rowHeight = computed(() => (xs.value ? ROW_HEIGHT_XS : ROW_HEIGHT));
+
+// Stable references: inline closures would change on every playback tick and
+// make the scroller rebuild its whole offset table.
+function getItemHeight(): number {
+  return rowHeight.value + ROW_GAP;
+}
+function getItemKey(item: unknown): number {
+  return (item as PanelTrack).id;
+}
 
 const player = useSoundtrackPlayer();
 const {
@@ -499,14 +509,19 @@ function seekValueText(v: number): string {
         </header>
 
         <div v-if="loading" class="r-v2-stp__queue-skeleton">
-          <RSkeletonBlock v-for="n in 8" :key="n" height="48px" rounded="md" />
+          <RSkeletonBlock
+            v-for="n in 8"
+            :key="n"
+            :height="rowHeight"
+            rounded="md"
+          />
         </div>
         <RVirtualScroller
           v-else-if="displayedTracks.length"
           class="r-v2-stp__list"
           :items="displayedTracks"
-          :get-item-height="() => rowHeight"
-          :get-item-key="(item: unknown) => (item as PanelTrack).id"
+          :get-item-height="getItemHeight"
+          :get-item-key="getItemKey"
           @update:viewport-range="onViewportRange"
         >
           <template #default="{ item, index }">
