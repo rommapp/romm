@@ -1234,6 +1234,7 @@ def test_a_claim_never_lands_in_a_later_pool(
         r1 = _claim_ok(client, access_token, rom.id)
         r2 = _claim_ok(client, viewer_access_token, rom.id)
         assert _session_raw(later) is None
+        assert len(pools_for_platform(rom.platform_slug)) == 2
     assert r1.status_code == 202
     assert r1.json()["container"] == _key_of(_pool_member(rom, 0))
     assert r2.status_code == 409
