@@ -59,9 +59,10 @@ const VUETIFY_COMPONENTS = [
 ];
 
 // Maps browserslist browser ids to the esbuild-style ids that Vite's
-// `build.cssTarget` understands. Engines not listed here (and_chr, samsung,
-// kaios, ...) share a rendering engine with one of these or track "latest",
-// so skipping them does not change the emitted prefixes.
+// `build.target` and `build.cssTarget` understand. Engines not listed here
+// (and_chr, samsung, kaios, ...) share a rendering engine with one of these or
+// track "latest", so skipping them changes neither the emitted prefixes nor
+// the emitted syntax.
 const BROWSERSLIST_TO_ESBUILD = {
   chrome: "chrome",
   edge: "edge",
@@ -71,14 +72,13 @@ const BROWSERSLIST_TO_ESBUILD = {
   safari: "safari",
 };
 
-// Translate the shared `.browserslistrc` baseline into Vite's CSS target
-// format. Vite 8 minifies CSS with Lightning CSS, which auto-prefixes and
-// down-levels from the standard property based on browser targets, but on the
-// minify path it only reads `build.cssTarget` (esbuild-style ids), never
-// `css.lightningcss.targets`. Deriving it here keeps `.browserslistrc` the
-// single source of truth. Without targets Lightning CSS drops the generated
-// `-webkit-backdrop-filter`, breaking every glass/blur surface in Safari.
-function cssTargetsFromBrowserslist() {
+// Translate the shared `.browserslistrc` baseline into the esbuild target
+// format Vite wants for both `build.target` (the syntax esbuild emits, ours
+// and any dependency's) and `build.cssTarget`. Vite 8 minifies CSS with
+// Lightning CSS, which reads only `build.cssTarget` on the minify path, never
+// `css.lightningcss.targets`; without targets it drops the generated
+// `-webkit-backdrop-filter` and every glass surface breaks in Safari.
+function esbuildTargetsFromBrowserslist() {
   const lowest = {};
   for (const entry of browserslist()) {
     const [id, range] = entry.split(" ");
@@ -94,6 +94,8 @@ function cssTargetsFromBrowserslist() {
     ([name, { version }]) => `${name}${version}`,
   );
 }
+
+const esbuildTargets = esbuildTargetsFromBrowserslist();
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -113,16 +115,15 @@ export default defineConfig(({ mode }) => {
       include: VUETIFY_COMPONENTS,
     },
     build: {
-      target: "esnext",
+      target: esbuildTargets,
       // AudioWorklet.addModule is only dependable with a real URL, and Vite
       // inlines any asset under 4KB as a data: URI, so keep the worklet out.
       assetsInlineLimit: (filePath) =>
         filePath.endsWith("pico8AudioWorklet.js") ? false : undefined,
-      // Browser targets for CSS (prefixing + down-leveling) come from the
-      // shared `.browserslistrc`. Never hand-write a `-webkit-` twin next to a
-      // standard property: Lightning CSS collapses the pair to whichever is
-      // declared last, so let it generate the prefixes from these targets.
-      cssTarget: cssTargetsFromBrowserslist(),
+      // Never hand-write a `-webkit-` twin next to a standard property:
+      // Lightning CSS collapses the pair to whichever is declared last, so let
+      // it generate the prefixes from these targets.
+      cssTarget: esbuildTargets,
     },
     plugins: [
       tailwindcss(),
