@@ -6,7 +6,6 @@ import {
   RBtn,
   RIcon,
   RSkeletonBlock,
-  RSlider,
   RSpinner,
   RVirtualScroller,
 } from "@v2/lib";
@@ -20,6 +19,7 @@ import useSoundtrackPlayer, {
 } from "@/stores/soundtrackPlayer";
 import AmbientArt from "@/v2/components/Soundtrack/AmbientArt.vue";
 import NowPlayingChips from "@/v2/components/Soundtrack/NowPlayingChips.vue";
+import SeekBar from "@/v2/components/Soundtrack/SeekBar.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
@@ -94,8 +94,6 @@ const {
   track: activeStoreTrack,
   isPlaying,
   isBuffering,
-  currentTime,
-  duration,
   playlist,
   hasPrevious,
   hasNext,
@@ -318,13 +316,6 @@ function downloadTrack(track: PanelTrack) {
   a.click();
   a.remove();
 }
-
-function seekValueText(v: number): string {
-  return t("rom.seek-progress", {
-    current: formatTrackTime(v),
-    duration: formatTrackTime(duration.value),
-  });
-}
 </script>
 
 <template>
@@ -444,25 +435,7 @@ function seekValueText(v: number): string {
             />
             <VolumeControl size="small" />
           </div>
-          <div class="r-v2-stp__timeline">
-            <span class="r-v2-stp__time">{{
-              formatTrackTime(currentTime)
-            }}</span>
-            <RSlider
-              :model-value="currentTime"
-              :max="duration || 0"
-              :step="0.1"
-              :disabled="!activeTrack"
-              color="primary"
-              class="r-v2-stp__slider"
-              :aria-label="t('rom.soundtrack-seek')"
-              :aria-valuetext="seekValueText(currentTime)"
-              @update:model-value="(v: number) => player.seek(v)"
-            />
-            <span class="r-v2-stp__time r-v2-stp__time--right">
-              {{ formatTrackTime(duration) }}
-            </span>
-          </div>
+          <SeekBar :disabled="!activeTrack" class="r-v2-stp__timeline" />
         </div>
       </aside>
 
@@ -745,25 +718,6 @@ function seekValueText(v: number): string {
 
 .r-v2-stp__timeline {
   flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-2);
-}
-
-.r-v2-stp__slider {
-  flex: 1;
-}
-
-.r-v2-stp__time {
-  font-variant-numeric: tabular-nums;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  min-width: 40px;
-}
-
-.r-v2-stp__time--right {
-  text-align: right;
 }
 
 /* Queue */

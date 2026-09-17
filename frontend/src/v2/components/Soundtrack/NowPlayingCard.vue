@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The mini player's body in the soundtrack header's look. Floats in a corner on
 // desktop and opens as a sheet from the top bar on phones.
-import { RBtn, RSlider, RSpinner } from "@v2/lib";
+import { RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -10,9 +10,9 @@ import { ROUTES } from "@/plugins/router";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import AmbientArt from "@/v2/components/Soundtrack/AmbientArt.vue";
 import NowPlayingChips from "@/v2/components/Soundtrack/NowPlayingChips.vue";
+import SeekBar from "@/v2/components/Soundtrack/SeekBar.vue";
 import VolumeControl from "@/v2/components/Soundtrack/VolumeControl.vue";
 import { nowPlayingCaption, playerCoverUrl } from "@/v2/utils/soundtrackTracks";
-import { formatTrackTime } from "@/v2/utils/time";
 
 defineOptions({ inheritAttrs: false });
 
@@ -25,8 +25,6 @@ const {
   playlist,
   isPlaying,
   isBuffering,
-  currentTime,
-  duration,
   hasPrevious,
   hasNext,
   isShuffled,
@@ -44,13 +42,6 @@ const position = computed(() => {
     ) + 1
   );
 });
-
-function seekValueText(v: number): string {
-  return t("rom.seek-progress", {
-    current: formatTrackTime(v),
-    duration: formatTrackTime(duration.value),
-  });
-}
 
 function openRom() {
   if (!track.value) return;
@@ -160,22 +151,7 @@ function openRom() {
       <VolumeControl size="small" />
     </div>
 
-    <div class="r-v2-np-card__seek">
-      <span class="r-v2-np-card__time">{{ formatTrackTime(currentTime) }}</span>
-      <RSlider
-        :model-value="currentTime"
-        :max="duration || 0"
-        :step="0.1"
-        color="primary"
-        class="r-v2-np-card__slider"
-        :aria-label="t('rom.soundtrack-seek')"
-        :aria-valuetext="seekValueText(currentTime)"
-        @update:model-value="(v: number) => store.seek(v)"
-      />
-      <span class="r-v2-np-card__time r-v2-np-card__time--right">
-        {{ formatTrackTime(duration) }}
-      </span>
-    </div>
+    <SeekBar />
   </div>
 </template>
 
@@ -265,26 +241,5 @@ function openRom() {
 
 .r-v2-np-card__play {
   border-radius: var(--r-radius-full);
-}
-
-.r-v2-np-card__seek {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-2);
-}
-
-.r-v2-np-card__slider {
-  flex: 1;
-}
-
-.r-v2-np-card__time {
-  min-width: 36px;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  font-variant-numeric: tabular-nums;
-}
-
-.r-v2-np-card__time--right {
-  text-align: right;
 }
 </style>

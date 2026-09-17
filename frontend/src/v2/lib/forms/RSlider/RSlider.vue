@@ -33,6 +33,9 @@ interface Props {
   /** Stand the track upright, filling the slider's height (set one on it).
    *  Meant for a bare track: pair with `valuePosition="none"`. */
   vertical?: boolean;
+  /** Media scrubber look: a thin track with no thumb at rest, thickening
+   *  with a solid thumb on hover, keyboard focus or drag. */
+  scrubber?: boolean;
   /** ARIA label when no visible label exists. */
   ariaLabel?: string;
 }
@@ -49,6 +52,7 @@ const props = withDefaults(defineProps<Props>(), {
   valueSuffix: "",
   showTicks: false,
   vertical: false,
+  scrubber: false,
   ariaLabel: undefined,
 });
 
@@ -174,6 +178,7 @@ function onVerticalPointerMove(evt: PointerEvent) {
         'r-slider--readonly': readonly,
         'r-slider--dragging': dragging,
         'r-slider--vertical': vertical,
+        'r-slider--scrubber': scrubber,
       },
     ]"
     :style="{
@@ -419,6 +424,58 @@ function onVerticalPointerMove(evt: PointerEvent) {
   .r-slider__native::-moz-range-thumb {
   transform: scale(1.28);
   background: color-mix(in srgb, var(--r-slider-accent), white 14%);
+}
+
+/* Scrubber: the track and thumb read their size from variables that the
+   hover, focus and drag states raise. */
+.r-slider--scrubber {
+  --r-scrub-track-h: 3px;
+  --r-scrub-thumb-opacity: 0;
+}
+html[data-input="mouse"] .r-slider--scrubber:not(.r-slider--disabled):hover,
+html[data-input="key"] .r-slider--scrubber:focus-within,
+html[data-input="pad"] .r-slider--scrubber:focus-within,
+.r-slider--scrubber.r-slider--dragging {
+  --r-scrub-track-h: 6px;
+  --r-scrub-thumb-opacity: 1;
+}
+.r-slider--scrubber .r-slider__native::-webkit-slider-runnable-track {
+  height: var(--r-scrub-track-h);
+  border: 0;
+  transition: height var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-slider--scrubber .r-slider__native::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: calc(var(--r-scrub-track-h) / 2 - 6px);
+  border: 0;
+  opacity: var(--r-scrub-thumb-opacity);
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-slider.r-slider--scrubber:not(.r-slider--disabled):not(.r-slider--readonly)
+  .r-slider__native::-webkit-slider-runnable-track {
+  box-shadow: none;
+}
+.r-slider.r-slider--scrubber:not(.r-slider--disabled):not(.r-slider--readonly)
+  .r-slider__native::-webkit-slider-thumb {
+  transform: none;
+  box-shadow: var(--r-elev-1);
+}
+.r-slider--scrubber .r-slider__native::-moz-range-track,
+.r-slider--scrubber .r-slider__native::-moz-range-progress {
+  height: var(--r-scrub-track-h);
+  border: 0;
+}
+.r-slider--scrubber .r-slider__native::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  opacity: var(--r-scrub-thumb-opacity);
+}
+.r-slider.r-slider--scrubber:not(.r-slider--disabled):not(.r-slider--readonly)
+  .r-slider__native::-moz-range-thumb {
+  transform: none;
+  box-shadow: var(--r-elev-1);
 }
 
 /* Modality-gated keyboard focus ring. */

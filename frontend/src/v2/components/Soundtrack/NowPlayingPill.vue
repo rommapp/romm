@@ -8,26 +8,21 @@ import { useI18n } from "vue-i18n";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
 import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
+import { usePlaybackTime } from "@/v2/composables/usePlaybackTime";
 import { playerCoverUrl } from "@/v2/utils/soundtrackTracks";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const store = useSoundtrackPlayer();
-const {
-  meta,
-  isPlaying,
-  isBuffering,
-  currentTime,
-  duration,
-  hasPrevious,
-  hasNext,
-} = storeToRefs(store);
+const { meta, isPlaying, isBuffering, duration, hasPrevious, hasNext } =
+  storeToRefs(store);
 const visible = useMiniPlayerVisible();
+const playbackTime = usePlaybackTime();
 
 const coverUrl = computed(() => playerCoverUrl(meta.value));
 const progress = computed(() =>
-  duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0,
+  duration.value > 0 ? (playbackTime.value / duration.value) * 100 : 0,
 );
 </script>
 
