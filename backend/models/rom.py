@@ -605,6 +605,45 @@ class RomVisibility(NamedTuple):
     platform_id: int
 
 
+class RomVisibilityLabel(NamedTuple):
+    """`RomVisibility` plus the name pair the file-delete routes log."""
+
+    id: int
+    platform_id: int
+    name: str | None
+    fs_name: str
+
+
+class RomDeletionTarget(NamedTuple):
+    """What the bulk-delete route reads off a rom, without the related load.
+
+    Carries the platform label because the route logs it when a rom's file is
+    already missing from disk.
+    """
+
+    id: int
+    platform_id: int
+    name: str | None
+    fs_name: str
+    fs_path: str
+    platform_slug: str
+    platform_name: str
+    platform_custom_name: str | None
+
+    @property
+    def platform_display_name(self) -> str:
+        return self.platform_custom_name or self.platform_name
+
+    @property
+    def fs_resources_path(self) -> str:
+        return rom_fs_resources_path(self.platform_id, self.id)
+
+
+def rom_fs_resources_path(platform_id: int, id: int) -> str:
+    """Resources subfolder a rom's artwork and documents are written to."""
+    return f"roms/{platform_id}/{id}"
+
+
 class Rom(BaseModel):
     __tablename__ = "roms"
 
@@ -977,7 +1016,7 @@ class Rom(BaseModel):
 
     @property
     def fs_resources_path(self) -> str:
-        return f"roms/{str(self.platform_id)}/{str(self.id)}"
+        return rom_fs_resources_path(self.platform_id, self.id)
 
     @property
     def path_cover_small(self) -> str:
