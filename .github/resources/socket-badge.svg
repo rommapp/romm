@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288.99" height="67">
+  <defs>
+    <linearGradient id="socket-shield" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#f419b8" />
+      <stop offset="100%" stop-color="#9d5df8" />
+    </linearGradient>
+  </defs>
+  <g fill="none" fill-rule="evenodd">
+    <rect width="286.99" height="65" x="1" y="1" fill="#1a1338" stroke="#1a1338" stroke-width="2" rx="8" />
+    <g transform="translate(22, 15.5) scale(0.15)">
+      <path fill="url(#socket-shield)" d="m0 111.713c0 59.2 37.781 109.567 90.637 128.287 26.359-9.309 49.068-26.6 65.129-48.902 16.163-22.367 25.643-49.753 25.643-79.385v-78.975l-90.739-32.738-90.637 32.738v78.975h-.033z" />
+      <path fill="#fff" d="M74.918 50.811h42.078l-12.89 43.887h22.915l-62.641 94.458 14.868-68.578h-24.893z" />
+    </g>
+    <!--  -->
+    <text fill="#fff" font-family="Arial" font-size="21" font-weight="bold">
+      <tspan x="70" y="51">Secured by Socket</tspan>
+    </text>
+    <text fill="#f419b8" font-family="Arial" font-size="12" font-weight="bold">
+      <tspan x="70" y="26">SUPPLY CHAIN SECURITY</tspan>
+    </text>
+  </g>
+</svg>
