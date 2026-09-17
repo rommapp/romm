@@ -9,7 +9,7 @@ import {
 } from "vitest";
 import { usePlayerExit } from "./index";
 
-const push = vi.fn(() => Promise.resolve());
+const push = vi.fn();
 const locationReplace = vi.fn();
 let originalLocation: Location;
 
@@ -53,6 +53,7 @@ describe("usePlayerExit", () => {
 
     expect(push).toHaveBeenCalledWith("/rom/1");
     expect(locationReplace).not.toHaveBeenCalled();
+    expect(exit.departing.value).toBe(false);
   });
 
   it("replaces the document when it is cross-origin isolated", () => {
@@ -89,17 +90,24 @@ describe("usePlayerExit", () => {
     expect(locationReplace).toHaveBeenCalledWith("/platform/2");
   });
 
-  it("lets its own departure through", async () => {
-    let bound = false;
-    const exit = usePlayerExit(() => bound);
+  // The view arms an unload prompt while a game is up, and the exit it asked
+  // for must not be what triggers it.
+  it.each([
+    [
+      "an exit",
+      (exit: ReturnType<typeof usePlayerExit>) => exit.leave("/rom/1"),
+    ],
+    [
+      "a route departure",
+      (exit: ReturnType<typeof usePlayerExit>) =>
+        exit.guard({ fullPath: "/rom/1" }),
+    ],
+  ])("announces %s that replaces the document", (_label, act) => {
+    setIsolated(true);
+    const exit = usePlayerExit();
 
-    exit.leave("/rom/1");
-    // The runtime cannot bind between leave() and the guard, but a guard that
-    // re-checked the document would otherwise still be able to block the push.
-    bound = true;
-    expect(exit.guard({ fullPath: "/rom/1" })).toBe(true);
+    act(exit);
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(exit.guard({ fullPath: "/rom/1" })).toBe(false);
+    expect(exit.departing.value).toBe(true);
   });
 });

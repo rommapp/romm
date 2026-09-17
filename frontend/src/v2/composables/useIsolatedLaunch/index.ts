@@ -32,9 +32,10 @@ export function useIsolatedLaunch<Intent>(
   /** True once a reload is under way, so the Play control stays busy. */
   relaunching: Ref<boolean>;
   /**
-   * Keep `intent` and reload into the isolated document. False when this view
-   * already came from such a reload: the context cannot be isolated (plain
-   * HTTP, or a proxy dropping the headers), so the caller reports it instead.
+   * Keep `intent` and reload into the isolated document. False when the reload
+   * would not help: the context is not secure (the headers alone never expose
+   * SharedArrayBuffer), the selection could not be kept, or this view already
+   * came from such a reload. The caller reports the context instead.
    */
   relaunch: (intent: Intent) => boolean;
 } {
@@ -43,9 +44,9 @@ export function useIsolatedLaunch<Intent>(
   const relaunching = ref(false);
 
   function relaunch(next: Intent): boolean {
-    if (intent !== null) return false;
+    if (intent !== null || !window.isSecureContext) return false;
+    if (!keepIntent(key, next)) return false;
     relaunching.value = true;
-    sessionStorage.setItem(key, JSON.stringify(next));
     window.location.reload();
     return true;
   }
@@ -53,15 +54,28 @@ export function useIsolatedLaunch<Intent>(
   return { intent, relaunching, relaunch };
 }
 
+// Storage access can be denied outright (a strict privacy mode, a blocked
+// third-party context), and a player must open and run regardless, so both
+// sides treat that as "no intent" rather than throwing through the view.
+
+function keepIntent(key: string, intent: unknown): boolean {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(intent));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The intent under `key`, cleared on read so it boots only once. */
 function takeIntent<Intent>(
   key: string,
   isIntent: (value: unknown) => value is Intent,
 ): Intent | null {
-  const raw = sessionStorage.getItem(key);
-  if (raw === null) return null;
-  sessionStorage.removeItem(key);
   try {
+    const raw = sessionStorage.getItem(key);
+    if (raw === null) return null;
+    sessionStorage.removeItem(key);
     const parsed: unknown = JSON.parse(raw);
     return isIntent(parsed) ? parsed : null;
   } catch {

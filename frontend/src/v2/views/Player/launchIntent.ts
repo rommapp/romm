@@ -1,14 +1,66 @@
 // What the EmulatorJS launch view carries across the reload that isolates the
-// document (see useIsolatedLaunch). The core and the disc are remembered per
-// game already, so only the rest travels.
+// document (see useIsolatedLaunch). Only ids travel, so the view resolves them
+// again against what the server offers; the core and the disc are remembered
+// per game already and need no part in this.
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { isSlotChoice, type SlotChoice } from "@/v2/utils/saveSlots";
+import type { ResumeSelection } from "./resumeSelection";
 
+/** The pre-play selection a reload has to preserve. */
+export interface LaunchSelection {
+  resume: ResumeSelection;
+  firmware: FirmwareSchema | null;
+  slot: SlotChoice;
+  customSlot: string;
+}
+
+/** That selection as ids, which is all a stored intent can hold. */
 export interface LaunchIntent {
   saveId: number | null;
   stateId: number | null;
   firmwareId: number | null;
   slot: SlotChoice;
   customSlot: string;
+}
+
+/** What the view offers to pick from, on the other side of the reload. */
+export interface LaunchOptions {
+  saves: readonly SaveSchema[];
+  states: readonly StateSchema[];
+  firmware: readonly FirmwareSchema[];
+}
+
+export function launchIntentFor(selection: LaunchSelection): LaunchIntent {
+  return {
+    saveId: selection.resume.save?.id ?? null,
+    stateId: selection.resume.state?.id ?? null,
+    firmwareId: selection.firmware?.id ?? null,
+    slot: selection.slot,
+    customSlot: selection.customSlot,
+  };
+}
+
+/** The selection an intent names, dropping whatever is no longer offered. */
+export function resolveLaunchIntent(
+  intent: LaunchIntent,
+  options: LaunchOptions,
+): LaunchSelection {
+  return {
+    resume: {
+      save: byId(options.saves, intent.saveId),
+      state: byId(options.states, intent.stateId),
+    },
+    firmware: byId(options.firmware, intent.firmwareId),
+    slot: intent.slot,
+    customSlot: intent.customSlot,
+  };
+}
+
+function byId<T extends { id: number }>(
+  items: readonly T[],
+  id: number | null,
+): T | null {
+  return items.find((item) => item.id === id) ?? null;
 }
 
 function isOptionalId(value: unknown): value is number | null {

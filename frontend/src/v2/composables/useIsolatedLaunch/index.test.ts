@@ -25,6 +25,29 @@ function isIntent(value: unknown): value is Intent {
 const KEY = "player:7:ejs:launch";
 const reload = vi.fn();
 let originalLocation: Location;
+const realStorage = window.sessionStorage;
+
+/** Stand in for a browser that denies storage access outright. */
+function blockStorage() {
+  const denied = () => {
+    throw new Error("storage is blocked");
+  };
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: { getItem: denied, setItem: denied, removeItem: denied },
+  });
+}
+
+function launch() {
+  return useIsolatedLaunch<Intent>("ejs", 7, isIntent);
+}
+
+function setSecureContext(secure: boolean) {
+  Object.defineProperty(window, "isSecureContext", {
+    configurable: true,
+    value: secure,
+  });
+}
 
 beforeAll(() => {
   originalLocation = window.location;
@@ -43,42 +66,45 @@ afterAll(() => {
 
 beforeEach(() => {
   reload.mockClear();
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: realStorage,
+  });
   sessionStorage.clear();
+  setSecureContext(true);
 });
 
 describe("useIsolatedLaunch", () => {
   it("opens without an intent", () => {
-    const launch = useIsolatedLaunch<Intent>("ejs", 7, isIntent);
+    const first = launch();
 
-    expect(launch.intent).toBeNull();
-    expect(launch.relaunching.value).toBe(false);
+    expect(first.intent).toBeNull();
+    expect(first.relaunching.value).toBe(false);
   });
 
   it("keeps the intent and reloads the document", () => {
-    const launch = useIsolatedLaunch<Intent>("ejs", 7, isIntent);
+    const first = launch();
 
-    expect(launch.relaunch({ saveId: 3 })).toBe(true);
+    expect(first.relaunch({ saveId: 3 })).toBe(true);
 
-    expect(launch.relaunching.value).toBe(true);
+    expect(first.relaunching.value).toBe(true);
     expect(reload).toHaveBeenCalledOnce();
     expect(sessionStorage.getItem(KEY)).toBe('{"saveId":3}');
   });
 
   it("hands the intent to the reloaded view once", () => {
-    useIsolatedLaunch<Intent>("ejs", 7, isIntent).relaunch({ saveId: 3 });
+    launch().relaunch({ saveId: 3 });
 
-    expect(useIsolatedLaunch<Intent>("ejs", 7, isIntent).intent).toEqual({
-      saveId: 3,
-    });
-    expect(useIsolatedLaunch<Intent>("ejs", 7, isIntent).intent).toBeNull();
+    expect(launch().intent).toEqual({ saveId: 3 });
+    expect(launch().intent).toBeNull();
   });
 
   // A second reload could not isolate the document either, so the view is
   // told to report the context instead of looping.
   it("refuses to reload again from the reloaded view", () => {
-    useIsolatedLaunch<Intent>("ejs", 7, isIntent).relaunch({ saveId: 3 });
+    launch().relaunch({ saveId: 3 });
     reload.mockClear();
-    const reloaded = useIsolatedLaunch<Intent>("ejs", 7, isIntent);
+    const reloaded = launch();
 
     expect(reloaded.relaunch({ saveId: 4 })).toBe(false);
 
@@ -86,14 +112,41 @@ describe("useIsolatedLaunch", () => {
     expect(reloaded.relaunching.value).toBe(false);
   });
 
+  // The headers cannot expose SharedArrayBuffer over plain HTTP, so the round
+  // trip would only delay the same error.
+  it("refuses to reload outside a secure context", () => {
+    setSecureContext(false);
+    const first = launch();
+
+    expect(first.relaunch({ saveId: 3 })).toBe(false);
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("refuses to reload when the selection cannot be kept", () => {
+    const first = launch();
+    blockStorage();
+
+    expect(first.relaunch({ saveId: 3 })).toBe(false);
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(first.relaunching.value).toBe(false);
+  });
+
+  // A player has to open even where storage access is denied outright.
+  it("opens with no intent when storage cannot be read", () => {
+    blockStorage();
+
+    expect(launch().intent).toBeNull();
+  });
+
   it("keeps players and games apart", () => {
-    useIsolatedLaunch<Intent>("ejs", 7, isIntent).relaunch({ saveId: 3 });
+    launch().relaunch({ saveId: 3 });
 
     expect(useIsolatedLaunch<Intent>("jsdos", 7, isIntent).intent).toBeNull();
     expect(useIsolatedLaunch<Intent>("ejs", 8, isIntent).intent).toBeNull();
-    expect(useIsolatedLaunch<Intent>("ejs", 7, isIntent).intent).toEqual({
-      saveId: 3,
-    });
+    expect(launch().intent).toEqual({ saveId: 3 });
   });
 
   it.each([
@@ -102,7 +155,7 @@ describe("useIsolatedLaunch", () => {
   ])("drops a stored value that is %s", (_label, raw) => {
     sessionStorage.setItem(KEY, raw);
 
-    expect(useIsolatedLaunch<Intent>("ejs", 7, isIntent).intent).toBeNull();
+    expect(launch().intent).toBeNull();
     expect(sessionStorage.getItem(KEY)).toBeNull();
   });
 });

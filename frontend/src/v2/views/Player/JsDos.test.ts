@@ -15,6 +15,7 @@ import JsDos from "./JsDos.vue";
 const mocks = vi.hoisted(() => ({
   flushPlaySession: vi.fn(),
   getRom: vi.fn(),
+  loadRuntime: vi.fn(),
   locationReplace: vi.fn(),
   playSessionStart: vi.fn(),
   push: vi.fn(() => Promise.resolve()),
@@ -102,6 +103,12 @@ vi.mock("@/v2/stores/galleryRoms", () => ({
   default: () => ({ getRomById: () => mocks.galleryRom }),
 }));
 
+// The runtime is a document-level singleton with its own suite; here it only
+// has to say which base the emulator payloads follow.
+vi.mock("./jsDosRuntime", () => ({
+  loadJsDosRuntime: mocks.loadRuntime,
+}));
+
 const rom = {
   id: 1,
   name: "Windows Game",
@@ -110,6 +117,9 @@ const rom = {
   platform_slug: "win9x",
   rom_user: { status: null },
 };
+
+const LOCAL_BASE = "/assets/jsdos";
+const CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
 
 let originalLocation: Location;
 
@@ -126,8 +136,6 @@ beforeAll(() => {
     configurable: true,
     value: { ...originalLocation, replace: mocks.locationReplace },
   });
-  vi.spyOn(document.body, "appendChild").mockImplementation((node) => node);
-  vi.spyOn(document.head, "appendChild").mockImplementation((node) => node);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
@@ -140,35 +148,10 @@ afterAll(() => {
   });
 });
 
-function stubRuntimeProbe(contentType: string, ok = true) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({
-      ok,
-      headers: { get: () => contentType },
-      clone: () => ({ text: async () => "" }),
-    }),
-  );
-}
-
-function injectedUrls(): string[] {
-  return [document.head.appendChild, document.body.appendChild].flatMap((spy) =>
-    vi
-      .mocked(spy)
-      .mock.calls.map(
-        ([node]) =>
-          (node as Element).getAttribute?.("src") ??
-          (node as Element).getAttribute?.("href") ??
-          "",
-      )
-      .filter(Boolean),
-  );
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
   setIsolated(false);
-  stubRuntimeProbe("text/javascript");
+  mocks.loadRuntime.mockResolvedValue(LOCAL_BASE);
   mocks.galleryRom = null;
   mocks.routeLeaveGuard = null;
   mocks.userId = 7;
@@ -204,7 +187,7 @@ async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
     (_element: HTMLDivElement, _options: Partial<JsDosOptions>) => handle,
   );
   await wrapper.get(".r-v2-player__play").trigger("click");
-  await nextTick();
+  await flushPromises();
   return wrapper;
 }
 
@@ -217,56 +200,45 @@ function makeHandle(saveResult = true) {
 }
 
 describe("JsDos runtime loading", () => {
-  const CDN = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
-
-  it("serves the runtime from the local assets when they are present", async () => {
+  it("starts loading the runtime alongside the ROM payload", async () => {
     mountView();
     await flushPromises();
 
-    expect(injectedUrls()).toEqual(
-      expect.arrayContaining([
-        "/assets/jsdos/js-dos.css",
-        "/assets/jsdos/js-dos.js",
-      ]),
-    );
-  });
-
-  // Slim images and the Vite dev server ship no local copy, and both answer a
-  // missing asset with 200 + index.html rather than a 404.
-  it("falls back to the pinned CDN when the local path serves index.html", async () => {
-    stubRuntimeProbe("text/html");
-    mountView();
-    await flushPromises();
-
-    expect(injectedUrls()).toEqual(
-      expect.arrayContaining([`${CDN}/js-dos.css`, `${CDN}/js-dos.js`]),
-    );
-  });
-
-  it("injects the runtime once per document", async () => {
-    window.Dos = vi.fn();
-    mountView();
-    await flushPromises();
-
-    expect(injectedUrls()).toEqual([]);
+    expect(mocks.loadRuntime).toHaveBeenCalled();
   });
 
   it("points the emulator payloads at whichever base served the runtime", async () => {
-    stubRuntimeProbe("text/html");
+    mocks.loadRuntime.mockResolvedValue(CDN_BASE);
     const wrapper = await mountPlayer(makeHandle());
 
     const options = vi.mocked(window.Dos!).mock.calls[0]![1];
-    expect(options.pathPrefix).toBe(`${CDN}/emulators/`);
+    expect(options.pathPrefix).toBe(`${CDN_BASE}/emulators/`);
+    wrapper.unmount();
+  });
+
+  it("reports a runtime that never arrived", async () => {
+    mocks.loadRuntime.mockRejectedValue(new Error("network"));
+    const wrapper = mountView();
+    await flushPromises();
+
+    await wrapper.get(".r-v2-player__play").trigger("click");
+    await flushPromises();
+
+    expect(mocks.snackbarError).toHaveBeenCalledWith(
+      "play.stream-error-generic",
+    );
+    expect(mocks.setPlaying).not.toHaveBeenCalledWith(true);
     wrapper.unmount();
   });
 });
 
 describe("JsDos player exit", () => {
-  it("reports when the runtime has not loaded", async () => {
+  it("reports when the runtime defined no factory", async () => {
     const wrapper = mountView();
     await flushPromises();
 
     await wrapper.get(".r-v2-player__play").trigger("click");
+    await flushPromises();
 
     expect(mocks.snackbarError).toHaveBeenCalledWith(
       "play.stream-error-generic",

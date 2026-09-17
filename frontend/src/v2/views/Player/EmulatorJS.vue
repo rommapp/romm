@@ -104,7 +104,12 @@ import {
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
-import { isLaunchIntent, type LaunchIntent } from "./launchIntent";
+import {
+  isLaunchIntent,
+  launchIntentFor,
+  resolveLaunchIntent,
+  type LaunchIntent,
+} from "./launchIntent";
 import {
   defaultResumeSelection,
   newerThanPick,
@@ -154,9 +159,6 @@ const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
-// A route departure while a game runs is deliberate, so the reload prompt
-// stays quiet for the full navigation it turns into.
-const departing = ref(false);
 // Threaded cores need SharedArrayBuffer, so their launch may first have to
 // reload the view into a cross-origin isolated document.
 const {
@@ -165,18 +167,18 @@ const {
   relaunch: relaunchIsolated,
 } = useIsolatedLaunch<LaunchIntent>("ejs", romId, isLaunchIntent);
 
-useUnloadGuard(() => gameRunning.value && !departing.value);
-useStageActive(gameRunning);
+// The EmulatorJS loader declares top-level classes and instantiates the
+// emulator, so a document it was injected into cannot host another launch.
+// Tracked from the injection rather than from `window.EJS_emulator`, which a
+// departure mid-load would not see yet.
+let runtimeInjected = false;
+const exit = usePlayerExit(() => runtimeInjected);
 
-// The EmulatorJS loader declares globals and instantiates the emulator when
-// injected, so a document that ran a game cannot host another launch.
-const exit = usePlayerExit(() => window.EJS_emulator !== undefined);
-onBeforeRouteLeave((to) => {
-  if (!exit.documentBound()) return true;
-  departing.value = true;
-  exit.leave(to.fullPath);
-  return false;
-});
+// A departure while a game runs is deliberate, so the unload prompt stays
+// quiet for the full navigation it turns into.
+useUnloadGuard(() => gameRunning.value && !exit.departing.value);
+useStageActive(gameRunning);
+onBeforeRouteLeave(exit.guard);
 
 // Stage-scoped so the non-passive listener never taxes touches elsewhere.
 const stageRef = ref<HTMLElement | null>(null);
@@ -188,8 +190,7 @@ const presence = useActivityPresence(() => rom.value?.id);
 
 function endSession() {
   playSession.flush();
-  presence.stopHeartbeat();
-  presence.emitStop();
+  presence.stop();
 }
 // A full navigation out of the view unmounts nothing, so the session also
 // closes on pagehide; flush() is idempotent, so no path records it twice.
@@ -313,6 +314,7 @@ async function onPlay() {
       throw new Error(`Loader at ${loaderUrl} did not return JavaScript`);
     }
     window.EJS_pathtodata = path;
+    runtimeInjected = true;
     await loadScript(loaderUrl);
   }
 
@@ -332,29 +334,27 @@ async function onPlay() {
   }
 }
 
-// What the reload cannot carry in the URL; the core and the disc are already
-// remembered per game.
 function currentIntent(): LaunchIntent {
-  return {
-    saveId: resume.value.save?.id ?? null,
-    stateId: resume.value.state?.id ?? null,
-    firmwareId: selectedFirmware.value?.id ?? null,
+  return launchIntentFor({
+    resume: resume.value,
+    firmware: selectedFirmware.value,
     slot: slotChoice.value,
     customSlot: customSlot.value,
-  };
+  });
 }
 
 // What the view had selected before the reload, re-applied over the defaults.
 function applyLaunchIntent(intent: LaunchIntent, current: DetailedRom) {
-  const save = current.user_saves.find((s) => s.id === intent.saveId) ?? null;
-  const state =
-    compatibleStates.value.find((s) => s.id === intent.stateId) ?? null;
-  resume.value = { save, state };
-  isSavesTabSelected.value = !state;
-  slotChoice.value = intent.slot;
-  customSlot.value = intent.customSlot;
-  selectedFirmware.value =
-    firmwareOptions.value.find((f) => f.id === intent.firmwareId) ?? null;
+  const selection = resolveLaunchIntent(intent, {
+    saves: current.user_saves,
+    states: compatibleStates.value,
+    firmware: firmwareOptions.value,
+  });
+  resume.value = selection.resume;
+  isSavesTabSelected.value = !selection.resume.state;
+  slotChoice.value = selection.slot;
+  customSlot.value = selection.customSlot;
+  selectedFirmware.value = selection.firmware;
 }
 
 // A slotted save fixes the write slot, and it stays put for the session

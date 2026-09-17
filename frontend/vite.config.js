@@ -6,28 +6,8 @@ import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
 import { precompress } from "./scripts/precompress";
-
-// Mirror of the nginx map that isolates the player documents (see
-// docker/nginx/templates/default.conf.template), so a threaded EmulatorJS
-// core boots on the dev server too, given a secure context (localhost or
-// https). Like there, the query string is matched explicitly.
-const ISOLATED_PLAYER_URL_RE = /^\/rom\/.*\/(ejs|jsdos)(\?|$)/;
-
-function playerIsolationHeaders() {
-  return {
-    name: "romm:player-isolation-headers",
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (ISOLATED_PLAYER_URL_RE.test(req.url ?? "")) {
-          res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-          res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-        }
-        next();
-      });
-    },
-  };
-}
 
 // Vuetify components to preoptimize for faster dev startup
 const VUETIFY_COMPONENTS = [

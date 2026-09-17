@@ -18,16 +18,7 @@ import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
-
-const JSDOS_LOCAL_BASE = "/assets/jsdos";
-// Fallback for slim images and the dev server, which ship no local copy. Pinned
-// to the image's JSDOS_VERSION; jsDelivr sends the CORP a directly opened player
-// document needs under its COEP.
-const JSDOS_CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
-
-// Where the runtime actually came from, so the emulator payloads follow it.
-let jsDosAssetBase = JSDOS_LOCAL_BASE;
+import { loadJsDosRuntime } from "./jsDosRuntime";
 
 const { t } = useI18n();
 const authStore = storeAuth();
@@ -48,27 +39,22 @@ let dos: JsDosProps | null = null;
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
-async function loadRuntime() {
-  // The runtime outlives the view within the document, so inject it once.
-  if (window.Dos) return;
-  jsDosAssetBase = (await isJsResource(`${JSDOS_LOCAL_BASE}/js-dos.js`))
-    ? JSDOS_LOCAL_BASE
-    : JSDOS_CDN_BASE;
-
-  const css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = `${jsDosAssetBase}/js-dos.css`;
-  document.head.appendChild(css);
-
-  await loadScript(`${jsDosAssetBase}/js-dos.js`);
-}
-
 async function onPlay() {
-  // Preserve narrowing across nextTick().
-  const dosFactory = window.Dos;
   const currentRom = rom.value;
   const userId = authStore.user?.id;
   if (!currentRom || userId == null) return;
+
+  // Resolves at once when the mount-time load already landed, and waits for it
+  // otherwise, so the emulator payloads always follow the base it served from.
+  let assetBase: string;
+  try {
+    assetBase = await loadJsDosRuntime();
+  } catch {
+    snackbar.error(t("play.stream-error-generic"));
+    return;
+  }
+  // Preserve narrowing across nextTick().
+  const dosFactory = window.Dos;
   if (!dosFactory) {
     snackbar.error(t("play.stream-error-generic"));
     return;
@@ -89,7 +75,7 @@ async function onPlay() {
     url: getDownloadPath({ rom: currentRom }),
     backend: "dosboxX",
     backendLocked: true,
-    pathPrefix: `${jsDosAssetBase}/emulators/`,
+    pathPrefix: `${assetBase}/emulators/`,
     autoStart: true,
     autoSave: true,
     // js-dos calls exitFullscreen() unguarded when this is false, which
@@ -164,7 +150,7 @@ useUnloadGuard(() => !!dos && !quitting.value);
 onMounted(async () => {
   // The runtime reads nothing from the ROM payload, so let both loads overlap
   // instead of holding the 300 KB bundle behind the API roundtrip.
-  void loadRuntime().catch((e) => console.error(e));
+  void loadJsDosRuntime().catch((e: unknown) => console.error(e));
 
   const romResponse = await romApi.getRom({ romId });
   rom.value = romResponse.data;
