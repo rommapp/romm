@@ -120,7 +120,7 @@
   "native-running": "{name} is running",
   "native-starting": "Starting…",
   "new-memory-card": "New card",
-  "new-slot": "New slot…",
+  "new-slot": "+ New slot",
   "newer-save-warning": "A save from {time} is newer than your pick. Resuming it may roll your progress back.",
   "newer-state-warning": "A state from {time} is newer than your pick. Resuming it may roll your progress back.",
   "no-memory-cards": "No memory cards yet",

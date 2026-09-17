@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,6 +18,37 @@ DESCRIPTOR_EXTENSIONS = frozenset({"cue", "gdi", "ccd", "mds"})
 COMPANION_EXTENSIONS = frozenset(
     {"bin", "raw", "img", "sub", "mdf", "wav", "ogg", "flac", "mp3"}
 )
+
+
+def first_playlist_entry(m3u_path: Path) -> Path | None:
+    """Resolve an .m3u playlist to the first disc file it lists.
+
+    Returns:
+        The first non-comment entry, relative to the playlist's folder unless
+        absolute, or None when the playlist can't be read or that entry isn't
+        a file on disk.
+    """
+    try:
+        lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        # Playlists written on Windows separate folders with backslashes, which
+        # a POSIX file name may also contain, so the literal path is tried first.
+        candidates = [entry]
+        if "\\" in entry:
+            candidates.append(entry.replace("\\", "/"))
+        for candidate in candidates:
+            entry_path = Path(candidate)
+            if not entry_path.is_absolute():
+                entry_path = m3u_path.parent / entry_path
+            if entry_path.is_file():
+                return entry_path
+        return None
+    return None
 
 
 def playlist_files(files: list[RomFile]) -> list[RomFile]:

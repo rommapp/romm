@@ -627,7 +627,9 @@ export function getSupportedEJSCores(
 }
 
 /**
- * Check if a given EJS core requires threads enabled.
+ * Whether an EJS core ships only as a threaded build; a core added here gets
+ * the cross-origin isolated document it needs from the v2 launch view (see
+ * `useIsolatedLaunch`).
  *
  * @param core The core name.
  * @returns True if threads are required, false otherwise.

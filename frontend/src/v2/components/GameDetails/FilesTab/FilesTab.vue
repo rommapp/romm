@@ -19,8 +19,9 @@
 // inside each row.
 //
 // Section header (per active subtab):
-//   * Upload: the active subtab supplies the destination folder; "All
-//     files" has none, so the dialog asks for one.
+//   * Upload: a folder subtab supplies the destination folder.
+//   * Upload to folder: "All files" has no destination of its own, so its
+//     dialog asks for one.
 //
 // Content column:
 //   * Section header (Upload + Patch)
@@ -35,7 +36,7 @@
 // Selected files in the Files tab can be deleted by users with the
 // `rom.delete` permission. Each file is removed from disk and the DB
 // row is dropped via `DELETE /roms/{rom_id}/files/{file_id}`.
-import { RBtn, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
+import { RBtn, RCheckbox, REmptyState, RIcon } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -549,11 +550,13 @@ const { uploading, uploadFiles: uploadRomFiles } = useRomFileUpload();
 const uploadDialogOpen = ref(false);
 const alive = useIsAlive();
 
-const uploadFolders = computed<UploadFolderOption[]>(() =>
-  subtabDefs.value
+// Root is always a destination, even before any file sits there.
+const uploadFolders = computed<UploadFolderOption[]>(() => [
+  { value: "", label: folderLabel(ROOT), icon: folderIcon(ROOT) },
+  ...subtabDefs.value
     .filter((s) => s.id !== "all" && s.id !== ROOT)
-    .map((s) => ({ value: s.id, label: s.label })),
-);
+    .map((s) => ({ value: s.id, label: s.label, icon: s.icon })),
+]);
 
 // Destination implied by the active subtab: "" for the ROM root, null
 // when there is none ("All files") and the dialog has to ask.
@@ -565,8 +568,7 @@ const activeUploadFolder = computed<string | null>(() => {
 
 function triggerUpload() {
   if (uploading.value) return;
-  if (activeUploadFolder.value === null) uploadDialogOpen.value = true;
-  else fileInput.value?.click();
+  fileInput.value?.click();
 }
 
 function onFilePick(event: Event) {
@@ -607,7 +609,6 @@ async function refreshRom() {
   <UploadFilesDialog
     v-model="uploadDialogOpen"
     :folders="uploadFolders"
-    :initial-folder="activeUploadFolder ?? ''"
     @submit="onDialogSubmit"
   />
 
@@ -642,7 +643,7 @@ async function refreshRom() {
     <div class="r-v2-files__content">
       <!-- Section header — the sidebar's subtab label already names the
            section, so the header skips a redundant title and just hosts
-           the Upload button on the right. Download-all / Copy-link are
+           the upload action on the right. Download-all / Copy-link are
            covered by the selection toolbar below (select-all then act). -->
       <header
         v-if="filteredFiles.length > 0 && canUpload"
@@ -650,6 +651,18 @@ async function refreshRom() {
       >
         <div class="r-v2-files__section-actions">
           <RBtn
+            v-if="activeUploadFolder === null"
+            variant="outlined"
+            size="small"
+            prepend-icon="mdi-folder-upload-outline"
+            :disabled="uploading"
+            :loading="uploading"
+            @click="uploadDialogOpen = true"
+          >
+            {{ t("rom.upload-to-folder") }}
+          </RBtn>
+          <RBtn
+            v-else
             variant="outlined"
             size="small"
             prepend-icon="mdi-cloud-upload-outline"
@@ -659,19 +672,6 @@ async function refreshRom() {
           >
             {{ t("common.upload") }}
           </RBtn>
-          <RTooltip :text="t('rom.upload-to-folder')" location="bottom">
-            <template #activator="{ props: tipProps }">
-              <RBtn
-                v-bind="tipProps"
-                icon="mdi-folder-upload-outline"
-                variant="text"
-                size="small"
-                :aria-label="t('rom.upload-to-folder')"
-                :disabled="uploading"
-                @click="uploadDialogOpen = true"
-              />
-            </template>
-          </RTooltip>
         </div>
       </header>
 

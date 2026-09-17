@@ -120,7 +120,7 @@
   "native-running": "{name} běží",
   "native-starting": "Spouštění…",
   "new-memory-card": "Nová karta",
-  "new-slot": "Nový slot…",
+  "new-slot": "+ Nový slot",
   "newer-save-warning": "Uložená pozice z {time} je novější než vaše volba. Pokračování z ní může vrátit váš postup zpět.",
   "newer-state-warning": "Stav z {time} je novější než vaše volba. Pokračování z ní může vrátit váš postup zpět.",
   "no-memory-cards": "Zatím žádné paměťové karty",

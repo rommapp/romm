@@ -120,7 +120,7 @@
   "native-running": "{name} 正在執行",
   "native-starting": "正在啟動…",
   "new-memory-card": "新增卡",
-  "new-slot": "新增存檔格…",
+  "new-slot": "+ 新增存檔格",
   "newer-save-warning": "{time}的存檔比你選擇的更新。繼續目前選擇可能會回退你的進度。",
   "newer-state-warning": "{time}的即時存檔比你選擇的更新。繼續目前選擇可能會回退你的進度。",
   "no-memory-cards": "尚無記憶卡",

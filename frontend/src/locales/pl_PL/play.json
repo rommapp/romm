@@ -120,7 +120,7 @@
   "native-running": "{name} jest uruchomiona",
   "native-starting": "Uruchamianie…",
   "new-memory-card": "Nowa karta",
-  "new-slot": "Nowy slot…",
+  "new-slot": "+ Nowy slot",
   "newer-save-warning": "Zapis z {time} jest nowszy niż twój wybór. Wznowienie go może cofnąć twój postęp.",
   "newer-state-warning": "Stan z {time} jest nowszy niż twój wybór. Wznowienie go może cofnąć twój postęp.",
   "no-memory-cards": "Brak kart pamięci",

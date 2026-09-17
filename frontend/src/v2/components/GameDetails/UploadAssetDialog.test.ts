@@ -131,7 +131,7 @@ describe("UploadAssetDialog", () => {
     formValid.value = true;
   });
 
-  it("keeps Upload disabled until a file is picked, then uploads as an archive", async () => {
+  it("keeps Upload disabled until a file is picked, then uploads into autosave", async () => {
     const wrapper = mountDialog("save");
     expect(uploadButton(wrapper).attributes("disabled")).toBeDefined();
 
@@ -139,29 +139,40 @@ describe("UploadAssetDialog", () => {
     expect(uploadButton(wrapper).attributes("disabled")).toBeUndefined();
 
     const payload = await submitted(wrapper);
-    expect(payload).toMatchObject({ type: "save", slot: null, emulator: null });
+    expect(payload).toMatchObject({
+      type: "save",
+      slot: "autosave",
+      emulator: null,
+    });
     expect(payload!.files.map((f) => f.name)).toEqual(["game.srm"]);
   });
 
-  it("offers autosave, the slots in use and a new one", async () => {
+  it("offers a new slot first, then autosave, the slots in use and no slot", async () => {
     const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
     const options = wrapper.findAll("select")[0].findAll("option");
 
     expect(options.map((o) => o.text())).toEqual([
-      "play.slot-none",
+      "play.new-slot",
       "autosave",
       "main_quest",
-      "play.new-slot",
+      "play.slot-none",
     ]);
 
     await choose(wrapper, 0, 2);
     expect(await submitted(wrapper)).toMatchObject({ slot: "main_quest" });
   });
 
+  it("uploads as an archive when no slot is picked", async () => {
+    const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
+    await choose(wrapper, 0, 3);
+
+    expect(await submitted(wrapper)).toMatchObject({ slot: null });
+  });
+
   it("names a new slot and asks saves for nothing else", async () => {
     const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
     expect(wrapper.findAll("select")).toHaveLength(1);
-    await choose(wrapper, 0, 3);
+    await choose(wrapper, 0, 0);
     await wrapper.get("input.slot-name").setValue("  speedrun ");
 
     expect(await submitted(wrapper)).toMatchObject({
@@ -173,7 +184,7 @@ describe("UploadAssetDialog", () => {
   it("does not submit while the form is invalid", async () => {
     formValid.value = false;
     const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
-    await choose(wrapper, 0, 3);
+    await choose(wrapper, 0, 0);
 
     expect(await submitted(wrapper)).toBeUndefined();
   });

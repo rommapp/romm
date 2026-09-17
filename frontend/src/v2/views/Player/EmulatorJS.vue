@@ -27,7 +27,6 @@ import {
   RSpinner,
   RSwitch,
   RTextField,
-  RTooltip,
 } from "@v2/lib";
 import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
@@ -43,6 +42,7 @@ import {
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
+import { onBeforeRouteLeave } from "vue-router";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
@@ -67,7 +67,12 @@ import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import {
+  hasSharedArrayBuffer,
+  useIsolatedLaunch,
+} from "@/v2/composables/useIsolatedLaunch";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -94,6 +99,7 @@ import { suppressVirtualGamepadZoneTouch } from "@/v2/utils/playerTouchGuard";
 import {
   chosenSlot,
   existingSlot,
+  isNewSlotChoice,
   isSlotChoice,
   preferredSlot,
   slotChoiceKey,
@@ -104,6 +110,12 @@ import {
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
+import {
+  isLaunchIntent,
+  launchIntentFor,
+  resolveLaunchIntent,
+  type LaunchIntent,
+} from "./launchIntent";
 import {
   defaultResumeSelection,
   newerThanPick,
@@ -159,9 +171,25 @@ const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
+// Threaded cores need SharedArrayBuffer, so their launch may first have to
+// reload the view into a cross-origin isolated document.
+const {
+  intent: storedIntent,
+  relaunching,
+  relaunch: relaunchIsolated,
+} = useIsolatedLaunch<LaunchIntent>("ejs", romId, isLaunchIntent);
 
-useUnloadGuard(gameRunning);
+// The EmulatorJS loader declares top-level classes, so a document it reached
+// cannot host another launch. Tracked from the injection, which a departure
+// taken mid-load would otherwise outrun.
+let runtimeInjected = false;
+const exit = usePlayerExit(() => runtimeInjected);
+
+// A departure while a game runs is deliberate, so the unload prompt stays
+// quiet for the full navigation it turns into.
+useUnloadGuard(() => gameRunning.value && !exit.departing.value);
 useStageActive(gameRunning);
+onBeforeRouteLeave(exit.guard);
 
 // Stage-scoped so the non-passive listener never taxes touches elsewhere.
 const stageRef = ref<HTMLElement | null>(null);
@@ -170,6 +198,14 @@ useEventListener(stageRef, "touchstart", suppressVirtualGamepadZoneTouch, {
 });
 
 const presence = useActivityPresence(() => rom.value?.id);
+
+function endSession() {
+  playSession.flush();
+  presence.stop();
+}
+// A full navigation out of the view unmounts nothing, so the session also
+// closes on pagehide; flush() is idempotent, so no path records it twice.
+useEventListener(window, "pagehide", endSession);
 
 declare global {
   interface Navigator {
@@ -329,14 +365,21 @@ async function onCancelNative() {
 }
 
 async function onPlay() {
-  // Threaded cores need SharedArrayBuffer, which browsers only expose on a
-  // secure context (HTTPS or localhost), whatever headers the server sends.
+  if (rom.value) {
+    rememberCore(romId, rom.value.platform_slug, selectedCore.value);
+    rememberDisc(romId, selectedDisc.value);
+  }
+
+  // Threaded cores need SharedArrayBuffer, which only a cross-origin isolated
+  // secure context exposes, so the launch may have to reload into one first.
   if (
     selectedCore.value &&
     areThreadsRequiredForEJSCore(selectedCore.value) &&
-    typeof window.SharedArrayBuffer !== "function"
+    !hasSharedArrayBuffer()
   ) {
-    snackbar.error(t("play.https-required"));
+    if (!relaunchIsolated(currentIntent())) {
+      snackbar.error(t("play.https-required"));
+    }
     return;
   }
 
@@ -348,10 +391,6 @@ async function onPlay() {
     await new Promise((resolve) => setTimeout(resolve, insertMs));
   }
 
-  if (rom.value) {
-    rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
-    rememberDisc(rom.value.id, selectedDisc.value);
-  }
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
   playing.value = true;
@@ -367,6 +406,7 @@ async function onPlay() {
       throw new Error(`Loader at ${loaderUrl} did not return JavaScript`);
     }
     window.EJS_pathtodata = path;
+    runtimeInjected = true;
     await loadScript(loaderUrl);
   }
 
@@ -384,6 +424,29 @@ async function onPlay() {
     gameRunning.value = false;
     playing.value = false;
   }
+}
+
+function currentIntent(): LaunchIntent {
+  return launchIntentFor({
+    resume: resume.value,
+    firmware: selectedFirmware.value,
+    slot: slotChoice.value,
+    customSlot: customSlot.value,
+  });
+}
+
+// What the view had selected before the reload, re-applied over the defaults.
+function applyLaunchIntent(intent: LaunchIntent, current: DetailedRom) {
+  const selection = resolveLaunchIntent(intent, {
+    saves: current.user_saves,
+    states: compatibleStates.value,
+    firmware: firmwareOptions.value,
+  });
+  resume.value = selection.resume;
+  isSavesTabSelected.value = !selection.resume.state;
+  slotChoice.value = selection.slot;
+  customSlot.value = selection.customSlot;
+  selectedFirmware.value = selection.firmware;
 }
 
 // A slotted save fixes the write slot, and it stays put for the session
@@ -478,6 +541,13 @@ onMounted(async () => {
     configBiosFile: coreOptions["bios_file"],
   });
 
+  if (storedIntent) {
+    applyLaunchIntent(storedIntent, romResponse.data);
+    await nextTick();
+    void onPlay();
+    return;
+  }
+
   // Land gamepad/keyboard users on the primary action without an extra Tab.
   if (
     shouldClaimFocusOnModality(
@@ -509,9 +579,7 @@ watch(gameRunning, (running, prev) => {
     presence.start();
   }
   if (prev && !running) {
-    playSession.flush();
-    presence.stopHeartbeat();
-    presence.emitStop();
+    endSession();
     nextTick(focusPlayButton);
   }
 });
@@ -528,9 +596,7 @@ onBeforeUnmount(() => {
   // Leaving the player (back nav / route change) ends the session even if
   // the user never exited the game to the config screen first. flush() is
   // idempotent, so an exit that already flushed via the watch is a no-op.
-  playSession.flush();
-  presence.stopHeartbeat();
-  presence.emitStop();
+  endSession();
   // Hand the keyboard and gamepad back to the UI; the flag otherwise
   // stays true and pad/hotkey navigation is dead until a reload.
   playing.value = false;
@@ -679,7 +745,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           :prepend-icon="nativeLaunching ? 'mdi-loading mdi-spin' : 'mdi-play'"
           class="r-v2-ejs__play"
           :loading="!rom"
-          :disabled="!rom || nativeLaunching"
+          :disabled="!rom || nativeLaunching || relaunching"
           @click="onPlayNative"
         >
           {{ nativeLabel }}
@@ -708,8 +774,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           :prepend-icon="canPlayNative ? 'mdi-web' : 'mdi-play'"
           class="r-v2-ejs__play"
           :class="{ 'r-v2-ejs__play--secondary': canPlayNative }"
-          :loading="!rom"
-          :disabled="!rom || nativeLaunching"
+          :loading="!rom || relaunching"
+          :disabled="!rom || relaunching || nativeLaunching"
           @click="onPlay"
         >
           {{ canPlayNative ? t("play.play-in-browser") : t("play.play") }}
@@ -793,37 +859,26 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
               </RAlert>
 
               <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
-                <div class="r-v2-ejs__slot-row">
-                  <RSelect
-                    class="r-v2-ejs__slot-select"
-                    :model-value="slotChoice"
-                    :disabled="!!boundSlot"
-                    variant="outlined"
-                    density="compact"
-                    prefix-label="inline"
-                    hide-details
-                    :items="slotItems"
-                    :item-title="slotChoiceTitle"
-                    :item-value="slotChoiceKey"
-                    return-object
-                    @update:model-value="onSlotChoice"
-                  >
-                    <template #prefix-label>
-                      <RIcon icon="mdi-content-save-all-outline" size="14" />
-                      {{ t("play.slot") }}
-                    </template>
-                  </RSelect>
-                  <button
-                    type="button"
-                    class="r-v2-ejs__slot-info"
-                    :aria-label="t('play.slot-tooltip')"
-                  >
-                    <RIcon icon="mdi-information-outline" size="16" />
-                    <RTooltip activator="parent" location="top" open-on-tap>
-                      {{ t("play.slot-tooltip") }}
-                    </RTooltip>
-                  </button>
-                </div>
+                <RSelect
+                  :model-value="slotChoice"
+                  :disabled="!!boundSlot"
+                  variant="outlined"
+                  density="compact"
+                  prefix-label="inline"
+                  hide-details
+                  :items="slotItems"
+                  :item-title="slotChoiceTitle"
+                  :item-value="slotChoiceKey"
+                  return-object
+                  :divider-after="isNewSlotChoice"
+                  :info="t('play.slot-tooltip')"
+                  @update:model-value="onSlotChoice"
+                >
+                  <template #prefix-label>
+                    <RIcon icon="mdi-content-save-all-outline" size="14" />
+                    {{ t("play.slot") }}
+                  </template>
+                </RSelect>
                 <RTextField
                   v-if="!boundSlot && slotChoice.kind === 'new'"
                   v-model="customSlot"
@@ -1196,35 +1251,6 @@ html[data-bp~="md-and-up"]
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.r-v2-ejs__slot-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.r-v2-ejs__slot-select {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.r-v2-ejs__slot-info {
-  appearance: none;
-  position: relative;
-  display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--r-color-fg-secondary);
-  border-radius: var(--r-radius-pill);
-  cursor: pointer;
-}
-/* 44px hit area around the 16px icon without growing the row. */
-.r-v2-ejs__slot-info::before {
-  content: "";
-  position: absolute;
-  inset: -14px;
-}
-.r-v2-ejs__slot-info:hover {
-  color: var(--r-color-fg);
 }
 .r-v2-ejs__assets {
   flex: 1;

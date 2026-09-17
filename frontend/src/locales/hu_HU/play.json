@@ -120,7 +120,7 @@
   "native-running": "A(z) {name} fut",
   "native-starting": "Indítás…",
   "new-memory-card": "Új kártya",
-  "new-slot": "Új hely…",
+  "new-slot": "+ Új hely",
   "newer-save-warning": "Egy {time} mentés újabb a választottnál. A választott folytatása visszavetheti a haladásodat.",
   "newer-state-warning": "Egy {time} állás újabb a választottnál. A választott folytatása visszavetheti a haladásodat.",
   "no-memory-cards": "Még nincsenek memóriakártyák",

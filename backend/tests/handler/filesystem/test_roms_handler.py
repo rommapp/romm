@@ -25,6 +25,7 @@ from handler.filesystem.base_handler import (
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
+    _TitleIdSource,
     category_matches,
     mtime_matches,
 )
@@ -1734,6 +1735,7 @@ class TestFSRomsHandler:
 SIGIL_PATCH_TARGET = "adapters.services.sigil.SigilService.extract_title_id"
 
 SWITCH_PLATFORM = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+PS2_PLATFORM = Platform(name="PlayStation 2", slug="ps2", fs_slug="ps2")
 
 
 @pytest.fixture
@@ -1827,6 +1829,16 @@ async def switch_family_extract(
         usage="folder-exact",
         content_type="application",
         version=0,
+    )
+
+
+async def disc_serial_extract(
+    platform_slug: str, file_path: str
+) -> SigilExtractionResult:
+    """Stand in for sigil over a multi-disc set, where each disc has its own serial."""
+    serial = "SLUS-00001" if "disc 1" in file_path.lower() else "SLUS-00002"
+    return SigilExtractionResult(
+        title_id=serial, save_target=serial, usage="folder-prefix"
     )
 
 
@@ -2138,6 +2150,168 @@ class TestSigilTitleIdExtraction:
 
         mock_extract.assert_not_awaited()
         assert parsed.identity.title_id is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "disc_names",
+        [
+            pytest.param(["Game (Disc 1).chd", "Game (Disc 2).chd"], id="same-case"),
+            pytest.param(["game (disc 1).chd", "Game (Disc 2).chd"], id="mixed-case"),
+        ],
+    )
+    async def test_multi_disc_rom_is_identified_by_its_first_disc(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        stub_ra_hasher: None,
+        disc_names: list[str],
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(tmp_path, PS2_PLATFORM, "Game", disc_names)
+        list_rom_dir = handler._list_rom_dir
+
+        with (
+            patch.object(
+                handler,
+                "_list_rom_dir",
+                side_effect=lambda rom_dir, cnfg: sorted(
+                    list_rom_dir(rom_dir, cnfg),
+                    key=lambda entry: entry[1].casefold(),
+                    reverse=True,
+                ),
+            ),
+            patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)),
+        ):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    async def test_top_level_disc_outranks_nested_files(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            PS2_PLATFORM,
+            "Game",
+            ["Game (Disc 1).chd", "Bonus/Game (Disc 2).chd"],
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "changed_file",
+        [
+            pytest.param("Game (Disc 1).chd", id="first-disc-changed"),
+            pytest.param("Bonus/Game (Disc 2).chd", id="later-disc-changed"),
+            pytest.param(None, id="nothing-changed"),
+        ],
+    )
+    async def test_incremental_rescan_rereads_the_first_disc(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        stub_ra_hasher: None,
+        changed_file: str | None,
+    ):
+        handler = make_sigil_handler(tmp_path)
+        file_names = ["Game (Disc 1).chd", "Bonus/Game (Disc 2).chd"]
+        rom = make_multi_part_rom(tmp_path, PS2_PLATFORM, "Game", file_names)
+        rom_dir = tmp_path / "ps2/roms/Game"
+        rows = []
+        for file_name in file_names:
+            path = rom_dir / file_name
+            st = path.stat()
+            rows.append(
+                RomFile(
+                    rom_id=rom.id,
+                    file_name=path.name,
+                    file_path=str(path.parent.relative_to(tmp_path)),
+                    file_size_bytes=st.st_size + (file_name == changed_file),
+                    last_modified=st.st_mtime,
+                    md5_hash="stored-md5",
+                )
+            )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)):
+            parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.parametrize(
+        ("names", "expected"),
+        [
+            pytest.param(
+                ["game.chd", "Game.chd"],
+                ["Game.chd", "game.chd"],
+                id="lowercase-listed-first",
+            ),
+            pytest.param(
+                ["Game.chd", "game.chd"],
+                ["Game.chd", "game.chd"],
+                id="uppercase-listed-first",
+            ),
+            pytest.param(
+                ["Game (Disc 10).chd", "Game (Disc 2).chd"],
+                ["Game (Disc 2).chd", "Game (Disc 10).chd"],
+                id="disc-numbers",
+            ),
+        ],
+    )
+    def test_sources_sort_by_disc_then_exact_name(
+        self, names: list[str], expected: list[str]
+    ):
+        sources = [
+            _TitleIdSource(Path("/roms/Game") / name, RomFile(file_name=name))
+            for name in names
+        ]
+
+        ordered = sorted(sources, key=_TitleIdSource.order)
+
+        assert [source.path.name for source in ordered] == expected
+
+    @pytest.mark.asyncio
+    async def test_incremental_rescan_rereads_an_unchanged_flat_rom(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, PS2_PLATFORM, "Game (Disc 1).chd")
+        path = tmp_path / "ps2/roms/Game (Disc 1).chd"
+        st = path.stat()
+        row = RomFile(
+            rom_id=rom.id,
+            file_name=path.name,
+            file_path="ps2/roms",
+            file_size_bytes=st.st_size,
+            last_modified=st.st_mtime,
+            md5_hash="stored-md5",
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)):
+            parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    async def test_playlist_rom_is_handed_to_sigil(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, PS2_PLATFORM, "Game.m3u")
+        mock_extract = AsyncMock(side_effect=disc_serial_extract)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_awaited_once_with(
+            "ps2", str(tmp_path / "ps2/roms/Game.m3u")
+        )
+        assert parsed.identity.title_id is not None
 
 
 class TestEmbedSwitchTitleIdInName:

@@ -120,7 +120,7 @@
   "native-running": "{name} を実行中です",
   "native-starting": "起動中…",
   "new-memory-card": "新しいカード",
-  "new-slot": "新しいスロット…",
+  "new-slot": "+ 新しいスロット",
   "newer-save-warning": "{time}のセーブは選択したものより新しいです。このまま再開すると進行状況が戻る可能性があります。",
   "newer-state-warning": "{time}のステートセーブは選択したものより新しいです。このまま再開すると進行状況が戻る可能性があります。",
   "no-memory-cards": "メモリーカードはまだありません",

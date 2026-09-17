@@ -6,6 +6,7 @@ import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
 import { precompress } from "./scripts/precompress";
 
 // Vuetify components to preoptimize for faster dev startup
@@ -149,6 +150,7 @@ export default defineConfig(({ mode }) => {
         },
       }),
       precompress(),
+      playerIsolationHeaders(),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",

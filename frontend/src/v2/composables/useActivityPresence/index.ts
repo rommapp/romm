@@ -18,6 +18,8 @@ export function useActivityPresence(
   start: () => void;
   stopHeartbeat: () => void;
   emitStop: () => void;
+  /** End the session: stop beating and announce it, in that order. */
+  stop: () => void;
 } {
   const auth = storeAuth();
 
@@ -38,18 +40,29 @@ export function useActivityPresence(
     immediate: false,
   });
 
+  // A stop is addressed to the device, not to a rom, so one sent without a
+  // session would clear whatever else that device is playing.
+  let started = false;
+
   function start(): void {
     const romId = getRomId();
     if (!auth.user || romId == null) return;
     if (!socket.connected) socket.connect();
     socket.emit("activity:start", { rom_id: romId, device_id: deviceId() });
+    started = true;
     resume();
   }
 
   function emitStop(): void {
-    if (!auth.user) return;
+    if (!auth.user || !started) return;
+    started = false;
     socket.emit("activity:stop", { device_id: deviceId() });
   }
 
-  return { start, stopHeartbeat: pause, emitStop };
+  function stop(): void {
+    pause();
+    emitStop();
+  }
+
+  return { start, stopHeartbeat: pause, emitStop, stop };
 }

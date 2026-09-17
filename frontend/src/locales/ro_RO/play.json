@@ -120,7 +120,7 @@
   "native-running": "{name} rulează",
   "native-starting": "Se lansează…",
   "new-memory-card": "Card nou",
-  "new-slot": "Slot nou…",
+  "new-slot": "+ Slot nou",
   "newer-save-warning": "O salvare de {time} este mai nouă decât alegerea ta. Reluarea ei îți poate da progresul înapoi.",
   "newer-state-warning": "O stare de {time} este mai nouă decât alegerea ta. Reluarea ei îți poate da progresul înapoi.",
   "no-memory-cards": "Încă niciun card de memorie",

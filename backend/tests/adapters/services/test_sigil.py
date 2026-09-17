@@ -1,4 +1,5 @@
 import types
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -143,6 +144,51 @@ class TestSigilService:
         result = await service.extract_title_id(UPS.PS2, "/roms/ps2/game.iso")
 
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_playlist_reads_its_first_disc(
+        self, service: SigilService, monkeypatch, tmp_path: Path
+    ):
+        (tmp_path / "Game (Disc 1).chd").write_bytes(b"disc-1")
+        (tmp_path / "Game (Disc 2).chd").write_bytes(b"disc-2")
+        playlist = tmp_path / "Game.m3u"
+        playlist.write_text("Game (Disc 1).chd\nGame (Disc 2).chd\n")
+        extract = Mock(return_value=make_result(title_id="SLUS-21359"))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.PS2, str(playlist))
+
+        assert result is not None
+        assert result.title_id == "SLUS-21359"
+        extract.assert_called_once_with(
+            str(tmp_path / "Game (Disc 1).chd"),
+            platform="ps2",
+            filename_fallback=False,
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "entry",
+        [
+            pytest.param("Game (Disc 1).chd", id="missing-disc"),
+            pytest.param("Game.zip", id="archive-disc"),
+            pytest.param("Game.tar.gz", id="tarball-disc"),
+        ],
+    )
+    async def test_playlist_without_a_readable_disc_is_not_read(
+        self, service: SigilService, monkeypatch, tmp_path: Path, entry: str
+    ):
+        (tmp_path / "Game.zip").write_bytes(b"archive")
+        (tmp_path / "Game.tar.gz").write_bytes(b"archive")
+        playlist = tmp_path / "Game.m3u"
+        playlist.write_text(f"{entry}\n")
+        extract = Mock(return_value=make_result())
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.PS2, str(playlist))
+
+        assert result is None
+        extract.assert_not_called()
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("platform_slug", [UPS.SWITCH, UPS.SWITCH_2])

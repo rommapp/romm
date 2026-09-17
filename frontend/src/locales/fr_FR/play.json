@@ -120,7 +120,7 @@
   "native-running": "{name} est en cours d'exécution",
   "native-starting": "Lancement…",
   "new-memory-card": "Nouvelle carte",
-  "new-slot": "Nouvel emplacement…",
+  "new-slot": "+ Nouvel emplacement",
   "newer-save-warning": "Une sauvegarde de {time} est plus récente que votre choix. Reprendre avec ce choix peut vous faire perdre de la progression.",
   "newer-state-warning": "Un état de {time} est plus récent que votre choix. Reprendre avec ce choix peut vous faire perdre de la progression.",
   "no-memory-cards": "Aucune carte mémoire pour le moment",

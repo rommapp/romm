@@ -654,8 +654,7 @@ watch(gameRunning, (running, prev) => {
     nextTick(focusStream);
   }
   if (prev && !running) {
-    presence.stopHeartbeat();
-    presence.emitStop();
+    presence.stop();
     nextTick(focusPlayButton);
   }
 });

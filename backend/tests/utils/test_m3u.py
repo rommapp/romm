@@ -1,6 +1,78 @@
 from unittest.mock import MagicMock
 
-from utils.m3u import generate_m3u_content, playlist_files
+from utils.m3u import first_playlist_entry, generate_m3u_content, playlist_files
+
+
+class TestFirstPlaylistEntry:
+    def test_returns_first_entry_relative_to_playlist_folder(self, tmp_path):
+        disc1 = tmp_path / "game (Disc 1).rvz"
+        disc1.write_bytes(b"x" * 100)
+        (tmp_path / "game (Disc 2).rvz").write_bytes(b"x" * 100)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("game (Disc 1).rvz\ngame (Disc 2).rvz\n")
+
+        assert first_playlist_entry(m3u) == disc1
+
+    def test_skips_comments_and_blank_lines(self, tmp_path):
+        disc = tmp_path / "disc.cue"
+        disc.write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("#EXTM3U\n\n# a comment\ndisc.cue\n")
+
+        assert first_playlist_entry(m3u) == disc
+
+    def test_handles_utf8_bom_and_crlf(self, tmp_path):
+        disc = tmp_path / "disc.rvz"
+        disc.write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_bytes(b"\xef\xbb\xbfdisc.rvz\r\n")
+
+        assert first_playlist_entry(m3u) == disc
+
+    def test_resolves_windows_separators(self, tmp_path):
+        disc = tmp_path / "Multi Disc" / "D2 (USA) (Disc 1).chd"
+        disc.parent.mkdir()
+        disc.write_bytes(b"x" * 10)
+        m3u = tmp_path / "D2 (USA) (Disc 1).m3u"
+        m3u.write_text("Multi Disc\\D2 (USA) (Disc 1).chd\r\n")
+
+        assert first_playlist_entry(m3u) == disc
+
+    def test_prefers_a_literal_backslash_in_the_file_name(self, tmp_path):
+        literal = tmp_path / "Game\\Disc 1.chd"
+        literal.write_bytes(b"x" * 10)
+        nested = tmp_path / "Game" / "Disc 1.chd"
+        nested.parent.mkdir()
+        nested.write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("Game\\Disc 1.chd\n")
+
+        assert first_playlist_entry(m3u) == literal
+
+    def test_resolves_absolute_entry_as_is(self, tmp_path):
+        disc = tmp_path / "elsewhere" / "disc.rvz"
+        disc.parent.mkdir()
+        disc.write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text(f"{disc}\n")
+
+        assert first_playlist_entry(m3u) == disc
+
+    def test_returns_none_when_first_entry_missing(self, tmp_path):
+        (tmp_path / "game (Disc 2).rvz").write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("game (Disc 1).rvz\ngame (Disc 2).rvz\n")
+
+        assert first_playlist_entry(m3u) is None
+
+    def test_returns_none_for_unreadable_playlist(self, tmp_path):
+        assert first_playlist_entry(tmp_path / "missing.m3u") is None
+
+    def test_returns_none_for_empty_playlist(self, tmp_path):
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("#EXTM3U\n\n")
+
+        assert first_playlist_entry(m3u) is None
 
 
 def _make_file(name: str, extension: str, download_name: str | None = None):

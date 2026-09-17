@@ -231,6 +231,22 @@ async function deleteSoundtrack(fileId: number) {
 
       <!-- Soundtrack subtab -->
       <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
+        <header
+          v-if="rom.has_soundtrack && canEdit"
+          class="r-v2-media__section-head"
+        >
+          <div class="r-v2-media__section-actions">
+            <RBtn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="soundtrackDz?.open()"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
+          </div>
+        </header>
+
         <REmptyState
           v-if="!rom.has_soundtrack && !canEdit"
           :title="t('rom.soundtrack-empty')"
@@ -269,20 +285,6 @@ async function deleteSoundtrack(fileId: number) {
             @delete-track="deleteSoundtrack"
           />
         </RDropzone>
-
-        <div v-if="rom.has_soundtrack && canEdit">
-          <div class="r-v2-media__section-actions">
-            <RBtn
-              block
-              variant="outlined"
-              size="small"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="soundtrackDz?.open()"
-            >
-              {{ t("common.upload") }}
-            </RBtn>
-          </div>
-        </div>
       </section>
     </div>
   </div>
@@ -373,9 +375,14 @@ async function deleteSoundtrack(fileId: number) {
   min-height: 0;
 }
 
-/* Section footer. The sidebar's subtab label already
-   names the section, so the header skips the title and hosts the
-   contextual controls only: the action cluster pushed to the right. */
+/* The sidebar's subtab label already names the section, so the header skips
+   the title and pushes the action cluster to the right. */
+.r-v2-media__section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
 .r-v2-media__section-actions {
   margin-left: auto;
   display: flex;
