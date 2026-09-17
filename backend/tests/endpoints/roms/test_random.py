@@ -8,13 +8,11 @@ offset walk, no full count).
 """
 
 from collections import Counter
-from typing import Iterator
 from unittest.mock import patch
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from sqlalchemy import event
 
 from handler.database import (
     db_collection_handler,
@@ -22,7 +20,7 @@ from handler.database import (
     db_rom_handler,
     roms_handler,
 )
-from handler.database.base_handler import sync_engine, sync_session
+from handler.database.base_handler import sync_session
 from models.collection import Collection
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -54,21 +52,6 @@ def other_platform() -> Platform:
             fs_slug="other_platform_slug",
         )
     )
-
-
-@pytest.fixture
-def captured_sql() -> Iterator[list[str]]:
-    """Every statement the engine runs while the fixture is active."""
-    statements: list[str] = []
-
-    def before_cursor_execute(conn, cursor, statement, parameters, context, many):
-        statements.append(statement)
-
-    event.listen(sync_engine, "before_cursor_execute", before_cursor_execute)
-    try:
-        yield statements
-    finally:
-        event.remove(sync_engine, "before_cursor_execute", before_cursor_execute)
 
 
 def test_get_random_rom_returns_a_rom(
@@ -254,7 +237,7 @@ def test_get_random_rom_does_not_page_or_count(
     access_token: str,
     rom: Rom,
     platform: Platform,
-    captured_sql: list[str],
+    executed_statements: list[str],
 ) -> None:
     """The point of the endpoint: cost that doesn't grow with the library.
 
@@ -265,7 +248,7 @@ def test_get_random_rom_does_not_page_or_count(
     """
     for i in range(5):
         _add_rom(platform, f"rom_{i}")
-    captured_sql.clear()
+    executed_statements.clear()
 
     with (
         patch.object(
@@ -284,7 +267,7 @@ def test_get_random_rom_does_not_page_or_count(
         get_rom_count.assert_not_called()
         get_rom_id_index.assert_not_called()
 
-    rom_queries = [sql for sql in captured_sql if " roms" in sql.lower()]
+    rom_queries = [sql for sql in executed_statements if " roms" in sql.lower()]
     assert rom_queries, "expected the pick to query the roms table"
     assert not [sql for sql in rom_queries if "offset" in sql.lower()]
 

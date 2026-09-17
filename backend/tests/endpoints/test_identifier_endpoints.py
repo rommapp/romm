@@ -17,13 +17,30 @@ def _headers(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
 
 
+def _flat(statement: str) -> str:
+    return " ".join(statement.split())
+
+
+def _reads_from(statement: str, table: str) -> bool:
+    return f"FROM {table} " in statement or statement.endswith(f"FROM {table}")
+
+
+def _selects_only_the_id(statement: str, table: str) -> bool:
+    """Whether one statement's select list is just `table`'s id column."""
+    select_list, separator, _ = statement.partition(" FROM ")
+    if not separator:
+        return False
+    # `Query.with_entities` labels the column (`rom_notes.id AS rom_notes_id`).
+    columns = [
+        column.split(" AS ")[0].strip()
+        for column in select_list[len("SELECT ") :].split(",")
+    ]
+    return columns == [f"{table}.id"]
+
+
 def _read_of(statements: list[str], table: str) -> str:
     """The one statement that reads from `table`, whitespace-normalized."""
-    reads = []
-    for raw in statements:
-        flat = " ".join(raw.split())
-        if f"FROM {table} " in flat or flat.endswith(f"FROM {table}"):
-            reads.append(flat)
+    reads = [flat for raw in statements if _reads_from(flat := _flat(raw), table)]
     assert len(reads) == 1, reads
     return reads[0]
 
@@ -31,37 +48,22 @@ def _read_of(statements: list[str], table: str) -> str:
 def _assert_id_only(statements: list[str], table: str) -> None:
     """Assert `table` is read by a bare `SELECT <table>.id` with no join."""
     statement = _read_of(statements, table)
-    select_list, _, rest = statement.partition(" FROM ")
-    # `Query.with_entities` labels the column (`rom_notes.id AS rom_notes_id`).
-    columns = [
-        column.split(" AS ")[0].strip()
-        for column in select_list[len("SELECT ") :].split(",")
-    ]
-    assert columns == [f"{table}.id"], statement
-    assert "JOIN" not in rest.upper(), statement
+    assert _selects_only_the_id(statement, table), statement
+    assert "JOIN" not in statement.partition(" FROM ")[2].upper(), statement
 
 
 def _assert_table_untouched(statements: list[str], table: str) -> None:
-    touching = [s for s in statements if f"FROM {table} " in " ".join(s.split())]
+    touching = [flat for raw in statements if _reads_from(flat := _flat(raw), table)]
     assert touching == [], touching
 
 
 def _id_only_reads(statements: list[str], table: str) -> list[str]:
     """The statements reading `table` whose select list is just its id column."""
-    reads = []
-    for raw in statements:
-        flat = " ".join(raw.split())
-        select_list, separator, _ = flat.partition(" FROM ")
-        if not separator or not flat.startswith(f"SELECT {table}.id"):
-            continue
-        # `Query.with_entities` labels the column (`rom_notes.id AS rom_notes_id`).
-        columns = [
-            column.split(" AS ")[0].strip()
-            for column in select_list[len("SELECT ") :].split(",")
-        ]
-        if columns == [f"{table}.id"]:
-            reads.append(flat)
-    return reads
+    return [
+        flat
+        for raw in statements
+        if _reads_from(flat := _flat(raw), table) and _selects_only_the_id(flat, table)
+    ]
 
 
 def test_save_identifiers_does_not_load_the_roms_it_points_at(
@@ -101,6 +103,7 @@ def test_firmware_identifiers_selects_only_the_id_column(
     missing_firmware: Firmware,
     executed_statements: list[str],
 ) -> None:
+    """`list_firmware` noloads the platform, so only the projection is under test."""
     executed_statements.clear()
     response = client.get("/api/firmware/identifiers", headers=_headers(access_token))
 
