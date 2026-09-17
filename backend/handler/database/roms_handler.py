@@ -1807,11 +1807,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
         **kwargs,
     ) -> list[int]:
-        """Every matching rom id, in query order.
-
-        Selecting the id column alone skips building a `Rom` per row, and with
-        it the eager platform and metadata joins.
-        """
+        """Every matching rom id, in query order."""
         query = self._scoped_roms_query(
             session=session, include_related=False, **kwargs
         )

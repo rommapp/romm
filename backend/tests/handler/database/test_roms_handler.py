@@ -324,8 +324,7 @@ class TestHasSoundtrackFilter:
 
 
 class TestGetRomIds:
-    """`get_rom_ids` must answer what `get_roms_scalar` answers, in the same
-    order, for each scope its two endpoints build."""
+    """Pin `get_rom_ids` to `get_roms_scalar`: same ids, same order."""
 
     def _physical_game(self, platform: Platform) -> Rom:
         return db_rom_handler.add_rom(

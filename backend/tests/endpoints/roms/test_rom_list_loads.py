@@ -193,9 +193,7 @@ def test_identifiers_does_not_load_the_roms_it_lists(
     admin_user: User,
     executed_statements: list[str],
 ) -> None:
-    """The endpoint answers with ids, so the platform and metadata joins that
-    come with a `Rom` are pure cost, and a per-row one is what made the call
-    scale with the library."""
+    """The endpoint answers with ids, so the joins a `Rom` brings are pure cost."""
     rom = _add_rom(admin_user, platform, "identifiers_rom", "identifiers_rom.zip")
 
     executed_statements.clear()
