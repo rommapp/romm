@@ -18,8 +18,8 @@ LABEL_LOOKUP = (
     "SELECT roms.id, roms.platform_id, roms.name, roms.fs_name "
     "FROM roms WHERE roms.id ="
 )
-# The bulk delete joins the platform to log its label when a file is already
-# missing from disk, so its projection is wider than the label pair.
+# Stops at the first platform column; the rest are not needed to tell the
+# projection apart.
 DELETE_TARGET_LOOKUP = (
     "SELECT roms.id, roms.platform_id, roms.name, roms.fs_name, roms.fs_path, "
     "platforms.slug AS platform_slug"
@@ -45,17 +45,28 @@ def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _flat(statements: list[str]) -> list[str]:
-    return [" ".join(statement.split()) for statement in statements]
-
-
 def _rom_lookup(statements: list[str], prefix: str, count: int = 1) -> None:
     """Assert exactly `count` statement prefixes match."""
-    flat = _flat(statements)
+    flat = [" ".join(statement.split()) for statement in statements]
     # `get_rom` selects an aliased `roms_1` shape, so a regression matches zero.
     matches = [s for s in flat if s.startswith(prefix)]
 
     assert len(matches) == count, flat
+
+
+def _add_rom(platform: Platform, name: str) -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=name,
+            slug=name,
+            fs_name=f"{name}.zip",
+            fs_name_no_tags=name,
+            fs_name_no_ext=name,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
 
 
 def _add_file(rom: Rom, category: RomFileCategory) -> RomFile:
@@ -170,18 +181,7 @@ def test_bulk_delete_resolves_each_rom_without_the_related_load(
 ) -> None:
     targets = []
     for n in range(3):
-        target = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=f"bulk {n}",
-                slug=f"bulk_{n}",
-                fs_name=f"bulk_{n}.zip",
-                fs_name_no_tags=f"bulk_{n}",
-                fs_name_no_ext=f"bulk_{n}",
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
+        target = _add_rom(platform, f"bulk_{n}")
         db_rom_handler.add_rom_user(rom_id=target.id, user_id=admin_user.id)
         targets.append(target)
 
