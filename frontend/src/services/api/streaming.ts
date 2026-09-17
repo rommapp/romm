@@ -239,7 +239,8 @@ function releaseSessionKeepalive(
   const params = new URLSearchParams();
   if (container) params.set("container", container);
   if (claimedAt) params.set("claimed_at", claimedAt);
-  const query = params.size > 0 ? `?${params}` : "";
+  const search = params.toString();
+  const query = search ? `?${search}` : "";
   return fetch(`/api/streaming/sessions/${platform}${query}`, {
     method: "DELETE",
     keepalive: true,
