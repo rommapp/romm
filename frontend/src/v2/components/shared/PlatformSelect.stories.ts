@@ -3,6 +3,10 @@ import { expect, userEvent, within, waitFor } from "storybook/test";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
 import PlatformSelect from "./PlatformSelect.vue";
+import {
+  formatPlatformRomCount,
+  PLATFORM_ROM_COUNT_CAP,
+} from "./formatPlatformRomCount";
 import { promotePlatformsWithGamesFirst } from "./platformsWithGamesFirst";
 
 function makePlatform(overrides: Partial<Platform> = {}): Platform {
@@ -77,9 +81,9 @@ const MIXED_PLATFORM_CATALOG: Platform[] = [
   }),
   makePlatform({
     id: 7,
-    slug: "snes",
-    name: "Super Nintendo",
-    display_name: "Super Nintendo",
+    slug: "nes",
+    name: "Nintendo Entertainment System",
+    display_name: "Nintendo Entertainment System",
     rom_count: 722,
   }),
   makePlatform({
@@ -90,6 +94,35 @@ const MIXED_PLATFORM_CATALOG: Platform[] = [
     rom_count: 0,
   }),
 ];
+
+/** One over-cap library plus a normal count for badge formatting. */
+const ROM_COUNT_CAP_FIXTURE: Platform[] = [
+  makePlatform({
+    id: 1,
+    slug: "psx",
+    name: "PlayStation",
+    display_name: "PlayStation",
+    rom_count: PLATFORM_ROM_COUNT_CAP + 2345,
+  }),
+  makePlatform({
+    id: 2,
+    slug: "gba",
+    name: "Game Boy Advance",
+    display_name: "Game Boy Advance",
+    rom_count: 99,
+  }),
+];
+
+function romBadgeText(displayName: string): string | undefined {
+  const row = Array.from(
+    document.querySelectorAll(".r-select__list > li:not(.r-select__divider)"),
+  ).find(
+    (li) =>
+      li.querySelector(".r-select__item-title")?.textContent?.trim() ===
+      displayName,
+  );
+  return row?.querySelector(".r-v2-platsel__rom-badge")?.textContent?.trim();
+}
 
 function menuRowTitles(): string[] {
   return Array.from(document.querySelectorAll(".r-select__list > li")).map(
@@ -182,6 +215,33 @@ export const PromotedOpenMenu: Story = {
       expect(
         gbaRow?.querySelector(".r-v2-platsel__rom-badge")?.textContent,
       ).toBe("1537");
+    });
+  },
+};
+
+export const PromotedRomCountCap: Story = {
+  name: "Promotion on — rom count 9999+ cap",
+  render: () => ({
+    components: { PlatformSelect },
+    setup() {
+      const value = ref<number | null>(null);
+      const items = ref<Platform[]>([...ROM_COUNT_CAP_FIXTURE]);
+      return { value, items };
+    },
+    template: `<PlatformSelect v-model="value" :items="items" label="Platforms" :promote-filled="true" />`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    await step("open menu", async () => {
+      await openMenu(canvasElement);
+    });
+
+    await step("caps badge at 9999+", async () => {
+      await waitFor(() => {
+        expect(romBadgeText("PlayStation")).toBe(
+          formatPlatformRomCount(PLATFORM_ROM_COUNT_CAP + 2345),
+        );
+        expect(romBadgeText("Game Boy Advance")).toBe("99");
+      });
     });
   },
 };
