@@ -75,13 +75,14 @@ export default defineConfig(({ mode }) => {
       include: VUETIFY_COMPONENTS,
     },
     build: {
-      // Vite's baseline: chrome111, edge111, firefox114, safari16.4, ios16.4,
-      // a little below the floor we support (Chromium 117, for CSS subgrid).
-      // `build.cssTarget` inherits it and Lightning CSS prefixes from it, so
-      // never set `esnext`: that drops the generated `-webkit-backdrop-filter`
-      // and every glass surface breaks in Safari. Never hand-write the
-      // `-webkit-` twin either, Lightning CSS keeps only the last of the pair.
-      target: "baseline-widely-available",
+      // No `target` here: Vite's default baseline (chrome111, edge111,
+      // firefox114, safari16.4, ios16.4) is what we want, and `cssTarget`
+      // inherits it. Never set `esnext`, `cssTarget` inherits that too and
+      // Lightning CSS then drops the generated `-webkit-backdrop-filter`,
+      // breaking every glass surface in Safari. Never hand-write the
+      // `-webkit-` twin either: Lightning CSS keeps only the last of the
+      // pair, so the standard property is the one that gets dropped.
+      //
       // AudioWorklet.addModule is only dependable with a real URL, and Vite
       // inlines any asset under 4KB as a data: URI, so keep the worklet out.
       assetsInlineLimit: (filePath) =>
