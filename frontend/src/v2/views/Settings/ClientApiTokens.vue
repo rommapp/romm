@@ -200,7 +200,6 @@ onMounted(() => {
       hide-details
       density="compact"
       :aria-label="t('settings.search-tokens')"
-      class="r-v2-tok__search"
     >
       <template #prefix-label>
         <RIcon icon="mdi-magnify" size="15" />
@@ -304,18 +303,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.r-v2-tok__head {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-  gap: 12px;
-}
-
-.r-v2-tok__search {
-  margin-bottom: 16px;
-}
-
 .r-v2-tok__name-cell {
   display: flex;
   flex-direction: column;
