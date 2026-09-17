@@ -408,6 +408,7 @@ async def _reserve_container(
             candidate.key,
             existing,
             max(0.0, deadline - time.monotonic()),
+            claimed_by=request.user.id,
         ):
             continue
         if await try_claim(candidate):

@@ -375,7 +375,11 @@ async def teardown_released_session(
 
 
 async def _teardown_abandoned_session(
-    container: ResolvedContainer, session_key: str, session: dict[str, Any]
+    container: ResolvedContainer,
+    session_key: str,
+    session: dict[str, Any],
+    *,
+    claimed_by: int | None = None,
 ) -> bool:
     """Free a container whose owner vanished without releasing (heartbeat went
     stale). Same order as an owner release: stop the emulator so the card is
@@ -412,9 +416,12 @@ async def _teardown_abandoned_session(
         # That tab may still be showing the stream, so leave the same note an
         # admin force-release does rather than letting the picture simply stop,
         # and leave it before the drain so a poll inside that window finds it.
-        await record_termination(
-            session, session_key, ended_by=None, reason="abandoned"
-        )
+        # Not for the owner coming back: the note would reach the tab that just
+        # claimed this container and end the claim it is starting.
+        if session.get("user_id") != claimed_by:
+            await record_termination(
+                session, session_key, ended_by=None, reason="abandoned"
+            )
         state_slot = await quiesce_container(container, session)
         await record_play_session(session)
         await clear_session_activity(session_key, session)
@@ -445,6 +452,8 @@ async def await_teardown_within_budget(
     session_key: str,
     session: dict[str, Any],
     budget: float,
+    *,
+    claimed_by: int | None = None,
 ) -> bool:
     """Tear down an abandoned session, but only wait `budget` seconds for it.
 
@@ -454,7 +463,9 @@ async def await_teardown_within_budget(
     this leaves behind blocks a claim until the teardown drops it.
     """
     task = background.spawn_sync_task(
-        _teardown_abandoned_session(container, session_key, session)
+        _teardown_abandoned_session(
+            container, session_key, session, claimed_by=claimed_by
+        )
     )
     try:
         return await asyncio.wait_for(asyncio.shield(task), timeout=budget)

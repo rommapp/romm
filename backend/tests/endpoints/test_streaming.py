@@ -2302,6 +2302,29 @@ def test_takeover_leaves_the_displaced_owner_a_notice(
     assert notice["rom_id"] == rom.id
 
 
+def test_taking_over_ones_own_stale_session_pushes_no_notice(
+    client, access_token, rom: Rom
+):
+    """The notice goes to the user, whose only tab is now the one that just
+    claimed this container, and it would end that fresh claim."""
+    container = _container_for(rom)
+    sent: list[str] = []
+
+    async def _capture(user_id: Any, event: str, payload: dict[str, Any]) -> None:
+        sent.append(event)
+
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        with (
+            patch("handler.streaming.commands.stop", return_value=None),
+            patch("handler.streaming.session_store.push_to_user", new=_capture),
+        ):
+            _claim_ok(client, access_token, rom.id)
+
+    assert "streaming:session-ended" not in sent
+
+
 def test_takeover_aborts_when_the_owner_comes_back_first(
     client, access_token, viewer_access_token, rom: Rom
 ):
