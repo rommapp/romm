@@ -653,12 +653,17 @@ function downloadTrack(track: PanelTrack) {
   }
 }
 
+/* Paused rather than removed, so a pause holds the disc at its current angle. */
+.r-v2-stp__vinyl {
+  animation: r-v2-stp-vinyl-spin 6s linear infinite paused;
+}
+
 .r-v2-stp__vinyl--spinning {
-  animation: r-v2-stp-vinyl-spin 6s linear infinite;
+  animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .r-v2-stp__vinyl--spinning {
+  .r-v2-stp__vinyl {
     animation: none;
   }
 }
