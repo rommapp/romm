@@ -1764,11 +1764,15 @@ class DBRomsHandler(DBBaseHandler):
         **kwargs,
     ) -> Query[Rom]:
         """The filtered, ordered query `get_roms_scalar` and `get_rom_ids` both run."""
+        order_by = kwargs.get("order_by", "")
+        order_dir = kwargs.get("order_dir", "asc")
+        user_id = kwargs.get("user_id", None)
+
         query, sort_key = self.get_roms_query(
-            order_by=kwargs.get("order_by", ""),
-            order_dir=kwargs.get("order_dir", "asc"),
+            order_by=order_by,
+            order_dir=order_dir,
             search_term=kwargs.get("search_term", None),
-            user_id=kwargs.get("user_id", None),
+            user_id=user_id,
             session=session,
         )
 
@@ -1777,9 +1781,9 @@ class DBRomsHandler(DBBaseHandler):
             # Extra keys (ordering, loading flags) are not filters; ignored here.
             filters=RomFilterParams.model_validate(kwargs),
             sort_key=sort_key,
-            order_by=kwargs.get("order_by", ""),
-            order_dir=kwargs.get("order_dir", "asc"),
-            user_id=kwargs.get("user_id", None),
+            order_by=order_by,
+            order_dir=order_dir,
+            user_id=user_id,
             released_days=kwargs.get("released_days", None),
             released_before_year=kwargs.get("released_before_year", None),
             # File loaders need the entity too, so they ride the same flag.
