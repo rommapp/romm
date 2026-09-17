@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // AppNav — the top navigation. Logo on the left, centred tab pill of
 // content destinations (Home / Platforms / Collections / Search), and
-// a right cluster of utility chrome (scanning indicator, user menu).
+// a right cluster of utility chrome (scanning indicator, the mini player on
+// phones, user menu).
 // Highlighting is derived from `route.path`
 // rather than route names so gallery subroutes (e.g. /rom/:id) still
 // light up the Home tab.
@@ -14,11 +15,14 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
+import NowPlayingButton from "@/v2/components/Soundtrack/NowPlayingButton.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+const { smAndDown } = useBreakpoint();
 
 // Primary destinations + active-tab logic shared with BottomNav.
 const { destinations: tabs, activeId: activeTab } = useNavDestinations();
@@ -77,6 +81,7 @@ onBeforeUnmount(() => {
 
       <div class="r-v2-nav__right">
         <ScanningIndicator />
+        <NowPlayingButton v-if="smAndDown" />
         <UserMenu />
       </div>
     </nav>

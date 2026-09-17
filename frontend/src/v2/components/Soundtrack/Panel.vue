@@ -4,9 +4,7 @@
 // screen so only one "now playing" surface exists at a time.
 import {
   RBtn,
-  RChip,
   RIcon,
-  RMarquee,
   RSkeletonBlock,
   RSlider,
   RSpinner,
@@ -20,11 +18,16 @@ import useSoundtrackPlayer, {
   type PlayerMeta,
   type PlayerTrack,
 } from "@/stores/soundtrackPlayer";
+import AmbientArt from "@/v2/components/Soundtrack/AmbientArt.vue";
+import NowPlayingChips from "@/v2/components/Soundtrack/NowPlayingChips.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import type { PanelTrack } from "@/v2/utils/soundtrackTracks";
+import {
+  nowPlayingCaption,
+  type PanelTrack,
+} from "@/v2/utils/soundtrackTracks";
 import { formatTrackTime } from "@/v2/utils/time";
 import TrackRow from "./TrackRow.vue";
 
@@ -182,8 +185,12 @@ const headerArtUrl = computed(
     null,
 );
 
-const headerCaption = computed(
-  () => headerTrack.value?.meta?.album ?? headerTrack.value?.meta?.artist ?? "",
+const headerPosition = computed(() =>
+  headerTrack.value ? displayedTracks.value.indexOf(headerTrack.value) + 1 : 0,
+);
+
+const headerCaption = computed(() =>
+  nowPlayingCaption(headerTrack.value?.meta),
 );
 
 function onViewportRange(range: { first: number; last: number }) {
@@ -227,43 +234,6 @@ const queueSummary = computed(() => {
   return t("rom.tracks-n", trackCount.value, {
     named: { n: trackCount.value.toLocaleString() },
   });
-});
-
-type HeaderChip = { icon: string; label: string; color?: string };
-
-// The queue position always leads, so the band under the caption is never
-// empty. The artist is skipped when the caption already fell back to it.
-const headerChips = computed<HeaderChip[]>(() => {
-  const track = headerTrack.value;
-  if (!track) return [];
-  const meta = track.meta;
-  const chips: HeaderChip[] = [
-    {
-      icon: "mdi-playlist-music",
-      label: `${displayedTracks.value.indexOf(track) + 1} / ${trackCount.value.toLocaleString()}`,
-    },
-  ];
-  if (meta?.album && meta.artist)
-    chips.push({ icon: "mdi-account-music", label: meta.artist });
-  if (meta?.year)
-    chips.push({
-      icon: "mdi-calendar",
-      label: String(meta.year),
-      color: "accent",
-    });
-  if (meta?.genre)
-    chips.push({ icon: "mdi-music-clef-treble", label: meta.genre });
-  if (meta?.track)
-    chips.push({
-      icon: "mdi-numeric",
-      label: t("rom.chip-track-n", { n: meta.track }),
-    });
-  if (meta?.disc)
-    chips.push({
-      icon: "mdi-disc",
-      label: t("rom.chip-disc-n", { n: meta.disc }),
-    });
-  return chips;
 });
 
 // Reloading the queue whenever the input list changes keeps "next" pointing at
@@ -356,12 +326,7 @@ function seekValueText(v: number): string {
   <div ref="panelRoot" class="r-v2-stp-host">
     <div class="r-v2-stp" :class="{ 'r-v2-stp--wide': wide }">
       <!-- Blurred echo of the active art behind the whole surface. -->
-      <div
-        v-if="headerArtUrl"
-        class="r-v2-stp__ambient"
-        :style="{ backgroundImage: `url(${headerArtUrl})` }"
-        aria-hidden="true"
-      />
+      <AmbientArt v-if="headerArtUrl" :url="headerArtUrl" />
 
       <!-- Now playing rail (wide) / header (stacked) -->
       <aside class="r-v2-stp__hero">
@@ -407,20 +372,12 @@ function seekValueText(v: number): string {
             {{ headerCaption }}
           </p>
           <!-- Keyed by track so a new track's chips start from the left. -->
-          <RMarquee :key="headerTrack?.id" class="r-v2-stp__band">
-            <div class="r-v2-stp__chips">
-              <RChip
-                v-for="chip in headerChips"
-                :key="chip.icon"
-                size="small"
-                variant="translucent"
-                :color="chip.color"
-                :prepend-icon="chip.icon"
-              >
-                {{ chip.label }}
-              </RChip>
-            </div>
-          </RMarquee>
+          <NowPlayingChips
+            :key="headerTrack?.id"
+            :tags="headerTrack?.meta"
+            :position="headerPosition"
+            :total="trackCount"
+          />
         </div>
 
         <!-- Transport: always rendered so the surface keeps its vocabulary
@@ -582,22 +539,6 @@ function seekValueText(v: number): string {
   min-height: 0;
   overflow: hidden;
   isolation: isolate;
-}
-
-/* Ambient backdrop: the active art, blown up and blurred. Scaled past the
-   edges so the blur never shows a hard boundary; masked so it fades before
-   reaching the queue's lower half. */
-.r-v2-stp__ambient {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-size: cover;
-  background-position: center 30%;
-  transform: scale(1.3);
-  filter: blur(72px) saturate(1.4);
-  opacity: 0.2;
-  mask-image: linear-gradient(to bottom, black 0%, transparent 85%);
-  pointer-events: none;
 }
 
 /* Hero: stacked by default, art + title side by side over the transport strip. */
@@ -773,16 +714,6 @@ function seekValueText(v: number): string {
 .r-v2-stp__now-caption {
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-md);
-}
-
-/* Holds a small chip's height even before the queue loads. */
-.r-v2-stp__band {
-  min-height: 24px;
-}
-
-.r-v2-stp__chips {
-  display: flex;
-  gap: var(--r-space-1);
 }
 
 /* Controls: one strip in the stacked layout, a column in the rail. */
