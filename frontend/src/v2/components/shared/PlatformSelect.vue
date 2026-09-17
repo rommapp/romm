@@ -3,11 +3,11 @@
 // platform-row visual language used across v2 (icon + display name,
 // optional category / family / missing-fs / rom-count meta).
 //
-// Consumers own the `items` list — fetch logic stays in stores or the
+// Consumers own the `items` list; fetch logic stays in stores or the
 // call site. Folder mapping passes the full supported-platforms
 // catalogue; Scan / FilterDrawer / UploadRomDialog pass DB-existing
-// platforms from `storePlatforms`. This component is purely
-// presentational + state-shaping.
+// platforms from `storePlatforms`. `promoteFilled` reorders the menu (default off).
+// Presentational + state-shaping.
 //
 // `showMeta` toggles the Scan-style rich row (category icon, family
 // name, missing-fs badge, rom-count tag). Off by default for the
@@ -24,6 +24,7 @@ import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import { platformCategoryToIcon } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import { promotePlatformsWithGamesFirst } from "./platformsWithGamesFirst";
 
 // Per-platform scrapper match indicators — mini avatar per metadata
 // source the platform has an ID for. Mixed `_id` / `_slug` fields
@@ -96,6 +97,8 @@ interface Props {
   loading?: boolean;
   label?: string;
   placeholder?: string;
+  /** Games-first menu + divider. Default false; opt in at call sites. */
+  promoteFilled?: boolean;
   searchPlaceholder?: string;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
@@ -134,6 +137,7 @@ const props = withDefaults(defineProps<Props>(), {
   markUnscanned: false,
   unscannedLabel: undefined,
   iconSize: 28,
+  promoteFilled: false,
 });
 
 const emit = defineEmits<{
@@ -156,6 +160,26 @@ const forwardedSlotNames = computed(() =>
   ),
 );
 
+// Games-first split; `orderedItems` / `dividerAfter` use it when `promoteFilled`.
+const promotion = computed(() => promotePlatformsWithGamesFirst(props.items));
+
+const orderedItems = computed(() => {
+  if (!props.promoteFilled) return props.items;
+  return [...promotion.value.promoted, ...promotion.value.remaining];
+});
+
+const dividerAfter = computed(() => {
+  if (!props.promoteFilled) return undefined;
+  const { promoted, remaining } = promotion.value;
+
+  // if there's nothing to promote, or nothing to remain, we don't need to divide.
+  const makesNoDifference = promoted.length === 0 || remaining.length === 0;
+  if (makesNoDifference) return undefined;
+
+  const lastKey = promoted.at(-1)![props.itemKey];
+  return (platform: Platform) => platform[props.itemKey] === lastKey;
+});
+
 const platformByKey = computed(() => {
   const m = new Map<number | string, Platform>();
   for (const p of props.items) m.set(p[props.itemKey], p);
@@ -176,7 +200,7 @@ function onUpdate(v: unknown) {
   <RSelect
     v-bind="$attrs"
     :model-value="modelValue"
-    :items="items"
+    :items="orderedItems"
     item-title="display_name"
     :item-value="itemKey"
     :multiple="multiple"
@@ -195,6 +219,7 @@ function onUpdate(v: unknown) {
     :hide-details="hideDetails"
     :prefix-label="prefixLabel"
     :prepend-inner-icon="prependInnerIcon"
+    :divider-after="dividerAfter"
     @update:model-value="onUpdate"
   >
     <!-- Selection — consumer slot wins; otherwise icon + name. -->
