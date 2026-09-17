@@ -1540,8 +1540,11 @@ def test_a_container_that_disagrees_on_the_emulator_is_a_later_pool(caplog):
     second = {**first, "host": "http://192.168.1.11:3000"}
     second["broker_host"] = "http://192.168.1.11:8000"
     second["emulator"] = "play"
-    third = {**first, "host": "http://192.168.1.12:3000"}
-    third["broker_host"] = "http://192.168.1.12:8000"
+    third = {
+        **first,
+        "host": "http://192.168.1.12:3000",
+        "broker_host": "http://192.168.1.12:8000",
+    }
     romm_logger = logging.getLogger("romm")
     romm_logger.addHandler(caplog.handler)
     try:

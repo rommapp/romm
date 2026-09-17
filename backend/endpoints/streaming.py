@@ -196,8 +196,8 @@ async def _session_status(
     request: Request,
     candidates: list[ResolvedContainer] | None = None,
 ) -> dict[str, Any]:
-    """Whether the caller holds a session among `candidates` (the platform's pool
-    by default), and if not, why it ended. Read-only, so it is safe to poll."""
+    """Whether the caller holds a session among `candidates` (the platform's first
+    pool by default), and if not, why it ended. Read-only, so it is safe to poll."""
     if candidates is None:
         candidates = containers_for_platform(platform)
     if not candidates:
@@ -645,9 +645,8 @@ async def claim_session(
             detail=f"No streaming container configured for platform '{platform}'",
         )
 
-    # Pool members are interchangeable on emulator and card sync (enforced by
-    # containers_for_platform), so the pre-claim validation below holds for
-    # whichever one the walk ends up winning.
+    # Pool members are interchangeable (`ResolvedContainer.interchangeable_with`),
+    # so the pre-claim validation below holds for whichever one the walk wins.
     reference = candidates[0]
 
     # Validate the resume pick before claiming so a bad state_id cannot

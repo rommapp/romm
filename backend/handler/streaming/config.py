@@ -539,20 +539,29 @@ def _pools(containers: Iterable[ResolvedContainer]) -> list[list[ResolvedContain
     return pools
 
 
-def _warn_about_later_pools(resolved: Sequence[ResolvedContainer]) -> None:
-    """Name every container a game claim can never reach, once per config."""
+def _pools_by_platform(
+    resolved: Iterable[ResolvedContainer],
+) -> dict[str, list[list[ResolvedContainer]]]:
+    """Every platform's pools, keyed by the lowercased platform."""
     by_platform: dict[str, list[ResolvedContainer]] = {}
     for container in resolved:
+        # Nothing to dial, so a claim would have nowhere to go. The fleet view
+        # still lists it, which is where the operator sees why.
         if container.key:
             by_platform.setdefault(container.platform.lower(), []).append(container)
-    for containers in by_platform.values():
-        later = [c.key for pool in _pools(containers)[1:] for c in pool]
+    return {platform: _pools(members) for platform, members in by_platform.items()}
+
+
+def _warn_about_later_pools(resolved: Sequence[ResolvedContainer]) -> None:
+    """Name every container a game claim can never reach, once per config."""
+    for pools in _pools_by_platform(resolved).values():
+        later = [c.key for pool in pools[1:] for c in pool]
         if later:
             log.warning(
                 "containers for platform '%s' disagree on emulator, memory card "
                 "sync, save picker or protocol, so game claims only use the first "
                 "pool; never claimed for a game: %s",
-                containers[0].platform,
+                pools[0][0].platform,
                 ", ".join(later),
             )
 
@@ -560,14 +569,7 @@ def _warn_about_later_pools(resolved: Sequence[ResolvedContainer]) -> None:
 def pools_for_platform(platform: str) -> list[list[ResolvedContainer]]:
     """Every container serving a platform, grouped into pools. A container that
     matches no other is a pool of one."""
-    lower = platform.lower()
-    return _pools(
-        container
-        for container in resolve_containers()
-        # Nothing to dial, so a claim would have nowhere to go. The fleet view
-        # still lists it, which is where the operator sees why.
-        if container.key and container.platform.lower() == lower
-    )
+    return _pools_by_platform(resolve_containers()).get(platform.lower(), [])
 
 
 def containers_for_platform(platform: str) -> list[ResolvedContainer]:

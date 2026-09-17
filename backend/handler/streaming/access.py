@@ -137,7 +137,7 @@ async def resolve_named_container(
 async def resolve_owned_session(
     platform: str, request: Request
 ) -> tuple[ResolvedContainer, str, dict[str, Any]]:
-    """Find the caller's session among the platform's containers.
+    """Find the caller's session in the platform's first pool.
 
     Returns (container, session_key, session). Raises 404 when the platform has
     no configured container or nothing is active, 403 when every active session
