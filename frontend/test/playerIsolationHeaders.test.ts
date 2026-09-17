@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -12,9 +12,25 @@ const TEMPLATE = resolve(
   "../docker/nginx/templates/default.conf.template",
 );
 
-// The `~<pattern> "<header>";` entries of the COOP/COEP maps. nginx delimits
-// those patterns by whitespace, so they carry no escaping to undo.
+// The dev container mounts frontend/ alone, so the template is out of reach
+// there; CI always has the whole repo, where the drift has to be caught.
+const TEMPLATE_REACHABLE = existsSync(TEMPLATE) || Boolean(process.env.CI);
+
+// The `~<pattern> "<header>";` entries of one map. nginx delimits those
+// patterns by whitespace, so they carry no escaping to undo.
 const MAP_ENTRY = /^\s*~(\S+)\s+"(?:require-corp|same-origin)";/gm;
+
+/** The patterns of the `$request_uri` map feeding `variable`, as regex sources. */
+function mapPatterns(variable: string): string[] {
+  const template = readFileSync(TEMPLATE, "utf8");
+  const block = new RegExp(
+    `map \\$request_uri \\$${variable}\\s*\\{([^}]*)\\}`,
+  ).exec(template);
+  if (!block) throw new Error(`No $${variable} map in ${TEMPLATE}`);
+  return [...block[1]!.matchAll(MAP_ENTRY)].map(
+    (entry) => new RegExp(entry[1]!).source,
+  );
+}
 
 type Middleware = (
   req: { url?: string },
@@ -102,19 +118,16 @@ describe("playerIsolationHeaders", () => {
   });
 });
 
-// The plugin restates the nginx map instead of reading it, so a URL isolated
-// in production but not in dev would otherwise only surface as SharedArrayBuffer
-// being unavailable behind the dev server.
-describe("the nginx COOP/COEP map", () => {
-  it("holds the patterns the plugin restates", () => {
-    const template = readFileSync(TEMPLATE, "utf8");
-    const sources = [
-      ...new Set([...template.matchAll(MAP_ENTRY)].map((entry) => entry[1]!)),
-    ].map((source) => new RegExp(source).source);
-
-    expect(sources.length).toBeGreaterThan(0);
-    expect(sources.sort()).toEqual(
-      ISOLATED_PLAYER_URLS.map((pattern) => pattern.source).sort(),
-    );
-  });
+// The plugin restates the nginx maps instead of reading them, and each map is
+// checked on its own: a URL isolated by one header alone leaves
+// SharedArrayBuffer unavailable just as an unlisted one does.
+describe.skipIf(!TEMPLATE_REACHABLE)("the nginx COOP/COEP maps", () => {
+  it.each(["coep_header", "coop_header"])(
+    "the %s map holds the patterns the plugin restates",
+    (variable) => {
+      expect(mapPatterns(variable).sort()).toEqual(
+        ISOLATED_PLAYER_URLS.map((pattern) => pattern.source).sort(),
+      );
+    },
+  );
 });

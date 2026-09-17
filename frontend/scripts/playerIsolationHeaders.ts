@@ -3,10 +3,8 @@
 // embeds.
 import type { Connect, Plugin } from "vite";
 
-// A copy of the `$coep_header`/`$coop_header` map entries in
-// docker/nginx/templates/default.conf.template, restated here because the
-// production build runs from frontend/ alone and cannot read that file.
-// playerIsolationHeaders.test.ts fails when the two drift.
+// A copy of the `$coep_header`/`$coop_header` maps in
+// docker/nginx/templates/default.conf.template; the test fails when they drift.
 export const ISOLATED_PLAYER_URLS: readonly RegExp[] = [
   /^\/rom\/.*\/(ejs|jsdos)(\?|$)/,
   /^\/console\/rom\/[0-9]+\/play/,
