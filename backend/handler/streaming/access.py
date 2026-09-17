@@ -10,6 +10,7 @@ from handler.streaming.config import (
     ResolvedContainer,
     containers_by_key,
     containers_for_platform,
+    entry_for_platform,
 )
 from handler.streaming.session_store import get_live_session
 from models.rom import Rom
@@ -120,10 +121,9 @@ async def resolve_named_container(
     serving this platform.
     """
     entries = containers_by_key().get(container_key, []) if container_key else []
-    lower = platform.lower()
-    for candidate in entries:
-        if candidate.platform.lower() == lower:
-            return candidate, container_key, await get_live_session(container_key)
+    candidate = entry_for_platform(entries, platform)
+    if candidate is not None:
+        return candidate, container_key, await get_live_session(container_key)
     raise HTTPException(
         status_code=404,
         detail=f"No streaming container '{container_key}' for platform '{platform}'",

@@ -93,22 +93,18 @@ async function release(container: AdminStreamingContainer): Promise<void> {
 function sessionState(container: AdminStreamingContainer): string {
   const session = container.session;
   if (!session) return t("settings.streaming-idle");
-  const parts = [
+  return [
     session.desktop
       ? t("settings.streaming-desktop-session")
       : (session.rom_name ?? t("settings.streaming-unknown-game")),
-  ];
-  if (session.claimed_at) {
-    parts.push(
+    session.claimed_at &&
       t("settings.streaming-since", {
         time: formatTimestamp(session.claimed_at, locale.value),
       }),
-    );
-  }
-  if (session.username) {
-    parts.push(t("settings.streaming-by", { user: session.username }));
-  }
-  return parts.join(" ");
+    session.username && t("settings.streaming-by", { user: session.username }),
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 onMounted(load);

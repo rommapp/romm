@@ -560,6 +560,14 @@ def containers_by_key() -> dict[str, list[ResolvedContainer]]:
     return grouped
 
 
+def entry_for_platform(
+    entries: list[ResolvedContainer], platform: str
+) -> ResolvedContainer | None:
+    """The record among one container's entries that serves this platform."""
+    lower = platform.lower()
+    return next((e for e in entries if e.platform.lower() == lower), None)
+
+
 def container_for_session(
     grouped: dict[str, list[ResolvedContainer]], container_key: str, platform: Any
 ) -> ResolvedContainer | None:
@@ -569,12 +577,8 @@ def container_for_session(
     entries = grouped.get(container_key)
     if not entries:
         return None
-    if isinstance(platform, str):
-        lower = platform.lower()
-        for entry in entries:
-            if entry.platform.lower() == lower:
-                return entry
-    return entries[0]
+    entry = entry_for_platform(entries, platform) if isinstance(platform, str) else None
+    return entry or entries[0]
 
 
 def configured_emulator(platform: str) -> str:
