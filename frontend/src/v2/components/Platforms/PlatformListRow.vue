@@ -220,7 +220,6 @@ function onRowClick(e: MouseEvent) {
   min-width: 0;
 }
 
-/* No cover well: platform art is a transparent square logo, not poster art. */
 .plat-list-row__thumb {
   flex-shrink: 0;
   display: grid;
