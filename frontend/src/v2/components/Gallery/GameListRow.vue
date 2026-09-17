@@ -445,8 +445,7 @@ function onRowPointerEnd() {
 
     <template v-else>
       <!-- Column-driven, so the per-cell shapes stay in step with
-           `GameListSkeletonRow` and the row does not reflow when real data
-           replaces it. -->
+           `GameListSkeletonRow` and the row does not reflow on data arrival. -->
       <template v-for="col in listSkeletonColumns" :key="String(col.key)">
         <div
           v-if="col.key === 'select'"

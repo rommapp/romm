@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GameCardSkeleton — placeholder for un-fetched gallery slots and the Home
+// GameCardSkeleton: placeholder for un-fetched gallery slots and the Home
 // dashboard's loading rows.
 //
 // Geometry mirrors GameCard exactly (default and hero) so a swap to real cards
