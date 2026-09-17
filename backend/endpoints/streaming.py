@@ -215,11 +215,20 @@ async def _session_status(platform: str, request: Request) -> dict[str, Any]:
                 webstation.launch_phase, container
             )
         return status
+    return await _ended_status(
+        platform, request.user.id, [candidate.key for candidate in candidates]
+    )
+
+
+async def _ended_status(
+    platform: str, user_id: int, session_keys: list[str]
+) -> dict[str, Any]:
+    """An ended session's status, carrying the caller's termination notice."""
     # The tombstone is keyed per container, so with a pool the caller's notice
     # can sit under any of them.
     termination = None
-    for candidate in candidates:
-        termination = await get_termination(candidate.key, request.user.id)
+    for session_key in session_keys:
+        termination = await get_termination(session_key, user_id)
         if termination is not None:
             break
     return {
@@ -923,12 +932,23 @@ async def heartbeat_session(
     `container` names the claim to refresh, needed for a desktop on a container
     the platform's pool leaves out.
     """
+    user_id = request.user.id
+
+    async def gone() -> SessionStatusSchema:
+        # A named claim answers for itself: another session the caller holds on
+        # the platform is not the one this client is beating.
+        if container_key is None:
+            return SessionStatusSchema(**await _session_status(platform, request))
+        return SessionStatusSchema(
+            **await _ended_status(platform, user_id, [container_key])
+        )
+
     if container_key is not None:
         _, session_key, session = await access.resolve_named_container(
             platform, container_key
         )
-        if session is None or session.get("user_id") != request.user.id:
-            return SessionStatusSchema(**await _session_status(platform, request))
+        if session is None or session.get("user_id") != user_id:
+            return await gone()
     else:
         candidates = containers_for_platform(platform)
         if not candidates:
@@ -936,21 +956,21 @@ async def heartbeat_session(
                 status_code=404,
                 detail=f"No streaming container configured for platform '{platform}'",
             )
-        found = await access.find_session_for_user(candidates, request.user.id)
+        found = await access.find_session_for_user(candidates, user_id)
         if found is None:
-            return SessionStatusSchema(**await _session_status(platform, request))
+            return await gone()
         _, session_key, _ = found
 
     # Merging rather than writing the copy read above keeps a swap that landed
-    # in between; refusing a draining session keeps a heartbeat from making a
-    # container that is already being torn down look live. Either returns None,
-    # meaning the claim is gone and reporting "active" would leave the client
-    # beating a session it no longer holds.
+    # in between; refusing a draining session, or a claim that changed hands,
+    # keeps a heartbeat from making a container look live for the wrong holder.
+    # Either returns None, meaning the claim is gone and reporting "active"
+    # would leave the client beating a session it no longer holds.
     try:
         refreshed = await mutate_session(
             session_key,
             {"last_seen": datetime.now(timezone.utc).isoformat()},
-            require=lambda s: not s.get("draining"),
+            require=lambda s: not s.get("draining") and s.get("user_id") == user_id,
         )
     except StreamingSessionContended:
         # A key too busy to write is a key that exists, so the session is live
@@ -958,7 +978,7 @@ async def heartbeat_session(
         log.warning("heartbeat could not stamp contended session %s", session_key)
         return SessionStatusSchema(status="active", platform=platform)
     if refreshed is None:
-        return SessionStatusSchema(**await _session_status(platform, request))
+        return await gone()
     await lifecycle.refresh_session_activity(session_key, refreshed)
     return SessionStatusSchema(status="active", platform=platform)
 

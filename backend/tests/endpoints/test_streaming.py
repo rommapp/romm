@@ -1426,6 +1426,31 @@ def test_heartbeat_naming_the_container_refreshes_a_desktop_outside_the_pool(
     assert not session_store.session_is_stale(session)
 
 
+def test_heartbeat_naming_a_released_container_reports_ended(client, access_token):
+    """A session the caller holds on another of the platform's containers must
+    not answer for the named one."""
+    outside = _outside_the_ps2_pool()
+    with _streaming(_webstation(), outside):
+        assert (
+            _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
+        )
+        assert _desktop(client, access_token, _key_of(outside))[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            released = client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": _key_of(outside)},
+                headers=_auth(access_token),
+            )
+        assert released.status_code == 200
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": _key_of(outside)},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+
+
 def test_heartbeat_naming_a_container_leaves_another_users_session_alone(
     client, access_token, viewer_access_token
 ):

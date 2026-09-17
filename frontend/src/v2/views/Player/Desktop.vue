@@ -99,6 +99,13 @@ useIntervalFn(() => {
   if (!holdsClaim.value || !platform.value) return;
   void streamingApi
     .heartbeatSession(platform.value, containerKey.value)
+    .then(({ data }) => {
+      // Ended elsewhere: dropping the claim keeps a later exit from releasing
+      // whoever holds the container next.
+      if (data.status !== "ended") return;
+      holdsClaim.value = false;
+      state.value = "exited";
+    })
     .catch((err) =>
       console.warn("[streaming] Could not heartbeat the desktop session:", err),
     );
