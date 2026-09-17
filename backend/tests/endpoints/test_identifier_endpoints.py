@@ -60,11 +60,7 @@ def _assert_table_untouched(statements: list[str], table: str) -> None:
 
 
 def _assert_table_never_named(statements: list[str], table: str) -> None:
-    """Assert no statement names `table`, even as a join target.
-
-    `_assert_table_untouched` reads the FROM clause, which misses a many-to-many
-    eager load: it drives off the owning table and reaches its own table by join.
-    """
+    """Assert no statement names `table`, including as a join target."""
     named = [
         flat for raw in statements if re.search(rf"\b{table}\b", flat := _flat(raw))
     ]
@@ -187,12 +183,8 @@ def test_collection_identifiers_does_not_load_the_roms_or_the_owner(
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == [collection.id]
 
-    # `Collection.roms` is many-to-many, so its eager load joins `roms` rather
-    # than selecting from it, which `_assert_table_untouched` would not see.
     _assert_table_never_named(executed_statements, "roms")
 
-    # Not `_assert_id_only`: the route reads the owner and visibility too, so the
-    # joined `users` load shows up as a join on the collections read.
     statement = _read_of(executed_statements, "collections")
     assert "JOIN" not in statement.partition(" FROM ")[2].upper(), statement
 
