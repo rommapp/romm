@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Platform } from "@/stores/platforms";
 import PlatformSelect from "./PlatformSelect.vue";
-import { promotePlatformsWithGamesFirst } from "./platformsWithGamesFirst";
+import { promotePlatformsWithGamesFirst } from "./platformSelect";
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),

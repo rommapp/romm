@@ -6,8 +6,8 @@ import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
   PLATFORM_ROM_COUNT_CAP,
-} from "./formatPlatformRomCount";
-import { promotePlatformsWithGamesFirst } from "./platformsWithGamesFirst";
+  promotePlatformsWithGamesFirst,
+} from "./platformSelect";
 
 function makePlatform(overrides: Partial<Platform> = {}): Platform {
   const slug = overrides.slug ?? "platform";
