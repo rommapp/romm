@@ -121,7 +121,23 @@ async def quiesce_container(
     return state_slot
 
 
-def collect_exit_saves(container: ResolvedContainer, session: dict[str, Any]) -> None:
+async def _pull_exit_saves(
+    user_id: int,
+    rom_id: int,
+    container: ResolvedContainer,
+    broker_session: str | None,
+) -> None:
+    """The spawned half of `collect_exit_saves`, which lets the next claim
+    through however the pull ended."""
+    try:
+        await saves.pull_saves_to_library(user_id, rom_id, container, broker_session)
+    finally:
+        await saves.clear_save_pull_pending(user_id, rom_id)
+
+
+async def collect_exit_saves(
+    container: ResolvedContainer, session: dict[str, Any]
+) -> None:
     """Start pulling the in-game save archive a stopped session left behind.
 
     Fire and forget: the broker keeps the archive after the emulator dies, so
@@ -130,7 +146,9 @@ def collect_exit_saves(container: ResolvedContainer, session: dict[str, Any]) ->
     desktop) has nowhere to file one, so neither schedules anything.
 
     One home for the rule: every teardown path files a session's saves the same
-    way, and under the session's owner rather than whoever ended it.
+    way, and under the session's owner rather than whoever ended it. The pull is
+    marked pending here rather than inside the task, so a claim arriving on the
+    heels of the release waits for it whether the task has started or not.
     """
     rom_id = session.get("rom_id")
     user_id = session.get("user_id")
@@ -140,10 +158,9 @@ def collect_exit_saves(container: ResolvedContainer, session: dict[str, Any]) ->
         or not isinstance(user_id, int)
     ):
         return
+    await saves.mark_save_pull_pending(user_id, rom_id)
     background.spawn_sync_task(
-        saves.pull_saves_to_library(
-            user_id, rom_id, container, broker_session_id(session)
-        )
+        _pull_exit_saves(user_id, rom_id, container, broker_session_id(session))
     )
 
 
@@ -359,7 +376,7 @@ async def teardown_released_session(
 
         # Awaited, not spawned: the claim is released below.
         await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session)
+        await collect_exit_saves(container, session)
 
         log.info("session released, platform=%s", platform)
     except Exception:
@@ -426,7 +443,7 @@ async def _teardown_abandoned_session(
         await record_play_session(session)
         await clear_session_activity(session_key, session)
         await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session)
+        await collect_exit_saves(container, session)
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)
     finally:

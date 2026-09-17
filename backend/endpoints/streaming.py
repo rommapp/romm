@@ -822,6 +822,10 @@ async def claim_session(
     if resume_state is not None and not resume_after_launch:
         resume_pushed = await states.push_resume_state(container, resume_state)
 
+    # The previous session's exit pull files the archive this claim hydrates
+    # from, and it runs detached, so it may still be on its way in.
+    await saves.wait_for_save_pull(request.user.id, rom.id)
+
     archive_path = await _hydrate_saves(
         request,
         container,
@@ -966,7 +970,7 @@ async def save_and_exit_session(
         except StreamingSessionContended:
             released = False
 
-    lifecycle.collect_exit_saves(container, session)
+    await lifecycle.collect_exit_saves(container, session)
 
     if not released:
         log.error("save-and-exit could not give up session %s", session_key)
@@ -1598,7 +1602,7 @@ async def force_release_all(
                     await lifecycle.record_play_session(session)
                     await lifecycle.clear_session_activity(container_key, session)
                     await lifecycle.collect_exit_state(container, session, state_slot)
-                    lifecycle.collect_exit_saves(container, session)
+                    await lifecycle.collect_exit_saves(container, session)
 
             # Note who ended it before the key goes, so the player's next poll
             # can explain the stream vanishing.

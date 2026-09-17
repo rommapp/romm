@@ -3107,9 +3107,7 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
         with (
             patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
             patch("handler.streaming.states.pull_state_to_library", new=AsyncMock()),
-            # Plain MagicMock: the async original would auto-mock to AsyncMock,
-            # whose call handed to the mocked spawn is a never-awaited coroutine.
-            patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
+            patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
             patch(
                 "handler.streaming.background.spawn_sync_task",
                 side_effect=spawned.append,
@@ -3326,7 +3324,7 @@ def test_save_and_exit_pulls_broker_effective_slot(client, access_token, rom: Ro
             patch(
                 "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as pull,
-            patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
+            patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -3353,7 +3351,8 @@ def test_save_and_exit_failed_blocking_save_skips_state_pull(
                 "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as state_pull,
             patch(
-                "handler.streaming.saves.pull_saves_to_library", new=MagicMock()
+                "handler.streaming.saves.pull_saves_to_library",
+                new_callable=AsyncMock,
             ) as save_pull,
         ):
             r = client.post(
@@ -3361,10 +3360,11 @@ def test_save_and_exit_failed_blocking_save_skips_state_pull(
                 json={"slot": 0, "wait": True},
                 headers=_auth(access_token),
             )
+            spawn.assert_called_once()
+            asyncio.run(spawn.call_args[0][0])
     assert r.status_code == 200
     state_pull.assert_not_called()
-    save_pull.assert_called_once()
-    spawn.assert_called_once()
+    save_pull.assert_awaited_once()
 
 
 def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
@@ -3380,7 +3380,7 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
         with (
             patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
             patch("handler.streaming.states.pull_state_to_library", new=MagicMock()),
-            patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
+            patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
             patch("handler.streaming.background.spawn_sync_task"),
         ):
             r = client.post(
@@ -4558,16 +4558,99 @@ def test_release_spawns_saves_pull(client, access_token, rom: Rom):
             patch("handler.streaming.commands.stop", return_value=None),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
-                "handler.streaming.saves.pull_saves_to_library", new=MagicMock()
+                "handler.streaming.saves.pull_saves_to_library",
+                new_callable=AsyncMock,
             ) as pull,
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
             )
+            spawn.assert_called_once()
+            asyncio.run(spawn.call_args[0][0])
     assert r.status_code == 200
-    spawn.assert_called_once()
-    assert pull.call_args[0][1] == rom.id
+    pull.assert_awaited_once()
+    assert pull.await_args_list[0].args[1] == rom.id
+
+
+def test_an_exit_holds_the_next_claim_until_its_saves_are_filed(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """The pull runs detached, so a claim landing on the heels of the release
+    would hydrate the container from the archive before this one."""
+    key = saves._save_pull_redis_key(admin_user.id, rom.id)
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.commands.stop", return_value=None),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.pull_saves_to_library",
+                new_callable=AsyncMock,
+            ),
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+            # Set by the release itself, not by the task it spawned: a claim
+            # can arrive before that task has run at all.
+            assert asyncio.run(async_cache.exists(key)) == 1
+            asyncio.run(spawn.call_args[0][0])
+            assert asyncio.run(async_cache.exists(key)) == 0
+
+
+def test_a_claim_waits_for_a_running_save_pull():
+    async def scenario() -> bool:
+        await saves.mark_save_pull_pending(1, 2)
+        waiter = asyncio.create_task(saves.wait_for_save_pull(1, 2, budget=5))
+        await asyncio.sleep(saves._SAVE_PULL_POLL_SECONDS * 2)
+        assert not waiter.done()
+        await saves.clear_save_pull_pending(1, 2)
+        return await waiter
+
+    assert asyncio.run(scenario()) is True
+
+
+def test_a_wedged_save_pull_does_not_hang_the_claim():
+    """A claim is an interactive request: a pull that never finishes costs the
+    player the previous archive, not a claim that never answers."""
+
+    async def scenario() -> bool:
+        await saves.mark_save_pull_pending(1, 2)
+        try:
+            return await saves.wait_for_save_pull(1, 2, budget=0.1)
+        finally:
+            await saves.clear_save_pull_pending(1, 2)
+
+    assert asyncio.run(scenario()) is False
+
+
+def test_a_claim_with_nothing_pending_hydrates_straight_away():
+    assert asyncio.run(saves.wait_for_save_pull(1, 2, budget=5)) is True
+
+
+def test_a_claim_waits_for_the_exit_pull_before_hydrating(
+    client, access_token, rom: Rom
+):
+    order: list[str] = []
+
+    async def _wait(user_id: int, rom_id: int, budget: float = 0.0) -> bool:
+        order.append("wait")
+        return True
+
+    async def _hydrate(*args, **kwargs) -> bool:
+        order.append("hydrate")
+        return True
+
+    with _streaming(_container_for(rom)):
+        with (
+            patch("handler.streaming.saves.wait_for_save_pull", new=_wait),
+            patch("handler.streaming.saves.hydrate_saves_to_broker", new=_hydrate),
+        ):
+            r = _claim_ok(client, access_token, rom.id)
+    assert r.status_code == 202
+    assert order == ["wait", "hydrate"]
 
 
 # ── Resume-from-state ─────────────────────────────────────────────────────────

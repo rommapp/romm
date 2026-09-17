@@ -7,12 +7,14 @@ a .zip extension so the whole card set travels as a unit.
 """
 
 import asyncio
+import time
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
 from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
+from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
 from handler.streaming import broker, webstation
 from handler.streaming.config import ResolvedContainer
@@ -21,6 +23,49 @@ from models.assets import Save
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import sanitize_filename
+
+# An exit files its archive in the background, so a claim landing behind it would
+# hydrate from the archive before last. The pull leaves a marker a claim waits out.
+SAVE_PULL_WAIT_SECONDS = 20.0
+_SAVE_PULL_KEY_PREFIX = "romm:streaming:save-pull:"
+# Backstop for a backend that dies mid-pull: a marker nobody clears would cost
+# every later claim on that ROM the full wait.
+_SAVE_PULL_TTL_SECONDS = 10 * 60
+_SAVE_PULL_POLL_SECONDS = 0.25
+
+
+def _save_pull_redis_key(user_id: int, rom_id: int) -> str:
+    return f"{_SAVE_PULL_KEY_PREFIX}{user_id}:{rom_id}"
+
+
+async def mark_save_pull_pending(user_id: int, rom_id: int) -> None:
+    await async_cache.set(
+        _save_pull_redis_key(user_id, rom_id), "1", ex=_SAVE_PULL_TTL_SECONDS
+    )
+
+
+async def clear_save_pull_pending(user_id: int, rom_id: int) -> None:
+    await async_cache.delete(_save_pull_redis_key(user_id, rom_id))
+
+
+async def wait_for_save_pull(
+    user_id: int, rom_id: int, budget: float = SAVE_PULL_WAIT_SECONDS
+) -> bool:
+    """Wait for a pull of this user's saves for this ROM to finish filing.
+
+    Returns whether nothing is pending any more. A claim is interactive, so a
+    wedged pull times out rather than holding the request open.
+    """
+    key = _save_pull_redis_key(user_id, rom_id)
+    deadline = time.monotonic() + budget
+    while await async_cache.exists(key):
+        if time.monotonic() >= deadline:
+            log.warning(
+                "gave up waiting for the previous session's saves, rom_id=%d", rom_id
+            )
+            return False
+        await asyncio.sleep(_SAVE_PULL_POLL_SECONDS)
+    return True
 
 
 def fetch_save_archive(
