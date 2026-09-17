@@ -10,6 +10,7 @@ import { RImg, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
+import { useStreamingStore } from "@/stores/streaming";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
 import { getEmptyCoverImage } from "@/v2/utils/covers";
 
@@ -27,6 +28,7 @@ defineEmits<{
 }>();
 
 const { t, locale } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 
 // States carry a screenshot; saves don't. Fall back to a placeholder
 // keyed by the file name so identical filenames render the same colour
@@ -82,7 +84,7 @@ const relativeText = computed(() => formatRelativeDate(props.asset.updated_at));
           v-if="asset.emulator"
           tone="warning"
           size="x-small"
-          :text="asset.emulator"
+          :text="emulatorLabel(asset.emulator)"
         />
         <RTag size="x-small" :text="formatBytes(asset.file_size_bytes)" />
       </div>
