@@ -141,7 +141,7 @@ def test_create_physical_rom_requires_name_or_upc(
         headers=_auth(access_token),
         json={"platform_id": platform.id},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_create_physical_rom_unknown_platform_returns_404(

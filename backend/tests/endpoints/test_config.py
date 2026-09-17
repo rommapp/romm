@@ -113,7 +113,7 @@ def test_add_exclusion_rejects_unknown_type(client, access_token: str):
             json={"exclusion_type": "platforms", "exclusion_value": "README.txt"},
         )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     add_exclusion.assert_not_called()
 
 
@@ -124,7 +124,7 @@ def test_delete_exclusion_rejects_unknown_type(client, access_token: str):
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     remove_exclusion.assert_not_called()
 
 
@@ -187,7 +187,7 @@ def test_update_scan_settings_rejects_unknown_source(client, access_token: str):
             json=_scan_payload(metadata_priority=["igdb", "not-a-source"]),
         )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     update_scan_settings.assert_not_called()
 
 
@@ -202,7 +202,7 @@ def test_update_scan_settings_rejects_invalid_gamelist_thumbnail(
             json=_scan_payload(gamelist_thumbnail="screenshot"),
         )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     update_scan_settings.assert_not_called()
 
 
