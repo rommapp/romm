@@ -293,7 +293,6 @@ const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: t("rom.tab-overview") },
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
-  { id: "patcher", label: t("common.patcher") },
   { id: "media", label: t("rom.media") },
   { id: "notes", label: t("rom.tab-notes") },
   {
@@ -306,6 +305,7 @@ const tabs = computed<RTabNavItem[]>(() => [
     label: t("rom.save-data"),
     badge: saveDataCount.value,
   },
+  { id: "patcher", label: t("common.patcher") },
   { id: "metadata", label: t("rom.metadata") },
 ]);
 </script>
@@ -349,7 +349,6 @@ const tabs = computed<RTabNavItem[]>(() => [
             :similar-roms="similarRoms"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />
-          <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
           <MediaTab v-if="tab === 'media'" :rom="currentRom" />
           <NotesTab v-if="tab === 'notes'" :rom="currentRom" />
           <AchievementsTab
@@ -358,6 +357,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :earned-achievement-ids="earnedAchievementIds"
           />
           <SaveDataTab v-if="tab === 'save-data'" :rom="currentRom" />
+          <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
           <MetadataTab v-if="tab === 'metadata'" :rom="currentRom" />
         </div>
       </div>
