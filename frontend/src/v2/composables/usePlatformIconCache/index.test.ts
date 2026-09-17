@@ -28,9 +28,10 @@ function urls() {
 function respondWith(available: Record<string, string>) {
   fetchMock.mockImplementation(async (url: string) => {
     const type = available[url];
-    return type
-      ? { ok: true, blob: async () => ({ type }) as Blob }
-      : { ok: false, blob: async () => ({ type: "" }) as Blob };
+    return {
+      ok: Boolean(type),
+      blob: async () => new Blob([type ?? ""], { type: type ?? "" }),
+    };
   });
 }
 

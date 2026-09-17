@@ -4,19 +4,15 @@ import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
 
-// RPlatformIcon renders the platform icon served from /assets/platforms.
-// The catalogue is keyed by RomM's canonical platform slug, so `slug` is
-// tried before `fsSlug`: the filesystem slug is the on-disk folder name,
-// which for Batocera/ES-DE style libraries is an alias (`dreamcast`,
-// `megadrive`, `pcengine`) that has no asset at all.
+// RPlatformIcon renders the icon served from /assets/platforms, which is keyed
+// by RomM's canonical slug, so `slug` is tried before the on-disk folder name:
 //   1. {slug}.svg
 //   2. {slug}.ico
 //   3. {fsSlug}.svg
 //   4. {fsSlug}.ico
 //   5. default.ico
 //
-// `fsSlug` falls back to `slug` (and `name` is still accepted as an alias
-// for `slug` to stay compatible with older callers).
+// `fsSlug` falls back to `slug`; `name` stays an alias for `slug`.
 //
 // Hover tooltip uses RTooltip (v2 glass skin) instead of the native
 // browser `title=` so the bubble matches the rest of the UI. Disable

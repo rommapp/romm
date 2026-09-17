@@ -7,7 +7,7 @@ vi.mock("@/v2/lib/structural/RTooltip/RTooltip.vue", () => ({
   default: { template: "<span><slot /></span>" },
 }));
 
-type Props = Record<string, unknown>;
+type Props = Partial<InstanceType<typeof RPlatformIcon>["$props"]>;
 
 async function loadChain(props: Props): Promise<string[]> {
   const wrapper = mount(RPlatformIcon, {
