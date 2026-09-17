@@ -546,8 +546,8 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       <div v-else-if="layout === 'list'" class="r-v2-pidx__list">
         <PlatformListRow
           v-for="p in sortedForList"
-          :key="p.id"
           :id="p.id"
+          :key="p.id"
           :slug="p.slug"
           :fs-slug="p.fs_slug"
           :display-name="p.display_name"
