@@ -384,14 +384,11 @@ class DBCollectionsHandler(DBBaseHandler):
             select(SmartCollection).filter_by(name=name, user_id=user_id).limit(1)
         )
 
-    @begin_session
-    def get_smart_collections(
+    def _smart_collections_query(
         self,
         user_id: int | None = None,
         updated_after: datetime | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[SmartCollection]:
+    ) -> Select[tuple[SmartCollection]]:
         query = select(SmartCollection).order_by(SmartCollection.name.asc())
 
         if user_id is not None:
@@ -403,10 +400,32 @@ class DBCollectionsHandler(DBBaseHandler):
         if updated_after:
             query = query.filter(SmartCollection.updated_at > updated_after)
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
+        return query
 
+    @begin_session
+    def get_smart_collections(
+        self,
+        user_id: int | None = None,
+        updated_after: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[SmartCollection]:
+        query = self._smart_collections_query(
+            user_id=user_id, updated_after=updated_after
+        )
         return session.scalars(query).unique().all()
+
+    @begin_session
+    def get_smart_collection_ids(
+        self,
+        user_id: int | None = None,
+        updated_after: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Ids only, so no `SmartCollection` is built and no eager user join fires."""
+        query = self._smart_collections_query(
+            user_id=user_id, updated_after=updated_after
+        )
+        return list(session.scalars(query.with_only_columns(SmartCollection.id)).all())
 
     @begin_session
     def get_smart_collections_for_rom(

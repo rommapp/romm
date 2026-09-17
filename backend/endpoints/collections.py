@@ -350,12 +350,7 @@ def get_smart_collection_identifiers(
         list[int]: List of smart collection IDs
     """
 
-    smart_collections = db_collection_handler.get_smart_collections(
-        request.user.id,
-        only_fields=[SmartCollection.id],
-    )
-
-    return [s.id for s in smart_collections]
+    return db_collection_handler.get_smart_collection_ids(request.user.id)
 
 
 @protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])

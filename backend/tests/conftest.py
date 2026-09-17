@@ -3,6 +3,7 @@ import functools
 import os
 import re
 import socket
+from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -10,7 +11,7 @@ import alembic.config
 import pytest
 from hypothesis import settings
 from joserfc import jwt
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
 from config import ROMM_DB_DRIVER
@@ -28,6 +29,7 @@ from handler.database import (
     db_state_handler,
     db_user_handler,
 )
+from handler.database.base_handler import sync_engine
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.client_token import ClientToken
 from models.container_adoption import StreamingContainerAdoption
@@ -148,6 +150,28 @@ def clear_database():
 
     # Drop any cached gallery filter values to keep tests isolated.
     db_rom_handler.invalidate_filter_values_cache()
+
+
+@pytest.fixture
+def executed_statements() -> Iterator[list[str]]:
+    """Every statement the sync engine runs while the fixture is active."""
+    statements: list[str] = []
+
+    def before_execute(
+        conn: object,
+        cursor: object,
+        statement: str,
+        parameters: object,
+        context: object,
+        executemany: bool,
+    ) -> None:
+        statements.append(statement)
+
+    event.listen(sync_engine, "before_cursor_execute", before_execute)
+    try:
+        yield statements
+    finally:
+        event.remove(sync_engine, "before_cursor_execute", before_execute)
 
 
 @pytest.fixture(scope="module")

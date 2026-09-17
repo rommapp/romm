@@ -7,15 +7,13 @@ day-of-year semantics are pinned in `tests/handler/database/test_roms_released_d
 """
 
 from datetime import date, datetime, timezone
-from typing import Iterator
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from sqlalchemy import event
 
 from handler.database import db_platform_handler, db_rom_handler
-from handler.database.base_handler import sync_engine, sync_session
+from handler.database.base_handler import sync_session
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
@@ -59,21 +57,6 @@ def other_platform() -> Platform:
             fs_slug="other_platform_slug",
         )
     )
-
-
-@pytest.fixture
-def captured_sql() -> Iterator[list[str]]:
-    """Every statement the engine runs while the fixture is active."""
-    statements: list[str] = []
-
-    def before_cursor_execute(conn, cursor, statement, parameters, context, many):
-        statements.append(statement)
-
-    event.listen(sync_engine, "before_cursor_execute", before_cursor_execute)
-    try:
-        yield statements
-    finally:
-        event.remove(sync_engine, "before_cursor_execute", before_cursor_execute)
 
 
 def _get(client: TestClient, token: str, **params):
@@ -342,17 +325,17 @@ def test_the_day_lookup_stays_on_the_index(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    captured_sql: list[str],
+    executed_statements: list[str],
 ) -> None:
     """The point of the range union: no SQL date function on the indexed column."""
     for year in range(1990, 1996):
         _dated_rom(platform, f"rom_{year}", date(year, 9, 8))
-    captured_sql.clear()
+    executed_statements.clear()
 
     response = _get(client, access_token, released_days="9-8", limit=1)
     assert response.status_code == status.HTTP_200_OK
 
-    rom_queries = [sql for sql in captured_sql if " roms" in sql.lower()]
+    rom_queries = [sql for sql in executed_statements if " roms" in sql.lower()]
     assert rom_queries, "expected the lookup to query the roms table"
     assert not [
         sql

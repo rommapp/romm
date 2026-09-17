@@ -474,12 +474,7 @@ def get_saves(
 @protected_route(router.get, "/identifiers", [Scope.ASSETS_READ])
 def get_save_identifiers(request: Request) -> list[int]:
     """Retrieve save identifiers."""
-    saves = db_save_handler.get_saves(
-        user_id=request.user.id,
-        only_fields=[Save.id],
-    )
-
-    return [save.id for save in saves]
+    return db_save_handler.get_save_ids(user_id=request.user.id)
 
 
 @protected_route(router.get, "/summary", [Scope.ASSETS_READ])
