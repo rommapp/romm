@@ -47,7 +47,7 @@ onMounted(() => {
 
         <template v-if="oidcEnabled">
           <RDivider v-if="!loginDisabled" class="r-v2-login__or">
-            <span>{{ $t("login.or") }}</span>
+            <span>{{ $t("common.or") }}</span>
           </RDivider>
           <OIDCButton
             ref="oidcButtonRef"
@@ -76,9 +76,5 @@ onMounted(() => {
 
 .r-v2-login__or {
   margin: var(--r-space-3) 0;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 </style>

@@ -62,20 +62,19 @@ function byId<T extends { id: number }>(
   return items.find((item) => item.id === id) ?? null;
 }
 
-function isOptionalId(value: unknown): value is number | null {
-  return value === null || typeof value === "number";
+const ID_KEYS = ["saveId", "stateId", "firmwareId"] as const;
+
+function hasOptionalId(value: object, key: string): boolean {
+  if (!(key in value)) return false;
+  const id = (value as Record<string, unknown>)[key];
+  return id === null || typeof id === "number";
 }
 
 export function isLaunchIntent(value: unknown): value is LaunchIntent {
   return (
     typeof value === "object" &&
     value !== null &&
-    "saveId" in value &&
-    isOptionalId(value.saveId) &&
-    "stateId" in value &&
-    isOptionalId(value.stateId) &&
-    "firmwareId" in value &&
-    isOptionalId(value.firmwareId) &&
+    ID_KEYS.every((key) => hasOptionalId(value, key)) &&
     "slot" in value &&
     isSlotChoice(value.slot) &&
     "customSlot" in value &&

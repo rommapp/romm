@@ -422,6 +422,9 @@ async function flushPendingSave() {
   }
 }
 onBeforeRouteLeave(flushPendingSave);
+// A v2 shell that leaves by replacing the document aborts the navigation, so
+// the guard above never runs and the flush has to be asked for. Idempotent.
+defineExpose({ flushPendingSave });
 // Closing the tab cancels requests in flight, so a save the tick has not
 // uploaded goes out on `pagehide` with fetch keepalive, which the browser caps
 // at 64 KB. `beforeunload` asks first while one is pending: for a bigger save

@@ -17,6 +17,7 @@ const meta: Meta<typeof RDropzone> = {
     multiple: { control: "boolean" },
     disabled: { control: "boolean" },
     overlay: { control: "boolean" },
+    compact: { control: "boolean" },
   },
   args: {
     title: "Drop files here",
@@ -50,6 +51,11 @@ type Story = StoryObj<typeof RDropzone>;
 
 // Default empty-state call-to-action.
 export const CTA: Story = {};
+
+// Single-row CTA for panels that sit next to other controls.
+export const Compact: Story = {
+  args: { compact: true },
+};
 
 export const Disabled: Story = {
   args: { disabled: true },

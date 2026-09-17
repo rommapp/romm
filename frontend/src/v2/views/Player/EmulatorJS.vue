@@ -183,7 +183,16 @@ const {
 // cannot host another launch. Tracked from the injection, which a departure
 // taken mid-load would otherwise outrun.
 let runtimeInjected = false;
-const exit = usePlayerExit(() => runtimeInjected);
+const playerRef = ref<{ flushPendingSave: () => Promise<void> } | null>(null);
+const exit = usePlayerExit(
+  () => runtimeInjected,
+  async () => {
+    // The flush also uninstalls v1's auto-save sync, which is what keeps its
+    // own `beforeunload` handler from prompting on the way out.
+    await playerRef.value?.flushPendingSave();
+    endSession();
+  },
+);
 
 // A departure while a game runs is deliberate, so the unload prompt stays
 // quiet for the full navigation it turns into.
@@ -204,7 +213,8 @@ function endSession() {
   presence.stop();
 }
 // A full navigation out of the view unmounts nothing, so the session also
-// closes on pagehide; flush() is idempotent, so no path records it twice.
+// closes on the way out and, for a tab close, on pagehide. Both are
+// idempotent, so no path records the session twice.
 useEventListener(window, "pagehide", endSession);
 
 declare global {
@@ -436,17 +446,17 @@ function currentIntent(): LaunchIntent {
 }
 
 // What the view had selected before the reload, re-applied over the defaults.
-function applyLaunchIntent(intent: LaunchIntent, current: DetailedRom) {
+function applyLaunchIntent(intent: LaunchIntent) {
   const selection = resolveLaunchIntent(intent, {
-    saves: current.user_saves,
+    saves: rom.value?.user_saves ?? [],
     states: compatibleStates.value,
     firmware: firmwareOptions.value,
   });
   resume.value = selection.resume;
-  isSavesTabSelected.value = !selection.resume.state;
   slotChoice.value = selection.slot;
   customSlot.value = selection.customSlot;
   selectedFirmware.value = selection.firmware;
+  isSavesTabSelected.value = !resume.value.state;
 }
 
 // A slotted save fixes the write slot, and it stays put for the session
@@ -542,7 +552,7 @@ onMounted(async () => {
   });
 
   if (storedIntent) {
-    applyLaunchIntent(storedIntent, romResponse.data);
+    applyLaunchIntent(storedIntent);
     await nextTick();
     void onPlay();
     return;
@@ -1010,6 +1020,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
     <!-- Running state -->
     <div v-else-if="rom" ref="stageRef" class="r-v2-ejs__stage">
       <Player
+        ref="playerRef"
         :rom="rom"
         :state="resume.state"
         :save="resume.save"

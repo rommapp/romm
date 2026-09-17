@@ -5,7 +5,8 @@
 // Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
 // subtab list on the left (navigation only — no inline action panel),
 // and a content column on the right with a section header that hosts
-// the Upload button plus a Patch button (multi-file ROMs only). Bulk
+// the Upload button plus a Patch button (multi-file ROMs only). On phones
+// the list collapses into a folder picker in that same header row. Bulk
 // download / copy-link affordances live in the selection toolbar
 // instead — pair them with select-all.
 //
@@ -36,7 +37,7 @@
 // Selected files in the Files tab can be deleted by users with the
 // `rom.delete` permission. Each file is removed from disk and the DB
 // row is dropped via `DELETE /roms/{rom_id}/files/{file_id}`.
-import { RBtn, RCheckbox, REmptyState, RIcon } from "@v2/lib";
+import { RBtn, RCheckbox, REmptyState } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -48,6 +49,10 @@ import type {
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
+import SubtabNav, {
+  type SubtabNavItem,
+} from "@/v2/components/GameDetails/SubtabNav.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
@@ -72,6 +77,7 @@ const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
 const { refetchRom } = useRomSync();
+const { smAndDown } = useBreakpoint();
 
 const canUpload = useCan("rom.upload");
 const hasDeleteGrant = useCan("rom.delete");
@@ -252,20 +258,13 @@ function folderIcon(folder: string): string {
   return folderMeta(folder)?.icon ?? "mdi-folder-outline";
 }
 
-interface SubtabDef {
-  id: Subtab;
-  label: string;
-  icon: string;
-  count: number;
-}
-
-const subtabDefs = computed<SubtabDef[]>(() => {
-  const out: SubtabDef[] = [
+const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => {
+  const out: SubtabNavItem<Subtab>[] = [
     {
       id: "all",
       label: t("rom.all-files"),
       icon: "mdi-folder-multiple-outline",
-      count: files.value.length,
+      badge: files.value.length,
     },
   ];
   // Root always sits right after "All files" so the user's eye lands
@@ -277,7 +276,7 @@ const subtabDefs = computed<SubtabDef[]>(() => {
       id: ROOT,
       label: t("rom.folder-root"),
       icon: folderIcon(ROOT),
-      count: rootList.length,
+      badge: rootList.length,
     });
   }
   const folders = [...filesByFolder.value.keys()]
@@ -288,7 +287,7 @@ const subtabDefs = computed<SubtabDef[]>(() => {
       id: folder,
       label: folderLabel(folder),
       icon: folderIcon(folder),
-      count: filesByFolder.value.get(folder)?.length ?? 0,
+      badge: filesByFolder.value.get(folder)?.length ?? 0,
     });
   }
   return out;
@@ -396,6 +395,7 @@ const selectedCount = computed(() => {
 });
 
 const filteredCount = computed(() => filteredFiles.value.length);
+const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
 
 const visibleAllSelected = computed(
   () => filteredCount.value > 0 && selectedCount.value === filteredCount.value,
@@ -555,7 +555,7 @@ const uploadFolders = computed<UploadFolderOption[]>(() => [
   { value: "", label: folderLabel(ROOT), icon: folderIcon(ROOT) },
   ...subtabDefs.value
     .filter((s) => s.id !== "all" && s.id !== ROOT)
-    .map((s) => ({ value: s.id, label: s.label, icon: s.icon })),
+    .map((s) => ({ value: s.id, label: s.label, icon: folderIcon(s.id) })),
 ]);
 
 // Destination implied by the active subtab: "" for the ROM root, null
@@ -613,47 +613,27 @@ async function refreshRom() {
   />
 
   <div class="r-v2-files">
-    <aside class="r-v2-files__sidebar">
-      <ul
-        class="r-v2-files__subtabs"
-        role="tablist"
-        aria-orientation="vertical"
-      >
-        <li v-for="tab in subtabDefs" :key="tab.id" class="r-v2-files__subtab">
-          <button
-            type="button"
-            role="tab"
-            class="r-v2-files__subtab-btn"
-            :class="{
-              'r-v2-files__subtab-btn--active': subTab === tab.id,
-            }"
-            :aria-selected="subTab === tab.id"
-            @click="subTab = tab.id"
-          >
-            <RIcon :icon="tab.icon" size="16" />
-            <span class="r-v2-files__subtab-label">{{ tab.label }}</span>
-            <span v-if="tab.count > 0" class="r-v2-files__subtab-badge">
-              {{ tab.count }}
-            </span>
-          </button>
-        </li>
-      </ul>
+    <aside v-if="!smAndDown" class="r-v2-files__sidebar">
+      <SubtabNav v-model="subTab" :items="subtabDefs" />
     </aside>
 
     <div class="r-v2-files__content">
-      <!-- Section header — the sidebar's subtab label already names the
-           section, so the header skips a redundant title and just hosts
-           the upload action on the right. Download-all / Copy-link are
-           covered by the selection toolbar below (select-all then act). -->
-      <header
-        v-if="filteredFiles.length > 0 && canUpload"
-        class="r-v2-files__section-head"
-      >
-        <div class="r-v2-files__section-actions">
+      <!-- No title: the subtab nav already names the section. Bulk download
+           and copy-link live in the selection toolbar below. -->
+      <header v-if="smAndDown || showUpload" class="r-v2-files__section-head">
+        <SubtabNav
+          v-if="smAndDown"
+          v-model="subTab"
+          :items="subtabDefs"
+          variant="menu"
+          class="r-v2-files__subtab-menu"
+        />
+        <div v-if="showUpload" class="r-v2-files__section-actions">
           <RBtn
             v-if="activeUploadFolder === null"
             variant="outlined"
             size="small"
+            :density="smAndDown ? 'comfortable' : undefined"
             prepend-icon="mdi-folder-upload-outline"
             :disabled="uploading"
             :loading="uploading"
@@ -665,6 +645,7 @@ async function refreshRom() {
             v-else
             variant="outlined"
             size="small"
+            :density="smAndDown ? 'comfortable' : undefined"
             prepend-icon="mdi-cloud-upload-outline"
             :disabled="uploading"
             :loading="uploading"
@@ -802,79 +783,11 @@ async function refreshRom() {
 .r-v2-files__sidebar {
   width: 220px;
   flex-shrink: 0;
-  /* Independent scroll context for the subtab list — without
-     `min-height: 0` + an `overflow-y: auto` child, ROMs with many
-     subfolders push tabs past the panel's visible area and they
-     become unreachable. */
+  /* Caps the subtab list to the panel height so it scrolls on its own;
+     otherwise ROMs with many subfolders push tabs out of reach. */
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-/* Subtab list — visually identical to MediaTab/SaveDataTab so the
-   three tabs share a single navigation vocabulary. Scrolls internally
-   when the folder count exceeds the available vertical space. */
-.r-v2-files__subtabs {
-  list-style: none;
-  margin: 0;
-  padding: 0 4px 4px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--r-color-border-strong) transparent;
-}
-.r-v2-files__subtabs::-webkit-scrollbar {
-  width: 4px;
-}
-.r-v2-files__subtabs::-webkit-scrollbar-thumb {
-  background: var(--r-color-border-strong);
-  border-radius: 2px;
-}
-.r-v2-files__subtab {
-  display: flex;
-  flex-direction: column;
-}
-.r-v2-files__subtab-btn {
-  width: 100%;
-  appearance: none;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg-muted);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: var(--r-font-weight-medium);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-files__subtab-btn:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-.r-v2-files__subtab-btn--active {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
-  color: var(--r-color-brand-primary);
-}
-.r-v2-files__subtab-label {
-  flex: 1;
-}
-.r-v2-files__subtab-badge {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, currentColor 18%, transparent);
 }
 
 /* The hidden file input sits at the template root so the visible button
@@ -884,15 +797,14 @@ async function refreshRom() {
   display: none;
 }
 
-/* Section header — toolbar row at the top of the content column,
-   mirroring ScreenshotsSubtab / MediaTab. The sidebar's subtab label
-   names the section, so the header has no title — only the action
-   cluster pushed to the right. */
 .r-v2-files__section-head {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+}
+.r-v2-files__subtab-menu {
+  flex: 1;
 }
 .r-v2-files__section-actions {
   margin-left: auto;
@@ -981,22 +893,12 @@ async function refreshRom() {
 
 /* Mobile: the details view scrolls as one document (no fixed inner panel),
    so FilesTab can't pin itself to a scroll viewport (`absolute; inset: 0`
-   would collapse to zero height). Unwind it: stack the folder sidebar above
-   the file list and drop every internal scroll so it flows with the page. */
+   would collapse to zero height). Unwind it and drop every internal scroll so
+   the list flows with the page. */
 html[data-bp~="sm-and-down"] .r-v2-files {
   position: static;
   inset: auto;
   overflow: visible;
-  flex-direction: column;
-  gap: 14px;
-}
-html[data-bp~="sm-and-down"] .r-v2-files__sidebar {
-  width: auto;
-}
-html[data-bp~="sm-and-down"] .r-v2-files__subtabs {
-  flex: none;
-  min-height: 0;
-  overflow-y: visible;
 }
 html[data-bp~="sm-and-down"] .r-v2-files__content {
   display: flex;
@@ -1010,13 +912,6 @@ html[data-bp~="sm-and-down"] .r-v2-files__list {
 
 /* (File-row styles moved to the FileRow component.) */
 
-html[data-bp~="xs"] .r-v2-files {
-  flex-direction: column;
-  gap: 14px;
-}
-html[data-bp~="xs"] .r-v2-files__sidebar {
-  width: auto;
-}
 html[data-bp~="xs"] .r-v2-files__toolbar {
   flex-wrap: wrap;
 }

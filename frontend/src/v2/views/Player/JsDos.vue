@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RSwitch } from "@v2/lib";
+import { useEventListener } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
@@ -13,6 +14,11 @@ import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import {
+  hasSharedArrayBuffer,
+  isRelaunchMarker,
+  useIsolatedLaunch,
+} from "@/v2/composables/useIsolatedLaunch";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
@@ -28,7 +34,10 @@ useFullscreenFallback();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const exit = usePlayerExit();
+// An isolated document cannot host the rest of the app, so a player that ran
+// hands the tab back a fresh one.
+let runtimeBound = false;
+const exit = usePlayerExit(() => runtimeBound);
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -39,10 +48,22 @@ let dos: JsDosProps | null = null;
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
+// The DOSBox-X backend is a threaded build, so it needs SharedArrayBuffer.
+const {
+  intent: relaunched,
+  relaunching,
+  relaunch: relaunchIsolated,
+} = useIsolatedLaunch<true>("jsdos", romId, isRelaunchMarker);
+
 async function onPlay() {
   const currentRom = rom.value;
   const userId = authStore.user?.id;
   if (!currentRom || userId == null) return;
+
+  if (!hasSharedArrayBuffer()) {
+    if (!relaunchIsolated(true)) snackbar.error(t("play.https-required"));
+    return;
+  }
 
   // Resolves at once when the mount-time load already landed, and waits for it
   // otherwise, so the emulator payloads always follow the base it served from.
@@ -71,6 +92,7 @@ async function onPlay() {
   }
 
   // DOSBox-X provides Windows support.
+  runtimeBound = true;
   dos = dosFactory(stage.value, {
     url: getDownloadPath({ rom: currentRom }),
     backend: "dosboxX",
@@ -148,12 +170,16 @@ function onlyQuit() {
 useUnloadGuard(() => !!dos && !quitting.value);
 
 onMounted(async () => {
-  // The runtime reads nothing from the ROM payload, so let both loads overlap
-  // instead of holding the 300 KB bundle behind the API roundtrip.
-  void loadJsDosRuntime().catch((e: unknown) => console.error(e));
+  // The runtime reads nothing from the ROM payload, so overlap the two loads.
+  // Not on a leg about to relaunch, which would throw the bundle away.
+  if (hasSharedArrayBuffer()) {
+    void loadJsDosRuntime().catch((e: unknown) => console.error(e));
+  }
 
   const romResponse = await romApi.getRom({ romId });
   rom.value = romResponse.data;
+
+  if (relaunched) void onPlay();
 });
 
 onBeforeRouteLeave((to) => {
@@ -162,6 +188,8 @@ onBeforeRouteLeave((to) => {
   void leavePlayer(to.fullPath);
   return false;
 });
+
+useEventListener(window, "pagehide", () => playSession.flush());
 
 onBeforeUnmount(teardown);
 </script>
@@ -172,7 +200,7 @@ onBeforeUnmount(teardown);
     :title="title"
     :platform-label="platformLabel"
     :rom-id="romId"
-    :ready="!!rom"
+    :ready="!!rom && !relaunching"
     :running="gameRunning"
     :quitting="quitting"
     @play="onPlay"
