@@ -1255,6 +1255,38 @@ def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
     assert free is None
 
 
+def test_a_session_on_one_platform_does_not_block_a_claim_on_another(
+    client, access_token
+):
+    """One container serves several platforms, so the caller's ps2 session sits
+    on a key the ngc walk visits too. It occupies that container, it does not
+    spend the player's one session."""
+    ps2_rom = _rom_on("ps2")
+    ngc_rom = _rom_on("ngc")
+    second = _nested(
+        host="http://192.168.1.11:3000", broker_host="http://192.168.1.11:8000"
+    )
+    with _streaming(_nested(), second):
+        r1 = _claim_ok(client, access_token, ps2_rom.id)
+        r2 = _claim_ok(client, access_token, ngc_rom.id)
+    assert [r1.status_code, r2.status_code] == [202, 202]
+    assert r1.json()["container"] == _key_of(_nested())
+    assert r2.json()["container"] == _key_of(second)
+
+
+def test_status_does_not_report_a_session_on_another_platform(client, access_token):
+    """The ps2 claim shares its key with the container's ngc row, and a poll for
+    ngc must not read that as a session the caller holds there."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
+        r = client.get(
+            "/api/streaming/sessions/ngc/status", headers=_auth(access_token)
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+
+
 @contextmanager
 def _claim_in_flight(platform: str, user_id: int) -> Iterator[None]:
     """Stand in for a claim from the same player that is inside the reserve and
@@ -1913,6 +1945,81 @@ def test_desktop_and_a_game_block_each_other(client, access_token):
         assert _desktop(client, access_token, key)[0].status_code == 409
 
 
+def test_an_admins_desktop_does_not_block_their_game_claim(client, access_token):
+    """A desktop occupies its container, not the platform, so the claim rolls
+    onto the free pool member."""
+    ps2_rom = _rom_on("ps2")
+    second = _webstation(
+        host="http://192.168.1.11:3000", broker_host="http://192.168.1.11:8000"
+    )
+    with _streaming(_webstation(), second):
+        assert (
+            _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
+        )
+        r = _claim_webstation_ok(client, access_token, ps2_rom.id)
+    assert r.status_code == 202
+    assert r.json()["container"] == _key_of(second)
+
+
+def test_an_unnamed_heartbeat_skips_the_callers_desktop(
+    client, access_token, viewer_access_token
+):
+    """An admin playing on one pool member while holding a desktop on another
+    beats their game session, not the desktop the walk reaches first."""
+    ps2_rom = _rom_on("ps2")
+    second = _webstation(
+        host="http://192.168.1.11:3000", broker_host="http://192.168.1.11:8000"
+    )
+    with _streaming(_webstation(), second):
+        # The viewer takes the head of the pool, so the admin's game lands on
+        # the second member and the desktop gets the head once it is released.
+        assert (
+            _claim_webstation_ok(client, viewer_access_token, ps2_rom.id).status_code
+            == 202
+        )
+        assert (
+            _claim_webstation_ok(client, access_token, ps2_rom.id).json()["container"]
+            == _key_of(second)
+        )
+        with (
+            patch("handler.streaming.commands.stop", return_value=None),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            client.delete(
+                "/api/streaming/sessions/ps2", headers=_auth(viewer_access_token)
+            )
+        assert (
+            _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
+        )
+        _age_session_on(_webstation(), 120)
+        _age_session_on(second, 120)
+        desktop_before = json.loads(_session_raw(_webstation()))["last_seen"]
+        game_before = json.loads(_session_raw(second))["last_seen"]
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat", headers=_auth(access_token)
+        )
+        desktop_after = json.loads(_session_raw(_webstation()))["last_seen"]
+        game_after = json.loads(_session_raw(second))["last_seen"]
+    assert r.json()["status"] == "active"
+    assert game_after > game_before
+    assert desktop_after == desktop_before
+
+
+def test_an_unnamed_release_leaves_the_callers_desktop_alone(client, access_token):
+    """Desktop.vue names its container and a game tab never does, so an unnamed
+    release must not end the desktop the admin has open."""
+    with _streaming(_webstation()):
+        key = _key_of(_webstation())
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            r = client.delete(
+                "/api/streaming/sessions/ps2", headers=_auth(access_token)
+            )
+        session = asyncio.run(session_store.get_session(key))
+    assert r.json()["status"] == "not_found"
+    assert session is not None and session["desktop"] is True
+
+
 def test_desktop_is_admin_only(client, viewer_access_token):
     with _streaming(_webstation()):
         key = _key_of(_first_container("ps2"))
@@ -1965,6 +2072,7 @@ def test_releasing_a_desktop_session_syncs_nothing_to_the_library(client, access
         ):
             response = client.delete(
                 f"/api/streaming/sessions/{container.platform}",
+                params={"container": _key_of(container)},
                 headers=_auth(access_token),
             )
     assert response.status_code == 200

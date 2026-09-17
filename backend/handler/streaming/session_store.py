@@ -276,6 +276,20 @@ async def mutate_session(
     return session if outcome is _CasOutcome.WROTE else None
 
 
+def session_platform_matches(session: dict[str, Any], platform: str) -> bool:
+    """Whether a session was claimed for this platform. A record written before
+    the field existed matches anything, so an upgrade cannot strand one."""
+    stored = session.get("platform")
+    if not isinstance(stored, str) or not stored:
+        return True
+    return stored.lower() == platform.lower()
+
+
+def session_is_desktop(session: dict[str, Any]) -> bool:
+    """Whether a session is an admin desktop rather than a game."""
+    return bool(session.get("desktop"))
+
+
 def same_claim(session: dict[str, Any], claim: dict[str, Any]) -> bool:
     """Whether a session read back is still the one a route resolved. Identity is
     the holder plus the moment they took it, so a re-claim by the same user does

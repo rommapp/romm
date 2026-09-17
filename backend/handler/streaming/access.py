@@ -12,7 +12,11 @@ from handler.streaming.config import (
     containers_for_platform,
     entry_for_platform,
 )
-from handler.streaming.session_store import get_live_session
+from handler.streaming.session_store import (
+    get_live_session,
+    session_is_desktop,
+    session_platform_matches,
+)
 from models.rom import Rom
 from models.user import Role
 
@@ -89,18 +93,36 @@ def platform_is_visible(request: Request, platform_slug: str) -> bool:
     return get_permissions(request).can_see_platform(platform.id)
 
 
+def _session_in_scope(
+    session: dict[str, Any], platform: str | None, include_desktop: bool
+) -> bool:
+    """Whether a stored session is one the route asked about. A container serves
+    several platforms and holds one session, so the owner alone does not
+    identify it, and a desktop only answers to the caller that named it."""
+    if not include_desktop and session_is_desktop(session):
+        return False
+    return platform is None or session_platform_matches(session, platform)
+
+
 async def find_session_for_user(
-    candidates: list[ResolvedContainer], user_id: int
+    candidates: list[ResolvedContainer],
+    user_id: int,
+    *,
+    platform: str | None = None,
+    include_desktop: bool = False,
 ) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
     """The candidate holding this user's session, as (container, key, session).
 
     With a pool the platform no longer identifies the container, the session
-    does.
+    does. `platform` scopes the match to sessions claimed for it, and a desktop
+    is only reachable when the caller named its container.
     """
     for candidate in candidates:
         session_key = candidate.key
         session = await get_live_session(session_key)
         if session is None:
+            continue
+        if not _session_in_scope(session, platform, include_desktop):
             continue
         if session.get("user_id") == user_id:
             return candidate, session_key, session
@@ -135,9 +157,9 @@ async def resolve_named_container(
 
 
 async def resolve_owned_session(
-    platform: str, request: Request
+    platform: str, request: Request, *, include_desktop: bool = False
 ) -> tuple[ResolvedContainer, str, dict[str, Any]]:
-    """Find the caller's session in the platform's first pool.
+    """Find the caller's session for this platform in its first pool.
 
     Returns (container, session_key, session). Raises 404 when the platform has
     no configured container or nothing is active, 403 when every active session
@@ -155,6 +177,8 @@ async def resolve_owned_session(
         session_key = candidate.key
         session = await get_live_session(session_key)
         if session is None:
+            continue
+        if not _session_in_scope(session, platform, include_desktop):
             continue
         if session.get("user_id") == request.user.id:
             return candidate, session_key, session

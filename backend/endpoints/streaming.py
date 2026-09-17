@@ -196,9 +196,12 @@ async def _session_status(
     platform: str,
     request: Request,
     candidates: list[ResolvedContainer] | None = None,
+    *,
+    include_desktop: bool = False,
 ) -> dict[str, Any]:
-    """Whether the caller holds a session among `candidates` (the platform's first
-    pool by default), and if not, why it ended. Read-only, so it is safe to poll."""
+    """Whether the caller holds a session for this platform among `candidates`
+    (its first pool by default), and if not, why it ended. Read-only, so it is
+    safe to poll."""
     if candidates is None:
         candidates = containers_for_platform(platform)
     if not candidates:
@@ -206,7 +209,12 @@ async def _session_status(
             status_code=404,
             detail=f"No streaming container configured for platform '{platform}'",
         )
-    found = await access.find_session_for_user(candidates, request.user.id)
+    found = await access.find_session_for_user(
+        candidates,
+        request.user.id,
+        platform=platform,
+        include_desktop=include_desktop,
+    )
     if found is not None:
         container, _, session = found
         status: dict[str, Any] = {"status": "active", "platform": platform}
@@ -320,9 +328,13 @@ async def _reserve_container(
     platform: str,
 ) -> ResolvedContainer:
     """Walk the platform's containers and claim the first one available."""
-    # Status, heartbeat and release all resolve by platform and answer with the
-    # first match, so a second session for one user is one nothing can reach.
-    held = await access.find_session_for_user(candidates, request.user.id)
+    # Status, heartbeat and release resolve by platform and answer with the
+    # first match, so a second game session on one platform is one nothing can
+    # reach. A session of theirs elsewhere (another platform, or a desktop) is
+    # not in the way; that container simply fails the reservation below.
+    held = await access.find_session_for_user(
+        candidates, request.user.id, platform=platform
+    )
     if held is not None:
         holder, _, mine = held
         if not session_is_stale(mine):
@@ -957,16 +969,22 @@ async def heartbeat_session(
     """
     user_id = request.user.id
     # A named claim answers for itself: another session the caller holds on the
-    # platform is not the one this client is beating.
+    # platform is not the one this client is beating. Naming the container is
+    # also the only way to reach a desktop, which a game tab must never beat.
+    named = container_key is not None
     candidates = (
         [access.named_container(platform, container_key)]
         if container_key is not None
         else containers_for_platform(platform)
     )
-    found = await access.find_session_for_user(candidates, user_id)
+    found = await access.find_session_for_user(
+        candidates, user_id, platform=platform, include_desktop=named
+    )
     if found is None:
         return SessionStatusSchema(
-            **await _session_status(platform, request, candidates)
+            **await _session_status(
+                platform, request, candidates, include_desktop=named
+            )
         )
     _, session_key, _ = found
 
@@ -985,7 +1003,9 @@ async def heartbeat_session(
         return SessionStatusSchema(status="active", platform=platform)
     if refreshed is None:
         return SessionStatusSchema(
-            **await _session_status(platform, request, candidates)
+            **await _session_status(
+                platform, request, candidates, include_desktop=named
+            )
         )
     await lifecycle.refresh_session_activity(session_key, refreshed)
     return SessionStatusSchema(status="active", platform=platform)
