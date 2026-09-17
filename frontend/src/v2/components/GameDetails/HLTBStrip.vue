@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// "How long to beat" stats bar, one column per play style.
+// HLTBStrip: "How long to beat" stats bar, one column per play style.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomHLTBMetadata } from "@/__generated__";
