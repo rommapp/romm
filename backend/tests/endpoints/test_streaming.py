@@ -1374,6 +1374,31 @@ def test_admin_release_rejects_a_container_that_serves_another_platform(
     assert r.status_code == 404
 
 
+def test_admin_release_ends_a_session_on_a_container_outside_the_pool(
+    client, access_token
+):
+    """A second container that disagrees with the first on an emulator is not
+    a pool member, but its desktop is still a session an admin must be able to
+    end by naming the container."""
+    outside = _webstation(
+        host="http://192.168.1.11:3000",
+        broker_host="http://192.168.1.11:8000",
+        platforms={"ps2": "play", "ngc": "dolphin"},
+    )
+    with _streaming(_webstation(), outside):
+        key = _key_of(outside)
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            r = client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key},
+                headers=_auth(access_token),
+            )
+        assert r.status_code == 200
+        assert r.json()["status"] == "released"
+        assert _session_raw(outside) is None
+
+
 def test_status_finds_the_termination_on_whichever_container_held_it(
     client, access_token, viewer_access_token, rom: Rom
 ):

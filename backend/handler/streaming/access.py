@@ -111,15 +111,19 @@ async def resolve_named_container(
 ) -> tuple[ResolvedContainer, str, dict[str, Any] | None]:
     """One named container serving a platform, plus whatever session it holds.
 
+    Looked up by key rather than through the platform's pool: a container left
+    out of the pool can still hold a session, and naming it is how that
+    session gets ended.
+
     Returns (container, session_key, session), the session being None when the
     container is free or draining. Raises 404 when the key names no container
     serving this platform.
     """
-    for candidate in containers_for_platform(platform):
-        session_key = candidate.key
-        if session_key != container_key:
-            continue
-        return candidate, session_key, await get_live_session(session_key)
+    entries = containers_by_key().get(container_key, []) if container_key else []
+    lower = platform.lower()
+    for candidate in entries:
+        if candidate.platform.lower() == lower:
+            return candidate, container_key, await get_live_session(container_key)
     raise HTTPException(
         status_code=404,
         detail=f"No streaming container '{container_key}' for platform '{platform}'",
