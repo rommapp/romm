@@ -50,7 +50,7 @@ async def get_rom_notes(
         tags=tags,
     )
 
-    return [UserNoteSchema.model_validate(note) for note in notes]
+    return [UserNoteSchema.from_rom_note(note) for note in notes]
 
 
 @protected_route(
