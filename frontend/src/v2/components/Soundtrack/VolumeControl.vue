@@ -6,14 +6,15 @@
 //
 // The icon swaps between off / low / medium / high based on the
 // current volume so the button reads as a level indicator at a
-// glance. Clicking the button toggles mute; the slider lives inside
-// an `RMenu` opened on hover with a horizontal pill layout that
-// matches v2's surface vocabulary (glass panel + brand-coloured fill).
+// glance. With a mouse the slider opens on hover and a click mutes;
+// touch, keyboard and gamepad have no hover, so there the button opens
+// the slider, which carries its own mute toggle.
 import { RMenu, RSlider } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
+import { useInputModality } from "@/v2/composables/useInputModality";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -29,6 +30,11 @@ withDefaults(
 
 const player = useSoundtrackPlayer();
 const { volume, muted } = storeToRefs(player);
+const { modality } = useInputModality();
+const hoverOpens = computed(() => modality.value === "mouse");
+const muteLabel = computed(() =>
+  muted.value ? t("rom.volume-unmute") : t("rom.volume-mute"),
+);
 
 const icon = computed(() => {
   if (muted.value || volume.value === 0) return "mdi-volume-off";
@@ -45,22 +51,38 @@ const sliderValue = computed({
 
 <template>
   <RMenu
-    open-on-hover
+    :open-on-hover="hoverOpens"
     :close-on-content-click="false"
     location="top"
     :offset="6"
   >
     <template #activator="{ props: activatorProps }">
       <RBtn
+        v-if="hoverOpens"
+        v-bind="{ ...activatorProps, onClick: player.toggleMute }"
+        :icon="icon"
+        variant="text"
+        :size="size"
+        :aria-label="muteLabel"
+      />
+      <RBtn
+        v-else
         v-bind="activatorProps"
         :icon="icon"
         variant="text"
         :size="size"
-        :aria-label="muted ? t('rom.volume-unmute') : t('rom.volume-mute')"
-        @click="player.toggleMute()"
+        :aria-label="t('rom.soundtrack-volume')"
       />
     </template>
     <div class="r-v2-volume">
+      <RBtn
+        :icon="icon"
+        variant="text"
+        size="small"
+        :aria-label="muteLabel"
+        :aria-pressed="muted"
+        @click="player.toggleMute()"
+      />
       <RSlider
         v-model="sliderValue"
         :min="0"
@@ -79,8 +101,8 @@ const sliderValue = computed({
 .r-v2-volume {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-1) var(--r-space-4) var(--r-space-1) var(--r-space-1);
   min-width: 200px;
 }
 .r-v2-volume__slider {
