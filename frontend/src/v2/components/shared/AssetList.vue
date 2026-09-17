@@ -23,10 +23,12 @@ import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byUpdatedDesc,
+  dateOf,
   ownerOf,
   screenshotOf,
   staggerIndex,
   type Asset,
+  type AssetDateField,
   type AssetOwner,
   type AssetType,
 } from "@/v2/utils/assets";
@@ -55,6 +57,9 @@ const props = withDefaults(
     showOwner?: boolean;
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
+    /** Which timestamp the rows show. Set it to whatever the caller ordered
+     *  the list by, so the newest row is the one that reads newest. */
+    timestamp?: AssetDateField;
     /** Off for lists whose saves are not slot versions (stream archives). */
     groupBySlot?: boolean;
   }>(),
@@ -63,6 +68,7 @@ const props = withDefaults(
     selectedId: null,
     showOwner: false,
     scrollable: true,
+    timestamp: "updated",
     groupBySlot: true,
   },
 );
@@ -81,6 +87,10 @@ const emptyLabel = computed(() =>
   props.type === "save"
     ? t("play.no-saves-available")
     : t("play.no-states-available"),
+);
+
+const timeLabel = computed(() =>
+  props.timestamp === "created" ? t("rom.created") : t("rom.updated"),
 );
 
 function slotOf(asset: Asset): string | null {
@@ -214,7 +224,7 @@ const fadeIndex = computed(() =>
                 </span>
               </span>
 
-              <AssetTimestamp :date="asset.updated_at" align="end" />
+              <AssetTimestamp :date="dateOf(asset, timestamp)" align="end" />
 
               <span
                 v-if="selectable"
@@ -242,8 +252,8 @@ const fadeIndex = computed(() =>
                     {{ asset.file_name }}
                   </span>
                   <span class="r-asset-list__tip-sub">
-                    {{ t("rom.updated") }}:
-                    {{ formatTimestamp(asset.updated_at, locale) }}
+                    {{ timeLabel }}:
+                    {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
                   </span>
                 </div>
               </RTooltip>

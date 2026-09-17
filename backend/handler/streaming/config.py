@@ -31,7 +31,12 @@ from handler.streaming.protocol import (
 from logger.logger import log
 
 # Keys a `platforms:` block may override for the one platform it names.
-PLATFORM_OVERRIDE_KEYS = ("emulator", "label", "memory_card_sync")
+PLATFORM_OVERRIDE_KEYS = (
+    "emulator",
+    "label",
+    "memory_card_sync",
+    "clears_stale_saves",
+)
 
 # Play-button text per emulator, used when a platform block sets no `label`
 # of its own. Keyed by emulator name as the broker registers it (lowercase).
@@ -147,6 +152,9 @@ class ResolvedContainer:
     """The container's own label, before any per-platform override."""
     memory_card_sync: bool
     """Whole-card sync, already checked against the platform having a card."""
+    clears_stale_saves: bool
+    """Whether the broker empties the save tree before restoring, which is what
+    lets a pick older than the container's own files land."""
     broker_secret: str
     library_path: str
     """Where the container sees the ROM library, when it differs from RomM's."""
@@ -160,7 +168,7 @@ class ResolvedContainer:
     @property
     def supports_save_picker(self) -> bool:
         """Whether the launch screen may offer a save other than the newest."""
-        return self.is_webstation and emulator_clears_saves(self.emulator)
+        return self.is_webstation and self.clears_stale_saves
 
     def interchangeable_with(self, other: ResolvedContainer) -> bool:
         """Whether two containers serving a platform are one pool: a player
@@ -168,6 +176,10 @@ class ResolvedContainer:
         return (
             self.emulator == other.emulator
             and self.memory_card_sync == other.memory_card_sync
+            # The picker is advertised from the head of the pool, so a member
+            # without it would take the pick and let its own newer files
+            # overwrite the restored archive, with no error anywhere.
+            and self.supports_save_picker == other.supports_save_picker
             # Same-origin pool members are each proxied at their own path, so
             # they never carry the same protocol object.
             and self.protocol.name == other.protocol.name
@@ -313,6 +325,19 @@ def _resolve_one(
         )
         card_sync = False
 
+    configured_clearing = entry.get("clears_stale_saves")
+    clears_stale_saves = (
+        emulator_clears_saves(emulator)
+        if configured_clearing is None
+        else bool(configured_clearing)
+    )
+    if configured_clearing is not None and protocol.name != "webstation":
+        log.warning(
+            "container for platform '%s' sets clears_stale_saves but only a "
+            "webstation container restores a picked save, so it has no effect",
+            platform,
+        )
+
     capabilities = slot_capabilities(platform, emulator)
     if not protocol.supports_disc_swap:
         # Disc swap is keyed by platform, but only the webstation broker has a
@@ -331,6 +356,7 @@ def _resolve_one(
         label=str(label) if label else emulator_display_label(emulator, platform),
         container_label=container_label if isinstance(container_label, str) else None,
         memory_card_sync=card_sync,
+        clears_stale_saves=clears_stale_saves,
         broker_secret=STREAMING_BROKER_SECRET or str(entry.get("broker_secret", "")),
         library_path=str(entry.get("library_path") or LIBRARY_BASE_PATH).rstrip("/"),
         capabilities=capabilities,

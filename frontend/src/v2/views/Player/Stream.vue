@@ -293,7 +293,8 @@ const showManualDiscHint = computed(
 const selectedState = ref<UserStateSchema | null>(null);
 
 // Only an archive carries a layout the broker can restore from. Re-sorted on
-// created_at because user_saves arrives on updated_at, which a rehash moves.
+// created_at because user_saves arrives on updated_at, which a rehash moves;
+// the rows are dated on created_at to match.
 const restorableSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
   if (!rom.value || !emulator) return [];
@@ -1410,6 +1411,7 @@ onBeforeUnmount(() => {
               type="save"
               :show-heading="false"
               :clearable="false"
+              timestamp="created"
             />
             <div class="r-v2-stream__strip-label">
               <span aria-hidden="true">{{ t("play.all-saves") }}</span>
@@ -1421,6 +1423,7 @@ onBeforeUnmount(() => {
               :assets="restorableSaves"
               type="save"
               :selected-id="selectedSave?.id ?? null"
+              timestamp="created"
               :group-by-slot="false"
               @select="savePickId = ($event as SaveSchema).id"
             />

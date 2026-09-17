@@ -221,7 +221,7 @@
 #   containers:
 #     # One container can serve many platforms. Container keys are defaults
 #     # for every platform it serves; a platform block may override emulator,
-#     # label, and memory_card_sync.
+#     # label, memory_card_sync, and clears_stale_saves.
 #     - protocol: webstation
 #       host: https://192.168.1.56:3010  # browser-facing UI, must be https
 #       subfolder: /streaming            # matches the container's SUBFOLDER
@@ -234,3 +234,10 @@
 #         ps2:                            # ...or a block overriding container keys
 #           emulator: pcsx2
 #           memory_card_sync: true
+#         # Whether the broker wipes the save tree before restoring, which is
+#         # what lets the launch screen restore a save other than the newest.
+#         # RomM assumes what each emulator's broker does; set this only on a
+#         # fork or a broker newer than your RomM.
+#         wii:
+#           emulator: dolphin
+#           clears_stale_saves: true
