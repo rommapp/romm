@@ -4,11 +4,11 @@
 // injecting a second copy of a runtime that declares its own globals.
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
 
-const LOCAL_BASE = "/assets/jsdos";
+export const LOCAL_BASE = "/assets/jsdos";
 // Fallback for slim images and the dev server, which ship no local copy. Pinned
 // to the image's JSDOS_VERSION; jsDelivr sends the CORP a directly opened player
 // document needs under its COEP.
-const CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
+export const CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
 
 let pending: Promise<string> | null = null;
 // A retry after a failed script load would otherwise stack a second stylesheet.

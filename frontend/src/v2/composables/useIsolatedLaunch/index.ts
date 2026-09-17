@@ -2,22 +2,17 @@
 // document, which is the only kind that exposes SharedArrayBuffer. Nginx
 // attaches the COOP/COEP headers to the player URLs, so reloading the view is
 // what isolates it, and the pre-play selection crosses as an intent kept per
-// tab.
-//
-// In a player whose runtime, or one of its cores, needs it:
-//   const { intent, relaunching, relaunch } =
-//     useIsolatedLaunch<MyIntent>("myplayer", romId, isMyIntent);
-//   on Play:  if (!hasSharedArrayBuffer()) {
-//               if (!relaunch(currentIntent())) reportInsecureContext();
-//               return;
-//             }
-//   on mount: if (intent) { apply(intent); boot(); }
-// Pair it with usePlayerExit, which drops the isolation on the way out.
+// tab. Pair it with usePlayerExit, which drops the isolation on the way out.
+// EmulatorJS.vue and JsDos.vue are the two callers.
 import { ref, type Ref } from "vue";
 
 export function hasSharedArrayBuffer(): boolean {
   return typeof window.SharedArrayBuffer === "function";
 }
+
+/** Intent for a player with no pre-play selection: the relaunch is the message. */
+export const isRelaunchMarker = (value: unknown): value is true =>
+  value === true;
 
 export function useIsolatedLaunch<Intent>(
   player: string,

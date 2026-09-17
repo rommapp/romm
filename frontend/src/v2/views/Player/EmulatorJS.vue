@@ -175,6 +175,8 @@ const playerRef = ref<{ flushPendingSave: () => Promise<void> } | null>(null);
 const exit = usePlayerExit(
   () => runtimeInjected,
   async () => {
+    // The flush also uninstalls v1's auto-save sync, which is what keeps its
+    // own `beforeunload` handler from prompting on the way out.
     await playerRef.value?.flushPendingSave();
     endSession();
   },
@@ -350,17 +352,17 @@ function currentIntent(): LaunchIntent {
 }
 
 // What the view had selected before the reload, re-applied over the defaults.
-function applyLaunchIntent(intent: LaunchIntent, current: DetailedRom) {
+function applyLaunchIntent(intent: LaunchIntent) {
   const selection = resolveLaunchIntent(intent, {
-    saves: current.user_saves,
+    saves: rom.value?.user_saves ?? [],
     states: compatibleStates.value,
     firmware: firmwareOptions.value,
   });
   resume.value = selection.resume;
-  isSavesTabSelected.value = !selection.resume.state;
   slotChoice.value = selection.slot;
   customSlot.value = selection.customSlot;
   selectedFirmware.value = selection.firmware;
+  isSavesTabSelected.value = !resume.value.state;
 }
 
 // A slotted save fixes the write slot, and it stays put for the session
@@ -456,7 +458,7 @@ onMounted(async () => {
   });
 
   if (storedIntent) {
-    applyLaunchIntent(storedIntent, romResponse.data);
+    applyLaunchIntent(storedIntent);
     await nextTick();
     void onPlay();
     return;

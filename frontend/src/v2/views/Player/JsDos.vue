@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RSwitch } from "@v2/lib";
+import { useEventListener } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
@@ -15,6 +16,7 @@ import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import {
   hasSharedArrayBuffer,
+  isRelaunchMarker,
   useIsolatedLaunch,
 } from "@/v2/composables/useIsolatedLaunch";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
@@ -47,15 +49,12 @@ let dos: JsDosProps | null = null;
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
-// The DOSBox-X backend is a threaded build, so it needs SharedArrayBuffer. No
-// pre-play selection has to survive the reload that isolates the document, so
-// the intent is a bare marker saying the launch is already on its second leg.
-const isRelaunch = (value: unknown): value is true => value === true;
+// The DOSBox-X backend is a threaded build, so it needs SharedArrayBuffer.
 const {
   intent: relaunched,
   relaunching,
   relaunch: relaunchIsolated,
-} = useIsolatedLaunch<true>("jsdos", romId, isRelaunch);
+} = useIsolatedLaunch<true>("jsdos", romId, isRelaunchMarker);
 
 async function onPlay() {
   const currentRom = rom.value;
@@ -173,8 +172,11 @@ useUnloadGuard(() => !!dos && !quitting.value);
 
 onMounted(async () => {
   // The runtime reads nothing from the ROM payload, so let both loads overlap
-  // instead of holding the 300 KB bundle behind the API roundtrip.
-  void loadJsDosRuntime().catch((e: unknown) => console.error(e));
+  // instead of holding the 300 KB bundle behind the API roundtrip. Not on a
+  // leg that is about to relaunch, which would throw the bundle away.
+  if (hasSharedArrayBuffer()) {
+    void loadJsDosRuntime().catch((e: unknown) => console.error(e));
+  }
 
   const romResponse = await romApi.getRom({ romId });
   rom.value = romResponse.data;
@@ -188,6 +190,8 @@ onBeforeRouteLeave((to) => {
   void leavePlayer(to.fullPath);
   return false;
 });
+
+useEventListener(window, "pagehide", () => playSession.flush());
 
 onBeforeUnmount(teardown);
 </script>

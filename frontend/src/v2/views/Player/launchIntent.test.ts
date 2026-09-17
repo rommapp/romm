@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import { existingSlot } from "@/v2/utils/saveSlots";
+import { existingSlot, NEW_SLOT_CHOICE } from "@/v2/utils/saveSlots";
 import {
   isLaunchIntent,
   launchIntentFor,
@@ -9,22 +9,16 @@ import {
   type LaunchOptions,
   type LaunchSelection,
 } from "./launchIntent";
+import type { ResumeSelection } from "./resumeSelection";
 
-function makeSave(overrides: Partial<SaveSchema> = {}): SaveSchema {
-  return { id: 3, slot: "slot-2", ...overrides } as SaveSchema;
-}
-
-function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
-  return { id: 5, emulator: "snes9x", ...overrides } as StateSchema;
-}
-
-function makeFirmware(overrides: Partial<FirmwareSchema> = {}): FirmwareSchema {
-  return { id: 12, file_name: "bios.bin", ...overrides } as FirmwareSchema;
-}
-
-const save = makeSave();
-const state = makeState();
-const firmware = makeFirmware();
+// Same shape as the sibling resumeSelection.test.ts factories.
+const save = { id: 3, file_name: "3.srm", slot: "slot-2" } as SaveSchema;
+const state = {
+  id: 5,
+  file_name: "5.state",
+  emulator: "snes9x",
+} as StateSchema;
+const firmware = { id: 12, file_name: "bios.bin" } as FirmwareSchema;
 
 const OPTIONS: LaunchOptions = {
   saves: [save],
@@ -89,13 +83,12 @@ describe("resolveLaunchIntent", () => {
 
   // A save deleted from another tab, or a state the reloaded core cannot read,
   // is simply not offered any more.
-  it.each([
-    ["save", { ...INTENT, saveId: 99 }, "save"],
-    ["state", { ...INTENT, saveId: null, stateId: 99 }, "state"],
-  ])("drops a %s that is no longer offered", (_label, intent, key) => {
-    const resolved = resolveLaunchIntent(intent as LaunchIntent, OPTIONS);
-
-    expect(resolved.resume[key as "save" | "state"]).toBeNull();
+  const dropped: [keyof ResumeSelection, LaunchIntent][] = [
+    ["save", { ...INTENT, saveId: 99 }],
+    ["state", { ...INTENT, saveId: null, stateId: 99 }],
+  ];
+  it.each(dropped)("drops a %s that is no longer offered", (key, intent) => {
+    expect(resolveLaunchIntent(intent, OPTIONS).resume[key]).toBeNull();
   });
 
   it("drops firmware that is no longer offered", () => {
@@ -106,11 +99,11 @@ describe("resolveLaunchIntent", () => {
 
   it("keeps the slot the session writes to", () => {
     const resolved = resolveLaunchIntent(
-      { ...INTENT, slot: { kind: "new" }, customSlot: "speedrun" },
+      { ...INTENT, slot: NEW_SLOT_CHOICE, customSlot: "speedrun" },
       OPTIONS,
     );
 
-    expect(resolved.slot).toEqual({ kind: "new" });
+    expect(resolved.slot).toEqual(NEW_SLOT_CHOICE);
     expect(resolved.customSlot).toBe("speedrun");
   });
 });

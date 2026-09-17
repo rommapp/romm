@@ -119,8 +119,9 @@ const rom = {
   rom_user: { status: null },
 };
 
+// The runtime is mocked, so any base will do as long as the payloads follow it.
 const LOCAL_BASE = "/assets/jsdos";
-const CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
+const CDN_BASE = "https://cdn.example/js-dos/dist";
 
 let originalLocation: Location;
 
