@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
+  ISOLATED_PLAYER_URLS,
   isIsolatedPlayerUrl,
   playerIsolationHeaders,
 } from "../scripts/playerIsolationHeaders";
@@ -86,5 +89,28 @@ describe("playerIsolationHeaders", () => {
 
   it("passes a request with no URL through", () => {
     expect(headersFor(undefined)).toEqual({});
+  });
+});
+
+// The dev server and nginx have to isolate the same documents, and nothing
+// generates one list from the other, so the drift is what is tested.
+describe("the nginx map it mirrors", () => {
+  // Vitest roots at frontend/, so the template sits one level above it.
+  const template = readFileSync(
+    resolve(process.cwd(), "../docker/nginx/templates/default.conf.template"),
+    "utf8",
+  );
+
+  it("isolates exactly the same URLs", () => {
+    const nginx = [
+      ...template.matchAll(/^\s*~(\S+)\s+"(?:require-corp|same-origin)";/gm),
+    ].map((entry) => entry[1]);
+    // nginx patterns are unescaped, since the delimiter is whitespace there.
+    const mirrored = ISOLATED_PLAYER_URLS.map((pattern) =>
+      pattern.source.replaceAll("\\/", "/"),
+    );
+
+    expect(nginx.length).toBeGreaterThan(0);
+    expect(new Set(nginx)).toEqual(new Set(mirrored));
   });
 });

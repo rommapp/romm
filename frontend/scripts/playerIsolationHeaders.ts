@@ -12,7 +12,7 @@ import type { Plugin } from "vite";
 // One entry per entry of the map in docker/nginx/templates/default.conf.template,
 // matched the same way: against the full request URI rather than the path, since
 // there try_files rewrites the path to /index.html before the headers run.
-const ISOLATED_PLAYER_URLS = [
+export const ISOLATED_PLAYER_URLS = [
   /^\/rom\/.*\/(ejs|jsdos)(\?|$)/,
   /^\/console\/rom\/[0-9]+\/play/,
 ];

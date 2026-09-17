@@ -76,6 +76,7 @@ vi.mock("@/v2/composables/useActivityPresence", () => ({
     start: vi.fn(),
     stopHeartbeat: vi.fn(),
     emitStop: vi.fn(),
+    stop: vi.fn(),
   }),
 }));
 

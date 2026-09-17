@@ -70,26 +70,18 @@ describe("loadJsDosRuntime", () => {
     expect(stylesheets()).toContain(`${CDN}/js-dos.css`);
   });
 
+  // Views can mount in the same document either side of the first load
+  // resolving, and neither order may inject a second runtime.
   it("injects once however many views ask", async () => {
     const { loadJsDosRuntime } = await loadFresh();
 
-    await loadJsDosRuntime();
-    await expect(loadJsDosRuntime()).resolves.toBe(LOCAL);
-
-    expect(mocks.loadScript).toHaveBeenCalledOnce();
-  });
-
-  // Two views can mount in the same document before the first load resolves.
-  it("makes a second view wait on the load already in flight", async () => {
-    const { loadJsDosRuntime } = await loadFresh();
-
-    const [first, second] = await Promise.all([
+    const concurrent = await Promise.all([
       loadJsDosRuntime(),
       loadJsDosRuntime(),
     ]);
+    await expect(loadJsDosRuntime()).resolves.toBe(LOCAL);
 
-    expect(first).toBe(LOCAL);
-    expect(second).toBe(LOCAL);
+    expect(concurrent).toEqual([LOCAL, LOCAL]);
     expect(mocks.loadScript).toHaveBeenCalledOnce();
   });
 
