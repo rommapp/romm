@@ -39,18 +39,19 @@ v2 has a detailed constitution, split across focused skills (below). **Read the 
 
 These live in `.claude/skills/` and carry the detailed rules. Invoke the one that matches what you're doing:
 
-| Skill                    | When                                                                                                                                                      |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                                           |
-| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                                                 |
-| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                                      |
-| `frontend-v2-patterns`   | Feature behavior - errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations.                      |
-| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                                        |
-| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                                              |
-| `review-polish`          | Before committing / opening a PR / declaring done - the self-review pass (comments, duplication, naming, test typing) plus the checks that keep CI green. |
-| `security-audit`         | Vetting a diff (release tag range or PR) for anything malicious or a security regression - supply chain, egress, auth/injection, CI, provenance.          |
-| `pr-ready`               | Before opening a PR - the four passes in order: `security-audit`, `code-review xhigh --fix`, `simplify`, `review-polish`. Not auto-invoked.               |
-| `draft-release-notes`    | Drafting the GitHub release notes for a release, stable or alpha/beta, from the diff since the previous stable tag.                                       |
+| Skill                    | When                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                                               |
+| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                                                     |
+| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                                          |
+| `frontend-v2-patterns`   | Feature behavior - errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations.                          |
+| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                                            |
+| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                                                  |
+| `review-polish`          | Before committing / opening a PR / declaring done - the self-review pass (comments, duplication, naming, test typing) plus the checks that keep CI green.     |
+| `security-audit`         | Vetting a diff (release tag range or PR) for anything malicious or a security regression - supply chain, egress, auth/injection, CI, provenance.              |
+| `pr-ready`               | Before opening a PR - the four passes in order: `security-audit`, `code-review xhigh --fix`, `simplify`, `review-polish`. Not auto-invoked.                   |
+| `address-bot-reviews`    | After Greptile and Copilot review a PR - triage each finding, fix what holds up, reply with the fix or the reason, and resolve the threads. Not auto-invoked. |
+| `draft-release-notes`    | Drafting the GitHub release notes for a release, stable or alpha/beta, from the diff since the previous stable tag.                                           |
 
 ---
 
@@ -72,6 +73,8 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
 **Link PRs to issues.** In the PR description, use `Fixes #XXXX` for issue/bug fixes and `Closes #XXXX` for feature implementations.
 **Use the PR template.** Base every PR description on `.github/PULL_REQUEST_TEMPLATE.md`.
+**Show UI changes in the PR.** A PR that touches anything visible ships with at least one screenshot under the template's `Screenshots` heading, captured from the running app during the `review-polish` browser pass. Enough shots to convey what changed, not a catalogue of every state. Save the files outside the repo and never commit them. If you can't attach them to the PR yourself, open the PR with the section in place and hand the user the file paths to drop in.
+**Diagram architectural changes in the PR.** When a change moves a boundary (a new service, task, or provider in a path, a model relationship, a different call path across layers, an auth or socket flow), the PR description carries a `mermaid` block showing it. GitHub renders them. Draw what changed, not the whole system. See `review-polish`.
 
 ---
 

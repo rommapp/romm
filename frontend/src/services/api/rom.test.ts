@@ -100,7 +100,11 @@ describe("romApi.uploadRoms", () => {
       "X-Upload-Platform": "3",
       "X-Upload-Filename": "fix.ips",
     });
-    expect(startCall().body).toEqual({ rom_id: 42, folder: "hack/v2" });
+    expect(startCall().body).toEqual({
+      filename: "fix.ips",
+      rom_id: 42,
+      folder: "hack/v2",
+    });
     expect(post).toHaveBeenCalledWith(
       "/roms/upload/u-1/complete",
       null,
@@ -108,14 +112,45 @@ describe("romApi.uploadRoms", () => {
     );
   });
 
-  it("sends no body for a platform upload", async () => {
+  it("names only the file for a platform upload", async () => {
     await romApi.uploadRoms({
       platformId: 3,
       filesToUpload: [new File(["abc"], "game.zip")],
     });
 
-    expect(startCall().body).toBeNull();
+    expect(startCall().body).toEqual({ filename: "game.zip" });
     expect(startCall().headers["X-Upload-Filename"]).toBe("game.zip");
+  });
+
+  it("keeps a name outside Latin-1 out of the header", async () => {
+    const name = "Relax \uff5c 432Hz.mp3";
+    await romApi.uploadRoms({
+      platformId: 3,
+      romId: 42,
+      filesToUpload: [new File(["abc"], name)],
+    });
+
+    expect(startCall().body).toEqual({ filename: name, rom_id: 42 });
+    expect(startCall().headers["X-Upload-Filename"]).toBe(
+      "Relax%20%EF%BD%9C%20432Hz.mp3",
+    );
+  });
+
+  it("asks the server to replace an existing file only when told to", async () => {
+    await romApi.uploadRoms({
+      platformId: 3,
+      romId: 42,
+      folder: "hack",
+      overwrite: true,
+      filesToUpload: [new File(["abc"], "fix.ips")],
+    });
+
+    expect(startCall().body).toEqual({
+      filename: "fix.ips",
+      rom_id: 42,
+      folder: "hack",
+      overwrite: true,
+    });
   });
 
   it("treats an empty folder as the rom root", async () => {
@@ -126,7 +161,7 @@ describe("romApi.uploadRoms", () => {
       filesToUpload: [new File(["abc"], "readme.txt")],
     });
 
-    expect(startCall().body).toEqual({ rom_id: 42 });
+    expect(startCall().body).toEqual({ filename: "readme.txt", rom_id: 42 });
   });
 });
 

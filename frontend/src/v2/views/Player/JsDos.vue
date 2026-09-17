@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RSwitch } from "@v2/lib";
+import { useEventListener } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
@@ -13,19 +14,17 @@ import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import {
+  hasSharedArrayBuffer,
+  isRelaunchMarker,
+  useIsolatedLaunch,
+} from "@/v2/composables/useIsolatedLaunch";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
-
-const JSDOS_LOCAL_BASE = "/assets/jsdos";
-// Fallback for slim images and the dev server, which ship no local copy. Pinned
-// to the image's JSDOS_VERSION; jsDelivr sends the CORP the player's COEP needs.
-const JSDOS_CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
-
-// Where the runtime actually came from, so the emulator payloads follow it.
-let jsDosAssetBase = JSDOS_LOCAL_BASE;
+import { loadJsDosRuntime } from "./jsDosRuntime";
 
 const { t } = useI18n();
 const authStore = storeAuth();
@@ -35,6 +34,10 @@ useFullscreenFallback();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+// An isolated document cannot host the rest of the app, so a player that ran
+// hands the tab back a fresh one.
+let runtimeBound = false;
+const exit = usePlayerExit(() => runtimeBound);
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -45,25 +48,34 @@ let dos: JsDosProps | null = null;
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
-async function loadRuntime() {
-  jsDosAssetBase = (await isJsResource(`${JSDOS_LOCAL_BASE}/js-dos.js`))
-    ? JSDOS_LOCAL_BASE
-    : JSDOS_CDN_BASE;
-
-  const css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = `${jsDosAssetBase}/js-dos.css`;
-  document.head.appendChild(css);
-
-  await loadScript(`${jsDosAssetBase}/js-dos.js`);
-}
+// The DOSBox-X backend is a threaded build, so it needs SharedArrayBuffer.
+const {
+  intent: relaunched,
+  relaunching,
+  relaunch: relaunchIsolated,
+} = useIsolatedLaunch<true>("jsdos", romId, isRelaunchMarker);
 
 async function onPlay() {
-  // Preserve narrowing across nextTick().
-  const dosFactory = window.Dos;
   const currentRom = rom.value;
   const userId = authStore.user?.id;
   if (!currentRom || userId == null) return;
+
+  if (!hasSharedArrayBuffer()) {
+    if (!relaunchIsolated(true)) snackbar.error(t("play.https-required"));
+    return;
+  }
+
+  // Resolves at once when the mount-time load already landed, and waits for it
+  // otherwise, so the emulator payloads always follow the base it served from.
+  let assetBase: string;
+  try {
+    assetBase = await loadJsDosRuntime();
+  } catch {
+    snackbar.error(t("play.stream-error-generic"));
+    return;
+  }
+  // Preserve narrowing across nextTick().
+  const dosFactory = window.Dos;
   if (!dosFactory) {
     snackbar.error(t("play.stream-error-generic"));
     return;
@@ -80,11 +92,12 @@ async function onPlay() {
   }
 
   // DOSBox-X provides Windows support.
+  runtimeBound = true;
   dos = dosFactory(stage.value, {
     url: getDownloadPath({ rom: currentRom }),
     backend: "dosboxX",
     backendLocked: true,
-    pathPrefix: `${jsDosAssetBase}/emulators/`,
+    pathPrefix: `${assetBase}/emulators/`,
     autoStart: true,
     autoSave: true,
     // js-dos calls exitFullscreen() unguarded when this is false, which
@@ -147,7 +160,7 @@ async function leavePlayer(destination: string) {
   }
 
   teardown();
-  window.location.replace(destination);
+  exit.leave(destination);
 }
 
 function onlyQuit() {
@@ -157,18 +170,26 @@ function onlyQuit() {
 useUnloadGuard(() => !!dos && !quitting.value);
 
 onMounted(async () => {
-  // The runtime reads nothing from the ROM payload, so let both loads overlap
-  // instead of holding the 300 KB bundle behind the API roundtrip.
-  void loadRuntime().catch((e) => console.error(e));
+  // The runtime reads nothing from the ROM payload, so overlap the two loads.
+  // Not on a leg about to relaunch, which would throw the bundle away.
+  if (hasSharedArrayBuffer()) {
+    void loadJsDosRuntime().catch((e: unknown) => console.error(e));
+  }
 
   const romResponse = await romApi.getRom({ romId });
   rom.value = romResponse.data;
+
+  if (relaunched) void onPlay();
 });
 
 onBeforeRouteLeave((to) => {
+  // With nothing running there is nothing to save first.
+  if (!dos) return exit.guard(to);
   void leavePlayer(to.fullPath);
   return false;
 });
+
+useEventListener(window, "pagehide", () => playSession.flush());
 
 onBeforeUnmount(teardown);
 </script>
@@ -179,7 +200,7 @@ onBeforeUnmount(teardown);
     :title="title"
     :platform-label="platformLabel"
     :rom-id="romId"
-    :ready="!!rom"
+    :ready="!!rom && !relaunching"
     :running="gameRunning"
     :quitting="quitting"
     @play="onPlay"

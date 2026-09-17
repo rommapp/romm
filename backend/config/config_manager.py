@@ -760,7 +760,7 @@ class ConfigManager:
                 self._raw_config, "emulatorjs.disable_batch_bootup", False
             ),
             EJS_ENABLE_AUTO_SAVE_SYNC=pydash.get(
-                self._raw_config, "emulatorjs.auto_save_sync", False
+                self._raw_config, "emulatorjs.auto_save_sync", True
             ),
             EJS_NETPLAY_ENABLED=pydash.get(
                 self._raw_config, "emulatorjs.netplay.enabled", False

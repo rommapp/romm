@@ -8,7 +8,9 @@
 // the gallery's selected-platforms (so this tab starts from a known
 // state), then bootstrap metadata. The sortable column header and the
 // platform multi-select feed the same store inputs the real galleries
-// use; cleanup-all is the only missing-games-specific control. On
+// use; delete-all is the only missing-games-specific control, and the
+// gallery's SelectionBar carries the bulk actions for a hand-picked set
+// (minus download, since these rows point at files that are gone). On
 // unmount we restore the caller's filter so the next gallery view they
 // land on doesn't inherit `filterMissing=true`.
 //
@@ -17,6 +19,7 @@
 // own scroll, so the Settings document scroll stays separate.
 import {
   RBtn,
+  REmptyState,
   RIcon,
   RMenu,
   RMenuItem,
@@ -33,6 +36,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
+import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
   isListSortKey,
   LIST_ROW_HEIGHT_PX,
@@ -45,6 +49,7 @@ import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, { NO_SIDECARS } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 interface PlatformItem {
   id: number;
@@ -221,7 +226,7 @@ async function cleanupAll() {
   const ok = await confirm({
     title: t("common.confirm-deletion"),
     body: t("settings.cleanup-all-confirm", { platform: platformLabel }),
-    confirmText: t("settings.cleanup-all"),
+    confirmText: t("settings.missing-games-delete-all"),
     tone: "danger",
     requireTyped: "DELETE",
   });
@@ -238,7 +243,9 @@ async function cleanupAll() {
       await galleryRoms.fetchInitialMetadata(NO_SIDECARS);
     }
   } catch (err) {
-    snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
+    snackbar.error(
+      t("settings.couldnt-queue-cleanup", { error: errorMessage(err) }),
+    );
   } finally {
     cleaningUp.value = false;
   }
@@ -317,8 +324,9 @@ onBeforeUnmount(() => {
         <RTag
           v-if="metadataLoaded"
           prepend-icon="mdi-folder-question-outline"
-          :text="total"
+          :text="total.toLocaleString()"
           tone="neutral"
+          class="r-v2-missing__count"
         />
         <RMenu location="bottom end" :offset="6" width="220px">
           <template #activator="{ props: activatorProps }">
@@ -333,7 +341,7 @@ onBeforeUnmount(() => {
             />
           </template>
           <RMenuItem
-            :label="t('settings.cleanup-all')"
+            :label="t('settings.missing-games-delete-all')"
             icon="mdi-delete-outline"
             variant="danger"
             :disabled="cleaningUp || showEmpty"
@@ -343,36 +351,42 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="r-v2-missing__list">
-      <GameListHeader
-        :sort-key="listSortKey"
-        :sort-dir="orderDir"
-        @sort="onListSort"
+    <div
+      class="r-v2-missing__list"
+      :class="{ 'r-v2-missing__list--empty': showEmpty }"
+    >
+      <REmptyState
+        v-if="showEmpty"
+        icon="mdi-folder-question-outline"
+        :title="t('settings.missing-games-none')"
       />
 
-      <div v-if="showEmpty" class="r-v2-missing__empty">
-        <RIcon icon="mdi-folder-question-outline" :size="48" />
-        <p>{{ t("settings.missing-games-none") }}</p>
-      </div>
-
-      <RVirtualScroller
-        v-else
-        :items="virtualItems"
-        :get-item-height="vItemHeight"
-        :overscan="25"
-        class="r-v2-missing__scroller"
-        @update:viewport-range="onViewportRange"
-      >
-        <template #default="{ item }">
-          <GameListRow
-            v-if="isListRow(item as VItem)"
-            :position="rowPosition(item)"
-            :webp="supportsWebp"
-          />
-          <GameListSkeletonRow v-else />
-        </template>
-      </RVirtualScroller>
+      <template v-else>
+        <GameListHeader
+          :sort-key="listSortKey"
+          :sort-dir="orderDir"
+          @sort="onListSort"
+        />
+        <RVirtualScroller
+          :items="virtualItems"
+          :get-item-height="vItemHeight"
+          :overscan="25"
+          class="r-v2-missing__scroller"
+          @update:viewport-range="onViewportRange"
+        >
+          <template #default="{ item }">
+            <GameListRow
+              v-if="isListRow(item as VItem)"
+              :position="rowPosition(item)"
+              :webp="supportsWebp"
+            />
+            <GameListSkeletonRow v-else />
+          </template>
+        </RVirtualScroller>
+      </template>
     </div>
+
+    <SelectionBar hide-download />
   </div>
 </template>
 
@@ -423,9 +437,15 @@ onBeforeUnmount(() => {
    slack the platform-select absorbs. */
 .r-v2-missing__actions {
   display: flex;
+  align-self: stretch;
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+/* Stretch to the toolbar row so the chip matches the select and kebab. */
+.r-v2-missing__count {
+  align-self: stretch;
 }
 
 /* List frame — the column header sits at the top, the virtualiser
@@ -443,20 +463,12 @@ onBeforeUnmount(() => {
   background: var(--r-color-bg-elevated);
 }
 
+.r-v2-missing__list--empty {
+  flex: none;
+}
+
 .r-v2-missing__scroller {
   flex: 1;
   min-height: 0;
-}
-
-.r-v2-missing__empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 48px 24px;
-  color: var(--r-color-fg-muted);
-  text-align: center;
 }
 </style>

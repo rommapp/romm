@@ -106,10 +106,7 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
             platform.id for platform in db_platform_handler.get_platforms()
         }
         existing_roms_by_platform: dict[int, set[int]] = {
-            platform_id: {
-                rom.id
-                for rom in db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
-            }
+            platform_id: set(db_rom_handler.get_rom_ids(platform_ids=[platform_id]))
             for platform_id in existing_platforms
         }
         log.debug(

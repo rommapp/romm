@@ -296,6 +296,7 @@ function closeDialog() {
 <template>
   <RDialog
     v-model="show"
+    class="r-v2-match-dialog"
     icon="mdi-search-web"
     scroll-content
     full-height-on-mobile
@@ -392,30 +393,28 @@ function closeDialog() {
     </template>
 
     <template #content>
-      <div class="r-v2-match__body">
-        <component
-          :is="variantComponent"
-          :rom="rom"
-          :results="filteredMatchedRoms"
-          :searching="searching"
-          :searched="searched"
-          @confirm="onBodyConfirm"
-        />
-        <!-- Saving overlay — covers the body with a centered spinner so
-             the user sees the update is in flight. The dialog stays
-             modal (no scrim click / Escape) until closeDialog runs in
-             the `finally` of `onBodyConfirm`. -->
-        <div
-          v-if="matching"
-          class="r-v2-match__saving"
-          role="status"
-          aria-live="polite"
-        >
-          <RSpinner :size="36" />
-          <span class="r-v2-match__saving-label">
-            {{ t("rom.updating") }}
-          </span>
-        </div>
+      <component
+        :is="variantComponent"
+        :rom="rom"
+        :results="filteredMatchedRoms"
+        :searching="searching"
+        :searched="searched"
+        @confirm="onBodyConfirm"
+      />
+      <!-- Saving overlay: blurs the whole dialog body, padding included,
+           under a centered spinner so the user sees the update is in
+           flight. The dialog stays modal (no scrim click / Escape) until
+           closeDialog runs in the `finally` of `onBodyConfirm`. -->
+      <div
+        v-if="matching"
+        class="r-v2-match__saving"
+        role="status"
+        aria-live="polite"
+      >
+        <RSpinner :size="36" />
+        <span class="r-v2-match__saving-label">
+          {{ t("rom.updating") }}
+        </span>
       </div>
     </template>
 
@@ -456,22 +455,8 @@ function closeDialog() {
   color: var(--r-color-fg-muted);
 }
 
-/* Saving-overlay anchor — has to pass the dialog body's column layout
-   through (`flex: 1`, `min-height: 0`, `display: flex; flex-direction:
-   column`) so the variant inside still sees the same shape it would
-   have as a direct child of `.r-dialog__body`. Without this, grid /
-   list bodies that rely on `flex: 1` to fill the dialog collapse to
-   their content size — the grid's secondary detail panel anchors to
-   the wrong rect (it's `position: absolute` against `.match-grid`),
-   and the list's two columns lose their internal scroll. */
-.r-v2-match__body {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
+/* Anchored to `.r-dialog__body` (made relative below) so the blur reaches
+   the body's padding edges instead of stopping at the variant's box. */
 .r-v2-match__saving {
   position: absolute;
   inset: 0;
@@ -480,7 +465,7 @@ function closeDialog() {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: color-mix(in srgb, var(--r-color-bg) 65%, transparent);
+  background: color-mix(in srgb, var(--r-color-bg) 30%, transparent);
   backdrop-filter: blur(4px);
   color: var(--r-color-fg);
   z-index: 1;
@@ -568,5 +553,11 @@ html[data-bp~="xs"] .r-v2-match__search-row {
 }
 html[data-bp~="xs"] .r-v2-match__search-btn {
   grid-column: 1 / -1;
+}
+</style>
+
+<style>
+.r-v2-match-dialog .r-dialog__body {
+  position: relative;
 }
 </style>

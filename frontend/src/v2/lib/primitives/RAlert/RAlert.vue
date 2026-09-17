@@ -16,6 +16,7 @@
 //   • title — header (alternatively `title` prop)
 //   • prepend — replaces the auto-picked icon
 //   • append — extra content on the trailing edge
+//   • actions: a row of controls under the body text
 //
 // v-model controls visibility. When `closable` is set, clicking the
 // X emits `click:close` and flips `modelValue` to false; the leave
@@ -128,6 +129,7 @@ function close(evt: MouseEvent) {
         {
           'r-alert--has-color': !!resolvedColor,
           'r-alert--has-title': !!(title || slots.title),
+          'r-alert--has-actions': !!slots.actions,
         },
       ]"
       :style="{
@@ -154,6 +156,9 @@ function close(evt: MouseEvent) {
         </div>
         <div v-if="text || slots.default" class="r-alert__content">
           <slot>{{ text }}</slot>
+        </div>
+        <div v-if="slots.actions" class="r-alert__actions">
+          <slot name="actions" />
         </div>
       </div>
 
@@ -197,7 +202,8 @@ function close(evt: MouseEvent) {
     box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
-.r-alert--has-title {
+.r-alert--has-title,
+.r-alert--has-actions {
   align-items: flex-start;
 }
 
@@ -222,7 +228,8 @@ function close(evt: MouseEvent) {
 /* In the multi-line / title case the alert is top-aligned — nudge
    the icon down 1px so its optical centre matches the title's first
    line baseline (otherwise mixed-case glyphs sit slightly low). */
-.r-alert--has-title .r-alert__prepend {
+.r-alert--has-title .r-alert__prepend,
+.r-alert--has-actions .r-alert__prepend {
   margin-top: 1px;
 }
 .r-alert__icon {
@@ -245,6 +252,14 @@ function close(evt: MouseEvent) {
   color: inherit;
   /* Slight tone-down on body text vs title so the hierarchy reads. */
   opacity: 0.92;
+}
+.r-alert__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 /* ── Close button — own hover halo so it reads as separate ────── */

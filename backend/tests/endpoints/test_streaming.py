@@ -1255,6 +1255,37 @@ def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
     assert free is None
 
 
+@contextmanager
+def _claim_in_flight(platform: str, user_id: int) -> Iterator[None]:
+    """Stand in for a claim from the same player that is inside the reserve and
+    has not put its session on a container key yet."""
+    key = session_store._claim_gate_redis_key(platform, user_id)
+    assert asyncio.run(
+        async_cache.set(key, "1", nx=True, ex=session_store._CLAIM_GATE_TTL_SECONDS)
+    )
+    try:
+        yield
+    finally:
+        asyncio.run(async_cache.delete(key))
+
+
+def test_a_pool_refuses_a_claim_racing_one_from_the_same_player(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Reserving is atomic per container, not across a pool: two claims racing
+    would each read no session of their own and win a different member."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        with _claim_in_flight(rom.platform_slug, admin_user.id):
+            r = _claim_ok(client, access_token, rom.id)
+        held = [
+            asyncio.run(session_store.get_session(_key_of(_pool_member(rom, i))))
+            for i in (0, 1)
+        ]
+    assert r.status_code == 409
+    # Nothing reserved, so the racing claim still has the whole pool to win.
+    assert held == [None, None]
+
+
 def test_a_pool_hands_the_owner_of_a_stale_session_their_own_container_back(
     client, access_token, rom: Rom
 ):

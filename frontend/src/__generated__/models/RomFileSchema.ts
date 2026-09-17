@@ -16,7 +16,7 @@ export type RomFileSchema = {
     is_top_level: boolean;
     created_at: string;
     updated_at: string;
-    last_modified: string;
+    last_modified: (string | null);
     crc_hash: (string | null);
     md5_hash: (string | null);
     sha1_hash: (string | null);

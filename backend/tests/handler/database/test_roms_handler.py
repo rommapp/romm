@@ -17,6 +17,7 @@ from handler.database import (
 from models.assets import Save, State
 from models.platform import Platform
 from models.rom import (
+    HAS_FILE_ON_DISK_FILTERS,
     Rom,
     RomFile,
     RomFileCategory,
@@ -320,6 +321,65 @@ class TestHasSoundtrackFilter:
 
         assert rom.id not in ids
         assert other.id in ids
+
+
+class TestGetRomIds:
+    """Pin `get_rom_ids` to `get_roms_scalar`: same ids, same order."""
+
+    def _physical_game(self, platform: Platform) -> Rom:
+        return db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Physical Game",
+                fs_name="Physical Game",
+                fs_path=f"{platform.slug}/roms/.physical",
+                is_physical=True,
+            )
+        )
+
+    def test_matches_the_orm_accessor_for_every_scope_that_uses_it(
+        self,
+        rom: Rom,
+        platform: Platform,
+        other_platform: Platform,
+        admin_user: User,
+    ) -> None:
+        """Pin the two accessors to each other rather than to a fixed list."""
+        db_rom_handler.add_rom(_make_rom(other_platform, "Other Platform.gba"))
+        self._physical_game(platform)
+
+        for scope in (
+            {},
+            {"user_id": admin_user.id},
+            {"platform_ids": [platform.id]},
+            {"hidden_platform_ids": [other_platform.id]},
+            {"hidden_rom_ids": [rom.id]},
+            {"order_by": "name", "order_dir": "desc"},
+            {"platform_ids": [platform.id], **HAS_FILE_ON_DISK_FILTERS},
+        ):
+            assert db_rom_handler.get_rom_ids(**scope) == [
+                r.id for r in db_rom_handler.get_roms_scalar(**scope)
+            ], scope
+
+    def test_hidden_rom_drops_out(
+        self, rom: Rom, second_rom: Rom, platform: Platform
+    ) -> None:
+        ids = db_rom_handler.get_rom_ids(
+            platform_ids=[platform.id], hidden_rom_ids=[rom.id]
+        )
+
+        assert rom.id not in ids
+        assert second_rom.id in ids
+
+    def test_physical_game_drops_out(self, rom: Rom, platform: Platform) -> None:
+        physical = self._physical_game(platform)
+
+        ids = db_rom_handler.get_rom_ids(
+            platform_ids=[platform.id], **HAS_FILE_ON_DISK_FILTERS
+        )
+
+        assert physical.id not in ids
+        assert rom.id in ids
 
 
 class TestSyncRomFiles:

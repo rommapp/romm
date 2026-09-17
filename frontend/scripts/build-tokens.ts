@@ -50,6 +50,7 @@ const NAME_OVERRIDES = {
   space: { rowPad: "--r-row-pad" },
   layout: {
     navHeight: "--r-nav-h",
+    navPillHeight: "--r-nav-pill-h",
     bottomNavHeight: "--r-bottom-nav-h",
     bottomNavMaxWidth: "--r-bottom-nav-max-w",
     touchTarget: "--r-touch-target",

@@ -47,7 +47,6 @@ vi.mock("@/v2/composables/useScanProviders", async () => {
       buildScanPayload: () => ({
         apis: sources.value.map((s) => s.value),
         launchbox_remote_enabled: false,
-        playmatch_enabled: false,
       }),
       persistSelection,
     }),
@@ -133,7 +132,6 @@ describe("RefreshMetadataDialog", () => {
         type: "quick",
         apis: [],
         launchbox_remote_enabled: false,
-        playmatch_enabled: false,
       },
     ]);
     expect(persistSelection).toHaveBeenCalled();

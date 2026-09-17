@@ -80,6 +80,7 @@ from handler.streaming.session_store import (
     STREAMING_SESSION_TTL_SECONDS,
     StreamingSessionContended,
     claim_drain_marker,
+    claim_gate,
     clear_termination,
     get_live_session,
     get_session,
@@ -292,6 +293,33 @@ async def _win_container(
     Raises 409 when every one of them is held, with enough of the holder for
     the launch screen to say what the player is waiting on.
     """
+    # Reserving is atomic per container, which is not enough on a pool: two
+    # claims from one player would each read no session of their own and then
+    # win a different member, leaving the second one unreachable. The gate
+    # serializes them, so the loser reads the winner's session rather than a
+    # free container. Held only across the reserve: once the session is on the
+    # container key, a later claim's ownership check finds it.
+    async with claim_gate(platform, request.user.id) as entered:
+        if not entered:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "You already have a session on this platform",
+                    "draining": False,
+                    "rom_name": None,
+                    "claimed_at": None,
+                },
+            )
+        return await _reserve_container(request, candidates, session, platform)
+
+
+async def _reserve_container(
+    request: Request,
+    candidates: list[ResolvedContainer],
+    session: dict[str, Any],
+    platform: str,
+) -> ResolvedContainer:
+    """Walk the platform's containers and claim the first one available."""
     # Status, heartbeat and release all resolve by platform and answer with the
     # first match, so a second session for one user is one nothing can reach.
     held = await access.find_session_for_user(candidates, request.user.id)
@@ -1148,8 +1176,8 @@ async def swap_disc(
     if rom_file is None or rom_file.rom_id != rom_id:
         raise HTTPException(status_code=404, detail="File does not belong to this rom")
 
-    # Loaded separately: the file comes back detached, so reaching its rom from
-    # there is a lazy load with no session behind it.
+    # The file row's own rom load is narrow, and the swap reads the playlist
+    # entries off the full rom.
     rom = db_rom_handler.get_rom(rom_id)
     if rom is None:
         raise HTTPException(status_code=404, detail="Rom not found")

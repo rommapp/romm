@@ -15,6 +15,7 @@ import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 defineOptions({ inheritAttrs: false });
 
@@ -74,7 +75,9 @@ async function fetchMissingFirmware() {
     );
   } catch (err) {
     snackbar.error(
-      t("settings.couldnt-fetch-missing-firmware", { error: String(err) }),
+      t("settings.couldnt-fetch-missing-firmware", {
+        error: errorMessage(err),
+      }),
     );
   } finally {
     loading.value = false;
@@ -103,7 +106,9 @@ async function cleanupAll() {
     snackbar.success(t("settings.cleanup-firmware-queued"));
     if (await awaitTask(data.task_id)) await fetchMissingFirmware();
   } catch (err) {
-    snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
+    snackbar.error(
+      t("settings.couldnt-queue-cleanup", { error: errorMessage(err) }),
+    );
   } finally {
     cleaningUp.value = false;
   }
@@ -140,6 +145,7 @@ onMounted(() => {
           prepend-icon="mdi-memory"
           :text="rows.length"
           tone="neutral"
+          class="r-v2-missing-fw__count"
         />
         <RMenu location="bottom end" :offset="6" width="240px">
           <template #activator="{ props: activatorProps }">
@@ -230,9 +236,15 @@ onMounted(() => {
 
 .r-v2-missing-fw__actions {
   display: flex;
+  align-self: stretch;
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+/* Stretch to the toolbar row so the chip matches the select and kebab. */
+.r-v2-missing-fw__count {
+  align-self: stretch;
 }
 
 .r-v2-missing-fw__list {

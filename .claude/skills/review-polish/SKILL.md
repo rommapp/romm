@@ -1,6 +1,6 @@
 ---
 name: review-polish
-description: The before-review and before-handoff pass for RomM, covering both stacks. First shapes the code the checks can't see — comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, loose typing in tests. Then runs the verification gate that keeps CI green — frontend (typecheck/lint/test/build/i18n/tokens), backend (pytest/alembic/trunk), the OpenAPI regen step, and (for UI) manual browser/theme/input/Storybook checks. Use after the code works, right before committing, opening a PR, or telling the user a change is done.
+description: The before-review and before-handoff pass for RomM, covering both stacks. First shapes the code the checks can't see — comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, loose typing in tests. Then runs the verification gate that keeps CI green — frontend (typecheck/lint/test/build/i18n/tokens), backend (pytest/alembic/trunk), the OpenAPI regen step, and (for UI) manual browser/theme/input/Storybook checks. Ends with what the PR description owes a reviewer: screenshots of a UI change, a mermaid diagram of an architectural one. Use after the code works, right before committing, opening a PR, or telling the user a change is done.
 ---
 
 # RomM: Review Polish & Verification
@@ -163,6 +163,10 @@ With `uiVersion = "v2"`:
 - **Responsive sweep:** 320px → 4K across the `useBreakpoint` tiers; overlays full-bleed on `xs`.
 - **Accessibility:** contrast, keyboard reachability with no traps, aria-labels on icon-only controls.
 - **Performance:** lists/grids of 1000+ items stay smooth; every `v-for` has a stable `:key`.
+- **Screenshots:** capture the change while you're in there, at least one and enough to
+  convey what's different. Shoot the component or view in its real surroundings, not a
+  full-page dump, and save to a temp dir outside the repo.
+  See [F. The PR description](#f-the-pr-description).
 
 #### Storybook (for `/lib`)
 
@@ -186,8 +190,64 @@ Run from `backend/`:
 ### Don't
 
 - Open a PR without manually testing the UI when UI was touched.
+- Open a PR on a UI change with an empty `Screenshots` section.
+- Describe a boundary change in prose alone when a diagram would land it in one read.
 - `--no-verify` on commits.
 - Leave a locale key English-only, a token un-generated, or a migration one-directional.
+
+---
+
+## F. The PR description
+
+Base it on `.github/PULL_REQUEST_TEMPLATE.md`, and carry the two things a reviewer cannot
+reconstruct from the diff.
+
+### Screenshots, for a UI change
+
+The template's `Screenshots (if applicable)` heading is not optional for a UI change; a reviewer
+who can't see the change reviews the diff instead of the result. Shoot enough to give that
+reviewer the gist, and stop there: one shot carries most changes.
+
+- **Before/after** when the change alters something that already existed and the after alone
+  wouldn't read as different, labelled as such.
+- **A second theme** only when the change is theme-dependent; a state or breakpoint only when it's
+  the point of the change.
+- Name the files for what they show (`missing-games-actions.png`), so the handoff list reads on
+  its own.
+
+Attachments on github.com live under `user-attachments`, and nothing uploads there from the CLI.
+So unless you have a URL the PR body can point at, open the PR with the heading and a one-line
+placeholder naming each shot, then give the user the file paths in your summary to drag into the
+description. Never commit the images or push them to a branch to get a URL.
+
+### Mermaid diagram, for an architectural change
+
+GitHub renders a fenced `mermaid` block in a PR body, so a change that moves a boundary gets one:
+a new service, handler, or task in a request or job path; a model or relationship change; a new
+external provider or integration; a different call path across layers; an auth, session, or socket
+flow. Code that changes inside an existing boundary does not.
+
+- **Draw what changed**, with the new pieces distinguishable from what was already there. A
+  diagram that redraws the whole backend teaches nothing.
+- **Pick the type for the question:** `flowchart` for a call or data path, `sequenceDiagram` for an
+  exchange whose order over time is the point (auth handshake, scan lifecycle), `erDiagram` for
+  models and their relationships.
+- **Label the edges** with what crosses them, the call, the payload, the event name, not "uses".
+- **No custom colors or styling.** The default theme is the one that reads in both of GitHub's.
+- **Make sure it parses.** An unparseable block renders as raw text in the description. When the
+  syntax isn't one you're sure of, render it first:
+  `npx -y @mermaid-js/mermaid-cli -i d.mmd -o d.svg -p pc.json`, where `pc.json` is
+  `{"executablePath": "<a local Chrome>", "args": ["--no-sandbox"]}` (puppeteer downloads no
+  browser of its own here).
+
+```mermaid
+flowchart LR
+    client[Web client] -->|POST /api/roms/scan| api[roms endpoint]
+    api -->|enqueue| queue[(RQ queue)]
+    queue --> worker[scan task]
+    worker -->|emit scan:done| socket[Socket.IO]
+    socket --> client
+```
 
 ---
 
@@ -202,4 +262,7 @@ Run from `backend/`:
       pytest, migrations both directions, OpenAPI regen)
 - [ ] UI changes tested in the browser: both themes, all four input modalities,
       responsive sweep
+- [ ] UI changes screenshotted (enough to convey the change), and the shots
+      attached to the PR or handed to the user
+- [ ] Architectural changes carry a `mermaid` diagram in the PR description
 - [ ] `trunk fmt && trunk check` clean, with whatever fmt rewrote committed

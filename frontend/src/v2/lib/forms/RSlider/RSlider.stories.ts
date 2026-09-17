@@ -126,6 +126,19 @@ export const ColorLadder: Story = {
 
 // ── States ─────────────────────────────────────────────────────────
 
+export const Scrubber: Story = {
+  args: { modelValue: 35, scrubber: true },
+};
+
+export const Vertical: Story = {
+  args: { modelValue: 60, vertical: true },
+  render: (args) => ({
+    components: { RSlider },
+    setup: () => ({ args }),
+    template: `<div style="height:160px;padding:16px"><RSlider v-bind="args" /></div>`,
+  }),
+};
+
 export const Disabled: Story = {
   args: { modelValue: 40, disabled: true, valuePosition: "right" },
 };

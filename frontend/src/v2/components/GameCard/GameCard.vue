@@ -882,12 +882,14 @@ html[data-input="touch"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
 
 /* `selected` — same brand-outline language as focus, but persistent.
    Used by cover-variant pickers and multi-select galleries to mark the
-   currently-picked card without relying on focus state. */
+   currently-picked card without relying on focus state. No flush `0 0 0 Npx`
+   ring here: the `outline` above already draws that border, and stacking a
+   second one produced a visible double ring once the hover state (which
+   replaces box-shadow wholesale) let go. */
 .r-gc--selected .r-gc__art {
   outline-color: var(--r-color-brand-primary);
   box-shadow:
     0 8px 28px color-mix(in srgb, black 40%, transparent),
-    0 0 0 2px var(--r-color-brand-primary),
     0 0 18px color-mix(in srgb, var(--r-color-brand-primary) 50%, transparent);
 }
 

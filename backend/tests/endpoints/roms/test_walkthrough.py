@@ -18,43 +18,11 @@ def _auth(token: str) -> dict[str, str]:
 
 
 @pytest.fixture
-def walkthrough_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Mock fs_rom_handler so walkthrough writes land in tmp_path."""
-    folder_dir = tmp_path / "library"
-    folder_dir.mkdir()
-
-    def validate_path(path: str) -> Path:
-        return folder_dir / Path(path).name
-
-    async def remove_file(path: str) -> None:
-        target = folder_dir / Path(path).name
-        if target.exists():
-            target.unlink()
-        else:
-            raise FileNotFoundError(path)
-
-    async def write_file(file, path: str, filename: str) -> None:
-        (folder_dir / filename).write_bytes(file)
-
-    monkeypatch.setattr(
-        walkthrough_endpoint.fs_rom_handler, "validate_path", validate_path
-    )
-    monkeypatch.setattr(
-        walkthrough_endpoint.fs_rom_handler,
-        "make_directory",
-        AsyncMock(return_value=None),
-    )
-    monkeypatch.setattr(
-        walkthrough_endpoint.fs_rom_handler,
-        "remove_file",
-        AsyncMock(side_effect=remove_file),
-    )
-    monkeypatch.setattr(
-        walkthrough_endpoint.fs_rom_handler,
-        "write_file",
-        AsyncMock(side_effect=write_file),
-    )
-    return folder_dir
+def walkthrough_fs(game_folder_on_disk: Path) -> Path:
+    """The ROM's walkthrough folder inside a real temp library."""
+    media_dir = game_folder_on_disk / "walkthrough"
+    media_dir.mkdir()
+    return media_dir
 
 
 # ---------- POST /api/roms/{id}/walkthroughs/files ----------

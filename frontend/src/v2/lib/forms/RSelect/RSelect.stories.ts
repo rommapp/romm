@@ -445,6 +445,54 @@ export const CustomItemSlot: Story = {
   }),
 };
 
+export const InlineLabelWithInfo: Story = {
+  name: "Label · inline + info",
+  render: () => ({
+    components: { RSelect, RIcon },
+    setup: () => ({
+      value: ref("autosave"),
+      items: ["autosave", "main_quest"],
+    }),
+    template: `
+      <div style="width:340px">
+        <RSelect
+          v-model="value"
+          :items="items"
+          prefix-label="inline"
+          density="compact"
+          info="Progress is saved as new versions in this slot."
+          hide-details
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-content-save-all-outline" size="14" />
+            Slot
+          </template>
+        </RSelect>
+      </div>
+    `,
+  }),
+};
+
+// ── Divider ───────────────────────────────────────────────────────
+
+export const DividerAfter: Story = {
+  name: "Divider after an item",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({
+      value: ref("root"),
+      items: [
+        { title: "New folder", value: "new" },
+        { title: "Root", value: "root" },
+        { title: "DLC", value: "dlc" },
+        { title: "Updates", value: "updates" },
+      ],
+      isNew: (item: { value: string }) => item.value === "new",
+    }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" :divider-after="isNew" label="Destination" /></div>`,
+  }),
+};
+
 // ── Real-world ────────────────────────────────────────────────────
 
 export const FormRow: Story = {

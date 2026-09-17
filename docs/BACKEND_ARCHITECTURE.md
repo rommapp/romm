@@ -1416,7 +1416,7 @@ Toggled via environment variables:
 
 ### Manual Tasks
 
-Triggered via `POST /api/tasks/run/{task_name}`:
+Triggered via `POST /api/tasks/run/{task_name}`, which enqueues on `low_prio_queue` and answers 503 when no live worker is listening on it:
 
 | Task                   | Description                                   |
 | ---------------------- | --------------------------------------------- |

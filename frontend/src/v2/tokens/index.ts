@@ -387,10 +387,13 @@ export const zIndex = {
 // Layout constants from the mockup.
 export const layout = {
   navHeight: "58px",
+  // Pills in the top bar's right cluster (scan indicator, mini player, user
+  // menu) share one height so they line up.
+  navPillHeight: "38px",
   // Fixed bottom tab bar shown on phones (xs). Mirrors navHeight so the
   // top and bottom chrome read as a matched pair. Consumed as
   // `--r-bottom-nav-h` to reserve space in AppLayout and offset the
-  // gallery scroll height / MiniPlayer on mobile.
+  // gallery scroll height on mobile.
   bottomNavHeight: "58px",
   // Cap for the bottom tab bar pill so it stays thumb-sized on large
   // tablets (the sm range reaches 959px) instead of stretching the four

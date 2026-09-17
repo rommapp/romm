@@ -100,6 +100,8 @@
   "not-linked": "Not linked",
   "offline": "Offline",
   "online": "Online",
+  "or": "or",
+  "overwrite": "Overwrite",
   "owned": "Owned",
   "page": "Page",
   "password-length": "Password must be between 6 and 255 characters",

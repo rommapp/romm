@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // AppNav — the top navigation. Logo on the left, centred tab pill of
 // content destinations (Home / Platforms / Collections / Search), and
-// a right cluster of utility chrome (scanning indicator, user menu).
+// a right cluster of utility chrome (scanning indicator, the mini player on
+// phones, user menu).
 // Highlighting is derived from `route.path`
 // rather than route names so gallery subroutes (e.g. /rom/:id) still
 // light up the Home tab.
@@ -14,11 +15,14 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
+import NowPlayingPill from "@/v2/components/Soundtrack/NowPlayingPill.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+const { smAndDown } = useBreakpoint();
 
 // Primary destinations + active-tab logic shared with BottomNav.
 const { destinations: tabs, activeId: activeTab } = useNavDestinations();
@@ -77,6 +81,7 @@ onBeforeUnmount(() => {
 
       <div class="r-v2-nav__right">
         <ScanningIndicator />
+        <NowPlayingPill v-if="smAndDown" />
         <UserMenu />
       </div>
     </nav>
@@ -127,7 +132,7 @@ onBeforeUnmount(() => {
    backdrop art is dropped in this mode), just reads as murky. Swap it for a
    flat opaque surface so the fixed bar stays a clean, solid strip as content
    scrolls under it. */
-:global(html.r-v2-reduced-motion) .r-v2-nav-bar::before {
+html.r-v2-reduced-motion .r-v2-nav-bar::before {
   background: var(--r-color-bg);
   backdrop-filter: none;
 }
@@ -211,5 +216,8 @@ html[data-bp~="sm-and-down"] .r-v2-nav__center {
    phones so the isotipo + user cluster have room. */
 html[data-bp~="xs"] .r-v2-nav__logo-word {
   display: none;
+}
+html[data-bp~="xs"] .r-v2-nav__right {
+  gap: var(--r-space-2);
 }
 </style>

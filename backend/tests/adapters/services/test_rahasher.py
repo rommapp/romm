@@ -9,7 +9,6 @@ from adapters.services.rahasher import (
     RAHASHER_VALID_HASH_REGEX,
     RAHasherError,
     RAHasherService,
-    _first_m3u_entry,
     _pick_ra_file,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -482,63 +481,6 @@ class TestPickRAFile:
         cue.write_bytes(b"x" * 50)
 
         assert _pick_ra_file(tmp_path) == cue
-
-
-class TestFirstM3uEntry:
-    """Unit tests for resolving an .m3u playlist to its first disc file,
-    mirroring RAHasher's own playlist handling (it hashes the first entry)."""
-
-    def test_returns_first_entry_relative_to_playlist_folder(self, tmp_path):
-        disc1 = tmp_path / "game (Disc 1).rvz"
-        disc1.write_bytes(b"x" * 100)
-        (tmp_path / "game (Disc 2).rvz").write_bytes(b"x" * 100)
-        m3u = tmp_path / "game.m3u"
-        m3u.write_text("game (Disc 1).rvz\ngame (Disc 2).rvz\n")
-
-        assert _first_m3u_entry(m3u) == disc1
-
-    def test_skips_comments_and_blank_lines(self, tmp_path):
-        disc = tmp_path / "disc.cue"
-        disc.write_bytes(b"x" * 10)
-        m3u = tmp_path / "game.m3u"
-        m3u.write_text("#EXTM3U\n\n# a comment\ndisc.cue\n")
-
-        assert _first_m3u_entry(m3u) == disc
-
-    def test_handles_utf8_bom_and_crlf(self, tmp_path):
-        disc = tmp_path / "disc.rvz"
-        disc.write_bytes(b"x" * 10)
-        m3u = tmp_path / "game.m3u"
-        m3u.write_bytes(b"\xef\xbb\xbfdisc.rvz\r\n")
-
-        assert _first_m3u_entry(m3u) == disc
-
-    def test_resolves_absolute_entry_as_is(self, tmp_path):
-        disc = tmp_path / "elsewhere" / "disc.rvz"
-        disc.parent.mkdir()
-        disc.write_bytes(b"x" * 10)
-        m3u = tmp_path / "game.m3u"
-        m3u.write_text(f"{disc}\n")
-
-        assert _first_m3u_entry(m3u) == disc
-
-    def test_returns_none_when_first_entry_missing(self, tmp_path):
-        """Only the first entry counts (RAHasher hashes the first disc);
-        a dangling first entry means the playlist can't be resolved."""
-        (tmp_path / "game (Disc 2).rvz").write_bytes(b"x" * 10)
-        m3u = tmp_path / "game.m3u"
-        m3u.write_text("game (Disc 1).rvz\ngame (Disc 2).rvz\n")
-
-        assert _first_m3u_entry(m3u) is None
-
-    def test_returns_none_for_unreadable_playlist(self, tmp_path):
-        assert _first_m3u_entry(tmp_path / "missing.m3u") is None
-
-    def test_returns_none_for_empty_playlist(self, tmp_path):
-        m3u = tmp_path / "game.m3u"
-        m3u.write_text("#EXTM3U\n\n")
-
-        assert _first_m3u_entry(m3u) is None
 
 
 class TestRAHasherWildcardFolderResolution:

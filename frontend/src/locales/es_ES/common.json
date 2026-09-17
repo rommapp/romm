@@ -100,6 +100,8 @@
   "not-linked": "Sin vincular",
   "offline": "Sin conexión",
   "online": "En línea",
+  "or": "o",
+  "overwrite": "Sobrescribir",
   "owned": "En propiedad",
   "page": "Página",
   "password-length": "La contraseña debe tener entre 6 y 255 caracteres",

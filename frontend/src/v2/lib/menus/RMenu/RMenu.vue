@@ -49,6 +49,7 @@ import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import RTextField from "../../forms/RTextField/RTextField.vue";
 import {
   type EscapableEntry,
+  isInsideEscapableAbove,
   popEscapable,
   pushEscapable,
 } from "../../overlays/RDialog/escapeStack.js";
@@ -307,6 +308,8 @@ function onDocPointerDown(evt: PointerEvent) {
   )
     return;
   if (panelRef.value?.contains(target)) return;
+  // A nested menu's panel is teleported outside this one.
+  if (isInsideEscapableAbove(escEntry, target)) return;
   close();
 }
 

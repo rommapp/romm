@@ -8,11 +8,9 @@ from fastapi import Body, Header, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
 from fastapi.responses import Response
-from starlette.requests import ClientDisconnect
-from streaming_form_data import StreamingFormDataParser
-from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
+from endpoints.roms.upload import receive_rom_file
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
@@ -20,25 +18,18 @@ from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.rom_conversion import promote_single_file_to_folder
+from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
 from handler.walkthrough import fetch_gamefaqs_guide, validate_gamefaqs_url
 from handler.walkthrough.gamefaqs import GameFAQsFetchError
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import DocSource, RomFile, RomFileCategory
-from utils.media_types import ALLOWED_DOCUMENT_EXTENSIONS
 from utils.router import APIRouter
 
 router = APIRouter()
 
-WALKTHROUGH_FOLDER = "walkthrough"
-
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
-
-
-def _is_allowed_walkthrough_file(file_name: str) -> bool:
-    _, ext = os.path.splitext(file_name)
-    return ext.lower() in ALLOWED_DOCUMENT_EXTENSIONS
 
 
 def _slugify(value: str, fallback: str = "walkthrough") -> str:
@@ -91,104 +82,18 @@ async def add_rom_walkthrough_file(
 
     assert_rom_visible(request, rom)
 
-    if rom.has_simple_single_file:
-        try:
-            rom = await promote_single_file_to_folder(rom)
-        except RomAlreadyExistsException as exc:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-            ) from exc
-
-    try:
-        safe_filename = fs_rom_handler._sanitize_filename(filename)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid upload filename: {exc}",
-        ) from exc
-
-    if safe_filename != filename:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Upload filename must be a plain file name, not a path",
-        )
-
-    if not _is_allowed_walkthrough_file(safe_filename):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Unsupported walkthrough file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_DOCUMENT_EXTENSIONS))}"
-            ),
-        )
-
-    walkthrough_dir_rel = f"{rom.full_path}/{WALKTHROUGH_FOLDER}"
-    file_rel_path = f"{walkthrough_dir_rel}/{safe_filename}"
-    file_location = fs_rom_handler.validate_path(file_rel_path)
-    log.info(f"Uploading walkthrough file to {hl(str(file_location))}")
-
-    await fs_rom_handler.make_directory(walkthrough_dir_rel)
-
-    parser = StreamingFormDataParser(headers=request.headers)
-    parser.register("x-upload-platform", NullTarget())
-    parser.register(safe_filename, FileTarget(str(file_location)))
-
-    def cleanup_partial_file():
-        if file_location.exists():
-            file_location.unlink()
-
-    try:
-        async for chunk in request.stream():
-            parser.data_received(chunk)
-    except ClientDisconnect:
-        log.error("Client disconnected during upload")
-        cleanup_partial_file()
-        raise
-    except Exception as exc:
-        log.error("Error uploading walkthrough file", exc_info=exc)
-        cleanup_partial_file()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="There was an error uploading the walkthrough file",
-        ) from exc
-
-    stat = os.stat(file_location)
-    existing = db_rom_handler.get_rom_file_by_path(
-        rom_id=rom.id, file_path=walkthrough_dir_rel, file_name=safe_filename
+    rom_file = await receive_rom_file(
+        request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.WALKTHROUGH], filename
     )
-    if existing:
-        db_rom_handler.update_rom_file(
-            existing.id,
-            {
-                "file_size_bytes": stat.st_size,
-                "last_modified": stat.st_mtime,
-                "category": RomFileCategory.WALKTHROUGH,
-                "missing_from_fs": False,
+    if rom_file:
+        db_rom_handler.upsert_doc_meta(
+            rom_file_id=rom_file.id,
+            rom_id=rom.id,
+            values={
+                "author": _decode_header(author),
+                "title": _decode_header(title),
             },
         )
-        rom_file_id = existing.id
-    else:
-        created = db_rom_handler.add_rom_file(
-            RomFile(
-                rom_id=rom.id,
-                file_name=safe_filename,
-                file_path=walkthrough_dir_rel,
-                file_size_bytes=stat.st_size,
-                last_modified=stat.st_mtime,
-                category=RomFileCategory.WALKTHROUGH,
-            )
-        )
-        rom_file_id = created.id
-
-    db_rom_handler.upsert_doc_meta(
-        rom_file_id=rom_file_id,
-        rom_id=rom.id,
-        values={
-            "source": DocSource.UPLOAD,
-            "author": _decode_header(author),
-            "title": _decode_header(title),
-        },
-    )
 
     return Response(status_code=status.HTTP_201_CREATED)
 
@@ -243,7 +148,9 @@ async def add_rom_gamefaqs_walkthrough(
                 status_code=status.HTTP_409_CONFLICT, detail=str(exc)
             ) from exc
 
-    walkthrough_dir_rel = f"{rom.full_path}/{WALKTHROUGH_FOLDER}"
+    walkthrough_dir_rel = (
+        f"{rom.full_path}/{CATEGORY_UPLOAD_FOLDERS[RomFileCategory.WALKTHROUGH]}"
+    )
     base_name = _slugify(guide["title"] or f"gamefaqs-{rom.id}")
     file_name = f"{base_name}.txt"
 
@@ -323,7 +230,7 @@ async def delete_rom_walkthrough_file(
 ) -> Response:
     """Delete a single walkthrough file from a ROM's walkthrough/ subfolder."""
 
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility_label(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 

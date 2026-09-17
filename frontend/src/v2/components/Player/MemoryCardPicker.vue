@@ -12,7 +12,7 @@
 // Cards key HARD on `emulator` (that is what claim-time lookup uses); the
 // optional `platformId` is a display/creation hint only and never scopes the
 // fetch.
-import { RBtn, RDialog, RIcon, RSelect } from "@v2/lib";
+import { RBtn, RDialog, RSelect } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { MemoryCardSchema } from "@/__generated__";
@@ -141,6 +141,7 @@ async function submitCreate(name: string): Promise<void> {
         :placeholder="
           cards.length === 0 ? t('play.no-memory-cards') : undefined
         "
+        :info="t('play.memory-card-hint')"
         @update:model-value="onSelect"
       />
       <RBtn
@@ -191,11 +192,6 @@ async function submitCreate(name: string): Promise<void> {
         </RBtn>
       </template>
     </RDialog>
-
-    <p class="r-mc-picker__hint">
-      <RIcon icon="mdi-information-outline" size="12" />
-      <span>{{ t("play.memory-card-hint") }}</span>
-    </p>
   </div>
 </template>
 
@@ -215,14 +211,5 @@ async function submitCreate(name: string): Promise<void> {
 .r-mc-picker__select {
   flex: 1 1 auto;
   min-width: 0;
-}
-
-.r-mc-picker__hint {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin: 0;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
 }
 </style>

@@ -71,6 +71,7 @@ function rom(overrides: Partial<DetailedRomSchema> = {}): DetailedRomSchema {
     full_path: ROM_PATH,
     has_simple_single_file: false,
     fs_size_bytes: 20,
+    missing_from_fs: false,
     files: [file(1, "game.n64"), file(2, "hack/patched.n64")],
     ...overrides,
   } as DetailedRomSchema;
@@ -93,9 +94,6 @@ function mountTab(r = rom()) {
         RCheckbox: true,
         REmptyState: true,
         RIcon: true,
-        RTooltip: {
-          template: `<div><slot name="activator" :props="{}" /></div>`,
-        },
         RBtn: {
           props: ["disabled", "icon"],
           emits: ["click"],
@@ -107,10 +105,16 @@ function mountTab(r = rom()) {
   });
 }
 
+function buttonByLabel(wrapper: ReturnType<typeof mountTab>, label: string) {
+  return wrapper.findAll("button.btn").find((b) => b.text() === label);
+}
+
 function uploadButton(wrapper: ReturnType<typeof mountTab>) {
-  return wrapper
-    .findAll("button.btn")
-    .find((b) => b.text() === "common.upload");
+  return buttonByLabel(wrapper, "common.upload");
+}
+
+function uploadToFolderButton(wrapper: ReturnType<typeof mountTab>) {
+  return buttonByLabel(wrapper, "rom.upload-to-folder");
 }
 
 async function pickFile(wrapper: ReturnType<typeof mountTab>, name: string) {
@@ -139,6 +143,7 @@ describe("FilesTab uploads", () => {
     const wrapper = mountTab();
 
     expect(uploadButton(wrapper)).toBeUndefined();
+    expect(uploadToFolderButton(wrapper)).toBeUndefined();
   });
 
   it("sends files straight into the active folder", async () => {
@@ -146,6 +151,7 @@ describe("FilesTab uploads", () => {
     const click = vi.spyOn(HTMLInputElement.prototype, "click");
     const wrapper = mountTab();
 
+    expect(uploadToFolderButton(wrapper)).toBeUndefined();
     await uploadButton(wrapper)!.trigger("click");
     expect(click).toHaveBeenCalled();
     await pickFile(wrapper, "fix.ips");
@@ -178,7 +184,8 @@ describe("FilesTab uploads", () => {
   it("asks for a destination from All files", async () => {
     const wrapper = mountTab();
 
-    await uploadButton(wrapper)!.trigger("click");
+    expect(uploadButton(wrapper)).toBeUndefined();
+    await uploadToFolderButton(wrapper)!.trigger("click");
     expect(wrapper.get(".dialog").attributes("data-open")).toBe("true");
 
     const dialog = wrapper.findComponent(UploadFilesDialogStub);
@@ -227,5 +234,39 @@ describe("FilesTab uploads", () => {
       expect.anything(),
     );
     expect(refetchRom).not.toHaveBeenCalled();
+  });
+});
+
+describe("FilesTab on a rom missing from the filesystem", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    routeQuery.subtab = undefined;
+    grants.upload = true;
+  });
+
+  // Nothing is on disk to fetch, so the download endpoint would 404.
+  it("marks every row missing and refuses the fetch actions", async () => {
+    const wrapper = mountTab(rom({ missing_from_fs: true }));
+    await flushPromises();
+
+    const rows = wrapper.findAllComponents({ name: "FileRow" });
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.props("missing") === true)).toBe(true);
+
+    wrapper.findAllComponents({ name: "FileRow" })[0].vm.$emit("toggle");
+    await flushPromises();
+    const download = wrapper
+      .findAll("button.btn")
+      .find((b) => b.attributes("data-icon") === "mdi-cloud-download-outline");
+    expect(download?.attributes("disabled")).toBeDefined();
+  });
+
+  it("leaves the actions alone when the rom is on disk", async () => {
+    const wrapper = mountTab();
+    await flushPromises();
+
+    const rows = wrapper.findAllComponents({ name: "FileRow" });
+    expect(rows.every((r) => r.props("missing") === false)).toBe(true);
   });
 });

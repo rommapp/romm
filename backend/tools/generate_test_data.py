@@ -28,18 +28,9 @@ from typing import Any
 # Allow running as `python3 tools/generate_test_data.py` from backend/.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# isort: off
-# Import order matters here: the metadata package must load before
-# `adapters.services.igdb` so the base_handler <-> igdb import cycle resolves
-# (igdb must not be the entrypoint). Keep isort from reordering these.
-from handler.metadata.base_handler import (  # noqa: E402,F401
-    UniversalPlatformSlug as UPS,
-)
-from adapters.services.igdb import IGDB_PLATFORM_LIST  # noqa: E402
-
-# isort: on
 from PIL import Image  # noqa: E402
 
+from adapters.services.igdb import IGDB_PLATFORM_LIST  # noqa: E402
 from config import RESOURCES_BASE_PATH  # noqa: E402
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST  # noqa: E402
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST  # noqa: E402
@@ -69,6 +60,7 @@ from models.rom import (  # noqa: E402
     RomUser,
     RomUserStatus,
     TrackMeta,
+    compute_full_path_hash,
     compute_name_sort_key,
 )
 from models.sync_session import SyncSession, SyncSessionStatus  # noqa: E402
@@ -1113,6 +1105,7 @@ def main() -> int:
                 path_cover_s = path_cover_l = ""
                 path_screenshots = []
 
+            rom_folder = f"{platform['slug']}/roms"
             rom_rows.append(
                 {
                     "id": rid,
@@ -1133,7 +1126,8 @@ def main() -> int:
                     "fs_name_no_tags": parts.no_tags,
                     "fs_name_no_ext": parts.no_ext,
                     "fs_extension": parts.extension,
-                    "fs_path": f"{platform['slug']}/roms",
+                    "fs_path": rom_folder,
+                    "full_path_hash": compute_full_path_hash(rom_folder, fs_name),
                     "fs_size_bytes": size,
                     "name": f["title"],
                     "name_sort_key": compute_name_sort_key(f["title"]),

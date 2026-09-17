@@ -36,6 +36,7 @@ from models.rom import (
     RomArchiveMember,
     RomFile,
     RomFileCategory,
+    RomNote,
     RomUserStatus,
     SaveTargetLayout,
 )
@@ -60,6 +61,23 @@ class UserNoteSchema(BaseModel):
     # Author identity for rendering an avatar next to community notes.
     user_avatar_path: str = ""
     user_updated_at: UTCDatetime | None = None
+
+    @classmethod
+    def from_rom_note(cls, note: RomNote) -> UserNoteSchema:
+        """Build the response for a note, taking its author off the joined `user`."""
+        return cls(
+            id=note.id,
+            title=note.title,
+            content=note.content,
+            is_public=note.is_public,
+            tags=note.tags,
+            created_at=note.created_at,
+            updated_at=note.updated_at,
+            user_id=note.user_id,
+            username=note.user.username,
+            user_avatar_path=note.user.avatar_path,
+            user_updated_at=note.user.updated_at,
+        )
 
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
@@ -239,7 +257,7 @@ class RomFileSchema(BaseModel):
     is_top_level: bool
     created_at: UTCDatetime
     updated_at: UTCDatetime
-    last_modified: UTCDatetime
+    last_modified: UTCDatetime | None
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
@@ -659,23 +677,7 @@ class DetailedRomSchema(RomSchema):
 
         notes = db_rom_handler.get_rom_notes(rom_id=db_rom.id, user_id=user_id)
 
-        # Convert notes to schema format
-        all_notes = []
-        for note in notes:
-            note_dict = {
-                "id": note.id,
-                "title": note.title,
-                "content": note.content,
-                "is_public": note.is_public,
-                "tags": note.tags,
-                "created_at": note.created_at,
-                "updated_at": note.updated_at,
-                "user_id": note.user_id,
-                "username": note.user.username,
-                "user_avatar_path": note.user.avatar_path,
-                "user_updated_at": note.user.updated_at,
-            }
-            all_notes.append(UserNoteSchema.model_validate(note_dict))
+        all_notes = [UserNoteSchema.from_rom_note(note) for note in notes]
 
         # Sort notes by updated_at (most recent first)
         all_notes.sort(key=lambda x: x.updated_at, reverse=True)

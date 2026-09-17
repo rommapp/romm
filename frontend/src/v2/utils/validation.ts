@@ -25,6 +25,13 @@ export function required(msg?: string): Rule {
   return (v) => !isEmpty(v) || (msg ?? t("common.required"));
 }
 
+/** `required` that also rejects whitespace-only text. */
+export function notBlank(msg?: string): Rule {
+  return (v) =>
+    (typeof v === "string" ? v.trim().length > 0 : !isEmpty(v)) ||
+    (msg ?? t("common.required"));
+}
+
 export const email: Rule = (v) =>
   typeof v === "string" && /.+@.+\..+/.test(v)
     ? true

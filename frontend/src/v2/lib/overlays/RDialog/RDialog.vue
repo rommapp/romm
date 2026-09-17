@@ -160,9 +160,11 @@ onBeforeUnmount(() => {
 });
 
 // ── Width / height resolution ───────────────────────────────────
+// A bare number, or a numeric string from an unbound `width="520"`, is px.
 function asLength(v: number | string): string | undefined {
   if (v == null || v === "" || v === "auto") return undefined;
-  return typeof v === "number" ? `${v}px` : v;
+  if (typeof v === "number" || /^\d+(\.\d+)?$/.test(v)) return `${v}px`;
+  return v;
 }
 const panelStyle = computed(() => {
   const h = asLength(props.height);

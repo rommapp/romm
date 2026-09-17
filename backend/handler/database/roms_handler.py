@@ -69,6 +69,7 @@ from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_FACET_COLUMNS,
     Rom,
+    RomDeletionTarget,
     RomFacets,
     RomFile,
     RomFileCategory,
@@ -78,6 +79,8 @@ from models.rom import (
     RomMetadata,
     RomNote,
     RomUser,
+    RomVisibility,
+    RomVisibilityLabel,
     SiblingRom,
     TrackMeta,
     compute_full_path_hash,
@@ -705,6 +708,79 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
+
+    @begin_session
+    def get_rom_visibility(
+        self,
+        id: int,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> RomVisibility | None:
+        """The id and platform id a visibility check needs, nothing else."""
+        row = session.execute(
+            select(Rom.id, Rom.platform_id).where(Rom.id == id)
+        ).one_or_none()
+
+        if row is None:
+            return None
+
+        return RomVisibility(id=row.id, platform_id=row.platform_id)
+
+    @begin_session
+    def get_rom_visibility_label(
+        self,
+        id: int,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> RomVisibilityLabel | None:
+        """`get_rom_visibility` plus the name pair the file-delete logs need."""
+        row = session.execute(
+            select(Rom.id, Rom.platform_id, Rom.name, Rom.fs_name).where(Rom.id == id)
+        ).one_or_none()
+
+        if row is None:
+            return None
+
+        return RomVisibilityLabel(
+            id=row.id, platform_id=row.platform_id, name=row.name, fs_name=row.fs_name
+        )
+
+    @begin_session
+    def get_rom_deletion_target(
+        self,
+        id: int,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> RomDeletionTarget | None:
+        """The columns the bulk-delete route reads off one rom, and no relations."""
+        row = session.execute(
+            select(
+                Rom.id,
+                Rom.platform_id,
+                Rom.name,
+                Rom.fs_name,
+                Rom.fs_path,
+                Platform.slug.label("platform_slug"),
+                Platform.name.label("platform_name"),
+                Platform.custom_name.label("platform_custom_name"),
+            )
+            .join(Platform, Rom.platform_id == Platform.id)
+            .where(Rom.id == id)
+        ).one_or_none()
+
+        if row is None:
+            return None
+
+        return RomDeletionTarget(
+            id=row.id,
+            platform_id=row.platform_id,
+            name=row.name,
+            fs_name=row.fs_name,
+            fs_path=row.fs_path,
+            platform_slug=row.platform_slug,
+            platform_name=row.platform_name,
+            platform_custom_name=row.platform_custom_name,
+        )
 
     @begin_session
     @with_simple_details
@@ -1756,39 +1832,66 @@ class DBRomsHandler(DBBaseHandler):
 
         return query.order_by(*order_clauses), sort_key  # type: ignore
 
-    @begin_session
-    def get_roms_scalar(
+    def _scoped_roms_query(
         self,
         *,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session,  # type: ignore
+        include_related: bool = True,
         **kwargs,
-    ) -> Sequence[Rom]:
+    ) -> Query[Rom]:
+        """The filtered, ordered query `get_roms_scalar` and `get_rom_ids` both run."""
+        order_by = kwargs.get("order_by", "")
+        order_dir = kwargs.get("order_dir", "asc")
+        user_id = kwargs.get("user_id", None)
+
         query, sort_key = self.get_roms_query(
-            order_by=kwargs.get("order_by", ""),
-            order_dir=kwargs.get("order_dir", "asc"),
+            order_by=order_by,
+            order_dir=order_dir,
             search_term=kwargs.get("search_term", None),
-            user_id=kwargs.get("user_id", None),
+            user_id=user_id,
+            session=session,
         )
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
-
-        roms = self.filter_roms(
+        return self.filter_roms(
             query=query,
             # Extra keys (ordering, loading flags) are not filters; ignored here.
             filters=RomFilterParams.model_validate(kwargs),
             sort_key=sort_key,
-            order_by=kwargs.get("order_by", ""),
-            order_dir=kwargs.get("order_dir", "asc"),
-            user_id=kwargs.get("user_id", None),
+            order_by=order_by,
+            order_dir=order_dir,
+            user_id=user_id,
             released_days=kwargs.get("released_days", None),
             released_before_year=kwargs.get("released_before_year", None),
-            include_files=kwargs.get("include_files", False),
+            # File loaders need the entity too, so they ride the same flag.
+            include_files=include_related and kwargs.get("include_files", False),
+            include_related=include_related,
             hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
             hidden_rom_ids=kwargs.get("hidden_rom_ids", None),
+            session=session,
         )
-        return session.scalars(roms).all()
+
+    @begin_session
+    def get_roms_scalar(
+        self,
+        *,
+        session: Session = None,  # type: ignore
+        **kwargs,
+    ) -> Sequence[Rom]:
+        query = self._scoped_roms_query(session=session, **kwargs)
+        return session.scalars(query).all()
+
+    @begin_session
+    def get_rom_ids(
+        self,
+        *,
+        session: Session = None,  # type: ignore
+        **kwargs,
+    ) -> list[int]:
+        """Every matching rom id, in query order."""
+        query = self._scoped_roms_query(
+            session=session, include_related=False, **kwargs
+        )
+        return list(session.scalars(query.with_only_columns(Rom.id)).all())
 
     @begin_session
     def get_hidden_rom_ids_among(
@@ -2433,7 +2536,13 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta))
+            .options(
+                selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
+                # `is_top_level` reads `rom.full_path`, and callers validate the
+                # row as a schema after this session has closed.
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+            )
             .filter_by(id=id)
             .limit(1)
         )
@@ -3175,17 +3284,16 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     # Note management methods
-    @begin_session
-    def get_rom_notes(
+    def _rom_notes_query(
         self,
         rom_id: int,
         user_id: int,
+        *,
         public_only: bool = False,
         search: str | None = "",
         tags: list[str] | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[RomNote]:
+        session: Session,
+    ) -> Query[RomNote]:
         query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
 
         if public_only:
@@ -3205,10 +3313,47 @@ class DBRomsHandler(DBBaseHandler):
                     json_array_contains_value(RomNote.tags, tag, session=session)
                 )
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
+        return query.order_by(RomNote.updated_at.desc())
 
-        return query.order_by(RomNote.updated_at.desc()).all()
+    @begin_session
+    def get_rom_notes(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        search: str | None = "",
+        tags: list[str] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[RomNote]:
+        return self._rom_notes_query(
+            rom_id=rom_id,
+            user_id=user_id,
+            public_only=public_only,
+            search=search,
+            tags=tags,
+            session=session,
+        ).all()
+
+    @begin_session
+    def get_rom_note_ids(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        search: str | None = "",
+        tags: list[str] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Ids only, so no `RomNote` is built and no eager rom or user join fires."""
+        query = self._rom_notes_query(
+            rom_id=rom_id,
+            user_id=user_id,
+            public_only=public_only,
+            search=search,
+            tags=tags,
+            session=session,
+        )
+        return [row[0] for row in query.with_entities(RomNote.id).all()]
 
     @begin_session
     def create_rom_note(

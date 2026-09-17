@@ -100,6 +100,8 @@
   "not-linked": "Non associé",
   "offline": "Hors ligne",
   "online": "En ligne",
+  "or": "ou",
+  "overwrite": "Écraser",
   "owned": "Possédé",
   "page": "Page",
   "password-length": "Le mot de passe doit contenir entre 6 et 255 caractères",

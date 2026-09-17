@@ -2,7 +2,7 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 import type {
   FirmwareSchema,
@@ -26,6 +26,7 @@ import {
 } from "@/utils";
 import {
   saveSave,
+  resolveStateScreenshot,
   saveState,
   loadEmulatorJSSave,
   loadEmulatorJSState,
@@ -35,6 +36,9 @@ import {
   createSaveQuitButton,
   createExitEmulationButton,
   createSaveSyncTracker,
+  bytesEqual,
+  pollSaveFiles,
+  saveSaveOnUnload,
   toArrayBuffer,
 } from "./utils";
 
@@ -77,6 +81,8 @@ function baselineSaveTrackerFromEmulator() {
 let saveWrite: Promise<unknown> = Promise.resolve();
 let saveGeneration = 0;
 let saveLoading = false;
+// The bytes of the write on the wire, for the unload path to leave alone.
+let inFlightSave: Uint8Array | null = null;
 function writeSave(
   file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer },
   generation = saveGeneration,
@@ -84,18 +90,24 @@ function writeSave(
   if (saveLoading) return Promise.resolve(null);
   const write = saveWrite.then(async () => {
     if (generation !== saveGeneration) return null;
-    const save = await saveSave({
-      rom: romRef.value,
-      save: sessionSaveRef.value,
-      deviceId: deviceIDRef.value,
-      slot: loadedSave?.slot || props.saveSlot || undefined,
-      ...file,
-    });
-    if (save && generation === saveGeneration) {
-      sessionSaveRef.value = save;
-      saveTracker.markUploaded(new Uint8Array(file.saveFile));
+    const bytes = new Uint8Array(file.saveFile);
+    inFlightSave = bytes;
+    try {
+      const save = await saveSave({
+        rom: romRef.value,
+        save: sessionSaveRef.value,
+        deviceId: deviceIDRef.value,
+        slot: loadedSave?.slot || props.saveSlot || undefined,
+        ...file,
+      });
+      if (save && generation === saveGeneration) {
+        sessionSaveRef.value = save;
+        saveTracker.markUploaded(bytes);
+      }
+      return save;
+    } finally {
+      inFlightSave = null;
     }
-    return save;
   });
   saveWrite = write.catch(() => null);
   return write;
@@ -174,7 +186,7 @@ declare global {
     EJS_disableBatchBootup: boolean;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: {
-      screenshot: ArrayBuffer;
+      screenshot?: ArrayBuffer;
       state: ArrayBuffer;
     }) => void;
     EJS_onLoadState: () => void;
@@ -258,6 +270,10 @@ installEJSDefaultOptionsTrap();
 
 onMounted(() => {
   window.scrollTo(0, 0);
+  // Registered before EmulatorJS binds its own unload handler, so the
+  // pending-save check runs first.
+  window.addEventListener("beforeunload", onBeforeUnload);
+  window.addEventListener("pagehide", onPageHide);
   if (props.bios) {
     localStorage.setItem(
       `player:${romRef.value.platform_slug}:bios_id`,
@@ -293,7 +309,10 @@ onMounted(() => {
 });
 
 onBeforeUnmount(async () => {
-  autoSaveSyncEmulator = null;
+  disposed = true;
+  window.removeEventListener("beforeunload", onBeforeUnload);
+  window.removeEventListener("pagehide", onPageHide);
+  uninstallAutoSaveSync();
   emitter?.off("saveSelected", loadSave);
   emitter?.off("stateSelected", loadState);
   window.EJS_emulator?.callEvent("exit");
@@ -305,20 +324,22 @@ function displayMessage(
   message: string,
   {
     duration,
-    className = "msg-info",
-    icon = "",
+    className,
+    icon,
   }: {
     duration: number;
-    className?: "msg-info" | "msg-error" | "msg-success";
+    className?: "msg-error" | "msg-success";
     icon?: string;
   },
 ) {
   window.EJS_emulator?.displayMessage(message, duration);
   const element = document.querySelector("#game .ejs_message");
   if (element) {
-    element.classList.add(className, icon);
+    const classes = [className, icon].filter((c): c is string => !!c);
+    if (classes.length === 0) return;
+    element.classList.add(...classes);
     setTimeout(() => {
-      element.classList.remove(className, icon);
+      element.classList.remove(...classes);
     }, duration);
   }
 }
@@ -341,13 +362,17 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 // frames rendered before loadState takes cleanly.
 const STATE_APPLY_SETTLE_MS = 500;
 
-// Periodic save upload on EmulatorJS' "System Save interval" tick (see
-// createSaveSyncTracker). EmulatorJS has no `off`, so the handler stays
+// Periodic save upload on the "saveSaveFiles" tick that pollSaveFiles fires
+// (see createSaveSyncTracker). EmulatorJS has no `off`: the handler stays
 // subscribed and this slot is what tells it the component still owns it.
 let autoSaveSyncEmulator: object | null = null;
+let stopSavePolling: (() => void) | null = null;
+// The boot path awaits before installing, so it may land after unmount.
+let disposed = false;
 function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
-  if (!emulator?.gameManager || autoSaveSyncEmulator === emulator) return;
+  if (disposed || !emulator?.gameManager) return;
+  if (autoSaveSyncEmulator === emulator) return;
   autoSaveSyncEmulator = emulator;
   let uploading = false;
   emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
@@ -361,6 +386,7 @@ function installAutoSaveSync() {
         romsStore.update(romRef.value);
         displayMessage("Save synced with server", {
           duration: 3000,
+          className: "msg-success",
           icon: "mdi-cloud-sync",
         });
       }
@@ -369,6 +395,68 @@ function installAutoSaveSync() {
     } finally {
       uploading = false;
     }
+  });
+  stopSavePolling = pollSaveFiles(emulator);
+}
+function uninstallAutoSaveSync() {
+  autoSaveSyncEmulator = null;
+  stopSavePolling?.();
+  stopSavePolling = null;
+}
+// A save written right before Quit or a back navigation has not had its two
+// ticks yet, so leaving the player uploads whatever the server lacks.
+async function flushPendingSave() {
+  const emulator = window.EJS_emulator;
+  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
+  uninstallAutoSaveSync();
+  emulator.pause();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
+  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  try {
+    if (await writeSave({ saveFile: toArrayBuffer(saveFile) })) {
+      romsStore.update(romRef.value);
+    }
+  } catch (error) {
+    console.error("Save sync on exit failed", error);
+  }
+}
+onBeforeRouteLeave(flushPendingSave);
+// A v2 shell that leaves by replacing the document aborts the navigation, so
+// the guard above never runs and the flush has to be asked for. Idempotent.
+defineExpose({ flushPendingSave });
+// Closing the tab cancels requests in flight, so a save the tick has not
+// uploaded goes out on `pagehide` with fetch keepalive, which the browser caps
+// at 64 KB. `beforeunload` asks first while one is pending: for a bigger save
+// that prompt is the only way to keep it.
+let unloadSave: Uint8Array | null = null;
+function onBeforeUnload(event: BeforeUnloadEvent) {
+  // A close cancelled earlier leaves the bytes it captured behind.
+  unloadSave = null;
+  const emulator = window.EJS_emulator;
+  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
+  if (saveLoading) return;
+  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
+  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  unloadSave = saveFile;
+  // EmulatorJS tears the core down on this event, and a cancelled close has
+  // to keep the game running.
+  event.stopImmediatePropagation();
+  // preventDefault covers the current spec, returnValue the older browsers.
+  event.preventDefault();
+  event.returnValue = "";
+}
+function onPageHide() {
+  if (!unloadSave || !saveTracker.hasChanges(unloadSave)) return;
+  // These bytes are already on the wire: a second POST would only open a
+  // duplicate version.
+  if (inFlightSave && bytesEqual(inFlightSave, unloadSave)) return;
+  saveSaveOnUnload({
+    rom: romRef.value,
+    save: sessionSaveRef.value,
+    saveFile: toArrayBuffer(unloadSave),
+    deviceId: deviceIDRef.value,
+    slot: loadedSave?.slot || props.saveSlot || undefined,
   });
 }
 
@@ -419,6 +507,7 @@ window.EJS_onSaveSave = async function ({
   if (synced) {
     displayMessage("Save synced with server", {
       duration: 4000,
+      className: "msg-success",
       icon: "mdi-cloud-sync",
     });
   } else {
@@ -456,8 +545,9 @@ window.EJS_onLoadState = async function () {
 
 window.EJS_onSaveState = async function ({
   state: stateFile,
-  screenshot: screenshotFile,
+  screenshot: emulatorScreenshot,
 }) {
+  const screenshotFile = await resolveStateScreenshot(emulatorScreenshot);
   const state = await saveState({
     rom: romRef.value,
     stateFile,
@@ -473,6 +563,7 @@ window.EJS_onSaveState = async function ({
   if (state) {
     displayMessage("State synced with server", {
       duration: 4000,
+      className: "msg-success",
       icon: "mdi-cloud-sync",
     });
   } else {
@@ -581,15 +672,15 @@ window.EJS_onGameStart = async () => {
 
   const exitEmulation = createExitEmulationButton();
   exitEmulation.addEventListener("click", async () => {
-    autoSaveSyncEmulator = null;
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
+    await flushPendingSave();
     romsStore.update(romRef.value);
     immediateExit();
   });
 
   const saveAndQuit = createSaveQuitButton();
   saveAndQuit.addEventListener("click", async () => {
-    autoSaveSyncEmulator = null;
+    uninstallAutoSaveSync();
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
     // Grab the screenshot while the game is still running (EmulatorJS reads
@@ -665,36 +756,59 @@ onUnmounted(() => {
   display: none;
 }
 
+/* EmulatorJS raises its own messages through this element and adds none of
+   RomM's classes, so the unclassed state has to be legible. It wears the v2
+   toast's glass panel; the fallbacks keep it readable under the v1 theme. */
 #game .ejs_message {
-  visibility: hidden;
-  margin: 1rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  color: white;
-  text-transform: uppercase;
+  top: 16px;
+  left: 16px;
+  margin: 0;
+  padding: 10px 12px;
+  max-width: min(420px, calc(100% - 32px));
   display: flex;
   align-items: center;
-  filter: opacity(0.85) drop-shadow(0 0 0.5rem rgba(0, 0, 0, 0.5));
+  gap: 10px;
+  border: 1px solid
+    var(--r-color-border-strong, rgba(var(--v-theme-on-surface), 0.15));
+  border-radius: var(--r-radius-md, 8px);
+  background: var(--r-color-toast-bg, rgba(var(--v-theme-surface), 0.92));
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 10px 28px color-mix(in srgb, black 45%, transparent),
+    0 2px 6px color-mix(in srgb, black 30%, transparent);
+  color: var(--r-color-fg, rgb(var(--v-theme-on-surface)));
+  font: 13px / 1.45 var(--r-font-family-sans, inherit);
+  text-shadow: none;
+  transition:
+    opacity var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out),
+    transform var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out);
 }
 
+/* A message expires by having its text cleared, not the element removed, so
+   the empty state is where it fades out. */
+#game .ejs_message:empty {
+  opacity: 0;
+  transform: translateY(-6px);
+  visibility: hidden;
+  transition:
+    opacity var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out),
+    transform var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out),
+    visibility 0s var(--r-motion-fast, 160ms);
+}
+
+/* The icon class lands on the message itself, so the glyph is its ::before,
+   tinted by tone like the v2 toast icon. */
 #game .ejs_message::before {
-  margin-right: 8px;
-  font-size: 20px !important;
-  font: normal normal normal 24px / 1 "Material Design Icons";
+  flex-shrink: 0;
+  font: normal normal normal 18px / 1 "Material Design Icons";
+  color: var(--r-color-brand-primary, rgb(var(--v-theme-romm-blue)));
 }
 
-#game .ejs_message.msg-info {
-  visibility: visible;
-  background-color: rgba(var(--v-theme-romm-blue));
+#game .ejs_message.msg-success::before {
+  color: var(--r-color-success, rgb(var(--v-theme-romm-green)));
 }
 
-#game .ejs_message.msg-error {
-  visibility: visible;
-  background-color: rgba(var(--v-theme-romm-red));
-}
-
-#game .ejs_message.msg-success {
-  visibility: visible;
-  background-color: rgba(var(--v-theme-romm-green));
+#game .ejs_message.msg-error::before {
+  color: var(--r-color-danger-fg, rgb(var(--v-theme-romm-red)));
 }
 </style>

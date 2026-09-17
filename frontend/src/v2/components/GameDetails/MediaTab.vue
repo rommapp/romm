@@ -8,21 +8,25 @@
 //   * Subtab always rendered; the empty state drives the upload CTA
 //   * The panel doubles as a drag-and-drop target (same affordance as the
 //     Upload / Patcher views): drop files anywhere over it to upload
-//   * Upload goes through `romApi.uploadSoundtracks`
+//   * Upload goes through `useRomFileUpload`, into the soundtrack/ folder
 //
 // The soundtrack player is reused from v1 for now.
-import { RBtn, RDropzone, REmptyState, RIcon } from "@v2/lib";
+import { RBtn, RDropzone, REmptyState } from "@v2/lib";
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
-import storeUpload from "@/stores/upload";
+import SubtabNav, {
+  type SubtabNavItem,
+} from "@/v2/components/GameDetails/SubtabNav.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
-import { useConfirm } from "@/v2/composables/useConfirm";
+import {
+  ROM_UPLOAD_FOLDERS,
+  useRomFileUpload,
+} from "@/v2/composables/useRomFileUpload";
 import { useRomSoundtrack } from "@/v2/composables/useRomSoundtrack";
 import { useRomSync } from "@/v2/composables/useRomSync";
-import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
 
 const ManualSubtab = defineAsyncComponent(
@@ -42,17 +46,16 @@ const ArtworkSubtab = defineAsyncComponent(
 );
 
 const props = defineProps<{ rom: DetailedRom }>();
-const snackbar = useSnackbar();
-const confirm = useConfirm();
 const soundtrackActions = useSoundtrackActions();
+const { uploadFiles } = useRomFileUpload();
 const {
   tracks: soundtrackTracks,
   loading: soundtrackLoading,
   fallbackArtUrl: soundtrackArtUrl,
 } = useRomSoundtrack(() => props.rom);
 const { refetchRom } = useRomSync();
-const uploadStore = storeUpload();
 const { t } = useI18n();
+const { smAndDown } = useBreakpoint();
 
 // Soundtrack upload / delete both gate on the ROM write grant, so read-only
 // users get the player without any upload or delete affordance.
@@ -110,26 +113,8 @@ watch(
   },
 );
 
-// ---------- Single-file -> folder conversion ----------
-// Soundtracks live inside the ROM folder, so uploading one to a single-file
-// ROM promotes it to a folder ROM in place (the backend does this
-// automatically on upload). Warn first since it is not reversible.
-async function confirmFolderConversionIfNeeded(): Promise<boolean> {
-  if (!props.rom.has_simple_single_file) return true;
-  return confirm({
-    title: t("rom.convert-to-folder-title"),
-    body: t("rom.convert-to-folder-body"),
-    tone: "warning",
-  });
-}
-
 // ---------- Subtab nav ----------
-// We render the subtab list manually (not via RTabNav) because each
-// subtab's content panel owns its own section header with title +
-// contextual actions — the sidebar stays navigation-only, mirroring
-// ScreenshotsSubtab.
-type SubtabDef = { id: Subtab; label: string; icon: string };
-const subtabDefs = computed<SubtabDef[]>(() => [
+const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => [
   {
     id: "manual",
     label: t("rom.manual"),
@@ -162,6 +147,33 @@ const subtabDefs = computed<SubtabDef[]>(() => [
 // player when filled). The section header's "upload" button opens the filled
 // dropzone's picker via this ref.
 const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
+const canUploadSoundtrack = computed(
+  () => props.rom.has_soundtrack && canEdit.value,
+);
+
+// On phones a subtab's single Upload joins the picker row; Screenshots has one
+// per section, so it keeps them in place.
+const manualPanel = ref<InstanceType<typeof ManualSubtab> | null>(null);
+const walkthroughPanel = ref<InstanceType<typeof WalkthroughSubtab> | null>(
+  null,
+);
+
+const pickerRowUpload = computed<(() => void) | null>(() => {
+  switch (subTab.value) {
+    case "manual":
+      return manualPanel.value?.canUpload ? manualPanel.value.openUpload : null;
+    case "walkthrough":
+      return walkthroughPanel.value?.canUpload
+        ? walkthroughPanel.value.openUpload
+        : null;
+    case "soundtrack":
+      return canUploadSoundtrack.value
+        ? () => soundtrackDz.value?.open()
+        : null;
+    default:
+      return null;
+  }
+});
 
 async function refreshRom() {
   await refetchRom(props.rom.id);
@@ -169,37 +181,7 @@ async function refreshRom() {
 
 // ---------- File handlers (shared by file input + drag-and-drop) ----------
 async function handleSoundtrackFiles(files: File[]) {
-  if (files.length === 0) return;
-  if (!(await confirmFolderConversionIfNeeded())) return;
-
-  const responses = await romApi.uploadSoundtracks({
-    romId: props.rom.id,
-    filesToUpload: files,
-  });
-
-  const successful = responses.filter((r) => r.status === "fulfilled").length;
-  const failed = responses.length - successful;
-
-  if (failed === 0) uploadStore.reset();
-
-  if (successful > 0) {
-    snackbar.success(
-      failed
-        ? t("rom.tracks-uploaded-with-failed", successful, {
-            named: { n: successful, failed },
-          })
-        : t("rom.tracks-uploaded-n", successful, {
-            named: { n: successful },
-          }),
-      { icon: "mdi-check-bold", timeout: 3000 },
-    );
-    await refreshRom();
-  } else {
-    snackbar.warning(t("rom.no-tracks-uploaded"), {
-      icon: "mdi-close-circle",
-      timeout: 5000,
-    });
-  }
+  await uploadFiles(props.rom, ROM_UPLOAD_FOLDERS.soundtrack, files);
 }
 
 async function deleteSoundtrack(fileId: number) {
@@ -214,33 +196,27 @@ async function deleteSoundtrack(fileId: number) {
 
 <template>
   <div class="r-v2-media">
-    <aside class="r-v2-media__sidebar">
-      <ul
-        class="r-v2-media__subtabs"
-        role="tablist"
-        aria-orientation="vertical"
-      >
-        <li
-          v-for="tab in subtabDefs"
-          :key="tab.id"
-          class="r-v2-media__subtab"
-          :class="{ 'r-v2-media__subtab--active': subTab === tab.id }"
+    <SubtabNav
+      v-if="smAndDown"
+      v-model="subTab"
+      :items="subtabDefs"
+      variant="menu"
+    >
+      <template #actions>
+        <RBtn
+          v-if="pickerRowUpload"
+          variant="outlined"
+          size="small"
+          density="comfortable"
+          prepend-icon="mdi-cloud-upload-outline"
+          @click="pickerRowUpload()"
         >
-          <button
-            type="button"
-            role="tab"
-            class="r-v2-media__subtab-btn"
-            :class="{
-              'r-v2-media__subtab-btn--active': subTab === tab.id,
-            }"
-            :aria-selected="subTab === tab.id"
-            @click="subTab = tab.id"
-          >
-            <RIcon :icon="tab.icon" size="16" />
-            <span class="r-v2-media__subtab-label">{{ tab.label }}</span>
-          </button>
-        </li>
-      </ul>
+          {{ t("common.upload") }}
+        </RBtn>
+      </template>
+    </SubtabNav>
+    <aside v-else class="r-v2-media__sidebar">
+      <SubtabNav v-model="subTab" :items="subtabDefs" />
     </aside>
 
     <div class="r-v2-media__content">
@@ -253,13 +229,17 @@ async function deleteSoundtrack(fileId: number) {
       <!-- Manual subtab — its own component (PDF / Markdown viewer with an
            entry selector; scrolls independently). -->
       <section v-show="subTab === 'manual'" class="r-v2-media__panel">
-        <ManualSubtab :rom="rom" />
+        <ManualSubtab ref="manualPanel" :rom="rom" :hide-upload="smAndDown" />
       </section>
 
       <!-- Walkthrough subtab: uploaded or GameFAQs-fetched documents, with
            per-user reading progress. -->
       <section v-show="subTab === 'walkthrough'" class="r-v2-media__panel">
-        <WalkthroughSubtab :rom="rom" />
+        <WalkthroughSubtab
+          ref="walkthroughPanel"
+          :rom="rom"
+          :hide-upload="smAndDown"
+        />
       </section>
 
       <!-- Screenshots subtab — its own component (ROM / Mine / Community
@@ -276,6 +256,22 @@ async function deleteSoundtrack(fileId: number) {
 
       <!-- Soundtrack subtab -->
       <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
+        <header
+          v-if="canUploadSoundtrack && !smAndDown"
+          class="r-v2-media__section-head"
+        >
+          <div class="r-v2-media__section-actions">
+            <RBtn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="soundtrackDz?.open()"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
+          </div>
+        </header>
+
         <REmptyState
           v-if="!rom.has_soundtrack && !canEdit"
           :title="t('rom.soundtrack-empty')"
@@ -314,20 +310,6 @@ async function deleteSoundtrack(fileId: number) {
             @delete-track="deleteSoundtrack"
           />
         </RDropzone>
-
-        <div v-if="rom.has_soundtrack && canEdit">
-          <div class="r-v2-media__section-actions">
-            <RBtn
-              block
-              variant="outlined"
-              size="small"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="soundtrackDz?.open()"
-            >
-              {{ t("common.upload") }}
-            </RBtn>
-          </div>
-        </div>
       </section>
     </div>
   </div>
@@ -348,53 +330,6 @@ async function deleteSoundtrack(fileId: number) {
 .r-v2-media__sidebar {
   width: 220px;
   flex-shrink: 0;
-}
-
-/* Subtab list — navigation only. Per-section actions (Upload, etc.)
-   live in the content column's section headers, mirroring
-   ScreenshotsSubtab. */
-.r-v2-media__subtabs {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.r-v2-media__subtab {
-  display: flex;
-  flex-direction: column;
-}
-.r-v2-media__subtab-btn {
-  width: 100%;
-  appearance: none;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg-muted);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: var(--r-font-weight-medium);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-media__subtab-btn:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-.r-v2-media__subtab-btn--active {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
-  color: var(--r-color-brand-primary);
-}
-.r-v2-media__subtab-label {
-  flex: 1;
 }
 
 .r-v2-media__content {
@@ -418,9 +353,14 @@ async function deleteSoundtrack(fileId: number) {
   min-height: 0;
 }
 
-/* Section footer. The sidebar's subtab label already
-   names the section, so the header skips the title and hosts the
-   contextual controls only: the action cluster pushed to the right. */
+/* The sidebar's subtab label already names the section, so the header skips
+   the title and pushes the action cluster to the right. */
+.r-v2-media__section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
 .r-v2-media__section-actions {
   margin-left: auto;
   display: flex;
@@ -446,12 +386,9 @@ html[data-bp~="sm-and-down"] .r-v2-media__fill {
   height: auto;
 }
 
-html[data-bp~="xs"] .r-v2-media {
+html[data-bp~="sm-and-down"] .r-v2-media {
   flex-direction: column;
   gap: 14px;
-}
-html[data-bp~="xs"] .r-v2-media__sidebar {
-  width: auto;
 }
 
 /* Soundtrack — the v1 player has its own internal styling; wrap in an

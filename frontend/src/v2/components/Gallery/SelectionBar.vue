@@ -23,6 +23,8 @@
 //   * download — a single selected ROM downloads directly (like the
 //     per-rom `useGameActions.download`); multi-selections go through
 //     the bulk endpoint so the server bundles them into one zip.
+//     `hideDownload` drops the action for hosts whose rows have no
+//     file to serve (the Missing games tab).
 //   * refresh metadata — emits `showRefreshMetadataDialog` for each
 //     ROM in turn. (Phase-2 follow-up: the dialog will accept arrays
 //     so the user only sees the scan-type picker once for the whole
@@ -68,6 +70,14 @@ import {
   type StatusFlagKey,
   VISIBILITY_FLAG_KEYS,
 } from "@/v2/utils/romStatus";
+
+interface Props {
+  /** Hides the download action where the selected ROMs have no file on
+   * disk, so the bar never offers a transfer that can only fail. */
+  hideDownload?: boolean;
+}
+
+defineProps<Props>();
 
 defineOptions({ inheritAttrs: false });
 
@@ -350,7 +360,10 @@ function clear() {
            Every button is wrapped in RTooltip so the user gets a
            consistent hover hint and gamepad users see the label —
            the v2 visual vocabulary for icon-only buttons. -->
-      <RTooltip v-if="canDownload" :text="t('gallery.selection-download')">
+      <RTooltip
+        v-if="canDownload && !hideDownload"
+        :text="t('gallery.selection-download')"
+      >
         <template #activator="{ props: tipProps }">
           <RBtn
             v-bind="tipProps"
