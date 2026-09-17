@@ -157,12 +157,13 @@ cd frontend
 npm install
 ```
 
-#### - Create symlink to library and resources
+#### - Create symlink to resources
+
+Vite serves cover art, screenshots and manuals from `assets/romm/resources`. The link target resolves from the link's own folder, hence the three levels up:
 
 ```sh
-mkdir assets/romm
-ln -s ../romm_mock/resources assets/romm/resources
-ln -s ../romm_mock/assets assets/romm/assets
+mkdir -p assets/romm
+ln -s ../../../romm_mock/resources assets/romm/resources
 ```
 
 #### - Run the frontend

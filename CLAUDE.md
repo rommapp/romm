@@ -39,18 +39,19 @@ v2 has a detailed constitution, split across focused skills (below). **Read the 
 
 These live in `.claude/skills/` and carry the detailed rules. Invoke the one that matches what you're doing:
 
-| Skill                    | When                                                                                                                                                      |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                                           |
-| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                                                 |
-| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                                      |
-| `frontend-v2-patterns`   | Feature behavior - errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations.                      |
-| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                                        |
-| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                                              |
-| `review-polish`          | Before committing / opening a PR / declaring done - the self-review pass (comments, duplication, naming, test typing) plus the checks that keep CI green. |
-| `security-audit`         | Vetting a diff (release tag range or PR) for anything malicious or a security regression - supply chain, egress, auth/injection, CI, provenance.          |
-| `pr-ready`               | Before opening a PR - the four passes in order: `security-audit`, `code-review xhigh --fix`, `simplify`, `review-polish`. Not auto-invoked.               |
-| `draft-release-notes`    | Drafting the GitHub release notes for a release, stable or alpha/beta, from the diff since the previous stable tag.                                       |
+| Skill                    | When                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                                               |
+| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                                                     |
+| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                                          |
+| `frontend-v2-patterns`   | Feature behavior - errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations.                          |
+| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                                            |
+| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                                                  |
+| `review-polish`          | Before committing / opening a PR / declaring done - the self-review pass (comments, duplication, naming, test typing) plus the checks that keep CI green.     |
+| `security-audit`         | Vetting a diff (release tag range or PR) for anything malicious or a security regression - supply chain, egress, auth/injection, CI, provenance.              |
+| `pr-ready`               | Before opening a PR - the four passes in order: `security-audit`, `code-review xhigh --fix`, `simplify`, `review-polish`. Not auto-invoked.                   |
+| `address-bot-reviews`    | After Greptile and Copilot review a PR - triage each finding, fix what holds up, reply with the fix or the reason, and resolve the threads. Not auto-invoked. |
+| `draft-release-notes`    | Drafting the GitHub release notes for a release, stable or alpha/beta, from the diff since the previous stable tag.                                           |
 
 ---
 

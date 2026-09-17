@@ -358,7 +358,6 @@ async function toggleVisibility(id: number, isPublic: boolean) {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--r-color-border-strong) transparent;
-  padding-right: 4px;
 }
 
 .r-v2-shots__section {

@@ -30,7 +30,12 @@ const TextViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/TextViewer.vue"),
 );
 
-const props = defineProps<{ rom: DetailedRom }>();
+const props = defineProps<{
+  rom: DetailedRom;
+  /** Drop the header Upload button when the parent renders it elsewhere
+   *  (through the exposed `openUpload`). */
+  hideUpload?: boolean;
+}>();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { refetchRom } = useRomSync();
@@ -128,6 +133,12 @@ const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const canUploadMore = computed(
   () => manualEntries.value.length > 0 && canEdit.value,
 );
+
+function openUpload() {
+  manualDz.value?.open();
+}
+
+defineExpose({ canUpload: canUploadMore, openUpload });
 const redownloadingManual = ref(false);
 
 function handleManualFiles(files: File[]) {
@@ -172,7 +183,7 @@ function requestDeleteManual() {
     <!-- The subtab label in the sidebar already names the section, so the
          header skips a redundant title. -->
     <header
-      v-if="manualEntries.length > 1 || canUploadMore"
+      v-if="manualEntries.length > 1 || (canUploadMore && !hideUpload)"
       class="r-v2-manual__head"
     >
       <RSelect
@@ -185,12 +196,12 @@ function requestDeleteManual() {
         class="r-v2-manual__select"
       />
       <RBtn
-        v-if="canUploadMore"
+        v-if="canUploadMore && !hideUpload"
         variant="outlined"
         size="small"
         prepend-icon="mdi-cloud-upload-outline"
         class="r-v2-manual__upload"
-        @click="manualDz?.open()"
+        @click="openUpload"
       >
         {{ t("common.upload") }}
       </RBtn>

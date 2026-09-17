@@ -23,7 +23,7 @@ async function openTab(page: Page, tab: string) {
 // Media subtabs are a sidebar list of role=tab buttons, distinct from the
 // top-level RTabNav tabs.
 async function openSubtab(page: Page, subtab: string) {
-  await page.locator(".r-v2-media__subtab-btn", { hasText: subtab }).click();
+  await page.locator(".r-v2-subtab-nav__btn", { hasText: subtab }).click();
 }
 
 /** The one Media panel currently on screen. */
@@ -132,9 +132,7 @@ test.describe("Files tab write affordances", () => {
       await gotoFirstRom(page);
       await openTab(page, "Files");
 
-      await expect(
-        page.locator(".r-v2-files__subtab-btn").first(),
-      ).toBeVisible();
+      await expect(page.locator(".r-v2-subtab-nav__btn").first()).toBeVisible();
       await expect(uploadButton(page)).toHaveCount(0);
       await expect(uploadToFolderButton(page)).toHaveCount(0);
     });
@@ -157,7 +155,7 @@ test.describe("Files tab write affordances", () => {
       await gotoFirstRom(page);
       await openTab(page, "Files");
       await page
-        .locator(".r-v2-files__subtab-btn:not(.r-v2-files__subtab-btn--active)")
+        .locator(".r-v2-subtab-nav__btn:not(.r-v2-subtab-nav__btn--active)")
         .first()
         .click();
 

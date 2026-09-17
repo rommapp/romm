@@ -41,7 +41,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 
 const RSelect = {
   props: {
-    modelValue: { type: String, default: "" },
+    modelValue: { type: [String, Object], default: "" },
     items: { type: Array, default: () => [] },
   },
   emits: ["update:modelValue"],
@@ -52,6 +52,8 @@ const RBtn = {
   emits: ["click"],
   template: `<button :disabled="disabled" @click="$emit('click')"><slot /></button>`,
 };
+
+const APPLY = 'button[prepend-icon="mdi-file-cog"]';
 
 const archiveMembers: RomArchiveMember[] = [
   {
@@ -106,8 +108,8 @@ describe("PatcherTab", () => {
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   });
 
-  it("sends the selected ZIP member when applying a patch", async () => {
-    const wrapper = mount(PatcherTab, {
+  function mountTab() {
+    return mount(PatcherTab, {
       props: { rom: rom() },
       global: {
         stubs: {
@@ -119,7 +121,6 @@ describe("PatcherTab", () => {
           RIcon: true,
           RPlatformIcon: true,
           RSelect,
-          RSliderBtnGroup: true,
           RTextField: true,
           RTooltip: true,
           MissingFSBadge: true,
@@ -127,8 +128,12 @@ describe("PatcherTab", () => {
         },
       },
     });
+  }
 
-    const applyButton = wrapper.get("button");
+  it("sends the selected ZIP member when applying a patch", async () => {
+    const wrapper = mountTab();
+
+    const applyButton = wrapper.get(APPLY);
     expect(applyButton.attributes("disabled")).toBeDefined();
 
     await wrapper.get("select").setValue("roms/Super Metroid.sfc");
@@ -142,5 +147,34 @@ describe("PatcherTab", () => {
     expect((request[1] as FormData).get("archive_member_name")).toBe(
       "roms/Super Metroid.sfc",
     );
+  });
+
+  it("keeps an uploaded patch and a bundled one mutually exclusive", async () => {
+    const wrapper = mountTab();
+    await wrapper.get("select").setValue("roms/Super Metroid.sfc");
+    const upload = new File(["ips"], "hack.ips");
+
+    wrapper.findComponent({ name: "RDropzone" }).vm.$emit("files", [upload]);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find(".r-v2-patch__uploaded").exists()).toBe(true);
+    await wrapper.get(APPLY).trigger("click");
+    await flushPromises();
+
+    const uploadForm = post.mock.calls[0][1] as FormData;
+    expect(uploadForm.get("patch_file")).toBeInstanceOf(File);
+    expect(uploadForm.get("patch_file_id")).toBeNull();
+
+    const bundled = rom().files[1];
+    wrapper
+      .findAllComponents(RSelect)[1]
+      .vm.$emit("update:modelValue", bundled);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find(".r-v2-patch__uploaded").exists()).toBe(false);
+    await wrapper.get(APPLY).trigger("click");
+    await flushPromises();
+
+    const bundledForm = post.mock.calls[1][1] as FormData;
+    expect(bundledForm.get("patch_file")).toBeNull();
+    expect(bundledForm.get("patch_file_id")).toBe("11");
   });
 });
