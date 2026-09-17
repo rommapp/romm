@@ -46,6 +46,24 @@ def _assert_table_untouched(statements: list[str], table: str) -> None:
     assert touching == [], touching
 
 
+def _id_only_reads(statements: list[str], table: str) -> list[str]:
+    """The statements reading `table` whose select list is just its id column."""
+    reads = []
+    for raw in statements:
+        flat = " ".join(raw.split())
+        select_list, separator, _ = flat.partition(" FROM ")
+        if not separator or not flat.startswith(f"SELECT {table}.id"):
+            continue
+        # `Query.with_entities` labels the column (`rom_notes.id AS rom_notes_id`).
+        columns = [
+            column.split(" AS ")[0].strip()
+            for column in select_list[len("SELECT ") :].split(",")
+        ]
+        if columns == [f"{table}.id"]:
+            reads.append(flat)
+    return reads
+
+
 def test_save_identifiers_does_not_load_the_roms_it_points_at(
     client: TestClient,
     access_token: str,
@@ -134,17 +152,25 @@ def test_smart_collection_identifiers_does_not_load_the_owner(
 
 
 def test_rom_note_identifiers_does_not_load_the_roms_it_points_at(
-    admin_user: User,
+    client: TestClient,
+    access_token: str,
     rom: Rom,
+    admin_user: User,
     executed_statements: list[str],
 ) -> None:
-    """Handler-level: the endpoint's own `get_rom` call is a separate eager path."""
     note = db_rom_handler.create_rom_note(
         rom_id=rom.id, user_id=admin_user.id, title="test_note", content="body"
     )
 
     executed_statements.clear()
-    ids = db_rom_handler.get_rom_note_ids(rom_id=rom.id, user_id=admin_user.id)
+    response = client.get(
+        f"/api/roms/{rom.id}/notes/identifiers", headers=_headers(access_token)
+    )
 
-    assert ids == [note["id"]]
-    _assert_id_only(executed_statements, "rom_notes")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == [note["id"]]
+    # The route's own `get_rom` check is a separate eager path, so this counts
+    # only the projection the ids come from.
+    reads = _id_only_reads(executed_statements, "rom_notes")
+    assert len(reads) == 1, reads
+    assert "JOIN" not in reads[0].upper(), reads[0]
