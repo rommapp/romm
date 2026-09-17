@@ -34,7 +34,6 @@ import {
 import type { Placement } from "@floating-ui/vue";
 import {
   computed,
-  inject,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -50,11 +49,12 @@ import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import RTextField from "../../forms/RTextField/RTextField.vue";
 import {
   type EscapableEntry,
+  isInsideEscapableAbove,
   popEscapable,
   pushEscapable,
 } from "../../overlays/RDialog/escapeStack.js";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
-import { RMenuCloseKey, RMenuNestingKey } from "./context";
+import { RMenuCloseKey } from "./context";
 
 defineOptions({ inheritAttrs: false });
 
@@ -167,19 +167,6 @@ function toggle() {
 }
 
 provide(RMenuCloseKey, close);
-
-// Nested menus teleport their panels outside this one; tracking them keeps a
-// click inside a child menu from closing this menu.
-const nestedPanels = new Set<() => HTMLElement | null>();
-const registerWithParent = inject(RMenuNestingKey, null);
-provide(RMenuNestingKey, (panel) => {
-  nestedPanels.add(panel);
-  const unregisterFromParent = registerWithParent?.(panel);
-  return () => {
-    nestedPanels.delete(panel);
-    unregisterFromParent?.();
-  };
-});
 
 // ── Refs ────────────────────────────────────────────────────────
 // The activator slot renders inside a `display: contents` span; we
@@ -321,9 +308,8 @@ function onDocPointerDown(evt: PointerEvent) {
   )
     return;
   if (panelRef.value?.contains(target)) return;
-  for (const panel of nestedPanels) {
-    if (panel()?.contains(target)) return;
-  }
+  // A nested menu's panel is teleported outside this one.
+  if (isInsideEscapableAbove(escEntry, target)) return;
   close();
 }
 
@@ -352,14 +338,11 @@ watch(
   { immediate: true },
 );
 
-const unregisterPanel = registerWithParent?.(() => panelRef.value);
-
 onMounted(() => {
   reference.value = activatorWrapper.value?.firstElementChild ?? null;
   document.addEventListener("pointerdown", onDocPointerDown, true);
 });
 onBeforeUnmount(() => {
-  unregisterPanel?.();
   document.removeEventListener("pointerdown", onDocPointerDown, true);
   // Safety: if we unmount while open (route change while the menu is
   // visible) drop our entry so the stack doesn't dereference a dead
