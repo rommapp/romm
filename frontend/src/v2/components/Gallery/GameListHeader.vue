@@ -206,11 +206,8 @@ function handleClick(col: ListColumn) {
   color: var(--r-color-brand-primary);
 }
 
-/* Select-all checkbox sitting in the leading column. Visuals come
-   from RCheckbox in bare/circle mode — same animation language as
-   the GameCard / GameListRow checkboxes so the three reads as one
-   family. Centred on the column the way the body rows centre theirs,
-   so the tick sits over every row's tick. */
+/* Select-all checkbox in the leading column: RCheckbox bare/circle, matching the
+   GameCard and GameListRow ticks, and centred over every row's tick. */
 .game-list-header__check {
   justify-self: center;
 }

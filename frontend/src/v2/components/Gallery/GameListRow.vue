@@ -444,11 +444,9 @@ function onRowPointerEnd() {
     </template>
 
     <template v-else>
-      <!-- Skeleton path — column-driven so widths/shape match
-           `GameListSkeletonRow` without keeping a parallel set of
-           magic numbers in this file. Per-cell shapes (cover, pills,
-           dot) mirror the real cells underneath, so the row swap
-           doesn't reflow on data arrival. -->
+      <!-- Column-driven, so the per-cell shapes stay in step with
+           `GameListSkeletonRow` and the row does not reflow when real data
+           replaces it. -->
       <template v-for="col in listSkeletonColumns" :key="String(col.key)">
         <div
           v-if="col.key === 'select'"

@@ -88,9 +88,8 @@ async function loadRecommendations() {
   }
 }
 
-/** A row's count once it means something. While the list is in flight the row
- *  shows placeholders, so the chip stays off rather than reading 0 and then
- *  jumping to the real number. */
+/** A row's count, or `undefined` while its list is in flight so the chip does
+ *  not read 0 and then jump to the real number. */
 function knownCount(
   fetching: boolean,
   list: readonly unknown[],
@@ -653,9 +652,8 @@ function collectionCovers(c: {
   flex-shrink: 0;
 }
 
-/* Only the recommended cards carry a caption, so only their placeholder has to
-   reserve it. The height is RecommendationReason's line box (10.5px at the
-   app's 1.4 line-height); the bar inside stays thinner than the caption. */
+/* Only the recommended placeholders carry a caption, so only they reserve it
+   (RecommendationReason's 10.5px line box at the app's 1.4 line-height). */
 .r-v2-home__rec-caption {
   height: 15px;
   display: flex;

@@ -1,20 +1,12 @@
 <script setup lang="ts">
-// GameCardSkeleton — placeholder rendered for un-fetched gallery slots
-// and for the Home dashboard's loading rows.
+// GameCardSkeleton — placeholder for un-fetched gallery slots and the Home
+// dashboard's loading rows.
 //
-// Geometry mirrors GameCard exactly (default and hero) so the
-// virtualiser's measurements stay stable when a window fetch resolves
-// and skeletons swap for real cards — without that match the
-// virtualiser re-measures total height and the scroll position jitters
-// on every fetch. Same reasoning applies on Home: the loading row's
-// shape must match the cards that replace it so the layout doesn't
-// jump when data arrives.
+// Geometry mirrors GameCard exactly (default and hero) so a swap to real cards
+// leaves the virtualiser's measurements, and the scroll position, alone.
 //
-// Sizing is passed via props (not CSS classes) because RSkeletonBlock
-// renders its width/height as inline styles, and inline styles win
-// over scoped class CSS — so a `.r-gcs__art { height: ... }` rule
-// would be ignored. The CSS vars resolve at render time, so the
-// skeleton still picks up theme/density token changes automatically.
+// Sizing goes through props, not CSS classes: RSkeletonBlock writes width and
+// height as inline styles, which beat a scoped class rule.
 import { RSkeletonBlock } from "@v2/lib";
 import { computed } from "vue";
 
@@ -62,10 +54,8 @@ const artHeight = computed(() =>
   align-items: center;
 }
 .r-gcs__label {
-  /* The line box GameCard's `.r-gc__label` occupies (11.5px at the app's 1.4
-     line-height). It sits on this wrapper rather than on the bar, whose height
-     has to stay inline: a class height on the block itself loses to that inline
-     value and the reserved pixels never appear. */
+  /* Reserves the line box GameCard's `.r-gc__label` occupies (11.5px at 1.4
+     line-height); the wrapper carries it because the bar's height is inline. */
   width: var(--r-card-art-w);
   height: 16px;
   margin-top: 7px;
