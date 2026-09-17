@@ -1,6 +1,5 @@
-// useMiniPlayerVisible — whether the mini player shows: a track is loaded
-// and no full soundtrack player (the Jukebox, a game's Soundtrack subtab) is
-// already on screen, so two surfaces never drive the same playback.
+// Whether the mini player shows: a track is loaded and no full soundtrack
+// player (the Jukebox, a game's Soundtrack subtab) is already on screen.
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import { useRoute } from "vue-router";
@@ -16,7 +15,7 @@ export function useMiniPlayerVisible(): ComputedRef<boolean> {
     const onJukeboxPlayer =
       route.name === ROUTES.MUSIC && isJukeboxPlayerMode(route.params.mode);
     const onGameSoundtrack =
-      route.name === "rom" &&
+      route.name === ROUTES.ROM &&
       route.query.tab === "media" &&
       route.query.subtab === "soundtrack";
     return onJukeboxPlayer || onGameSoundtrack;

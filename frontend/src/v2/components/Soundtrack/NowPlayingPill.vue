@@ -1,11 +1,9 @@
 <script setup lang="ts">
-// NowPlayingPill — the mini player's top-bar form on phones: a compact pill
-// with the cover spinning inside a playback progress ring, then previous,
-// play / pause and next. The cover opens the full mini player as a bottom
-// sheet.
+// The mini player's top-bar form on phones: the cover in a progress ring plus
+// previous, play / pause and next. The cover opens the full card as a sheet.
 import { RBtn, RMenu, RProgressCircular } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
@@ -27,7 +25,6 @@ const {
 } = storeToRefs(store);
 const visible = useMiniPlayerVisible();
 
-const open = ref(false);
 const coverUrl = computed(() => playerCoverUrl(meta.value));
 const progress = computed(() =>
   duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0,
@@ -37,10 +34,6 @@ const progress = computed(() =>
 <template>
   <div v-if="visible" class="r-v2-np-pill" v-bind="$attrs">
     <RMenu
-      v-model="open"
-      location="bottom end"
-      :offset="8"
-      width="380px"
       :close-on-content-click="false"
       content-class="r-v2-np-sheet"
       sheet-on-mobile
@@ -145,7 +138,7 @@ const progress = computed(() =>
 
 <style>
 /* The card brings its own padding and ambient art edge to edge. */
-.r-v2-np-sheet .r-menu__body {
+.r-menu__panel.r-v2-np-sheet .r-menu__body {
   padding: 0;
 }
 </style>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// RMarquee — a single-line band that loops its content sideways when it is
-// wider than the band and sits still when it fits. Under reduced motion the
-// loop becomes a plain horizontal scroll.
+// A single-line band that loops its content sideways when it overflows and sits
+// still when it fits. Under reduced motion the loop becomes a plain scroll.
 import { useElementSize } from "@vueuse/core";
 import { computed, ref } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
@@ -54,8 +53,8 @@ const trackStyle = computed(() => ({
         <slot />
       </div>
       <!-- The loop scrolls two copies by half the track, so the seam never
-           shows; assistive tech reads the first copy only. -->
-      <div v-if="moving" class="r-marquee__content" aria-hidden="true">
+           shows; assistive tech and focus reach the first copy only. -->
+      <div v-if="moving" class="r-marquee__content" aria-hidden="true" inert>
         <slot />
       </div>
     </div>

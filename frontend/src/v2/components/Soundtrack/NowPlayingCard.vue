@@ -1,13 +1,12 @@
 <script setup lang="ts">
-// The mini player's body, in the soundtrack header's look: cover, title,
-// album and track-detail band over the transport and seek bar, on a blurred
-// echo of the cover. Floats in a corner on desktop and opens as a sheet from
-// the top bar on phones.
+// The mini player's body in the soundtrack header's look. Floats in a corner on
+// desktop and opens as a sheet from the top bar on phones.
 import { RBtn, RSlider, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import AmbientArt from "@/v2/components/Soundtrack/AmbientArt.vue";
 import NowPlayingChips from "@/v2/components/Soundtrack/NowPlayingChips.vue";
@@ -57,7 +56,7 @@ function openRom() {
   if (!track.value) return;
   // Straight to the Soundtrack subtab, where the full player takes over.
   router.push({
-    name: "rom",
+    name: ROUTES.ROM,
     params: { rom: track.value.romId },
     query: { tab: "media", subtab: "soundtrack" },
   });

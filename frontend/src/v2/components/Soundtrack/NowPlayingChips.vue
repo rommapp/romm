@@ -24,7 +24,7 @@ const chips = computed<Chip[]>(() => {
   const list: Chip[] = [
     {
       icon: "mdi-playlist-music",
-      label: `${props.position} / ${props.total.toLocaleString()}`,
+      label: `${props.position.toLocaleString()} / ${props.total.toLocaleString()}`,
     },
   ];
   // The caption shows the artist itself when there is no album.

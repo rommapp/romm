@@ -125,11 +125,12 @@ export function romFolderCoverUrl(rom: DetailedRom): string | undefined {
 }
 
 /** The audio tags the now-playing surfaces show, from either track source. */
-export type NowPlayingTags = {
-  [K in "artist" | "album" | "genre"]?: string | null;
-} & {
-  [K in "year" | "track" | "disc"]?: number | null;
-};
+export type NowPlayingTags = Partial<
+  Pick<
+    TrackMetaSchema,
+    "artist" | "album" | "genre" | "year" | "track" | "disc"
+  >
+>;
 
 /** The line under a now-playing title: the album, else the artist. */
 export function nowPlayingCaption(tags: NowPlayingTags | undefined): string {

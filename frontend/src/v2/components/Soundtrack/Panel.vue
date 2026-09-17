@@ -185,6 +185,11 @@ const headerArtUrl = computed(
     null,
 );
 
+// The store may still be playing a track from another queue.
+const headerPlaying = computed(
+  () => Boolean(activeTrack.value) && isPlaying.value,
+);
+
 const headerPosition = computed(() =>
   headerTrack.value ? displayedTracks.value.indexOf(headerTrack.value) + 1 : 0,
 );
@@ -411,16 +416,20 @@ function seekValueText(v: number): string {
               @click="player.previous()"
             />
             <RBtn
-              :icon="isPlaying ? 'mdi-pause' : 'mdi-play'"
+              :icon="headerPlaying ? 'mdi-pause' : 'mdi-play'"
               variant="flat"
               color="primary"
               class="r-v2-stp__play"
               :disabled="!headerTrack"
               :tooltip="
-                isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+                headerPlaying
+                  ? t('rom.soundtrack-pause')
+                  : t('rom.soundtrack-play')
               "
               :aria-label="
-                isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+                headerPlaying
+                  ? t('rom.soundtrack-pause')
+                  : t('rom.soundtrack-play')
               "
               @click="headerTrack && selectTrack(headerTrack.id)"
             />

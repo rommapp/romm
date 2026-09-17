@@ -200,8 +200,8 @@ const wrapperStyle = computed(() => {
   }
 }
 
-/* Stream — a soft glow travels the unfilled track from the fill's edge to
-   the end, on a loop. */
+/* Stream: a soft glow travels the unfilled track from the fill's edge to the
+   end, on a loop. */
 .r-progress-linear__stream {
   position: absolute;
   inset-block: 0;
@@ -230,6 +230,10 @@ const wrapperStyle = computed(() => {
   to {
     transform: translateX(250%);
   }
+}
+/* The reduced-motion class ends the loop at its start, leaving the glow parked. */
+html.r-v2-reduced-motion .r-progress-linear__stream::after {
+  opacity: 0;
 }
 
 /* Indeterminate — single block slides across the track on a loop.
