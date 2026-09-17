@@ -1,18 +1,6 @@
 <script setup lang="ts">
-// ScanningIndicator — live status pill that appears in the AppNav
-// right cluster whenever a library scan is in progress.
-//
-// Two signals stack inside the pill:
-//   * a counter (scanned / total when known, scanned-only as soon
-//     as the backend has reported a total ≥ scanned),
-//   * a thin progress bar pinned to the bottom edge — determinate
-//     with a glow streaming ahead of the fill when `total_roms` is
-//     known, indeterminate otherwise (the scanner discovers files as
-//     it goes, so totals show up after the first platform finishes).
-//
-// Click jumps to /scan so the user can inspect the live log.
-// Hidden on /scan itself. Under reduced motion the progress bar keeps
-// filling but drops its streaming glow.
+// Top-bar pill shown during a library scan, linking to /scan. The progress bar
+// is indeterminate until the scanner reports a total, which it learns as it goes.
 import { RIcon, RProgressLinear, RTooltip } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";

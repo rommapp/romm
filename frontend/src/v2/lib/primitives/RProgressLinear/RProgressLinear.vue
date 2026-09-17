@@ -231,9 +231,8 @@ const wrapperStyle = computed(() => {
     transform: translateX(250%);
   }
 }
-/* The reduced-motion class ends the loop at its start, leaving the glow parked. */
 html.r-v2-reduced-motion .r-progress-linear__stream::after {
-  opacity: 0;
+  display: none;
 }
 
 /* Indeterminate — single block slides across the track on a loop.
@@ -268,8 +267,7 @@ html.r-v2-reduced-motion .r-progress-linear__stream::after {
     transition: none;
   }
   .r-progress-linear__stream::after {
-    animation: none;
-    opacity: 0;
+    display: none;
   }
   .r-progress-linear--striped .r-progress-linear__fill,
   .r-progress-linear--indeterminate .r-progress-linear__fill {

@@ -331,7 +331,7 @@ function downloadTrack(track: PanelTrack) {
             class="r-v2-stp__vinyl"
             :class="{
               'r-v2-stp__vinyl--out': activeTrack,
-              'r-v2-stp__vinyl--spinning': activeTrack && isPlaying,
+              'r-v2-stp__vinyl--spinning': headerPlaying,
             }"
             aria-hidden="true"
           >
@@ -410,7 +410,6 @@ function downloadTrack(track: PanelTrack) {
               :icon="headerPlaying ? 'mdi-pause' : 'mdi-play'"
               variant="flat"
               color="primary"
-              class="r-v2-stp__play"
               :disabled="!headerTrack"
               :tooltip="
                 headerPlaying
@@ -710,10 +709,6 @@ function downloadTrack(track: PanelTrack) {
   display: flex;
   align-items: center;
   gap: var(--r-space-1);
-}
-
-.r-v2-stp__play {
-  border-radius: var(--r-radius-full);
 }
 
 .r-v2-stp__timeline {

@@ -23,6 +23,7 @@ const {
   track,
   meta,
   playlist,
+  currentIndex,
   isPlaying,
   isBuffering,
   hasPrevious,
@@ -33,15 +34,7 @@ const {
 const coverUrl = computed(() => playerCoverUrl(meta.value));
 const title = computed(() => meta.value.title || track.value?.fileName || "");
 const caption = computed(() => nowPlayingCaption(meta.value));
-const position = computed(() => {
-  const active = track.value;
-  if (!active) return 0;
-  return (
-    playlist.value.findIndex(
-      (entry) => entry.fileId === active.fileId && entry.romId === active.romId,
-    ) + 1
-  );
-});
+const position = computed(() => currentIndex.value + 1);
 
 function openRom() {
   if (!track.value) return;
@@ -130,7 +123,6 @@ function openRom() {
         :icon="isPlaying ? 'mdi-pause' : 'mdi-play'"
         variant="flat"
         color="primary"
-        class="r-v2-np-card__play"
         :tooltip="
           isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
         "
@@ -237,9 +229,5 @@ function openRom() {
   align-items: center;
   justify-content: center;
   gap: var(--r-space-1);
-}
-
-.r-v2-np-card__play {
-  border-radius: var(--r-radius-full);
 }
 </style>

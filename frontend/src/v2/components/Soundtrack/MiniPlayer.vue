@@ -1,16 +1,6 @@
 <script setup lang="ts">
-// MiniPlayer — v2-native persistent soundtrack player.
-//
-// Owns the single app-wide `<audio>` element (the v1 mini-player used
-// to own it). The shared `useSoundtrackPlayer` store binds to this
-// element via `setAudioRef`; every other surface (the soundtrack
-// panel inside GameDetails, the now-playing strip) reads through the
-// store and drives playback by calling store methods. Keeping the
-// audio element here means it survives route changes and the user
-// can leave the soundtrack subtab without the music cutting out.
-//
-// The visible card floats in a corner on desktop; on phones the top bar's
-// NowPlayingPill opens the same card as a sheet instead.
+// Owns the app-wide `<audio>` element, so playback survives route changes. The
+// card floats on desktop; on phones the top bar's NowPlayingPill opens it.
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -82,7 +72,7 @@ watch(track, async (t) => {
   const token = ++loadToken;
   if (t) {
     // The store flags a new track as buffering; hold that back like any wait.
-    setBuffered();
+    store.setBuffering(false);
     scheduleBuffering();
     el.src = t.url;
     try {

@@ -154,7 +154,7 @@ function valueAtPointer(evt: PointerEvent): number {
 }
 
 function onVerticalPointerDown(evt: PointerEvent) {
-  if (!props.vertical || props.disabled || props.readonly) return;
+  if (props.disabled || props.readonly) return;
   (evt.currentTarget as HTMLElement).setPointerCapture(evt.pointerId);
   dragging.value = true;
   emit("start", props.modelValue);
@@ -162,9 +162,19 @@ function onVerticalPointerDown(evt: PointerEvent) {
 }
 
 function onVerticalPointerMove(evt: PointerEvent) {
-  if (!props.vertical || !dragging.value) return;
-  emit("update:modelValue", valueAtPointer(evt));
+  if (dragging.value) emit("update:modelValue", valueAtPointer(evt));
 }
+
+const verticalListeners = computed(() =>
+  props.vertical
+    ? {
+        pointerdown: onVerticalPointerDown,
+        pointermove: onVerticalPointerMove,
+        pointerup: onPointerUp,
+        pointercancel: onPointerUp,
+      }
+    : {},
+);
 </script>
 
 <template>
@@ -186,10 +196,7 @@ function onVerticalPointerMove(evt: PointerEvent) {
       '--r-slider-percent': `${percent}%`,
       '--r-slider-percent-num': String(percent),
     }"
-    @pointerdown="onVerticalPointerDown"
-    @pointermove="onVerticalPointerMove"
-    @pointerup="vertical && onPointerUp()"
-    @pointercancel="vertical && onPointerUp()"
+    v-on="verticalListeners"
   >
     <span v-if="showLeftBadge" class="r-slider__badge r-slider__badge--left">
       <slot name="value" :value="modelValue" :percent="percent">
@@ -348,9 +355,8 @@ function onVerticalPointerMove(evt: PointerEvent) {
     color-mix(in srgb, var(--r-slider-accent) 55%, transparent);
 }
 
-/* WebKit — thumb. `margin-top` centres it on the 5 px track (thumb
-   height − track height = 14 − 5 = 9 → −9/2 = −4.5; the border adds 2
-   px each side so we end at −5.5). */
+/* WebKit thumb. `margin-top` centres it on the 5px track: with its 1px border
+   the 14px thumb is 16px tall, and (5 - 16) / 2 = -5.5. */
 .r-slider__native::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;

@@ -1,19 +1,11 @@
 <script setup lang="ts">
-// VolumeControl — v2-native volume button that opens a slider.
-// Used in the soundtrack panel and mini-player. The shared
-// `useSoundtrackPlayer` store owns volume / muted state; this widget
-// is just a controller.
-//
-// The icon swaps between off / low / medium / high based on the
-// current volume so the button reads as a level indicator at a
-// glance. A click opens a vertical slider with the level above it and a
-// mute toggle below.
-import { RMenu, RSlider } from "@v2/lib";
+// Volume button whose icon reflects the level; a click opens a vertical slider
+// with the level above it and a mute toggle below.
+import { RBtn, RMenu, RSlider } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
-import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -108,7 +100,7 @@ const sliderValue = computed({
 <style>
 /* A column this narrow sits under the menu's default 180px floor. The glass
    matches the top bar instead of the menu's panel tint. */
-.r-menu__panel.r-v2-volume-menu {
+html .r-menu__panel.r-v2-volume-menu {
   min-width: 0;
   background: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
   border-color: var(--r-color-border);

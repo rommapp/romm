@@ -13,6 +13,7 @@ const shownUrl = ref(props.url);
 watch(
   () => props.url,
   async (next) => {
+    if (next === shownUrl.value) return;
     const image = new Image();
     image.src = next;
     try {
