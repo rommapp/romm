@@ -145,24 +145,24 @@ vi.mock("@/v2/composables/useUnloadGuard", () => ({
   useUnloadGuard: vi.fn(),
 }));
 
+/** Renders nothing and answers the methods the view calls on the real child. */
+function exposingStub(api: Record<string, unknown>) {
+  return defineComponent({
+    setup(_, { expose }) {
+      expose(api);
+      return () => null;
+    },
+  });
+}
+
 // The stage owns fullscreen, which the ended path leaves before anything else.
-const StreamStageStub = defineComponent({
-  setup(_, { expose }) {
-    expose({
-      enterFullscreen: () => Promise.resolve(),
-      leaveFullscreen: () => Promise.resolve(),
-      focusStream: () => {},
-    });
-    return () => null;
-  },
+const StreamStageStub = exposingStub({
+  enterFullscreen: () => Promise.resolve(),
+  leaveFullscreen: () => Promise.resolve(),
+  focusStream: () => {},
 });
 
-const GameCoverStub = defineComponent({
-  setup(_, { expose }) {
-    expose({ playLoad: () => 0 });
-    return () => null;
-  },
-});
+const GameCoverStub = exposingStub({ playLoad: () => 0 });
 
 function save(
   id: number,
