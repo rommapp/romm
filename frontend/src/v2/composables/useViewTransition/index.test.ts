@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RouteLocationNormalized, Router } from "vue-router";
+import { createMemoryHistory, createRouter } from "vue-router";
 import { expectNoUnhandledRejection } from "@/test-utils/unhandledRejection";
 import {
   skippedReady,
@@ -25,19 +25,22 @@ afterEach(() => {
   Reflect.deleteProperty(document, "startViewTransition");
 });
 
-// Keeps the guard installBackMorph registers, so a navigation can be replayed
-// through it without a real router.
-function captureBackMorphGuard() {
-  const guards: Array<
-    (to: RouteLocationNormalized, from: RouteLocationNormalized) => unknown
-  > = [];
-  installBackMorph({
-    beforeResolve: (guard: never) => {
-      guards.push(guard);
-      return () => {};
-    },
-  } as unknown as Router);
-  return guards[0];
+// A real router on memory history, so the guard runs against the route
+// objects it would see in the app.
+function routerWithBackMorph() {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {
+        path: "/platform/:platform",
+        name: "platform",
+        component: { render: () => null },
+      },
+      { path: "/rom/:rom", name: "rom", component: { render: () => null } },
+    ],
+  });
+  installBackMorph(router);
+  return router;
 }
 
 describe("morphTransition", () => {
@@ -73,14 +76,10 @@ describe("installBackMorph", () => {
   it("absorbs the skip a navigation during capture causes", async () => {
     await expectNoUnhandledRejection(async () => {
       stubStartViewTransition(skippedReady());
-      const guard = captureBackMorphGuard();
-      const romRoute = { name: "rom", params: { rom: "18" } };
-      const platformRoute = { name: "platform", params: { platform: "2" } };
+      const router = routerWithBackMorph();
 
-      await guard(
-        platformRoute as unknown as RouteLocationNormalized,
-        romRoute as unknown as RouteLocationNormalized,
-      );
+      await router.push("/platform/2");
+      await router.push("/rom/18");
     });
   });
 });
