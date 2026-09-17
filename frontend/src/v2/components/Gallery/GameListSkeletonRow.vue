@@ -93,7 +93,11 @@ const titleGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
         <RSkeletonBlock :width="18" :height="18" circle />
       </div>
 
-      <div v-else class="r-glr-skel__cell">
+      <div
+        v-else
+        class="r-glr-skel__cell"
+        :class="{ 'r-glr-skel__cell--end': col.align === 'end' }"
+      >
         <RSkeletonBlock :width="col.skeletonWidth ?? 60" :height="10" />
       </div>
     </template>
@@ -104,7 +108,7 @@ const titleGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
 .r-glr-skel {
   display: grid;
   align-items: center;
-  gap: 0 var(--r-space-3);
+  gap: 0 var(--r-space-5);
   padding: 0 var(--r-space-3);
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
@@ -114,9 +118,10 @@ const titleGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
   min-width: 0;
 }
 
+/* Placeholders sit on the same edge as the value they stand in for, so
+   nothing shifts when the row hydrates. */
 .r-glr-skel__cell--end {
-  display: flex;
-  justify-content: flex-end;
+  text-align: end;
 }
 
 /* Centre the cover block to match the real row. */
