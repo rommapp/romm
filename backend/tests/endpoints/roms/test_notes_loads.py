@@ -1,8 +1,4 @@
-"""The rom-notes routes resolve a ROM from its two identifying columns.
-
-The 404 and visibility checks need only a ROM's id and platform id, so the
-routes must not pay for the `get_rom` related load.
-"""
+"""The notes routes read a ROM's id and platform id, not the full `get_rom` load."""
 
 from fastapi import status
 from fastapi.testclient import TestClient
