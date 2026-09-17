@@ -15,7 +15,7 @@
 
 # ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.23
-ARG ALPINE_SHA256=25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
+ARG ALPINE_SHA256=fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
 ARG PYTHON_ALPINE_SHA256=8caa2adfeb414dfe68d8b257f7aea9e205a400521c2b13b2d2e5e731fb8e70e5
@@ -28,6 +28,10 @@ ARG UV_SHA256=eb47c391d3a252d9d912270dd2b5e234af5493e92039fedb483f1dd1cb5659ce
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
+
+# production-stage copies /usr/lib from here over its own, so this stage needs
+# the same patches, or the stale libs land in the final image.
+RUN apk upgrade --no-cache
 
 
 # FRONTEND BUILD
@@ -217,7 +221,9 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
 FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
-RUN apk add --no-cache \
+# Alpine backports security fixes to its repo faster than the base image is
+# rebuilt, so the digest pin alone leaves known-vulnerable packages in the image.
+RUN apk upgrade --no-cache && apk add --no-cache \
     bash \
     libarchive-tools \
     libmagic \
