@@ -11,6 +11,9 @@
 // Items can carry an optional leading icon and an optional badge
 // (string | number). Items with `show: false` are filtered out so
 // callers can pass a single declarative source.
+//
+// A horizontal strip that overflows fades its clipped edges and shows a
+// chevron there, so a narrow viewport still reads as "more tabs this way".
 import {
   computed,
   nextTick,
@@ -19,9 +22,14 @@ import {
   ref,
   watch,
 } from "vue";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RImg from "../../primitives/RImg/RImg.vue";
 import type { RTabNavItem } from "./types";
+
+// Width of the faded edge, also the margin kept when scrolling a tab into view
+// so it never lands under the fade.
+const EDGE_PX = 40;
 
 defineOptions({ inheritAttrs: false });
 
@@ -49,7 +57,7 @@ const visibleItems = computed(() =>
 );
 
 // ---------- Sliding underline indicator (underlined variant only) ----------
-const navEl = ref<HTMLElement | null>(null);
+const trackEl = ref<HTMLElement | null>(null);
 const btnEls = new Map<string, HTMLElement | null>();
 const indicator = ref({ left: 0, width: 0, visible: false });
 const animate = ref(false);
@@ -63,8 +71,8 @@ function update() {
     indicator.value = { ...indicator.value, visible: false };
     return;
   }
-  const nav = navEl.value;
-  if (!nav) {
+  const track = trackEl.value;
+  if (!track) {
     indicator.value = { ...indicator.value, visible: false };
     return;
   }
@@ -73,58 +81,123 @@ function update() {
     indicator.value = { ...indicator.value, visible: false };
     return;
   }
-  const navRect = nav.getBoundingClientRect();
+  const trackRect = track.getBoundingClientRect();
   const btnRect = el.getBoundingClientRect();
-  // Account for horizontal scroll inside an overflow-x:auto nav.
-  const scrollLeft = nav.scrollLeft;
+  // Account for horizontal scroll inside an overflow-x:auto track.
+  const scrollLeft = track.scrollLeft;
   indicator.value = {
-    left: btnRect.left - navRect.left + scrollLeft,
+    left: btnRect.left - trackRect.left + scrollLeft,
     width: btnRect.width,
     visible: true,
   };
 }
 
+// ---------- Overflow hints (horizontal only) ----------
+const { enabled: reducedMotion } = useReducedMotion();
+const overflowStart = ref(false);
+const overflowEnd = ref(false);
+
+function scrollBehavior(): ScrollBehavior {
+  return reducedMotion.value ? "auto" : "smooth";
+}
+
+function updateOverflow() {
+  const track = trackEl.value;
+  if (!track || props.orientation !== "horizontal") {
+    overflowStart.value = false;
+    overflowEnd.value = false;
+    return;
+  }
+  // 1px slack: fractional tab widths leave a sub-pixel scroll range that
+  // would otherwise keep the end hint lit at the very end of the strip.
+  const maxScroll = track.scrollWidth - track.clientWidth;
+  overflowStart.value = track.scrollLeft > 1;
+  overflowEnd.value = track.scrollLeft < maxScroll - 1;
+}
+
+function revealActive(behavior: ScrollBehavior) {
+  const track = trackEl.value;
+  const el = btnEls.get(props.modelValue);
+  if (!track || !el || props.orientation !== "horizontal") return;
+  const start = el.offsetLeft - EDGE_PX;
+  const end = el.offsetLeft + el.offsetWidth + EDGE_PX - track.clientWidth;
+  if (start < track.scrollLeft) {
+    track.scrollTo({ left: Math.max(start, 0), behavior });
+  } else if (end > track.scrollLeft) {
+    track.scrollTo({ left: end, behavior });
+  }
+}
+
+function scrollPage(direction: 1 | -1) {
+  const track = trackEl.value;
+  if (!track) return;
+  track.scrollBy({
+    left: direction * (track.clientWidth - EDGE_PX * 2),
+    behavior: scrollBehavior(),
+  });
+}
+
 watch(
   () => props.modelValue,
-  () => nextTick(update),
+  () =>
+    nextTick(() => {
+      update();
+      revealActive(scrollBehavior());
+    }),
 );
-watch(visibleItems, () => nextTick(update), { deep: true });
 watch(
-  () => props.variant,
-  () => nextTick(update),
+  visibleItems,
+  () =>
+    nextTick(() => {
+      update();
+      updateOverflow();
+    }),
+  { deep: true },
+);
+watch(
+  () => [props.variant, props.orientation],
+  () =>
+    nextTick(() => {
+      update();
+      updateOverflow();
+    }),
 );
 
 let resizeObserver: ResizeObserver | null = null;
-let lastNavWidth = 0;
+let lastTrackWidth = 0;
 
 onMounted(async () => {
   await nextTick();
   update();
+  revealActive("auto");
+  updateOverflow();
   // Snap into place on the first frame, then enable the transition so
   // subsequent picks slide. Without this the indicator visibly jumps
   // from (0, 0) to its final position on mount.
   requestAnimationFrame(() => {
     animate.value = true;
   });
-  const nav = navEl.value;
-  if (nav) {
-    lastNavWidth = nav.getBoundingClientRect().width;
+  const track = trackEl.value;
+  if (track) {
+    lastTrackWidth = track.getBoundingClientRect().width;
     resizeObserver = new ResizeObserver(() => {
-      const w = nav.getBoundingClientRect().width;
+      const w = track.getBoundingClientRect().width;
       // 0→nonzero (display:none → visible): re-measure without
       // animation so the indicator doesn't slide in from the left.
-      if (lastNavWidth === 0 && w > 0) {
+      if (lastTrackWidth === 0 && w > 0) {
         animate.value = false;
         update();
+        revealActive("auto");
         requestAnimationFrame(() => {
           animate.value = true;
         });
       } else {
         update();
       }
-      lastNavWidth = w;
+      updateOverflow();
+      lastTrackWidth = w;
     });
-    resizeObserver.observe(nav);
+    resizeObserver.observe(track);
   }
 });
 
@@ -136,68 +209,104 @@ onBeforeUnmount(() => {
 
 <template>
   <nav
-    ref="navEl"
     v-bind="$attrs"
     class="r-tab-nav"
     :class="[
       `r-tab-nav--${size}`,
       `r-tab-nav--${variant}`,
       `r-tab-nav--${orientation}`,
+      {
+        'r-tab-nav--overflow-start': overflowStart,
+        'r-tab-nav--overflow-end': overflowEnd,
+      },
     ]"
+    :style="{ '--r-tab-nav-edge': `${EDGE_PX}px` }"
     role="tablist"
     :aria-orientation="orientation"
   >
-    <button
-      v-for="t in visibleItems"
-      :key="t.id"
-      :ref="(el) => setBtnEl(t.id, el as Element | null)"
-      type="button"
-      role="tab"
-      class="r-tab-nav__btn"
-      :class="{ 'r-tab-nav__btn--active': modelValue === t.id }"
-      :aria-selected="modelValue === t.id"
-      @click="$emit('update:modelValue', t.id)"
+    <div
+      ref="trackEl"
+      class="r-tab-nav__track"
+      @scroll.passive="updateOverflow"
     >
-      <RImg
-        v-if="t.image"
-        :src="t.image"
-        alt=""
-        width="1em"
-        height="1em"
-        contain
-        class="r-tab-nav__image"
-      />
-      <RIcon v-else-if="t.icon" :icon="t.icon" class="r-tab-nav__icon" />
-      <span class="r-tab-nav__label">{{ t.label }}</span>
-      <span
-        v-if="t.badge !== undefined && t.badge !== null && t.badge !== ''"
-        class="r-tab-nav__badge"
+      <button
+        v-for="t in visibleItems"
+        :key="t.id"
+        :ref="(el) => setBtnEl(t.id, el as Element | null)"
+        type="button"
+        role="tab"
+        class="r-tab-nav__btn"
+        :class="{ 'r-tab-nav__btn--active': modelValue === t.id }"
+        :aria-selected="modelValue === t.id"
+        @click="$emit('update:modelValue', t.id)"
       >
-        {{ t.badge }}
-      </span>
-    </button>
+        <RImg
+          v-if="t.image"
+          :src="t.image"
+          alt=""
+          width="1em"
+          height="1em"
+          contain
+          class="r-tab-nav__image"
+        />
+        <RIcon v-else-if="t.icon" :icon="t.icon" class="r-tab-nav__icon" />
+        <span class="r-tab-nav__label">{{ t.label }}</span>
+        <span
+          v-if="t.badge !== undefined && t.badge !== null && t.badge !== ''"
+          class="r-tab-nav__badge"
+        >
+          {{ t.badge }}
+        </span>
+      </button>
 
-    <span
-      v-if="variant === 'underlined'"
-      class="r-tab-nav__indicator"
-      :class="{ 'r-tab-nav__indicator--animate': animate }"
-      :style="{
-        transform: `translateX(${indicator.left}px)`,
-        width: `${indicator.width}px`,
-        opacity: indicator.visible ? 1 : 0,
-      }"
+      <span
+        v-if="variant === 'underlined'"
+        class="r-tab-nav__indicator"
+        :class="{ 'r-tab-nav__indicator--animate': animate }"
+        :style="{
+          transform: `translateX(${indicator.left}px)`,
+          width: `${indicator.width}px`,
+          opacity: indicator.visible ? 1 : 0,
+        }"
+        aria-hidden="true"
+      />
+    </div>
+
+    <!-- Pointer-only shortcuts: keyboard and pad reach every tab directly,
+         and focusing one scrolls it into view. -->
+    <button
+      v-if="overflowStart"
+      type="button"
+      tabindex="-1"
       aria-hidden="true"
-    />
+      class="r-tab-nav__edge r-tab-nav__edge--start"
+      @click="scrollPage(-1)"
+    >
+      <RIcon icon="mdi-chevron-left" size="18" />
+    </button>
+    <button
+      v-if="overflowEnd"
+      type="button"
+      tabindex="-1"
+      aria-hidden="true"
+      class="r-tab-nav__edge r-tab-nav__edge--end"
+      @click="scrollPage(1)"
+    >
+      <RIcon icon="mdi-chevron-right" size="18" />
+    </button>
   </nav>
 </template>
 
 <style scoped>
 .r-tab-nav {
+  position: relative;
+}
+.r-tab-nav__track {
   display: flex;
   gap: 0;
   position: relative;
 }
-.r-tab-nav--horizontal {
+.r-tab-nav--horizontal .r-tab-nav__track {
   flex-direction: row;
   /* Scroll horizontally to reach overflowing tabs, but stay OUT of the
      vertical axis: `overflow-y: hidden` (not the `auto` that `overflow-x`
@@ -213,11 +322,58 @@ onBeforeUnmount(() => {
   overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
-.r-tab-nav--horizontal::-webkit-scrollbar {
+.r-tab-nav--horizontal .r-tab-nav__track::-webkit-scrollbar {
   display: none;
 }
-.r-tab-nav--vertical {
+.r-tab-nav--vertical .r-tab-nav__track {
   flex-direction: column;
+}
+
+/* ---------- Overflow hints ----------
+   Fade whichever edge clips tabs and park a chevron over it. The mask sits on
+   the track only, so the nav's baseline and the chevrons stay crisp. */
+.r-tab-nav--overflow-start .r-tab-nav__track {
+  --r-tab-nav-fade-start: var(--r-tab-nav-edge);
+}
+.r-tab-nav--overflow-end .r-tab-nav__track {
+  --r-tab-nav-fade-end: var(--r-tab-nav-edge);
+}
+.r-tab-nav--overflow-start .r-tab-nav__track,
+.r-tab-nav--overflow-end .r-tab-nav__track {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black var(--r-tab-nav-fade-start, 0px),
+    black calc(100% - var(--r-tab-nav-fade-end, 0px)),
+    transparent
+  );
+}
+.r-tab-nav__edge {
+  appearance: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: calc(var(--r-tab-nav-edge) * 0.6);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--r-color-fg-secondary);
+  cursor: pointer;
+  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-tab-nav__edge:hover {
+  color: var(--r-color-fg);
+}
+.r-tab-nav__edge--start {
+  left: 0;
+  justify-items: start;
+}
+.r-tab-nav__edge--end {
+  right: 0;
+  justify-items: end;
 }
 
 .r-tab-nav__btn {
