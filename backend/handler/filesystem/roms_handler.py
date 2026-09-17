@@ -307,7 +307,7 @@ NON_BINARY_FILE_CATEGORIES: Final = DOCUMENT_CATEGORIES | {
 }
 
 
-def _holds_title_id(path: Path, category: RomFileCategory | None) -> bool:
+def _may_hold_title_id(path: Path, category: RomFileCategory | None) -> bool:
     """Whether sigil can read a title id from this file."""
     return (
         not path.name.lower().endswith(COMPRESSED_FILE_SUFFIXES)
@@ -321,10 +321,9 @@ class _TitleIdSource:
     rom_file: RomFile
 
     def order(self) -> tuple[Path, str, str]:
-        """A folder's own files before its subfolders', each by name.
+        """A folder's own files before its subfolders', each in natural name order.
 
-        The name sorts naturally, so "Disc 2" precedes "Disc 10", and the exact
-        name breaks the tie between two names differing only in case.
+        The exact name settles two names differing only in case.
         """
         return self.path.parent, compute_name_sort_key(self.path.name), self.path.name
 
@@ -609,7 +608,7 @@ class FSRomsHandler(FSHandler):
 
         def _record_title_id_source(path: Path, rom_file: RomFile) -> None:
             """Queue a file for extraction when sigil can read a title id from it."""
-            if sigil_platform and _holds_title_id(path, rom_file.category):
+            if sigil_platform and _may_hold_title_id(path, rom_file.category):
                 title_id_sources.append(_TitleIdSource(path, rom_file))
 
         async def _extract_title_id(source: _TitleIdSource) -> None:
@@ -753,7 +752,7 @@ class FSRomsHandler(FSHandler):
                     file_size_bytes=st.st_size,
                     last_modified=st.st_mtime,
                 )
-                # Extract from every ROM file (base, updates and DLC in
+                # Every ROM file is a candidate (base, updates and DLC in
                 # subfolders), not just the top-level one.
                 _record_title_id_source(abs_file_path, rom_file)
                 rom_files.append(rom_file)
@@ -909,8 +908,6 @@ class FSRomsHandler(FSHandler):
                 file_hash=file_hash,
             )
             rom_files.append(rom_file)
-            # Archives keep hashes only; sigil reads title ids from the ROM
-            # binary itself.
             _record_title_id_source(rom_dir, rom_file)
 
         # Listings come in no fixed order; a ROM is identified by its first disc,
