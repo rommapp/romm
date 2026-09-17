@@ -343,7 +343,7 @@ class TestGetRomIds:
         platform: Platform,
         other_platform: Platform,
         admin_user: User,
-    ):
+    ) -> None:
         """Pin the two accessors to each other rather than to a fixed list."""
         db_rom_handler.add_rom(_make_rom(other_platform, "Other Platform.gba"))
         self._physical_game(platform)
@@ -361,7 +361,9 @@ class TestGetRomIds:
                 r.id for r in db_rom_handler.get_roms_scalar(**scope)
             ], scope
 
-    def test_hidden_rom_drops_out(self, rom: Rom, second_rom: Rom, platform: Platform):
+    def test_hidden_rom_drops_out(
+        self, rom: Rom, second_rom: Rom, platform: Platform
+    ) -> None:
         ids = db_rom_handler.get_rom_ids(
             platform_ids=[platform.id], hidden_rom_ids=[rom.id]
         )
@@ -369,7 +371,7 @@ class TestGetRomIds:
         assert rom.id not in ids
         assert second_rom.id in ids
 
-    def test_physical_game_drops_out(self, rom: Rom, platform: Platform):
+    def test_physical_game_drops_out(self, rom: Rom, platform: Platform) -> None:
         physical = self._physical_game(platform)
 
         ids = db_rom_handler.get_rom_ids(
