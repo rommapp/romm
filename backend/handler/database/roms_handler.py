@@ -1756,39 +1756,66 @@ class DBRomsHandler(DBBaseHandler):
 
         return query.order_by(*order_clauses), sort_key  # type: ignore
 
-    @begin_session
-    def get_roms_scalar(
+    def _scoped_roms_query(
         self,
         *,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session,  # type: ignore
+        include_related: bool = True,
         **kwargs,
-    ) -> Sequence[Rom]:
+    ) -> Query[Rom]:
+        """The filtered, ordered query `get_roms_scalar` and `get_rom_ids` both run."""
+        order_by = kwargs.get("order_by", "")
+        order_dir = kwargs.get("order_dir", "asc")
+        user_id = kwargs.get("user_id", None)
+
         query, sort_key = self.get_roms_query(
-            order_by=kwargs.get("order_by", ""),
-            order_dir=kwargs.get("order_dir", "asc"),
+            order_by=order_by,
+            order_dir=order_dir,
             search_term=kwargs.get("search_term", None),
-            user_id=kwargs.get("user_id", None),
+            user_id=user_id,
+            session=session,
         )
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
-
-        roms = self.filter_roms(
+        return self.filter_roms(
             query=query,
             # Extra keys (ordering, loading flags) are not filters; ignored here.
             filters=RomFilterParams.model_validate(kwargs),
             sort_key=sort_key,
-            order_by=kwargs.get("order_by", ""),
-            order_dir=kwargs.get("order_dir", "asc"),
-            user_id=kwargs.get("user_id", None),
+            order_by=order_by,
+            order_dir=order_dir,
+            user_id=user_id,
             released_days=kwargs.get("released_days", None),
             released_before_year=kwargs.get("released_before_year", None),
-            include_files=kwargs.get("include_files", False),
+            # File loaders need the entity too, so they ride the same flag.
+            include_files=include_related and kwargs.get("include_files", False),
+            include_related=include_related,
             hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
             hidden_rom_ids=kwargs.get("hidden_rom_ids", None),
+            session=session,
         )
-        return session.scalars(roms).all()
+
+    @begin_session
+    def get_roms_scalar(
+        self,
+        *,
+        session: Session = None,  # type: ignore
+        **kwargs,
+    ) -> Sequence[Rom]:
+        query = self._scoped_roms_query(session=session, **kwargs)
+        return session.scalars(query).all()
+
+    @begin_session
+    def get_rom_ids(
+        self,
+        *,
+        session: Session = None,  # type: ignore
+        **kwargs,
+    ) -> list[int]:
+        """Every matching rom id, in query order."""
+        query = self._scoped_roms_query(
+            session=session, include_related=False, **kwargs
+        )
+        return list(session.scalars(query.with_only_columns(Rom.id)).all())
 
     @begin_session
     def get_hidden_rom_ids_among(
