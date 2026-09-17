@@ -28,7 +28,6 @@ services:
       - /app/frontend/node_modules # Empty directory
       - /app/frontend/dist # Empty directory
       - ./romm_mock:/app/romm
-      - ./docker/nginx/templates:/app/docker/nginx/templates:ro
       - ~/.vite-plugin-mkcert:/app/.vite-plugin-mkcert
     depends_on:
       - romm-db-dev

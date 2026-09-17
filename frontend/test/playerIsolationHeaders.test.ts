@@ -1,9 +1,8 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
-  isolatedPlayerUrls,
+  ISOLATED_PLAYER_URLS,
   playerIsolationHeaders,
 } from "../scripts/playerIsolationHeaders";
 
@@ -12,6 +11,10 @@ const TEMPLATE = resolve(
   process.cwd(),
   "../docker/nginx/templates/default.conf.template",
 );
+
+// The `~<pattern> "<header>";` entries of the COOP/COEP maps. nginx delimits
+// those patterns by whitespace, so they carry no escaping to undo.
+const MAP_ENTRY = /^\s*~(\S+)\s+"(?:require-corp|same-origin)";/gm;
 
 type Middleware = (
   req: { url?: string },
@@ -24,7 +27,7 @@ type ServerHook = "configureServer" | "configurePreviewServer";
 /** Drive one of the plugin's server hooks and hand back its middleware. */
 function middleware(hook: ServerHook = "configureServer"): Middleware {
   let registered: Middleware | undefined;
-  const plugin = playerIsolationHeaders(TEMPLATE) as unknown as Record<
+  const plugin = playerIsolationHeaders() as unknown as Record<
     ServerHook,
     (server: { middlewares: { use: (fn: Middleware) => void } }) => void
   >;
@@ -63,39 +66,6 @@ const ISOLATED = {
   "Cross-Origin-Opener-Policy": "same-origin",
 };
 
-/** A template holding `body` where the real one holds its maps. */
-function templateWith(body: string): string {
-  const dir = mkdtempSync(join(tmpdir(), "romm-nginx-"));
-  const path = join(dir, "default.conf.template");
-  writeFileSync(path, body, "utf8");
-  return path;
-}
-
-describe("isolatedPlayerUrls", () => {
-  it("reads the patterns the shipped template isolates", () => {
-    const patterns = isolatedPlayerUrls(TEMPLATE);
-
-    expect(patterns.some((p) => p.test("/rom/1/ejs"))).toBe(true);
-    expect(patterns.some((p) => p.test("/console/rom/1/play"))).toBe(true);
-  });
-
-  // The template is the only list, so a rename that silently isolates nothing
-  // would leave the dev server serving no headers at all.
-  it("refuses a template with no map entries", () => {
-    const path = templateWith(
-      'map $request_uri $coep_header {\n  default "";\n}\n',
-    );
-
-    expect(() => isolatedPlayerUrls(path)).toThrow(/No COOP\/COEP map entries/);
-  });
-
-  it("refuses a template that is not there", () => {
-    expect(() =>
-      isolatedPlayerUrls("/nowhere/default.conf.template"),
-    ).toThrow();
-  });
-});
-
 describe("playerIsolationHeaders", () => {
   it.each([
     "/rom/1/ejs",
@@ -132,12 +102,19 @@ describe("playerIsolationHeaders", () => {
   });
 });
 
-// The plugin config is what vite.config.js passes it, and a moved template
-// would otherwise only surface as a dev server serving no headers.
-describe("the template vite.config.js points at", () => {
-  it("is the one the tests read", () => {
-    expect(readFileSync("vite.config.js", "utf8")).toContain(
-      "../docker/nginx/templates/default.conf.template",
+// The plugin restates the nginx map instead of reading it, so a URL isolated
+// in production but not in dev would otherwise only surface as SharedArrayBuffer
+// being unavailable behind the dev server.
+describe("the nginx COOP/COEP map", () => {
+  it("holds the patterns the plugin restates", () => {
+    const template = readFileSync(TEMPLATE, "utf8");
+    const sources = [
+      ...new Set([...template.matchAll(MAP_ENTRY)].map((entry) => entry[1]!)),
+    ].map((source) => new RegExp(source).source);
+
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources.sort()).toEqual(
+      ISOLATED_PLAYER_URLS.map((pattern) => pattern.source).sort(),
     );
   });
 });
