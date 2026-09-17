@@ -3175,17 +3175,16 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     # Note management methods
-    @begin_session
-    def get_rom_notes(
+    def _rom_notes_query(
         self,
         rom_id: int,
         user_id: int,
+        *,
         public_only: bool = False,
         search: str | None = "",
         tags: list[str] | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[RomNote]:
+        session: Session,
+    ) -> Query[RomNote]:
         query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
 
         if public_only:
@@ -3205,10 +3204,47 @@ class DBRomsHandler(DBBaseHandler):
                     json_array_contains_value(RomNote.tags, tag, session=session)
                 )
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
+        return query.order_by(RomNote.updated_at.desc())
 
-        return query.order_by(RomNote.updated_at.desc()).all()
+    @begin_session
+    def get_rom_notes(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        search: str | None = "",
+        tags: list[str] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[RomNote]:
+        return self._rom_notes_query(
+            rom_id=rom_id,
+            user_id=user_id,
+            public_only=public_only,
+            search=search,
+            tags=tags,
+            session=session,
+        ).all()
+
+    @begin_session
+    def get_rom_note_ids(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        search: str | None = "",
+        tags: list[str] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Ids only, so no `RomNote` is built and no eager rom or user join fires."""
+        query = self._rom_notes_query(
+            rom_id=rom_id,
+            user_id=user_id,
+            public_only=public_only,
+            search=search,
+            tags=tags,
+            session=session,
+        )
+        return [row[0] for row in query.with_entities(RomNote.id).all()]
 
     @begin_session
     def create_rom_note(

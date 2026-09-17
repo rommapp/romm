@@ -158,12 +158,7 @@ def get_state_identifiers(
     Returns:
         list[int]: List of state IDs
     """
-    states = db_state_handler.get_states(
-        user_id=request.user.id,
-        only_fields=[State.id],
-    )
-
-    return [state.id for state in states]
+    return db_state_handler.get_state_ids(user_id=request.user.id)
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])

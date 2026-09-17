@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy import delete, or_, select, update
-from sqlalchemy.orm import Query, QueryableAttribute, Session, load_only, selectinload
+from sqlalchemy.orm import Query, Session, selectinload
 
 from decorators.database import begin_session
 from models.platform import Platform
@@ -67,7 +67,6 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platforms(
         self,
         updated_after: datetime | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
         hidden_platform_ids: Sequence[int] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
@@ -80,10 +79,23 @@ class DBPlatformsHandler(DBBaseHandler):
         if hidden_platform_ids:
             query = query.filter(Platform.id.not_in(hidden_platform_ids))
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
-
         return session.scalars(query.order_by(Platform.name.asc())).unique().all()
+
+    @begin_session
+    def get_platform_ids(
+        self,
+        hidden_platform_ids: Sequence[int] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Ids only, deliberately off `with_firmware`: its eager firmware load
+        fires even when only the id is wanted.
+        """
+        query = select(Platform).order_by(Platform.name.asc())
+
+        if hidden_platform_ids:
+            query = query.filter(Platform.id.not_in(hidden_platform_ids))
+
+        return list(session.scalars(query.with_only_columns(Platform.id)).all())
 
     @begin_session
     @with_firmware
