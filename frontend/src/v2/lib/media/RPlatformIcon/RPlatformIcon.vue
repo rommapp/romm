@@ -4,19 +4,19 @@ import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
 
-// RPlatformIcon — renders the platform icon served from /assets/platforms
-// with the same fallback chain v1 uses:
-//   1. {fsSlug}.svg
-//   2. {fsSlug}.ico
-//   3. {slug}.svg
-//   4. {slug}.ico
+// RPlatformIcon renders the platform icon served from /assets/platforms.
+// The catalogue is keyed by RomM's canonical platform slug, so `slug` is
+// tried before `fsSlug`: the filesystem slug is the on-disk folder name,
+// which for Batocera/ES-DE style libraries is an alias (`dreamcast`,
+// `megadrive`, `pcengine`) that has no asset at all.
+//   1. {slug}.svg
+//   2. {slug}.ico
+//   3. {fsSlug}.svg
+//   4. {fsSlug}.ico
 //   5. default.ico
 //
 // `fsSlug` falls back to `slug` (and `name` is still accepted as an alias
-// for `slug` to stay compatible with older callers). Most entries in the
-// /assets/platforms catalogue are .svg — the older `.ico`-only fallback
-// was why only the handful of platforms that ship .ico (amiga, wii, …)
-// were rendering.
+// for `slug` to stay compatible with older callers).
 //
 // Hover tooltip uses RTooltip (v2 glass skin) instead of the native
 // browser `title=` so the bubble matches the rest of the UI. Disable
@@ -27,7 +27,7 @@ interface Props {
   name?: string;
   /** Alias accepted for callers using `slug`. */
   slug?: string;
-  /** Filesystem slug — tried first (matches v1). */
+  /** Filesystem slug, tried only after `slug` when the two differ. */
   fsSlug?: string;
   /** Explicit override. */
   src?: string;
@@ -62,11 +62,11 @@ const candidates = computed(() => {
   const fs = resolvedFsSlug.value.toLowerCase().trim();
   const s = resolvedSlug.value.toLowerCase().trim();
   const out: string[] = [];
-  if (fs) {
-    out.push(`/assets/platforms/${fs}.svg`, `/assets/platforms/${fs}.ico`);
-  }
-  if (s && s !== fs) {
-    out.push(`/assets/platforms/${s}.svg`, `/assets/platforms/${s}.ico`);
+  const seen = new Set<string>();
+  for (const base of [s, fs]) {
+    if (!base || seen.has(base)) continue;
+    seen.add(base);
+    out.push(`/assets/platforms/${base}.svg`, `/assets/platforms/${base}.ico`);
   }
   out.push("/assets/platforms/default.ico");
   return out;

@@ -28,17 +28,23 @@ async function fetchOne(slug: string): Promise<void> {
   if (cache.has(key) || inflight.has(key)) return;
   inflight.add(key);
   try {
-    const res = await fetch(`/assets/platforms/${key}.svg`);
-    if (!res.ok) return;
-    const blob = await res.blob();
-    // SPA fallbacks (200 + HTML) and other non-image bodies must not
-    // land in the cache — they'd render as a broken-image icon
-    // downstream. Trust blob.type since it's set by the parser, not
-    // by the response header alone.
-    if (!blob.type || !blob.type.startsWith("image/")) return;
-    cache.set(key, URL.createObjectURL(blob));
+    // `.ico` is not a rare legacy variant: over half the catalogue ships
+    // no `.svg` at all, so probing only `.svg` 404s on every one of those
+    // platforms on every app load.
+    for (const ext of ["svg", "ico"]) {
+      const res = await fetch(`/assets/platforms/${key}.${ext}`);
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      // SPA fallbacks (200 + HTML) and other non-image bodies must not
+      // land in the cache: they'd render as a broken-image icon
+      // downstream. Trust blob.type since it's set by the parser, not
+      // by the response header alone.
+      if (!blob.type || !blob.type.startsWith("image/")) continue;
+      cache.set(key, URL.createObjectURL(blob));
+      return;
+    }
   } catch {
-    // Swallow — `CachedPlatformIcon`'s own .ico / default fallback
+    // Swallow. `CachedPlatformIcon`'s own .ico / default fallback
     // chain handles legitimate misses on-demand when the cache miss
     // falls through to a real `<img>` load.
   } finally {
