@@ -94,12 +94,18 @@ def platform_is_visible(request: Request, platform_slug: str) -> bool:
 
 
 def _session_in_scope(
-    session: dict[str, Any], platform: str | None, include_desktop: bool
+    session: dict[str, Any],
+    platform: str | None,
+    include_desktop: bool,
+    claimed_at: str | None = None,
 ) -> bool:
     """Whether a stored session is one the route asked about. A container serves
     several platforms and holds one session, so the owner alone does not
-    identify it, and a desktop only answers to the caller that named it."""
+    identify it, a desktop only answers to the caller that named it, and a claim
+    is the holder plus the moment they took it."""
     if not include_desktop and session_is_desktop(session):
+        return False
+    if claimed_at is not None and session.get("claimed_at") != claimed_at:
         return False
     return platform is None or session_platform_matches(session, platform)
 
@@ -110,19 +116,21 @@ async def find_session_for_user(
     *,
     platform: str | None = None,
     include_desktop: bool = False,
+    claimed_at: str | None = None,
 ) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
     """The candidate holding this user's session, as (container, key, session).
 
     With a pool the platform no longer identifies the container, the session
-    does. `platform` scopes the match to sessions claimed for it, and a desktop
-    is only reachable when the caller named its container.
+    does. `platform` scopes the match to sessions claimed for it, `claimed_at`
+    to the one claim the caller was given, and a desktop is only reachable when
+    the caller named its container.
     """
     for candidate in candidates:
         session_key = candidate.key
         session = await get_live_session(session_key)
         if session is None:
             continue
-        if not _session_in_scope(session, platform, include_desktop):
+        if not _session_in_scope(session, platform, include_desktop, claimed_at):
             continue
         if session.get("user_id") == user_id:
             return candidate, session_key, session

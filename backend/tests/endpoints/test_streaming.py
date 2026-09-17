@@ -2368,6 +2368,40 @@ def test_heartbeat_refreshes_last_seen(client, access_token, rom: Rom):
     assert not session_store.session_is_stale(session)
 
 
+def test_a_heartbeat_for_a_replaced_claim_reports_ended(client, access_token, rom: Rom):
+    """A tab that missed its takeover must not keep the claim that replaced it
+    alive: the stamp it was given is what identifies the claim it holds."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, 60)
+        before = json.loads(_session_raw(_container_for(rom)))["last_seen"]
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+            params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+            headers=_auth(access_token),
+        )
+        after = json.loads(_session_raw(_container_for(rom)))["last_seen"]
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert after == before
+
+
+def test_a_heartbeat_naming_its_own_claim_still_refreshes_it(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        claimed_at = _claim_ok(client, access_token, rom.id).json()["claimed_at"]
+        _age_session(rom, 60)
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+            params={"claimed_at": claimed_at},
+            headers=_auth(access_token),
+        )
+        session = json.loads(_session_raw(_container_for(rom)))
+    assert r.json()["status"] == "active"
+    assert not session_store.session_is_stale(session)
+
+
 def test_heartbeat_racing_a_teardown_reports_ended(client, access_token, rom: Rom):
     """The refresh finds nothing when the claim was released between the lookup
     and the write; answering "active" there would leave the client beating a
@@ -2760,6 +2794,41 @@ def test_release_uses_container_key_not_platform(client, access_token, rom: Rom)
             )
     assert r.status_code == 200
     assert r.json()["status"] == "released"
+
+
+def test_a_release_for_a_replaced_claim_leaves_the_session(
+    client, access_token, rom: Rom
+):
+    """A tab whose claim was taken over still releases on unload, and it must
+    not end the session that replaced it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("handler.streaming.commands.stop", return_value=None) as stop:
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+                headers=_auth(access_token),
+            )
+        session = asyncio.run(session_store.get_session(_key_of(_container_for(rom))))
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    stop.assert_not_called()
+    assert session is not None
+
+
+def test_a_release_naming_its_own_claim_still_ends_the_session(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        claimed_at = _claim_ok(client, access_token, rom.id).json()["claimed_at"]
+        with patch("handler.streaming.commands.stop", return_value=None) as stop:
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={"claimed_at": claimed_at},
+                headers=_auth(access_token),
+            )
+    assert r.json()["status"] == "released"
+    stop.assert_called_once()
 
 
 def test_release_by_other_user_is_forbidden(

@@ -198,6 +198,7 @@ async def _session_status(
     candidates: list[ResolvedContainer] | None = None,
     *,
     include_desktop: bool = False,
+    claimed_at: str | None = None,
 ) -> dict[str, Any]:
     """Whether the caller holds a session for this platform among `candidates`
     (its first pool by default), and if not, why it ended. Read-only, so it is
@@ -214,6 +215,7 @@ async def _session_status(
         request.user.id,
         platform=platform,
         include_desktop=include_desktop,
+        claimed_at=claimed_at,
     )
     if found is not None:
         container, _, session = found
@@ -962,6 +964,7 @@ async def heartbeat_session(
     request: Request,
     platform: str,
     container_key: str | None = Query(default=None, alias="container", max_length=300),
+    claimed_at: str | None = Query(default=None, max_length=64),
 ) -> SessionStatusSchema:
     """Refresh the session's liveness stamp and report whether it still exists.
 
@@ -974,7 +977,9 @@ async def heartbeat_session(
     making rather than watching a dead stream.
 
     `container` names the claim to refresh, needed for a desktop on a container
-    outside the platform's first pool.
+    outside the platform's first pool. `claimed_at` is the stamp the claim
+    answered with: a tab that missed its own takeover reports ended rather than
+    keeping the claim that replaced it alive.
     """
     user_id = request.user.id
     # A named claim answers for itself: another session the caller holds on the
@@ -987,12 +992,20 @@ async def heartbeat_session(
         else containers_for_platform(platform)
     )
     found = await access.find_session_for_user(
-        candidates, user_id, platform=platform, include_desktop=named
+        candidates,
+        user_id,
+        platform=platform,
+        include_desktop=named,
+        claimed_at=claimed_at,
     )
     if found is None:
         return SessionStatusSchema(
             **await _session_status(
-                platform, request, candidates, include_desktop=named
+                platform,
+                request,
+                candidates,
+                include_desktop=named,
+                claimed_at=claimed_at,
             )
         )
     _, session_key, _ = found
@@ -1003,7 +1016,9 @@ async def heartbeat_session(
         refreshed = await mutate_session(
             session_key,
             {"last_seen": datetime.now(timezone.utc).isoformat()},
-            require=lambda s: not s.get("draining") and s.get("user_id") == user_id,
+            require=lambda s: not s.get("draining")
+            and s.get("user_id") == user_id
+            and (claimed_at is None or s.get("claimed_at") == claimed_at),
         )
     except StreamingSessionContended:
         # A key too busy to write is a key that exists, so the session is live
@@ -1013,7 +1028,11 @@ async def heartbeat_session(
     if refreshed is None:
         return SessionStatusSchema(
             **await _session_status(
-                platform, request, candidates, include_desktop=named
+                platform,
+                request,
+                candidates,
+                include_desktop=named,
+                claimed_at=claimed_at,
             )
         )
     await lifecycle.refresh_session_activity(session_key, refreshed)
@@ -1232,6 +1251,7 @@ async def release_session(
     background_tasks: BackgroundTasks,
     reason: str | None = Query(default=None, max_length=200),
     container_key: str | None = Query(default=None, alias="container", max_length=300),
+    claimed_at: str | None = Query(default=None, max_length=64),
     save: bool = Query(default=True),
 ) -> ReleaseSessionResponse:
     """Release a session and tell the broker to stop the emulator.
@@ -1244,6 +1264,9 @@ async def release_session(
     `save=false` is a player leaving deliberately without saving. It defaults
     on because the other way in here is a tab closing, where nobody chose
     anything and the last minutes of play would otherwise be gone.
+
+    `claimed_at` is the stamp the claim answered with, which binds this release
+    to that claim. Admin panels end whatever is running and send none.
     """
     if container_key is not None:
         container, session_key, session = await access.resolve_named_container(
@@ -1263,6 +1286,13 @@ async def release_session(
             if exc.status_code != 404:
                 raise
             return ReleaseSessionResponse(status="not_found", platform=platform)
+
+    # A tab whose claim was replaced (taken over, or the player pressing Play
+    # again elsewhere) still releases on unload, and must not end the claim
+    # that took its place.
+    if claimed_at is not None and session.get("claimed_at") != claimed_at:
+        log.info("release ignored, the claim was replaced, platform=%s", platform)
+        return ReleaseSessionResponse(status="not_found", platform=platform)
 
     # Teardown pulls the whole card off the broker and pushes a blank one back,
     # several seconds of broker round-trips. The player who quit does not need
