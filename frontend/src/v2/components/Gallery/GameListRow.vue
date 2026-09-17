@@ -444,11 +444,8 @@ function onRowPointerEnd() {
     </template>
 
     <template v-else>
-      <!-- Skeleton path — column-driven so widths/shape match
-           `GameListSkeletonRow` without keeping a parallel set of
-           magic numbers in this file. Per-cell shapes (cover, pills,
-           dot) mirror the real cells underneath, so the row swap
-           doesn't reflow on data arrival. -->
+      <!-- Column-driven, so the per-cell shapes stay in step with
+           `GameListSkeletonRow` and the row does not reflow on data arrival. -->
       <template v-for="col in listSkeletonColumns" :key="String(col.key)">
         <div
           v-if="col.key === 'select'"
@@ -458,13 +455,18 @@ function onRowPointerEnd() {
                selection chrome only appears once a real row exists. -->
         </div>
         <div
-          v-else-if="col.key === 'name'"
-          class="game-list-row__cell game-list-row__title"
+          v-else-if="col.key === 'cover'"
+          class="game-list-row__cell game-list-row__cover"
         >
           <RSkeletonBlock
             :width="LIST_COVER_WIDTH_PX"
             :height="LIST_COVER_HEIGHT_PX"
           />
+        </div>
+        <div
+          v-else-if="col.key === 'name'"
+          class="game-list-row__cell game-list-row__title"
+        >
           <div class="game-list-row__meta">
             <RSkeletonBlock width="60%" :height="12" />
             <RSkeletonBlock width="40%" :height="10" />

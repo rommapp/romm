@@ -18,6 +18,7 @@ import { useI18n } from "vue-i18n";
 import type { RomFileCategory, RomFileSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
 import HashChip from "@/v2/components/shared/HashChip.vue";
+import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -38,6 +39,8 @@ const props = defineProps<{
   showCategoryBadge: boolean;
   /** Show the per-row delete button (gated on the caller's grant). */
   canDelete: boolean;
+  /** The rom's file is not on disk, so there is nothing to fetch. */
+  missing: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -142,6 +145,11 @@ const hasAnyHash = computed(
         <span class="r-v2-file-row__path" :title="relativePath">
           {{ displayPath }}
         </span>
+        <MissingFSBadge
+          v-if="missing"
+          :text="t('rom.missing-from-fs-path', { path: relativePath })"
+          :size="12"
+        />
       </div>
 
       <div class="r-v2-file-row__meta">
@@ -211,6 +219,7 @@ const hasAnyHash = computed(
         icon="mdi-download-outline"
         variant="text"
         size="small"
+        :disabled="missing"
         :tooltip="t('rom.download-file')"
         :aria-label="t('rom.download-named', { name: relativePath })"
         @click="emit('download')"
@@ -219,6 +228,7 @@ const hasAnyHash = computed(
         icon="mdi-link-variant"
         variant="text"
         size="small"
+        :disabled="missing"
         :tooltip="t('rom.copy-download-link-title')"
         :aria-label="t('rom.copy-link-for', { path: relativePath })"
         @click="emit('copyLink')"

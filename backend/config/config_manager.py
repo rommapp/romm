@@ -422,6 +422,7 @@ class StreamingPlatformOverride(TypedDict):
     # Anything set here wins over the same key on the container.
     label: NotRequired[str]
     memory_card_sync: NotRequired[bool]
+    clears_stale_saves: NotRequired[bool]
 
 
 class StreamingContainer(TypedDict):
@@ -444,6 +445,9 @@ class StreamingContainer(TypedDict):
     # Opt in to whole memory-card sync (broker /memory-card). When true, the
     # legacy per-file /save-file in-game-save path is skipped for this container.
     memory_card_sync: NotRequired[bool]
+    # Whether this broker empties the save tree before restoring an archive,
+    # which is what lets the launch screen offer a save other than the newest.
+    clears_stale_saves: NotRequired[bool]
     # Broker dialect. Omitted (or "broker") is the per-emulator mod contract;
     # "webstation" is the LSIO webstation container's activate/exit contract.
     protocol: NotRequired[str]
@@ -756,7 +760,7 @@ class ConfigManager:
                 self._raw_config, "emulatorjs.disable_batch_bootup", False
             ),
             EJS_ENABLE_AUTO_SAVE_SYNC=pydash.get(
-                self._raw_config, "emulatorjs.auto_save_sync", False
+                self._raw_config, "emulatorjs.auto_save_sync", True
             ),
             EJS_NETPLAY_ENABLED=pydash.get(
                 self._raw_config, "emulatorjs.netplay.enabled", False

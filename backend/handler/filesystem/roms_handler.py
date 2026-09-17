@@ -147,6 +147,18 @@ def category_matches(category: str, path_parts: list[str]) -> bool:
     )
 
 
+def category_for_path_parts(path_parts_lower: list[str]) -> RomFileCategory | None:
+    """The file category a folder path implies, from its lowercased parts."""
+    return next(
+        (
+            category
+            for category in RomFileCategory
+            if category_matches(category.value, path_parts_lower)
+        ),
+        None,
+    )
+
+
 DEFAULT_CRC_C = 0
 DEFAULT_MD5_H_DIGEST = hashlib.md5(usedforsecurity=False).digest()
 DEFAULT_SHA1_H_DIGEST = hashlib.sha1(usedforsecurity=False).digest()
@@ -462,14 +474,8 @@ class FSRomsHandler(FSHandler):
     ) -> RomFile:
         abs_file_path = Path(self.base_path, rom_path, file_name)
 
-        path_parts_lower = list(map(str.lower, rom_path.parts))
-        matching_category = next(
-            (
-                category
-                for category in RomFileCategory
-                if category_matches(category.value, path_parts_lower)
-            ),
-            None,
+        matching_category = category_for_path_parts(
+            list(map(str.lower, rom_path.parts))
         )
 
         track_meta = None

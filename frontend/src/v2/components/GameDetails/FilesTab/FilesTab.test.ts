@@ -71,6 +71,7 @@ function rom(overrides: Partial<DetailedRomSchema> = {}): DetailedRomSchema {
     full_path: ROM_PATH,
     has_simple_single_file: false,
     fs_size_bytes: 20,
+    missing_from_fs: false,
     files: [file(1, "game.n64"), file(2, "hack/patched.n64")],
     ...overrides,
   } as DetailedRomSchema;
@@ -227,5 +228,39 @@ describe("FilesTab uploads", () => {
       expect.anything(),
     );
     expect(refetchRom).not.toHaveBeenCalled();
+  });
+});
+
+describe("FilesTab on a rom missing from the filesystem", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    routeQuery.subtab = undefined;
+    grants.upload = true;
+  });
+
+  // Nothing is on disk to fetch, so the download endpoint would 404.
+  it("marks every row missing and refuses the fetch actions", async () => {
+    const wrapper = mountTab(rom({ missing_from_fs: true }));
+    await flushPromises();
+
+    const rows = wrapper.findAllComponents({ name: "FileRow" });
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.props("missing") === true)).toBe(true);
+
+    wrapper.findAllComponents({ name: "FileRow" })[0].vm.$emit("toggle");
+    await flushPromises();
+    const download = wrapper
+      .findAll("button.btn")
+      .find((b) => b.attributes("data-icon") === "mdi-cloud-download-outline");
+    expect(download?.attributes("disabled")).toBeDefined();
+  });
+
+  it("leaves the actions alone when the rom is on disk", async () => {
+    const wrapper = mountTab();
+    await flushPromises();
+
+    const rows = wrapper.findAllComponents({ name: "FileRow" });
+    expect(rows.every((r) => r.props("missing") === false)).toBe(true);
   });
 });

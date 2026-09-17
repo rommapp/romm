@@ -7,6 +7,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { dateOf, type AssetDateField } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
 
 defineOptions({ inheritAttrs: false });
@@ -23,8 +24,16 @@ const props = withDefaults(
     clearable?: boolean;
     /** A state boots first, so a save is only where progress is written. */
     stateArmed?: boolean;
+    /** Which timestamp to show. Set it to whatever the list this preview sits
+     *  above is ordered by, so both read the same asset as newest. */
+    timestamp?: AssetDateField;
   }>(),
-  { showHeading: true, clearable: true, stateArmed: false },
+  {
+    showHeading: true,
+    clearable: true,
+    stateArmed: false,
+    timestamp: "updated",
+  },
 );
 
 defineEmits<{
@@ -49,6 +58,10 @@ const heading = computed(() => {
     ? t("play.resume-from-save")
     : t("play.resume-from-state");
 });
+
+const timeLabel = computed(() =>
+  props.timestamp === "created" ? t("rom.created") : t("rom.updated"),
+);
 
 const emptyText = computed(() =>
   props.type === "save"
@@ -145,8 +158,8 @@ const emptyText = computed(() =>
                 {{ asset.file_name }}
               </span>
               <span class="r-asset-preview__tip-sub">
-                {{ t("rom.updated") }}:
-                {{ formatTimestamp(asset.updated_at, locale) }}
+                {{ timeLabel }}:
+                {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
               </span>
             </div>
           </RTooltip>
@@ -161,7 +174,7 @@ const emptyText = computed(() =>
           />
           <span class="r-asset-preview__chip">
             <RIcon icon="mdi-clock-outline" size="12" />
-            {{ formatRelativeDate(asset.updated_at) }}
+            {{ formatRelativeDate(dateOf(asset, timestamp)) }}
           </span>
           <span class="r-asset-preview__chip">
             <RIcon icon="mdi-weight" size="12" />
@@ -176,7 +189,7 @@ const emptyText = computed(() =>
         </div>
         <p class="r-asset-preview__exact">
           <RIcon icon="mdi-calendar-clock" size="11" />
-          {{ formatTimestamp(asset.updated_at, locale) }}
+          {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
         </p>
       </div>
 

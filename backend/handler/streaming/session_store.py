@@ -17,6 +17,7 @@ import json
 import secrets
 import time
 from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, NamedTuple
@@ -77,6 +78,37 @@ _HOLD_CEILING_SECONDS = 15 * 60
 
 def session_redis_key(session_key: str) -> str:
     return f"{SESSION_KEY_PREFIX}{session_key}"
+
+
+# A claim reads whether the player already holds a session on the platform and
+# only then reserves a container, two round trips a second claim from the same
+# player can slip between. The gate below makes the pair atomic per player and
+# platform. The TTL sits above the budget a claim may spend tearing down an
+# abandoned session inside the gate, and a backend that dies holding it locks
+# that player out of that platform for a minute, not for the length of a
+# session.
+_CLAIM_GATE_KEY_PREFIX = "romm:streaming:claiming:"
+_CLAIM_GATE_TTL_SECONDS = 60
+
+
+def _claim_gate_redis_key(platform: str, user_id: int) -> str:
+    return f"{_CLAIM_GATE_KEY_PREFIX}{platform}:{user_id}"
+
+
+@asynccontextmanager
+async def claim_gate(platform: str, user_id: int) -> AsyncIterator[bool]:
+    """Hold one player's claim on one platform against a concurrent one.
+
+    Yields False when another claim from the same player is already inside the
+    gate, in which case the caller must not reserve anything.
+    """
+    key = _claim_gate_redis_key(platform, user_id)
+    entered = bool(await async_cache.set(key, "1", nx=True, ex=_CLAIM_GATE_TTL_SECONDS))
+    try:
+        yield entered
+    finally:
+        if entered:
+            await async_cache.delete(key)
 
 
 async def get_session(session_key: str) -> dict[str, Any] | None:

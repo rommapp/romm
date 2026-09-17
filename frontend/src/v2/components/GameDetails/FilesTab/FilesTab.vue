@@ -36,7 +36,6 @@
 // `rom.delete` permission. Each file is removed from disk and the DB
 // row is dropped via `DELETE /roms/{rom_id}/files/{file_id}`.
 import { RBtn, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
-import axios from "axios";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -47,11 +46,11 @@ import type {
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
-import storeUpload from "@/stores/upload";
 import { getDownloadLink } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
+import { useRomFileUpload } from "@/v2/composables/useRomFileUpload";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
@@ -546,9 +545,8 @@ async function deleteSelectedFiles() {
 // One hidden `<input>` serves every folder: the active subtab decides
 // the destination, and the dialog covers "All files" or a new folder.
 const fileInput = ref<HTMLInputElement | null>(null);
-const uploading = ref(false);
+const { uploading, uploadFiles: uploadRomFiles } = useRomFileUpload();
 const uploadDialogOpen = ref(false);
-const uploadStore = storeUpload();
 const alive = useIsAlive();
 
 const uploadFolders = computed<UploadFolderOption[]>(() =>
@@ -584,69 +582,12 @@ function onDialogSubmit(payload: { folder: string; files: File[] }) {
   void uploadFiles(payload.folder, payload.files);
 }
 
-function uploadErrorMessage(name: string, reason: unknown): string {
-  const status = axios.isAxiosError(reason)
-    ? reason.response?.status
-    : undefined;
-  if (status === 409) return t("rom.upload-file-exists", { name });
-  const error = errorMessage(reason);
-  if (status === 400) return t("rom.upload-file-rejected", { name, error });
-  return t("rom.upload-file-failed", { name, error });
-}
-
 async function uploadFiles(folder: string, picked: File[]) {
   if (uploading.value) return;
-  if (props.rom.has_simple_single_file) {
-    const ok = await confirm({
-      title: t("rom.convert-to-folder-title"),
-      body: t("rom.convert-to-folder-body"),
-      tone: "warning",
-    });
-    if (!ok) return;
-  }
-
-  uploading.value = true;
-  try {
-    const results = await romApi.uploadRoms({
-      platformId: props.rom.platform_id,
-      romId: props.rom.id,
-      folder,
-      filesToUpload: picked,
-    });
-    const ok = results.filter((r) => r.status === "fulfilled").length;
-    const failed = results.length - ok;
-    if (ok > 0) {
-      snackbar.success(
-        failed
-          ? t("rom.files-uploaded-with-failed", ok, {
-              named: { n: ok, failed },
-            })
-          : t("rom.files-uploaded-n", ok, { named: { n: ok } }),
-        { icon: "mdi-check-bold" },
-      );
-    } else {
-      snackbar.warning(t("rom.no-files-uploaded"), {
-        icon: "mdi-close-circle",
-      });
-    }
-    // allSettled keeps the input order, so the index maps back to the file.
-    const firstFailed = results.findIndex((r) => r.status === "rejected");
-    if (firstFailed >= 0) {
-      const rejected = results[firstFailed] as PromiseRejectedResult;
-      snackbar.error(
-        uploadErrorMessage(picked[firstFailed].name, rejected.reason),
-      );
-    }
-    if (failed === 0) uploadStore.reset();
-    if (!alive.value || ok === 0) return;
-    await refreshRom();
-    const landed = folder.split("/")[0];
-    if (alive.value && landed && validSubtabIds.value.has(landed)) {
-      subTab.value = landed;
-    }
-  } finally {
-    uploading.value = false;
-  }
+  const { uploaded } = await uploadRomFiles(props.rom, folder, picked);
+  if (!alive.value || uploaded === 0) return;
+  const landed = folder.split("/")[0];
+  if (landed && validSubtabIds.value.has(landed)) subTab.value = landed;
 }
 
 async function refreshRom() {
@@ -773,6 +714,7 @@ async function refreshRom() {
             icon="mdi-cloud-download-outline"
             variant="text"
             size="small"
+            :disabled="rom.missing_from_fs"
             :tooltip="t('rom.download-selected')"
             :aria-label="t('rom.download-selected')"
             @click="downloadSelected"
@@ -781,6 +723,7 @@ async function refreshRom() {
             icon="mdi-link-variant"
             variant="text"
             size="small"
+            :disabled="rom.missing_from_fs"
             :tooltip="t('rom.copy-link-action')"
             :aria-label="t('rom.copy-link-action')"
             @click="copySelectedLink"
@@ -827,6 +770,7 @@ async function refreshRom() {
           :show-row-icon="subTab === 'all'"
           :show-category-badge="subTab === 'all'"
           :can-delete="canDelete"
+          :missing="rom.missing_from_fs"
           @toggle="toggleFile(file)"
           @download="downloadFile(file)"
           @copy-link="copyFileLink(file)"

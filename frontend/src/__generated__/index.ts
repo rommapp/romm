@@ -130,6 +130,7 @@ export type { MemoryCardVersionSchema } from './models/MemoryCardVersionSchema';
 export type { MetadataCoverageItem } from './models/MetadataCoverageItem';
 export type { MetadataMediaType } from './models/MetadataMediaType';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
+export type { MissingFirmwareCleanupStats } from './models/MissingFirmwareCleanupStats';
 export type { MissingRomsCleanupStats } from './models/MissingRomsCleanupStats';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
 export type { MusicGameFacetSchema } from './models/MusicGameFacetSchema';

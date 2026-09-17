@@ -8,6 +8,13 @@ import type {
 export type AssetType = "save" | "state";
 export type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 export type AssetOwner = UserSaveSchema | UserStateSchema;
+/** Which of an asset's two timestamps a list or preview reads. */
+export type AssetDateField = "updated" | "created";
+
+/** A rehash moves updated_at, so a list ordered on created_at must date by it. */
+export function dateOf(asset: Asset, field: AssetDateField): string {
+  return field === "created" ? asset.created_at : asset.updated_at;
+}
 
 export function ownerOf(asset: Asset): AssetOwner | null {
   return "username" in asset && asset.username ? asset : null;

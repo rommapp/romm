@@ -2,7 +2,12 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, ref } from "vue";
+import { defineComponent, nextTick, ref } from "vue";
+import {
+  RECENT_PLAYED_ROMS_LIMIT,
+  RECENT_ROMS_LIMIT,
+  RECOMMENDED_ROMS_LIMIT,
+} from "@/services/api/rom";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -27,9 +32,12 @@ vi.mock("@/services/api/setup", () => ({
   default: { getLibraryInfo },
 }));
 
-vi.mock("@/services/api/rom", () => ({
-  default: { getRecommendedRoms },
-}));
+// Only the feed request is stubbed; the limit constants come from the real
+// module so these tests assert against the numbers the view actually reads.
+vi.mock("@/services/api/rom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/api/rom")>();
+  return { ...actual, default: { ...actual.default, getRecommendedRoms } };
+});
 
 vi.mock("@v2/lib", () => ({
   RChip: defineComponent({ template: "<span><slot /></span>" }),
@@ -44,13 +52,21 @@ vi.mock("@/v2/components/Collections/CollectionTile.vue", () => ({
 
 vi.mock("@/v2/components/GameCard", () => ({
   GameCard: defineComponent({ template: "<div />" }),
-  GameCardSkeleton: defineComponent({ template: "<div />" }),
+  GameCardSkeleton: defineComponent({
+    template: '<div data-test="game-skeleton" />',
+  }),
 }));
 
 vi.mock("@/v2/components/shared/CardRow.vue", () => ({
   default: defineComponent({
-    props: { title: { type: String, default: "" } },
-    template: "<section><h2>{{ title }}</h2><slot /></section>",
+    props: {
+      title: { type: String, default: "" },
+      count: { type: Number, default: undefined },
+    },
+    // Surfaces the count, so a test can tell which rows withhold it while the
+    // list behind them is still in flight.
+    template:
+      '<section><h2>{{ title }}</h2><span data-test="row-count">{{ count }}</span><slot /></section>',
   }),
 }));
 
@@ -186,12 +202,33 @@ function stubHomeFetches(populated: boolean) {
   return { platforms, collections, roms };
 }
 
+/** Hold every dashboard row in its loading state: a request that never settles
+ *  leaves each `fetching*` flag set, since the view clears it in a `finally`. */
+function holdRowsLoading() {
+  const pending = () => new Promise<never>(() => {});
+  const { platforms, collections, roms } = stubHomeFetches(true);
+
+  platforms.fetchingPlatforms = true;
+  vi.spyOn(platforms, "fetchPlatforms").mockImplementation(pending);
+  collections.fetchingCollections = true;
+  vi.spyOn(collections, "fetchCollections").mockImplementation(pending);
+
+  vi.spyOn(roms, "fetchRecentRoms").mockImplementation(pending);
+  vi.spyOn(roms, "fetchContinuePlayingRoms").mockImplementation(pending);
+  getRecommendedRoms.mockReturnValue(pending());
+}
+
 function mountHome() {
   return mount(Home, {
     global: {
       stubs: { RouterLink: defineComponent({ template: "<a><slot /></a>" }) },
     },
   });
+}
+
+/** The section a card row renders into, located by its heading. */
+function findRow(wrapper: ReturnType<typeof mountHome>, title: string) {
+  return wrapper.findAll("section").find((s) => s.text().startsWith(title));
 }
 
 describe("Home", () => {
@@ -253,6 +290,13 @@ describe("Home", () => {
     expect(caption.attributes("title")).toBe(
       "recommendations.because-you-played:Super Metroid",
     );
+    // The count arrives with the list, so the chip appears once it means
+    // something.
+    expect(
+      findRow(wrapper, "recommendations.for-you")
+        ?.find('[data-test="row-count"]')
+        .text(),
+    ).toBe("1");
   });
 
   it("hides the recommendations row when the feed comes back empty", async () => {
@@ -262,6 +306,58 @@ describe("Home", () => {
     await flushPromises();
 
     expect(wrapper.text()).not.toContain("recommendations.for-you");
+  });
+
+  it.each([
+    ["home.continue-playing", RECENT_PLAYED_ROMS_LIMIT],
+    ["recommendations.for-you", RECOMMENDED_ROMS_LIMIT],
+    ["home.recently-added", RECENT_ROMS_LIMIT],
+  ])("paints one skeleton per requested slot in %s", async (title, limit) => {
+    holdRowsLoading();
+
+    const wrapper = mountHome();
+    await nextTick();
+
+    const row = findRow(wrapper, title);
+
+    expect(row?.findAll('[data-test="game-skeleton"]')).toHaveLength(limit);
+  });
+
+  it.each([
+    "home.continue-playing",
+    "recommendations.for-you",
+    "home.recently-added",
+    "common.platforms",
+    "common.collections",
+  ])("withholds %s's count until its list lands", async (title) => {
+    holdRowsLoading();
+
+    const wrapper = mountHome();
+    await nextTick();
+
+    // The list has not resolved, so the count is unknown: a 0 here would be a
+    // number the row is about to replace.
+    expect(
+      findRow(wrapper, title)?.find('[data-test="row-count"]').text(),
+    ).toBe("");
+  });
+
+  it("reserves the reason caption under every recommended placeholder", async () => {
+    holdRowsLoading();
+
+    const wrapper = mountHome();
+    await nextTick();
+
+    const units = findRow(wrapper, "recommendations.for-you")?.findAll(
+      ".r-v2-home__rec",
+    );
+
+    expect(units).toHaveLength(RECOMMENDED_ROMS_LIMIT);
+    // Only the recommended cards carry a caption, so a placeholder that skips it
+    // leaves the row shorter than the one replacing it.
+    expect(
+      units?.every((unit) => unit.find(".r-v2-home__rec-caption").exists()),
+    ).toBe(true);
   });
 
   it("keeps the home page usable when the feed request fails", async () => {

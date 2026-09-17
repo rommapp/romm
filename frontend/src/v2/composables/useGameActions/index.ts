@@ -47,6 +47,13 @@ export interface GameActionsOptions {
 /** Which player a launch is asking for. "auto" lets availability decide. */
 export type PlayTarget = "auto" | "local" | "stream";
 
+type PlayerSlug = "stream" | "jsdos" | "ejs" | "pico8" | "ruffle";
+
+// EmulatorJS and js-dos need SharedArrayBuffer. Nginx only attaches the
+// necessary COOP/COEP headers to the player document, so an SPA navigation
+// cannot enable cross-origin isolation: these load the document directly.
+const ISOLATED_PLAYERS: ReadonlySet<PlayerSlug> = new Set(["jsdos", "ejs"]);
+
 // Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -295,18 +302,23 @@ export function useGameActions(
     );
   });
 
+  // Launching a game the user deliberately shelved asks first. `retired` /
+  // `never_playing` encode an opt-in "don't play" intent; the prompt is
+  // gated by a per-user preference (on by default).
+  const needsLaunchConfirm = computed(() => {
+    const status = getRom()?.rom_user?.status;
+    return (
+      confirmProtectedLaunch.value &&
+      (status === "retired" || status === "never_playing")
+    );
+  });
+
   async function play(player: PlayTarget = "auto") {
     const rom = getRom();
     if (!rom) return;
 
-    // Guard launching a game the user deliberately shelved. `retired` /
-    // `never_playing` encode an opt-in "don't play" intent, so confirm
-    // before booting one. Gated by a per-user preference (on by default).
     const status = rom.rom_user?.status;
-    if (
-      confirmProtectedLaunch.value &&
-      (status === "retired" || status === "never_playing")
-    ) {
+    if (needsLaunchConfirm.value) {
       const ok = await confirm({
         title: t("rom.confirm-launch-protected-title"),
         body: t("rom.confirm-launch-protected-body", {
@@ -323,50 +335,20 @@ export function useGameActions(
       if (!ok) return;
     }
 
-    // A platform can be served by both an in-browser core and a streaming
-    // container, and they are different products (local latency versus the
-    // container's own emulator and save library). The caller says which it
-    // wants; "auto" keeps the single-button surfaces working by preferring
-    // the stream, as they did before either could be asked for by name.
-    const streaming =
-      player === "stream" || (player === "auto" && canPlayStream.value);
-    const inBrowser = player === "local" || player === "auto";
-
-    // EmulatorJS and js-dos need SharedArrayBuffer. Nginx only attaches the
-    // necessary COOP/COEP headers to the player document, so an SPA navigation
-    // cannot enable cross-origin isolation. Load the document directly instead.
-    const isolated = canPlayJsDos.value
-      ? "jsdos"
-      : canPlayEJS.value
-        ? "ejs"
-        : null;
-    if (!streaming && inBrowser && isolated) {
-      window.location.assign(`/rom/${rom.id}/${isolated}`);
+    const launch = launchTarget(player);
+    if (!launch) return;
+    const target = launch.path;
+    if (ISOLATED_PLAYERS.has(launch.player)) {
+      window.location.assign(target);
       return;
     }
 
     // The launch "load" flourish (disc/cartridge insert) lives on the
     // player view itself — see EmulatorJS's onPlay — so navigation is
-    // immediate here.
-    let path: string | null = null;
-    if (streaming && canPlayStream.value) path = `/rom/${rom.id}/stream`;
-    else if (inBrowser && canPlayPico8.value) path = `/rom/${rom.id}/pico8`;
-    else if (inBrowser && canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
-    else if (inBrowser && canPlayNative.value) {
-      // Last, because the play page offers the native launch beside whichever
-      // in-browser core the branches above would have picked. Loaded the same
-      // way as the isolated route above, even though nothing here needs
-      // isolation: the one page must not arrive two different ways, one
-      // morphing the cover and one not.
-      window.location.assign(`/rom/${rom.id}/ejs`);
-      return;
-    }
-    if (!path) return;
-    const target = path;
-    // When the caller supplies a cover element (the gallery card / detail
-    // hero), morph it into the player's hero cover — same `rom-cover-<id>`
-    // tag the player paints statically. Degrades to a plain push where view
-    // transitions aren't available.
+    // immediate here. When the caller supplies a cover element (the gallery
+    // card / detail hero), morph it into the player's hero cover — same
+    // `rom-cover-<id>` tag the player paints statically. Degrades to a plain
+    // push where view transitions aren't available.
     const el = options.coverEl?.();
     if (el) {
       // Await the push inside the transition so the browser snapshots the
@@ -378,6 +360,34 @@ export function useGameActions(
     } else {
       router.push(target);
     }
+  }
+
+  // A platform can be served by both an in-browser core and a streaming
+  // container, and they are different products (local latency versus the
+  // container's own emulator and save library). The caller says which it
+  // wants; "auto" keeps the single-button surfaces working by preferring
+  // the stream, as they did before either could be asked for by name.
+  function launchTarget(
+    player: PlayTarget,
+  ): { player: PlayerSlug; path: string } | null {
+    const rom = getRom();
+    if (!rom) return null;
+    let slug: PlayerSlug | null = null;
+    if (player === "stream") slug = canPlayStream.value ? "stream" : null;
+    else if (player === "auto" && canPlayStream.value) slug = "stream";
+    else if (canPlayJsDos.value) slug = "jsdos";
+    else if (canPlayEJS.value) slug = "ejs";
+    else if (canPlayPico8.value) slug = "pico8";
+    else if (canPlayRuffle.value) slug = "ruffle";
+    // Last, because the play page offers the native launch beside whichever
+    // in-browser core the branches above would have picked.
+    else if (canPlayNative.value) slug = "ejs";
+    return slug ? { player: slug, path: `/rom/${rom.id}/${slug}` } : null;
+  }
+
+  /** Path `play(player)` would open, for surfaces that render the launch as a link. */
+  function playPath(player: PlayTarget = "auto"): string | null {
+    return launchTarget(player)?.path ?? null;
   }
 
   // Joining is its own navigation: the stream view claims a container when it
@@ -604,7 +614,9 @@ export function useGameActions(
     setStatus,
     setStatusEnum,
     setScore,
+    needsLaunchConfirm,
     play,
+    playPath,
     goToPlatform,
     platformPath,
     download,

@@ -420,6 +420,76 @@ describe("useGameActions.play — launch confirmation", () => {
   });
 });
 
+describe("useGameActions.needsLaunchConfirm", () => {
+  it.each(["retired", "never_playing"] as const)(
+    "asks before launching a %s game",
+    (status) => {
+      expect(
+        useGameActions(() => makeRom(status)).needsLaunchConfirm.value,
+      ).toBe(true);
+    },
+  );
+
+  it("asks nothing for a game that is not shelved", () => {
+    expect(useGameActions(() => makeRom()).needsLaunchConfirm.value).toBe(
+      false,
+    );
+  });
+
+  it("asks nothing when the preference is disabled", () => {
+    confirmProtectedLaunch.value = false;
+    expect(
+      useGameActions(() => makeRom("retired")).needsLaunchConfirm.value,
+    ).toBe(false);
+  });
+});
+
+describe("useGameActions.playPath", () => {
+  it("points the local launch at EmulatorJS", () => {
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.playPath("local")).toBe("/rom/1/ejs");
+    expect(actions.playPath()).toBe("/rom/1/ejs");
+  });
+
+  it("prefers the stream only when nobody asked for the local player", () => {
+    streamContainer.value = {};
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.playPath()).toBe("/rom/1/stream");
+    expect(actions.playPath("stream")).toBe("/rom/1/stream");
+    expect(actions.playPath("local")).toBe("/rom/1/ejs");
+  });
+
+  it("has nowhere to go when the asked-for player cannot run the rom", () => {
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.playPath("stream")).toBeNull();
+  });
+
+  it("orders the in-browser players the way play() launches them", () => {
+    const actions = useGameActions(() => makeRom());
+
+    canPlayJsDos.value = true;
+    expect(actions.playPath("local")).toBe("/rom/1/jsdos");
+
+    canPlayJsDos.value = false;
+    canPlayEJS.value = false;
+    canPlayPico8.value = true;
+    canPlayRuffle.value = true;
+    expect(actions.playPath("local")).toBe("/rom/1/pico8");
+
+    canPlayPico8.value = false;
+    expect(actions.playPath("local")).toBe("/rom/1/ruffle");
+  });
+
+  it("resolves nothing without a rom", () => {
+    const actions = useGameActions(() => null);
+
+    expect(actions.playPath()).toBeNull();
+  });
+});
+
 describe("useGameActions — write/destructive gates", () => {
   it("exposes every write action when the grants allow it", () => {
     const actions = useGameActions(() => makeRom());

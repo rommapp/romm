@@ -11,19 +11,24 @@
 //   * manage (selectable=false) — Save data subtab. Rows are static; the
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
-import { RBtn, RIcon, RTag, RTooltip } from "@v2/lib";
+import { RBtn, RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
-import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { formatTimestamp } from "@/utils";
+import AssetChips from "@/v2/components/shared/AssetChips.vue";
+import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
+import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byUpdatedDesc,
+  dateOf,
   ownerOf,
   screenshotOf,
   staggerIndex,
   type Asset,
+  type AssetDateField,
   type AssetOwner,
   type AssetType,
 } from "@/v2/utils/assets";
@@ -52,6 +57,9 @@ const props = withDefaults(
     showOwner?: boolean;
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
+    /** Which timestamp the rows show. Set it to whatever the caller ordered
+     *  the list by, so the newest row is the one that reads newest. */
+    timestamp?: AssetDateField;
     /** Off for lists whose saves are not slot versions (stream archives). */
     groupBySlot?: boolean;
   }>(),
@@ -60,6 +68,7 @@ const props = withDefaults(
     selectedId: null,
     showOwner: false,
     scrollable: true,
+    timestamp: "updated",
     groupBySlot: true,
   },
 );
@@ -78,6 +87,10 @@ const emptyLabel = computed(() =>
   props.type === "save"
     ? t("play.no-saves-available")
     : t("play.no-states-available"),
+);
+
+const timeLabel = computed(() =>
+  props.timestamp === "created" ? t("rom.created") : t("rom.updated"),
 );
 
 function slotOf(asset: Asset): string | null {
@@ -144,28 +157,20 @@ const fadeIndex = computed(() =>
         class="r-asset-list__group"
         :class="{ 'r-asset-list__group--slot': grouped }"
       >
-        <div v-if="grouped" class="r-asset-list__group-head">
-          <RIcon
-            :icon="
-              group.slot
-                ? 'mdi-content-save-all-outline'
-                : 'mdi-archive-outline'
-            "
-            size="14"
-            class="r-asset-list__group-icon"
-            :class="{ 'r-asset-list__group-icon--slot': group.slot }"
-          />
-          <span class="r-asset-list__group-title">
-            {{ group.slot ?? t("play.slot-none") }}
-          </span>
+        <AssetGroupHead
+          v-if="grouped"
+          :icon="
+            group.slot ? 'mdi-content-save-all-outline' : 'mdi-archive-outline'
+          "
+          :icon-tone="group.slot ? 'brand' : 'muted'"
+          :title="group.slot ?? t('play.slot-none')"
+          :count="t('play.slot-versions', group.versions.length)"
+        >
           <AssetOwnerChip
             v-if="showOwner && group.owner"
             :owner="group.owner"
           />
-          <span class="r-asset-list__group-count">
-            {{ t("play.slot-versions", group.versions.length) }}
-          </span>
-        </div>
+        </AssetGroupHead>
 
         <ul class="r-asset-list__items">
           <li
@@ -212,33 +217,14 @@ const fadeIndex = computed(() =>
                     v-if="!grouped && showOwner && ownerOf(asset)"
                     :owner="ownerOf(asset)!"
                   />
-                  <RTag
-                    v-if="grouped && i === 0 && group.versions.length > 1"
-                    tone="brand"
-                    size="x-small"
-                    :text="t('play.latest-version')"
+                  <AssetChips
+                    :asset="asset"
+                    :latest="grouped && i === 0 && group.versions.length > 1"
                   />
-                  <RTag
-                    v-if="asset.emulator"
-                    tone="warning"
-                    size="x-small"
-                    :text="asset.emulator"
-                  />
-                  <span class="r-asset-list__chip">
-                    <RIcon icon="mdi-weight" size="11" />
-                    {{ formatBytes(asset.file_size_bytes) }}
-                  </span>
                 </span>
               </span>
 
-              <span class="r-asset-list__time">
-                <span class="r-asset-list__relative">
-                  {{ formatRelativeDate(asset.updated_at) }}
-                </span>
-                <span class="r-asset-list__exact">
-                  {{ formatTimestamp(asset.updated_at, locale) }}
-                </span>
-              </span>
+              <AssetTimestamp :date="dateOf(asset, timestamp)" align="end" />
 
               <span
                 v-if="selectable"
@@ -266,8 +252,8 @@ const fadeIndex = computed(() =>
                     {{ asset.file_name }}
                   </span>
                   <span class="r-asset-list__tip-sub">
-                    {{ t("rom.updated") }}:
-                    {{ formatTimestamp(asset.updated_at, locale) }}
+                    {{ timeLabel }}:
+                    {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
                   </span>
                 </div>
               </RTooltip>
@@ -317,21 +303,19 @@ const fadeIndex = computed(() =>
 
 .r-asset-list__groups {
   margin: 0;
-  /* Top padding gives the first row breathing room and absorbs the
-     -1px lift on hover/active so it never clips against the panel
-     edge. Bottom padding keeps the same gutter at the other end. */
-  padding: 4px 0;
+  padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
 }
-/* Internal scroll only where the parent does not own scrolling. */
+/* Internal scroll only where the parent does not own scrolling. The
+   vertical padding absorbs the rows' -1px hover lift at the scroll edges. */
 .r-asset-list--scroll .r-asset-list__groups {
   overflow-y: auto;
   max-height: 380px;
-  padding-right: 10px;
+  padding: 4px 10px 4px 0;
 }
 
 .r-asset-list__group {
@@ -345,36 +329,6 @@ const fadeIndex = computed(() =>
   padding: 6px 8px 8px;
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
-}
-
-.r-asset-list__group-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
-  color: var(--r-color-fg-secondary);
-}
-.r-asset-list__group-icon {
-  color: var(--r-color-fg-muted);
-}
-.r-asset-list__group-icon--slot {
-  color: var(--r-color-brand-primary);
-}
-.r-asset-list__group-title {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--r-color-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-asset-list__group-count {
-  margin-left: auto;
-  font-size: 10px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
 .r-asset-list__items {
@@ -481,34 +435,6 @@ const fadeIndex = computed(() =>
   gap: 4px;
   align-items: center;
 }
-.r-asset-list__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 6px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-pill);
-  font-size: 10px;
-  color: var(--r-color-fg-secondary);
-}
-.r-asset-list__time {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  flex-shrink: 0;
-}
-.r-asset-list__relative {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
-}
-.r-asset-list__exact {
-  font-size: 10px;
-  color: var(--r-color-fg-muted);
-  font-variant-numeric: tabular-nums;
-}
 
 .r-asset-list__check {
   display: grid;
@@ -566,12 +492,6 @@ const fadeIndex = computed(() =>
   opacity: 0.85;
 }
 
-/* Tighten the row on small screens so the time column doesn't push
-   the filename off-screen. The exact timestamp is the first to go —
-   the tooltip still has it. */
-html[data-bp~="xs"] .r-asset-list__exact {
-  display: none;
-}
 html[data-bp~="xs"] .r-asset-list__row {
   padding: 8px 10px;
 }

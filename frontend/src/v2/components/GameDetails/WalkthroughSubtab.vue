@@ -11,6 +11,10 @@ import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import {
+  ROM_UPLOAD_FOLDERS,
+  useRomFileUpload,
+} from "@/v2/composables/useRomFileUpload";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -46,6 +50,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const { refetchRom } = useRomSync();
+const { uploadFiles } = useRomFileUpload();
 const { t } = useI18n();
 
 // Adding and removing walkthroughs both ride the ROMS write grant, matching
@@ -124,22 +129,7 @@ async function confirmFolderConversionIfNeeded(): Promise<boolean> {
 const walkthroughDz = ref<InstanceType<typeof RDropzone> | null>(null);
 
 async function handleFiles(files: File[]) {
-  if (files.length === 0) return;
-  if (!(await confirmFolderConversionIfNeeded())) return;
-  const responses = await romApi.uploadWalkthroughFiles({
-    romId: props.rom.id,
-    filesToUpload: files,
-  });
-  const ok = responses.filter((r) => r.status === "fulfilled").length;
-  if (ok > 0) {
-    await refreshRom();
-    snackbar.success(t("rom.walkthrough-added"), { icon: "mdi-check-bold" });
-  } else {
-    snackbar.error(
-      t("rom.walkthrough-add-failed", { error: t("common.unknown-error") }),
-      { icon: "mdi-close-circle" },
-    );
-  }
+  await uploadFiles(props.rom, ROM_UPLOAD_FOLDERS.walkthrough, files);
 }
 
 // ---------- Add from GameFAQs URL ----------

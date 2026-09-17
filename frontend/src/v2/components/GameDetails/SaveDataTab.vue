@@ -32,6 +32,7 @@ import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import { getSupportedEJSCores } from "@/utils";
+import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
 import UploadAssetDialog, {
   type UploadAssetPayload,
 } from "@/v2/components/GameDetails/UploadAssetDialog.vue";
@@ -425,44 +426,14 @@ async function toggleStateVisibility(state: StateSchema) {
               :scrollable="false"
             >
               <template #actions="{ asset }">
-                <RBtn
-                  :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
-                  variant="text"
-                  size="small"
-                  :color="
-                    asset.is_public ? 'var(--r-color-fg-muted)' : 'primary'
-                  "
-                  :loading="togglingSaveId === asset.id"
-                  :tooltip="
-                    asset.is_public
-                      ? t('rom.make-private')
-                      : t('rom.make-public')
-                  "
-                  :aria-label="
-                    asset.is_public
-                      ? t('rom.make-private')
-                      : t('rom.make-public')
-                  "
-                  @click="toggleSaveVisibility(asSave(asset))"
-                />
-                <RBtn
-                  icon="mdi-download-outline"
-                  variant="text"
-                  size="small"
-                  :tooltip="t('common.download')"
-                  :aria-label="
-                    t('rom.download-named', { name: asset.file_name })
-                  "
-                  @click="downloadAsset(asset)"
-                />
-                <RBtn
-                  icon="mdi-delete-outline"
-                  variant="text"
-                  size="small"
-                  color="romm-red"
-                  :tooltip="t('common.delete')"
-                  :aria-label="t('rom.delete-save')"
-                  @click="deleteSave(asSave(asset))"
+                <AssetActions
+                  :asset="asset"
+                  type="save"
+                  own
+                  :toggling="togglingSaveId === asset.id"
+                  @toggle-visibility="toggleSaveVisibility(asSave(asset))"
+                  @download="downloadAsset(asset)"
+                  @delete="deleteSave(asSave(asset))"
                 />
               </template>
             </AssetList>
@@ -486,13 +457,10 @@ async function toggleStateVisibility(state: StateSchema) {
             show-owner
           >
             <template #actions="{ asset }">
-              <RBtn
-                icon="mdi-download-outline"
-                variant="text"
-                size="small"
-                :tooltip="t('common.download')"
-                :aria-label="t('rom.download-named', { name: asset.file_name })"
-                @click="downloadAsset(asset)"
+              <AssetActions
+                :asset="asset"
+                type="save"
+                @download="downloadAsset(asset)"
               />
             </template>
           </AssetList>
@@ -550,44 +518,14 @@ async function toggleStateVisibility(state: StateSchema) {
               group-by="emulator"
             >
               <template #actions="{ asset }">
-                <RBtn
-                  :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
-                  variant="text"
-                  size="small"
-                  :color="
-                    asset.is_public ? 'var(--r-color-fg-muted)' : 'primary'
-                  "
-                  :loading="togglingStateId === asset.id"
-                  :tooltip="
-                    asset.is_public
-                      ? t('rom.make-private')
-                      : t('rom.make-public')
-                  "
-                  :aria-label="
-                    asset.is_public
-                      ? t('rom.make-private')
-                      : t('rom.make-public')
-                  "
-                  @click="toggleStateVisibility(asState(asset))"
-                />
-                <RBtn
-                  icon="mdi-download-outline"
-                  variant="text"
-                  size="small"
-                  :tooltip="t('common.download')"
-                  :aria-label="
-                    t('rom.download-named', { name: asset.file_name })
-                  "
-                  @click="downloadAsset(asset)"
-                />
-                <RBtn
-                  icon="mdi-delete-outline"
-                  variant="text"
-                  size="small"
-                  color="romm-red"
-                  :tooltip="t('common.delete')"
-                  :aria-label="t('rom.delete-state')"
-                  @click="deleteState(asState(asset))"
+                <AssetActions
+                  :asset="asset"
+                  type="state"
+                  own
+                  :toggling="togglingStateId === asset.id"
+                  @toggle-visibility="toggleStateVisibility(asState(asset))"
+                  @download="downloadAsset(asset)"
+                  @delete="deleteState(asState(asset))"
                 />
               </template>
             </AssetStrip>
@@ -612,13 +550,10 @@ async function toggleStateVisibility(state: StateSchema) {
             show-owner
           >
             <template #actions="{ asset }">
-              <RBtn
-                icon="mdi-download-outline"
-                variant="text"
-                size="small"
-                :tooltip="t('common.download')"
-                :aria-label="t('rom.download-named', { name: asset.file_name })"
-                @click="downloadAsset(asset)"
+              <AssetActions
+                :asset="asset"
+                type="state"
+                @download="downloadAsset(asset)"
               />
             </template>
           </AssetStrip>

@@ -5,7 +5,9 @@
 // so both surfaces stay in sync.
 //
 // Actions:
-//   play        → router.push /rom/:id/ejs
+//   play        → launch the in-browser player; an `<a href>` to it with
+//                 `link`, so it opens in a new tab like any link
+//   stream      → launch the streaming player; same `link` treatment
 //   download    → direct download link click
 //   copy-link   → copy the API download URL to clipboard; falls back to
 //                 a dialog that shows the link when clipboard is denied
@@ -51,6 +53,7 @@ import {
   GAME_ACTIONS_KEY,
   useGameActions,
 } from "@/v2/composables/useGameActions";
+import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import {
   ENUM_KEYS,
   FLAG_KEYS,
@@ -109,6 +112,12 @@ interface Props {
    * so they don't need their own ribbon row. No-op on desktop.
    */
   withMetrics?: boolean;
+  /**
+   * Play / stream only: render the launch as an `<a href>` to the player
+   * document so it can be opened in a new tab. Off inside surfaces that
+   * are links themselves (the GameCard), where a nested anchor is invalid.
+   */
+  link?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -117,6 +126,7 @@ const props = withDefaults(defineProps<Props>(), {
   withLabel: false,
   orientation: "horizontal",
   withMetrics: false,
+  link: false,
 });
 
 const { smAndDown } = useBreakpoint();
@@ -290,6 +300,16 @@ const displayedIcon = computed(
   () => (preset.value.active && preset.value.activeIcon) || preset.value.icon,
 );
 
+// Only the launch actions lead to a document of their own; with `link` they
+// render as anchors to it so the player can be opened in a new tab. A shelved
+// game keeps the button: every launch must pass `play()`'s confirmation.
+const linkHref = computed<string | null>(() => {
+  if (!props.link || actions.needsLaunchConfirm.value) return null;
+  if (props.action === "play") return actions.playPath("local");
+  if (props.action === "stream") return actions.playPath("stream");
+  return null;
+});
+
 const moreOpen = ref(false);
 const statusOpen = ref(false);
 // The `collection` action opens a global dialog via emitter rather than a
@@ -333,12 +353,11 @@ function clearAllStatus() {
   statusOpen.value = false;
 }
 
-// For the play/download links we could render `<router-link>` /
-// `<a href>` for right-click-open-in-new-tab support, but keeping
-// `<button>` here lets the parent surface own the semantics (the whole
-// card is already a link). Both direct actions live in the composable.
+// Modified and non-primary clicks on a launch anchor stay with the browser
+// (new tab); plain ones still go through `play()` for its full-document load.
 function onClick(e: MouseEvent) {
   if (props.action === "more" || props.action === "status") return;
+  if (linkHref.value && (e.button !== 0 || opensInNewContext(e))) return;
   e.preventDefault();
   e.stopPropagation();
   if (props.action === "collection") collectionOpen.value = true;
@@ -507,10 +526,12 @@ function onClick(e: MouseEvent) {
     </template>
   </RMenu>
 
-  <!-- Plain action — direct click. -->
-  <button
+  <!-- Plain action — direct click, or a real anchor for a linked launch. -->
+  <component
+    :is="linkHref ? 'a' : 'button'"
     v-else
-    type="button"
+    :type="linkHref ? undefined : 'button'"
+    :href="linkHref ?? undefined"
     class="r-v2-game-btn"
     :class="[
       `r-v2-game-btn--${size}`,
@@ -542,12 +563,14 @@ function onClick(e: MouseEvent) {
       :text="preset.label"
       location="top"
     />
-  </button>
+  </component>
 </template>
 
 <style scoped>
 .r-v2-game-btn {
   appearance: none;
+  box-sizing: border-box;
+  text-decoration: none;
   /* Dark glass so the button still reads when sitting on top of a bright
      or busy cover image in the GameCard overlay. In GameDetails the
      backdrop is already a dark blurred cover so this tone lands neutral

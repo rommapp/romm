@@ -1,11 +1,9 @@
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from endpoints.roms import screenshot as screenshot_endpoint
 from handler.database import db_rom_handler
 from models.rom import Rom, RomFile, RomFileCategory
 
@@ -17,34 +15,11 @@ def _auth(token: str) -> dict[str, str]:
 
 
 @pytest.fixture
-def screenshot_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    folder_dir = tmp_path / "library"
-    folder_dir.mkdir()
-
-    def validate_path(path: str) -> Path:
-        return folder_dir / Path(path).name
-
-    async def remove_file(path: str) -> None:
-        target = folder_dir / Path(path).name
-        if target.exists():
-            target.unlink()
-        else:
-            raise FileNotFoundError(path)
-
-    monkeypatch.setattr(
-        screenshot_endpoint.fs_rom_handler, "validate_path", validate_path
-    )
-    monkeypatch.setattr(
-        screenshot_endpoint.fs_rom_handler,
-        "make_directory",
-        AsyncMock(return_value=None),
-    )
-    monkeypatch.setattr(
-        screenshot_endpoint.fs_rom_handler,
-        "remove_file",
-        AsyncMock(side_effect=remove_file),
-    )
-    return folder_dir
+def screenshot_fs(game_folder_on_disk: Path) -> Path:
+    """The ROM's screenshots folder inside a real temp library."""
+    media_dir = game_folder_on_disk / "screenshots"
+    media_dir.mkdir()
+    return media_dir
 
 
 # ---------- POST /api/roms/{id}/screenshots ----------

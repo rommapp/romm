@@ -5,13 +5,14 @@ from unittest.mock import AsyncMock
 from uuid import UUID
 
 import pytest
-from fastapi import HTTPException, status
+from fastapi import status
 from fastapi.testclient import TestClient
 
 from endpoints.roms import upload as upload_endpoint
+from handler import rom_upload
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import DocSource, Rom, RomFile, RomFileCategory
 from models.user import User
 
 
@@ -364,10 +365,13 @@ def _start_into_rom(
     folder: str | None,
     total_size: int,
     platform_id: int | None = None,
+    overwrite: bool = False,
 ):
-    target: dict[str, int | str] = {"rom_id": rom.id}
+    target: dict[str, int | str | bool] = {"rom_id": rom.id}
     if folder is not None:
         target["folder"] = folder
+    if overwrite:
+        target["overwrite"] = True
     return client.post(
         "/api/roms/upload/start",
         headers={
@@ -389,9 +393,16 @@ def _upload_into_rom(
     filename: str,
     folder: str | None,
     data: bytes,
+    overwrite: bool = False,
 ):
     start = _start_into_rom(
-        client, token, rom, filename=filename, folder=folder, total_size=len(data)
+        client,
+        token,
+        rom,
+        filename=filename,
+        folder=folder,
+        total_size=len(data),
+        overwrite=overwrite,
     )
     assert start.status_code == status.HTTP_201_CREATED, start.json()
     upload_id = start.json()["upload_id"]
@@ -521,6 +532,40 @@ def test_start_into_rom_rejects_existing_destination(
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
+
+
+def test_overwrite_replaces_an_existing_file(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    rom = _folder_rom(
+        platform, admin_user, rom_upload_fs, {"game.bin": b"game", "hack/x.ips": b"old"}
+    )
+
+    refused = _start_into_rom(
+        client, access_token, rom, filename="x.ips", folder="hack", total_size=3
+    )
+    assert refused.status_code == status.HTTP_409_CONFLICT
+
+    response = _upload_into_rom(
+        client,
+        access_token,
+        rom,
+        filename="x.ips",
+        folder="hack",
+        data=b"new",
+        overwrite=True,
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    on_disk = rom_upload_fs / rom.fs_path / ROM_FOLDER / "hack" / "x.ips"
+    assert on_disk.read_bytes() == b"new"
+    rows = [f for f in db_rom_handler.get_rom(rom.id).files if f.file_name == "x.ips"]
+    assert len(rows) == 1
+    assert rows[0].file_size_bytes == 3
 
 
 def test_complete_registers_nested_file(
@@ -690,12 +735,149 @@ def test_complete_collision_does_not_promote_a_single_file_rom(
     assert (rom_upload_fs / rom.fs_path / "solo.zip").read_bytes() == b"romdata"
 
 
+def test_start_takes_the_filename_from_the_body_over_the_header(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    """A browser cannot put a name outside Latin-1 in a header, so the body
+    names the file and the header only has to be present."""
+    rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
+    name = "Relax \uff5c 432Hz.mp3"
+
+    start = client.post(
+        "/api/roms/upload/start",
+        headers={
+            **_auth_headers(access_token),
+            "x-upload-platform": str(rom.platform_id),
+            "x-upload-filename": "Relax%20%EF%BD%9C%20432Hz.mp3",
+            "x-upload-total-size": "5",
+            "x-upload-total-chunks": "1",
+        },
+        json={"rom_id": rom.id, "folder": "soundtrack", "filename": name},
+    )
+    assert start.status_code == status.HTTP_201_CREATED, start.json()
+    upload_id = start.json()["upload_id"]
+    client.put(
+        f"/api/roms/upload/{upload_id}",
+        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        content=b"audio",
+    )
+    complete = client.post(
+        f"/api/roms/upload/{upload_id}/complete", headers=_auth_headers(access_token)
+    )
+
+    assert complete.status_code == status.HTTP_201_CREATED, complete.json()
+    on_disk = rom_upload_fs / rom.fs_path / ROM_FOLDER / "soundtrack" / name
+    assert on_disk.read_bytes() == b"audio"
+    track = db_rom_handler.get_rom_files_by_category(rom.id, RomFileCategory.SOUNDTRACK)
+    assert [f.file_name for f in track] == [name]
+
+
+def test_start_refuses_a_file_the_folder_category_cannot_hold(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
+
+    response = _start_into_rom(
+        client,
+        access_token,
+        rom,
+        filename="notes.txt",
+        folder="screenshots",
+        total_size=3,
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Unsupported image file type" in response.json()["detail"]
+
+
+def test_start_rejects_an_empty_body_filename(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
+
+    response = client.post(
+        "/api/roms/upload/start",
+        headers={
+            **_auth_headers(access_token),
+            "x-upload-platform": str(rom.platform_id),
+            "x-upload-filename": "fallback.bin",
+            "x-upload-total-size": "3",
+            "x-upload-total-chunks": "1",
+        },
+        json={"rom_id": rom.id, "filename": ""},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "filename" in response.json()["detail"].lower()
+
+
+def test_complete_into_the_walkthrough_folder_records_the_upload_source(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
+
+    response = _upload_into_rom(
+        client,
+        access_token,
+        rom,
+        filename="guide.txt",
+        folder="walkthrough",
+        data=b"Step 1: leave home.",
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    guides = db_rom_handler.get_rom_files_by_category(
+        rom.id, RomFileCategory.WALKTHROUGH
+    )
+    assert [f.file_name for f in guides] == ["guide.txt"]
+    assert guides[0].doc_meta is not None
+    assert guides[0].doc_meta.source == DocSource.UPLOAD
+
+
+def test_complete_into_a_category_folder_registers_the_category(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
+
+    response = _upload_into_rom(
+        client,
+        access_token,
+        rom,
+        filename="shot.png",
+        folder="screenshots",
+        data=b"\x89PNG",
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    shots = db_rom_handler.get_rom_files_by_category(rom.id, RomFileCategory.SCREENSHOT)
+    assert [f.file_name for f in shots] == ["shot.png"]
+
+
 def test_claim_destination_refuses_an_existing_file(tmp_path: Path):
     target = tmp_path / "game.bin"
 
-    upload_endpoint._claim_destination(target)
+    rom_upload.claim_destination(target)
     assert target.exists()
 
-    with pytest.raises(HTTPException) as excinfo:
-        upload_endpoint._claim_destination(target)
-    assert excinfo.value.status_code == status.HTTP_409_CONFLICT
+    with pytest.raises(rom_upload.UploadConflictException):
+        rom_upload.claim_destination(target)
