@@ -480,7 +480,11 @@ const presence = useActivityPresence(
     heartbeatInFlight = true;
     try {
       await handleSessionStatus(
-        await streamingStore.heartbeatSession(rom.value.platform_slug),
+        await streamingStore.heartbeatSession(
+          rom.value.platform_slug,
+          claimedContainer.value,
+          claimedAt.value,
+        ),
       );
     } finally {
       heartbeatInFlight = false;
@@ -534,6 +538,12 @@ async function handleSessionStatus(
   playerState.value = "exited";
   containerHost.value = "";
   presence.stopHeartbeat();
+  // Nothing is held any more, so the unload and unmount paths have nothing to
+  // hand back. Left standing, the claim would release whoever holds the
+  // container next.
+  holdsClaim.value = false;
+  claimedContainer.value = null;
+  claimedAt.value = null;
 
   endedNotice.value = status.termination ?? null;
   endedDialogOpen.value = true;
@@ -608,6 +618,9 @@ const stopSessionPoll = sessionPoll.pause;
 // Which container the claim won, so a launch push can be told from another
 // tab's. Null until the 202 lands, which is before any push can arrive.
 const claimedContainer = ref<string | null>(null);
+// The stamp the 202 answered with, which every release and heartbeat sends
+// back so a claim that replaced this one is never the one they reach.
+const claimedAt = ref<string | null>(null);
 
 function isOurLaunch(payload: { container?: string }): boolean {
   return payload.container === claimedContainer.value;
@@ -624,8 +637,19 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
   // The player left while the game was coming up. The claim is theirs and
   // still held, so hand the container back rather than entering the stream.
   if ((playerState.value as PlayerState) === "exited") {
-    claimedContainer.value = null;
-    void streamingStore.releaseSession(payload.platform, false);
+    const released = await streamingStore.releaseSession(
+      payload.platform,
+      false,
+      claimedContainer.value,
+      claimedAt.value,
+    );
+    // Only a release the backend took clears the claim; the unmount path is
+    // the retry for one that failed.
+    holdsClaim.value = !released;
+    if (released) {
+      claimedContainer.value = null;
+      claimedAt.value = null;
+    }
     return;
   }
   if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
@@ -642,6 +666,7 @@ useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   // The backend already released the claim, so there is nothing to hand back.
   holdsClaim.value = false;
   claimedContainer.value = null;
+  claimedAt.value = null;
   launchPhase.value = null;
   if ((playerState.value as PlayerState) === "exited") return;
   errorType.value = "server";
@@ -799,6 +824,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         multiplayerOnPlay.value,
       );
       claimedContainer.value = launching.container;
+      claimedAt.value = launching.claimed_at;
       holdsClaim.value = true;
       await flourish;
     }
@@ -921,6 +947,8 @@ async function performStop(): Promise<void> {
       const released = await streamingStore.releaseSession(
         rom.value?.platform_slug ?? "",
         false,
+        claimedContainer.value,
+        claimedAt.value,
       );
       // The claim only goes when the backend says it went. Left standing, it
       // tells the user why the container is still busy and gives the unmount
@@ -969,7 +997,12 @@ async function performSaveAndExit(): Promise<void> {
       // The save-and-exit request failed, so the claim may still be held;
       // fall back to a plain release so the container is freed before the
       // player is marked exited.
-      released = await streamingStore.releaseSession(rom.value.platform_slug);
+      released = await streamingStore.releaseSession(
+        rom.value.platform_slug,
+        true,
+        claimedContainer.value,
+        claimedAt.value,
+      );
     }
   } finally {
     isSavingAndExiting.value = false;
@@ -1204,7 +1237,11 @@ function onPageHide(): void {
   } else {
     // Still loading, or exited with a release that failed: nothing to save,
     // and this is the last chance to hand the container back.
-    streamingStore.releaseSessionKeepalive(platform);
+    streamingStore.releaseSessionKeepalive(
+      platform,
+      claimedContainer.value,
+      claimedAt.value,
+    );
   }
   // Guards the in-app unmount path from double-releasing if the page
   // comes back from the bfcache and is then navigated normally.
@@ -1270,7 +1307,12 @@ onBeforeUnmount(() => {
   } else {
     // Nothing is running, so there is nothing worth a state: asking for one
     // here would only file whatever the last session left in the slot.
-    void streamingStore.releaseSession(rom.value?.platform_slug ?? "", false);
+    void streamingStore.releaseSession(
+      rom.value?.platform_slug ?? "",
+      false,
+      claimedContainer.value,
+      claimedAt.value,
+    );
   }
 });
 </script>

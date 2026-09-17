@@ -114,9 +114,13 @@ async function releaseSession(
   reason?: string,
   container?: string,
   save?: boolean,
+  claimedAt?: string,
 ) {
   return api.delete(`/streaming/sessions/${platform}`, {
     params: {
+      // The claim this release is for, so a tab whose claim was taken over
+      // cannot end the one that replaced it. Admin releases send none.
+      ...(claimedAt !== undefined ? { claimed_at: claimedAt } : {}),
       // Sent whenever the caller supplied one, empty string included: the
       // backend treats the param's presence as "this is an admin force-release".
       ...(reason !== undefined ? { reason } : {}),
@@ -151,11 +155,15 @@ async function saveAndExit(platform: string, slot = 0, wait = true) {
   });
 }
 
-async function heartbeatSession(platform: string, container?: string) {
+async function heartbeatSession(
+  platform: string,
+  container?: string,
+  claimedAt?: string,
+) {
   return api.post<SessionStatus>(
     `/streaming/sessions/${platform}/heartbeat`,
     undefined,
-    { params: { container } },
+    { params: { container, claimed_at: claimedAt } },
   );
 }
 
@@ -224,9 +232,14 @@ function saveAndExitKeepalive(platform: string, slot = 0): Promise<Response> {
 function releaseSessionKeepalive(
   platform: string,
   container?: string,
+  claimedAt?: string,
 ): Promise<Response> {
-  // Names which container to release, for the platforms a pool serves.
-  const query = container ? `?container=${encodeURIComponent(container)}` : "";
+  // Names which container to release, for the platforms a pool serves, and
+  // which claim, so an unload cannot end the claim that replaced it.
+  const params = new URLSearchParams();
+  if (container) params.set("container", container);
+  if (claimedAt) params.set("claimed_at", claimedAt);
+  const query = params.size > 0 ? `?${params}` : "";
   return fetch(`/api/streaming/sessions/${platform}${query}`, {
     method: "DELETE",
     keepalive: true,

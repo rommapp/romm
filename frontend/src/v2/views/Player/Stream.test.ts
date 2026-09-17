@@ -12,7 +12,11 @@ const mocks = vi.hoisted(() => ({
   claimSession: vi.fn(),
   fetchConfig: vi.fn(),
   getRom: vi.fn(),
+  heartbeatSession: vi.fn(),
+  releaseSession: vi.fn(),
+  releaseSessionKeepalive: vi.fn(),
   container: null as Record<string, unknown> | null,
+  presenceTick: null as (() => Promise<void>) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
 }));
 
@@ -63,22 +67,25 @@ vi.mock("@/stores/streaming", () => ({
     fetchConfig: mocks.fetchConfig,
     fetchSessionStatus: vi.fn(),
     forgetJoinableSession: vi.fn(),
-    heartbeatSession: vi.fn(),
+    heartbeatSession: mocks.heartbeatSession,
     joinSession: vi.fn(),
-    releaseSession: vi.fn(),
-    releaseSessionKeepalive: vi.fn(),
+    releaseSession: mocks.releaseSession,
+    releaseSessionKeepalive: mocks.releaseSessionKeepalive,
     saveAndExit: vi.fn(),
     saveAndExitKeepalive: vi.fn(),
   }),
 }));
 
 vi.mock("@/v2/composables/useActivityPresence", () => ({
-  useActivityPresence: () => ({
-    start: vi.fn(),
-    stopHeartbeat: vi.fn(),
-    emitStop: vi.fn(),
-    stop: vi.fn(),
-  }),
+  useActivityPresence: (_rom: unknown, tick: () => Promise<void>) => {
+    mocks.presenceTick = tick;
+    return {
+      start: vi.fn(),
+      stopHeartbeat: vi.fn(),
+      emitStop: vi.fn(),
+      stop: vi.fn(),
+    };
+  },
 }));
 
 vi.mock("@/v2/composables/useBackgroundArt", () => ({
@@ -232,10 +239,15 @@ function saveList(wrapper: VueWrapper) {
     .find((s) => s.props("type") === "save");
 }
 
+const CLAIM = {
+  container: "WEBSTATION-DEV",
+  claimed_at: "2026-09-17T10:00:00",
+};
+
 describe("Stream save picker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.claimSession.mockResolvedValue({ container: "WEBSTATION-DEV" });
+    mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
   it("offers every archive, newest already picked", async () => {
@@ -355,6 +367,7 @@ type StreamVm = {
   onPlay: () => Promise<void>;
   playerState: string;
   endedDialogOpen: boolean;
+  holdsClaim: boolean;
 };
 
 function vmOf(wrapper: VueWrapper): StreamVm {
@@ -370,7 +383,7 @@ function endSession(notice: Record<string, unknown>): void {
 describe("Stream session-ended notices", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.claimSession.mockResolvedValue({ container: "WEBSTATION-DEV" });
+    mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
   it("ends the game when the notice names the container it claimed", async () => {
@@ -400,9 +413,9 @@ describe("Stream session-ended notices", () => {
   it("keeps launching when an admin's own desktop ends", async () => {
     // The 202 has not landed, so the container is not known yet and the
     // desktop flag is all that tells the two claims apart.
-    let claimed = (_: { container: string }) => {};
+    let claimed = (_: typeof CLAIM) => {};
     mocks.claimSession.mockReturnValue(
-      new Promise<{ container: string }>((resolve) => {
+      new Promise<typeof CLAIM>((resolve) => {
         claimed = resolve;
       }),
     );
@@ -418,7 +431,90 @@ describe("Stream session-ended notices", () => {
     await flushPromises();
 
     expect(vmOf(wrapper).playerState).toBe("loading");
-    claimed({ container: "WEBSTATION-DEV" });
+    claimed(CLAIM);
     await playing;
+  });
+});
+
+async function launchReady(): Promise<void> {
+  const handler = mocks.socketHandlers["streaming:launch-ready"];
+  expect(handler).toBeTypeOf("function");
+  await handler({
+    platform: "gba",
+    container: CLAIM.container,
+    host: "http://webstation-dev:8080",
+    resume: null,
+  });
+}
+
+describe("Stream claim hygiene", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimSession.mockResolvedValue(CLAIM);
+    mocks.releaseSession.mockResolvedValue(true);
+  });
+
+  it("names the claim it holds when it releases", async () => {
+    // An unnamed release reaches whatever the platform is running, which after
+    // a takeover is somebody else's session.
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    wrapper.unmount();
+
+    expect(mocks.releaseSession).toHaveBeenCalledWith(
+      "gba",
+      false,
+      CLAIM.container,
+      CLAIM.claimed_at,
+    );
+  });
+
+  it("releases nothing on unmount once the session ended elsewhere", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    endSession({ platform: "gba", container: CLAIM.container });
+    await flushPromises();
+    wrapper.unmount();
+
+    expect(vmOf(wrapper).holdsClaim).toBe(false);
+    expect(mocks.releaseSession).not.toHaveBeenCalled();
+  });
+
+  it("hands the container back once when the game comes up after the exit", async () => {
+    const wrapper = await launch({ picker: false });
+    const vm = vmOf(wrapper);
+    await vm.onPlay();
+    vm.playerState = "exited";
+
+    await launchReady();
+    await flushPromises();
+    wrapper.unmount();
+
+    expect(mocks.releaseSession).toHaveBeenCalledTimes(1);
+    expect(mocks.releaseSession).toHaveBeenCalledWith(
+      "gba",
+      false,
+      CLAIM.container,
+      CLAIM.claimed_at,
+    );
+  });
+
+  it("names the claim on the heartbeat", async () => {
+    // The heartbeat restamps whatever the platform is running otherwise, which
+    // keeps another player's session alive and lets this one go stale.
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.heartbeatSession.mockResolvedValue(null);
+
+    await mocks.presenceTick?.();
+
+    expect(mocks.heartbeatSession).toHaveBeenCalledWith(
+      "gba",
+      CLAIM.container,
+      CLAIM.claimed_at,
+    );
+    wrapper.unmount();
   });
 });

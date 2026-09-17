@@ -252,10 +252,18 @@ export const useStreamingStore = defineStore("streaming", () => {
   async function releaseSession(
     platform: string,
     save = true,
+    container?: string | null,
+    claimedAt?: string | null,
   ): Promise<boolean> {
     if (!platform) return false;
     try {
-      await streamingApi.releaseSession(platform, undefined, undefined, save);
+      await streamingApi.releaseSession(
+        platform,
+        undefined,
+        container ?? undefined,
+        save,
+        claimedAt ?? undefined,
+      );
       launchingSession.value = null;
       return true;
     } catch (err) {
@@ -302,11 +310,16 @@ export const useStreamingStore = defineStore("streaming", () => {
    */
   async function heartbeatSession(
     platform: string,
-    container?: string,
+    container?: string | null,
+    claimedAt?: string | null,
   ): Promise<SessionStatus | null> {
     if (!platform) return null;
     try {
-      const { data } = await streamingApi.heartbeatSession(platform, container);
+      const { data } = await streamingApi.heartbeatSession(
+        platform,
+        container ?? undefined,
+        claimedAt ?? undefined,
+      );
       return data;
     } catch (err) {
       console.warn("[streaming] Could not heartbeat session:", err);
@@ -352,12 +365,22 @@ export const useStreamingStore = defineStore("streaming", () => {
    * releaseSession for the pagehide path. Fire-and-forget via fetch
    * keepalive. Best-effort, never throws.
    */
-  function releaseSessionKeepalive(platform: string): void {
+  function releaseSessionKeepalive(
+    platform: string,
+    container?: string | null,
+    claimedAt?: string | null,
+  ): void {
     if (!platform) return;
     launchingSession.value = null;
-    streamingApi.releaseSessionKeepalive(platform).catch((err) => {
-      console.warn("[streaming] Could not release session (keepalive):", err);
-    });
+    streamingApi
+      .releaseSessionKeepalive(
+        platform,
+        container ?? undefined,
+        claimedAt ?? undefined,
+      )
+      .catch((err) => {
+        console.warn("[streaming] Could not release session (keepalive):", err);
+      });
   }
 
   return {
