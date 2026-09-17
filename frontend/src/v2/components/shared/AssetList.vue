@@ -501,12 +501,12 @@ const fadeIndex = computed(() =>
 /* Phones: the timestamp and the actions or check drop to a row of their own
    under the text, so the name gets the full width and wraps. */
 html[data-bp~="xs"] .r-asset-list__row {
-  padding: 8px 10px;
+  padding: var(--r-space-2) var(--r-space-3);
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
     "icon main main"
     ". time actions";
-  gap: 4px 10px;
+  gap: var(--r-space-1) var(--r-space-3);
 }
 html[data-bp~="xs"] .r-asset-list__icon {
   grid-area: icon;
@@ -527,6 +527,6 @@ html[data-bp~="xs"] .r-asset-list__actions {
   grid-area: actions;
 }
 html[data-bp~="xs"] .r-asset-list__actions {
-  margin-block: -4px;
+  margin-block: calc(-1 * var(--r-space-1));
 }
 </style>

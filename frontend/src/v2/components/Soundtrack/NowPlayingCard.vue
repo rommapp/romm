@@ -253,7 +253,7 @@ function openRom() {
 
 .r-v2-np-card__actions {
   display: flex;
-  gap: 2px;
+  gap: var(--r-space-1);
 }
 
 .r-v2-np-card__transport {

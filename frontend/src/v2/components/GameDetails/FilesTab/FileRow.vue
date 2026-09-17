@@ -287,7 +287,7 @@ const hasAnyHash = computed(
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   flex-shrink: 0;
 }
 
@@ -384,7 +384,7 @@ const hasAnyHash = computed(
    width and wraps instead of truncating. */
 html[data-bp~="xs"] .r-v2-file-row {
   flex-wrap: wrap;
-  row-gap: 4px;
+  row-gap: var(--r-space-1);
 }
 html[data-bp~="xs"] .r-v2-file-row__name {
   align-items: flex-start;
@@ -397,6 +397,6 @@ html[data-bp~="xs"] .r-v2-file-row__path {
 html[data-bp~="xs"] .r-v2-file-row__actions {
   flex-basis: 100%;
   justify-content: flex-end;
-  margin-bottom: -4px;
+  margin-bottom: calc(-1 * var(--r-space-1));
 }
 </style>

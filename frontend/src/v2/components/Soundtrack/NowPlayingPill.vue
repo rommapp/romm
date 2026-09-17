@@ -104,7 +104,7 @@ const progress = computed(() =>
   display: flex;
   align-items: center;
   height: var(--r-nav-pill-h);
-  padding: 0 2px 0 0;
+  padding-inline-end: var(--r-space-1);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-pill);

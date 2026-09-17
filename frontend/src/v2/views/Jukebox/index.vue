@@ -215,7 +215,7 @@ async function deleteSoundtrack(fileId: number, romId: number) {
 /* The divider under the title runs edge to edge; only the title is inset. */
 .jukebox__header {
   grid-column: 1 / -1;
-  padding-top: 24px;
+  padding-top: var(--r-space-6);
 }
 
 .jukebox__title {

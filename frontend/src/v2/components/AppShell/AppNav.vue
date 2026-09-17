@@ -218,6 +218,6 @@ html[data-bp~="xs"] .r-v2-nav__logo-word {
   display: none;
 }
 html[data-bp~="xs"] .r-v2-nav__right {
-  gap: 6px;
+  gap: var(--r-space-2);
 }
 </style>
