@@ -1565,11 +1565,10 @@ def test_a_container_that_disagrees_on_the_emulator_is_a_later_pool(caplog):
 
 
 def test_a_lone_container_is_a_pool_of_one(rom: Rom):
-    with _streaming(_pool_member(rom, 0)):
+    member = _pool_member(rom, 0)
+    with _streaming(member):
         pools = pools_for_platform(rom.platform_slug)
-    assert [[c.key for c in pool] for pool in pools] == [
-        [_key_of(_pool_member(rom, 0))]
-    ]
+    assert [[c.key for c in pool] for pool in pools] == [[_key_of(member)]]
 
 
 def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog):
