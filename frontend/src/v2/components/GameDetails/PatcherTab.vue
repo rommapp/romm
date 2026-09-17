@@ -523,7 +523,7 @@ const applyLabel = computed(() => {
             </template>
           </RSelect>
           <RDivider>
-            <span>{{ t("login.or") }}</span>
+            <span>{{ t("common.or") }}</span>
           </RDivider>
         </template>
 

@@ -1,7 +1,4 @@
 <script setup lang="ts" generic="I extends SubtabNavItem">
-// SubtabNav: subtab navigation for the GameDetails tabs that split into
-// sections. "list" is a rail beside the content; "menu" is a one-row trigger
-// (plus the `actions` slot) opening the list as a bottom sheet on phones.
 import { RBtn, RDivider, RIcon, RMenu, RMenuItem } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -25,6 +22,7 @@ const props = withDefaults(
   defineProps<{
     modelValue: I["id"];
     items: I[];
+    /** "list" is a side rail; "menu" a one-row trigger opening a sheet. */
     variant?: "list" | "menu";
   }>(),
   { variant: "list" },

@@ -185,13 +185,14 @@ onMounted(async () => {
       if (lastTrackWidth === 0 && w > 0) {
         animate.value = false;
         update();
-        revealActive("auto");
         requestAnimationFrame(() => {
           animate.value = true;
         });
       } else {
         update();
       }
+      // A narrower strip can clip the selected tab.
+      revealActive("auto");
       updateOverflow();
       lastTrackWidth = w;
     });

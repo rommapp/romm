@@ -47,7 +47,7 @@ onMounted(() => {
 
         <template v-if="oidcEnabled">
           <RDivider v-if="!loginDisabled" class="r-v2-login__or">
-            <span>{{ $t("login.or") }}</span>
+            <span>{{ $t("common.or") }}</span>
           </RDivider>
           <OIDCButton
             ref="oidcButtonRef"
