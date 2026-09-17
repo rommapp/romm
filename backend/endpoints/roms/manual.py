@@ -235,7 +235,7 @@ async def delete_rom_manual_file(
 ) -> Response:
     """Delete a single manual file from a ROM's manual/ subfolder."""
 
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility_label(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 

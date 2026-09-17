@@ -69,6 +69,7 @@ from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_FACET_COLUMNS,
     Rom,
+    RomDeletionTarget,
     RomFacets,
     RomFile,
     RomFileCategory,
@@ -79,6 +80,7 @@ from models.rom import (
     RomNote,
     RomUser,
     RomVisibility,
+    RomVisibilityLabel,
     SiblingRom,
     TrackMeta,
     compute_full_path_hash,
@@ -723,6 +725,62 @@ class DBRomsHandler(DBBaseHandler):
             return None
 
         return RomVisibility(id=row.id, platform_id=row.platform_id)
+
+    @begin_session
+    def get_rom_visibility_label(
+        self,
+        id: int,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> RomVisibilityLabel | None:
+        """`get_rom_visibility` plus the name pair the file-delete logs need."""
+        row = session.execute(
+            select(Rom.id, Rom.platform_id, Rom.name, Rom.fs_name).where(Rom.id == id)
+        ).one_or_none()
+
+        if row is None:
+            return None
+
+        return RomVisibilityLabel(
+            id=row.id, platform_id=row.platform_id, name=row.name, fs_name=row.fs_name
+        )
+
+    @begin_session
+    def get_rom_deletion_target(
+        self,
+        id: int,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> RomDeletionTarget | None:
+        """The columns the bulk-delete route reads off one rom, and no relations."""
+        row = session.execute(
+            select(
+                Rom.id,
+                Rom.platform_id,
+                Rom.name,
+                Rom.fs_name,
+                Rom.fs_path,
+                Platform.slug.label("platform_slug"),
+                Platform.name.label("platform_name"),
+                Platform.custom_name.label("platform_custom_name"),
+            )
+            .join(Platform, Rom.platform_id == Platform.id)
+            .where(Rom.id == id)
+        ).one_or_none()
+
+        if row is None:
+            return None
+
+        return RomDeletionTarget(
+            id=row.id,
+            platform_id=row.platform_id,
+            name=row.name,
+            fs_name=row.fs_name,
+            fs_path=row.fs_path,
+            platform_slug=row.platform_slug,
+            platform_name=row.platform_name,
+            platform_custom_name=row.platform_custom_name,
+        )
 
     @begin_session
     @with_simple_details
@@ -2478,7 +2536,13 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta))
+            .options(
+                selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
+                # `is_top_level` reads `rom.full_path`, and callers validate the
+                # row as a schema after this session has closed.
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+            )
             .filter_by(id=id)
             .limit(1)
         )

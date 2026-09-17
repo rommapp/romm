@@ -230,7 +230,7 @@ async def delete_rom_walkthrough_file(
 ) -> Response:
     """Delete a single walkthrough file from a ROM's walkthrough/ subfolder."""
 
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility_label(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
