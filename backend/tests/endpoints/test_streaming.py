@@ -1304,6 +1304,33 @@ def test_a_busy_pool_names_the_holder_while_a_member_drains(
     assert detail["claimed_at"] == holder["claimed_at"]
 
 
+def test_a_busy_pool_reports_a_drain_on_any_member(
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
+):
+    """The container about to come free is the one the waiting player is told to
+    wait for, wherever in the pool it sits."""
+    head, tail = _pool_member(rom, 0), _pool_member(rom, 1)
+    with _streaming(head, tail):
+        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        holder = json.loads(_session_raw(head))
+        assert (
+            asyncio.run(
+                session_store.claim_drain_marker(
+                    _key_of(tail), json.loads(_session_raw(tail))
+                )
+            )
+            is not None
+        )
+        r = _claim_ok(client, editor_access_token, rom.id)
+
+    assert r.status_code == 409
+    detail = r.json()["detail"]
+    assert detail["draining"] is True
+    assert detail["rom_name"] == rom.name
+    assert detail["claimed_at"] == holder["claimed_at"]
+
+
 def test_a_claim_never_lands_in_a_later_pool(
     client, access_token, viewer_access_token, rom: Rom
 ):
