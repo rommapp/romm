@@ -419,9 +419,6 @@ function seekValueText(v: number): string {
               {{ c.label }}
             </RChip>
           </div>
-          <div v-else-if="!activeTrack" class="r-v2-stp__now-hint">
-            {{ t("rom.soundtrack-placeholder-hint") }}
-          </div>
         </div>
 
         <!-- Transport: always rendered so the surface keeps its vocabulary
@@ -798,12 +795,6 @@ function seekValueText(v: number): string {
 /* A chip wider than the header (a long album name) ellipsizes its label. */
 .r-v2-stp__chip {
   max-width: 100%;
-}
-
-.r-v2-stp__now-hint {
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
-  max-width: 420px;
 }
 
 /* Controls: one strip in the stacked layout, a column in the rail. */
