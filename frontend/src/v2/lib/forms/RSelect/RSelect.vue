@@ -889,7 +889,7 @@ const hasAppendLabel = computed(() => !!slots["append-label"] || !!props.info);
 const describedBy = computed(() => {
   const ids = [
     showDetails.value && `${fieldId}-details`,
-    hasAppendLabel.value && `${fieldId}-append-label`,
+    props.info && `${fieldId}-info`,
   ].filter(Boolean);
   return ids.length > 0 ? ids.join(" ") : undefined;
 });
@@ -1123,19 +1123,15 @@ const describedBy = computed(() => {
         />
       </span>
 
-      <!-- Hidden from the field's name and read as its description instead;
-           swallows clicks so an info tooltip inside doesn't toggle the menu. -->
+      <!-- Swallows clicks so an info tooltip inside doesn't toggle the menu. -->
       <span
         v-if="hasAppendLabel"
-        :id="`${fieldId}-append-label`"
         class="r-select__label r-select__label--append"
-        aria-hidden="true"
         @click.stop
         @mousedown.stop
       >
         <slot name="append-label">
           <RIcon icon="mdi-information-outline" size="16" />
-          <span class="r-select__info-text">{{ info }}</span>
           <RTooltip
             v-model="infoOpen"
             activator="parent"
@@ -1146,6 +1142,9 @@ const describedBy = computed(() => {
           </RTooltip>
         </slot>
       </span>
+      <!-- Hidden so it stays out of the field's name; aria-describedby still
+           reads it. -->
+      <span v-if="info" :id="`${fieldId}-info`" hidden>{{ info }}</span>
     </button>
 
     <!-- Details row — error or hint. -->
@@ -1662,16 +1661,6 @@ const describedBy = computed(() => {
 }
 .r-select__field:has(.r-select__label--append) {
   overflow: hidden;
-}
-/* Read through the field's aria-describedby; the tooltip shows it on
-   screen. */
-.r-select__info-text {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 .r-select--inline .r-select__field {
   padding-inline-start: 0;

@@ -1,9 +1,15 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { nextTick } from "vue";
+import { useInputModality } from "@/v2/composables/useInputModality";
+import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import RSelect from "./RSelect.vue";
 
 describe("RSelect append label", () => {
+  const { setModality } = useInputModality();
+
+  afterEach(() => setModality("mouse"));
+
   function mountWith(options: { info?: string; slot?: string }) {
     return mount(RSelect, {
       props: {
@@ -17,15 +23,21 @@ describe("RSelect append label", () => {
     });
   }
 
-  it("reads the info as the field's description, not its name", () => {
-    const wrapper = mountWith({ info: "Slot info" });
-    const well = wrapper.get(".r-select__label--append");
+  function infoOpen(wrapper: ReturnType<typeof mountWith>) {
+    return wrapper.getComponent(RTooltip).props("modelValue");
+  }
 
-    expect(well.attributes("aria-hidden")).toBe("true");
-    expect(well.text()).toBe("Slot info");
-    expect(wrapper.get(".r-select__field").attributes("aria-describedby")).toBe(
-      well.attributes("id"),
-    );
+  it("describes the field with the info outside any aria-hidden subtree", () => {
+    const wrapper = mountWith({ info: "Slot info" });
+    const field = wrapper.get(".r-select__field");
+    const id = field.attributes("aria-describedby");
+    const description = document.getElementById(id ?? "");
+
+    expect(description?.textContent).toBe("Slot info");
+    expect(description?.closest("[aria-hidden='true']")).toBeNull();
+    expect(
+      wrapper.get(".r-select__label--append").attributes("aria-hidden"),
+    ).toBeUndefined();
     wrapper.unmount();
   });
 
@@ -54,6 +66,42 @@ describe("RSelect append label", () => {
     expect(
       wrapper.get(".r-select__field").attributes("aria-describedby"),
     ).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it.each(["key", "pad"] as const)(
+    "reveals the info when the field takes %s focus",
+    async (modality) => {
+      setModality(modality);
+      const wrapper = mountWith({ info: "Slot info" });
+
+      await wrapper.get(".r-select__field").trigger("focus");
+      expect(infoOpen(wrapper)).toBe(true);
+
+      await wrapper.get(".r-select__field").trigger("blur");
+      expect(infoOpen(wrapper)).toBe(false);
+      wrapper.unmount();
+    },
+  );
+
+  it("keeps the info closed on mouse focus", async () => {
+    const wrapper = mountWith({ info: "Slot info" });
+
+    await wrapper.get(".r-select__field").trigger("focus");
+
+    expect(infoOpen(wrapper)).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("closes the info once the menu opens", async () => {
+    setModality("key");
+    const wrapper = mountWith({ info: "Slot info" });
+
+    await wrapper.get(".r-select__field").trigger("focus");
+    await wrapper.get(".r-select__field").trigger("click");
+
+    expect(wrapper.emitted("open")).toHaveLength(1);
+    expect(infoOpen(wrapper)).toBe(false);
     wrapper.unmount();
   });
 });
