@@ -191,16 +191,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="r-v2-shell">
+  <div class="r-v2-app-shell">
     <BackgroundArt
       :layer-a="layerA"
       :layer-b="layerB"
       :active-layer="activeLayer"
     />
 
-    <div class="r-v2-shell__app">
+    <div class="r-v2-app-shell__body">
       <AppNav v-if="!playingStore.stageActive" />
-      <main id="r-v2-main" class="r-v2-shell__main" tabindex="-1">
+      <main id="r-v2-main" class="r-v2-app-shell__main" tabindex="-1">
         <router-view name="v2" />
       </main>
       <BottomNav v-if="!playingStore.stageActive" />
@@ -224,9 +224,11 @@ onBeforeUnmount(() => {
        document overflow → no document scrollbar on those routes.
      · Views with natural flow (Home, Settings, Patcher, Scan, etc.)
        grow with content and the document scrolls. */
-.r-v2-shell {
+.r-v2-app-shell {
   color: var(--r-color-fg);
   position: relative;
+  /* Keep this class unique to the layout: Vue copies the parent scope id onto a
+     child's root element, so a route-root section reusing it inherits this. */
   /* `dvh` tracks the mobile visible viewport (address bar shown/hidden).
      `vh` (the large viewport) leaves the app taller than the screen while
      the bar is visible, forcing a second, document-level scroll on top of
@@ -235,16 +237,16 @@ onBeforeUnmount(() => {
   min-height: 100dvh;
 }
 
-.r-v2-shell__app {
+.r-v2-app-shell__body {
   position: relative;
   z-index: 2;
-  /* Matches .r-v2-shell so the absolutely-positioned BottomNav anchor
+  /* Matches .r-v2-app-shell so the absolutely-positioned BottomNav anchor
      spans the viewport even when the content is shorter than the screen. */
   min-height: 100vh;
   min-height: 100dvh;
 }
 
-.r-v2-shell__main {
+.r-v2-app-shell__main {
   position: relative;
   padding-top: var(--r-nav-h);
   outline: none;
@@ -256,7 +258,7 @@ onBeforeUnmount(() => {
    clear of the bar. Fixed-height views with their own internal scroll
    (galleries) subtract the same amount from their height calc so the
    totals still sum to one viewport with no document overflow. */
-html[data-bp~="sm-and-down"] .r-v2-shell__main {
+html[data-bp~="sm-and-down"] .r-v2-app-shell__main {
   padding-bottom: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom));
 }
 </style>
