@@ -307,10 +307,7 @@ useIntervalFn(() => {
 
 /* Hover is gated to pointer modalities so a parked cursor doesn't compete with
    the focused element under keyboard / gamepad. */
-html[data-input="mouse"]
-  .r-v2-widget-anniv__body:hover
-  .r-v2-widget-anniv__name,
-html[data-input="touch"]
+html:not([data-input="pad"])
   .r-v2-widget-anniv__body:hover
   .r-v2-widget-anniv__name,
 .r-v2-widget-anniv__body:focus-visible .r-v2-widget-anniv__name {

@@ -201,8 +201,9 @@ onMounted(() => reroll({ notify: false }));
 
 /* Hover is gated to pointer modalities so a parked cursor doesn't
    compete with the focused element under keyboard / gamepad. */
-html[data-input="mouse"] .r-v2-widget-pick__body:hover .r-v2-widget-pick__name,
-html[data-input="touch"] .r-v2-widget-pick__body:hover .r-v2-widget-pick__name,
+html:not([data-input="pad"])
+  .r-v2-widget-pick__body:hover
+  .r-v2-widget-pick__name,
 .r-v2-widget-pick__body:focus-visible .r-v2-widget-pick__name {
   color: var(--r-color-brand-primary);
 }
