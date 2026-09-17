@@ -742,14 +742,11 @@ def get_rom_identifiers(
 ) -> list[int]:
     """Retrieve rom identifiers."""
     perms = get_permissions(request)
-    db_roms = db_rom_handler.get_roms_scalar(
+    return db_rom_handler.get_rom_ids(
         user_id=request.user.id,
-        only_fields=[Rom.id],
         hidden_platform_ids=perms.hidden_platform_ids,
         hidden_rom_ids=perms.hidden_rom_ids,
     )
-
-    return [r.id for r in db_roms]
 
 
 @protected_route(router.get, "/random", [Scope.ROMS_READ])
@@ -868,18 +865,20 @@ async def download_roms(
 
     # Resolve the target ROM IDs
     if platform_id or collection_id or virtual_collection_id or smart_collection_id:
-        rom_rows = db_rom_handler.get_roms_scalar(
-            user_id=request.user.id,
-            only_fields=[Rom.id],
-            platform_ids=[platform_id] if platform_id else None,
-            collection_id=collection_id,
-            virtual_collection_id=virtual_collection_id,
-            smart_collection_id=smart_collection_id,
-            hidden_platform_ids=list(perms.hidden_platform_ids),
-            hidden_rom_ids=list(perms.hidden_rom_ids),
-            **HAS_FILE_ON_DISK_FILTERS,
+        rom_id_list = list(
+            dict.fromkeys(
+                db_rom_handler.get_rom_ids(
+                    user_id=request.user.id,
+                    platform_ids=[platform_id] if platform_id else None,
+                    collection_id=collection_id,
+                    virtual_collection_id=virtual_collection_id,
+                    smart_collection_id=smart_collection_id,
+                    hidden_platform_ids=list(perms.hidden_platform_ids),
+                    hidden_rom_ids=list(perms.hidden_rom_ids),
+                    **HAS_FILE_ON_DISK_FILTERS,
+                )
+            )
         )
-        rom_id_list = list(dict.fromkeys(rom.id for rom in rom_rows))
     elif rom_ids:
         try:
             rom_id_list = parse_comma_separated_ids(rom_ids, "ROM ID")
