@@ -1,8 +1,7 @@
 """The rom-notes routes resolve a ROM from its two identifying columns.
 
-The 404 and visibility checks need a ROM's id and platform id and nothing else,
-so the routes must not pay for the `get_rom` related load (platform, files,
-metadata, saves, states, screenshots, rom_users, siblings, collections, notes).
+The 404 and visibility checks need only a ROM's id and platform id, so the
+routes must not pay for the `get_rom` related load.
 """
 
 from fastapi import status
@@ -12,8 +11,8 @@ from handler.database import db_rom_handler
 from models.rom import Rom
 from models.user import User
 
-# What `get_rom` eager-loads. None of it backs the id / platform id pair a notes
-# route checks before it answers.
+# The tables `get_rom` eager-loads, minus `rom_notes` and `platforms`, both of
+# which the notes queries themselves read.
 EAGER_TABLES = (
     "rom_files",
     "roms_metadata",
@@ -27,7 +26,9 @@ EAGER_TABLES = (
     "rom_file_doc_meta",
 )
 
-ROM_LOOKUP = "SELECT roms.id, roms.platform_id FROM roms WHERE roms.id = ?"
+# Truncated at the bind placeholder: MariaDB renders `?` and psycopg
+# `%(id_1)s::INTEGER`, and CI runs both.
+ROM_LOOKUP = "SELECT roms.id, roms.platform_id FROM roms WHERE roms.id ="
 
 
 def _headers(access_token: str) -> dict[str, str]:
@@ -45,7 +46,8 @@ def _reads(statements: list[str], table: str) -> list[str]:
 def _assert_narrow_rom_lookup(statements: list[str]) -> None:
     flat = _flat(statements)
 
-    assert [s for s in flat if s == ROM_LOOKUP] == [ROM_LOOKUP], flat
+    narrow = [s for s in flat if s.startswith(ROM_LOOKUP)]
+    assert len(narrow) == 1, flat
 
     for table in EAGER_TABLES:
         assert _reads(statements, table) == [], table

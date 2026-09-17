@@ -112,9 +112,6 @@ def assert_rom_visible(
 ) -> None:
     """Raise 404 (not 403) when the rom is hidden from the caller.
 
-    Takes a ``RomVisibility`` as well as a ``Rom`` so callers that only need the
-    check can skip the full related load.
-
     Defaults to the standard ``RomNotFoundInDatabaseException`` message; pass
     ``not_found_detail`` for endpoints with a bespoke 404 (metadata-id / hash
     lookups) so the masked response is indistinguishable from their not-found.
