@@ -1,6 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
-import browserslist from "browserslist";
 import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
@@ -58,45 +57,6 @@ const VUETIFY_COMPONENTS = [
   "vuetify/components/VWindow",
 ];
 
-// Maps browserslist browser ids to the esbuild-style ids that Vite's
-// `build.target` and `build.cssTarget` understand. Engines not listed here
-// (and_chr, samsung, kaios, ...) share a rendering engine with one of these or
-// track "latest", so skipping them changes neither the emitted prefixes nor
-// the emitted syntax.
-const BROWSERSLIST_TO_ESBUILD = {
-  chrome: "chrome",
-  edge: "edge",
-  firefox: "firefox",
-  ios_saf: "ios",
-  opera: "opera",
-  safari: "safari",
-};
-
-// Translate the shared `.browserslistrc` baseline into the esbuild target
-// format Vite wants for both `build.target` (the syntax esbuild emits, ours
-// and any dependency's) and `build.cssTarget`. Vite 8 minifies CSS with
-// Lightning CSS, which reads only `build.cssTarget` on the minify path, never
-// `css.lightningcss.targets`; without targets it drops the generated
-// `-webkit-backdrop-filter` and every glass surface breaks in Safari.
-function esbuildTargetsFromBrowserslist() {
-  const lowest = {};
-  for (const entry of browserslist()) {
-    const [id, range] = entry.split(" ");
-    const name = BROWSERSLIST_TO_ESBUILD[id];
-    if (!name) continue;
-    const version = range.split("-")[0]; // "16.4-16.5" -> "16.4"
-    const asNumber = Number.parseFloat(version);
-    if (lowest[name] === undefined || asNumber < lowest[name].asNumber) {
-      lowest[name] = { asNumber, version };
-    }
-  }
-  return Object.entries(lowest).map(
-    ([name, { version }]) => `${name}${version}`,
-  );
-}
-
-const esbuildTargets = esbuildTargetsFromBrowserslist();
-
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load ENV variables from the parent directory and the current directory.
@@ -115,15 +75,17 @@ export default defineConfig(({ mode }) => {
       include: VUETIFY_COMPONENTS,
     },
     build: {
-      target: esbuildTargets,
+      // Vite's baseline: chrome111, edge111, firefox114, safari16.4, ios16.4,
+      // a little below the floor we support (Chromium 117, for CSS subgrid).
+      // `build.cssTarget` inherits it and Lightning CSS prefixes from it, so
+      // never set `esnext`: that drops the generated `-webkit-backdrop-filter`
+      // and every glass surface breaks in Safari. Never hand-write the
+      // `-webkit-` twin either, Lightning CSS keeps only the last of the pair.
+      target: "baseline-widely-available",
       // AudioWorklet.addModule is only dependable with a real URL, and Vite
       // inlines any asset under 4KB as a data: URI, so keep the worklet out.
       assetsInlineLimit: (filePath) =>
         filePath.endsWith("pico8AudioWorklet.js") ? false : undefined,
-      // Never hand-write a `-webkit-` twin next to a standard property:
-      // Lightning CSS collapses the pair to whichever is declared last, so let
-      // it generate the prefixes from these targets.
-      cssTarget: esbuildTargets,
     },
     plugins: [
       tailwindcss(),
