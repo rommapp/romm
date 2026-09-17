@@ -4,7 +4,6 @@
 // screen so only one "now playing" surface exists at a time.
 import {
   RBtn,
-  RChip,
   RIcon,
   RSkeletonBlock,
   RSlider,
@@ -14,7 +13,6 @@ import {
 import { storeToRefs } from "pinia";
 import { computed, defineAsyncComponent, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type { TrackMetaSchema } from "@/__generated__";
 import useMusicFavorites from "@/stores/musicFavorites";
 import useSoundtrackPlayer, {
   type PlayerMeta,
@@ -168,19 +166,23 @@ const activeTrack = computed(() =>
   tracks.value.find((track) => track.id === activeTrackId.value),
 );
 
-const activeMeta = computed<TrackMetaSchema | undefined>(
-  () => activeTrack.value?.meta,
+// Before anything plays the header previews the queue's first track, so it
+// never changes shape when playback starts.
+const headerTrack = computed(
+  () => activeTrack.value ?? displayedTracks.value[0],
 );
 
-const activeArtUrl = computed(
+const headerArtUrl = computed(
   () =>
-    activeTrack.value?.coverUrl ??
-    activeTrack.value?.gameArtworkUrl ??
+    headerTrack.value?.coverUrl ??
+    headerTrack.value?.gameArtworkUrl ??
     props.fallbackArtUrl ??
     null,
 );
 
-const activeTitle = computed(() => activeTrack.value?.title ?? "");
+const headerCaption = computed(
+  () => headerTrack.value?.meta?.album ?? headerTrack.value?.meta?.artist ?? "",
+);
 
 function onViewportRange(range: { first: number; last: number }) {
   emit("reached", range.last);
@@ -200,35 +202,6 @@ watch(activeTrackId, async (fileId, previousFileId) => {
     ?.querySelector<HTMLElement>(`[data-track-id="${fileId}"]`)
     ?.scrollIntoView({ block: "nearest" });
 });
-
-// Chips shown in the now-playing header. The artist is not repeated here
-// because it has its own line right above.
-type ChipItem = { icon: string; label: string; color?: string };
-
-function headerChips(meta: TrackMetaSchema | undefined): ChipItem[] {
-  if (!meta) return [];
-  const items: ChipItem[] = [];
-  if (meta.album) items.push({ icon: "mdi-album", label: meta.album });
-  if (meta.year)
-    items.push({
-      icon: "mdi-calendar",
-      label: String(meta.year),
-      color: "accent",
-    });
-  if (meta.genre)
-    items.push({ icon: "mdi-music-clef-treble", label: meta.genre });
-  if (meta.track)
-    items.push({
-      icon: "mdi-numeric",
-      label: t("rom.chip-track-n", { n: meta.track }),
-    });
-  if (meta.disc)
-    items.push({
-      icon: "mdi-disc",
-      label: t("rom.chip-disc-n", { n: meta.disc }),
-    });
-  return items;
-}
 
 const totalDurationSeconds = computed(() =>
   tracks.value.reduce(
@@ -345,9 +318,9 @@ function seekValueText(v: number): string {
     <div class="r-v2-stp" :class="{ 'r-v2-stp--wide': wide }">
       <!-- Blurred echo of the active art behind the whole surface. -->
       <div
-        v-if="activeArtUrl"
+        v-if="headerArtUrl"
         class="r-v2-stp__ambient"
-        :style="{ backgroundImage: `url(${activeArtUrl})` }"
+        :style="{ backgroundImage: `url(${headerArtUrl})` }"
         aria-hidden="true"
       />
 
@@ -363,16 +336,16 @@ function seekValueText(v: number): string {
             aria-hidden="true"
           >
             <img
-              v-if="activeArtUrl"
-              :src="activeArtUrl"
+              v-if="headerArtUrl"
+              :src="headerArtUrl"
               class="r-v2-stp__vinyl-label"
               alt=""
             />
           </div>
           <div class="r-v2-stp__art">
             <img
-              v-if="activeArtUrl"
-              :src="activeArtUrl"
+              v-if="headerArtUrl"
+              :src="headerArtUrl"
               class="r-v2-stp__art-img"
               alt=""
             />
@@ -388,37 +361,12 @@ function seekValueText(v: number): string {
         </div>
 
         <div class="r-v2-stp__now-body">
-          <div class="r-v2-stp__now-eyebrow">
-            <span v-if="loading">
-              <RSpinner :size="14" />
-              {{ t("rom.loading-metadata") }}
-            </span>
-            <span v-else-if="activeTrack" class="r-v2-stp__now-state">
-              {{ isPlaying ? t("rom.now-playing") : t("rom.paused") }}
-            </span>
-            <span v-else>
-              {{ t("rom.tracks-n", trackCount, { named: { n: trackCount } }) }}
-            </span>
-          </div>
-          <h3 v-if="activeTrack" class="r-v2-stp__now-title">
-            {{ activeTitle }}
+          <h3 class="r-v2-stp__now-title" :title="headerTrack?.title">
+            {{ headerTrack?.title }}
           </h3>
-          <div v-if="activeMeta?.artist" class="r-v2-stp__now-artist">
-            {{ activeMeta.artist }}
-          </div>
-          <div v-if="activeMeta" class="r-v2-stp__chips">
-            <RChip
-              v-for="(c, i) in headerChips(activeMeta)"
-              :key="`h-${i}`"
-              class="r-v2-stp__chip"
-              size="small"
-              variant="translucent"
-              :color="c.color"
-              :prepend-icon="c.icon"
-            >
-              {{ c.label }}
-            </RChip>
-          </div>
+          <p class="r-v2-stp__now-caption" :title="headerCaption">
+            {{ headerCaption }}
+          </p>
         </div>
 
         <!-- Transport: always rendered so the surface keeps its vocabulary
@@ -456,14 +404,14 @@ function seekValueText(v: number): string {
               variant="flat"
               color="primary"
               class="r-v2-stp__play"
-              :disabled="!activeTrack"
+              :disabled="!headerTrack"
               :tooltip="
                 isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
               "
               :aria-label="
                 isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
               "
-              @click="player.togglePlayPause()"
+              @click="headerTrack && selectTrack(headerTrack.id)"
             />
             <RBtn
               icon="mdi-skip-next"
@@ -598,8 +546,7 @@ function seekValueText(v: number): string {
   pointer-events: none;
 }
 
-/* Hero: stacked by default, art + text side by side over the transport strip.
-   Top-aligned so the art stays put while the chips load under the title. */
+/* Hero: stacked by default, art + title side by side over the transport strip. */
 .r-v2-stp__hero {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -746,55 +693,32 @@ function seekValueText(v: number): string {
 
 .r-v2-stp__now-body {
   grid-area: body;
+  align-self: center;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--r-space-2);
+  gap: var(--r-space-1);
 }
 
-.r-v2-stp__now-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-2);
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.r-v2-stp__now-state {
-  color: var(--r-color-brand-primary);
+/* One line each, reserved even when empty, so the header never resizes. */
+.r-v2-stp__now-title,
+.r-v2-stp__now-caption {
+  margin: 0;
+  min-height: 1lh;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .r-v2-stp__now-title {
-  margin: 0;
   font-size: var(--r-font-size-xl);
   font-weight: var(--r-font-weight-semibold);
   line-height: var(--r-line-height-tight);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
-.r-v2-stp__now-artist {
+.r-v2-stp__now-caption {
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-md);
-}
-
-.r-v2-stp__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--r-space-1);
-  margin-top: var(--r-space-1);
-}
-
-/* A chip wider than the header (a long album name) ellipsizes its label. */
-.r-v2-stp__chip {
-  max-width: 100%;
 }
 
 /* Controls: one strip in the stacked layout, a column in the rail. */
@@ -946,8 +870,6 @@ function seekValueText(v: number): string {
 
   .r-v2-stp--wide .r-v2-stp__now-title {
     font-size: var(--r-font-size-2xl);
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
   }
 
   .r-v2-stp--wide .r-v2-stp__controls {
