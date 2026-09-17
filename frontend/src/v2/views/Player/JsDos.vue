@@ -34,9 +34,8 @@ useFullscreenFallback();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-// A launch isolates the document and boots an emulator into it, and the rest
-// of the app cannot live there, so a player that ran hands the tab back a
-// fresh document.
+// An isolated document cannot host the rest of the app, so a player that ran
+// hands the tab back a fresh one.
 let runtimeBound = false;
 const exit = usePlayerExit(() => runtimeBound);
 
@@ -171,9 +170,8 @@ function onlyQuit() {
 useUnloadGuard(() => !!dos && !quitting.value);
 
 onMounted(async () => {
-  // The runtime reads nothing from the ROM payload, so let both loads overlap
-  // instead of holding the 300 KB bundle behind the API roundtrip. Not on a
-  // leg that is about to relaunch, which would throw the bundle away.
+  // The runtime reads nothing from the ROM payload, so overlap the two loads.
+  // Not on a leg about to relaunch, which would throw the bundle away.
   if (hasSharedArrayBuffer()) {
     void loadJsDosRuntime().catch((e: unknown) => console.error(e));
   }

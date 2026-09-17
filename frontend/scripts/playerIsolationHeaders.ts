@@ -1,8 +1,6 @@
-/**
- * The dev server's stand-in for nginx's COOP/COEP map, reading its URLs from
- * the nginx template so the two cannot drift. Only the player URLs are
- * isolated: COEP would block the third-party images the rest of the app embeds.
- */
+// The dev server's stand-in for nginx's COOP/COEP map, reading its URLs from
+// the template so the two cannot drift. Only the player URLs are isolated:
+// COEP would block the third-party images the rest of the app embeds.
 import { readFileSync } from "node:fs";
 import type { Connect, Plugin } from "vite";
 
