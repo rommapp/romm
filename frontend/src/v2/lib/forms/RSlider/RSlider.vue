@@ -30,6 +30,9 @@ interface Props {
   valueSuffix?: string;
   /** Render tick dots along the track (every `step`). */
   showTicks?: boolean;
+  /** Stand the track upright, filling the slider's height (set one on it).
+   *  Meant for a bare track: pair with `valuePosition="none"`. */
+  vertical?: boolean;
   /** ARIA label when no visible label exists. */
   ariaLabel?: string;
 }
@@ -45,6 +48,7 @@ const props = withDefaults(defineProps<Props>(), {
   valuePosition: "none",
   valueSuffix: "",
   showTicks: false,
+  vertical: false,
   ariaLabel: undefined,
 });
 
@@ -141,6 +145,7 @@ function onChange() {
         'r-slider--disabled': disabled,
         'r-slider--readonly': readonly,
         'r-slider--dragging': dragging,
+        'r-slider--vertical': vertical,
       },
     ]"
     :style="{
@@ -168,7 +173,7 @@ function onChange() {
         :aria-valuemin="min"
         :aria-valuemax="max"
         :aria-valuenow="modelValue"
-        :aria-orientation="'horizontal'"
+        :aria-orientation="vertical ? 'vertical' : 'horizontal'"
         :aria-readonly="readonly || undefined"
         @input="onInput"
         @change="onChange"
@@ -227,6 +232,22 @@ function onChange() {
 .r-slider--disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* Vertical: the horizontal track stands on end, as long as the slider is
+   tall. Browsers hit-test and drag rotated range inputs natively. */
+.r-slider--vertical {
+  position: relative;
+  width: 32px;
+  height: 100%;
+  container-type: size;
+}
+.r-slider--vertical .r-slider__core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100cqh;
+  transform: translate(-50%, -50%) rotate(-90deg);
 }
 
 .r-slider__core {
@@ -294,7 +315,7 @@ function onChange() {
   width: 14px;
   height: 14px;
   background: var(--r-slider-accent);
-  border: 2px solid var(--r-color-fg);
+  border: 1px solid var(--r-color-fg);
   border-radius: 50%;
   margin-top: -5.5px;
   box-shadow: var(--r-elev-1);
@@ -340,7 +361,7 @@ function onChange() {
   width: 14px;
   height: 14px;
   background: var(--r-slider-accent);
-  border: 2px solid var(--r-color-fg);
+  border: 1px solid var(--r-color-fg);
   border-radius: 50%;
   box-shadow: var(--r-elev-1);
   cursor: pointer;
