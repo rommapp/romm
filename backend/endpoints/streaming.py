@@ -263,13 +263,19 @@ async def get_config(request: Request) -> StreamingConfigSchema:
     # platform and the claim decides which container serves it.
     safe_containers: dict[str, dict[str, Any]] = {}
     for c in resolve_containers():
-        if c.platform in safe_containers:
+        # No key, no claim: the Play button this entry puts on the platform
+        # could only ever fail. The fleet view is where the operator sees why.
+        if not c.key:
+            continue
+        # Platforms match case-insensitively everywhere else, so records
+        # differing only in case are one platform here too.
+        if c.platform.lower() in safe_containers:
             continue
         # The record carries the platform's label and capabilities, so a
         # platform hidden from this caller must not be listed here either.
         if not access.platform_is_visible(request, c.platform):
             continue
-        safe_containers[c.platform] = {
+        safe_containers[c.platform.lower()] = {
             "platform": c.platform,
             "host": c.host,
             "label": c.label,

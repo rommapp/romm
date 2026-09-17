@@ -53,6 +53,7 @@ from handler.streaming.capabilities import (
 from handler.streaming.config import (
     ResolvedContainer,
     _derive_broker_host,
+    configured_emulator,
     emulator_display_label,
     pools_for_platform,
     reset_cache,
@@ -680,6 +681,47 @@ def test_get_config_offers_disc_swap_only_on_a_webstation_container(
 
     assert legacy_caps["supports_disc_swap"] is False
     assert ws_caps["supports_disc_swap"] is True
+
+
+def test_get_config_leaves_out_a_container_no_claim_can_reach(client, access_token):
+    """A host with no scheme resolves to no key, so every claim on it fails.
+    Listing it put a Play button on a platform that could never stream."""
+    with _streaming({"platform": "ps2", "host": "192.168.1.10:3000"}):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    assert response.json()["containers"] == []
+
+
+def test_get_config_lists_a_platform_once_whatever_the_case(client, access_token):
+    """Platforms are matched case-insensitively everywhere else, so two records
+    naming one platform in different case are one platform to every claim."""
+    with _streaming(
+        {"platform": "PS2", "host": "http://box-a:3000"},
+        {"platform": "ps2", "host": "http://box-b:3000"},
+    ):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    assert len(response.json()["containers"]) == 1
+
+
+def test_configured_emulator_names_the_container_a_claim_wins(client):
+    """Slot ceilings are read off this emulator, so it has to be the one on the
+    container a claim lands on, not the first record in the file."""
+    with _streaming(
+        {"platform": "ps2", "host": "192.168.1.10:3000", "emulator": "retroarch"},
+        {
+            "platform": "ps2",
+            "host": "http://box:3000",
+            "broker_host": "http://box:8000",
+            "emulator": "pcsx2",
+        },
+    ):
+        assert configured_emulator("ps2") == "pcsx2"
+
+
+def test_configured_emulator_is_empty_without_a_claimable_container(client):
+    with _streaming({"platform": "ps2", "host": "192.168.1.10:3000"}):
+        assert configured_emulator("ps2") == ""
 
 
 # ── Nested platform config ────────────────────────────────────────────────────

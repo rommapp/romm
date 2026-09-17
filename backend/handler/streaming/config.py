@@ -610,9 +610,14 @@ def container_for_session(
 
 
 def configured_emulator(platform: str) -> str:
-    """The emulator a configured container serves this platform with, if any."""
-    entry = entry_for_platform(resolve_containers(), platform)
-    return entry.emulator if entry else ""
+    """The emulator the container a claim wins serves this platform with.
+
+    Empty when no container can be claimed for it: slot ceilings are read off
+    this, so the answer has to come from the pool a claim walks rather than
+    from whichever record the file happens to list first.
+    """
+    pool = containers_for_platform(platform)
+    return pool[0].emulator if pool else ""
 
 
 def streaming_enabled() -> bool:
