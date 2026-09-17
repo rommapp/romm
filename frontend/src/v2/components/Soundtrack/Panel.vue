@@ -28,8 +28,8 @@ import type { PanelTrack } from "@/v2/utils/soundtrackTracks";
 import { formatTrackTime } from "@/v2/utils/time";
 import TrackRow from "./TrackRow.vue";
 
-// Row heights must match `.r-v2-stp__row` (and its xs override) in TrackRow's
-// stylesheet; ROW_GAP is its bottom margin.
+// RVirtualScroller needs exact row heights; TrackRow sizes itself from the
+// same numbers through `rowVars`.
 const ROW_HEIGHT = 48;
 const ROW_HEIGHT_XS = 56;
 const ROW_GAP = 4;
@@ -72,6 +72,10 @@ const favorites = useMusicFavorites();
 const canEditPlaylists = useCan("playlist.edit");
 const { xs } = useBreakpoint();
 const rowHeight = computed(() => (xs.value ? ROW_HEIGHT_XS : ROW_HEIGHT));
+const rowVars = computed(() => ({
+  "--stp-row-h": `${rowHeight.value}px`,
+  "--stp-row-gap": `${ROW_GAP}px`,
+}));
 
 // Stable references: inline closures would change on every playback tick and
 // make the scroller rebuild its whole offset table.
@@ -519,6 +523,7 @@ function seekValueText(v: number): string {
         <RVirtualScroller
           v-else-if="displayedTracks.length"
           class="r-v2-stp__list"
+          :style="rowVars"
           :items="displayedTracks"
           :get-item-height="getItemHeight"
           :get-item-key="getItemKey"

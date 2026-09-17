@@ -20,6 +20,7 @@ import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byUpdatedDesc,
@@ -82,6 +83,7 @@ defineSlots<{
 }>();
 
 const { t, locale } = useI18n();
+const { xs } = useBreakpoint();
 
 const emptyLabel = computed(() =>
   props.type === "save"
@@ -227,7 +229,7 @@ const fadeIndex = computed(() =>
               <AssetTimestamp
                 class="r-asset-list__time"
                 :date="dateOf(asset, timestamp)"
-                align="end"
+                :align="xs && !selectable ? 'start' : 'end'"
               />
 
               <span
@@ -521,7 +523,6 @@ html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__name {
 }
 html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__time {
   grid-area: time;
-  align-items: flex-start;
 }
 html[data-bp~="xs"] .r-asset-list__row--static .r-asset-list__actions {
   grid-area: actions;

@@ -124,10 +124,6 @@ const hasAnyHash = computed(
     v-bind="$attrs"
   >
     <span class="r-v2-file-row__lead">
-      <!-- The wrapper matches the filename's first-line box height
-           (font-size × line-height) so `align-items: center` inside it
-           lands the checkbox box on the filename's vertical centre,
-           regardless of how many secondary lines stack below. -->
       <span class="r-v2-file-row__check">
         <RCheckbox
           :model-value="selected"
@@ -305,7 +301,6 @@ const hasAnyHash = computed(
   display: inline-flex;
   align-items: center;
   min-height: 20px;
-  flex-shrink: 0;
 }
 
 .r-v2-file-row__main {
