@@ -250,6 +250,7 @@ export const PromotedTypingInSearch: Story = {
   name: "Promotion on — typing in panel search",
   render: promoteFilledRender(),
   play: async ({ canvasElement, step }) => {
+    const searchCharacter = "g";
     await step("open menu", async () => {
       await openMenu(canvasElement);
     });
@@ -260,14 +261,17 @@ export const PromotedTypingInSearch: Story = {
       ) as HTMLInputElement;
       expect(search).not.toBeNull();
       await userEvent.click(search);
-      await userEvent.type(search, "g");
+      await userEvent.type(search, searchCharacter);
     });
 
     await step("no partition; caller item order", async () => {
       await waitFor(() => {
         const rows = menuRowTitles();
         expect(rows).not.toContain("---");
-        expect(rows).toEqual(["Adventure Game Studio", "Game Boy Advance"]);
+        const expected = MIXED_PLATFORM_CATALOG.filter((p) =>
+          p.display_name.toLowerCase().includes(searchCharacter),
+        ).map((p) => p.display_name);
+        expect(rows).toEqual(expected);
       });
     });
   },
