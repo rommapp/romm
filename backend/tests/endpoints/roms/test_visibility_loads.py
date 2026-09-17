@@ -1,11 +1,4 @@
-"""The rom-file and rom-props routes resolve a rom without the related load.
-
-`get_rom` runs the whole `with_details` eager load (platform, files, metadata,
-saves, states, screenshots, rom_users, siblings, collections, notes), and the
-bulk delete ran it once per id. These routes only need the id and platform id
-their visibility check reads, plus for the file deletes the name pair their log
-lines print.
-"""
+"""The rom-file and rom-props routes resolve a rom without the related load."""
 
 import pytest
 from fastapi import status
@@ -57,12 +50,9 @@ def _flat(statements: list[str]) -> list[str]:
 
 
 def _rom_lookup(statements: list[str], prefix: str, count: int = 1) -> None:
-    """Assert the route resolved its rom(s) through exactly `count` lookups of `prefix`.
-
-    `get_rom` selects the aliased `roms_1` shape instead, so a route that slips
-    back onto the related load matches this zero times.
-    """
+    """Assert exactly `count` statement prefixes match."""
     flat = _flat(statements)
+    # `get_rom` selects an aliased `roms_1` shape, so a regression matches zero.
     matches = [s for s in flat if s.startswith(prefix)]
 
     assert len(matches) == count, flat

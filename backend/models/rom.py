@@ -615,11 +615,7 @@ class RomVisibilityLabel(NamedTuple):
 
 
 class RomDeletionTarget(NamedTuple):
-    """What the bulk-delete route reads off a rom, without the related load.
-
-    Carries the platform label because the route logs it when a rom's file is
-    already missing from disk.
-    """
+    """The columns the bulk-delete route reads off one rom, and no relations."""
 
     id: int
     platform_id: int
