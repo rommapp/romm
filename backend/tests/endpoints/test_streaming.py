@@ -2573,6 +2573,38 @@ def test_heartbeat_racing_a_teardown_reports_ended(client, access_token, rom: Ro
     assert r.json()["status"] == "ended"
 
 
+def test_heartbeat_for_a_session_reassigned_mid_request_reports_ended(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """The write re-checks the owner the lookup found: a takeover landing in
+    between must not have the loser's beat keep it alive."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, 60)
+        before = json.loads(_session_raw(container))["last_seen"]
+        key = session_store.session_redis_key(_key_of(container))
+
+        real_find = access.find_session_for_user
+
+        async def find_then_reassign(*args, **kwargs):
+            found = await real_find(*args, **kwargs)
+            session = json.loads(await async_cache.get(key))
+            session["user_id"] = viewer_user.id
+            await async_cache.set(key, json.dumps(session))
+            return found
+
+        with patch.object(access, "find_session_for_user", find_then_reassign):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+                headers=_auth(access_token),
+            )
+        after = json.loads(_session_raw(container))["last_seen"]
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert after == before
+
+
 def test_heartbeat_does_not_revive_a_draining_session(client, access_token, rom: Rom):
     """A container being torn down must not be made to look live again: the
     emulator is already stopped and its card evacuated."""

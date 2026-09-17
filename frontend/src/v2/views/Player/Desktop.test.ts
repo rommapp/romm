@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   releaseSession: vi.fn(),
   releaseSessionKeepalive: vi.fn(),
   heartbeatSession: vi.fn(),
+  heartbeatTick: null as (() => Promise<void>) | null,
+  routeLeave: null as (() => Promise<boolean> | boolean) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
 }));
 
@@ -17,9 +19,19 @@ vi.mock("vue-i18n", () => ({
 }));
 
 vi.mock("vue-router", () => ({
-  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteLeave: (guard: () => Promise<boolean>) => {
+    mocks.routeLeave = guard;
+  },
   useRoute: () => ({ query: { container: "WEBSTATION-DEV" } }),
   useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock("@vueuse/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@vueuse/core")>()),
+  // The beat is driven by hand; the pagehide listener stays real.
+  useIntervalFn: (tick: () => Promise<void>) => {
+    mocks.heartbeatTick = tick;
+  },
 }));
 
 vi.mock("@/plugins/router", () => ({
@@ -142,6 +154,55 @@ describe("Desktop session-ended notices", () => {
     window.dispatchEvent(new Event("pagehide"));
 
     expect(mocks.releaseSessionKeepalive).not.toHaveBeenCalled();
+    expect(mocks.releaseSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("Desktop heartbeats", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = null;
+  });
+
+  it("beats for the container it claimed", async () => {
+    const wrapper = await openDesktop();
+    mocks.heartbeatSession.mockResolvedValue({ status: "active" });
+
+    await mocks.heartbeatTick?.();
+
+    expect(mocks.heartbeatSession).toHaveBeenCalledWith(
+      "ps2",
+      "WEBSTATION-DEV",
+    );
+    expect(vmOf(wrapper).state).toBe("running");
+  });
+
+  it("drops the claim when the beat reports the session ended", async () => {
+    const wrapper = await openDesktop();
+    mocks.heartbeatSession.mockResolvedValue({
+      status: "ended",
+      termination: { ended_by: "admin" },
+    });
+
+    await mocks.heartbeatTick?.();
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(vmOf(wrapper).state).toBe("error");
+    expect(vmOf(wrapper).errorMessage).toBe("play.session-ended-by");
+    expect(mocks.releaseSessionKeepalive).not.toHaveBeenCalled();
+  });
+
+  it("leaves the view without a release once the beat ended the claim", async () => {
+    await openDesktop();
+    mocks.heartbeatSession.mockResolvedValue({ status: "ended" });
+
+    await mocks.heartbeatTick?.();
+
+    expect(await mocks.routeLeave?.()).toBe(true);
     expect(mocks.releaseSession).not.toHaveBeenCalled();
   });
 });
