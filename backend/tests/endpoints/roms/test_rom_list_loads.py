@@ -1,13 +1,10 @@
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from sqlalchemy import event
 
 from handler.database import db_rom_handler
-from handler.database.base_handler import sync_engine
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
@@ -138,27 +135,6 @@ def test_file_stats_match_between_derived_and_sql_paths(
     assert {field: derived[field] for field in FILE_STAT_FIELDS} == {
         field: from_sql[field] for field in FILE_STAT_FIELDS
     }
-
-
-@pytest.fixture
-def executed_statements() -> Iterator[list[str]]:
-    statements: list[str] = []
-
-    def before_execute(
-        conn: object,
-        cursor: object,
-        statement: str,
-        parameters: object,
-        context: object,
-        executemany: bool,
-    ) -> None:
-        statements.append(statement)
-
-    event.listen(sync_engine, "before_cursor_execute", before_execute)
-    try:
-        yield statements
-    finally:
-        event.remove(sync_engine, "before_cursor_execute", before_execute)
 
 
 def test_with_files_query_count_does_not_scale_with_file_count(

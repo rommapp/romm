@@ -78,6 +78,7 @@ from models.rom import (
     RomMetadata,
     RomNote,
     RomUser,
+    RomVisibility,
     SiblingRom,
     TrackMeta,
     compute_full_path_hash,
@@ -705,6 +706,23 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
+
+    @begin_session
+    def get_rom_visibility(
+        self,
+        id: int,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> RomVisibility | None:
+        """The id and platform id a visibility check needs, nothing else."""
+        row = session.execute(
+            select(Rom.id, Rom.platform_id).where(Rom.id == id)
+        ).one_or_none()
+
+        if row is None:
+            return None
+
+        return RomVisibility(id=row.id, platform_id=row.platform_id)
 
     @begin_session
     @with_simple_details

@@ -34,7 +34,7 @@ async def get_rom_notes(
     tags: list[str] = DEFAULT_TAGS,
 ) -> list[UserNoteSchema]:
     """Get all notes for a ROM."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
@@ -65,7 +65,7 @@ async def get_rom_note_identifiers(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
 ) -> list[int]:
     """Get all note identifiers for a ROM."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
@@ -92,7 +92,7 @@ async def create_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Create a new note for a ROM."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
@@ -127,7 +127,7 @@ async def update_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Update a ROM note."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
@@ -168,7 +168,7 @@ async def delete_rom_note(
     note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
 ) -> dict:
     """Delete a ROM note."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 

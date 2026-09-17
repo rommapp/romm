@@ -29,7 +29,7 @@ from models.permission import PermAction, PermEntity
 if TYPE_CHECKING:
     from models.firmware import Firmware
     from models.platform import Platform
-    from models.rom import Rom
+    from models.rom import Rom, RomVisibility
 
 
 def get_permissions(request: Request) -> ResolvedPermissions:
@@ -105,9 +105,15 @@ def assert_admin(request: Request) -> ResolvedPermissions:
 # so its existence isn't leaked. The auth guard skips the check on unauthenticated
 # download endpoints, which carry no permission context to resolve.
 def assert_rom_visible(
-    request: Request, rom: Rom, *, not_found_detail: str | None = None
+    request: Request,
+    rom: Rom | RomVisibility,
+    *,
+    not_found_detail: str | None = None,
 ) -> None:
     """Raise 404 (not 403) when the rom is hidden from the caller.
+
+    Takes a ``RomVisibility`` as well as a ``Rom`` so callers that only need the
+    check can skip the full related load.
 
     Defaults to the standard ``RomNotFoundInDatabaseException`` message; pass
     ``not_found_detail`` for endpoints with a bespoke 404 (metadata-id / hash

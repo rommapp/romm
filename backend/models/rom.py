@@ -598,6 +598,13 @@ class RomFacets(BaseModel):
     )
 
 
+class RomVisibility(NamedTuple):
+    """The two columns a ROM's visibility check reads, without a full `Rom`."""
+
+    id: int
+    platform_id: int
+
+
 class Rom(BaseModel):
     __tablename__ = "roms"
 
