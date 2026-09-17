@@ -27,7 +27,7 @@ EAGER_TABLES = (
 ROM_LOOKUP = "SELECT roms.id, roms.platform_id FROM roms WHERE roms.id ="
 
 
-def _headers(access_token: str) -> dict[str, str]:
+def _auth(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
 
 
@@ -60,7 +60,7 @@ def test_note_identifiers_resolves_the_rom_without_the_related_load(
 
     executed_statements.clear()
     response = client.get(
-        f"/api/roms/{rom.id}/notes/identifiers", headers=_headers(access_token)
+        f"/api/roms/{rom.id}/notes/identifiers", headers=_auth(access_token)
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -78,7 +78,7 @@ def test_create_note_resolves_the_rom_without_the_related_load(
     executed_statements.clear()
     response = client.post(
         f"/api/roms/{rom.id}/notes",
-        headers=_headers(access_token),
+        headers=_auth(access_token),
         json={"title": "from the test"},
     )
 
@@ -101,7 +101,7 @@ def test_update_note_resolves_the_rom_without_the_related_load(
     executed_statements.clear()
     response = client.put(
         f"/api/roms/{rom.id}/notes/{note['id']}",
-        headers=_headers(access_token),
+        headers=_auth(access_token),
         json={"content": "after"},
     )
 
