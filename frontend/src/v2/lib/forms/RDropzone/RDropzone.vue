@@ -48,8 +48,15 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   multiple: false,
+  accept: undefined,
+  dataTypes: undefined,
+  title: undefined,
+  hint: undefined,
   icon: "mdi-cloud-upload-outline",
   activeIcon: "mdi-cloud-upload",
+  activeTitle: undefined,
+  releaseLabel: undefined,
+  inputLabel: undefined,
 });
 
 const emit = defineEmits<{ files: [files: File[]] }>();

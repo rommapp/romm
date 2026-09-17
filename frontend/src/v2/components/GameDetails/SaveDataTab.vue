@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SaveDataTab — Saves + States, each its own subtab with badge counts and an
+// SaveDataTab: Saves + States, each its own subtab with badge counts and an
 // Upload affordance. A vertical subtab list sits on the left (a picker row
 // on phones), and each "Mine" section header carries Upload once it has
 // items; empty sections promote the dropzone CTA instead.
