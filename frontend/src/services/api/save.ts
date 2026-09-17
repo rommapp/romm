@@ -19,6 +19,19 @@ export const SAVE_SLOT_MAX_LENGTH = 255;
 // its body at 64 KB; the rest is left for the multipart framing.
 export const UNLOAD_SAVE_MAX_BYTES = 60 * 1024;
 
+/** Session saves are named after the ROM; a version updated in place keeps its name. */
+export function sessionSaveFile(
+  rom: { fs_name_no_ext: string },
+  save: SaveSchema | null,
+  bytes: ArrayBuffer,
+): File {
+  return new File(
+    [bytes],
+    save ? save.file_name : `${rom.fs_name_no_ext.trim()}.srm`,
+    { type: "application/octet-stream" },
+  );
+}
+
 type SaveUploadInput = Omit<AddSaveInput, "saveFile" | "screenshotFile"> & {
   saveFile: File;
   screenshotFile?: File;

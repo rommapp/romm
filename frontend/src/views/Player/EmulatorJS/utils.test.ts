@@ -371,6 +371,7 @@ describe("resolveScreenshot", () => {
 describe("storedScreenshotFor", () => {
   const shot = new Uint8Array([9, 9]).buffer;
   const pendingFor = (saveBytes: ArrayBuffer) => ({
+    id: "1:a",
     romId: 1,
     saveBytes,
     screenshotBytes: shot,
@@ -408,7 +409,7 @@ describe("storedScreenshotFor", () => {
 
   it("keeps bytes that were stored without a frame frameless", () => {
     const saveBytes = new Uint8Array([1, 2, 3]).buffer;
-    const pending = { romId: 1, saveBytes, capturedAt: 0 };
+    const pending = { id: "1:a", romId: 1, saveBytes, capturedAt: 0 };
 
     expect(
       storedScreenshotFor(pending, new Uint8Array([1, 2, 3]).buffer),

@@ -14,7 +14,7 @@ import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame, SimilarRomSchema } from "@/__generated__";
 import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
-import pendingSaveStore from "@/services/pending-save";
+import { pendingSaveRomIds } from "@/services/pending-save";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
@@ -72,15 +72,17 @@ useRomScanRefresh();
 
 // The player replaces the document on its way out, which takes any toast it
 // raised with it, so a save the browser is still holding is announced here
-// instead. Launching the game again is what uploads it.
+// instead. The app shell keeps retrying it in the background.
 const snackbar = useSnackbar();
 const isAlive = useIsAlive();
 watch(
   () => currentRom.value?.id ?? null,
   async (romId) => {
     if (!romId) return;
-    const pending = await pendingSaveStore.read(romId);
-    if (pending && isAlive.value) snackbar.warning(t("play.save-not-synced"));
+    const held = await pendingSaveRomIds();
+    if (held.has(romId) && isAlive.value) {
+      snackbar.warning(t("play.save-not-synced"));
+    }
   },
   { immediate: true },
 );

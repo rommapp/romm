@@ -90,23 +90,28 @@ let inFlightSave: Uint8Array | null = null;
 // from the moment the game wrote it. Stored before every upload attempt, so a
 // sync that fails offline retries later with that frame rather than a newer one.
 let pendingSave: PendingSave | null = null;
+// One row per session: a save an earlier session never got through still owes
+// the server its own version, so this must not write over it.
+const pendingSaveId = `${romRef.value.id}:${crypto.randomUUID()}`;
 async function rememberPendingSave(
   saveBytes: ArrayBuffer,
   screenshotBytes?: ArrayBuffer,
 ) {
   pendingSave = {
+    id: pendingSaveId,
     romId: romRef.value.id,
     saveBytes,
     screenshotBytes,
     slot: loadedSave?.slot || props.saveSlot || undefined,
     emulator: window.EJS_core,
+    deviceId: deviceIDRef.value,
     capturedAt: Date.now(),
   };
   await pendingSaveStore.write(pendingSave);
 }
 async function forgetPendingSave() {
   pendingSave = null;
-  await pendingSaveStore.clear(romRef.value.id);
+  await pendingSaveStore.clear(pendingSaveId);
 }
 function writeSave(
   file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer },
@@ -439,32 +444,6 @@ function uninstallAutoSaveSync() {
 }
 // A save written right before Quit or a back navigation has not had its two
 // ticks yet, so leaving the player uploads whatever the server lacks.
-// Progress a previous session stored but never got to the server: its own
-// version, with the frame from the moment the game wrote it.
-async function uploadStoredPendingSave() {
-  const stored = await pendingSaveStore.read(romRef.value.id);
-  if (!stored?.saveBytes?.byteLength) return;
-  try {
-    const save = await saveSave({
-      rom: romRef.value,
-      save: null,
-      saveFile: stored.saveBytes,
-      screenshotFile: stored.screenshotBytes,
-      deviceId: deviceIDRef.value,
-      slot: stored.slot,
-    });
-    if (save) {
-      await forgetPendingSave();
-      romsStore.update(romRef.value);
-      return;
-    }
-  } catch (error) {
-    console.error("Stored save sync failed", error);
-  }
-  // Still owed to the server; the tick and the exit path retry it.
-  pendingSave = stored;
-}
-
 async function flushPendingSave() {
   const emulator = window.EJS_emulator;
   if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
@@ -702,7 +681,6 @@ window.EJS_onGameStart = async () => {
       } else {
         baselineSaveTrackerFromEmulator();
       }
-      await uploadStoredPendingSave();
       if (EJS_ENABLE_AUTO_SAVE_SYNC) {
         try {
           installAutoSaveSync();

@@ -4,7 +4,7 @@ import {
   type SaveSchema,
   type StateSchema,
 } from "@/__generated__";
-import saveApi, { AUTOSAVE_SLOT } from "@/services/api/save";
+import saveApi, { AUTOSAVE_SLOT, sessionSaveFile } from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import { type PendingSave } from "@/services/pending-save";
 import { type DetailedRom } from "@/stores/roms";
@@ -117,20 +117,6 @@ export async function saveState({
   }
 
   return null;
-}
-
-// Session saves are named after the ROM; a version updated in place keeps
-// its name.
-function sessionSaveFile(
-  rom: DetailedRom,
-  save: SaveSchema | null,
-  bytes: ArrayBuffer,
-): File {
-  return new File(
-    [bytes],
-    save ? save.file_name : `${rom.fs_name_no_ext.trim()}.srm`,
-    { type: "application/octet-stream" },
-  );
 }
 
 // `save` is the version this session already created: it is updated in place,
