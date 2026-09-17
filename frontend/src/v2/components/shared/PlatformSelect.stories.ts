@@ -163,6 +163,12 @@ export const PlatformSelectorPromoteFilled: Story = {
           "---",
           ...remaining.map((p) => p.display_name),
         ]);
+        const gbaRow = document.querySelector(
+          ".r-select__list > li:not(.r-select__divider)",
+        );
+        expect(
+          gbaRow?.querySelector(".r-v2-platsel__rom-badge")?.textContent,
+        ).toBe("42");
       },
     );
   },
