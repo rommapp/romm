@@ -189,8 +189,7 @@ describe("list-mode skeleton row", () => {
   });
 
   it("paints the bootstrap row's per-column shapes", () => {
-    // The bootstrap row hands over to the pending rows mid-load, so a shape
-    // that drifts between them moves the placeholders.
+    // A shape that drifts across the mid-load handover moves the placeholders.
     const pending = mount(GameListRow, { props: { position: 0 } }).element;
     const bootstrap = mount(GameListSkeletonRow).element;
 
@@ -198,8 +197,7 @@ describe("list-mode skeleton row", () => {
   });
 
   it("pins the quantity columns to the right edge in every flavour", () => {
-    // The columns decide alignment, the rows only paint it: a cell that
-    // stops reading the config drops left while the header above stays right.
+    // A cell that stops reading the column config drops left under its header.
     const expected = getListColumns(true).map((col) => col.align === "end");
     const pending = mount(GameListRow, { props: { position: 0 } }).element;
     const hydrated = mountHydratedRow().element;
@@ -211,8 +209,7 @@ describe("list-mode skeleton row", () => {
   });
 
   it("renders the numeric columns in tabular figures", () => {
-    // Only the hydrated row has digits to align, so a dropped `--num` mapping
-    // or a config flag gone missing would otherwise pass unnoticed.
+    // Only the hydrated row has digits; nothing else catches a dropped `--num`.
     const expected = getListColumns(true).map((col) => col.numeric === true);
     const hydrated = mountHydratedRow().element;
 
