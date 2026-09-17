@@ -220,12 +220,9 @@ function onRowClick(e: MouseEvent) {
   min-width: 0;
 }
 
+/* No cover well: platform art is a transparent square logo, not poster art. */
 .plat-list-row__thumb {
-  width: var(--r-list-cover-w);
-  height: var(--r-list-cover-w);
   flex-shrink: 0;
-  border-radius: var(--r-radius-sm);
-  background: var(--r-color-surface);
   display: grid;
   place-items: center;
   opacity: 0.9;
