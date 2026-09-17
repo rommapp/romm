@@ -81,6 +81,12 @@ html[data-input="pad"] .provider-filter {
   width: var(--r-touch-target);
   height: var(--r-touch-target);
 }
+/* Phones trade part of that target for width, so the whole provider row fits
+   without scrolling. */
+html[data-bp~="xs"] .provider-filter {
+  width: 36px;
+  height: 36px;
+}
 .provider-filter:hover:not(:disabled) {
   opacity: 0.85;
   transform: translateY(-1px);
