@@ -37,7 +37,8 @@ export interface ListColumn {
   label: string;
   /** Whether the column header is clickable to toggle sort. */
   sortable: boolean;
-  /** Column alignment, applied to the header label and the cell body. */
+  /** Column alignment, read by the header label, the value cells and the
+   *  actions cell; the structural cells lay themselves out. */
   align?: "start" | "end";
   /** Digit-bearing value, rendered in tabular figures so the column reads
    *  as a grid. */

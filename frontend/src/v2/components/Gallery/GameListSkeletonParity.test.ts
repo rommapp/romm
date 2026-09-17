@@ -33,6 +33,13 @@ function rightEdges(row: HTMLElement): boolean[] {
   );
 }
 
+/** Per-column tabular-figure flag, in column order. */
+function tabularFigures(row: HTMLElement): boolean[] {
+  return Array.from(row.children).map((cell) =>
+    cell.classList.contains("game-list-row__cell--num"),
+  );
+}
+
 const ROM_USER: RomUserSchema = {
   id: 1,
   user_id: 1,
@@ -201,6 +208,15 @@ describe("list-mode skeleton row", () => {
     expect(rightEdges(pending)).toEqual(expected);
     expect(rightEdges(hydrated)).toEqual(expected);
     expect(rightEdges(bootstrap)).toEqual(expected);
+  });
+
+  it("renders the numeric columns in tabular figures", () => {
+    // Only the hydrated row has digits to align, so a dropped `--num` mapping
+    // or a config flag gone missing would otherwise pass unnoticed.
+    const expected = getListColumns(true).map((col) => col.numeric === true);
+    const hydrated = mountHydratedRow().element;
+
+    expect(tabularFigures(hydrated)).toEqual(expected);
   });
 
   it("sizes the cover column off the art cap, not the measured ratios", () => {
