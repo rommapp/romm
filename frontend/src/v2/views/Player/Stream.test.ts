@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   fetchConfig: vi.fn(),
   getRom: vi.fn(),
   container: null as Record<string, unknown> | null,
+  socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -121,7 +122,9 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 vi.mock("@/v2/composables/useSocketEvent", () => ({
-  useSocketEvent: vi.fn(),
+  useSocketEvent: (event: string, handler: (payload: unknown) => unknown) => {
+    mocks.socketHandlers[event] = handler;
+  },
 }));
 
 vi.mock("@/v2/composables/useStageActive", () => ({
@@ -131,6 +134,18 @@ vi.mock("@/v2/composables/useStageActive", () => ({
 vi.mock("@/v2/composables/useUnloadGuard", () => ({
   useUnloadGuard: vi.fn(),
 }));
+
+// The stage owns fullscreen, which the ended path leaves before anything else.
+const StreamStageStub = defineComponent({
+  setup(_, { expose }) {
+    expose({
+      enterFullscreen: () => Promise.resolve(),
+      leaveFullscreen: () => Promise.resolve(),
+      focusStream: () => {},
+    });
+    return () => null;
+  },
+});
 
 const GameCoverStub = defineComponent({
   setup(_, { expose }) {
@@ -198,7 +213,7 @@ async function launch(opts: {
       renderStubDefaultSlot: true,
       // The launch flourish calls into the cover before the claim, so this
       // one stub has to answer rather than be inert.
-      stubs: { GameCover: GameCoverStub },
+      stubs: { GameCover: GameCoverStub, StreamStage: StreamStageStub },
     },
   });
   await flushPromises();
@@ -333,5 +348,77 @@ describe("Stream save picker", () => {
     await flushPromises();
 
     expect(saveList(wrapper)!.props("selectedId")).toBe(3);
+  });
+});
+
+type StreamVm = {
+  onPlay: () => Promise<void>;
+  playerState: string;
+  endedDialogOpen: boolean;
+};
+
+function vmOf(wrapper: VueWrapper): StreamVm {
+  return wrapper.vm as unknown as StreamVm;
+}
+
+function endSession(notice: Record<string, unknown>): void {
+  const handler = mocks.socketHandlers["streaming:session-ended"];
+  expect(handler).toBeTypeOf("function");
+  handler({ ended_by: "admin", reason: null, ...notice });
+}
+
+describe("Stream session-ended notices", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimSession.mockResolvedValue({ container: "WEBSTATION-DEV" });
+  });
+
+  it("ends the game when the notice names the container it claimed", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    endSession({ platform: "gba", container: "WEBSTATION-DEV" });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("exited");
+    expect(vmOf(wrapper).endedDialogOpen).toBe(true);
+  });
+
+  it("keeps playing when the notice names another container", async () => {
+    // A pool serves one platform from several containers, so the player can
+    // hold a second session the same room hears about.
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    endSession({ platform: "gba", container: "WEBSTATION-DEV-2" });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("loading");
+    expect(vmOf(wrapper).endedDialogOpen).toBe(false);
+  });
+
+  it("keeps launching when an admin's own desktop ends", async () => {
+    // The 202 has not landed, so the container is not known yet and the
+    // desktop flag is all that tells the two claims apart.
+    let claimed = (_: { container: string }) => {};
+    mocks.claimSession.mockReturnValue(
+      new Promise<{ container: string }>((resolve) => {
+        claimed = resolve;
+      }),
+    );
+    const wrapper = await launch({ picker: false });
+    const playing = vmOf(wrapper).onPlay();
+    await flushPromises();
+
+    endSession({
+      platform: "gba",
+      container: "WEBSTATION-DEV-2",
+      desktop: true,
+    });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("loading");
+    claimed({ container: "WEBSTATION-DEV" });
+    await playing;
   });
 });

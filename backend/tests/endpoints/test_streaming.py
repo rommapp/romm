@@ -2593,6 +2593,79 @@ def test_heartbeat_carries_termination_notice(
     assert body["termination"]["reason"] == "patching the host"
 
 
+def test_a_termination_notice_names_the_container_it_ended(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """A player can hold a session on several containers, so the notice has to
+    say which one ended for the right tab to act on it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(viewer_access_token),
+        )
+    notice = r.json()["termination"]
+    assert notice["container"] == _key_of(_container_for(rom))
+    assert notice["desktop"] is False
+
+
+def test_a_desktop_termination_notice_says_it_was_a_desktop(client, access_token):
+    """A game tab must not act on the end of the admin desktop it shares an
+    account with."""
+    with _streaming(_webstation()):
+        key = _key_of(_webstation())
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key, "reason": "clearing the container"},
+                headers=_auth(access_token),
+            )
+        r = client.get(
+            "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+        )
+    notice = r.json()["termination"]
+    assert notice["desktop"] is True
+    assert notice["container"] == key
+
+
+def test_a_termination_notice_lands_before_the_drain(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The session is over the moment the drain marker is written, and the drain
+    itself is seconds of broker round trips, so a poll inside that window has to
+    be told why the stream stopped rather than getting a bare `ended`."""
+    container = _container_for(rom)
+    seen: list[dict[str, Any] | None] = []
+
+    with _streaming(container):
+        _claim_ok(client, viewer_access_token, rom.id)
+        user_id = json.loads(_session_raw(container))["user_id"]
+
+        async def capture(*args, **kwargs):
+            seen.append(
+                await session_store.get_termination(_key_of(container), user_id)
+            )
+            return None
+
+        with patch(
+            "handler.streaming.lifecycle.quiesce_container",
+            new=AsyncMock(side_effect=capture),
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={"reason": "maintenance window"},
+                headers=_auth(access_token),
+            )
+    assert seen and seen[0] is not None
+    assert seen[0]["reason"] == "maintenance window"
+
+
 def test_force_release_all_leaves_termination_notice(
     client, access_token, viewer_access_token, rom: Rom
 ):

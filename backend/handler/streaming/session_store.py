@@ -581,6 +581,10 @@ async def record_termination(
         "platform": session.get("platform"),
         "rom_id": session.get("rom_id"),
         "rom_name": session.get("rom_name"),
+        # Which claim ended: a user can hold one per container, plus a desktop,
+        # and only the tab that holds this one should act on the notice.
+        "container": session_key,
+        "desktop": session_is_desktop(session),
     }
     await async_cache.set(
         _termination_redis_key(session_key, user_id),

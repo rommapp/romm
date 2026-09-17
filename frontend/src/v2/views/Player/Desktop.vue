@@ -15,10 +15,11 @@ import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import streamingApi from "@/services/api/streaming";
-import { useStreamingStore } from "@/stores/streaming";
+import { type SessionTermination, useStreamingStore } from "@/stores/streaming";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -97,18 +98,34 @@ async function release(): Promise<boolean> {
 // stale window, and nothing else here touches the claim.
 const HEARTBEAT_MS = 30_000;
 
+// Dropping the claim keeps a later exit from releasing whoever holds the
+// container next, and the reason is the only sign the desktop was taken away
+// rather than broken.
+function noteSessionEnded(endedBy?: string | null): void {
+  holdsClaim.value = false;
+  state.value = "error";
+  errorMessage.value = endedBy
+    ? t("play.session-ended-by", { user: endedBy })
+    : t("play.session-ended");
+}
+
 useIntervalFn(async () => {
   if (!holdsClaim.value) return;
   const status = await streamingStore.heartbeatSession(
     platform.value,
     containerKey.value,
   );
-  // Ended elsewhere: dropping the claim keeps a later exit from releasing
-  // whoever holds the container next.
   if (status?.status !== "ended") return;
-  holdsClaim.value = false;
-  state.value = "exited";
+  noteSessionEnded(status.termination?.ended_by);
 }, HEARTBEAT_MS);
+
+// Pushed the moment someone else ends this claim, so the desktop does not sit
+// dead until the next heartbeat. The room is per-user and covers every claim
+// the account holds, so only a notice for this container is ours.
+useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
+  if (!holdsClaim.value || notice.container !== containerKey.value) return;
+  noteSessionEnded(notice.ended_by);
+});
 
 function backToAdministration(): void {
   router.push({ name: ROUTES.ADMINISTRATION, query: { tab: "streaming" } });

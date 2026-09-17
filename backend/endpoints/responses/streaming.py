@@ -50,6 +50,8 @@ class SessionTerminationSchema(BaseModel):
     platform: str | None = None
     rom_id: int | None = None
     rom_name: str | None = None
+    container: str | None = None
+    desktop: bool = False
 
 
 class SessionStatusSchema(BaseModel):

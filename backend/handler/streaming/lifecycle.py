@@ -331,14 +331,13 @@ async def teardown_released_session(
 
     keepalive = _hold_reservation(session_key, token, session)
     try:
-        # The marker, or the claim it could not replace, holds the container
-        # throughout, so no concurrent claim can interleave.
-        state_slot = await quiesce_container(container, session, save=save)
-
         # Leave a note when this is a force-release rather than a player closing
         # their own game. A different user is the obvious case; a reason covers
         # the rest, since only the admin panel sends one and an admin can be
-        # logged in as the same account that is playing in another tab.
+        # logged in as the same account that is playing in another tab. It goes
+        # out before the drain: the session ended when the marker landed, and
+        # the quiesce below is seconds of broker round trips in which the
+        # displaced player's poll would otherwise find no reason at all.
         if session.get("user_id") != acting_user_id or reason is not None:
             await record_termination(
                 session, session_key, ended_by=acting_username, reason=reason
@@ -350,6 +349,10 @@ async def teardown_released_session(
                 session.get("user_id"),
                 reason or "-",
             )
+
+        # The marker, or the claim it could not replace, holds the container
+        # throughout, so no concurrent claim can interleave.
+        state_slot = await quiesce_container(container, session, save=save)
 
         await record_play_session(session)
         await clear_session_activity(session_key, session)
@@ -406,14 +409,15 @@ async def _teardown_abandoned_session(
 
     keepalive = asyncio.ensure_future(hold_drain_marker(session_key, token))
     try:
-        state_slot = await quiesce_container(container, session)
-        await record_play_session(session)
-        await clear_session_activity(session_key, session)
         # That tab may still be showing the stream, so leave the same note an
-        # admin force-release does rather than letting the picture simply stop.
+        # admin force-release does rather than letting the picture simply stop,
+        # and leave it before the drain so a poll inside that window finds it.
         await record_termination(
             session, session_key, ended_by=None, reason="abandoned"
         )
+        state_slot = await quiesce_container(container, session)
+        await record_play_session(session)
+        await clear_session_activity(session_key, session)
         await collect_exit_state(container, session, state_slot)
         collect_exit_saves(container, session)
     except Exception:

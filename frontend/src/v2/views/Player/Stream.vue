@@ -554,6 +554,16 @@ const SESSION_POLL_MS = 30_000;
 // session (`_record_termination` in streaming.py), to the caller's own
 // `user:{id}` room. Near-instant, unlike the poll above.
 useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
+  // The room carries every claim the account holds, and a platform can be
+  // served by a pool, so the container is what says this one was ours. An
+  // admin's desktop is never the game on screen.
+  if (notice.desktop) return;
+  if (
+    notice.container &&
+    claimedContainer.value &&
+    notice.container !== claimedContainer.value
+  )
+    return;
   void handleSessionStatus({
     status: "ended",
     platform: notice.platform ?? "",
