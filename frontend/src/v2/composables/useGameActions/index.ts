@@ -376,6 +376,7 @@ export function useGameActions(
         romId: rom.id,
         romName: rom.name ?? rom.fs_name_no_ext ?? "",
         hostUsername: joinHostLabel.value || null,
+        container: joinableSession.value?.container ?? null,
       },
     );
   }

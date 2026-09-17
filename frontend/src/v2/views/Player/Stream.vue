@@ -137,6 +137,11 @@ useStageActive(gameRunning);
 // host's session out from under them.
 const isJoining = route.query.join === "1";
 
+// Named by the row that offered the join: a pool holds a session per container,
+// and an unnamed join takes whichever one the backend walks to first.
+const joinContainer =
+  typeof route.query.container === "string" ? route.query.container : undefined;
+
 // True only while this tab's own claim is held. The teardown paths key off
 // this rather than the player state, because a joiner reaches "playing" too.
 const holdsClaim = ref(false);
@@ -817,7 +822,10 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
 
   try {
     if (isJoining) {
-      const joined = await streamingStore.joinSession(rom.value.platform_slug);
+      const joined = await streamingStore.joinSession(
+        rom.value.platform_slug,
+        joinContainer,
+      );
       await flourish;
       if ((playerState.value as PlayerState) === "exited") return;
       containerHost.value = joined.host;

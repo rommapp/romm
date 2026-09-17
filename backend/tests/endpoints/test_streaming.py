@@ -6679,6 +6679,87 @@ def test_joining_a_rom_on_a_hidden_platform_is_404_masked(
     join_broker.assert_not_called()
 
 
+def _ws_pool_member(rom: Rom, index: int, **overrides) -> dict:
+    """One member of a pool of webstation containers, the broker a joiner
+    needs. Distinct hosts, so the room URL says which member answered."""
+    return _webstation(
+        **{
+            "host": f"http://192.168.1.1{index}:3000",
+            "broker_host": f"http://192.168.1.1{index}:8000",
+            "platforms": {rom.platform_slug: "pcsx2"},
+            **overrides,
+        }
+    )
+
+
+def _joined_room(url: str = "/webstation/?token=abc"):
+    return patch("handler.streaming.webstation.join", return_value={"url": url})
+
+
+def test_joining_walks_past_a_session_whose_rom_is_hidden(
+    client,
+    access_token,
+    editor_access_token,
+    viewer_access_token,
+    viewer_user: User,
+    rom: Rom,
+    second_rom: Rom,
+):
+    """A hidden ROM earlier in the pool is not the caller's answer, so it must
+    not mask the joinable session behind it."""
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    with _streaming(_ws_pool_member(rom, 0), _ws_pool_member(rom, 1)):
+        _claim_multiplayer(client, access_token, rom.id)
+        _claim_multiplayer(client, editor_access_token, second_rom.id)
+        with _joined_room():
+            r = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert r.status_code == 200
+    assert r.json()["rom_id"] == second_rom.id
+
+
+def test_joining_walks_past_the_callers_own_session(
+    client, access_token, viewer_access_token, rom: Rom, second_rom: Rom
+):
+    """Joining is for somebody else's game: the caller's own session is the one
+    they already hold, and the listing leaves it out for the same reason."""
+    with _streaming(_ws_pool_member(rom, 0), _ws_pool_member(rom, 1)):
+        _claim_multiplayer(client, viewer_access_token, rom.id)
+        _claim_multiplayer(client, access_token, second_rom.id)
+        with _joined_room():
+            r = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert r.status_code == 200
+    assert r.json()["rom_id"] == second_rom.id
+
+
+def test_joining_walks_past_a_session_on_another_platform(
+    client,
+    access_token,
+    editor_access_token,
+    viewer_access_token,
+    rom: Rom,
+    second_rom: Rom,
+):
+    """A container serves several platforms and holds one session, so a member
+    busy with another platform is not this platform's session to join."""
+    member = _ws_pool_member(
+        rom, 0, platforms={rom.platform_slug: "pcsx2", "ngc": "dolphin"}
+    )
+    with _streaming(member, _ws_pool_member(rom, 1)):
+        _claim_multiplayer(client, access_token, rom.id)
+        key = session_store.session_redis_key(_key_of(member))
+        session = json.loads(asyncio.run(async_cache.get(key)))
+        session["platform"] = "ngc"
+        asyncio.run(async_cache.set(key, json.dumps(session)))
+        _claim_multiplayer(client, editor_access_token, second_rom.id)
+        with _joined_room():
+            r = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert r.status_code == 200
+    assert r.json()["rom_id"] == second_rom.id
+
+
 def test_joining_a_solo_session_finds_nothing_to_join(
     client, access_token, viewer_access_token, rom: Rom
 ):

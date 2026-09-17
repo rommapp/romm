@@ -1,5 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SaveSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
@@ -14,11 +14,13 @@ const mocks = vi.hoisted(() => ({
   getRom: vi.fn(),
   fetchSessionStatus: vi.fn(),
   heartbeatSession: vi.fn(),
+  joinSession: vi.fn(),
   releaseSession: vi.fn(),
   releaseSessionKeepalive: vi.fn(),
   container: null as Record<string, unknown> | null,
   presenceTick: null as (() => Promise<void>) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
+  query: {} as Record<string, string>,
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -27,7 +29,7 @@ vi.mock("vue-i18n", () => ({
 
 vi.mock("vue-router", () => ({
   onBeforeRouteLeave: vi.fn(),
-  useRoute: () => ({ params: { rom: "3" }, query: {} }),
+  useRoute: () => ({ params: { rom: "3" }, query: mocks.query }),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
@@ -69,7 +71,7 @@ vi.mock("@/stores/streaming", () => ({
     fetchSessionStatus: mocks.fetchSessionStatus,
     forgetJoinableSession: vi.fn(),
     heartbeatSession: mocks.heartbeatSession,
-    joinSession: vi.fn(),
+    joinSession: mocks.joinSession,
     releaseSession: mocks.releaseSession,
     releaseSessionKeepalive: mocks.releaseSessionKeepalive,
     saveAndExit: vi.fn(),
@@ -563,6 +565,38 @@ describe("Stream launch recovery", () => {
     await flushPromises();
 
     expect(vmOf(wrapper).playerState).toBe("loading");
+    wrapper.unmount();
+  });
+});
+
+describe("Stream join", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.joinSession.mockResolvedValue({ host: "http://box:3000/room/x" });
+    mocks.query = { join: "1", container: "http://box:8000" };
+  });
+
+  afterEach(() => {
+    mocks.query = {};
+  });
+
+  it("joins the session on the container the game page named", async () => {
+    // A pool has several sessions on one platform, so without the container
+    // the join lands on whichever the backend walks to first.
+    const wrapper = await launch({ picker: false });
+    await flushPromises();
+
+    expect(mocks.joinSession).toHaveBeenCalledWith("gba", "http://box:8000");
+    expect(vmOf(wrapper).playerState).toBe("playing");
+    wrapper.unmount();
+  });
+
+  it("joins without one when the page had no container to name", async () => {
+    mocks.query = { join: "1" };
+    const wrapper = await launch({ picker: false });
+    await flushPromises();
+
+    expect(mocks.joinSession).toHaveBeenCalledWith("gba", undefined);
     wrapper.unmount();
   });
 });

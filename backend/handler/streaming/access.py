@@ -54,7 +54,7 @@ def rom_is_visible(request: Request, rom: Rom | None) -> bool:
     return get_permissions(request).can_see_rom(rom.id, rom.platform_id)
 
 
-def _session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
+def session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
     """Can the caller see the ROM a session is running?"""
     rom_id = session.get("rom_id")
     if rom_id is None:
@@ -66,14 +66,14 @@ def assert_session_rom_visible(
     request: Request, session: dict[str, Any], *, not_found_detail: str
 ) -> None:
     """Raise 404 when the session's ROM is hidden from the caller."""
-    if not _session_rom_is_visible(request, session):
+    if not session_rom_is_visible(request, session):
         raise HTTPException(status_code=404, detail=not_found_detail)
 
 
 def visible_rom_name(request: Request, session: dict[str, Any]) -> str | None:
     """The name of the ROM a session is running, blanked when the caller cannot
     see that ROM. "Busy" is safe to report to anyone; what is running is not."""
-    if not session or not _session_rom_is_visible(request, session):
+    if not session or not session_rom_is_visible(request, session):
         return None
     name = session.get("rom_name")
     return str(name) if name else None

@@ -93,6 +93,7 @@ from handler.streaming.session_store import (
     release_own_session,
     session_disc_id,
     session_is_stale,
+    session_platform_matches,
     session_redis_key,
     set_session_disc,
     stamp_launched,
@@ -1096,9 +1097,19 @@ async def join_session(
             session = await get_live_session(candidate.key)
             if session is None:
                 continue
-            if session.get("multiplayer"):
-                found = (candidate, session)
-                break
+            # Same filter the joinable listing applies, so the button and the
+            # join agree on what is joinable. A member that fails it is not the
+            # answer and must not mask a later one that is.
+            if not session.get("multiplayer"):
+                continue
+            if not session_platform_matches(session, platform):
+                continue
+            if session.get("user_id") == request.user.id:
+                continue
+            if not access.session_rom_is_visible(request, session):
+                continue
+            found = (candidate, session)
+            break
 
     if found is None:
         raise HTTPException(

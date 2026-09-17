@@ -57,6 +57,7 @@ async function join(): Promise<void> {
     romId,
     romName: title.value,
     hostUsername: props.session.host_username ?? null,
+    container: props.session.container,
   });
 }
 </script>
