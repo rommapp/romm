@@ -154,22 +154,11 @@ watch(
       revealActive(scrollBehavior());
     }),
 );
-watch(
-  visibleItems,
-  () =>
-    nextTick(() => {
-      update();
-      updateOverflow();
-    }),
-  { deep: true },
-);
-watch(
-  () => [props.variant, props.orientation],
-  () =>
-    nextTick(() => {
-      update();
-      updateOverflow();
-    }),
+watch([visibleItems, () => props.variant, () => props.orientation], () =>
+  nextTick(() => {
+    update();
+    updateOverflow();
+  }),
 );
 
 let resizeObserver: ResizeObserver | null = null;

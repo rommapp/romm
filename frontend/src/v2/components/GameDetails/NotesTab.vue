@@ -75,43 +75,30 @@ const communityNotes = computed<UserNoteSchema[]>(() =>
     .sort((a, b) => a.title.localeCompare(b.title)),
 );
 
+function noteAvatar(note: UserNoteSchema): string {
+  return userAvatarUrl({
+    userId: note.user_id,
+    avatarPath: note.user_avatar_path,
+    updatedAt: note.user_updated_at,
+  });
+}
+
 // Picker entries for phones, own notes first, matching the desktop index.
-const noteNavItems = computed<SubtabNavItem[]>(() => [
-  ...myNotes.value.map((n) => ({
-    id: String(n.id),
-    label: n.title,
+type NoteNavItem = SubtabNavItem & { note: UserNoteSchema };
+const noteNavItems = computed<NoteNavItem[]>(() => [
+  ...myNotes.value.map((note) => ({
+    id: String(note.id),
+    label: note.title,
     group: t("rom.my-notes"),
+    note,
   })),
-  ...communityNotes.value.map((n) => ({
-    id: String(n.id),
-    label: n.title,
+  ...communityNotes.value.map((note) => ({
+    id: String(note.id),
+    label: note.title,
     group: t("rom.notes-community"),
+    note,
   })),
 ]);
-
-// Row decorations keyed by picker id: an author avatar and name for
-// community notes, a lock for private own notes.
-const noteNavExtras = computed(() => {
-  const extras = new Map<
-    string,
-    { author: { name: string; avatar: string } | null; locked: boolean }
-  >();
-  for (const n of myNotes.value) {
-    extras.set(String(n.id), { author: null, locked: !n.is_public });
-  }
-  for (const n of communityNotes.value) {
-    const avatar = userAvatarUrl({
-      userId: n.user_id,
-      avatarPath: n.user_avatar_path,
-      updatedAt: n.user_updated_at,
-    });
-    extras.set(String(n.id), {
-      author: { name: n.username, avatar },
-      locked: false,
-    });
-  }
-  return extras;
-});
 
 const hasAnyNotes = computed(
   () => myNotes.value.length > 0 || communityNotes.value.length > 0,
@@ -372,18 +359,12 @@ function fmtDate(iso: string): string {
         @update:model-value="(id) => selectNote(Number(id))"
       >
         <template #item-append="{ item }">
-          <span
-            v-if="noteNavExtras.get(item.id)?.author"
-            class="r-v2-notes__nav-author"
-          >
-            <RAvatar
-              :image="noteNavExtras.get(item.id)?.author?.avatar"
-              size="18"
-            />
-            <span>{{ noteNavExtras.get(item.id)?.author?.name }}</span>
+          <span v-if="!isOwn(item.note)" class="r-v2-notes__nav-author">
+            <RAvatar :image="noteAvatar(item.note)" size="18" />
+            <span>{{ item.note.username }}</span>
           </span>
           <RIcon
-            v-else-if="noteNavExtras.get(item.id)?.locked"
+            v-else-if="!item.note.is_public"
             icon="mdi-lock"
             size="13"
             class="r-v2-notes__nav-lock"
@@ -457,16 +438,7 @@ function fmtDate(iso: string): string {
               >
                 <span class="r-v2-notes__nav-title">{{ n.title }}</span>
                 <span class="r-v2-notes__nav-author">
-                  <RAvatar
-                    :image="
-                      userAvatarUrl({
-                        userId: n.user_id,
-                        avatarPath: n.user_avatar_path,
-                        updatedAt: n.user_updated_at,
-                      })
-                    "
-                    size="18"
-                  />
+                  <RAvatar :image="noteAvatar(n)" size="18" />
                   <span>{{ n.username }}</span>
                 </span>
               </button>
@@ -555,16 +527,7 @@ function fmtDate(iso: string): string {
                 {{ selectedNote.title }}
               </h3>
               <div v-if="!isSelectedOwn" class="r-v2-notes__author">
-                <RAvatar
-                  :image="
-                    userAvatarUrl({
-                      userId: selectedNote.user_id,
-                      avatarPath: selectedNote.user_avatar_path,
-                      updatedAt: selectedNote.user_updated_at,
-                    })
-                  "
-                  size="20"
-                />
+                <RAvatar :image="noteAvatar(selectedNote)" size="20" />
                 <span>{{ selectedNote.username }}</span>
               </div>
             </div>

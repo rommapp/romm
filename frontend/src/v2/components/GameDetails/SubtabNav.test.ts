@@ -33,12 +33,15 @@ function nav(items: SubtabNavItem[], props: Record<string, unknown> = {}) {
 }
 
 describe("SubtabNav", () => {
-  it("heads each group once and hides a zero badge", () => {
-    const wrapper = nav([
-      { id: "a", label: "Alpha", group: "Mine", badge: 0 },
-      { id: "b", label: "Beta", group: "Mine", badge: 3 },
-      { id: "c", label: "Gamma", group: "Community" },
-    ]);
+  it("heads each menu group once and hides a zero badge", () => {
+    const wrapper = nav(
+      [
+        { id: "a", label: "Alpha", group: "Mine", badge: 0 },
+        { id: "b", label: "Beta", group: "Mine", badge: 3 },
+        { id: "c", label: "Gamma", group: "Community" },
+      ],
+      { variant: "menu" },
+    );
 
     expect(
       wrapper.findAll(".r-v2-subtab-nav__group").map((g) => g.text()),

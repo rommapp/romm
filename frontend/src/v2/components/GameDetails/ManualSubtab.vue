@@ -134,10 +134,11 @@ const canUploadMore = computed(
   () => manualEntries.value.length > 0 && canEdit.value,
 );
 
-defineExpose({
-  canUpload: canUploadMore,
-  openUpload: () => manualDz.value?.open(),
-});
+function openUpload() {
+  manualDz.value?.open();
+}
+
+defineExpose({ canUpload: canUploadMore, openUpload });
 const redownloadingManual = ref(false);
 
 function handleManualFiles(files: File[]) {
@@ -200,7 +201,7 @@ function requestDeleteManual() {
         size="small"
         prepend-icon="mdi-cloud-upload-outline"
         class="r-v2-manual__upload"
-        @click="manualDz?.open()"
+        @click="openUpload"
       >
         {{ t("common.upload") }}
       </RBtn>

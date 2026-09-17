@@ -1,12 +1,8 @@
 <script setup lang="ts">
-// SaveDataTab — Saves + States, each its own subtab with badge counts
-// and per-tab Upload affordance. Layout mirrors ScreenshotsSubtab: a
-// vertical subtab list on the left (a subtab picker above the content on
-// phones; navigation only, no inline action panel), and per-section
-// headers in the content column with the
-// Upload button on the right when the section already has items. Empty
-// sections promote the dropzone CTA (the dropzone owns the upload
-// affordance there).
+// SaveDataTab — Saves + States, each its own subtab with badge counts and an
+// Upload affordance. A vertical subtab list sits on the left (a picker row
+// on phones), and each "Mine" section header carries Upload once it has
+// items; empty sections promote the dropzone CTA instead.
 //
 // Each list is split into a "Mine" section (own saves/states, with a
 // per-item public/private toggle + delete) and a read-only "Community"
@@ -187,14 +183,11 @@ const uploadingStates = ref(false);
 // On phones the active subtab's Upload moves from the "Mine" section header
 // into the subtab picker's row.
 const pickerRowUpload = computed(() => {
-  if (subTab.value === "saves") {
-    return mySaves.value.length > 0
-      ? { type: "save" as const, busy: uploadingSaves.value }
-      : null;
-  }
-  return myStates.value.length > 0
-    ? { type: "state" as const, busy: uploadingStates.value }
-    : null;
+  const saves = subTab.value === "saves";
+  if ((saves ? mySaves : myStates).value.length === 0) return null;
+  return saves
+    ? { type: "save" as const, busy: uploadingSaves.value }
+    : { type: "state" as const, busy: uploadingStates.value };
 });
 
 const snackbar = useSnackbar();

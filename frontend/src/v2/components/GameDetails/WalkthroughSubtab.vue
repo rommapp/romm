@@ -134,10 +134,11 @@ async function confirmFolderConversionIfNeeded(): Promise<boolean> {
 const walkthroughDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const canUpload = computed(() => entries.value.length > 0 && canEdit.value);
 
-defineExpose({
-  canUpload,
-  openUpload: () => walkthroughDz.value?.open(),
-});
+function openUpload() {
+  walkthroughDz.value?.open();
+}
+
+defineExpose({ canUpload, openUpload });
 
 async function handleFiles(files: File[]) {
   await uploadFiles(props.rom, ROM_UPLOAD_FOLDERS.walkthrough, files);
@@ -291,7 +292,7 @@ async function requestDelete() {
         variant="outlined"
         size="small"
         prepend-icon="mdi-cloud-upload-outline"
-        @click="walkthroughDz?.open()"
+        @click="openUpload"
       >
         {{ t("common.upload") }}
       </RBtn>

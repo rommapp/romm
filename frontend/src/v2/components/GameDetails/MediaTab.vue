@@ -153,22 +153,26 @@ const canUploadSoundtrack = computed(
 
 // On phones a subtab's single Upload joins the picker row; Screenshots has one
 // per section, so it keeps them in place.
-type UploadAction = { canUpload: boolean; openUpload: () => void };
-const manualPanel = ref<UploadAction | null>(null);
-const walkthroughPanel = ref<UploadAction | null>(null);
+const manualPanel = ref<InstanceType<typeof ManualSubtab> | null>(null);
+const walkthroughPanel = ref<InstanceType<typeof WalkthroughSubtab> | null>(
+  null,
+);
 
 const pickerRowUpload = computed<(() => void) | null>(() => {
-  const panel =
-    subTab.value === "manual"
-      ? manualPanel.value
-      : subTab.value === "walkthrough"
-        ? walkthroughPanel.value
+  switch (subTab.value) {
+    case "manual":
+      return manualPanel.value?.canUpload ? manualPanel.value.openUpload : null;
+    case "walkthrough":
+      return walkthroughPanel.value?.canUpload
+        ? walkthroughPanel.value.openUpload
         : null;
-  if (panel?.canUpload) return panel.openUpload;
-  if (subTab.value === "soundtrack" && canUploadSoundtrack.value) {
-    return () => soundtrackDz.value?.open();
+    case "soundtrack":
+      return canUploadSoundtrack.value
+        ? () => soundtrackDz.value?.open()
+        : null;
+    default:
+      return null;
   }
-  return null;
 });
 
 async function refreshRom() {

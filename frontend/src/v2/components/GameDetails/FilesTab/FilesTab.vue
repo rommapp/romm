@@ -395,6 +395,7 @@ const selectedCount = computed(() => {
 });
 
 const filteredCount = computed(() => filteredFiles.value.length);
+const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
 
 const visibleAllSelected = computed(
   () => filteredCount.value > 0 && selectedCount.value === filteredCount.value,
@@ -619,10 +620,7 @@ async function refreshRom() {
     <div class="r-v2-files__content">
       <!-- No title: the subtab nav already names the section. Bulk download
            and copy-link live in the selection toolbar below. -->
-      <header
-        v-if="smAndDown || (filteredFiles.length > 0 && canUpload)"
-        class="r-v2-files__section-head"
-      >
+      <header v-if="smAndDown || showUpload" class="r-v2-files__section-head">
         <SubtabNav
           v-if="smAndDown"
           v-model="subTab"
@@ -630,10 +628,7 @@ async function refreshRom() {
           variant="menu"
           class="r-v2-files__subtab-menu"
         />
-        <div
-          v-if="filteredFiles.length > 0 && canUpload"
-          class="r-v2-files__section-actions"
-        >
+        <div v-if="showUpload" class="r-v2-files__section-actions">
           <RBtn
             v-if="activeUploadFolder === null"
             variant="outlined"
@@ -802,10 +797,6 @@ async function refreshRom() {
   display: none;
 }
 
-/* Section header — toolbar row at the top of the content column,
-   mirroring ScreenshotsSubtab / MediaTab. The sidebar's subtab label
-   names the section, so the header has no title — only the action
-   cluster pushed to the right. */
 .r-v2-files__section-head {
   display: flex;
   align-items: center;
@@ -908,8 +899,6 @@ html[data-bp~="sm-and-down"] .r-v2-files {
   position: static;
   inset: auto;
   overflow: visible;
-  flex-direction: column;
-  gap: 14px;
 }
 html[data-bp~="sm-and-down"] .r-v2-files__content {
   display: flex;

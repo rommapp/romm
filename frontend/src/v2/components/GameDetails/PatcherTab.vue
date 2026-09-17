@@ -134,9 +134,9 @@ const filenamePlaceholder = computed(() => {
   return "";
 });
 
-// Auto-select when there's no ambiguity: a single base file / single
-// patch file needs no picker. Reset on ROM change so switching to a
-// different ROM doesn't keep a stale selection.
+// Preselect when there's no ambiguity (a single base file or bundled patch).
+// Reset on ROM change so switching to a different ROM doesn't keep a stale
+// selection.
 watch(
   () => props.rom,
   () => {
@@ -159,10 +159,6 @@ watch(
   },
   { immediate: true },
 );
-
-watch(selectedPatchFile, (file) => {
-  if (file) uploadedPatch.value = null;
-});
 
 function onPatchFiles(files: File[]) {
   uploadedPatch.value = files[0] ?? null;
@@ -513,6 +509,7 @@ const applyLabel = computed(() => {
             variant="outlined"
             density="comfortable"
             hide-details
+            @update:model-value="uploadedPatch = null"
           >
             <template #item="{ props: itemProps, item }">
               <li v-bind="itemProps" class="r-v2-patch__file-row">
@@ -525,7 +522,7 @@ const applyLabel = computed(() => {
               </li>
             </template>
           </RSelect>
-          <RDivider class="r-v2-patch__or">
+          <RDivider>
             <span>{{ t("login.or") }}</span>
           </RDivider>
         </template>
@@ -758,11 +755,6 @@ const applyLabel = computed(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.r-v2-patch__or {
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
 /* Single-file display (no picker): name + size chip. */

@@ -1,4 +1,4 @@
-<script setup lang="ts" generic="T extends string">
+<script setup lang="ts" generic="I extends SubtabNavItem">
 // SubtabNav: subtab navigation for the GameDetails tabs that split into
 // sections. "list" is a rail beside the content; "menu" is a one-row trigger
 // (plus the `actions` slot) opening the list as a bottom sheet on phones.
@@ -14,7 +14,7 @@ export interface SubtabNavItem<Id extends string = string> {
   icon?: string;
   /** Count shown after the label; hidden when zero or unset. */
   badge?: number;
-  /** Heading the item is listed under; keep grouped items adjacent. */
+  /** Menu heading the item is listed under; keep grouped items adjacent. */
   group?: string;
 }
 
@@ -23,20 +23,21 @@ const SEARCH_THRESHOLD = 8;
 
 const props = withDefaults(
   defineProps<{
-    modelValue: T;
-    items: SubtabNavItem<T>[];
+    modelValue: I["id"];
+    items: I[];
     variant?: "list" | "menu";
   }>(),
   { variant: "list" },
 );
 
 const emit = defineEmits<{
-  (e: "update:modelValue", value: T): void;
+  (e: "update:modelValue", value: I["id"]): void;
 }>();
 
 const slots = defineSlots<{
   actions?: () => unknown;
-  "item-append"?: (scope: { item: SubtabNavItem<T> }) => unknown;
+  /** Menu rows only; receives the caller's own item type. */
+  "item-append"?: (scope: { item: I }) => unknown;
 }>();
 
 const { t } = useI18n();
@@ -59,12 +60,12 @@ watch(menuOpen, (open) => {
   if (!open) search.value = "";
 });
 
-function startsGroup(list: SubtabNavItem<T>[], index: number): boolean {
+function startsGroup(list: I[], index: number): boolean {
   const group = list[index].group;
   return !!group && group !== list[index - 1]?.group;
 }
 
-function select(id: T) {
+function select(id: I["id"]) {
   if (id !== props.modelValue) emit("update:modelValue", id);
 }
 </script>
@@ -76,32 +77,27 @@ function select(id: T) {
     role="tablist"
     aria-orientation="vertical"
   >
-    <template v-for="(item, index) in items" :key="item.id">
-      <li
-        v-if="startsGroup(items, index)"
-        role="presentation"
-        class="r-v2-subtab-nav__group"
+    <li
+      v-for="item in items"
+      :key="item.id"
+      role="presentation"
+      class="r-v2-subtab-nav__item"
+    >
+      <button
+        type="button"
+        role="tab"
+        class="r-v2-subtab-nav__btn"
+        :class="{ 'r-v2-subtab-nav__btn--active': item.id === modelValue }"
+        :aria-selected="item.id === modelValue"
+        @click="select(item.id)"
       >
-        {{ item.group }}
-      </li>
-      <li role="presentation" class="r-v2-subtab-nav__item">
-        <button
-          type="button"
-          role="tab"
-          class="r-v2-subtab-nav__btn"
-          :class="{ 'r-v2-subtab-nav__btn--active': item.id === modelValue }"
-          :aria-selected="item.id === modelValue"
-          @click="select(item.id)"
-        >
-          <RIcon v-if="item.icon" :icon="item.icon" size="16" />
-          <span class="r-v2-subtab-nav__label">{{ item.label }}</span>
-          <slot name="item-append" :item="item" />
-          <span v-if="item.badge" class="r-v2-subtab-nav__badge">
-            {{ item.badge }}
-          </span>
-        </button>
-      </li>
-    </template>
+        <RIcon v-if="item.icon" :icon="item.icon" size="16" />
+        <span class="r-v2-subtab-nav__label">{{ item.label }}</span>
+        <span v-if="item.badge" class="r-v2-subtab-nav__badge">
+          {{ item.badge }}
+        </span>
+      </button>
+    </li>
   </ul>
 
   <!-- Wrapped so call-site classes land on the row rather than on RMenu's
