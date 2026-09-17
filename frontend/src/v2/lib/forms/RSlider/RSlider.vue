@@ -234,13 +234,14 @@ function onChange() {
   cursor: not-allowed;
 }
 
-/* Vertical: the horizontal track stands on end, as long as the slider is
-   tall. Browsers hit-test and drag rotated range inputs natively. */
+/* Vertical: the track stands on end, as tall as the slider; touch gestures
+   are claimed so a vertical drag moves the thumb, never the page. */
 .r-slider--vertical {
   position: relative;
   width: 32px;
   height: 100%;
   container-type: size;
+  touch-action: none;
 }
 .r-slider--vertical .r-slider__core {
   position: absolute;
