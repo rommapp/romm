@@ -18,7 +18,7 @@
 //     circular tick when on. Clicking toggles INSTANTLY (optimistic
 //     update + API call; reverts on failure).
 //   * Empty state if no collections exist.
-import { RDialog, RDivider } from "@v2/lib";
+import { RDialog, RDivider, REmptyState } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -283,9 +283,12 @@ function closeDialog() {
         </li>
       </ul>
 
-      <div v-else class="r-v2-mng-coll__empty">
-        {{ t("collection.no-collections-yet-hint") }}
-      </div>
+      <REmptyState
+        v-else
+        size="small"
+        icon="mdi-bookmark-outline"
+        :title="t('collection.no-collections-yet-hint')"
+      />
     </template>
   </RDialog>
 </template>
@@ -337,13 +340,6 @@ function closeDialog() {
   gap: 0;
   max-height: 360px;
   overflow-y: auto;
-}
-
-.r-v2-mng-coll__empty {
-  padding: 24px 16px;
-  color: var(--r-color-fg-muted);
-  font-size: 13px;
-  text-align: center;
 }
 </style>
 

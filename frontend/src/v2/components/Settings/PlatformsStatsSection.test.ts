@@ -272,7 +272,7 @@ describe("PlatformsStatsSection", () => {
     ]);
 
     expect(wrapper.findAll(".r-v2-plat-stats__row")).toHaveLength(0);
-    expect(wrapper.find(".r-v2-plat-stats__empty").exists()).toBe(true);
+    expect(wrapper.findComponent({ name: "REmptyState" }).exists()).toBe(true);
   });
 
   // Re-sorting is a pure reorder of the same set. With a non-unique key, Vue

@@ -2,7 +2,7 @@
 // v2 SelectSaveDialog — listens for `selectSaveDialog`, shows a grid of
 // the ROM's saves and emits `saveSelected` on click (consumed by the
 // EmulatorJS view).
-import { RBtn, RDialog, RIcon } from "@v2/lib";
+import { RBtn, RDialog, REmptyState } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -63,10 +63,11 @@ function closeDialog() {
           @click="onCardClick(save)"
         />
       </div>
-      <div v-else class="r-v2-save-picker__empty">
-        <RIcon icon="mdi-help-rhombus-outline" size="48" />
-        <p>{{ t("rom.no-saves-found") }}</p>
-      </div>
+      <REmptyState
+        v-else
+        icon="mdi-help-rhombus-outline"
+        :title="t('rom.no-saves-found')"
+      />
     </template>
     <template #footer>
       <div style="flex: 1" />
@@ -87,19 +88,5 @@ function closeDialog() {
 
 .r-v2-save-picker__item {
   cursor: pointer;
-}
-
-.r-v2-save-picker__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 48px 0;
-  color: var(--r-color-fg-muted);
-}
-.r-v2-save-picker__empty p {
-  margin: 0;
-  font-size: 14px;
 }
 </style>

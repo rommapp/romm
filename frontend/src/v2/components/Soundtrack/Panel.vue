@@ -4,6 +4,7 @@
 // screen so only one "now playing" surface exists at a time.
 import {
   RBtn,
+  REmptyState,
   RIcon,
   RSkeletonBlock,
   RSpinner,
@@ -20,9 +21,9 @@ import useSoundtrackPlayer, {
 import AmbientArt from "@/v2/components/Soundtrack/AmbientArt.vue";
 import NowPlayingChips from "@/v2/components/Soundtrack/NowPlayingChips.vue";
 import SeekBar from "@/v2/components/Soundtrack/SeekBar.vue";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import {
   nowPlayingCaption,
@@ -117,6 +118,11 @@ const displayedTracks = computed(() => {
     .filter((track): track is PanelTrack => Boolean(track));
   return ordered.length === tracks.value.length ? ordered : tracks.value;
 });
+
+const queuePhase = useLoadingPhase(
+  () => Boolean(props.loading),
+  () => !displayedTracks.value.length,
+);
 
 let shouldStartShuffled = Boolean(props.startShuffled);
 
@@ -450,7 +456,7 @@ function downloadTrack(track: PanelTrack) {
           </span>
         </header>
 
-        <div v-if="loading" class="r-v2-stp__queue-skeleton">
+        <div v-if="queuePhase === 'skeleton'" class="r-v2-stp__queue-skeleton">
           <RSkeletonBlock
             v-for="n in 8"
             :key="n"
@@ -459,7 +465,7 @@ function downloadTrack(track: PanelTrack) {
           />
         </div>
         <RVirtualScroller
-          v-else-if="displayedTracks.length"
+          v-else-if="queuePhase === 'content'"
           class="r-v2-stp__list"
           :style="rowVars"
           :items="displayedTracks"
@@ -491,11 +497,10 @@ function downloadTrack(track: PanelTrack) {
         </RVirtualScroller>
         <!-- Empty queue keeps the player chrome on screen; only the list
              area says there is nothing to play. -->
-        <div v-else class="r-v2-stp__queue-empty">
-          <EmptyState
-            variant="boxed"
+        <div v-else-if="queuePhase === 'empty'" class="r-v2-stp__queue-empty">
+          <REmptyState
             :icon="emptyIcon ?? 'mdi-playlist-music'"
-            :message="t('common.no-results')"
+            :title="t('common.no-results')"
           />
         </div>
       </section>

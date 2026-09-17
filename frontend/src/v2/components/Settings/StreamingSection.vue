@@ -7,7 +7,7 @@
 // Each row shows what the container is running and offers the two actions
 // an admin needs: open its desktop to configure the emulator inside it, and
 // end whatever session is holding it.
-import { RBtn, RIcon, RSpinner } from "@v2/lib";
+import { RBtn, REmptyState, RIcon, RSpinner } from "@v2/lib";
 import { onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -120,17 +120,26 @@ onMounted(load);
       <RSpinner />
     </div>
 
-    <p v-else-if="loadFailed" class="r-v2-streaming__empty">
-      {{ t("settings.streaming-load-failed") }}
-    </p>
+    <REmptyState
+      v-else-if="loadFailed"
+      size="small"
+      icon="mdi-alert-circle-outline"
+      :title="t('settings.streaming-load-failed')"
+    />
 
-    <p v-else-if="!enabled" class="r-v2-streaming__empty">
-      {{ t("settings.streaming-disabled") }}
-    </p>
+    <REmptyState
+      v-else-if="!enabled"
+      size="small"
+      icon="mdi-monitor-off"
+      :title="t('settings.streaming-disabled')"
+    />
 
-    <p v-else-if="containers.length === 0" class="r-v2-streaming__empty">
-      {{ t("settings.streaming-none") }}
-    </p>
+    <REmptyState
+      v-else-if="containers.length === 0"
+      size="small"
+      icon="mdi-monitor-dashboard"
+      :title="t('settings.streaming-none')"
+    />
 
     <template v-else>
       <div
@@ -207,13 +216,6 @@ onMounted(load);
 
 <style scoped>
 .r-v2-streaming__loading,
-.r-v2-streaming__empty {
-  padding: 16px;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
-  margin: 0;
-}
-
 .r-v2-streaming__row {
   display: flex;
   align-items: center;

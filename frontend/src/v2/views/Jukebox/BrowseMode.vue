@@ -2,6 +2,7 @@
 // One facet-driven browse screen: artist / genre / platform / decade / album
 // differ only by the facet they load and the filter they hand the track query.
 import {
+  REmptyState,
   RIcon,
   RList,
   RListItem,
@@ -14,7 +15,7 @@ import { useI18n } from "vue-i18n";
 import musicApi, { type MusicTrackFilters } from "@/services/api/music";
 import useMusicFavorites from "@/stores/musicFavorites";
 import SoundtrackPanel from "@/v2/components/Soundtrack/Panel.vue";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useTrackPager } from "@/v2/composables/useTrackPager";
 import { panelTracksFromCatalog } from "@/v2/utils/soundtrackTracks";
 
@@ -53,6 +54,10 @@ const entries = ref<BrowseEntry[]>([]);
 const loadingEntries = ref(true);
 const entriesFailed = ref(false);
 const search = ref("");
+const entriesPhase = useLoadingPhase(
+  loadingEntries,
+  () => entriesFailed.value || !entries.value.length,
+);
 
 const pager = useTrackPager((items) => favorites.merge(items));
 
@@ -127,20 +132,18 @@ function onDelete(fileId: number, romId: number) {
     </div>
 
     <div class="jukebox__entries r-v2-scroll-hidden">
-      <template v-if="loadingEntries">
+      <template v-if="entriesPhase === 'skeleton'">
         <RSkeletonBlock v-for="n in 7" :key="n" height="60px" rounded="md" />
       </template>
-      <EmptyState
-        v-else-if="entriesFailed"
+      <REmptyState
+        v-else-if="entriesPhase === 'empty'"
+        size="small"
         :icon="icon"
-        :message="t('common.unknown-error')"
+        :title="
+          entriesFailed ? t('common.unknown-error') : t('common.no-results')
+        "
       />
-      <EmptyState
-        v-else-if="!entries.length"
-        :icon="icon"
-        :message="t('common.no-results')"
-      />
-      <RList v-else density="default">
+      <RList v-else-if="entriesPhase === 'content'" density="default">
         <RListItem
           v-for="entry in entries"
           :key="entry.key"

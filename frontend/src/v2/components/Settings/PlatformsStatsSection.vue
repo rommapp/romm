@@ -12,6 +12,7 @@
 // this section sits flush in the page; only the Summary section above
 // keeps a surface.
 import {
+  REmptyState,
   RIcon,
   RPlatformIcon,
   RProgressLinear,
@@ -330,14 +331,15 @@ function onRowClick(e: MouseEvent, platformId: number): void {
           class="r-v2-plat-stats__bar"
         />
       </a>
-      <div v-if="sortedPlatforms.length === 0" class="r-v2-plat-stats__empty">
-        <RIcon icon="mdi-folder-question" size="22" />
-        <span>{{
+      <REmptyState
+        v-if="sortedPlatforms.length === 0"
+        :icon="searchQuery.trim() ? 'mdi-magnify-close' : 'mdi-folder-question'"
+        :title="
           searchQuery.trim()
-            ? t("settings.no-matching-platforms")
-            : t("settings.no-platforms")
-        }}</span>
-      </div>
+            ? t('settings.no-matching-platforms')
+            : t('settings.no-platforms')
+        "
+      />
     </div>
   </section>
 </template>
@@ -493,14 +495,5 @@ function onRowClick(e: MouseEvent, platformId: number): void {
 
 .r-v2-plat-stats__bar {
   grid-column: 1 / -1;
-}
-
-.r-v2-plat-stats__empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px;
-  color: var(--r-color-fg-muted);
 }
 </style>

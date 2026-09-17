@@ -27,8 +27,9 @@
 // no per-variant `:hover` rules. Activation paints a circular ripple
 // expanding from the input point inside a clip wrapper so it never
 // escapes the rounded silhouette nor masks the elevated shadow.
-import { computed, onBeforeUnmount, ref, useSlots, watch } from "vue";
+import { computed, ref, useSlots } from "vue";
 import { RouterLink, type RouteLocationRaw } from "vue-router";
+import { useDelayedFlag } from "@/v2/composables/useDelayedFlag";
 import RTooltip from "../../structural/RTooltip/RTooltip.vue";
 import RIcon from "../RIcon/RIcon.vue";
 import RProgressCircular from "../RProgressCircular/RProgressCircular.vue";
@@ -216,37 +217,10 @@ const isIconBtn = computed(
 );
 
 // ── Debounced loading ────────────────────────────────────────────
-const debouncedLoading = ref(false);
-let pendingTimer: ReturnType<typeof setTimeout> | null = null;
-
-function clearTimer() {
-  if (pendingTimer) {
-    clearTimeout(pendingTimer);
-    pendingTimer = null;
-  }
-}
-
-watch(
+const debouncedLoading = useDelayedFlag(
   () => props.loading,
-  (next) => {
-    clearTimer();
-    if (!next) {
-      debouncedLoading.value = false;
-      return;
-    }
-    if (props.loadingDebounce <= 0) {
-      debouncedLoading.value = true;
-      return;
-    }
-    pendingTimer = setTimeout(() => {
-      debouncedLoading.value = true;
-      pendingTimer = null;
-    }, props.loadingDebounce);
-  },
-  { immediate: true },
+  () => props.loadingDebounce,
 );
-
-onBeforeUnmount(clearTimer);
 
 // ── Ripple ───────────────────────────────────────────────────────
 // A circular wave expands from the activation point. Pointer events

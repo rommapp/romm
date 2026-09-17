@@ -33,6 +33,7 @@ import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import CardRow from "@/v2/components/shared/CardRow.vue";
 import RecommendationReason from "@/v2/components/shared/RecommendationReason.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
@@ -145,8 +146,8 @@ const gridRoot = ref<HTMLElement | null>(null);
 useGridNav(gridRoot);
 
 // Flips once every initial request has settled. Until then the store
-// `fetching*` flags are still false and the stores are still empty, so
-// `isEmpty` reads true for a library that simply hasn't loaded yet.
+// `fetching*` flags are still false and the stores are still empty, so an
+// empty store can't tell an empty library from one that hasn't loaded yet.
 const initialLoadDone = ref(false);
 
 onMounted(async () => {
@@ -180,36 +181,32 @@ onMounted(async () => {
         .finally(() => (fetchingContinue.value = false)),
     );
   }
+  // Not an emptiness signal, so the empty-library decision doesn't wait on it.
   if (showRecommendations.value) {
-    initialLoads.push(loadRecommendations());
+    void loadRecommendations();
   }
 
   await Promise.allSettled(initialLoads);
   initialLoadDone.value = true;
 });
 
-// True when nothing has been added yet AND we're no longer fetching —
-// mirrors v1's EmptyHome check so we don't flash the placeholder while
-// the initial loads are still in-flight.
-const isEmpty = computed(
+const hasContent = computed(
   () =>
-    !fetchingPlatforms.value &&
-    !fetchingCollections.value &&
-    !fetchingSmartCollections.value &&
-    !fetchingVirtualCollections.value &&
-    !fetchingRecent.value &&
-    !fetchingContinue.value &&
-    recentRoms.value.length === 0 &&
-    continuePlayingRoms.value.length === 0 &&
-    filledPlatforms.value.length === 0 &&
-    allCollections.value.length === 0 &&
-    (!showSmartCollections.value || smartCollections.value.length === 0) &&
-    (!showVirtualCollections.value || virtualCollections.value.length === 0),
+    recentRoms.value.length > 0 ||
+    continuePlayingRoms.value.length > 0 ||
+    filledPlatforms.value.length > 0 ||
+    allCollections.value.length > 0 ||
+    (showSmartCollections.value && smartCollections.value.length > 0) ||
+    (showVirtualCollections.value && virtualCollections.value.length > 0),
 );
 
-// Gate on the load having actually happened: `isEmpty` alone is true
-// during setup, before any request has been made.
-const showEmptyState = computed(() => initialLoadDone.value && isEmpty.value);
+// The first list to land with items settles on the sections; only once every
+// load has come back empty does the empty library take over. In between the
+// page stays blank, and shows the section skeletons only if that runs long.
+const phase = useLoadingPhase(
+  () => !initialLoadDone.value && !hasContent.value,
+  () => !hasContent.value,
+);
 
 // Filesystem snapshot for the empty state — shows the user what RomM
 // can already see on disk so the "run a scan" CTA isn't a leap of
@@ -243,8 +240,8 @@ async function loadLibraryInfo() {
   }
 }
 
-watch(showEmptyState, (empty) => {
-  if (empty) void loadLibraryInfo();
+watch(phase, (value) => {
+  if (value === "empty") void loadLibraryInfo();
 });
 
 // Favorite ROMs — derived from the Favorites collection's rom_ids.
@@ -277,7 +274,7 @@ function collectionCovers(c: {
     <!-- Empty library state — shown when nothing has been ingested
          yet. Hides every section underneath so the user lands on a
          decision (upload vs scan), not on a row of skeletons. -->
-    <section v-if="showEmptyState" class="r-v2-home-empty">
+    <section v-if="phase === 'empty'" class="r-v2-home-empty">
       <div class="r-v2-home-empty__hero">
         <RIcon
           icon="mdi-controller-classic-outline"
@@ -366,7 +363,7 @@ function collectionCovers(c: {
       </div>
     </section>
 
-    <template v-else>
+    <template v-else-if="phase !== 'idle'">
       <!-- Widget bar — random pick, library snapshot, future RA widgets.
            Hidden when the master toggle is off; the bar itself also
            drops out when every individual widget is disabled. -->
@@ -673,6 +670,8 @@ function collectionCovers(c: {
   padding: var(--r-space-10) var(--r-space-6);
   min-height: 60vh;
   justify-content: center;
+  animation: r-v2-home-fade-in var(--r-motion-slow) var(--r-motion-ease-out)
+    both;
 }
 
 .r-v2-home-empty__hero {
@@ -713,6 +712,20 @@ function collectionCovers(c: {
   justify-content: center;
   gap: var(--r-space-2);
   margin-top: var(--r-space-2);
+  animation: r-v2-home-fade-in var(--r-motion-med) var(--r-motion-ease-out) both;
+}
+
+@keyframes r-v2-home-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r-v2-home-empty,
+  .r-v2-home-empty__detected {
+    animation: none;
+  }
 }
 
 .r-v2-home-empty__choices {
