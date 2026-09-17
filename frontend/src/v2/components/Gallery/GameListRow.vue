@@ -38,6 +38,7 @@ import { activeProviders } from "@/v2/utils/metadataProviders";
 import {
   getListColumns,
   getListGridTemplate,
+  type ListColumn,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
   LIST_TITLE_SKELETON_BARS,
@@ -124,6 +125,16 @@ const gridStyle = computed(() => ({
   gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
 }));
 const titleSkeletonGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
+
+/** Alignment / figure modifiers for a cell, read off the column config so
+ *  the body cannot drift from the header above it. */
+function cellModifiers(key: ListColumn["key"]) {
+  const column = columns.value.find((col) => col.key === key);
+  return {
+    "game-list-row__cell--end": column?.align === "end",
+    "game-list-row__cell--num": column?.numeric === true,
+  };
+}
 
 const platformMeta = computed(() => {
   const item = rom.value;
@@ -367,13 +378,27 @@ function onRowPointerEnd() {
         </span>
       </div>
 
-      <div class="game-list-row__cell">
+      <div class="game-list-row__cell" :class="cellModifiers('fs_size_bytes')">
         {{ rom.fs_size_bytes ? formatBytes(rom.fs_size_bytes) : "—" }}
       </div>
-      <div class="game-list-row__cell">{{ formatDate(rom.created_at) }}</div>
-      <div class="game-list-row__cell">{{ releaseDate(rom) }}</div>
-      <div class="game-list-row__cell">{{ ratingValue(rom) }}</div>
-      <div class="game-list-row__cell">{{ lengthValue(rom) }}</div>
+      <div class="game-list-row__cell" :class="cellModifiers('created_at')">
+        {{ formatDate(rom.created_at) }}
+      </div>
+      <div
+        class="game-list-row__cell"
+        :class="cellModifiers('first_release_date')"
+      >
+        {{ releaseDate(rom) }}
+      </div>
+      <div class="game-list-row__cell" :class="cellModifiers('average_rating')">
+        {{ ratingValue(rom) }}
+      </div>
+      <div
+        class="game-list-row__cell"
+        :class="cellModifiers('hltb_main_story')"
+      >
+        {{ lengthValue(rom) }}
+      </div>
 
       <div class="game-list-row__cell game-list-row__cell--pills">
         <div class="game-list-row__pills">
@@ -426,7 +451,7 @@ function onRowPointerEnd() {
         />
       </div>
 
-      <div class="game-list-row__cell game-list-row__cell--end">
+      <div class="game-list-row__cell" :class="cellModifiers('actions')">
         <div class="game-list-row__actions" @click.stop>
           <GameActionBtn
             :rom="rom"
@@ -489,11 +514,16 @@ function onRowPointerEnd() {
         </div>
         <div
           v-else-if="col.key === 'actions'"
-          class="game-list-row__cell game-list-row__cell--end"
+          class="game-list-row__cell"
+          :class="cellModifiers('actions')"
         >
           <RSkeletonBlock :width="18" :height="18" circle />
         </div>
-        <div v-else class="game-list-row__cell">
+        <div
+          v-else
+          class="game-list-row__cell"
+          :class="{ 'game-list-row__cell--end': col.align === 'end' }"
+        >
           <RSkeletonBlock :width="col.skeletonWidth ?? 60" :height="10" />
         </div>
       </template>
@@ -505,7 +535,7 @@ function onRowPointerEnd() {
 .game-list-row {
   display: grid;
   align-items: center;
-  gap: 0 var(--r-space-3);
+  gap: 0 var(--r-space-5);
   padding: 0 var(--r-space-3);
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
@@ -565,9 +595,16 @@ function onRowPointerEnd() {
   text-overflow: ellipsis;
 }
 
+/* Quantities and dates pin to the column's right edge, so the digits line up
+   down the column instead of stepping with the unit or month width. */
 .game-list-row__cell--end {
-  display: flex;
-  justify-content: flex-end;
+  text-align: end;
+}
+
+/* Tabular figures for the digit columns: proportional digits make the
+   column ragged even at a fixed width. */
+.game-list-row__cell--num {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Cover sits in its own fixed-width column (centred) so the title/meta

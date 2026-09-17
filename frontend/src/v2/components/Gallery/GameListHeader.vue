@@ -138,7 +138,7 @@ function handleClick(col: ListColumn) {
 .game-list-header {
   display: grid;
   align-items: center;
-  gap: 0 var(--r-space-3);
+  gap: 0 var(--r-space-5);
   padding: 0 var(--r-space-3);
   height: var(--r-list-header-h);
   background: var(--r-color-bg-elevated);
@@ -173,6 +173,12 @@ function handleClick(col: ListColumn) {
 .game-list-header__cell--end {
   justify-content: flex-end;
   text-align: end;
+}
+
+/* End-aligned labels hug the right edge, so the sort glyph goes on the
+   label's left. Appending it would shove the label sideways on click. */
+.game-list-header__cell--end .game-list-header__icon {
+  order: -1;
 }
 
 .game-list-header__cell--sortable {

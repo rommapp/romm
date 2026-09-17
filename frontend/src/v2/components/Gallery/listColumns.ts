@@ -37,7 +37,12 @@ export interface ListColumn {
   label: string;
   /** Whether the column header is clickable to toggle sort. */
   sortable: boolean;
+  /** Column alignment, read by the header label, the value cells and the
+   *  actions cell; the structural cells lay themselves out. */
   align?: "start" | "end";
+  /** Digit-bearing value, rendered in tabular figures so the column reads
+   *  as a grid. */
+  numeric?: boolean;
   /** Skeleton placeholder width (px) for this column's loading state.
    * `undefined` means the column owns a custom skeleton shape — the
    * title column paints cover + meta lines, the actions column paints
@@ -71,35 +76,40 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
       key: "fs_size_bytes",
       label: "Size",
       sortable: true,
-      align: "start",
+      align: "end",
+      numeric: true,
       skeletonWidth: 60,
     },
     {
       key: "created_at",
       label: "Added",
       sortable: true,
-      align: "start",
+      align: "end",
+      numeric: true,
       skeletonWidth: 64,
     },
     {
       key: "first_release_date",
       label: "Released",
       sortable: true,
-      align: "start",
+      align: "end",
+      numeric: true,
       skeletonWidth: 40,
     },
     {
       key: "average_rating",
       label: "Rating",
       sortable: true,
-      align: "start",
+      align: "end",
+      numeric: true,
       skeletonWidth: 32,
     },
     {
       key: "hltb_main_story",
       label: "Length",
       sortable: true,
-      align: "start",
+      align: "end",
+      numeric: true,
       skeletonWidth: 40,
     },
     {
@@ -125,7 +135,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
 // natural min-width (below) derive from the same numbers.
 const LIST_SELECT_TRACK_PX = 36;
 const LIST_PLATFORM_TRACK_PX = 200;
-const LIST_METRIC_TRACKS_PX = [88, 96, 84, 56, 72, 110, 110, 88];
+const LIST_METRIC_TRACKS_PX = [88, 96, 96, 56, 72, 110, 110, 88];
 /** Minimum width of the title column so it stays readable when the row is
  *  scrolled horizontally on a narrow viewport (instead of collapsing to 0). */
 export const LIST_TITLE_MIN_PX = 200;
@@ -166,10 +176,10 @@ export function getListGridTemplate(showPlatform: boolean): string {
   return `${LIST_SELECT_TRACK_PX}px ${LIST_COVER_TRACK_PX}px minmax(${LIST_TITLE_MIN_PX}px, 1.6fr)${platformTrack} ${metrics}`;
 }
 
-// The row/header grids also carry a `--r-space-3` column gap and a
+// The row/header grids also carry a `--r-space-5` column gap and a
 // `--r-space-3` inline padding on each side (see GameListRow / GameListHeader),
 // which add to the natural width alongside the tracks.
-const LIST_GRID_GAP_PX = 12; // --r-space-3
+const LIST_GRID_GAP_PX = 20; // --r-space-5
 const LIST_ROW_PAD_X_PX = 12; // --r-space-3 (each side)
 
 /** The row's natural (minimum) width = every fixed track + the title's floor +
