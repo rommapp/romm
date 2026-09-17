@@ -62,10 +62,8 @@ const artHeight = computed(() =>
   align-items: center;
 }
 .r-gcs__label {
-  /* The line box GameCard's `.r-gc__label` occupies (11.5px at the app's 1.4
-     line-height). It sits on this wrapper rather than on the bar, whose height
-     has to stay inline: a class height on the block itself loses to that inline
-     value and the reserved pixels never appear. */
+  /* Reserves the line box GameCard's `.r-gc__label` occupies (11.5px at 1.4
+     line-height); the wrapper carries it because the bar's height is inline. */
   width: var(--r-card-art-w);
   height: 16px;
   margin-top: 7px;
