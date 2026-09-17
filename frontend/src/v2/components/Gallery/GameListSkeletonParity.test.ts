@@ -28,8 +28,8 @@ describe("list-mode skeleton row", () => {
   });
 
   it("paints the bootstrap row's per-column shapes", () => {
-    // Both sit in the same column grid, so a shape that drifts between the two
-    // reflows the list when data arrives.
+    // Both placeholder rows sit in the same column grid, so a shape that drifts
+    // between them reflows the list when data arrives.
     const pending = mount(GameListRow, { props: { position: 0 } }).element;
     const bootstrap = mount(GameListSkeletonRow).element;
 
