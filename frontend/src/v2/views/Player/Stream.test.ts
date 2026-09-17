@@ -523,6 +523,13 @@ describe("Stream claim hygiene", () => {
   });
 });
 
+// The heartbeat only runs once the game is on screen, so while loading the
+// status poll is what can find it; a tab coming back to the front runs one.
+async function pollStatus(): Promise<void> {
+  document.dispatchEvent(new Event("visibilitychange"));
+  await flushPromises();
+}
+
 describe("Stream launch recovery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -534,16 +541,16 @@ describe("Stream launch recovery", () => {
     // left the tab loading over a game that was running.
     const wrapper = await launch({ picker: false });
     await vmOf(wrapper).onPlay();
-    mocks.heartbeatSession.mockResolvedValue({
+    mocks.fetchSessionStatus.mockResolvedValue({
       status: "active",
       platform: "gba",
       host: "http://webstation-dev:8080/room/x",
       container: CLAIM.container,
     });
 
-    await mocks.presenceTick?.();
-    await flushPromises();
+    await pollStatus();
 
+    expect(mocks.fetchSessionStatus).toHaveBeenCalledWith("gba");
     expect(vmOf(wrapper).playerState).toBe("playing");
     expect(vmOf(wrapper).containerHost).toBe(
       "http://webstation-dev:8080/room/x",
@@ -554,15 +561,14 @@ describe("Stream launch recovery", () => {
   it("keeps waiting while the launch has no room yet", async () => {
     const wrapper = await launch({ picker: false });
     await vmOf(wrapper).onPlay();
-    mocks.heartbeatSession.mockResolvedValue({
+    mocks.fetchSessionStatus.mockResolvedValue({
       status: "active",
       platform: "gba",
       host: null,
       container: CLAIM.container,
     });
 
-    await mocks.presenceTick?.();
-    await flushPromises();
+    await pollStatus();
 
     expect(vmOf(wrapper).playerState).toBe("loading");
     wrapper.unmount();
