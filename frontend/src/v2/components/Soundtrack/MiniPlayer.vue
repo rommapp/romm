@@ -10,7 +10,7 @@
 // can leave the soundtrack subtab without the music cutting out.
 //
 // The visible card floats in a corner on desktop; on phones the top bar's
-// NowPlayingButton opens the same card as a sheet instead.
+// NowPlayingPill opens the same card as a sheet instead.
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";

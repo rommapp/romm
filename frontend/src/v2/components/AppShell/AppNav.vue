@@ -15,7 +15,7 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
-import NowPlayingButton from "@/v2/components/Soundtrack/NowPlayingButton.vue";
+import NowPlayingPill from "@/v2/components/Soundtrack/NowPlayingPill.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 
@@ -81,7 +81,7 @@ onBeforeUnmount(() => {
 
       <div class="r-v2-nav__right">
         <ScanningIndicator />
-        <NowPlayingButton v-if="smAndDown" />
+        <NowPlayingPill v-if="smAndDown" />
         <UserMenu />
       </div>
     </nav>
@@ -216,5 +216,8 @@ html[data-bp~="sm-and-down"] .r-v2-nav__center {
    phones so the isotipo + user cluster have room. */
 html[data-bp~="xs"] .r-v2-nav__logo-word {
   display: none;
+}
+html[data-bp~="xs"] .r-v2-nav__right {
+  gap: 6px;
 }
 </style>

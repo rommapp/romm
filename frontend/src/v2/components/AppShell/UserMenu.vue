@@ -352,6 +352,16 @@ async function onLogout() {
   font-weight: var(--r-font-weight-medium);
 }
 
+/* Phones keep the trigger to the avatar so the top bar always has the same
+   room for the scan indicator and the mini player. */
+html[data-bp~="xs"] .r-v2-user {
+  padding: 3px !important;
+}
+html[data-bp~="xs"] .r-v2-user__name,
+html[data-bp~="xs"] .r-v2-user__chevron {
+  display: none;
+}
+
 /* Group section inside the dropdown — small uppercase label above each
    cluster so the IA mirrors SettingsSidebar exactly. The label is omitted
    for the trailing Actions/About/Logout regions where dividers already
