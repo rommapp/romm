@@ -47,8 +47,9 @@ knowledge base content.
 
 1. **Resolve the namespace.** Call `list_knowledge_bases` and take the
    `namespaceId` of `rommapp/romm`, then reuse it for the rest of the session.
-   An empty page does not prove there is none: check `offset`, `total` and
-   `truncated` before giving up.
+   One page is not the whole list: it holds at most 100 entries, so page with
+   `offset += returned` until the repository shows up or the listing runs out,
+   and mind `truncated` before giving up.
 2. **Search when you know the term.** `search_knowledge_base` matches a
    case-insensitive literal substring, so query identifiers and distinctive
    nouns (`scan_platform`, `useInput`, `/api/roms`), never a sentence. It has no
