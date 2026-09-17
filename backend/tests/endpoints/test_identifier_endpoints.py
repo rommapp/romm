@@ -1,8 +1,3 @@
-"""The `/identifiers` endpoints answer from the id column, not from loaded rows.
-
-`load_only(Model.id)` still builds an entity per row, and an eager load on the
-model fires anyway, so only a column projection is enough.
-"""
 
 from fastapi import status
 from fastapi.testclient import TestClient
