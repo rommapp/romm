@@ -1,7 +1,5 @@
 <script setup lang="ts">
-// HLTBStrip — "How Long To Beat" stats bar. Up to four columns (main story,
-// main + extras, completionist, all styles). Each column: uppercase label,
-// big value, optional "N players" subcount.
+// "How long to beat" stats bar, one column per play style.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomHLTBMetadata } from "@/__generated__";
@@ -51,8 +49,7 @@ const entries = computed<Entry[]>(() => {
 </template>
 
 <style scoped>
-/* Columns share the container's rows so a wrapped label cannot push its own
-   value and subcount out of line. */
+/* Shared rows keep a wrapped label from pushing its value out of line. */
 .r-v2-det-hltb {
   display: grid;
   grid-auto-flow: column;
