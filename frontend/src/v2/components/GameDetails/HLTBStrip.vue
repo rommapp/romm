@@ -51,9 +51,15 @@ const entries = computed<Entry[]>(() => {
 </template>
 
 <style scoped>
+/* One grid row per line (label, value, subcount) shared by every column, so a
+   label that wraps cannot push its own value and subcount out of line with
+   the neighbouring columns. */
 .r-v2-det-hltb {
-  display: flex;
-  align-items: stretch;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  row-gap: 4px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
@@ -62,13 +68,13 @@ const entries = computed<Entry[]>(() => {
 }
 
 .r-v2-det-hltb__item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: subgrid;
+  grid-row: span 3;
   padding: 0 12px;
   border-right: 1px solid var(--r-color-border);
+  text-align: center;
 }
 .r-v2-det-hltb__item:last-child {
   border-right: none;
@@ -80,7 +86,9 @@ const entries = computed<Entry[]>(() => {
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--r-color-fg-faint);
-  text-align: center;
+  /* A label too long for its equal-width column breaks rather than spilling
+     over the divider. */
+  overflow-wrap: break-word;
 }
 .r-v2-det-hltb__value {
   font-size: 20px;
