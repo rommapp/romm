@@ -145,8 +145,7 @@ watch(
 const gridRoot = ref<HTMLElement | null>(null);
 useGridNav(gridRoot);
 
-// Flips once every initial request has settled. Until then the store
-// `fetching*` flags are still false and the stores are still empty, so an
+// Flips once every initial request has settled: before a fetch starts, an
 // empty store can't tell an empty library from one that hasn't loaded yet.
 const initialLoadDone = ref(false);
 
@@ -200,11 +199,20 @@ const hasContent = computed(
     (showVirtualCollections.value && virtualCollections.value.length > 0),
 );
 
-// The first list to land with items settles on the sections; only once every
-// load has come back empty does the empty library take over. In between the
-// page stays blank, and shows the section skeletons only if that runs long.
+// A store fetch already in flight elsewhere (AppLayout) resolves a second
+// caller at once, so its flag has to hold off the empty library too.
+const storesFetching = computed(
+  () =>
+    fetchingPlatforms.value ||
+    fetchingCollections.value ||
+    fetchingSmartCollections.value ||
+    fetchingVirtualCollections.value,
+);
+
+// The first list to land with items settles on the sections; the empty
+// library waits until every load has come back empty.
 const phase = useLoadingPhase(
-  () => !initialLoadDone.value && !hasContent.value,
+  () => (!initialLoadDone.value || storesFetching.value) && !hasContent.value,
   () => !hasContent.value,
 );
 

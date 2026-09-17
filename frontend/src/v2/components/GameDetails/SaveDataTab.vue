@@ -10,8 +10,7 @@
 // download only). Mirrors ScreenshotsSubtab's My / Community model.
 //
 // URL-persistent subtab selection via `?subtab=` so deep-linking
-// into a specific list works and stale state doesn't leak when the
-// user navigates to a sibling tab.
+// into a specific list works.
 import { RBtn, RDropzone } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";

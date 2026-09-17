@@ -122,9 +122,8 @@ const listSortKey = computed<ListSortKey | null>(() => {
   return isListSortKey(key) ? key : null;
 });
 
-// Virtual items: one entry per absolute position (0 .. total) once
-// metadata is loaded; skeleton placeholders before then, once the load has
-// run long enough to warrant them.
+// One entry per absolute position (0 .. total) once metadata is loaded;
+// before then, skeleton placeholders once the skeleton is due.
 type VItem =
   { kind: "list-row"; position: number } | { kind: "skeleton"; key: number };
 

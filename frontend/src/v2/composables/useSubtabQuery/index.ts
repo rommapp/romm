@@ -28,13 +28,10 @@ export function useSubtabQuery<T extends string>(
     });
   });
 
-  watch(
-    () => [route.query.tab, route.query.subtab],
-    () => {
-      const value = fromRoute();
-      if (value !== null && value !== subtab.value) subtab.value = value;
-    },
-  );
+  watch([() => route.query.tab, () => route.query.subtab], () => {
+    const value = fromRoute();
+    if (value !== null && value !== subtab.value) subtab.value = value;
+  });
 
   return subtab;
 }

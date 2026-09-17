@@ -1,7 +1,5 @@
-// useLoadingPhase — which of skeleton / empty / content a loading view shows.
-// The skeleton only appears once loading outlasts `delayMs`; until then the
-// view keeps its last settled phase, so a fast load or refetch swaps straight
-// to the result instead of flashing a skeleton first.
+// Picks skeleton, empty or content for a loading view. Until loading outlasts
+// `delayMs` the last settled phase stays up, so a fast load never flashes.
 import {
   nextTick,
   onScopeDispose,

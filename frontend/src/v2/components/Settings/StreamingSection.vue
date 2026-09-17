@@ -215,7 +215,11 @@ onMounted(load);
 </template>
 
 <style scoped>
-.r-v2-streaming__loading,
+.r-v2-streaming__loading {
+  padding: 16px;
+  color: var(--r-color-fg-muted);
+}
+
 .r-v2-streaming__row {
   display: flex;
   align-items: center;

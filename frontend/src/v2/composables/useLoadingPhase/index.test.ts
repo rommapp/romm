@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { effectScope, nextTick, ref } from "vue";
+import { effectScope, nextTick, ref, type EffectScope } from "vue";
 import { SKELETON_DELAY_MS, SKELETON_MIN_MS, useLoadingPhase } from "./index";
+
+const scopes: EffectScope[] = [];
 
 function setup(initial: { loading: boolean; empty: boolean }) {
   const loading = ref(initial.loading);
   const empty = ref(initial.empty);
   const scope = effectScope();
+  scopes.push(scope);
   const phase = scope.run(() => useLoadingPhase(loading, empty))!;
   return { loading, empty, phase, scope };
 }
@@ -16,6 +19,7 @@ describe("useLoadingPhase", () => {
   });
 
   afterEach(() => {
+    scopes.splice(0).forEach((scope) => scope.stop());
     vi.useRealTimers();
   });
 

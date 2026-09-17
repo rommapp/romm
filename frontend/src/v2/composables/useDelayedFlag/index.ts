@@ -1,5 +1,5 @@
-// useDelayedFlag — mirrors a boolean source, but only turns true once the
-// source has stayed true for `delayMs`, so fast work never paints a loader.
+// Mirrors a boolean source, but only turns true once the source has stayed
+// true for `delayMs`, so fast work never paints a loader.
 import {
   onScopeDispose,
   shallowRef,

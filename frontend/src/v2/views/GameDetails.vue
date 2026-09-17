@@ -88,8 +88,8 @@ onBeforeRouteUpdate(async (to) => {
 const tab = ref<string>((route.query.tab as string) || "overview");
 watch(tab, (value) => {
   if (route.query.tab !== value) {
-    // The subtab belongs to the tab being left.
-    const { subtab: _subtab, ...query } = route.query;
+    // The subtab and note belong to the tab being left.
+    const { subtab: _subtab, note: _note, ...query } = route.query;
     router.replace({
       path: route.path,
       query: { ...query, tab: value },

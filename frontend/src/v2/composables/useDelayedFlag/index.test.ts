@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { effectScope, nextTick, ref } from "vue";
+import { effectScope, nextTick, ref, type EffectScope, type Ref } from "vue";
 import { useDelayedFlag } from "./index";
+
+const scopes: EffectScope[] = [];
+
+function setup(source: Ref<boolean>, delayMs: number) {
+  const scope = effectScope();
+  scopes.push(scope);
+  return scope.run(() => useDelayedFlag(source, delayMs))!;
+}
 
 describe("useDelayedFlag", () => {
   beforeEach(() => {
@@ -8,12 +16,13 @@ describe("useDelayedFlag", () => {
   });
 
   afterEach(() => {
+    scopes.splice(0).forEach((scope) => scope.stop());
     vi.useRealTimers();
   });
 
   it("turns on only once the source has stayed on for the delay", async () => {
     const source = ref(true);
-    const flag = effectScope().run(() => useDelayedFlag(source, 200))!;
+    const flag = setup(source, 200);
 
     await vi.advanceTimersByTimeAsync(199);
     expect(flag.value).toBe(false);
@@ -24,7 +33,7 @@ describe("useDelayedFlag", () => {
 
   it("turns off at once and drops a pending turn-on", async () => {
     const source = ref(true);
-    const flag = effectScope().run(() => useDelayedFlag(source, 200))!;
+    const flag = setup(source, 200);
 
     await vi.advanceTimersByTimeAsync(100);
     source.value = false;
@@ -36,7 +45,7 @@ describe("useDelayedFlag", () => {
 
   it("follows the source immediately with no delay", async () => {
     const source = ref(false);
-    const flag = effectScope().run(() => useDelayedFlag(source, 0))!;
+    const flag = setup(source, 0);
 
     source.value = true;
     await nextTick();

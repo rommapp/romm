@@ -67,10 +67,10 @@ let searchTimer: ReturnType<typeof setTimeout> | undefined;
 async function fetchEntries(term: string) {
   const token = ++entriesToken;
   loadingEntries.value = true;
-  entriesFailed.value = false;
   try {
     const next = await props.loadEntries(term);
     if (token !== entriesToken) return;
+    entriesFailed.value = false;
     entries.value = next;
     // Keep the URL's pick when it still exists, else fall back to the first.
     const stillThere = next.some((entry) => entry.key === props.selected);

@@ -130,7 +130,7 @@ const rowStyle = computed(() =>
 const hasEntered = ref(false);
 let enterTimer: ReturnType<typeof setTimeout> | undefined;
 watch(
-  () => !props.loading && props.items.length > 0,
+  () => phase.value === "content",
   (showing) => {
     if (showing && !hasEntered.value && enterTimer === undefined) {
       // animation (≈320ms) + max stagger (12 × 24ms) with headroom.
