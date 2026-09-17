@@ -18,6 +18,8 @@ import {
   getListGridTemplate,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
+  LIST_TITLE_SKELETON_BARS,
+  LIST_TITLE_SKELETON_GAP_PX,
 } from "./listColumns";
 
 defineOptions({ inheritAttrs: false });
@@ -27,22 +29,17 @@ interface Props {
    * `GameListRow` so the bootstrap-phase skeleton stays aligned with
    * whichever variant the surrounding list is rendering. */
   showPlatformColumn?: boolean;
-  /** Cover column width (px) — shared with the header / rows. */
-  coverWidth?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showPlatformColumn: true,
-  coverWidth: 48,
 });
 
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const gridStyle = computed(() => ({
-  gridTemplateColumns: getListGridTemplate(
-    props.showPlatformColumn,
-    props.coverWidth,
-  ),
+  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
 }));
+const titleGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
 </script>
 
 <template>
@@ -62,9 +59,13 @@ const gridStyle = computed(() => ({
         v-else-if="col.key === 'name'"
         class="r-glr-skel__cell r-glr-skel__title"
       >
-        <div class="r-glr-skel__meta">
-          <RSkeletonBlock width="60%" :height="12" />
-          <RSkeletonBlock width="40%" :height="10" />
+        <div class="r-glr-skel__meta" :style="titleGapStyle">
+          <RSkeletonBlock
+            v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
+            :key="i"
+            :width="bar.width"
+            :height="bar.height"
+          />
         </div>
       </div>
 
@@ -128,7 +129,6 @@ const gridStyle = computed(() => ({
 .r-glr-skel__title {
   display: flex;
   align-items: center;
-  gap: var(--r-space-3);
   min-width: 0;
 }
 
@@ -136,7 +136,6 @@ const gridStyle = computed(() => ({
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
   flex: 1;
 }
 

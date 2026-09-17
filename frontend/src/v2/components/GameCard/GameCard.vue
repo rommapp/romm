@@ -731,8 +731,7 @@ function onStaticKeydown(e: KeyboardEvent) {
    previous mouse session shouldn't compete with the focused card when
    the user is on a gamepad. Focus / pinned / sibling-pinned states
    trigger the same effect in every modality. */
-html[data-input="mouse"] .r-gc:hover .r-gc__art,
-html[data-input="touch"] .r-gc:hover .r-gc__art,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__art,
 .r-gc:focus-visible .r-gc__art,
 .r-gc--focused .r-gc__art,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__art,
@@ -752,8 +751,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__art,
   transform: none;
   box-shadow: none;
 }
-html[data-input="mouse"] .r-gc:hover .r-gc__overlay,
-html[data-input="touch"] .r-gc:hover .r-gc__overlay,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__overlay,
 .r-gc:focus-visible .r-gc__overlay,
 .r-gc--focused .r-gc__overlay,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__overlay,
@@ -778,8 +776,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__overlay,
 
 /* Cover-art PIP (CoverArtPip) — fades out under the hover overlay so it never
    overlaps the action row. The footprint / chrome live in the component. */
-html[data-input="mouse"] .r-gc:hover :deep(.cover-art-pip),
-html[data-input="touch"] .r-gc:hover :deep(.cover-art-pip),
+html:not([data-input="pad"]) .r-gc:hover :deep(.cover-art-pip),
 .r-gc:focus-visible :deep(.cover-art-pip),
 .r-gc--focused :deep(.cover-art-pip) {
   opacity: 0;
@@ -787,20 +784,17 @@ html[data-input="touch"] .r-gc:hover :deep(.cover-art-pip),
 
 /* Region / language flags fade out under the hover overlay so they never
    collide with the bottom action row (same treatment as the cover PIP). */
-html[data-input="mouse"] .r-gc:hover :deep(.card-flags),
-html[data-input="touch"] .r-gc:hover :deep(.card-flags),
+html:not([data-input="pad"]) .r-gc:hover :deep(.card-flags),
 .r-gc:focus-visible :deep(.card-flags),
 .r-gc--focused :deep(.card-flags) {
   opacity: 0;
 }
-html[data-input="mouse"] .r-gc:hover .r-gc__badge,
-html[data-input="touch"] .r-gc:hover .r-gc__badge,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__badge,
 .r-gc:focus-visible .r-gc__badge,
 .r-gc--focused .r-gc__badge,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__badge,
 .r-gc:has(.sibling-badge--pinned) .r-gc__badge,
-html[data-input="mouse"] .r-gc:hover .r-gc__rating,
-html[data-input="touch"] .r-gc:hover .r-gc__rating,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__rating,
 .r-gc:focus-visible .r-gc__rating,
 .r-gc--focused .r-gc__rating,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__rating,
@@ -833,8 +827,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__rating,
   left: auto;
   right: 7px;
 }
-html[data-input="mouse"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
-html[data-input="touch"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
+html:not([data-input="pad"]) .r-gc:hover :deep(.r-v2-game-btn--action-status),
 .r-gc:focus-visible :deep(.r-v2-game-btn--action-status),
 .r-gc--focused :deep(.r-v2-game-btn--action-status),
 .r-gc:has(.r-v2-game-btn--pinned) :deep(.r-v2-game-btn--action-status),
@@ -904,8 +897,7 @@ html[data-input="touch"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
   padding: 0 1px;
   text-align: center;
 }
-html[data-input="mouse"] .r-gc:hover .r-gc__label,
-html[data-input="touch"] .r-gc:hover .r-gc__label,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__label,
 .r-gc:focus-visible .r-gc__label,
 .r-gc--focused .r-gc__label,
 .r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__label,
@@ -952,8 +944,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__label,
   pointer-events: none;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
-html[data-input="mouse"] .r-gc:hover .r-gc__check,
-html[data-input="touch"] .r-gc:hover .r-gc__check,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__check,
 .r-gc:focus-visible .r-gc__check,
 .r-gc--focused .r-gc__check,
 .r-gc--checkbox-on .r-gc__check,

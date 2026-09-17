@@ -35,6 +35,7 @@ import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useRomScanRefresh } from "@/v2/composables/useRomScanRefresh";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 const route = useRoute();
 const router = useRouter();
@@ -88,10 +89,8 @@ onBeforeRouteUpdate(async (to) => {
 const tab = ref<string>((route.query.tab as string) || "overview");
 watch(tab, (value) => {
   if (route.query.tab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, tab: value },
-    });
+    // The subtab and note belong to the tab being left.
+    patchQuery(router, { tab: value, subtab: undefined, note: undefined });
   }
 });
 watch(

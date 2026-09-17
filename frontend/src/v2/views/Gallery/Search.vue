@@ -9,7 +9,6 @@ import { computed, nextTick, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -21,10 +20,6 @@ const { total, initialFetching } = storeToRefs(galleryRoms);
 
 const initialSearch = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
-
-const showStandaloneEmpty = computed(
-  () => !initialFetching.value && total.value === 0 && !!searchTerm.value,
-);
 
 const emptyMessage = computed(() =>
   searchTerm.value
@@ -58,6 +53,7 @@ onMounted(async () => {
     :search-placeholder="t('rom.search-placeholder')"
     autofocus-search
     :empty-message="emptyMessage"
+    empty-icon="mdi-magnify-close"
     :skeleton-row-count="4"
   >
     <!-- HEADER (Section 1) — title + result-count chip. The shell
@@ -68,19 +64,6 @@ onMounted(async () => {
           <RTag v-if="initialSearch && !initialFetching" :text="total" />
         </template>
       </PageHeader>
-    </template>
-
-    <!-- EMPTY STATE — boxed illustration when a search resolves with
-         no hits. Falls back to the shell's plain text otherwise (e.g.
-         before the user types). -->
-    <template #empty="{ message }">
-      <EmptyState
-        v-if="showStandaloneEmpty"
-        variant="boxed"
-        icon="mdi-emoticon-confused-outline"
-        :message="message"
-      />
-      <span v-else>{{ message }}</span>
     </template>
   </GalleryShell>
 </template>

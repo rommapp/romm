@@ -439,7 +439,7 @@ def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
 
     if len(values) > MAX_RELEASED_DAYS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"At most {MAX_RELEASED_DAYS} released_days may be requested",
         )
 
@@ -448,7 +448,7 @@ def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
         matched = RELEASED_DAY_REGEX.match(value.strip())
         if not matched:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Invalid released_days value: {value!r}, expected 'M-D'",
             )
         days.append((int(matched[1]), int(matched[2])))
@@ -1514,7 +1514,7 @@ async def create_physical_rom(
 
     if not match_name:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="A name or a resolvable UPC is required",
         )
 

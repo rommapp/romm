@@ -37,7 +37,12 @@
 // search-input debounce, URL filter sync. Each view supplies its
 // header and its own resource-load flow. List rows own their per-row
 // fetch lifecycle internally (mount = entered overscan window).
-import { RDivider, RLetterHeading, RVirtualScroller } from "@v2/lib";
+import {
+  RDivider,
+  REmptyState,
+  RLetterHeading,
+  RVirtualScroller,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -61,8 +66,6 @@ import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
   getListMinWidth,
-  LIST_COVER_HEIGHT_PX,
-  LIST_COVER_WIDTH_PX,
   isListSortKey,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
@@ -97,6 +100,8 @@ interface Props {
   autofocusSearch?: boolean;
   /** Empty-state message shown when the gallery resolves with zero items. */
   emptyMessage: string;
+  /** Empty-state icon, shared with not-found mode. */
+  emptyIcon?: string;
   /** "Not found" mode — replaces all body items with a single empty row. */
   notFound?: boolean;
   /** Override the empty-state message in not-found mode. */
@@ -118,6 +123,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   autofocusSearch: false,
+  emptyIcon: "mdi-gamepad-variant-outline",
   notFound: false,
   notFoundMessage: undefined,
   showPlatformBadge: true,
@@ -132,10 +138,6 @@ defineSlots<{
    * of the content. Must NOT carry a divider of its own; the shell
    * paints the single divider at the bottom of the prepend band. */
   header(): unknown;
-  /** Override the empty-state body. Receives `{ message }` (the
-   * resolved empty / not-found message) so the override can decide
-   * between text vs. a boxed illustration. Default: plain text. */
-  empty(props: { message: string }): unknown;
 }>();
 
 useGalleryFilterUrl();
@@ -335,27 +337,13 @@ const coverAspectRatio = computed(() =>
 // Measured natural cover ratios feeding the flow-packer — GameCard reports
 // each cover's ratio on load (`onCardRatio`), the packer reads `ratioAt`,
 // and `ratioVersion` bumps (debounced) to trigger a single re-pack.
-// `maxRatio` (widest cover in this gallery) drives the list view's cover
-// column width.
-const { ratioVersion, ratioAt, onCardRatio, maxRatio, resetMaxRatio } =
-  useGalleryCoverRatios();
-
-// List-view cover column width: the widest cover at the row's cover height,
-// clamped so a portrait-only list stays tight and an outlier can't make the
-// column absurd. Wide (landscape) covers then show whole instead of being
-// clipped, and every row shares the width so titles stay aligned.
-const listCoverWidth = computed(() => {
-  const w = Math.round(LIST_COVER_HEIGHT_PX * maxRatio.value);
-  return Math.min(128, Math.max(LIST_COVER_WIDTH_PX, w));
-});
+const { ratioVersion, ratioAt, onCardRatio } = useGalleryCoverRatios();
 
 // The list row's natural min-width (all fixed tracks + the title floor). Fed
 // to the virtual scroller as `minContentWidth` in list mode so a viewport
 // narrower than the columns scrolls the list HORIZONTALLY instead of clipping
 // them. Also drives the sticky column header's width so it scrolls in step.
-const listMinWidth = computed(() =>
-  getListMinWidth(props.showPlatformColumn, listCoverWidth.value),
-);
+const listMinWidth = computed(() => getListMinWidth(props.showPlatformColumn));
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
@@ -670,15 +658,6 @@ watch(virtualItems, () => {
   syncFetches(viewportRange.value);
 });
 
-// Recompute the list cover-column max when the gallery's rom set changes
-// (context switch, filter, sort) so a previous platform's wide covers
-// don't keep the column wide. Keyed on `romIdIndex` (not `virtualItems`)
-// so grid re-packs don't trigger the O(total) rebuild.
-watch(
-  () => galleryRoms.romIdIndex,
-  () => resetMaxRatio(),
-);
-
 // List mode pins a column header below the toolbar; AlphaStrip jumps
 // must land BELOW both pinned bars or the destination row would slide
 // behind the column header. Matches the height set in
@@ -969,7 +948,6 @@ defineExpose({
           :sort-key="listSortKey"
           :sort-dir="orderDir"
           :show-platform-column="showPlatformColumn"
-          :cover-width="listCoverWidth"
           @sort="onListSort"
         />
       </template>
@@ -1014,23 +992,22 @@ defineExpose({
             :position="asListRow(item as GalleryItem).position"
             :webp="supportsWebp"
             :show-platform-column="showPlatformColumn"
-            :cover-width="listCoverWidth"
             @ratio="onCardRatio"
           />
 
           <GameListSkeletonRow
             v-else-if="itemKind(item as GalleryItem) === 'skeleton-list-row'"
             :show-platform-column="showPlatformColumn"
-            :cover-width="listCoverWidth"
           />
 
           <div
             v-else-if="itemKind(item as GalleryItem) === 'empty'"
             class="r-v2-shell__empty"
           >
-            <slot name="empty" :message="asEmpty(item as GalleryItem).message">
-              {{ asEmpty(item as GalleryItem).message }}
-            </slot>
+            <REmptyState
+              :icon="emptyIcon"
+              :title="asEmpty(item as GalleryItem).message"
+            />
           </div>
 
           <div
@@ -1226,10 +1203,7 @@ html[data-bp~="xs"] .r-v2-shell {
    with the Home dashboard rows. */
 
 .r-v2-shell__empty {
-  padding: 80px 0;
-  color: var(--r-color-fg-faint);
-  font-size: 13.5px;
-  text-align: center;
+  padding: var(--r-space-6) 0;
 }
 
 /* Toolbar — both layers share the same internal styling. Transparent

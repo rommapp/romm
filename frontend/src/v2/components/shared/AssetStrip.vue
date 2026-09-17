@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Tile strip or grid of saves/states, shared by the launch screens (selection)
 // and the Save data subtab (management). `groupBy` folds the tiles per core.
-import { RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
+import { REmptyState, RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatTimestamp } from "@/utils";
@@ -273,15 +273,13 @@ const fadeIndex = computed(() =>
       </RExpandTransition>
     </div>
 
-    <div v-if="assets.length === 0" class="r-asset-strip__empty">
-      <RIcon
-        :icon="
-          type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'
-        "
-        size="28"
-      />
-      <p>{{ emptyLabel }}</p>
-    </div>
+    <REmptyState
+      v-if="assets.length === 0"
+      size="small"
+      :icon="type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'"
+      :icon-size="28"
+      :title="emptyLabel"
+    />
   </div>
 </template>
 
@@ -605,23 +603,6 @@ const fadeIndex = computed(() =>
 .r-asset-strip__tip-sub {
   font-size: 11px;
   opacity: 0.85;
-}
-
-.r-asset-strip__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px 12px;
-  color: var(--r-color-fg-muted);
-  text-align: center;
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
-}
-.r-asset-strip__empty p {
-  margin: 0;
-  font-size: 12px;
 }
 
 html[data-bp~="xs"] .r-asset-strip__tile {

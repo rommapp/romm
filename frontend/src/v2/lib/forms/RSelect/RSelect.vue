@@ -1777,9 +1777,8 @@ html[data-input="pad"] .r-select__field:focus {
   white-space: nowrap;
 }
 /* Column wrapper for two-row items (title + subtitle). Pair with the
-   single-line `.r-select__item-title` and `.r-select__item-subtitle`
-   classes inside it — the wrapper takes the flex slot the bare title
-   would have used. */
+   `.r-select__item-title` and `.r-select__item-subtitle` classes inside
+   it — the wrapper takes the flex slot the bare title would have used. */
 .r-select__item-stack {
   flex: 1;
   min-width: 0;
@@ -1792,13 +1791,12 @@ html[data-input="pad"] .r-select__field:focus {
      `flex: 1` — let it size to its line height. */
   flex: 0 0 auto;
 }
+/* A description never widens the menu past the activator; it wraps instead. */
 .r-select__item-subtitle {
+  contain: inline-size;
   font-size: 11px;
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .r-select__item-check {
   color: var(--r-color-brand-primary);

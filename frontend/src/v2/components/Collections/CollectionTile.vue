@@ -167,8 +167,7 @@ const morphStyle = computed(() =>
 
 /* Hover gated to mouse/touch — keeps a parked cursor from competing
    with the focused tile when driving with a gamepad. */
-html[data-input="mouse"] .coll-tile:hover .coll-tile__cover,
-html[data-input="touch"] .coll-tile:hover .coll-tile__cover,
+html:not([data-input="pad"]) .coll-tile:hover .coll-tile__cover,
 .coll-tile:focus-visible .coll-tile__cover {
   transform: scale(1.05);
   box-shadow: var(--r-elev-3);

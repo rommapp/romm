@@ -15,7 +15,7 @@ const { uploadRoms, refetchRom, confirmFn, snackbar, routeQuery, grants } =
       warning: vi.fn(),
       info: vi.fn(),
     },
-    routeQuery: { subtab: undefined as string | undefined },
+    routeQuery: { tab: "files", subtab: undefined as string | undefined },
     grants: { upload: true, delete: false },
   }));
 
@@ -25,7 +25,11 @@ vi.mock("vue-i18n", () => ({
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: routeQuery, path: "/rom/1", params: {} }),
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({
+    replace: vi.fn(),
+    push: vi.fn(),
+    currentRoute: { value: { query: routeQuery } },
+  }),
 }));
 vi.mock("@/services/api/rom", () => ({
   default: { uploadRoms, deleteRomFile: vi.fn() },

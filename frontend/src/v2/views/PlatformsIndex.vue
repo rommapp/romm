@@ -14,7 +14,7 @@
 // blindly. When the global groupBy lands on a value with no usable
 // data on the loaded platforms, the view falls through to flat — the
 // toolbar's mode is the user's intent, not a hard requirement.
-import { RDivider, RLetterHeading, RSkeletonBlock } from "@v2/lib";
+import { RDivider, REmptyState, RLetterHeading, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -32,11 +32,11 @@ import {
   type PlatformSortKey,
   prettifyPlatformCategory,
 } from "@/v2/components/Platforms/platformListColumns";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import IndexShell from "@/v2/components/shared/IndexShell.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
@@ -45,6 +45,10 @@ import { patchQuery } from "@/v2/utils/routeQuery";
 const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { allPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
+const phase = useLoadingPhase(
+  () => fetchingPlatforms.value && !allPlatforms.value.length,
+  () => !allPlatforms.value.length,
+);
 
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
@@ -519,10 +523,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
     </template>
 
     <div ref="gridRoot">
-      <div
-        v-if="fetchingPlatforms && !allPlatforms.length"
-        class="r-v2-pidx__grid"
-      >
+      <div v-if="phase === 'skeleton'" class="r-v2-pidx__grid">
         <RSkeletonBlock
           v-for="n in 16"
           :key="`sk-${n}`"
@@ -532,12 +533,17 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         />
       </div>
 
-      <EmptyState
-        v-else-if="!allPlatforms.length"
-        :message="t('platform.no-platforms-empty')"
+      <REmptyState
+        v-else-if="phase === 'empty'"
+        icon="mdi-gamepad-variant-outline"
+        :title="t('platform.no-platforms-empty')"
       />
 
-      <EmptyState v-else-if="noResults" :message="noResultsMessage" />
+      <REmptyState
+        v-else-if="noResults"
+        icon="mdi-magnify-close"
+        :title="noResultsMessage"
+      />
 
       <!-- List mode — rows underneath the sticky column header (rendered
            by IndexShell via the `#listHeader` slot above). Rows surface

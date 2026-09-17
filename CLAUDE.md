@@ -41,6 +41,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 
 | Skill                    | When                                                                                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `knowledge-base`         | Understanding how part of the codebase works or where it lives, via Greptile's synthesized knowledge base. Verify what it says against the code.              |
 | `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                                               |
 | `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                                                     |
 | `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                                          |

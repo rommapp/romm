@@ -313,15 +313,23 @@ function closeDialog() {
         <span v-if="rom" class="r-v2-match__header-file" :title="rom.fs_name">
           {{ rom.fs_name }}
         </span>
+        <!-- Layout switcher — grid vs list, mirroring the gallery's own
+             toggle. It lives up here because the header is the one row that
+             never reflows as the filters or the search state change. -->
+        <RSliderBtnGroup
+          :model-value="variant"
+          :items="variantItems"
+          variant="segmented"
+          :aria-label="t('rom.match-flow-variant')"
+          class="r-v2-match__variant"
+          @update:model-value="variant = $event"
+        />
       </div>
     </template>
 
     <template #toolbar>
       <div class="r-v2-match__toolbar">
-        <div class="r-v2-match__filters">
-          <span class="r-v2-match__filters-label">
-            {{ t("common.filter") }}
-          </span>
+        <div class="r-v2-match__filters r-v2-scroll-hidden">
           <MatchRomProviderFilter
             v-for="f in sourceFilters"
             :key="f.name"
@@ -332,20 +340,6 @@ function closeDialog() {
             :active="f.active"
             @toggle="toggleSourceFilter(f.name)"
           />
-
-          <!-- Layout switcher — grid vs list. Mirrors the gallery's own
-               toggle. Pushed right and always present, so the provider chips
-               stay flush left and the row never reflows on search (the
-               results count now lives in the footer). -->
-          <div class="r-v2-match__filters-end">
-            <RSliderBtnGroup
-              :model-value="variant"
-              :items="variantItems"
-              variant="segmented"
-              :aria-label="t('rom.match-flow-variant')"
-              @update:model-value="variant = $event"
-            />
-          </div>
         </div>
 
         <div class="r-v2-match__search-row">
@@ -440,9 +434,13 @@ function closeDialog() {
    single line and keeps the full name in the hover title. */
 .r-v2-match__header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   min-width: 0;
+}
+
+.r-v2-match__variant {
+  flex-shrink: 0;
 }
 .r-v2-match__header-file {
   flex: 1;
@@ -483,28 +481,17 @@ function closeDialog() {
   width: 100%;
 }
 
+/* One scrolling row of provider chips: on a phone the touch-sized chips fill
+   the width, and more providers extend the scroll rather than a second row. */
 .r-v2-match__filters {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
-
-.r-v2-match__filters-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--r-color-fg-muted);
-  margin-right: 4px;
-}
-
-.r-v2-match__filters-end {
-  /* Pushes the variant switcher to the right of the filter row; always
-     present, so the switcher never slides as the search state changes. */
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.r-v2-match__filters > * {
+  flex-shrink: 0;
 }
 
 .r-v2-match__results {
