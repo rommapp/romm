@@ -1,3 +1,5 @@
+import re
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -6,7 +8,7 @@ from handler.database import (
     db_rom_handler,
 )
 from models.assets import Save, State
-from models.collection import SmartCollection
+from models.collection import Collection, SmartCollection
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
@@ -55,6 +57,14 @@ def _assert_id_only(statements: list[str], table: str) -> None:
 def _assert_table_untouched(statements: list[str], table: str) -> None:
     touching = [flat for raw in statements if _reads_from(flat := _flat(raw), table)]
     assert touching == [], touching
+
+
+def _assert_table_never_named(statements: list[str], table: str) -> None:
+    """Assert no statement names `table`, including as a join target."""
+    named = [
+        flat for raw in statements if re.search(rf"\b{table}\b", flat := _flat(raw))
+    ]
+    assert named == [], named
 
 
 def _id_only_reads(statements: list[str], table: str) -> list[str]:
@@ -152,6 +162,31 @@ def test_smart_collection_identifiers_does_not_load_the_owner(
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == [collection.id]
     _assert_id_only(executed_statements, "smart_collections")
+
+
+def test_collection_identifiers_does_not_load_the_roms_or_the_owner(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    executed_statements: list[str],
+) -> None:
+    """`with_roms` eager-loads every rom, and `Collection.user` is lazy="joined"."""
+    collection = db_collection_handler.add_collection(
+        Collection(name="test_collection", user_id=admin_user.id, is_public=True)
+    )
+
+    executed_statements.clear()
+    response = client.get(
+        "/api/collections/identifiers", headers=_headers(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == [collection.id]
+
+    _assert_table_never_named(executed_statements, "roms")
+
+    statement = _read_of(executed_statements, "collections")
+    assert "JOIN" not in statement.partition(" FROM ")[2].upper(), statement
 
 
 def test_rom_note_identifiers_does_not_load_the_roms_it_points_at(

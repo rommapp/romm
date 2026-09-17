@@ -47,18 +47,22 @@ MAX_VIRTUAL_COLLECTION_COVERS = 5
 COVERS_BATCH_SIZE = 100
 
 
+def _roms_load_options() -> list[Any]:
+    return [
+        selectinload(Collection.roms)
+        .load_only(
+            Rom.id,
+            Rom.path_cover_s,
+            Rom.path_cover_l,
+        )
+        .options(noload(Rom.platform), noload(Rom.metadatum))
+    ]
+
+
 def with_roms(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        kwargs["query"] = select(Collection).options(
-            selectinload(Collection.roms)
-            .load_only(
-                Rom.id,
-                Rom.path_cover_s,
-                Rom.path_cover_l,
-            )
-            .options(noload(Rom.platform), noload(Rom.metadatum))
-        )
+        kwargs["query"] = select(Collection).options(*_roms_load_options())
         return func(*args, **kwargs)
 
     return wrapper
@@ -111,22 +115,41 @@ class DBCollectionsHandler(DBBaseHandler):
             query.filter_by(is_favorite=True, user_id=user_id).limit(1)
         )
 
-    @begin_session
-    @with_roms
-    def get_collections(
+    def _collections_query(
         self,
         updated_after: datetime | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
-    ) -> Sequence[Collection]:
+    ) -> Select[tuple[Collection]]:
+        query = select(Collection)
+
         if updated_after:
             query = query.filter(Collection.updated_at > updated_after)
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
+        return query.order_by(Collection.name.asc())
 
-        return session.scalars(query.order_by(Collection.name.asc())).unique().all()
+    @begin_session
+    def get_collections(
+        self,
+        updated_after: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Collection]:
+        query = self._collections_query(updated_after=updated_after)
+        return session.scalars(query.options(*_roms_load_options())).unique().all()
+
+    @begin_session
+    def get_collection_ids(
+        self,
+        updated_after: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[Row[tuple[int, int, bool]]]:
+        """Id, owner and visibility only, so neither eager load fires."""
+        query = self._collections_query(updated_after=updated_after)
+        return list(
+            session.execute(
+                query.with_only_columns(
+                    Collection.id, Collection.user_id, Collection.is_public
+                )
+            ).all()
+        )
 
     @begin_session
     @with_roms

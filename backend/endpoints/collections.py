@@ -250,16 +250,9 @@ def get_collection_identifiers(
         list[int]: List of collection IDs
     """
 
-    collections = db_collection_handler.get_collections(
-        only_fields=[
-            Collection.id,
-            Collection.name,
-            Collection.user_id,
-            Collection.is_public,
-        ],
-    )
+    rows = db_collection_handler.get_collection_ids()
 
-    return [c.id for c in collections if c.user_id == request.user.id or c.is_public]
+    return [row.id for row in rows if row.user_id == request.user.id or row.is_public]
 
 
 @protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
