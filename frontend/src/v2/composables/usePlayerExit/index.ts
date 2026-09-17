@@ -1,12 +1,10 @@
 // usePlayerExit: how a player view hands the tab back to the app.
 //
-// Two things can bind a player to its document. A player URL opened directly
-// carries the COOP/COEP headers nginx attaches to it, and the resulting
-// cross-origin isolation outlives every SPA navigation after it, blocking the
-// third-party images the app embeds elsewhere (provider covers in Match ROM).
-// And a runtime that declares globals when injected (EmulatorJS) cannot be
-// injected a second time. Either way the exit is a full navigation, so the
-// app resumes in a fresh document; otherwise it is an SPA navigation.
+// Two things bind a player to its document: cross-origin isolation, which
+// outlives every SPA navigation after it and blocks the third-party images the
+// app embeds elsewhere, and a runtime that cannot be injected twice. Either
+// leaves the app a fresh document to resume in; otherwise leaving is an SPA
+// navigation.
 import { ref, type Ref } from "vue";
 import { useRouter, type RouteLocationNormalized } from "vue-router";
 

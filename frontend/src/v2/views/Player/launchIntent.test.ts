@@ -10,9 +10,21 @@ import {
   type LaunchSelection,
 } from "./launchIntent";
 
-const save = { id: 3, slot: "slot-2" } as SaveSchema;
-const state = { id: 5, emulator: "snes9x" } as StateSchema;
-const firmware = { id: 12, file_name: "bios.bin" } as FirmwareSchema;
+function makeSave(overrides: Partial<SaveSchema> = {}): SaveSchema {
+  return { id: 3, slot: "slot-2", ...overrides } as SaveSchema;
+}
+
+function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
+  return { id: 5, emulator: "snes9x", ...overrides } as StateSchema;
+}
+
+function makeFirmware(overrides: Partial<FirmwareSchema> = {}): FirmwareSchema {
+  return { id: 12, file_name: "bios.bin", ...overrides } as FirmwareSchema;
+}
+
+const save = makeSave();
+const state = makeState();
+const firmware = makeFirmware();
 
 const OPTIONS: LaunchOptions = {
   saves: [save],

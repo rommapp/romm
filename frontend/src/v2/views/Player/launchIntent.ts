@@ -1,7 +1,6 @@
 // What the EmulatorJS launch view carries across the reload that isolates the
-// document (see useIsolatedLaunch). Only ids travel, so the view resolves them
-// again against what the server offers; the core and the disc are remembered
-// per game already and need no part in this.
+// document (see useIsolatedLaunch). Only ids travel, so they are resolved again
+// against what the server offers; the core and the disc persist per game.
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { isSlotChoice, type SlotChoice } from "@/v2/utils/saveSlots";
 import type { ResumeSelection } from "./resumeSelection";

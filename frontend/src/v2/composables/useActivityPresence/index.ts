@@ -40,9 +40,8 @@ export function useActivityPresence(
     immediate: false,
   });
 
-  // A stop is addressed to the device, not to a rom, so one sent by a view
-  // that never announced anything would clear whatever else the device is
-  // playing. Only a started session stops, and only once.
+  // A stop is addressed to the device, not to a rom, so one sent without a
+  // session would clear whatever else that device is playing.
   let started = false;
 
   function start(): void {

@@ -167,10 +167,9 @@ const {
   relaunch: relaunchIsolated,
 } = useIsolatedLaunch<LaunchIntent>("ejs", romId, isLaunchIntent);
 
-// The EmulatorJS loader declares top-level classes and instantiates the
-// emulator, so a document it was injected into cannot host another launch.
-// Tracked from the injection rather than from `window.EJS_emulator`, which a
-// departure mid-load would not see yet.
+// The EmulatorJS loader declares top-level classes, so a document it reached
+// cannot host another launch. Tracked from the injection, which a departure
+// taken mid-load would otherwise outrun.
 let runtimeInjected = false;
 const exit = usePlayerExit(() => runtimeInjected);
 
@@ -278,8 +277,7 @@ async function onPlay() {
   }
 
   // Threaded cores need SharedArrayBuffer, which only a cross-origin isolated
-  // secure context exposes. A relaunch that still lacks it means the context
-  // itself is not secure.
+  // secure context exposes, so the launch may have to reload into one first.
   if (
     selectedCore.value &&
     areThreadsRequiredForEJSCore(selectedCore.value) &&

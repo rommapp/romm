@@ -1,13 +1,10 @@
 // useIsolatedLaunch: reloading a player view into a cross-origin isolated
-// document.
-//
-// A runtime that needs SharedArrayBuffer only gets it in a cross-origin
-// isolated document, and a view reached by SPA navigation is not one. Nginx
+// document, which is the only kind that exposes SharedArrayBuffer. Nginx
 // attaches the COOP/COEP headers to the player URLs, so reloading the view is
-// what isolates it. What the user had set up crosses the reload as an intent
-// kept per tab, and the view boots from it on arrival.
+// what isolates it, and the pre-play selection crosses as an intent kept per
+// tab.
 //
-// Usage, in a player whose runtime (or one of its cores) needs it:
+// In a player whose runtime, or one of its cores, needs it:
 //   const { intent, relaunching, relaunch } =
 //     useIsolatedLaunch<MyIntent>("myplayer", romId, isMyIntent);
 //   on Play:  if (!hasSharedArrayBuffer()) {
@@ -15,7 +12,7 @@
 //               return;
 //             }
 //   on mount: if (intent) { apply(intent); boot(); }
-// Pair it with usePlayerExit, which drops the isolation again on the way out.
+// Pair it with usePlayerExit, which drops the isolation on the way out.
 import { ref, type Ref } from "vue";
 
 export function hasSharedArrayBuffer(): boolean {
@@ -54,9 +51,8 @@ export function useIsolatedLaunch<Intent>(
   return { intent, relaunching, relaunch };
 }
 
-// Storage access can be denied outright (a strict privacy mode, a blocked
-// third-party context), and a player must open and run regardless, so both
-// sides treat that as "no intent" rather than throwing through the view.
+// Storage access can be denied outright, and a player has to open and run
+// regardless, so both sides treat that as "no intent".
 
 function keepIntent(key: string, intent: unknown): boolean {
   try {
