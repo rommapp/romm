@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   joinSession: vi.fn(),
   releaseSession: vi.fn(),
   releaseSessionKeepalive: vi.fn(),
+  saveAndExit: vi.fn(),
+  saveAndExitKeepalive: vi.fn(),
   container: null as Record<string, unknown> | null,
   presenceTick: null as (() => Promise<void>) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
@@ -74,8 +76,8 @@ vi.mock("@/stores/streaming", () => ({
     joinSession: mocks.joinSession,
     releaseSession: mocks.releaseSession,
     releaseSessionKeepalive: mocks.releaseSessionKeepalive,
-    saveAndExit: vi.fn(),
-    saveAndExitKeepalive: vi.fn(),
+    saveAndExit: mocks.saveAndExit,
+    saveAndExitKeepalive: mocks.saveAndExitKeepalive,
   }),
 }));
 
@@ -503,6 +505,62 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     );
+  });
+
+  it("names the claim it saves when it leaves a running game", async () => {
+    mocks.saveAndExit.mockResolvedValue({ released: true, saved: true });
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+
+    wrapper.unmount();
+
+    const [platform, , wait, container, claimedAt] =
+      mocks.saveAndExit.mock.calls[0];
+    expect([platform, wait, container, claimedAt]).toEqual([
+      "gba",
+      false,
+      CLAIM.container,
+      CLAIM.claimed_at,
+    ]);
+  });
+
+  it("names the claim it saves when the tab closes on a running game", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    const [platform, , container, claimedAt] =
+      mocks.saveAndExitKeepalive.mock.calls[0];
+    expect([platform, container, claimedAt]).toEqual([
+      "gba",
+      CLAIM.container,
+      CLAIM.claimed_at,
+    ]);
+    wrapper.unmount();
+  });
+
+  it("names the claim it saves on Save & Exit", async () => {
+    mocks.saveAndExit.mockResolvedValue({ released: true, saved: true });
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+
+    await (
+      wrapper.vm as unknown as { performSaveAndExit: () => Promise<void> }
+    ).performSaveAndExit();
+
+    const [platform, , wait, container, claimedAt] =
+      mocks.saveAndExit.mock.calls[0];
+    expect([platform, wait, container, claimedAt]).toEqual([
+      "gba",
+      true,
+      CLAIM.container,
+      CLAIM.claimed_at,
+    ]);
+    wrapper.unmount();
   });
 
   it("names the claim on the heartbeat", async () => {

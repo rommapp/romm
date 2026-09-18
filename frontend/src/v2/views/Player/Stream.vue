@@ -1021,6 +1021,8 @@ async function performSaveAndExit(): Promise<void> {
       rom.value.platform_slug,
       capabilities.value.autosaveSlot,
       true,
+      claimedContainer.value,
+      claimedAt.value,
     );
     saved = result.saved;
     released = result.released;
@@ -1264,6 +1266,8 @@ function onPageHide(): void {
     streamingStore.saveAndExitKeepalive(
       platform,
       capabilities.value.autosaveSlot,
+      claimedContainer.value,
+      claimedAt.value,
     );
   } else {
     // Still loading, or exited with a release that failed: nothing to save,
@@ -1334,6 +1338,8 @@ onBeforeUnmount(() => {
       rom.value?.platform_slug ?? "",
       capabilities.value.autosaveSlot,
       false,
+      claimedContainer.value,
+      claimedAt.value,
     );
   } else {
     // Nothing is running, so there is nothing worth a state: asking for one

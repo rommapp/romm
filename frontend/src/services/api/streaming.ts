@@ -148,11 +148,18 @@ async function joinSession(platform: string, container?: string) {
   );
 }
 
-async function saveAndExit(platform: string, slot = 0, wait = true) {
-  return api.post(`/streaming/sessions/${platform}/save-and-exit`, {
-    slot,
-    wait,
-  });
+async function saveAndExit(
+  platform: string,
+  slot = 0,
+  wait = true,
+  container?: string,
+  claimedAt?: string,
+) {
+  return api.post(
+    `/streaming/sessions/${platform}/save-and-exit`,
+    { slot, wait },
+    { params: { container, claimed_at: claimedAt } },
+  );
 }
 
 async function heartbeatSession(
@@ -219,8 +226,24 @@ async function claimDesktop(container: string) {
 // sendBeacon cannot carry the CSRF header, so the cookie-sourced header is
 // set by hand (mirrors the axios interceptor).
 
-function saveAndExitKeepalive(platform: string, slot = 0): Promise<Response> {
-  return fetch(`/api/streaming/sessions/${platform}/save-and-exit`, {
+// Names which container and which claim, so an unload cannot end the claim
+// that replaced it.
+function claimQuery(container?: string, claimedAt?: string): string {
+  const params = new URLSearchParams();
+  if (container) params.set("container", container);
+  if (claimedAt) params.set("claimed_at", claimedAt);
+  const search = params.toString();
+  return search ? `?${search}` : "";
+}
+
+function saveAndExitKeepalive(
+  platform: string,
+  slot = 0,
+  container?: string,
+  claimedAt?: string,
+): Promise<Response> {
+  const query = claimQuery(container, claimedAt);
+  return fetch(`/api/streaming/sessions/${platform}/save-and-exit${query}`, {
     method: "POST",
     keepalive: true,
     credentials: "same-origin",
@@ -234,13 +257,7 @@ function releaseSessionKeepalive(
   container?: string,
   claimedAt?: string,
 ): Promise<Response> {
-  // Names which container to release, for the platforms a pool serves, and
-  // which claim, so an unload cannot end the claim that replaced it.
-  const params = new URLSearchParams();
-  if (container) params.set("container", container);
-  if (claimedAt) params.set("claimed_at", claimedAt);
-  const search = params.toString();
-  const query = search ? `?${search}` : "";
+  const query = claimQuery(container, claimedAt);
   return fetch(`/api/streaming/sessions/${platform}${query}`, {
     method: "DELETE",
     keepalive: true,

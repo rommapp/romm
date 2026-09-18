@@ -4,7 +4,11 @@ import streamingApi, { type JoinableSession } from "@/services/api/streaming";
 import { useStreamingStore } from "@/stores/streaming";
 
 vi.mock("@/services/api/streaming", () => ({
-  default: { listJoinableSessions: vi.fn() },
+  default: {
+    listJoinableSessions: vi.fn(),
+    saveAndExit: vi.fn(),
+    saveAndExitKeepalive: vi.fn(),
+  },
 }));
 
 describe("platformCapabilities disc flags", () => {
@@ -134,5 +138,55 @@ describe("joinable sessions", () => {
     await store.fetchJoinableSessions(true);
 
     expect(store.joinableForRom(7)?.host_username).toBe("ana");
+  });
+});
+
+describe("save-and-exit", () => {
+  const saveAndExit = streamingApi.saveAndExit as unknown as Mock;
+  const saveAndExitKeepalive =
+    streamingApi.saveAndExitKeepalive as unknown as Mock;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    saveAndExit.mockReset();
+    saveAndExitKeepalive.mockReset();
+  });
+
+  it("names the claim it saves", async () => {
+    saveAndExit.mockResolvedValue({ data: { released: true, saved: true } });
+
+    await useStreamingStore().saveAndExit(
+      "ps2",
+      0,
+      false,
+      "ps2-1",
+      "2026-01-01T00:00:00Z",
+    );
+
+    expect(saveAndExit).toHaveBeenCalledWith(
+      "ps2",
+      0,
+      false,
+      "ps2-1",
+      "2026-01-01T00:00:00Z",
+    );
+  });
+
+  it("names the claim it saves on unload", () => {
+    saveAndExitKeepalive.mockResolvedValue(new Response());
+
+    useStreamingStore().saveAndExitKeepalive(
+      "ps2",
+      0,
+      "ps2-1",
+      "2026-01-01T00:00:00Z",
+    );
+
+    expect(saveAndExitKeepalive).toHaveBeenCalledWith(
+      "ps2",
+      0,
+      "ps2-1",
+      "2026-01-01T00:00:00Z",
+    );
   });
 });

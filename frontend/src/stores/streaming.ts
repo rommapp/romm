@@ -297,10 +297,18 @@ export const useStreamingStore = defineStore("streaming", () => {
     platform: string,
     slot = 0,
     wait = true,
+    container?: string | null,
+    claimedAt?: string | null,
   ): Promise<{ released: boolean; saved: boolean }> {
     if (!platform) return { released: false, saved: false };
     try {
-      const { data } = await streamingApi.saveAndExit(platform, slot, wait);
+      const { data } = await streamingApi.saveAndExit(
+        platform,
+        slot,
+        wait,
+        container ?? undefined,
+        claimedAt ?? undefined,
+      );
       const released = data.released ?? true;
       if (released) launchingSession.value = null;
       return { released, saved: data.saved ?? false };
@@ -362,14 +370,26 @@ export const useStreamingStore = defineStore("streaming", () => {
    * is gone (wait=false; the backend forces a blocking save for card-sync
    * containers anyway). Best-effort, never throws.
    */
-  function saveAndExitKeepalive(platform: string, slot = 0): void {
+  function saveAndExitKeepalive(
+    platform: string,
+    slot = 0,
+    container?: string | null,
+    claimedAt?: string | null,
+  ): void {
     if (!platform) return;
     launchingSession.value = null;
     // The caller is unloading and cannot await, so the rejection is caught on
     // the promise itself; try/catch here would only see a synchronous throw.
-    streamingApi.saveAndExitKeepalive(platform, slot).catch((err) => {
-      console.warn("[streaming] Could not save-and-exit (keepalive):", err);
-    });
+    streamingApi
+      .saveAndExitKeepalive(
+        platform,
+        slot,
+        container ?? undefined,
+        claimedAt ?? undefined,
+      )
+      .catch((err) => {
+        console.warn("[streaming] Could not save-and-exit (keepalive):", err);
+      });
   }
 
   /**
