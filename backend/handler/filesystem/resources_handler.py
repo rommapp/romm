@@ -150,8 +150,7 @@ class FSResourcesHandler(FSHandler):
             cover, lambda frame: frames.append(frame.convert("RGBA").resize(small_size))
         )
         if durations:
-            # WebP whatever the source: it takes whole frames where GIF/APNG
-            # need per-format blending, and it weighs several times less.
+            # WebP whatever the extension, as it encodes whole composited frames
             frames[0].save(
                 save_path,
                 format="WEBP",
@@ -402,8 +401,7 @@ class FSResourcesHandler(FSHandler):
         try:
             with Image.open(artwork) as img:
                 if is_animated(img):
-                    # Stored as uploaded: re-encoding the composited frames
-                    # costs quality and GIF/APNG frame blending.
+                    # Kept as uploaded: re-encoding composited frames loses quality
                     await self.write_file(
                         artwork,
                         path=f"{entity.fs_resources_path}/cover",
