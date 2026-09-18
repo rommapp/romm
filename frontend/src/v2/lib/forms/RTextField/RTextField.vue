@@ -106,6 +106,16 @@ interface Props {
    *  pairs with the field's value. The `#subtitle` slot wins over the
    *  prop when both are provided; use the slot to drop in an icon. */
   subtitle?: string;
+  /** Wires the native input as a combobox owning a popup. The role has to
+   *  sit on the focusable input: this component's outer element is a
+   *  `<label>` whenever it owns the visible label, where the role is
+   *  disallowed and would void the input's label association. */
+  popup?: {
+    /** `id` of the popup element. */
+    controls: string;
+    expanded: boolean;
+    kind: "dialog" | "listbox" | "grid";
+  };
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -142,6 +152,7 @@ const props = withDefaults(defineProps<Props>(), {
   rows: 4,
   mono: false,
   subtitle: undefined,
+  popup: undefined,
 });
 
 const emit = defineEmits<{
@@ -506,6 +517,10 @@ function onAppendInnerClick(evt: MouseEvent) {
         :aria-label="effectiveAriaLabel"
         :aria-invalid="hasError || undefined"
         :aria-describedby="showDetails ? `${fieldId}-details` : undefined"
+        :role="popup ? 'combobox' : undefined"
+        :aria-haspopup="popup?.kind"
+        :aria-expanded="popup ? popup.expanded : undefined"
+        :aria-controls="popup?.controls"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"
