@@ -62,7 +62,7 @@ describe("AssetStrip grouped by core", () => {
     expect(tagged[0].get(".r-asset-strip__name").text()).toBe("state_1.state");
   });
 
-  it("folds a core nothing can load until its head is clicked", async () => {
+  it("folds a core that nothing can load until its head is clicked", async () => {
     const wrapper = mountStrip({
       groupBy: "emulator",
       disabledReason: (asset: StateSchema) =>
