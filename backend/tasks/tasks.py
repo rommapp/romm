@@ -8,6 +8,7 @@ from rq import get_current_job
 from config import TASK_RESULT_TTL, TASK_TIMEOUT
 from exceptions.task_exceptions import TaskNotFoundException
 from logger.logger import log
+from utils.background_tasks import wait_for_background_tasks
 from utils.context import ctx_httpx_client
 
 
@@ -34,7 +35,11 @@ async def run_task_by_name(name: str, task_kwargs: dict[str, Any] | None = None)
     if task is None:
         raise TaskNotFoundException(name)
 
-    return await task.run(**(task_kwargs or {}))
+    try:
+        return await task.run(**(task_kwargs or {}))
+    finally:
+        # RQ runs the job on a loop that never runs again once it returns.
+        await wait_for_background_tasks()
 
 
 def update_job_meta(metadata: dict[str, Any]) -> None:

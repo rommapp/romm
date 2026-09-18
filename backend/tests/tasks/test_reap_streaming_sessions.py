@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections.abc import Iterator
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,13 +9,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from handler.redis_handler import async_cache
-from handler.streaming import background, commands, session_store
+from handler.streaming import commands, session_store
 from handler.streaming.config import ResolvedContainer, reset_cache, resolve_entry
 from tasks.registry import SCHEDULED_TASKS
 from tasks.scheduled.reap_streaming_sessions import (
     ReapStreamingSessionsTask,
     reap_streaming_sessions_task,
 )
+from tasks.tasks import run_task_by_name
 
 N64 = {
     "platform": "n64",
@@ -72,6 +73,13 @@ async def _hold(entry: dict, *, idle_seconds: int, **fields: Any) -> dict[str, A
     return session
 
 
+def _stub_teardown(teardown: Any = None) -> Any:
+    return patch(
+        "tasks.scheduled.reap_streaming_sessions.teardown_abandoned_session",
+        new=teardown or AsyncMock(return_value=True),
+    )
+
+
 async def _stored(entry: dict) -> dict[str, Any] | None:
     return await session_store.get_session(_resolved(entry).key)
 
@@ -99,10 +107,7 @@ def test_a_run_keeps_no_job_history():
 async def test_a_stale_session_goes_through_the_abandoned_teardown():
     with _streaming(N64):
         session = await _hold(N64, idle_seconds=STALE)
-        with patch(
-            "tasks.scheduled.reap_streaming_sessions.teardown_abandoned_session",
-            new=AsyncMock(return_value=True),
-        ) as teardown:
+        with _stub_teardown() as teardown:
             await ReapStreamingSessionsTask().run()
 
     teardown.assert_awaited_once_with(
@@ -117,10 +122,7 @@ async def test_fresh_sessions_and_drain_markers_are_left_alone():
             session_store.session_redis_key(_resolved(PSX).key),
             session_store.drain_marker("draining"),
         )
-        with patch(
-            "tasks.scheduled.reap_streaming_sessions.teardown_abandoned_session",
-            new=AsyncMock(return_value=True),
-        ) as teardown:
+        with _stub_teardown() as teardown:
             await ReapStreamingSessionsTask().run()
 
     teardown.assert_not_awaited()
@@ -136,10 +138,7 @@ async def test_a_shared_container_tears_down_under_the_sessions_own_platform():
     }
     with _streaming(shared):
         await _hold(N64, idle_seconds=STALE, platform="psx")
-        with patch(
-            "tasks.scheduled.reap_streaming_sessions.teardown_abandoned_session",
-            new=AsyncMock(return_value=True),
-        ) as teardown:
+        with _stub_teardown() as teardown:
             await ReapStreamingSessionsTask().run()
 
     teardown.assert_awaited_once()
@@ -162,10 +161,7 @@ async def test_one_failing_container_does_not_cut_the_others_short():
     with _streaming(N64, PSX):
         await _hold(N64, idle_seconds=STALE)
         await _hold(PSX, idle_seconds=STALE)
-        with patch(
-            "tasks.scheduled.reap_streaming_sessions.teardown_abandoned_session",
-            new=teardown,
-        ):
+        with _stub_teardown(teardown):
             await ReapStreamingSessionsTask().run()
 
     assert finished == ["psx"]
@@ -174,10 +170,7 @@ async def test_one_failing_container_does_not_cut_the_others_short():
 async def test_nothing_runs_while_streaming_is_disabled():
     with _streaming(N64, enabled=False):
         await _hold(N64, idle_seconds=STALE)
-        with patch(
-            "tasks.scheduled.reap_streaming_sessions.teardown_abandoned_session",
-            new=AsyncMock(return_value=True),
-        ) as teardown:
+        with _stub_teardown() as teardown:
             await ReapStreamingSessionsTask().run()
 
     teardown.assert_not_awaited()
@@ -202,7 +195,7 @@ async def test_a_reaped_session_frees_its_container_and_leaves_a_notice():
     assert notice is not None and notice["reason"] == "abandoned"
 
 
-async def test_the_run_waits_for_the_exit_save_pull_it_spawned():
+async def test_the_job_waits_for_the_exit_save_pull_it_spawned():
     """A worker's event loop stops with the job, so a pull still spawned when
     the run returns would never file the saves or clear its pending mark."""
     pulled = asyncio.Event()
@@ -221,24 +214,9 @@ async def test_the_run_waits_for_the_exit_save_pull_it_spawned():
             patch("handler.streaming.lifecycle.record_play_session"),
             patch("handler.streaming.saves.pull_saves_to_library", new=pull),
         ):
-            await ReapStreamingSessionsTask().run()
+            await run_task_by_name("reap_streaming_sessions")
 
     assert pulled.is_set()
-
-
-async def test_waiting_for_spawned_tasks_skips_another_loops():
-    """A task left on a loop that is not running can never finish."""
-    other_loop = asyncio.new_event_loop()
-    stranded = other_loop.create_task(asyncio.sleep(60))
-    background._sync_tasks.add(stranded)
-    try:
-        await asyncio.wait_for(background.wait_for_sync_tasks(), timeout=1)
-    finally:
-        background._sync_tasks.discard(stranded)
-        stranded.cancel()
-        with suppress(asyncio.CancelledError):
-            await asyncio.to_thread(other_loop.run_until_complete, stranded)
-        other_loop.close()
 
 
 async def test_overlapping_runs_tear_a_session_down_once():

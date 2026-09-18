@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -5,6 +6,7 @@ import pytest
 
 from exceptions.task_exceptions import TaskNotFoundException
 from tasks.tasks import PeriodicTask, RemoteFilePullTask, TaskType, run_task_by_name
+from utils.background_tasks import fire_and_forget
 
 
 class ConcretePeriodicTask(PeriodicTask):
@@ -184,3 +186,23 @@ class TestRunTaskByName:
 
         with pytest.raises(TaskNotFoundException, match="some_task"):
             await run_task_by_name("some_task")
+
+    async def test_waits_for_what_the_task_spawned(self, mocker):
+        """RQ runs each job on a loop that never runs again once the job returns,
+        so work the task spawned and left running would be frozen partway."""
+        finished = asyncio.Event()
+
+        async def later() -> None:
+            await asyncio.sleep(0.05)
+            finished.set()
+
+        async def run() -> None:
+            fire_and_forget(later())
+
+        task = MagicMock()
+        task.run = run
+        mocker.patch("tasks.registry.get_task", return_value=task)
+
+        await run_task_by_name("some_task")
+
+        assert finished.is_set()

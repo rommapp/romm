@@ -557,8 +557,8 @@ def session_is_stale(session: dict[str, Any]) -> bool:
 
 async def get_abandoned_session(session_key: str) -> dict[str, Any] | None:
     """The claim on `session_key` when its heartbeat went stale, never a drain marker."""
-    session = await get_session(session_key)
-    if session is None or session.get("draining") or not session_is_stale(session):
+    session = await get_live_session(session_key)
+    if session is None or not session_is_stale(session):
         return None
     return session
 
