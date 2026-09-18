@@ -3182,6 +3182,27 @@ def test_a_release_naming_its_own_claim_still_ends_the_session(
     stop.assert_called_once()
 
 
+def test_a_release_for_a_claim_another_player_took_over_is_a_no_op(
+    client, viewer_access_token, editor_access_token, rom: Rom
+):
+    """The tab lost its claim, so the player now holding the container is none
+    of its business, not a forbidden target."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, editor_access_token, rom.id)
+        with patch("handler.streaming.commands.stop", return_value=None) as stop:
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={
+                    "container": _key_of(_container_for(rom)),
+                    "claimed_at": "2020-01-01T00:00:00+00:00",
+                },
+                headers=_auth(viewer_access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    stop.assert_not_called()
+
+
 def test_release_by_other_user_is_forbidden(
     client, access_token, viewer_access_token, rom: Rom
 ):

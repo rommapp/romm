@@ -1315,7 +1315,6 @@ async def release_session(
         )
         if session is None:
             return ReleaseSessionResponse(status="not_found", platform=platform)
-        access.assert_session_owner(session, request)
     else:
         try:
             container, session_key, session = await access.resolve_owned_session(
@@ -1334,6 +1333,9 @@ async def release_session(
     if claimed_at is not None and session.get("claimed_at") != claimed_at:
         log.info("release ignored, the claim was replaced, platform=%s", platform)
         return ReleaseSessionResponse(status="not_found", platform=platform)
+    # After the stamp check, so another player's takeover reads as a gone claim.
+    if container_key is not None:
+        access.assert_session_owner(session, request)
 
     # Teardown pulls the whole card off the broker and pushes a blank one back,
     # several seconds of broker round-trips. The player who quit does not need
