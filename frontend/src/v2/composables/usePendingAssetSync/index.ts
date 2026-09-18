@@ -32,11 +32,34 @@ const REFUSED_MESSAGE: Record<PendingAssetKind, string> = {
 // A session that queued several captures owes the player one line per game,
 // not one per capture.
 function firstPerGame<T extends SyncedAsset>(assets: T[]): T[] {
-  return uniqBy(assets, (asset) => `${asset.kind}:${asset.romId}`);
+  return uniqBy(
+    assets,
+    (asset) => `${asset.kind}:${asset.romId}:${Boolean(asset.archived)}`,
+  );
 }
 
-// Two shells must not both be draining the same rows into the same server.
+const DRAIN_LOCK = "romm-pending-assets";
+// Two passes, in two shells or two tabs, would upload the same rows. Web Locks
+// only exists in a secure context, so plain http guards this document alone.
 let draining = false;
+async function exclusively(run: () => Promise<void>): Promise<boolean> {
+  const locks = globalThis.navigator?.locks;
+  if (locks) {
+    return locks.request(DRAIN_LOCK, { ifAvailable: true }, async (lock) => {
+      if (!lock) return false;
+      await run();
+      return true;
+    });
+  }
+  if (draining) return false;
+  draining = true;
+  try {
+    await run();
+    return true;
+  } finally {
+    draining = false;
+  }
+}
 
 export function installPendingAssetSync() {
   const playingStore = storePlaying();
@@ -57,6 +80,13 @@ export function installPendingAssetSync() {
 
   function announce(synced: SyncedAsset[]) {
     for (const asset of firstPerGame(synced)) {
+      if (asset.archived) {
+        snackbar.warning(t("play.save-kept-apart", { game: asset.name }), {
+          image: asset.cover,
+          timeout: 8000,
+        });
+        continue;
+      }
       snackbar.success(t(SYNCED_MESSAGE[asset.kind], { game: asset.name }), {
         image: asset.cover,
         timeout: 5000,
@@ -85,29 +115,34 @@ export function installPendingAssetSync() {
     }
   }
 
+  // A running session retries its own save, and a version opened from under
+  // it is one it would not know about; a state nothing else hands over.
+  function currentKinds(): PendingAssetKind[] {
+    return playingStore.playing ? ["state"] : ["save", "state"];
+  }
+
+  // The shell can go while a pass is on the wire, and a retry armed after that
+  // would outlive it and keep firing for the life of the document.
+  async function armRetry() {
+    stopRetrying();
+    if (!disposed && (await hasPendingAssets(currentKinds()))) {
+      timer = setTimeout(() => void drain(), RETRY_MS);
+    }
+  }
+
+  async function pass() {
+    const { synced, dropped } = await syncPendingAssets(currentKinds());
+    announce(synced);
+    reportRefused(dropped);
+    await refresh(synced);
+    await armRetry();
+  }
+
   async function drain() {
     // Offline nothing gets through, and reconnecting starts a pass of its own.
-    if (draining || isOffline.value) return;
-    draining = true;
-    try {
-      // A running session retries its own save, and a version opened from
-      // under it is one it would not know about; a state nothing else hands over.
-      const kinds: PendingAssetKind[] = playingStore.playing
-        ? ["state"]
-        : ["save", "state"];
-      const { synced, dropped } = await syncPendingAssets(kinds);
-      announce(synced);
-      reportRefused(dropped);
-      await refresh(synced);
-      stopRetrying();
-      // The shell can go while a pass is on the wire, and a retry armed after
-      // that would outlive it and keep firing for the life of the document.
-      if (!disposed && (await hasPendingAssets(kinds))) {
-        timer = setTimeout(() => void drain(), RETRY_MS);
-      }
-    } finally {
-      draining = false;
-    }
+    if (isOffline.value) return;
+    // Another tab holds the pass; look again later in case it closes first.
+    if (!(await exclusively(pass))) await armRetry();
   }
 
   // Quitting a game is what queues an asset, and reconnecting is what lets it

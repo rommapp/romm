@@ -142,6 +142,7 @@
   "save-data-none-note": "Oyna, sonra oyun içinde kaydet. Oturum bitince eşitlenir.",
   "save-data-note": "Başlatmadan önce konsola geri yüklendi. Oyunun kendi menüsünden yükle.",
   "save-data-synced": "Eşitlendi",
+  "save-kept-apart": "{game} için saklanan kayıt ayrı bir kayıt olarak saklandı: kayıt yuvasında başka bir cihazdan daha yeni ilerleme var",
   "save-kept-for-later": "Kayıt bu tarayıcıda saklandı, daha sonra eşitlenecek",
   "save-loaded": "Kayıt sunucudan yüklendi",
   "save-not-kept": "Kayıt eşitlenemedi ve bu tarayıcı onu daha sonrası için saklayamıyor",

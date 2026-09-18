@@ -142,6 +142,7 @@
   "save-data-none-note": "先遊玩，然後在遊戲內存檔。工作階段結束時會同步回來。",
   "save-data-note": "啟動前已還原到主機。請從遊戲本身的選單中讀取。",
   "save-data-synced": "已同步",
+  "save-kept-apart": "{game} 暫存的存檔已另外儲存：該存檔格已有來自其他裝置的較新進度",
   "save-kept-for-later": "存檔已保存在此瀏覽器中，稍後會同步",
   "save-loaded": "已從伺服器載入存檔",
   "save-not-kept": "存檔無法同步，此瀏覽器也無法將其保留以便稍後同步",

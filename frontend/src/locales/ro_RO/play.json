@@ -142,6 +142,7 @@
   "save-data-none-note": "Joacă, apoi salvează în joc. Se sincronizează la încheierea sesiunii.",
   "save-data-note": "Restaurat pe consolă înainte de lansare. Încarcă-l din meniul jocului.",
   "save-data-synced": "Sincronizat",
+  "save-kept-apart": "Salvarea păstrată pentru {game} a fost salvată separat: slotul ei are progres mai nou de pe alt dispozitiv",
   "save-kept-for-later": "Salvare păstrată în acest browser, se va sincroniza mai târziu",
   "save-loaded": "Salvare încărcată de pe server",
   "save-not-kept": "Salvarea nu s-a putut sincroniza, iar acest browser nu o poate păstra pentru mai târziu",

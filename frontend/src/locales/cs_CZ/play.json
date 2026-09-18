@@ -142,6 +142,7 @@
   "save-data-none-note": "Hrajte a uložte ve hře. Po skončení relace se data synchronizují.",
   "save-data-note": "Obnoveno do konzole před spuštěním. Načtěte je z nabídky samotné hry.",
   "save-data-synced": "Synchronizováno",
+  "save-kept-apart": "Uložená pozice pro {game} byla uložena zvlášť: její pozice uložení obsahuje novější postup z jiného zařízení",
   "save-kept-for-later": "Uložená pozice je uložena v tomto prohlížeči a synchronizuje se později",
   "save-loaded": "Uložená pozice načtena ze serveru",
   "save-not-kept": "Uloženou pozici se nepodařilo synchronizovat a tento prohlížeč ji nemůže uchovat na později",

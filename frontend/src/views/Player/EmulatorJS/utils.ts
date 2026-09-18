@@ -14,6 +14,7 @@ import pendingAssetStore, {
   pendingAssetId,
   type PendingAsset,
 } from "@/services/pending-asset";
+import storeHeartbeat from "@/stores/heartbeat";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
 
@@ -164,6 +165,9 @@ export async function saveState({
     emulator: window.EJS_core,
     capturedAt: capturedAt.getTime(),
   });
+  // Nothing gets through while the server is down; the held state goes once
+  // it is back.
+  if (!storeHeartbeat().connected) return { state: null, kept };
 
   try {
     const uploadedStates = await stateApi.uploadStates({

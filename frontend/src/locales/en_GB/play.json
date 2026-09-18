@@ -142,6 +142,7 @@
   "save-data-none-note": "Play, then save in-game. It syncs back when the session ends.",
   "save-data-note": "Restored to the console before launch. Load it from the game's own menu.",
   "save-data-synced": "Synced",
+  "save-kept-apart": "Kept {game}'s held save as a separate save: its slot has newer progress from another device",
   "save-kept-for-later": "Save kept in this browser, it will sync later",
   "save-loaded": "Save loaded from server",
   "save-not-kept": "Save could not sync, and this browser cannot keep it for later",

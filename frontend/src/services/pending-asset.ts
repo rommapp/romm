@@ -8,16 +8,19 @@ import saveApi, {
   sessionSaveFile,
   sessionScreenshotFile,
 } from "@/services/api/save";
-import stateApi, { sessionStateFiles } from "@/services/api/state";
+import stateApi, {
+  sessionStateFiles,
+  sessionStateName,
+} from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 const DB_NAME = "romm-player";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const STORE_NAME = "pending-assets";
-// Answers "what does this account still owe" from keys alone, so the question
-// never deserializes the saves, states and frames the rows carry.
-const OWNER_INDEX = "owner-kind-rom";
+// Answers "what does this account still owe" from keys alone, and orders a
+// game's captures oldest first, so the newest lands last and stays newest.
+const OWNER_INDEX = "owner-kind-rom-captured";
 
 export type PendingAssetKind = "save" | "state";
 
@@ -78,8 +81,16 @@ function openDatabase(): Promise<IDBDatabase> {
       const store = names.includes(STORE_NAME)
         ? request.transaction!.objectStore(STORE_NAME)
         : db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      for (const name of Array.from(store.indexNames)) {
+        if (name !== OWNER_INDEX) store.deleteIndex(name);
+      }
       if (!store.indexNames.contains(OWNER_INDEX)) {
-        store.createIndex(OWNER_INDEX, ["userId", "kind", "romId"]);
+        store.createIndex(OWNER_INDEX, [
+          "userId",
+          "kind",
+          "romId",
+          "capturedAt",
+        ]);
       }
     };
     request.onsuccess = () => {
@@ -210,10 +221,43 @@ async function uploadTarget(
   return (await romApi.getRom({ romId: entry.romId })).data;
 }
 
-async function uploadSave(
+// A slot already holding newer progress from another device.
+function isSlotConflict(result?: PromiseSettledResult<unknown>): boolean {
+  return (
+    result?.status === "rejected" &&
+    axios.isAxiosError(result.reason) &&
+    result.reason.response?.status === 409
+  );
+}
+
+// An archived save sits outside every slot, so it replaces nothing; it takes
+// the stem a state does, the rom and the moment of the capture.
+async function archiveSave(
   entry: PendingAsset,
   rom: { id: number; fs_name_no_ext: string },
 ): Promise<PromiseSettledResult<unknown> | undefined> {
+  const name = sessionStateName(rom, new Date(entry.capturedAt));
+  const type = "application/octet-stream";
+  const [uploaded] = await saveApi.uploadSaves({
+    rom,
+    emulator: entry.emulator,
+    deviceId: entry.deviceId,
+    savesToUpload: [
+      {
+        saveFile: new File([entry.bytes], `${name}.srm`, { type }),
+        screenshotFile: entry.screenshotBytes
+          ? new File([entry.screenshotBytes], `${name}.png`, { type })
+          : undefined,
+      },
+    ],
+  });
+  return uploaded;
+}
+
+async function uploadSave(
+  entry: PendingAsset,
+  rom: { id: number; fs_name_no_ext: string },
+): Promise<{ upload?: PromiseSettledResult<unknown>; archived?: true }> {
   const slot = entry.slot ?? AUTOSAVE_SLOT;
   const [uploaded] = await saveApi.uploadSaves({
     rom,
@@ -233,7 +277,8 @@ async function uploadSave(
       },
     ],
   });
-  return uploaded;
+  if (!isSlotConflict(uploaded)) return { upload: uploaded };
+  return { upload: await archiveSave(entry, rom), archived: true };
 }
 
 async function uploadState(
@@ -298,11 +343,14 @@ async function uploadPendingAsset(
 
   try {
     const rom = await uploadTarget(entry);
-    const upload =
+    const { upload, archived } =
       entry.kind === "state"
-        ? await uploadState(entry, rom)
+        ? { upload: await uploadState(entry, rom), archived: undefined }
         : await uploadSave(entry, rom);
-    if (upload?.status === "fulfilled") return settle(entry);
+    if (upload?.status === "fulfilled") {
+      const synced = await settle(entry);
+      return archived ? { ...synced, archived } : synced;
+    }
     // A refusal is judged in the same place as a request that never landed.
     throw upload?.status === "rejected"
       ? upload.reason
@@ -321,6 +369,8 @@ export interface SyncedAsset {
   romId: number;
   name: string;
   cover?: string | null;
+  /** Kept as a separate save, its slot holding newer progress from another device. */
+  archived?: true;
 }
 
 /** One the server refused for good, and dropped from the browser. */
@@ -348,12 +398,15 @@ export async function syncPendingAssets(
 ): Promise<PendingSyncResult> {
   const synced: SyncedAsset[] = [];
   const dropped: DroppedAsset[] = [];
+  const owner = currentUserId();
   // One row at a time, so a queue of large states is never all in memory.
   for (const { id } of await heldKeys(kinds)) {
+    // Signing out mid-pass must not hand the rest to whoever signs in next.
+    if (currentUserId() !== owner) break;
     const entry = await withStore<PendingAsset>("readonly", (store) =>
       store.get(id),
     );
-    if (!entry) continue;
+    if (!entry || entry.userId !== owner) continue;
     const outcome = await uploadPendingAsset(entry);
     if (!outcome) continue;
     if ("reason" in outcome) dropped.push(outcome);

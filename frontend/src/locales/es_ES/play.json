@@ -142,6 +142,7 @@
   "save-data-none-note": "Juega y guarda dentro del juego. Se sincronizará al terminar la sesión.",
   "save-data-note": "Restaurado en la consola antes de iniciar. Cárgalo desde el menú del propio juego.",
   "save-data-synced": "Sincronizado",
+  "save-kept-apart": "La partida guardada retenida de {game} se ha guardado aparte: su ranura tiene una partida más reciente de otro dispositivo",
   "save-kept-for-later": "La partida guardada se conserva en este navegador y se sincronizará más tarde",
   "save-loaded": "Partida guardada cargada desde el servidor",
   "save-not-kept": "No se pudo sincronizar la partida guardada, y este navegador no puede conservarla para más tarde",

@@ -142,6 +142,7 @@
   "save-data-none-note": "Zagraj i zapisz w grze. Synchronizacja nastąpi po zakończeniu sesji.",
   "save-data-note": "Przywrócone na konsolę przed uruchomieniem. Wczytaj je z menu samej gry.",
   "save-data-synced": "Zsynchronizowano",
+  "save-kept-apart": "Przechowany zapis gry {game} zapisano osobno: jego miejsce zapisu ma nowszy postęp z innego urządzenia",
   "save-kept-for-later": "Zapis przechowany w tej przeglądarce, zostanie zsynchronizowany później",
   "save-loaded": "Wczytano zapis z serwera",
   "save-not-kept": "Nie udało się zsynchronizować zapisu, a ta przeglądarka nie może go przechować na później",

@@ -142,6 +142,7 @@
   "save-data-none-note": "Jogue e salve dentro do jogo. A sincronização acontece ao encerrar a sessão.",
   "save-data-note": "Restaurado no console antes de iniciar. Carregue pelo menu do próprio jogo.",
   "save-data-synced": "Sincronizado",
+  "save-kept-apart": "O save guardado de {game} foi salvo à parte: o slot já tem um progresso mais recente de outro dispositivo",
   "save-kept-for-later": "Save guardado neste navegador, será sincronizado depois",
   "save-loaded": "Save carregado do servidor",
   "save-not-kept": "Não foi possível sincronizar o save, e este navegador não pode guardá-lo para depois",

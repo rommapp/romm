@@ -548,14 +548,23 @@ async function flushPendingSave() {
   const emulator = window.EJS_emulator;
   if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
   uninstallAutoSaveSync();
+  // A save the tick has not held yet takes its frame now, while the game still
+  // runs; bytes the tick already held keep the one taken when it wrote them.
+  const unsynced: Uint8Array | null = emulator.gameManager.getSaveFile(false);
+  const screenshotFile =
+    unsynced?.byteLength &&
+    saveTracker.hasChanges(unsynced) &&
+    !heldFor(pendingSave, unsynced)
+      ? await captureScreenshot()
+      : undefined;
   emulator.pause();
   await new Promise((resolve) => setTimeout(resolve, 50));
   const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
   if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
   try {
-    // The exit takes no frame of its own: the write carries the one held for
-    // these bytes, if a sync got that far.
-    if (await writeSave({ saveFile: toArrayBuffer(saveFile) })) {
+    if (
+      await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile })
+    ) {
       romsStore.update(romRef.value);
     }
   } catch (error) {
@@ -856,13 +865,22 @@ window.EJS_onGameStart = async () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const stateFile = window.EJS_emulator.gameManager.getState();
-    const saveFile = window.EJS_emulator.gameManager.getSaveFile();
+    // Null for a game without SRAM, which has no save to write at all.
+    const saveFile: Uint8Array | null =
+      window.EJS_emulator.gameManager.getSaveFile();
 
-    // Different endpoints, so both go at once. The save's picture is whichever
-    // the tick held for these bytes.
+    // Different endpoints, so both go at once. The save takes the frame just
+    // captured unless the server already holds these bytes with their own.
     await Promise.all([
       saveState({ rom: romRef.value, stateFile, screenshotFile }),
-      writeSaveIfChanged({ saveFile: toArrayBuffer(saveFile) }),
+      saveFile?.byteLength
+        ? writeSaveIfChanged({
+            saveFile: toArrayBuffer(saveFile),
+            screenshotFile: saveTracker.isUploaded(saveFile)
+              ? undefined
+              : screenshotFile,
+          })
+        : undefined,
     ]);
 
     romsStore.update(romRef.value);

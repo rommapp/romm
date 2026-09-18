@@ -106,9 +106,18 @@ function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
     return request;
   }
 
-  // The owner index holds a row only when every part of its key is set.
+  // The owner index holds a row only when every part of its key is set, and
+  // walks them in key order, a game's captures oldest first.
   function keyCursor(transaction: Transaction): Request {
-    const indexed = [...rows.values()].filter((row) => row.userId != null);
+    const key = (row: PendingAsset) =>
+      [row.userId, row.kind, row.romId, row.capturedAt] as (number | string)[];
+    const indexed = [...rows.values()]
+      .filter((row) => row.userId != null)
+      .sort((a, b) => {
+        const [left, right] = [key(a), key(b)];
+        const at = left.findIndex((part, i) => part !== right[i]);
+        return at < 0 ? 0 : left[at] < right[at] ? -1 : 1;
+      });
     const request: Request = {};
     let next = 0;
     const step = () => {
@@ -129,8 +138,9 @@ function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
 
   function objectStore(transaction: Transaction) {
     return {
-      indexNames: { contains: () => false },
+      indexNames: Object.assign([] as string[], { contains: () => false }),
       createIndex: () => undefined,
+      deleteIndex: () => undefined,
       get: (id: string) => settle(transaction, rows.get(id)),
       put: (entry: PendingAsset) => {
         rows.set(entry.id, entry);
@@ -411,6 +421,78 @@ describe("syncPendingAssets", () => {
 
     expect(saveApiMocks.uploadSaves).not.toHaveBeenCalled();
     expect([...rows.keys()]).toEqual(["save:not-asked"]);
+  });
+
+  // The newest capture has to land last, or the slot's newest version is stale.
+  it("hands a game's captures over oldest first", async () => {
+    queue({
+      id: "save:captured-last",
+      capturedAt: 2_000,
+      bytes: new Uint8Array([2]).buffer,
+    });
+    queue({
+      id: "save:captured-first",
+      capturedAt: 1_000,
+      bytes: new Uint8Array([1]).buffer,
+    });
+
+    await syncPendingAssets();
+
+    const uploaded = await Promise.all(
+      saveApiMocks.uploadSaves.mock.calls.map(async ([request]) => {
+        const file: File = request.savesToUpload[0].saveFile;
+        return new Uint8Array(await file.arrayBuffer())[0];
+      }),
+    );
+    expect(uploaded).toEqual([1, 2]);
+  });
+
+  // Signing out mid-pass must not hand the rest to whoever signs in next.
+  it("stops a pass once the account that started it is gone", async () => {
+    queue({ id: "save:first", capturedAt: 1 });
+    queue({ id: "save:second", capturedAt: 2 });
+    saveApiMocks.uploadSaves.mockImplementation(async () => {
+      auth.userId = 2;
+      return [{ status: "fulfilled" }];
+    });
+
+    await syncPendingAssets();
+
+    expect(saveApiMocks.uploadSaves).toHaveBeenCalledTimes(1);
+    expect(rows.has("save:second")).toBe(true);
+  });
+
+  // Newer progress from another device holds the slot; neither copy is lost.
+  it("keeps a save the slot refuses as a separate save", async () => {
+    saveApiMocks.uploadSaves
+      .mockResolvedValueOnce([
+        { status: "rejected", reason: refusal(409, "Slot has a newer save") },
+      ])
+      .mockResolvedValueOnce([{ status: "fulfilled" }]);
+    queue({ id: "save:conflict", slot: "autosave", screenshotBytes: shot });
+
+    await expect(syncPendingAssets()).resolves.toEqual({
+      synced: [
+        {
+          kind: "save",
+          romId: 1,
+          name: "Held Game",
+          cover: "cover.png",
+          archived: true,
+        },
+      ],
+      dropped: [],
+    });
+
+    const archive = saveApiMocks.uploadSaves.mock.calls[1][0];
+    expect(archive.slot).toBeUndefined();
+    expect(archive.savesToUpload[0].saveFile.name).toBe(
+      "game [2024-05-06 07-08-09-010].srm",
+    );
+    expect(archive.savesToUpload[0].screenshotFile.name).toBe(
+      "game [2024-05-06 07-08-09-010].png",
+    );
+    expect(rows.size).toBe(0);
   });
 
   it("reports both kinds a rom is still owed", async () => {

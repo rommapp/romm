@@ -142,6 +142,7 @@
   "save-data-none-note": "Spiele und speichere im Spiel. Der Stand wird am Ende der Sitzung synchronisiert.",
   "save-data-note": "Vor dem Start auf die Konsole übertragen. Lade ihn im Menü des Spiels.",
   "save-data-synced": "Synchronisiert",
+  "save-kept-apart": "Der zurückgehaltene Spielstand für {game} wurde separat gespeichert: sein Speicherplatz hat neueren Fortschritt von einem anderen Gerät",
   "save-kept-for-later": "Spielstand in diesem Browser aufbewahrt, er wird später synchronisiert",
   "save-loaded": "Spielstand vom Server geladen",
   "save-not-kept": "Spielstand konnte nicht synchronisiert werden, und dieser Browser kann ihn nicht für später aufbewahren",

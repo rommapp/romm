@@ -41,6 +41,8 @@ vi.mock("@/services/api/state", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/api/state")>()),
   default: stateApiMocks,
 }));
+const heartbeat = vi.hoisted(() => ({ connected: true }));
+vi.mock("@/stores/heartbeat", () => ({ default: () => heartbeat }));
 vi.mock("@/services/pending-asset", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/pending-asset")>()),
   default: pendingAssetMocks,
@@ -549,6 +551,7 @@ describe("saveState", () => {
       { status: "fulfilled", value: { id: 7 } as StateSchema },
     ]);
     pendingAssetMocks.write.mockReset().mockResolvedValue(true);
+    heartbeat.connected = true;
     pendingAssetMocks.clear.mockReset().mockResolvedValue(undefined);
   });
 
@@ -594,6 +597,19 @@ describe("saveState", () => {
 
     expect(pendingAssetMocks.write).toHaveBeenCalledTimes(1);
     expect(pendingAssetMocks.clear).not.toHaveBeenCalled();
+  });
+
+  // Down, the attempt would only fail: the state is held for the shell's pass.
+  it("holds a state without trying while the server is down", async () => {
+    heartbeat.connected = false;
+
+    await expect(saveState({ rom, stateFile: bytes })).resolves.toEqual({
+      state: null,
+      kept: true,
+    });
+
+    expect(pendingAssetMocks.write).toHaveBeenCalledTimes(1);
+    expect(stateApiMocks.uploadStates).not.toHaveBeenCalled();
   });
 
   // A private window keeps nothing, and the notice must not promise it did.

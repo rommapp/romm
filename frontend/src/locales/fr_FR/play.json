@@ -142,6 +142,7 @@
   "save-data-none-note": "Jouez, puis sauvegardez dans le jeu. La synchronisation se fait à la fin de la session.",
   "save-data-note": "Restauré sur la console avant le lancement. Chargez-le depuis le menu du jeu.",
   "save-data-synced": "Synchronisé",
+  "save-kept-apart": "La sauvegarde conservée pour {game} a été enregistrée à part : son emplacement contient une progression plus récente d'un autre appareil",
   "save-kept-for-later": "Sauvegarde conservée dans ce navigateur, elle sera synchronisée plus tard",
   "save-loaded": "Sauvegarde chargée depuis le serveur",
   "save-not-kept": "La sauvegarde n'a pas pu être synchronisée, et ce navigateur ne peut pas la conserver pour plus tard",

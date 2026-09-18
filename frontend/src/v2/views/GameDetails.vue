@@ -76,10 +76,13 @@ const snackbar = useSnackbar();
 const isAlive = useIsAlive();
 watch(
   () => currentRom.value?.id ?? null,
-  async (romId) => {
+  async (romId, _previous, onCleanup) => {
     if (!romId) return;
+    let stale = false;
+    onCleanup(() => (stale = true));
     const held = await pendingAssetKinds(romId);
-    if (!isAlive.value) return;
+    // The route moved on to another game while the lookup ran.
+    if (stale || !isAlive.value) return;
     if (held.has("save")) snackbar.warning(t("play.save-not-synced"));
     if (held.has("state")) snackbar.warning(t("play.state-not-synced"));
   },

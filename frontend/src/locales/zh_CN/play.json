@@ -142,6 +142,7 @@
   "save-data-none-note": "先游玩，然后在游戏内存档。会话结束时会同步回来。",
   "save-data-note": "启动前已还原到主机。请从游戏自身的菜单中读取。",
   "save-data-synced": "已同步",
+  "save-kept-apart": "{game} 暂存的存档已单独保存：该存档位已有来自其他设备的更新进度",
   "save-kept-for-later": "存档已保存在此浏览器中，稍后会同步",
   "save-loaded": "已从服务器加载存档",
   "save-not-kept": "存档无法同步，此浏览器也无法将其保留以便稍后同步",

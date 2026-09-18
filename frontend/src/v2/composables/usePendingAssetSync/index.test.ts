@@ -39,11 +39,12 @@ vi.mock("@/services/pending-asset", () => ({
 
 const success = vi.fn();
 const error = vi.fn();
+const warning = vi.fn();
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({
     success,
     error,
-    warning: vi.fn(),
+    warning,
     info: vi.fn(),
   }),
 }));
@@ -93,11 +94,13 @@ describe("installPendingAssetSync", () => {
     refetchRom.mockClear();
     success.mockClear();
     error.mockClear();
+    warning.mockClear();
   });
 
   afterEach(() => {
     wrapper?.unmount();
     wrapper = null;
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -221,6 +224,55 @@ describe("installPendingAssetSync", () => {
       expect.anything(),
     );
     expect(success).not.toHaveBeenCalled();
+  });
+
+  // Another device's newer progress holds the slot, so the copy went aside.
+  it("says a save was kept apart from its slot", async () => {
+    syncPendingAssets.mockImplementation(async () => {
+      queue.entries = [];
+      return {
+        synced: [
+          {
+            kind: "save" as const,
+            romId: 1,
+            name: "Game",
+            cover: null,
+            archived: true as const,
+          },
+        ],
+        dropped: [],
+      };
+    });
+    queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
+
+    install();
+    await settle();
+
+    expect(warning).toHaveBeenCalledWith(
+      "play.save-kept-apart",
+      expect.anything(),
+    );
+    expect(success).not.toHaveBeenCalled();
+  });
+
+  // Two tabs must not upload the same rows; the one without the lock waits.
+  it("leaves the pass to the tab holding the lock", async () => {
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: async (
+          _name: string,
+          _options: object,
+          run: (lock: null) => Promise<boolean>,
+        ) => run(null),
+      },
+    });
+    queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
+
+    install();
+    await settle();
+
+    expect(syncPendingAssets).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(1);
   });
 
   it("owes a game one line however many states it was holding", async () => {
