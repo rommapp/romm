@@ -1,5 +1,5 @@
 import re
-import subprocess
+import subprocess  # trunk-ignore(bandit/B404): only used by get_git_branch, argv is hardcoded
 import uuid
 from functools import lru_cache
 from pathlib import Path
@@ -25,6 +25,7 @@ def get_version() -> str:
 def get_git_branch() -> str | None:
     """Current git branch for a dev build's display, or None outside a checkout (cached for the process's life)."""
     try:
+        # trunk-ignore(bandit/B607): git is resolved from PATH by design
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=_REPO_ROOT,
@@ -32,7 +33,7 @@ def get_git_branch() -> str | None:
             text=True,
             check=True,
             timeout=2,
-            shell=False,  # trunk-ignore(bandit/B603): git binary is fixed, args are hardcoded
+            shell=False,  # trunk-ignore(bandit/B603): args are hardcoded
         )
     except (OSError, subprocess.SubprocessError):
         return None
