@@ -10,8 +10,8 @@
 // RTabNav) lives INSIDE the scrolling container of whichever branch
 // is active. On Library, it rides in `GalleryShell`'s `#header` slot
 // so it scrolls away with the cards (toolbar pins below it). On
-// Settings, the head stays fixed above the scrolling tab body on
-// desktop and scrolls away on mobile.
+// Settings, it sits above the tab body and scrolls with the page
+// (GalleryTabShell).
 //
 // Edit + Delete moved out of the InfoPanel `#actions` kebab and into
 // the Settings tab (editable form on top, danger zone at the bottom).
@@ -427,7 +427,7 @@ async function onDelete() {
   </GalleryShell>
 
   <!-- SETTINGS: the same CollectionHead above the tab body. -->
-  <GalleryTabShell v-else :panel-key="tab">
+  <GalleryTabShell v-else>
     <template #head>
       <CollectionHead
         v-if="currentCollection"

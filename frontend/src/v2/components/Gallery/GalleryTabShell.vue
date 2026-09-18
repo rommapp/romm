@@ -1,14 +1,9 @@
 <script setup lang="ts">
-// GalleryTabShell: the non-Library tab branch of Platform / Collection. On
-// desktop the head stays fixed and only the panel scrolls; phones scroll the page.
+// GalleryTabShell: the non-Library tab branch of Platform / Collection. The
+// head scrolls with the page; on desktop the panel reaches the viewport bottom.
 import { RDivider } from "@v2/lib";
 
 defineOptions({ inheritAttrs: false });
-
-defineProps<{
-  /** Remounts the panel when it changes, so each tab opens at the top. */
-  panelKey?: string;
-}>();
 
 defineSlots<{
   head(): unknown;
@@ -21,7 +16,7 @@ defineSlots<{
     <div class="gallery-tab-shell__scroll">
       <slot name="head" />
       <RDivider class="gallery-tab-shell__divider" />
-      <div :key="panelKey" class="gallery-tab-shell__panel">
+      <div class="gallery-tab-shell__panel">
         <slot />
       </div>
     </div>
@@ -29,8 +24,8 @@ defineSlots<{
 </template>
 
 <style scoped>
-/* Phones: plain document flow, so the page scrolls under the translucent top
-   bar like Home; AppLayout's bottom padding clears the tab bar. */
+/* Plain document flow, so the page scrolls under the translucent top bar like
+   Home; AppLayout's bottom padding clears the phone tab bar. */
 .gallery-tab-shell__scroll {
   padding: 32px var(--r-row-pad) 24px;
 }
@@ -39,24 +34,18 @@ defineSlots<{
   margin: 0 0 24px;
 }
 
-/* Desktop: the head stays fixed and only the panel scrolls; its inset,
-   cancelled by the negative margin, keeps focus rings inside the clip. */
-html[data-bp~="md-and-up"] .gallery-tab-shell {
-  height: calc(100vh - var(--r-nav-h));
-  height: calc(100dvh - var(--r-nav-h));
-  overflow: hidden;
-}
+/* Desktop: fill at least the viewport so the panel, and a `fill` child such as
+   the empty firmware dropzone, reaches its bottom. */
 html[data-bp~="md-and-up"] .gallery-tab-shell__scroll {
-  height: 100%;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  padding-bottom: 0;
+  min-height: calc(100vh - var(--r-nav-h));
+  min-height: calc(100dvh - var(--r-nav-h));
+  padding-bottom: var(--r-row-pad);
 }
 html[data-bp~="md-and-up"] .gallery-tab-shell__panel {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  margin: -8px -8px 0;
-  padding: 8px 8px var(--r-row-pad);
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 </style>

@@ -10,8 +10,8 @@
 // scrolling container of whichever branch is active. On Library, it
 // rides in `GalleryShell`'s `#header` slot so it scrolls away with
 // the cards and the toolbar pins below it — the same vocabulary the
-// pre-tabs gallery had. On Firmware / Settings, the head stays fixed
-// above the scrolling tab body on desktop and scrolls away on mobile.
+// pre-tabs gallery had. On Firmware / Settings it sits above the tab body
+// and scrolls with the page (GalleryTabShell).
 //
 // Action ribbon (Upload / Scan) lives inside the head component;
 // Edit (custom_name) and Delete moved inline into the Settings tab.
@@ -494,7 +494,7 @@ async function onDelete() {
   </GalleryShell>
 
   <!-- FIRMWARE / SETTINGS: the same PlatformHead above the tab body. -->
-  <GalleryTabShell v-else :panel-key="tab">
+  <GalleryTabShell v-else>
     <template #head>
       <PlatformHead
         v-if="currentPlatform"

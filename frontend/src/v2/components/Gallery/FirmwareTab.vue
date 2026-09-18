@@ -231,7 +231,7 @@ async function performDelete(
   <RDropzone
     v-else
     ref="firmwareDz"
-    class="r-v2-fw-drop"
+    fill
     overlay
     :disabled="!canWrite"
     :release-label="t('common.dropzone-drag-over')"
@@ -479,13 +479,6 @@ async function performDelete(
 </template>
 
 <style scoped>
-/* Grow with a long list instead of capping at the fixed-height tab panel,
-   so the drag overlay covers every row however far it is scrolled. */
-.r-v2-fw-drop {
-  height: auto;
-  min-height: 100%;
-}
-
 .r-v2-fw {
   display: flex;
   flex-direction: column;

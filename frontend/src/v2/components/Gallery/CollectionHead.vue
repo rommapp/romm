@@ -9,8 +9,7 @@
 //      head scrolls naturally with the cards (and the toolbar pins
 //      below it).
 //
-//   2. Settings tab: above the tab body, fixed on desktop and scrolling
-//      with the content on mobile.
+//   2. Settings tab: above the tab body, scrolling with it.
 import { RBtn, RChip, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { useI18n } from "vue-i18n";

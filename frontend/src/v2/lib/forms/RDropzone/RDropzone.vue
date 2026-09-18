@@ -33,7 +33,8 @@ interface Props {
   overlay?: boolean;
   /** CTA mode only: one row with a small icon beside the title and hint. */
   compact?: boolean;
-  /** CTA mode only: stretch the CTA to the dropzone's full height. */
+  /** Grow to fill a flex parent (either mode); the CTA stretches with it.
+   *  Works where `height: 100%` can't, e.g. a parent sized by min-height. */
   fill?: boolean;
   // CTA copy / icons (ignored in overlay mode except `activeIcon`).
   title?: string;
@@ -173,6 +174,10 @@ defineExpose({ open, isOver: isOverDropZone });
   flex-direction: column;
   position: relative;
   border-radius: var(--r-radius-md);
+}
+.r-dropzone--fill {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 /* Disabled dims / blocks only the CTA — in overlay mode the slotted content
    stays fully interactive (drops are no-ops, the overlay never shows). */

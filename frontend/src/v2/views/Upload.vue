@@ -237,7 +237,6 @@ async function upload() {
            populated. -->
     <RDropzone
       v-if="files.length === 0"
-      class="r-v2-upload__dropzone"
       fill
       :title="t('common.dropzone-title')"
       :hint="t('common.dropzone-description')"
@@ -249,7 +248,7 @@ async function upload() {
     <RDropzone
       v-else
       ref="uploadDz"
-      class="r-v2-upload__dropzone"
+      fill
       overlay
       :release-label="t('common.dropzone-drag-over')"
       :input-label="t('common.upload-roms')"
@@ -307,10 +306,6 @@ async function upload() {
 .r-v2-upload__platform {
   flex: 1 1 auto;
   min-width: 0;
-}
-.r-v2-upload__dropzone {
-  flex: 1;
-  min-height: 0;
 }
 
 /* ── Filled state ────────────────────────────────────────────── */

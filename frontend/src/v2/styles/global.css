@@ -317,6 +317,7 @@ html.r-v2-reduced-motion *::after {
    share one width. */
 .r-settings-column {
   display: flex;
+  width: 100%;
   flex-direction: column;
   gap: 20px;
   max-width: 460px;

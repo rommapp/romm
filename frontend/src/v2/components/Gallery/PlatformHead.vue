@@ -8,8 +8,7 @@
 //      head scrolls naturally with the cards (and the toolbar pins
 //      below it). Matches the pre-tabs experience.
 //
-//   2. Firmware / Settings tabs: above the tab body, fixed on desktop and
-//      scrolling with the content on mobile.
+//   2. Firmware / Settings tabs: above the tab body, scrolling with it.
 //
 // All admin actions are forwarded as events; permission gating lives
 // on the parent so the bar stays in sync with `useCan`.
