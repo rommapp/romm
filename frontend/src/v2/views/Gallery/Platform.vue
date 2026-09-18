@@ -15,7 +15,7 @@
 //
 // Action ribbon (Upload / Scan) lives inside the head component;
 // Edit (custom_name) and Delete moved inline into the Settings tab.
-import { RDivider, type RTabNavItem } from "@v2/lib";
+import type { RTabNavItem } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, nextTick, onMounted, ref, watch } from "vue";
@@ -30,6 +30,7 @@ import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import FirmwareTab from "@/v2/components/Gallery/FirmwareTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
+import GalleryTabShell from "@/v2/components/Gallery/GalleryTabShell.vue";
 import PlatformHead from "@/v2/components/Gallery/PlatformHead.vue";
 import ScanPlatformDialog from "@/v2/components/Gallery/ScanPlatformDialog.vue";
 import SettingsTab from "@/v2/components/Gallery/SettingsTab.vue";
@@ -493,8 +494,8 @@ async function onDelete() {
   </GalleryShell>
 
   <!-- FIRMWARE / SETTINGS: the same PlatformHead above the tab body. -->
-  <section v-else class="r-v2-plat-tabs">
-    <div class="r-v2-plat-tabs__scroll">
+  <GalleryTabShell v-else :panel-key="tab">
+    <template #head>
       <PlatformHead
         v-if="currentPlatform"
         :platform="currentPlatform"
@@ -516,24 +517,22 @@ async function onDelete() {
         @random="onRandomGame"
         @download="onDownload"
       />
-      <RDivider class="r-v2-plat-tabs__divider" />
-      <!-- Keyed by tab so each tab opens scrolled to the top. -->
-      <div v-if="currentPlatform" :key="tab" class="r-v2-plat-tabs__panel">
-        <FirmwareTab v-if="tab === 'firmware'" :platform="currentPlatform" />
-        <MemoryCardManager
-          v-else-if="tab === 'memory-cards' && memoryCardEmulator"
-          :emulator="memoryCardEmulator"
-          :platform-id="currentPlatform.id"
-        />
-        <SettingsTab
-          v-else-if="tab === 'settings'"
-          :platform="currentPlatform"
-          :deleting="deleting"
-          @delete="onDelete"
-        />
-      </div>
-    </div>
-  </section>
+    </template>
+    <template v-if="currentPlatform">
+      <FirmwareTab v-if="tab === 'firmware'" :platform="currentPlatform" />
+      <MemoryCardManager
+        v-else-if="tab === 'memory-cards' && memoryCardEmulator"
+        :emulator="memoryCardEmulator"
+        :platform-id="currentPlatform.id"
+      />
+      <SettingsTab
+        v-else-if="tab === 'settings'"
+        :platform="currentPlatform"
+        :deleting="deleting"
+        @delete="onDelete"
+      />
+    </template>
+  </GalleryTabShell>
 
   <!-- Per-platform scan dialog — mounted at the view level so it
        survives tab switches without remounting. Gates on `currentPlatform`
@@ -544,63 +543,3 @@ async function onDelete() {
     :platform="currentPlatform"
   />
 </template>
-
-<style scoped>
-/* Desktop: the head stays fixed and only `__panel` scrolls. Mobile: the
-   whole branch scrolls as one page. */
-.r-v2-plat-tabs {
-  /* `dvh` (not `vh`) so the section matches the mobile visible viewport
-     instead of the larger address-bar-hidden one — otherwise it spills below
-     the fold and stacks a second, document-level scroll on the internal one
-     ("double scroll"). Same rationale as GalleryShell / IndexShell. */
-  height: calc(100vh - var(--r-nav-h));
-  height: calc(100dvh - var(--r-nav-h));
-  overflow: hidden;
-  position: relative;
-}
-/* On sm-and-down the layout <main> reserves the bottom tab bar's height; this
-   full-height section would otherwise sit on top of that padding and push the
-   document past one viewport. Cancel it with a matching negative margin so the
-   section extends under the (translucent) bar with a single scroll — the inner
-   scroll's bottom spacer lifts the last content (danger zone) clear of it. */
-html[data-bp~="sm-and-down"] .r-v2-plat-tabs {
-  margin-bottom: calc(
-    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
-  );
-}
-
-.r-v2-plat-tabs__scroll {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 32px var(--r-row-pad) 0;
-}
-html[data-bp~="sm-and-down"] .r-v2-plat-tabs__scroll {
-  overflow-y: auto;
-  padding-bottom: calc(
-    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
-  );
-}
-
-.r-v2-plat-tabs__divider {
-  margin: 0 0 24px;
-  flex: 0 0 auto;
-}
-
-.r-v2-plat-tabs__panel {
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow-y: auto;
-  /* The inset (cancelled by the negative margin) keeps focus rings on
-     edge-to-edge content, like the firmware dropzone, inside the clip. */
-  margin: -8px -8px 0;
-  padding: 8px 8px var(--r-row-pad);
-}
-html[data-bp~="sm-and-down"] .r-v2-plat-tabs__panel {
-  flex: 0 0 auto;
-  overflow: visible;
-  margin: 0;
-  padding: 0;
-}
-</style>

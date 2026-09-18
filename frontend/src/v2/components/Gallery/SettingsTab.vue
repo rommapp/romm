@@ -160,7 +160,7 @@ const details = computed<DetailRow[]>(() => {
 <template>
   <div class="r-v2-plat-settings">
     <section class="r-v2-plat-settings__section">
-      <header class="r-v2-plat-settings__section-head">
+      <header class="r-section-head">
         <RIcon icon="mdi-information-outline" size="14" />
         <span>{{ t("common.details", "Details") }}</span>
       </header>
@@ -255,18 +255,6 @@ const details = computed<DetailRow[]>(() => {
   gap: 20px;
   max-width: 460px;
   margin-inline: auto;
-}
-
-.r-v2-plat-settings__section-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 
 /* ── Name form ────────────────────────────────────────────────── */

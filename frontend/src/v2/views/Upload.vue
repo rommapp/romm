@@ -203,8 +203,6 @@ async function upload() {
 
 <template>
   <div class="r-v2-upload r-v2-section-stack">
-    <!-- No Cancel next to Upload: this is a view, not a dialog, the user
-         just navigates away if they change their mind. -->
     <div class="r-v2-upload__top">
       <PlatformSelect
         v-model="selectedPlatformSlug"
@@ -311,11 +309,8 @@ async function upload() {
   min-width: 0;
 }
 .r-v2-upload__dropzone {
-  flex: 1 1 0;
+  flex: 1;
   min-height: 0;
-}
-html[data-bp~="sm-and-down"] .r-v2-upload__dropzone {
-  flex: 0 0 auto;
 }
 
 /* ── Filled state ────────────────────────────────────────────── */
@@ -343,11 +338,9 @@ html[data-bp~="sm-and-down"] .r-v2-upload__dropzone {
   border-radius: var(--r-radius-md);
   background: var(--r-color-bg-elevated);
   flex: 1 1 auto;
-  min-height: 0;
   overflow-y: auto;
 }
 html[data-bp~="sm-and-down"] .r-v2-upload__list {
-  flex: none;
   max-height: 320px;
 }
 .r-v2-upload__row {

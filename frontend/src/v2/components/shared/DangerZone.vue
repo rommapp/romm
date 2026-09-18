@@ -8,7 +8,7 @@ defineOptions({ inheritAttrs: false });
 
 defineProps<{
   title: string;
-  hint?: string;
+  hint: string;
 }>();
 
 defineSlots<{
@@ -20,14 +20,14 @@ const { t } = useI18n();
 
 <template>
   <section v-bind="$attrs" class="danger-zone">
-    <header class="danger-zone__head">
+    <header class="r-section-head danger-zone__head">
       <RIcon icon="mdi-alert-outline" size="14" />
       <span>{{ t("common.danger-zone") }}</span>
     </header>
     <div class="danger-zone__row">
       <div class="danger-zone__copy">
         <p class="danger-zone__title">{{ title }}</p>
-        <p v-if="hint" class="danger-zone__hint">{{ hint }}</p>
+        <p class="danger-zone__hint">{{ hint }}</p>
       </div>
       <slot />
     </div>
@@ -48,14 +48,6 @@ const { t } = useI18n();
 }
 
 .danger-zone__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--r-color-status-base-danger);
 }
 

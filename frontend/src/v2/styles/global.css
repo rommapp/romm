@@ -313,6 +313,19 @@ html.r-v2-reduced-motion *::after {
   color: var(--r-color-fg-muted);
 }
 
+/* Section header: icon + small uppercase label heading a settings block. */
+.r-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-muted);
+}
+
 /* Chevron rotation — single source of truth for the spring-curve flip
    used on every disclosure / dropdown / collapsible trigger. Drop the
    class onto the chevron icon; it rotates 180° when either:

@@ -323,7 +323,7 @@ function discard() {
          derive their cover from the contained ROMs at runtime, so an
          upload UI here would be misleading. -->
     <section v-if="kind === 'regular'" class="r-v2-coll-set__section">
-      <header class="r-v2-coll-set__section-head">
+      <header class="r-section-head">
         <RIcon icon="mdi-image-outline" size="14" />
         <span>{{ t("collection.cover", "Cover artwork") }}</span>
       </header>
@@ -378,7 +378,7 @@ function discard() {
 
     <!-- Details (edit form) — both kinds. -->
     <section class="r-v2-coll-set__section">
-      <header class="r-v2-coll-set__section-head">
+      <header class="r-section-head">
         <RIcon icon="mdi-information-outline" size="14" />
         <span>{{ t("common.details", "Details") }}</span>
       </header>
@@ -440,7 +440,7 @@ function discard() {
       v-if="kind === 'smart' && filterSummary.length > 0"
       class="r-v2-coll-set__section"
     >
-      <header class="r-v2-coll-set__section-head">
+      <header class="r-section-head">
         <RIcon icon="mdi-filter-variant" size="14" />
         <span>{{ t("collection.filters", "Filters") }}</span>
       </header>
@@ -509,18 +509,6 @@ function discard() {
   gap: 20px;
   max-width: 460px;
   margin-inline: auto;
-}
-
-.r-v2-coll-set__section-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 
 /* ── Cover ──────────────────────────────────────────────────────── */
