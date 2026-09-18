@@ -18,7 +18,7 @@ from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
-from utils.images import frame_durations, is_animated
+from utils.images import frame_durations, is_animated, reencode_params
 
 from .base_handler import CoverSize, FSHandler
 
@@ -145,7 +145,8 @@ class FSResourcesHandler(FSHandler):
         small_height = int(cover.height * ratio)
         small_size = (small_width, small_height)
 
-        if is_animated(cover):
+        durations = frame_durations(cover) if is_animated(cover) else None
+        if durations:
             frames = [
                 frame.convert("RGBA").resize(small_size)
                 for frame in ImageSequence.Iterator(cover)
@@ -157,8 +158,8 @@ class FSResourcesHandler(FSHandler):
                 format=cover.format,
                 save_all=True,
                 append_images=frames[1:],
-                duration=frame_durations(cover),
-                loop=cover.info.get("loop", 0),
+                duration=durations,
+                **reencode_params(cover),
             )
             return
 
@@ -402,12 +403,9 @@ class FSResourcesHandler(FSHandler):
         try:
             with Image.open(artwork) as img:
                 if is_animated(img):
-                    img.save(
-                        path_cover_l,
-                        save_all=True,
-                        duration=frame_durations(img),
-                        loop=img.info.get("loop", 0),
-                    )
+                    # Stored as uploaded: re-encoding the composited frames
+                    # costs quality and GIF/APNG frame blending.
+                    path_cover_l.write_bytes(artwork.getvalue())
                 else:
                     img.save(path_cover_l)
                 self.resize_cover_to_small(img, save_path=str(path_cover_s))

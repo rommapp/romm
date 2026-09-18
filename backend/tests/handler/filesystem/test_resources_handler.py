@@ -3,12 +3,14 @@ import errno
 import os
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
-from PIL import Image
-from tests.utils.test_images import animated_image_bytes
+from PIL import Image, ImageSequence
+from PIL.PngImagePlugin import Blend
+from tests.utils.test_images import animated_image_bytes, truncated_animation_bytes
 
 import adapters.services.screenscraper as ss_module
 from adapters.services.screenscraper import (
@@ -276,26 +278,79 @@ class TestFSResourcesHandler:
             assert small.size == (24, 36)
             assert frame_durations(small) == durations
 
+    @pytest.mark.parametrize(
+        "fmt, source_params",
+        [
+            ("GIF", {"disposal": 2}),
+            ("PNG", {"blend": [Blend.OP_OVER, Blend.OP_SOURCE, Blend.OP_SOURCE]}),
+        ],
+    )
+    def test_resize_cover_to_small_clears_vacated_pixels(
+        self,
+        handler: FSResourcesHandler,
+        tmp_path: Path,
+        fmt: str,
+        source_params: dict[str, Any],
+    ):
+        # A sprite moving over a transparent background must not leave a trail
+        frames = []
+        for i in range(3):
+            frame = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+            frame.paste((255, 0, 0, 255), (i * 30, 0, i * 30 + 30, 30))
+            frames.append(frame)
+        source = BytesIO()
+        frames[0].save(
+            source,
+            format=fmt,
+            save_all=True,
+            append_images=frames[1:],
+            duration=100,
+            **source_params,
+        )
+        save_path = tmp_path / f"small.{fmt.lower()}"
+
+        with Image.open(source) as img:
+            handler.resize_cover_to_small(img, save_path=str(save_path))
+
+        with Image.open(save_path) as small:
+            alphas = [
+                frame.convert("RGBA").getpixel((2, 2))[3]
+                for frame in ImageSequence.Iterator(small)
+            ]
+        assert alphas == [255, 0, 0]
+
+    def test_resize_cover_to_small_damaged_animation(
+        self, handler: FSResourcesHandler, tmp_path: Path
+    ):
+        save_path = tmp_path / "small.gif"
+
+        with Image.open(BytesIO(truncated_animation_bytes("GIF"))) as img:
+            handler.resize_cover_to_small(img, save_path=str(save_path))
+
+        with Image.open(save_path) as small:
+            assert not small.is_animated
+            assert small.size == (24, 36)
+
     async def test_store_artwork_keeps_animation(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
     ):
         handler.base_path = tmp_path
         durations = [100, 250, 400]
-        artwork = BytesIO(animated_image_bytes("GIF", durations))
+        data = animated_image_bytes("GIF", durations)
 
         with patch(
             "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
             False,
         ):
             path_cover_l, path_cover_s = await handler.store_artwork(
-                rom, artwork, "gif"
+                rom, BytesIO(data), "gif"
             )
 
-        for path in (path_cover_l, path_cover_s):
-            assert path is not None
-            with Image.open(tmp_path / path) as img:
-                assert img.format == "GIF"
-                assert frame_durations(img) == durations
+        assert path_cover_l is not None and path_cover_s is not None
+        assert (tmp_path / path_cover_l).read_bytes() == data
+        with Image.open(tmp_path / path_cover_s) as small:
+            assert small.format == "GIF"
+            assert frame_durations(small) == durations
 
     def test_get_cover_path_no_cover(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
