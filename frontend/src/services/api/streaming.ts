@@ -124,8 +124,8 @@ async function releaseSession(
       // Sent whenever the caller supplied one, empty string included: the
       // backend treats the param's presence as "this is an admin force-release".
       ...(reason !== undefined ? { reason } : {}),
-      // Names which container to release, needed when a pool serves the
-      // platform and the admin is ending a session they do not own.
+      // Names which container to release, since a pool serves one platform
+      // from several: the holder names the one it claimed, an admin its pick.
       ...(container !== undefined ? { container } : {}),
       // Only the player who deliberately stopped without saving sends this.
       // Everything else leaves it off so the backend still autosaves.
