@@ -206,6 +206,16 @@ function romWith(saves: SaveSchema[]): DetailedRom {
   } as unknown as DetailedRom;
 }
 
+// The view listens on document and window, so a mount left standing would
+// answer the next test's visibilitychange and pagehide too.
+const mounted: VueWrapper[] = [];
+
+afterEach(() => {
+  for (const wrapper of mounted.splice(0)) {
+    if (wrapper.exists()) wrapper.unmount();
+  }
+});
+
 async function launch(opts: {
   picker: boolean;
   saves?: SaveSchema[];
@@ -228,6 +238,7 @@ async function launch(opts: {
       stubs: { GameCover: GameCoverStub, StreamStage: StreamStageStub },
     },
   });
+  mounted.push(wrapper);
   await flushPromises();
   return wrapper;
 }
@@ -608,7 +619,7 @@ describe("Stream launch recovery", () => {
 
     await pollStatus();
 
-    expect(mocks.fetchSessionStatus).toHaveBeenCalledWith("gba");
+    expect(mocks.fetchSessionStatus).toHaveBeenCalledExactlyOnceWith("gba");
     expect(vmOf(wrapper).playerState).toBe("playing");
     expect(vmOf(wrapper).containerHost).toBe(
       "http://webstation-dev:8080/room/x",
