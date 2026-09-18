@@ -550,9 +550,8 @@ async function handleSessionStatus(
   playerState.value = "exited";
   containerHost.value = "";
   presence.stopHeartbeat();
-  // Nothing is held any more, so the unload and unmount paths have nothing to
-  // hand back. Left standing, the claim would release whoever holds the
-  // container next.
+  // Left standing, the claim would have the unload and unmount paths release
+  // whoever holds the container next.
   holdsClaim.value = false;
   claimedContainer.value = null;
   claimedAt.value = null;
@@ -561,9 +560,8 @@ async function handleSessionStatus(
   endedDialogOpen.value = true;
 }
 
-// launch-ready is pushed once, so a socket that dropped while the game came up
-// leaves the tab loading over a session that is running. The poll answers with
-// the room the launch recorded, which is the way back in.
+// launch-ready is pushed once, so a tab that missed it sits loading over a
+// running session; the room the poll reports is its way back in.
 async function enterRunningSession(status: SessionStatus): Promise<void> {
   if (playerState.value !== "loading" || !status.host) return;
   // The poll names no container, so it can answer with another tab's session.
@@ -593,9 +591,8 @@ const SESSION_POLL_MS = 30_000;
 // session (`_record_termination` in streaming.py), to the caller's own
 // `user:{id}` room. Near-instant, unlike the poll above.
 useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
-  // The room carries every claim the account holds, and a platform can be
-  // served by a pool, so the container is what says this one was ours. An
-  // admin's desktop is never the game on screen.
+  // The room carries every claim the account holds, so the container says which
+  // one was ours, and an admin's desktop is never the game on screen.
   if (notice.desktop) return;
   if (
     notice.container &&

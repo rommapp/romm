@@ -277,8 +277,8 @@ async def mutate_session(
 
 
 def session_platform_matches(session: dict[str, Any], platform: str) -> bool:
-    """Whether a session was claimed for this platform. A record written before
-    the field existed matches anything, so an upgrade cannot strand one."""
+    """Whether a session was claimed for this platform, a record from before the
+    field existed matching anything so an upgrade cannot strand one."""
     stored = session.get("platform")
     if not isinstance(stored, str) or not stored:
         return True
@@ -431,9 +431,6 @@ async def stamp_launched(
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
 
-    The room URL is recorded with it: the launch reply is the only place it
-    exists, and the status poll is how a tab that missed the push gets in.
-
     Guarded on the claim it was made for, like `set_session_disc`: an activate
     outlives the claim when a release lands while it runs, and an unguarded
     write would stamp a stranger's session or bring a short drain marker back
@@ -441,6 +438,10 @@ async def stamp_launched(
 
     Best-effort: a stamp that never lands only costs a few redundant broker
     round trips, and failing a session that is already up would be worse.
+
+    Args:
+        host: the room URL, recorded because the launch reply is the only place it
+            exists and the status poll is how a tab that missed the push gets in.
     """
     try:
         await mutate_session(

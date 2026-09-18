@@ -202,9 +202,8 @@ async def _session_status(
     include_desktop: bool = False,
     claimed_at: str | None = None,
 ) -> dict[str, Any]:
-    """Whether the caller holds a session for this platform among `candidates`
-    (its first pool by default), and if not, why it ended. Read-only, so it is
-    safe to poll."""
+    """Whether the caller holds this platform's session among `candidates` (its
+    first pool by default) and, if not, why it ended, read-only so safe to poll."""
     if candidates is None:
         candidates = containers_for_platform(platform)
     if not candidates:
@@ -344,9 +343,8 @@ async def _reserve_container(
     platform: str,
 ) -> ResolvedContainer:
     """Walk the platform's containers and claim the first one available."""
-    # Status, heartbeat and release answer with the first match on a platform,
-    # so a second game session there is one nothing can reach. A session of
-    # theirs elsewhere is not in the way: that container fails the claim below.
+    # Status, heartbeat and release reach one session per platform, so a second
+    # is unreachable. One elsewhere is no bar: its container fails the claim below.
     held = await access.find_session_for_user(
         candidates, request.user.id, platform=platform
     )
@@ -407,9 +405,8 @@ async def _reserve_container(
             platform,
             existing.get("user_id"),
         )
-        # A container serves several platforms, so the session being swept may
-        # be another one's: its state, saves and card belong to that emulator,
-        # not to the one this claim would run.
+        # A container serves several platforms, so the swept session may be another
+        # one's, and its state, saves and card belong to that platform's emulator.
         record = (
             container_for_session(
                 containers_by_key(), candidate.key, existing.get("platform")
@@ -427,9 +424,8 @@ async def _reserve_container(
         if await try_claim(candidate):
             return candidate
 
-    # A drain marker belongs to nobody, so it carries no rom_name and no
-    # claimed_at. Worth reporting, since that container is about to come free,
-    # but the holder has to come from a live session or the message names no one.
+    # A drain marker names no holder, so the holder comes from a live session,
+    # while `draining` still says a container is about to come free.
     snapshots = [await get_session(candidate.key) or {} for candidate in candidates]
     draining = any(snapshot.get("draining") for snapshot in snapshots)
     holder = next(
@@ -875,8 +871,9 @@ async def _resolve_claim_to_end(
 ) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
     """The session a route ending a claim acts on, or None when that claim is gone.
 
-    `container` names the container, `claimed_at` binds the call to the one
-    claim the caller was given.
+    Args:
+        container_key: the container the caller named, if any.
+        claimed_at: the stamp of the one claim the caller was given.
     """
     if container_key is not None:
         container, session_key, session = await access.resolve_named_container(
@@ -896,9 +893,8 @@ async def _resolve_claim_to_end(
                 raise
             return None
 
-    # A tab whose claim was replaced (taken over, or the player pressing Play
-    # again elsewhere) still ends it on unload, and must not end the claim
-    # that took its place.
+    # A tab whose claim was replaced (a takeover, or Play pressed again elsewhere)
+    # still ends it on unload, and must not end the claim that took its place.
     if claimed_at is not None and session.get("claimed_at") != claimed_at:
         log.info("ignored for a replaced claim, platform=%s", platform)
         return None
@@ -918,11 +914,13 @@ async def save_and_exit_session(
     container_key: str | None = Query(default=None, alias="container", max_length=300),
     claimed_at: str | None = Query(default=None, max_length=64),
 ) -> SaveAndExitResponse:
-    """
-    Save game state then release the session.
-    wait=true (default): blocks until broker confirms save+kill complete.
-    wait=false: broker fires save+kill in background, returns immediately.
-    `container` and `claimed_at` bind the call to one claim, as on release.
+    """Save game state then release the session.
+
+    Args:
+        req: `wait` true (the default) blocks until the broker confirms the save
+            and kill, false has the broker do both in the background.
+        container_key: the claimed container, as on release.
+        claimed_at: the claim's stamp, as on release.
     """
     target = await _resolve_claim_to_end(platform, request, container_key, claimed_at)
     if target is None:
@@ -1043,25 +1041,22 @@ async def heartbeat_session(
     container_key: str | None = Query(default=None, alias="container", max_length=300),
     claimed_at: str | None = Query(default=None, max_length=64),
 ) -> SessionStatusSchema:
-    """Refresh the session's liveness stamp and report whether it still exists.
+    """Refresh the liveness stamp the frontend beats every ~30s, without which the
+    claim is abandoned after _STREAMING_SESSION_STALE_SECONDS for the next to take.
 
-    The frontend calls this every ~30s while a session is active. A session
-    that stops refreshing counts as abandoned after _STREAMING_SESSION_STALE_SECONDS
-    and the next claim may take the container over.
+    Args:
+        container_key: the claim to beat, needed for a desktop or a container
+            outside the platform's first pool.
+        claimed_at: the claim's stamp, so a tab that missed its own takeover does
+            not keep the claim that replaced it alive.
 
-    Reports `ended` rather than raising 404 when the caller no longer holds the
-    session, so a force-released player learns why on the poll they are already
-    making rather than watching a dead stream.
-
-    `container` names the claim to refresh, needed for a desktop or a container
-    outside the platform's first pool. `claimed_at` is the stamp the claim
-    answered with: a tab that missed its own takeover reports ended rather than
-    keeping the claim that replaced it alive.
+    Returns:
+        `ended` rather than a 404 once the caller no longer holds the session, so
+        a force-released player learns why on the poll they already make.
     """
     user_id = request.user.id
-    # A named claim answers for itself: another session the caller holds on the
-    # platform is not the one this client is beating. Naming the container is
-    # also the only way to reach a desktop, which a game tab must never beat.
+    # A named claim answers for itself, and naming the container is the only way
+    # to reach a desktop, which a game tab must never beat.
     named = container_key is not None
     candidates = (
         [access.named_container(platform, container_key)]
@@ -1340,17 +1335,14 @@ async def release_session(
 ) -> ReleaseSessionResponse:
     """Release a session and tell the broker to stop the emulator.
 
-    `reason` is only meaningful when an admin ends someone else's session; it
-    is surfaced to the displaced player. `container` names which container to
-    release, since a pool serves a platform from several: the holder sends the
-    one it claimed, an admin the key `GET /streaming/sessions` reports.
-
-    `save=false` is a player leaving deliberately without saving. It defaults
-    on because the other way in here is a tab closing, where nobody chose
-    anything and the last minutes of play would otherwise be gone.
-
-    `claimed_at` is the stamp the claim answered with, which binds this release
-    to that claim. Admin panels end whatever is running and send none.
+    Args:
+        reason: why an admin ended someone else's session, shown to that player.
+        container_key: which pool member to release: the holder sends the one it
+            claimed, an admin the key `GET /streaming/sessions` reports.
+        claimed_at: the stamp binding this release to one claim; admin panels end
+            whatever is running and send none.
+        save: false for a player leaving deliberately without saving; on by
+            default because a closing tab chose nothing and would lose recent play.
     """
     target = await _resolve_claim_to_end(platform, request, container_key, claimed_at)
     if target is None:

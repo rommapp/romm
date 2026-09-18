@@ -697,8 +697,8 @@ def test_get_config_offers_disc_swap_only_on_a_webstation_container(
 
 
 def test_get_config_leaves_out_a_container_no_claim_can_reach(client, access_token):
-    """A host with no scheme resolves to no key, so every claim on it fails.
-    Listing it put a Play button on a platform that could never stream."""
+    """A host with no scheme resolves to no key, so every claim on it fails and
+    listing it would put a Play button on a platform that can never stream."""
     with _streaming({"platform": "ps2", "host": "192.168.1.10:3000"}):
         response = client.get("/api/streaming/config", headers=_auth(access_token))
     assert response.status_code == 200
@@ -1368,9 +1368,8 @@ def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
 def test_a_session_on_one_platform_does_not_block_a_claim_on_another(
     client, access_token
 ):
-    """One container serves several platforms, so the caller's ps2 session sits
-    on a key the ngc walk visits too. It occupies that container, it does not
-    spend the player's one session."""
+    """The caller's ps2 session sits on a key the ngc walk visits too, and only
+    occupies that container rather than counting as the player's ngc session."""
     ps2_rom = _rom_on("ps2")
     ngc_rom = _rom_on("ngc")
     second = _nested(
@@ -2502,9 +2501,8 @@ def test_stale_session_taken_over_on_claim(
 def test_a_swept_session_is_torn_down_with_its_own_platforms_record(
     client, access_token, viewer_access_token
 ):
-    """One container serves ps2 and ngc on different emulators, so an ngc claim
-    sweeping a stale ps2 session must tear it down as pcsx2: the state and the
-    card coming out of the container are that emulator's, not the claimant's."""
+    """An ngc claim sweeping a stale ps2 session on a shared container tears it
+    down as pcsx2, since the state and card coming out are that emulator's."""
     ps2_rom = _rom_on("ps2")
     ngc_rom = _rom_on("ngc")
     with _streaming(_nested()):
@@ -2992,9 +2990,8 @@ def test_a_termination_notice_names_the_container_it_ended(
 def test_a_termination_notice_lands_before_the_drain(
     client, access_token, viewer_access_token, rom: Rom
 ):
-    """The session is over the moment the drain marker is written, and the drain
-    itself is seconds of broker round trips, so a poll inside that window has to
-    be told why the stream stopped rather than getting a bare `ended`."""
+    """The session ends when the drain marker is written, so a poll during the
+    seconds-long drain is told why the stream stopped, not a bare `ended`."""
     container = _container_for(rom)
     seen: list[dict[str, Any] | None] = []
 
@@ -7197,8 +7194,8 @@ def test_joining_a_rom_on_a_hidden_platform_is_404_masked(
 
 
 def _ws_pool_member(rom: Rom, index: int, **overrides) -> dict:
-    """One member of a pool of webstation containers, the broker a joiner
-    needs. Distinct hosts, so the room URL says which member answered."""
+    """One member of a pool of webstation containers, the broker a joiner needs,
+    on a distinct host so the room URL says which member answered."""
     return _webstation(
         **{
             "host": f"http://192.168.1.1{index}:3000",

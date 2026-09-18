@@ -142,10 +142,10 @@ async def mark_exit_saves_pending(
 ) -> saves.SavePullMark | None:
     """Hold the owner's next claim on this ROM until the exit pull has filed.
 
-    Whole-card sync containers evacuate the card instead and have no archive,
-    and a session that ran no ROM (the admin desktop) has nowhere to file one,
-    so neither is marked. Returns the mark for `collect_exit_saves`, or None
-    when no pull will run.
+    Returns:
+        The mark for `collect_exit_saves`, or None when no pull will run: a
+        whole-card sync container evacuates the card instead, and a desktop ran
+        no ROM to file one under.
     """
     rom_id = session.get("rom_id")
     user_id = session.get("user_id")
@@ -165,14 +165,12 @@ def collect_exit_saves(
     *,
     settled: bool,
 ) -> None:
-    """Start pulling the in-game save archive a stopped session left behind.
+    """Pull a stopped session's save archive in the background, since the broker
+    keeps it after the emulator dies, filing it under the owner whoever ended it.
 
-    Fire and forget: the broker keeps the archive after the emulator dies, so
-    no teardown has to wait on it. The pull clears `mark` however it ends, and
-    `settled` says the emulator is done writing, so the first answer is final.
-
-    One home for the rule: every teardown path files a session's saves the same
-    way, and under the session's owner rather than whoever ended it.
+    Args:
+        mark: cleared by the pull however it ends.
+        settled: the emulator is done writing, so the first answer is final.
     """
     if mark is None:
         return
@@ -455,10 +453,8 @@ async def _teardown_abandoned_session(
     try:
         # Before anything slow, as a release does.
         pull_mark = await mark_exit_saves_pending(container, session)
-        # That tab may still be showing the stream, so leave the same note an
-        # admin force-release does rather than letting the picture simply stop.
-        # Not for the owner coming back: it would end the claim their new tab is
-        # starting.
+        # That tab may still be showing the stream, so leave a force-release's note,
+        # but not for the owner coming back, whose new tab it would end.
         if session.get("user_id") != claimed_by:
             await record_termination(
                 session, session_key, ended_by=None, reason="abandoned"

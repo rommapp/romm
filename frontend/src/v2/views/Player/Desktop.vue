@@ -121,9 +121,8 @@ async function release(): Promise<boolean> {
 // stale window, and nothing else here touches the claim.
 const HEARTBEAT_MS = 30_000;
 
-// Dropping the claim keeps a later exit from releasing whoever holds the
-// container next, and the notice is the only sign the desktop was taken away
-// rather than broken.
+// Dropping the claim keeps a later exit from releasing the next holder, and the
+// notice is the only sign the desktop was taken away rather than broken.
 function noteSessionEnded(notice?: SessionTermination | null): void {
   holdsClaim.value = false;
   state.value = "error";
@@ -144,9 +143,8 @@ useIntervalFn(async () => {
   noteSessionEnded(status.termination);
 }, HEARTBEAT_MS);
 
-// Pushed the moment someone else ends this claim, so the desktop does not sit
-// dead until the next heartbeat. The room is per-user and covers every claim
-// the account holds, so only a notice for this container is ours.
+// Pushed when someone else ends this claim, sooner than the next heartbeat.
+// The user's room carries all their claims, so only this container's is ours.
 useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
   if (!holdsClaim.value || notice.container !== containerKey.value) return;
   noteSessionEnded(notice);

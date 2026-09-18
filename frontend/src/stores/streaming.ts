@@ -80,10 +80,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     return container.label || container.emulator || null;
   }
 
-  /**
-   * What to call an emulator a save or state is tagged with. The backend owns
-   * the display names, so an id it does not name is shown as it stands.
-   */
+  /** The backend's display name for an emulator id, else the id as it stands. */
   function emulatorLabel(emulator: string | null | undefined): string {
     if (!emulator) return "";
     // Label keys are lowercase, and a configured emulator keeps its case.

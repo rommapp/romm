@@ -42,7 +42,7 @@ def _save_pull_redis_key(user_id: int, rom_id: int) -> str:
 
 
 class SavePullMark(NamedTuple):
-    """One exit's pending pull. The token is what lets only that pull clear it."""
+    """One exit's pending pull, whose token lets only that pull clear it."""
 
     user_id: int
     rom_id: int
@@ -50,11 +50,8 @@ class SavePullMark(NamedTuple):
 
 
 async def mark_save_pull_pending(user_id: int, rom_id: int) -> SavePullMark:
-    """Hold this user's claims on this ROM until the returned mark is cleared.
-
-    A later mark takes the key over, so an earlier pull finishing cannot let a
-    claim past a later one still running.
-    """
+    """Hold this user's claims on this ROM until the returned mark is cleared, a
+    later mark taking over so an earlier pull finishing cannot let a claim past it."""
     token = secrets.token_hex(8)
     await async_cache.set(
         _save_pull_redis_key(user_id, rom_id), token, ex=_SAVE_PULL_TTL_SECONDS
@@ -87,8 +84,9 @@ async def wait_for_save_pull(
 ) -> bool:
     """Wait for a pull of this user's saves for this ROM to finish filing.
 
-    Returns whether nothing is pending any more. A claim is interactive, so a
-    wedged pull times out rather than holding the request open.
+    Returns:
+        Whether nothing is pending any more, False once `budget` runs out, since a
+        claim is interactive and must not hang on a wedged pull.
     """
     key = _save_pull_redis_key(user_id, rom_id)
     deadline = time.monotonic() + budget
@@ -202,8 +200,11 @@ async def pull_saves_to_library(
     """Background task: pull in-game saves from the broker and store them.
 
     Best-effort by design, a sync failure must never surface to the player,
-    the save still exists inside the container. The retries wait out an
-    emulator still writing, so a `settled` one gets a single attempt.
+    the save still exists inside the container.
+
+    Args:
+        settled: the emulator is done writing, so one attempt is final where the
+            retries would wait out one still writing.
     """
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)

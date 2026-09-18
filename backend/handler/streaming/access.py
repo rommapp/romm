@@ -114,10 +114,8 @@ def _session_in_scope(
     include_desktop: bool,
     claimed_at: str | None = None,
 ) -> bool:
-    """Whether a stored session is the one the route asked about: the owner alone
-    does not say, since a container holds one session across several platforms,
-    a desktop answers only to a caller that named it, and a claim is its holder
-    plus the moment they took it."""
+    """Whether a stored session is the one a route asked about, which its owner
+    alone cannot say: same platform, a desktop only if named, the given claim."""
     if not include_desktop and session_is_desktop(session):
         return False
     if claimed_at is not None and session.get("claimed_at") != claimed_at:
@@ -143,10 +141,12 @@ async def find_session_for_user(
 ) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
     """The candidate holding this user's session, as (container, key, session).
 
-    With a pool the platform no longer identifies the container, the session
-    does. `platform` scopes the match to sessions claimed for it, `claimed_at`
-    to the one claim the caller was given, and a desktop is only reachable when
-    the caller named its container.
+    With a pool the platform no longer identifies the container, the session does.
+
+    Args:
+        platform: only sessions claimed for it match.
+        include_desktop: whether a desktop matches, only when its container is named.
+        claimed_at: only the one claim the caller was given matches.
     """
     for candidate in candidates:
         session_key = candidate.key
