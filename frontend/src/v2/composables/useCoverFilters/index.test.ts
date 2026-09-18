@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { nextTick, ref } from "vue";
 import type { CoverResource, SearchCoverSchema } from "@/__generated__";
 import { useCoverFilters } from "./index";
 
@@ -84,5 +84,28 @@ describe("useCoverFilters activeFilterCount", () => {
 
     filters.resetFilters();
     expect(filters.activeFilterCount.value).toBe(0);
+  });
+
+  it("skips the content switches while their controls are hidden", () => {
+    const filters = setup([STEAM]);
+    filters.showNsfw.value = true;
+
+    expect(filters.activeFilterCount.value).toBe(0);
+  });
+});
+
+describe("useCoverFilters new results", () => {
+  it("drops a style picked from the previous results", async () => {
+    const covers = ref([SGDB]);
+    const filters = useCoverFilters(covers, ref([]));
+    filters.styleFilter.value = "alternate";
+    filters.showNsfw.value = true;
+
+    covers.value = [STEAM];
+    await nextTick();
+
+    expect(filters.styleFilter.value).toBe("all");
+    expect(filters.showNsfw.value).toBe(true);
+    expect(filters.filteredCovers.value).toHaveLength(1);
   });
 });

@@ -332,7 +332,7 @@ function closeDialog() {
 
     <template #toolbar>
       <div class="r-v2-sgdb__toolbar">
-        <div class="r-v2-sgdb__providers r-v2-scroll-hidden">
+        <div class="r-v2-sgdb__providers">
           <MatchRomProviderFilter
             v-for="provider in gridProviders"
             :key="provider.key"
@@ -610,11 +610,6 @@ function closeDialog() {
   display: flex;
   align-items: center;
   gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-}
-.r-v2-sgdb__providers > * {
-  flex-shrink: 0;
 }
 
 .r-v2-sgdb__search-row {
@@ -673,8 +668,6 @@ function closeDialog() {
   gap: 12px;
 }
 
-/* Phones: the search button drops to a full-width row under the field, the
-   filter and sort buttons share their row, and the content toggles center. */
 html[data-bp~="xs"] .r-v2-sgdb__search-row {
   grid-template-columns: 1fr;
 }

@@ -8,7 +8,7 @@
 // The dialog owns the search flow and passes the raw `covers` /
 // `providerCovers` refs in; this composable owns the filter state
 // and every derived view of those two lists.
-import { computed, ref, type Ref } from "vue";
+import { computed, ref, watch, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { CoverResource, SearchCoverSchema } from "@/__generated__";
 import type { MatchedSource } from "@/v2/components/MatchRom/types";
@@ -55,32 +55,25 @@ export function useCoverFilters(
     activeProviders.value[provider] = !activeProviders.value[provider];
   }
 
-  function resetFilters() {
-    activeProviders.value = { ...ALL_PROVIDERS_ACTIVE };
-    coverType.value = "all";
+  // These options come from the loaded results, so a pick from an earlier
+  // search would keep hiding covers once the new results drop its select.
+  function resetResultFilters() {
     resolutionFilter.value = "all";
     styleFilter.value = "all";
     uploaderFilter.value = "all";
     uploaderSearch.value = "";
+  }
+  watch(covers, resetResultFilters);
+
+  function resetFilters() {
+    activeProviders.value = { ...ALL_PROVIDERS_ACTIVE };
+    coverType.value = "all";
+    resetResultFilters();
     showNsfw.value = false;
     showHumor.value = true;
     showEpilepsy.value = true;
     sortMode.value = "relevance";
   }
-
-  // Filters narrowing the results away from their `resetFilters` defaults.
-  const activeFilterCount = computed(
-    () =>
-      [
-        coverType.value !== "all",
-        resolutionFilter.value !== "all",
-        styleFilter.value !== "all",
-        uploaderFilter.value !== "all",
-        showNsfw.value,
-        !showHumor.value,
-        !showEpilepsy.value,
-      ].filter(Boolean).length,
-  );
 
   function styleLabel(style: string): string {
     const key = STYLE_LABEL_KEYS[style];
@@ -100,6 +93,21 @@ export function useCoverFilters(
   const hasSgdbCovers = computed(() =>
     covers.value.some((g) => g.provider === "sgdb" && g.resources.length > 0),
   );
+
+  // Filters moved off their `resetFilters` defaults. The content switches
+  // only render when SteamGridDB answered, so only then do they count.
+  const activeFilterCount = computed(() => {
+    const changed = [
+      coverType.value !== "all",
+      resolutionFilter.value !== "all",
+      styleFilter.value !== "all",
+      uploaderFilter.value !== "all",
+    ];
+    if (hasSgdbCovers.value) {
+      changed.push(showNsfw.value, !showHumor.value, !showEpilepsy.value);
+    }
+    return changed.filter(Boolean).length;
+  });
 
   const resolutionValues = computed(() => {
     const set = new Set<string>();
