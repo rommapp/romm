@@ -403,9 +403,11 @@ const { smAndUp } = useBreakpoint();
 /* Header variant — full width, search on the left, controls right.
    Margin lives here (not on the consumer) so scoped-style precedence never
    prevents the toolbar from breathing against the content below. */
+/* Padding, not margin: the shells render this twice (in flow and as an absolute
+   overlay), and a margin would collapse out of one copy but not the other. */
 .gallery-toolbar--header {
   width: 100%;
-  margin: var(--r-space-2) 0 var(--r-space-6);
+  padding: var(--r-space-2) 0 var(--r-space-6);
 }
 
 /* Floating variant — fixed top-right of the gallery body. */
