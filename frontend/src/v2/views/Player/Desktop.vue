@@ -32,6 +32,7 @@ const containerKey = computed(() => String(route.query.container ?? ""));
 const stage = ref<InstanceType<typeof StreamStage> | null>(null);
 const state = ref<"loading" | "running" | "error" | "exited">("loading");
 const errorMessage = ref("");
+const endedReason = ref("");
 const containerHost = ref("");
 const label = ref("");
 // The platform the backend filed the session under, which the release route
@@ -113,14 +114,15 @@ async function release(): Promise<boolean> {
 const HEARTBEAT_MS = 30_000;
 
 // Dropping the claim keeps a later exit from releasing whoever holds the
-// container next, and the reason is the only sign the desktop was taken away
+// container next, and the notice is the only sign the desktop was taken away
 // rather than broken.
-function noteSessionEnded(endedBy?: string | null): void {
+function noteSessionEnded(notice?: SessionTermination | null): void {
   holdsClaim.value = false;
   state.value = "error";
-  errorMessage.value = endedBy
-    ? t("play.session-ended-by", { user: endedBy })
+  errorMessage.value = notice?.ended_by
+    ? t("play.session-ended-by", { user: notice.ended_by })
     : t("play.session-ended");
+  endedReason.value = notice?.reason ?? "";
 }
 
 useIntervalFn(async () => {
@@ -131,7 +133,7 @@ useIntervalFn(async () => {
     claimedAt.value,
   );
   if (status?.status !== "ended") return;
-  noteSessionEnded(status.termination?.ended_by);
+  noteSessionEnded(status.termination);
 }, HEARTBEAT_MS);
 
 // Pushed the moment someone else ends this claim, so the desktop does not sit
@@ -139,7 +141,7 @@ useIntervalFn(async () => {
 // the account holds, so only a notice for this container is ours.
 useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
   if (!holdsClaim.value || notice.container !== containerKey.value) return;
-  noteSessionEnded(notice.ended_by);
+  noteSessionEnded(notice);
 });
 
 function backToAdministration(): void {
@@ -209,8 +211,14 @@ onMounted(() => {
       type="error"
       variant="translucent"
       class="r-v2-desktop__error"
-      :text="errorMessage"
     >
+      {{ errorMessage }}
+      <div v-if="endedReason" class="r-v2-desktop__ended-reason">
+        <span class="r-v2-desktop__ended-reason-label">
+          {{ t("play.session-ended-reason-label") }}
+        </span>
+        <span>{{ endedReason }}</span>
+      </div>
       <template #append>
         <RBtn variant="text" @click="backToAdministration">
           {{ t("play.desktop-back") }}
@@ -272,6 +280,21 @@ onMounted(() => {
 .r-v2-desktop__error {
   margin: 24px auto;
   max-width: 560px;
+}
+
+.r-v2-desktop__ended-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.r-v2-desktop__ended-reason-label {
+  font-size: var(--r-font-size-xs);
+  font-weight: var(--r-font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .r-v2-desktop__spinner {

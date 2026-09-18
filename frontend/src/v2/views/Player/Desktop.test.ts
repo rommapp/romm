@@ -72,7 +72,7 @@ const StreamStageStub = defineComponent({
   },
 });
 
-type DesktopVm = { state: string; errorMessage: string };
+type DesktopVm = { state: string; errorMessage: string; endedReason: string };
 
 // The view listens on window, so a mount left standing would answer the next
 // test's pagehide too.
@@ -142,6 +142,19 @@ describe("Desktop session-ended notices", () => {
     expect(vmOf(wrapper).errorMessage).toBe("play.session-ended-by");
   });
 
+  it("shows the reason the notice gives", async () => {
+    const wrapper = await openDesktop();
+
+    endSession({
+      platform: "ps2",
+      container: "WEBSTATION-DEV",
+      reason: "Maintenance",
+    });
+    await flushPromises();
+
+    expect(vmOf(wrapper).endedReason).toBe("Maintenance");
+  });
+
   it("holds the claim when the notice names another container", async () => {
     const wrapper = await openDesktop();
 
@@ -195,7 +208,7 @@ describe("Desktop heartbeats", () => {
     const wrapper = await openDesktop();
     mocks.heartbeatSession.mockResolvedValue({
       status: "ended",
-      termination: { ended_by: "admin" },
+      termination: { ended_by: "admin", reason: "Maintenance" },
     });
 
     await mocks.heartbeatTick?.();
@@ -203,6 +216,7 @@ describe("Desktop heartbeats", () => {
 
     expect(vmOf(wrapper).state).toBe("error");
     expect(vmOf(wrapper).errorMessage).toBe("play.session-ended-by");
+    expect(vmOf(wrapper).endedReason).toBe("Maintenance");
     expect(mocks.releaseSessionKeepalive).not.toHaveBeenCalled();
   });
 
