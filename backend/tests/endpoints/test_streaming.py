@@ -4742,6 +4742,119 @@ def test_a_claim_behind_an_exit_waits_for_that_exits_saves(
     assert order == ["filed", "waited", "hydrate"]
 
 
+async def _save_pull_pending(user_id: int, rom_id: int) -> bool:
+    """Whether a claim would wait on a save pull, read the way the claim reads it."""
+    return not await saves.wait_for_save_pull(user_id, rom_id, budget=0)
+
+
+def test_a_release_marks_its_save_pull_before_stopping_the_emulator(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """On a pool the player's next claim lands on a free sibling while this
+    container drains, so the pull has to be pending before the slow part."""
+    head, tail = _pool_member(rom, 0), _pool_member(rom, 1)
+    at_stop: list[tuple[bool, bool]] = []
+
+    async def quiesce(container, session, *, save=True):
+        sibling_free = await session_store.get_live_session(_key_of(tail)) is None
+        at_stop.append((sibling_free, await _save_pull_pending(admin_user.id, rom.id)))
+        return None
+
+    with _streaming(head, tail):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.lifecycle.quiesce_container", new=quiesce),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+        spawn.call_args[0][0].close()
+    assert r.status_code == 200
+    assert at_stop == [(True, True)]
+
+
+def test_an_abandoned_teardown_marks_its_save_pull_before_stopping_the_emulator(
+    client, access_token, admin_user: User, rom: Rom
+):
+    container = _container_for(rom)
+    at_stop: list[bool] = []
+
+    async def quiesce(container, session, *, save=True):
+        at_stop.append(await _save_pull_pending(admin_user.id, rom.id))
+        return None
+
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        session = json.loads(_session_raw(container))
+        with (
+            patch("handler.streaming.lifecycle.quiesce_container", new=quiesce),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            torn = asyncio.run(
+                lifecycle._teardown_abandoned_session(
+                    _resolved(container),
+                    _key_of(container),
+                    session,
+                    claimed_by=admin_user.id,
+                )
+            )
+        spawn.call_args[0][0].close()
+    assert torn is True
+    assert at_stop == [True]
+
+
+def test_a_release_that_fails_before_its_pull_leaves_nothing_pending(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Only a pull clears the mark, so a teardown that never gets to one has to,
+    or the player's next claim sits out the whole wait for nothing."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch(
+                "handler.streaming.lifecycle.quiesce_container",
+                new=AsyncMock(side_effect=RuntimeError("broker gone")),
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+    spawn.assert_not_called()
+    assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
+
+
+def test_an_abandoned_teardown_that_fails_before_its_pull_leaves_nothing_pending(
+    client, access_token, admin_user: User, rom: Rom
+):
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        session = json.loads(_session_raw(container))
+        with (
+            patch(
+                "handler.streaming.lifecycle.quiesce_container",
+                new=AsyncMock(side_effect=RuntimeError("broker gone")),
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            asyncio.run(
+                lifecycle._teardown_abandoned_session(
+                    _resolved(container),
+                    _key_of(container),
+                    session,
+                    claimed_by=admin_user.id,
+                )
+            )
+    spawn.assert_not_called()
+    assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
+
+
 def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
     client, access_token, admin_user: User, rom: Rom
 ):
@@ -4802,11 +4915,6 @@ def test_a_claim_with_nothing_pending_hydrates_straight_away():
     assert asyncio.run(saves.wait_for_save_pull(1, 2, budget=5)) is True
 
 
-async def _save_pull_pending(user_id: int, rom_id: int) -> bool:
-    """Whether a claim would wait on a save pull, read the way the claim reads it."""
-    return not await saves.wait_for_save_pull(user_id, rom_id, budget=0)
-
-
 def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
     admin_user: User, rom: Rom
 ):
@@ -4820,8 +4928,9 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
         ):
-            await lifecycle.collect_exit_saves(container, session)
-            await lifecycle.collect_exit_saves(container, session)
+            for _ in range(2):
+                mark = await lifecycle.mark_exit_saves_pending(container, session)
+                lifecycle.collect_exit_saves(container, session, mark)
             first, second = (c.args[0] for c in spawn.call_args_list)
             await first
             behind_second = await _save_pull_pending(admin_user.id, rom.id)
