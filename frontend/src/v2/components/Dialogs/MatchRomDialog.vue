@@ -31,6 +31,7 @@ import type {
   MatchVariant,
 } from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -206,8 +207,13 @@ const openHandler = (romToSearch: SimpleRom) => {
 emitter?.on("showMatchRomDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showMatchRomDialog", openHandler));
 
+// Only the latest search of the open session may apply its response.
+let searchSeq = 0;
+const alive = useIsAlive();
+
 async function searchRom() {
   if (!rom.value || searching.value) return;
+  const seq = ++searchSeq;
 
   const inputElement = document.getElementById("r-v2-match-search");
   inputElement?.blur();
@@ -219,15 +225,19 @@ async function searchRom() {
       searchTerm: searchText.value,
       searchBy: searchBy.value,
     });
+    if (!alive.value || seq !== searchSeq) return;
     matchedRoms.value = response.data;
   } catch (error: unknown) {
+    if (!alive.value || seq !== searchSeq) return;
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(axiosErr.response?.data?.detail ?? t("rom.search-failed"), {
       icon: "mdi-close-circle",
     });
   } finally {
-    searching.value = false;
-    searched.value = true;
+    if (seq === searchSeq) {
+      searching.value = false;
+      searched.value = true;
+    }
   }
 }
 
@@ -286,6 +296,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
 }
 
 function closeDialog() {
+  searchSeq++;
   show.value = false;
   searching.value = false;
   searched.value = false;
