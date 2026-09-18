@@ -1133,7 +1133,8 @@ async def session_status(
     mount or after a reconnect without extending a claim it may not own.
 
     Args:
-        claimed_at: the claim's stamp, so a tab never adopts a claim that replaced its own.
+        claimed_at: the claim's stamp, so a tab never adopts a claim that
+            replaced its own.
     """
     return SessionStatusSchema(
         **await _session_status(platform, request, claimed_at=claimed_at)
