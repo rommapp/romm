@@ -868,18 +868,26 @@ async def _resolve_claim_to_end(
     request: Request,
     container_key: str | None,
     claimed_at: str | None,
+    *,
+    game_only: bool,
 ) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
     """The session a route ending a claim acts on, or None when that claim is gone.
 
     Args:
         container_key: the container the caller named, if any.
         claimed_at: the stamp of the one claim the caller was given.
+        game_only: only a game of this platform matches a named container, while
+            a release ends whatever it holds.
     """
     if container_key is not None:
         container, session_key, session = await access.resolve_named_container(
             platform, container_key
         )
         if session is None:
+            return None
+        if game_only and not access.session_in_scope(
+            session, platform, include_desktop=False
+        ):
             return None
     else:
         try:
@@ -922,7 +930,9 @@ async def save_and_exit_session(
         container_key: the claimed container, as on release.
         claimed_at: the claim's stamp, as on release.
     """
-    target = await _resolve_claim_to_end(platform, request, container_key, claimed_at)
+    target = await _resolve_claim_to_end(
+        platform, request, container_key, claimed_at, game_only=True
+    )
     if target is None:
         return SaveAndExitResponse(
             status="not_found", saved=False, platform=platform, released=True
@@ -1341,7 +1351,9 @@ async def release_session(
         save: false for a player leaving deliberately without saving; on by
             default because a closing tab chose nothing and would lose recent play.
     """
-    target = await _resolve_claim_to_end(platform, request, container_key, claimed_at)
+    target = await _resolve_claim_to_end(
+        platform, request, container_key, claimed_at, game_only=False
+    )
     if target is None:
         return ReleaseSessionResponse(status="not_found", platform=platform)
     container, session_key, session = target

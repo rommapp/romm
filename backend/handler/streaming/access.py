@@ -108,7 +108,7 @@ def platform_is_visible(request: Request, platform_slug: str) -> bool:
     return get_permissions(request).can_see_platform(platform.id)
 
 
-def _session_in_scope(
+def session_in_scope(
     session: dict[str, Any],
     platform: str,
     include_desktop: bool,
@@ -128,7 +128,7 @@ def notice_in_scope(
 ) -> bool:
     """Whether a notice answers for the claim a route asked about: it records the
     ended claim's platform and kind, so a session's scope holds for its tombstone."""
-    return _session_in_scope(notice, platform, include_desktop)
+    return session_in_scope(notice, platform, include_desktop)
 
 
 async def find_session_for_user(
@@ -153,7 +153,7 @@ async def find_session_for_user(
         session = await get_live_session(session_key)
         if session is None:
             continue
-        if not _session_in_scope(session, platform, include_desktop, claimed_at):
+        if not session_in_scope(session, platform, include_desktop, claimed_at):
             continue
         if session.get("user_id") == user_id:
             return candidate, session_key, session
@@ -210,7 +210,7 @@ async def resolve_owned_session(
         if session is None:
             continue
         # These routes act on a game; a desktop is reached by naming it.
-        if not _session_in_scope(session, platform, include_desktop=False):
+        if not session_in_scope(session, platform, include_desktop=False):
             continue
         if session.get("user_id") == request.user.id:
             return candidate, session_key, session

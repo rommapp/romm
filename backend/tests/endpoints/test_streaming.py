@@ -3409,6 +3409,51 @@ def test_a_save_and_exit_naming_its_own_claim_still_ends_the_session(
     save_and_exit.assert_called_once()
 
 
+def test_a_named_save_and_exit_leaves_another_platforms_session_alone(
+    client, access_token
+):
+    """The container's ngc row shares a key with the caller's ps2 session, so a
+    named ngc save-and-exit must not save and kill the ps2 game."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
+        with patch(
+            "handler.streaming.commands.save_and_exit", return_value=(True, 10)
+        ) as save_and_exit:
+            r = client.post(
+                "/api/streaming/sessions/ngc/save-and-exit",
+                params={"container": _key_of(_nested())},
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+        session = asyncio.run(session_store.get_session(_key_of(_nested())))
+    assert r.json()["status"] == "not_found"
+    save_and_exit.assert_not_called()
+    assert session is not None and session["platform"] == "ps2"
+
+
+def test_a_named_save_and_exit_leaves_a_desktop_alone(client, access_token):
+    """Save-and-exit acts on a game, so naming a desktop's container reaches
+    nothing to save."""
+    container = _webstation()
+    key = _key_of(container)
+    with _streaming(container):
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch(
+            "handler.streaming.commands.save_and_exit", return_value=(True, 10)
+        ) as save_and_exit:
+            r = client.post(
+                "/api/streaming/sessions/ps2/save-and-exit",
+                params={"container": key},
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+        session = asyncio.run(session_store.get_session(key))
+    assert r.json()["status"] == "not_found"
+    save_and_exit.assert_not_called()
+    assert session is not None and session["desktop"] is True
+
+
 def test_a_save_and_exit_with_nothing_active_is_a_no_op(client, access_token, rom: Rom):
     """A retried unload finds its claim already gone, which ends nothing."""
     with _streaming(_container_for(rom)):
