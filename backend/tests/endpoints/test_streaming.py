@@ -3295,6 +3295,24 @@ def test_a_release_for_a_claim_another_player_took_over_is_a_no_op(
     stop.assert_not_called()
 
 
+def test_an_unnamed_release_for_a_claim_another_player_took_over_is_a_no_op(
+    client, viewer_access_token, editor_access_token, rom: Rom
+):
+    """A stamped release that names no container reads a takeover the same way
+    as a named one."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, editor_access_token, rom.id)
+        with patch("handler.streaming.commands.stop", return_value=None) as stop:
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+                headers=_auth(viewer_access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    stop.assert_not_called()
+
+
 def test_release_by_other_user_is_forbidden(
     client, access_token, viewer_access_token, rom: Rom
 ):

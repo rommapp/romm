@@ -895,9 +895,9 @@ async def _resolve_claim_to_end(
                 platform, request
             )
         except HTTPException as exc:
-            # Nothing configured or nothing active: ending it is a no-op rather
-            # than an error, matching a repeated call from the same tab.
-            if exc.status_code != 404:
+            # Nothing of the caller's is active, so a stamped claim is gone and a
+            # repeated call from the same tab finds nothing: both are a no-op.
+            if exc.status_code != 404 and claimed_at is None:
                 raise
             return None
 
