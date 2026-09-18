@@ -1,7 +1,5 @@
-// Hands the server saves and states the browser is still holding, from
-// wherever the user is in the app. Doing it at launch instead would be too
-// late: by then the player has already drawn its picker, so the asset would
-// land behind the choice the user just made.
+// Hands the server what the browser still holds, from anywhere in the app: at
+// launch the picker is already drawn, so it would land behind the user's pick.
 import { uniqBy } from "lodash";
 import { onScopeDispose, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -66,8 +64,7 @@ export function installPendingAssetSync() {
     }
   }
 
-  // The progress is gone from the browser, so the player is told why rather
-  // than left waiting for a sync that will never come.
+  // The progress is gone from the browser, so the player is told why.
   function reportRefused(dropped: DroppedAsset[]) {
     for (const asset of firstPerGame(dropped)) {
       snackbar.error(
@@ -93,9 +90,8 @@ export function installPendingAssetSync() {
     if (draining || isOffline.value) return;
     draining = true;
     try {
-      // A running session retries its own save every second, and a version
-      // opened from under it is one it would not know about. A state is a
-      // finished capture, and nothing else is going to hand it over.
+      // A running session retries its own save, and a version opened from
+      // under it is one it would not know about; a state nothing else hands over.
       const kinds: PendingAssetKind[] = playingStore.playing
         ? ["state"]
         : ["save", "state"];

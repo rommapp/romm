@@ -81,18 +81,15 @@ const saveTracker = createSaveSyncTracker();
 function baselineSaveTrackerFromEmulator() {
   saveTracker.baseline(dumpSaveFile());
 }
-// Writes run one at a time so concurrent writers cannot both open a version;
-// restoring a save or a state bumps the generation, which voids writes queued
-// before it, and bytes read while a restore is in flight are stale, so they
-// are dropped.
+// Writes run one at a time so two cannot both open a version. A restore bumps
+// the generation, voiding writes queued before it, and gates new ones.
 let saveWrite: Promise<unknown> = Promise.resolve();
 let saveGeneration = 0;
 let saveLoading = false;
 // The bytes of the write on the wire, for the unload path to leave alone.
 let inFlightSave: Uint8Array | null = null;
 // Progress the server has not taken yet, kept in the browser with the frame
-// from the moment the game wrote it. Stored before every upload attempt, so a
-// sync that fails offline retries later with that frame rather than a newer one.
+// from when the game wrote it, so a later retry pictures that moment.
 let pendingSave: PendingAsset | null = null;
 // One row per session: a save an earlier session never got through still owes
 // the server its own version, so this must not write over it.
@@ -122,9 +119,8 @@ async function forgetPendingSave() {
   pendingSave = null;
   await pendingAssetStore.clear(pendingSaveId);
 }
-// The tick re-offers a save whose upload failed on every pass, so what was
-// said for these bytes is remembered: every save the game writes is announced,
-// every retry of the same one is not.
+// The tick re-offers a failed save every pass: each save the game writes is
+// announced once, not every retry of it.
 let heldBackSave: Uint8Array | null = null;
 function announceSaveHeldBack(saveFile: Uint8Array) {
   heldBackSave = saveFile;
@@ -144,9 +140,8 @@ function writeSave(
     const bytes = new Uint8Array(file.saveFile);
     inFlightSave = bytes;
     try {
-      // Held before the attempt and dropped once the server takes it, so no
-      // path uploads without a copy kept. Bytes already held keep the frame
-      // taken when the game wrote them, and are not written out again.
+      // Held before the attempt and dropped once taken, so no path uploads
+      // without a copy; held bytes keep their frame and are not written again.
       const held = heldFor(pendingSave, bytes);
       const screenshotFile = held?.screenshotBytes ?? file.screenshotFile;
       if (!held || held.screenshotBytes !== screenshotFile) {
@@ -191,12 +186,11 @@ async function writeSaveIfChanged(file: {
   }
   return (await writeSave(file, generation)) !== null;
 }
-// A state restores the machine mid-scene, so every frame the core renders,
-// every note it plays and every save it writes on the way there belong to a
-// moment the player did not pick. All three are held back until it has landed.
+// A state restores the machine mid-scene: its frames, sound and SRAM on the way
+// there are not the moment the player picked, so all three are held back.
 const applyingState = ref(false);
 let restoreVolume: (() => void) | null = null;
-function silenceUntilStateApplied() {
+function holdBackUntilStateApplied() {
   applyingState.value = true;
   saveLoading = true;
   saveGeneration += 1;
@@ -358,7 +352,7 @@ installEJSDefaultOptionsTrap();
 onMounted(() => {
   window.scrollTo(0, 0);
   // Registered before EmulatorJS binds its own unload handler, so the
-  // pending-save check runs first.
+  // unsynced-save check runs first.
   window.addEventListener("beforeunload", onBeforeUnload);
   window.addEventListener("pagehide", onPageHide);
   if (props.bios) {
@@ -407,8 +401,7 @@ onBeforeUnmount(async () => {
   playing.value = false;
 });
 
-// The app's own toast host: it stacks, so two notices raised together read as
-// two, and it draws its icons as components rather than through a font class.
+// The app's own toast host, which stacks: two notices raised together read as two.
 const snackbar = useSnackbar();
 function displayMessage(
   message: string,
@@ -467,9 +460,8 @@ function installAutoSaveSync() {
     if (!saveTracker.shouldUpload(saveFile)) return;
     uploading = true;
     try {
-      // The capture needs the game running, so it happens on the tick, once
-      // per save: a retry of held bytes keeps the frame taken when the game
-      // wrote them rather than picturing the moment the network came back.
+      // The capture needs the game running, so it happens here, once per save:
+      // a retry keeps the frame from when the game wrote the bytes.
       const screenshotFile = heldFor(pendingSave, saveFile)
         ? undefined
         : await captureScreenshot();
@@ -625,11 +617,10 @@ window.EJS_onSaveSave = async function ({
 };
 
 // States management
-// Every way a state arrives goes through here. It restores the SRAM along with
-// the rest of the machine, so the bytes the tick reads next belong to the
-// state, not to progress the player made: they become the new baseline.
+// Every way a state arrives goes through here: the SRAM it restores becomes the
+// new baseline rather than progress the player made.
 async function applyState(state: Uint8Array) {
-  silenceUntilStateApplied();
+  holdBackUntilStateApplied();
   try {
     loadEmulatorJSState(state);
     await new Promise((resolve) => setTimeout(resolve, STATE_APPLY_SETTLE_MS));
@@ -641,7 +632,7 @@ async function applyState(state: Uint8Array) {
 
 async function loadState(state: StateSchema) {
   // Raised before the download, since the picker resumes the game meanwhile.
-  silenceUntilStateApplied();
+  holdBackUntilStateApplied();
   try {
     const { data } = await api.get(state.download_path.replace("/api", ""), {
       responseType: "arraybuffer",
@@ -710,7 +701,7 @@ window.EJS_onGameStart = async () => {
       displayMessage(text, { duration: duration ?? 3000 });
   }
 
-  if (props.state) silenceUntilStateApplied();
+  if (props.state) holdBackUntilStateApplied();
   // The emulator now owns the keyboard: every key, "/" included, belongs to
   // the game (a DOS prompt typing "mount A / -t floppy" must not reach the
   // global hotkeys). Callers flag this at launch too, but taking it from the
@@ -818,10 +809,8 @@ window.EJS_onGameStart = async () => {
     uninstallAutoSaveSync();
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
-    // Grab the state's screenshot while the game is still running (EmulatorJS
-    // reads the live canvas), then pause before serializing state/save.
-    // Reading state from a running threaded core (SNES, N64) races the worker
-    // thread and yields torn buffers, producing corrupt states.
+    // Capture first (EmulatorJS reads the live canvas), then pause: a running
+    // threaded core (SNES, N64) tears the state it serializes.
     const screenshotFile = await captureScreenshot();
     window.EJS_emulator.pause();
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -829,9 +818,8 @@ window.EJS_onGameStart = async () => {
     const stateFile = window.EJS_emulator.gameManager.getState();
     const saveFile = window.EJS_emulator.gameManager.getSaveFile();
 
-    // The state and the save go to different endpoints, so upload both at
-    // once. The save carries no picture here: an in-game save gets its own
-    // when the sync tick uploads it.
+    // Different endpoints, so both go at once. The save's picture is whichever
+    // the tick held for these bytes.
     await Promise.all([
       saveState({ rom: romRef.value, stateFile, screenshotFile }),
       writeSaveIfChanged({ saveFile: toArrayBuffer(saveFile) }),

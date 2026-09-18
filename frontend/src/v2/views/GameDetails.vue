@@ -70,9 +70,8 @@ useRightStickScroll(panelEl);
 // post-scan refetch rather than the Files tab.
 useRomScanRefresh();
 
-// The player replaces the document on its way out, which takes any toast it
-// raised with it, so progress the browser is still holding is announced here
-// instead. The app shell keeps retrying it in the background.
+// The player replaces the document on its way out, taking its toasts with it,
+// so progress the browser still holds is announced here.
 const snackbar = useSnackbar();
 const isAlive = useIsAlive();
 watch(

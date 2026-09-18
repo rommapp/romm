@@ -17,14 +17,10 @@ import pendingAssetStore, {
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
 
-/**
- * Tears the emulator down, once however many owners ask.
- *
- * The player component and the shell around it both unmount on the way out,
- * and EmulatorJS' exit unmounts its filesystem: a second pass throws
- * `ErrnoError(28)` and then aborts the runtime.
- */
+/** Tears the emulator down once, however many owners ask. */
 export function exitEmulatorOnce() {
+  // The player and its shell both unmount on the way out, and a second exit
+  // throws ErrnoError(28) unmounting the filesystem, then aborts the runtime.
   const emulator = window.EJS_emulator;
   if (!emulator || emulator.__rommExited) return;
   emulator.__rommExited = true;
@@ -34,14 +30,12 @@ export function exitEmulatorOnce() {
 // Long enough for any core to hand over a frame.
 const SCREENSHOT_TIMEOUT_MS = 3000;
 
-// EmulatorJS 4.2.3 hands `EJS_onSaveState` nothing under `screenshot` and its
-// own capture renders only a slice of the frame, so every picture RomM stores
-// is read off the live canvas, which means capturing before any pause.
-//
-// Its capture deletes the file the previous one is still waiting on, and the
-// wait is a poll that never gives up, so captures are taken one at a time.
+// A capture deletes the file the previous one still polls for, and that poll
+// never gives up, so captures are taken one at a time.
 let capturing: Promise<ArrayBuffer | undefined> = Promise.resolve(undefined);
 
+// EmulatorJS 4.2.3 hands `EJS_onSaveState` no screenshot and its own capture
+// renders a slice of the frame, so pictures are read off the live canvas.
 export function captureScreenshot(): Promise<ArrayBuffer | undefined> {
   capturing = capturing.catch(() => undefined).then(takeScreenshot);
   return capturing;
@@ -149,8 +143,8 @@ export async function saveState({
   }
 
   const capturedAt = new Date();
-  // Held in the browser until the server takes it, so a state captured with
-  // no connection reaches the server on a later pass instead of being lost.
+  // Held in the browser until the server takes it, so a state captured offline
+  // reaches it on a later pass.
   const pendingId = pendingAssetId(rom.id);
   await pendingAssetStore.write({
     id: pendingId,

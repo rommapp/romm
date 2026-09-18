@@ -79,8 +79,8 @@ describe("pendingAssetId", () => {
     expect(pendingAssetId(7)).toMatch(/^7:.+/);
   });
 
-  // RomM served over plain http on a LAN address is not a secure context, and
-  // there `crypto.randomUUID` does not exist at all (#4610).
+  // Plain http on a LAN address is not a secure context, and there
+  // `crypto.randomUUID` does not exist at all.
   it("still hands out distinct ids without randomUUID", () => {
     vi.stubGlobal("crypto", {});
 

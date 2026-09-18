@@ -1,7 +1,5 @@
-// Saves and states the server has not accepted yet, held in the browser with
-// the frame captured at the moment the game wrote them. A sync that fails
-// offline would otherwise lose that frame and picture a later moment on the
-// retry, and a closed tab would lose the progress outright.
+// Saves and states the server has not taken yet, held in the browser with the
+// frame captured when the game wrote them, until a later pass hands them over.
 import axios from "axios";
 import type { DetailedRomSchema } from "@/__generated__";
 import { isCsrfFailure } from "@/services/api";
@@ -40,8 +38,8 @@ export interface PendingAsset {
   capturedAt: number;
 }
 
-// `crypto.randomUUID` needs a secure context and RomM is often served over
-// plain http on a LAN address. The id only has to be unique within a browser.
+// `crypto.randomUUID` needs a secure context, which plain http on a LAN address
+// is not. The id only has to be unique within a browser.
 function randomToken(): string {
   const webCrypto = globalThis.crypto;
   if (typeof webCrypto?.randomUUID === "function")
@@ -228,8 +226,7 @@ function permanentRefusal(error: unknown): string | null {
   return errorMessage(error);
 }
 
-// A row the server has answered for is no longer owed, refused as much as
-// taken: holding a refusal back would only retry it for the rest of time.
+// A row the server has answered for, taken or refused, is no longer owed.
 async function settle(
   entry: PendingAsset,
   rom: DetailedRomSchema | null,
@@ -282,7 +279,7 @@ export interface SyncedAsset {
   cover?: string | null;
 }
 
-/** One the server refused for good, dropped rather than retried forever. */
+/** One the server refused for good, and dropped from the browser. */
 export interface DroppedAsset extends SyncedAsset {
   reason: string;
 }

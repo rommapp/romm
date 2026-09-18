@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// v2 SelectSaveDialog: listens for `selectSaveDialog`, lists the ROM's saves
-// and emits `saveSelected` on pick (consumed by the player). The list is the
-// launch screen's, so a save reads the same before the game boots and inside it.
+// v2 SelectSaveDialog: lists the ROM's saves on `selectSaveDialog` and emits
+// `saveSelected`, through the launch screen's list so a save reads the same.
 import { RBtn, RDialog } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";

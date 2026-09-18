@@ -1,8 +1,6 @@
 <script setup lang="ts">
-// v2 SelectStateDialog — same pattern as SelectSaveDialog, but listens for
-// `selectStateDialog` and emits `stateSelected`. The list is the launch
-// screen's, so a state reads the same whether it is picked before the game
-// boots or from inside it.
+// v2 SelectStateDialog: SelectSaveDialog's pattern for `selectStateDialog` and
+// `stateSelected`, through the launch screen's list so a state reads the same.
 import { RBtn, RDialog } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";

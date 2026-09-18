@@ -32,10 +32,7 @@ export function sessionSaveFile(
   );
 }
 
-/**
- * A save's picture. An update reuses the picture's name so it is replaced in
- * place; a save without one takes the save's stem, which links the two.
- */
+/** A save's picture: an update keeps its name, a new one takes the save's stem. */
 export function sessionScreenshotFile(
   rom: { fs_name_no_ext: string },
   save: SaveSchema | null,

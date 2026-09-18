@@ -175,7 +175,7 @@ const collapsed = useDelayedFlag(
   transform: translateY(-12px);
 }
 
-/* Collapsing to the icon: the text slides shut rather than blinking out. */
+/* The text slides shut as the notice collapses to its icon. */
 .r-backend-banner-body-enter-active,
 .r-backend-banner-body-leave-active {
   transition:
