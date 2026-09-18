@@ -75,7 +75,7 @@ async function openDesktop(): Promise<void> {
     if (status === 409) {
       const busy = detail as ContainerBusyDetail | null;
       // A drain marker is nobody's claim: the container comes free on its own
-      // once the previous session has finished saving.
+      // once the previous session has finished shutting down.
       if (busy?.draining)
         errorMessage.value = t("play.stream-occupied-draining");
       else if (busy?.rom_name)

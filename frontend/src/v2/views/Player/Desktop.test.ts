@@ -305,7 +305,7 @@ describe("Desktop refused claims", () => {
     expect(vmOf(wrapper).errorMessage).toBe("play.desktop-error-occupied");
   });
 
-  it("says to come back when the container is still saving", async () => {
+  it("says to come back when the container is still shutting down", async () => {
     const wrapper = await refuseDesktop({
       rom_name: null,
       claimed_at: null,
