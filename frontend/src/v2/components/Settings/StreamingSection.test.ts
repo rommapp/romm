@@ -30,13 +30,6 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
 
-// The auto-stub drops slot content, and the fleet rows live in the section's
-// default slot.
-const SettingsSectionStub = {
-  name: "SettingsSection",
-  template: '<div><slot name="header-actions" /><slot /></div>',
-};
-
 const RBtnStub = {
   name: "RBtn",
   props: ["disabled", "prependIcon"],
@@ -61,7 +54,6 @@ async function mountSection() {
   const wrapper = mount(StreamingSection, {
     global: {
       stubs: {
-        SettingsSection: SettingsSectionStub,
         RBtn: RBtnStub,
         RIcon: true,
         RSpinner: true,
