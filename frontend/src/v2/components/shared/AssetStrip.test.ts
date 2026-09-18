@@ -62,6 +62,23 @@ describe("AssetStrip grouped by core", () => {
     expect(tagged[0].get(".r-asset-strip__name").text()).toBe("state_1.state");
   });
 
+  it("folds a core nothing can load until its head is clicked", async () => {
+    const wrapper = mountStrip({
+      groupBy: "emulator",
+      disabledReason: (asset: StateSchema) =>
+        asset.emulator === "mgba" ? "unsupported" : null,
+    });
+    const mgba = wrapper.findAll(".r-asset-strip__group")[2];
+    const fold = mgba.get(".r-asset-strip__fold");
+
+    expect(mgba.get(".r-asset-group-head__title").text()).toBe("mgba");
+    expect(fold.attributes("style")).toContain("display: none");
+
+    await mgba.get(".r-asset-strip__head").trigger("click");
+
+    expect(fold.attributes("style") ?? "").not.toContain("display: none");
+  });
+
   it("shows the emulator tag and no Latest when ungrouped", () => {
     const wrapper = mountStrip();
 

@@ -320,6 +320,20 @@ const fadeIndex = computed(() =>
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
+/* Flush with the band edge, where a scrolling parent clips the outline ring,
+   so key and pad focus paint inside the head. */
+html:not([data-input])
+  .r-asset-strip--grouped
+  .r-asset-strip__head:focus-visible,
+html[data-input="key"]
+  .r-asset-strip--grouped
+  .r-asset-strip__head:focus-visible,
+html[data-input="pad"]
+  .r-asset-strip--grouped
+  .r-asset-strip__head:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--r-focus-ring-width) var(--r-color-focus);
+}
 .r-asset-strip--grouped .r-asset-strip__fold {
   padding: 0 8px 8px;
 }
