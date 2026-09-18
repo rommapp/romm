@@ -638,7 +638,16 @@ export function installIOSFullscreenShim() {
   };
 }
 
-export function createQuickLoadButton(): HTMLButtonElement {
+// EJS_Buttons cannot relabel the context menu button, so its text is set here.
+export function labelContextMenuButton(label: string) {
+  const text: HTMLElement | null | undefined =
+    window.EJS_emulator?.elements?.bottomBar?.contextMenu?.[0]?.querySelector(
+      ".ejs_menu_text",
+    );
+  if (text) text.innerText = label;
+}
+
+export function createQuickLoadButton(label: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -649,7 +658,7 @@ export function createQuickLoadButton(): HTMLButtonElement {
     '<path d="M12,7L17,12H14V16H10V12H7L12,7M19,21H5A2,2 0 0,1 3,19V5A2,2 0 0,1 5,3H19A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21M19,19V5H5V19H19Z"></path>';
   const text = document.createElement("span");
   text.classList.add("ejs_menu_text");
-  text.innerText = "Load Latest State";
+  text.innerText = label;
   button.classList.add("ejs_menu_button");
   button.appendChild(svg);
   button.appendChild(text);
@@ -665,7 +674,7 @@ export function createQuickLoadButton(): HTMLButtonElement {
   return button;
 }
 
-export function createExitEmulationButton(): HTMLButtonElement {
+export function createExitEmulationButton(label: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -675,7 +684,7 @@ export function createExitEmulationButton(): HTMLButtonElement {
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 460"><path style="fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke:rgb(255,255,255);stroke-opacity:1;stroke-miterlimit:4;" d="M 14.000061 7.636414 L 14.000061 4.5 C 14.000061 4.223877 13.776123 3.999939 13.5 3.999939 L 4.5 3.999939 C 4.223877 3.999939 3.999939 4.223877 3.999939 4.5 L 3.999939 19.5 C 3.999939 19.776123 4.223877 20.000061 4.5 20.000061 L 13.5 20.000061 C 13.776123 20.000061 14.000061 19.776123 14.000061 19.5 L 14.000061 16.363586 " transform="matrix(21.333333,0,0,21.333333,0,0)"></path><path style="fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke:rgb(255,255,255);stroke-opacity:1;stroke-miterlimit:4;" d="M 9.999939 12 L 21 12 M 21 12 L 18.000366 8.499939 M 21 12 L 18 15.500061 " transform="matrix(21.333333,0,0,21.333333,0,0)"></path></svg>';
   const text = document.createElement("span");
   text.classList.add("ejs_menu_text", "ejs_menu_text_right");
-  text.innerText = "Quit";
+  text.innerText = label;
   button.classList.add("ejs_menu_button");
   button.appendChild(svg);
   button.appendChild(text);
@@ -686,7 +695,7 @@ export function createExitEmulationButton(): HTMLButtonElement {
   return button;
 }
 
-export function createSaveQuitButton(): HTMLButtonElement {
+export function createSaveQuitButton(label: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -697,7 +706,7 @@ export function createSaveQuitButton(): HTMLButtonElement {
     '<path d="M17,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H11.81C11.42,20.34 11.17,19.6 11.07,18.84C9.5,18.31 8.66,16.6 9.2,15.03C9.61,13.83 10.73,13 12,13C12.44,13 12.88,13.1 13.28,13.29C15.57,11.5 18.83,11.59 21,13.54V7L17,3M15,9H5V5H15V9M13,17H17V14L22,18.5L17,23V20H13V17"></path>';
   const text = document.createElement("span");
   text.classList.add("ejs_menu_text", "ejs_menu_text_right");
-  text.innerText = "Save & Quit";
+  text.innerText = label;
   button.classList.add("ejs_menu_button");
   button.appendChild(svg);
   button.appendChild(text);

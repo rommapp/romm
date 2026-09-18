@@ -15,8 +15,8 @@
 //   3. Setup: disc / core / firmware + fullscreen + clear-cache.
 //
 // The running state mounts the v1 <Player> component (600 lines of EJS
-// wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
-// + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
+// wiring, not worth rewriting). LoadSaveStateDialog + EmulatorJSCacheDialog
+// are mounted in GlobalDialogs so the emitter bridge works.
 import {
   RAlert,
   RBtn,
@@ -75,11 +75,11 @@ import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { useSaveStateTabs } from "@/v2/composables/useSaveStateTabs";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
-import { isCoreCompatible } from "@/v2/utils/assets";
+import type { AssetType } from "@/v2/utils/assets";
 import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
 import {
   resolveBezelHost,
@@ -228,21 +228,17 @@ declare global {
   }
 }
 
-const compatibleStates = computed(
-  () =>
-    rom.value?.user_states.filter((state) =>
-      isCoreCompatible(state, selectedCore.value),
-    ) ?? [],
+const {
+  tabs: assetTabs,
+  stateCount,
+  compatibleStates,
+  allStatesCompatible,
+  stateDisabledReason,
+} = useSaveStateTabs(
+  () => rom.value?.user_saves ?? [],
+  () => rom.value?.user_states ?? [],
+  selectedCore,
 );
-const stateCount = computed(() => rom.value?.user_states.length ?? 0);
-const allStatesCompatible = computed(
-  () => compatibleStates.value.length === stateCount.value,
-);
-// Other emulators' states stay listed, disabled, so the count adds up.
-function stateDisabledReason(asset: { emulator?: string | null }) {
-  if (isCoreCompatible(asset, selectedCore.value)) return null;
-  return t("play.state-incompatible-core", { emulator: asset.emulator });
-}
 
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
@@ -622,29 +618,11 @@ function openCacheDialog() {
   emitter?.emit("openEmulatorJSCacheDialog", null);
 }
 
-type AssetTab = "save" | "state";
-const activeAssetTab = computed<AssetTab>(() =>
+const activeAssetTab = computed<AssetType>(() =>
   isSavesTabSelected.value ? "save" : "state",
 );
 
-const assetTabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
-  {
-    id: "save",
-    label: t("common.saves"),
-    badge: rom.value?.user_saves.length ?? 0,
-    icon: "mdi-content-save",
-  },
-  {
-    id: "state",
-    label: t("common.states"),
-    badge: allStatesCompatible.value
-      ? stateCount.value
-      : `${compatibleStates.value.length}/${stateCount.value}`,
-    icon: "mdi-file",
-  },
-]);
-
-function setAssetTab(id: AssetTab) {
+function setAssetTab(id: AssetType) {
   isSavesTabSelected.value = id === "save";
 }
 
@@ -1027,6 +1005,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         :state="resume.state"
         :save="resume.save"
         :save-slot="saveSlot"
+        :load-state-label="t('rom.load-save-or-state')"
         :bios="selectedFirmware"
         :core="selectedCore"
         :disc="bootDiscId(selectedDisc)"

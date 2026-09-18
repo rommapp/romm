@@ -521,6 +521,7 @@ function discard() {
   flex-direction: column;
   gap: 20px;
   max-width: 720px;
+  margin-inline: auto;
 }
 
 .r-v2-coll-set__section-head {
