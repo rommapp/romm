@@ -78,6 +78,9 @@ async function uploadRomChunked({
   });
   const { upload_id } = startData;
 
+  // An empty file sends no chunks, so no chunk ever reports it done.
+  if (totalChunks === 0) uploadStore.updateChunkProgress(file.name, 100, 0);
+
   for (let i = 0; i < totalChunks; i++) {
     const start = i * UPLOAD_CHUNK_SIZE;
     const chunk = file.slice(
