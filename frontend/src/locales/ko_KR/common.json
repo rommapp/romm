@@ -129,7 +129,7 @@
   "search": "검색",
   "select": "선택",
   "select-platform": "플랫폼 선택",
-  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-offline-retrying": "서버 연결이 끊어졌습니다, 다시 시도하는 중…",
   "server-reconnected": "Reconnected to the server",
   "server-stats": "서버 통계",
   "settings": "설정",

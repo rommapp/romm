@@ -129,7 +129,7 @@
   "search": "搜尋",
   "select": "選擇",
   "select-platform": "選擇平台",
-  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-offline-retrying": "與伺服器的連線已中斷，正在重試…",
   "server-reconnected": "Reconnected to the server",
   "server-stats": "伺服器狀態",
   "settings": "設定",

@@ -129,7 +129,7 @@
   "search": "Ara",
   "select": "Seç",
   "select-platform": "Platform seçin",
-  "server-offline-retrying": "Sunucu bağlantısı kesildi · yeniden bağlanılıyor…",
+  "server-offline-retrying": "Sunucu bağlantısı kesildi, yeniden bağlanılıyor…",
   "server-reconnected": "Sunucuya yeniden bağlanıldı",
   "server-stats": "Sunucu istatistikleri",
   "settings": "Ayarlar",

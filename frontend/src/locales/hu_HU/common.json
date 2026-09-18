@@ -129,7 +129,7 @@
   "search": "Keresés",
   "select": "Kiválasztás",
   "select-platform": "Válassz platformot",
-  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-offline-retrying": "A kiszolgálókapcsolat megszakadt, újrapróbálkozás…",
   "server-reconnected": "Reconnected to the server",
   "server-stats": "Szerver statisztika",
   "settings": "Beállítások",
