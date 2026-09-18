@@ -226,7 +226,6 @@ async def _session_status(
             # The room the launch answered with, so a tab that missed the
             # launch-ready push can enter the stream off a poll.
             "host": session.get("host"),
-            "container": container.key,
         }
         # An activate that has not returned yet leaves no launched_at behind.
         # Gating the broker round trip on it keeps this route pure Redis for

@@ -2920,7 +2920,6 @@ def test_status_reports_active_for_owner(client, access_token, rom: Rom):
         "extraction_phase": None,
         "termination": None,
         "host": container["host"],
-        "container": _key_of(container),
     }
 
 
@@ -2936,7 +2935,6 @@ def test_status_carries_the_room_the_launch_answered_with(client, access_token):
         )
     assert r.status_code == 200
     assert r.json()["host"].endswith("/room/x")
-    assert r.json()["container"] == _key_of(container)
 
 
 def test_a_desktop_launch_is_stamped_without_a_room(client, access_token):

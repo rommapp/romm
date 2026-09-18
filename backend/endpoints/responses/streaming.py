@@ -66,9 +66,6 @@ class SessionStatusSchema(BaseModel):
     host: str | None = None
     """The room URL of a launched session, for a tab that missed launch-ready,
     reported by the status poll only and left None by a heartbeat."""
-    container: str | None = None
-    """The container the session was found on, so a tab recovering a missed
-    launch-ready enters only the session on the container it claimed."""
     termination: SessionTerminationSchema | None = None
 
 

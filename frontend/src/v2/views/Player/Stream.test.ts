@@ -619,7 +619,6 @@ describe("Stream launch recovery", () => {
       status: "active",
       platform: "gba",
       host: "http://webstation-dev:8080/room/x",
-      container: CLAIM.container,
     });
 
     await pollStatus();
@@ -650,22 +649,31 @@ describe("Stream launch recovery", () => {
     wrapper.unmount();
   });
 
-  it("keeps waiting when the poll finds a game on another container", async () => {
-    // The unnamed poll reports any session the player holds on the platform,
-    // which can be another tab's.
+  it("keeps waiting when the poll answers before the claim does", async () => {
+    // Without the 202's stamp the poll reports any session the player holds on
+    // the platform, which can be another tab's.
+    let claimed = (_: typeof CLAIM) => {};
+    mocks.claimSession.mockReturnValue(
+      new Promise<typeof CLAIM>((resolve) => {
+        claimed = resolve;
+      }),
+    );
     const wrapper = await launch({ picker: false });
-    await vmOf(wrapper).onPlay();
+    const playing = vmOf(wrapper).onPlay();
+    await flushPromises();
     mocks.fetchSessionStatus.mockResolvedValue({
       status: "active",
       platform: "gba",
-      host: "http://webstation-dev-2:8080/room/y",
-      container: "WEBSTATION-DEV-2",
+      host: "http://webstation-dev:8080/room/y",
     });
 
     await pollStatus();
 
+    expect(mocks.fetchSessionStatus).toHaveBeenCalledWith("gba", undefined);
     expect(vmOf(wrapper).playerState).toBe("loading");
     expect(vmOf(wrapper).containerHost).toBe("");
+    claimed(CLAIM);
+    await playing;
     wrapper.unmount();
   });
 
@@ -676,7 +684,6 @@ describe("Stream launch recovery", () => {
       status: "active",
       platform: "gba",
       host: null,
-      container: CLAIM.container,
     });
 
     await pollStatus();
