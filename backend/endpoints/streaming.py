@@ -1342,8 +1342,8 @@ async def release_session(
 
     `reason` is only meaningful when an admin ends someone else's session; it
     is surfaced to the displaced player. `container` names which container to
-    release, needed when a pool serves the platform and the admin is ending a
-    session they do not own; it is the key `GET /streaming/sessions` reports.
+    release, since a pool serves a platform from several: the holder sends the
+    one it claimed, an admin the key `GET /streaming/sessions` reports.
 
     `save=false` is a player leaving deliberately without saving. It defaults
     on because the other way in here is a tab closing, where nobody chose
