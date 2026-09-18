@@ -1,4 +1,9 @@
-import { DOMWrapper, flushPromises, mount } from "@vue/test-utils";
+import {
+  DOMWrapper,
+  flushPromises,
+  mount,
+  enableAutoUnmount,
+} from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Platform } from "@/stores/platforms";
@@ -13,6 +18,8 @@ vi.mock("vue-i18n", () => ({
 }));
 
 type Row = Pick<Platform, "rom_count" | "display_name">;
+
+enableAutoUnmount(afterEach);
 
 describe("PlatformSelect promoteFilled + search", () => {
   function makePlatform(
@@ -82,7 +89,6 @@ describe("PlatformSelect promoteFilled + search", () => {
   }
 
   async function openPromoteFilledMenu(items: Platform[] = CATALOG) {
-    document.body.innerHTML = "";
     const wrapper = mount(PlatformSelect, {
       props: {
         items,
@@ -97,12 +103,8 @@ describe("PlatformSelect promoteFilled + search", () => {
     return wrapper;
   }
 
-  afterEach(() => {
-    document.body.innerHTML = "";
-  });
-
   it("partitions filled vs empty when search is empty", async () => {
-    const wrapper = await openPromoteFilledMenu();
+    await openPromoteFilledMenu();
     const { promoted, remaining } = promotePlatformsWithGamesFirst(CATALOG);
 
     expect(menuRows()).toEqual([
@@ -110,12 +112,10 @@ describe("PlatformSelect promoteFilled + search", () => {
       "---",
       ...remaining.map((p) => p.display_name),
     ]);
-
-    wrapper.unmount();
   });
 
   it("does not partition while filtering; shows every matching row in item order", async () => {
-    const wrapper = await openPromoteFilledMenu();
+    await openPromoteFilledMenu();
     await panelSearchInput().setValue("game");
     await flushPromises();
     await nextTick();
@@ -123,12 +123,10 @@ describe("PlatformSelect promoteFilled + search", () => {
     const rows = menuRows();
     expect(rows).not.toContain("---");
     expect(rows).toEqual(["Adventure Game Studio", "Game Boy Advance"]);
-
-    wrapper.unmount();
   });
 
   it("restores partition after search is cleared", async () => {
-    const wrapper = await openPromoteFilledMenu();
+    await openPromoteFilledMenu();
     await panelSearchInput().setValue("game");
     await flushPromises();
     await nextTick();
@@ -144,8 +142,6 @@ describe("PlatformSelect promoteFilled + search", () => {
       "---",
       ...remaining.map((p) => p.display_name),
     ]);
-
-    wrapper.unmount();
   });
 });
 
