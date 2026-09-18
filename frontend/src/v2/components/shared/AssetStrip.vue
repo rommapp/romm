@@ -95,12 +95,13 @@ const groups = computed<AssetGroup[]>(() => {
   }
   const byKey = new Map<string, AssetGroup>();
   for (const asset of props.assets) {
-    const key = asset.emulator ?? "";
+    // Ids compare case-insensitively, as the backend matches them.
+    const key = (asset.emulator ?? "").toLowerCase();
     let group = byKey.get(key);
     if (!group) {
       group = {
         key,
-        label: emulatorLabel(key) || t("play.any-core"),
+        label: emulatorLabel(asset.emulator) || t("play.any-core"),
         assets: [],
         disabled: true,
         newest: "",

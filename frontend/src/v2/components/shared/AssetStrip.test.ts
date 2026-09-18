@@ -62,6 +62,20 @@ describe("AssetStrip grouped by core", () => {
     expect(wrapper.get(".r-asset-group-head__title").text()).toBe("Play!");
   });
 
+  it("groups an emulator configured in another case with its own", () => {
+    const wrapper = mountStrip({
+      groupBy: "emulator",
+      assets: [
+        state(5, "play", "2026-09-16T10:00:00Z"),
+        state(6, "Play", "2026-09-15T10:00:00Z"),
+      ],
+    });
+
+    expect(
+      wrapper.findAll(".r-asset-group-head__title").map((el) => el.text()),
+    ).toEqual(["Play!"]);
+  });
+
   it("tags exactly one Latest tile when timestamps tie", () => {
     const wrapper = mountStrip({ groupBy: "emulator" });
     const tagged = wrapper
