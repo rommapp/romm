@@ -1087,9 +1087,8 @@ html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-main {
   order: -1;
 }
-/* Chrome and Edge below 117 ignore subgrid. Dropping the wrappers' boxes lifts
-   each column's label and content into the grid itself, which keeps the titles
-   on a shared row and takes the 14px gap from the grid's own row-gap. */
+/* Chrome and Edge below 117 ignore subgrid, so lift each column's label and
+   content into the grid itself to keep the two titles on a shared row. */
 @supports not (grid-template-rows: subgrid) {
   html[data-bp~="md-and-up"]
     .r-v2-ejs__resume-body--split
