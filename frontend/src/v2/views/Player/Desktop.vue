@@ -69,13 +69,21 @@ async function openDesktop(): Promise<void> {
     const detail: unknown = isAxiosError(err)
       ? err.response?.data?.detail
       : undefined;
-    if (status === 409)
+    if (status === 409) {
+      const busy = detail as {
+        draining?: boolean;
+        rom_name?: string | null;
+      } | null;
       // A drain marker is nobody's claim: the container comes free on its own
       // once the previous session has finished saving.
-      errorMessage.value = (detail as { draining?: boolean } | null)?.draining
-        ? t("play.stream-occupied-draining")
-        : t("play.desktop-error-occupied");
-    else if (status === 404)
+      if (busy?.draining)
+        errorMessage.value = t("play.stream-occupied-draining");
+      else if (busy?.rom_name)
+        errorMessage.value = t("play.desktop-error-occupied-by", {
+          rom: busy.rom_name,
+        });
+      else errorMessage.value = t("play.desktop-error-occupied");
+    } else if (status === 404)
       errorMessage.value = t("play.desktop-error-no-container");
     else errorMessage.value = t("play.desktop-error-server");
   }

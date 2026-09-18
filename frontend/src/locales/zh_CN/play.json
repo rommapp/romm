@@ -25,6 +25,7 @@
   "desktop-back": "返回管理后台",
   "desktop-error-no-container": "未配置该串流容器。",
   "desktop-error-occupied": "此容器正在使用中。请先结束占用它的会话。",
+  "desktop-error-occupied-by": "{rom} 正在此容器上运行。请先结束该会话。",
   "desktop-error-release": "无法释放桌面会话。容器可能仍在使用中。",
   "desktop-error-server": "无法打开桌面会话。",
   "desktop-exit": "结束桌面会话",

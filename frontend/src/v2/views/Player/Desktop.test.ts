@@ -15,7 +15,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}:${Object.values(params).join(",")}` : key,
+  }),
 }));
 
 vi.mock("vue-router", () => ({
@@ -139,7 +142,7 @@ describe("Desktop session-ended notices", () => {
     await flushPromises();
 
     expect(vmOf(wrapper).state).toBe("error");
-    expect(vmOf(wrapper).errorMessage).toBe("play.session-ended-by");
+    expect(vmOf(wrapper).errorMessage).toBe("play.session-ended-by:admin");
   });
 
   it("shows the reason the notice gives", async () => {
@@ -215,7 +218,7 @@ describe("Desktop heartbeats", () => {
     window.dispatchEvent(new Event("pagehide"));
 
     expect(vmOf(wrapper).state).toBe("error");
-    expect(vmOf(wrapper).errorMessage).toBe("play.session-ended-by");
+    expect(vmOf(wrapper).errorMessage).toBe("play.session-ended-by:admin");
     expect(vmOf(wrapper).endedReason).toBe("Maintenance");
     expect(mocks.releaseSessionKeepalive).not.toHaveBeenCalled();
   });
@@ -283,6 +286,18 @@ describe("Desktop refused claims", () => {
   it("names the game holding the container", async () => {
     const wrapper = await refuseDesktop({
       rom_name: "Ico",
+      claimed_at: "2026-09-17T10:00:00",
+      draining: false,
+    });
+
+    expect(vmOf(wrapper).errorMessage).toBe(
+      "play.desktop-error-occupied-by:Ico",
+    );
+  });
+
+  it("says the container is in use when the game is not the admin's to see", async () => {
+    const wrapper = await refuseDesktop({
+      rom_name: null,
       claimed_at: "2026-09-17T10:00:00",
       draining: false,
     });
