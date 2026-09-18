@@ -2,7 +2,7 @@ import { composeStories } from "@storybook/vue3-vite";
 import axe from "axe-core";
 import { describe, expect, it } from "vitest";
 
-type StoryModule = Record<string, unknown>;
+type StoryModule = Parameters<typeof composeStories>[0];
 
 // Per-story addon-a11y config. `test`: "error" fails on violations, "todo"
 // warns (ratchet escape hatch), "off" skips. `options` forwards to axe.run.
