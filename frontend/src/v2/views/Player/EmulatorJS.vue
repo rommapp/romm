@@ -1087,8 +1087,9 @@ html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-main {
   order: -1;
 }
-/* Chrome and Edge below 117 ignore subgrid, so each column falls back to its
-   own flex stack there; the two titles no longer share a row. */
+/* Chrome and Edge below 117 ignore subgrid. Dropping the wrappers' boxes lifts
+   each column's label and content into the grid itself, which keeps the titles
+   on a shared row and takes the 14px gap from the grid's own row-gap. */
 @supports not (grid-template-rows: subgrid) {
   html[data-bp~="md-and-up"]
     .r-v2-ejs__resume-body--split
@@ -1096,7 +1097,27 @@ html[data-bp~="md-and-up"]
   html[data-bp~="md-and-up"]
     .r-v2-ejs__resume-body--split
     .r-v2-ejs__resume-side {
-    display: flex;
+    display: contents;
+  }
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-main
+    > .r-v2-ejs__strip-label {
+    grid-area: 1 / 1;
+  }
+  html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split .r-v2-ejs__assets {
+    grid-area: 2 / 1;
+  }
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-side
+    > .r-v2-ejs__strip-label {
+    grid-area: 1 / 2;
+  }
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-side-body {
+    grid-area: 2 / 2;
   }
 }
 /* Beside the grid the stage can afford the screenshots' own ratio, which
