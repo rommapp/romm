@@ -15,6 +15,7 @@ const meta: Meta<typeof RDialog> = {
     scrollContent: { control: "boolean" },
     persistent: { control: "boolean" },
     fullscreenOnMobile: { control: "boolean" },
+    compactBody: { control: "boolean" },
   },
 };
 

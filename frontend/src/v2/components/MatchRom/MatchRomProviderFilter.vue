@@ -19,19 +19,13 @@ defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 
-withDefaults(
-  defineProps<{
-    name: string;
-    label: string;
-    logo: string;
-    enabled: boolean;
-    active: boolean;
-    /** Chip height on the form density scale: `comfortable` matches a
-     *  `density="comfortable"` field or a default-size RBtn. */
-    density?: "compact" | "comfortable";
-  }>(),
-  { density: "compact" },
-);
+defineProps<{
+  name: string;
+  label: string;
+  logo: string;
+  enabled: boolean;
+  active: boolean;
+}>();
 
 const emit = defineEmits<{
   (e: "toggle"): void;
@@ -42,13 +36,10 @@ const emit = defineEmits<{
   <button
     type="button"
     class="provider-filter"
-    :class="[
-      `provider-filter--${density}`,
-      {
-        'provider-filter--active': active && enabled,
-        'provider-filter--disabled': !enabled,
-      },
-    ]"
+    :class="{
+      'provider-filter--active': active && enabled,
+      'provider-filter--disabled': !enabled,
+    }"
     :disabled="!enabled"
     :aria-pressed="active"
     @click="emit('toggle')"
@@ -86,13 +77,9 @@ const emit = defineEmits<{
 }
 /* Phone and tablet widths get a bigger chip to tap, stopping short of the
    full 44px target so the whole provider row still fits a phone. */
-html[data-bp~="sm-and-down"] .provider-filter--compact {
+html[data-bp~="sm-and-down"] .provider-filter {
   width: 36px;
   height: 36px;
-}
-.provider-filter--comfortable {
-  width: 40px;
-  height: 40px;
 }
 .provider-filter:hover:not(:disabled) {
   opacity: 0.85;

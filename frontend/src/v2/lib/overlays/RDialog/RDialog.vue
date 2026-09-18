@@ -45,6 +45,9 @@ const props = withDefaults(
      *  better as a stable full-screen surface. Needs `scrollContent` so the
      *  body scrolls internally. Ignored on desktop / when not a sheet. */
     fullHeightOnMobile?: boolean;
+    /** Pad the body with the toolbar and footer inset instead of the roomier
+     *  default, so dense content lines up with the controls above it. */
+    compactBody?: boolean;
   }>(),
   {
     scrollContent: false,
@@ -54,6 +57,7 @@ const props = withDefaults(
     persistent: false,
     fullscreenOnMobile: true,
     fullHeightOnMobile: false,
+    compactBody: false,
   },
 );
 
@@ -247,7 +251,10 @@ const panelStyle = computed(() => {
                padded, optionally-scrollable region. -->
           <div
             class="r-dialog__body"
-            :class="{ 'r-dialog__body--scroll': scrollContent }"
+            :class="{
+              'r-dialog__body--scroll': scrollContent,
+              'r-dialog__body--compact': compactBody,
+            }"
           >
             <slot name="content" />
           </div>
@@ -290,6 +297,8 @@ const panelStyle = computed(() => {
 }
 
 .r-dialog__panel {
+  /* Horizontal inset shared by the toolbar, the footer and a compact body. */
+  --r-dialog-inset: 14px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -382,7 +391,7 @@ html[data-bp~="sm-and-down"]
 
 /* ── Toolbar / append / footer ────────────────────────────────── */
 .r-dialog__toolbar {
-  padding: 8px 14px;
+  padding: 8px var(--r-dialog-inset);
   background: var(--r-color-bg-elevated);
   border-bottom: 1px solid var(--r-color-border);
 }
@@ -412,8 +421,11 @@ html[data-bp~="sm-and-down"]
   overflow-y: auto;
   scrollbar-width: thin;
 }
+.r-dialog__body--compact {
+  padding: var(--r-dialog-inset);
+}
 .r-dialog__footer {
-  padding: 10px 14px;
+  padding: 10px var(--r-dialog-inset);
   border-top: 1px solid var(--r-color-border);
   display: flex;
   align-items: center;

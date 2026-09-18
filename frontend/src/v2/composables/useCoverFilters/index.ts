@@ -240,7 +240,6 @@ export function useCoverFilters(
     filteredCovers,
     visibleProviderCovers,
     hasSgdbCovers,
-    hasGridResults,
     showProviderCovers,
     hasRawResults,
     hasResults,
