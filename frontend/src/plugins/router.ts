@@ -350,7 +350,7 @@ const routes = [
             meta: {
               title: "common.upload-roms",
               // The file list grows to the bottom of the viewport on desktop
-              // so long batches get room — see SettingsLayout `fill`.
+              // so long batches get room (see SettingsLayout `fill`).
               fill: "desktop",
             },
             components: {

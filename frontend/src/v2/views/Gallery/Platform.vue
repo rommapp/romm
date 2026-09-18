@@ -11,8 +11,7 @@
 // rides in `GalleryShell`'s `#header` slot so it scrolls away with
 // the cards and the toolbar pins below it — the same vocabulary the
 // pre-tabs gallery had. On Firmware / Settings, the head stays fixed
-// above the tab body on desktop (only the panel scrolls); on mobile
-// the head scrolls away too, for one natural page scroll.
+// above the scrolling tab body on desktop and scrolls away on mobile.
 //
 // Action ribbon (Upload / Scan) lives inside the head component;
 // Edit (custom_name) and Delete moved inline into the Settings tab.
@@ -493,10 +492,7 @@ async function onDelete() {
     </template>
   </GalleryShell>
 
-  <!-- FIRMWARE / SETTINGS — hosts the same PlatformHead above the tab
-       body. On desktop the head + divider stay fixed and only the
-       panel scrolls; on mobile the whole thing scrolls together as one
-       page (see the `sm-and-down` overrides below). -->
+  <!-- FIRMWARE / SETTINGS: the same PlatformHead above the tab body. -->
   <section v-else class="r-v2-plat-tabs">
     <div class="r-v2-plat-tabs__scroll">
       <PlatformHead
@@ -521,7 +517,8 @@ async function onDelete() {
         @download="onDownload"
       />
       <RDivider class="r-v2-plat-tabs__divider" />
-      <div v-if="currentPlatform" class="r-v2-plat-tabs__panel">
+      <!-- Keyed by tab so each tab opens scrolled to the top. -->
+      <div v-if="currentPlatform" :key="tab" class="r-v2-plat-tabs__panel">
         <FirmwareTab v-if="tab === 'firmware'" :platform="currentPlatform" />
         <MemoryCardManager
           v-else-if="tab === 'memory-cards' && memoryCardEmulator"
@@ -549,10 +546,8 @@ async function onDelete() {
 </template>
 
 <style scoped>
-/* Firmware / Settings branch. On desktop, PlatformHead + divider stay
-   fixed and only `__panel` scrolls, so switching tabs never jumps the
-   head. On mobile (`sm-and-down`) the whole thing scrolls together as
-   a single page instead — see the `__panel` override below. */
+/* Desktop: the head stays fixed and only `__panel` scrolls. Mobile: the
+   whole branch scrolls as one page. */
 .r-v2-plat-tabs {
   /* `dvh` (not `vh`) so the section matches the mobile visible viewport
      instead of the larger address-bar-hidden one — otherwise it spills below
@@ -594,20 +589,18 @@ html[data-bp~="sm-and-down"] .r-v2-plat-tabs__scroll {
 }
 
 .r-v2-plat-tabs__panel {
-  /* Tab body — Firmware / Settings render their own internal layouts
-     (lists, two-column grids). The wrapper just provides breathing
-     room and stops the inner content from running edge-to-edge with
-     the head's icon column. On desktop it's the one scrolling region
-     (flex:1 fills down to the viewport bottom); on mobile it lays out
-     inline so the parent `__scroll` handles the single page scroll. */
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
-  padding-bottom: var(--r-row-pad);
+  /* The inset (cancelled by the negative margin) keeps focus rings on
+     edge-to-edge content, like the firmware dropzone, inside the clip. */
+  margin: -8px -8px 0;
+  padding: 8px 8px var(--r-row-pad);
 }
 html[data-bp~="sm-and-down"] .r-v2-plat-tabs__panel {
   flex: 0 0 auto;
   overflow: visible;
-  padding-bottom: 0;
+  margin: 0;
+  padding: 0;
 }
 </style>

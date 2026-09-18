@@ -31,6 +31,7 @@ import RawMetadataPanel from "@/v2/components/EditRom/RawMetadataPanel.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { getMissingCoverImage } from "@/v2/utils/covers";
@@ -61,6 +62,7 @@ const coverFileInput = ref<HTMLInputElement | null>(null);
 const saving = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const confirm = useConfirm();
 const { applyRomWrite } = useRomSync();
 
 const openHandler = async (romToEdit: SimpleRom) => {
@@ -268,6 +270,13 @@ async function handleRomUpdate(
 
 async function unmatchRom() {
   if (!rom.value) return;
+  const ok = await confirm({
+    title: t("rom.unmatch"),
+    body: t("rom.unmatch-hint"),
+    confirmText: t("rom.unmatch"),
+    tone: "danger",
+  });
+  if (!ok || !rom.value) return;
   await handleRomUpdate(
     { rom: rom.value, unmatch: true },
     t("rom.unmatch-success"),

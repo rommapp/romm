@@ -10,8 +10,8 @@
 // RTabNav) lives INSIDE the scrolling container of whichever branch
 // is active. On Library, it rides in `GalleryShell`'s `#header` slot
 // so it scrolls away with the cards (toolbar pins below it). On
-// Settings, the head stays fixed above the tab body on desktop (only
-// the panel scrolls); on mobile the head scrolls away too.
+// Settings, the head stays fixed above the scrolling tab body on
+// desktop and scrolls away on mobile.
 //
 // Edit + Delete moved out of the InfoPanel `#actions` kebab and into
 // the Settings tab (editable form on top, danger zone at the bottom).
@@ -425,10 +425,7 @@ async function onDelete() {
     </template>
   </GalleryShell>
 
-  <!-- SETTINGS — hosts the same CollectionHead above the tab body. On
-       desktop the head + divider stay fixed and only the panel
-       scrolls; on mobile the whole thing scrolls together as one page
-       (see the `sm-and-down` overrides below). -->
+  <!-- SETTINGS: the same CollectionHead above the tab body. -->
   <section v-else class="r-v2-coll-tabs">
     <div class="r-v2-coll-tabs__scroll">
       <CollectionHead
@@ -464,10 +461,8 @@ async function onDelete() {
 </template>
 
 <style scoped>
-/* Settings branch. On desktop, CollectionHead + divider stay fixed and
-   only `__panel` scrolls, so switching tabs never jumps the head. On
-   mobile (`sm-and-down`) the whole thing scrolls together as a single
-   page instead — see the `__panel` override below. */
+/* Desktop: the head stays fixed and only `__panel` scrolls. Mobile: the
+   whole branch scrolls as one page. */
 .r-v2-coll-tabs {
   /* `dvh` (not `vh`) so the section matches the mobile visible viewport
      instead of the larger address-bar-hidden one — otherwise it spills below

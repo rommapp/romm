@@ -31,9 +31,8 @@ const route = useRoute();
 // the tab / spatial-nav order.
 const { mdAndUp } = useBreakpoint();
 const isBare = computed(() => route.meta?.bare === true);
-// `fill` views (e.g. Logs) pin to the viewport height and scroll their own
-// content internally instead of growing the document. `fill: "desktop"` does
-// so on md-and-up only, keeping the plain document scroll on phones.
+// `fill` views (e.g. Logs) pin to the viewport height and scroll internally;
+// `fill: "desktop"` does so on md-and-up only.
 const isFill = computed(
   () =>
     route.meta?.fill === true ||

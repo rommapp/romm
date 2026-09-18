@@ -165,10 +165,8 @@ const details = computed<DetailRow[]>(() => {
         <span>{{ t("common.details", "Details") }}</span>
       </header>
 
-      <!-- Editable fields — `custom_name` and `description` are the
-           only user-authored ones. The rest of the metadata (slug,
-           fs_slug, etc.) is derived from the upstream sources and is
-           surfaced read-only below. -->
+      <!-- Only `custom_name` and `description` are user-authored; the
+           rest is derived upstream and shown read-only below. -->
       <RForm ref="formRef" class="r-v2-plat-settings__form" @submit="save">
         <RTextField
           v-model="customName"

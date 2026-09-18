@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// DangerZone — danger-tinted card that isolates a destructive action from
+// DangerZone: danger-tinted card that isolates a destructive action from
 // the rest of a surface, so it never sits next to a primary button.
 import { RIcon } from "@v2/lib";
 import { useI18n } from "vue-i18n";

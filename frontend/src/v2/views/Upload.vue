@@ -295,9 +295,8 @@ async function upload() {
 </template>
 
 <style scoped>
-/* On desktop the route runs in SettingsLayout `fill` mode: the view takes the
-   body's height and the dropzone (empty CTA or file list) grows to the bottom
-   of the viewport. Phones keep the document scroll and the capped list. */
+/* Desktop runs in SettingsLayout `fill` mode, so the dropzone grows to the
+   viewport bottom. Phones keep the document scroll and the capped list. */
 .r-v2-upload {
   flex: 1 1 auto;
   min-height: 0;
