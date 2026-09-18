@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from anyio import Path as AnyioPath
 from fastapi import status
-from PIL import Image, ImageFile, UnidentifiedImageError
+from PIL import Image, ImageFile, ImageSequence, UnidentifiedImageError
 
 from adapters.services.screenscraper import media_download_slot
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
@@ -18,6 +18,7 @@ from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
+from utils.images import frame_durations, is_animated
 
 from .base_handler import CoverSize, FSHandler
 
@@ -143,8 +144,25 @@ class FSResourcesHandler(FSHandler):
         small_width = int(cover.width * ratio)
         small_height = int(cover.height * ratio)
         small_size = (small_width, small_height)
-        small_img = cover.resize(small_size)
 
+        if is_animated(cover):
+            frames = [
+                frame.convert("RGBA").resize(small_size)
+                for frame in ImageSequence.Iterator(cover)
+            ]
+            # Kept in the source format: as an APNG the same frames weigh
+            # several times more.
+            frames[0].save(
+                save_path,
+                format=cover.format,
+                save_all=True,
+                append_images=frames[1:],
+                duration=frame_durations(cover),
+                loop=cover.info.get("loop", 0),
+            )
+            return
+
+        small_img = cover.resize(small_size)
         small_img.save(save_path)
 
     async def _discard_if_chroma_key(self, relative_path: str) -> bool:
@@ -383,7 +401,15 @@ class FSResourcesHandler(FSHandler):
 
         try:
             with Image.open(artwork) as img:
-                img.save(path_cover_l)
+                if is_animated(img):
+                    img.save(
+                        path_cover_l,
+                        save_all=True,
+                        duration=frame_durations(img),
+                        loop=img.info.get("loop", 0),
+                    )
+                else:
+                    img.save(path_cover_l)
                 self.resize_cover_to_small(img, save_path=str(path_cover_s))
 
                 if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:

@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 import pytest
 from PIL import Image
+from tests.utils.test_images import animated_image_bytes
 
 import adapters.services.screenscraper as ss_module
 from adapters.services.screenscraper import (
@@ -25,6 +26,7 @@ from handler.filesystem.resources_handler import (
 )
 from models.collection import Collection
 from models.rom import Rom
+from utils.images import frame_durations
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 
@@ -258,6 +260,42 @@ class TestFSResourcesHandler:
         expected_height = int(800 * 0.4)
         mock_image.resize.assert_called_once_with((expected_width, expected_height))
         mock_image.save.assert_called_once_with(save_path)
+
+    def test_resize_cover_to_small_keeps_animation(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Downloaded covers are stored as .png whatever the provider served
+        durations = [100, 250, 400]
+        save_path = tmp_path / "small.png"
+
+        with Image.open(BytesIO(animated_image_bytes("WEBP", durations))) as img:
+            handler.resize_cover_to_small(img, save_path=str(save_path))
+
+        with Image.open(save_path) as small:
+            assert small.format == "WEBP"
+            assert small.size == (24, 36)
+            assert frame_durations(small) == durations
+
+    async def test_store_artwork_keeps_animation(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        durations = [100, 250, 400]
+        artwork = BytesIO(animated_image_bytes("GIF", durations))
+
+        with patch(
+            "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
+            False,
+        ):
+            path_cover_l, path_cover_s = await handler.store_artwork(
+                rom, artwork, "gif"
+            )
+
+        for path in (path_cover_l, path_cover_s):
+            assert path is not None
+            with Image.open(tmp_path / path) as img:
+                assert img.format == "GIF"
+                assert frame_durations(img) == durations
 
     def test_get_cover_path_no_cover(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
