@@ -6,11 +6,7 @@ import AssetChips from "./AssetChips.vue";
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
-vi.mock("@/stores/streaming", () => ({
-  useStreamingStore: () => ({
-    emulatorLabel: (id: string) => (id === "play" ? "Play!" : id),
-  }),
-}));
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RTag = {
   props: { text: { type: String, default: "" } },

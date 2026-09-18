@@ -25,11 +25,7 @@ vi.mock("@/services/api/rom", () => ({
   default: { getRom: () => new Promise(() => {}) },
 }));
 
-vi.mock("@/stores/streaming", () => ({
-  useStreamingStore: () => ({
-    emulatorLabel: (id: string) => (id === "retroarch" ? "RetroArch" : id),
-  }),
-}));
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 vi.mock("@/v2/composables/useActivityPresence", () => ({
   useActivityPresence: () => ({ start: vi.fn(), stop: vi.fn() }),

@@ -7,11 +7,7 @@ vi.mock("vue-i18n", async () => {
   const { ref } = await import("vue");
   return { useI18n: () => ({ t: (key: string) => key, locale: ref("en-US") }) };
 });
-vi.mock("@/stores/streaming", () => ({
-  useStreamingStore: () => ({
-    emulatorLabel: (id: string) => (id === "play" ? "Play!" : id),
-  }),
-}));
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RTag = {
   props: { text: { type: String, default: "" } },
