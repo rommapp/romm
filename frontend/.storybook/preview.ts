@@ -18,7 +18,7 @@ import { createChromeLabels } from "../src/v2/utils/chromeLabels";
 // v2 primitives are Vuetify-free at runtime — Vuetify stays registered only
 // because some shared dependencies still pull it in. The visible theme for
 // v2 stories comes from the `.r-v2-dark` / `.r-v2-light` class toggled on
-// <body> by the theme switcher decorator below.
+// <html> by the theme switcher decorator below.
 //
 // permissionsStore is hydrated with admin grants so any primitive that
 // consumes `useCan(...)` renders its enabled state. Stories that need to
@@ -93,10 +93,11 @@ const preview: Preview = {
   decorators: [
     withThemeByClassName({
       themes: {
-        dark: "r-v2 r-v2-dark",
-        light: "r-v2 r-v2-light",
+        dark: "r-v2 r-v2-dark v-theme--dark",
+        light: "r-v2 r-v2-light v-theme--light",
       },
       defaultTheme: "dark",
+      parentSelector: "html",
     }),
   ],
 };
