@@ -225,6 +225,7 @@
   "swap-disc-failed": "更换光盘失败。主机可能仍在更换过程中，请重试。",
   "swap-disc-text": "选择要载入的光盘。游戏会继续运行，请先在游戏内保存进度。",
   "swap-disc-title": "更换光盘",
+  "sync-save": "同步存档",
   "unmute": "取消静音",
   "upload-memory-card": "上传记忆卡"
 }

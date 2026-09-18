@@ -225,6 +225,7 @@
   "swap-disc-failed": "Le changement de disque a échoué. La console est peut-être encore en train de changer, réessayez.",
   "swap-disc-text": "Choisissez le disque à charger. Le jeu continue de tourner, sauvegardez donc votre progression dans le jeu d'abord.",
   "swap-disc-title": "Changer de disque",
+  "sync-save": "Synchroniser la sauvegarde",
   "unmute": "Réactiver le son",
   "upload-memory-card": "Envoyer une carte"
 }

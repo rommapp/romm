@@ -225,6 +225,7 @@
   "swap-disc-failed": "A troca de disco falhou. O console pode ainda estar no meio da troca, tente novamente.",
   "swap-disc-text": "Escolha o disco que deseja carregar. O jogo continua rodando, então salve seu progresso dentro do jogo primeiro.",
   "swap-disc-title": "Trocar disco",
+  "sync-save": "Sincronizar save",
   "unmute": "Ativar som",
   "upload-memory-card": "Enviar cartão"
 }

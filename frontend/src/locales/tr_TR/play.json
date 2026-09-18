@@ -225,6 +225,7 @@
   "swap-disc-failed": "Disk değiştirilemedi. Konsol hâlâ değişimin ortasında olabilir, tekrar deneyin.",
   "swap-disc-text": "Yüklenecek diski seçin. Oyun çalışmaya devam ediyor, bu yüzden önce ilerlemenizi oyun içinde kaydedin.",
   "swap-disc-title": "Disk değiştirme",
+  "sync-save": "Kaydı eşitle",
   "unmute": "Sesi aç",
   "upload-memory-card": "Kart yükle"
 }

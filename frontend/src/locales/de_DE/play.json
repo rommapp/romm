@@ -225,6 +225,7 @@
   "swap-disc-failed": "Der Disc-Wechsel ist fehlgeschlagen. Die Konsole steckt möglicherweise noch im Wechsel, versuche es erneut.",
   "swap-disc-text": "Wähle die Disc, die geladen werden soll. Das Spiel läuft weiter, speichere deinen Fortschritt also zuerst im Spiel.",
   "swap-disc-title": "Disc wechseln",
+  "sync-save": "Spielstand synchronisieren",
   "unmute": "Ton einschalten",
   "upload-memory-card": "Karte hochladen"
 }

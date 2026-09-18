@@ -225,6 +225,7 @@
   "swap-disc-failed": "Disc swap failed. The console may still be mid-swap, try again.",
   "swap-disc-text": "Choose the disc to load. The game keeps running, so save your progress in-game first.",
   "swap-disc-title": "Swap disc",
+  "sync-save": "Sync save",
   "unmute": "Unmute",
   "upload-memory-card": "Upload card"
 }

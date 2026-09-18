@@ -225,6 +225,7 @@
   "swap-disc-failed": "更換光碟失敗。主機可能仍在更換過程中，請再試一次。",
   "swap-disc-text": "選擇要載入的光碟。遊戲會繼續執行，請先在遊戲內儲存進度。",
   "swap-disc-title": "更換光碟",
+  "sync-save": "同步存檔",
   "unmute": "取消靜音",
   "upload-memory-card": "上傳記憶卡"
 }

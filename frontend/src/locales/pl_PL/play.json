@@ -225,6 +225,7 @@
   "swap-disc-failed": "Nie udało się zmienić płyty. Konsola może być wciąż w trakcie zmiany, spróbuj ponownie.",
   "swap-disc-text": "Wybierz płytę do wczytania. Gra działa dalej, więc najpierw zapisz postęp w samej grze.",
   "swap-disc-title": "Zmiana płyty",
+  "sync-save": "Synchronizuj zapis",
   "unmute": "Włącz dźwięk",
   "upload-memory-card": "Prześlij kartę"
 }

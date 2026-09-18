@@ -225,6 +225,7 @@
   "swap-disc-failed": "Cambio disco non riuscito. La console potrebbe essere ancora a metà del cambio, riprova.",
   "swap-disc-text": "Scegli il disco da caricare. Il gioco resta in esecuzione, quindi salva prima i tuoi progressi nel gioco.",
   "swap-disc-title": "Cambia disco",
+  "sync-save": "Sincronizza salvataggio",
   "unmute": "Riattiva audio",
   "upload-memory-card": "Carica card"
 }

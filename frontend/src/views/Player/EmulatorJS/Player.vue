@@ -199,8 +199,8 @@ function writeSave(
   saveWrite = write.catch(() => null);
   return write;
 }
-// Save & Quit waits for the queue, then skips the write only when no version
-// was opened yet and the SRAM still matches a slotted save from the server.
+// Forced writes (Sync save, Save & Quit) wait for the queue, then skip only when
+// no version was opened yet and the SRAM still matches a slotted server save.
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
@@ -344,8 +344,10 @@ window.EJS_backgroundColor = theme.current.value.colors.background;
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
-  // Saves reach the server by auto-sync or Save & Quit, and load from the picker.
-  saveSavFiles: false,
+  // Saves load from the picker. Without auto-sync, Sync save uploads on demand.
+  saveSavFiles: configStore.config.EJS_ENABLE_AUTO_SAVE_SYNC
+    ? false
+    : { displayName: t("play.sync-save") },
   loadSavFiles: false,
   restart: { displayName: t("play.restart") },
   pause: { displayName: t("play.pause") },
@@ -671,6 +673,29 @@ async function switchSave(save: SaveSchema) {
   }
   window.EJS_emulator.gameManager.restart();
 }
+
+// Sync save, offered when auto-sync is off: the tick's upload, on demand.
+window.EJS_onSaveSave = async function ({
+  save: saveFile,
+  screenshot: emulatorScreenshot,
+}) {
+  if (!saveFile?.byteLength) {
+    displayMessage(t("play.save-data-none"), { duration: 3000 });
+    return;
+  }
+  const screenshotFile = await resolveScreenshot(emulatorScreenshot);
+  const synced = await writeSaveIfChanged({ saveFile, screenshotFile });
+  romsStore.update(romRef.value);
+  if (synced) {
+    displayMessage(t("play.save-synced"), {
+      duration: 4000,
+      tone: "success",
+      icon: "mdi-cloud-sync",
+    });
+  } else if (heldFor(pendingSave, new Uint8Array(saveFile))) {
+    announceHeldBack("save", pendingSaveKept);
+  }
+};
 
 // States management
 // Every way a state arrives goes through here: the SRAM it restores becomes the

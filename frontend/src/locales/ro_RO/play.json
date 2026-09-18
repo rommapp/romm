@@ -225,6 +225,7 @@
   "swap-disc-failed": "Schimbarea discului a eșuat. Consola poate fi încă în mijlocul schimbării, încearcă din nou.",
   "swap-disc-text": "Alege discul de încărcat. Jocul rămâne pornit, așa că salvează-ți mai întâi progresul în joc.",
   "swap-disc-title": "Schimbarea discului",
+  "sync-save": "Sincronizează salvarea",
   "unmute": "Activează sunetul",
   "upload-memory-card": "Încarcă un card"
 }

@@ -225,6 +225,7 @@
   "swap-disc-failed": "No se pudo cambiar el disco. Puede que la consola siga a mitad del cambio, inténtalo de nuevo.",
   "swap-disc-text": "Elige el disco que quieres cargar. El juego sigue en marcha, así que guarda tu progreso dentro del juego primero.",
   "swap-disc-title": "Cambiar disco",
+  "sync-save": "Sincronizar partida",
   "unmute": "Activar sonido",
   "upload-memory-card": "Subir tarjeta"
 }

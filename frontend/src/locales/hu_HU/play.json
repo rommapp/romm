@@ -225,6 +225,7 @@
   "swap-disc-failed": "A lemezcsere nem sikerült. Lehet, hogy a konzol még a csere közepén tart, próbáld újra.",
   "swap-disc-text": "Válaszd ki a betöltendő lemezt. A játék tovább fut, ezért előbb mentsd el a haladásodat a játékon belül.",
   "swap-disc-title": "Lemezcsere",
+  "sync-save": "Mentés szinkronizálása",
   "unmute": "Hang bekapcsolása",
   "upload-memory-card": "Kártya feltöltése"
 }

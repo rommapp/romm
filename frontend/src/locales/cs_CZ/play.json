@@ -225,6 +225,7 @@
   "swap-disc-failed": "Výměna disku selhala. Konzole může být stále uprostřed výměny, zkuste to znovu.",
   "swap-disc-text": "Vyberte disk, který se má načíst. Hra běží dál, takže si nejprve uložte postup ve hře.",
   "swap-disc-title": "Výměna disku",
+  "sync-save": "Synchronizovat uloženou pozici",
   "unmute": "Zapnout zvuk",
   "upload-memory-card": "Nahrát kartu"
 }
