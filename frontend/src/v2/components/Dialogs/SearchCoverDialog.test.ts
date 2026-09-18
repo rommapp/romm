@@ -108,7 +108,7 @@ async function openDialog(withRom = false) {
     rom: withRom ? rom : undefined,
   });
   await flushPromises();
-  return { wrapper, picked };
+  return { wrapper, picked, emitter };
 }
 
 function gridGroups(
@@ -196,6 +196,33 @@ describe("SearchCoverDialog", () => {
       "https://sgdb/thumb/b.png",
       "https://sgdb/thumb/a.png",
     ]);
+  });
+
+  it("searches again on reopen and drops the search left running on close", async () => {
+    let finishStale: (value: { data: SearchCoverSchema[] }) => void = () => {};
+    searchCover
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishStale = resolve;
+        }),
+      )
+      .mockResolvedValueOnce({
+        data: [cover("steam", "https://steam/doom.jpg")],
+      });
+    const { wrapper, emitter } = await openDialog();
+
+    wrapper.findComponent(RDialog).vm.$emit("close");
+    emitter.emit("showSearchCoverDialog", { term: "Doom" });
+    await flushPromises();
+    finishStale({ data: [cover("sgdb", "https://sgdb/thumb/blur.png")] });
+    await flushPromises();
+
+    expect(searchCover).toHaveBeenLastCalledWith({ searchTerm: "Doom" });
+    expect(
+      wrapper
+        .findAll("section.group .r-v2-sgdb__cover-img")
+        .map((img) => img.attributes("src")),
+    ).toEqual(["https://steam/doom.jpg"]);
   });
 
   it("keeps a provider's match cover in the row when its grid came back empty", async () => {

@@ -209,8 +209,13 @@ function scoreAgainstSourceRom(
   return score;
 }
 
+// Bumped per search and on close, so a response for a search the user
+// already left never fills a later session of the dialog.
+let searchSeq = 0;
+
 async function doSearch() {
   if (searching.value || !searchText.value.trim()) return;
+  const seq = ++searchSeq;
   searching.value = true;
   covers.value = [];
   providerCovers.value = [];
@@ -231,6 +236,7 @@ async function doSearch() {
           })
         : Promise.resolve(null),
     ]);
+    if (seq !== searchSeq) return;
 
     if (gridResult.status === "fulfilled") {
       covers.value = gridResult.value.data;
@@ -284,7 +290,7 @@ async function doSearch() {
         : [];
     }
   } finally {
-    searching.value = false;
+    if (seq === searchSeq) searching.value = false;
   }
 }
 
@@ -309,6 +315,8 @@ function pickProviderCover(url: string) {
 }
 
 function closeDialog() {
+  searchSeq++;
+  searching.value = false;
   show.value = false;
   covers.value = [];
   providerCovers.value = [];
