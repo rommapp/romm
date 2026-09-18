@@ -616,6 +616,25 @@ describe("Stream launch recovery", () => {
     wrapper.unmount();
   });
 
+  it("keeps waiting when the poll finds a game on another container", async () => {
+    // The unnamed poll reports any session the player holds on the platform,
+    // which can be another tab's.
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev-2:8080/room/y",
+      container: "WEBSTATION-DEV-2",
+    });
+
+    await pollStatus();
+
+    expect(vmOf(wrapper).playerState).toBe("loading");
+    expect(vmOf(wrapper).containerHost).toBe("");
+    wrapper.unmount();
+  });
+
   it("keeps waiting while the launch has no room yet", async () => {
     const wrapper = await launch({ picker: false });
     await vmOf(wrapper).onPlay();

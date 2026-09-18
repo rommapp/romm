@@ -566,8 +566,9 @@ async function handleSessionStatus(
 // the room the launch recorded, which is the way back in.
 async function enterRunningSession(status: SessionStatus): Promise<void> {
   if (playerState.value !== "loading" || !status.host) return;
-  // The 202 named it, except for a tab that came back without one.
-  claimedContainer.value ??= status.container ?? null;
+  // The poll names no container, so it can answer with another tab's session.
+  if (!claimedContainer.value || status.container !== claimedContainer.value)
+    return;
   launchPhase.value = null;
   containerHost.value = status.host;
   playerState.value = "playing";
