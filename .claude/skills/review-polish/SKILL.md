@@ -212,13 +212,26 @@ reviewer the gist, and stop there: one shot carries most changes.
   wouldn't read as different, labelled as such.
 - **A second theme** only when the change is theme-dependent; a state or breakpoint only when it's
   the point of the change.
-- Name the files for what they show (`missing-games-actions.png`), so the handoff list reads on
-  its own.
+- Name the files for what they show (`missing-games-actions.png`); the filename is the alt text
+  when you don't supply one.
 
-Attachments on github.com live under `user-attachments`, and nothing uploads there from the CLI.
-So unless you have a URL the PR body can point at, open the PR with the heading and a one-line
-placeholder naming each shot, then give the user the file paths in your summary to drag into the
-description. Never commit the images or push them to a branch to get a URL.
+Upload them yourself with `gh`, which takes `--attach '<file>#<alt text>'` (up to 50 per command)
+on `pr create`, `pr edit` and `pr comment`. Write the body referencing each file by its local path
+and `gh` rewrites the reference to the uploaded asset, so the shots land under the `Screenshots`
+heading instead of being appended at the end:
+
+```bash
+# /tmp/pr-body.md, under the Screenshots heading:
+#   ![The new actions row on a missing game](/tmp/shots/missing-games-actions.png)
+gh pr create --title '...' --body-file /tmp/pr-body.md \
+  --attach /tmp/shots/missing-games-actions.png
+```
+
+On an existing PR, `gh pr edit --attach` keeps the current body and appends the upload unless the
+body already references the file. A partial upload still creates or updates the PR and exits
+non-zero, so check the body rather than trusting the exit code. Never commit the images or push
+them to a branch to get a URL. Only fall back to handing the user file paths when the upload
+fails.
 
 ### Mermaid diagram, for an architectural change
 
@@ -263,6 +276,6 @@ flowchart LR
 - [ ] UI changes tested in the browser: both themes, all four input modalities,
       responsive sweep
 - [ ] UI changes screenshotted (enough to convey the change), and the shots
-      attached to the PR or handed to the user
+      uploaded to the PR with `gh ... --attach`
 - [ ] Architectural changes carry a `mermaid` diagram in the PR description
 - [ ] `trunk fmt && trunk check` clean, with whatever fmt rewrote committed

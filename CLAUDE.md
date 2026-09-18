@@ -74,7 +74,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
 **Link PRs to issues.** In the PR description, use `Fixes #XXXX` for issue/bug fixes and `Closes #XXXX` for feature implementations.
 **Use the PR template.** Base every PR description on `.github/PULL_REQUEST_TEMPLATE.md`.
-**Show UI changes in the PR.** A PR that touches anything visible ships with at least one screenshot under the template's `Screenshots` heading, captured from the running app during the `review-polish` browser pass. Enough shots to convey what changed, not a catalogue of every state. Save the files outside the repo and never commit them. If you can't attach them to the PR yourself, open the PR with the section in place and hand the user the file paths to drop in.
+**Show UI changes in the PR.** A PR that touches anything visible ships with at least one screenshot under the template's `Screenshots` heading, captured from the running app during the `review-polish` browser pass. Enough shots to convey what changed, not a catalogue of every state. Save the files outside the repo and never commit them, and upload them with `gh pr create --attach` (or `gh pr edit --attach` on an existing PR) rather than handing the paths to the user.
 **Diagram architectural changes in the PR.** When a change moves a boundary (a new service, task, or provider in a path, a model relationship, a different call path across layers, an auth or socket flow), the PR description carries a `mermaid` block showing it. GitHub renders them. Draw what changed, not the whole system. See `review-polish`.
 
 ---
