@@ -7,9 +7,8 @@ const THRESHOLD = 4;
 // shells) report it here so the top bar turns to glass over them as well.
 const innerScrolled = ref(false);
 
-// A pinned surface right under the top bar (the gallery toolbar) paints one
-// glass across both, so the top bar drops its own: two blurred boxes never
-// line up at their shared edge.
+// A toolbar pinned right under the top bar paints one glass across both, so
+// the top bar drops its own (two blurred boxes never match at their edge).
 const innerGlass = ref(false);
 
 export function useNavGlass() {

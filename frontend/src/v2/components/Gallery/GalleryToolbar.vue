@@ -404,11 +404,8 @@ const { smAndUp } = useBreakpoint();
   gap: 8px;
 }
 
-/* Header variant — full width, search on the left, controls right.
-   Margin lives here (not on the consumer) so scoped-style precedence never
-   prevents the toolbar from breathing against the content below. */
-/* Padding, not margin: the shells render this twice (in flow and as an absolute
-   overlay), and a margin would collapse out of one copy but not the other. */
+/* Header variant: full width, search left, controls right. Padding, not
+   margin, keeps the gap inside the shells' measured, glassed toolbar box. */
 .gallery-toolbar--header {
   width: 100%;
   padding: var(--r-space-2) 0 var(--r-space-5);

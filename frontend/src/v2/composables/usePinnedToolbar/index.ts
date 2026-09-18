@@ -8,23 +8,18 @@ import {
 } from "vue";
 import { useNavGlass } from "@/v2/composables/useNavGlass";
 
-/**
- * A sticky toolbar inside a scroller that pins right under the top bar (the
- * gallery shells): measures where it pins, tells when it is pinned, and hands
- * the top bar's glass to it while pinned.
- *
- * Bind `bindToolbar` to the toolbar and `bindSentinel` to a zero-height,
- * non-sticky element right before it: a sticky element's own offsetTop reports
- * its pinned position, so the sentinel is what marks its natural top.
- */
+/** Tracks a toolbar pinned under the top bar and hands it the bar's glass. */
 export function usePinnedToolbar(scrollTop: Ref<number>) {
   const toolbarEl = ref<HTMLElement | null>(null);
+  // Zero-height element right before the toolbar: a sticky element's own
+  // offsetTop reports its pinned position, so this marks its natural top.
   const sentinelEl = ref<HTMLElement | null>(null);
   const toolbarHeight = ref(0);
   const naturalTop = ref(0);
   // The toolbar's sticky `top` (the top bar's height), read from its style.
   const pinnedTop = ref(0);
   let observer: ResizeObserver | null = null;
+  let observed: Element[] = [];
 
   function measure() {
     const toolbar = toolbarEl.value;
@@ -35,39 +30,56 @@ export function usePinnedToolbar(scrollTop: Ref<number>) {
     naturalTop.value = sentinelEl.value?.offsetTop ?? 0;
   }
 
-  function rebuild() {
+  // The toolbar, the sentinel and the earlier siblings (the header) that move it.
+  function observedElements(): Element[] {
+    const out: Element[] = [];
+    if (toolbarEl.value) out.push(toolbarEl.value);
+    let el: Element | null | undefined = sentinelEl.value;
+    while (el) {
+      out.push(el);
+      el = el.previousElementSibling;
+    }
+    return out;
+  }
+
+  // Vue calls function refs on every re-render (the virtual scroller re-renders
+  // while scrolling), so re-observe and re-measure only when the elements change.
+  function sync() {
+    const next = observedElements();
+    if (
+      next.length === observed.length &&
+      next.every((el, i) => el === observed[i])
+    ) {
+      return;
+    }
+    observed = next;
     observer?.disconnect();
     observer = null;
     measure();
-    if (!toolbarEl.value && !sentinelEl.value) return;
+    if (next.length === 0) return;
     observer = new ResizeObserver(measure);
-    if (toolbarEl.value) observer.observe(toolbarEl.value);
-    // Earlier siblings (the header) move the sentinel when they resize.
-    let prev = sentinelEl.value?.previousElementSibling;
-    while (prev) {
-      observer.observe(prev);
-      prev = prev.previousElementSibling;
-    }
+    for (const el of next) observer.observe(el);
   }
 
-  // Use these as STABLE function refs (never inline arrows): an inline ref has
-  // a new identity every render, so Vue re-binds it with `null` then the
-  // element on every re-render, and the shells re-render on every scroll frame.
   function bindToolbar(el: Element | ComponentPublicInstance | null) {
     toolbarEl.value = (el as HTMLElement | null) ?? null;
-    rebuild();
+    sync();
   }
   function bindSentinel(el: Element | ComponentPublicInstance | null) {
     sentinelEl.value = (el as HTMLElement | null) ?? null;
-    rebuild();
+    sync();
   }
 
   /** How far the scroller travels before the toolbar pins. */
   const pinDistance = computed(() =>
     Math.max(0, naturalTop.value - pinnedTop.value),
   );
+  // Without a toolbar (the floating dock) nothing can take the top bar's glass.
   const pinned = computed(
-    () => scrollTop.value > 0 && scrollTop.value >= pinDistance.value,
+    () =>
+      toolbarEl.value !== null &&
+      scrollTop.value > 0 &&
+      scrollTop.value >= pinDistance.value,
   );
 
   // The top bar turns to glass as soon as the scroller moves (content passes
@@ -88,9 +100,7 @@ export function usePinnedToolbar(scrollTop: Ref<number>) {
   });
 
   return {
-    toolbarEl,
     toolbarHeight,
-    pinnedTop,
     pinDistance,
     pinned,
     bindToolbar,

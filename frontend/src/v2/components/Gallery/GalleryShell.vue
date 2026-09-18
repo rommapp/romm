@@ -2,13 +2,13 @@
 // GalleryShell — shared layout for Platform / Search / Collection.
 //
 // Three structural sections, top to bottom, all sharing one scrollbar:
-//   1. HEADER  — view-supplied via `#header` slot. Whatever the view
+//   1. HEADER: view-supplied via `#header` slot. Whatever the view
 //                wants there: an InfoPanel with platform / collection
 //                metadata, a plain PageHeader for Search, etc.
-//   2. TOOLBAR — search input + group/layout/dock controls. Sticky right
+//   2. TOOLBAR: search input + group/layout/dock controls. Sticky right
 //                below the top bar; once pinned it shares one glass surface
 //                with the top bar, so cards blur behind both.
-//   3. GRID / TABLE — the row-virtualised content (cards in grid mode,
+//   3. GRID / TABLE: the row-virtualised content (cards in grid mode,
 //                div-based rows in list mode — same shell scroller, same
 //                AlphaStrip wiring; the list column header lives in the
 //                prepend, sticky below the toolbar).
@@ -382,21 +382,26 @@ const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 const scrollTopNow = computed(() => scrollerRef.value?.scrollTop ?? 0);
 const {
   toolbarHeight,
-  pinnedTop,
   pinDistance,
   pinned,
   bindToolbar: bindToolbarEl,
   bindSentinel: bindPinSentinel,
 } = usePinnedToolbar(scrollTopNow);
-// The AlphaStrip follows the toolbar's bottom edge until it pins (a
-// scroll-driven animation, JS where unsupported).
+// The AlphaStrip follows the toolbar's bottom edge until it pins: a
+// scroll-driven animation (the strip is the scroller's sibling, hence
+// `timeline-scope`), else a style write that never re-renders the shell.
 const supportsScrollTimeline =
-  typeof CSS !== "undefined" && CSS.supports("animation-timeline: scroll()");
-const stripShift = computed(() =>
-  supportsScrollTimeline
-    ? undefined
-    : `${Math.max(0, pinDistance.value - scrollTopNow.value)}px`,
-);
+  typeof CSS !== "undefined" &&
+  CSS.supports("animation-timeline: scroll()") &&
+  CSS.supports("timeline-scope: --a");
+if (!supportsScrollTimeline) {
+  watchEffect(() => {
+    sectionEl.value?.style.setProperty(
+      "--r-v2-shell-strip-shift",
+      `${Math.max(0, pinDistance.value - scrollTopNow.value)}px`,
+    );
+  });
+}
 
 // The strip stays mounted in both grid and list mode regardless of how
 // many letters the backend has reported — letters that aren't in
@@ -589,8 +594,13 @@ const LIST_HEADER_HEIGHT = 40;
 function scrollToLetter(letter: string) {
   const idx = letterToIndex.value.get(letter);
   if (idx == null) return;
+  // The section runs under the top bar, so rows land below it in either dock.
+  const section = sectionEl.value;
+  const navHeight = section
+    ? parseFloat(getComputedStyle(section).getPropertyValue("--r-nav-h")) || 0
+    : 0;
   const stickyOffset =
-    pinnedTop.value +
+    navHeight +
     toolbarHeight.value +
     (layout.value === "list" ? LIST_HEADER_HEIGHT : 0);
   scrollerRef.value?.scrollToIndex(idx, { smooth: true, stickyOffset });
@@ -708,7 +718,7 @@ function onShellKey(e: KeyboardEvent) {
 }
 
 // Gallery owns its own internal scroll (the RVirtualScroller). The
-// section is sized to `100vh - --r-nav-h` exactly, but pixel-rounding
+// section is sized to one viewport exactly, but pixel-rounding
 // or transient layout shifts can still produce a stray 1-2px document
 // overflow → a phantom doc scrollbar competing with the virtualizer.
 // Locking the body's overflow while the shell is mounted guarantees
@@ -792,14 +802,13 @@ defineExpose({
     ref="sectionEl"
     class="r-v2-shell"
     :class="{
-      'r-v2-shell--pinned': pinned,
       'r-v2-shell--has-strip': hasAlphaStrip,
       'r-v2-shell--list': layout === 'list',
+      'r-v2-shell--floating': toolbarPosition === 'floating',
     }"
     :style="{
       '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
       '--r-v2-shell-pin-distance': `${pinDistance}px`,
-      '--r-v2-shell-strip-shift': stripShift,
       '--r-cover-ratio': coverAspectRatio,
       '--r-list-min-w': `${listMinWidth}px`,
     }"
@@ -836,7 +845,8 @@ defineExpose({
         <div
           v-if="toolbarPosition === 'header'"
           :ref="bindToolbarEl"
-          class="r-v2-shell__toolbar"
+          class="r-v2-shell__toolbar r-pinned-toolbar"
+          :class="{ 'r-pinned-toolbar--pinned': pinned }"
         >
           <GalleryToolbar
             :group-by="groupBy"
@@ -989,8 +999,8 @@ defineExpose({
 
 <style scoped>
 .r-v2-shell {
-  /* AlphaStrip footprint as a flex sibling of the scroller = letter column
-     (`--r-alpha-strip-w`, a global token) + gap to the viewport edge. */
+  /* AlphaStrip footprint = letter column (`--r-alpha-strip-w`, a global
+     token) + gap to the viewport edge. */
   --r-alpha-strip-gap: var(--r-space-3);
   /* The strip's footprint, added to the scroller's right gutter when shown. */
   --r-v2-shell-strip: 0px;
@@ -1017,7 +1027,7 @@ defineExpose({
   position: relative;
 }
 
-/* On sm-and-down the section keeps its full `100dvh - nav` height so cards
+/* On sm-and-down the section keeps its full-viewport height so cards
    scroll UNDER the translucent bottom tab bar (the glass effect). The layout
    <main> adds a bottom padding for the bar (natural-flow views need it);
    cancel it here with a matching negative margin so this full-height section
@@ -1052,15 +1062,14 @@ html[data-bp~="xs"] .r-v2-shell {
   width: 100%;
 }
 
-/* Header band — `display: flow-root` establishes a new block-formatting
+/* Header band: `display: flow-root` establishes a new block-formatting
    context so child margins don't collapse out visually. */
 .r-v2-shell__header {
   display: flow-root;
   padding-top: calc(var(--r-nav-h) + 32px);
 }
-/* The header (or this spacer, without one) clears the top bar the section
-   runs under. Not the scroller's padding: that would also offset the sticky
-   toolbar. */
+/* Without a header this clears the top bar instead; the scroller's padding
+   can't, as it would also offset the sticky toolbar. */
 .r-v2-shell__nav-spacer {
   height: var(--r-nav-h);
 }
@@ -1102,30 +1111,6 @@ html[data-bp~="xs"] .r-v2-shell {
   margin-right: calc(-1 * var(--r-v2-shell-strip));
 }
 
-/* Pins right below the top bar. Once pinned its glass also covers the top
-   bar's area and the top bar drops its own (see useNavGlass): one blurred
-   surface instead of two that never match at their shared edge. The switch is
-   instant so cards never show crisp under the toolbar. */
-.r-v2-shell__toolbar {
-  position: sticky;
-  top: var(--r-nav-h);
-  z-index: 4;
-}
-.r-v2-shell__toolbar::before {
-  content: "";
-  position: absolute;
-  inset: calc(-1 * var(--r-nav-h)) calc(-1 * var(--r-row-pad)) 0;
-  z-index: -1;
-  background: var(--r-glass-bar-bg);
-  backdrop-filter: var(--r-glass-bar-filter);
-  border-bottom: 1px solid var(--r-color-border);
-  opacity: 0;
-  pointer-events: none;
-}
-.r-v2-shell--pinned .r-v2-shell__toolbar::before {
-  opacity: 1;
-}
-
 /* When the list scrolls horizontally (columns wider than the viewport), the
    page chrome — view header, divider and in-flow toolbar — belongs to the
    page, not the table, so pin them to the left (`left: 0`). They stay in place
@@ -1138,7 +1123,7 @@ html[data-bp~="xs"] .r-v2-shell {
   left: 0;
 }
 
-/* List column header — sticky just below the pinned toolbar, and under it
+/* List column header: sticky just below the pinned toolbar, and under it
    (z-index 3 vs 4) so it never intercepts the toolbar's pointer events. */
 .r-v2-shell__list-header {
   position: sticky;
@@ -1149,15 +1134,13 @@ html[data-bp~="xs"] .r-v2-shell {
   min-width: var(--r-list-min-w);
 }
 
-/* Zero-height marker at the toolbar's natural top (see `pinSentinelEl`). */
+/* Zero-height marker at the toolbar's natural top (see usePinnedToolbar). */
 .r-v2-shell__pin-sentinel {
   height: 0;
 }
 
-/* The strip overlays the scroller's right gutter and starts at the toolbar's
-   bottom edge: pinned by `top`, and shifted down with the toolbar until it
-   pins. The shift is a scroll-driven transform, so it tracks the scroll on the
-   compositor; browsers without scroll timelines get it from JS instead. */
+/* The strip overlays the scroller's right gutter from the pinned toolbar's
+   bottom edge, shifted down with the toolbar until it pins. */
 .r-v2-shell .r-v2-shell__strip {
   position: absolute;
   top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h, 0px));
@@ -1167,7 +1150,11 @@ html[data-bp~="xs"] .r-v2-shell {
   justify-content: flex-start;
   transform: translateY(var(--r-v2-shell-strip-shift, 0px));
 }
-@supports (animation-timeline: scroll()) {
+/* The floating dock sits over the strip's top; centre the letters clear of it. */
+.r-v2-shell--floating .r-v2-shell__strip {
+  justify-content: center;
+}
+@supports (animation-timeline: scroll()) and (timeline-scope: --a) {
   .r-v2-shell .r-v2-shell__strip {
     animation: r-v2-shell-strip-follow linear both;
     animation-timeline: --r-v2-shell-scroll;

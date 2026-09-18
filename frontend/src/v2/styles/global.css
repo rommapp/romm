@@ -313,9 +313,8 @@ html.r-v2-reduced-motion *::after {
   color: var(--r-color-fg-muted);
 }
 
-/* Top-bar glass: the translucent, blurred surface of the top bar and of the
-   gallery toolbars that pin under it. Reduced-motion drops the blur (costly on
-   weak GPUs, murky over the solid background that mode uses) for flat bg. */
+/* Top-bar glass, shared with the toolbars that pin under it. Reduced motion
+   swaps the blur (costly, murky over its solid background) for a flat bg. */
 .r-v2 {
   --r-glass-bar-bg: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
   --r-glass-bar-filter: blur(20px);
@@ -323,6 +322,28 @@ html.r-v2-reduced-motion *::after {
 html.r-v2-reduced-motion {
   --r-glass-bar-bg: var(--r-color-bg);
   --r-glass-bar-filter: none;
+}
+
+/* Toolbar pinned under the top bar (usePinnedToolbar). Once `--pinned`, its
+   glass also covers the top bar, which drops its own: one surface. */
+.r-pinned-toolbar {
+  position: sticky;
+  top: var(--r-nav-h);
+  z-index: 4;
+}
+.r-pinned-toolbar::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--r-nav-h)) calc(-1 * var(--r-row-pad)) 0;
+  z-index: -1;
+  background: var(--r-glass-bar-bg);
+  backdrop-filter: var(--r-glass-bar-filter);
+  border-bottom: 1px solid var(--r-color-border);
+  opacity: 0;
+  pointer-events: none;
+}
+.r-pinned-toolbar--pinned::before {
+  opacity: 1;
 }
 
 /* Column both gallery Settings tabs (platform, collection) render in, so they

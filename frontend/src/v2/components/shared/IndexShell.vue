@@ -13,14 +13,14 @@
 // No virtualisation (small datasets), no AlphaStrip, no selection bar.
 //
 // Slot contract:
-//   * `#header`     — view-supplied header (PageHeader / divider / …).
+//   * `#header`:     view-supplied header (PageHeader / divider / …).
 //                     In the scroller's flow; scrolls away with content.
-//   * `#toolbar`    — toolbar content (GalleryToolbar), pinned under the
+//   * `#toolbar`:    toolbar content (GalleryToolbar), pinned under the
 //                     top bar.
-//   * `#listHeader` — list-mode column header (PlatformListHeader /
+//   * `#listHeader`: list-mode column header (PlatformListHeader /
 //                     CollectionListHeader), sticky below the toolbar.
 //                     Only rendered when `listMode` is true.
-//   * default       — index content (grid / list / panels).
+//   * default:       index content (grid / list / panels).
 import { ref } from "vue";
 import { usePinnedToolbar } from "@/v2/composables/usePinnedToolbar";
 
@@ -50,10 +50,6 @@ function onScroll(e: Event) {
 <template>
   <section
     class="r-v2-idx-shell"
-    :class="{
-      'r-v2-idx-shell--pinned': pinned,
-      'r-v2-idx-shell--list': listMode,
-    }"
     :style="{ '--r-v2-idx-shell-toolbar-h': `${toolbarHeight}px` }"
   >
     <div class="r-v2-idx-shell__scroller r-v2-scroll-hidden" @scroll="onScroll">
@@ -66,7 +62,11 @@ function onScroll(e: Event) {
         class="r-v2-idx-shell__pin-sentinel"
         aria-hidden="true"
       />
-      <div :ref="bindToolbar" class="r-v2-idx-shell__toolbar">
+      <div
+        :ref="bindToolbar"
+        class="r-pinned-toolbar"
+        :class="{ 'r-pinned-toolbar--pinned': pinned }"
+      >
         <slot name="toolbar" />
       </div>
 
@@ -99,10 +99,8 @@ function onScroll(e: Event) {
   position: relative;
 }
 
-/* On sm-and-down the section also runs under the translucent bottom tab bar:
-   cancel <main>'s bottom padding for it, so the section doesn't push the
-   document past one viewport. The scroller's bottom padding lifts the last
-   row clear of the bar. */
+/* On sm-and-down the section also runs under the bottom tab bar: cancel
+   <main>'s bottom padding for it so the document stays one viewport tall. */
 html[data-bp~="sm-and-down"] .r-v2-idx-shell {
   margin-bottom: calc(
     -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
@@ -127,29 +125,7 @@ html[data-bp~="sm-and-down"] .r-v2-idx-shell {
   height: 0;
 }
 
-/* Pins right below the top bar; once pinned, its glass also covers the top
-   bar's area and the top bar drops its own, so both read as one surface. */
-.r-v2-idx-shell__toolbar {
-  position: sticky;
-  top: var(--r-nav-h);
-  z-index: 4;
-}
-.r-v2-idx-shell__toolbar::before {
-  content: "";
-  position: absolute;
-  inset: calc(-1 * var(--r-nav-h)) calc(-1 * var(--r-row-pad)) 0;
-  z-index: -1;
-  background: var(--r-glass-bar-bg);
-  backdrop-filter: var(--r-glass-bar-filter);
-  border-bottom: 1px solid var(--r-color-border);
-  opacity: 0;
-  pointer-events: none;
-}
-.r-v2-idx-shell--pinned .r-v2-idx-shell__toolbar::before {
-  opacity: 1;
-}
-
-/* List column header — sticky just below the pinned toolbar, and under it
+/* List column header: sticky just below the pinned toolbar, and under it
    (z-index 3 vs 4) so the toolbar always wins pointer events. */
 .r-v2-idx-shell__list-header {
   position: sticky;
