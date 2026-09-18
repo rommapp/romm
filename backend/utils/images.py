@@ -1,7 +1,6 @@
-from typing import Any
+from collections.abc import Callable
 
 from PIL import Image, ImageSequence
-from PIL.PngImagePlugin import Blend, Disposal
 
 # Multi-frame formats browsers play as animations (MPO/TIFF pages are not)
 ANIMATED_FORMATS = frozenset({"GIF", "PNG", "WEBP"})
@@ -16,19 +15,28 @@ _MAX_WEBP_LOOP = 0xFFFF
 
 def is_animated(img: Image.Image) -> bool:
     """True for a multi-frame image that browsers play as an animation."""
+    n_frames = getattr(img, "n_frames", 1)
     return (
         img.format in ANIMATED_FORMATS
-        and bool(getattr(img, "is_animated", False))
-        and getattr(img, "n_frames", 1) * img.width * img.height <= MAX_ANIMATION_PIXELS
+        and 1 < n_frames
+        and n_frames * img.width * img.height <= MAX_ANIMATION_PIXELS
     )
 
 
-def frame_durations(img: Image.Image) -> list[float] | None:
+def frame_durations(
+    img: Image.Image, on_frame: Callable[[Image.Image], None] | None = None
+) -> list[float] | None:
     """Display time in milliseconds of each frame, leaving img on its first frame.
 
+    Args:
+        on_frame: Called with each frame once decoded.
     Returns:
-        None when a frame fails to decode or the frames outgrow MAX_ANIMATION_PIXELS.
+        None for a still image, or an animation that fails to decode or
+        outgrows MAX_ANIMATION_PIXELS.
     """
+    if not is_animated(img):
+        return None
+
     durations: list[float] = []
     pixels = 0
     try:
@@ -39,27 +47,14 @@ def frame_durations(img: Image.Image) -> list[float] | None:
                 return None
             # WebP only fills in a frame's duration once the frame is decoded
             frame.load()
+            if on_frame:
+                on_frame(frame)
             durations.append(frame.info.get("duration", 0))
     except OSError, SyntaxError, ValueError, Image.DecompressionBombError:
         return None
     finally:
         img.seek(0)
     return durations
-
-
-def reencode_params(img: Image.Image) -> dict[str, Any]:
-    """save() params that re-encode img's decoded frames in its own format."""
-    params: dict[str, Any] = {}
-    if "loop" in img.info:
-        params["loop"] = img.info["loop"]
-    # Pillow decodes frames fully composited, so each must replace the last
-    if img.format == "GIF":
-        params["disposal"] = 2
-    elif img.format == "PNG":
-        params.update(
-            disposal=Disposal.OP_NONE, blend=Blend.OP_SOURCE, default_image=False
-        )
-    return params
 
 
 def webp_loop(img: Image.Image) -> int:

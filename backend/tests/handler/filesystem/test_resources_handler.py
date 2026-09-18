@@ -10,7 +10,13 @@ import httpx
 import pytest
 from PIL import Image, ImageSequence
 from PIL.PngImagePlugin import Blend
-from tests.utils.test_images import animated_image_bytes, truncated_animation_bytes
+from tests.utils.test_images import (
+    DURATIONS,
+    FRAME_SIZE,
+    animated_image_bytes,
+    encode_animation,
+    truncated_animation_bytes,
+)
 
 import adapters.services.screenscraper as ss_module
 from adapters.services.screenscraper import (
@@ -163,6 +169,10 @@ class TestCheckContentType:
         assert _check_content_type(resp, ("image/",), "cover") is True
 
 
+# Sub-1000px covers shrink by 0.4
+SMALL_FRAME_SIZE = (int(FRAME_SIZE[0] * 0.4), int(FRAME_SIZE[1] * 0.4))
+
+
 class TestFSResourcesHandler:
     """Test suite for FSResourcesHandler class"""
 
@@ -263,20 +273,20 @@ class TestFSResourcesHandler:
         mock_image.resize.assert_called_once_with((expected_width, expected_height))
         mock_image.save.assert_called_once_with(save_path)
 
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
     def test_resize_cover_to_small_keeps_animation(
-        self, handler: FSResourcesHandler, tmp_path
+        self, handler: FSResourcesHandler, tmp_path: Path, fmt: str
     ):
         # Downloaded covers are stored as .png whatever the provider served
-        durations = [100, 250, 400]
         save_path = tmp_path / "small.png"
 
-        with Image.open(BytesIO(animated_image_bytes("WEBP", durations))) as img:
+        with Image.open(BytesIO(animated_image_bytes(fmt))) as img:
             handler.resize_cover_to_small(img, save_path=str(save_path))
 
         with Image.open(save_path) as small:
             assert small.format == "WEBP"
-            assert small.size == (24, 36)
-            assert frame_durations(small) == durations
+            assert small.size == SMALL_FRAME_SIZE
+            assert frame_durations(small) == DURATIONS
 
     @pytest.mark.parametrize(
         "fmt, source_params",
@@ -298,18 +308,10 @@ class TestFSResourcesHandler:
             frame = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
             frame.paste((255, 0, 0, 255), (i * 30, 0, i * 30 + 30, 30))
             frames.append(frame)
-        source = BytesIO()
-        frames[0].save(
-            source,
-            format=fmt,
-            save_all=True,
-            append_images=frames[1:],
-            duration=100,
-            **source_params,
-        )
-        save_path = tmp_path / f"small.{fmt.lower()}"
+        source = encode_animation(frames, fmt, [100] * len(frames), **source_params)
+        save_path = tmp_path / "small.png"
 
-        with Image.open(source) as img:
+        with Image.open(BytesIO(source)) as img:
             handler.resize_cover_to_small(img, save_path=str(save_path))
 
         with Image.open(save_path) as small:
@@ -329,14 +331,13 @@ class TestFSResourcesHandler:
 
         with Image.open(save_path) as small:
             assert not small.is_animated
-            assert small.size == (24, 36)
+            assert small.size == SMALL_FRAME_SIZE
 
     async def test_store_artwork_keeps_animation(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
     ):
         handler.base_path = tmp_path
-        durations = [100, 250, 400]
-        data = animated_image_bytes("GIF", durations)
+        data = animated_image_bytes("GIF")
 
         with patch(
             "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
@@ -349,8 +350,8 @@ class TestFSResourcesHandler:
         assert path_cover_l is not None and path_cover_s is not None
         assert (tmp_path / path_cover_l).read_bytes() == data
         with Image.open(tmp_path / path_cover_s) as small:
-            assert small.format == "GIF"
-            assert frame_durations(small) == durations
+            assert small.format == "WEBP"
+            assert frame_durations(small) == DURATIONS
 
     def test_get_cover_path_no_cover(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path

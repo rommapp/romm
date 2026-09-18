@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from anyio import Path as AnyioPath
 from fastapi import status
-from PIL import Image, ImageFile, ImageSequence, UnidentifiedImageError
+from PIL import Image, ImageFile, UnidentifiedImageError
 
 from adapters.services.screenscraper import media_download_slot
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
@@ -18,7 +18,7 @@ from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
-from utils.images import frame_durations, is_animated, reencode_params
+from utils.images import frame_durations, is_animated, webp_loop
 
 from .base_handler import CoverSize, FSHandler
 
@@ -145,21 +145,20 @@ class FSResourcesHandler(FSHandler):
         small_height = int(cover.height * ratio)
         small_size = (small_width, small_height)
 
-        durations = frame_durations(cover) if is_animated(cover) else None
+        frames: list[Image.Image] = []
+        durations = frame_durations(
+            cover, lambda frame: frames.append(frame.convert("RGBA").resize(small_size))
+        )
         if durations:
-            frames = [
-                frame.convert("RGBA").resize(small_size)
-                for frame in ImageSequence.Iterator(cover)
-            ]
-            # Kept in the source format: as an APNG the same frames weigh
-            # several times more.
+            # WebP whatever the source: it takes whole frames where GIF/APNG
+            # need per-format blending, and it weighs several times less.
             frames[0].save(
                 save_path,
-                format=cover.format,
+                format="WEBP",
                 save_all=True,
                 append_images=frames[1:],
                 duration=durations,
-                **reencode_params(cover),
+                loop=webp_loop(cover),
             )
             return
 
@@ -405,7 +404,11 @@ class FSResourcesHandler(FSHandler):
                 if is_animated(img):
                     # Stored as uploaded: re-encoding the composited frames
                     # costs quality and GIF/APNG frame blending.
-                    path_cover_l.write_bytes(artwork.getvalue())
+                    await self.write_file(
+                        artwork,
+                        path=f"{entity.fs_resources_path}/cover",
+                        filename=path_cover_l.name,
+                    )
                 else:
                     img.save(path_cover_l)
                 self.resize_cover_to_small(img, save_path=str(path_cover_s))

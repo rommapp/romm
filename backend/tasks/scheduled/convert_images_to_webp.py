@@ -15,7 +15,7 @@ from config import (
 )
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType, update_job_meta
-from utils.images import frame_durations, is_animated, webp_loop
+from utils.images import frame_durations, webp_loop
 from utils.media_types import ALLOWED_IMAGE_EXTENSIONS
 
 
@@ -79,7 +79,7 @@ class ImageConverter:
                     # source in place would truncate it mid-read.
                     if webp_path != image_path:
                         shutil.copyfile(image_path, webp_path)
-                elif is_animated(img) and (durations := frame_durations(img)):
+                elif durations := frame_durations(img):
                     img.save(
                         webp_path,
                         "WEBP",
