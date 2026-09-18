@@ -6,8 +6,8 @@
 //                wants there: an InfoPanel with platform / collection
 //                metadata, a plain PageHeader for Search, etc.
 //   2. TOOLBAR — search input + group/layout/dock controls. Sticky right
-//                below the top bar; once the gallery scrolls it turns to
-//                glass (with the top bar), so cards blur behind both.
+//                below the top bar; once pinned it shares one glass surface
+//                with the top bar, so cards blur behind both.
 //   3. GRID / TABLE — the row-virtualised content (cards in grid mode,
 //                div-based rows in list mode — same shell scroller, same
 //                AlphaStrip wiring; the list column header lives in the
@@ -28,7 +28,6 @@ import {
 import { storeToRefs } from "pinia";
 import {
   computed,
-  type ComponentPublicInstance,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -65,7 +64,7 @@ import {
   type GalleryItem,
 } from "@/v2/composables/useGalleryVirtualItems";
 import { useGridNav } from "@/v2/composables/useGridNav";
-import { useNavGlass } from "@/v2/composables/useNavGlass";
+import { usePinnedToolbar } from "@/v2/composables/usePinnedToolbar";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -380,74 +379,17 @@ const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 // ── Toolbar ─────────────────────────────────────────────────────────
 // `toolbarHeight` drives `scrollToIndex({ stickyOffset })` (so AlphaStrip lands
 // rows below the pinned toolbar), the list header's and the strip's `top`.
-const toolbarEl = ref<HTMLElement | null>(null);
-const toolbarHeight = ref(0);
-// A zero-height, NON-sticky marker right before the toolbar: its offsetTop is
-// the toolbar's natural top. The sticky toolbar's own offsetTop can't be used,
-// it reports the pinned position once stuck.
-const pinSentinelEl = ref<HTMLElement | null>(null);
-const toolbarNaturalTop = ref(0);
-// The toolbar's sticky `top` (the top bar's height), read from its style.
-const pinnedTop = ref(0);
-let toolbarResizeObserver: ResizeObserver | null = null;
-
-function remeasureToolbar() {
-  const toolbar = toolbarEl.value;
-  toolbarHeight.value = toolbar?.getBoundingClientRect().height ?? 0;
-  pinnedTop.value = toolbar
-    ? parseFloat(getComputedStyle(toolbar).top) || 0
-    : 0;
-  toolbarNaturalTop.value = pinSentinelEl.value?.offsetTop ?? 0;
-}
-
-function rebuildToolbarObserver() {
-  toolbarResizeObserver?.disconnect();
-  toolbarResizeObserver = null;
-  remeasureToolbar();
-  const toolbar = toolbarEl.value;
-  const sentinel = pinSentinelEl.value;
-  if (!toolbar && !sentinel) return;
-  toolbarResizeObserver = new ResizeObserver(remeasureToolbar);
-  if (toolbar) toolbarResizeObserver.observe(toolbar);
-  // Earlier siblings (header / divider) move the sentinel when they resize.
-  let prev = sentinel?.previousElementSibling;
-  while (prev) {
-    toolbarResizeObserver.observe(prev);
-    prev = prev.previousElementSibling;
-  }
-}
-
-// Both bound via STABLE function refs (never inline arrows): an inline `(el) =>
-// …` ref has a new identity every render, so Vue re-invokes it with `null`
-// then the element on EVERY re-render — and this component re-renders on every
-// scroll frame. That churn would reset the measurements each frame.
-function bindToolbarEl(el: Element | ComponentPublicInstance | null) {
-  toolbarEl.value = (el as HTMLElement | null) ?? null;
-  rebuildToolbarObserver();
-}
-function bindPinSentinel(el: Element | ComponentPublicInstance | null) {
-  pinSentinelEl.value = (el as HTMLElement | null) ?? null;
-  rebuildToolbarObserver();
-}
-
-// The top bar turns to glass as soon as the gallery scrolls (the header passes
-// under it); the toolbar only once it pins below the top bar.
-const { innerScrolled, innerGlass, threshold: glassThreshold } = useNavGlass();
 const scrollTopNow = computed(() => scrollerRef.value?.scrollTop ?? 0);
-watch(
-  () => scrollTopNow.value > glassThreshold,
-  (value) => (innerScrolled.value = value),
-  { immediate: true },
-);
-// How far the toolbar travels before it pins. The AlphaStrip follows its bottom
-// edge over that distance (a scroll-driven animation, JS where unsupported).
-const pinDistance = computed(() =>
-  Math.max(0, toolbarNaturalTop.value - pinnedTop.value),
-);
-const pinned = computed(
-  () => toolbarNaturalTop.value > 0 && scrollTopNow.value >= pinDistance.value,
-);
-watch(pinned, (value) => (innerGlass.value = value), { immediate: true });
+const {
+  toolbarHeight,
+  pinnedTop,
+  pinDistance,
+  pinned,
+  bindToolbar: bindToolbarEl,
+  bindSentinel: bindPinSentinel,
+} = usePinnedToolbar(scrollTopNow);
+// The AlphaStrip follows the toolbar's bottom edge until it pins (a
+// scroll-driven animation, JS where unsupported).
 const supportsScrollTimeline =
   typeof CSS !== "undefined" && CSS.supports("animation-timeline: scroll()");
 const stripShift = computed(() =>
@@ -791,10 +733,6 @@ onBeforeUnmount(() => {
   // navigating away mid-scroll doesn't keep the network / backend busy.
   // Keeps the hydrated cache so returning to the same gallery is instant.
   galleryRoms.abortInFlight();
-  toolbarResizeObserver?.disconnect();
-  toolbarResizeObserver = null;
-  innerScrolled.value = false;
-  innerGlass.value = false;
   // Drop the debug stats so the overlay doesn't show stale gallery numbers
   // on the next (non-gallery) route.
   virtualDebug.clear();
@@ -887,6 +825,7 @@ defineExpose({
           </div>
           <RDivider class="r-v2-shell__header-divider" />
         </template>
+        <div v-else class="r-v2-shell__nav-spacer" />
 
         <div
           v-if="toolbarPosition === 'header'"
@@ -1096,11 +1035,8 @@ html[data-bp~="xs"] .r-v2-shell {
   --r-alpha-strip-gap: var(--r-space-2);
 }
 
-/* Scroller: padding-top moved into the prepend's first child via
-   `padding-top` on the header so the inflow toolbar's `offsetTop`
-   measurement isn't perturbed by the scroller's own padding. The
-   horizontal pads stay here so all in-flow content (header,
-   toolbar, rows) shares one column. */
+/* The horizontal pads live here so all in-flow content (header, toolbar,
+   rows) shares one column. */
 .r-v2-shell__scroller {
   flex: 1;
   height: 100%;
@@ -1116,14 +1052,17 @@ html[data-bp~="xs"] .r-v2-shell {
   width: 100%;
 }
 
-/* Header band — `display: flow-root` establishes a new
-   block-formatting context so child margins don't collapse out
-   visually. The 32px `padding-top` provides the breathing space at
-   the very top of the gallery (replacing what used to live on the
-   scroller). */
+/* Header band — `display: flow-root` establishes a new block-formatting
+   context so child margins don't collapse out visually. */
 .r-v2-shell__header {
   display: flow-root;
   padding-top: calc(var(--r-nav-h) + 32px);
+}
+/* The header (or this spacer, without one) clears the top bar the section
+   runs under. Not the scroller's padding: that would also offset the sticky
+   toolbar. */
+.r-v2-shell__nav-spacer {
+  height: var(--r-nav-h);
 }
 
 /* Divider between header and toolbar; scrolls away with the header. */
@@ -1177,18 +1116,14 @@ html[data-bp~="xs"] .r-v2-shell {
   position: absolute;
   inset: calc(-1 * var(--r-nav-h)) calc(-1 * var(--r-row-pad)) 0;
   z-index: -1;
-  background: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
-  backdrop-filter: blur(20px);
+  background: var(--r-glass-bar-bg);
+  backdrop-filter: var(--r-glass-bar-filter);
   border-bottom: 1px solid var(--r-color-border);
   opacity: 0;
   pointer-events: none;
 }
 .r-v2-shell--pinned .r-v2-shell__toolbar::before {
   opacity: 1;
-}
-html.r-v2-reduced-motion .r-v2-shell__toolbar::before {
-  background: var(--r-color-bg);
-  backdrop-filter: none;
 }
 
 /* When the list scrolls horizontally (columns wider than the viewport), the
