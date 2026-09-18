@@ -30,6 +30,7 @@ import {
   ref,
   watch,
 } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import type { RCarouselProps } from "./types";
@@ -42,11 +43,19 @@ const props = withDefaults(defineProps<RCarouselProps<T>>(), {
   showCounter: undefined,
   showArrows: undefined,
   showThumbnails: false,
-  closeLabel: "Close",
-  prevLabel: "Previous",
-  nextLabel: "Next",
+  closeLabel: undefined,
+  prevLabel: undefined,
+  nextLabel: undefined,
   ariaLabel: undefined,
 });
+
+const labels = useChromeLabels();
+
+// The props stay as per-instance overrides; unset, each falls back to the
+// injected bundle rather than an English literal.
+const closeText = computed(() => props.closeLabel ?? labels.close);
+const prevText = computed(() => props.prevLabel ?? labels.previous);
+const nextText = computed(() => props.nextLabel ?? labels.next);
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: number): void;
@@ -212,7 +221,7 @@ function onBackdropClick(event: MouseEvent) {
       <button
         type="button"
         class="r-carousel__close"
-        :aria-label="closeLabel"
+        :aria-label="closeText"
         @click="close"
       >
         <RIcon icon="mdi-close" size="20" />
@@ -248,7 +257,7 @@ function onBackdropClick(event: MouseEvent) {
         v-if="showArrowsResolved"
         type="button"
         class="r-carousel__nav r-carousel__nav--prev"
-        :aria-label="prevLabel"
+        :aria-label="prevText"
         :disabled="!loop && safeIndex === 0"
         @click.stop="go(-1)"
       >
@@ -258,7 +267,7 @@ function onBackdropClick(event: MouseEvent) {
         v-if="showArrowsResolved"
         type="button"
         class="r-carousel__nav r-carousel__nav--next"
-        :aria-label="nextLabel"
+        :aria-label="nextText"
         :disabled="!loop && safeIndex === total - 1"
         @click.stop="go(1)"
       >
@@ -332,7 +341,7 @@ function onBackdropClick(event: MouseEvent) {
         variant="translucent"
         size="small"
         class="r-carousel__nav r-carousel__nav--prev"
-        :aria-label="prevLabel"
+        :aria-label="prevText"
         :disabled="!loop && safeIndex === 0"
         @click.stop="go(-1)"
       />
@@ -342,7 +351,7 @@ function onBackdropClick(event: MouseEvent) {
         variant="translucent"
         size="small"
         class="r-carousel__nav r-carousel__nav--next"
-        :aria-label="nextLabel"
+        :aria-label="nextText"
         :disabled="!loop && safeIndex === total - 1"
         @click.stop="go(1)"
       />

@@ -37,6 +37,7 @@ import {
   watch,
 } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -151,6 +152,7 @@ const props = withDefaults(defineProps<Props>(), {
   density: "comfortable",
   itemTitle: "title",
   itemValue: "value",
+  allOptionLabel: undefined,
   multiple: false,
   returnObject: false,
   chips: false,
@@ -177,10 +179,14 @@ const props = withDefaults(defineProps<Props>(), {
   maxVisibleChips: Number.POSITIVE_INFINITY,
   chipTone: "brand",
   showAllOption: false,
-  allOptionLabel: "All",
   dividerAfter: undefined,
   info: undefined,
 });
+
+const labels = useChromeLabels();
+
+// Prop stays a per-instance override; unset it follows the injected bundle.
+const allText = computed(() => props.allOptionLabel ?? labels.all);
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: unknown): void;
@@ -1009,13 +1015,13 @@ const describedBy = computed(() => {
           :tone="chipTone"
           size="small"
         >
-          {{ allOptionLabel }}
+          {{ allText }}
           <template v-if="closableChips" #append>
             <button
               type="button"
               class="r-select__chip-close"
               tabindex="-1"
-              aria-label="Remove"
+              :aria-label="labels.remove"
               @mousedown.prevent
               @click.stop="isAllSelected = false"
             >
@@ -1052,7 +1058,7 @@ const describedBy = computed(() => {
                 type="button"
                 class="r-select__chip-close"
                 tabindex="-1"
-                aria-label="Remove"
+                :aria-label="labels.remove"
                 @mousedown.prevent
                 @click.stop="removeSelection(item.value)"
               >
@@ -1109,7 +1115,7 @@ const describedBy = computed(() => {
           type="button"
           class="r-select__clear"
           tabindex="-1"
-          aria-label="Clear"
+          :aria-label="labels.clear"
           @mousedown.prevent
           @click.stop="clear"
         >
@@ -1216,7 +1222,7 @@ const describedBy = computed(() => {
                 @click="toggleAllItems"
                 @mouseenter="activeIndex = -1"
               >
-                <span class="r-select__item-title">{{ allOptionLabel }}</span>
+                <span class="r-select__item-title">{{ allText }}</span>
                 <RIcon
                   v-if="isAllSelected"
                   icon="mdi-check"

@@ -31,6 +31,7 @@ import {
   ref,
   watch,
 } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "../../primitives/RBtn/RBtn.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RTextField from "../RTextField/RTextField.vue";
@@ -71,13 +72,19 @@ const props = withDefaults(defineProps<Props>(), {
   firstDayOfWeek: 1,
   min: null,
   max: null,
-  todayLabel: "Today",
-  clearLabel: "Clear",
   hideFooter: false,
   disabled: false,
   displayFormat: () => ({ dateStyle: "medium" }),
+  todayLabel: undefined,
+  clearLabel: undefined,
   clearable: false,
 });
+
+const labels = useChromeLabels();
+
+// Props stay per-instance overrides; unset, each follows the injected bundle.
+const todayText = computed(() => props.todayLabel ?? labels.today);
+const clearText = computed(() => props.clearLabel ?? labels.clear);
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: Date | null): void;
@@ -475,7 +482,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="r-date-field__clear"
-          :aria-label="clearLabel"
+          :aria-label="clearText"
           @mousedown.prevent
           @click.stop="clearValue"
         >
@@ -493,7 +500,7 @@ onBeforeUnmount(() => {
           class="r-date-cal"
           :style="floatingStyles"
           role="dialog"
-          aria-label="Date picker"
+          :aria-label="labels.datePicker"
           @keydown="onPanelKeydown"
         >
           <!-- Header — month/year title flanked by nav arrows. The
@@ -503,7 +510,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="r-date-cal__nav"
-              aria-label="Previous year"
+              :aria-label="labels.previousYear"
               @click="shiftYear(-1)"
             >
               <RIcon icon="mdi-chevron-double-left" size="x-small" />
@@ -511,7 +518,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="r-date-cal__nav"
-              aria-label="Previous month"
+              :aria-label="labels.previousMonth"
               @click="shiftMonth(-1)"
             >
               <RIcon icon="mdi-chevron-left" size="x-small" />
@@ -524,7 +531,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="r-date-cal__nav"
-              aria-label="Next month"
+              :aria-label="labels.nextMonth"
               @click="shiftMonth(1)"
             >
               <RIcon icon="mdi-chevron-right" size="x-small" />
@@ -532,7 +539,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="r-date-cal__nav"
-              aria-label="Next year"
+              :aria-label="labels.nextYear"
               @click="shiftYear(1)"
             >
               <RIcon icon="mdi-chevron-double-right" size="x-small" />
@@ -582,7 +589,7 @@ onBeforeUnmount(() => {
                quick-access buttons (e.g. embedded in a complex form). -->
           <div v-if="!hideFooter" class="r-date-cal__foot">
             <RBtn variant="text" size="small" @click="selectToday">
-              {{ todayLabel }}
+              {{ todayText }}
             </RBtn>
             <RBtn
               variant="text"
@@ -591,7 +598,7 @@ onBeforeUnmount(() => {
               :disabled="!selectedDate"
               @click="clearValue"
             >
-              {{ clearLabel }}
+              {{ clearText }}
             </RBtn>
           </div>
         </div>

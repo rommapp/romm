@@ -28,6 +28,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
 import RTooltip from "../../structural/RTooltip/RTooltip.vue";
@@ -143,6 +144,8 @@ const props = withDefaults(defineProps<Props>(), {
   mono: false,
   subtitle: undefined,
 });
+
+const labels = useChromeLabels();
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string): void;
@@ -550,7 +553,7 @@ function onAppendInnerClick(evt: MouseEvent) {
           type="button"
           class="r-text-field__clear"
           tabindex="-1"
-          aria-label="Clear"
+          :aria-label="labels.clear"
           @mousedown.prevent
           @click.stop="clear"
         >
