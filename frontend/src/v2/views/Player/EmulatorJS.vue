@@ -1087,6 +1087,18 @@ html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-main {
   order: -1;
 }
+/* Chrome and Edge below 117 ignore subgrid, so each column falls back to its
+   own flex stack there; the two titles no longer share a row. */
+@supports not (grid-template-rows: subgrid) {
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-main,
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-side {
+    display: flex;
+  }
+}
 /* Beside the grid the stage can afford the screenshots' own ratio, which
    also gives the empty copy room. */
 html[data-bp~="md-and-up"]
