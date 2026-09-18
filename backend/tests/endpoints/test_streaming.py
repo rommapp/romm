@@ -3059,9 +3059,7 @@ def test_a_termination_notice_names_the_claim_it_ended(
     """A re-claim of the same container keeps its key, so only the stamp tells
     the tab that lost its claim from the one holding the next."""
     with _streaming(_container_for(rom)):
-        claimed_at = _claim_ok(client, viewer_access_token, rom.id).json()[
-            "claimed_at"
-        ]
+        claimed_at = _claim_ok(client, viewer_access_token, rom.id).json()["claimed_at"]
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             headers=_auth(access_token),
@@ -5411,6 +5409,13 @@ def test_a_force_release_keeps_asking_while_the_emulator_flushes(
     assert fetch.call_count == broker.PULL_ATTEMPTS
 
 
+def _broker_saves(body: dict):
+    """A broker whose save-and-exit answers with `body`, and nothing else."""
+    return lambda _container, path, *args, **kwargs: (
+        body if path == "/save-and-exit" else None
+    )
+
+
 @pytest.mark.parametrize(
     ("saved", "attempts"), [(True, 1), (False, broker.PULL_ATTEMPTS)]
 )
@@ -5423,8 +5428,8 @@ def test_a_blocking_save_and_exit_takes_one_answer_only_once_the_broker_confirms
         _claim_ok(client, access_token, rom.id)
         with (
             patch(
-                "handler.streaming.commands.save_and_exit",
-                return_value=commands.SaveAndExitOutcome(saved, 10, saved),
+                "handler.streaming.broker.request_safe",
+                side_effect=_broker_saves({"saved": saved, "slot": 10}),
             ),
             patch(
                 "handler.streaming.states.pull_state_to_library",
@@ -5448,13 +5453,17 @@ def test_a_background_save_and_exit_keeps_asking_while_the_emulator_writes(
     client, access_token, rom: Rom
 ):
     """With wait=false the broker is still saving when the pull starts, so an
-    early "nothing new" is not the answer yet."""
+    early "nothing new" is not the answer yet, even from a save it confirmed."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
             patch(
-                "handler.streaming.commands.save_and_exit",
-                return_value=commands.SaveAndExitOutcome(False, 10, False),
+                "handler.streaming.broker.request_safe",
+                side_effect=_broker_saves({"saved": True, "slot": 10}),
+            ),
+            patch(
+                "handler.streaming.states.pull_state_to_library",
+                new=AsyncMock(return_value=True),
             ),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
