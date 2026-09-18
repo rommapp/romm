@@ -39,9 +39,6 @@ describe("useChromeLabels", () => {
   });
 });
 
-// The label props that predate the injected bundle defaulted to English
-// literals and were never passed by any call site, so they rendered English
-// in every locale. These assertions are what stops that regressing.
 describe("primitives consume the injected bundle", () => {
   it("RChip's remove button uses the injected label", () => {
     const wrapper = mount(RChip, {
