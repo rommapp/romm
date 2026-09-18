@@ -18,6 +18,7 @@ import type {
   StateSchema,
   NetplayICEServer,
 } from "@/__generated__";
+import { useUiVersion } from "@/composables/useUiVersion";
 import { ROUTES } from "@/plugins/router";
 import { saveApi as api } from "@/services/api/save";
 import pendingAssetStore, {
@@ -343,14 +344,19 @@ window.EJS_backgroundColor = theme.current.value.colors.background;
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
-  // Saves sync as the game writes them, and load from the save/state picker.
+  // Saves reach the server by auto-sync or Save & Quit, and load from the picker.
   saveSavFiles: false,
   loadSavFiles: false,
   restart: { displayName: t("play.restart") },
   pause: { displayName: t("play.pause") },
   play: { displayName: t("play.resume") },
   saveState: { displayName: t("play.save-state") },
-  loadState: { displayName: t("rom.load-save-or-state") },
+  loadState: {
+    displayName:
+      useUiVersion().value === "v2"
+        ? t("rom.load-save-or-state")
+        : t("play.load-state"),
+  },
   gamepad: { displayName: t("play.control-settings") },
   cheat: { displayName: t("play.cheats") },
   cacheManager: { displayName: t("play.cache-manager") },
@@ -634,27 +640,28 @@ function onPageHide() {
 async function loadSave(save: SaveSchema) {
   saveGeneration += 1;
   saveLoading = true;
-  loadedSave = save;
-  sessionSaveRef.value = null;
 
   try {
     const { data } = await api.get(save.download_path.replace("/api", ""), {
       responseType: "arraybuffer",
       params: { device_id: deviceIDRef.value },
     });
+    const bytes = data
+      ? new Uint8Array(data)
+      : new Uint8Array(
+          await (await window.EJS_emulator.selectFile()).arrayBuffer(),
+        );
+    loadEmulatorJSSave(bytes);
+    // Writes follow the picked save only once its bytes are in the core.
+    loadedSave = save;
+    sessionSaveRef.value = null;
     if (data) {
-      const bytes = new Uint8Array(data);
-      loadEmulatorJSSave(bytes);
       saveTracker.seed(bytes);
       displayMessage(t("play.save-loaded"), {
         duration: 3000,
         icon: "mdi-cloud-download-outline",
       });
-      return;
     }
-
-    const file = await window.EJS_emulator.selectFile();
-    loadEmulatorJSSave(new Uint8Array(await file.arrayBuffer()));
   } finally {
     saveLoading = false;
   }
@@ -662,7 +669,17 @@ async function loadSave(save: SaveSchema) {
 
 // The game reads its SRAM as it boots, so a save picked mid-game restarts it.
 async function switchSave(save: SaveSchema) {
-  await loadSave(save);
+  try {
+    await loadSave(save);
+  } catch (error) {
+    console.error("Loading the picked save failed", error);
+    displayMessage(t("play.load-save-failed"), {
+      duration: 4000,
+      tone: "error",
+      icon: "mdi-cloud-off-outline",
+    });
+    return;
+  }
   window.EJS_emulator.gameManager.restart();
 }
 

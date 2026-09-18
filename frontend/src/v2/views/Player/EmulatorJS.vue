@@ -218,6 +218,7 @@ declare global {
 
 const {
   tabs: assetTabs,
+  stateCount,
   compatibleStates,
   allStatesCompatible,
   stateDisabledReason,
@@ -226,7 +227,6 @@ const {
   () => rom.value?.user_states ?? [],
   selectedCore,
 );
-const stateCount = computed(() => rom.value?.user_states.length ?? 0);
 
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 

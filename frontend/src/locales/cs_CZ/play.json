@@ -75,6 +75,7 @@
   "load-save": "Načíst uloženou pozici",
   "load-save-confirm-body": "Hra se restartuje z této pozice a vše, co jste neuložili, se ztratí.",
   "load-save-confirm-title": "Načíst tuto uloženou pozici?",
+  "load-save-failed": "Vybranou uloženou pozici se nepodařilo načíst.",
   "load-state": "Načíst stav",
   "load-state-confirm-body": "Hra se vrátí do okamžiku uložení tohoto stavu a vše, co jste neuložili, se ztratí.",
   "load-state-confirm-title": "Načíst tento stav?",

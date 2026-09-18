@@ -75,6 +75,7 @@
   "load-save": "Cargar partida",
   "load-save-confirm-body": "El juego se reinicia desde esta partida y se pierde todo lo que no hayas guardado.",
   "load-save-confirm-title": "¿Cargar esta partida?",
+  "load-save-failed": "No se pudo cargar la partida seleccionada.",
   "load-state": "Cargar estado",
   "load-state-confirm-body": "El juego vuelve al momento en que se guardó este estado y se pierde todo lo que no hayas guardado.",
   "load-state-confirm-title": "¿Cargar este estado?",

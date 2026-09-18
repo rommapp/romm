@@ -75,6 +75,7 @@
   "load-save": "Kaydı yükle",
   "load-save-confirm-body": "Oyun bu kayıttan yeniden başlar ve kaydetmediğin her şey kaybolur.",
   "load-save-confirm-title": "Bu kayıt yüklensin mi?",
+  "load-save-failed": "Seçilen kayıt yüklenemedi.",
   "load-state": "Durumu yükle",
   "load-state-confirm-body": "Oyun bu durumun kaydedildiği ana döner ve kaydetmediğin her şey kaybolur.",
   "load-state-confirm-title": "Bu durum yüklensin mi?",

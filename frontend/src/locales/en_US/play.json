@@ -75,6 +75,7 @@
   "load-save": "Load save",
   "load-save-confirm-body": "The game restarts from this save, and anything you haven't saved is lost.",
   "load-save-confirm-title": "Load this save?",
+  "load-save-failed": "Could not load the selected save.",
   "load-state": "Load state",
   "load-state-confirm-body": "The game jumps to the moment this state was saved, and anything you haven't saved is lost.",
   "load-state-confirm-title": "Load this state?",

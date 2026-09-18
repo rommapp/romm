@@ -75,6 +75,7 @@
   "load-save": "Charger la sauvegarde",
   "load-save-confirm-body": "Le jeu redémarre depuis cette sauvegarde et tout ce qui n'a pas été sauvegardé est perdu.",
   "load-save-confirm-title": "Charger cette sauvegarde ?",
+  "load-save-failed": "Impossible de charger la sauvegarde sélectionnée.",
   "load-state": "Charger l'état",
   "load-state-confirm-body": "Le jeu revient au moment où cet état a été sauvegardé et tout ce qui n'a pas été sauvegardé est perdu.",
   "load-state-confirm-title": "Charger cet état ?",

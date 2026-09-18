@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// LoadSaveStateDialog: the in-game Load button's picker, with the launch
-// screen's Saves / States tabs. Opens on `selectStateDialog` and emits
-// `saveSelected` or `stateSelected`.
+// The in-game Load picker with the launch screen's Saves / States tabs: opens
+// on `selectStateDialog`, emits `saveSelected` or `stateSelected`.
 import { RBtn, RDialog, RSliderBtnGroup } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
@@ -35,6 +34,7 @@ const { tabs, stateDisabledReason } = useSaveStateTabs(
 const emitter = inject<Emitter<Events>>("emitter");
 const openHandler = (selectedRom: DetailedRom) => {
   rom.value = selectedRom;
+  tab.value = "state";
   show.value = true;
 };
 emitter?.on("selectStateDialog", openHandler);

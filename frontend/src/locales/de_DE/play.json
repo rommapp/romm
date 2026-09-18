@@ -75,6 +75,7 @@
   "load-save": "Speicherstand laden",
   "load-save-confirm-body": "Das Spiel startet mit diesem Speicherstand neu, und alles nicht Gespeicherte geht verloren.",
   "load-save-confirm-title": "Diesen Speicherstand laden?",
+  "load-save-failed": "Der ausgewählte Speicherstand konnte nicht geladen werden.",
   "load-state": "Spielstand laden",
   "load-state-confirm-body": "Das Spiel springt zu dem Moment, in dem dieser Zustand gespeichert wurde, und alles nicht Gespeicherte geht verloren.",
   "load-state-confirm-title": "Diesen Zustand laden?",

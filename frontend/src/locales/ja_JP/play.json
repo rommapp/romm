@@ -75,6 +75,7 @@
   "load-save": "セーブデータをロード",
   "load-save-confirm-body": "このセーブデータからゲームが再起動し、保存していない進行状況は失われます。",
   "load-save-confirm-title": "このセーブデータをロードしますか？",
+  "load-save-failed": "選択したセーブデータをロードできませんでした。",
   "load-state": "ステートをロード",
   "load-state-confirm-body": "このステートを保存した時点にゲームが戻り、保存していない進行状況は失われます。",
   "load-state-confirm-title": "このステートをロードしますか？",

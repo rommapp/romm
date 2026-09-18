@@ -75,6 +75,7 @@
   "load-save": "Încarcă salvarea",
   "load-save-confirm-body": "Jocul repornește din această salvare și tot ce nu ai salvat se pierde.",
   "load-save-confirm-title": "Încarci această salvare?",
+  "load-save-failed": "Salvarea selectată nu a putut fi încărcată.",
   "load-state": "Încarcă starea",
   "load-state-confirm-body": "Jocul revine la momentul în care a fost salvată această stare și tot ce nu ai salvat se pierde.",
   "load-state-confirm-title": "Încarci această stare?",

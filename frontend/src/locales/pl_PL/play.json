@@ -75,6 +75,7 @@
   "load-save": "Wczytaj zapis",
   "load-save-confirm-body": "Gra uruchomi się od nowa z tego zapisu, a niezapisane postępy zostaną utracone.",
   "load-save-confirm-title": "Wczytać ten zapis?",
+  "load-save-failed": "Nie udało się wczytać wybranego zapisu.",
   "load-state": "Wczytaj stan",
   "load-state-confirm-body": "Gra wróci do chwili zapisania tego stanu, a niezapisane postępy zostaną utracone.",
   "load-state-confirm-title": "Wczytać ten stan?",

@@ -75,6 +75,7 @@
   "load-save": "載入存檔",
   "load-save-confirm-body": "遊戲將從此存檔重新啟動，所有未儲存的進度都會遺失。",
   "load-save-confirm-title": "要載入此存檔嗎？",
+  "load-save-failed": "無法載入所選存檔。",
   "load-state": "載入即時存檔",
   "load-state-confirm-body": "遊戲將回到此即時存檔儲存時的狀態，所有未儲存的進度都會遺失。",
   "load-state-confirm-title": "要載入此即時存檔嗎？",

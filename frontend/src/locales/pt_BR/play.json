@@ -75,6 +75,7 @@
   "load-save": "Carregar save",
   "load-save-confirm-body": "O jogo reinicia a partir deste save e tudo o que você não salvou é perdido.",
   "load-save-confirm-title": "Carregar este save?",
+  "load-save-failed": "Não foi possível carregar o save selecionado.",
   "load-state": "Carregar estado",
   "load-state-confirm-body": "O jogo volta ao momento em que este estado foi salvo e tudo o que você não salvou é perdido.",
   "load-state-confirm-title": "Carregar este estado?",

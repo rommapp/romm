@@ -75,6 +75,7 @@
   "load-save": "Mentés betöltése",
   "load-save-confirm-body": "A játék ebből a mentésből indul újra, és minden el nem mentett haladás elvész.",
   "load-save-confirm-title": "Betöltöd ezt a mentést?",
+  "load-save-failed": "A kiválasztott mentést nem sikerült betölteni.",
   "load-state": "Állapot betöltése",
   "load-state-confirm-body": "A játék visszaugrik abba a pillanatba, amikor ezt az állapotot mentetted, és minden el nem mentett haladás elvész.",
   "load-state-confirm-title": "Betöltöd ezt az állapotot?",

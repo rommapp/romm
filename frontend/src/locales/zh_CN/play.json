@@ -75,6 +75,7 @@
   "load-save": "加载存档",
   "load-save-confirm-body": "游戏将从此存档重新启动，所有未保存的进度都会丢失。",
   "load-save-confirm-title": "加载此存档？",
+  "load-save-failed": "无法加载所选存档。",
   "load-state": "加载即时存档",
   "load-state-confirm-body": "游戏将回到此即时存档保存时的状态，所有未保存的进度都会丢失。",
   "load-state-confirm-title": "加载此即时存档？",

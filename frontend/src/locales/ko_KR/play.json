@@ -75,6 +75,7 @@
   "load-save": "세이브 불러오기",
   "load-save-confirm-body": "이 세이브에서 게임이 다시 시작되며 저장하지 않은 진행 상황은 사라집니다.",
   "load-save-confirm-title": "이 세이브를 불러올까요?",
+  "load-save-failed": "선택한 세이브를 불러오지 못했습니다.",
   "load-state": "상태 불러오기",
   "load-state-confirm-body": "이 상태를 저장한 시점으로 게임이 돌아가며 저장하지 않은 진행 상황은 사라집니다.",
   "load-state-confirm-title": "이 상태를 불러올까요?",

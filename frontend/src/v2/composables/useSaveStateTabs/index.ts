@@ -15,11 +15,12 @@ export function useSaveStateTabs(
 ) {
   const { t } = useI18n();
 
+  const stateCount = computed(() => toValue(states).length);
   const compatibleStates = computed(() =>
     toValue(states).filter((state) => isCoreCompatible(state, toValue(core))),
   );
   const allStatesCompatible = computed(
-    () => compatibleStates.value.length === toValue(states).length,
+    () => compatibleStates.value.length === stateCount.value,
   );
 
   const tabs = computed<SliderBtnGroupItem<AssetType>[]>(() => [
@@ -33,8 +34,8 @@ export function useSaveStateTabs(
       id: "state",
       label: t("common.states"),
       badge: allStatesCompatible.value
-        ? toValue(states).length
-        : `${compatibleStates.value.length}/${toValue(states).length}`,
+        ? stateCount.value
+        : `${compatibleStates.value.length}/${stateCount.value}`,
       icon: "mdi-file",
     },
   ]);
@@ -45,5 +46,11 @@ export function useSaveStateTabs(
     return t("play.state-incompatible-core", { emulator: asset.emulator });
   }
 
-  return { tabs, compatibleStates, allStatesCompatible, stateDisabledReason };
+  return {
+    tabs,
+    stateCount,
+    compatibleStates,
+    allStatesCompatible,
+    stateDisabledReason,
+  };
 }
