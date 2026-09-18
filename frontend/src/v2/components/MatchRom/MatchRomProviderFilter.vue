@@ -26,7 +26,7 @@ withDefaults(
     logo: string;
     enabled: boolean;
     active: boolean;
-    /** Chip height on the form density scale, so it can sit level with a
+    /** Chip height on the form density scale: `comfortable` matches a
      *  `density="comfortable"` field or a default-size RBtn. */
     density?: "compact" | "comfortable";
   }>(),

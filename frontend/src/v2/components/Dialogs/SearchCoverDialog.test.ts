@@ -167,7 +167,8 @@ describe("SearchCoverDialog", () => {
     searchCover.mockResolvedValue({
       data: [
         {
-          ...cover("sgdb", "https://sgdb/thumb/a.png"),
+          provider: "sgdb",
+          name: "Blur",
           resources: [
             resource("https://sgdb/thumb/a.png", 1),
             resource("https://sgdb/thumb/b.png", 5),

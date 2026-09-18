@@ -54,6 +54,7 @@ import RDivider from "@/v2/lib/primitives/RDivider/RDivider.vue";
 import REmptyState from "@/v2/lib/primitives/REmptyState/REmptyState.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RSpinner from "@/v2/lib/primitives/RSpinner/RSpinner.vue";
+import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
 import RCollapsible from "@/v2/lib/structural/RCollapsible/RCollapsible.vue";
 import RExpandTransition from "@/v2/lib/structural/RExpandTransition/RExpandTransition.vue";
 
@@ -380,16 +381,22 @@ function closeDialog() {
               surface
               size="small"
               prepend-icon="mdi-filter-variant"
-              :append-icon="filtersOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
               class="r-v2-sgdb__action"
               :aria-expanded="filtersOpen"
               aria-controls="r-v2-sgdb-filters"
               @click="filtersOpen = !filtersOpen"
             >
               {{ t("gallery.filters") }}
-              <span v-if="activeFilterCount > 0" class="r-v2-sgdb__count">
+              <RTag v-if="activeFilterCount > 0" tone="brand" size="x-small">
                 {{ activeFilterCount }}
-              </span>
+              </RTag>
+              <template #append>
+                <RIcon
+                  icon="mdi-chevron-down"
+                  size="16"
+                  class="r-chevron-toggle"
+                />
+              </template>
             </RBtn>
 
             <RMenu v-if="hasSgdbCovers" location="bottom end" :offset="6">
@@ -400,10 +407,16 @@ function closeDialog() {
                   surface
                   size="small"
                   prepend-icon="mdi-sort-descending"
-                  append-icon="mdi-menu-down"
                   class="r-v2-sgdb__action"
                 >
                   {{ sortLabel }}
+                  <template #append>
+                    <RIcon
+                      icon="mdi-menu-down"
+                      size="16"
+                      class="r-chevron-toggle"
+                    />
+                  </template>
                 </RBtn>
               </template>
               <RMenuItem
@@ -598,7 +611,7 @@ function closeDialog() {
 </template>
 
 <style scoped>
-/* Same rhythm as the match dialog's toolbar: 10px between rows, 8px within. */
+/* Same rhythm as the match dialog's toolbar. */
 .r-v2-sgdb__toolbar {
   display: flex;
   flex-direction: column;
@@ -627,19 +640,6 @@ function closeDialog() {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-}
-.r-v2-sgdb__count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: var(--r-radius-pill);
-  background: color-mix(in srgb, var(--r-color-brand-primary) 20%, transparent);
-  color: var(--r-color-brand-primary);
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  font-variant-numeric: tabular-nums;
 }
 
 .r-v2-sgdb__advanced {

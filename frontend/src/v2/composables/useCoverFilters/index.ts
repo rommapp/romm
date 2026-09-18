@@ -22,6 +22,8 @@ const ALL_PROVIDERS_ACTIVE: Record<CoverProvider, boolean> = {
   steam: true,
 };
 
+const CONTENT_DEFAULTS = { nsfw: false, humor: true, epilepsy: true };
+
 // SGDB serves styles as raw slugs; map the known set to readable labels
 // and fall back to the slug for anything new SGDB adds later.
 const STYLE_LABEL_KEYS: Record<string, string> = {
@@ -43,9 +45,9 @@ export function useCoverFilters(
   const styleFilter = ref("all");
   const uploaderFilter = ref("all");
   const uploaderSearch = ref("");
-  const showNsfw = ref(false);
-  const showHumor = ref(true);
-  const showEpilepsy = ref(true);
+  const showNsfw = ref(CONTENT_DEFAULTS.nsfw);
+  const showHumor = ref(CONTENT_DEFAULTS.humor);
+  const showEpilepsy = ref(CONTENT_DEFAULTS.epilepsy);
   const sortMode = ref<SortMode>("relevance");
   const activeProviders = ref<Record<CoverProvider, boolean>>({
     ...ALL_PROVIDERS_ACTIVE,
@@ -69,9 +71,9 @@ export function useCoverFilters(
     activeProviders.value = { ...ALL_PROVIDERS_ACTIVE };
     coverType.value = "all";
     resetResultFilters();
-    showNsfw.value = false;
-    showHumor.value = true;
-    showEpilepsy.value = true;
+    showNsfw.value = CONTENT_DEFAULTS.nsfw;
+    showHumor.value = CONTENT_DEFAULTS.humor;
+    showEpilepsy.value = CONTENT_DEFAULTS.epilepsy;
     sortMode.value = "relevance";
   }
 
@@ -94,7 +96,7 @@ export function useCoverFilters(
     covers.value.some((g) => g.provider === "sgdb" && g.resources.length > 0),
   );
 
-  // Filters moved off their `resetFilters` defaults. The content switches
+  // Advanced-panel filters moved off their defaults. The content switches
   // only render when SteamGridDB answered, so only then do they count.
   const activeFilterCount = computed(() => {
     const changed = [
@@ -104,7 +106,11 @@ export function useCoverFilters(
       uploaderFilter.value !== "all",
     ];
     if (hasSgdbCovers.value) {
-      changed.push(showNsfw.value, !showHumor.value, !showEpilepsy.value);
+      changed.push(
+        showNsfw.value !== CONTENT_DEFAULTS.nsfw,
+        showHumor.value !== CONTENT_DEFAULTS.humor,
+        showEpilepsy.value !== CONTENT_DEFAULTS.epilepsy,
+      );
     }
     return changed.filter(Boolean).length;
   });
