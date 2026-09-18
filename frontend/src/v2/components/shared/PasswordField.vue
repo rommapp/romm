@@ -122,7 +122,7 @@ onBeforeUnmount(clearTimers);
          prepend-inner, subtitle, details, …) without having to enumerate
          them. The append-inner slot is intentionally NOT forwarded — we
          own that adornment to render the eye toggle. -->
-    <template v-for="(_, slot) of $slots" v-slot:[slot]="scope" :key="slot">
+    <template v-for="(_, slot) of $slots" #[slot]="scope" :key="slot">
       <slot v-if="slot !== 'append-inner'" :name="slot" v-bind="scope" />
     </template>
   </RTextField>

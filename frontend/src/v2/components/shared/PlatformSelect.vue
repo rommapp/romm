@@ -341,7 +341,7 @@ function onUpdate(v: unknown) {
     <template
       v-for="name in forwardedSlotNames"
       :key="name"
-      v-slot:[name]="slotProps"
+      #[name]="slotProps"
     >
       <slot :name="name" v-bind="slotProps ?? {}" />
     </template>
