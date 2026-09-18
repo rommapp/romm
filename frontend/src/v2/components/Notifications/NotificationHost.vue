@@ -23,6 +23,8 @@ type Toast = {
   msg: string;
   icon?: string;
   image?: string | null;
+  /** Artwork the browser could not load, so the tone's icon stands in. */
+  imageBroken?: boolean;
   tone: ToastTone;
   timer?: number;
 };
@@ -83,46 +85,59 @@ function dismiss(id: number) {
 
 const openHandler = (snackbar: SnackbarStatus) => push(snackbar);
 emitter?.on("snackbarShow", openHandler);
+
+// A fullscreen element is the only thing the browser paints, so the host moves
+// inside it: a player that took the screen still gets to show its notices.
+const fullscreenHost = ref<HTMLElement | null>(null);
+function trackFullscreen() {
+  fullscreenHost.value = document.fullscreenElement as HTMLElement | null;
+}
+document.addEventListener("fullscreenchange", trackFullscreen);
+
 onBeforeUnmount(() => {
   emitter?.off("snackbarShow", openHandler);
+  document.removeEventListener("fullscreenchange", trackFullscreen);
   toasts.value.forEach((t) => t.timer && window.clearTimeout(t.timer));
 });
 </script>
 
 <template>
-  <div class="r-v2-toasts" role="status" aria-live="polite">
-    <transition-group name="r-v2-toast">
-      <div
-        v-for="toast in toasts"
-        :key="toast.id"
-        class="r-v2-toast"
-        :class="[`r-v2-toast--${toast.tone}`]"
-        role="alert"
-      >
-        <img
-          v-if="toast.image"
-          :src="toast.image"
-          alt=""
-          class="r-v2-toast__art"
-        />
-        <RIcon
-          v-else-if="toast.icon"
-          :icon="toast.icon"
-          size="18"
-          class="r-v2-toast__icon"
-        />
-        <span class="r-v2-toast__msg">{{ toast.msg }}</span>
-        <button
-          type="button"
-          class="r-v2-toast__close"
-          :aria-label="t('common.dismiss')"
-          @click="dismiss(toast.id)"
+  <Teleport :to="fullscreenHost ?? 'body'" :disabled="!fullscreenHost">
+    <div class="r-v2-toasts" role="status" aria-live="polite">
+      <transition-group name="r-v2-toast">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="r-v2-toast"
+          :class="[`r-v2-toast--${toast.tone}`]"
+          role="alert"
         >
-          <RIcon icon="mdi-close" size="14" />
-        </button>
-      </div>
-    </transition-group>
-  </div>
+          <img
+            v-if="toast.image && !toast.imageBroken"
+            :src="toast.image"
+            alt=""
+            class="r-v2-toast__art"
+            @error="toast.imageBroken = true"
+          />
+          <RIcon
+            v-else-if="toast.icon"
+            :icon="toast.icon"
+            size="18"
+            class="r-v2-toast__icon"
+          />
+          <span class="r-v2-toast__msg">{{ toast.msg }}</span>
+          <button
+            type="button"
+            class="r-v2-toast__close"
+            :aria-label="t('common.dismiss')"
+            @click="dismiss(toast.id)"
+          >
+            <RIcon icon="mdi-close" size="14" />
+          </button>
+        </div>
+      </transition-group>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>

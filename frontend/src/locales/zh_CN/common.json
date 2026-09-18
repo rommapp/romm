@@ -129,7 +129,7 @@
   "search": "搜索",
   "select": "选择",
   "select-platform": "选择平台",
-  "server-offline-retrying": "与服务器的连接已断开 · 正在重试…",
+  "server-offline-retrying": "与服务器的连接已断开，正在重试…",
   "server-reconnected": "已重新连接到服务器",
   "server-stats": "服务器状态",
   "settings": "设置",

@@ -129,7 +129,7 @@
   "search": "Hledat",
   "select": "Vybrat",
   "select-platform": "Vyberte platformu",
-  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-offline-retrying": "Spojení se serverem bylo ztraceno, zkoušíme znovu…",
   "server-reconnected": "Reconnected to the server",
   "server-stats": "Statistiky serveru",
   "settings": "Nastavení",

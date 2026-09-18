@@ -129,7 +129,7 @@
   "search": "Buscar",
   "select": "Seleccionar",
   "select-platform": "Seleccionar plataforma",
-  "server-offline-retrying": "Se perdió la conexión con el servidor · reintentando…",
+  "server-offline-retrying": "Se perdió la conexión con el servidor, reintentando…",
   "server-reconnected": "Conexión con el servidor restablecida",
   "server-stats": "Estadísticas del servidor",
   "settings": "Ajustes",

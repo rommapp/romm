@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaveSchema } from "@/__generated__";
 import type { StateSchema } from "@/__generated__";
+import { sessionStateName } from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
 import {
   buildStateFormData,
   captureScreenshot,
+  dumpSaveFile,
   storedScreenshotFor,
   createSaveSyncTracker,
   installEJSDefaultOptionsTrap,
@@ -23,12 +25,24 @@ const saveApiMocks = vi.hoisted(() => ({
 const stateApiMocks = vi.hoisted(() => ({
   uploadStates: vi.fn(),
 }));
+const pendingAssetMocks = vi.hoisted(() => ({
+  write: vi.fn(),
+  clear: vi.fn(),
+  list: vi.fn(),
+}));
 
 vi.mock("@/services/api/save", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/api/save")>()),
   default: saveApiMocks,
 }));
-vi.mock("@/services/api/state", () => ({ default: stateApiMocks }));
+vi.mock("@/services/api/state", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/api/state")>()),
+  default: stateApiMocks,
+}));
+vi.mock("@/services/pending-asset", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/pending-asset")>()),
+  default: pendingAssetMocks,
+}));
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -341,6 +355,79 @@ describe("captureScreenshot", () => {
 
     await expect(captureScreenshot()).resolves.toBeUndefined();
   });
+
+  // EmulatorJS waits for its screenshot by polling the filesystem forever, and
+  // a capture deletes the file the one before it is still waiting on.
+  it("takes one capture at a time", async () => {
+    const order: string[] = [];
+    let release: (() => void) | undefined;
+    const first = new Promise<ArrayBuffer>((resolve) => {
+      release = () => resolve(new ArrayBuffer(8));
+    });
+    const screenshot = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        order.push("first");
+        return first;
+      })
+      .mockImplementationOnce(async () => {
+        order.push("second");
+        return new ArrayBuffer(4);
+      });
+    (window as any).EJS_emulator = { gameManager: { screenshot } };
+
+    const pending = [captureScreenshot(), captureScreenshot()];
+    await vi.waitFor(() => expect(order).toEqual(["first"]));
+
+    release?.();
+    await Promise.all(pending);
+
+    expect(order).toEqual(["first", "second"]);
+  });
+
+  // That poll runs for the rest of the session unless the file turns up.
+  it("releases a capture that never arrived", async () => {
+    vi.useFakeTimers();
+    const writeFile = vi.fn();
+    (window as any).EJS_emulator = {
+      gameManager: {
+        FS: { writeFile },
+        screenshot: () => new Promise(() => {}),
+      },
+    };
+
+    const capture = captureScreenshot();
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await expect(capture).resolves.toBeUndefined();
+    expect(writeFile).toHaveBeenCalledWith(
+      "/screenshot.png",
+      new Uint8Array(0),
+    );
+    vi.useRealTimers();
+  });
+});
+
+describe("dumpSaveFile", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  afterEach(() => {
+    (window as any).EJS_emulator = undefined;
+  });
+
+  // A state restores the SRAM into the core's memory, not into the file, so a
+  // read that skips the dump hands back bytes from before the restore.
+  it("has the core write its SRAM out before reading it", () => {
+    const getSaveFile = vi.fn(() => new Uint8Array([1, 2, 3]));
+    (window as any).EJS_emulator = { gameManager: { getSaveFile } };
+
+    expect(dumpSaveFile()).toEqual(new Uint8Array([1, 2, 3]));
+    expect(getSaveFile).toHaveBeenCalledWith(true);
+  });
+
+  it("has nothing to offer before the emulator is up", () => {
+    expect(dumpSaveFile()).toBeNull();
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 });
 
 describe("resolveScreenshot", () => {
@@ -370,10 +457,12 @@ describe("resolveScreenshot", () => {
 
 describe("storedScreenshotFor", () => {
   const shot = new Uint8Array([9, 9]).buffer;
-  const pendingFor = (saveBytes: ArrayBuffer) => ({
+  const pendingFor = (bytes: ArrayBuffer) => ({
     id: "1:a",
+    kind: "save" as const,
     romId: 1,
-    saveBytes,
+    romName: "Game",
+    bytes,
     screenshotBytes: shot,
     capturedAt: 0,
   });
@@ -408,8 +497,15 @@ describe("storedScreenshotFor", () => {
   });
 
   it("keeps bytes that were stored without a frame frameless", () => {
-    const saveBytes = new Uint8Array([1, 2, 3]).buffer;
-    const pending = { id: "1:a", romId: 1, saveBytes, capturedAt: 0 };
+    const bytes = new Uint8Array([1, 2, 3]).buffer;
+    const pending = {
+      id: "1:a",
+      kind: "save" as const,
+      romId: 1,
+      romName: "Game",
+      bytes,
+      capturedAt: 0,
+    };
 
     expect(
       storedScreenshotFor(pending, new Uint8Array([1, 2, 3]).buffer),
@@ -431,6 +527,8 @@ describe("saveState", () => {
     stateApiMocks.uploadStates.mockResolvedValue([
       { status: "fulfilled", value: { id: 7 } as StateSchema },
     ]);
+    pendingAssetMocks.write.mockReset().mockResolvedValue(undefined);
+    pendingAssetMocks.clear.mockReset().mockResolvedValue(undefined);
   });
 
   it("uploads the screenshot named after the state", async () => {
@@ -446,6 +544,46 @@ describe("saveState", () => {
 
     const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
     expect(statesToUpload[0].screenshotFile).toBeUndefined();
+  });
+
+  it("holds the state in the browser until the server takes it", async () => {
+    await saveState({ rom, stateFile: bytes, screenshotFile: bytes });
+
+    const held = pendingAssetMocks.write.mock.calls[0][0];
+    expect(held).toMatchObject({
+      kind: "state",
+      romId: 1,
+      romName: "game",
+      bytes,
+      screenshotBytes: bytes,
+    });
+    expect(pendingAssetMocks.clear).toHaveBeenCalledWith(held.id);
+  });
+
+  it("keeps a state the server refused", async () => {
+    stateApiMocks.uploadStates.mockResolvedValue([
+      { status: "rejected", reason: new Error("offline") },
+    ]);
+
+    await expect(saveState({ rom, stateFile: bytes })).resolves.toBeNull();
+
+    expect(pendingAssetMocks.write).toHaveBeenCalledTimes(1);
+    expect(pendingAssetMocks.clear).not.toHaveBeenCalled();
+  });
+
+  // The name pins the moment of the capture, so a retry updates the row the
+  // first attempt opened instead of leaving a second copy behind.
+  it("names the state after the moment it was captured", async () => {
+    await saveState({ rom, stateFile: bytes });
+
+    const { capturedAt } = pendingAssetMocks.write.mock.calls[0][0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    expect(statesToUpload[0].stateFile.name).toMatch(
+      /^game \[\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}-\d{3}\]\.state$/,
+    );
+    expect(statesToUpload[0].stateFile.name).toBe(
+      `${sessionStateName(rom, new Date(capturedAt))}.state`,
+    );
   });
 });
 

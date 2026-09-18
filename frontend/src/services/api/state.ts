@@ -9,6 +9,19 @@ import { buildFormInput } from "@/utils/formData";
 
 export const stateApi = api;
 
+/** States are named after the ROM and the moment the core was serialized. */
+export function sessionStateName(
+  rom: { fs_name_no_ext: string },
+  capturedAt: Date,
+): string {
+  const timestamp = capturedAt
+    .toISOString()
+    .replace(/[:.]/g, "-")
+    .replace("T", " ")
+    .replace("Z", "");
+  return `${rom.fs_name_no_ext.trim()} [${timestamp}]`;
+}
+
 type StateUploadInput = Omit<AddStateInput, "stateFile" | "screenshotFile"> & {
   stateFile: File;
   screenshotFile?: File;

@@ -1,15 +1,18 @@
 <script setup lang="ts">
 // v2 SelectStateDialog — same pattern as SelectSaveDialog, but listens for
-// `selectStateDialog` and emits `stateSelected`.
-import { RBtn, RDialog, REmptyState } from "@v2/lib";
+// `selectStateDialog` and emits `stateSelected`. The list is the launch
+// screen's, so a state reads the same whether it is picked before the game
+// boots or from inside it.
+import { RBtn, RDialog } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import AssetCard from "@/v2/components/Player/AssetCard.vue";
+import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import type { Asset } from "@/v2/utils/assets";
 
 defineOptions({ inheritAttrs: false });
 
@@ -26,9 +29,15 @@ const openHandler = (selectedRom: DetailedRom) => {
 emitter?.on("selectStateDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("selectStateDialog", openHandler));
 
-function onCardClick(state: StateSchema) {
-  if (!state) return;
-  emitter?.emit("stateSelected", state);
+// A state another core wrote stays listed, disabled, so the count adds up.
+function stateDisabledReason(asset: Asset) {
+  const emulator = "emulator" in asset ? asset.emulator : null;
+  if (!emulator || emulator === window.EJS_core) return null;
+  return t("play.state-incompatible-core", { emulator });
+}
+
+function onSelect(asset: Asset) {
+  emitter?.emit("stateSelected", asset as StateSchema);
   closeDialog();
 }
 
@@ -52,20 +61,13 @@ function closeDialog() {
       <span>{{ t("play.select-state") }}</span>
     </template>
     <template #content>
-      <div v-if="rom && rom.user_states.length > 0" class="r-v2-state-picker">
-        <AssetCard
-          v-for="state in rom.user_states"
-          :key="state.id"
-          :asset="state"
-          type="state"
-          class="r-v2-state-picker__item"
-          @click="onCardClick(state)"
-        />
-      </div>
-      <REmptyState
-        v-else
-        icon="mdi-help-rhombus-outline"
-        :title="t('rom.no-states-found')"
+      <AssetStrip
+        :assets="rom?.user_states ?? []"
+        type="state"
+        layout="flow"
+        group-by="emulator"
+        :disabled-reason="stateDisabledReason"
+        @select="onSelect"
       />
     </template>
     <template #footer>
@@ -76,16 +78,3 @@ function closeDialog() {
     </template>
   </RDialog>
 </template>
-
-<style scoped>
-.r-v2-state-picker {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
-  padding: 4px;
-}
-
-.r-v2-state-picker__item {
-  cursor: pointer;
-}
-</style>

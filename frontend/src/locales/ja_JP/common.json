@@ -129,7 +129,7 @@
   "search": "検索",
   "select": "選択",
   "select-platform": "プラットフォームを選択",
-  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-offline-retrying": "サーバーとの接続が切れました、再試行中…",
   "server-reconnected": "Reconnected to the server",
   "server-stats": "サーバーステータス",
   "settings": "設定",

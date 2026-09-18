@@ -5,28 +5,87 @@ import {
   type StateSchema,
 } from "@/__generated__";
 import saveApi, { AUTOSAVE_SLOT, sessionSaveFile } from "@/services/api/save";
-import stateApi from "@/services/api/state";
-import { type PendingSave } from "@/services/pending-save";
+import stateApi, { sessionStateName } from "@/services/api/state";
+import pendingAssetStore, {
+  pendingAssetId,
+  type PendingAsset,
+} from "@/services/pending-asset";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
 
-function buildStateName(rom: DetailedRom): string {
-  const romName = rom.fs_name_no_ext.trim();
-  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
+/**
+ * Tears the emulator down, once however many owners ask.
+ *
+ * The player component and the shell around it both unmount on the way out,
+ * and EmulatorJS' exit unmounts its filesystem: a second pass throws
+ * `ErrnoError(28)` and then aborts the runtime.
+ */
+export function exitEmulatorOnce() {
+  const emulator = window.EJS_emulator;
+  if (!emulator || emulator.__rommExited) return;
+  emulator.__rommExited = true;
+  emulator.callEvent("exit");
 }
+
+// Long enough for any core to hand over a frame.
+const SCREENSHOT_TIMEOUT_MS = 3000;
 
 // EmulatorJS 4.2.3 hands `EJS_onSaveState` nothing under `screenshot` and its
 // own capture renders only a slice of the frame, so every picture RomM stores
 // is read off the live canvas, which means capturing before any pause.
-export async function captureScreenshot(): Promise<ArrayBuffer | undefined> {
+//
+// Its capture deletes the file the previous one is still waiting on, and the
+// wait is a poll that never gives up, so captures are taken one at a time.
+let capturing: Promise<ArrayBuffer | undefined> = Promise.resolve(undefined);
+
+export function captureScreenshot(): Promise<ArrayBuffer | undefined> {
+  capturing = capturing.catch(() => undefined).then(takeScreenshot);
+  return capturing;
+}
+
+async function takeScreenshot(): Promise<ArrayBuffer | undefined> {
+  const gameManager = window.EJS_emulator?.gameManager;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const screenshot = await window.EJS_emulator?.gameManager?.screenshot();
+    const screenshot = await Promise.race([
+      gameManager?.screenshot(),
+      new Promise<undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), SCREENSHOT_TIMEOUT_MS);
+      }),
+    ]);
     // An empty buffer is a failed readback, not a picture.
-    return screenshot?.byteLength ? screenshot : undefined;
+    if (screenshot?.byteLength) return screenshot;
   } catch (error) {
     console.error("Failed to capture a screenshot", error);
-    return undefined;
+  } finally {
+    clearTimeout(timer);
   }
+  releaseScreenshotWait(gameManager);
+  return undefined;
+}
+
+// The poll behind a capture that never arrived runs for the rest of the
+// session; the file it is waiting for is what stops it.
+function releaseScreenshotWait(gameManager?: {
+  FS?: { writeFile(path: string, data: Uint8Array): void };
+}) {
+  try {
+    gameManager?.FS?.writeFile("/screenshot.png", new Uint8Array(0));
+  } catch (error) {
+    console.error("Failed to release a stuck screenshot capture", error);
+  }
+}
+
+/**
+ * The SRAM as the core holds it right now.
+ *
+ * Returns:
+ *   The bytes, or null when the core has written no save file.
+ */
+export function dumpSaveFile(): Uint8Array | null {
+  // Passing true flushes the core's memory into the file this reads: the copy
+  // already on the emulator's filesystem predates a state it just restored.
+  return window.EJS_emulator?.gameManager?.getSaveFile(true) ?? null;
 }
 
 /** The picture for a save or a state: the live canvas, else EmulatorJS'. */
@@ -43,12 +102,12 @@ export async function resolveScreenshot(
  *   The stored picture, or undefined when the bytes have moved on since.
  */
 export function storedScreenshotFor(
-  pending: PendingSave | null,
+  pending: PendingAsset | null,
   saveBytes: ArrayBuffer,
 ): ArrayBuffer | undefined {
   if (!pending) return undefined;
   const sameBytes = bytesEqual(
-    new Uint8Array(pending.saveBytes),
+    new Uint8Array(pending.bytes),
     new Uint8Array(saveBytes),
   );
   return sameBytes ? pending.screenshotBytes : undefined;
@@ -88,7 +147,22 @@ export async function saveState({
     return null;
   }
 
-  const filename = buildStateName(rom);
+  const capturedAt = new Date();
+  const filename = sessionStateName(rom, capturedAt);
+  // Held in the browser until the server takes it, so a state captured with
+  // no connection reaches the server on a later pass instead of being lost.
+  const pendingId = pendingAssetId(rom.id);
+  await pendingAssetStore.write({
+    id: pendingId,
+    kind: "state",
+    romId: rom.id,
+    romName: rom.name ?? rom.fs_name_no_ext,
+    bytes: stateFile,
+    screenshotBytes: screenshotFile,
+    emulator: window.EJS_core,
+    capturedAt: capturedAt.getTime(),
+  });
+
   try {
     const uploadedStates = await stateApi.uploadStates({
       rom: rom,
@@ -109,6 +183,7 @@ export async function saveState({
 
     const uploadedState = uploadedStates[0];
     if (uploadedState.status == "fulfilled") {
+      await pendingAssetStore.clear(pendingId);
       if (rom) rom.user_states.unshift(uploadedState.value);
       return uploadedState.value;
     }

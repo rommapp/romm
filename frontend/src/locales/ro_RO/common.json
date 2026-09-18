@@ -129,7 +129,7 @@
   "search": "Căutare",
   "select": "Selectează",
   "select-platform": "Selectează o platformă",
-  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-offline-retrying": "Conexiunea la server s-a pierdut, se reîncearcă…",
   "server-reconnected": "Reconnected to the server",
   "server-stats": "Statistici server",
   "settings": "Setări",

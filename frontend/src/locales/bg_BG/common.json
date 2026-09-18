@@ -129,7 +129,7 @@
   "search": "Търси",
   "select": "Избери",
   "select-platform": "Избери платформа",
-  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-offline-retrying": "Връзката със сървъра е прекъсната, повторен опит…",
   "server-reconnected": "Reconnected to the server",
   "server-stats": "Статистики на сървъра",
   "settings": "Настройки",

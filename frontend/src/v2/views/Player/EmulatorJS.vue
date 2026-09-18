@@ -103,6 +103,7 @@ import {
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
+import { exitEmulatorOnce } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
   isLaunchIntent,
@@ -516,7 +517,7 @@ onBeforeUnmount(() => {
   // Hand the keyboard and gamepad back to the UI; the flag otherwise
   // stays true and pad/hotkey navigation is dead until a reload.
   playing.value = false;
-  window.EJS_emulator?.callEvent("exit");
+  exitEmulatorOnce();
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
   window.removeEventListener("gamepad:buttondown", onGamepadButton);
