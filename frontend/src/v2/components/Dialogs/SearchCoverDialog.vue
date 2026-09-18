@@ -41,6 +41,7 @@ import {
   useCoverFilters,
   type CoverProvider,
 } from "@/v2/composables/useCoverFilters";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RSelect from "@/v2/lib/forms/RSelect/RSelect.vue";
 import RSwitch from "@/v2/lib/forms/RSwitch/RSwitch.vue";
@@ -192,9 +193,9 @@ function scoreAgainstSourceRom(
   return score;
 }
 
-// Bumped per search and on close, so a response for a search the user
-// already left never fills a later session of the dialog.
+// Only the latest search of the open session may apply its response.
 let searchSeq = 0;
+const alive = useIsAlive();
 
 async function doSearch() {
   if (searching.value || !searchText.value.trim()) return;
@@ -219,7 +220,7 @@ async function doSearch() {
           })
         : Promise.resolve(null),
     ]);
-    if (seq !== searchSeq) return;
+    if (!alive.value || seq !== searchSeq) return;
 
     if (gridResult.status === "fulfilled") {
       covers.value = gridResult.value.data;

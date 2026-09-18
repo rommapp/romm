@@ -34,11 +34,11 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 const RDialog = {
-  props: ["modelValue"],
+  props: { modelValue: { type: Boolean, default: false } },
   template: `<div v-if="modelValue"><slot name="header" /><slot name="toolbar" /><slot name="content" /></div>`,
 };
 const RCollapsible = {
-  props: ["title"],
+  props: { title: { type: String, default: "" } },
   template: `<section class="group" :data-title="title"><slot /></section>`,
 };
 const RMenu = {

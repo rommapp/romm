@@ -33,7 +33,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 const RDialog = {
-  props: ["modelValue"],
+  props: { modelValue: { type: Boolean, default: false } },
   emits: ["close"],
   template: `<div v-if="modelValue"><slot name="toolbar" /><slot name="content" /></div>`,
 };
@@ -46,18 +46,27 @@ const MatchRomBodyGrid = {
   template: `<ul><li v-for="r in results" :key="r.name" class="match">{{ r.name }}</li></ul>`,
 };
 
-function rom(id: number, name: string): SimpleRom {
+function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
   return {
-    id,
-    name,
-    fs_name: `${name}.zip`,
-    fs_name_no_tags: name,
+    id: 1,
+    name: "Blur",
+    fs_name: "Blur.zip",
+    fs_name_no_tags: "Blur",
+    platform_id: 1,
     is_identified: true,
+    ...overrides,
   } as SimpleRom;
 }
 
-function match(name: string): SearchRom {
-  return { name, igdb_id: 1, platform_id: 1 } as SearchRom;
+function match(overrides: Partial<SearchRom> = {}): SearchRom {
+  return {
+    name: "Blur",
+    igdb_id: 1,
+    platform_id: 1,
+    is_identified: true,
+    is_unidentified: false,
+    ...overrides,
+  } as SearchRom;
 }
 
 describe("MatchRomDialog", () => {
@@ -73,7 +82,7 @@ describe("MatchRomDialog", () => {
           finishStale = resolve;
         }),
       )
-      .mockResolvedValueOnce({ data: [match("Doom")] });
+      .mockResolvedValueOnce({ data: [match({ name: "Doom" })] });
     const emitter: Emitter<Events> = mitt<Events>();
     const wrapper = mount(MatchRomDialog, {
       global: {
@@ -97,16 +106,24 @@ describe("MatchRomDialog", () => {
         .find((b) => b.text() === "common.search")
         ?.trigger("click");
 
-    emitter.emit("showMatchRomDialog", rom(1, "Blur"));
+    emitter.emit("showMatchRomDialog", rom());
     await flushPromises();
     await search();
     wrapper.findComponent(RDialog).vm.$emit("close");
 
-    emitter.emit("showMatchRomDialog", rom(2, "Doom"));
+    emitter.emit(
+      "showMatchRomDialog",
+      rom({
+        id: 2,
+        name: "Doom",
+        fs_name: "Doom.zip",
+        fs_name_no_tags: "Doom",
+      }),
+    );
     await flushPromises();
     await search();
     await flushPromises();
-    finishStale({ data: [match("Blur")] });
+    finishStale({ data: [match()] });
     await flushPromises();
 
     expect(wrapper.findAll("li.match").map((li) => li.text())).toEqual([

@@ -57,8 +57,7 @@ export function useCoverFilters(
     activeProviders.value[provider] = !activeProviders.value[provider];
   }
 
-  // These options come from the loaded results, so a pick from an earlier
-  // search would keep hiding covers once the new results drop its select.
+  // A pick can't outlive the results that offered it.
   function resetResultFilters() {
     resolutionFilter.value = "all";
     styleFilter.value = "all";

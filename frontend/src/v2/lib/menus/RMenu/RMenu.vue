@@ -320,6 +320,14 @@ function onDocPointerDown(evt: PointerEvent) {
 // reaching into the DOM. LIFO ordering means nested menus close one
 // at a time (the inner-most first), matching the previous per-instance
 // `document.keydown` behaviour.
+// `disabled` only blocks opening, so a menu disabled while open closes too.
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) close();
+  },
+);
+
 const escEntry: EscapableEntry = {
   close: () => close(),
   persistent: false,
