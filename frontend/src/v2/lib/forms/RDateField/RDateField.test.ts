@@ -111,8 +111,7 @@ describe("RDateField", () => {
     await wrapper.setProps({ modelValue: picked });
     expect(wrapper.get("input").element.value).toBe("Mar 1, 2024");
   });
-  // ARIA 1.2 puts the combobox role on the focusable element. It used to sit
-  // on the wrapper div, which is not focusable and carried no aria-controls.
+  // ARIA 1.2 puts the combobox role on the focusable element.
   it("wires the combobox role onto the input, not the wrapper", async () => {
     const wrapper = mount(RDateField, {
       props: { modelValue: Date.UTC(2024, 2, 15) },

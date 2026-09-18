@@ -27,6 +27,7 @@ import {
   useAttrs,
   useSlots,
   watch,
+  watchEffect,
 } from "vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
@@ -106,10 +107,10 @@ interface Props {
    *  pairs with the field's value. The `#subtitle` slot wins over the
    *  prop when both are provided; use the slot to drop in an icon. */
   subtitle?: string;
-  /** Wires the native input as a combobox owning a popup. The role has to
-   *  sit on the focusable input: this component's outer element is a
-   *  `<label>` whenever it owns the visible label, where the role is
-   *  disallowed and would void the input's label association. */
+  /** Wires the native input as a combobox owning a popup, putting the role
+   *  on the input rather than the outer element (a `<label>` when this field
+   *  owns its visible label). Single-line only: `role="combobox"` is not
+   *  valid on a `<textarea>`. */
   popup?: {
     /** `id` of the popup element. */
     controls: string;
@@ -153,6 +154,14 @@ const props = withDefaults(defineProps<Props>(), {
   mono: false,
   subtitle: undefined,
   popup: undefined,
+});
+
+watchEffect(() => {
+  if (props.multiline && props.popup) {
+    console.error(
+      "[RTextField] `popup` is ignored when `multiline` is set: role=combobox is not valid on a <textarea>.",
+    );
+  }
 });
 
 const emit = defineEmits<{
