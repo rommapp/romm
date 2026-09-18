@@ -18,7 +18,6 @@ import type {
   StateSchema,
   NetplayICEServer,
 } from "@/__generated__";
-import { useUiVersion } from "@/composables/useUiVersion";
 import { ROUTES } from "@/plugins/router";
 import { saveApi as api } from "@/services/api/save";
 import pendingAssetStore, {
@@ -83,6 +82,8 @@ const props = defineProps<{
   disc: number | null;
   /** Slot for new saves when the loaded save has none; defaults to autosave. */
   saveSlot?: string | null;
+  /** Load State button label; the shell names the picker it opens. */
+  loadStateLabel?: string;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 // The save the session booted from, and the version this session has written
@@ -351,12 +352,7 @@ window.EJS_Buttons = {
   pause: { displayName: t("play.pause") },
   play: { displayName: t("play.resume") },
   saveState: { displayName: t("play.save-state") },
-  loadState: {
-    displayName:
-      useUiVersion().value === "v2"
-        ? t("rom.load-save-or-state")
-        : t("play.load-state"),
-  },
+  loadState: { displayName: props.loadStateLabel ?? t("play.load-state") },
   gamepad: { displayName: t("play.control-settings") },
   cheat: { displayName: t("play.cheats") },
   cacheManager: { displayName: t("play.cache-manager") },
@@ -646,22 +642,16 @@ async function loadSave(save: SaveSchema) {
       responseType: "arraybuffer",
       params: { device_id: deviceIDRef.value },
     });
-    const bytes = data
-      ? new Uint8Array(data)
-      : new Uint8Array(
-          await (await window.EJS_emulator.selectFile()).arrayBuffer(),
-        );
+    const bytes = new Uint8Array(data);
     loadEmulatorJSSave(bytes);
     // Writes follow the picked save only once its bytes are in the core.
     loadedSave = save;
     sessionSaveRef.value = null;
-    if (data) {
-      saveTracker.seed(bytes);
-      displayMessage(t("play.save-loaded"), {
-        duration: 3000,
-        icon: "mdi-cloud-download-outline",
-      });
-    }
+    saveTracker.seed(bytes);
+    displayMessage(t("play.save-loaded"), {
+      duration: 3000,
+      icon: "mdi-cloud-download-outline",
+    });
   } finally {
     saveLoading = false;
   }
@@ -704,18 +694,11 @@ async function loadState(state: StateSchema) {
     const { data } = await api.get(state.download_path.replace("/api", ""), {
       responseType: "arraybuffer",
     });
-    const bytes = data
-      ? new Uint8Array(data)
-      : new Uint8Array(
-          await (await window.EJS_emulator.selectFile()).arrayBuffer(),
-        );
-    await applyState(bytes);
-    if (data) {
-      displayMessage(t("play.state-loaded"), {
-        duration: 3000,
-        icon: "mdi-cloud-download-outline",
-      });
-    }
+    await applyState(new Uint8Array(data));
+    displayMessage(t("play.state-loaded"), {
+      duration: 3000,
+      icon: "mdi-cloud-download-outline",
+    });
   } finally {
     stateApplied();
   }

@@ -3,7 +3,7 @@
 // on `selectStateDialog`, emits `saveSelected` or `stateSelected`.
 import { RBtn, RDialog, RSliderBtnGroup } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
@@ -25,9 +25,11 @@ const rom = ref<DetailedRom | null>(null);
 // States apply on the fly, so they are what the button reaches for first.
 const tab = ref<AssetType>("state");
 
+const saves = computed(() => rom.value?.user_saves ?? []);
+const states = computed(() => rom.value?.user_states ?? []);
 const { tabs, stateDisabledReason } = useSaveStateTabs(
-  () => rom.value?.user_saves ?? [],
-  () => rom.value?.user_states ?? [],
+  saves,
+  states,
   () => window.EJS_core,
 );
 
@@ -96,14 +98,14 @@ function closeDialog() {
     <template #content>
       <AssetList
         v-if="tab === 'save'"
-        :assets="rom?.user_saves ?? []"
+        :assets="saves"
         type="save"
         :scrollable="false"
         @select="onSelect"
       />
       <AssetStrip
         v-else
-        :assets="rom?.user_states ?? []"
+        :assets="states"
         type="state"
         layout="flow"
         group-by="emulator"
