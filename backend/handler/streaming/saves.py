@@ -196,11 +196,14 @@ async def pull_saves_to_library(
     rom_id: int,
     container: ResolvedContainer,
     broker_session_id: str | None = None,
+    *,
+    settled: bool = False,
 ) -> bool:
     """Background task: pull in-game saves from the broker and store them.
 
     Best-effort by design, a sync failure must never surface to the player,
-    the save still exists inside the container.
+    the save still exists inside the container. The retries wait out an
+    emulator still writing, so a `settled` one gets a single attempt.
     """
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
@@ -208,7 +211,7 @@ async def pull_saves_to_library(
         return False
     emulator = container.emulator
 
-    for attempt in range(broker.PULL_ATTEMPTS):
+    for attempt in range(1 if settled else broker.PULL_ATTEMPTS):
         if attempt > 0:
             await asyncio.sleep(broker.PULL_RETRY_DELAY)
         content = await asyncio.to_thread(

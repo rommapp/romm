@@ -912,7 +912,13 @@ async def save_and_exit_session(
     await lifecycle.clear_session_activity(session_key, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
     pull_mark = await lifecycle.mark_exit_saves_pending(container, session)
-    lifecycle.collect_exit_saves(container, session, pull_mark)
+    # A webstation exit always blocks, whatever wait says.
+    lifecycle.collect_exit_saves(
+        container,
+        session,
+        pull_mark,
+        settled=effective_wait or container.is_webstation,
+    )
 
     # Sync the exit save to the library. With wait=false the broker save may
     # still be running; the pull blocks on the broker until it finishes.
@@ -1608,7 +1614,9 @@ async def force_release_all(
                     pull_mark = await lifecycle.mark_exit_saves_pending(
                         container, session
                     )
-                    lifecycle.collect_exit_saves(container, session, pull_mark)
+                    lifecycle.collect_exit_saves(
+                        container, session, pull_mark, settled=True
+                    )
 
             # Note who ended it before the key goes, so the player's next poll
             # can explain the stream vanishing.

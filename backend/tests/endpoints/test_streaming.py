@@ -4855,6 +4855,56 @@ def test_an_abandoned_teardown_that_fails_before_its_pull_leaves_nothing_pending
     assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
 
 
+def test_a_release_that_changed_no_saves_lets_the_next_claim_straight_through(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """The stop has finished writing by the time the pull asks, so the broker's
+    first "nothing new" is final and retrying it only holds the next claim."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.commands.stop", return_value=None),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+            asyncio.run(spawn.call_args[0][0])
+    assert fetch.call_count == 1
+    assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
+
+
+def test_a_background_save_and_exit_keeps_asking_while_the_emulator_writes(
+    client, access_token, rom: Rom
+):
+    """With wait=false the broker is still saving when the pull starts, so an
+    early "nothing new" is not the answer yet."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.commands.save_and_exit", return_value=(False, 10)),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": False},
+                headers=_auth(access_token),
+            )
+            for spawned in (c.args[0] for c in spawn.call_args_list):
+                if spawned.cr_code.co_name == "_pull_exit_saves":
+                    asyncio.run(spawned)
+                else:
+                    spawned.close()
+    assert fetch.call_count == broker.PULL_ATTEMPTS
+
+
 def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
     client, access_token, admin_user: User, rom: Rom
 ):
@@ -4930,7 +4980,7 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
         ):
             for _ in range(2):
                 mark = await lifecycle.mark_exit_saves_pending(container, session)
-                lifecycle.collect_exit_saves(container, session, mark)
+                lifecycle.collect_exit_saves(container, session, mark, settled=True)
             first, second = (c.args[0] for c in spawn.call_args_list)
             await first
             behind_second = await _save_pull_pending(admin_user.id, rom.id)

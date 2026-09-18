@@ -125,12 +125,13 @@ async def _pull_exit_saves(
     container: ResolvedContainer,
     mark: saves.SavePullMark,
     broker_session: str | None,
+    settled: bool,
 ) -> None:
     """The spawned half of `collect_exit_saves`, which lets the next claim
     through however the pull ended."""
     try:
         await saves.pull_saves_to_library(
-            mark.user_id, mark.rom_id, container, broker_session
+            mark.user_id, mark.rom_id, container, broker_session, settled=settled
         )
     finally:
         await saves.clear_save_pull_pending(mark)
@@ -161,11 +162,14 @@ def collect_exit_saves(
     container: ResolvedContainer,
     session: dict[str, Any],
     mark: saves.SavePullMark | None,
+    *,
+    settled: bool,
 ) -> None:
     """Start pulling the in-game save archive a stopped session left behind.
 
     Fire and forget: the broker keeps the archive after the emulator dies, so
-    no teardown has to wait on it. The pull clears `mark` however it ends.
+    no teardown has to wait on it. The pull clears `mark` however it ends, and
+    `settled` says the emulator is done writing, so the first answer is final.
 
     One home for the rule: every teardown path files a session's saves the same
     way, and under the session's owner rather than whoever ended it.
@@ -173,7 +177,7 @@ def collect_exit_saves(
     if mark is None:
         return
     background.spawn_sync_task(
-        _pull_exit_saves(container, mark, broker_session_id(session))
+        _pull_exit_saves(container, mark, broker_session_id(session), settled)
     )
 
 
@@ -389,7 +393,7 @@ async def teardown_released_session(
 
         # Awaited, not spawned: the claim is released below.
         await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session, pull_mark)
+        collect_exit_saves(container, session, pull_mark, settled=True)
         # The pull clears it from here.
         pull_mark = None
 
@@ -463,7 +467,7 @@ async def _teardown_abandoned_session(
         await record_play_session(session)
         await clear_session_activity(session_key, session)
         await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session, pull_mark)
+        collect_exit_saves(container, session, pull_mark, settled=True)
         pull_mark = None
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)
