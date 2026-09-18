@@ -29,41 +29,31 @@ defineSlots<{
 </template>
 
 <style scoped>
-.gallery-tab-shell {
-  /* `dvh` so the section matches the mobile visible viewport instead of
-     stacking a document scroll on the inner one (as GalleryShell does). */
-  height: calc(100vh - var(--r-nav-h));
-  height: calc(100dvh - var(--r-nav-h));
-  overflow: hidden;
-  position: relative;
-}
-/* <main> reserves the bottom tab bar on phones; run under the translucent bar
-   instead, the scroll's bottom spacer lifts the last content clear of it. */
-html[data-bp~="sm-and-down"] .gallery-tab-shell {
-  margin-bottom: calc(
-    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
-  );
-}
-
+/* Phones: plain document flow, so the page scrolls under the translucent top
+   bar like Home; AppLayout's bottom padding clears the tab bar. */
 .gallery-tab-shell__scroll {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  padding: 32px var(--r-row-pad) 0;
-}
-html[data-bp~="sm-and-down"] .gallery-tab-shell__scroll {
-  padding-bottom: calc(
-    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
-  );
+  padding: 32px var(--r-row-pad) 24px;
 }
 
 .gallery-tab-shell__divider {
   margin: 0 0 24px;
 }
 
-/* Desktop: the panel takes the rest of the height and scrolls on its own. The
-   inset (cancelled by the negative margin) keeps focus rings inside its clip. */
+/* Desktop: the shell fits the viewport, the head stays fixed and only the
+   panel scrolls. The panel's inset (cancelled by the negative margin) keeps
+   focus rings inside its clip. */
+html[data-bp~="md-and-up"] .gallery-tab-shell {
+  height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
+  overflow: hidden;
+}
+html[data-bp~="md-and-up"] .gallery-tab-shell__scroll {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-bottom: 0;
+}
 html[data-bp~="md-and-up"] .gallery-tab-shell__panel {
   flex: 1 1 auto;
   overflow-y: auto;

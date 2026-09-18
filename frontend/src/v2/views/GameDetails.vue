@@ -29,8 +29,10 @@ import MetadataTab from "@/v2/components/GameDetails/MetadataTab.vue";
 import NotesTab from "@/v2/components/GameDetails/NotesTab.vue";
 import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
+import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
@@ -49,6 +51,7 @@ const { currentRom } = storeToRefs(romsStore);
 const { toWebp } = useWebpSupport();
 const { showRecommendations } = useUISettings();
 const { locale, t } = useI18n();
+const { smAndDown } = useBreakpoint();
 
 const setBgArt = useBackgroundArt();
 
@@ -334,7 +337,12 @@ const tabs = computed<RTabNavItem[]>(() => [
 <template>
   <section v-if="currentRom" class="r-v2-det">
     <div class="r-v2-det__body">
-      <CoverColumn :rom="currentRom" :alt="title" />
+      <!-- Phones stack the cover above the header, so the prev / next arrows
+           flank the cover instead of the title. -->
+      <PrevNextNav v-if="smAndDown" :rom-id="currentRom.id">
+        <CoverColumn :rom="currentRom" :alt="title" />
+      </PrevNextNav>
+      <CoverColumn v-else :rom="currentRom" :alt="title" />
 
       <div class="r-v2-det__info">
         <GameHeader
