@@ -194,7 +194,7 @@ onUnmounted(() => {
             </span>
             <RTag
               v-if="user?.role"
-              :icon="getRoleIcon(user.role)"
+              :prepend-icon="getRoleIcon(user.role)"
               :tone="roleToneFor(user.role)"
               size="small"
               class="r-v2-profile__role-tag"
@@ -319,7 +319,7 @@ onUnmounted(() => {
     <template v-else>
       <div class="r-v2-profile__identity-row">
         <RSkeletonBlock
-          shape="circle"
+          circle
           width="96px"
           height="96px"
           class="r-v2-profile__avatar-skeleton"

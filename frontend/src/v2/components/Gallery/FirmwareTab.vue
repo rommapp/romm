@@ -450,7 +450,7 @@ async function performDelete(
         v-else-if="pendingFiles.length === 0"
         variant="boxed"
         icon="mdi-memory"
-        :message="
+        :title="
           t(
             'platform.no-firmware-found',
             'No firmware found for this platform.',

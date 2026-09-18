@@ -215,8 +215,7 @@ async function searchRom() {
   if (!rom.value || searching.value) return;
   const seq = ++searchSeq;
 
-  const inputElement = document.getElementById("r-v2-match-search");
-  inputElement?.blur();
+  (document.activeElement as HTMLElement | null)?.blur();
 
   searching.value = true;
   try {
@@ -357,7 +356,6 @@ function closeDialog() {
 
         <div class="r-v2-match__search-row">
           <RTextField
-            id="r-v2-match-search"
             v-model="searchText"
             prefix-label="inline"
             :placeholder="t('common.search')"

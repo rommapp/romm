@@ -37,6 +37,10 @@ jobs:
         run: npm run typecheck
         working-directory: frontend
 
+      - name: Run typecheck (v2, strictTemplates)
+        run: npm run typecheck:v2
+        working-directory: frontend
+
       - name: Lockfile lint
         run: |
           [ -z "$(jq -r '.packages | to_entries[] | select((.key | contains("node_modules")) and (.value.resolved | contains("git+ssh") | not) and (.value | has("resolved") and has("integrity") | not)) | .key' < package-lock.json)" ]

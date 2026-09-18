@@ -588,21 +588,21 @@ function closeDialog() {
           v-else-if="showNoFilterMatch"
           variant="boxed"
           icon="mdi-filter-remove-outline"
-          :message="t('rom.no-covers-match-filters')"
+          :title="t('rom.no-covers-match-filters')"
         />
 
         <REmptyState
           v-else-if="showNoServerResults"
           variant="boxed"
           icon="mdi-emoticon-confused-outline"
-          :message="t('rom.no-covers-found')"
+          :title="t('rom.no-covers-found')"
         />
 
         <REmptyState
           v-else
           variant="boxed"
           icon="mdi-image-search-outline"
-          :message="t('rom.search-cover-hint')"
+          :title="t('rom.search-cover-hint')"
         />
       </div>
     </template>

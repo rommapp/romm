@@ -66,7 +66,7 @@ const currentValue = computed({
     hide-details
     prepend-inner-icon="mdi-translate"
     class="language-selector"
-    :menu-props="{ location: 'top start' }"
+    menu-location="top start"
   />
 </template>
 

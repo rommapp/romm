@@ -129,7 +129,9 @@ const downloadUrls = computed(() => {
         <RTag
           v-for="v in verifications"
           :key="v.label"
-          :icon="v.match ? 'mdi-check-circle' : 'mdi-close-circle-outline'"
+          :prepend-icon="
+            v.match ? 'mdi-check-circle' : 'mdi-close-circle-outline'
+          "
           :text="v.label"
           :tone="v.match ? 'success' : 'neutral'"
         />

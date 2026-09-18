@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/v2/**/*.ts", "src/v2/**/*.vue", "src/**/*.d.ts"],
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.v2.tsbuildinfo"
+  },
+  "vueCompilerOptions": {
+    "strictTemplates": true
+  },
+  "exclude": ["node_modules"]
+}

@@ -369,7 +369,6 @@ const hasCards = computed(() => cards.value.length > 0);
             <RSwitch
               :model-value="card.is_public ?? false"
               :disabled="sharing.has(card.id)"
-              hide-details
               :aria-label="t('play.memory-card-share-label')"
               :title="t('play.memory-card-share-label')"
               @update:model-value="(v) => toggleShare(card, v)"
@@ -460,7 +459,7 @@ const hasCards = computed(() => cards.value.length > 0);
       v-else-if="!loading"
       variant="boxed"
       icon="mdi-sd"
-      :message="t('play.memory-cards-empty')"
+      :title="t('play.memory-cards-empty')"
     >
       <template #actions>
         <RBtn

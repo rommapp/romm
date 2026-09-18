@@ -66,6 +66,10 @@ interface Props {
    *  Mirrors RTextField's clearable affordance so the two primitives
    *  read as siblings on dialogs that mix text + date fields. */
   clearable?: boolean;
+  label?: string;
+  prefixLabel?: "stacked" | "inline";
+  variant?: "outlined" | "filled" | "underlined" | "plain";
+  density?: "default" | "comfortable" | "compact";
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -79,6 +83,10 @@ const props = withDefaults(defineProps<Props>(), {
   todayLabel: undefined,
   clearLabel: undefined,
   clearable: false,
+  label: undefined,
+  prefixLabel: undefined,
+  variant: undefined,
+  density: undefined,
 });
 
 const labels = useChromeLabels();
@@ -462,6 +470,10 @@ onBeforeUnmount(() => {
     <RTextField
       v-bind="$attrs"
       :model-value="displayValue"
+      :label="label"
+      :prefix-label="prefixLabel"
+      :variant="variant"
+      :density="density"
       :disabled="disabled"
       :focused="isOpen"
       :popup="{

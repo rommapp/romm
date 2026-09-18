@@ -592,11 +592,13 @@ const applyLabel = computed(() => {
         v-model="customFileName"
         prefix-label="stacked"
         :placeholder="filenamePlaceholder"
-        :suffix="romExtension"
         density="compact"
         hide-details
         clearable
       >
+        <template #append-inner>
+          <span class="r-v2-patch__filename-suffix">{{ romExtension }}</span>
+        </template>
         <template #prefix-label>
           <RIcon icon="mdi-file-edit-outline" size="14" />
           {{ t("patcher.output-filename") }}
@@ -641,6 +643,11 @@ const applyLabel = computed(() => {
 </template>
 
 <style scoped>
+.r-v2-patch__filename-suffix {
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-sm);
+}
+
 .r-v2-patch__subtitle {
   margin: 0;
   color: var(--r-color-fg-secondary);

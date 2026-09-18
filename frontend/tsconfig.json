@@ -12,7 +12,7 @@
     "vitest.config.ts",
     "vitest.setup.ts"
   ],
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "src/v2/types/fallthrough-attrs.d.ts"],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",

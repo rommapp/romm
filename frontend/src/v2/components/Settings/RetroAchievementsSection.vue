@@ -83,7 +83,7 @@ async function saveAndSync() {
   <SettingsSection :title="t('settings.retroachievements')" icon="mdi-trophy">
     <template #header-actions>
       <RTag
-        :icon="isLinked ? 'mdi-link-variant' : 'mdi-link-variant-off'"
+        :prepend-icon="isLinked ? 'mdi-link-variant' : 'mdi-link-variant-off'"
         :tone="isLinked ? 'success' : 'neutral'"
         size="small"
       >

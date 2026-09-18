@@ -23,6 +23,9 @@ const props = withDefaults(
     rules?: Array<(value: any) => true | string>;
     prependInnerIcon?: string;
     variant?: "outlined" | "filled" | "underlined" | "plain";
+    name?: string;
+    prefixLabel?: "stacked" | "inline";
+    required?: boolean;
   }>(),
   {
     modelValue: "",
@@ -31,6 +34,9 @@ const props = withDefaults(
     rules: undefined,
     prependInnerIcon: "mdi-lock",
     variant: "underlined",
+    name: undefined,
+    prefixLabel: undefined,
+    required: false,
   },
 );
 
@@ -99,6 +105,9 @@ onBeforeUnmount(clearTimers);
     :type="visible ? 'text' : 'password'"
     :variant="variant"
     :prepend-inner-icon="prependInnerIcon"
+    :name="name"
+    :prefix-label="prefixLabel"
+    :required="required"
     :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
     :append-inner-tooltip="toggleLabel"
     :autocomplete="autocomplete"
