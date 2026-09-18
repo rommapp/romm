@@ -42,7 +42,7 @@ import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import type { AssetType } from "@/v2/utils/assets";
+import { emulatorKey, type AssetType } from "@/v2/utils/assets";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
@@ -164,8 +164,8 @@ const uploadCores = computed(() => {
   );
   const carried = myStates.value.map((state) => state.emulator);
   for (const core of [...offered, ...carried]) {
-    if (!core || cores.has(core.toLowerCase())) continue;
-    cores.set(core.toLowerCase(), core);
+    if (!core || cores.has(emulatorKey(core))) continue;
+    cores.set(emulatorKey(core), core);
   }
   return [...cores.values()];
 });

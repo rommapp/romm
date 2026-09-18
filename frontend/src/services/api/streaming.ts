@@ -125,21 +125,21 @@ async function claimSession(
 async function releaseSession(
   platform: string,
   reason?: string,
-  container?: string,
+  container?: string | null,
   save?: boolean,
-  claimedAt?: string,
+  claimedAt?: string | null,
 ) {
   return api.delete(`/streaming/sessions/${platform}`, {
     params: {
       // The claim this release is for, so a tab whose claim was taken over
       // cannot end the one that replaced it. Admin releases send none.
-      ...(claimedAt !== undefined ? { claimed_at: claimedAt } : {}),
+      ...(claimedAt != null ? { claimed_at: claimedAt } : {}),
       // Sent whenever the caller supplied one, empty string included: the
       // backend treats the param's presence as "this is an admin force-release".
       ...(reason !== undefined ? { reason } : {}),
       // Names which container to release, since a pool serves one platform
       // from several: the holder names the one it claimed, an admin its pick.
-      ...(container !== undefined ? { container } : {}),
+      ...(container != null ? { container } : {}),
       // Only the player who deliberately stopped without saving sends this.
       // Everything else leaves it off so the backend still autosaves.
       ...(save === false ? { save: false } : {}),
@@ -165,8 +165,8 @@ async function saveAndExit(
   platform: string,
   slot = 0,
   wait = true,
-  container?: string,
-  claimedAt?: string,
+  container?: string | null,
+  claimedAt?: string | null,
 ) {
   return api.post(
     `/streaming/sessions/${platform}/save-and-exit`,
@@ -177,8 +177,8 @@ async function saveAndExit(
 
 async function heartbeatSession(
   platform: string,
-  container?: string,
-  claimedAt?: string,
+  container?: string | null,
+  claimedAt?: string | null,
 ) {
   return api.post<SessionStatus>(
     `/streaming/sessions/${platform}/heartbeat`,
@@ -187,7 +187,7 @@ async function heartbeatSession(
   );
 }
 
-async function sessionStatus(platform: string, claimedAt?: string) {
+async function sessionStatus(platform: string, claimedAt?: string | null) {
   return api.get<SessionStatus>(`/streaming/sessions/${platform}/status`, {
     params: { claimed_at: claimedAt },
   });
@@ -243,7 +243,10 @@ async function claimDesktop(container: string) {
 
 // Names which container and which claim, so an unload cannot end the claim
 // that replaced it.
-function claimQuery(container?: string, claimedAt?: string): string {
+function claimQuery(
+  container?: string | null,
+  claimedAt?: string | null,
+): string {
   const params = new URLSearchParams();
   if (container) params.set("container", container);
   if (claimedAt) params.set("claimed_at", claimedAt);
@@ -254,8 +257,8 @@ function claimQuery(container?: string, claimedAt?: string): string {
 function saveAndExitKeepalive(
   platform: string,
   slot = 0,
-  container?: string,
-  claimedAt?: string,
+  container?: string | null,
+  claimedAt?: string | null,
 ): Promise<Response> {
   const query = claimQuery(container, claimedAt);
   return fetch(`/api/streaming/sessions/${platform}/save-and-exit${query}`, {
@@ -269,8 +272,8 @@ function saveAndExitKeepalive(
 
 function releaseSessionKeepalive(
   platform: string,
-  container?: string,
-  claimedAt?: string,
+  container?: string | null,
+  claimedAt?: string | null,
 ): Promise<Response> {
   const query = claimQuery(container, claimedAt);
   return fetch(`/api/streaming/sessions/${platform}${query}`, {

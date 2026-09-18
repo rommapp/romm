@@ -1,7 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { AxiosError } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
+import { serverError } from "@/test-utils/serverError";
 import Desktop from "./Desktop.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -83,6 +83,24 @@ let mounted: VueWrapper | null = null;
 
 const CLAIMED_AT = "2026-09-17T10:00:00";
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+afterEach(() => {
+  mounted?.unmount();
+  mounted = null;
+});
+
+async function mountDesktop(): Promise<VueWrapper> {
+  mounted = mount(Desktop, {
+    shallow: true,
+    global: { stubs: { StreamStage: StreamStageStub } },
+  });
+  await flushPromises();
+  return mounted;
+}
+
 async function openDesktop(): Promise<VueWrapper> {
   mocks.claimDesktop.mockResolvedValue({
     data: {
@@ -92,26 +110,12 @@ async function openDesktop(): Promise<VueWrapper> {
       claimed_at: CLAIMED_AT,
     },
   });
-  mounted = mount(Desktop, {
-    shallow: true,
-    global: { stubs: { StreamStage: StreamStageStub } },
-  });
-  await flushPromises();
-  return mounted;
+  return mountDesktop();
 }
 
 async function refuseDesktop(detail: unknown): Promise<VueWrapper> {
-  mocks.claimDesktop.mockRejectedValue(
-    Object.assign(new AxiosError("HTTP 409"), {
-      response: { status: 409, data: { detail } },
-    }),
-  );
-  mounted = mount(Desktop, {
-    shallow: true,
-    global: { stubs: { StreamStage: StreamStageStub } },
-  });
-  await flushPromises();
-  return mounted;
+  mocks.claimDesktop.mockRejectedValue(serverError(detail, 409));
+  return mountDesktop();
 }
 
 function vmOf(wrapper: VueWrapper): DesktopVm {
@@ -131,15 +135,6 @@ function endSession(notice: Record<string, unknown>): void {
 }
 
 describe("Desktop session-ended notices", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    mounted?.unmount();
-    mounted = null;
-  });
-
   it("ends the desktop when the notice names its container", async () => {
     const wrapper = await openDesktop();
     expect(vmOf(wrapper).state).toBe("running");
@@ -201,15 +196,6 @@ describe("Desktop session-ended notices", () => {
 });
 
 describe("Desktop heartbeats", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    mounted?.unmount();
-    mounted = null;
-  });
-
   it("beats for the claim it made", async () => {
     // Unstamped, the beat keeps alive whatever this admin runs on the
     // container, such as a game that swept a stale desktop off it.
@@ -255,15 +241,6 @@ describe("Desktop heartbeats", () => {
 
 describe("Desktop releases", () => {
   // Unstamped, a release reaches whichever session took the container.
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    mounted?.unmount();
-    mounted = null;
-  });
-
   it("names the claim it releases on exit", async () => {
     mocks.releaseSession.mockResolvedValue({});
     await openDesktop();
@@ -293,15 +270,6 @@ describe("Desktop releases", () => {
 });
 
 describe("Desktop refused claims", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    mounted?.unmount();
-    mounted = null;
-  });
-
   it("names the game holding the container", async () => {
     const wrapper = await refuseDesktop({
       rom_name: "Ico",

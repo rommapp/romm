@@ -65,16 +65,18 @@ def session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
     return rom_is_visible(request, session_rom(session))
 
 
-def session_is_joinable(
-    request: Request, session: dict[str, Any], rom: Rom | None
-) -> bool:
-    """Whether a live session is one this caller may ask to join: its host opted
-    into multiplayer, it is somebody else's, and its ROM is not hidden."""
-    return (
-        bool(session.get("multiplayer"))
-        and session.get("user_id") != request.user.id
-        and rom_is_visible(request, rom)
-    )
+def joinable_session_rom(
+    request: Request, session: dict[str, Any]
+) -> tuple[bool, Rom | None]:
+    """Whether a live session is one this caller may ask to join (its host opted
+    into multiplayer, it is somebody else's, its ROM is not hidden), with that ROM.
+
+    The ROM is looked up only once the cheap checks pass, since most sessions fail them.
+    """
+    if not session.get("multiplayer") or session.get("user_id") == request.user.id:
+        return False, None
+    rom = session_rom(session)
+    return rom_is_visible(request, rom), rom
 
 
 def assert_session_rom_visible(
@@ -124,11 +126,15 @@ def session_in_scope(
 
 
 def notice_in_scope(
-    notice: dict[str, Any], platform: str, include_desktop: bool
+    notice: dict[str, Any],
+    platform: str,
+    include_desktop: bool,
+    claimed_at: str | None = None,
 ) -> bool:
     """Whether a notice answers for the claim a route asked about: it records the
-    ended claim's platform and kind, so a session's scope holds for its tombstone."""
-    return session_in_scope(notice, platform, include_desktop)
+    ended claim's platform, kind and stamp, so a session's scope holds for its
+    tombstone."""
+    return session_in_scope(notice, platform, include_desktop, claimed_at)
 
 
 async def find_session_for_user(

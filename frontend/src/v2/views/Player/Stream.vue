@@ -84,6 +84,7 @@ import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { emulatorKey } from "@/v2/utils/assets";
 import { bootableFiles } from "@/v2/utils/playerDisc";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
@@ -305,13 +306,12 @@ const selectedState = ref<UserStateSchema | null>(null);
 // created_at because user_saves arrives on updated_at, which a rehash moves;
 // the rows are dated on created_at to match.
 const restorableSaves = computed<SaveSchema[]>(() => {
-  const emulator = container.value?.emulator?.toLowerCase();
+  const emulator = emulatorKey(container.value?.emulator);
   if (!rom.value || !emulator) return [];
   return (rom.value.user_saves ?? [])
     .filter(
       (s) =>
-        (s.emulator ?? "").toLowerCase() === emulator &&
-        s.file_name.endsWith(".zip"),
+        emulatorKey(s.emulator) === emulator && s.file_name.endsWith(".zip"),
     )
     .sort(
       (a, b) =>
@@ -344,10 +344,10 @@ const selectedSave = computed<SaveSchema | null>(
 );
 
 const streamStates = computed<UserStateSchema[]>(() => {
-  const emulator = container.value?.emulator?.toLowerCase();
+  const emulator = emulatorKey(container.value?.emulator);
   if (!rom.value || !emulator) return [];
   return (rom.value.all_user_states ?? []).filter(
-    (s) => (s.emulator ?? "").toLowerCase() === emulator,
+    (s) => emulatorKey(s.emulator) === emulator,
   );
 });
 
@@ -554,12 +554,19 @@ async function handleSessionStatus(
   presence.stopHeartbeat();
   // Left standing, the claim would have the unload and unmount paths release
   // whoever holds the container next.
-  holdsClaim.value = false;
-  claimedContainer.value = null;
-  claimedAt.value = null;
+  forgetClaim();
 
   endedNotice.value = status.termination ?? null;
   endedDialogOpen.value = true;
+}
+
+async function enterStream(host: string): Promise<void> {
+  containerHost.value = host;
+  playerState.value = "playing";
+  if (fullscreenOnPlay.value) {
+    await nextTick();
+    await stage.value?.enterFullscreen();
+  }
 }
 
 // launch-ready is pushed once, so a tab that missed it sits loading over a
@@ -567,12 +574,7 @@ async function handleSessionStatus(
 async function enterRunningSession(status: SessionStatus): Promise<void> {
   if (playerState.value !== "loading" || !status.host) return;
   launchPhase.value = null;
-  containerHost.value = status.host;
-  playerState.value = "playing";
-  if (fullscreenOnPlay.value) {
-    await nextTick();
-    await stage.value?.enterFullscreen();
-  }
+  await enterStream(status.host);
 }
 
 function dismissEndedDialog(): void {
@@ -655,6 +657,12 @@ const claimedContainer = ref<string | null>(null);
 // carries it, since a re-claim of the same container shares its key.
 const claimedAt = ref<string | null>(null);
 
+function forgetClaim(): void {
+  holdsClaim.value = false;
+  claimedContainer.value = null;
+  claimedAt.value = null;
+}
+
 // The room is per-user, so a second tab hears about this tab's claim too.
 function isOurClaim(payload: {
   container?: string | null;
@@ -675,11 +683,8 @@ async function handBackClaim(platform: string): Promise<void> {
     claimedContainer.value,
     claimedAt.value,
   );
-  holdsClaim.value = !released;
-  if (released) {
-    claimedContainer.value = null;
-    claimedAt.value = null;
-  }
+  if (released) forgetClaim();
+  else holdsClaim.value = true;
 }
 
 useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
@@ -695,20 +700,13 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
     return;
   }
   if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
-  containerHost.value = payload.host;
-  playerState.value = "playing";
-  if (fullscreenOnPlay.value) {
-    await nextTick();
-    await stage.value?.enterFullscreen();
-  }
+  await enterStream(payload.host);
 });
 
 useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   if (!isOurClaim(payload)) return;
   // The backend already released the claim, so there is nothing to hand back.
-  holdsClaim.value = false;
-  claimedContainer.value = null;
-  claimedAt.value = null;
+  forgetClaim();
   launchPhase.value = null;
   if ((playerState.value as PlayerState) === "exited") return;
   errorType.value = "server";
@@ -844,12 +842,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       );
       await flourish;
       if ((playerState.value as PlayerState) === "exited") return;
-      containerHost.value = joined.host;
-      playerState.value = "playing";
-      if (fullscreenOnPlay.value) {
-        await nextTick();
-        await stage.value?.enterFullscreen();
-      }
+      await enterStream(joined.host);
     } else {
       // The backend derives the ROM's filesystem path and platform from the id.
       // It answers as soon as the container is reserved; the room URL follows
@@ -963,7 +956,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
   // Start timing the session once the claim succeeds and playback is live.
   // The session is ingested on unmount, which updates last_played /
   // now_playing / status server-side.
-  if (rom.value && playerState.value === "playing") {
+  if (rom.value && (playerState.value as PlayerState) === "playing") {
     playSession.start(rom.value);
   }
 }

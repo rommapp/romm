@@ -12,6 +12,7 @@ import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
+  emulatorKey,
   ownerOf,
   screenshotOf,
   staggerIndex,
@@ -95,8 +96,7 @@ const groups = computed<AssetGroup[]>(() => {
   }
   const byKey = new Map<string, AssetGroup>();
   for (const asset of props.assets) {
-    // Ids compare case-insensitively, as the backend matches them.
-    const key = (asset.emulator ?? "").toLowerCase();
+    const key = emulatorKey(asset.emulator);
     let group = byKey.get(key);
     if (!group) {
       group = {

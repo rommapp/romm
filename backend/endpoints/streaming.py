@@ -92,6 +92,7 @@ from handler.streaming.session_store import (
     record_termination,
     refresh_session,
     release_own_session,
+    same_claim,
     session_disc_id,
     session_is_stale,
     session_platform_matches,
@@ -243,10 +244,8 @@ async def _session_status(
     termination = None
     for candidate in candidates:
         notice = await get_termination(candidate.key, request.user.id)
-        if (
-            notice is not None
-            and access.notice_in_scope(notice, platform, include_desktop)
-            and (claimed_at is None or notice.get("claimed_at") == claimed_at)
+        if notice is not None and access.notice_in_scope(
+            notice, platform, include_desktop, claimed_at
         ):
             termination = notice
             break
@@ -1080,45 +1079,33 @@ async def heartbeat_session(
         include_desktop=named,
         claimed_at=claimed_at,
     )
-    if found is None:
-        return SessionStatusSchema(
-            **await _session_status(
-                platform,
-                request,
-                candidates,
-                include_desktop=named,
-                claimed_at=claimed_at,
+    if found is not None:
+        _, session_key, held = found
+        # Merging keeps a swap that landed since the read. Refusing a draining or
+        # re-claimed session returns None, so the client stops beating a dead claim.
+        try:
+            refreshed = await mutate_session(
+                session_key,
+                {"last_seen": datetime.now(timezone.utc).isoformat()},
+                require=lambda s: same_claim(s, held),
             )
+        except StreamingSessionContended:
+            # A key too busy to write is a key that exists, so the session is live
+            # and the missed stamp is covered by the next beat.
+            log.warning("heartbeat could not stamp contended session %s", session_key)
+            return SessionStatusSchema(status="active", platform=platform)
+        if refreshed is not None:
+            await lifecycle.refresh_session_activity(session_key, refreshed)
+            return SessionStatusSchema(status="active", platform=platform)
+    return SessionStatusSchema(
+        **await _session_status(
+            platform,
+            request,
+            candidates,
+            include_desktop=named,
+            claimed_at=claimed_at,
         )
-    _, session_key, _ = found
-
-    # Merging keeps a swap that landed since the read. Refusing a draining or
-    # re-claimed session returns None, so the client stops beating a dead claim.
-    try:
-        refreshed = await mutate_session(
-            session_key,
-            {"last_seen": datetime.now(timezone.utc).isoformat()},
-            require=lambda s: not s.get("draining")
-            and s.get("user_id") == user_id
-            and (claimed_at is None or s.get("claimed_at") == claimed_at),
-        )
-    except StreamingSessionContended:
-        # A key too busy to write is a key that exists, so the session is live
-        # and the missed stamp is covered by the next beat.
-        log.warning("heartbeat could not stamp contended session %s", session_key)
-        return SessionStatusSchema(status="active", platform=platform)
-    if refreshed is None:
-        return SessionStatusSchema(
-            **await _session_status(
-                platform,
-                request,
-                candidates,
-                include_desktop=named,
-                claimed_at=claimed_at,
-            )
-        )
-    await lifecycle.refresh_session_activity(session_key, refreshed)
-    return SessionStatusSchema(status="active", platform=platform)
+    )
 
 
 @protected_route(router.get, "/sessions/{platform}/status", [Scope.ROMS_READ])
@@ -1173,9 +1160,8 @@ async def join_session(
                 continue
             # A member the caller cannot join is not the answer and must not
             # mask a later one that is.
-            if not access.session_is_joinable(
-                request, session, access.session_rom(session)
-            ):
+            joinable, _ = access.joinable_session_rom(request, session)
+            if not joinable:
                 continue
             found = (candidate, session)
             break
@@ -1553,8 +1539,8 @@ async def list_joinable_sessions(
     async for container_key, s in iter_live_sessions():
         if rom_id is not None and s.get("rom_id") != rom_id:
             continue
-        rom = access.session_rom(s)
-        if not access.session_is_joinable(request, s, rom):
+        joinable, rom = access.joinable_session_rom(request, s)
+        if not joinable:
             continue
 
         user_id = s.get("user_id")

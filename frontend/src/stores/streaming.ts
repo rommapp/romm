@@ -10,6 +10,7 @@ import type {
   StreamingConfig,
   StreamingContainer,
 } from "@/services/api/streaming";
+import { emulatorLabelFrom } from "@/v2/utils/assets";
 
 export type {
   LaunchingSession,
@@ -82,11 +83,7 @@ export const useStreamingStore = defineStore("streaming", () => {
 
   /** The backend's display name for an emulator id, else the id as it stands. */
   function emulatorLabel(emulator: string | null | undefined): string {
-    if (!emulator) return "";
-    // Label keys are lowercase, and a configured emulator keeps its case.
-    const labels = config.value.emulator_labels;
-    const key = emulator.toLowerCase();
-    return Object.hasOwn(labels, key) ? labels[key] : emulator;
+    return emulatorLabelFrom(config.value.emulator_labels, emulator);
   }
 
   /**
@@ -271,9 +268,9 @@ export const useStreamingStore = defineStore("streaming", () => {
       await streamingApi.releaseSession(
         platform,
         undefined,
-        container ?? undefined,
+        container,
         save,
-        claimedAt ?? undefined,
+        claimedAt,
       );
       launchingSession.value = null;
       return true;
@@ -306,8 +303,8 @@ export const useStreamingStore = defineStore("streaming", () => {
         platform,
         slot,
         wait,
-        container ?? undefined,
-        claimedAt ?? undefined,
+        container,
+        claimedAt,
       );
       const released = data.released ?? true;
       if (released) launchingSession.value = null;
@@ -336,8 +333,8 @@ export const useStreamingStore = defineStore("streaming", () => {
     try {
       const { data } = await streamingApi.heartbeatSession(
         platform,
-        container ?? undefined,
-        claimedAt ?? undefined,
+        container,
+        claimedAt,
       );
       return data;
     } catch (err) {
@@ -382,12 +379,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     // The caller is unloading and cannot await, so the rejection is caught on
     // the promise itself; try/catch here would only see a synchronous throw.
     streamingApi
-      .saveAndExitKeepalive(
-        platform,
-        slot,
-        container ?? undefined,
-        claimedAt ?? undefined,
-      )
+      .saveAndExitKeepalive(platform, slot, container, claimedAt)
       .catch((err) => {
         console.warn("[streaming] Could not save-and-exit (keepalive):", err);
       });
@@ -405,11 +397,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     if (!platform) return;
     launchingSession.value = null;
     streamingApi
-      .releaseSessionKeepalive(
-        platform,
-        container ?? undefined,
-        claimedAt ?? undefined,
-      )
+      .releaseSessionKeepalive(platform, container, claimedAt)
       .catch((err) => {
         console.warn("[streaming] Could not release session (keepalive):", err);
       });

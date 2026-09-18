@@ -260,6 +260,17 @@ const CLAIM = {
   claimed_at: "2026-09-17T10:00:00",
 };
 
+// Holds the claim's 202 until the test lands it.
+function deferClaim(): (claim: typeof CLAIM) => void {
+  let land = (_: typeof CLAIM) => {};
+  mocks.claimSession.mockReturnValue(
+    new Promise<typeof CLAIM>((resolve) => {
+      land = resolve;
+    }),
+  );
+  return land;
+}
+
 describe("Stream save picker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -381,6 +392,9 @@ describe("Stream save picker", () => {
 
 type StreamVm = {
   onPlay: () => Promise<void>;
+  performStop: () => Promise<void>;
+  performSaveAndExit: () => Promise<void>;
+  claimedAt: string | null;
   playerState: string;
   endedDialogOpen: boolean;
   holdsClaim: boolean;
@@ -451,12 +465,7 @@ describe("Stream session-ended notices", () => {
   it("keeps launching when an admin's own desktop ends", async () => {
     // The 202 has not landed, so the container is not known yet and the
     // desktop flag is all that tells the two claims apart.
-    let claimed = (_: typeof CLAIM) => {};
-    mocks.claimSession.mockReturnValue(
-      new Promise<typeof CLAIM>((resolve) => {
-        claimed = resolve;
-      }),
-    );
+    const claimed = deferClaim();
     const wrapper = await launch({ picker: false });
     const playing = vmOf(wrapper).onPlay();
     await flushPromises();
@@ -490,12 +499,7 @@ describe("Stream session-ended notices", () => {
   });
 
   it("ends the launch when its own claim ended before the 202 landed", async () => {
-    let claimed = (_: typeof CLAIM) => {};
-    mocks.claimSession.mockReturnValue(
-      new Promise<typeof CLAIM>((resolve) => {
-        claimed = resolve;
-      }),
-    );
+    const claimed = deferClaim();
     const wrapper = await launch({ picker: false });
     const playing = vmOf(wrapper).onPlay();
     await flushPromises();
@@ -510,12 +514,7 @@ describe("Stream session-ended notices", () => {
   });
 
   it("keeps launching when the container's last claim ends before the 202", async () => {
-    let claimed = (_: typeof CLAIM) => {};
-    mocks.claimSession.mockReturnValue(
-      new Promise<typeof CLAIM>((resolve) => {
-        claimed = resolve;
-      }),
-    );
+    const claimed = deferClaim();
     const wrapper = await launch({ picker: false });
     const playing = vmOf(wrapper).onPlay();
     await flushPromises();
@@ -590,18 +589,11 @@ describe("Stream claim hygiene", () => {
   it("hands the container back when the claim lands after the player left", async () => {
     // Leaving mid-claim unmounts the view, so no socket or unmount path is left
     // to release what the 202 then grants.
-    let claimed = (_: typeof CLAIM) => {};
-    mocks.claimSession.mockReturnValue(
-      new Promise<typeof CLAIM>((resolve) => {
-        claimed = resolve;
-      }),
-    );
+    const claimed = deferClaim();
     const wrapper = await launch({ picker: false });
     const playing = vmOf(wrapper).onPlay();
     await flushPromises();
-    await (
-      wrapper.vm as unknown as { performStop: () => Promise<void> }
-    ).performStop();
+    await vmOf(wrapper).performStop();
     wrapper.unmount();
 
     claimed(CLAIM);
@@ -648,7 +640,6 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     ]);
-    wrapper.unmount();
   });
 
   it("names the claim it saves on Save & Exit", async () => {
@@ -657,9 +648,7 @@ describe("Stream claim hygiene", () => {
     await vmOf(wrapper).onPlay();
     await launchReady();
 
-    await (
-      wrapper.vm as unknown as { performSaveAndExit: () => Promise<void> }
-    ).performSaveAndExit();
+    await vmOf(wrapper).performSaveAndExit();
 
     const [platform, , wait, container, claimedAt] =
       mocks.saveAndExit.mock.calls[0];
@@ -669,7 +658,6 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     ]);
-    wrapper.unmount();
   });
 
   it("names the claim it releases when Save & Exit fails", async () => {
@@ -678,9 +666,7 @@ describe("Stream claim hygiene", () => {
     await vmOf(wrapper).onPlay();
     await launchReady();
 
-    await (
-      wrapper.vm as unknown as { performSaveAndExit: () => Promise<void> }
-    ).performSaveAndExit();
+    await vmOf(wrapper).performSaveAndExit();
 
     expect(mocks.releaseSession).toHaveBeenCalledWith(
       "gba",
@@ -688,7 +674,6 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     );
-    wrapper.unmount();
   });
 
   it("names the claim it releases on Stop", async () => {
@@ -696,9 +681,7 @@ describe("Stream claim hygiene", () => {
     await vmOf(wrapper).onPlay();
     await launchReady();
 
-    await (
-      wrapper.vm as unknown as { performStop: () => Promise<void> }
-    ).performStop();
+    await vmOf(wrapper).performStop();
 
     expect(mocks.releaseSession).toHaveBeenCalledWith(
       "gba",
@@ -706,7 +689,6 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     );
-    wrapper.unmount();
   });
 
   it("names the claim it releases when the tab closes while loading", async () => {
@@ -720,7 +702,6 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     );
-    wrapper.unmount();
   });
 
   it("names the claim on the heartbeat", async () => {
@@ -737,7 +718,6 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     );
-    wrapper.unmount();
   });
 });
 
@@ -777,7 +757,6 @@ describe("Stream launch recovery", () => {
     expect(vmOf(wrapper).containerHost).toBe(
       "http://webstation-dev:8080/room/x",
     );
-    wrapper.unmount();
   });
 
   it("keeps waiting when the launch-ready is for a claim that replaced its own", async () => {
@@ -790,18 +769,12 @@ describe("Stream launch recovery", () => {
 
     expect(vmOf(wrapper).playerState).toBe("loading");
     expect(vmOf(wrapper).containerHost).toBe("");
-    wrapper.unmount();
   });
 
   it("keeps waiting when the poll answers before the claim does", async () => {
     // Without the 202's stamp the poll reports any session the player holds on
     // the platform, which can be another tab's.
-    let claimed = (_: typeof CLAIM) => {};
-    mocks.claimSession.mockReturnValue(
-      new Promise<typeof CLAIM>((resolve) => {
-        claimed = resolve;
-      }),
-    );
+    const claimed = deferClaim();
     const wrapper = await launch({ picker: false });
     const playing = vmOf(wrapper).onPlay();
     await flushPromises();
@@ -818,7 +791,6 @@ describe("Stream launch recovery", () => {
     expect(vmOf(wrapper).containerHost).toBe("");
     claimed(CLAIM);
     await playing;
-    wrapper.unmount();
   });
 
   it("ignores a poll that answers for the claim this tab has since replaced", async () => {
@@ -833,13 +805,11 @@ describe("Stream launch recovery", () => {
     );
 
     await pollStatus();
-    (wrapper.vm as unknown as { claimedAt: string }).claimedAt =
-      "2026-09-17T10:05:00";
+    vmOf(wrapper).claimedAt = "2026-09-17T10:05:00";
     answer({ status: "ended", platform: "gba" });
     await flushPromises();
 
     expect(vmOf(wrapper).playerState).toBe("playing");
-    wrapper.unmount();
   });
 
   it("keeps waiting while the launch has no room yet", async () => {
@@ -854,7 +824,6 @@ describe("Stream launch recovery", () => {
     await pollStatus();
 
     expect(vmOf(wrapper).playerState).toBe("loading");
-    wrapper.unmount();
   });
 });
 
@@ -877,15 +846,13 @@ describe("Stream join", () => {
 
     expect(mocks.joinSession).toHaveBeenCalledWith("gba", "http://box:8000");
     expect(vmOf(wrapper).playerState).toBe("playing");
-    wrapper.unmount();
   });
 
   it("joins without one when the page had no container to name", async () => {
     mocks.query = { join: "1" };
-    const wrapper = await launch({ picker: false });
+    await launch({ picker: false });
     await flushPromises();
 
     expect(mocks.joinSession).toHaveBeenCalledWith("gba", undefined);
-    wrapper.unmount();
   });
 });
