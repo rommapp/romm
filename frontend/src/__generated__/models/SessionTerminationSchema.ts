@@ -16,6 +16,7 @@ export type SessionTerminationSchema = {
     rom_id?: (number | null);
     rom_name?: (string | null);
     container?: (string | null);
+    claimed_at?: (string | null);
     desktop?: boolean;
 };
 

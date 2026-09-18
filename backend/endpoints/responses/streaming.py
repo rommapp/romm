@@ -54,6 +54,7 @@ class SessionTerminationSchema(BaseModel):
     rom_id: int | None = None
     rom_name: str | None = None
     container: str | None = None
+    claimed_at: str | None = None
     desktop: bool = False
 
 

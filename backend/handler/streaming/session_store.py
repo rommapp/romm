@@ -593,6 +593,8 @@ async def record_termination(
         # Which claim ended: a user can hold one per container, plus a desktop,
         # and only the tab that holds this one should act on the notice.
         "container": session_key,
+        # A re-claim of the container keeps its key, so the stamp names the claim.
+        "claimed_at": session.get("claimed_at"),
         "desktop": session_is_desktop(session),
     }
     await async_cache.set(

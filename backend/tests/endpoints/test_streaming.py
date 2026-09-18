@@ -3053,6 +3053,26 @@ def test_a_termination_notice_names_the_container_it_ended(
     assert notice["desktop"] is False
 
 
+def test_a_termination_notice_names_the_claim_it_ended(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """A re-claim of the same container keeps its key, so only the stamp tells
+    the tab that lost its claim from the one holding the next."""
+    with _streaming(_container_for(rom)):
+        claimed_at = _claim_ok(client, viewer_access_token, rom.id).json()[
+            "claimed_at"
+        ]
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            headers=_auth(access_token),
+        )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(viewer_access_token),
+        )
+    assert r.json()["termination"]["claimed_at"] == claimed_at
+
+
 def test_a_termination_notice_lands_before_the_drain(
     client, access_token, viewer_access_token, rom: Rom
 ):
