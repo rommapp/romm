@@ -13,6 +13,8 @@ import type { InjectionKey } from "vue";
 export interface ChromeLabels {
   /** Dismiss affordance on dialogs, drawers and the carousel. */
   close: string;
+  /** A dialog's built-in Cancel button. */
+  cancel: string;
   /** Reset affordance on text, select and combobox fields. */
   clear: string;
   /** Per-item removal on chips and multi-select values. */
@@ -35,6 +37,7 @@ export interface ChromeLabels {
 
 export const DEFAULT_CHROME_LABELS: ChromeLabels = {
   close: "Close",
+  cancel: "Cancel",
   clear: "Clear",
   remove: "Remove",
   all: "All",

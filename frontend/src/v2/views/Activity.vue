@@ -370,6 +370,7 @@ function elapsedLabel(startedAt: string): string {
       :model-value="releaseTarget !== null"
       icon="mdi-account-cancel"
       :width="440"
+      cancelable
       @close="releaseTarget = null"
       @update:model-value="releaseTarget = null"
     >
@@ -389,9 +390,6 @@ function elapsedLabel(startedAt: string): string {
         </RTextField>
       </template>
       <template #footer>
-        <RBtn variant="text" @click="releaseTarget = null">
-          {{ t("common.cancel") }}
-        </RBtn>
         <RBtn variant="flat" color="danger" @click="confirmRelease">
           {{ t("activity.release-session") }}
         </RBtn>

@@ -2,7 +2,7 @@
 // ManualUploadTargetDialog: asks whether an uploaded manual should live in the
 // shared resources directory (sticks to the ROM in the database) or the ROM's
 // folder on disk (visible to external tools).
-import { RBtn, RDialog, RIcon } from "@v2/lib";
+import { RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -121,6 +121,7 @@ function closeDialog() {
     v-model="show"
     icon="mdi-book-open-page-variant-outline"
     width="520"
+    cancelable
     @close="closeDialog"
   >
     <template #header>
@@ -173,11 +174,6 @@ function closeDialog() {
           />
         </button>
       </div>
-    </template>
-    <template #footer>
-      <RBtn variant="text" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
   </RDialog>
 </template>

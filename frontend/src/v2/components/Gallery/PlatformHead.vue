@@ -8,10 +8,7 @@
 //      head scrolls naturally with the cards (and the toolbar pins
 //      below it). Matches the pre-tabs experience.
 //
-//   2. Firmware / Settings tabs — rendered inline above the tab body
-//      inside a plain scrollable wrapper. The head scrolls together
-//      with the tab content so the user can move freely; switching
-//      back to Library re-enters the gallery shell.
+//   2. Firmware / Settings tabs: above the tab body, scrolling with it.
 //
 // All admin actions are forwarded as events; permission gating lives
 // on the parent so the bar stays in sync with `useCan`.
@@ -224,11 +221,9 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
 <style scoped>
 .r-v2-plat__panel-icon {
   width: 200px;
-  /* `min-height` (not a fixed `height`): the icon is a square sized in JS, so
-     the box floors at the icon height and simply grows to contain it — a tall
-     icon pushes the title/stats down (reflow) instead of overflowing and
-     getting clipped or overlapping. */
-  min-height: 148px;
+  /* A floor, not a fixed height, so a taller icon grows the box. It matches
+     the collection cover height so both heads' tabs line up. */
+  min-height: var(--r-coll-cover-h);
   display: grid;
   place-items: center;
 }

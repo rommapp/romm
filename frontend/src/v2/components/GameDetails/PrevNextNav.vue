@@ -25,6 +25,12 @@ const props = defineProps<{
   romId: number;
 }>();
 
+// Slot content (the cover, on mobile) sits between the two arrows and still
+// renders when there is no list to step through.
+defineSlots<{
+  default?(): unknown;
+}>();
+
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -77,8 +83,13 @@ function go(position: number | null) {
 </script>
 
 <template>
-  <div v-if="visible" class="prev-next-nav">
+  <div
+    v-if="visible || $slots.default"
+    class="prev-next-nav"
+    :class="{ 'prev-next-nav--around': $slots.default }"
+  >
     <RBtn
+      v-if="visible"
       variant="outlined"
       size="small"
       density="compact"
@@ -89,7 +100,9 @@ function go(position: number | null) {
       tooltip-location="top"
       @click="go(prevPosition)"
     />
+    <slot />
     <RBtn
+      v-if="visible"
       variant="outlined"
       size="small"
       density="compact"
@@ -109,5 +122,17 @@ function go(position: number | null) {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+/* Reaches out to the screen edges so each arrow centres in the gap between the
+   slot content (the cover) and the edge. */
+.prev-next-nav--around {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  justify-items: center;
+  gap: 0;
+  margin-inline: calc(-1 * var(--r-row-pad));
+}
+.prev-next-nav--around :slotted(*) {
+  grid-column: 2;
 }
 </style>

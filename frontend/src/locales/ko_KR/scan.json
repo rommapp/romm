@@ -60,6 +60,7 @@
   "scan-types-more-info": "더 많은 정보",
   "scanning": "스캔 중",
   "scanning-library": "라이브러리 스캔 중. 클릭하여 보기",
+  "scanning-platform": "{platform} 스캔 중…",
   "section-metadata": "메타데이터",
   "section-platforms": "플랫폼",
   "section-providers": "제공자",

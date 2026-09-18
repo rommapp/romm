@@ -85,6 +85,7 @@ async function submit() {
     :model-value="modelValue"
     icon="mdi-folder-upload-outline"
     width="520"
+    cancelable
     @update:model-value="emit('update:modelValue', $event)"
     @close="close"
   >
@@ -129,10 +130,6 @@ async function submit() {
       </RForm>
     </template>
     <template #footer>
-      <RBtn variant="text" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div style="flex: 1" />
       <RBtn
         variant="translucent"
         color="primary"

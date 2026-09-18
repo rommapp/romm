@@ -60,6 +60,7 @@
   "scan-types-more-info": "Weitere Informationen",
   "scanning": "Scannt",
   "scanning-library": "Bibliothek wird gescannt. Klicke zum Anzeigen",
+  "scanning-platform": "Scanne {platform}…",
   "section-metadata": "Metadaten",
   "section-platforms": "Plattformen",
   "section-providers": "Anbieter",

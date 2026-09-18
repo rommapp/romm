@@ -218,44 +218,44 @@ function compareBy(
 // Toolbar group-by items — order = visual order in the segmented
 // slider (28×28 each, so 5 items still fits the toolbar comfortably on
 // desktop). Tooltips ride on `title`.
-const platformGroupByItems: GroupByItem[] = [
+const platformGroupByItems = computed<GroupByItem[]>(() => [
   {
     id: "none",
     icon: "mdi-view-agenda-outline",
-    ariaLabel: "Flat view",
-    title: "Flat view",
+    ariaLabel: t("gallery.view-flat"),
+    title: t("gallery.view-flat"),
   },
   {
     id: "letter",
     icon: "mdi-alphabetical-variant",
-    ariaLabel: "Group by letter",
-    title: "Group by letter",
+    ariaLabel: t("gallery.view-grouped"),
+    title: t("gallery.view-grouped"),
   },
   {
     id: "family",
     icon: "mdi-family-tree",
-    ariaLabel: "Group by family",
-    title: "Group by family",
+    ariaLabel: t("platform.group-by-family"),
+    title: t("platform.group-by-family"),
   },
   {
     id: "category",
     icon: "mdi-shape-outline",
-    ariaLabel: "Group by category",
-    title: "Group by category",
+    ariaLabel: t("platform.group-by-category"),
+    title: t("platform.group-by-category"),
   },
   {
     id: "generation",
     icon: "mdi-numeric",
-    ariaLabel: "Group by generation",
-    title: "Group by generation",
+    ariaLabel: t("platform.group-by-generation"),
+    title: t("platform.group-by-generation"),
   },
   {
     id: "playable",
     icon: "mdi-play-circle-outline",
-    ariaLabel: "Group by playable",
-    title: "Group by playable",
+    ariaLabel: t("platform.group-by-playable"),
+    title: t("platform.group-by-playable"),
   },
-];
+]);
 
 // Single segmented cluster left of the view controls, mirrored into the
 // kebab menu on narrow viewports by GalleryToolbar.
@@ -396,7 +396,7 @@ const familyGroups = computed<Bucket[]>(() =>
       const slug = p.family_slug;
       const name = p.family_name;
       if (slug && name) return { key: slug, label: name };
-      return { key: "__other", label: "Other" };
+      return { key: "__other", label: t("platform.group-other") };
     },
     (a, b) => {
       if (a.key === "__other") return 1;
@@ -416,7 +416,7 @@ const categoryGroups = computed<Bucket[]>(() =>
     (p) => {
       const c = p.category;
       if (c) return { key: c, label: prettifyPlatformCategory(c) };
-      return { key: "__other", label: "Other" };
+      return { key: "__other", label: t("platform.group-other") };
     },
     (a, b) => {
       if (a.key === "__other") return 1;
@@ -441,7 +441,7 @@ const generationGroups = computed<Bucket[]>(() =>
           label: platformGenerationLabel(g),
         };
       }
-      return { key: "__unknown", label: "Unknown generation" };
+      return { key: "__unknown", label: t("platform.generation-unknown") };
     },
     (a, b) => {
       if (a.key === "__unknown") return 1;
@@ -459,8 +459,8 @@ const playableGroups = computed<Bucket[]>(() =>
     sortedForGrid.value,
     (p) =>
       playableById.value.get(p.id)
-        ? { key: "playable", label: "Playable" }
-        : { key: "not_playable", label: "Not playable" },
+        ? { key: "playable", label: t("platform.playable") }
+        : { key: "not_playable", label: t("platform.not-playable") },
     (a, b) => (a.key === "playable" ? -1 : b.key === "playable" ? 1 : 0),
   ),
 );

@@ -1,5 +1,6 @@
 {
   "add-collection": "Přidat kolekci",
+  "collection-deleted": "Kolekce „{name}“ byla smazána",
   "cover": "Obal",
   "create-collection": "Vytvořit kolekci",
   "create-failed": "Nepodařilo se vytvořit kolekci",
@@ -7,6 +8,8 @@
   "current-filters": "Aktuální filtry",
   "danger-zone": "Nebezpečná zóna",
   "delete-collection": "Smazat kolekci",
+  "delete-collection-body": "Odstraní „{name}“ ({count} ROM v kolekci). Samotné soubory ROM se nesmažou.",
+  "delete-collection-failed": "Kolekci se nepodařilo smazat: {error}",
   "delete-collection-hint": "Odstraní kolekci z RomM. Samotné soubory ROM se nesmažou.",
   "description": "Popis",
   "download-collection": "Stáhnout kolekci",
