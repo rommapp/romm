@@ -2242,6 +2242,41 @@ def test_an_unnamed_release_leaves_the_callers_desktop_alone(client, access_toke
     assert session is not None and session["desktop"] is True
 
 
+def test_an_unnamed_release_leaves_another_platforms_session_alone(
+    client, access_token
+):
+    """The container's ngc row shares a key with the caller's ps2 session, so an
+    unnamed ngc release must not end the ps2 game."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
+        with patch("handler.streaming.commands.stop", return_value=None):
+            r = client.delete(
+                "/api/streaming/sessions/ngc", headers=_auth(access_token)
+            )
+        session = asyncio.run(session_store.get_session(_key_of(_nested())))
+    assert r.json()["status"] == "not_found"
+    assert session is not None and session["platform"] == "ps2"
+
+
+def test_an_unnamed_heartbeat_leaves_another_platforms_session_alone(
+    client, access_token
+):
+    """An ngc tab beating unnamed must not keep the caller's ps2 session on the
+    same container alive."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
+        _age_session_on(_nested(), 120)
+        before = json.loads(_session_raw(_nested()))["last_seen"]
+        r = client.post(
+            "/api/streaming/sessions/ngc/heartbeat", headers=_auth(access_token)
+        )
+        after = json.loads(_session_raw(_nested()))["last_seen"]
+    assert r.json()["status"] == "ended"
+    assert after == before
+
+
 def test_desktop_is_admin_only(client, viewer_access_token):
     with _streaming(_webstation()):
         key = _key_of(_first_container("ps2"))
