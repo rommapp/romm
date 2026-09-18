@@ -83,6 +83,7 @@ from handler.streaming.session_store import (
     claim_drain_marker,
     claim_gate,
     clear_termination,
+    get_abandoned_session,
     get_live_session,
     get_session,
     get_termination,
@@ -393,12 +394,8 @@ async def _reserve_container(
     # backend doing it is what refreshes it.
     deadline = time.monotonic() + lifecycle.ABANDONED_TEARDOWN_WAIT
     for candidate in candidates:
-        existing = await get_session(candidate.key)
-        if (
-            existing is None
-            or existing.get("draining")
-            or not session_is_stale(existing)
-        ):
+        existing = await get_abandoned_session(candidate.key)
+        if existing is None:
             continue
         log.warning(
             "taking over stale session, platform=%s user_id=%s",

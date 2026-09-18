@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from handler.redis_handler import async_cache
-from handler.streaming import commands, session_store
+from handler.streaming import background, commands, session_store
 from handler.streaming.config import ResolvedContainer, reset_cache, resolve_entry
 from tasks.registry import SCHEDULED_TASKS
 from tasks.scheduled.reap_streaming_sessions import (
@@ -85,6 +85,17 @@ def test_the_reaper_runs_every_minute():
     assert reap_streaming_sessions_task.cron_string == "* * * * *"
 
 
+def test_the_job_outlives_a_slow_teardown():
+    """RQ kills a job at its timeout, and a teardown killed mid-evacuation loses
+    the player's only copy of the card."""
+    assert reap_streaming_sessions_task.timeout >= session_store.HOLD_CEILING_SECONDS
+
+
+def test_a_run_keeps_no_job_history():
+    """At one run a minute, a day of kept results would bury every other task."""
+    assert reap_streaming_sessions_task.result_ttl == 0
+
+
 async def test_a_stale_session_goes_through_the_abandoned_teardown():
     with _streaming(N64):
         session = await _hold(N64, idle_seconds=STALE)
@@ -94,7 +105,9 @@ async def test_a_stale_session_goes_through_the_abandoned_teardown():
         ) as teardown:
             await ReapStreamingSessionsTask().run()
 
-    teardown.assert_awaited_once_with(_resolved(N64), _resolved(N64).key, session)
+    teardown.assert_awaited_once_with(
+        _resolved(N64), _resolved(N64).key, session, claimed_by=None
+    )
 
 
 async def test_fresh_sessions_and_drain_markers_are_left_alone():
@@ -132,6 +145,30 @@ async def test_a_shared_container_tears_down_under_the_sessions_own_platform():
     teardown.assert_awaited_once()
     (record, _, _), _ = teardown.call_args
     assert record.platform == "psx"
+
+
+async def test_one_failing_container_does_not_cut_the_others_short():
+    """The job's event loop stops when the run returns, so a sibling teardown
+    still in flight would be frozen partway."""
+    finished: list[str] = []
+
+    async def teardown(record: ResolvedContainer, *args: Any, **kwargs: Any) -> bool:
+        if record.platform == "n64":
+            raise ConnectionError("redis went away")
+        await asyncio.sleep(0.05)
+        finished.append(record.platform)
+        return True
+
+    with _streaming(N64, PSX):
+        await _hold(N64, idle_seconds=STALE)
+        await _hold(PSX, idle_seconds=STALE)
+        with patch(
+            "tasks.scheduled.reap_streaming_sessions.teardown_abandoned_session",
+            new=teardown,
+        ):
+            await ReapStreamingSessionsTask().run()
+
+    assert finished == ["psx"]
 
 
 async def test_nothing_runs_while_streaming_is_disabled():
@@ -189,6 +226,21 @@ async def test_the_run_waits_for_the_exit_save_pull_it_spawned():
     assert pulled.is_set()
 
 
+async def test_waiting_for_spawned_tasks_skips_another_loops():
+    """A task left on a loop that is not running can never finish."""
+    other_loop = asyncio.new_event_loop()
+    stranded = other_loop.create_task(asyncio.sleep(60))
+    background._sync_tasks.add(stranded)
+    try:
+        await asyncio.wait_for(background.wait_for_sync_tasks(), timeout=1)
+    finally:
+        background._sync_tasks.discard(stranded)
+        stranded.cancel()
+        with suppress(asyncio.CancelledError):
+            await asyncio.to_thread(other_loop.run_until_complete, stranded)
+        other_loop.close()
+
+
 async def test_overlapping_runs_tear_a_session_down_once():
     """Two workers can both see the same stale session; the drain marker's
     compare-and-set lets only one of them stop the emulator."""
@@ -204,7 +256,7 @@ async def test_overlapping_runs_tear_a_session_down_once():
     both_read = asyncio.Barrier(2)
 
     async def read_together(key: str) -> dict[str, Any] | None:
-        session = await session_store.get_session(key)
+        session = await session_store.get_abandoned_session(key)
         await both_read.wait()
         return session
 
@@ -212,7 +264,7 @@ async def test_overlapping_runs_tear_a_session_down_once():
         await _hold(N64, idle_seconds=STALE)
         with (
             patch(
-                "tasks.scheduled.reap_streaming_sessions.get_session",
+                "tasks.scheduled.reap_streaming_sessions.get_abandoned_session",
                 new=read_together,
             ),
             patch("handler.streaming.lifecycle.quiesce_container", new=quiesce),

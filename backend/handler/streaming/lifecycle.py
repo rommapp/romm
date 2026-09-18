@@ -416,7 +416,7 @@ async def teardown_abandoned_session(
     session_key: str,
     session: dict[str, Any],
     *,
-    claimed_by: int | None = None,
+    claimed_by: int | None,
 ) -> bool:
     """Free a container whose owner vanished without releasing (heartbeat went
     stale). Same order as an owner release: stop the emulator so the card is

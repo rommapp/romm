@@ -5,7 +5,6 @@ from typing import Any, Final
 from rq.job import Job
 from rq.queue import Queue
 
-from config import TASK_RESULT_TTL
 from exceptions.task_exceptions import TaskNotFoundException
 from handler.redis_handler import low_prio_queue, scan_queue
 from tasks.manual.cleanup_missing_firmware import cleanup_missing_firmware_task
@@ -89,7 +88,7 @@ def enqueue_task(
         run_task_by_name,
         kwargs={"name": name, "task_kwargs": task_kwargs or {}},
         job_timeout=task.timeout,
-        result_ttl=TASK_RESULT_TTL,
+        result_ttl=task.result_ttl,
         meta=task.job_meta(name),
         **job_options,
     )

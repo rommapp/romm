@@ -73,7 +73,7 @@ _CLAIM_REFRESH_SECONDS = _STREAMING_SESSION_STALE_SECONDS // 3
 # this the refresh stops and the container ages back out on its own: every step
 # under a keepalive carries its own timeout, so overrunning this means something
 # is wedged, and a wedged step must not reserve a container indefinitely.
-_HOLD_CEILING_SECONDS = 15 * 60
+HOLD_CEILING_SECONDS = 15 * 60
 
 
 def session_redis_key(session_key: str) -> str:
@@ -365,7 +365,7 @@ async def hold_drain_marker(session_key: str, token: str) -> None:
     minute instead of parking it for the length of a transfer nobody is doing.
     """
     marker = drain_marker(token)
-    deadline = time.monotonic() + _HOLD_CEILING_SECONDS
+    deadline = time.monotonic() + HOLD_CEILING_SECONDS
     while True:
         await asyncio.sleep(_DRAIN_MARKER_REFRESH)
         try:
@@ -388,7 +388,7 @@ async def hold_drain_marker(session_key: str, token: str) -> None:
                 "stopped refreshing the drain marker on %s, the work behind it "
                 "has run for over %ss",
                 session_key,
-                _HOLD_CEILING_SECONDS,
+                HOLD_CEILING_SECONDS,
             )
             return
 
@@ -401,7 +401,7 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
     gone, so without this the record ages past `_STREAMING_SESSION_STALE_SECONDS` and the
     next claimant tears the container down mid-work.
     """
-    deadline = time.monotonic() + _HOLD_CEILING_SECONDS
+    deadline = time.monotonic() + HOLD_CEILING_SECONDS
     while True:
         await asyncio.sleep(_CLAIM_REFRESH_SECONDS)
         try:
@@ -420,7 +420,7 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
                 "stopped refreshing the claim on %s, the work behind it has run "
                 "for over %ss",
                 session_key,
-                _HOLD_CEILING_SECONDS,
+                HOLD_CEILING_SECONDS,
             )
             return
 
@@ -553,6 +553,14 @@ def session_is_stale(session: dict[str, Any]) -> bool:
         seen = seen.replace(tzinfo=timezone.utc)
     age = (datetime.now(timezone.utc) - seen).total_seconds()
     return age > _STREAMING_SESSION_STALE_SECONDS
+
+
+async def get_abandoned_session(session_key: str) -> dict[str, Any] | None:
+    """The claim on `session_key` when its heartbeat went stale, never a drain marker."""
+    session = await get_session(session_key)
+    if session is None or session.get("draining") or not session_is_stale(session):
+        return None
+    return session
 
 
 # ── Termination notices ───────────────────────────────────────────────────────

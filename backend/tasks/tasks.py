@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 from rq import get_current_job
 
-from config import TASK_TIMEOUT
+from config import TASK_RESULT_TTL, TASK_TIMEOUT
 from exceptions.task_exceptions import TaskNotFoundException
 from logger.logger import log
 from utils.context import ctx_httpx_client
@@ -71,6 +71,7 @@ class Task(ABC):
     cron_string: str | None = None
     task_type: TaskType
     timeout: int
+    result_ttl: int
 
     def __init__(
         self,
@@ -81,6 +82,7 @@ class Task(ABC):
         manual_run: bool = False,
         cron_string: str | None = None,
         timeout: int = TASK_TIMEOUT,
+        result_ttl: int = TASK_RESULT_TTL,
     ):
         self.title = title
         self.description = description or title
@@ -89,6 +91,7 @@ class Task(ABC):
         self.manual_run = manual_run
         self.cron_string = cron_string
         self.timeout = timeout
+        self.result_ttl = result_ttl
 
     @property
     def can_run_manually(self) -> bool:

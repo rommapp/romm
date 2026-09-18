@@ -2639,10 +2639,10 @@ def test_takeover_aborts_when_the_owner_comes_back_first(
             checked = True
             return real_stale(session)
 
-        # Both callers hold their own reference: the claim route runs the scan,
+        # Both callers hold their own reference: session_store runs the scan,
         # lifecycle re-checks under the marker.
         with (
-            patch.object(streaming, "session_is_stale", stale_then_fresh),
+            patch.object(session_store, "session_is_stale", stale_then_fresh),
             patch.object(lifecycle, "session_is_stale", stale_then_fresh),
             _stub_stop() as stop_broker,
         ):
@@ -4065,7 +4065,7 @@ def test_work_running_under_a_claim_keeps_it_off_the_stale_list():
         # runs and the test never waits on a clock.
         with (
             patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0),
-            patch.object(session_store, "_HOLD_CEILING_SECONDS", 0),
+            patch.object(session_store, "HOLD_CEILING_SECONDS", 0),
         ):
             asyncio.run(session_store.hold_session_claim("cas-hold-claim", claim))
         current = json.loads(asyncio.run(async_cache.get(key)))
