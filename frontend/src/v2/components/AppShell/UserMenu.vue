@@ -102,7 +102,7 @@ async function onLogout() {
       return;
     }
     await refetchCSRFToken();
-    snackbar.success("Logged out", { icon: "mdi-check-bold" });
+    snackbar.success(t("common.logout-success"), { icon: "mdi-check-bold" });
     await router.push({ name: ROUTES.LOGIN });
     const pinia = getActivePinia() as
       { _s?: Map<string, { reset?: () => void } & StateTree> } | undefined;
@@ -110,7 +110,7 @@ async function onLogout() {
       store.reset?.();
     });
   } catch (error) {
-    snackbar.error("Could not log out. Please try again.", {
+    snackbar.error(t("common.logout-error"), {
       icon: "mdi-close-circle",
     });
     console.error("Logout error:", error);

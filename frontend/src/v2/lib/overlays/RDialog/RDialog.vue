@@ -16,6 +16,7 @@
 // belong inside the consumer's `#content` slot — composed from
 // REmptyState / RProgressCircular / RSpinner as needed.
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import { createBodyScrollLock, overlayCount } from "../bodyScrollLock";
 import {
@@ -68,6 +69,8 @@ const emit = defineEmits<{
 }>();
 
 const slots = useSlots();
+
+const labels = useChromeLabels();
 
 const panelRef = ref<HTMLElement | null>(null);
 // Element that had focus before the dialog opened — focus returns here
@@ -235,7 +238,7 @@ const panelStyle = computed(() => {
             <button
               type="button"
               class="r-dialog__close"
-              aria-label="Close"
+              :aria-label="labels.close"
               @click="closeDialog"
             >
               <RIcon icon="mdi-close" size="16" />

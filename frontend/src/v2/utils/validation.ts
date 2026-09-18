@@ -8,7 +8,7 @@
 //   const rules = [required(), email];
 //
 // Composable rules accept an optional message override:
-//   required(t("auth.email-required"))
+//   required(t("settings.repeat-password-required"))
 import i18n from "@/locales";
 
 type Rule = (v: string | number | null | undefined) => true | string;
