@@ -914,8 +914,8 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         detail && typeof detail === "object"
           ? (detail as ContainerBusyDetail)
           : null;
-      // A draining container is nobody's: the previous session is over and its
-      // exit state is still being collected, so there is no holder to name.
+      // A draining container is nobody's: the previous session is over and the
+      // container is still shutting it down, so there is no holder to name.
       draining.value = busy?.draining === true;
       occupiedBy.value =
         busy && busy.rom_name && busy.claimed_at
