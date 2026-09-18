@@ -3021,6 +3021,32 @@ def test_a_termination_notice_lands_before_the_drain(
     assert seen[0]["reason"] == "maintenance window"
 
 
+def test_a_takeover_notice_lands_before_the_drain(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The abandoned owner's tab polls through the takeover's drain like any
+    other, so the notice has to be there before the quiesce starts."""
+    container = _container_for(rom)
+    seen: list[dict[str, Any] | None] = []
+
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        owner = json.loads(_session_raw(container))["user_id"]
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+
+        async def capture(*args, **kwargs):
+            seen.append(await session_store.get_termination(_key_of(container), owner))
+            return None
+
+        with patch(
+            "handler.streaming.lifecycle.quiesce_container",
+            new=AsyncMock(side_effect=capture),
+        ):
+            _claim_ok(client, viewer_access_token, rom.id)
+    assert seen and seen[0] is not None
+    assert seen[0]["reason"] == "abandoned"
+
+
 def test_force_release_all_leaves_termination_notice(
     client, access_token, viewer_access_token, rom: Rom
 ):
