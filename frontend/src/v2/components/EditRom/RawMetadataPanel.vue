@@ -82,7 +82,7 @@ function saveMetadata() {
     isEditing.value = false;
   } catch {
     emitter?.emit("snackbarShow", {
-      msg: "Invalid JSON format",
+      msg: t("common.invalid-json"),
       icon: "mdi-close-circle",
       color: "red",
       timeout: 3000,

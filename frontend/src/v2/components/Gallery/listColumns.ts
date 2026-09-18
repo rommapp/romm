@@ -11,8 +11,13 @@
 // Pixel constants (`LIST_ROW_HEIGHT_PX`, `LIST_COVER_*_PX`, …) are
 // derived from the design tokens so the JS-side virtualiser height table
 // (`useGalleryVirtualItems`) stays in lock-step with the rendered CSS.
+import i18n from "@/locales";
 import type { GalleryOrderKey } from "@/v2/stores/galleryRoms";
 import { layout } from "@/v2/tokens";
+
+// Callers build the column set inside a `computed`, so reading the
+// composer here keeps the labels reactive to a locale switch.
+const t = (key: string) => i18n.global.t(key);
 
 /** Subset of `GalleryOrderKey` exposed as clickable column headers in
  * list mode. Other gallery surfaces (toolbar dropdown, future smart
@@ -60,12 +65,17 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
     // Cover gets its own fixed-width column so the title/meta column starts
     // at the same x on every row, regardless of the cover's natural width.
     { key: "cover", label: "", sortable: false, align: "start" },
-    { key: "name", label: "Title", sortable: true, align: "start" },
+    {
+      key: "name",
+      label: t("settings.title-header"),
+      sortable: true,
+      align: "start",
+    },
   ];
   if (showPlatform) {
     cols.push({
       key: "platform_id",
-      label: "Platform",
+      label: t("common.platform"),
       sortable: true,
       align: "start",
       skeletonWidth: 100,
@@ -74,7 +84,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
   cols.push(
     {
       key: "fs_size_bytes",
-      label: "Size",
+      label: t("common.size"),
       sortable: true,
       align: "end",
       numeric: true,
@@ -82,7 +92,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
     },
     {
       key: "created_at",
-      label: "Added",
+      label: t("settings.added-header"),
       sortable: true,
       align: "end",
       numeric: true,
@@ -90,7 +100,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
     },
     {
       key: "first_release_date",
-      label: "Released",
+      label: t("settings.released-header"),
       sortable: true,
       align: "end",
       numeric: true,
@@ -98,7 +108,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
     },
     {
       key: "average_rating",
-      label: "Rating",
+      label: t("settings.rating-header"),
       sortable: true,
       align: "end",
       numeric: true,
@@ -106,7 +116,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
     },
     {
       key: "hltb_main_story",
-      label: "Length",
+      label: t("settings.length-header"),
       sortable: true,
       align: "end",
       numeric: true,
@@ -114,14 +124,14 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
     },
     {
       key: "languages",
-      label: "Languages",
+      label: t("rom.languages"),
       sortable: false,
       align: "start",
       skeletonWidth: 80,
     },
     {
       key: "regions",
-      label: "Regions",
+      label: t("rom.regions"),
       sortable: false,
       align: "start",
       skeletonWidth: 80,
