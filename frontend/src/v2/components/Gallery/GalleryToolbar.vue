@@ -256,13 +256,13 @@ const { smAndUp } = useBreakpoint();
 
     <!-- Filter button — sits flush against the search field. Same disc
          shape as the kebab (outlined icon-only RBtn); the active-count
-         chip is `RBadge` anchored top-end. -->
+         chip is `RBadge` anchored top-end, slightly overlapping the disc. -->
     <RBadge
       v-if="showFilter"
       :model-value="filterActiveCount > 0"
       :content="filterActiveCount"
       color="primary"
-      floating
+      :inset="3"
     >
       <RBtn
         variant="outlined"
