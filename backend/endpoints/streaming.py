@@ -72,7 +72,7 @@ from handler.streaming.config import (
     containers_by_key,
     containers_for_platform,
     emulator_labels,
-    resolve_containers,
+    first_claim_targets,
     streaming_enabled,
 )
 from handler.streaming.protocol import room_url_on
@@ -271,43 +271,37 @@ def _joinable_container_label(
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
 async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
-    # Keyed by platform: a pool is a backend concern, the frontend picks a
+    # One row per platform: a pool is a backend concern, the frontend picks a
     # platform and the claim decides which container serves it.
-    safe_containers: dict[str, dict[str, Any]] = {}
-    for c in resolve_containers():
-        # No key, no claim: the Play button this entry puts on the platform
-        # could only ever fail. The fleet view is where the operator sees why.
-        if not c.key:
-            continue
-        # Platforms match case-insensitively everywhere else, so records
-        # differing only in case are one platform here too.
-        if c.platform.lower() in safe_containers:
-            continue
+    safe_containers: list[dict[str, Any]] = []
+    for c in first_claim_targets():
         # The record carries the platform's label and capabilities, so a
         # platform hidden from this caller must not be listed here either.
         if not access.platform_is_visible(request, c.platform):
             continue
-        safe_containers[c.platform.lower()] = {
-            "platform": c.platform,
-            "host": c.host,
-            "label": c.label,
-            # Ship slot capabilities so the frontend selector reads them
-            # instead of keeping its own hardcoded per-platform copy.
-            "capabilities": c.capabilities,
-            # State namespace for this container, so the frontend can
-            # filter the resume picker the same way hydration filters.
-            "emulator": c.emulator,
-            # Whether this container syncs whole memory cards, so the
-            # frontend only offers the card picker where it applies.
-            "supports_memory_cards": c.memory_card_sync,
-            # Whether an older save archive still lands here, so the frontend
-            # only offers the save picker where a pick means something.
-            "supports_save_picker": c.supports_save_picker,
-        }
+        safe_containers.append(
+            {
+                "platform": c.platform,
+                "host": c.host,
+                "label": c.label,
+                # Ship slot capabilities so the frontend selector reads them
+                # instead of keeping its own hardcoded per-platform copy.
+                "capabilities": c.capabilities,
+                # State namespace for this container, so the frontend can
+                # filter the resume picker the same way hydration filters.
+                "emulator": c.emulator,
+                # Whether this container syncs whole memory cards, so the
+                # frontend only offers the card picker where it applies.
+                "supports_memory_cards": c.memory_card_sync,
+                # Whether an older save archive still lands here, so the frontend
+                # only offers the save picker where a pick means something.
+                "supports_save_picker": c.supports_save_picker,
+            }
+        )
 
     return StreamingConfigSchema(
         enabled=streaming_enabled(),
-        containers=list(safe_containers.values()),
+        containers=safe_containers,
         emulator_labels=emulator_labels(),
     )
 

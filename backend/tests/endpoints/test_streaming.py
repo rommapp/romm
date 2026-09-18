@@ -57,6 +57,7 @@ from handler.streaming.config import (
     emulator_display_label,
     pools_for_platform,
     reset_cache,
+    resolve_containers,
     resolve_entry,
 )
 from handler.streaming.protocol import protocol_for
@@ -1862,7 +1863,7 @@ def test_a_proxied_host_disagreeing_with_its_subfolder_cannot_be_claimed(caplog)
         with _streaming(entry):
             with caplog.at_level(logging.WARNING, logger="romm"):
                 candidates = streaming.containers_for_platform("ps2")
-                listed = streaming.resolve_containers()
+                listed = resolve_containers()
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert candidates == []
@@ -7289,7 +7290,7 @@ def test_joining_requires_auth(client, rom: Rom):
 def _expand(entry: dict) -> list[ResolvedContainer]:
     """The records the resolver builds for one raw config entry."""
     with _streaming(entry):
-        return list(streaming.resolve_containers())
+        return list(resolve_containers())
 
 
 def test_expand_platform_block_overrides_container_defaults():

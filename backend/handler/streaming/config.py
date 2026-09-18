@@ -588,6 +588,12 @@ def containers_for_platform(platform: str) -> list[ResolvedContainer]:
     return pools[0] if pools else []
 
 
+def first_claim_targets() -> list[ResolvedContainer]:
+    """The first container a game claim tries, one per platform, in config
+    order."""
+    return [pools[0][0] for pools in _pools_by_platform(resolve_containers()).values()]
+
+
 def containers_by_key() -> dict[str, list[ResolvedContainer]]:
     """Configured containers grouped by key. A container serving several
     platforms has one record per platform, all sharing one key."""
