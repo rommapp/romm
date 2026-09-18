@@ -214,14 +214,6 @@ html[data-bp~="sm-and-down"] .r-v2-idx-shell {
   padding-top: 32px;
 }
 
-/* Toolbar — both layers share the same internal styling. Transparent
-   by default; the BackgroundArt behind the section shows through.
-   `padding-bottom` reserves breathing space between the toolbar UI and
-   the first row of content below. */
-.r-v2-idx-shell__toolbar {
-  padding-bottom: 16px;
-}
-
 /* Inflow layer — sticky at the top of the scroller. The compositor
    pins it smoothly as the user scrolls past the header. The scroller's
    clip-path hides this layer once `--stuck` is true; the overlay then

@@ -1206,14 +1206,6 @@ html[data-bp~="xs"] .r-v2-shell {
   padding: var(--r-space-6) 0;
 }
 
-/* Toolbar — both layers share the same internal styling. Transparent
-   by default; the BackgroundArt behind the section shows through.
-   `padding-bottom` reserves breathing space between the toolbar UI
-   and the first card row in flow. */
-.r-v2-shell__toolbar {
-  padding-bottom: 16px;
-}
-
 /* Inflow layer — `position: sticky; top: 0` so the compositor pins
    it smoothly as the user scrolls past the header. This makes the
    inflow's pinned position match the overlay's `top: 0` exactly,

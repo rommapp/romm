@@ -407,7 +407,7 @@ const { smAndUp } = useBreakpoint();
    overlay), and a margin would collapse out of one copy but not the other. */
 .gallery-toolbar--header {
   width: 100%;
-  padding: var(--r-space-2) 0 var(--r-space-6);
+  padding: var(--r-space-2) 0 var(--r-space-5);
 }
 
 /* Floating variant — fixed top-right of the gallery body. */
