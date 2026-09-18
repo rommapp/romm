@@ -2860,9 +2860,9 @@ def test_status_carries_the_room_the_launch_answered_with(client, access_token):
     assert r.json()["container"] == _key_of(container)
 
 
-def test_a_desktop_records_the_room_it_opened(client, access_token):
-    """Same recovery for the desktop: the room the activate answered with is
-    only ever returned once, so the session has to keep it."""
+def test_a_desktop_session_stores_the_room_it_opened(client, access_token):
+    """Pins the stored field only: no route reads a desktop's room back, since
+    the desktop POST already answers with it and the status poll skips desktops."""
     container = _webstation()
     with _streaming(container):
         response, _ = _desktop(client, access_token, _key_of(container))
