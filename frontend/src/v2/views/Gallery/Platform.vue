@@ -467,7 +467,7 @@ async function onDelete() {
     :empty-message="t('platform.empty')"
     :not-found="notFound"
     :not-found-message="t('platform.not-found')"
-    :show-platform-badge="false"
+    :show-platform-icon="false"
     :show-platforms-in-filter="false"
     :show-platform-column="false"
     :skeleton-row-count="4"

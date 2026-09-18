@@ -90,9 +90,9 @@ interface Props {
   notFound?: boolean;
   /** Override the empty-state message in not-found mode. */
   notFoundMessage?: string;
-  /** Whether GameCards should display the platform badge corner (Search /
-   * Collection: yes; Platform: no — the cards already share a platform). */
-  showPlatformBadge?: boolean;
+  /** Whether GameCards should display the platform icon corner (Search /
+   * Collection: yes; Platform: no, the cards already share a platform). */
+  showPlatformIcon?: boolean;
   /** Skeleton row count painted while the very first window is loading. */
   skeletonRowCount?: number;
   /** Surface the platforms multi-select inside the filter drawer.
@@ -110,7 +110,7 @@ const props = withDefaults(defineProps<Props>(), {
   emptyIcon: "mdi-gamepad-variant-outline",
   notFound: false,
   notFoundMessage: undefined,
-  showPlatformBadge: true,
+  showPlatformIcon: true,
   skeletonRowCount: 4,
   showPlatformsInFilter: true,
   showPlatformColumn: true,
@@ -892,7 +892,7 @@ defineExpose({
                 :style="{ '--card-fade-i': slotIdx }"
                 :rom="getRomAt(p)!"
                 :webp="supportsWebp"
-                :show-platform-badge="showPlatformBadge"
+                :show-platform-icon="showPlatformIcon"
                 selectable
                 :position="p"
                 @ratio="onCardRatio"
