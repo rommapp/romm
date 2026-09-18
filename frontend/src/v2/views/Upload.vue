@@ -247,8 +247,8 @@ async function upload() {
             {{ t("common.upload-files-selected", { count: files.length }) }}
           </span>
           <RBtn
-            variant="text"
-            size="small"
+            variant="flat"
+            color="primary"
             prepend-icon="mdi-plus"
             @click="uploadDz?.open()"
           >

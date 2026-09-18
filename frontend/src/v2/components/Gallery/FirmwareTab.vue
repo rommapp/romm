@@ -245,8 +245,8 @@ async function performDelete(
             t("common.upload-files-selected", { count: pendingFiles.length })
           }}</span>
           <RBtn
-            variant="text"
-            size="small"
+            variant="flat"
+            color="primary"
             prepend-icon="mdi-plus"
             @click="openUpload"
           >
