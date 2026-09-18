@@ -112,8 +112,9 @@ interface Props {
    *  owns its visible label). Single-line only: `role="combobox"` is not
    *  valid on a `<textarea>`. */
   popup?: {
-    /** `id` of the popup element. */
-    controls: string;
+    /** `id` of the popup element. Omit while it is unmounted, so
+     *  `aria-controls` never points at an element that is not there. */
+    controls?: string;
     expanded: boolean;
     kind: "dialog" | "listbox" | "grid";
   };
@@ -180,9 +181,8 @@ const emit = defineEmits<{
 const slots = useSlots();
 const attrs = useAttrs();
 const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
-// Stable id for `aria-describedby` — Vue 3.5 ships `useId`, but we're
-// on 3.4 still. The instance uid is unique per mounted component, which
-// is plenty for aria wiring.
+// Stable id for `aria-describedby`. The instance uid is unique per mounted
+// component, which is plenty for aria wiring.
 const fieldId = `r-tf-${getCurrentInstance()?.uid ?? Math.random().toString(36).slice(2)}`;
 
 // ── Tone resolver — same vocabulary as the rest of the lib ─────

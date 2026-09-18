@@ -458,7 +458,11 @@ onBeforeUnmount(() => {
       :model-value="displayValue"
       :disabled="disabled"
       :focused="isOpen"
-      :popup="{ controls: panelId, expanded: isOpen, kind: 'dialog' }"
+      :popup="{
+        controls: isOpen ? panelId : undefined,
+        expanded: isOpen,
+        kind: 'dialog',
+      }"
       readonly
       :append-inner-icon="
         clearable && selectedDate ? undefined : 'mdi-calendar'

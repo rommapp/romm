@@ -123,6 +123,8 @@ describe("RDateField", () => {
     expect(input.attributes("aria-haspopup")).toBe("dialog");
     expect(input.attributes("aria-expanded")).toBe("false");
     expect(wrapper.get(".r-date-field").attributes("role")).toBeUndefined();
+    // Closed, the panel is unmounted, so nothing may point at it.
+    expect(input.attributes("aria-controls")).toBeUndefined();
 
     await input.trigger("click");
     await wrapper.vm.$nextTick();
