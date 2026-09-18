@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// Group head shared by <AssetList> (slots) and <AssetStrip> (cores), so the
-// two Save data subtabs line up: icon, title, chips, count and fold chevron.
-// It spans its band edge to edge, so bands inset only their body.
+// Band head shared by <AssetList> (slots) and <AssetStrip> (cores) so the two
+// Save data subtabs line up; it spans the band, which insets only its body.
 import { RIcon } from "@v2/lib";
 
 defineOptions({ inheritAttrs: false });
