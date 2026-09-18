@@ -18,7 +18,7 @@
 // Collection-cover edits don't pass a `rom`, so they hit the cover grids
 // only (collections don't have provider IDs in the same way).
 import type { Emitter } from "mitt";
-import { computed, inject, nextTick, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   CoverResource,
@@ -132,16 +132,6 @@ const {
 } = useCoverFilters(covers, providerCovers);
 
 const filtersOpen = ref(false);
-const filtersPanel = ref<HTMLElement | null>(null);
-
-// The panel opens at the top of the scrolling body, which may be scrolled
-// down to the covers, so bring it into view.
-async function toggleFilters() {
-  filtersOpen.value = !filtersOpen.value;
-  if (!filtersOpen.value) return;
-  await nextTick();
-  filtersPanel.value?.scrollIntoView({ block: "nearest" });
-}
 
 const sortItems = computed<{ id: SortMode; label: string; icon: string }[]>(
   () => [
@@ -393,7 +383,7 @@ function closeDialog() {
               class="r-v2-sgdb__action"
               :aria-expanded="filtersOpen"
               aria-controls="r-v2-sgdb-filters"
-              @click="toggleFilters"
+              @click="filtersOpen = !filtersOpen"
             >
               {{ t("gallery.filters") }}
               <RTag v-if="activeFilterCount > 0" tone="brand" size="x-small">
@@ -438,80 +428,77 @@ function closeDialog() {
               />
             </RMenu>
           </div>
+
+          <RExpandTransition>
+            <div
+              v-show="filtersOpen"
+              id="r-v2-sgdb-filters"
+              class="r-v2-sgdb__advanced"
+            >
+              <div class="r-v2-sgdb__filters">
+                <RSelect
+                  v-model="coverType"
+                  :items="coverTypeItems"
+                  density="comfortable"
+                  hide-details
+                  class="r-v2-sgdb__filter"
+                  :aria-label="t('rom.cover-type-all')"
+                />
+                <template v-if="hasSgdbCovers">
+                  <RSelect
+                    v-if="resolutionValues.length > 1"
+                    v-model="resolutionFilter"
+                    :items="resolutionItems"
+                    density="comfortable"
+                    hide-details
+                    class="r-v2-sgdb__filter"
+                    :aria-label="t('rom.cover-filter-resolution-all')"
+                  />
+                  <RSelect
+                    v-if="styleValues.length > 1"
+                    v-model="styleFilter"
+                    :items="styleItems"
+                    density="comfortable"
+                    hide-details
+                    class="r-v2-sgdb__filter"
+                    :aria-label="t('rom.cover-filter-style-all')"
+                  />
+                  <RSelect
+                    v-if="uploaderValues.length > 1"
+                    v-model="uploaderFilter"
+                    v-model:search="uploaderSearch"
+                    :items="uploaderItems"
+                    density="comfortable"
+                    hide-details
+                    searchable
+                    :search-placeholder="t('common.search')"
+                    class="r-v2-sgdb__filter"
+                    :aria-label="t('rom.cover-filter-uploader-all')"
+                  />
+                </template>
+              </div>
+
+              <div v-if="hasSgdbCovers" class="r-v2-sgdb__content-toggles">
+                <RSwitch
+                  v-model="showNsfw"
+                  :label="t('rom.cover-content-nsfw')"
+                />
+                <RSwitch
+                  v-model="showHumor"
+                  :label="t('rom.cover-content-humor')"
+                />
+                <RSwitch
+                  v-model="showEpilepsy"
+                  :label="t('rom.cover-content-epilepsy')"
+                />
+              </div>
+            </div>
+          </RExpandTransition>
         </template>
       </div>
     </template>
 
     <template #content>
-      <RExpandTransition>
-        <div
-          v-show="filtersOpen && hasRawResults"
-          id="r-v2-sgdb-filters"
-          ref="filtersPanel"
-          class="r-v2-sgdb__advanced"
-        >
-          <div class="r-v2-sgdb__advanced-panel">
-            <div class="r-v2-sgdb__filters">
-              <RSelect
-                v-model="coverType"
-                :items="coverTypeItems"
-                density="comfortable"
-                hide-details
-                class="r-v2-sgdb__filter"
-                :aria-label="t('rom.cover-type-all')"
-              />
-              <template v-if="hasSgdbCovers">
-                <RSelect
-                  v-if="resolutionValues.length > 1"
-                  v-model="resolutionFilter"
-                  :items="resolutionItems"
-                  density="comfortable"
-                  hide-details
-                  class="r-v2-sgdb__filter"
-                  :aria-label="t('rom.cover-filter-resolution-all')"
-                />
-                <RSelect
-                  v-if="styleValues.length > 1"
-                  v-model="styleFilter"
-                  :items="styleItems"
-                  density="comfortable"
-                  hide-details
-                  class="r-v2-sgdb__filter"
-                  :aria-label="t('rom.cover-filter-style-all')"
-                />
-                <RSelect
-                  v-if="uploaderValues.length > 1"
-                  v-model="uploaderFilter"
-                  v-model:search="uploaderSearch"
-                  :items="uploaderItems"
-                  density="comfortable"
-                  hide-details
-                  searchable
-                  :search-placeholder="t('common.search')"
-                  class="r-v2-sgdb__filter"
-                  :aria-label="t('rom.cover-filter-uploader-all')"
-                />
-              </template>
-            </div>
-
-            <div v-if="hasSgdbCovers" class="r-v2-sgdb__content-toggles">
-              <RSwitch
-                v-model="showNsfw"
-                :label="t('rom.cover-content-nsfw')"
-              />
-              <RSwitch
-                v-model="showHumor"
-                :label="t('rom.cover-content-humor')"
-              />
-              <RSwitch
-                v-model="showEpilepsy"
-                :label="t('rom.cover-content-epilepsy')"
-              />
-            </div>
-          </div>
-        </div>
-      </RExpandTransition>
-
       <div class="r-v2-sgdb__body">
         <div v-if="searching" class="r-v2-sgdb__loading">
           <RSpinner :size="36" />
@@ -655,18 +642,9 @@ function closeDialog() {
 }
 
 .r-v2-sgdb__advanced {
-  flex-shrink: 0;
-  scroll-margin-top: var(--r-dialog-inset);
-}
-/* Same surface as the cover blocks below it. */
-.r-v2-sgdb__advanced-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
 }
 
 /* The selects split the full row evenly, wrapping on narrow dialogs so
