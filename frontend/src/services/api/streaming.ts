@@ -35,6 +35,7 @@ export type LaunchingSession = LaunchingSessionSchema;
 export interface LaunchReady {
   platform: string;
   container: string;
+  claimed_at: string;
   host: string;
   /** null when no resume was asked for; false means the state could not be
    *  pushed and the session started fresh. */
@@ -45,6 +46,7 @@ export interface LaunchReady {
 export interface LaunchFailed {
   platform: string;
   container: string;
+  claimed_at: string;
   detail: string;
 }
 
@@ -52,6 +54,7 @@ export interface LaunchFailed {
 export interface LaunchPhase {
   platform: string;
   container: string;
+  claimed_at: string;
   phase: string | null;
 }
 export type AdminStreamingSession = AdminSessionSchema;

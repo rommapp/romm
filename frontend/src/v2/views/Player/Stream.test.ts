@@ -397,14 +397,17 @@ function endSession(notice: Record<string, unknown>): void {
   handler({ ended_by: "admin", reason: null, ...notice });
 }
 
-async function launchReady(): Promise<void> {
+async function launchReady(
+  payload: Record<string, unknown> = {},
+): Promise<void> {
   const handler = mocks.socketHandlers["streaming:launch-ready"];
   expect(handler).toBeTypeOf("function");
   await handler({
     platform: "gba",
-    container: CLAIM.container,
+    ...CLAIM,
     host: "http://webstation-dev:8080",
     resume: null,
+    ...payload,
   });
 }
 
@@ -631,6 +634,19 @@ describe("Stream launch recovery", () => {
     expect(vmOf(wrapper).containerHost).toBe(
       "http://webstation-dev:8080/room/x",
     );
+    wrapper.unmount();
+  });
+
+  it("keeps waiting when the launch-ready is for a claim that replaced its own", async () => {
+    // Tab A missed its launch-failed, and tab B re-claimed the same container.
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ claimed_at: "2026-09-17T10:05:00" });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("loading");
+    expect(vmOf(wrapper).containerHost).toBe("");
     wrapper.unmount();
   });
 

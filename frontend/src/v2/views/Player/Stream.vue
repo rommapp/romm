@@ -643,18 +643,24 @@ const stopSessionPoll = sessionPoll.pause;
 // and pushes what happened. A launch can take minutes on a title the broker
 // has to unpack, and these are the only progress the player sees.
 //
-// The room is per-user, so a second tab streaming something else receives
-// these too. The container is what identifies a launch: a pool can serve one
-// platform from more than one, and the claim's 202 said which we got.
+// The room is per-user, so a second tab receives these too. The container and
+// the stamp the claim's 202 answered with identify a launch, since a re-claim
+// of the same container shares its key.
 // Which container the claim won, so a launch push can be told from another
 // tab's. Null until the 202 lands, which is before any push can arrive.
 const claimedContainer = ref<string | null>(null);
-// The stamp the 202 answered with, which every release and heartbeat sends
-// back so a claim that replaced this one is never the one they reach.
+// The stamp the 202 answered with. Releases, heartbeats and launch pushes all
+// carry it, so a claim that replaced this one is never taken for it.
 const claimedAt = ref<string | null>(null);
 
-function isOurLaunch(payload: { container?: string }): boolean {
-  return payload.container === claimedContainer.value;
+function isOurLaunch(payload: {
+  container: string;
+  claimed_at: string;
+}): boolean {
+  return (
+    payload.container === claimedContainer.value &&
+    payload.claimed_at === claimedAt.value
+  );
 }
 
 useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
