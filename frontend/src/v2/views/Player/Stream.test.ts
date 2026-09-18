@@ -643,6 +643,57 @@ describe("Stream claim hygiene", () => {
     wrapper.unmount();
   });
 
+  it("names the claim it releases when Save & Exit fails", async () => {
+    mocks.saveAndExit.mockResolvedValue({ released: false, saved: false });
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+
+    await (
+      wrapper.vm as unknown as { performSaveAndExit: () => Promise<void> }
+    ).performSaveAndExit();
+
+    expect(mocks.releaseSession).toHaveBeenCalledWith(
+      "gba",
+      true,
+      CLAIM.container,
+      CLAIM.claimed_at,
+    );
+    wrapper.unmount();
+  });
+
+  it("names the claim it releases on Stop", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+
+    await (
+      wrapper.vm as unknown as { performStop: () => Promise<void> }
+    ).performStop();
+
+    expect(mocks.releaseSession).toHaveBeenCalledWith(
+      "gba",
+      false,
+      CLAIM.container,
+      CLAIM.claimed_at,
+    );
+    wrapper.unmount();
+  });
+
+  it("names the claim it releases when the tab closes while loading", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(mocks.releaseSessionKeepalive).toHaveBeenCalledWith(
+      "gba",
+      CLAIM.container,
+      CLAIM.claimed_at,
+    );
+    wrapper.unmount();
+  });
+
   it("names the claim on the heartbeat", async () => {
     // The heartbeat restamps whatever the platform is running otherwise, which
     // keeps another player's session alive and lets this one go stale.
