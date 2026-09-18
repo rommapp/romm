@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   releaseSessionKeepalive: vi.fn(),
   saveAndExit: vi.fn(),
   saveAndExitKeepalive: vi.fn(),
+  loadState: vi.fn(),
+  saveState: vi.fn(),
   container: null as Record<string, unknown> | null,
   presenceTick: null as (() => Promise<void>) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
@@ -44,7 +46,10 @@ vi.mock("@/services/api/rom", () => ({
 }));
 
 vi.mock("@/services/api/streaming", () => ({
-  default: {},
+  default: {
+    loadState: mocks.loadState,
+    saveState: mocks.saveState,
+  },
   isMemoryCardImportDetail: () => false,
 }));
 
@@ -394,6 +399,8 @@ type StreamVm = {
   onPlay: () => Promise<void>;
   performStop: () => Promise<void>;
   performSaveAndExit: () => Promise<void>;
+  handleSaveState: () => Promise<void>;
+  handleLoadState: () => Promise<void>;
   claimedAt: string | null;
   playerState: string;
   endedDialogOpen: boolean;
@@ -689,6 +696,23 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     );
+  });
+
+  it("names the claim it saves and loads states on", async () => {
+    // A tab that missed its takeover would otherwise drive the claim that
+    // replaced it.
+    mocks.saveState.mockResolvedValue(null);
+    mocks.loadState.mockResolvedValue(null);
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+
+    await vmOf(wrapper).handleSaveState();
+    await vmOf(wrapper).handleLoadState();
+
+    const claim = [CLAIM.container, CLAIM.claimed_at];
+    expect(mocks.saveState.mock.calls[0]?.slice(2)).toEqual(claim);
+    expect(mocks.loadState.mock.calls[0]?.slice(2)).toEqual(claim);
   });
 
   it("names the claim it releases when the tab closes while loading", async () => {

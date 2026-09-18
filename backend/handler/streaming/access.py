@@ -17,6 +17,7 @@ from handler.streaming.session_store import (
     session_is_desktop,
     session_platform_matches,
 )
+from logger.logger import log
 from models.rom import Rom
 from models.user import Role
 
@@ -239,6 +240,70 @@ async def resolve_owned_session(
             ),
         )
     return others[0]
+
+
+async def resolve_claim(
+    platform: str,
+    request: Request,
+    container_key: str | None,
+    claimed_at: str | None,
+    *,
+    game_only: bool,
+) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
+    """The session a route acting on a claim reaches, or None when that claim is gone.
+
+    Args:
+        container_key: the container the caller named, if any.
+        claimed_at: the stamp of the one claim the caller was given.
+        game_only: only a game of this platform matches a named container, while
+            a release ends whatever it holds.
+    """
+    if container_key is not None:
+        container, session_key, session = await resolve_named_container(
+            platform, container_key
+        )
+        if session is None:
+            return None
+        if game_only and not session_in_scope(session, platform, include_desktop=False):
+            return None
+    else:
+        try:
+            container, session_key, session = await resolve_owned_session(
+                platform, request
+            )
+        except HTTPException as exc:
+            # Nothing of the caller's is active, so a stamped claim is gone and a
+            # repeated call from the same tab finds nothing: both are a no-op.
+            if exc.status_code != 404 and claimed_at is None:
+                raise
+            return None
+
+    # A tab whose claim was replaced (a takeover, or Play pressed again elsewhere)
+    # must not act on the claim that took its place.
+    if claimed_at is not None and session.get("claimed_at") != claimed_at:
+        log.info("%s ignored for a replaced claim", request.url.path)
+        return None
+    # After the stamp check, so another player's takeover reads as a gone claim.
+    if container_key is not None:
+        assert_session_owner(session, request)
+    return container, session_key, session
+
+
+async def require_claim(
+    platform: str,
+    request: Request,
+    container_key: str | None,
+    claimed_at: str | None,
+) -> tuple[ResolvedContainer, str, dict[str, Any]]:
+    """The game a control route drives, raising 404 once the caller's claim is gone."""
+    target = await resolve_claim(
+        platform, request, container_key, claimed_at, game_only=True
+    )
+    if target is None:
+        raise HTTPException(
+            status_code=404, detail=f"No active session for platform '{platform}'"
+        )
+    return target
 
 
 def container_by_key(container_key: str) -> tuple[ResolvedContainer, str]:

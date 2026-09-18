@@ -1243,10 +1243,11 @@ def _pool_member(rom: Rom, index: int) -> dict:
     }
 
 
-def _volume(client, token, platform: str, level: int = 42):
+def _volume(client, token, platform: str, level: int = 42, params=None):
     return client.post(
         f"/api/streaming/sessions/{platform}/volume",
         json={"level": level},
+        params=params,
         headers=_auth(token),
     )
 
@@ -1530,6 +1531,52 @@ def test_an_admin_cannot_guess_which_of_two_sessions_to_control(
         _claim_ok(client, editor_access_token, rom.id)
         r = _volume(client, access_token, rom.platform_slug)
     assert r.status_code == 409
+
+
+def test_an_admin_names_which_of_two_sessions_to_control(
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
+):
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        _claim_ok(client, editor_access_token, rom.id)
+        with patch(
+            "handler.streaming.commands.set_volume", return_value=True
+        ) as volume:
+            r = _volume(
+                client,
+                access_token,
+                rom.platform_slug,
+                params={"container": _key_of(_pool_member(rom, 1))},
+            )
+    assert r.status_code == 200
+    assert volume.call_args[0][0].host == "http://192.168.1.11:3000"
+
+
+@pytest.mark.parametrize(
+    "route, body, command",
+    [
+        ("volume", {"level": 42}, "set_volume"),
+        ("mute", {"mute": True}, "set_mute"),
+        ("save-state", {"slot": 1}, "save_state"),
+        ("load-state", {"slot": 1}, "load_state"),
+        ("swap-disc", {"file_id": 1}, "swap_disc"),
+    ],
+)
+def test_a_control_for_a_replaced_claim_never_reaches_the_broker(
+    client, access_token, rom: Rom, route, body, command
+):
+    """A tab that missed its takeover must not drive the claim that replaced it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch(f"handler.streaming.commands.{command}") as broker:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/{route}",
+                json=body,
+                params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 404
+    broker.assert_not_called()
 
 
 def test_admin_release_names_the_container(

@@ -821,8 +821,7 @@ async def claim_session(
     if resume_state is not None and not resume_after_launch:
         resume_pushed = await states.push_resume_state(container, resume_state)
 
-    # The previous session's exit pull files the archive this claim hydrates
-    # from, and it runs detached, so it may still be on its way in.
+    # The last exit's detached save pull may still be filing the archive to hydrate.
     await saves.wait_for_save_pull(request.user.id, rom.id)
 
     archive_path = await _hydrate_saves(
@@ -868,55 +867,6 @@ async def claim_session(
     )
 
 
-async def _resolve_claim_to_end(
-    platform: str,
-    request: Request,
-    container_key: str | None,
-    claimed_at: str | None,
-    *,
-    game_only: bool,
-) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
-    """The session a route ending a claim acts on, or None when that claim is gone.
-
-    Args:
-        container_key: the container the caller named, if any.
-        claimed_at: the stamp of the one claim the caller was given.
-        game_only: only a game of this platform matches a named container, while
-            a release ends whatever it holds.
-    """
-    if container_key is not None:
-        container, session_key, session = await access.resolve_named_container(
-            platform, container_key
-        )
-        if session is None:
-            return None
-        if game_only and not access.session_in_scope(
-            session, platform, include_desktop=False
-        ):
-            return None
-    else:
-        try:
-            container, session_key, session = await access.resolve_owned_session(
-                platform, request
-            )
-        except HTTPException as exc:
-            # Nothing of the caller's is active, so a stamped claim is gone and a
-            # repeated call from the same tab finds nothing: both are a no-op.
-            if exc.status_code != 404 and claimed_at is None:
-                raise
-            return None
-
-    # A tab whose claim was replaced (a takeover, or Play pressed again elsewhere)
-    # still ends it on unload, and must not end the claim that took its place.
-    if claimed_at is not None and session.get("claimed_at") != claimed_at:
-        log.info("%s ignored for a replaced claim", request.url.path)
-        return None
-    # After the stamp check, so another player's takeover reads as a gone claim.
-    if container_key is not None:
-        access.assert_session_owner(session, request)
-    return container, session_key, session
-
-
 @protected_route(
     router.post, "/sessions/{platform}/save-and-exit", [Scope.ROMS_USER_WRITE]
 )
@@ -935,7 +885,7 @@ async def save_and_exit_session(
         container_key: the claimed container, as on release.
         claimed_at: the claim's stamp, as on release.
     """
-    target = await _resolve_claim_to_end(
+    target = await access.resolve_claim(
         platform, request, container_key, claimed_at, game_only=True
     )
     if target is None:
@@ -1205,10 +1155,16 @@ async def join_session(
 
 @protected_route(router.post, "/sessions/{platform}/volume", [Scope.ROMS_USER_WRITE])
 async def set_volume(
-    request: Request, platform: str, req: Annotated[VolumeRequest, Body()]
+    request: Request,
+    platform: str,
+    req: Annotated[VolumeRequest, Body()],
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
+    claimed_at: str | None = Query(default=None, max_length=64),
 ) -> VolumeResponse:
     """Set emulator audio volume (0-100)."""
-    container, session_key, _ = await access.resolve_owned_session(platform, request)
+    container, session_key, _ = await access.require_claim(
+        platform, request, container_key, claimed_at
+    )
 
     ok = await asyncio.to_thread(commands.set_volume, container, req.level)
     if not ok:
@@ -1220,10 +1176,16 @@ async def set_volume(
 
 @protected_route(router.post, "/sessions/{platform}/mute", [Scope.ROMS_USER_WRITE])
 async def set_mute(
-    request: Request, platform: str, req: Annotated[MuteRequest, Body()]
+    request: Request,
+    platform: str,
+    req: Annotated[MuteRequest, Body()],
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
+    claimed_at: str | None = Query(default=None, max_length=64),
 ) -> MuteResponse:
     """Toggle or explicitly set mute state. Omit body to toggle."""
-    container, session_key, _ = await access.resolve_owned_session(platform, request)
+    container, session_key, _ = await access.require_claim(
+        platform, request, container_key, claimed_at
+    )
 
     confirmed = await asyncio.to_thread(commands.set_mute, container, req.mute)
     if confirmed is None:
@@ -1237,15 +1199,19 @@ async def set_mute(
     router.post, "/sessions/{platform}/save-state", [Scope.ROMS_USER_WRITE]
 )
 async def save_state(
-    request: Request, platform: str, req: Annotated[SaveStateRequest, Body()]
+    request: Request,
+    platform: str,
+    req: Annotated[SaveStateRequest, Body()],
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
+    claimed_at: str | None = Query(default=None, max_length=64),
 ) -> SaveStateResponse:
     """Save game state to a slot without stopping the emulator.
 
     The autosave slot is a valid target: the library keeps every capture, so
     the player writes through one slot rather than picking one.
     """
-    container, session_key, session = await access.resolve_owned_session(
-        platform, request
+    container, session_key, session = await access.require_claim(
+        platform, request, container_key, claimed_at
     )
     _assert_valid_slot(platform, req.slot)
 
@@ -1276,10 +1242,16 @@ async def save_state(
     router.post, "/sessions/{platform}/load-state", [Scope.ROMS_USER_WRITE]
 )
 async def load_state(
-    request: Request, platform: str, req: Annotated[LoadStateRequest, Body()]
+    request: Request,
+    platform: str,
+    req: Annotated[LoadStateRequest, Body()],
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
+    claimed_at: str | None = Query(default=None, max_length=64),
 ) -> LoadStateResponse:
     """Load game state from a manual slot or the platform's autosave slot."""
-    container, session_key, _ = await access.resolve_owned_session(platform, request)
+    container, session_key, _ = await access.require_claim(
+        platform, request, container_key, claimed_at
+    )
     _assert_valid_slot(platform, req.slot)
 
     ok = await asyncio.to_thread(commands.load_state, container, req.slot)
@@ -1292,11 +1264,15 @@ async def load_state(
 
 @protected_route(router.post, "/sessions/{platform}/swap-disc", [Scope.ROMS_USER_WRITE])
 async def swap_disc(
-    request: Request, platform: str, req: Annotated[SwapDiscRequest, Body()]
+    request: Request,
+    platform: str,
+    req: Annotated[SwapDiscRequest, Body()],
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
+    claimed_at: str | None = Query(default=None, max_length=64),
 ) -> SwapDiscResponse:
     """Change the mounted disc without restarting the emulator."""
-    container, session_key, session = await access.resolve_owned_session(
-        platform, request
+    container, session_key, session = await access.require_claim(
+        platform, request, container_key, claimed_at
     )
     # Container-scoped, not platform-scoped: only the webstation broker has a
     # tray route, so a legacy container serving this platform gets the same
@@ -1354,7 +1330,7 @@ async def release_session(
         save: false for a player leaving deliberately without saving; on by
             default because a closing tab chose nothing and would lose recent play.
     """
-    target = await _resolve_claim_to_end(
+    target = await access.resolve_claim(
         platform, request, container_key, claimed_at, game_only=False
     )
     if target is None:

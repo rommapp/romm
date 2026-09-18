@@ -193,31 +193,69 @@ async function sessionStatus(platform: string, claimedAt?: string | null) {
   });
 }
 
-async function setVolume(platform: string, level: number) {
-  return api.post(`/streaming/sessions/${platform}/volume`, {
-    level: Math.round(level),
-  });
-}
-
-async function setMute(platform: string, mute?: boolean) {
+async function setVolume(
+  platform: string,
+  level: number,
+  container?: string | null,
+  claimedAt?: string | null,
+) {
   return api.post(
-    `/streaming/sessions/${platform}/mute`,
-    mute !== undefined ? { mute } : {},
+    `/streaming/sessions/${platform}/volume`,
+    { level: Math.round(level) },
+    { params: { container, claimed_at: claimedAt } },
   );
 }
 
-async function saveState(platform: string, slot = 1) {
-  return api.post(`/streaming/sessions/${platform}/save-state`, { slot });
+async function setMute(
+  platform: string,
+  mute?: boolean,
+  container?: string | null,
+  claimedAt?: string | null,
+) {
+  return api.post(
+    `/streaming/sessions/${platform}/mute`,
+    mute !== undefined ? { mute } : {},
+    { params: { container, claimed_at: claimedAt } },
+  );
 }
 
-async function loadState(platform: string, slot = 1) {
-  return api.post(`/streaming/sessions/${platform}/load-state`, { slot });
+async function saveState(
+  platform: string,
+  slot = 1,
+  container?: string | null,
+  claimedAt?: string | null,
+) {
+  return api.post(
+    `/streaming/sessions/${platform}/save-state`,
+    { slot },
+    { params: { container, claimed_at: claimedAt } },
+  );
 }
 
-async function swapDisc(platform: string, fileId: number) {
-  return api.post(`/streaming/sessions/${platform}/swap-disc`, {
-    file_id: fileId,
-  });
+async function loadState(
+  platform: string,
+  slot = 1,
+  container?: string | null,
+  claimedAt?: string | null,
+) {
+  return api.post(
+    `/streaming/sessions/${platform}/load-state`,
+    { slot },
+    { params: { container, claimed_at: claimedAt } },
+  );
+}
+
+async function swapDisc(
+  platform: string,
+  fileId: number,
+  container?: string | null,
+  claimedAt?: string | null,
+) {
+  return api.post(
+    `/streaming/sessions/${platform}/swap-disc`,
+    { file_id: fileId },
+    { params: { container, claimed_at: claimedAt } },
+  );
 }
 
 async function adminListSessions() {

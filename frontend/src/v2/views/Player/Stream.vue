@@ -756,7 +756,7 @@ function sendVolumeToBroker(level: number): void {
     const platform = rom.value?.platform_slug;
     if (platform)
       streamingApi
-        .setVolume(platform, level)
+        .setVolume(platform, level, claimedContainer.value, claimedAt.value)
         .catch((err) => console.warn("[streaming] Could not set volume:", err));
   }, 150);
 }
@@ -775,7 +775,7 @@ function toggleMute(): void {
   const platform = rom.value?.platform_slug;
   if (platform)
     streamingApi
-      .setMute(platform, isMuted.value)
+      .setMute(platform, isMuted.value, claimedContainer.value, claimedAt.value)
       .catch((err) => console.warn("[streaming] Could not set mute:", err));
 }
 
@@ -1076,7 +1076,12 @@ async function handleSaveState(): Promise<void> {
   if (isSavingState.value) return;
   isSavingState.value = true;
   try {
-    await streamingApi.saveState(rom.value.platform_slug, streamSlot.value);
+    await streamingApi.saveState(
+      rom.value.platform_slug,
+      streamSlot.value,
+      claimedContainer.value,
+      claimedAt.value,
+    );
   } catch (err) {
     console.warn("[streaming] Could not save state:", err);
     snackbar.error(t("play.stream-save-state-failed"), { timeout: 6000 });
@@ -1090,7 +1095,12 @@ async function handleLoadState(): Promise<void> {
   if (isLoadingState.value) return;
   isLoadingState.value = true;
   try {
-    await streamingApi.loadState(rom.value.platform_slug, streamSlot.value);
+    await streamingApi.loadState(
+      rom.value.platform_slug,
+      streamSlot.value,
+      claimedContainer.value,
+      claimedAt.value,
+    );
   } catch (err) {
     console.warn("[streaming] Could not load state:", err);
     snackbar.error(t("play.stream-load-state-failed"), { timeout: 6000 });
@@ -1108,7 +1118,12 @@ async function handleSwapDisc(): Promise<void> {
   if (!rom.value || selectedDisc.value === null || isSwappingDisc.value) return;
   isSwappingDisc.value = true;
   try {
-    await streamingApi.swapDisc(rom.value.platform_slug, selectedDisc.value);
+    await streamingApi.swapDisc(
+      rom.value.platform_slug,
+      selectedDisc.value,
+      claimedContainer.value,
+      claimedAt.value,
+    );
     showDiscSwap.value = false;
   } catch (err) {
     console.warn("[streaming] Could not swap disc:", err);
