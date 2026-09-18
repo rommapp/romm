@@ -394,7 +394,12 @@ function vmOf(wrapper: VueWrapper): StreamVm {
 function endSession(notice: Record<string, unknown>): void {
   const handler = mocks.socketHandlers["streaming:session-ended"];
   expect(handler).toBeTypeOf("function");
-  handler({ ended_by: "admin", reason: null, ...notice });
+  handler({
+    ended_by: "admin",
+    reason: null,
+    claimed_at: CLAIM.claimed_at,
+    ...notice,
+  });
 }
 
 async function launchReady(
@@ -460,6 +465,45 @@ describe("Stream session-ended notices", () => {
       platform: "gba",
       container: "WEBSTATION-DEV-2",
       desktop: true,
+    });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("loading");
+    claimed(CLAIM);
+    await playing;
+  });
+
+  it("keeps playing when the notice names a claim this one replaced", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+
+    endSession({
+      platform: "gba",
+      container: CLAIM.container,
+      claimed_at: "2026-09-17T09:55:00",
+    });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("playing");
+    expect(vmOf(wrapper).endedDialogOpen).toBe(false);
+  });
+
+  it("keeps launching when the container's last claim ends before the 202", async () => {
+    let claimed = (_: typeof CLAIM) => {};
+    mocks.claimSession.mockReturnValue(
+      new Promise<typeof CLAIM>((resolve) => {
+        claimed = resolve;
+      }),
+    );
+    const wrapper = await launch({ picker: false });
+    const playing = vmOf(wrapper).onPlay();
+    await flushPromises();
+
+    endSession({
+      platform: "gba",
+      container: CLAIM.container,
+      claimed_at: "2026-09-17T09:55:00",
     });
     await flushPromises();
 
@@ -669,11 +713,32 @@ describe("Stream launch recovery", () => {
 
     await pollStatus();
 
-    expect(mocks.fetchSessionStatus).toHaveBeenCalledWith("gba", undefined);
+    expect(mocks.fetchSessionStatus).not.toHaveBeenCalled();
     expect(vmOf(wrapper).playerState).toBe("loading");
     expect(vmOf(wrapper).containerHost).toBe("");
     claimed(CLAIM);
     await playing;
+    wrapper.unmount();
+  });
+
+  it("ignores a poll that answers for the claim this tab has since replaced", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    let answer = (_: unknown) => {};
+    mocks.fetchSessionStatus.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+
+    await pollStatus();
+    (wrapper.vm as unknown as { claimedAt: string }).claimedAt =
+      "2026-09-17T10:05:00";
+    answer({ status: "ended", platform: "gba" });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("playing");
     wrapper.unmount();
   });
 

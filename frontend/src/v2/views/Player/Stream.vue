@@ -566,8 +566,6 @@ async function handleSessionStatus(
 // running session; the room the poll reports is its way back in.
 async function enterRunningSession(status: SessionStatus): Promise<void> {
   if (playerState.value !== "loading" || !status.host) return;
-  // An unstamped poll, sent before the 202, can answer with another tab's.
-  if (!claimedAt.value) return;
   launchPhase.value = null;
   containerHost.value = status.host;
   playerState.value = "playing";
@@ -592,15 +590,9 @@ const SESSION_POLL_MS = 30_000;
 // session (`_record_termination` in streaming.py), to the caller's own
 // `user:{id}` room. Near-instant, unlike the poll above.
 useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
-  // The room carries every claim the account holds, so the container says which
-  // one was ours, and an admin's desktop is never the game on screen.
-  if (notice.desktop) return;
-  if (
-    notice.container &&
-    claimedContainer.value &&
-    notice.container !== claimedContainer.value
-  )
-    return;
+  // The room carries every claim the account holds, and an admin's desktop is
+  // never the game on screen.
+  if (notice.desktop || !isOurClaim(notice)) return;
   void handleSessionStatus({
     status: "ended",
     platform: notice.platform ?? "",
@@ -612,14 +604,17 @@ let sessionPollInFlight = false;
 async function pollSessionStatus(): Promise<void> {
   // Skip rather than queue: a slow reply must not stack up requests.
   if (sessionPollInFlight || !sessionActive.value || !rom.value) return;
+  // Unstamped, the answer can be another tab's claim on the platform.
+  const stamp = claimedAt.value;
+  if (!stamp) return;
   sessionPollInFlight = true;
   try {
-    await handleSessionStatus(
-      await streamingStore.fetchSessionStatus(
-        rom.value.platform_slug,
-        claimedAt.value ?? undefined,
-      ),
+    const status = await streamingStore.fetchSessionStatus(
+      rom.value.platform_slug,
+      stamp,
     );
+    if (stamp !== claimedAt.value) return;
+    await handleSessionStatus(status);
   } finally {
     sessionPollInFlight = false;
   }
@@ -641,20 +636,18 @@ const stopSessionPoll = sessionPoll.pause;
 // The claim only reserves the container; the backend runs the launch detached
 // and pushes what happened. A launch can take minutes on a title the broker
 // has to unpack, and these are the only progress the player sees.
-//
-// The room is per-user, so a second tab receives these too. The container and
-// the stamp the claim's 202 answered with identify a launch, since a re-claim
-// of the same container shares its key.
+
 // Which container the claim won, so a launch push can be told from another
 // tab's. Null until the 202 lands, which is before any push can arrive.
 const claimedContainer = ref<string | null>(null);
-// The stamp the 202 answered with. Releases, heartbeats and launch pushes all
-// carry it, so a claim that replaced this one is never taken for it.
+// The stamp the 202 answered with. Every request and push about the claim
+// carries it, since a re-claim of the same container shares its key.
 const claimedAt = ref<string | null>(null);
 
-function isOurLaunch(payload: {
-  container: string;
-  claimed_at: string;
+// The room is per-user, so a second tab hears about this tab's claim too.
+function isOurClaim(payload: {
+  container?: string | null;
+  claimed_at?: string | null;
 }): boolean {
   return (
     payload.container === claimedContainer.value &&
@@ -663,12 +656,12 @@ function isOurLaunch(payload: {
 }
 
 useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
-  if (!isOurLaunch(payload) || playerState.value !== "loading") return;
+  if (!isOurClaim(payload) || playerState.value !== "loading") return;
   launchPhase.value = payload.phase;
 });
 
 useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
-  if (!isOurLaunch(payload)) return;
+  if (!isOurClaim(payload)) return;
   launchPhase.value = null;
   // The player left while the game was coming up. The claim is theirs and
   // still held, so hand the container back rather than entering the stream.
@@ -698,7 +691,7 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
 });
 
 useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
-  if (!isOurLaunch(payload)) return;
+  if (!isOurClaim(payload)) return;
   // The backend already released the claim, so there is nothing to hand back.
   holdsClaim.value = false;
   claimedContainer.value = null;

@@ -144,9 +144,14 @@ useIntervalFn(async () => {
 }, HEARTBEAT_MS);
 
 // Pushed when someone else ends this claim, sooner than the next heartbeat.
-// The user's room carries all their claims, so only this container's is ours.
+// The user's room carries all their claims, so the container and stamp name ours.
 useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
-  if (!holdsClaim.value || notice.container !== containerKey.value) return;
+  if (
+    !holdsClaim.value ||
+    notice.container !== containerKey.value ||
+    notice.claimed_at !== claimedAt.value
+  )
+    return;
   noteSessionEnded(notice);
 });
 

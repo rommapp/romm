@@ -121,7 +121,13 @@ function vmOf(wrapper: VueWrapper): DesktopVm {
 function endSession(notice: Record<string, unknown>): void {
   const handler = mocks.socketHandlers["streaming:session-ended"];
   expect(handler).toBeTypeOf("function");
-  handler({ ended_by: "admin", reason: null, desktop: true, ...notice });
+  handler({
+    ended_by: "admin",
+    reason: null,
+    desktop: true,
+    claimed_at: CLAIMED_AT,
+    ...notice,
+  });
 }
 
 describe("Desktop session-ended notices", () => {
@@ -162,6 +168,19 @@ describe("Desktop session-ended notices", () => {
     const wrapper = await openDesktop();
 
     endSession({ platform: "ps2", container: "WEBSTATION-OTHER" });
+    await flushPromises();
+
+    expect(vmOf(wrapper).state).toBe("running");
+  });
+
+  it("holds the claim when the notice names one this claim replaced", async () => {
+    const wrapper = await openDesktop();
+
+    endSession({
+      platform: "ps2",
+      container: "WEBSTATION-DEV",
+      claimed_at: "2026-09-17T09:55:00",
+    });
     await flushPromises();
 
     expect(vmOf(wrapper).state).toBe("running");
