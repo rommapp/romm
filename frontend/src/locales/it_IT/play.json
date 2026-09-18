@@ -66,6 +66,7 @@
   "leave-dialog-title": "Uscire dalla sessione?",
   "leave-session": "Esci dalla sessione",
   "load-autosave": "Carica salvataggio automatico",
+  "load-save-restarts": "Caricare un salvataggio riavvia il gioco.",
   "load-state": "Carica stato",
   "manage-memory-cards": "Gestisci memory card",
   "manual-disc-swap-hint": "Questo emulatore cambia disco dal proprio menu, non da qui.",

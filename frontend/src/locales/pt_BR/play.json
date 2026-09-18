@@ -66,6 +66,7 @@
   "leave-dialog-title": "Sair da sessão?",
   "leave-session": "Sair da sessão",
   "load-autosave": "Carregar salvamento automático",
+  "load-save-restarts": "Carregar um save reinicia o jogo.",
   "load-state": "Carregar estado",
   "manage-memory-cards": "Gerenciar cartões de memória",
   "manual-disc-swap-hint": "Este emulador troca de disco pelo próprio menu, não por aqui.",

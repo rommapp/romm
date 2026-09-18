@@ -66,6 +66,7 @@
   "leave-dialog-title": "退出工作階段？",
   "leave-session": "退出工作階段",
   "load-autosave": "載入自動存檔",
+  "load-save-restarts": "載入存檔會重新啟動遊戲。",
   "load-state": "載入即時存檔",
   "manage-memory-cards": "管理記憶卡",
   "manual-disc-swap-hint": "此模擬器在自己的選單中更換光碟，而不是在這裡。",

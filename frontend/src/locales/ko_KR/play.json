@@ -66,6 +66,7 @@
   "leave-dialog-title": "세션에서 나갈까요?",
   "leave-session": "세션에서 나가기",
   "load-autosave": "자동 저장 불러오기",
+  "load-save-restarts": "세이브를 불러오면 게임이 다시 시작됩니다.",
   "load-state": "상태 불러오기",
   "manage-memory-cards": "메모리 카드 관리",
   "manual-disc-swap-hint": "이 에뮬레이터는 자체 메뉴에서 디스크를 교체합니다.",

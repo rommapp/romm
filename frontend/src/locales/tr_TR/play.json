@@ -66,6 +66,7 @@
   "leave-dialog-title": "Oturumdan ayrılınsın mı?",
   "leave-session": "Oturumdan ayrıl",
   "load-autosave": "Otomatik kaydı yükle",
+  "load-save-restarts": "Bir kaydı yüklemek oyunu yeniden başlatır.",
   "load-state": "Durumu yükle",
   "manage-memory-cards": "Hafıza kartlarını yönet",
   "manual-disc-swap-hint": "Bu emülatör diskleri kendi menüsünden değiştirir, buradan değil.",

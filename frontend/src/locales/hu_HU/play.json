@@ -66,6 +66,7 @@
   "leave-dialog-title": "Kilépsz a munkamenetből?",
   "leave-session": "Kilépés a munkamenetből",
   "load-autosave": "Automatikus mentés betöltése",
+  "load-save-restarts": "Egy mentés betöltése újraindítja a játékot.",
   "load-state": "Állapot betöltése",
   "manage-memory-cards": "Memóriakártyák kezelése",
   "manual-disc-swap-hint": "Ez az emulátor a saját menüjéből cserél lemezt, nem innen.",

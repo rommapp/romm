@@ -66,6 +66,7 @@
   "leave-dialog-title": "Opustit relaci?",
   "leave-session": "Opustit relaci",
   "load-autosave": "Načíst automatické uložení",
+  "load-save-restarts": "Načtení uložené pozice restartuje hru.",
   "load-state": "Načíst stav",
   "manage-memory-cards": "Spravovat paměťové karty",
   "manual-disc-swap-hint": "Tento emulátor mění disky ve své vlastní nabídce, ne odsud.",

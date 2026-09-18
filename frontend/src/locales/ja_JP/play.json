@@ -66,6 +66,7 @@
   "leave-dialog-title": "セッションから抜けますか？",
   "leave-session": "セッションから抜ける",
   "load-autosave": "オートセーブを読み込む",
+  "load-save-restarts": "セーブデータを読み込むとゲームが再起動します。",
   "load-state": "ステートをロード",
   "manage-memory-cards": "メモリーカードを管理",
   "manual-disc-swap-hint": "このエミュレーターはディスクの交換をエミュレーター側のメニューで行います。",

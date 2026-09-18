@@ -66,6 +66,7 @@
   "leave-dialog-title": "Leave session?",
   "leave-session": "Leave session",
   "load-autosave": "Load autosave",
+  "load-save-restarts": "Loading a save restarts the game.",
   "load-state": "Load state",
   "manage-memory-cards": "Manage memory cards",
   "manual-disc-swap-hint": "This emulator changes discs from its own menu, not from here.",

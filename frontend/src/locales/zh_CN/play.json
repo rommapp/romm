@@ -66,6 +66,7 @@
   "leave-dialog-title": "退出会话？",
   "leave-session": "退出会话",
   "load-autosave": "加载自动存档",
+  "load-save-restarts": "加载存档会重新启动游戏。",
   "load-state": "加载即时存档",
   "manage-memory-cards": "管理记忆卡",
   "manual-disc-swap-hint": "此模拟器在自己的菜单中更换光盘，而不是在这里。",

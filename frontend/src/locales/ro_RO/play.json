@@ -66,6 +66,7 @@
   "leave-dialog-title": "Ieși din sesiune?",
   "leave-session": "Ieși din sesiune",
   "load-autosave": "Încarcă salvarea automată",
+  "load-save-restarts": "Încărcarea unei salvări repornește jocul.",
   "load-state": "Încarcă starea",
   "manage-memory-cards": "Gestionează cardurile de memorie",
   "manual-disc-swap-hint": "Acest emulator schimbă discurile din propriul meniu, nu de aici.",

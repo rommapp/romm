@@ -66,6 +66,7 @@
   "leave-dialog-title": "Sitzung verlassen?",
   "leave-session": "Sitzung verlassen",
   "load-autosave": "Automatische Speicherung laden",
+  "load-save-restarts": "Das Laden eines Spielstands startet das Spiel neu.",
   "load-state": "Spielstand laden",
   "manage-memory-cards": "Speicherkarten verwalten",
   "manual-disc-swap-hint": "Dieser Emulator wechselt Discs über sein eigenes Menü, nicht von hier aus.",

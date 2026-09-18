@@ -196,9 +196,9 @@ function writeSave(
   saveWrite = write.catch(() => null);
   return write;
 }
-// Forced writes (Save button, Save & Quit) wait for the queue, then skip only
-// when no version was opened yet and the SRAM still matches a slotted save
-// loaded from the server (a slot-less one still has to reach the slot).
+// A forced write (Save & Quit) waits for the queue, then skips only when no
+// version was opened yet and the SRAM still matches a slotted save loaded from
+// the server (a slot-less one still has to reach the slot).
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
@@ -278,7 +278,7 @@ declare global {
     EJS_disableAutoLang: boolean;
     EJS_DEBUG_XX: boolean;
     EJS_CacheLimit: number;
-    EJS_Buttons: Record<string, boolean>;
+    EJS_Buttons: Record<string, boolean | { displayName: string }>;
     EJS_VirtualGamepadSettings: Record<string, unknown>;
     EJS_volume: number;
     EJS_paths: Record<string, string>;
@@ -341,6 +341,10 @@ window.EJS_backgroundColor = theme.current.value.colors.background;
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
+  // Saves sync as the game writes them, and load from the save/state picker.
+  saveSavFiles: false,
+  loadSavFiles: false,
+  loadState: { displayName: t("rom.load-save-or-state") },
 };
 const coreOptions = configStore.getEJSCoreOptions(window.EJS_core);
 window.EJS_defaultOptions = {
@@ -415,7 +419,7 @@ onMounted(() => {
     localStorage.removeItem(`player:${romRef.value.id}:disc`);
   }
 
-  emitter?.on("saveSelected", loadSave);
+  emitter?.on("saveSelected", switchSave);
   emitter?.on("stateSelected", loadState);
 });
 
@@ -424,7 +428,7 @@ onBeforeUnmount(async () => {
   window.removeEventListener("beforeunload", onBeforeUnload);
   window.removeEventListener("pagehide", onPageHide);
   uninstallAutoSaveSync();
-  emitter?.off("saveSelected", loadSave);
+  emitter?.off("saveSelected", switchSave);
   emitter?.off("stateSelected", loadState);
   exitEmulatorOnce();
   fullScreen.value = false;
@@ -640,34 +644,11 @@ async function loadSave(save: SaveSchema) {
   }
 }
 
-window.EJS_onLoadSave = async function () {
-  window.EJS_emulator.pause();
-  window.EJS_emulator.toggleFullscreen(false);
-  emitter?.emit("selectSaveDialog", romRef.value);
-};
-
-window.EJS_onSaveSave = async function ({
-  save: saveFile,
-  screenshot: emulatorScreenshot,
-}) {
-  const screenshotFile = await resolveScreenshot(emulatorScreenshot);
-  const synced = await writeSaveIfChanged({ saveFile, screenshotFile });
-
-  romsStore.update(romRef.value);
-
-  if (synced) {
-    heldBackSave = null;
-    displayMessage(t("play.save-synced"), {
-      duration: 4000,
-      tone: "success",
-      icon: "mdi-cloud-sync",
-    });
-  } else if (heldFor(pendingSave, new Uint8Array(saveFile))) {
-    // Asked for by hand, so it answers every time, and the tick behind it
-    // knows these bytes have been spoken for.
-    announceSaveHeldBack(new Uint8Array(saveFile));
-  }
-};
+// The game reads its SRAM as it boots, so a save picked mid-game restarts it.
+async function switchSave(save: SaveSchema) {
+  await loadSave(save);
+  window.EJS_emulator.gameManager.restart();
+}
 
 // States management
 // Every way a state arrives goes through here: the SRAM it restores becomes the
@@ -707,6 +688,7 @@ async function loadState(state: StateSchema) {
   }
 }
 
+// v2 answers with its save/state picker, v1 with its states-only one.
 window.EJS_onLoadState = async function () {
   window.EJS_emulator.pause();
   window.EJS_emulator.toggleFullscreen(false);

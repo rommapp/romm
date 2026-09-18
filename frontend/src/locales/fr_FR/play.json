@@ -66,6 +66,7 @@
   "leave-dialog-title": "Quitter la session ?",
   "leave-session": "Quitter la session",
   "load-autosave": "Charger la sauvegarde automatique",
+  "load-save-restarts": "Charger une sauvegarde redémarre le jeu.",
   "load-state": "Charger l'état",
   "manage-memory-cards": "Gérer les cartes mémoire",
   "manual-disc-swap-hint": "Cet émulateur change de disque depuis son propre menu, pas d'ici.",

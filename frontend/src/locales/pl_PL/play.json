@@ -66,6 +66,7 @@
   "leave-dialog-title": "Opuścić sesję?",
   "leave-session": "Opuść sesję",
   "load-autosave": "Wczytaj automatyczny zapis",
+  "load-save-restarts": "Wczytanie zapisu uruchamia grę od nowa.",
   "load-state": "Wczytaj stan",
   "manage-memory-cards": "Zarządzaj kartami pamięci",
   "manual-disc-swap-hint": "Ten emulator zmienia płyty z własnego menu, nie stąd.",
