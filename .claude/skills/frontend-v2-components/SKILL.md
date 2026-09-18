@@ -112,7 +112,7 @@ Storybook is a **headless UI lab**, not a tiny RomM. There is no backend. `:6006
 - `npm run test` runs Vitest **and** every `/lib` story's `play()` via `composeStories`. Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
 - **No live services.** `frontend/.storybook/main.ts` aliases `@/services/api`, `@/services/socket`, `@/services/pending-asset`, and `@/services/cache` to `frontend/.storybook/stubs/`, and clears the app Vite `/api` proxy. Extend those stubs when a new client is imported from a story. Do not add a "hit the real API" toolbar.
 - **Leaf constants, not the axios module.** A story-reachable composite that needs `AUTOSAVE_SLOT` (or any other client constant) imports `@/services/saveSlot` (or the file that owns the value and does not import axios). Importing `@/services/api/save` pulls the whole API graph into the story. Re-exports from the client are for app call sites, not for UI that ships a story.
-- **Seed Pinia in `preview.ts`.** Fake admin + grants; never `fetchCurrentUser` / `/permissions/me`.
+- **Seed Pinia in `preview.ts`.** Fake admin + grants; never `fetchCurrentUser` / `/permissions/me`. `vitest.setup.ts` imports this file, so do not statically import `@/stores/auth` (it pulls axios) and skip the seed when `import.meta.env.VITEST` is set.
 - **No toolbar without a canvas change.** A global toolbar that no open story visibly follows is noise. Add it when a story is built to show the gate (open menu, labelled states).
 - Stories pass **fixture props**. They do not call `romApi.*`. If a composite must look fetched, mock the store or the stub; do not point axios at localhost.
 

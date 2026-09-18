@@ -6,8 +6,6 @@ import { createMemoryHistory, createRouter } from "vue-router";
 import { createVuetify } from "vuetify";
 import "vuetify/styles";
 import i18n from "../src/locales";
-import storeAuth from "../src/stores/auth";
-import storePermissions from "../src/stores/permissions";
 import type { User } from "../src/stores/users";
 import "../src/styles/common.css";
 import "../src/styles/fonts.css";
@@ -18,7 +16,7 @@ import { createChromeLabels } from "../src/v2/utils/chromeLabels";
 
 // Pinia, i18n, and Vuetify are registered. v2 stories theme via `.r-v2-dark` /
 // `.r-v2-light` on body; Vuetify stays for leftover shared deps.
-setup((app) => {
+setup(async (app) => {
   app.use(createPinia());
   app.use(i18n);
   // Stories exercise the same injected-label path as the app, so a
@@ -40,7 +38,15 @@ setup((app) => {
     }),
   );
 
-  // In-memory admin user and grants. Nothing is fetched.
+  // vitest.setup imports this file. Loading auth here would construct axios
+  // before any test's `vi.mock("@/services/api")`.
+  if (import.meta.env.VITEST) return;
+
+  const [{ default: storeAuth }, { default: storePermissions }] =
+    await Promise.all([
+      import("../src/stores/auth"),
+      import("../src/stores/permissions"),
+    ]);
   storePermissions().hydrateFromResponse({
     is_admin: true,
     grants: [],
