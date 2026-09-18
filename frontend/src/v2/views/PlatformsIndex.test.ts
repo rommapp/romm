@@ -199,8 +199,8 @@ describe("PlatformsIndex", () => {
     const headings = wrapper
       .findAll(".r-v2-pidx__group-heading")
       .map((h) => h.text());
-    expect(headings).toContain("Playable");
-    expect(headings).not.toContain("Not playable");
+    expect(headings).toContain("platform.playable");
+    expect(headings).not.toContain("platform.not-playable");
   });
 
   it("counts a streaming-only platform as playable when grouping by playable", () => {
