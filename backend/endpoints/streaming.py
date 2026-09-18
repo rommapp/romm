@@ -1052,8 +1052,8 @@ async def heartbeat_session(
     claim is abandoned after _STREAMING_SESSION_STALE_SECONDS for the next to take.
 
     Args:
-        container_key: the claim to beat, needed for a desktop or a container
-            outside the platform's first pool.
+        container_key: the claim to beat, needed for any desktop, or for a
+            container outside the platform's first pool.
         claimed_at: the claim's stamp, so a tab that missed its own takeover does
             not keep the claim that replaced it alive.
 
