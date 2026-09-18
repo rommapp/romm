@@ -113,13 +113,8 @@ export default defineConfig(({ mode }) => {
           hosts: ["localhost", "127.0.0.1", "romm.dev"],
         }),
     ],
-    // Lightning CSS transforms dev and build alike, so the vendor prefixes it
-    // generates from Vite's baseline targets reach the dev server too. With
-    // Vite's default postcss transformer they only appear on the build's
-    // minify path, and Safari below 18.4 loses every backdrop-filter surface
-    // while developing. Never hand-write a `-webkit-` twin to paper over that:
-    // Lightning CSS keeps only the last of the pair, dropping the standard
-    // property from the bundle.
+    // Prefixes dev too, not just the build's minify path. Never hand-write a
+    // `-webkit-` twin: Lightning CSS keeps only the last of the pair.
     css: {
       transformer: "lightningcss",
     },
