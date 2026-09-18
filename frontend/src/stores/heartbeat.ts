@@ -15,6 +15,7 @@ export type MetadataOption = {
 const defaultHeartbeat: Heartbeat = {
   SYSTEM: {
     VERSION: "0.0.0",
+    GIT_BRANCH: null,
     SHOW_SETUP_WIZARD: false,
   },
   METADATA_SOURCES: {

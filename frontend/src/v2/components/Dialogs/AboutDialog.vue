@@ -6,13 +6,13 @@ import { RDialog, RIcon, RImg } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
+import { useVersionDisplay } from "@/v2/composables/useVersionDisplay";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const heartbeatStore = storeHeartbeat();
+const { version, href: versionHref } = useVersionDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const show = ref(false);
 
@@ -38,8 +38,8 @@ const links: Link[] = [
   {
     isotipo: true,
     label: t("common.about-version"),
-    value: heartbeatStore.value.SYSTEM.VERSION,
-    href: `https://github.com/rommapp/romm/releases/tag/${heartbeatStore.value.SYSTEM.VERSION}`,
+    value: version.value,
+    href: versionHref.value,
   },
   {
     icon: "mdi-code-braces",

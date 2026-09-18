@@ -1,10 +1,8 @@
 <script setup lang="ts">
-// VersionTag — renders the running RomM version from the heartbeat store.
-// Shared by AuthLayout (bottom-right, compact) and the About dialog
-// (linked to the GitHub release). Pass `link` to render as an anchor
-// to the release notes page.
-import { computed } from "vue";
-import storeHeartbeat from "@/stores/heartbeat";
+// VersionTag — renders the running RomM version. Shared by AuthLayout
+// (bottom-right, compact), DevicePairShell, and PairShell. Pass `link` to
+// render as an anchor to the release notes (or branch, in a dev build).
+import { useVersionDisplay } from "@/v2/composables/useVersionDisplay";
 
 defineOptions({ inheritAttrs: false });
 
@@ -15,11 +13,7 @@ withDefaults(
   { link: false },
 );
 
-const heartbeatStore = storeHeartbeat();
-const version = computed(() => heartbeatStore.value.SYSTEM.VERSION);
-const releaseHref = computed(
-  () => `https://github.com/rommapp/romm/releases/tag/${version.value}`,
-);
+const { version, href: releaseHref } = useVersionDisplay();
 </script>
 
 <template>
