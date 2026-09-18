@@ -469,6 +469,7 @@
   "tracks-n": "{n} faixa | {n} faixas",
   "tracks-summary": "{count} faixas · {duration}",
   "unmatch": "Desvincular ROM",
+  "unmatch-hint": "Apaga os metadados, a capa e as capturas de tela vinculados a esta ROM. O arquivo no disco é mantido e pode ser vinculado novamente.",
   "unmatch-success": "ROM desvinculada com sucesso",
   "unselect-all": "Desselecionar todos",
   "update-default-failed": "Falha ao atualizar a versão padrão",

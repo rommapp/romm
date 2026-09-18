@@ -349,6 +349,9 @@ const routes = [
             name: ROUTES.UPLOAD,
             meta: {
               title: "common.upload-roms",
+              // The file list grows to the bottom of the viewport on desktop
+              // so long batches get room — see SettingsLayout `fill`.
+              fill: "desktop",
             },
             components: {
               // v1 has no Upload view (the dialog was its only entry

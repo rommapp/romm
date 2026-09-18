@@ -469,6 +469,7 @@
   "tracks-n": "{n} utwór | {n} utwory | {n} utworów",
   "tracks-summary": "{count} utworów · {duration}",
   "unmatch": "Odłącz ROM",
+  "unmatch-hint": "Usuwa metadane, okładkę i zrzuty ekranu przypisane do tego ROM-u. Plik na dysku pozostaje, więc można go ponownie dopasować.",
   "unmatch-success": "ROM został pomyślnie odłączony",
   "unselect-all": "Odznacz wszystkie",
   "update-default-failed": "Nie udało się zaktualizować wersji domyślnej",

@@ -217,6 +217,7 @@ async function performDelete(
   <RDropzone
     v-if="firmwareList.length === 0 && pendingFiles.length === 0 && canWrite"
     ref="firmwareDz"
+    fill
     :title="t('platform.upload-firmware')"
     :hint="t('platform.firmware-dropzone-description')"
     :active-title="t('common.dropzone-drag-over')"

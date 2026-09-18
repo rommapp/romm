@@ -225,10 +225,9 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
 .r-v2-plat__panel-icon {
   width: 200px;
   /* `min-height` (not a fixed `height`): the icon is a square sized in JS, so
-     the box floors at the icon height and simply grows to contain it — a tall
-     icon pushes the title/stats down (reflow) instead of overflowing and
-     getting clipped or overlapping. */
-  min-height: 148px;
+     the box grows to contain a taller one instead of clipping it. The floor is
+     the collection cover height, so both heads match and their tabs line up. */
+  min-height: var(--r-coll-cover-h);
   display: grid;
   place-items: center;
 }

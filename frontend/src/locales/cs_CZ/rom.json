@@ -469,6 +469,7 @@
   "tracks-n": "{n} skladeb | {n} skladba | {n} skladby | {n} skladeb",
   "tracks-summary": "{count} skladeb · {duration}",
   "unmatch": "Odpojit ROM",
+  "unmatch-hint": "Smaže metadata, obal a screenshoty přiřazené k této ROM. Soubor na disku zůstane, takže ji lze znovu přiřadit.",
   "unmatch-success": "ROM úspěšně odpojena",
   "unselect-all": "Zrušit výběr všeho",
   "update-default-failed": "Nepodařilo se aktualizovat výchozí verzi",

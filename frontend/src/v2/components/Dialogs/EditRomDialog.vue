@@ -29,6 +29,7 @@ import AdditionalDetails from "@/v2/components/EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "@/v2/components/EditRom/MetadataIdSection.vue";
 import RawMetadataPanel from "@/v2/components/EditRom/RawMetadataPanel.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
+import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -457,6 +458,23 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           />
         </div>
       </div>
+
+      <DangerZone
+        v-if="!rom.is_unidentified"
+        :title="t('rom.unmatch')"
+        :hint="t('rom.unmatch-hint')"
+      >
+        <RBtn
+          variant="outlined"
+          color="danger"
+          prepend-icon="mdi-link-variant-off"
+          :loading="saving"
+          :disabled="saving"
+          @click="unmatchRom"
+        >
+          {{ t("rom.unmatch") }}
+        </RBtn>
+      </DangerZone>
     </template>
 
     <template #footer>
@@ -464,17 +482,6 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         {{ t("common.cancel") }}
       </RBtn>
       <div style="flex: 1" />
-      <RBtn
-        v-if="!rom.is_unidentified"
-        variant="outlined"
-        color="error"
-        prepend-icon="mdi-link-variant-off"
-        :loading="saving"
-        :disabled="saving"
-        @click="unmatchRom"
-      >
-        {{ t("rom.unmatch") }}
-      </RBtn>
       <RBtn
         variant="translucent"
         color="primary"

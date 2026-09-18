@@ -469,6 +469,7 @@
   "tracks-n": "{n} piesă | {n} piese",
   "tracks-summary": "{count} piese · {duration}",
   "unmatch": "Dissociază ROM-ul",
+  "unmatch-hint": "Șterge metadatele, coperta și capturile de ecran asociate acestui ROM. Fișierul de pe disc rămâne, așa că poate fi asociat din nou.",
   "unmatch-success": "ROM-ul a fost disociat cu succes",
   "unselect-all": "Deselectează toate",
   "update-default-failed": "Actualizarea versiunii implicite a eșuat",

@@ -33,6 +33,8 @@ interface Props {
   overlay?: boolean;
   /** CTA mode only: one row with a small icon beside the title and hint. */
   compact?: boolean;
+  /** CTA mode only: stretch the CTA to the dropzone's full height. */
+  fill?: boolean;
   // CTA copy / icons (ignored in overlay mode except `activeIcon`).
   title?: string;
   hint?: string;
@@ -106,6 +108,7 @@ defineExpose({ open, isOver: isOverDropZone });
       'r-dropzone--active': isOverDropZone && !disabled,
       'r-dropzone--disabled': disabled,
       'r-dropzone--compact': compact,
+      'r-dropzone--fill': fill,
     }"
   >
     <input
@@ -203,6 +206,9 @@ defineExpose({ open, isOver: isOverDropZone });
   transition:
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
     background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-dropzone--fill .r-dropzone__cta {
+  flex: 1 1 auto;
 }
 .r-dropzone__cta:hover {
   border-color: color-mix(

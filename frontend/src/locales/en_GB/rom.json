@@ -469,6 +469,7 @@
   "tracks-n": "{n} track | {n} tracks",
   "tracks-summary": "{count} tracks · {duration}",
   "unmatch": "Unmatch ROM",
+  "unmatch-hint": "Clears the metadata, cover and screenshots matched to this ROM. The file on disk stays, so it can be matched again.",
   "unmatch-success": "ROM unmatched successfully",
   "unselect-all": "Unselect all",
   "update-default-failed": "Failed to update default version",

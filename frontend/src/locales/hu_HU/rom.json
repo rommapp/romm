@@ -469,6 +469,7 @@
   "tracks-n": "{n} szám | {n} szám",
   "tracks-summary": "{count} szám · {duration}",
   "unmatch": "Nem egyező ROM",
+  "unmatch-hint": "Törli a ROM-hoz társított metaadatokat, borítót és képernyőképeket. A lemezen lévő fájl megmarad, így később újra párosítható.",
   "unmatch-success": "A ROM sikeresen nem egyeztetettként lett jelölve",
   "unselect-all": "Minden kijelölés visszavonása",
   "update-default-failed": "Az alapértelmezett verzió frissítése sikertelen",

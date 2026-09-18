@@ -45,6 +45,7 @@ import type { Events } from "@/types/emitter";
 import { toBrowserLocale } from "@/utils";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
+import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -378,7 +379,7 @@ function discard() {
     <!-- Details (edit form) — both kinds. -->
     <section class="r-v2-coll-set__section">
       <header class="r-v2-coll-set__section-head">
-        <RIcon icon="mdi-pencil-outline" size="14" />
+        <RIcon icon="mdi-information-outline" size="14" />
         <span>{{ t("common.details", "Details") }}</span>
       </header>
       <div class="r-v2-coll-set__form">
@@ -475,43 +476,29 @@ function discard() {
       </ul>
     </section>
 
-    <!-- Danger zone — destructive actions kept visually separated.
-         Delete itself routes through the parent (confirm dialog +
-         navigation lives in Collection.vue). -->
-    <section
+    <!-- Delete routes through the parent (confirm dialog + navigation
+         lives in Collection.vue). -->
+    <DangerZone
       v-if="canDelete"
-      class="r-v2-coll-set__section r-v2-coll-set__danger"
+      :title="t('collection.delete-collection', 'Delete collection')"
+      :hint="
+        t(
+          'collection.delete-collection-hint',
+          'Removes the collection from RomM. The ROM files themselves are not deleted.',
+        )
+      "
     >
-      <header class="r-v2-coll-set__section-head r-v2-coll-set__danger-head">
-        <RIcon icon="mdi-alert-outline" size="14" />
-        <span>{{ t("collection.danger-zone", "Danger zone") }}</span>
-      </header>
-      <div class="r-v2-coll-set__danger-row">
-        <div class="r-v2-coll-set__danger-copy">
-          <p class="r-v2-coll-set__danger-title">
-            {{ t("collection.delete-collection", "Delete collection") }}
-          </p>
-          <p class="r-v2-coll-set__danger-hint">
-            {{
-              t(
-                "collection.delete-collection-hint",
-                "Removes the collection from RomM. The ROM files themselves are not deleted.",
-              )
-            }}
-          </p>
-        </div>
-        <RBtn
-          variant="outlined"
-          color="danger"
-          prepend-icon="mdi-delete-outline"
-          :loading="deleting"
-          :disabled="deleting"
-          @click="emit('delete')"
-        >
-          {{ t("common.delete", "Delete") }}
-        </RBtn>
-      </div>
-    </section>
+      <RBtn
+        variant="outlined"
+        color="danger"
+        prepend-icon="mdi-delete-outline"
+        :loading="deleting"
+        :disabled="deleting"
+        @click="emit('delete')"
+      >
+        {{ t("common.delete", "Delete") }}
+      </RBtn>
+    </DangerZone>
   </div>
 </template>
 
@@ -520,7 +507,7 @@ function discard() {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-width: 720px;
+  max-width: 460px;
   margin-inline: auto;
 }
 
@@ -621,43 +608,5 @@ function discard() {
   flex-wrap: wrap;
   gap: 4px;
   padding-left: 20px;
-}
-
-/* ── Danger zone ───────────────────────────────────────────────── */
-.r-v2-coll-set__danger {
-  padding: 14px;
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 6%,
-    transparent
-  );
-  border: 1px solid
-    color-mix(in srgb, var(--r-color-status-base-danger) 35%, transparent);
-  border-radius: var(--r-radius-md);
-}
-.r-v2-coll-set__danger-head {
-  color: var(--r-color-status-base-danger);
-}
-.r-v2-coll-set__danger-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.r-v2-coll-set__danger-copy {
-  flex: 1;
-  min-width: 0;
-}
-.r-v2-coll-set__danger-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-}
-.r-v2-coll-set__danger-hint {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: var(--r-color-fg-muted);
-  line-height: 1.4;
 }
 </style>

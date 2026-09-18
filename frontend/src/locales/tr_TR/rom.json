@@ -469,6 +469,7 @@
   "tracks-n": "{n} parça | {n} parça",
   "tracks-summary": "{count} parça · {duration}",
   "unmatch": "ROM eşleşmesini kaldır",
+  "unmatch-hint": "Bu ROM ile eşleşen meta verileri, kapağı ve ekran görüntülerini temizler. Diskteki dosya korunur, böylece yeniden eşleştirilebilir.",
   "unmatch-success": "ROM eşleşmesi başarıyla kaldırıldı",
   "unselect-all": "Tümünün seçimini kaldır",
   "update-default-failed": "Varsayılan sürüm güncellenemedi",

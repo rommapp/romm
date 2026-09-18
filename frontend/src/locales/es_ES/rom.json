@@ -469,6 +469,7 @@
   "tracks-n": "{n} pista | {n} pistas",
   "tracks-summary": "{tracks}, {duration}",
   "unmatch": "Desvincular ROM",
+  "unmatch-hint": "Borra los metadatos, la portada y las capturas vinculados a esta ROM. El archivo en disco se conserva, así que puede volver a vincularse.",
   "unmatch-success": "ROM desvinculada con éxito",
   "unselect-all": "Deseleccionar todos",
   "update-default-failed": "Error al actualizar la versión por defecto",

@@ -469,6 +469,7 @@
   "tracks-n": "{n}개 트랙 | {n}개 트랙",
   "tracks-summary": "{count}개 트랙 · {duration}",
   "unmatch": "DB 대응 해제",
+  "unmatch-hint": "이 ROM에 연결된 메타데이터, 커버, 스크린샷을 지웁니다. 디스크의 파일은 유지되므로 나중에 다시 대응시킬 수 있습니다.",
   "unmatch-success": "ROM 연결이 성공적으로 해제되었습니다",
   "unselect-all": "모두 선택 해제",
   "update-default-failed": "기본 버전을 업데이트하지 못했습니다",

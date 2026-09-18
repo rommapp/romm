@@ -10,7 +10,8 @@
 // RTabNav) lives INSIDE the scrolling container of whichever branch
 // is active. On Library, it rides in `GalleryShell`'s `#header` slot
 // so it scrolls away with the cards (toolbar pins below it). On
-// Settings, it sits in a plain scroll wrapper above the tab body.
+// Settings, the head stays fixed above the tab body on desktop (only
+// the panel scrolls); on mobile the head scrolls away too.
 //
 // Edit + Delete moved out of the InfoPanel `#actions` kebab and into
 // the Settings tab (editable form on top, danger zone at the bottom).
@@ -424,8 +425,10 @@ async function onDelete() {
     </template>
   </GalleryShell>
 
-  <!-- SETTINGS — plain scroll wrapper hosting the same CollectionHead
-       above the tab body. Whole page scrolls together. -->
+  <!-- SETTINGS — hosts the same CollectionHead above the tab body. On
+       desktop the head + divider stay fixed and only the panel
+       scrolls; on mobile the whole thing scrolls together as one page
+       (see the `sm-and-down` overrides below). -->
   <section v-else class="r-v2-coll-tabs">
     <div class="r-v2-coll-tabs__scroll">
       <CollectionHead
@@ -461,9 +464,10 @@ async function onDelete() {
 </template>
 
 <style scoped>
-/* Settings branch — single scroll wrapper that owns the page scroll.
-   The CollectionHead and the tab body scroll together as one surface,
-   matching the platform-view layout. */
+/* Settings branch. On desktop, CollectionHead + divider stay fixed and
+   only `__panel` scrolls, so switching tabs never jumps the head. On
+   mobile (`sm-and-down`) the whole thing scrolls together as a single
+   page instead — see the `__panel` override below. */
 .r-v2-coll-tabs {
   /* `dvh` (not `vh`) so the section matches the mobile visible viewport
      instead of the larger address-bar-hidden one — otherwise it spills below
@@ -487,10 +491,13 @@ html[data-bp~="sm-and-down"] .r-v2-coll-tabs {
 
 .r-v2-coll-tabs__scroll {
   height: 100%;
-  overflow-y: auto;
-  padding: 32px var(--r-row-pad) 60px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 32px var(--r-row-pad) 0;
 }
 html[data-bp~="sm-and-down"] .r-v2-coll-tabs__scroll {
+  overflow-y: auto;
   padding-bottom: calc(
     var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
   );
@@ -498,9 +505,18 @@ html[data-bp~="sm-and-down"] .r-v2-coll-tabs__scroll {
 
 .r-v2-coll-tabs__divider {
   margin: 0 0 24px;
+  flex: 0 0 auto;
 }
 
 .r-v2-coll-tabs__panel {
   min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-bottom: var(--r-row-pad);
+}
+html[data-bp~="sm-and-down"] .r-v2-coll-tabs__panel {
+  flex: 0 0 auto;
+  overflow: visible;
+  padding-bottom: 0;
 }
 </style>

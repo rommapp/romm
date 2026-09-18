@@ -469,6 +469,7 @@
   "tracks-n": "{n} traccia | {n} tracce",
   "tracks-summary": "{count} tracce · {duration}",
   "unmatch": "Rimuovi associazione rom",
+  "unmatch-hint": "Cancella i metadati, la copertina e gli screenshot associati a questa rom. Il file su disco resta e potrà essere associato di nuovo.",
   "unmatch-success": "Associazione ROM rimossa con successo",
   "unselect-all": "Deseleziona tutto",
   "update-default-failed": "Impossibile aggiornare la versione predefinita",

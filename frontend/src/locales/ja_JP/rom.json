@@ -469,6 +469,7 @@
   "tracks-n": "{n}件のトラック | {n}件のトラック",
   "tracks-summary": "{count}件のトラック · {duration}",
   "unmatch": "検索結果無し",
+  "unmatch-hint": "このROMに紐づくメタデータ、カバー、スクリーンショットを消去します。ディスク上のファイルは残るため、後で再度マッチングできます。",
   "unmatch-success": "ROMの関連付けが正常に解除されました",
   "unselect-all": "すべて選択解除",
   "update-default-failed": "デフォルトバージョンの更新に失敗しました",

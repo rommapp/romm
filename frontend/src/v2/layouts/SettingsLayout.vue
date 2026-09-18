@@ -32,8 +32,13 @@ const route = useRoute();
 const { mdAndUp } = useBreakpoint();
 const isBare = computed(() => route.meta?.bare === true);
 // `fill` views (e.g. Logs) pin to the viewport height and scroll their own
-// content internally instead of growing the document.
-const isFill = computed(() => route.meta?.fill === true);
+// content internally instead of growing the document. `fill: "desktop"` does
+// so on md-and-up only, keeping the plain document scroll on phones.
+const isFill = computed(
+  () =>
+    route.meta?.fill === true ||
+    (route.meta?.fill === "desktop" && mdAndUp.value),
+);
 
 // Settings pages share the current cover-art background from wherever
 // the user came from. We don't paint over it; just no-op so a stale

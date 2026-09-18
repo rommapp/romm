@@ -469,6 +469,7 @@
   "tracks-n": "{n} Track | {n} Tracks",
   "tracks-summary": "{count} Tracks · {duration}",
   "unmatch": "Zuweisung aufheben",
+  "unmatch-hint": "Löscht die Metadaten, das Cover und die Screenshots dieses ROMs. Die Datei auf der Festplatte bleibt erhalten und kann erneut zugewiesen werden.",
   "unmatch-success": "ROM-Zuweisung erfolgreich aufgehoben",
   "unselect-all": "Alles abwählen",
   "update-default-failed": "Standardversion konnte nicht aktualisiert werden",

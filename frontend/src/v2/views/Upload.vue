@@ -203,28 +203,44 @@ async function upload() {
 
 <template>
   <div class="r-v2-upload r-v2-section-stack">
-    <!-- Platform picker -->
-    <PlatformSelect
-      v-model="selectedPlatformSlug"
-      :items="supportedPlatforms"
-      item-key="slug"
-      :placeholder="t('common.select-platform')"
-      density="comfortable"
-      prefix-label="stacked"
-      :icon-size="22"
-      :search-placeholder="t('common.search')"
-      :disabled="platformsLoading"
-    >
-      <template #prefix-label>
-        <RIcon icon="mdi-controller" size="14" />
-        {{ t("common.platform") }}
-      </template>
-    </PlatformSelect>
+    <!-- No Cancel next to Upload: this is a view, not a dialog, the user
+         just navigates away if they change their mind. -->
+    <div class="r-v2-upload__top">
+      <PlatformSelect
+        v-model="selectedPlatformSlug"
+        class="r-v2-upload__platform"
+        :items="supportedPlatforms"
+        item-key="slug"
+        :placeholder="t('common.select-platform')"
+        density="comfortable"
+        prefix-label="stacked"
+        :icon-size="22"
+        :search-placeholder="t('common.search')"
+        :disabled="platformsLoading"
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-controller" size="14" />
+          {{ t("common.platform") }}
+        </template>
+      </PlatformSelect>
+      <RBtn
+        variant="flat"
+        color="primary"
+        prepend-icon="mdi-cloud-upload-outline"
+        :disabled="files.length === 0 || !selectedPlatform"
+        :loading="uploading"
+        @click="upload"
+      >
+        {{ t("common.upload") }}
+      </RBtn>
+    </div>
 
     <!-- Drop zone — CTA when empty, file list (with drag overlay) when
            populated. -->
     <RDropzone
       v-if="files.length === 0"
+      class="r-v2-upload__dropzone"
+      fill
       :title="t('common.dropzone-title')"
       :hint="t('common.dropzone-description')"
       :active-title="t('common.dropzone-drag-over')"
@@ -235,6 +251,7 @@ async function upload() {
     <RDropzone
       v-else
       ref="uploadDz"
+      class="r-v2-upload__dropzone"
       overlay
       :release-label="t('common.dropzone-drag-over')"
       :input-label="t('common.upload-roms')"
@@ -242,19 +259,6 @@ async function upload() {
       @files="addFiles"
     >
       <div class="r-v2-upload__filled">
-        <header class="r-v2-upload__filled-head">
-          <span>
-            {{ t("common.upload-files-selected", { count: files.length }) }}
-          </span>
-          <RBtn
-            variant="flat"
-            color="primary"
-            prepend-icon="mdi-plus"
-            @click="uploadDz?.open()"
-          >
-            {{ t("common.add") }}
-          </RBtn>
-        </header>
         <ul class="r-v2-upload__list">
           <li v-for="f in files" :key="f.name" class="r-v2-upload__row">
             <RIcon icon="mdi-file-outline" size="14" />
@@ -272,36 +276,58 @@ async function upload() {
             />
           </li>
         </ul>
+        <footer class="r-v2-upload__filled-foot">
+          <span>
+            {{ t("common.upload-files-selected", { count: files.length }) }}
+          </span>
+          <RBtn
+            variant="flat"
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="uploadDz?.open()"
+          >
+            {{ t("common.add") }}
+          </RBtn>
+        </footer>
       </div>
     </RDropzone>
-
-    <!-- Footer — primary CTA. No Cancel: this is a view, not a
-           dialog, the user just navigates away if they change their
-           mind. -->
-    <div class="r-v2-upload__footer">
-      <RBtn
-        variant="flat"
-        color="primary"
-        prepend-icon="mdi-cloud-upload-outline"
-        :disabled="files.length === 0 || !selectedPlatform"
-        :loading="uploading"
-        @click="upload"
-      >
-        {{ t("common.upload") }}
-      </RBtn>
-    </div>
   </div>
 </template>
 
 <style scoped>
+/* On desktop the route runs in SettingsLayout `fill` mode: the view takes the
+   body's height and the dropzone (empty CTA or file list) grows to the bottom
+   of the viewport. Phones keep the document scroll and the capped list. */
+.r-v2-upload {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.r-v2-upload__top {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.r-v2-upload__platform {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.r-v2-upload__dropzone {
+  flex: 1 1 0;
+  min-height: 0;
+}
+html[data-bp~="sm-and-down"] .r-v2-upload__dropzone {
+  flex: 0 0 auto;
+}
+
 /* ── Filled state ────────────────────────────────────────────── */
 .r-v2-upload__filled {
-  padding: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.r-v2-upload__filled-head {
+.r-v2-upload__filled-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -317,9 +343,13 @@ async function upload() {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   background: var(--r-color-bg-elevated);
-  overflow: hidden;
-  max-height: 320px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+}
+html[data-bp~="sm-and-down"] .r-v2-upload__list {
+  flex: none;
+  max-height: 320px;
 }
 .r-v2-upload__row {
   display: grid;
@@ -338,10 +368,5 @@ async function upload() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.r-v2-upload__footer {
-  display: flex;
-  justify-content: flex-end;
 }
 </style>

@@ -469,6 +469,7 @@
   "tracks-n": "{n} 个曲目 | {n} 个曲目",
   "tracks-summary": "{count} 个曲目 · {duration}",
   "unmatch": "未匹配的 ROM",
+  "unmatch-hint": "清除与此 ROM 匹配的元数据、封面和截图。磁盘上的文件会保留，之后可以重新匹配。",
   "unmatch-success": "ROM 取消匹配成功",
   "unselect-all": "取消选择所有",
   "update-default-failed": "更新默认版本失败",

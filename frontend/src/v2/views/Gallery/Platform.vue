@@ -10,9 +10,9 @@
 // scrolling container of whichever branch is active. On Library, it
 // rides in `GalleryShell`'s `#header` slot so it scrolls away with
 // the cards and the toolbar pins below it — the same vocabulary the
-// pre-tabs gallery had. On Firmware / Settings it sits in a plain
-// scroll wrapper above the tab body, so the user gets a single
-// natural scroll for the whole page.
+// pre-tabs gallery had. On Firmware / Settings, the head stays fixed
+// above the tab body on desktop (only the panel scrolls); on mobile
+// the head scrolls away too, for one natural page scroll.
 //
 // Action ribbon (Upload / Scan) lives inside the head component;
 // Edit (custom_name) and Delete moved inline into the Settings tab.
@@ -493,10 +493,10 @@ async function onDelete() {
     </template>
   </GalleryShell>
 
-  <!-- FIRMWARE / SETTINGS — plain scroll wrapper that hosts the same
-       PlatformHead above the tab body. Whole page scrolls together so
-       the user keeps the head band, the divider, and the tab content
-       in one natural scroll surface. -->
+  <!-- FIRMWARE / SETTINGS — hosts the same PlatformHead above the tab
+       body. On desktop the head + divider stay fixed and only the
+       panel scrolls; on mobile the whole thing scrolls together as one
+       page (see the `sm-and-down` overrides below). -->
   <section v-else class="r-v2-plat-tabs">
     <div class="r-v2-plat-tabs__scroll">
       <PlatformHead
@@ -549,10 +549,10 @@ async function onDelete() {
 </template>
 
 <style scoped>
-/* Firmware / Settings branch — single scroll wrapper that owns the
-   page scroll. The PlatformHead and the tab body scroll together as
-   one surface, so the user gets the same natural scroll feel as the
-   Library tab (where GalleryShell handles it). */
+/* Firmware / Settings branch. On desktop, PlatformHead + divider stay
+   fixed and only `__panel` scrolls, so switching tabs never jumps the
+   head. On mobile (`sm-and-down`) the whole thing scrolls together as
+   a single page instead — see the `__panel` override below. */
 .r-v2-plat-tabs {
   /* `dvh` (not `vh`) so the section matches the mobile visible viewport
      instead of the larger address-bar-hidden one — otherwise it spills below
@@ -576,10 +576,13 @@ html[data-bp~="sm-and-down"] .r-v2-plat-tabs {
 
 .r-v2-plat-tabs__scroll {
   height: 100%;
-  overflow-y: auto;
-  padding: 32px var(--r-row-pad) 60px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 32px var(--r-row-pad) 0;
 }
 html[data-bp~="sm-and-down"] .r-v2-plat-tabs__scroll {
+  overflow-y: auto;
   padding-bottom: calc(
     var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
   );
@@ -587,13 +590,24 @@ html[data-bp~="sm-and-down"] .r-v2-plat-tabs__scroll {
 
 .r-v2-plat-tabs__divider {
   margin: 0 0 24px;
+  flex: 0 0 auto;
 }
 
 .r-v2-plat-tabs__panel {
   /* Tab body — Firmware / Settings render their own internal layouts
      (lists, two-column grids). The wrapper just provides breathing
      room and stops the inner content from running edge-to-edge with
-     the head's icon column. */
+     the head's icon column. On desktop it's the one scrolling region
+     (flex:1 fills down to the viewport bottom); on mobile it lays out
+     inline so the parent `__scroll` handles the single page scroll. */
   min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-bottom: var(--r-row-pad);
+}
+html[data-bp~="sm-and-down"] .r-v2-plat-tabs__panel {
+  flex: 0 0 auto;
+  overflow: visible;
+  padding-bottom: 0;
 }
 </style>
