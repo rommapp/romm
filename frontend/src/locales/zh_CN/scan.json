@@ -54,6 +54,7 @@
   "scan-types-more-info": "更多信息",
   "scanning": "扫描中",
   "scanning-library": "正在扫描游戏库。点击查看",
+  "scanning-platform": "正在扫描 {platform}…",
   "section-metadata": "元数据",
   "section-platforms": "平台",
   "section-providers": "来源",

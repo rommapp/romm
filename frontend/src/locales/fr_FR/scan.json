@@ -54,6 +54,7 @@
   "scan-types-more-info": "Plus d'informations",
   "scanning": "Analyse en cours",
   "scanning-library": "Analyse de la bibliothèque. Cliquez pour voir",
+  "scanning-platform": "Analyse de {platform}…",
   "section-metadata": "Métadonnées",
   "section-platforms": "Plateformes",
   "section-providers": "Fournisseurs",

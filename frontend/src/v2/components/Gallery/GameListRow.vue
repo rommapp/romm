@@ -91,7 +91,7 @@ const selectionInput = useGallerySelectionInput();
 const platformsStore = storePlatforms();
 const { morphTransition } = useViewTransition();
 const setBgArt = useBackgroundArt();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const listSkeletonColumns = columns;
@@ -272,7 +272,11 @@ function onRowPointerEnd() {
     }"
     :style="gridStyle"
     :href="rom ? `/rom/${rom.id}` : undefined"
-    :aria-label="rom ? `Open ${rom.name ?? rom.fs_name_no_ext}` : undefined"
+    :aria-label="
+      rom
+        ? t('common.open-item', { name: rom.name ?? rom.fs_name_no_ext })
+        : undefined
+    "
     :data-rom-position="position"
     :data-rom-id="rom?.id"
     :data-focus-key="rom ? `rom-${rom.id}` : undefined"

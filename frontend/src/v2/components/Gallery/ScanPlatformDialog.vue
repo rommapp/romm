@@ -110,9 +110,12 @@ function onScan() {
   if (!started) return;
   persistSelection();
 
-  snackbar.info(`Scanning ${props.platform.display_name}…`, {
-    icon: "mdi-loading mdi-spin",
-  });
+  snackbar.info(
+    t("scan.scanning-platform", { platform: props.platform.display_name }),
+    {
+      icon: "mdi-loading mdi-spin",
+    },
+  );
   closeDialog();
 }
 </script>

@@ -54,6 +54,7 @@
   "scan-types-more-info": "Daha fazla bilgi",
   "scanning": "Taranıyor",
   "scanning-library": "Kütüphane taranıyor. Görüntülemek için tıklayın",
+  "scanning-platform": "{platform} taranıyor…",
   "section-metadata": "Meta veri",
   "section-platforms": "Platformlar",
   "section-providers": "Sağlayıcılar",

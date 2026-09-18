@@ -353,7 +353,10 @@ async function onDelete() {
   if (!c || !editableKind.value) return;
   const ok = await confirm({
     title: t("collection.delete-collection", "Delete collection"),
-    body: `This removes "${c.name}" (${c.rom_count} ROMs in the collection). The ROM files themselves are not deleted.`,
+    body: t("collection.delete-collection-body", {
+      name: c.name,
+      count: c.rom_count,
+    }),
     confirmText: t("collection.delete-collection", "Delete collection"),
     tone: "danger",
     requireTyped: c.name,
@@ -369,7 +372,7 @@ async function onDelete() {
       await collectionApi.deleteCollection({ collection: c as Collection });
       collectionsStore.removeCollection(c as Collection);
     }
-    snackbar.success(`Collection "${c.name}" deleted`, {
+    snackbar.success(t("collection.collection-deleted", { name: c.name }), {
       icon: "mdi-check-bold",
     });
     router.push({ name: ROUTES.COLLECTIONS_INDEX });
@@ -379,12 +382,13 @@ async function onDelete() {
       message?: string;
     };
     snackbar.error(
-      `Failed to delete collection: ${
-        e?.response?.data?.msg ||
-        e?.response?.data?.detail ||
-        e?.message ||
-        "unknown error"
-      }`,
+      t("collection.delete-collection-failed", {
+        error:
+          e?.response?.data?.msg ||
+          e?.response?.data?.detail ||
+          e?.message ||
+          t("common.unknown-error"),
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {

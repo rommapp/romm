@@ -54,6 +54,7 @@
   "scan-types-more-info": "Más información",
   "scanning": "Escaneando",
   "scanning-library": "Escaneando biblioteca. Pulsa para ver",
+  "scanning-platform": "Escaneando {platform}…",
   "section-metadata": "Metadatos",
   "section-platforms": "Plataformas",
   "section-providers": "Proveedores",

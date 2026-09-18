@@ -54,6 +54,7 @@
   "scan-types-more-info": "Mai multe informații",
   "scanning": "Se scanează",
   "scanning-library": "Se scanează biblioteca. Apasă pentru detalii",
+  "scanning-platform": "Se scanează {platform}…",
   "section-metadata": "Metadate",
   "section-platforms": "Platforme",
   "section-providers": "Furnizori",

@@ -54,6 +54,7 @@
   "scan-types-more-info": "Дополнительная информация",
   "scanning": "Сканирование",
   "scanning-library": "Сканирование библиотеки. Нажмите для просмотра",
+  "scanning-platform": "Сканирование {platform}…",
   "section-metadata": "Метаданные",
   "section-platforms": "Платформы",
   "section-providers": "Провайдеры",

@@ -101,6 +101,7 @@
   "not-linked": "Not linked",
   "offline": "Offline",
   "online": "Online",
+  "open-item": "Open {name}",
   "or": "or",
   "overwrite": "Overwrite",
   "owned": "Owned",

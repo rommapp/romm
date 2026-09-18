@@ -87,7 +87,7 @@ function onRowClick(e: MouseEvent) {
   <a
     class="plat-list-row"
     :href="href"
-    :aria-label="`Open ${displayName}`"
+    :aria-label="t('common.open-item', { name: displayName })"
     @click="onRowClick"
   >
     <div class="plat-list-row__cell plat-list-row__title">

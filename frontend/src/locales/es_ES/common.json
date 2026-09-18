@@ -101,6 +101,7 @@
   "not-linked": "Sin vincular",
   "offline": "Sin conexión",
   "online": "En línea",
+  "open-item": "Abrir {name}",
   "or": "o",
   "overwrite": "Sobrescribir",
   "owned": "En propiedad",

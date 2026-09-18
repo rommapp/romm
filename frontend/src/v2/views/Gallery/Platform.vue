@@ -419,7 +419,10 @@ async function onDelete() {
   if (!p) return;
   const ok = await confirm({
     title: t("platform.delete-platform", "Delete platform"),
-    body: `This removes "${p.display_name}" from RomM along with its database entries (${p.rom_count} ROMs). ROM files on disk are NOT deleted.`,
+    body: t("platform.delete-platform-body", {
+      name: p.display_name,
+      count: p.rom_count,
+    }),
     confirmText: t("platform.delete-platform", "Delete platform"),
     tone: "danger",
     requireTyped: p.display_name,
@@ -430,7 +433,7 @@ async function onDelete() {
   try {
     await platformApi.deletePlatform({ platform: p as Platform });
     platformsStore.remove(p as Platform);
-    snackbar.success(`Platform "${p.display_name}" deleted`, {
+    snackbar.success(t("platform.platform-deleted", { name: p.display_name }), {
       icon: "mdi-check-bold",
     });
     router.push({ name: ROUTES.PLATFORMS_INDEX });
@@ -440,9 +443,10 @@ async function onDelete() {
       message?: string;
     };
     snackbar.error(
-      `Failed to delete platform: ${
-        e?.response?.data?.msg || e?.message || "unknown error"
-      }`,
+      t("platform.delete-platform-failed", {
+        error:
+          e?.response?.data?.msg || e?.message || t("common.unknown-error"),
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -459,10 +463,10 @@ async function onDelete() {
     v-if="tab === 'library'"
     ref="shellRef"
     :has-header="!!currentPlatform"
-    :search-placeholder="'Filter this platform…'"
+    :search-placeholder="t('platform.filter-this-platform')"
     :empty-message="t('platform.empty')"
     :not-found="notFound"
-    not-found-message="Platform not found."
+    :not-found-message="t('platform.not-found')"
     :show-platform-badge="false"
     :show-platforms-in-filter="false"
     :show-platform-column="false"
