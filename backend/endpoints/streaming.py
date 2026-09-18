@@ -243,8 +243,10 @@ async def _session_status(
     termination = None
     for candidate in candidates:
         notice = await get_termination(candidate.key, request.user.id)
-        if notice is not None and access.notice_in_scope(
-            notice, platform, include_desktop
+        if (
+            notice is not None
+            and access.notice_in_scope(notice, platform, include_desktop)
+            and (claimed_at is None or notice.get("claimed_at") == claimed_at)
         ):
             termination = notice
             break

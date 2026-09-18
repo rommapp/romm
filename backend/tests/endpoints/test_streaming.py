@@ -3071,6 +3071,27 @@ def test_a_termination_notice_names_the_claim_it_ended(
     assert r.json()["termination"]["claimed_at"] == claimed_at
 
 
+def test_status_does_not_report_the_notice_of_another_claim(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """A poll names the claim it asks about, so a notice filed for another
+    claim on the container must not tell it who ended its own."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            params={"claimed_at": "2026-09-17T10:05:00+00:00"},
+            headers=_auth(viewer_access_token),
+        )
+    assert r.json()["status"] == "ended"
+    assert r.json()["termination"] is None
+
+
 def test_a_termination_notice_lands_before_the_drain(
     client, access_token, viewer_access_token, rom: Rom
 ):
