@@ -273,11 +273,12 @@ const details = computed<DetailRow[]>(() => {
 </template>
 
 <style scoped>
+/* Single column of details and danger zone, held to a readable width and
+   centered in the tab. */
 .r-v2-plat-settings {
-  /* Single column — details + danger zone, constrained to a readable
-     width rather than stretching the full tab. */
   display: grid;
   grid-template-columns: minmax(280px, 460px);
+  justify-content: center;
   gap: 28px;
   align-items: start;
 }
