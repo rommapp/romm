@@ -320,7 +320,7 @@ function closeDialog() {
     icon="mdi-image-search-outline"
     :width="900"
     scroll-content
-    compact-body
+    body-padding="compact"
     @close="closeDialog"
   >
     <template #header>
@@ -367,130 +367,133 @@ function closeDialog() {
           </RBtn>
         </div>
 
-        <template v-if="hasRawResults">
-          <RDivider />
+        <!-- Everything below stays mounted and only disables while it does
+             not apply, so a search never reflows the toolbar. -->
+        <RDivider />
 
-          <div class="r-v2-sgdb__actions">
-            <RBtn
-              variant="outlined"
-              surface
-              size="small"
-              prepend-icon="mdi-filter-variant"
-              class="r-v2-sgdb__action"
-              :aria-expanded="filtersOpen"
-              aria-controls="r-v2-sgdb-filters"
-              @click="filtersOpen = !filtersOpen"
-            >
-              {{ t("gallery.filters") }}
-              <RTag v-if="activeFilterCount > 0" tone="brand" size="x-small">
-                {{ activeFilterCount }}
-              </RTag>
-              <template #append>
-                <RIcon
-                  icon="mdi-chevron-down"
-                  size="16"
-                  class="r-chevron-toggle"
-                />
-              </template>
-            </RBtn>
-
-            <RMenu v-if="hasSgdbCovers" location="bottom end" :offset="6">
-              <template #activator="{ props: activatorProps }">
-                <RBtn
-                  v-bind="activatorProps"
-                  variant="outlined"
-                  surface
-                  size="small"
-                  prepend-icon="mdi-sort-descending"
-                  class="r-v2-sgdb__action"
-                >
-                  {{ sortLabel }}
-                  <template #append>
-                    <RIcon
-                      icon="mdi-menu-down"
-                      size="16"
-                      class="r-chevron-toggle"
-                    />
-                  </template>
-                </RBtn>
-              </template>
-              <RMenuItem
-                v-for="item in sortItems"
-                :key="item.id"
-                :label="item.label"
-                :icon="item.icon"
-                :variant="sortMode === item.id ? 'active' : 'default'"
-                @click="sortMode = item.id"
+        <div class="r-v2-sgdb__actions">
+          <RBtn
+            variant="outlined"
+            surface
+            size="small"
+            prepend-icon="mdi-filter-variant"
+            class="r-v2-sgdb__action"
+            :aria-expanded="filtersOpen"
+            aria-controls="r-v2-sgdb-filters"
+            @click="filtersOpen = !filtersOpen"
+          >
+            {{ t("gallery.filters") }}
+            <RTag v-if="activeFilterCount > 0" tone="brand" size="x-small">
+              {{ activeFilterCount }}
+            </RTag>
+            <template #append>
+              <RIcon
+                icon="mdi-chevron-down"
+                size="16"
+                class="r-chevron-toggle"
               />
-            </RMenu>
-          </div>
+            </template>
+          </RBtn>
 
-          <RExpandTransition>
-            <div
-              v-show="filtersOpen"
-              id="r-v2-sgdb-filters"
-              class="r-v2-sgdb__advanced"
-            >
-              <div class="r-v2-sgdb__filters">
-                <RSelect
-                  v-model="coverType"
-                  :items="coverTypeItems"
-                  density="comfortable"
-                  hide-details
-                  class="r-v2-sgdb__filter"
-                  :aria-label="t('rom.cover-type-all')"
-                />
-                <template v-if="hasSgdbCovers">
-                  <RSelect
-                    v-if="resolutionValues.length > 1"
-                    v-model="resolutionFilter"
-                    :items="resolutionItems"
-                    density="comfortable"
-                    hide-details
-                    class="r-v2-sgdb__filter"
-                    :aria-label="t('rom.cover-filter-resolution-all')"
-                  />
-                  <RSelect
-                    v-if="styleValues.length > 1"
-                    v-model="styleFilter"
-                    :items="styleItems"
-                    density="comfortable"
-                    hide-details
-                    class="r-v2-sgdb__filter"
-                    :aria-label="t('rom.cover-filter-style-all')"
-                  />
-                  <RSelect
-                    v-if="uploaderValues.length > 1"
-                    v-model="uploaderFilter"
-                    v-model:search="uploaderSearch"
-                    :items="uploaderItems"
-                    density="comfortable"
-                    hide-details
-                    searchable
-                    :search-placeholder="t('common.search')"
-                    class="r-v2-sgdb__filter"
-                    :aria-label="t('rom.cover-filter-uploader-all')"
+          <RMenu location="bottom end" :offset="6" :disabled="!hasSgdbCovers">
+            <template #activator="{ props: activatorProps }">
+              <RBtn
+                v-bind="activatorProps"
+                variant="outlined"
+                surface
+                size="small"
+                prepend-icon="mdi-sort-descending"
+                class="r-v2-sgdb__action"
+                :disabled="!hasSgdbCovers"
+              >
+                {{ sortLabel }}
+                <template #append>
+                  <RIcon
+                    icon="mdi-menu-down"
+                    size="16"
+                    class="r-chevron-toggle"
                   />
                 </template>
-              </div>
+              </RBtn>
+            </template>
+            <RMenuItem
+              v-for="item in sortItems"
+              :key="item.id"
+              :label="item.label"
+              :icon="item.icon"
+              :variant="sortMode === item.id ? 'active' : 'default'"
+              @click="sortMode = item.id"
+            />
+          </RMenu>
+        </div>
 
-              <div v-if="hasSgdbCovers" class="r-v2-sgdb__content-toggles">
-                <RSwitch
-                  v-model="showNsfw"
-                  :label="t('rom.cover-content-nsfw')"
-                />
-                <RSwitch
-                  v-model="showHumor"
-                  :label="t('rom.cover-content-humor')"
-                />
-                <RSwitch
-                  v-model="showEpilepsy"
-                  :label="t('rom.cover-content-epilepsy')"
-                />
-              </div>
+        <RExpandTransition>
+          <div
+            v-show="filtersOpen"
+            id="r-v2-sgdb-filters"
+            class="r-v2-sgdb__advanced"
+          >
+            <div class="r-v2-sgdb__filters">
+              <RSelect
+                v-model="coverType"
+                :items="coverTypeItems"
+                density="comfortable"
+                hide-details
+                class="r-v2-sgdb__filter"
+                :disabled="!hasRawResults"
+                :aria-label="t('rom.cover-type-all')"
+              />
+              <RSelect
+                v-model="resolutionFilter"
+                :disabled="!hasSgdbCovers || resolutionValues.length < 2"
+                :items="resolutionItems"
+                density="comfortable"
+                hide-details
+                class="r-v2-sgdb__filter"
+                :aria-label="t('rom.cover-filter-resolution-all')"
+              />
+              <RSelect
+                v-model="styleFilter"
+                :disabled="!hasSgdbCovers || styleValues.length < 2"
+                :items="styleItems"
+                density="comfortable"
+                hide-details
+                class="r-v2-sgdb__filter"
+                :aria-label="t('rom.cover-filter-style-all')"
+              />
+              <RSelect
+                v-model="uploaderFilter"
+                v-model:search="uploaderSearch"
+                :disabled="!hasSgdbCovers || uploaderValues.length < 2"
+                :items="uploaderItems"
+                density="comfortable"
+                hide-details
+                searchable
+                :search-placeholder="t('common.search')"
+                class="r-v2-sgdb__filter"
+                :aria-label="t('rom.cover-filter-uploader-all')"
+              />
             </div>
-          </RExpandTransition>
-        </template>
+
+            <div class="r-v2-sgdb__content-toggles">
+              <RSwitch
+                v-model="showNsfw"
+                :disabled="!hasSgdbCovers"
+                :label="t('rom.cover-content-nsfw')"
+              />
+              <RSwitch
+                v-model="showHumor"
+                :disabled="!hasSgdbCovers"
+                :label="t('rom.cover-content-humor')"
+              />
+              <RSwitch
+                v-model="showEpilepsy"
+                :disabled="!hasSgdbCovers"
+                :label="t('rom.cover-content-epilepsy')"
+              />
+            </div>
+          </div>
+        </RExpandTransition>
       </div>
     </template>
 

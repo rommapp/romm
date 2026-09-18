@@ -45,9 +45,10 @@ const props = withDefaults(
      *  better as a stable full-screen surface. Needs `scrollContent` so the
      *  body scrolls internally. Ignored on desktop / when not a sheet. */
     fullHeightOnMobile?: boolean;
-    /** Pad the body with the toolbar and footer inset instead of the roomier
-     *  default, so dense content lines up with the controls above it. */
-    compactBody?: boolean;
+    /** Body padding. `compact` uses the toolbar and footer inset so dense
+     *  content lines up with the controls above it; `flush` drops padding
+     *  and gap for edge-to-edge rows. */
+    bodyPadding?: "default" | "compact" | "flush";
   }>(),
   {
     scrollContent: false,
@@ -57,7 +58,7 @@ const props = withDefaults(
     persistent: false,
     fullscreenOnMobile: true,
     fullHeightOnMobile: false,
-    compactBody: false,
+    bodyPadding: "default",
   },
 );
 
@@ -251,10 +252,10 @@ const panelStyle = computed(() => {
                padded, optionally-scrollable region. -->
           <div
             class="r-dialog__body"
-            :class="{
-              'r-dialog__body--scroll': scrollContent,
-              'r-dialog__body--compact': compactBody,
-            }"
+            :class="[
+              `r-dialog__body--${bodyPadding}`,
+              { 'r-dialog__body--scroll': scrollContent },
+            ]"
           >
             <slot name="content" />
           </div>
@@ -423,6 +424,10 @@ html[data-bp~="sm-and-down"]
 }
 .r-dialog__body--compact {
   padding: var(--r-dialog-inset);
+}
+.r-dialog__body--flush {
+  padding: 0;
+  gap: 0;
 }
 .r-dialog__footer {
   padding: 10px var(--r-dialog-inset);

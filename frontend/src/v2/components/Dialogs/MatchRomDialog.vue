@@ -206,8 +206,13 @@ const openHandler = (romToSearch: SimpleRom) => {
 emitter?.on("showMatchRomDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showMatchRomDialog", openHandler));
 
+// Bumped per search and on close, so a response for a search the user
+// already left never fills a later session of the dialog.
+let searchSeq = 0;
+
 async function searchRom() {
   if (!rom.value || searching.value) return;
+  const seq = ++searchSeq;
 
   const inputElement = document.getElementById("r-v2-match-search");
   inputElement?.blur();
@@ -219,15 +224,19 @@ async function searchRom() {
       searchTerm: searchText.value,
       searchBy: searchBy.value,
     });
+    if (seq !== searchSeq) return;
     matchedRoms.value = response.data;
   } catch (error: unknown) {
+    if (seq !== searchSeq) return;
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(axiosErr.response?.data?.detail ?? t("rom.search-failed"), {
       icon: "mdi-close-circle",
     });
   } finally {
-    searching.value = false;
-    searched.value = true;
+    if (seq === searchSeq) {
+      searching.value = false;
+      searched.value = true;
+    }
   }
 }
 
@@ -286,6 +295,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
 }
 
 function closeDialog() {
+  searchSeq++;
   show.value = false;
   searching.value = false;
   searched.value = false;
