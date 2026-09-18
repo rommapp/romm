@@ -54,3 +54,9 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: frontend
+
+      # Reads the build this job just produced, so it sees the CSS that ships
+      # rather than the source Lightning CSS still has to down-level.
+      - name: Check the browser support floor
+        run: npm run check:browser-support
+        working-directory: frontend

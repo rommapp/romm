@@ -35,7 +35,8 @@
     "storybook:build": "storybook build",
     "storybook:test": "vitest run test/storybook.test.ts",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "check:browser-support": "tsx scripts/check-browser-support.ts"
   },
   "dependencies": {
     "@floating-ui/vue": "^1.1.11",
@@ -89,6 +90,7 @@
     "globals": "^16.0.0",
     "happy-dom": "^20.9.0",
     "openapi-typescript-codegen": "^0.29.0",
+    "postcss": "^8.5.23",
     "storybook": "^10.2.19",
     "tsx": "^4.21.0",
     "typescript": "^5.7.3",
