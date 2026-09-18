@@ -78,9 +78,16 @@ type DesktopVm = { state: string; errorMessage: string };
 // test's pagehide too.
 let mounted: VueWrapper | null = null;
 
+const CLAIMED_AT = "2026-09-17T10:00:00";
+
 async function openDesktop(): Promise<VueWrapper> {
   mocks.claimDesktop.mockResolvedValue({
-    data: { host: "http://webstation-dev:8080", label: "PS2", platform: "ps2" },
+    data: {
+      host: "http://webstation-dev:8080",
+      label: "PS2",
+      platform: "ps2",
+      claimed_at: CLAIMED_AT,
+    },
   });
   mounted = mount(Desktop, {
     shallow: true,
@@ -168,7 +175,9 @@ describe("Desktop heartbeats", () => {
     mounted = null;
   });
 
-  it("beats for the container it claimed", async () => {
+  it("beats for the claim it made", async () => {
+    // Unstamped, the beat keeps alive whatever this admin runs on the
+    // container, such as a game that swept a stale desktop off it.
     const wrapper = await openDesktop();
     mocks.heartbeatSession.mockResolvedValue({ status: "active" });
 
@@ -177,6 +186,7 @@ describe("Desktop heartbeats", () => {
     expect(mocks.heartbeatSession).toHaveBeenCalledWith(
       "ps2",
       "WEBSTATION-DEV",
+      CLAIMED_AT,
     );
     expect(vmOf(wrapper).state).toBe("running");
   });
@@ -204,6 +214,45 @@ describe("Desktop heartbeats", () => {
 
     expect(await mocks.routeLeave?.()).toBe(true);
     expect(mocks.releaseSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("Desktop releases", () => {
+  // Unstamped, a release reaches whichever session took the container.
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = null;
+  });
+
+  it("names the claim it releases on exit", async () => {
+    mocks.releaseSession.mockResolvedValue({});
+    await openDesktop();
+
+    expect(await mocks.routeLeave?.()).toBe(true);
+
+    expect(mocks.releaseSession).toHaveBeenCalledWith(
+      "ps2",
+      undefined,
+      "WEBSTATION-DEV",
+      undefined,
+      CLAIMED_AT,
+    );
+  });
+
+  it("names the claim it releases when the tab closes", async () => {
+    await openDesktop();
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(mocks.releaseSessionKeepalive).toHaveBeenCalledWith(
+      "ps2",
+      "WEBSTATION-DEV",
+      CLAIMED_AT,
+    );
   });
 });
 

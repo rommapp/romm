@@ -42,6 +42,9 @@ const isExiting = ref(false);
 // describes the view: a release that failed leaves an "error" screen over a
 // claim that is very much still standing.
 const holdsClaim = ref(false);
+// The stamp the claim answered with, which every release and heartbeat sends
+// back so a claim that replaced this one is never the one they reach.
+const claimedAt = ref("");
 
 usePageTitle(() => t("play.desktop-title"));
 
@@ -56,6 +59,7 @@ async function openDesktop(): Promise<void> {
     containerHost.value = data.host;
     label.value = data.label;
     platform.value = data.platform;
+    claimedAt.value = data.claimed_at;
     holdsClaim.value = true;
     state.value = "running";
   } catch (err: unknown) {
@@ -88,6 +92,8 @@ async function release(): Promise<boolean> {
       platform.value,
       undefined,
       containerKey.value,
+      undefined,
+      claimedAt.value,
     );
     holdsClaim.value = false;
     state.value = "exited";
@@ -122,6 +128,7 @@ useIntervalFn(async () => {
   const status = await streamingStore.heartbeatSession(
     platform.value,
     containerKey.value,
+    claimedAt.value,
   );
   if (status?.status !== "ended") return;
   noteSessionEnded(status.termination?.ended_by);
@@ -181,7 +188,11 @@ function onPageHide(): void {
   if (!holdsClaim.value) return;
   holdsClaim.value = false;
   state.value = "exited";
-  streamingApi.releaseSessionKeepalive(platform.value, containerKey.value);
+  streamingApi.releaseSessionKeepalive(
+    platform.value,
+    containerKey.value,
+    claimedAt.value,
+  );
 }
 
 useEventListener(window, "pagehide", onPageHide);
