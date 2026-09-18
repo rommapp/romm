@@ -174,7 +174,7 @@
   "stream-load-state-failed": "无法加载该状态。",
   "stream-mute": "静音",
   "stream-occupied-body": "{rom} 自 {time} 起一直在游玩。",
-  "stream-occupied-draining": "The previous session is still shutting down. Try again in a moment.",
+  "stream-occupied-draining": "上一个会话仍在关闭中。请稍后再试。",
   "stream-occupied-fallback": "当前有其他人正在游玩。请稍后再试。",
   "stream-occupied-title": "会话使用中",
   "stream-release-failed": "无法释放会话。容器可能仍在使用中。",
