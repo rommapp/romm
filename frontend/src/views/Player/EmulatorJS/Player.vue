@@ -199,9 +199,8 @@ function writeSave(
   saveWrite = write.catch(() => null);
   return write;
 }
-// A forced write (Save & Quit) waits for the queue, then skips only when no
-// version was opened yet and the SRAM still matches a slotted save loaded from
-// the server (a slot-less one still has to reach the slot).
+// Save & Quit waits for the queue, then skips the write only when no version
+// was opened yet and the SRAM still matches a slotted save from the server.
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
