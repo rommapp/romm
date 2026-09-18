@@ -1,26 +1,24 @@
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import i18n, { loadLocale } from "@/locales";
 import { DEFAULT_CHROME_LABELS } from "@/v2/lib/a11y/chromeLabels";
 import { createChromeLabels } from "./chromeLabels";
 
-// Guards the two failures the locale parity checker cannot see, because it
-// only compares locale directories against each other and never against the
-// keys code asks for:
-//
-//   - a label pointing at a key that exists in no locale (a typo or a
-//     rename), which vue-i18n renders as the raw key;
-//   - the provider coming unwired, or every getter collapsing to English,
-//     which is the bug this bundle was introduced to fix.
-//
-// A key missing from a single locale falls back to en_US rather than to the
-// key, so that one stays the parity checker's job.
+// Catches a label pointing at a key no locale defines, and the provider
+// coming unwired. A key missing from one locale falls back to en_US rather
+// than to the key, so that case stays the parity checker's job.
 const LABEL_KEYS = Object.keys(
   DEFAULT_CHROME_LABELS,
 ) as (keyof typeof DEFAULT_CHROME_LABELS)[];
 
-const locales = readdirSync(join(__dirname, "../../locales"), {
+const LOCALES_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../locales",
+);
+
+const locales = readdirSync(LOCALES_DIR, {
   withFileTypes: true,
 })
   .filter((entry) => entry.isDirectory() && entry.name !== "__pycache__")

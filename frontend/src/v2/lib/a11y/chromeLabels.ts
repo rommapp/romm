@@ -1,21 +1,12 @@
-// Chrome labels — the accessible names for controls a primitive renders on
-// its own behalf: a dialog's close button, a chip's remove affordance, a
-// date field's month/year steppers.
+// Accessible names for controls a primitive renders on its own behalf: a
+// dialog's close button, a chip's remove X, a date field's steppers. Not
+// caller-supplied content, and a per-instance prop for each would have to be
+// passed at every call site to do anything (the `closeLabel` / `clearLabel`
+// props that predate this never were, so they rendered English everywhere).
 //
-// Primitives may not touch i18n, and these labels are not content the call
-// site supplies: they belong to the primitive's own affordance, and a
-// per-instance prop for each one would need passing at every call site to
-// have any effect (the `closeLabel` / `clearLabel` props that predate this
-// never were, so they rendered English everywhere). So the app injects one
-// bundle and every primitive reads it. `inject` is plain Vue, so the
-// library stays free of i18n.
-//
-// The provider supplies getters that resolve through i18n, which run inside
-// the reading component's render effect, so a locale switch re-renders the
-// labels with no refs to unwrap.
-//
-// Unprovided (a bare `mount`, a story without the decorator) the English
-// defaults apply, so a primitive always has an accessible name.
+// So the app provides one bundle of i18n-backed getters, read during the
+// consuming component's render so a locale switch propagates. `inject` is
+// plain Vue, keeping the library free of i18n; unprovided, English applies.
 import { inject } from "vue";
 import type { InjectionKey } from "vue";
 
