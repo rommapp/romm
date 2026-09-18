@@ -269,15 +269,22 @@ async def start_chunked_upload(
     ],
     total_size: Annotated[
         int,
-        Header(alias="x-upload-total-size", ge=1),
+        Header(alias="x-upload-total-size", ge=0),
     ],
     total_chunks: Annotated[
         int,
-        Header(alias="x-upload-total-chunks", ge=1),
+        Header(alias="x-upload-total-chunks", ge=0),
     ],
     target: UploadTargetPayload | None = None,
 ) -> dict:
     """Initiate a chunked ROM upload session."""
+
+    # An empty file takes no chunks and goes straight to /complete.
+    if total_size > 0 and total_chunks == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A non-empty file needs at least one chunk",
+        )
 
     db_platform = db_platform_handler.get_platform(platform_id)
     if not db_platform:

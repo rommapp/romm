@@ -134,6 +134,48 @@ def test_upload_chunk_complete_success(
     assert final_file.read_bytes() == b"ABCDEFGHIJK"
 
 
+def test_upload_empty_file_without_chunks(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict,
+):
+    start_response = _start_upload(
+        client,
+        access_token,
+        platform.id,
+        filename="empty.nsp",
+        total_size=0,
+        total_chunks=0,
+    )
+    assert start_response.status_code == status.HTTP_201_CREATED
+    upload_id = start_response.json()["upload_id"]
+
+    complete = client.post(
+        f"/api/roms/upload/{upload_id}/complete",
+        headers=_auth_headers(access_token),
+    )
+
+    assert complete.status_code == status.HTTP_201_CREATED
+    final_file = upload_fs["final_dir"] / "empty.nsp"
+    assert final_file.exists()
+    assert final_file.read_bytes() == b""
+
+
+def test_start_non_empty_file_without_chunks_returns_400(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict,
+):
+    response = _start_upload(
+        client, access_token, platform.id, total_size=11, total_chunks=0
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "A non-empty file needs at least one chunk"
+
+
 def test_upload_chunk_invalid_upload_id(client: TestClient, access_token: str):
     response = client.put(
         "/api/roms/upload/not-a-uuid",
