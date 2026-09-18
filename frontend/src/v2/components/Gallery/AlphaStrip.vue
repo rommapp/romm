@@ -68,9 +68,8 @@ function isActive(letter: string): boolean {
 const rootEl = ref<HTMLElement | null>(null);
 const activeLetters = computed(() => letters.value.filter(isActive).join(""));
 
-// Keep the highlighted letters in view when they overflow, the first one
-// winning when they don't all fit. The band is measured on screen: the
-// strip's end can sit below the viewport.
+// Keep the highlighted letters in view, the first one winning if they don't
+// all fit. Measured on screen: the strip's end can sit below the viewport.
 watch(
   activeLetters,
   (active) => {

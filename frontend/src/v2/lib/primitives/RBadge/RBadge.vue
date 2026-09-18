@@ -47,9 +47,8 @@ interface Props {
   location?: Anchor;
   /** Show / hide the badge with a pop transition. */
   modelValue?: boolean;
-  /** Pulls the badge this many px in from its anchor point (negative pushes
-   *  it out). Round anchors need it: their bounding-box corner sits outside
-   *  the shape. */
+  /** Pulls the badge this many px in from its anchor (negative pushes it
+   *  out); round anchors need it, their box corner lies outside the shape. */
   inset?: number;
   /** Numeric content > `max` is clamped: `max + "+"`. */
   max?: number;
