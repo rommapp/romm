@@ -23,12 +23,7 @@ def get_version() -> str:
 
 @lru_cache(maxsize=1)
 def get_git_branch() -> str | None:
-    """Returns the current git branch for display, or None outside a git checkout.
-
-    Only meaningful for unreleased builds (get_version() == "development"); a
-    release image has no `.git` directory. Cached since the branch can't
-    change for the lifetime of the process.
-    """
+    """Current git branch for a dev build's display, or None outside a checkout (cached for the process's life)."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],

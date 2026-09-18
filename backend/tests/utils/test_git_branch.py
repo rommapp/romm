@@ -35,3 +35,13 @@ def test_get_git_branch_returns_none_on_detached_head():
             assert get_git_branch() is None
     finally:
         get_git_branch.cache_clear()
+
+
+def test_get_git_branch_returns_none_when_not_a_git_repo():
+    get_git_branch.cache_clear()
+    try:
+        with patch("utils.subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.CalledProcessError(128, ["git"])
+            assert get_git_branch() is None
+    finally:
+        get_git_branch.cache_clear()

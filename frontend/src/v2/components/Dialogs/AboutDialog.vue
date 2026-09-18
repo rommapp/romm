@@ -4,7 +4,7 @@
 // panel instead of the legacy card.
 import { RDialog, RIcon, RImg } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import { useVersionDisplay } from "@/v2/composables/useVersionDisplay";
@@ -34,7 +34,7 @@ type Link = {
   href: string;
 };
 
-const links: Link[] = [
+const links = computed<Link[]>(() => [
   {
     isotipo: true,
     label: t("common.about-version"),
@@ -59,7 +59,7 @@ const links: Link[] = [
     value: "Discord",
     href: "https://discord.com/invite/P5HtHnhUDH",
   },
-];
+]);
 </script>
 
 <template>
