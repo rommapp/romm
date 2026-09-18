@@ -14,7 +14,9 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import streamingApi from "@/services/api/streaming";
+import streamingApi, {
+  type ContainerBusyDetail,
+} from "@/services/api/streaming";
 import { type SessionTermination, useStreamingStore } from "@/stores/streaming";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
@@ -70,10 +72,7 @@ async function openDesktop(): Promise<void> {
       ? err.response?.data?.detail
       : undefined;
     if (status === 409) {
-      const busy = detail as {
-        draining?: boolean;
-        rom_name?: string | null;
-      } | null;
+      const busy = detail as ContainerBusyDetail | null;
       // A drain marker is nobody's claim: the container comes free on its own
       // once the previous session has finished saving.
       if (busy?.draining)

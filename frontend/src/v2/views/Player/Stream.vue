@@ -42,6 +42,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import type { SaveSchema, UserStateSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import streamingApi, {
+  type ContainerBusyDetail,
   isMemoryCardImportDetail,
   type LaunchFailed,
   type LaunchPhase,
@@ -905,11 +906,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       errorType.value = "occupied";
       const busy =
         detail && typeof detail === "object"
-          ? (detail as {
-              rom_name: string | null;
-              claimed_at: string | null;
-              draining?: boolean;
-            })
+          ? (detail as ContainerBusyDetail)
           : null;
       // A draining container is nobody's: the previous session is over and its
       // exit state is still being collected, so there is no holder to name.

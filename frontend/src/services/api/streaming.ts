@@ -80,6 +80,16 @@ export function isMemoryCardImportDetail(
   );
 }
 
+/** Body of the 409 a claim returns when the container is taken. The route
+ *  raises it as a plain detail dict, so it has no generated schema. */
+export interface ContainerBusyDetail {
+  message: string;
+  draining: boolean;
+  /** The game holding it, null when the caller may not see which. */
+  rom_name: string | null;
+  claimed_at: string | null;
+}
+
 // ── Requests ──────────────────────────────────────────────────────────────────
 
 async function fetchConfig() {
