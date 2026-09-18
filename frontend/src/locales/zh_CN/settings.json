@@ -456,7 +456,7 @@
   "streaming-by": "({user})",
   "streaming-desktop-session": "桌面会话",
   "streaming-disabled": "此服务器已禁用模拟器串流。",
-  "streaming-draining": "Saving the previous session",
+  "streaming-draining": "Shutting down the previous session",
   "streaming-idle": "空闲",
   "streaming-load-failed": "无法加载串流容器。",
   "streaming-none": "未配置任何串流容器。",

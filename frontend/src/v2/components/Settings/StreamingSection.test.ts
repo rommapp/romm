@@ -89,7 +89,7 @@ describe("StreamingSection draining containers", () => {
     expect(desktopButton(wrapper)?.props("disabled")).toBe(false);
   });
 
-  it("says a draining container is still saving", async () => {
+  it("says a draining container is still shutting down its last session", async () => {
     adminListContainers.mockResolvedValue({
       data: { enabled: true, containers: [container({ draining: true })] },
     });
