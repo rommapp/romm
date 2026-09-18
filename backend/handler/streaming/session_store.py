@@ -440,8 +440,8 @@ async def stamp_launched(
     round trips, and failing a session that is already up would be worse.
 
     Args:
-        host: the room URL, recorded because the launch reply is the only place it
-            exists and the status poll is how a tab that missed the push gets in.
+        host: a game's room URL, for the status poll to hand a tab that missed
+            the push; None for a desktop, whose POST is the only reader.
     """
     try:
         await mutate_session(

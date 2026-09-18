@@ -1509,7 +1509,7 @@ async def claim_desktop_session(
     room_url = str(launch_result.get("url", "")) if launch_result else ""
     host = room_url_on(container.host, room_url)
 
-    await stamp_launched(session_key, session, host=host)
+    await stamp_launched(session_key, session, host=None)
     log.info("desktop session claimed, container=%s", session_key)
     return DesktopSessionSchema(
         container=session_key,

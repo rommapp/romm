@@ -2893,15 +2893,16 @@ def test_status_carries_the_room_the_launch_answered_with(client, access_token):
     assert r.json()["container"] == _key_of(container)
 
 
-def test_a_desktop_session_stores_the_room_it_opened(client, access_token):
-    """Pins the stored field only: no route reads a desktop's room back, since
-    the desktop POST already answers with it and the status poll skips desktops."""
+def test_a_desktop_launch_is_stamped_without_a_room(client, access_token):
+    """The desktop POST is the only place its room is read, so the session keeps
+    just the launch stamp the status fallback gates its broker call on."""
     container = _webstation()
     with _streaming(container):
         response, _ = _desktop(client, access_token, _key_of(container))
         assert response.status_code == 200
         session = json.loads(_session_raw(container))
-    assert session["host"] == response.json()["host"]
+    assert session["launched_at"]
+    assert "host" not in session
 
 
 def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
