@@ -2,7 +2,7 @@ import type { StorybookConfig } from "@storybook/vue3-vite";
 import { fileURLToPath, URL } from "node:url";
 
 const config: StorybookConfig = {
-  // Only pick up v2 stories — the v1 UI is frozen and does not ship stories.
+  // Only pick up v2 stories. The v1 UI is frozen and does not ship stories.
   stories: ["../src/v2/**/*.stories.@(js|jsx|ts|tsx)", "../src/v2/**/*.mdx"],
   addons: [
     "@storybook/addon-docs",
@@ -14,21 +14,37 @@ const config: StorybookConfig = {
     options: {},
   },
   async viteFinal(cfg) {
-    // Ensure path aliases match the main app's Vite config so stories can
-    // import from @/ and @v2/ without surprises.
     cfg.resolve ??= {};
-    cfg.resolve.alias = {
-      ...(cfg.resolve.alias as Record<string, string>),
-      "@": fileURLToPath(new URL("../src", import.meta.url)),
-      "@v2": fileURLToPath(new URL("../src/v2", import.meta.url)),
-    };
-    // The main app's Vite config registers VitePWA; this is an
-    // app-build concern (service worker, ROM patcher assets) and has
-    // no place in Storybook. Flatten the plugin tree (vite plugins can be
-    // arrays of plugins) and strip anything PWA related.
+    const srcRoot = fileURLToPath(new URL("../src", import.meta.url));
+    const stubFile = (name: string) =>
+      fileURLToPath(new URL(`./stubs/${name}`, import.meta.url));
+
+    // Stub aliases first so `@/services/api` does not resolve through `@`.
+    cfg.resolve.alias = [
+      {
+        find: /^@\/services\/api(?:\/.*)?$/,
+        replacement: stubFile("api.ts"),
+      },
+      {
+        find: /^@\/services\/socket(?:\.ts)?$/,
+        replacement: stubFile("socket.ts"),
+      },
+      {
+        find: /^@\/services\/pending-asset(?:\.ts)?$/,
+        replacement: stubFile("pending-asset.ts"),
+      },
+      {
+        find: /^@\/services\/cache(?:\/.*)?$/,
+        replacement: stubFile("cache.ts"),
+      },
+      { find: "@", replacement: srcRoot },
+      {
+        find: "@v2",
+        replacement: fileURLToPath(new URL("../src/v2", import.meta.url)),
+      },
+    ];
+    // Drop VitePWA and romm:precompress; they belong to the app build.
     function isBlocked(name: string) {
-      // romm:precompress writes .gz siblings for nginx; storybook-static is
-      // never served by nginx, so they would be dead weight.
       return name.startsWith("vite-plugin-pwa") || name === "romm:precompress";
     }
     function keep(plugin: unknown): unknown[] {
@@ -41,10 +57,10 @@ const config: StorybookConfig = {
       return isBlocked(name) ? [] : [plugin];
     }
     cfg.plugins = (cfg.plugins ?? []).flatMap(keep) as typeof cfg.plugins;
-    // The runtime ROM library lives under `frontend/assets/romm/resources/`
-    // (cover art, RetroAchievement badges, …). Watching it exhausts the
-    // system's inotify handles (ENOSPC) and is irrelevant to Storybook.
     cfg.server ??= {};
+    // Do not inherit the app `/api` proxy. Ignore the local ROM library
+    // (watching it exhausts inotify).
+    cfg.server.proxy = {};
     cfg.server.watch ??= {};
     cfg.server.watch.ignored = [
       ...(Array.isArray(cfg.server.watch.ignored)

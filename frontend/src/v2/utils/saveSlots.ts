@@ -1,6 +1,6 @@
 import type { SaveSchema } from "@/__generated__";
 import i18n from "@/locales";
-import { AUTOSAVE_SLOT } from "@/services/api/save";
+import { AUTOSAVE_SLOT } from "@/services/saveSlot";
 
 /** The slot of the newest slotted save, where progress should keep going. */
 export function preferredSlot(

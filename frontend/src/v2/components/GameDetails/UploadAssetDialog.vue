@@ -5,7 +5,7 @@ import { RBtn, RDialog, RForm, RIcon, RSelect, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema } from "@/__generated__";
-import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
+import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/saveSlot";
 import PendingFilesDropzone from "@/v2/components/shared/PendingFilesDropzone.vue";
 import type { AssetType } from "@/v2/utils/assets";
 import {

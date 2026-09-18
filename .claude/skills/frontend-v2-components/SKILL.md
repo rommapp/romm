@@ -104,10 +104,17 @@ import { useCan } from "@/v2/composables/useCan";
 
 ## Storybook (mandatory for `/lib`)
 
+Storybook is a **headless UI lab**, not a tiny RomM. There is no backend. `:6006` must not proxy `/api` to `:3000`. Auth, HTTP, and sockets are in-memory stubs.
+
 - Every primitive ships at least one story with controls and at least one variant per theme.
 - A new interactive primitive that warrants gamepad navigation ships a `play()` interaction.
 - Modified primitive: existing story must still render and its interactions still pass.
 - `npm run test` runs Vitest **and** every `/lib` story's `play()` via `composeStories`. Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
+- **No live services.** `frontend/.storybook/main.ts` aliases `@/services/api`, `@/services/socket`, `@/services/pending-asset`, and `@/services/cache` to `frontend/.storybook/stubs/`, and clears the app Vite `/api` proxy. Extend those stubs when a new client is imported from a story. Do not add a "hit the real API" toolbar.
+- **Leaf constants, not the axios module.** A story-reachable composite that needs `AUTOSAVE_SLOT` (or any other client constant) imports `@/services/saveSlot` (or the file that owns the value and does not import axios). Importing `@/services/api/save` pulls the whole API graph into the story. Re-exports from the client are for app call sites, not for UI that ships a story.
+- **Seed Pinia in `preview.ts`.** Fake admin + grants; never `fetchCurrentUser` / `/permissions/me`.
+- **No toolbar without a canvas change.** A global toolbar that no open story visibly follows is noise. Add it when a story is built to show the gate (open menu, labelled states).
+- Stories pass **fixture props**. They do not call `romApi.*`. If a composite must look fetched, mock the store or the stub; do not point axios at localhost.
 
 ---
 
@@ -119,6 +126,7 @@ import { useCan } from "@/v2/composables/useCan";
 4. Don't hand-roll a `<form>`; use `RForm`.
 5. Don't add backwards-compat shims inside v2: delete removed code; no `// removed`, no renamed-but-unused exports, no deprecated wrappers that just call the new function.
 6. Don't write redundant tests; don't touch v1; never `--no-verify` on commits.
+7. Don't import `@/services/api/*` from a story-reachable composite just for a string or limit. Put the value in a leaf module (see Storybook above).
 
 **Allowed (often misread):** modifying shared stores/services/utils _additively_; creating v2-only composables; importing from `src/__generated__/`.
 

@@ -6,7 +6,9 @@ import { createMemoryHistory, createRouter } from "vue-router";
 import { createVuetify } from "vuetify";
 import "vuetify/styles";
 import i18n from "../src/locales";
+import storeAuth from "../src/stores/auth";
 import storePermissions from "../src/stores/permissions";
+import type { User } from "../src/stores/users";
 import "../src/styles/common.css";
 import "../src/styles/fonts.css";
 import { dark, light } from "../src/styles/themes";
@@ -14,25 +16,15 @@ import { ChromeLabelsKey } from "../src/v2/lib/a11y/chromeLabels";
 import "../src/v2/styles/global.css";
 import { createChromeLabels } from "../src/v2/utils/chromeLabels";
 
-// Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
-// v2 primitives are Vuetify-free at runtime — Vuetify stays registered only
-// because some shared dependencies still pull it in. The visible theme for
-// v2 stories comes from the `.r-v2-dark` / `.r-v2-light` class toggled on
-// <body> by the theme switcher decorator below.
-//
-// permissionsStore is hydrated with admin grants so any primitive that
-// consumes `useCan(...)` renders its enabled state. Stories that need to
-// exercise role-based hiding can override per-story by calling
-// `storePermissions().hydrateFromRole("viewer" | "editor" | null)`.
+// Pinia, i18n, and Vuetify are registered. v2 stories theme via `.r-v2-dark` /
+// `.r-v2-light` on body; Vuetify stays for leftover shared deps.
 setup((app) => {
   app.use(createPinia());
   app.use(i18n);
   // Stories exercise the same injected-label path as the app, so a
   // primitive rendering an un-translated label fails here too.
   app.provide(ChromeLabelsKey, createChromeLabels());
-  // A catch-all router so primitives that render real `<router-link>`s
-  // (RBtn / RListItem / RMenuItem with `to`) resolve a proper `href`
-  // instead of crashing on `router.resolve`. Any string path resolves.
+  // Catch-all memory router so `<router-link>` can resolve `href`.
   app.use(
     createRouter({
       history: createMemoryHistory(),
@@ -48,12 +40,25 @@ setup((app) => {
     }),
   );
 
-  // Seed an admin so stories render with every gated control available.
+  // In-memory admin user and grants. Nothing is fetched.
   storePermissions().hydrateFromResponse({
     is_admin: true,
     grants: [],
     hidden: { platforms: [], roms: [] },
   });
+  storeAuth().setCurrentUser({
+    id: 1,
+    username: "storybook",
+    email: "storybook@localhost",
+    enabled: true,
+    role: "admin",
+    oauth_scopes: [],
+    avatar_path: "",
+    last_login: null,
+    last_active: null,
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+  } satisfies User);
 });
 
 const preview: Preview = {
@@ -70,12 +75,7 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
-    // Sidebar order: build up from atoms to compound surfaces. Primitives
-    // are the foundation everything else composes from, then form
-    // controls, structural layout pieces, data displays, and finally
-    // positioned UI (menus + overlays). Media (domain-aware icons) is
-    // last because it's the most specialised. Categories not listed
-    // here fall through to Storybook's default alphabetical sort.
+    // Sidebar: primitives first, then forms, layout, data, overlays, media.
     options: {
       storySort: {
         order: [

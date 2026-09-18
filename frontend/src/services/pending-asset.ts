@@ -4,7 +4,6 @@ import axios from "axios";
 import { isCsrfFailure } from "@/services/api";
 import romApi from "@/services/api/rom";
 import saveApi, {
-  AUTOSAVE_SLOT,
   sessionSaveFile,
   sessionScreenshotFile,
 } from "@/services/api/save";
@@ -12,6 +11,7 @@ import stateApi, {
   sessionStateFiles,
   sessionStateName,
 } from "@/services/api/state";
+import { AUTOSAVE_SLOT } from "@/services/saveSlot";
 import storeAuth from "@/stores/auth";
 import { errorMessage } from "@/v2/utils/errorMessage";
 

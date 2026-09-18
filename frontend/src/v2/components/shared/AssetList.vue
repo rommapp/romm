@@ -14,7 +14,7 @@
 import { RBtn, REmptyState, RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { AUTOSAVE_SLOT } from "@/services/api/save";
+import { AUTOSAVE_SLOT } from "@/services/saveSlot";
 import { formatTimestamp } from "@/utils";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";

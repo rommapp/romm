@@ -6,18 +6,15 @@ import type {
   SaveSchema,
 } from "@/__generated__";
 import api from "@/services/api";
+import { UNLOAD_SAVE_MAX_BYTES } from "@/services/saveSlot";
 import { buildFormInput } from "@/utils/formData";
 
 export const saveApi = api;
-
-// The slot sync clients (Argosy, Tender) file automatic progress under. A
-// null slot is an archival manual upload that is never paired with devices.
-export const AUTOSAVE_SLOT = "autosave";
-// Mirrors the backend's SAVE_SLOT_MAX_LENGTH so the field stops at the limit.
-export const SAVE_SLOT_MAX_LENGTH = 255;
-// A keepalive request outlives its document, which is why the browser caps
-// its body at 64 KB; the rest is left for the multipart framing.
-export const UNLOAD_SAVE_MAX_BYTES = 60 * 1024;
+export {
+  AUTOSAVE_SLOT,
+  SAVE_SLOT_MAX_LENGTH,
+  UNLOAD_SAVE_MAX_BYTES,
+} from "@/services/saveSlot";
 
 /** Session saves are named after the ROM; a version updated in place keeps its name. */
 export function sessionSaveFile(
