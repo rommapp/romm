@@ -93,6 +93,8 @@ function trackFullscreen() {
   fullscreenHost.value = document.fullscreenElement as HTMLElement | null;
 }
 document.addEventListener("fullscreenchange", trackFullscreen);
+// A host mounted while a game already owns the screen gets no event of its own.
+trackFullscreen();
 
 onBeforeUnmount(() => {
   emitter?.off("snackbarShow", openHandler);

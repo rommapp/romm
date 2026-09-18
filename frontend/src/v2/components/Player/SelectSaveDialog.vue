@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// v2 SelectSaveDialog — listens for `selectSaveDialog`, lists the ROM's saves
+// v2 SelectSaveDialog: listens for `selectSaveDialog`, lists the ROM's saves
 // and emits `saveSelected` on pick (consumed by the player). The list is the
 // launch screen's, so a save reads the same before the game boots and inside it.
 import { RBtn, RDialog } from "@v2/lib";

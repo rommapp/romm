@@ -60,6 +60,7 @@ export interface PendingAssetStore {
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
+    let abandoned = false;
     request.onupgradeneeded = () => {
       const db = request.result;
       for (const name of Array.from(db.objectStoreNames)) {
@@ -67,8 +68,19 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       db.createObjectStore(STORE_NAME, { keyPath: "id" });
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      // The open landed after the wait was given up on; nothing holds the
+      // connection now, and leaving it open blocks every other tab's upgrade.
+      if (abandoned) return request.result.close();
+      resolve(request.result);
+    };
     request.onerror = () => reject(request.error);
+    // Another tab on an older version holds the upgrade off, and none of the
+    // handlers above fires meanwhile: without this the caller waits forever.
+    request.onblocked = () => {
+      abandoned = true;
+      reject(new Error("Pending asset storage is open in another tab"));
+    };
   });
 }
 
@@ -254,6 +266,7 @@ async function settle(
 
 async function uploadPendingAsset(
   entry: PendingAsset,
+  roms: Map<number, DetailedRomSchema>,
 ): Promise<AssetOutcome | null> {
   if (accepted.has(entry.id)) return null;
   if (!entry.bytes?.byteLength) {
@@ -261,9 +274,10 @@ async function uploadPendingAsset(
     return null;
   }
 
-  let rom: DetailedRomSchema | null = null;
+  let rom: DetailedRomSchema | null = roms.get(entry.romId) ?? null;
   try {
-    rom = (await romApi.getRom({ romId: entry.romId })).data;
+    rom ??= (await romApi.getRom({ romId: entry.romId })).data;
+    roms.set(entry.romId, rom);
     const upload =
       entry.kind === "state"
         ? await uploadState(entry, rom)
@@ -315,9 +329,12 @@ export async function syncPendingAssets(
 ): Promise<PendingSyncResult> {
   const synced: SyncedAsset[] = [];
   const dropped: DroppedAsset[] = [];
+  // Several captures of one game are the common case, and they all need the
+  // same rom to name themselves and their files.
+  const roms = new Map<number, DetailedRomSchema>();
   for (const entry of await pendingAssetStore.list()) {
     if (!kinds.includes(entry.kind)) continue;
-    const outcome = await uploadPendingAsset(entry);
+    const outcome = await uploadPendingAsset(entry, roms);
     if (!outcome) continue;
     if (outcome.reason === undefined) synced.push(outcome.asset);
     else dropped.push({ ...outcome.asset, reason: outcome.reason });

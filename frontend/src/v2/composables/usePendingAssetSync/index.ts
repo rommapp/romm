@@ -55,6 +55,7 @@ export function installPendingAssetSync() {
   const { isOffline } = useServerConnection();
 
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let disposed = false;
 
   function stopRetrying() {
     if (timer === null) return;
@@ -117,7 +118,9 @@ export function installPendingAssetSync() {
         await refresh(synced);
       }
       stopRetrying();
-      if (await hasPendingAssets()) {
+      // The shell can go while a pass is on the wire, and a retry armed after
+      // that would outlive it and keep firing for the life of the document.
+      if (!disposed && (await hasPendingAssets())) {
         timer = setTimeout(() => void drain(), RETRY_MS);
       }
     } finally {
@@ -130,5 +133,8 @@ export function installPendingAssetSync() {
   watch([() => playingStore.playing, isOffline], () => void drain(), {
     immediate: true,
   });
-  onScopeDispose(stopRetrying);
+  onScopeDispose(() => {
+    disposed = true;
+    stopRetrying();
+  });
 }

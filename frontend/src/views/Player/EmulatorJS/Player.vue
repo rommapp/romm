@@ -117,6 +117,14 @@ async function forgetPendingSave() {
   pendingSave = null;
   await pendingAssetStore.clear(pendingSaveId);
 }
+// Whether the browser is holding these exact bytes, so a notice only promises
+// a later sync for a save that really was kept.
+function isSaveHeld(saveFile: Uint8Array): boolean {
+  return (
+    pendingSave !== null &&
+    bytesEqual(new Uint8Array(pendingSave.bytes), saveFile)
+  );
+}
 // The tick re-offers a save whose upload failed on every pass, so what was
 // said for these bytes is remembered: every save the game writes is announced,
 // every retry of the same one is not.
@@ -139,6 +147,10 @@ function writeSave(
     const bytes = new Uint8Array(file.saveFile);
     inFlightSave = bytes;
     try {
+      // Held before the attempt and dropped once the server answers, so no
+      // path can upload a save without the browser keeping a copy, and none
+      // can succeed while an older capture stays behind to be synced later.
+      await rememberPendingSave(file.saveFile, file.screenshotFile);
       const save = await saveSave({
         rom: romRef.value,
         save: sessionSaveRef.value,
@@ -150,6 +162,7 @@ function writeSave(
         sessionSaveRef.value = save;
         saveTracker.markUploaded(bytes);
       }
+      if (save) await forgetPendingSave();
       return save;
     } finally {
       inFlightSave = null;
@@ -457,10 +470,8 @@ function installAutoSaveSync() {
       const screenshotFile =
         storedScreenshotFor(pendingSave, saveBytes) ??
         (await captureScreenshot());
-      await rememberPendingSave(saveBytes, screenshotFile);
       const save = await writeSave({ saveFile: saveBytes, screenshotFile });
       if (save) {
-        await forgetPendingSave();
         heldBackSave = null;
         romsStore.update(romRef.value);
         displayMessage("Save synced with server", {
@@ -468,8 +479,9 @@ function installAutoSaveSync() {
           tone: "success",
           icon: "mdi-cloud-sync",
         });
-        // A write voided by a save being loaded is not the server refusing it.
-      } else if (!saveLoading && !bytesEqual(saveFile, heldBackSave)) {
+        // A write voided by a save being loaded holds nothing back, so there
+        // is nothing to promise for it either.
+      } else if (isSaveHeld(saveFile) && !bytesEqual(saveFile, heldBackSave)) {
         announceSaveHeldBack(saveFile);
       }
     } catch (error) {
@@ -499,10 +511,8 @@ async function flushPendingSave() {
   // The exit takes no frame of its own; it carries the one stored when the
   // game wrote these bytes, if a sync got that far.
   const screenshotFile = storedScreenshotFor(pendingSave, saveBytes);
-  await rememberPendingSave(saveBytes, screenshotFile);
   try {
     if (await writeSave({ saveFile: saveBytes, screenshotFile })) {
-      await forgetPendingSave();
       romsStore.update(romRef.value);
     }
   } catch (error) {
@@ -600,7 +610,7 @@ window.EJS_onSaveSave = async function ({
       tone: "success",
       icon: "mdi-cloud-sync",
     });
-  } else {
+  } else if (isSaveHeld(new Uint8Array(saveFile))) {
     // Asked for by hand, so it answers every time, and the tick behind it
     // knows these bytes have been spoken for.
     announceSaveHeldBack(new Uint8Array(saveFile));
@@ -812,7 +822,7 @@ window.EJS_onGameStart = async () => {
     // when the sync tick uploads it.
     await Promise.all([
       saveState({ rom: romRef.value, stateFile, screenshotFile }),
-      writeSaveIfChanged({ saveFile }),
+      writeSaveIfChanged({ saveFile: toArrayBuffer(saveFile) }),
     ]);
 
     romsStore.update(romRef.value);
