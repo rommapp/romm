@@ -167,6 +167,7 @@ const fadeIndex = computed(() =>
           :icon-tone="group.slot ? 'brand' : 'muted'"
           :title="group.slot ?? t('play.slot-none')"
           :count="t('play.slot-versions', group.versions.length)"
+          class="r-asset-list__head"
         >
           <AssetOwnerChip
             v-if="showOwner && group.owner"
@@ -333,6 +334,10 @@ const fadeIndex = computed(() =>
   padding: 6px 8px 8px;
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
+}
+/* Same head-to-rows depth as the core bands in AssetStrip. */
+.r-asset-list__group--slot .r-asset-list__head {
+  padding-bottom: 10px;
 }
 
 .r-asset-list__items {
