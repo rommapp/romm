@@ -330,6 +330,7 @@ async function submit() {
       <RBtn variant="text" :disabled="submitting" @click="close">
         {{ t("common.cancel") }}
       </RBtn>
+      <div style="flex: 1" />
       <RBtn
         variant="flat"
         color="primary"

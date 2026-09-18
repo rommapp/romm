@@ -93,6 +93,7 @@ function submit(): void {
       <RBtn variant="text" :disabled="busy" @click="close">
         {{ t("common.cancel") }}
       </RBtn>
+      <div style="flex: 1" />
       <RBtn
         variant="flat"
         color="primary"

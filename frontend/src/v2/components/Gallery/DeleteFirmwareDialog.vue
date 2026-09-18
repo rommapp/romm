@@ -179,6 +179,7 @@ async function confirm() {
       <RBtn variant="text" :disabled="deleting" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
+      <div style="flex: 1" />
       <RBtn
         variant="flat"
         color="danger"
