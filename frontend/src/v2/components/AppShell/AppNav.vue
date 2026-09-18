@@ -11,13 +11,14 @@
 // destinations — they live in the user menu's Library group, keeping the
 // primary nav focused on browsing destinations.
 import { RSliderBtnGroup, RImg } from "@v2/lib";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
 import NowPlayingPill from "@/v2/components/Soundtrack/NowPlayingPill.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useNavDestinations } from "@/v2/composables/useNavDestinations";
+import { useNavGlass } from "@/v2/composables/useNavGlass";
 
 defineOptions({ inheritAttrs: false });
 
@@ -33,11 +34,12 @@ const { destinations: tabs, activeId: activeTab } = useNavDestinations();
 // blur is **static** on the pseudo, with only `opacity` transitioning
 // — transitioning `backdrop-filter` directly kept the blur layer alive
 // and any hover repaint nearby would flash it.
-const scrolled = ref(false);
-const SCROLL_THRESHOLD = 4;
+const { innerScrolled, innerGlass, threshold } = useNavGlass();
+const windowScrolled = ref(false);
+const scrolled = computed(() => windowScrolled.value || innerScrolled.value);
 
 function onScroll() {
-  scrolled.value = window.scrollY > SCROLL_THRESHOLD;
+  windowScrolled.value = window.scrollY > threshold;
 }
 
 onMounted(() => {
@@ -51,7 +53,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="r-v2-nav-bar" :class="{ 'r-v2-nav-bar--scrolled': scrolled }">
+  <header
+    class="r-v2-nav-bar"
+    :class="{
+      'r-v2-nav-bar--scrolled': scrolled,
+      'r-v2-nav-bar--inner': innerScrolled,
+      'r-v2-nav-bar--glass-below': innerGlass,
+    }"
+  >
     <nav class="r-v2-nav">
       <router-link to="/" class="r-v2-nav__logo" :aria-label="t('common.home')">
         <RImg
@@ -125,6 +134,18 @@ onBeforeUnmount(() => {
 }
 .r-v2-nav-bar--scrolled {
   border-bottom-color: var(--r-color-border);
+}
+/* Over an inner scroller the glass is handed to a pinned surface below and
+   back, so it switches instantly: a cross-fade of the two would flash. */
+.r-v2-nav-bar--inner,
+.r-v2-nav-bar--inner::before {
+  transition: none;
+}
+.r-v2-nav-bar--glass-below {
+  border-bottom-color: transparent;
+}
+.r-v2-nav-bar--glass-below::before {
+  opacity: 0;
 }
 
 /* Reduced-motion / low-power: the glass is a backdrop-filter blur, which is

@@ -67,7 +67,11 @@ function isActive(letter: string): boolean {
 </script>
 
 <template>
-  <aside class="alpha-strip" :aria-label="t('gallery.jump-to-letter')">
+  <aside
+    v-bind="$attrs"
+    class="alpha-strip"
+    :aria-label="t('gallery.jump-to-letter')"
+  >
     <button
       v-for="l in letters"
       :key="l"
@@ -88,9 +92,7 @@ function isActive(letter: string): boolean {
 
 <style scoped>
 .alpha-strip {
-  /* Width + edge gap come from the section (`--r-alpha-strip-*`) so the
-     stuck-toolbar overlay, which insets by the same footprint, stays in
-     lockstep with the strip at every breakpoint. */
+  /* Width + edge gap come from the section (`--r-alpha-strip-*`). */
   width: var(--r-alpha-strip-w, 24px);
   flex-shrink: 0;
   display: flex;

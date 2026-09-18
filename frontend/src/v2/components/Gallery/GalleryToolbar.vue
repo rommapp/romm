@@ -229,7 +229,11 @@ const { smAndUp } = useBreakpoint();
 </script>
 
 <template>
-  <div class="gallery-toolbar" :class="[`gallery-toolbar--${position}`]">
+  <div
+    v-bind="$attrs"
+    class="gallery-toolbar"
+    :class="[`gallery-toolbar--${position}`]"
+  >
     <!-- Filter controls. Always sits left of the controls cluster. -->
     <!-- eslint-disable vuejs-accessibility/no-autofocus -- the Search view is opened to type a query -->
     <RTextField
