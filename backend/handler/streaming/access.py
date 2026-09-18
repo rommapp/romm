@@ -110,7 +110,7 @@ def platform_is_visible(request: Request, platform_slug: str) -> bool:
 
 def _session_in_scope(
     session: dict[str, Any],
-    platform: str | None,
+    platform: str,
     include_desktop: bool,
     claimed_at: str | None = None,
 ) -> bool:
@@ -122,7 +122,7 @@ def _session_in_scope(
         return False
     if claimed_at is not None and session.get("claimed_at") != claimed_at:
         return False
-    return platform is None or session_platform_matches(session, platform)
+    return session_platform_matches(session, platform)
 
 
 def notice_in_scope(
@@ -137,7 +137,7 @@ async def find_session_for_user(
     candidates: list[ResolvedContainer],
     user_id: int,
     *,
-    platform: str | None = None,
+    platform: str,
     include_desktop: bool = False,
     claimed_at: str | None = None,
 ) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
