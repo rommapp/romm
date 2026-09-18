@@ -1,12 +1,14 @@
-// The dialog renders each scan-type description as one `<p>` per blank-line
-// paragraph, so a locale that lost a break silently collapses two
-// paragraphs into one (or runs two sentences together). Guard the shape
-// across every locale, which the key-parity checker cannot see.
+// The dialog renders each blank-line-delimited paragraph as its own `<p>`,
+// so a locale that lost a break silently collapses two into one.
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const LOCALES_DIR = join(__dirname, "../../../locales");
+const LOCALES_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../locales",
+);
 
 const SINGLE_PARAGRAPH = [
   "info-new-platforms-desc",
