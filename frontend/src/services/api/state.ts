@@ -57,7 +57,7 @@ async function uploadStates({
   statesToUpload,
   emulator,
 }: {
-  rom: DetailedRomSchema;
+  rom: Pick<DetailedRomSchema, "id">;
   statesToUpload: StateUploadInput[];
   emulator?: string;
 }) {

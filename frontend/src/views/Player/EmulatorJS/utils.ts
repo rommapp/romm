@@ -125,6 +125,12 @@ export function buildStateFormData(
   ]);
 }
 
+/** A state upload's outcome: taken, or held in this browser for later, or neither. */
+export interface StateUpload {
+  state: StateSchema | null;
+  kept: boolean;
+}
+
 export async function saveState({
   rom,
   stateFile,
@@ -133,24 +139,26 @@ export async function saveState({
   rom: DetailedRom;
   stateFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
-}): Promise<StateSchema | null> {
+}): Promise<StateUpload> {
   // A zero-length buffer means the core failed to serialize its state (a torn
   // read from a running threaded core). Refuse to upload it so a broken
   // capture can't overwrite the user's good states on the server.
   if (stateFile.byteLength === 0) {
     console.error("Refusing to upload empty state file");
-    return null;
+    return { state: null, kept: false };
   }
 
   const capturedAt = new Date();
   // Held in the browser until the server takes it, so a state captured offline
   // reaches it on a later pass.
   const pendingId = pendingAssetId(rom.id);
-  await pendingAssetStore.write({
+  const kept = await pendingAssetStore.write({
     id: pendingId,
     kind: "state",
     romId: rom.id,
     romName: rom.name ?? rom.fs_name_no_ext,
+    fsNameNoExt: rom.fs_name_no_ext,
+    cover: rom.path_cover_small,
     bytes: stateFile,
     screenshotBytes: screenshotFile,
     emulator: window.EJS_core,
@@ -170,13 +178,13 @@ export async function saveState({
     if (uploadedState.status == "fulfilled") {
       await pendingAssetStore.clear(pendingId);
       if (rom) rom.user_states.unshift(uploadedState.value);
-      return uploadedState.value;
+      return { state: uploadedState.value, kept: false };
     }
   } catch (error) {
     console.error("Failed to upload state", error);
   }
 
-  return null;
+  return { state: null, kept };
 }
 
 // `save` is the version this session already created: it is updated in place,

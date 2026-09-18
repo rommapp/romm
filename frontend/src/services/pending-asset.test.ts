@@ -37,11 +37,8 @@ describe("pendingAssetStore without IndexedDB", () => {
     vi.restoreAllMocks();
   });
 
-  it("lists nothing rather than throwing", async () => {
-    await expect(pendingAssetStore.list()).resolves.toEqual([]);
-  });
-
-  it("swallows a write", async () => {
+  // A private window looks the same: the player must hear nothing was kept.
+  it("says a write kept nothing rather than throwing", async () => {
     await expect(
       pendingAssetStore.write({
         id: "1:a",
@@ -51,7 +48,7 @@ describe("pendingAssetStore without IndexedDB", () => {
         bytes: new Uint8Array([1, 2, 3]).buffer,
         capturedAt: 0,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
   });
 
   it("swallows a clear", async () => {
@@ -60,6 +57,7 @@ describe("pendingAssetStore without IndexedDB", () => {
 
   it("reports nothing as held", async () => {
     await expect(pendingAssetKinds(1)).resolves.toEqual(new Set());
+    await expect(hasPendingAssets()).resolves.toBe(false);
   });
 
   it("has nothing to hand over", async () => {
@@ -95,35 +93,65 @@ describe("pendingAssetId", () => {
 // The sliver of IndexedDB the store uses, in memory, so the retry itself can
 // be exercised rather than only its unavailable-storage fallback.
 function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
-  function request(result?: unknown) {
-    const req: Record<string, unknown> = { result };
-    queueMicrotask(() => (req.onsuccess as (() => void) | undefined)?.());
-    return req;
+  type Request = { result?: unknown; onsuccess?: () => void };
+  type Transaction = { oncomplete?: () => void };
+
+  // A request settles on the next microtask and then commits its transaction.
+  function settle(transaction: Transaction, result?: unknown): Request {
+    const request: Request = { result };
+    queueMicrotask(() => {
+      request.onsuccess?.();
+      transaction.oncomplete?.();
+    });
+    return request;
   }
-  const objectStore = {
-    getAll: () => request([...rows.values()]),
-    put: (entry: PendingAsset) => {
-      rows.set(entry.id, entry);
-      return request();
-    },
-    delete: (id: string) => {
-      rows.delete(id);
-      return request();
-    },
-  };
+
+  // The owner index holds a row only when every part of its key is set.
+  function keyCursor(transaction: Transaction): Request {
+    const indexed = [...rows.values()].filter((row) => row.userId != null);
+    const request: Request = {};
+    let next = 0;
+    const step = () => {
+      const row = indexed[next++];
+      request.result = row
+        ? {
+            key: [row.userId, row.kind, row.romId],
+            primaryKey: row.id,
+            continue: () => queueMicrotask(step),
+          }
+        : null;
+      request.onsuccess?.();
+      if (!row) transaction.oncomplete?.();
+    };
+    queueMicrotask(step);
+    return request;
+  }
+
+  function objectStore(transaction: Transaction) {
+    return {
+      indexNames: { contains: () => false },
+      createIndex: () => undefined,
+      get: (id: string) => settle(transaction, rows.get(id)),
+      put: (entry: PendingAsset) => {
+        rows.set(entry.id, entry);
+        return settle(transaction, entry.id);
+      },
+      delete: (id: string) => {
+        rows.delete(id);
+        return settle(transaction);
+      },
+      index: () => ({ openKeyCursor: () => keyCursor(transaction) }),
+    };
+  }
+
   const db = {
     objectStoreNames: [] as string[],
-    createObjectStore: () => objectStore,
+    createObjectStore: () => objectStore({}),
     deleteObjectStore: () => undefined,
     close: () => undefined,
     transaction: () => {
-      const transaction: Record<string, unknown> = {
-        objectStore: () => objectStore,
-        error: null,
-      };
-      queueMicrotask(() =>
-        (transaction.oncomplete as (() => void) | undefined)?.(),
-      );
+      const transaction: Transaction & { objectStore?: unknown } = {};
+      transaction.objectStore = () => objectStore(transaction);
       return transaction;
     },
   };
@@ -168,6 +196,8 @@ describe("syncPendingAssets", () => {
       userId: 1,
       romId: 1,
       romName: "Held Game",
+      fsNameNoExt: "game",
+      cover: "cover.png",
       bytes,
       capturedAt: Date.parse("2024-05-06T07:08:09.010Z"),
       ...entry,
@@ -205,7 +235,9 @@ describe("syncPendingAssets", () => {
     queue({ id: "save:taken", slot: "main_quest", screenshotBytes: shot });
 
     await expect(syncPendingAssets()).resolves.toEqual({
-      synced: [{ kind: "save", romId: 1, name: "Game", cover: "cover.png" }],
+      synced: [
+        { kind: "save", romId: 1, name: "Held Game", cover: "cover.png" },
+      ],
       dropped: [],
     });
 
@@ -223,7 +255,9 @@ describe("syncPendingAssets", () => {
     queue({ id: "state:taken", kind: "state", screenshotBytes: shot });
 
     await expect(syncPendingAssets()).resolves.toEqual({
-      synced: [{ kind: "state", romId: 1, name: "Game", cover: "cover.png" }],
+      synced: [
+        { kind: "state", romId: 1, name: "Held Game", cover: "cover.png" },
+      ],
       dropped: [],
     });
 
@@ -271,7 +305,7 @@ describe("syncPendingAssets", () => {
         {
           kind: "state",
           romId: 1,
-          name: "Game",
+          name: "Held Game",
           cover: "cover.png",
           reason: "Slot has a newer save",
         },
@@ -284,14 +318,28 @@ describe("syncPendingAssets", () => {
 
   // The rom is gone, so the name stored with the row is all there is to go on.
   it("names a game the server no longer knows from the row itself", async () => {
-    romApiMocks.getRom.mockRejectedValue(refusal(404, "Rom not found"));
+    saveApiMocks.uploadSaves.mockResolvedValue([
+      { status: "rejected", reason: refusal(404, "Rom not found") },
+    ]);
     queue({ id: "save:orphan" });
 
     await expect(syncPendingAssets()).resolves.toMatchObject({
       dropped: [{ name: "Held Game", reason: "Rom not found" }],
     });
 
+    expect(romApiMocks.getRom).not.toHaveBeenCalled();
     expect(rows.size).toBe(0);
+  });
+
+  // A row from before the stem was stored asks the rom for it instead.
+  it("names an older row's files after the rom it belongs to", async () => {
+    queue({ id: "save:older", fsNameNoExt: undefined, screenshotBytes: shot });
+
+    await syncPendingAssets();
+
+    expect(romApiMocks.getRom).toHaveBeenCalledWith({ romId: 1 });
+    const request = saveApiMocks.uploadSaves.mock.calls[0][0];
+    expect(request.savesToUpload[0].screenshotFile.name).toBe("game.png");
   });
 
   // A browser is shared, and progress captured by one account is not another's
@@ -311,14 +359,16 @@ describe("syncPendingAssets", () => {
   });
 
   it("stamps a row with the account that captured it", async () => {
-    await pendingAssetStore.write({
-      id: "save:mine",
-      kind: "save",
-      romId: 1,
-      romName: "Game",
-      bytes,
-      capturedAt: 0,
-    });
+    await expect(
+      pendingAssetStore.write({
+        id: "save:mine",
+        kind: "save",
+        romId: 1,
+        romName: "Game",
+        bytes,
+        capturedAt: 0,
+      }),
+    ).resolves.toBe(true);
 
     expect(rows.get("save:mine")?.userId).toBe(1);
   });

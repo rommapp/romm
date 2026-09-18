@@ -2,6 +2,7 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 import type {
@@ -59,6 +60,7 @@ const playingStore = storePlaying();
 const configStore = storeConfig();
 const languageStore = storeLanguage();
 const router = useRouter();
+const { t } = useI18n();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -91,6 +93,8 @@ let inFlightSave: Uint8Array | null = null;
 // Progress the server has not taken yet, kept in the browser with the frame
 // from when the game wrote it, so a later retry pictures that moment.
 let pendingSave: PendingAsset | null = null;
+// A private window keeps nothing, and a notice must not promise it did.
+let pendingSaveKept = false;
 // One row per session: a save an earlier session never got through still owes
 // the server its own version, so this must not write over it.
 const pendingSaveId = pendingAssetId(romRef.value.id);
@@ -106,6 +110,8 @@ async function rememberPendingSave(
     kind: "save",
     romId: romRef.value.id,
     romName: romRef.value.name ?? romRef.value.fs_name_no_ext,
+    fsNameNoExt: romRef.value.fs_name_no_ext,
+    cover: romRef.value.path_cover_small,
     bytes: saveBytes,
     screenshotBytes,
     slot: currentSlot(),
@@ -113,10 +119,11 @@ async function rememberPendingSave(
     deviceId: deviceIDRef.value,
     capturedAt: Date.now(),
   };
-  await pendingAssetStore.write(pendingSave);
+  pendingSaveKept = await pendingAssetStore.write(pendingSave);
 }
 async function forgetPendingSave() {
   pendingSave = null;
+  pendingSaveKept = false;
   await pendingAssetStore.clear(pendingSaveId);
 }
 // The tick re-offers a failed save every pass: each save the game writes is
@@ -124,10 +131,18 @@ async function forgetPendingSave() {
 let heldBackSave: Uint8Array | null = null;
 function announceSaveHeldBack(saveFile: Uint8Array) {
   heldBackSave = saveFile;
-  displayMessage("Save kept in this browser, it will sync later", {
-    duration: 4000,
-    tone: "warning",
-    icon: "mdi-cloud-clock-outline",
+  announceHeldBack("save", pendingSaveKept);
+}
+const HELD_BACK_MESSAGE = {
+  save: { kept: "play.save-kept-for-later", lost: "play.save-not-kept" },
+  state: { kept: "play.state-kept-for-later", lost: "play.state-not-kept" },
+} as const;
+// Kept, it syncs on a later pass; not kept, it is lost once the game closes.
+function announceHeldBack(kind: "save" | "state", kept: boolean) {
+  displayMessage(t(HELD_BACK_MESSAGE[kind][kept ? "kept" : "lost"]), {
+    duration: kept ? 4000 : 6000,
+    tone: kept ? "warning" : "error",
+    icon: kept ? "mdi-cloud-clock-outline" : "mdi-cloud-off-outline",
   });
 }
 function writeSave(
@@ -199,10 +214,12 @@ function holdBackUntilStateApplied() {
   const { volume, muted } = emulator;
   emulator.setVolume(0);
   restoreVolume = () => {
-    // setVolume persists the settings before applying them, so the flag goes
-    // back first or the next launch starts muted.
-    emulator.muted = muted;
     emulator.setVolume(muted ? 0 : volume);
+    // setVolume persists the settings itself, in an order the EmulatorJS build
+    // decides, so the player's own level and mute are written back last.
+    emulator.volume = volume;
+    emulator.muted = muted;
+    emulator.saveSettings?.();
   };
 }
 function stateApplied() {
@@ -472,7 +489,7 @@ function installAutoSaveSync() {
       if (save) {
         heldBackSave = null;
         romsStore.update(romRef.value);
-        displayMessage("Save synced with server", {
+        displayMessage(t("play.save-synced"), {
           duration: 3000,
           tone: "success",
           icon: "mdi-cloud-sync",
@@ -573,7 +590,7 @@ async function loadSave(save: SaveSchema) {
       const bytes = new Uint8Array(data);
       loadEmulatorJSSave(bytes);
       saveTracker.seed(bytes);
-      displayMessage("Save loaded from server", {
+      displayMessage(t("play.save-loaded"), {
         duration: 3000,
         icon: "mdi-cloud-download-outline",
       });
@@ -604,7 +621,7 @@ window.EJS_onSaveSave = async function ({
 
   if (synced) {
     heldBackSave = null;
-    displayMessage("Save synced with server", {
+    displayMessage(t("play.save-synced"), {
       duration: 4000,
       tone: "success",
       icon: "mdi-cloud-sync",
@@ -644,7 +661,7 @@ async function loadState(state: StateSchema) {
         );
     await applyState(bytes);
     if (data) {
-      displayMessage("State loaded from server", {
+      displayMessage(t("play.state-loaded"), {
         duration: 3000,
         icon: "mdi-cloud-download-outline",
       });
@@ -665,7 +682,7 @@ window.EJS_onSaveState = async function ({
   screenshot: emulatorScreenshot,
 }) {
   const screenshotFile = await resolveScreenshot(emulatorScreenshot);
-  const state = await saveState({
+  const { state, kept } = await saveState({
     rom: romRef.value,
     stateFile,
     screenshotFile,
@@ -678,17 +695,13 @@ window.EJS_onSaveState = async function ({
   romsStore.update(romRef.value);
 
   if (state) {
-    displayMessage("State synced with server", {
+    displayMessage(t("play.state-synced"), {
       duration: 4000,
       tone: "success",
       icon: "mdi-cloud-sync",
     });
   } else {
-    displayMessage("State kept in this browser, it will sync later", {
-      duration: 4000,
-      tone: "warning",
-      icon: "mdi-cloud-clock-outline",
-    });
+    announceHeldBack("state", kept);
   }
 };
 
@@ -788,7 +801,7 @@ window.EJS_onGameStart = async () => {
         .get(window.EJS_emulator.getBaseFileName() + ".state")
         .then(async (e: Uint8Array) => {
           await applyState(e);
-          displayMessage("Quick load from server", {
+          displayMessage(t("play.quick-state-loaded"), {
             duration: 3000,
             icon: "mdi-flash",
           });

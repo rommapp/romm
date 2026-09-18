@@ -497,7 +497,7 @@ describe("saveState", () => {
     stateApiMocks.uploadStates.mockResolvedValue([
       { status: "fulfilled", value: { id: 7 } as StateSchema },
     ]);
-    pendingAssetMocks.write.mockReset().mockResolvedValue(undefined);
+    pendingAssetMocks.write.mockReset().mockResolvedValue(true);
     pendingAssetMocks.clear.mockReset().mockResolvedValue(undefined);
   });
 
@@ -524,6 +524,7 @@ describe("saveState", () => {
       kind: "state",
       romId: 1,
       romName: "game",
+      fsNameNoExt: "game",
       bytes,
       screenshotBytes: bytes,
     });
@@ -535,10 +536,26 @@ describe("saveState", () => {
       { status: "rejected", reason: new Error("offline") },
     ]);
 
-    await expect(saveState({ rom, stateFile: bytes })).resolves.toBeNull();
+    await expect(saveState({ rom, stateFile: bytes })).resolves.toEqual({
+      state: null,
+      kept: true,
+    });
 
     expect(pendingAssetMocks.write).toHaveBeenCalledTimes(1);
     expect(pendingAssetMocks.clear).not.toHaveBeenCalled();
+  });
+
+  // A private window keeps nothing, and the notice must not promise it did.
+  it("says so when the browser could not keep it either", async () => {
+    stateApiMocks.uploadStates.mockResolvedValue([
+      { status: "rejected", reason: new Error("offline") },
+    ]);
+    pendingAssetMocks.write.mockResolvedValue(false);
+
+    await expect(saveState({ rom, stateFile: bytes })).resolves.toEqual({
+      state: null,
+      kept: false,
+    });
   });
 
   // The name pins the moment of the capture, so a retry updates the row the

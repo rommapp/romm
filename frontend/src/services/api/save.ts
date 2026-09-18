@@ -61,7 +61,7 @@ type UpdateSaveUploadInput = Omit<
 };
 
 interface SaveVersionParams {
-  rom: DetailedRomSchema;
+  rom: Pick<DetailedRomSchema, "id">;
   emulator?: string;
   deviceId?: string;
   slot?: string;

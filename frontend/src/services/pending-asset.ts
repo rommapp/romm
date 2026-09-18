@@ -1,7 +1,6 @@
 // Saves and states the server has not taken yet, held in the browser with the
 // frame captured when the game wrote them, until a later pass hands them over.
 import axios from "axios";
-import type { DetailedRomSchema } from "@/__generated__";
 import { isCsrfFailure } from "@/services/api";
 import romApi from "@/services/api/rom";
 import saveApi, {
@@ -14,8 +13,11 @@ import storeAuth from "@/stores/auth";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 const DB_NAME = "romm-player";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const STORE_NAME = "pending-assets";
+// Answers "what does this account still owe" from keys alone, so the question
+// never deserializes the saves, states and frames the rows carry.
+const OWNER_INDEX = "owner-kind-rom";
 
 export type PendingAssetKind = "save" | "state";
 
@@ -28,6 +30,9 @@ export interface PendingAsset {
   romId: number;
   /** Named at capture time, so a rom the server no longer has can still be announced. */
   romName: string;
+  /** The rom's file stem, which names the files a retry uploads. */
+  fsNameNoExt?: string;
+  cover?: string | null;
   bytes: ArrayBuffer;
   screenshotBytes?: ArrayBuffer;
   /** Saves only: the slot the session was writing to. */
@@ -36,6 +41,12 @@ export interface PendingAsset {
   /** Saves only: the device the session was playing on. */
   deviceId?: string;
   capturedAt: number;
+}
+
+interface HeldKey {
+  id: string;
+  kind: PendingAssetKind;
+  romId: number;
 }
 
 // `crypto.randomUUID` needs a secure context, which plain http on a LAN address
@@ -64,8 +75,11 @@ function openDatabase(): Promise<IDBDatabase> {
       for (const name of names) {
         if (name !== STORE_NAME) db.deleteObjectStore(name);
       }
-      if (!names.includes(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      const store = names.includes(STORE_NAME)
+        ? request.transaction!.objectStore(STORE_NAME)
+        : db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      if (!store.indexNames.contains(OWNER_INDEX)) {
+        store.createIndex(OWNER_INDEX, ["userId", "kind", "romId"]);
       }
     };
     request.onsuccess = () => {
@@ -127,21 +141,47 @@ function currentUserId(): number | null {
 // this upload the same progress again on the next pass, and again after that.
 const accepted = new Set<string>();
 
+// A browser is shared: rows belong to the account that captured them, or one
+// user's progress lands in the account of whoever signs in next.
+async function heldKeys(
+  kinds: readonly PendingAssetKind[],
+): Promise<HeldKey[]> {
+  const userId = currentUserId();
+  const held: HeldKey[] = [];
+  if (userId === null) return held;
+  await withStore("readonly", (store) => {
+    const request = store.index(OWNER_INDEX).openKeyCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      const [owner, kind, romId] = cursor.key as [
+        number,
+        PendingAssetKind,
+        number,
+      ];
+      const id = cursor.primaryKey as string;
+      if (owner === userId && kinds.includes(kind) && !accepted.has(id)) {
+        held.push({ id, kind, romId });
+      }
+      cursor.continue();
+    };
+    return request;
+  });
+  return held;
+}
+
 const pendingAssetStore = {
-  // A browser is shared: rows belong to the account that captured them, or one
-  // user's progress lands in the account of whoever signs in next.
-  async list(): Promise<PendingAsset[]> {
-    const rows =
-      (await withStore<PendingAsset[]>("readonly", (store) =>
-        store.getAll(),
-      )) ?? [];
-    const userId = currentUserId();
-    return rows.filter((row) => row.userId === userId && !accepted.has(row.id));
-  },
-  async write(entry: PendingAsset) {
-    await withStore("readwrite", (store) =>
+  /**
+   * Holds a capture for the account signed in.
+   *
+   * Returns:
+   *   Whether the browser kept it, which a private window does not.
+   */
+  async write(entry: PendingAsset): Promise<boolean> {
+    const key = await withStore<IDBValidKey>("readwrite", (store) =>
       store.put({ ...entry, userId: currentUserId() }),
     );
+    return key !== null;
   },
   async clear(id: string) {
     await withStore("readwrite", (store) => store.delete(id));
@@ -154,15 +194,25 @@ export default pendingAssetStore;
 export async function pendingAssetKinds(
   romId: number,
 ): Promise<Set<PendingAssetKind>> {
-  const entries = await pendingAssetStore.list();
+  const held = await heldKeys(["save", "state"]);
   return new Set(
-    entries.filter((entry) => entry.romId === romId).map((entry) => entry.kind),
+    held.filter((row) => row.romId === romId).map((row) => row.kind),
   );
+}
+
+// An older row carries no file stem, so the rom is asked for its own.
+async function uploadTarget(
+  entry: PendingAsset,
+): Promise<{ id: number; fs_name_no_ext: string }> {
+  if (entry.fsNameNoExt) {
+    return { id: entry.romId, fs_name_no_ext: entry.fsNameNoExt };
+  }
+  return (await romApi.getRom({ romId: entry.romId })).data;
 }
 
 async function uploadSave(
   entry: PendingAsset,
-  rom: DetailedRomSchema,
+  rom: { id: number; fs_name_no_ext: string },
 ): Promise<PromiseSettledResult<unknown> | undefined> {
   const slot = entry.slot ?? AUTOSAVE_SLOT;
   const [uploaded] = await saveApi.uploadSaves({
@@ -188,7 +238,7 @@ async function uploadSave(
 
 async function uploadState(
   entry: PendingAsset,
-  rom: DetailedRomSchema,
+  rom: { id: number; fs_name_no_ext: string },
 ): Promise<PromiseSettledResult<unknown> | undefined> {
   // The backend files a state under the row already at that name, so pinning
   // the name to the capture has a retry update it rather than duplicate it.
@@ -227,45 +277,39 @@ function permanentRefusal(error: unknown): string | null {
 }
 
 // A row the server has answered for, taken or refused, is no longer owed.
-async function settle(
-  entry: PendingAsset,
-  rom: DetailedRomSchema | null,
-): Promise<SyncedAsset> {
+async function settle(entry: PendingAsset): Promise<SyncedAsset> {
   accepted.add(entry.id);
   await pendingAssetStore.clear(entry.id);
   return {
     kind: entry.kind,
     romId: entry.romId,
-    name: rom?.name ?? rom?.fs_name_no_ext ?? entry.romName,
-    cover: rom?.path_cover_small,
+    name: entry.romName,
+    cover: entry.cover,
   };
 }
 
 async function uploadPendingAsset(
   entry: PendingAsset,
-  roms: Map<number, DetailedRomSchema>,
 ): Promise<SyncedAsset | DroppedAsset | null> {
   if (!entry.bytes?.byteLength) {
     await pendingAssetStore.clear(entry.id);
     return null;
   }
 
-  let rom: DetailedRomSchema | null = roms.get(entry.romId) ?? null;
   try {
-    rom ??= (await romApi.getRom({ romId: entry.romId })).data;
-    roms.set(entry.romId, rom);
+    const rom = await uploadTarget(entry);
     const upload =
       entry.kind === "state"
         ? await uploadState(entry, rom)
         : await uploadSave(entry, rom);
-    if (upload?.status === "fulfilled") return settle(entry, rom);
+    if (upload?.status === "fulfilled") return settle(entry);
     // A refusal is judged in the same place as a request that never landed.
     throw upload?.status === "rejected"
       ? upload.reason
       : new Error("The server returned no upload result");
   } catch (error) {
     const reason = permanentRefusal(error);
-    if (reason) return { ...(await settle(entry, rom)), reason };
+    if (reason) return { ...(await settle(entry)), reason };
     console.error("Pending asset sync failed", error);
     return null;
   }
@@ -304,12 +348,13 @@ export async function syncPendingAssets(
 ): Promise<PendingSyncResult> {
   const synced: SyncedAsset[] = [];
   const dropped: DroppedAsset[] = [];
-  // Several captures of one game are the common case, and they all need the
-  // same rom to name themselves and their files.
-  const roms = new Map<number, DetailedRomSchema>();
-  for (const entry of await pendingAssetStore.list()) {
-    if (!kinds.includes(entry.kind)) continue;
-    const outcome = await uploadPendingAsset(entry, roms);
+  // One row at a time, so a queue of large states is never all in memory.
+  for (const { id } of await heldKeys(kinds)) {
+    const entry = await withStore<PendingAsset>("readonly", (store) =>
+      store.get(id),
+    );
+    if (!entry) continue;
+    const outcome = await uploadPendingAsset(entry);
     if (!outcome) continue;
     if ("reason" in outcome) dropped.push(outcome);
     else synced.push(outcome);
@@ -321,6 +366,5 @@ export async function syncPendingAssets(
 export async function hasPendingAssets(
   kinds: readonly PendingAssetKind[] = ["save", "state"],
 ): Promise<boolean> {
-  const entries = await pendingAssetStore.list();
-  return entries.some((entry) => kinds.includes(entry.kind));
+  return (await heldKeys(kinds)).length > 0;
 }
