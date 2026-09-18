@@ -1059,7 +1059,7 @@ async def heartbeat_session(
     session, so a force-released player learns why on the poll they are already
     making rather than watching a dead stream.
 
-    `container` names the claim to refresh, needed for a desktop on a container
+    `container` names the claim to refresh, needed for a desktop or a container
     outside the platform's first pool. `claimed_at` is the stamp the claim
     answered with: a tab that missed its own takeover reports ended rather than
     keeping the claim that replaced it alive.
