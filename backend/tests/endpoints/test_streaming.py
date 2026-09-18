@@ -4694,31 +4694,52 @@ def test_release_spawns_saves_pull(client, access_token, rom: Rom):
     assert pull.await_args_list[0].args[1] == rom.id
 
 
-def test_an_exit_holds_the_next_claim_until_its_saves_are_filed(
-    client, access_token, admin_user: User, rom: Rom
+def test_a_claim_behind_an_exit_waits_for_that_exits_saves(
+    client, access_token, rom: Rom
 ):
-    """The pull runs detached, so a claim landing on the heels of the release
-    would hydrate the container from the archive before this one."""
-    key = saves._save_pull_redis_key(admin_user.id, rom.id)
-    with _streaming(_container_for(rom)):
+    """Runs both ends for real: nothing else ties the key an exit marks to the
+    one the next claim waits on."""
+    order: list[str] = []
+    real_wait = saves.wait_for_save_pull
+
+    async def slow_pull(*args, **kwargs) -> bool:
+        await asyncio.sleep(saves._SAVE_PULL_POLL_SECONDS * 2)
+        order.append("filed")
+        return True
+
+    async def hydrate(*args, **kwargs) -> bool:
+        order.append("hydrate")
+        return True
+
+    async def wait_while_it_files(user_id: int, rom_id: int) -> bool:
+        filing = asyncio.ensure_future(spawn.call_args[0][0])
+        done = await real_wait(user_id, rom_id, budget=5)
+        order.append("waited" if done else "gave up")
+        await filing
+        return done
+
+    with (
+        _streaming(_container_for(rom)),
+        patch("handler.streaming.saves.pull_saves_to_library", new=slow_pull),
+    ):
         _claim_ok(client, access_token, rom.id)
         with (
             patch("handler.streaming.commands.stop", return_value=None),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
-            patch(
-                "handler.streaming.saves.pull_saves_to_library",
-                new_callable=AsyncMock,
-            ),
         ):
             client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
             )
-            # Set by the release itself, not by the task it spawned: a claim
-            # can arrive before that task has run at all.
-            assert asyncio.run(async_cache.exists(key)) == 1
-            asyncio.run(spawn.call_args[0][0])
-            assert asyncio.run(async_cache.exists(key)) == 0
+        with (
+            patch(
+                "handler.streaming.saves.wait_for_save_pull", new=wait_while_it_files
+            ),
+            patch("handler.streaming.saves.hydrate_saves_to_broker", new=hydrate),
+        ):
+            r = _claim_ok(client, access_token, rom.id)
+    assert r.status_code == 202
+    assert order == ["filed", "waited", "hydrate"]
 
 
 def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
@@ -4779,29 +4800,6 @@ def test_a_wedged_save_pull_does_not_hang_the_claim():
 
 def test_a_claim_with_nothing_pending_hydrates_straight_away():
     assert asyncio.run(saves.wait_for_save_pull(1, 2, budget=5)) is True
-
-
-def test_a_claim_waits_for_the_exit_pull_before_hydrating(
-    client, access_token, rom: Rom
-):
-    order: list[str] = []
-
-    async def _wait(user_id: int, rom_id: int, budget: float = 0.0) -> bool:
-        order.append("wait")
-        return True
-
-    async def _hydrate(*args, **kwargs) -> bool:
-        order.append("hydrate")
-        return True
-
-    with _streaming(_container_for(rom)):
-        with (
-            patch("handler.streaming.saves.wait_for_save_pull", new=_wait),
-            patch("handler.streaming.saves.hydrate_saves_to_broker", new=_hydrate),
-        ):
-            r = _claim_ok(client, access_token, rom.id)
-    assert r.status_code == 202
-    assert order == ["wait", "hydrate"]
 
 
 # ── Resume-from-state ─────────────────────────────────────────────────────────
