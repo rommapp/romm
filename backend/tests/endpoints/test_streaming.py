@@ -1334,6 +1334,7 @@ def test_a_busy_pool_reports_a_drain_on_any_member(
     assert r.status_code == 409
     detail = r.json()["detail"]
     assert detail["draining"] is True
+    assert "shutting down" in detail["message"]
     assert detail["rom_name"] == rom.name
     assert detail["claimed_at"] == holder["claimed_at"]
 

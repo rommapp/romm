@@ -436,7 +436,7 @@ async def _reserve_container(
         {},
     )
     if draining:
-        message = "The previous session is still saving, try again shortly"
+        message = "The previous session is still shutting down, try again shortly"
     elif len(candidates) == 1:
         message = "Session in use"
     else:
@@ -1498,7 +1498,7 @@ async def claim_desktop_session(
             detail={
                 "message": "Container in use",
                 # Same shape as a game claim's 409: a drain marker means the
-                # previous session is still saving, not that anyone holds it.
+                # previous session is still shutting down, not that anyone holds it.
                 "draining": bool(existing.get("draining")),
                 "rom_name": access.visible_rom_name(request, existing),
                 "claimed_at": existing.get("claimed_at"),
