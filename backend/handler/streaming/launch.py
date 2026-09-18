@@ -102,6 +102,7 @@ async def run_launch(
             LaunchFailedPayload(
                 platform=platform,
                 container=session_key,
+                claimed_at=session["claimed_at"],
                 detail=_failure_detail(exc),
             ).model_dump(),
         )
@@ -127,6 +128,7 @@ async def run_launch(
         LaunchReadyPayload(
             platform=platform,
             container=session_key,
+            claimed_at=session["claimed_at"],
             host=host,
             resume=resume_pushed if resume_state is not None else None,
         ).model_dump(),
@@ -192,6 +194,9 @@ async def _watch_launch_phase(
             session.get("user_id"),
             "streaming:launch-phase",
             LaunchPhasePayload(
-                platform=platform, container=session_key, phase=phase
+                platform=platform,
+                container=session_key,
+                claimed_at=session["claimed_at"],
+                phase=phase,
             ).model_dump(),
         )

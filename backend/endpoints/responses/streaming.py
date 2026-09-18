@@ -89,6 +89,8 @@ class LaunchReadyPayload(BaseModel):
 
     platform: str
     container: str
+    claimed_at: str
+    """The claim's stamp, since a re-claim of the same container shares its key."""
     host: str
     resume: bool | None = None
     """None when no resume was asked for; False means the state could not be
@@ -100,6 +102,7 @@ class LaunchFailedPayload(BaseModel):
 
     platform: str
     container: str
+    claimed_at: str
     detail: str
 
 
@@ -108,6 +111,7 @@ class LaunchPhasePayload(BaseModel):
 
     platform: str
     container: str
+    claimed_at: str
     phase: str | None = None
 
 

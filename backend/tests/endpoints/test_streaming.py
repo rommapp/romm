@@ -990,6 +990,8 @@ def test_claim_answers_before_the_launch_and_pushes_the_room_url(
     assert "host" not in body
     assert [event for event, _ in sent] == ["streaming:launch-ready"]
     assert _launch_ready(sent)["host"] == "http://192.168.1.10:3000"
+    # A re-claim of the same container is only told apart by its stamp.
+    assert _launch_ready(sent)["claimed_at"] == body["claimed_at"]
 
 
 def test_a_failed_launch_pushes_the_reason_and_frees_the_container(
@@ -1008,6 +1010,7 @@ def test_a_failed_launch_pushes_the_reason_and_frees_the_container(
     assert event == "streaming:launch-failed"
     assert payload["detail"] == "broker said no"
     assert payload["container"] == _key_of(_container_for(rom))
+    assert payload["claimed_at"] == r.json()["claimed_at"]
     assert _session_raw(_container_for(rom)) is None
 
 
@@ -1040,9 +1043,10 @@ def test_launch_phase_is_pushed_while_a_webstation_unpacks(
                 r = _claim(client, access_token, rom.id)
 
     assert r.status_code == 202
-    pushed = [p["phase"] for event, p in sent if event == "streaming:launch-phase"]
+    phases_sent = [p for event, p in sent if event == "streaming:launch-phase"]
     # Only changes are pushed, so a repeated phase is not re-sent.
-    assert pushed == ["unpacking", "installing"]
+    assert [p["phase"] for p in phases_sent] == ["unpacking", "installing"]
+    assert {p["claimed_at"] for p in phases_sent} == {r.json()["claimed_at"]}
     assert sent[-1][0] == "streaming:launch-ready"
 
 
