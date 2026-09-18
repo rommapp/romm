@@ -17,6 +17,7 @@
 // in lists). `rounded` overrides the default pill / label radius if
 // you need a specific radius.
 import { computed } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -53,6 +54,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: "click:close", evt: MouseEvent): void;
 }>();
+
+const labels = useChromeLabels();
 
 const TONE_MAP: Record<string, string> = {
   primary: "var(--r-color-brand-primary)",
@@ -141,7 +144,7 @@ function onClose(evt: MouseEvent) {
       v-if="closable"
       type="button"
       class="r-chip__close"
-      aria-label="Remove"
+      :aria-label="labels.remove"
       :disabled="disabled"
       @click="onClose"
     >

@@ -31,20 +31,20 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 
 ## 1. Overview
 
-| Property             | Value                                          |
-| -------------------- | ---------------------------------------------- |
-| **Framework**        | Vue 3.4.27 (Composition API, `<script setup>`) |
-| **Build Tool**       | Vite 6.4.2                                     |
-| **Language**         | TypeScript 5.7.3 (`noImplicitAny: true`)       |
-| **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only       |
-| **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only   |
-| **State Management** | Pinia 3.0.1 (18 stores)                        |
-| **Routing**          | Vue Router 4.3.2                               |
-| **HTTP Client**      | Axios 1.15.0                                   |
-| **i18n**             | vue-i18n 11.1.10 (17 languages)                |
-| **Real-time**        | Socket.IO Client 4.7.5                         |
-| **Icons**            | Material Design Icons (MDI) 7.4.47             |
-| **Node**             | 24 (via `.nvmrc`)                              |
+| Property             | Value                                        |
+| -------------------- | -------------------------------------------- |
+| **Framework**        | Vue 3.5 (Composition API, `<script setup>`)  |
+| **Build Tool**       | Vite 6.4.2                                   |
+| **Language**         | TypeScript 5.7.3 (`noImplicitAny: true`)     |
+| **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only     |
+| **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only |
+| **State Management** | Pinia 3.0.1 (18 stores)                      |
+| **Routing**          | Vue Router 4.3.2                             |
+| **HTTP Client**      | Axios 1.15.0                                 |
+| **i18n**             | vue-i18n 11.1.10 (17 languages)              |
+| **Real-time**        | Socket.IO Client 4.7.5                       |
+| **Icons**            | Material Design Icons (MDI) 7.4.47           |
+| **Node**             | 24 (via `.nvmrc`)                            |
 
 **Total:** ~216 Vue components (168 under `components/`, rest in views/console/layouts), 18 Pinia stores, 17 API service modules, 36 named routes across 3 layouts.
 
