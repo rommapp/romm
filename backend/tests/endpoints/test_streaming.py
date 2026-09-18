@@ -2920,6 +2920,20 @@ def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
     assert session_store.session_is_stale(session)
 
 
+def test_status_for_a_replaced_claim_reports_ended(client, access_token, rom: Rom):
+    """A loading tab whose claim was re-taken on the same container must not be
+    handed the new claim's room as its own."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+
+
 def test_admin_release_leaves_termination_notice(
     client, access_token, viewer_access_token, rom: Rom
 ):

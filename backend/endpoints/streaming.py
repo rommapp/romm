@@ -1119,13 +1119,22 @@ async def heartbeat_session(
 
 
 @protected_route(router.get, "/sessions/{platform}/status", [Scope.ROMS_READ])
-async def session_status(request: Request, platform: str) -> SessionStatusSchema:
+async def session_status(
+    request: Request,
+    platform: str,
+    claimed_at: str | None = Query(default=None, max_length=64),
+) -> SessionStatusSchema:
     """Does the caller still hold this platform's session?
 
     Unlike the heartbeat this has no side effects, so a client can call it on
     mount or after a reconnect without extending a claim it may not own.
+
+    Args:
+        claimed_at: the claim's stamp, so a tab never adopts a claim that replaced its own.
     """
-    return SessionStatusSchema(**await _session_status(platform, request))
+    return SessionStatusSchema(
+        **await _session_status(platform, request, claimed_at=claimed_at)
+    )
 
 
 @protected_route(router.post, "/sessions/{platform}/join", [Scope.ROMS_READ])
