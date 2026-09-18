@@ -24,7 +24,7 @@ export function useVersionDisplay() {
       .join("/");
     return encodedBranch
       ? `https://github.com/rommapp/romm/tree/${encodedBranch}`
-      : `https://github.com/rommapp/romm/releases/tag/${heartbeatStore.value.SYSTEM.VERSION}`;
+      : `https://github.com/rommapp/romm/releases/tag/${version.value}`;
   });
 
   return { version, href };
