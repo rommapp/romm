@@ -1,8 +1,6 @@
+import { RAlert, RChip, RSteps } from "@v2/lib";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import RAlert from "../primitives/RAlert/RAlert.vue";
-import RChip from "../primitives/RChip/RChip.vue";
-import RSteps from "../primitives/RSteps/RSteps.vue";
 import {
   ChromeLabelsKey,
   DEFAULT_CHROME_LABELS,

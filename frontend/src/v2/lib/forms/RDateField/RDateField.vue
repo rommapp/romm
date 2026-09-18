@@ -452,8 +452,7 @@ onBeforeUnmount(() => {
 
 <template>
   <!-- Keydown sits here so Escape and the arrows work wherever focus is
-       inside the field. The combobox role goes on RTextField's input via
-       `popup`, since the role requires a focusable element. -->
+       inside the field; the combobox role goes on the input via `popup`. -->
   <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
   <div ref="referenceEl" class="r-date-field" @keydown="onFieldKeydown">
     <!-- Single `@click` on the wrapper is enough: native clicks on
@@ -465,7 +464,11 @@ onBeforeUnmount(() => {
       :model-value="displayValue"
       :disabled="disabled"
       :focused="isOpen"
-      :popup="{ controls: panelId, expanded: isOpen, kind: 'dialog' }"
+      :popup="{
+        controls: isOpen ? panelId : undefined,
+        expanded: isOpen,
+        kind: 'dialog',
+      }"
       readonly
       :append-inner-icon="
         clearable && selectedDate ? undefined : 'mdi-calendar'

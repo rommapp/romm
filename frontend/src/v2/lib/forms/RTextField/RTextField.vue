@@ -27,6 +27,7 @@ import {
   useAttrs,
   useSlots,
   watch,
+  watchEffect,
 } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -107,13 +108,14 @@ interface Props {
    *  pairs with the field's value. The `#subtitle` slot wins over the
    *  prop when both are provided; use the slot to drop in an icon. */
   subtitle?: string;
-  /** Wires the native input as a combobox owning a popup. The role has to
-   *  sit on the focusable input: this component's outer element is a
-   *  `<label>` whenever it owns the visible label, where the role is
-   *  disallowed and would void the input's label association. */
+  /** Wires the native input as a combobox owning a popup, putting the role
+   *  on the input rather than the outer element (a `<label>` when this field
+   *  owns its visible label). Single-line only: `role="combobox"` is not
+   *  valid on a `<textarea>`. */
   popup?: {
-    /** `id` of the popup element. */
-    controls: string;
+    /** `id` of the popup element. Omit while it is unmounted, so
+     *  `aria-controls` never points at an element that is not there. */
+    controls?: string;
     expanded: boolean;
     kind: "dialog" | "listbox" | "grid";
   };
@@ -158,6 +160,14 @@ const props = withDefaults(defineProps<Props>(), {
 
 const labels = useChromeLabels();
 
+watchEffect(() => {
+  if (props.multiline && props.popup) {
+    console.error(
+      "[RTextField] `popup` is ignored when `multiline` is set: role=combobox is not valid on a <textarea>.",
+    );
+  }
+});
+
 const emit = defineEmits<{
   (e: "update:modelValue", value: string): void;
   (e: "focus", evt: FocusEvent): void;
@@ -174,9 +184,8 @@ const emit = defineEmits<{
 const slots = useSlots();
 const attrs = useAttrs();
 const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
-// Stable id for `aria-describedby` — Vue 3.5 ships `useId`, but we're
-// on 3.4 still. The instance uid is unique per mounted component, which
-// is plenty for aria wiring.
+// Stable id for `aria-describedby`. The instance uid is unique per mounted
+// component, which is plenty for aria wiring.
 const fieldId = `r-tf-${getCurrentInstance()?.uid ?? Math.random().toString(36).slice(2)}`;
 
 // ── Tone resolver — same vocabulary as the rest of the lib ─────
