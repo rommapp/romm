@@ -14,7 +14,7 @@ from utils.images import frame_durations
 
 class TestImageConverter:
     @pytest.fixture
-    def converter(self):
+    def converter(self) -> ImageConverter:
         return ImageConverter()
 
     def test_converts_static_image(self, converter: ImageConverter, tmp_path: Path):

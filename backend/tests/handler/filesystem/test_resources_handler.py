@@ -334,7 +334,7 @@ class TestFSResourcesHandler:
             assert small.size == SMALL_FRAME_SIZE
 
     async def test_store_artwork_keeps_animation(
-        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
     ):
         handler.base_path = tmp_path
         data = animated_image_bytes("GIF")

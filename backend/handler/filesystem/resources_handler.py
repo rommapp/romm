@@ -1,3 +1,4 @@
+import asyncio
 import gzip
 import os
 from collections.abc import Callable, Iterable
@@ -164,6 +165,22 @@ class FSResourcesHandler(FSHandler):
         small_img = cover.resize(small_size)
         small_img.save(save_path)
 
+    def _write_derived_covers(
+        self, path_cover_l: Path, path_cover_s: Path, convert_large: bool = True
+    ) -> None:
+        """Write the small cover and the WebP copies; blocking, so run in a thread.
+
+        Args:
+            convert_large: Also refresh the large cover's WebP copy.
+        """
+        with Image.open(path_cover_l) as img:
+            self.resize_cover_to_small(img, save_path=str(path_cover_s))
+
+        if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+            if convert_large:
+                self.image_converter.convert_to_webp(path_cover_l, force=True)
+            self.image_converter.convert_to_webp(path_cover_s, force=True)
+
     async def _discard_if_chroma_key(self, relative_path: str) -> bool:
         """Remove a just-downloaded image if it's a chroma-key placeholder.
 
@@ -271,18 +288,11 @@ class FSResourcesHandler(FSHandler):
                 await self._discard_partial_file(small_path)
                 return None
 
-            with Image.open(self.validate_path(big_path)) as img:
-                self.resize_cover_to_small(
-                    img, save_path=str(self.validate_path(small_path))
-                )
-
-            if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-                self.image_converter.convert_to_webp(
-                    self.validate_path(big_path), force=True
-                )
-                self.image_converter.convert_to_webp(
-                    self.validate_path(small_path), force=True
-                )
+            await asyncio.to_thread(
+                self._write_derived_covers,
+                self.validate_path(big_path),
+                self.validate_path(small_path),
+            )
         except UnidentifiedImageError as exc:
             # Undecodable bytes still satisfy cover_exists(), so keeping them
             # would stop every later scan from refetching a working cover.
@@ -310,15 +320,12 @@ class FSResourcesHandler(FSHandler):
         )
 
         try:
-            with Image.open(self.validate_path(path_cover_l)) as img:
-                self.resize_cover_to_small(
-                    img, save_path=str(self.validate_path(path_cover_s))
-                )
-
-            if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-                self.image_converter.convert_to_webp(
-                    self.validate_path(path_cover_s), force=True
-                )
+            await asyncio.to_thread(
+                self._write_derived_covers,
+                self.validate_path(path_cover_l),
+                self.validate_path(path_cover_s),
+                convert_large=False,
+            )
         except (UnidentifiedImageError, OSError) as exc:
             # Unlike a fresh download, these bytes weren't written here, so the
             # large cover stays put and only the partial small one is dropped.
@@ -409,11 +416,9 @@ class FSResourcesHandler(FSHandler):
                     )
                 else:
                     img.save(path_cover_l)
-                self.resize_cover_to_small(img, save_path=str(path_cover_s))
-
-                if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-                    self.image_converter.convert_to_webp(path_cover_l, force=True)
-                    self.image_converter.convert_to_webp(path_cover_s, force=True)
+            await asyncio.to_thread(
+                self._write_derived_covers, path_cover_l, path_cover_s
+            )
         except UnidentifiedImageError as exc:
             log.error(
                 f"Unable to identify image for {entity.fs_resources_path}: {str(exc)}"
