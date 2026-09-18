@@ -85,17 +85,6 @@ const homeOptions = computed(() => [
   },
 ]);
 
-const platformsDrawerOptions = computed(() => [
-  {
-    title: t("settings.group-platforms-by"),
-    description: t("settings.group-platforms-by-desc"),
-    iconEnabled: "mdi-controller",
-    iconDisabled: "mdi-controller",
-    model: platformsGroupByRef,
-    modelTrigger: setPlatformDrawerGroupBy,
-  },
-]);
-
 const galleryOptions = computed(() => [
   {
     title: t("settings.group-roms"),
@@ -287,12 +276,7 @@ const toggleDisableAnimations = (value: boolean) => {
       </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="align-center py-1" no-gutters>
-        <v-col
-          v-for="option in platformsDrawerOptions"
-          :key="option.title"
-          cols="12"
-          md="6"
-        >
+        <v-col cols="12" md="6">
           <v-select
             v-model="platformsGroupByRef"
             :items="[
