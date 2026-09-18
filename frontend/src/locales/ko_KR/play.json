@@ -25,7 +25,7 @@
   "desktop-back": "Back to administration",
   "desktop-error-no-container": "That streaming container is not configured.",
   "desktop-error-occupied": "This container is already in use. End the session holding it first.",
-  "desktop-error-occupied-by": "{rom}이(가) 이 컨테이너에서 실행 중입니다. 먼저 해당 세션을 종료하세요.",
+  "desktop-error-occupied-by": "{rom} is running on this container. End that session first.",
   "desktop-error-release": "The desktop session could not be released. The container may still be in use.",
   "desktop-error-server": "The desktop session could not be opened.",
   "desktop-exit": "End desktop session",
