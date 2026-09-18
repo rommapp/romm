@@ -1,11 +1,10 @@
 <script setup lang="ts">
 // PlatformListRow — single row of the Platforms list-mode index.
 //
-// Anatomy mirrors GameListRow: thumb (RPlatformIcon at the same 48px
-// scale used in the ROM list cover slot) + name stack on the left, game
-// count column on the right. Click navigates to /platform/<id> with the
-// same shared-element morph as PlatformTile so switching between grid
-// and list modes lands on the same destination animation.
+// Anatomy mirrors GameListRow: thumb (RPlatformIcon) + name stack on the
+// left, game count column on the right. Click navigates to /platform/<id>
+// with the same shared-element morph as PlatformTile so switching between
+// grid and list modes lands on the same destination animation.
 import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -221,11 +220,7 @@ function onRowClick(e: MouseEvent) {
 }
 
 .plat-list-row__thumb {
-  width: var(--r-list-cover-w);
-  height: var(--r-list-cover-w);
   flex-shrink: 0;
-  border-radius: var(--r-radius-sm);
-  background: var(--r-color-surface);
   display: grid;
   place-items: center;
   opacity: 0.9;

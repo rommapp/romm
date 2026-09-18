@@ -162,18 +162,25 @@ def test_upload_empty_file_without_chunks(
     assert final_file.read_bytes() == b""
 
 
-def test_start_non_empty_file_without_chunks_returns_400(
+@pytest.mark.parametrize(("total_size", "total_chunks"), [(11, 0), (0, 2)])
+def test_start_with_chunks_that_do_not_match_the_size_returns_400(
     client: TestClient,
     access_token: str,
     platform: Platform,
     upload_fs: dict,
+    total_size: int,
+    total_chunks: int,
 ):
     response = _start_upload(
-        client, access_token, platform.id, total_size=11, total_chunks=0
+        client,
+        access_token,
+        platform.id,
+        total_size=total_size,
+        total_chunks=total_chunks,
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert response.json()["detail"] == "A non-empty file needs at least one chunk"
+    assert response.json()["detail"] == "Chunk count does not match the file size"
 
 
 def test_upload_chunk_invalid_upload_id(client: TestClient, access_token: str):

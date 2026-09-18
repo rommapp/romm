@@ -379,7 +379,6 @@ defineExpose({
   background: color-mix(in srgb, var(--r-color-bg) 72%, transparent);
   border-bottom: 1px solid var(--r-color-border);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   z-index: 10;
   visibility: hidden;
   opacity: 0;

@@ -33,14 +33,10 @@ interface Props {
    * name on `GameListRow` + `GameListSkeletonRow` so all three stay in
    * lockstep. */
   showPlatformColumn?: boolean;
-  /** Width of the cover column (px) — shared with every row so the title
-   * column aligns. Set by the shell from the gallery's widest cover. */
-  coverWidth?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showPlatformColumn: true,
-  coverWidth: 48,
 });
 
 const emit = defineEmits<{
@@ -50,10 +46,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const gridStyle = computed(() => ({
-  gridTemplateColumns: getListGridTemplate(
-    props.showPlatformColumn,
-    props.coverWidth,
-  ),
+  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
 }));
 
 const selection = storeGallerySelection();
@@ -145,7 +138,7 @@ function handleClick(col: ListColumn) {
 .game-list-header {
   display: grid;
   align-items: center;
-  gap: 0 var(--r-space-3);
+  gap: 0 var(--r-space-5);
   padding: 0 var(--r-space-3);
   height: var(--r-list-header-h);
   background: var(--r-color-bg-elevated);
@@ -180,6 +173,12 @@ function handleClick(col: ListColumn) {
 .game-list-header__cell--end {
   justify-content: flex-end;
   text-align: end;
+}
+
+/* End-aligned labels hug the right edge, so the sort glyph goes on the
+   label's left. Appending it would shove the label sideways on click. */
+.game-list-header__cell--end .game-list-header__icon {
+  order: -1;
 }
 
 .game-list-header__cell--sortable {
