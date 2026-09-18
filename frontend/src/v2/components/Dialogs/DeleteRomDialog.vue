@@ -165,6 +165,8 @@ function closeDialog() {
     icon="mdi-delete-outline"
     scroll-content
     width="560"
+    cancelable
+    :cancel-disabled="deleting"
     @close="closeDialog"
   >
     <template #header>
@@ -254,11 +256,6 @@ function closeDialog() {
           </span>
         </p>
       </div>
-    </template>
-    <template #footer-start>
-      <RBtn variant="outlined" :disabled="deleting" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
     <template #footer>
       <RBtn

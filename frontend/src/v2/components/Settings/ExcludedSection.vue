@@ -372,6 +372,7 @@ function onSort({ key, dir }: RTableSortPayload) {
       icon="mdi-cancel"
       :width="540"
       scroll-content
+      cancelable
       @close="closeCreate"
     >
       <template #header>
@@ -418,11 +419,6 @@ function onSort({ key, dir }: RTableSortPayload) {
             {{ t("settings.exclusion-value") }}
           </template>
         </RTextField>
-      </template>
-      <template #footer-start>
-        <RBtn variant="outlined" @click="closeCreate">
-          {{ t("common.cancel") }}
-        </RBtn>
       </template>
       <template #footer>
         <RBtn

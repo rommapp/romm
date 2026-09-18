@@ -392,6 +392,7 @@ onBeforeUnmount(() => {
     :icon="isRegenerate ? 'mdi-refresh' : 'mdi-key-plus'"
     :width="720"
     scroll-content
+    :cancelable="step === 'config'"
     @close="closeDialog"
   >
     <template #header>
@@ -573,11 +574,8 @@ onBeforeUnmount(() => {
     </template>
 
     <template #footer-start>
-      <RBtn v-if="step === 'config'" variant="outlined" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
       <RBtn
-        v-else-if="step !== 'delivery'"
+        v-if="step !== 'config' && step !== 'delivery'"
         variant="text"
         @click="step = 'delivery'"
       >

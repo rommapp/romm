@@ -125,6 +125,7 @@ function onScan() {
     :model-value="modelValue"
     icon="mdi-magnify-scan"
     :width="560"
+    cancelable
     @update:model-value="$emit('update:modelValue', $event)"
     @close="closeDialog"
   >
@@ -397,11 +398,6 @@ function onScan() {
       </div>
     </template>
 
-    <template #footer-start>
-      <RBtn variant="outlined" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-    </template>
     <template #footer>
       <RBtn
         variant="translucent"

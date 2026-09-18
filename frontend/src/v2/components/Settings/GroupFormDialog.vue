@@ -190,6 +190,7 @@ async function save() {
     icon="mdi-shield-lock-outline"
     :width="720"
     scroll-content
+    cancelable
   >
     <template #header>
       <span class="r-v2-group-dialog__title">
@@ -292,11 +293,6 @@ async function save() {
           <HiddenGamesPicker v-model="hiddenRomIds" />
         </div>
       </div>
-    </template>
-    <template #footer-start>
-      <RBtn variant="outlined" @click="show = false">{{
-        t("common.cancel")
-      }}</RBtn>
     </template>
     <template #footer>
       <RBtn

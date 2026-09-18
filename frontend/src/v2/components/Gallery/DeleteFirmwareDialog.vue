@@ -102,6 +102,8 @@ async function confirm() {
     :model-value="modelValue"
     icon="mdi-delete"
     :width="560"
+    cancelable
+    :cancel-disabled="deleting"
     @update:model-value="$emit('update:modelValue', $event)"
     @close="closeDialog"
   >
@@ -175,11 +177,6 @@ async function confirm() {
       </p>
     </template>
 
-    <template #footer-start>
-      <RBtn variant="outlined" :disabled="deleting" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-    </template>
     <template #footer>
       <RBtn
         variant="flat"

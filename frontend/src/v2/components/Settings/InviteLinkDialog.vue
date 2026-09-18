@@ -88,7 +88,13 @@ function close() {
 </script>
 
 <template>
-  <RDialog v-model="show" icon="mdi-share-variant" :width="540" @close="close">
+  <RDialog
+    v-model="show"
+    icon="mdi-share-variant"
+    :width="540"
+    cancelable
+    @close="close"
+  >
     <template #header>
       <span class="r-v2-invite__title">{{ t("settings.invite-link") }}</span>
     </template>
@@ -135,11 +141,6 @@ function close() {
           <RIcon icon="mdi-content-copy" size="14" />
         </button>
       </div>
-    </template>
-    <template #footer-start>
-      <RBtn variant="outlined" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
     <template #footer>
       <RBtn

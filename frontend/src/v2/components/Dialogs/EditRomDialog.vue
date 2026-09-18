@@ -313,6 +313,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     scroll-content
     full-height-on-mobile
     :width="lgAndUp ? 900 : '95vw'"
+    cancelable
+    :cancel-disabled="saving"
     @close="closeDialog"
   >
     <template #header>
@@ -486,11 +488,6 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
       </DangerZone>
     </template>
 
-    <template #footer-start>
-      <RBtn variant="outlined" :disabled="saving" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-    </template>
     <template #footer>
       <RBtn
         variant="translucent"

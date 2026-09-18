@@ -197,6 +197,7 @@ function closeDialog() {
     v-model="show"
     icon="mdi-magnify-scan"
     width="560"
+    cancelable
     @close="closeDialog"
   >
     <template #header>
@@ -482,11 +483,6 @@ function closeDialog() {
           {{ t("scan.hash-calculation-disabled") }}
         </RAlert>
       </div>
-    </template>
-    <template #footer-start>
-      <RBtn variant="outlined" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
     <template #footer>
       <RBtn

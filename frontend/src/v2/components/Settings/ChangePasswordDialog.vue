@@ -113,6 +113,7 @@ async function submit() {
     :model-value="open"
     icon="mdi-key-variant"
     :width="480"
+    cancelable
     @update:model-value="(v) => emit('update:open', v)"
     @close="close"
   >
@@ -154,11 +155,6 @@ async function submit() {
         <RIcon icon="mdi-information-outline" size="14" />
         <span>{{ t("common.password-length") }}</span>
       </p>
-    </template>
-    <template #footer-start>
-      <RBtn variant="outlined" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
     <template #footer>
       <RBtn

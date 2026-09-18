@@ -59,6 +59,8 @@ function submit(): void {
     :model-value="modelValue"
     :icon="icon"
     :width="420"
+    cancelable
+    :cancel-disabled="busy"
     @update:model-value="
       (v) => {
         if (!v) close();
@@ -89,11 +91,6 @@ function submit(): void {
       </RForm>
     </template>
 
-    <template #footer-start>
-      <RBtn variant="outlined" :disabled="busy" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
-    </template>
     <template #footer>
       <RBtn
         variant="flat"

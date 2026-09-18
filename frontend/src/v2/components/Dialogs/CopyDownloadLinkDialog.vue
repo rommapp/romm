@@ -57,6 +57,8 @@ async function retryCopy() {
     v-model="show"
     icon="mdi-share-variant-outline"
     width="560"
+    cancelable
+    :cancel-text="t('common.close')"
     @close="closeDialog"
   >
     <template #header>
@@ -69,9 +71,6 @@ async function retryCopy() {
         </p>
         <code class="r-v2-copy-link__box">{{ link }}</code>
       </div>
-    </template>
-    <template #footer-start>
-      <RBtn variant="text" @click="closeDialog">{{ t("common.close") }}</RBtn>
     </template>
     <template #footer>
       <RBtn

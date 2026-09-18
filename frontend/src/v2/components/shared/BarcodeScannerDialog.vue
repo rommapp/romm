@@ -6,7 +6,7 @@
 //
 // Camera access needs a secure context (HTTPS or localhost); callers gate the
 // trigger on that themselves.
-import { RBtn, RDialog, RIcon } from "@v2/lib";
+import { RDialog, RIcon } from "@v2/lib";
 import {
   BrowserMultiFormatReader,
   type IScannerControls,
@@ -120,6 +120,7 @@ onBeforeUnmount(stopCamera);
     :model-value="modelValue"
     icon="mdi-barcode-scan"
     :width="480"
+    cancelable
     @update:model-value="(v: boolean) => (v ? null : close())"
     @close="close"
   >
@@ -146,12 +147,6 @@ onBeforeUnmount(stopCamera);
         </div>
         <p class="r-v2-bsc__hint">{{ t("rom.barcode-scan-hint") }}</p>
       </div>
-    </template>
-
-    <template #footer>
-      <RBtn variant="outlined" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
   </RDialog>
 </template>

@@ -99,10 +99,6 @@ function addFiles(picked: File[]) {
   files.value = [...files.value, ...picked.filter((f) => !seen.has(f.name))];
 }
 
-function close() {
-  emit("update:modelValue", false);
-}
-
 async function submit() {
   if (files.value.length === 0) return;
   const result = await formRef.value?.validate();
@@ -125,6 +121,7 @@ async function submit() {
     :model-value="modelValue"
     icon="mdi-cloud-upload-outline"
     width="520"
+    cancelable
     @update:model-value="emit('update:modelValue', $event)"
   >
     <template #header>
@@ -176,11 +173,6 @@ async function submit() {
           :input-label="t('common.upload')"
         />
       </RForm>
-    </template>
-    <template #footer-start>
-      <RBtn variant="outlined" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
     <template #footer>
       <RBtn

@@ -314,6 +314,8 @@ function closeDialog() {
     :width="lgAndUp ? 880 : '95vw'"
     height="88vh"
     :persistent="matching"
+    cancelable
+    :cancel-disabled="matching"
     @close="closeDialog"
   >
     <template #header>
@@ -423,11 +425,6 @@ function closeDialog() {
       </div>
     </template>
 
-    <template #footer-start>
-      <RBtn variant="outlined" :disabled="matching" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-    </template>
     <template #footer>
       <!-- Results count lives here (not the filter row) so appearing after a
            search never reflows the toolbar above. -->

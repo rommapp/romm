@@ -20,6 +20,9 @@ const meta: Meta<typeof RDialog> = {
       control: "inline-radio",
       options: ["default", "compact", "flush"],
     },
+    cancelable: { control: "boolean" },
+    cancelDisabled: { control: "boolean" },
+    cancelText: { control: "text" },
   },
 };
 
@@ -38,15 +41,12 @@ export const Basic: Story = {
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
         <RBtn @click="open = true">Open dialog</RBtn>
-        <RDialog v-bind="args" v-model="open">
+        <RDialog v-bind="args" v-model="open" cancelable>
           <template #header>
             <span>Dialog title</span>
           </template>
           <template #content>
             <p>This is the dialog body. Keep content concise and actionable.</p>
-          </template>
-          <template #footer-start>
-            <RBtn variant="outlined" @click="open = false">Cancel</RBtn>
           </template>
           <template #footer>
             <RBtn color="primary" @click="open = false">Confirm</RBtn>
@@ -152,16 +152,13 @@ export const WithToolbarAndFooter: Story = {
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
         <RBtn @click="open = true">Open full dialog</RBtn>
-        <RDialog v-bind="args" v-model="open">
+        <RDialog v-bind="args" v-model="open" cancelable>
           <template #header><span>Edit ROM</span></template>
           <template #toolbar>
             <small style="color: rgba(255,255,255,0.55)">Super Mario World · Super Nintendo</small>
           </template>
           <template #content>
             <p>Body content with form fields would go here.</p>
-          </template>
-          <template #footer-start>
-            <RBtn variant="outlined" @click="open = false">Cancel</RBtn>
           </template>
           <template #footer>
             <RBtn color="primary" @click="open = false">Save</RBtn>

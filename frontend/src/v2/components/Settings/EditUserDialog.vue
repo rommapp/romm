@@ -276,6 +276,7 @@ function close() {
     icon="mdi-account-edit"
     :width="640"
     scroll-content
+    cancelable
     @close="close"
   >
     <template #header>
@@ -443,11 +444,6 @@ function close() {
           </template>
         </template>
       </div>
-    </template>
-    <template #footer-start>
-      <RBtn variant="outlined" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
     <template #footer>
       <RBtn

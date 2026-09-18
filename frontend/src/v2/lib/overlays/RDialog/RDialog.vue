@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // RDialog — teleports to <body>, paints a scrim + glass panel, and
 // locks page scroll while open. Slot layout: header / toolbar /
-// content / append / footer-start + footer.
+// content / append / footer-start + footer. `cancelable` adds a Cancel
+// button at the footer's start that closes like Escape.
 //
 // Behaviour:
 //   • Escape closes (unless `persistent`).
@@ -17,6 +18,7 @@
 // REmptyState / RProgressCircular / RSpinner as needed.
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import { createBodyScrollLock, overlayCount } from "../bodyScrollLock";
 import {
@@ -50,6 +52,12 @@ const props = withDefaults(
      *  content lines up with the controls above it; `flush` drops padding
      *  and gap for edge-to-edge rows. */
     bodyPadding?: "default" | "compact" | "flush";
+    /** Render a Cancel button at the footer's start; it closes the dialog
+     *  (even when `persistent`), emitting `update:modelValue` and `close`. */
+    cancelable?: boolean;
+    cancelDisabled?: boolean;
+    /** Replaces the Cancel label (defaults to the chrome `cancel` label). */
+    cancelText?: string;
   }>(),
   {
     scrollContent: false,
@@ -60,6 +68,9 @@ const props = withDefaults(
     fullscreenOnMobile: true,
     fullHeightOnMobile: false,
     bodyPadding: "default",
+    cancelable: false,
+    cancelDisabled: false,
+    cancelText: undefined,
   },
 );
 
@@ -268,13 +279,21 @@ const panelStyle = computed(() => {
             <slot name="append" />
           </div>
 
-          <!-- Footer bar: `footer-start` (Cancel) sits left, `footer`
+          <!-- Footer bar: Cancel and `footer-start` sit left, `footer`
                actions are pushed right. -->
           <footer
-            v-if="slots.footer || slots['footer-start']"
+            v-if="cancelable || slots.footer || slots['footer-start']"
             class="r-dialog__footer"
           >
-            <template v-if="slots['footer-start']">
+            <template v-if="cancelable || slots['footer-start']">
+              <RBtn
+                v-if="cancelable"
+                variant="outlined"
+                :disabled="cancelDisabled"
+                @click="closeDialog"
+              >
+                {{ cancelText ?? labels.cancel }}
+              </RBtn>
               <slot name="footer-start" />
               <span class="r-dialog__footer-spacer" aria-hidden="true" />
             </template>

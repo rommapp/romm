@@ -1762,7 +1762,12 @@ onBeforeUnmount(() => {
       </template>
     </RDialog>
 
-    <RDialog v-model="showDiscSwap" width="440">
+    <RDialog
+      v-model="showDiscSwap"
+      width="440"
+      cancelable
+      :cancel-disabled="isSwappingDisc"
+    >
       <template #header>
         <span>{{ t("play.swap-disc-title") }}</span>
       </template>
@@ -1777,15 +1782,6 @@ onBeforeUnmount(() => {
           :label="t('rom.file')"
           :items="discOptions"
         />
-      </template>
-      <template #footer-start>
-        <RBtn
-          variant="outlined"
-          :disabled="isSwappingDisc"
-          @click="showDiscSwap = false"
-        >
-          {{ t("common.cancel") }}
-        </RBtn>
       </template>
       <template #footer>
         <RBtn

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The in-game Load picker with the launch screen's Saves / States tabs: opens
 // on `selectStateDialog`, emits `saveSelected` or `stateSelected`.
-import { RBtn, RDialog, RSliderBtnGroup } from "@v2/lib";
+import { RDialog, RSliderBtnGroup } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -81,6 +81,7 @@ function closeDialog() {
     :width="mdAndUp ? '56vw' : '95vw'"
     height="70vh"
     full-height-on-mobile
+    cancelable
     @close="closeDialog"
   >
     <template #header>
@@ -113,12 +114,6 @@ function closeDialog() {
         :disabled-reason="stateDisabledReason"
         @select="onSelect"
       />
-    </template>
-    <template #footer>
-      <div style="flex: 1" />
-      <RBtn variant="outlined" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
   </RDialog>
 </template>

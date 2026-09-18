@@ -75,6 +75,7 @@ async function onDiscard(): Promise<void> {
     icon="mdi-sd"
     :width="520"
     persistent
+    cancelable
     @update:model-value="onCancel"
   >
     <template #header>
@@ -127,11 +128,6 @@ async function onDiscard(): Promise<void> {
       </div>
     </template>
 
-    <template #footer-start>
-      <RBtn variant="outlined" @click="onCancel">
-        {{ t("common.cancel") }}
-      </RBtn>
-    </template>
     <template #footer>
       <RBtn variant="text" color="danger" @click="onDiscard">
         {{
