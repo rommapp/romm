@@ -119,6 +119,14 @@ function gridGroups(
     .map((g) => g.attributes("data-title"));
 }
 
+function gridThumbs(
+  wrapper: Awaited<ReturnType<typeof openDialog>>["wrapper"],
+) {
+  return wrapper
+    .findAll("section.group .r-v2-sgdb__cover-img")
+    .map((img) => img.attributes("src"));
+}
+
 describe("SearchCoverDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -177,12 +185,8 @@ describe("SearchCoverDialog", () => {
       ],
     });
     const { wrapper } = await openDialog();
-    const thumbs = () =>
-      wrapper
-        .findAll("section.group .r-v2-sgdb__cover-img")
-        .map((img) => img.attributes("src"));
 
-    expect(thumbs()).toEqual([
+    expect(gridThumbs(wrapper)).toEqual([
       "https://sgdb/thumb/a.png",
       "https://sgdb/thumb/b.png",
     ]);
@@ -192,7 +196,7 @@ describe("SearchCoverDialog", () => {
       .find((item) => item.text() === "rom.cover-sort-votes");
     if (!byVotes) throw new Error("votes sort item not rendered");
     await byVotes.trigger("click");
-    expect(thumbs()).toEqual([
+    expect(gridThumbs(wrapper)).toEqual([
       "https://sgdb/thumb/b.png",
       "https://sgdb/thumb/a.png",
     ]);
@@ -218,11 +222,7 @@ describe("SearchCoverDialog", () => {
     await flushPromises();
 
     expect(searchCover).toHaveBeenLastCalledWith({ searchTerm: "Doom" });
-    expect(
-      wrapper
-        .findAll("section.group .r-v2-sgdb__cover-img")
-        .map((img) => img.attributes("src")),
-    ).toEqual(["https://steam/doom.jpg"]);
+    expect(gridThumbs(wrapper)).toEqual(["https://steam/doom.jpg"]);
   });
 
   it("keeps a provider's match cover in the row when its grid came back empty", async () => {

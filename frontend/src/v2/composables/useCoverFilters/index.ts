@@ -82,6 +82,21 @@ export function useCoverFilters(
     return key ? t(key) : style;
   }
 
+  const sortItems = computed<{ id: SortMode; label: string; icon: string }[]>(
+    () => [
+      {
+        id: "relevance",
+        label: t("rom.cover-sort-relevance"),
+        icon: "mdi-target",
+      },
+      {
+        id: "votes",
+        label: t("rom.cover-sort-votes"),
+        icon: "mdi-thumb-up-outline",
+      },
+    ],
+  );
+
   const coverTypeItems = computed(() => [
     { title: t("rom.cover-type-all"), value: "all" },
     { title: t("rom.cover-type-static"), value: "static" },
@@ -228,7 +243,9 @@ export function useCoverFilters(
     toggleProvider,
     resetFilters,
     activeFilterCount,
-    // Select option lists + their raw value sets (drive `v-if` on selects)
+    // Option lists for the sort menu and the selects, plus their raw value
+    // sets (drive `v-if` on selects)
+    sortItems,
     coverTypeItems,
     resolutionItems,
     resolutionValues,

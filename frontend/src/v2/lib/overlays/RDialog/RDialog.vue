@@ -297,7 +297,7 @@ const panelStyle = computed(() => {
 }
 
 .r-dialog__panel {
-  /* Horizontal inset shared by the toolbar, the footer and a compact body. */
+  /* Inset shared by the toolbar, the footer and a compact body. */
   --r-dialog-inset: 14px;
   position: relative;
   display: flex;

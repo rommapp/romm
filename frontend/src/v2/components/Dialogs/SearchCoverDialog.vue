@@ -40,7 +40,6 @@ import {
 import {
   useCoverFilters,
   type CoverProvider,
-  type SortMode,
 } from "@/v2/composables/useCoverFilters";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RSelect from "@/v2/lib/forms/RSelect/RSelect.vue";
@@ -116,6 +115,7 @@ const {
   toggleProvider,
   resetFilters,
   activeFilterCount,
+  sortItems,
   coverTypeItems,
   resolutionItems,
   resolutionValues,
@@ -133,20 +133,6 @@ const {
 
 const filtersOpen = ref(false);
 
-const sortItems = computed<{ id: SortMode; label: string; icon: string }[]>(
-  () => [
-    {
-      id: "relevance",
-      label: t("rom.cover-sort-relevance"),
-      icon: "mdi-target",
-    },
-    {
-      id: "votes",
-      label: t("rom.cover-sort-votes"),
-      icon: "mdi-thumb-up-outline",
-    },
-  ],
-);
 const sortLabel = computed(
   () => sortItems.value.find((item) => item.id === sortMode.value)?.label,
 );
@@ -178,11 +164,8 @@ function openHandler({
   platformId?: number;
   rom?: SimpleRom;
 }) {
+  clearDialog();
   searchText.value = term;
-  covers.value = [];
-  providerCovers.value = [];
-  resetFilters();
-  filtersOpen.value = false;
   sourceRom.value = rom ?? null;
   show.value = true;
   if (searchText.value) doSearch();
@@ -314,15 +297,20 @@ function pickProviderCover(url: string) {
   closeDialog();
 }
 
-function closeDialog() {
-  searchSeq++;
-  searching.value = false;
-  show.value = false;
+function clearDialog() {
   covers.value = [];
   providerCovers.value = [];
   sourceRom.value = null;
   searchText.value = "";
   resetFilters();
+  filtersOpen.value = false;
+}
+
+function closeDialog() {
+  searchSeq++;
+  searching.value = false;
+  show.value = false;
+  clearDialog();
 }
 </script>
 
@@ -685,7 +673,10 @@ html[data-bp~="xs"] .r-v2-sgdb__content-toggles {
   justify-content: center;
 }
 
+/* A set min-height makes the block shrinkable in the scrolling flex body,
+   which would push the body's bottom padding out of the scroll area. */
 .r-v2-sgdb__body {
+  flex-shrink: 0;
   min-height: 280px;
 }
 
@@ -695,13 +686,10 @@ html[data-bp~="xs"] .r-v2-sgdb__content-toggles {
   min-height: 280px;
 }
 
-/* Chrome can leave the scrolling body's own bottom padding out of the scroll
-   area, so the stack carries it to keep the last block off the edge. */
 .r-v2-sgdb__results {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-bottom: var(--r-dialog-inset);
 }
 
 /* Flow-pack of cover cards — each tile adopts its cover's natural aspect
