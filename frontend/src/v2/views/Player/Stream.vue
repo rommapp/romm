@@ -592,13 +592,24 @@ const SESSION_POLL_MS = 30_000;
 useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
   // The room carries every claim the account holds, and an admin's desktop is
   // never the game on screen.
-  if (notice.desktop || !isOurClaim(notice)) return;
-  void handleSessionStatus({
+  if (notice.desktop) return;
+  if (!claimedAt.value) {
+    if (playerState.value === "loading") earlyNotices.push(notice);
+    return;
+  }
+  if (isOurClaim(notice)) void endFromNotice(notice);
+});
+
+// Notices that beat the 202, held until it says which claim is ours.
+const earlyNotices: SessionTermination[] = [];
+
+async function endFromNotice(notice: SessionTermination): Promise<void> {
+  await handleSessionStatus({
     status: "ended",
     platform: notice.platform ?? "",
     termination: notice,
   });
-});
+}
 let sessionPollInFlight = false;
 
 async function pollSessionStatus(): Promise<void> {
@@ -858,6 +869,8 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       claimedContainer.value = launching.container;
       claimedAt.value = launching.claimed_at;
       holdsClaim.value = true;
+      const endedEarly = earlyNotices.splice(0).find(isOurClaim);
+      if (endedEarly) await endFromNotice(endedEarly);
       await flourish;
     }
   } catch (err: unknown) {

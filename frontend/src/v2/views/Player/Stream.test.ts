@@ -489,6 +489,26 @@ describe("Stream session-ended notices", () => {
     expect(vmOf(wrapper).endedDialogOpen).toBe(false);
   });
 
+  it("ends the launch when its own claim ended before the 202 landed", async () => {
+    let claimed = (_: typeof CLAIM) => {};
+    mocks.claimSession.mockReturnValue(
+      new Promise<typeof CLAIM>((resolve) => {
+        claimed = resolve;
+      }),
+    );
+    const wrapper = await launch({ picker: false });
+    const playing = vmOf(wrapper).onPlay();
+    await flushPromises();
+
+    endSession({ platform: "gba", container: CLAIM.container });
+    claimed(CLAIM);
+    await playing;
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("exited");
+    expect(vmOf(wrapper).endedDialogOpen).toBe(true);
+  });
+
   it("keeps launching when the container's last claim ends before the 202", async () => {
     let claimed = (_: typeof CLAIM) => {};
     mocks.claimSession.mockReturnValue(
