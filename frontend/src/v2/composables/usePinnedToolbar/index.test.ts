@@ -9,19 +9,28 @@ const NATURAL_TOP = 300;
 
 const wrappers: VueWrapper[] = [];
 
-function setup() {
+function setup({ page = false } = {}) {
   const scrollTop = ref(0);
   let api!: ReturnType<typeof usePinnedToolbar>;
   const wrapper = mount(
     defineComponent({
       setup() {
-        api = usePinnedToolbar(scrollTop);
+        api = usePinnedToolbar(page ? undefined : scrollTop);
         return () => h("div");
       },
     }),
   );
   wrappers.push(wrapper);
   return { scrollTop, api, wrapper };
+}
+
+// happy-dom has no layout to scroll, so the offset is stubbed.
+function setPageScroll(top: number) {
+  Object.defineProperty(document.documentElement, "scrollTop", {
+    value: top,
+    configurable: true,
+  });
+  window.dispatchEvent(new Event("scroll"));
 }
 
 // A header, the sentinel at the toolbar's natural top, and the sticky toolbar.
@@ -32,6 +41,7 @@ function bindShell(api: ReturnType<typeof usePinnedToolbar>) {
   const toolbar = document.createElement("div");
   toolbar.style.top = `${NAV_H}px`;
   Object.defineProperty(sentinel, "offsetTop", { value: NATURAL_TOP });
+  Object.defineProperty(sentinel, "offsetParent", { value: null });
   parent.append(header, sentinel, toolbar);
   document.body.append(parent);
   api.bindSentinel(sentinel);
@@ -42,6 +52,7 @@ describe("usePinnedToolbar", () => {
   afterEach(() => {
     wrappers.splice(0).forEach((wrapper) => wrapper.unmount());
     document.body.innerHTML = "";
+    setPageScroll(0);
   });
 
   it("pins once the scroller reaches the toolbar's natural top", async () => {
@@ -73,6 +84,20 @@ describe("usePinnedToolbar", () => {
     expect(innerGlass.value).toBe(false);
   });
 
+  it("follows the window when the page scrolls", async () => {
+    const { api } = setup({ page: true });
+    const { innerScrolled, innerGlass, handoff } = useNavGlass();
+    bindShell(api);
+    expect(handoff.value).toBe(true);
+
+    setPageScroll(NATURAL_TOP - NAV_H);
+    await nextTick();
+    expect(api.pinned.value).toBe(true);
+    expect(innerGlass.value).toBe(true);
+    // The top bar reads the window scroll itself.
+    expect(innerScrolled.value).toBe(false);
+  });
+
   it("hands the glass back to the top bar on unmount", async () => {
     const { scrollTop, api, wrapper } = setup();
     const { innerScrolled, innerGlass } = useNavGlass();
@@ -85,5 +110,6 @@ describe("usePinnedToolbar", () => {
     wrappers.splice(wrappers.indexOf(wrapper), 1);
     expect(innerScrolled.value).toBe(false);
     expect(innerGlass.value).toBe(false);
+    expect(useNavGlass().handoff.value).toBe(false);
   });
 });

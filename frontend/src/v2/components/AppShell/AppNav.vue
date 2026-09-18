@@ -34,7 +34,7 @@ const { destinations: tabs, activeId: activeTab } = useNavDestinations();
 // blur is **static** on the pseudo, with only `opacity` transitioning
 // — transitioning `backdrop-filter` directly kept the blur layer alive
 // and any hover repaint nearby would flash it.
-const { innerScrolled, innerGlass, threshold } = useNavGlass();
+const { innerScrolled, innerGlass, handoff, threshold } = useNavGlass();
 const windowScrolled = ref(false);
 const scrolled = computed(() => windowScrolled.value || innerScrolled.value);
 
@@ -57,7 +57,7 @@ onBeforeUnmount(() => {
     class="r-v2-nav-bar"
     :class="{
       'r-v2-nav-bar--scrolled': scrolled,
-      'r-v2-nav-bar--inner': innerScrolled,
+      'r-v2-nav-bar--instant': handoff,
       'r-v2-nav-bar--glass-below': innerGlass,
     }"
   >
@@ -135,10 +135,9 @@ onBeforeUnmount(() => {
 .r-v2-nav-bar--scrolled {
   border-bottom-color: var(--r-color-border);
 }
-/* Over an inner scroller the glass is handed to a pinned surface below and
-   back, so it switches instantly: a cross-fade of the two would flash. */
-.r-v2-nav-bar--inner,
-.r-v2-nav-bar--inner::before {
+/* The glass is handed to a pinned toolbar below and back (useNavGlass). */
+.r-v2-nav-bar--instant,
+.r-v2-nav-bar--instant::before {
   transition: none;
 }
 .r-v2-nav-bar--glass-below {

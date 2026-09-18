@@ -11,6 +11,10 @@ const innerScrolled = ref(false);
 // the top bar drops its own (two blurred boxes never match at their edge).
 const innerGlass = ref(false);
 
+// While a pinnable toolbar is mounted the glass passes back and forth, so the
+// top bar switches it instantly: a cross-fade of the two would flash.
+const handoff = ref(false);
+
 export function useNavGlass() {
-  return { innerScrolled, innerGlass, threshold: THRESHOLD };
+  return { innerScrolled, innerGlass, handoff, threshold: THRESHOLD };
 }

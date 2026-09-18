@@ -1,3 +1,4 @@
+import { useWindowScroll } from "@vueuse/core";
 import {
   type ComponentPublicInstance,
   computed,
@@ -8,8 +9,25 @@ import {
 } from "vue";
 import { useNavGlass } from "@/v2/composables/useNavGlass";
 
-/** Tracks a toolbar pinned under the top bar and hands it the bar's glass. */
-export function usePinnedToolbar(scrollTop: Ref<number>) {
+// An element's layout position on the page, unaffected by scrolling.
+function pageTop(el: HTMLElement): number {
+  let top = 0;
+  let node: HTMLElement | null = el;
+  while (node) {
+    top += node.offsetTop;
+    node = node.offsetParent as HTMLElement | null;
+  }
+  return top;
+}
+
+/**
+ * Tracks a toolbar pinned under the top bar and hands it the bar's glass.
+ *
+ * Args:
+ *   scrollTop: the inner scroller's offset; omit it when the page scrolls.
+ */
+export function usePinnedToolbar(scrollTop?: Ref<number>) {
+  const scrolled = scrollTop ?? useWindowScroll().y;
   const toolbarEl = ref<HTMLElement | null>(null);
   // Zero-height element right before the toolbar: a sticky element's own
   // offsetTop reports its pinned position, so this marks its natural top.
@@ -27,7 +45,7 @@ export function usePinnedToolbar(scrollTop: Ref<number>) {
     if (!toolbar || !sentinel) return;
     toolbarHeight.value = toolbar.getBoundingClientRect().height;
     pinnedTop.value = parseFloat(getComputedStyle(toolbar).top) || 0;
-    naturalTop.value = sentinel.offsetTop;
+    naturalTop.value = scrollTop ? sentinel.offsetTop : pageTop(sentinel);
   }
 
   // The toolbar, the sentinel and the earlier siblings (the header) that move it.
@@ -85,18 +103,21 @@ export function usePinnedToolbar(scrollTop: Ref<number>) {
   const pinned = computed(
     () =>
       toolbarEl.value !== null &&
-      scrollTop.value > 0 &&
-      scrollTop.value >= pinDistance.value,
+      scrolled.value > 0 &&
+      scrolled.value >= pinDistance.value,
   );
 
-  // The top bar turns to glass as soon as the scroller moves (content passes
-  // under it); the toolbar takes that glass over once pinned.
-  const { innerScrolled, innerGlass, threshold } = useNavGlass();
-  watch(
-    () => scrollTop.value > threshold,
-    (value) => (innerScrolled.value = value),
-    { immediate: true },
-  );
+  // The top bar turns to glass as soon as content scrolls under it (an inner
+  // scroller reports that itself); the toolbar takes that glass over once pinned.
+  const { innerScrolled, innerGlass, handoff, threshold } = useNavGlass();
+  handoff.value = true;
+  if (scrollTop) {
+    watch(
+      () => scrollTop.value > threshold,
+      (value) => (innerScrolled.value = value),
+      { immediate: true },
+    );
+  }
   watch(pinned, (value) => (innerGlass.value = value), { immediate: true });
 
   onBeforeUnmount(() => {
@@ -104,6 +125,7 @@ export function usePinnedToolbar(scrollTop: Ref<number>) {
     observer = null;
     innerScrolled.value = false;
     innerGlass.value = false;
+    handoff.value = false;
   });
 
   return {
