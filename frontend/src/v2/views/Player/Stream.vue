@@ -62,6 +62,7 @@ import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import MemoryCardImportDialog from "@/v2/components/Player/MemoryCardImportDialog.vue";
 import MemoryCardPicker from "@/v2/components/Player/MemoryCardPicker.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
+import SessionEndedReason from "@/v2/components/Player/SessionEndedReason.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip, {
@@ -1756,12 +1757,11 @@ onBeforeUnmount(() => {
       </template>
       <template #content>
         <p class="r-v2-stream__exit-text">{{ endedMessage }}</p>
-        <div v-if="endedReason" class="r-v2-stream__ended-reason">
-          <span class="r-v2-stream__ended-reason-label">
-            {{ t("play.session-ended-reason-label") }}
-          </span>
-          <span>{{ endedReason }}</span>
-        </div>
+        <SessionEndedReason
+          v-if="endedReason"
+          :reason="endedReason"
+          class="r-v2-stream__ended-reason"
+        />
       </template>
       <template #footer>
         <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and focusing the dialog's action on open is intentional modal UX -->
@@ -2184,9 +2184,6 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 .r-v2-stream__ended-reason {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: var(--r-radius-md);
@@ -2195,14 +2192,6 @@ onBeforeUnmount(() => {
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg);
   line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.r-v2-stream__ended-reason-label {
-  font-size: var(--r-font-size-xs);
-  font-weight: var(--r-font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--r-color-fg-muted);
 }
 
 .r-v2-stream__exit-actions {

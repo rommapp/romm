@@ -18,6 +18,7 @@ import streamingApi, {
   type ContainerBusyDetail,
 } from "@/services/api/streaming";
 import { type SessionTermination, useStreamingStore } from "@/stores/streaming";
+import SessionEndedReason from "@/v2/components/Player/SessionEndedReason.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
@@ -218,12 +219,11 @@ onMounted(() => {
       class="r-v2-desktop__error"
     >
       {{ errorMessage }}
-      <div v-if="endedReason" class="r-v2-desktop__ended-reason">
-        <span class="r-v2-desktop__ended-reason-label">
-          {{ t("play.session-ended-reason-label") }}
-        </span>
-        <span>{{ endedReason }}</span>
-      </div>
+      <SessionEndedReason
+        v-if="endedReason"
+        :reason="endedReason"
+        class="r-v2-desktop__ended-reason"
+      />
       <template #append>
         <RBtn variant="text" @click="backToAdministration">
           {{ t("play.desktop-back") }}
@@ -288,18 +288,7 @@ onMounted(() => {
 }
 
 .r-v2-desktop__ended-reason {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
   margin-top: 8px;
-  overflow-wrap: anywhere;
-}
-
-.r-v2-desktop__ended-reason-label {
-  font-size: var(--r-font-size-xs);
-  font-weight: var(--r-font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .r-v2-desktop__spinner {
