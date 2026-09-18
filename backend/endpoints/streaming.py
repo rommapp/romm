@@ -904,7 +904,7 @@ async def _resolve_claim_to_end(
     # A tab whose claim was replaced (a takeover, or Play pressed again elsewhere)
     # still ends it on unload, and must not end the claim that took its place.
     if claimed_at is not None and session.get("claimed_at") != claimed_at:
-        log.info("ignored for a replaced claim, platform=%s", platform)
+        log.info("%s ignored for a replaced claim", request.url.path)
         return None
     # After the stamp check, so another player's takeover reads as a gone claim.
     if container_key is not None:
