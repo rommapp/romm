@@ -68,6 +68,20 @@ export function useCoverFilters(
     sortMode.value = "relevance";
   }
 
+  // Filters narrowing the results away from their `resetFilters` defaults.
+  const activeFilterCount = computed(
+    () =>
+      [
+        coverType.value !== "all",
+        resolutionFilter.value !== "all",
+        styleFilter.value !== "all",
+        uploaderFilter.value !== "all",
+        showNsfw.value,
+        !showHumor.value,
+        !showEpilepsy.value,
+      ].filter(Boolean).length,
+  );
+
   function styleLabel(style: string): string {
     const key = STYLE_LABEL_KEYS[style];
     return key ? t(key) : style;
@@ -199,6 +213,7 @@ export function useCoverFilters(
     activeProviders,
     toggleProvider,
     resetFilters,
+    activeFilterCount,
     // Select option lists + their raw value sets (drive `v-if` on selects)
     coverTypeItems,
     resolutionItems,

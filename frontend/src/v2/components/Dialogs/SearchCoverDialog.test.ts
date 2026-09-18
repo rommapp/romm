@@ -1,7 +1,11 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SearchCoverSchema, SearchRomSchema } from "@/__generated__";
+import type {
+  CoverResource,
+  SearchCoverSchema,
+  SearchRomSchema,
+} from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import SearchCoverDialog from "./SearchCoverDialog.vue";
@@ -31,36 +35,42 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 
 const RDialog = {
   props: ["modelValue"],
-  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /></div>`,
+  template: `<div v-if="modelValue"><slot name="header" /><slot name="toolbar" /><slot name="content" /></div>`,
 };
 const RCollapsible = {
   props: ["title"],
   template: `<section class="group" :data-title="title"><slot /></section>`,
 };
+const RMenu = {
+  template: `<div><slot name="activator" :props="{}" /><slot /></div>`,
+};
+const RMenuItem = {
+  props: { label: { type: String, default: "" } },
+  emits: ["click"],
+  template: `<button type="button" class="menu-item" @click="$emit('click')">{{ label }}</button>`,
+};
+
+function resource(url: string, score = 0): CoverResource {
+  return {
+    thumb: url,
+    url,
+    type: "static",
+    width: 600,
+    height: 900,
+    style: "",
+    author: "",
+    score,
+    nsfw: false,
+    humor: false,
+    epilepsy: false,
+  };
+}
 
 function cover(
   provider: SearchCoverSchema["provider"],
   url: string,
 ): SearchCoverSchema {
-  return {
-    provider,
-    name: "Blur",
-    resources: [
-      {
-        thumb: url,
-        url,
-        type: "static",
-        width: 600,
-        height: 900,
-        style: "",
-        author: "",
-        score: 0,
-        nsfw: false,
-        humor: false,
-        epilepsy: false,
-      },
-    ],
-  };
+  return { provider, name: "Blur", resources: [resource(url)] };
 }
 
 const rom = {
@@ -80,6 +90,8 @@ async function openDialog(withRom = false) {
       stubs: {
         RDialog,
         RCollapsible,
+        RMenu,
+        RMenuItem,
         RTextField: true,
         RSelect: true,
         RSwitch: true,
@@ -149,6 +161,40 @@ describe("SearchCoverDialog", () => {
     const second = await openDialog();
     await second.wrapper.findAll("section.group button")[1].trigger("click");
     expect(second.picked).toHaveBeenLastCalledWith("https://steam/thumb.jpg");
+  });
+
+  it("re-sorts the grid by votes from the sort menu", async () => {
+    searchCover.mockResolvedValue({
+      data: [
+        {
+          ...cover("sgdb", "https://sgdb/thumb/a.png"),
+          resources: [
+            resource("https://sgdb/thumb/a.png", 1),
+            resource("https://sgdb/thumb/b.png", 5),
+          ],
+        },
+      ],
+    });
+    const { wrapper } = await openDialog();
+    const thumbs = () =>
+      wrapper
+        .findAll("section.group .r-v2-sgdb__cover-img")
+        .map((img) => img.attributes("src"));
+
+    expect(thumbs()).toEqual([
+      "https://sgdb/thumb/a.png",
+      "https://sgdb/thumb/b.png",
+    ]);
+
+    const byVotes = wrapper
+      .findAll("button.menu-item")
+      .find((item) => item.text() === "rom.cover-sort-votes");
+    if (!byVotes) throw new Error("votes sort item not rendered");
+    await byVotes.trigger("click");
+    expect(thumbs()).toEqual([
+      "https://sgdb/thumb/b.png",
+      "https://sgdb/thumb/a.png",
+    ]);
   });
 
   it("keeps a provider's match cover in the row when its grid came back empty", async () => {

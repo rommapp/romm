@@ -70,3 +70,19 @@ describe("useCoverFilters providers", () => {
     expect(filters.hasResults.value).toBe(false);
   });
 });
+
+describe("useCoverFilters activeFilterCount", () => {
+  it("counts only the filters moved off their defaults", () => {
+    const filters = setup([SGDB]);
+    expect(filters.activeFilterCount.value).toBe(0);
+
+    filters.coverType.value = "animated";
+    filters.showNsfw.value = true;
+    filters.showHumor.value = false;
+    filters.sortMode.value = "votes";
+    expect(filters.activeFilterCount.value).toBe(3);
+
+    filters.resetFilters();
+    expect(filters.activeFilterCount.value).toBe(0);
+  });
+});
