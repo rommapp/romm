@@ -9,7 +9,7 @@ import { onScopeDispose } from "vue";
 import { useI18n } from "vue-i18n";
 import { onNativeLaunchState } from "@/services/native";
 import { useNativeStore } from "@/stores/native";
-import type { LaunchErrorCode } from "@/types/rommNative";
+import type { LaunchErrorCode, SaveSyncAction } from "@/types/rommNative";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 /** Several codes share one message: from the user's side a platform with no
@@ -25,6 +25,24 @@ const ERROR_KEYS: Record<LaunchErrorCode, string> = {
   "launch-failed": "play.native-launch-failed",
 };
 
+/** What each save outcome says. An archival save is the only user-visible
+ *  consequence of a conflict, and the one worth interrupting for: the slot holds
+ *  newer progress, so the save the emulator just wrote is not the one RomM will
+ *  offer next time. */
+const SAVE_KEYS: Record<SaveSyncAction, string> = {
+  downloaded: "play.native-save-downloaded",
+  uploaded: "play.native-save-uploaded",
+  archived: "play.native-save-archived",
+  failed: "play.native-save-failed",
+};
+
+const SAVE_ICONS: Record<SaveSyncAction, string> = {
+  downloaded: "mdi-download-outline",
+  uploaded: "mdi-upload-outline",
+  archived: "mdi-archive-outline",
+  failed: "mdi-alert-circle-outline",
+};
+
 export function installNativeLaunchFeedback(): void {
   const { t } = useI18n();
   const snackbar = useSnackbar();
@@ -33,8 +51,30 @@ export function installNativeLaunchFeedback(): void {
   nativeStore.install();
 
   const unsubscribe = onNativeLaunchState((state) => {
-    if (state.status !== "running" && state.status !== "failed") return;
     const name = nativeStore.nameFor(state.romId);
+
+    // Not a launch state, and handled before the two that end a launch: the
+    // emulator has already exited by the time a save moves, so this arrives on a
+    // launch the page is finished with.
+    if (state.status === "sync") {
+      const outcome = state.sync;
+      if (!outcome) return;
+      if (outcome.detail) {
+        console.error("[native] Save sync failed:", outcome.detail);
+      }
+      const message = t(SAVE_KEYS[outcome.action], { name });
+      const icon = SAVE_ICONS[outcome.action];
+      if (outcome.action === "failed") {
+        snackbar.error(message, { icon });
+      } else if (outcome.action === "archived") {
+        snackbar.warning(message, { icon });
+      } else {
+        snackbar.success(message, { icon });
+      }
+      return;
+    }
+
+    if (state.status !== "running" && state.status !== "failed") return;
 
     if (state.status === "running") {
       snackbar.success(t("play.native-running", { name }), {

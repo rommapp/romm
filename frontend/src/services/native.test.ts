@@ -4,8 +4,10 @@ import type {
   RommNativeBridge,
 } from "@/types/rommNative";
 import {
+  canSyncSaves,
   cancelNative,
   fetchPlatformSupport,
+  hasCapability,
   isNativeShell,
   nativeErrorMessage,
   openNativeSettings,
@@ -45,6 +47,41 @@ describe("isNativeShell", () => {
   it("is false on a bridge that cannot launch", () => {
     installBridge({ shellVersion: "0.1.0" });
     expect(isNativeShell()).toBe(false);
+  });
+});
+
+describe("hasCapability", () => {
+  it("is false with no bridge, and on one that lists nothing", () => {
+    expect(hasCapability("save-sync")).toBe(false);
+
+    installBridge({ shellVersion: "0.1.0" });
+    expect(hasCapability("save-sync")).toBe(false);
+  });
+
+  it("reads the advertised list", () => {
+    installBridge({ shellVersion: "0.2.0", capabilities: ["save-sync"] });
+
+    expect(hasCapability("save-sync")).toBe(true);
+  });
+});
+
+describe("canSyncSaves", () => {
+  // A shell predating save sync still launches games; its saves just stay on
+  // this disk. Nothing is broken by asking it to move them.
+  it("is false on a shell too old to list capabilities", () => {
+    installBridge({ launch: vi.fn(), shellVersion: "0.1.0" });
+
+    expect(canSyncSaves()).toBe(false);
+  });
+
+  it("is true once the shell advertises it", () => {
+    installBridge({
+      launch: vi.fn(),
+      shellVersion: "0.2.0",
+      capabilities: ["save-sync"],
+    });
+
+    expect(canSyncSaves()).toBe(true);
   });
 });
 

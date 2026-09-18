@@ -518,3 +518,42 @@ describe("useNativeStore launch state", () => {
     expect(store.isLaunching(1)).toBe(false);
   });
 });
+
+describe("useNativeStore save sync", () => {
+  // A save moves after the rom is ready and before the emulator starts, so a
+  // sync landing mid-launch must not read as the launch having ended.
+  it("files a save outcome without touching the launch around it", () => {
+    const store = useNativeStore();
+    store.install();
+    emit?.({ romId: 1, status: "downloading", stage: "rom" });
+
+    emit?.({ romId: 1, status: "sync", sync: { action: "downloaded" } });
+
+    expect(store.syncFor(1)).toEqual({ action: "downloaded" });
+    expect(store.launchStateFor(1)?.status).toBe("downloading");
+    expect(store.isLaunching(1)).toBe(true);
+  });
+
+  // The page watching for the next outcome must not be sent to the last one.
+  it("forgets the last save when the next launch starts", async () => {
+    const store = useNativeStore();
+    store.install();
+    emit?.({
+      romId: 1,
+      status: "sync",
+      sync: { action: "archived", slot: null },
+    });
+
+    await store.launch(makeRom());
+
+    expect(store.syncFor(1)).toBeNull();
+  });
+
+  it("has nothing to say about a rom the shell has not spoken about", () => {
+    const store = useNativeStore();
+    store.install();
+
+    expect(store.syncFor(2)).toBeNull();
+    expect(store.syncFor(null)).toBeNull();
+  });
+});

@@ -39,15 +39,46 @@ export interface LaunchRequest {
   fileSize?: number;
 }
 
-export type LaunchStatus = "downloading" | "running" | "exited" | "failed";
+export type LaunchStatus =
+  | "downloading"
+  | "running"
+  | "exited"
+  | "failed"
+  /** A save moved, after the emulator had already exited. Its own status rather
+   *  than a stage, because it outlives the launch it belongs to: the exit is
+   *  reported immediately and the upload settles afterwards. */
+  | "sync";
+
+/** What happened to a save around one launch. */
+export type SaveSyncAction =
+  /** The server's copy was written over the local one before the emulator ran. */
+  | "downloaded"
+  /** What the emulator wrote was sent to the save's slot. */
+  | "uploaded"
+  /** Nothing was replaced. The local bytes were kept as an archival save
+   *  because the slot held progress this device had not seen. */
+  | "archived"
+  /** It was tried and did not work. The local file is untouched. */
+  | "failed";
+
+export interface SaveSyncOutcome {
+  action: SaveSyncAction;
+  /** The slot the save moved through, absent for an archival save, which
+   *  deliberately sits outside every slot. */
+  slot?: string | null;
+  /** Why, when the outcome was a failure. For logs, not for display: the
+   *  action has a message of its own. */
+  detail?: string;
+}
 
 export interface LaunchState {
   romId: number;
   status: LaunchStatus;
   /** What is being fetched while downloading. Absent means the ROM.
    *  "emulator" covers both fetching a standalone emulator and the wait while
-   *  the user installs it, which has no progress to report. */
-  stage?: "rom" | "core" | "emulator" | "firmware";
+   *  the user installs it, which has no progress to report. "save" is the save
+   *  pull, after the ROM is ready and before the emulator starts. */
+  stage?: "rom" | "core" | "emulator" | "firmware" | "save";
   /** The core being installed, while stage is "core". */
   core?: string;
   /** The firmware file being fetched, while stage is "firmware". Its own field
@@ -73,6 +104,8 @@ export interface LaunchState {
   error?: { code: LaunchErrorCode; message: string };
   /** Process exit code, set when status is "exited". */
   exitCode?: number | null;
+  /** What happened to a save, set when status is "sync". */
+  sync?: SaveSyncOutcome;
 }
 
 export interface LaunchResult {
@@ -110,7 +143,11 @@ export type ShellCapability =
   | "library-passthrough"
   | "platform-support-all"
   | "firmware-mirror"
-  | "multi-disc";
+  | "multi-disc"
+  /** Saves are moved between the server and the emulator around a native
+   *  launch. Save states are not, and a shell without this leaves both sides of
+   *  it undone. */
+  | "save-sync";
 
 export interface RommNativeBridge {
   readonly shellVersion: string;

@@ -12,7 +12,11 @@ import {
 } from "@/services/native";
 import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
-import type { LaunchState, PlatformSupport } from "@/types/rommNative";
+import type {
+  LaunchState,
+  PlatformSupport,
+  SaveSyncOutcome,
+} from "@/types/rommNative";
 import {
   getDownloadFileName,
   getDownloadPath,
@@ -50,6 +54,10 @@ export const useNativeStore = defineStore("native", () => {
 
   /** The shell's last word on each launch, keyed by ROM id. */
   const launches = ref<Record<number, LaunchState>>({});
+  /** What happened to a save around each launch, keyed by ROM id. Kept apart
+   *  from `launches` because it is not about the launch: the game has finished,
+   *  and the save outlives the state that reported it. */
+  const syncs = ref<Record<number, SaveSyncOutcome>>({});
   /** Display names, so launch feedback can name a game the shell identifies
    *  only by id. */
   const names = ref<Record<number, string>>({});
@@ -94,6 +102,13 @@ export const useNativeStore = defineStore("native", () => {
     return launches.value[romId] ?? null;
   }
 
+  /** What the shell said about this ROM's save, or null when it has said
+   *  nothing since the last launch began. */
+  function syncFor(romId: number | null | undefined): SaveSyncOutcome | null {
+    if (romId == null) return null;
+    return syncs.value[romId] ?? null;
+  }
+
   /** Whether a launch is still on its way to the emulator, and so still
    *  cancellable. A game that has started is the shell's business. */
   function isLaunching(romId: number | null | undefined): boolean {
@@ -129,6 +144,17 @@ export const useNativeStore = defineStore("native", () => {
         ...stateCount.value,
         [state.romId]: (stateCount.value[state.romId] ?? 0) + 1,
       };
+      // A save moving is not the launch moving. Filed on its own and returned
+      // from, rather than folded into `launches`, so a sync landing mid-launch
+      // cannot read as the launch having ended: the save pull happens after the
+      // ROM is ready and before the emulator starts, and the launch states
+      // around it still have to arrive.
+      if (state.status === "sync") {
+        if (state.sync) {
+          syncs.value = { ...syncs.value, [state.romId]: state.sync };
+        }
+        return;
+      }
       if (state.status !== "downloading") starting.value.delete(state.romId);
       if (cancelled.value.has(state.romId)) {
         // An aborted transfer is how a cancel the shell took comes back, so
@@ -214,6 +240,10 @@ export const useNativeStore = defineStore("native", () => {
     const before = stateCount.value[rom.id] ?? 0;
     // A fresh launch is not the cancelled one, however the last ended.
     cancelled.value.delete(rom.id);
+    // Nor does it carry the last launch's save outcome: a view watching for the
+    // next one must not be sent to the old one on the way in.
+    const { [rom.id]: _synced, ...withoutSync } = syncs.value;
+    syncs.value = withoutSync;
     starting.value.add(rom.id);
     names.value = {
       ...names.value,
@@ -289,6 +319,7 @@ export const useNativeStore = defineStore("native", () => {
     isSupportedPlatform,
     labelForPlatform,
     launchStateFor,
+    syncFor,
     isLaunching,
     nameFor,
     consumeCancelled,

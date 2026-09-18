@@ -332,6 +332,11 @@ const nativeLabel = computed(() => {
       emulator: emulatorName(state.emulator) || nativeEmulator.value,
     });
   }
+  // No percentage: whether anything moves is the server's answer, and a save is
+  // kilobytes, so the wait is the round trip rather than the transfer.
+  if (state?.stage === "save") {
+    return t("play.native-syncing-save");
+  }
   if (state?.progress != null) {
     return t("play.native-downloading", {
       percent: Math.round(state.progress * 100),
@@ -482,6 +487,34 @@ watch(selectedCore, (newSelectedCore) => {
   const armed = resume.value.state;
   if (armed?.emulator && armed.emulator !== newSelectedCore) unselectState();
 });
+
+// The shell moves saves on the server's side of this page, before the emulator
+// starts and after it exits, so what was fetched on mount goes stale as soon as
+// a native launch runs. Re-read the rom, which is what carries the save list,
+// and the three things derived from it on the way in.
+async function refreshRomAfterSync(): Promise<void> {
+  try {
+    const { data } = await romApi.getRom({ romId });
+    rom.value = data;
+    resume.value = defaultResumeSelection(
+      data.user_saves,
+      compatibleStates.value,
+    );
+    slotChoice.value = existingSlot(preferredSlot(data.user_saves));
+    isSavesTabSelected.value = !resume.value.state;
+  } catch (error) {
+    // The old list is kept: a save list that is a launch out of date is not
+    // worth an error on top of whatever the launch itself reported.
+    console.error("[native] Could not re-read the rom:", error);
+  }
+}
+
+watch(
+  () => nativeStore.syncFor(romId),
+  (outcome) => {
+    if (outcome) void refreshRomAfterSync();
+  },
+);
 
 onMounted(async () => {
   const romResponse = await romApi.getRom({

@@ -11,6 +11,7 @@ import type {
   PlatformSupport,
   PlatformSupportQuery,
   RommNativeBridge,
+  ShellCapability,
 } from "@/types/rommNative";
 
 function bridge(): RommNativeBridge | undefined {
@@ -19,6 +20,20 @@ function bridge(): RommNativeBridge | undefined {
 
 function hasMethod(name: keyof RommNativeBridge): boolean {
   return typeof bridge()?.[name] === "function";
+}
+
+/** Whether this shell advertises a behaviour a method's presence cannot express:
+ *  a field it fills in, a change to what an existing method does. Read from the
+ *  list rather than from a parsed `shellVersion`, which is for display only. */
+export function hasCapability(name: ShellCapability): boolean {
+  return bridge()?.capabilities?.includes(name) === true;
+}
+
+/** Whether a native launch moves saves to and from the server. Without it the
+ *  saves a launch reads and writes stay on this disk, which is what a shell
+ *  predating save sync does, so nothing is broken by asking. */
+export function canSyncSaves(): boolean {
+  return isNativeShell() && hasCapability("save-sync");
 }
 
 /** Whether the page is running inside the desktop shell at all. */

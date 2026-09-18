@@ -1,10 +1,10 @@
-import { RBtn } from "@v2/lib";
+import { RBtn, RSelect } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { DetailedRom } from "@/stores/roms";
-import type { LaunchState } from "@/types/rommNative";
+import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
 import EmulatorJS from "./EmulatorJS.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -17,6 +17,9 @@ const mocks = vi.hoisted(() => ({
   emulator: null as string | null,
   launching: false,
   launchState: null as LaunchState | null,
+  // A box rather than the value: the store's getter has to read something the
+  // watcher can track, so the mock swaps this for a reactive object.
+  syncOutcome: { value: null as SaveSyncOutcome | null },
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -51,15 +54,20 @@ vi.mock("@/stores/playing", async () => {
   return { default: () => ({ playing: ref(false) }) };
 });
 
-vi.mock("@/stores/native", () => ({
-  useNativeStore: () => ({
-    isLaunching: () => mocks.launching,
-    labelForPlatform: () => mocks.emulator,
-    launchStateFor: () => mocks.launchState,
-    launch: mocks.launch,
-    cancel: mocks.cancel,
-  }),
-}));
+vi.mock("@/stores/native", async () => {
+  const { reactive } = await import("vue");
+  Object.assign(mocks, { syncOutcome: reactive(mocks.syncOutcome) });
+  return {
+    useNativeStore: () => ({
+      isLaunching: () => mocks.launching,
+      labelForPlatform: () => mocks.emulator,
+      launchStateFor: () => mocks.launchState,
+      syncFor: () => mocks.syncOutcome.value,
+      launch: mocks.launch,
+      cancel: mocks.cancel,
+    }),
+  };
+});
 
 vi.mock("@/utils", () => ({
   areThreadsRequiredForEJSCore: () => false,
@@ -208,6 +216,7 @@ beforeEach(() => {
   mocks.emulator = null;
   mocks.launching = false;
   mocks.launchState = null;
+  mocks.syncOutcome.value = null;
 });
 
 describe("EmulatorJS launch screen — play routes", () => {
@@ -359,6 +368,42 @@ describe("EmulatorJS launch screen — a launch in flight", () => {
     await cancelBtn(wrapper)?.trigger("click");
 
     expect(mocks.cancel).toHaveBeenCalledWith(7);
+  });
+});
+
+// The shell moves saves on the server before the emulator starts and after it
+// exits, so the save list this page fetched on mount is stale by the time a
+// native launch is done with it.
+describe("EmulatorJS launch screen — a save the shell moved", () => {
+  function slotItems(wrapper: VueWrapper): unknown[] {
+    const select = wrapper
+      .findAllComponents(RSelect)
+      .find((c) => c.props("info") === "play.slot-tooltip");
+    return (select?.props("items") as unknown[]) ?? [];
+  }
+
+  // Not the call count: nothing unmounts the wrappers earlier tests mounted,
+  // and their watchers are still live on the same mock store, so one outcome
+  // re-reads every rom on screen. What this wrapper shows is its own business.
+  it("re-reads the rom once the shell reports what happened to the save", async () => {
+    const wrapper = await launchScreen();
+    expect(slotItems(wrapper)).toHaveLength(2);
+
+    mocks.getRom.mockResolvedValue({
+      data: { ...ROM, user_saves: [{ slot: "slots/2" }] },
+    });
+    mocks.syncOutcome.value = { action: "downloaded" };
+    await flushPromises();
+
+    expect(slotItems(wrapper)).toHaveLength(3);
+  });
+
+  it("leaves the save list alone when the shell says nothing", async () => {
+    const wrapper = await launchScreen();
+
+    await flushPromises();
+
+    expect(slotItems(wrapper)).toHaveLength(2);
   });
 });
 
