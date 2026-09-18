@@ -163,19 +163,25 @@ def collect_exit_saves(
     session: dict[str, Any],
     mark: saves.SavePullMark | None,
     *,
-    settled: bool,
+    settled: bool = False,
 ) -> None:
     """Pull a stopped session's save archive in the background, since the broker
     keeps it after the emulator dies, filing it under the owner whoever ended it.
 
     Args:
         mark: cleared by the pull however it ends.
-        settled: the emulator is done writing, so the first answer is final.
+        settled: the broker confirmed the emulator is done writing, so the first
+            answer is final. A webstation exit only answers once it is.
     """
     if mark is None:
         return
     background.spawn_sync_task(
-        _pull_exit_saves(container, mark, broker_session_id(session), settled)
+        _pull_exit_saves(
+            container,
+            mark,
+            broker_session_id(session),
+            settled or container.is_webstation,
+        )
     )
 
 
@@ -391,7 +397,7 @@ async def teardown_released_session(
 
         # Awaited, not spawned: the claim is released below.
         await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session, pull_mark, settled=True)
+        collect_exit_saves(container, session, pull_mark)
         # The pull clears it from here.
         pull_mark = None
 
@@ -463,7 +469,7 @@ async def _teardown_abandoned_session(
         await record_play_session(session)
         await clear_session_activity(session_key, session)
         await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session, pull_mark, settled=True)
+        collect_exit_saves(container, session, pull_mark)
         pull_mark = None
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)

@@ -5032,11 +5032,42 @@ def test_an_abandoned_teardown_that_fails_before_its_pull_leaves_nothing_pending
     assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
 
 
-def test_a_release_that_changed_no_saves_lets_the_next_claim_straight_through(
-    client, access_token, admin_user: User, rom: Rom
+def _run_exit_pulls(spawn: MagicMock) -> None:
+    """Run the save pulls a teardown spawned, and drop whatever else it did."""
+    for spawned in (c.args[0] for c in spawn.call_args_list):
+        if spawned.cr_code.co_name == "_pull_exit_saves":
+            asyncio.run(spawned)
+        else:
+            spawned.close()
+
+
+def test_a_webstation_exit_that_changed_no_saves_lets_the_next_claim_straight_through(
+    admin_user: User, rom: Rom
 ):
-    """The stop has finished writing by the time the pull asks, so the broker's
-    first "nothing new" is final and retrying it only holds the next claim."""
+    """A webstation exit answers once the save dump is written, so its first
+    "nothing new" is final and retrying it only holds the next claim."""
+    container = _resolved(_webstation_for(rom))
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+
+    async def exit_once() -> None:
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        lifecycle.collect_exit_saves(container, session, mark)
+
+    with (
+        patch("handler.streaming.background.spawn_sync_task") as spawn,
+        patch("handler.streaming.saves.fetch_save_archive", return_value=None) as fetch,
+    ):
+        asyncio.run(exit_once())
+        _run_exit_pulls(spawn)
+    assert fetch.call_count == 1
+    assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
+
+
+def test_a_release_keeps_asking_while_the_emulator_flushes(
+    client, access_token, rom: Rom
+):
+    """A per-emulator broker acks the stop before the emulator has flushed its
+    saves, so an early "nothing new" is not the answer yet."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
@@ -5050,9 +5081,82 @@ def test_a_release_that_changed_no_saves_lets_the_next_claim_straight_through(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
             )
-            asyncio.run(spawn.call_args[0][0])
-    assert fetch.call_count == 1
-    assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == broker.PULL_ATTEMPTS
+
+
+def test_an_abandoned_teardown_keeps_asking_while_the_emulator_flushes(
+    client, access_token, admin_user: User, rom: Rom
+):
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        session = json.loads(_session_raw(container))
+        with (
+            patch("handler.streaming.commands.stop", return_value=None),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            asyncio.run(
+                lifecycle._teardown_abandoned_session(
+                    _resolved(container),
+                    _key_of(container),
+                    session,
+                    claimed_by=admin_user.id,
+                )
+            )
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == broker.PULL_ATTEMPTS
+
+
+def test_a_force_release_keeps_asking_while_the_emulator_flushes(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.commands.stop", return_value=None),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.delete("/api/streaming/sessions", headers=_auth(access_token))
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == broker.PULL_ATTEMPTS
+
+
+@pytest.mark.parametrize(
+    ("saved", "attempts"), [(True, 1), (False, broker.PULL_ATTEMPTS)]
+)
+def test_a_blocking_save_and_exit_takes_one_answer_only_once_the_broker_confirms(
+    client, access_token, rom: Rom, saved: bool, attempts: int
+):
+    """A save-and-exit that timed out or failed may still be killing the
+    emulator, so only a confirmed one has finished writing."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.commands.save_and_exit", return_value=(saved, 10)),
+            patch(
+                "handler.streaming.states.pull_state_to_library",
+                new=AsyncMock(return_value=True),
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == attempts
 
 
 def test_a_background_save_and_exit_keeps_asking_while_the_emulator_writes(
@@ -5074,11 +5178,7 @@ def test_a_background_save_and_exit_keeps_asking_while_the_emulator_writes(
                 json={"slot": 0, "wait": False},
                 headers=_auth(access_token),
             )
-            for spawned in (c.args[0] for c in spawn.call_args_list):
-                if spawned.cr_code.co_name == "_pull_exit_saves":
-                    asyncio.run(spawned)
-                else:
-                    spawned.close()
+            _run_exit_pulls(spawn)
     assert fetch.call_count == broker.PULL_ATTEMPTS
 
 
@@ -5157,7 +5257,7 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
         ):
             for _ in range(2):
                 mark = await lifecycle.mark_exit_saves_pending(container, session)
-                lifecycle.collect_exit_saves(container, session, mark, settled=True)
+                lifecycle.collect_exit_saves(container, session, mark)
             first, second = (c.args[0] for c in spawn.call_args_list)
             await first
             behind_second = await _save_pull_pending(admin_user.id, rom.id)
