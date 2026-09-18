@@ -397,6 +397,17 @@ function endSession(notice: Record<string, unknown>): void {
   handler({ ended_by: "admin", reason: null, ...notice });
 }
 
+async function launchReady(): Promise<void> {
+  const handler = mocks.socketHandlers["streaming:launch-ready"];
+  expect(handler).toBeTypeOf("function");
+  await handler({
+    platform: "gba",
+    container: CLAIM.container,
+    host: "http://webstation-dev:8080",
+    resume: null,
+  });
+}
+
 describe("Stream session-ended notices", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -419,11 +430,13 @@ describe("Stream session-ended notices", () => {
     // hold a second session the same room hears about.
     const wrapper = await launch({ picker: false });
     await vmOf(wrapper).onPlay();
+    await launchReady();
+    expect(vmOf(wrapper).playerState).toBe("playing");
 
     endSession({ platform: "gba", container: "WEBSTATION-DEV-2" });
     await flushPromises();
 
-    expect(vmOf(wrapper).playerState).toBe("loading");
+    expect(vmOf(wrapper).playerState).toBe("playing");
     expect(vmOf(wrapper).endedDialogOpen).toBe(false);
   });
 
@@ -452,17 +465,6 @@ describe("Stream session-ended notices", () => {
     await playing;
   });
 });
-
-async function launchReady(): Promise<void> {
-  const handler = mocks.socketHandlers["streaming:launch-ready"];
-  expect(handler).toBeTypeOf("function");
-  await handler({
-    platform: "gba",
-    container: CLAIM.container,
-    host: "http://webstation-dev:8080",
-    resume: null,
-  });
-}
 
 describe("Stream claim hygiene", () => {
   beforeEach(() => {
