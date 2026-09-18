@@ -69,10 +69,7 @@ def joinable_session_rom(
     request: Request, session: dict[str, Any]
 ) -> tuple[bool, Rom | None]:
     """Whether a live session is one this caller may ask to join (its host opted
-    into multiplayer, it is somebody else's, its ROM is not hidden), with that ROM.
-
-    The ROM is looked up only once the cheap checks pass, since most sessions fail them.
-    """
+    into multiplayer, it is somebody else's, its ROM is not hidden), with that ROM."""
     if not session.get("multiplayer") or session.get("user_id") == request.user.id:
         return False, None
     rom = session_rom(session)
