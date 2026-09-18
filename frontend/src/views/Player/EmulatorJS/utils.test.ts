@@ -7,7 +7,7 @@ import {
   buildStateFormData,
   captureScreenshot,
   dumpSaveFile,
-  storedScreenshotFor,
+  heldFor,
   createSaveSyncTracker,
   installEJSDefaultOptionsTrap,
   pollSaveFiles,
@@ -28,7 +28,6 @@ const stateApiMocks = vi.hoisted(() => ({
 const pendingAssetMocks = vi.hoisted(() => ({
   write: vi.fn(),
   clear: vi.fn(),
-  list: vi.fn(),
 }));
 
 vi.mock("@/services/api/save", async (importOriginal) => ({
@@ -455,61 +454,32 @@ describe("resolveScreenshot", () => {
   /* eslint-enable @typescript-eslint/no-explicit-any */
 });
 
-describe("storedScreenshotFor", () => {
-  const shot = new Uint8Array([9, 9]).buffer;
-  const pendingFor = (bytes: ArrayBuffer) => ({
+describe("heldFor", () => {
+  const held = (bytes: ArrayBuffer) => ({
     id: "1:a",
     kind: "save" as const,
     romId: 1,
     romName: "Game",
     bytes,
-    screenshotBytes: shot,
+    screenshotBytes: new Uint8Array([9, 9]).buffer,
     capturedAt: 0,
   });
 
-  it("hands back the frame kept for these exact bytes", () => {
-    const saveBytes = new Uint8Array([1, 2, 3]).buffer;
+  it("hands back the row holding these exact bytes", () => {
+    const row = held(new Uint8Array([1, 2, 3]).buffer);
 
-    expect(
-      storedScreenshotFor(
-        pendingFor(saveBytes),
-        new Uint8Array([1, 2, 3]).buffer,
-      ),
-    ).toBe(shot);
+    expect(heldFor(row, new Uint8Array([1, 2, 3]))).toBe(row);
   });
 
-  // The game wrote again, so the stored frame pictures a moment that has passed.
-  it("drops the frame once the save has moved on", () => {
-    const saveBytes = new Uint8Array([1, 2, 3]).buffer;
+  // The game wrote again, so the row pictures a moment that has passed.
+  it("lets go once the save has moved on", () => {
+    const row = held(new Uint8Array([1, 2, 3]).buffer);
 
-    expect(
-      storedScreenshotFor(
-        pendingFor(saveBytes),
-        new Uint8Array([1, 2, 4]).buffer,
-      ),
-    ).toBeUndefined();
+    expect(heldFor(row, new Uint8Array([1, 2, 4]))).toBeNull();
   });
 
-  it("has nothing to offer without a pending save", () => {
-    expect(
-      storedScreenshotFor(null, new Uint8Array([1]).buffer),
-    ).toBeUndefined();
-  });
-
-  it("keeps bytes that were stored without a frame frameless", () => {
-    const bytes = new Uint8Array([1, 2, 3]).buffer;
-    const pending = {
-      id: "1:a",
-      kind: "save" as const,
-      romId: 1,
-      romName: "Game",
-      bytes,
-      capturedAt: 0,
-    };
-
-    expect(
-      storedScreenshotFor(pending, new Uint8Array([1, 2, 3]).buffer),
-    ).toBeUndefined();
+  it("has nothing to offer when nothing is held", () => {
+    expect(heldFor(null, new Uint8Array([1]))).toBeNull();
   });
 });
 

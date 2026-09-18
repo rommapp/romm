@@ -4,8 +4,12 @@ import {
   type SaveSchema,
   type StateSchema,
 } from "@/__generated__";
-import saveApi, { AUTOSAVE_SLOT, sessionSaveFile } from "@/services/api/save";
-import stateApi, { sessionStateName } from "@/services/api/state";
+import saveApi, {
+  AUTOSAVE_SLOT,
+  sessionSaveFile,
+  sessionScreenshotFile,
+} from "@/services/api/save";
+import stateApi, { sessionStateFiles } from "@/services/api/state";
 import pendingAssetStore, {
   pendingAssetId,
   type PendingAsset,
@@ -96,21 +100,18 @@ export async function resolveScreenshot(
 }
 
 /**
- * The frame already held for these exact save bytes, if a sync stored one.
+ * The held row, when it holds these exact bytes.
  *
  * Returns:
- *   The stored picture, or undefined when the bytes have moved on since.
+ *   The row, or null when there is none or the bytes have moved on since.
  */
-export function storedScreenshotFor(
+export function heldFor(
   pending: PendingAsset | null,
-  saveBytes: ArrayBuffer,
-): ArrayBuffer | undefined {
-  if (!pending) return undefined;
-  const sameBytes = bytesEqual(
-    new Uint8Array(pending.bytes),
-    new Uint8Array(saveBytes),
-  );
-  return sameBytes ? pending.screenshotBytes : undefined;
+  bytes: Uint8Array,
+): PendingAsset | null {
+  return pending && bytesEqual(new Uint8Array(pending.bytes), bytes)
+    ? pending
+    : null;
 }
 
 /** Console-mode state upload; without a picture there is no screenshot part. */
@@ -148,7 +149,6 @@ export async function saveState({
   }
 
   const capturedAt = new Date();
-  const filename = sessionStateName(rom, capturedAt);
   // Held in the browser until the server takes it, so a state captured with
   // no connection reaches the server on a later pass instead of being lost.
   const pendingId = pendingAssetId(rom.id);
@@ -168,16 +168,7 @@ export async function saveState({
       rom: rom,
       emulator: window.EJS_core,
       statesToUpload: [
-        {
-          stateFile: new File([stateFile], `${filename}.state`, {
-            type: "application/octet-stream",
-          }),
-          screenshotFile: screenshotFile
-            ? new File([screenshotFile], `${filename}.png`, {
-                type: "application/octet-stream",
-              })
-            : undefined,
-        },
+        sessionStateFiles(rom, capturedAt, stateFile, screenshotFile),
       ],
     });
 
@@ -216,14 +207,8 @@ export async function saveSave({
       const { data: updatedSave } = await saveApi.updateSave({
         save: save,
         saveFile: sessionSaveFile(rom, save, saveFile),
-        // Reuse the picture's name so an update replaces it in place; a
-        // version without one takes the save's stem, which links the two.
         screenshotFile: screenshotFile
-          ? new File(
-              [screenshotFile],
-              save.screenshot?.file_name ?? `${save.file_name_no_ext}.png`,
-              { type: "application/octet-stream" },
-            )
+          ? sessionScreenshotFile(rom, save, screenshotFile)
           : undefined,
         deviceId,
       });
@@ -240,7 +225,6 @@ export async function saveSave({
   }
 
   // The backend timestamps slotted uploads, tagging save and screenshot alike.
-  const filename = rom.fs_name_no_ext.trim();
   try {
     const uploadedSaves = await saveApi.uploadSaves({
       rom: rom,
@@ -257,9 +241,7 @@ export async function saveSave({
         {
           saveFile: sessionSaveFile(rom, null, saveFile),
           screenshotFile: screenshotFile
-            ? new File([screenshotFile], `${filename}.png`, {
-                type: "application/octet-stream",
-              })
+            ? sessionScreenshotFile(rom, null, screenshotFile)
             : undefined,
         },
       ],

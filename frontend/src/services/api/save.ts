@@ -32,6 +32,24 @@ export function sessionSaveFile(
   );
 }
 
+/**
+ * A save's picture. An update reuses the picture's name so it is replaced in
+ * place; a save without one takes the save's stem, which links the two.
+ */
+export function sessionScreenshotFile(
+  rom: { fs_name_no_ext: string },
+  save: SaveSchema | null,
+  bytes: ArrayBuffer,
+): File {
+  return new File(
+    [bytes],
+    save
+      ? (save.screenshot?.file_name ?? `${save.file_name_no_ext}.png`)
+      : `${rom.fs_name_no_ext.trim()}.png`,
+    { type: "application/octet-stream" },
+  );
+}
+
 type SaveUploadInput = Omit<AddSaveInput, "saveFile" | "screenshotFile"> & {
   saveFile: File;
   screenshotFile?: File;

@@ -2,9 +2,9 @@
 // wherever the user is in the app. Doing it at launch instead would be too
 // late: by then the player has already drawn its picker, so the asset would
 // land behind the choice the user just made.
+import { uniqBy } from "lodash";
 import { onScopeDispose, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import romApi from "@/services/api/rom";
 import {
   hasPendingAssets,
   syncPendingAssets,
@@ -14,6 +14,7 @@ import {
 } from "@/services/pending-asset";
 import storePlaying from "@/stores/playing";
 import storeRoms from "@/stores/roms";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useServerConnection } from "@/v2/composables/useServerConnection";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -33,15 +34,7 @@ const REFUSED_MESSAGE: Record<PendingAssetKind, string> = {
 // A session that queued several captures owes the player one line per game,
 // not one per capture.
 function firstPerGame<T extends SyncedAsset>(assets: T[]): T[] {
-  const seen = new Set<string>();
-  const first: T[] = [];
-  for (const asset of assets) {
-    const key = `${asset.kind}:${asset.romId}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    first.push(asset);
-  }
-  return first;
+  return uniqBy(assets, (asset) => `${asset.kind}:${asset.romId}`);
 }
 
 // Two shells must not both be draining the same rows into the same server.
@@ -53,6 +46,7 @@ export function installPendingAssetSync() {
   const snackbar = useSnackbar();
   const { t } = useI18n();
   const { isOffline } = useServerConnection();
+  const { refetchRom } = useRomSync();
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
@@ -89,20 +83,14 @@ export function installPendingAssetSync() {
   // An asset that just landed is one the open details view is showing stale.
   async function refresh(synced: SyncedAsset[]) {
     const current = romsStore.currentRom?.id;
-    if (!current || !synced.some((asset) => asset.romId === current)) return;
-    try {
-      const { data } = await romApi.getRom({ romId: current });
-      romsStore.setCurrentRom(data);
-    } catch (error) {
-      console.error(
-        "Failed to refresh a rom after a pending asset synced",
-        error,
-      );
+    if (current && synced.some((asset) => asset.romId === current)) {
+      await refetchRom(current);
     }
   }
 
   async function drain() {
-    if (draining) return;
+    // Offline nothing gets through, and reconnecting starts a pass of its own.
+    if (draining || isOffline.value) return;
     draining = true;
     try {
       // A running session retries its own save every second, and a version
@@ -111,16 +99,14 @@ export function installPendingAssetSync() {
       const kinds: PendingAssetKind[] = playingStore.playing
         ? ["state"]
         : ["save", "state"];
-      if (!isOffline.value) {
-        const { synced, dropped } = await syncPendingAssets(kinds);
-        announce(synced);
-        reportRefused(dropped);
-        await refresh(synced);
-      }
+      const { synced, dropped } = await syncPendingAssets(kinds);
+      announce(synced);
+      reportRefused(dropped);
+      await refresh(synced);
       stopRetrying();
       // The shell can go while a pass is on the wire, and a retry armed after
       // that would outlive it and keep firing for the life of the document.
-      if (!disposed && (await hasPendingAssets())) {
+      if (!disposed && (await hasPendingAssets(kinds))) {
         timer = setTimeout(() => void drain(), RETRY_MS);
       }
     } finally {

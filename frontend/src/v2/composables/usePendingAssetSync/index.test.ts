@@ -7,6 +7,7 @@ import type {
   PendingSyncResult,
 } from "@/services/pending-asset";
 import storePlaying from "@/stores/playing";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 import { installPendingAssetSync } from "./index";
 
 type Entry = { id: string; romId: number; kind: PendingAssetKind };
@@ -30,9 +31,10 @@ async function acceptAll(
 const syncPendingAssets = vi.fn(acceptAll);
 
 vi.mock("@/services/pending-asset", () => ({
-  default: { list: async () => queue.entries },
   syncPendingAssets: (kinds?: PendingAssetKind[]) => syncPendingAssets(kinds),
-  hasPendingAssets: async () => queue.entries.length > 0,
+  hasPendingAssets: async (
+    kinds: readonly PendingAssetKind[] = ["save", "state"],
+  ) => queue.entries.some((entry) => kinds.includes(entry.kind)),
 }));
 
 const success = vi.fn();
@@ -50,8 +52,9 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock("@/services/api/rom", () => ({
-  default: { getRom: vi.fn(async () => ({ data: { id: 1 } })) },
+const refetchRom = vi.fn(async () => null);
+vi.mock("@/v2/composables/useRomSync", () => ({
+  useRomSync: () => ({ refetchRom }),
 }));
 
 const isOffline = ref(false);
@@ -87,6 +90,7 @@ describe("installPendingAssetSync", () => {
     isOffline.value = false;
     syncPendingAssets.mockReset();
     syncPendingAssets.mockImplementation(acceptAll);
+    refetchRom.mockClear();
     success.mockClear();
     error.mockClear();
   });
@@ -244,5 +248,40 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(syncPendingAssets).toHaveBeenCalledTimes(1);
+  });
+
+  // Nothing gets through offline, and reconnecting starts a pass of its own.
+  it("stops asking while the server is away", async () => {
+    queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
+    isOffline.value = true;
+
+    install();
+    await settle();
+    await vi.advanceTimersByTimeAsync(120_000);
+    await settle();
+
+    expect(syncPendingAssets).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  // The running session retries its own save, so there is nothing to wait for.
+  it("stops asking in game when only the session's save is held", async () => {
+    queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
+    storePlaying().setPlaying(true);
+
+    install();
+    await settle();
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("refreshes the details view of a game that just synced", async () => {
+    storeRoms().setCurrentRom({ id: 1 } as DetailedRom);
+    queue.entries = [{ id: "1:a", romId: 1, kind: "state" as const }];
+
+    install();
+    await settle();
+
+    expect(refetchRom).toHaveBeenCalledWith(1);
   });
 });

@@ -13,9 +13,9 @@
 // the auth and main shells.
 import { RBtn, RIcon, RTooltip } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
+import { useDelayedFlag } from "@/v2/composables/useDelayedFlag";
 import { useServerConnection } from "@/v2/composables/useServerConnection";
 
 defineOptions({ inheritAttrs: false });
@@ -29,27 +29,10 @@ const { playing } = storeToRefs(storePlaying());
 
 // A notice that cannot be dismissed has no business sitting over a running
 // game, so it says its piece and then shrinks to its icon.
-const collapsed = ref(false);
-let collapseTimer: ReturnType<typeof setTimeout> | null = null;
-
-function stopCollapsing() {
-  if (collapseTimer === null) return;
-  clearTimeout(collapseTimer);
-  collapseTimer = null;
-}
-
-watch(
-  [isOffline, playing],
-  ([offline, inGame]) => {
-    stopCollapsing();
-    collapsed.value = false;
-    if (!offline || !inGame) return;
-    collapseTimer = setTimeout(() => (collapsed.value = true), COLLAPSE_MS);
-  },
-  { immediate: true },
+const collapsed = useDelayedFlag(
+  () => isOffline.value && playing.value,
+  COLLAPSE_MS,
 );
-
-onBeforeUnmount(stopCollapsing);
 </script>
 
 <template>
@@ -132,8 +115,8 @@ onBeforeUnmount(stopCollapsing);
   line-height: 1.4;
 }
 
-/* A running game owns the screen, so the notice takes the corner the player
-   already puts its own messages in and leaves the middle of the screen alone. */
+/* A running game owns the screen, so the notice moves out of its middle and
+   into a corner the player's own toasts leave free. */
 .r-backend-banner--in-game {
   top: 16px;
   left: 16px;

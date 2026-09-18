@@ -22,6 +22,23 @@ export function sessionStateName(
   return `${rom.fs_name_no_ext.trim()} [${timestamp}]`;
 }
 
+/** A state and its picture, both named after the moment of the capture. */
+export function sessionStateFiles(
+  rom: { fs_name_no_ext: string },
+  capturedAt: Date,
+  stateBytes: ArrayBuffer,
+  screenshotBytes?: ArrayBuffer,
+): { stateFile: File; screenshotFile?: File } {
+  const name = sessionStateName(rom, capturedAt);
+  const type = "application/octet-stream";
+  return {
+    stateFile: new File([stateBytes], `${name}.state`, { type }),
+    screenshotFile: screenshotBytes
+      ? new File([screenshotBytes], `${name}.png`, { type })
+      : undefined,
+  };
+}
+
 type StateUploadInput = Omit<AddStateInput, "stateFile" | "screenshotFile"> & {
   stateFile: File;
   screenshotFile?: File;

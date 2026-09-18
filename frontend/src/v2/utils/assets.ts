@@ -24,6 +24,14 @@ export function screenshotOf(asset: Asset): string | null {
   return asset.screenshot?.download_path ?? null;
 }
 
+/** A state loads only in the core that wrote it; one naming no core is anyone's. */
+export function isCoreCompatible(
+  asset: { emulator?: string | null },
+  core: string | null | undefined,
+): boolean {
+  return !asset.emulator || asset.emulator === core;
+}
+
 /** ISO timestamps sort lexically. */
 export function byUpdatedDesc(a: Asset, b: Asset): number {
   return b.updated_at.localeCompare(a.updated_at);

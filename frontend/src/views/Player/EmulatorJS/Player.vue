@@ -28,13 +28,14 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
+import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
 import {
   saveSave,
   captureScreenshot,
   dumpSaveFile,
   exitEmulatorOnce,
+  heldFor,
   resolveScreenshot,
-  storedScreenshotFor,
   saveState,
   loadEmulatorJSSave,
   loadEmulatorJSState,
@@ -81,8 +82,9 @@ function baselineSaveTrackerFromEmulator() {
   saveTracker.baseline(dumpSaveFile());
 }
 // Writes run one at a time so concurrent writers cannot both open a version;
-// loading a save bumps the generation, which voids writes queued before it,
-// and bytes read while a load is in flight are stale, so they are dropped.
+// restoring a save or a state bumps the generation, which voids writes queued
+// before it, and bytes read while a restore is in flight are stale, so they
+// are dropped.
 let saveWrite: Promise<unknown> = Promise.resolve();
 let saveGeneration = 0;
 let saveLoading = false;
@@ -95,6 +97,9 @@ let pendingSave: PendingAsset | null = null;
 // One row per session: a save an earlier session never got through still owes
 // the server its own version, so this must not write over it.
 const pendingSaveId = pendingAssetId(romRef.value.id);
+function currentSlot(): string | undefined {
+  return loadedSave?.slot || props.saveSlot || undefined;
+}
 async function rememberPendingSave(
   saveBytes: ArrayBuffer,
   screenshotBytes?: ArrayBuffer,
@@ -106,7 +111,7 @@ async function rememberPendingSave(
     romName: romRef.value.name ?? romRef.value.fs_name_no_ext,
     bytes: saveBytes,
     screenshotBytes,
-    slot: loadedSave?.slot || props.saveSlot || undefined,
+    slot: currentSlot(),
     emulator: window.EJS_core,
     deviceId: deviceIDRef.value,
     capturedAt: Date.now(),
@@ -116,14 +121,6 @@ async function rememberPendingSave(
 async function forgetPendingSave() {
   pendingSave = null;
   await pendingAssetStore.clear(pendingSaveId);
-}
-// Whether the browser is holding these exact bytes, so a notice only promises
-// a later sync for a save that really was kept.
-function isSaveHeld(saveFile: Uint8Array): boolean {
-  return (
-    pendingSave !== null &&
-    bytesEqual(new Uint8Array(pendingSave.bytes), saveFile)
-  );
 }
 // The tick re-offers a save whose upload failed on every pass, so what was
 // said for these bytes is remembered: every save the game writes is announced,
@@ -147,16 +144,21 @@ function writeSave(
     const bytes = new Uint8Array(file.saveFile);
     inFlightSave = bytes;
     try {
-      // Held before the attempt and dropped once the server answers, so no
-      // path can upload a save without the browser keeping a copy, and none
-      // can succeed while an older capture stays behind to be synced later.
-      await rememberPendingSave(file.saveFile, file.screenshotFile);
+      // Held before the attempt and dropped once the server takes it, so no
+      // path uploads without a copy kept. Bytes already held keep the frame
+      // taken when the game wrote them, and are not written out again.
+      const held = heldFor(pendingSave, bytes);
+      const screenshotFile = held?.screenshotBytes ?? file.screenshotFile;
+      if (!held || held.screenshotBytes !== screenshotFile) {
+        await rememberPendingSave(file.saveFile, screenshotFile);
+      }
       const save = await saveSave({
         rom: romRef.value,
         save: sessionSaveRef.value,
         deviceId: deviceIDRef.value,
-        slot: loadedSave?.slot || props.saveSlot || undefined,
-        ...file,
+        slot: currentSlot(),
+        saveFile: file.saveFile,
+        screenshotFile,
       });
       if (save && generation === saveGeneration) {
         sessionSaveRef.value = save;
@@ -189,13 +191,15 @@ async function writeSaveIfChanged(file: {
   }
   return (await writeSave(file, generation)) !== null;
 }
-// A state restores the machine mid-scene, so every frame the core renders and
-// every note it plays on the way there belong to a moment the player did not
-// pick. Both are held back until the state has landed.
+// A state restores the machine mid-scene, so every frame the core renders,
+// every note it plays and every save it writes on the way there belong to a
+// moment the player did not pick. All three are held back until it has landed.
 const applyingState = ref(false);
 let restoreVolume: (() => void) | null = null;
 function silenceUntilStateApplied() {
   applyingState.value = true;
+  saveLoading = true;
+  saveGeneration += 1;
   const emulator = window.EJS_emulator;
   if (restoreVolume || typeof emulator?.setVolume !== "function") return;
   const { volume, muted } = emulator;
@@ -209,6 +213,7 @@ function silenceUntilStateApplied() {
 }
 function stateApplied() {
   applyingState.value = false;
+  saveLoading = false;
   restoreVolume?.();
   restoreVolume = null;
 }
@@ -402,10 +407,9 @@ onBeforeUnmount(async () => {
   playing.value = false;
 });
 
-type MessageTone = "success" | "error" | "warning" | "info";
-
 // The app's own toast host: it stacks, so two notices raised together read as
 // two, and it draws its icons as components rather than through a font class.
+const snackbar = useSnackbar();
 function displayMessage(
   message: string,
   {
@@ -414,16 +418,11 @@ function displayMessage(
     icon,
   }: {
     duration: number;
-    tone?: MessageTone;
+    tone?: SnackbarTone;
     icon?: string;
   },
 ) {
-  emitter?.emit("snackbarShow", {
-    msg: message,
-    color: tone,
-    icon,
-    timeout: duration,
-  });
+  snackbar.show(tone, message, { icon, timeout: duration });
 }
 
 // Poll until EmulatorJS' gameManager is ready to accept save/state
@@ -458,19 +457,26 @@ function installAutoSaveSync() {
   autoSaveSyncEmulator = emulator;
   let uploading = false;
   emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
-    if (autoSaveSyncEmulator !== emulator || uploading || !saveFile?.byteLength)
+    if (
+      autoSaveSyncEmulator !== emulator ||
+      uploading ||
+      saveLoading ||
+      !saveFile?.byteLength
+    )
       return;
     if (!saveTracker.shouldUpload(saveFile)) return;
     uploading = true;
     try {
-      const saveBytes = toArrayBuffer(saveFile);
-      // The capture needs the game running, so it happens on the tick. A retry
-      // reuses the frame stored for these bytes instead of taking a new one,
-      // which would picture the moment the network came back.
-      const screenshotFile =
-        storedScreenshotFor(pendingSave, saveBytes) ??
-        (await captureScreenshot());
-      const save = await writeSave({ saveFile: saveBytes, screenshotFile });
+      // The capture needs the game running, so it happens on the tick, once
+      // per save: a retry of held bytes keeps the frame taken when the game
+      // wrote them rather than picturing the moment the network came back.
+      const screenshotFile = heldFor(pendingSave, saveFile)
+        ? undefined
+        : await captureScreenshot();
+      const save = await writeSave({
+        saveFile: toArrayBuffer(saveFile),
+        screenshotFile,
+      });
       if (save) {
         heldBackSave = null;
         romsStore.update(romRef.value);
@@ -479,9 +485,12 @@ function installAutoSaveSync() {
           tone: "success",
           icon: "mdi-cloud-sync",
         });
-        // A write voided by a save being loaded holds nothing back, so there
-        // is nothing to promise for it either.
-      } else if (isSaveHeld(saveFile) && !bytesEqual(saveFile, heldBackSave)) {
+        // A write voided by a restore holds nothing back, so there is nothing
+        // to promise for it either.
+      } else if (
+        heldFor(pendingSave, saveFile) &&
+        !bytesEqual(saveFile, heldBackSave)
+      ) {
         announceSaveHeldBack(saveFile);
       }
     } catch (error) {
@@ -507,12 +516,10 @@ async function flushPendingSave() {
   await new Promise((resolve) => setTimeout(resolve, 50));
   const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
   if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
-  const saveBytes = toArrayBuffer(saveFile);
-  // The exit takes no frame of its own; it carries the one stored when the
-  // game wrote these bytes, if a sync got that far.
-  const screenshotFile = storedScreenshotFor(pendingSave, saveBytes);
   try {
-    if (await writeSave({ saveFile: saveBytes, screenshotFile })) {
+    // The exit takes no frame of its own: the write carries the one held for
+    // these bytes, if a sync got that far.
+    if (await writeSave({ saveFile: toArrayBuffer(saveFile) })) {
       romsStore.update(romRef.value);
     }
   } catch (error) {
@@ -554,7 +561,7 @@ function onPageHide() {
     save: sessionSaveRef.value,
     saveFile: toArrayBuffer(unloadSave),
     deviceId: deviceIDRef.value,
-    slot: loadedSave?.slot || props.saveSlot || undefined,
+    slot: currentSlot(),
   });
 }
 
@@ -610,7 +617,7 @@ window.EJS_onSaveSave = async function ({
       tone: "success",
       icon: "mdi-cloud-sync",
     });
-  } else if (isSaveHeld(new Uint8Array(saveFile))) {
+  } else if (heldFor(pendingSave, new Uint8Array(saveFile))) {
     // Asked for by hand, so it answers every time, and the tick behind it
     // knows these bytes have been spoken for.
     announceSaveHeldBack(new Uint8Array(saveFile));
@@ -618,32 +625,39 @@ window.EJS_onSaveSave = async function ({
 };
 
 // States management
-// A state restores the SRAM along with the rest of the machine, so the bytes
-// the tick reads next belong to the state, not to progress the player made.
-async function rebaselineAfterState() {
-  await new Promise((resolve) => setTimeout(resolve, STATE_APPLY_SETTLE_MS));
-  baselineSaveTrackerFromEmulator();
+// Every way a state arrives goes through here. It restores the SRAM along with
+// the rest of the machine, so the bytes the tick reads next belong to the
+// state, not to progress the player made: they become the new baseline.
+async function applyState(state: Uint8Array) {
+  silenceUntilStateApplied();
+  try {
+    loadEmulatorJSState(state);
+    await new Promise((resolve) => setTimeout(resolve, STATE_APPLY_SETTLE_MS));
+    baselineSaveTrackerFromEmulator();
+  } finally {
+    stateApplied();
+  }
 }
 
 async function loadState(state: StateSchema) {
+  // Raised before the download, since the picker resumes the game meanwhile.
   silenceUntilStateApplied();
   try {
     const { data } = await api.get(state.download_path.replace("/api", ""), {
       responseType: "arraybuffer",
     });
+    const bytes = data
+      ? new Uint8Array(data)
+      : new Uint8Array(
+          await (await window.EJS_emulator.selectFile()).arrayBuffer(),
+        );
+    await applyState(bytes);
     if (data) {
-      loadEmulatorJSState(new Uint8Array(data));
       displayMessage("State loaded from server", {
         duration: 3000,
         icon: "mdi-cloud-download-outline",
       });
-      await rebaselineAfterState();
-      return;
     }
-
-    const file = await window.EJS_emulator.selectFile();
-    loadEmulatorJSState(new Uint8Array(await file.arrayBuffer()));
-    await rebaselineAfterState();
   } finally {
     stateApplied();
   }
@@ -691,8 +705,7 @@ window.EJS_onGameStart = async () => {
   // EmulatorJS' own notices (its browser save-state slots) go through the
   // same host, so nothing of ours is overwritten by one of theirs.
   const emulator = window.EJS_emulator;
-  if (emulator && !emulator.__rommMessageStack) {
-    emulator.__rommMessageStack = true;
+  if (emulator) {
     emulator.displayMessage = (text: string, duration?: number) =>
       displayMessage(text, { duration: duration ?? 3000 });
   }
@@ -783,12 +796,11 @@ window.EJS_onGameStart = async () => {
       window.EJS_emulator.storage.states
         .get(window.EJS_emulator.getBaseFileName() + ".state")
         .then(async (e: Uint8Array) => {
-          loadEmulatorJSState(e);
+          await applyState(e);
           displayMessage("Quick load from server", {
             duration: 3000,
             icon: "mdi-flash",
           });
-          await rebaselineAfterState();
         });
     }
   });

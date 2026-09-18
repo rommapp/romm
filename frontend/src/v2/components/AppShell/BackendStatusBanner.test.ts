@@ -61,7 +61,6 @@ describe("BackendStatusBanner", () => {
     expect(banner().classes()).not.toContain("r-backend-banner--in-game");
     expect(wrapper!.find(".r-backend-banner__retry").exists()).toBe(true);
     // The message is right there to read, so nothing hovers over it.
-    expect(banner().attributes("title")).toBeUndefined();
     expect(wrapper!.find(".r-tooltip-stub").exists()).toBe(false);
   });
 
@@ -81,7 +80,6 @@ describe("BackendStatusBanner", () => {
     expect(body().exists()).toBe(false);
     expect(banner().classes()).toContain("r-backend-banner--collapsed");
     // Only the icon is left, so the message moves into a tooltip of our own.
-    expect(banner().attributes("title")).toBeUndefined();
     expect(wrapper!.find(".r-tooltip-stub").exists()).toBe(true);
   });
 

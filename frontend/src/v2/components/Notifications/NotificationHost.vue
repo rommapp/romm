@@ -6,6 +6,7 @@
 // emission — v2 stacks so fast successive messages don't overwrite each
 // other. Stored colour/icon fields are preserved so existing emitters work.
 import { RIcon } from "@v2/lib";
+import { useEventListener } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -23,8 +24,6 @@ type Toast = {
   msg: string;
   icon?: string;
   image?: string | null;
-  /** Artwork the browser could not load, so the tone's icon stands in. */
-  imageBroken?: boolean;
   tone: ToastTone;
   timer?: number;
 };
@@ -92,13 +91,12 @@ const fullscreenHost = ref<HTMLElement | null>(null);
 function trackFullscreen() {
   fullscreenHost.value = document.fullscreenElement as HTMLElement | null;
 }
-document.addEventListener("fullscreenchange", trackFullscreen);
+useEventListener(document, "fullscreenchange", trackFullscreen);
 // A host mounted while a game already owns the screen gets no event of its own.
 trackFullscreen();
 
 onBeforeUnmount(() => {
   emitter?.off("snackbarShow", openHandler);
-  document.removeEventListener("fullscreenchange", trackFullscreen);
   toasts.value.forEach((t) => t.timer && window.clearTimeout(t.timer));
 });
 </script>
@@ -115,11 +113,11 @@ onBeforeUnmount(() => {
           role="alert"
         >
           <img
-            v-if="toast.image && !toast.imageBroken"
+            v-if="toast.image"
             :src="toast.image"
             alt=""
             class="r-v2-toast__art"
-            @error="toast.imageBroken = true"
+            @error="toast.image = null"
           />
           <RIcon
             v-else-if="toast.icon"

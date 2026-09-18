@@ -12,7 +12,7 @@ import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
-import type { Asset } from "@/v2/utils/assets";
+import { isCoreCompatible, type Asset } from "@/v2/utils/assets";
 
 defineOptions({ inheritAttrs: false });
 
@@ -30,10 +30,9 @@ emitter?.on("selectStateDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("selectStateDialog", openHandler));
 
 // A state another core wrote stays listed, disabled, so the count adds up.
-function stateDisabledReason(asset: Asset) {
-  const emulator = "emulator" in asset ? asset.emulator : null;
-  if (!emulator || emulator === window.EJS_core) return null;
-  return t("play.state-incompatible-core", { emulator });
+function stateDisabledReason(asset: { emulator?: string | null }) {
+  if (isCoreCompatible(asset, window.EJS_core)) return null;
+  return t("play.state-incompatible-core", { emulator: asset.emulator });
 }
 
 function onSelect(asset: Asset) {
