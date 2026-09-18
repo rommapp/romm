@@ -75,6 +75,12 @@ describe("emulator labels", () => {
     const store = useStreamingStore();
     expect(store.emulatorLabel("snes9x")).toBe("snes9x");
   });
+
+  it("falls back to the id for one named like an object's own members", () => {
+    const store = useStreamingStore();
+    expect(store.emulatorLabel("constructor")).toBe("constructor");
+    expect(store.emulatorLabel("__proto__")).toBe("__proto__");
+  });
 });
 
 describe("joinable sessions", () => {

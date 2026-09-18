@@ -7707,6 +7707,31 @@ def test_joining_walks_past_a_session_on_another_platform(
     assert r.json()["rom_id"] == second_rom.id
 
 
+def test_joining_a_named_container_busy_with_another_platform_is_a_404(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Naming the container skips the walk, not its platform check: the game there
+    now may be another platform's, never the one the caller asked to join."""
+    member = _ws_pool_member(
+        rom, 0, platforms={rom.platform_slug: "pcsx2", "ngc": "dolphin"}
+    )
+    with _streaming(member):
+        _claim_multiplayer(client, access_token, rom.id)
+        key = session_store.session_redis_key(_key_of(member))
+        session = json.loads(asyncio.run(async_cache.get(key)))
+        session["platform"] = "ngc"
+        asyncio.run(async_cache.set(key, json.dumps(session)))
+        with _joined_room():
+            r = _join(
+                client,
+                viewer_access_token,
+                rom.platform_slug,
+                container=_key_of(member),
+            )
+
+    assert r.status_code == 404
+
+
 def test_joining_a_solo_session_finds_nothing_to_join(
     client, access_token, viewer_access_token, rom: Rom
 ):

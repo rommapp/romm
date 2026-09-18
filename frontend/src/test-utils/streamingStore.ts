@@ -6,7 +6,10 @@ const EMULATOR_LABELS: Record<string, string> = {
 
 export function useStreamingStore() {
   return {
-    emulatorLabel: (id: string | null | undefined) =>
-      id ? (EMULATOR_LABELS[id.toLowerCase()] ?? id) : "",
+    emulatorLabel: (id: string | null | undefined) => {
+      if (!id) return "";
+      const key = id.toLowerCase();
+      return Object.hasOwn(EMULATOR_LABELS, key) ? EMULATOR_LABELS[key] : id;
+    },
   };
 }

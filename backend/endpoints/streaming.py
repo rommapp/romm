@@ -427,7 +427,12 @@ async def _reserve_container(
 
     # A drain marker names no holder, so the holder comes from a live session,
     # while `draining` still says a container is about to come free.
-    snapshots = [await get_session(candidate.key) or {} for candidate in candidates]
+    snapshots = [
+        snapshot or {}
+        for snapshot in await asyncio.gather(
+            *(get_session(candidate.key) for candidate in candidates)
+        )
+    ]
     draining = any(snapshot.get("draining") for snapshot in snapshots)
     holder = next(
         (
@@ -1153,7 +1158,11 @@ async def join_session(
         candidate, _, session = await access.resolve_named_container(
             platform, container
         )
-        found = (candidate, session) if session is not None else None
+        found = (
+            (candidate, session)
+            if session is not None and session_platform_matches(session, platform)
+            else None
+        )
     else:
         found = None
         for candidate in containers_for_platform(platform):

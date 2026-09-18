@@ -666,6 +666,22 @@ function isOurClaim(payload: {
   );
 }
 
+// For a claim the player walked away from while it came up. Only a release the
+// backend took clears it, and the unmount path retries one that failed.
+async function handBackClaim(platform: string): Promise<void> {
+  const released = await streamingStore.releaseSession(
+    platform,
+    false,
+    claimedContainer.value,
+    claimedAt.value,
+  );
+  holdsClaim.value = !released;
+  if (released) {
+    claimedContainer.value = null;
+    claimedAt.value = null;
+  }
+}
+
 useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
   if (!isOurClaim(payload) || playerState.value !== "loading") return;
   launchPhase.value = payload.phase;
@@ -674,22 +690,8 @@ useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
 useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
   if (!isOurClaim(payload)) return;
   launchPhase.value = null;
-  // The player left while the game was coming up. The claim is theirs and
-  // still held, so hand the container back rather than entering the stream.
   if ((playerState.value as PlayerState) === "exited") {
-    const released = await streamingStore.releaseSession(
-      payload.platform,
-      false,
-      claimedContainer.value,
-      claimedAt.value,
-    );
-    // Only a release the backend took clears the claim; the unmount path is
-    // the retry for one that failed.
-    holdsClaim.value = !released;
-    if (released) {
-      claimedContainer.value = null;
-      claimedAt.value = null;
-    }
+    await handBackClaim(payload.platform);
     return;
   }
   if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
@@ -869,6 +871,11 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       claimedContainer.value = launching.container;
       claimedAt.value = launching.claimed_at;
       holdsClaim.value = true;
+      // Every exit path ran before there was a claim to hand back.
+      if ((playerState.value as PlayerState) === "exited") {
+        await handBackClaim(rom.value.platform_slug);
+        return;
+      }
       const endedEarly = earlyNotices.splice(0).find(isOurClaim);
       if (endedEarly) await endFromNotice(endedEarly);
       await flourish;

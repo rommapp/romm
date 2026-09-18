@@ -587,6 +587,35 @@ describe("Stream claim hygiene", () => {
     );
   });
 
+  it("hands the container back when the claim lands after the player left", async () => {
+    // Leaving mid-claim unmounts the view, so no socket or unmount path is left
+    // to release what the 202 then grants.
+    let claimed = (_: typeof CLAIM) => {};
+    mocks.claimSession.mockReturnValue(
+      new Promise<typeof CLAIM>((resolve) => {
+        claimed = resolve;
+      }),
+    );
+    const wrapper = await launch({ picker: false });
+    const playing = vmOf(wrapper).onPlay();
+    await flushPromises();
+    await (
+      wrapper.vm as unknown as { performStop: () => Promise<void> }
+    ).performStop();
+    wrapper.unmount();
+
+    claimed(CLAIM);
+    await playing;
+    await flushPromises();
+
+    expect(mocks.releaseSession).toHaveBeenCalledWith(
+      "gba",
+      false,
+      CLAIM.container,
+      CLAIM.claimed_at,
+    );
+  });
+
   it("names the claim it saves when it leaves a running game", async () => {
     mocks.saveAndExit.mockResolvedValue({ released: true, saved: true });
     const wrapper = await launch({ picker: false });
