@@ -57,7 +57,7 @@
     "socket.io-client": "^4.7.5",
     "tailwindcss": "^4.0.0",
     "vanilla-tilt": "^1.8.1",
-    "vue": "^3.4.27",
+    "vue": "^3.5.0",
     "vue-i18n": "^11.1.10",
     "vue-router": "^4.3.2",
     "vue3-pdf-app": "^1.0.3",

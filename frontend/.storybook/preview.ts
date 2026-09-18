@@ -10,7 +10,9 @@ import storePermissions from "../src/stores/permissions";
 import "../src/styles/common.css";
 import "../src/styles/fonts.css";
 import { dark, light } from "../src/styles/themes";
+import { ChromeLabelsKey } from "../src/v2/lib/a11y/chromeLabels";
 import "../src/v2/styles/global.css";
+import { createChromeLabels } from "../src/v2/utils/chromeLabels";
 
 // Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
 // v2 primitives are Vuetify-free at runtime — Vuetify stays registered only
@@ -25,6 +27,9 @@ import "../src/v2/styles/global.css";
 setup((app) => {
   app.use(createPinia());
   app.use(i18n);
+  // Stories exercise the same injected-label path as the app, so a
+  // primitive rendering an un-translated label fails here too.
+  app.provide(ChromeLabelsKey, createChromeLabels());
   // A catch-all router so primitives that render real `<router-link>`s
   // (RBtn / RListItem / RMenuItem with `to`) resolve a proper `href`
   // instead of crashing on `router.resolve`. Any string path resolves.
