@@ -3433,7 +3433,10 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 10, True),
+            ),
             patch("handler.streaming.states.pull_state_to_library", new=AsyncMock()),
             patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
             patch(
@@ -3464,7 +3467,8 @@ def test_a_save_and_exit_for_a_replaced_claim_leaves_the_session(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with patch(
-            "handler.streaming.commands.save_and_exit", return_value=(False, 10)
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(False, 10, False),
         ) as save_and_exit:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -3488,7 +3492,8 @@ def test_a_save_and_exit_naming_its_own_claim_still_ends_the_session(
     with _streaming(_container_for(rom)):
         claimed_at = _claim_ok(client, access_token, rom.id).json()["claimed_at"]
         with patch(
-            "handler.streaming.commands.save_and_exit", return_value=(False, 10)
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(False, 10, False),
         ) as save_and_exit:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -3512,7 +3517,8 @@ def test_a_named_save_and_exit_leaves_another_platforms_session_alone(
     with _streaming(_nested()):
         assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
         with patch(
-            "handler.streaming.commands.save_and_exit", return_value=(True, 10)
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(True, 10, True),
         ) as save_and_exit:
             r = client.post(
                 "/api/streaming/sessions/ngc/save-and-exit",
@@ -3534,7 +3540,8 @@ def test_a_named_save_and_exit_leaves_a_desktop_alone(client, access_token):
     with _streaming(container):
         assert _desktop(client, access_token, key)[0].status_code == 200
         with patch(
-            "handler.streaming.commands.save_and_exit", return_value=(True, 10)
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(True, 10, True),
         ) as save_and_exit:
             r = client.post(
                 "/api/streaming/sessions/ps2/save-and-exit",
@@ -3552,7 +3559,8 @@ def test_a_save_and_exit_with_nothing_active_is_a_no_op(client, access_token, ro
     """A retried unload finds its claim already gone, which ends nothing."""
     with _streaming(_container_for(rom)):
         with patch(
-            "handler.streaming.commands.save_and_exit", return_value=(False, 10)
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(False, 10, False),
         ) as save_and_exit:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -3571,7 +3579,8 @@ def test_save_and_exit_failure_still_releases_session(client, access_token, rom:
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with patch(
-            "handler.streaming.commands.save_and_exit", return_value=(False, 10)
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(False, 10, False),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -3591,7 +3600,8 @@ def test_save_and_exit_rejects_a_slot_the_platform_lacks(client, access_token):
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with patch(
-            "handler.streaming.commands.save_and_exit", return_value=(True, 9)
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(True, 9, True),
         ) as broker:
             r = client.post(
                 "/api/streaming/sessions/ngc/save-and-exit",
@@ -3758,7 +3768,10 @@ def test_save_and_exit_pulls_broker_effective_slot(client, access_token, rom: Ro
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 10, True),
+            ),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
                 "handler.streaming.states.pull_state_to_library", new=MagicMock()
@@ -3784,7 +3797,10 @@ def test_save_and_exit_failed_blocking_save_skips_state_pull(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(False, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(False, 10, False),
+            ),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
                 "handler.streaming.states.pull_state_to_library", new=MagicMock()
@@ -3817,7 +3833,10 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 10, True),
+            ),
             patch("handler.streaming.states.pull_state_to_library", new=MagicMock()),
             patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
             patch("handler.streaming.background.spawn_sync_task"),
@@ -3867,7 +3886,10 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
             )
         )
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 10, True),
+            ),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             r = client.post(
@@ -5189,32 +5211,8 @@ def _run_exit_pulls(spawn: MagicMock) -> None:
             spawned.close()
 
 
-def _release_webstation(client, token, rom: Rom, exit_report: dict | None) -> int:
-    """Release a webstation session whose exit answers `exit_report`, run its
-    save pull, and return how many times that pull asked for the archive."""
-    with (
-        patch("handler.streaming.webstation.exit_session", return_value=exit_report),
-        patch("handler.streaming.background.spawn_sync_task") as spawn,
-        patch("handler.streaming.saves.fetch_save_archive", return_value=None) as fetch,
-    ):
-        client.delete(
-            f"/api/streaming/sessions/{rom.platform_slug}", headers=_auth(token)
-        )
-        _run_exit_pulls(spawn)
-    return fetch.call_count
-
-
-@pytest.mark.parametrize(
-    ("exit_report", "let_through"),
-    [({"state_saved": False, "state_slot": None}, True), (None, False)],
-)
 def test_a_webstation_exit_that_changed_no_saves_lets_the_next_claim_straight_through(
-    client,
-    access_token,
-    rom: Rom,
-    monkeypatch,
-    exit_report: dict | None,
-    let_through: bool,
+    client, access_token, rom: Rom, monkeypatch
 ):
     """A webstation exit answers once the save dump is written, so its first
     "nothing new" is final and retrying it only holds the next claim."""
@@ -5236,7 +5234,8 @@ def test_a_webstation_exit_that_changed_no_saves_lets_the_next_claim_straight_th
         _claim_webstation_ok(client, access_token, rom.id)
         with (
             patch(
-                "handler.streaming.webstation.exit_session", return_value=exit_report
+                "handler.streaming.webstation.exit_session",
+                return_value={"state_saved": False, "state_slot": None},
             ),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
@@ -5254,7 +5253,7 @@ def test_a_webstation_exit_that_changed_no_saves_lets_the_next_claim_straight_th
         ):
             r = _claim_webstation_ok(client, access_token, rom.id)
     assert r.status_code == 202
-    assert waited == [let_through]
+    assert waited == [True]
 
 
 def test_a_webstation_exit_that_never_answered_keeps_asking(
@@ -5263,8 +5262,19 @@ def test_a_webstation_exit_that_never_answered_keeps_asking(
     """An exit that timed out or failed may still be writing the dump."""
     with _streaming(_webstation_for(rom)):
         _claim_webstation_ok(client, access_token, rom.id)
-        asked = _release_webstation(client, access_token, rom, None)
-    assert asked == broker.PULL_ATTEMPTS
+        with (
+            patch("handler.streaming.webstation.exit_session", return_value=None),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == broker.PULL_ATTEMPTS
 
 
 @pytest.mark.parametrize(
@@ -5272,6 +5282,7 @@ def test_a_webstation_exit_that_never_answered_keeps_asking(
     [
         (None, True, broker.PULL_ATTEMPTS),
         ({"state_saved": True, "state_slot": 10}, False, 1),
+        ({"state_saved": False, "state_slot": None}, True, 1),
     ],
 )
 def test_a_webstation_save_and_exit_takes_one_answer_only_once_its_exit_answers(
@@ -5391,7 +5402,10 @@ def test_a_blocking_save_and_exit_takes_one_answer_only_once_the_broker_confirms
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(saved, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(saved, 10, saved),
+            ),
             patch(
                 "handler.streaming.states.pull_state_to_library",
                 new=AsyncMock(return_value=True),
@@ -5418,7 +5432,10 @@ def test_a_background_save_and_exit_keeps_asking_while_the_emulator_writes(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(False, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(False, 10, False),
+            ),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
                 "handler.streaming.saves.fetch_save_archive", return_value=None
@@ -5449,7 +5466,10 @@ def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(False, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(False, 10, False),
+            ),
             patch("handler.streaming.background.spawn_sync_task"),
             patch.object(streaming, "release_own_session", release_after_looking),
         ):
@@ -6380,7 +6400,10 @@ def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
         ):
             _mc_claim(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 1)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 1, True),
+            ),
             patch(
                 "handler.streaming.memory_cards.evacuate_card",
                 new=AsyncMock(return_value=True),
@@ -6493,7 +6516,8 @@ def test_save_and_exit_wait_false_forces_blocking_on_card_sync(
             _mc_claim(client, access_token, rom.id)
         with (
             patch(
-                "handler.streaming.commands.save_and_exit", return_value=(True, 1)
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 1, True),
             ) as save,
             patch(
                 "handler.streaming.memory_cards.evacuate_card",

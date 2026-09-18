@@ -946,7 +946,7 @@ async def save_and_exit_session(
     # still writing, and the wipe can race its exit flush.
     card_sync = container.memory_card_sync
     effective_wait = True if card_sync else req.wait
-    saved, effective_slot = await asyncio.to_thread(
+    saved, effective_slot, settled = await asyncio.to_thread(
         commands.save_and_exit, container, slot=req.slot, wait=effective_wait
     )
 
@@ -962,14 +962,7 @@ async def save_and_exit_session(
     await lifecycle.clear_session_activity(session_key, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
     pull_mark = await lifecycle.mark_exit_saves_pending(container, session)
-    # A confirmed save that blocked on the kill leaves nothing still writing, and
-    # a webstation exit blocks whatever wait says.
-    lifecycle.collect_exit_saves(
-        container,
-        session,
-        pull_mark,
-        settled=saved and (effective_wait or container.is_webstation),
-    )
+    lifecycle.collect_exit_saves(container, session, pull_mark, settled=settled)
 
     # Sync the exit save to the library. With wait=false the broker save may
     # still be running; the pull blocks on the broker until it finishes.
