@@ -963,9 +963,13 @@ async def save_and_exit_session(
     await lifecycle.clear_session_activity(session_key, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
     pull_mark = await lifecycle.mark_exit_saves_pending(container, session)
-    # Only a blocking save the broker confirmed has finished killing the emulator.
+    # A confirmed save that blocked on the kill leaves nothing still writing, and
+    # a webstation exit blocks whatever wait says.
     lifecycle.collect_exit_saves(
-        container, session, pull_mark, settled=effective_wait and saved
+        container,
+        session,
+        pull_mark,
+        settled=saved and (effective_wait or container.is_webstation),
     )
 
     # Sync the exit save to the library. With wait=false the broker save may
@@ -1638,15 +1642,19 @@ async def force_release_all(
                     # emulator anyway rather than leave it running.
                     await asyncio.to_thread(commands.stop, container)
                 else:
-                    state_slot = await lifecycle.quiesce_container(container, session)
+                    stopped = await lifecycle.quiesce_container(container, session)
                     # Credit playtime to the session's owner, not the admin.
                     await lifecycle.record_play_session(session)
                     await lifecycle.clear_session_activity(container_key, session)
-                    await lifecycle.collect_exit_state(container, session, state_slot)
+                    await lifecycle.collect_exit_state(
+                        container, session, stopped.state_slot
+                    )
                     pull_mark = await lifecycle.mark_exit_saves_pending(
                         container, session
                     )
-                    lifecycle.collect_exit_saves(container, session, pull_mark)
+                    lifecycle.collect_exit_saves(
+                        container, session, pull_mark, settled=stopped.settled
+                    )
 
             # Note who ended it before the key goes, so the player's next poll
             # can explain the stream vanishing.

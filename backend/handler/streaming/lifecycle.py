@@ -107,18 +107,17 @@ async def release_after_state_pull(
 
 async def quiesce_container(
     container: ResolvedContainer, session: dict[str, Any], *, save: bool = True
-) -> int | None:
+) -> commands.StopOutcome:
     """Stop the emulator, then evacuate and wipe its memory card.
 
     Every teardown path opens this way, and the order is load-bearing: stopping
     first is what makes the card quiescent, and the wipe runs only where the
-    evacuation captured the card. Returns the slot the stop wrote an exit state
-    to, if any.
+    evacuation captured the card. Returns what the stop left to collect.
     """
-    state_slot = await asyncio.to_thread(commands.stop, container, save)
+    stopped = await asyncio.to_thread(commands.stop, container, save)
     if await memory_cards.evacuate_session_card(session, container):
         await memory_cards.wipe_session_card(container)
-    return state_slot
+    return stopped
 
 
 async def _pull_exit_saves(
@@ -163,7 +162,7 @@ def collect_exit_saves(
     session: dict[str, Any],
     mark: saves.SavePullMark | None,
     *,
-    settled: bool = False,
+    settled: bool,
 ) -> None:
     """Pull a stopped session's save archive in the background, since the broker
     keeps it after the emulator dies, filing it under the owner whoever ended it.
@@ -171,17 +170,12 @@ def collect_exit_saves(
     Args:
         mark: cleared by the pull however it ends.
         settled: the broker confirmed the emulator is done writing, so the first
-            answer is final. A webstation exit only answers once it is.
+            answer is final.
     """
     if mark is None:
         return
     background.spawn_sync_task(
-        _pull_exit_saves(
-            container,
-            mark,
-            broker_session_id(session),
-            settled or container.is_webstation,
-        )
+        _pull_exit_saves(container, mark, broker_session_id(session), settled)
     )
 
 
@@ -390,14 +384,14 @@ async def teardown_released_session(
 
         # The marker, or the claim it could not replace, holds the container
         # throughout, so no concurrent claim can interleave.
-        state_slot = await quiesce_container(container, session, save=save)
+        stopped = await quiesce_container(container, session, save=save)
 
         await record_play_session(session)
         await clear_session_activity(session_key, session)
 
         # Awaited, not spawned: the claim is released below.
-        await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session, pull_mark)
+        await collect_exit_state(container, session, stopped.state_slot)
+        collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
         # The pull clears it from here.
         pull_mark = None
 
@@ -465,11 +459,11 @@ async def _teardown_abandoned_session(
             await record_termination(
                 session, session_key, ended_by=None, reason="abandoned"
             )
-        state_slot = await quiesce_container(container, session)
+        stopped = await quiesce_container(container, session)
         await record_play_session(session)
         await clear_session_activity(session_key, session)
-        await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session, pull_mark)
+        await collect_exit_state(container, session, stopped.state_slot)
+        collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
         pull_mark = None
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)

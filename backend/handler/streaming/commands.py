@@ -5,7 +5,7 @@ for the effect and never for the route that produces it.
 """
 
 import urllib.error
-from typing import Any
+from typing import Any, NamedTuple
 
 from config import STREAMING_SAVE_TIMEOUT
 from handler.streaming import broker, webstation
@@ -169,10 +169,18 @@ def swap_disc(container: ResolvedContainer, disc_path: str) -> bool:
     return bool(body and body.get("status") == "ok")
 
 
-def stop(container: ResolvedContainer, save: bool = True) -> int | None:
+class StopOutcome(NamedTuple):
+    """What a stop leaves for the teardown to collect."""
+
+    state_slot: int | None = None
+    # The broker answered once the emulator was done writing its saves.
+    settled: bool = False
+
+
+def stop(container: ResolvedContainer, save: bool = True) -> StopOutcome:
     """Tell the broker to stop emulator. Best-effort, don't raise on failure.
 
-    Returns the slot a state was captured in, or None when none was. With
+    The outcome's slot is where a state was captured, if one was. With
     `save` off no state is written at all, which is what a player leaving
     without saving asked for; the game's own save data still travels either
     way, so progress made at an in-game save point survives the stop.
@@ -183,11 +191,14 @@ def stop(container: ResolvedContainer, save: bool = True) -> int | None:
     """
     if container.is_webstation:
         report = webstation.exit_session(container, slot=0, save=save)
-        if save and report and report.get("state_saved"):
-            slot = report.get("state_slot")
-            return slot if isinstance(slot, int) else None
-        return None
+        if report is None:
+            return StopOutcome()
+        slot = report.get("state_slot")
+        if save and report.get("state_saved") and isinstance(slot, int):
+            return StopOutcome(slot, settled=True)
+        return StopOutcome(settled=True)
+    # These brokers ack before the emulator has flushed its saves.
     broker.request_safe(
         container, "/launch", "stop", method="DELETE", timeout=ACK_TIMEOUT
     )
-    return None
+    return StopOutcome()
