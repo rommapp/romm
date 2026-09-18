@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from handler.redis_handler import async_cache
-from handler.streaming import commands, session_store
+from handler.streaming import commands, saves, session_store
 from handler.streaming.config import ResolvedContainer, reset_cache, resolve_entry
 from tasks.registry import SCHEDULED_TASKS
 from tasks.scheduled.reap_streaming_sessions import (
@@ -93,10 +93,13 @@ def test_the_reaper_runs_every_minute():
     assert reap_streaming_sessions_task.cron_string == "* * * * *"
 
 
-def test_the_job_outlives_a_slow_teardown():
-    """RQ kills a job at its timeout, and a teardown killed mid-evacuation loses
-    the player's only copy of the card."""
-    assert reap_streaming_sessions_task.timeout >= session_store.HOLD_CEILING_SECONDS
+def test_the_job_outlives_a_slow_teardown_and_its_save_pull():
+    """RQ kills a job at its timeout, and the job waits out the exit save pull
+    after a teardown that may hold its marker right up to the ceiling."""
+    assert (
+        reap_streaming_sessions_task.timeout
+        >= session_store.HOLD_CEILING_SECONDS + saves.SAVE_PULL_TTL_SECONDS
+    )
 
 
 def test_a_run_keeps_no_job_history():
@@ -193,6 +196,32 @@ async def test_a_reaped_session_frees_its_container_and_leaves_a_notice():
     assert await _stored(N64) is None
     notice = await session_store.get_termination(_resolved(N64).key, 1)
     assert notice is not None and notice["reason"] == "abandoned"
+
+
+async def test_a_failure_before_the_stop_leaves_the_session_for_the_next_run():
+    """Freeing the container then would let a claim launch over an emulator still
+    running on a card nobody evacuated."""
+    with _streaming(N64):
+        session = await _hold(N64, idle_seconds=STALE)
+        with (
+            patch(
+                "handler.streaming.lifecycle.mark_exit_saves_pending",
+                side_effect=[ConnectionError("redis blinked"), None],
+            ),
+            patch(
+                "handler.streaming.lifecycle.quiesce_container",
+                new=AsyncMock(return_value=commands.StopOutcome()),
+            ) as quiesce,
+            patch("handler.streaming.lifecycle.record_play_session"),
+        ):
+            await ReapStreamingSessionsTask().run()
+            quiesce.assert_not_awaited()
+            assert await _stored(N64) == session
+
+            await ReapStreamingSessionsTask().run()
+
+    quiesce.assert_awaited_once()
+    assert await _stored(N64) is None
 
 
 async def test_the_job_waits_for_the_exit_save_pull_it_spawned():

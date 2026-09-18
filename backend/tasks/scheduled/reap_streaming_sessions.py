@@ -6,6 +6,7 @@ from handler.streaming.config import (
     containers_by_key,
 )
 from handler.streaming.lifecycle import teardown_abandoned_session
+from handler.streaming.saves import SAVE_PULL_TTL_SECONDS
 from handler.streaming.session_store import HOLD_CEILING_SECONDS, get_abandoned_session
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
@@ -42,9 +43,9 @@ class ReapStreamingSessionsTask(PeriodicTask):
             enabled=True,
             manual_run=False,
             cron_string="* * * * *",  # Every minute
-            # RQ kills a job at its timeout, and a teardown cut short mid-evacuation
-            # loses the card, so give it as long as the work may keep a hold.
-            timeout=HOLD_CEILING_SECONDS,
+            # RQ kills a job at its timeout, so it has to cover a teardown holding
+            # its marker to the ceiling plus the exit save pull it then waits out.
+            timeout=HOLD_CEILING_SECONDS + SAVE_PULL_TTL_SECONDS,
             result_ttl=0,
         )
 

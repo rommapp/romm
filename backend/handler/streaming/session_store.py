@@ -472,6 +472,21 @@ async def drop_drain_marker(session_key: str, token: str) -> None:
         log.warning("could not drop the drain marker on %s", session_key)
 
 
+async def restore_drained_session(
+    session_key: str, token: str, session: dict[str, Any]
+) -> None:
+    """Put `session` back in place of the drain marker `token` wrote, while it is still there."""
+    try:
+        await replace_session_if(
+            session_key,
+            lambda current: current.get("drain_token") == token,
+            json.dumps(session),
+            STREAMING_SESSION_TTL_SECONDS,
+        )
+    except StreamingSessionContended:
+        log.warning("could not restore the session on %s", session_key)
+
+
 async def release_own_session(session_key: str, claim: dict[str, Any]) -> bool:
     """Free a container, while the key still holds the claim being released.
 

@@ -29,6 +29,7 @@ from handler.streaming.session_store import (
     record_termination,
     release_own_session,
     replace_session_if,
+    restore_drained_session,
     same_claim,
     session_disc_id,
     session_is_stale,
@@ -425,7 +426,8 @@ async def teardown_abandoned_session(
 
     `claimed_by` is the user whose claim found the session, None for the reaper.
     Returns False when the session stopped looking abandoned before any of that
-    started, meaning the owner came back or another request got here first.
+    started, meaning the owner came back or another request got here first, or
+    when a step before the stop failed and the session was put back for a retry.
     """
     # Claim the teardown before touching the broker. The work below runs for
     # seconds, and the staleness check that led here is older still, so without
@@ -451,6 +453,7 @@ async def teardown_abandoned_session(
 
     keepalive = asyncio.ensure_future(hold_drain_marker(session_key, token))
     pull_mark: saves.SavePullMark | None = None
+    stopping = False
     try:
         # Before anything slow, as a release does.
         pull_mark = await mark_exit_saves_pending(container, session)
@@ -460,6 +463,7 @@ async def teardown_abandoned_session(
             await record_termination(
                 session, session_key, ended_by=None, reason="abandoned"
             )
+        stopping = True
         stopped = await quiesce_container(container, session)
         await record_play_session(session)
         await clear_session_activity(session_key, session)
@@ -469,15 +473,16 @@ async def teardown_abandoned_session(
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)
     finally:
-        # A step raising above would otherwise leave the container unclaimable
-        # until the marker expires: draining blocks the claim, the takeover
-        # skips it, and no release path owns it. Only this teardown's own marker
-        # goes, never a claim that replaced it in the meantime.
         keepalive.cancel()
-        await drop_drain_marker(session_key, token)
+        # Past the stop, free the container rather than park it until the marker
+        # lapses. Before it, a claim would launch over the running emulator.
+        if stopping:
+            await drop_drain_marker(session_key, token)
+        else:
+            await restore_drained_session(session_key, token, session)
         if pull_mark is not None:
             await saves.clear_save_pull_pending(pull_mark)
-    return True
+    return stopping
 
 
 # How long a claim waits for stale sessions to be torn down before it gives up.
