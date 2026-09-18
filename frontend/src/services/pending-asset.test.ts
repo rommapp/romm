@@ -7,6 +7,11 @@ import pendingAssetStore, {
   type PendingAsset,
 } from "@/services/pending-asset";
 
+const auth = vi.hoisted(() => ({ userId: 1 as number | null }));
+vi.mock("@/stores/auth", () => ({
+  default: () => ({ user: auth.userId === null ? null : { id: auth.userId } }),
+}));
+
 const romApiMocks = vi.hoisted(() => ({ getRom: vi.fn() }));
 const saveApiMocks = vi.hoisted(() => ({ uploadSaves: vi.fn() }));
 const stateApiMocks = vi.hoisted(() => ({ uploadStates: vi.fn() }));
@@ -134,14 +139,19 @@ function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
   });
 }
 
-// What axios hands back: a status only when the server answered at all.
-function refusal(status?: number, detail?: string) {
+// What axios hands back: a status only when the server answered at all, and a
+// body that is a bare string when the backend refused the CSRF token.
+function refusal(status?: number, detail?: string, body?: string) {
   return Object.assign(new Error(`Request failed with status code ${status}`), {
     isAxiosError: true,
     response:
       status === undefined
         ? undefined
-        : { status, statusText: `HTTP ${status}`, data: { detail } },
+        : {
+            status,
+            statusText: `HTTP ${status}`,
+            data: body ?? { detail },
+          },
   });
 }
 
@@ -155,6 +165,7 @@ describe("syncPendingAssets", () => {
   function queue(entry: Partial<PendingAsset> & { id: string }) {
     const row: PendingAsset = {
       kind: "save",
+      userId: 1,
       romId: 1,
       romName: "Held Game",
       bytes,
@@ -167,6 +178,7 @@ describe("syncPendingAssets", () => {
 
   beforeEach(() => {
     rows = new Map();
+    auth.userId = 1;
     installFakeIndexedDB(rows);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     romApiMocks.getRom.mockResolvedValue({
@@ -280,6 +292,50 @@ describe("syncPendingAssets", () => {
     });
 
     expect(rows.size).toBe(0);
+  });
+
+  // A browser is shared, and progress captured by one account is not another's
+  // to hand over.
+  it("leaves another account's rows alone", async () => {
+    queue({ id: "save:theirs", userId: 2 });
+
+    await expect(syncPendingAssets()).resolves.toEqual({
+      synced: [],
+      dropped: [],
+    });
+    await expect(pendingAssetKinds(1)).resolves.toEqual(new Set());
+    await expect(hasPendingAssets()).resolves.toBe(false);
+
+    expect(saveApiMocks.uploadSaves).not.toHaveBeenCalled();
+    expect(rows.size).toBe(1);
+  });
+
+  it("stamps a row with the account that captured it", async () => {
+    await pendingAssetStore.write({
+      id: "save:mine",
+      kind: "save",
+      romId: 1,
+      romName: "Game",
+      bytes,
+      capturedAt: 0,
+    });
+
+    expect(rows.get("save:mine")?.userId).toBe(1);
+  });
+
+  // The interceptor fetches a fresh token for this one, so the next pass works.
+  it("keeps a save the server turned down over its CSRF token", async () => {
+    saveApiMocks.uploadSaves.mockResolvedValue([
+      {
+        status: "rejected",
+        reason: refusal(403, undefined, "CSRF token missing"),
+      },
+    ]);
+    queue({ id: "save:csrf" });
+
+    await expect(syncPendingAssets()).resolves.toMatchObject({ dropped: [] });
+
+    expect(rows.size).toBe(1);
   });
 
   it("drops a row that holds no bytes rather than uploading nothing", async () => {

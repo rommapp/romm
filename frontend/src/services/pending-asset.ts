@@ -4,14 +4,16 @@
 // retry, and a closed tab would lose the progress outright.
 import axios from "axios";
 import type { DetailedRomSchema } from "@/__generated__";
+import { isCsrfFailure } from "@/services/api";
 import romApi from "@/services/api/rom";
 import saveApi, { AUTOSAVE_SLOT, sessionSaveFile } from "@/services/api/save";
 import stateApi, { sessionStateName } from "@/services/api/state";
+import storeAuth from "@/stores/auth";
 
 const DB_NAME = "romm-player";
 // A row cannot be rekeyed or reshaped in place, so every upgrade rebuilds the
 // store rather than migrating it.
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_NAME = "pending-assets";
 
 export type PendingAssetKind = "save" | "state";
@@ -20,6 +22,8 @@ export interface PendingAsset {
   /** One row per capture, so two offline sessions cannot overwrite each other. */
   id: string;
   kind: PendingAssetKind;
+  /** The account that captured it, stamped on write. */
+  userId?: number | null;
   romId: number;
   /** Named at capture time, so a rom the server no longer has can still be announced. */
   romName: string;
@@ -103,16 +107,25 @@ async function withStore<T>(
   }
 }
 
+function currentUserId(): number | null {
+  return storeAuth().user?.id ?? null;
+}
+
 const pendingAssetStore: PendingAssetStore = {
+  // A browser is shared: rows belong to the account that captured them, or one
+  // user's progress lands in the account of whoever signs in next.
   async list() {
-    return (
+    const rows =
       (await withStore<PendingAsset[]>("readonly", (store) =>
         store.getAll(),
-      )) ?? []
-    );
+      )) ?? [];
+    const userId = currentUserId();
+    return rows.filter((row) => row.userId === userId);
   },
   async write(entry) {
-    await withStore("readwrite", (store) => store.put(entry));
+    await withStore("readwrite", (store) =>
+      store.put({ ...entry, userId: currentUserId() }),
+    );
   },
   async clear(id) {
     await withStore("readwrite", (store) => store.delete(id));
@@ -207,6 +220,8 @@ function permanentRefusal(error: unknown): string | null {
   if (!axios.isAxiosError(error) || !error.response) return null;
   const { status, statusText, data } = error.response;
   if (status >= 500 || RETRYABLE_STATUSES.has(status)) return null;
+  // The interceptor has already fetched a fresh token for this one.
+  if (isCsrfFailure(error)) return null;
   const detail = data?.detail;
   return (typeof detail === "string" && detail) || statusText || error.message;
 }
