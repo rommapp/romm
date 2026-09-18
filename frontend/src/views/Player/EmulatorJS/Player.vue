@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
+import {
+  inject,
+  onBeforeUnmount,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useTheme } from "vuetify";
@@ -19,6 +26,7 @@ import pendingAssetStore, {
 } from "@/services/pending-asset";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeLanguage from "@/stores/language";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
@@ -45,6 +53,7 @@ import {
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
+  createRetryBackoff,
   createSaveSyncTracker,
   bytesEqual,
   pollSaveFiles,
@@ -58,6 +67,7 @@ const authStore = storeAuth();
 const romsStore = storeRoms();
 const playingStore = storePlaying();
 const configStore = storeConfig();
+const heartbeatStore = storeHeartbeat();
 const languageStore = storeLanguage();
 const router = useRouter();
 const { t } = useI18n();
@@ -162,6 +172,9 @@ function writeSave(
       if (!held || held.screenshotBytes !== screenshotFile) {
         await rememberPendingSave(file.saveFile, screenshotFile);
       }
+      // Nothing gets through while the server is down; the held bytes go once
+      // it is back.
+      if (!heartbeatStore.connected) return null;
       const save = await saveSave({
         rom: romRef.value,
         save: sessionSaveRef.value,
@@ -460,6 +473,12 @@ let autoSaveSyncEmulator: object | null = null;
 let stopSavePolling: (() => void) | null = null;
 // The boot path awaits before installing, so it may land after unmount.
 let disposed = false;
+const retryBackoff = createRetryBackoff();
+// Back from an outage, the held save goes on the next tick, not after a wait.
+watch(
+  () => heartbeatStore.connected,
+  (connected) => connected && retryBackoff.reset(),
+);
 function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
   if (disposed || !emulator?.gameManager) return;
@@ -475,6 +494,10 @@ function installAutoSaveSync() {
     )
       return;
     if (!saveTracker.shouldUpload(saveFile)) return;
+    // Down, the write makes no request, so only a server that answered with a
+    // failure has anything to back off from.
+    const online = heartbeatStore.connected;
+    if (online && !retryBackoff.ready()) return;
     uploading = true;
     try {
       // The capture needs the game running, so it happens here, once per save:
@@ -487,6 +510,7 @@ function installAutoSaveSync() {
         screenshotFile,
       });
       if (save) {
+        retryBackoff.reset();
         heldBackSave = null;
         romsStore.update(romRef.value);
         displayMessage(t("play.save-synced"), {
@@ -494,9 +518,12 @@ function installAutoSaveSync() {
           tone: "success",
           icon: "mdi-cloud-sync",
         });
-        // A write voided by a restore holds nothing back, so there is nothing
-        // to promise for it either.
-      } else if (
+        return;
+      }
+      if (online) retryBackoff.failed();
+      // A write voided by a restore holds nothing back, so there is nothing to
+      // promise for it either.
+      if (
         heldFor(pendingSave, saveFile) &&
         !bytesEqual(saveFile, heldBackSave)
       ) {
