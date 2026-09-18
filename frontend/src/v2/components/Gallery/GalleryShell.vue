@@ -1161,13 +1161,24 @@ html[data-bp~="xs"] .r-v2-shell {
 }
 /* The floating dock sits over the strip's top; centre the letters clear of it. */
 .r-v2-shell--floating .r-v2-shell__strip {
-  justify-content: center;
+  justify-content: safe center;
+}
+/* Shifted down, the strip's end runs below the viewport by the same amount;
+   this spacer keeps its last letters scrollable into view. */
+.r-v2-shell .r-v2-shell__strip::after {
+  content: "";
+  flex: none;
+  height: var(--r-v2-shell-strip-shift, 0px);
 }
 @supports (animation-timeline: scroll()) and (timeline-scope: --a) {
-  .r-v2-shell .r-v2-shell__strip {
+  .r-v2-shell .r-v2-shell__strip,
+  .r-v2-shell .r-v2-shell__strip::after {
     animation: r-v2-shell-strip-follow linear both;
     animation-timeline: --r-v2-shell-scroll;
     animation-range: 0px var(--r-v2-shell-pin-distance, 0px);
+  }
+  .r-v2-shell .r-v2-shell__strip::after {
+    animation-name: r-v2-shell-strip-spacer;
   }
 }
 @keyframes r-v2-shell-strip-follow {
@@ -1176,6 +1187,14 @@ html[data-bp~="xs"] .r-v2-shell {
   }
   to {
     transform: none;
+  }
+}
+@keyframes r-v2-shell-strip-spacer {
+  from {
+    height: var(--r-v2-shell-pin-distance, 0px);
+  }
+  to {
+    height: 0;
   }
 }
 
