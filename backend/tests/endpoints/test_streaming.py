@@ -2968,10 +2968,16 @@ def test_status_for_a_replaced_claim_reports_ended(client, access_token, rom: Ro
     """A loading tab whose claim was re-taken on the same container must not be
     handed the new claim's room as its own."""
     with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
+        first = _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        with patch(
+            "handler.streaming.commands.stop", return_value=commands.StopOutcome()
+        ):
+            second = _claim_ok(client, access_token, rom.id)
+        assert second.json()["container"] == first.json()["container"]
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+            params={"claimed_at": first.json()["claimed_at"]},
             headers=_auth(access_token),
         )
     assert r.status_code == 200
