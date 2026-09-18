@@ -73,6 +73,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
+import { isCoreCompatible } from "@/v2/utils/assets";
 import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
 import {
   resolveBezelHost,
@@ -103,6 +104,7 @@ import {
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
+import { exitEmulatorOnce } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
   isLaunchIntent,
@@ -214,11 +216,11 @@ declare global {
   }
 }
 
-function isCoreCompatible(asset: { emulator?: string | null }): boolean {
-  return !asset.emulator || asset.emulator === selectedCore.value;
-}
 const compatibleStates = computed(
-  () => rom.value?.user_states.filter(isCoreCompatible) ?? [],
+  () =>
+    rom.value?.user_states.filter((state) =>
+      isCoreCompatible(state, selectedCore.value),
+    ) ?? [],
 );
 const stateCount = computed(() => rom.value?.user_states.length ?? 0);
 const allStatesCompatible = computed(
@@ -226,7 +228,7 @@ const allStatesCompatible = computed(
 );
 // Other emulators' states stay listed, disabled, so the count adds up.
 function stateDisabledReason(asset: { emulator?: string | null }) {
-  if (isCoreCompatible(asset)) return null;
+  if (isCoreCompatible(asset, selectedCore.value)) return null;
   return t("play.state-incompatible-core", { emulator: asset.emulator });
 }
 
@@ -516,7 +518,7 @@ onBeforeUnmount(() => {
   // Hand the keyboard and gamepad back to the UI; the flag otherwise
   // stays true and pad/hotkey navigation is dead until a reload.
   playing.value = false;
-  window.EJS_emulator?.callEvent("exit");
+  exitEmulatorOnce();
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
   window.removeEventListener("gamepad:buttondown", onGamepadButton);
