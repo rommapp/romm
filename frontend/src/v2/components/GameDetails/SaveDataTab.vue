@@ -154,18 +154,20 @@ function openUpload(type: AssetType, files: File[] = []) {
 function closeUpload() {
   uploadDialog.value = null;
 }
-// The cores the player offers plus whatever the existing states carry.
+// The cores the player offers plus whatever the existing states carry, keyed
+// case-insensitively as the backend matches them.
 const uploadCores = computed(() => {
-  const cores = new Set(
-    getSupportedEJSCores(
-      props.rom.platform_slug,
-      configStore.config.EJS_NETPLAY_ENABLED,
-    ),
+  const cores = new Map<string, string>();
+  const offered = getSupportedEJSCores(
+    props.rom.platform_slug,
+    configStore.config.EJS_NETPLAY_ENABLED,
   );
-  for (const state of myStates.value) {
-    if (state.emulator) cores.add(state.emulator);
+  const carried = myStates.value.map((state) => state.emulator);
+  for (const core of [...offered, ...carried]) {
+    if (!core || cores.has(core.toLowerCase())) continue;
+    cores.set(core.toLowerCase(), core);
   }
-  return [...cores];
+  return [...cores.values()];
 });
 async function onUploadSubmit({
   type,
