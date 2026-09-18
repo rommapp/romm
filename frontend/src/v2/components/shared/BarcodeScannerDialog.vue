@@ -149,7 +149,7 @@ onBeforeUnmount(stopCamera);
     </template>
 
     <template #footer>
-      <RBtn variant="text" @click="close">
+      <RBtn variant="outlined" @click="close">
         {{ t("common.cancel") }}
       </RBtn>
     </template>

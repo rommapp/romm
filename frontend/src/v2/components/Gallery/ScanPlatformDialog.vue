@@ -395,7 +395,7 @@ function onScan() {
     </template>
 
     <template #footer>
-      <RBtn variant="text" @click="closeDialog">
+      <RBtn variant="outlined" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
       <span class="r-v2-scan-plat__footer-spacer" />

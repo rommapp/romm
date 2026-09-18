@@ -90,7 +90,7 @@ function submit(): void {
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="busy" @click="close">
+      <RBtn variant="outlined" :disabled="busy" @click="close">
         {{ t("common.cancel") }}
       </RBtn>
       <div style="flex: 1" />

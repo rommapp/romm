@@ -123,7 +123,7 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
     </template>
     <template v-if="payload" #footer>
       <div class="r-confirm__actions">
-        <RBtn ref="cancelButtonRef" variant="text" @click="onCancel">
+        <RBtn ref="cancelButtonRef" variant="outlined" @click="onCancel">
           {{ payload.cancelText ?? t("common.cancel") }}
         </RBtn>
         <RBtn
@@ -171,7 +171,7 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
 
 .r-confirm__actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: var(--r-space-2);
   width: 100%;
 }

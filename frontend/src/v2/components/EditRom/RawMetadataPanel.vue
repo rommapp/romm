@@ -119,7 +119,7 @@ const ariaLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
         {{ t("common.edit") }}
       </RBtn>
       <template v-else>
-        <RBtn variant="text" color="danger" @click="cancelEdit">
+        <RBtn variant="outlined" color="danger" @click="cancelEdit">
           {{ t("common.cancel") }}
         </RBtn>
         <RBtn

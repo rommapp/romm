@@ -445,7 +445,7 @@ function close() {
       </div>
     </template>
     <template #footer>
-      <RBtn variant="text" @click="close">
+      <RBtn variant="outlined" @click="close">
         {{ t("common.cancel") }}
       </RBtn>
       <div style="flex: 1" />

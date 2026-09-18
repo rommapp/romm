@@ -59,7 +59,7 @@ function closeDialog() {
       </div>
     </template>
     <template #footer>
-      <RBtn variant="text" @click="closeDialog">
+      <RBtn variant="outlined" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
       <div style="flex: 1" />

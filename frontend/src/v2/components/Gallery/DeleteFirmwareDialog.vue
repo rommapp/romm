@@ -176,7 +176,7 @@ async function confirm() {
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="deleting" @click="closeDialog">
+      <RBtn variant="outlined" :disabled="deleting" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
       <div style="flex: 1" />

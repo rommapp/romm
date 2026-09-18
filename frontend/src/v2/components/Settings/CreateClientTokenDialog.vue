@@ -574,7 +574,7 @@ onBeforeUnmount(() => {
 
     <template #footer>
       <template v-if="step === 'config'">
-        <RBtn variant="text" @click="closeDialog">
+        <RBtn variant="outlined" @click="closeDialog">
           {{ t("common.cancel") }}
         </RBtn>
         <div style="flex: 1" />
@@ -590,7 +590,7 @@ onBeforeUnmount(() => {
       </template>
       <template v-else-if="step === 'delivery'">
         <div style="flex: 1" />
-        <RBtn variant="text" @click="closeDialog">
+        <RBtn variant="outlined" @click="closeDialog">
           {{ t("common.cancel") }}
         </RBtn>
       </template>

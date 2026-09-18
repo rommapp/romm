@@ -487,7 +487,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="saving" @click="closeDialog">
+      <RBtn variant="outlined" :disabled="saving" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
       <div style="flex: 1" />

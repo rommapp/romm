@@ -420,7 +420,7 @@ function onSort({ key, dir }: RTableSortPayload) {
         </RTextField>
       </template>
       <template #footer>
-        <RBtn variant="text" @click="closeCreate">
+        <RBtn variant="outlined" @click="closeCreate">
           {{ t("common.cancel") }}
         </RBtn>
         <div style="flex: 1" />

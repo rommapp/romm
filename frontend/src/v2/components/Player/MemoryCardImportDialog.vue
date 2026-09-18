@@ -129,7 +129,7 @@ async function onDiscard(): Promise<void> {
 
     <template #footer>
       <div class="r-mc-import__actions">
-        <RBtn variant="text" @click="onCancel">
+        <RBtn variant="outlined" @click="onCancel">
           {{ t("common.cancel") }}
         </RBtn>
         <RBtn variant="text" color="danger" @click="onDiscard">

@@ -1780,7 +1780,7 @@ onBeforeUnmount(() => {
       </template>
       <template #footer>
         <RBtn
-          variant="text"
+          variant="outlined"
           :disabled="isSwappingDisc"
           @click="showDiscSwap = false"
         >

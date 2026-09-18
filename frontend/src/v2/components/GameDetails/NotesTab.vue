@@ -472,7 +472,7 @@ function fmtDate(iso: string): string {
                 </template>
               </RTooltip>
               <RBtn
-                variant="text"
+                variant="outlined"
                 size="small"
                 :disabled="saving"
                 @click="cancelEdit"

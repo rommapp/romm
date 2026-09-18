@@ -424,7 +424,7 @@ function closeDialog() {
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="matching" @click="closeDialog">
+      <RBtn variant="outlined" :disabled="matching" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
       <div class="r-v2-match__footer-spacer" />
