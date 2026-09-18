@@ -53,6 +53,7 @@ import {
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
+  labelContextMenuButton,
   createRetryBackoff,
   createSaveSyncTracker,
   bytesEqual,
@@ -338,13 +339,28 @@ window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = `${window.location.origin}/assets/logos/romm_logo_xbox_one_circle_boot.svg`;
 window.EJS_backgroundColor = theme.current.value.colors.background;
+// Labels come from RomM's locales, which cover languages EmulatorJS does not.
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
   // Saves sync as the game writes them, and load from the save/state picker.
   saveSavFiles: false,
   loadSavFiles: false,
+  restart: { displayName: t("play.restart") },
+  pause: { displayName: t("play.pause") },
+  play: { displayName: t("play.resume") },
+  saveState: { displayName: t("play.save-state") },
   loadState: { displayName: t("rom.load-save-or-state") },
+  gamepad: { displayName: t("play.control-settings") },
+  cheat: { displayName: t("play.cheats") },
+  cacheManager: { displayName: t("play.cache-manager") },
+  netplay: { displayName: t("play.netplay") },
+  mute: { displayName: t("play.mute") },
+  unmute: { displayName: t("play.unmute") },
+  diskButton: { displayName: t("play.discs") },
+  settings: { displayName: t("common.settings") },
+  enterFullscreen: { displayName: t("play.full-screen") },
+  exitFullscreen: { displayName: t("play.exit-full-screen") },
 };
 const coreOptions = configStore.getEJSCoreOptions(window.EJS_core);
 window.EJS_defaultOptions = {
@@ -809,7 +825,9 @@ window.EJS_onGameStart = async () => {
     }
   })();
 
-  const quickLoad = createQuickLoadButton();
+  labelContextMenuButton(t("play.context-menu"));
+
+  const quickLoad = createQuickLoadButton(t("play.load-latest-state"));
   quickLoad.addEventListener("click", () => {
     if (
       window.EJS_emulator.settings["save-state-location"] === "browser" &&
@@ -827,7 +845,7 @@ window.EJS_onGameStart = async () => {
     }
   });
 
-  const exitEmulation = createExitEmulationButton();
+  const exitEmulation = createExitEmulationButton(t("play.quit"));
   exitEmulation.addEventListener("click", async () => {
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
     await flushPendingSave();
@@ -835,7 +853,7 @@ window.EJS_onGameStart = async () => {
     immediateExit();
   });
 
-  const saveAndQuit = createSaveQuitButton();
+  const saveAndQuit = createSaveQuitButton(t("play.save-and-quit"));
   saveAndQuit.addEventListener("click", async () => {
     uninstallAutoSaveSync();
     if (!romRef.value || !window.EJS_emulator) return immediateExit();

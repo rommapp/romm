@@ -12,6 +12,7 @@ import type { Events } from "@/types/emitter";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSaveStateTabs } from "@/v2/composables/useSaveStateTabs";
 import type { Asset, AssetType } from "@/v2/utils/assets";
 
@@ -19,6 +20,7 @@ defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const { mdAndUp } = useBreakpoint();
+const confirm = useConfirm();
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
 // States apply on the fly, so they are what the button reaches for first.
@@ -38,8 +40,24 @@ const openHandler = (selectedRom: DetailedRom) => {
 emitter?.on("selectStateDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("selectStateDialog", openHandler));
 
-function onSelect(asset: Asset) {
-  if (tab.value === "save") emitter?.emit("saveSelected", asset as SaveSchema);
+// Either one replaces the running game, so unsaved progress is at stake.
+async function onSelect(asset: Asset) {
+  const isSave = tab.value === "save";
+  const ok = await confirm(
+    isSave
+      ? {
+          title: t("play.load-save-confirm-title"),
+          body: t("play.load-save-confirm-body"),
+          confirmText: t("play.load-save"),
+        }
+      : {
+          title: t("play.load-state-confirm-title"),
+          body: t("play.load-state-confirm-body"),
+          confirmText: t("play.load-state"),
+        },
+  );
+  if (!ok) return;
+  if (isSave) emitter?.emit("saveSelected", asset as SaveSchema);
   else emitter?.emit("stateSelected", asset as StateSchema);
   closeDialog();
 }
@@ -76,17 +94,13 @@ function closeDialog() {
       </div>
     </template>
     <template #content>
-      <div v-if="tab === 'save'" class="r-v2-load-save-state__saves">
-        <p class="r-v2-load-save-state__note">
-          {{ t("play.load-save-restarts") }}
-        </p>
-        <AssetList
-          :assets="rom?.user_saves ?? []"
-          type="save"
-          :scrollable="false"
-          @select="onSelect"
-        />
-      </div>
+      <AssetList
+        v-if="tab === 'save'"
+        :assets="rom?.user_saves ?? []"
+        type="save"
+        :scrollable="false"
+        @select="onSelect"
+      />
       <AssetStrip
         v-else
         :assets="rom?.user_states ?? []"
@@ -110,17 +124,5 @@ function closeDialog() {
 .r-v2-load-save-state__tabs {
   display: flex;
   justify-content: center;
-}
-
-.r-v2-load-save-state__saves {
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-3);
-}
-
-.r-v2-load-save-state__note {
-  margin: 0;
-  font-size: var(--r-font-size-sm);
-  color: var(--r-color-fg-muted);
 }
 </style>
