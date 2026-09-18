@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "사이드바에서 다른 카테고리로 전환하여 이 ROM의 다른 파일을 확인하세요.",
   "no-files-uploaded": "업로드된 파일이 없습니다.",
   "no-games-match": "검색과 일치하는 게임이 없습니다.",
+  "no-games-match-filters": "선택한 필터와 일치하는 게임이 없습니다.",
   "no-games-match-query": "\"{query}\"와(과) 일치하는 게임이 없습니다.",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "메타데이터 DB 연동 안됨",

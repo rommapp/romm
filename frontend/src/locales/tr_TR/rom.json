@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "Bu ROM'un diğer dosyalarını görmek için kenar çubuğundan başka bir kategori seçin.",
   "no-files-uploaded": "Hiç dosya yüklenmedi.",
   "no-games-match": "Aramanızla eşleşen oyun bulunamadı.",
+  "no-games-match-filters": "Seçili filtrelere uyan oyun yok.",
   "no-games-match-query": "\"{query}\" ile eşleşen oyun bulunamadı.",
   "no-manual": "Bu oyun için kılavuz mevcut değil.",
   "no-metadata-source": "Meta veri kaynağı etkin değil",

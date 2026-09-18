@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "Превключи към друга категория от страничната лента, за да видиш другите файлове на този ROM.",
   "no-files-uploaded": "Не са качени файлове.",
   "no-games-match": "Няма игри, отговарящи на търсенето.",
+  "no-games-match-filters": "Няма игри, отговарящи на избраните филтри.",
   "no-games-match-query": "Няма игри, отговарящи на \"{query}\".",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "Няма активиран източник на метаданни",

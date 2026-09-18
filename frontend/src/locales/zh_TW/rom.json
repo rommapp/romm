@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "從側邊欄切換到其他類別，以查看此 ROM 的其他檔案。",
   "no-files-uploaded": "未上傳任何檔案。",
   "no-games-match": "沒有符合搜尋的遊戲。",
+  "no-games-match-filters": "沒有符合所選篩選條件的遊戲。",
   "no-games-match-query": "找不到符合「{query}」的遊戲。",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "未啟用元數據來源",

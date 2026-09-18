@@ -460,7 +460,7 @@ async function onDelete() {
     ref="shellRef"
     :has-header="!!currentPlatform"
     :search-placeholder="'Filter this platform…'"
-    empty-message="No games in this platform yet."
+    :empty-message="t('platform.empty')"
     :not-found="notFound"
     not-found-message="Platform not found."
     :show-platform-badge="false"

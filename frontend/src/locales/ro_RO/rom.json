@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "Comută la altă categorie din bara laterală pentru a vedea celelalte fișiere ale acestui ROM.",
   "no-files-uploaded": "Niciun fișier nu a fost încărcat.",
   "no-games-match": "Niciun joc nu corespunde căutării.",
+  "no-games-match-filters": "Niciun joc nu corespunde filtrelor selectate.",
   "no-games-match-query": "Niciun joc nu corespunde căutării „{query}”.",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "Nicio sursă de metadate activată",

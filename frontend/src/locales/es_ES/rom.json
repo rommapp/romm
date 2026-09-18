@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "Sube archivos para añadirlos a esta categoría.",
   "no-files-uploaded": "Aún no hay archivos subidos",
   "no-games-match": "Ningún juego coincide con la búsqueda.",
+  "no-games-match-filters": "Ningún juego coincide con los filtros seleccionados.",
   "no-games-match-query": "Ningún juego coincide con \"{query}\".",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "No hay fuente de metadatos habilitada",

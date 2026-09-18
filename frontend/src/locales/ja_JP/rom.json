@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "サイドバーから別のカテゴリに切り替えると、このROMの他のファイルを確認できます。",
   "no-files-uploaded": "アップロードされたファイルはありません。",
   "no-games-match": "検索に一致するゲームはありません。",
+  "no-games-match-filters": "選択したフィルターに一致するゲームがありません。",
   "no-games-match-query": "「{query}」に一致するゲームはありません。",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "メタデータ検索が無効です",

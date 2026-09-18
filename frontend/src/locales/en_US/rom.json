@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "Switch to another category from the sidebar to see this ROM's other files.",
   "no-files-uploaded": "No files were uploaded.",
   "no-games-match": "No games match your search.",
+  "no-games-match-filters": "No games match the selected filters.",
   "no-games-match-query": "No games match \"{query}\".",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "No metadata source enabled",

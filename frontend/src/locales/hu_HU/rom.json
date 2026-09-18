@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "Válts másik kategóriára az oldalsávon, hogy a ROM többi fájlját lásd.",
   "no-files-uploaded": "Egyetlen fájl sem lett feltöltve.",
   "no-games-match": "Egyetlen játék sem felel meg a keresésnek.",
+  "no-games-match-filters": "Egyetlen játék sem felel meg a kiválasztott szűrőknek.",
   "no-games-match-query": "Egyetlen játék sem felel meg a következőnek: „{query}”.",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "Nincs engedélyezett metaadat-forrás",

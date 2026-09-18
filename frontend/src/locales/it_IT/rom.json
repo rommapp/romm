@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "Passa a un'altra categoria dalla barra laterale per vedere gli altri file di questa ROM.",
   "no-files-uploaded": "Nessun file caricato.",
   "no-games-match": "Nessun gioco corrisponde alla tua ricerca.",
+  "no-games-match-filters": "Nessun gioco corrisponde ai filtri selezionati.",
   "no-games-match-query": "Nessun gioco corrisponde a \"{query}\".",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "Nessuna fonte di metadati abilitata",

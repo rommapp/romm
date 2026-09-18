@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "Переключитесь на другую категорию в боковой панели, чтобы увидеть другие файлы этого ROM.",
   "no-files-uploaded": "Файлы не были загружены.",
   "no-games-match": "Нет игр, соответствующих вашему запросу.",
+  "no-games-match-filters": "Нет игр, соответствующих выбранным фильтрам.",
   "no-games-match-query": "Нет игр, соответствующих \"{query}\".",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "Источник метаданных не включен",

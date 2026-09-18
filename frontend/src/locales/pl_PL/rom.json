@@ -253,6 +253,7 @@
   "no-files-in-category-hint": "Przełącz się na inną kategorię z paska bocznego, aby zobaczyć inne pliki tego ROM-u.",
   "no-files-uploaded": "Nie przesłano żadnych plików.",
   "no-games-match": "Brak gier pasujących do wyszukiwania.",
+  "no-games-match-filters": "Brak gier pasujących do wybranych filtrów.",
   "no-games-match-query": "Brak gier pasujących do \"{query}\".",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "Brak aktywnego źródła metadanych",

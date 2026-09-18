@@ -35,6 +35,7 @@ import {
   watch,
   watchEffect,
 } from "vue";
+import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 import { useUISettings } from "@/composables/useUISettings";
 import storeGalleryFilter from "@/stores/galleryFilter";
@@ -125,6 +126,7 @@ defineSlots<{
 useGalleryFilterUrl();
 useGalleryViewModeUrl();
 
+const { t } = useI18n();
 const route = useRoute();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
@@ -349,7 +351,14 @@ const loadingInitial = computed(
 );
 
 const notFoundRef = computed(() => props.notFound);
-const emptyMessageRef = computed(() => props.emptyMessage);
+// An empty result under a search or filters says why, not that the view is empty.
+const emptyMessageRef = computed(() => {
+  if (searchTerm.value) {
+    return t("rom.no-games-match-query", { query: searchTerm.value });
+  }
+  if (filterActiveCount.value > 0) return t("rom.no-games-match-filters");
+  return props.emptyMessage;
+});
 const notFoundMessageRef = computed(
   () => props.notFoundMessage ?? props.emptyMessage,
 );
