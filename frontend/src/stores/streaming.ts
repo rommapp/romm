@@ -351,10 +351,11 @@ export const useStreamingStore = defineStore("streaming", () => {
    */
   async function fetchSessionStatus(
     platform: string,
+    claimedAt?: string,
   ): Promise<SessionStatus | null> {
     if (!platform) return null;
     try {
-      const { data } = await streamingApi.sessionStatus(platform);
+      const { data } = await streamingApi.sessionStatus(platform, claimedAt);
       return data;
     } catch (err) {
       console.warn("[streaming] Could not fetch session status:", err);

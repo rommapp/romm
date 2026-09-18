@@ -621,7 +621,12 @@ describe("Stream launch recovery", () => {
 
     await pollStatus();
 
-    expect(mocks.fetchSessionStatus).toHaveBeenCalledExactlyOnceWith("gba");
+    // With one container per platform a re-claim lands on the same container,
+    // so only the stamp keeps the poll from answering with another tab's claim.
+    expect(mocks.fetchSessionStatus).toHaveBeenCalledExactlyOnceWith(
+      "gba",
+      CLAIM.claimed_at,
+    );
     expect(vmOf(wrapper).playerState).toBe("playing");
     expect(vmOf(wrapper).containerHost).toBe(
       "http://webstation-dev:8080/room/x",

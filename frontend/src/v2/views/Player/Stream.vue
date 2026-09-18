@@ -614,7 +614,10 @@ async function pollSessionStatus(): Promise<void> {
   sessionPollInFlight = true;
   try {
     await handleSessionStatus(
-      await streamingStore.fetchSessionStatus(rom.value.platform_slug),
+      await streamingStore.fetchSessionStatus(
+        rom.value.platform_slug,
+        claimedAt.value ?? undefined,
+      ),
     );
   } finally {
     sessionPollInFlight = false;

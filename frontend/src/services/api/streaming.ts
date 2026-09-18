@@ -174,8 +174,10 @@ async function heartbeatSession(
   );
 }
 
-async function sessionStatus(platform: string) {
-  return api.get<SessionStatus>(`/streaming/sessions/${platform}/status`);
+async function sessionStatus(platform: string, claimedAt?: string) {
+  return api.get<SessionStatus>(`/streaming/sessions/${platform}/status`, {
+    params: { claimed_at: claimedAt },
+  });
 }
 
 async function setVolume(platform: string, level: number) {
