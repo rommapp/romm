@@ -3270,6 +3270,70 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
     assert r2.status_code == 202
 
 
+def test_a_save_and_exit_for_a_replaced_claim_leaves_the_session(
+    client, access_token, rom: Rom
+):
+    """A playing tab that missed its takeover saves and exits on unload, and
+    must not end the session that replaced it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch(
+            "handler.streaming.commands.save_and_exit", return_value=(False, 10)
+        ) as save_and_exit:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                params={
+                    "container": _key_of(_container_for(rom)),
+                    "claimed_at": "2020-01-01T00:00:00+00:00",
+                },
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+        session = asyncio.run(session_store.get_session(_key_of(_container_for(rom))))
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    save_and_exit.assert_not_called()
+    assert session is not None
+
+
+def test_a_save_and_exit_naming_its_own_claim_still_ends_the_session(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        claimed_at = _claim_ok(client, access_token, rom.id).json()["claimed_at"]
+        with patch(
+            "handler.streaming.commands.save_and_exit", return_value=(False, 10)
+        ) as save_and_exit:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                params={
+                    "container": _key_of(_container_for(rom)),
+                    "claimed_at": claimed_at,
+                },
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+    assert r.json()["status"] == "ok"
+    save_and_exit.assert_called_once()
+
+
+def test_a_save_and_exit_with_nothing_active_is_a_no_op(client, access_token, rom: Rom):
+    """A retried unload finds its claim already gone, which ends nothing."""
+    with _streaming(_container_for(rom)):
+        with patch(
+            "handler.streaming.commands.save_and_exit", return_value=(False, 10)
+        ) as save_and_exit:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    assert r.json()["released"] is True
+    save_and_exit.assert_not_called()
+
+
 def test_save_and_exit_failure_still_releases_session(client, access_token, rom: Rom):
     """A failed save is reported as saved=False, but the session is still
     released - the container must not stay claimed by a dead session."""

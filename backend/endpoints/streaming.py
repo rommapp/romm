@@ -873,20 +873,69 @@ async def claim_session(
     )
 
 
+async def _resolve_claim_to_end(
+    platform: str,
+    request: Request,
+    container_key: str | None,
+    claimed_at: str | None,
+) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
+    """The session a route ending a claim acts on, or None when that claim is gone.
+
+    `container` names the container, `claimed_at` binds the call to the one
+    claim the caller was given.
+    """
+    if container_key is not None:
+        container, session_key, session = await access.resolve_named_container(
+            platform, container_key
+        )
+        if session is None:
+            return None
+    else:
+        try:
+            container, session_key, session = await access.resolve_owned_session(
+                platform, request
+            )
+        except HTTPException as exc:
+            # Nothing configured or nothing active: ending it is a no-op rather
+            # than an error, matching a repeated call from the same tab.
+            if exc.status_code != 404:
+                raise
+            return None
+
+    # A tab whose claim was replaced (taken over, or the player pressing Play
+    # again elsewhere) still ends it on unload, and must not end the claim
+    # that took its place.
+    if claimed_at is not None and session.get("claimed_at") != claimed_at:
+        log.info("ignored for a replaced claim, platform=%s", platform)
+        return None
+    # After the stamp check, so another player's takeover reads as a gone claim.
+    if container_key is not None:
+        access.assert_session_owner(session, request)
+    return container, session_key, session
+
+
 @protected_route(
     router.post, "/sessions/{platform}/save-and-exit", [Scope.ROMS_USER_WRITE]
 )
 async def save_and_exit_session(
-    request: Request, platform: str, req: Annotated[SaveAndExitRequest, Body()]
+    request: Request,
+    platform: str,
+    req: Annotated[SaveAndExitRequest, Body()],
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
+    claimed_at: str | None = Query(default=None, max_length=64),
 ) -> SaveAndExitResponse:
     """
     Save game state then release the session.
     wait=true (default): blocks until broker confirms save+kill complete.
     wait=false: broker fires save+kill in background, returns immediately.
+    `container` and `claimed_at` bind the call to one claim, as on release.
     """
-    container, session_key, session = await access.resolve_owned_session(
-        platform, request
-    )
+    target = await _resolve_claim_to_end(platform, request, container_key, claimed_at)
+    if target is None:
+        return SaveAndExitResponse(
+            status="not_found", saved=False, platform=platform, released=True
+        )
+    container, session_key, session = target
     if req.slot:
         _assert_valid_slot(platform, req.slot)
 
@@ -1309,33 +1358,10 @@ async def release_session(
     `claimed_at` is the stamp the claim answered with, which binds this release
     to that claim. Admin panels end whatever is running and send none.
     """
-    if container_key is not None:
-        container, session_key, session = await access.resolve_named_container(
-            platform, container_key
-        )
-        if session is None:
-            return ReleaseSessionResponse(status="not_found", platform=platform)
-    else:
-        try:
-            container, session_key, session = await access.resolve_owned_session(
-                platform, request
-            )
-        except HTTPException as exc:
-            # Nothing configured or nothing active: releasing is a no-op rather
-            # than an error, matching a repeated release from the same tab.
-            if exc.status_code != 404:
-                raise
-            return ReleaseSessionResponse(status="not_found", platform=platform)
-
-    # A tab whose claim was replaced (taken over, or the player pressing Play
-    # again elsewhere) still releases on unload, and must not end the claim
-    # that took its place.
-    if claimed_at is not None and session.get("claimed_at") != claimed_at:
-        log.info("release ignored, the claim was replaced, platform=%s", platform)
+    target = await _resolve_claim_to_end(platform, request, container_key, claimed_at)
+    if target is None:
         return ReleaseSessionResponse(status="not_found", platform=platform)
-    # After the stamp check, so another player's takeover reads as a gone claim.
-    if container_key is not None:
-        access.assert_session_owner(session, request)
+    container, session_key, session = target
 
     # Teardown pulls the whole card off the broker and pushes a blank one back,
     # several seconds of broker round-trips. The player who quit does not need

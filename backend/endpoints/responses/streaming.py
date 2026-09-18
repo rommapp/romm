@@ -128,7 +128,7 @@ class JoinedSessionSchema(BaseModel):
 
 
 class SaveAndExitResponse(BaseModel):
-    status: Literal["ok"]
+    status: Literal["ok", "not_found"]
     saved: bool
     platform: str
     released: bool
