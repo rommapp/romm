@@ -156,7 +156,6 @@ const fadeIndex = computed(() =>
         :count="group.assets.length"
         foldable
         :expanded="isOpen(group)"
-        class="r-asset-strip__head"
         @toggle="fold.toggle(group)"
       >
         <RTag
@@ -310,29 +309,6 @@ const fadeIndex = computed(() =>
 .r-asset-strip--grouped .r-asset-strip__group {
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
-}
-/* Edge to edge, so the whole top of the band toggles the fold. */
-.r-asset-strip--grouped .r-asset-strip__head {
-  padding: 10px;
-  border-radius: var(--r-radius-md);
-}
-.r-asset-strip--grouped .r-asset-strip__head[aria-expanded="true"] {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-/* Flush with the band edge, where a scrolling parent clips the outline ring,
-   so key and pad focus paint inside the head. */
-html:not([data-input])
-  .r-asset-strip--grouped
-  .r-asset-strip__head:focus-visible,
-html[data-input="key"]
-  .r-asset-strip--grouped
-  .r-asset-strip__head:focus-visible,
-html[data-input="pad"]
-  .r-asset-strip--grouped
-  .r-asset-strip__head:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 var(--r-focus-ring-width) var(--r-color-focus);
 }
 .r-asset-strip--grouped .r-asset-strip__fold {
   padding: 0 8px 8px;
@@ -612,7 +588,6 @@ html[data-input="pad"]
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 0 2px;
 }
 
 .r-asset-strip__tip {

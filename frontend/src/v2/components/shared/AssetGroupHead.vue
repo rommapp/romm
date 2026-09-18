@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Group head shared by <AssetList> (slots) and <AssetStrip> (cores), so the
 // two Save data subtabs line up: icon, title, chips, count and fold chevron.
+// It spans its band edge to edge, so bands inset only their body.
 import { RIcon } from "@v2/lib";
 
 defineOptions({ inheritAttrs: false });
@@ -67,8 +68,8 @@ const emit = defineEmits<{ toggle: [] }>();
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 2px;
-  border-radius: var(--r-radius-sm);
+  padding: 10px;
+  border-radius: var(--r-radius-md);
   font: inherit;
   text-align: left;
   color: var(--r-color-fg-secondary);
@@ -82,6 +83,18 @@ const emit = defineEmits<{ toggle: [] }>();
 .r-asset-group-head--static:hover {
   background: none;
   cursor: default;
+}
+.r-asset-group-head[aria-expanded="true"] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* A scrolling parent clips an outline past the band edge, so key and pad
+   focus paint inside the head. */
+html:not([data-input]) .r-asset-group-head:focus-visible,
+html[data-input="key"] .r-asset-group-head:focus-visible,
+html[data-input="pad"] .r-asset-group-head:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--r-focus-ring-width) var(--r-color-focus);
 }
 
 .r-asset-group-head__icon--brand {

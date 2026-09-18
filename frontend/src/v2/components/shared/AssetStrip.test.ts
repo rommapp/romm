@@ -74,7 +74,7 @@ describe("AssetStrip grouped by core", () => {
     expect(mgba.get(".r-asset-group-head__title").text()).toBe("mgba");
     expect(fold.attributes("style")).toContain("display: none");
 
-    await mgba.get(".r-asset-strip__head").trigger("click");
+    await mgba.get(".r-asset-group-head").trigger("click");
 
     expect(fold.attributes("style") ?? "").not.toContain("display: none");
   });
