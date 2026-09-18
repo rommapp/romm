@@ -7,10 +7,13 @@ a .zip extension so the whole card set travels as a unit.
 """
 
 import asyncio
+import secrets
 import time
 from datetime import datetime, timezone
+from typing import NamedTuple
 
 from fastapi import HTTPException
+from redis.exceptions import WatchError
 
 from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
@@ -25,7 +28,7 @@ from models.user import User
 from utils.filesystem import sanitize_filename
 
 # An exit files its archive in the background, so a claim landing behind it would
-# hydrate from the archive before last. The pull leaves a marker a claim waits out.
+# hydrate from the archive before last. The exit leaves a marker a claim waits out.
 SAVE_PULL_WAIT_SECONDS = 20.0
 _SAVE_PULL_KEY_PREFIX = "romm:streaming:save-pull:"
 # Backstop for a backend that dies mid-pull: a marker nobody clears would cost
@@ -38,14 +41,45 @@ def _save_pull_redis_key(user_id: int, rom_id: int) -> str:
     return f"{_SAVE_PULL_KEY_PREFIX}{user_id}:{rom_id}"
 
 
-async def mark_save_pull_pending(user_id: int, rom_id: int) -> None:
+class SavePullMark(NamedTuple):
+    """One exit's pending pull. The token is what lets only that pull clear it."""
+
+    user_id: int
+    rom_id: int
+    token: str
+
+
+async def mark_save_pull_pending(user_id: int, rom_id: int) -> SavePullMark:
+    """Hold this user's claims on this ROM until the returned mark is cleared.
+
+    A later mark takes the key over, so an earlier pull finishing cannot let a
+    claim past a later one still running.
+    """
+    token = secrets.token_hex(8)
     await async_cache.set(
-        _save_pull_redis_key(user_id, rom_id), "1", ex=_SAVE_PULL_TTL_SECONDS
+        _save_pull_redis_key(user_id, rom_id), token, ex=_SAVE_PULL_TTL_SECONDS
     )
+    return SavePullMark(user_id, rom_id, token)
 
 
-async def clear_save_pull_pending(user_id: int, rom_id: int) -> None:
-    await async_cache.delete(_save_pull_redis_key(user_id, rom_id))
+async def clear_save_pull_pending(mark: SavePullMark) -> None:
+    """Drop the marker, while it is still the one `mark` set."""
+    key = _save_pull_redis_key(mark.user_id, mark.rom_id)
+    async with async_cache.pipeline() as pipe:
+        await pipe.watch(key)
+        current = await pipe.get(key)
+        if isinstance(current, bytes):
+            current = current.decode()
+        if current != mark.token:
+            await pipe.unwatch()
+            return
+        pipe.multi()
+        await pipe.delete(key)
+        try:
+            await pipe.execute()
+        except WatchError:
+            # Only a later mark or the TTL moves the key, and neither is ours.
+            pass
 
 
 async def wait_for_save_pull(

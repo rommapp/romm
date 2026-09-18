@@ -4774,11 +4774,11 @@ def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
 
 def test_a_claim_waits_for_a_running_save_pull():
     async def scenario() -> bool:
-        await saves.mark_save_pull_pending(1, 2)
+        mark = await saves.mark_save_pull_pending(1, 2)
         waiter = asyncio.create_task(saves.wait_for_save_pull(1, 2, budget=5))
         await asyncio.sleep(saves._SAVE_PULL_POLL_SECONDS * 2)
         assert not waiter.done()
-        await saves.clear_save_pull_pending(1, 2)
+        await saves.clear_save_pull_pending(mark)
         return await waiter
 
     assert asyncio.run(scenario()) is True
@@ -4789,17 +4789,46 @@ def test_a_wedged_save_pull_does_not_hang_the_claim():
     player the previous archive, not a claim that never answers."""
 
     async def scenario() -> bool:
-        await saves.mark_save_pull_pending(1, 2)
+        mark = await saves.mark_save_pull_pending(1, 2)
         try:
             return await saves.wait_for_save_pull(1, 2, budget=0.1)
         finally:
-            await saves.clear_save_pull_pending(1, 2)
+            await saves.clear_save_pull_pending(mark)
 
     assert asyncio.run(scenario()) is False
 
 
 def test_a_claim_with_nothing_pending_hydrates_straight_away():
     assert asyncio.run(saves.wait_for_save_pull(1, 2, budget=5)) is True
+
+
+async def _save_pull_pending(user_id: int, rom_id: int) -> bool:
+    """Whether a claim would wait on a save pull, read the way the claim reads it."""
+    return not await saves.wait_for_save_pull(user_id, rom_id, budget=0)
+
+
+def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
+    admin_user: User, rom: Rom
+):
+    """A pull can outlast a claim's wait, so the player can play and exit again
+    while it runs, and its finishing must not let a claim past the later pull."""
+    container = _resolved(_container_for(rom))
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+
+    async def scenario() -> tuple[bool, bool]:
+        with (
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
+        ):
+            await lifecycle.collect_exit_saves(container, session)
+            await lifecycle.collect_exit_saves(container, session)
+            first, second = (c.args[0] for c in spawn.call_args_list)
+            await first
+            behind_second = await _save_pull_pending(admin_user.id, rom.id)
+            await second
+            return behind_second, await _save_pull_pending(admin_user.id, rom.id)
+
+    assert asyncio.run(scenario()) == (True, False)
 
 
 # ── Resume-from-state ─────────────────────────────────────────────────────────

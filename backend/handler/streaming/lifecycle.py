@@ -122,17 +122,18 @@ async def quiesce_container(
 
 
 async def _pull_exit_saves(
-    user_id: int,
-    rom_id: int,
     container: ResolvedContainer,
+    mark: saves.SavePullMark,
     broker_session: str | None,
 ) -> None:
     """The spawned half of `collect_exit_saves`, which lets the next claim
     through however the pull ended."""
     try:
-        await saves.pull_saves_to_library(user_id, rom_id, container, broker_session)
+        await saves.pull_saves_to_library(
+            mark.user_id, mark.rom_id, container, broker_session
+        )
     finally:
-        await saves.clear_save_pull_pending(user_id, rom_id)
+        await saves.clear_save_pull_pending(mark)
 
 
 async def collect_exit_saves(
@@ -158,9 +159,9 @@ async def collect_exit_saves(
         or not isinstance(user_id, int)
     ):
         return
-    await saves.mark_save_pull_pending(user_id, rom_id)
+    mark = await saves.mark_save_pull_pending(user_id, rom_id)
     background.spawn_sync_task(
-        _pull_exit_saves(user_id, rom_id, container, broker_session_id(session))
+        _pull_exit_saves(container, mark, broker_session_id(session))
     )
 
 
