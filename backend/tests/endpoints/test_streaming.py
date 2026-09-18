@@ -4872,10 +4872,13 @@ def test_release_spawns_saves_pull(client, access_token, rom: Rom):
 
 
 def test_a_claim_behind_an_exit_waits_for_that_exits_saves(
-    client, access_token, rom: Rom
+    client, access_token, admin_user: User, rom: Rom
 ):
     """Runs both ends for real: nothing else ties the key an exit marks to the
     one the next claim waits on."""
+    # Equal ids would let a claim that swaps them find the exit's key anyway.
+    if rom.id == admin_user.id:
+        rom = _rom_on("distinct_id")
     order: list[str] = []
     real_wait = saves.wait_for_save_pull
 
