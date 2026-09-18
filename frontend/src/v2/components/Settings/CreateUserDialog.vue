@@ -131,7 +131,13 @@ function close() {
 </script>
 
 <template>
-  <RDialog v-model="show" icon="mdi-account-plus" :width="540" @close="close">
+  <RDialog
+    v-model="show"
+    icon="mdi-account-plus"
+    :width="540"
+    cancelable
+    @close="close"
+  >
     <template #header>
       <span class="r-v2-user-dialog__title">{{
         t("settings.create-user")
@@ -212,10 +218,6 @@ function close() {
       </div>
     </template>
     <template #footer>
-      <RBtn variant="text" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div style="flex: 1" />
       <RBtn
         variant="flat"
         color="primary"

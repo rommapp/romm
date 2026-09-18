@@ -60,6 +60,7 @@
   "scan-types-more-info": "詳細情報",
   "scanning": "スキャン中",
   "scanning-library": "ライブラリをスキャン中。クリックで表示",
+  "scanning-platform": "{platform} をスキャン中…",
   "section-metadata": "メタデータ",
   "section-platforms": "プラットフォーム",
   "section-providers": "プロバイダ",

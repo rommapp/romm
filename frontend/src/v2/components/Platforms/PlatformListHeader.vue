@@ -80,6 +80,8 @@ function handleClick(col: PlatformColumn) {
   height: var(--r-list-header-h);
   background: var(--r-color-bg-elevated);
   border-bottom: 1px solid var(--r-color-border);
+  /* Glass so rows scrolling under the pinned header read soft behind it. */
+  backdrop-filter: blur(10px);
 }
 
 .plat-list-header__cell {

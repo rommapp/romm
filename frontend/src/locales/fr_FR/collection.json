@@ -1,5 +1,6 @@
 {
   "add-collection": "Ajouter une collection",
+  "collection-deleted": "Collection « {name} » supprimée",
   "cover": "Jaquette",
   "create-collection": "Créer une collection",
   "create-failed": "Échec de la création de la collection",
@@ -7,6 +8,8 @@
   "current-filters": "Filtres actuels",
   "danger-zone": "Zone de danger",
   "delete-collection": "Supprimer la collection",
+  "delete-collection-body": "Supprime « {name} » ({count} ROMs dans la collection). Les fichiers ROM eux-mêmes ne sont pas supprimés.",
+  "delete-collection-failed": "Échec de la suppression de la collection : {error}",
   "delete-collection-hint": "Supprime la collection de RomM. Les fichiers ROM eux-mêmes ne sont pas supprimés.",
   "description": "Description",
   "download-collection": "Télécharger la collection",

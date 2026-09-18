@@ -238,6 +238,8 @@ async function submit() {
     v-model="show"
     icon="mdi-playlist-plus"
     :width="mdAndUp ? 640 : '95vw'"
+    cancelable
+    :cancel-disabled="submitting"
     @close="close"
   >
     <template #header>
@@ -327,9 +329,6 @@ async function submit() {
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="submitting" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
       <RBtn
         variant="flat"
         color="primary"

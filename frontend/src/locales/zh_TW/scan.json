@@ -60,6 +60,7 @@
   "scan-types-more-info": "更多資訊",
   "scanning": "掃描中",
   "scanning-library": "正在掃描遊戲庫。點擊以查看",
+  "scanning-platform": "正在掃描 {platform}…",
   "section-metadata": "元數據",
   "section-platforms": "平台",
   "section-providers": "提供商",

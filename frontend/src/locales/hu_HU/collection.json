@@ -1,5 +1,6 @@
 {
   "add-collection": "Gyűjtemény hozzáadása",
+  "collection-deleted": "A(z) „{name}” gyűjtemény törölve",
   "cover": "Borítókép",
   "create-collection": "Gyűjtemény létrehozása",
   "create-failed": "A gyűjtemény létrehozása sikertelen",
@@ -7,6 +8,8 @@
   "current-filters": "Jelenlegi Szűrők",
   "danger-zone": "Veszélyzóna",
   "delete-collection": "Gyüjtemény törlése",
+  "delete-collection-body": "Eltávolítja a(z) „{name}” gyűjteményt ({count} ROM a gyűjteményben). A ROM fájlok nem törlődnek.",
+  "delete-collection-failed": "A gyűjtemény törlése sikertelen: {error}",
   "delete-collection-hint": "Eltávolítja a gyűjteményt a RomM-ból. A ROM fájlok nem törlődnek.",
   "description": "Leírás",
   "download-collection": "Gyüjtemény letöltése",

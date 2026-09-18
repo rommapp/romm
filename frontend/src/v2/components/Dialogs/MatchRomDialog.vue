@@ -314,6 +314,8 @@ function closeDialog() {
     :width="lgAndUp ? 880 : '95vw'"
     height="88vh"
     :persistent="matching"
+    cancelable
+    :cancel-disabled="matching"
     @close="closeDialog"
   >
     <template #header>
@@ -424,10 +426,6 @@ function closeDialog() {
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="matching" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div class="r-v2-match__footer-spacer" />
       <!-- Results count lives here (not the filter row) so appearing after a
            search never reflows the toolbar above. -->
       <div v-if="searched && !searching" class="r-v2-match__results">
@@ -522,10 +520,6 @@ function closeDialog() {
   color: var(--r-color-brand-primary);
   border-radius: var(--r-radius-pill);
   font-weight: var(--r-font-weight-semibold);
-}
-
-.r-v2-match__footer-spacer {
-  flex: 1 1 auto;
 }
 
 .r-v2-match__search-row {

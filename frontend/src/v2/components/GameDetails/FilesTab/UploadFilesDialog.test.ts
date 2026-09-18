@@ -14,7 +14,7 @@ const formValid = { value: true };
 
 const RDialog = {
   props: ["modelValue"],
-  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /><slot name="footer" /></div>`,
+  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /><slot name="footer-start" /><slot name="footer" /></div>`,
 };
 const RForm = {
   methods: {

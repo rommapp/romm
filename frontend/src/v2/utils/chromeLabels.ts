@@ -15,6 +15,9 @@ export function createChromeLabels(): ChromeLabels {
     get close() {
       return t("common.close");
     },
+    get cancel() {
+      return t("common.cancel");
+    },
     get clear() {
       return t("common.clear");
     },

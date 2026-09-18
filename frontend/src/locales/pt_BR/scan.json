@@ -60,6 +60,7 @@
   "scan-types-more-info": "Mais informações",
   "scanning": "Varrendo",
   "scanning-library": "Varrendo a biblioteca. Clique para visualizar",
+  "scanning-platform": "Varrendo {platform}…",
   "section-metadata": "Metadados",
   "section-platforms": "Plataformas",
   "section-providers": "Provedores",

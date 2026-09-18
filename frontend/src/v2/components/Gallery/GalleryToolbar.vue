@@ -229,7 +229,11 @@ const { smAndUp } = useBreakpoint();
 </script>
 
 <template>
-  <div class="gallery-toolbar" :class="[`gallery-toolbar--${position}`]">
+  <div
+    v-bind="$attrs"
+    class="gallery-toolbar"
+    :class="[`gallery-toolbar--${position}`]"
+  >
     <!-- Filter controls. Always sits left of the controls cluster. -->
     <!-- eslint-disable vuejs-accessibility/no-autofocus -- the Search view is opened to type a query -->
     <RTextField
@@ -252,13 +256,13 @@ const { smAndUp } = useBreakpoint();
 
     <!-- Filter button — sits flush against the search field. Same disc
          shape as the kebab (outlined icon-only RBtn); the active-count
-         chip is `RBadge` anchored top-end. -->
+         chip is `RBadge` anchored top-end, slightly overlapping the disc. -->
     <RBadge
       v-if="showFilter"
       :model-value="filterActiveCount > 0"
       :content="filterActiveCount"
       color="primary"
-      floating
+      :inset="3"
     >
       <RBtn
         variant="outlined"
@@ -400,12 +404,11 @@ const { smAndUp } = useBreakpoint();
   gap: 8px;
 }
 
-/* Header variant — full width, search on the left, controls right.
-   Margin lives here (not on the consumer) so scoped-style precedence never
-   prevents the toolbar from breathing against the content below. */
+/* Header variant: full width, search left, controls right. Padding, not
+   margin, keeps the gap inside the shells' measured, glassed toolbar box. */
 .gallery-toolbar--header {
   width: 100%;
-  margin: var(--r-space-2) 0 var(--r-space-6);
+  padding: var(--r-space-2) 0 var(--r-space-5);
 }
 
 /* Floating variant — fixed top-right of the gallery body. */

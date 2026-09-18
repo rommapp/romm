@@ -1,5 +1,6 @@
 {
   "add-collection": "Añadir colección",
+  "collection-deleted": "Colección «{name}» eliminada",
   "cover": "Portada",
   "create-collection": "Crear colección",
   "create-failed": "No se pudo crear la colección",
@@ -7,6 +8,8 @@
   "current-filters": "Filtros actuales",
   "danger-zone": "Zona de peligro",
   "delete-collection": "Eliminar colección",
+  "delete-collection-body": "Elimina «{name}» ({count} ROMs en la colección). Los archivos ROM no se eliminan.",
+  "delete-collection-failed": "No se pudo eliminar la colección: {error}",
   "delete-collection-hint": "Elimina la colección de RomM. Los archivos ROM no se eliminan.",
   "description": "Descripción",
   "download-collection": "Descargar colección",
