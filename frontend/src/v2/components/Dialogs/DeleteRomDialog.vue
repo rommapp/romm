@@ -255,11 +255,12 @@ function closeDialog() {
         </p>
       </div>
     </template>
-    <template #footer>
+    <template #footer-start>
       <RBtn variant="outlined" :disabled="deleting" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
-      <div style="flex: 1" />
+    </template>
+    <template #footer>
       <RBtn
         variant="translucent"
         color="error"

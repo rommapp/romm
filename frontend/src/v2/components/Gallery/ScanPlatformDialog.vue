@@ -394,11 +394,12 @@ function onScan() {
       </div>
     </template>
 
-    <template #footer>
+    <template #footer-start>
       <RBtn variant="outlined" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
-      <span class="r-v2-scan-plat__footer-spacer" />
+    </template>
+    <template #footer>
       <RBtn
         variant="translucent"
         color="primary"
@@ -419,10 +420,6 @@ function onScan() {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.r-v2-scan-plat__footer-spacer {
-  flex: 1;
 }
 
 /* Platform identity row — sibling of `.r-v2-refresh__rom` in

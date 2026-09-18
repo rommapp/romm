@@ -572,37 +572,39 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
+    <template #footer-start>
+      <RBtn v-if="step === 'config'" variant="outlined" @click="closeDialog">
+        {{ t("common.cancel") }}
+      </RBtn>
+      <RBtn
+        v-else-if="step !== 'delivery'"
+        variant="text"
+        @click="step = 'delivery'"
+      >
+        {{ t("common.back") }}
+      </RBtn>
+    </template>
     <template #footer>
-      <template v-if="step === 'config'">
-        <RBtn variant="outlined" @click="closeDialog">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <div style="flex: 1" />
-        <RBtn
-          variant="flat"
-          color="primary"
-          :loading="loading"
-          :disabled="!configValid"
-          @click="createToken"
-        >
-          {{ t("common.create") }}
-        </RBtn>
-      </template>
-      <template v-else-if="step === 'delivery'">
-        <div style="flex: 1" />
-        <RBtn variant="outlined" @click="closeDialog">
-          {{ t("common.cancel") }}
-        </RBtn>
-      </template>
-      <template v-else>
-        <RBtn variant="text" @click="step = 'delivery'">
-          {{ t("common.back") }}
-        </RBtn>
-        <div style="flex: 1" />
-        <RBtn variant="flat" color="primary" @click="closeDialog">
-          {{ t("common.close") }}
-        </RBtn>
-      </template>
+      <RBtn
+        v-if="step === 'config'"
+        variant="flat"
+        color="primary"
+        :loading="loading"
+        :disabled="!configValid"
+        @click="createToken"
+      >
+        {{ t("common.create") }}
+      </RBtn>
+      <RBtn
+        v-else-if="step === 'delivery'"
+        variant="outlined"
+        @click="closeDialog"
+      >
+        {{ t("common.cancel") }}
+      </RBtn>
+      <RBtn v-else variant="flat" color="primary" @click="closeDialog">
+        {{ t("common.close") }}
+      </RBtn>
     </template>
   </RDialog>
 </template>

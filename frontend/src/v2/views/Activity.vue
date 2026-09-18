@@ -388,11 +388,12 @@ function elapsedLabel(startedAt: string): string {
           </template>
         </RTextField>
       </template>
-      <template #footer>
+      <template #footer-start>
         <RBtn variant="outlined" @click="releaseTarget = null">
           {{ t("common.cancel") }}
         </RBtn>
-        <div style="flex: 1" />
+      </template>
+      <template #footer>
         <RBtn variant="flat" color="danger" @click="confirmRelease">
           {{ t("activity.release-session") }}
         </RBtn>

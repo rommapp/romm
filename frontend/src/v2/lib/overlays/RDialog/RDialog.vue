@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // RDialog — teleports to <body>, paints a scrim + glass panel, and
 // locks page scroll while open. Slot layout: header / toolbar /
-// content / append / footer.
+// content / append / footer-start + footer.
 //
 // Behaviour:
 //   • Escape closes (unless `persistent`).
@@ -265,8 +265,16 @@ const panelStyle = computed(() => {
             <slot name="append" />
           </div>
 
-          <!-- Footer bar -->
-          <footer v-if="slots.footer" class="r-dialog__footer">
+          <!-- Footer bar: `footer-start` (Cancel) sits left, `footer`
+               actions are pushed right. -->
+          <footer
+            v-if="slots.footer || slots['footer-start']"
+            class="r-dialog__footer"
+          >
+            <template v-if="slots['footer-start']">
+              <slot name="footer-start" />
+              <span class="r-dialog__footer-spacer" aria-hidden="true" />
+            </template>
             <slot name="footer" />
           </footer>
         </div>
@@ -435,6 +443,9 @@ html[data-bp~="sm-and-down"]
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.r-dialog__footer-spacer {
+  flex: 1;
 }
 
 /* ── Open motion only ────────────────────────────────────────

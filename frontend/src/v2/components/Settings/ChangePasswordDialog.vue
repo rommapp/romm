@@ -155,11 +155,12 @@ async function submit() {
         <span>{{ t("common.password-length") }}</span>
       </p>
     </template>
-    <template #footer>
+    <template #footer-start>
       <RBtn variant="outlined" @click="close">
         {{ t("common.cancel") }}
       </RBtn>
-      <div style="flex: 1" />
+    </template>
+    <template #footer>
       <RBtn
         variant="flat"
         color="primary"

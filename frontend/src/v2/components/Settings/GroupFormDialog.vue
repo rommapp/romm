@@ -293,11 +293,12 @@ async function save() {
         </div>
       </div>
     </template>
-    <template #footer>
+    <template #footer-start>
       <RBtn variant="outlined" @click="show = false">{{
         t("common.cancel")
       }}</RBtn>
-      <div style="flex: 1" />
+    </template>
+    <template #footer>
       <RBtn
         variant="flat"
         color="primary"

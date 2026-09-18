@@ -1778,7 +1778,7 @@ onBeforeUnmount(() => {
           :items="discOptions"
         />
       </template>
-      <template #footer>
+      <template #footer-start>
         <RBtn
           variant="outlined"
           :disabled="isSwappingDisc"
@@ -1786,6 +1786,8 @@ onBeforeUnmount(() => {
         >
           {{ t("common.cancel") }}
         </RBtn>
+      </template>
+      <template #footer>
         <RBtn
           color="primary"
           variant="flat"

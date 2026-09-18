@@ -483,11 +483,12 @@ function closeDialog() {
         </RAlert>
       </div>
     </template>
-    <template #footer>
+    <template #footer-start>
       <RBtn variant="outlined" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
-      <div style="flex: 1" />
+    </template>
+    <template #footer>
       <RBtn
         variant="translucent"
         color="primary"

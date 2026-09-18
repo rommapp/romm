@@ -211,11 +211,12 @@ function close() {
         />
       </div>
     </template>
-    <template #footer>
+    <template #footer-start>
       <RBtn variant="outlined" @click="close">
         {{ t("common.cancel") }}
       </RBtn>
-      <div style="flex: 1" />
+    </template>
+    <template #footer>
       <RBtn
         variant="flat"
         color="primary"

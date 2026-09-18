@@ -70,9 +70,10 @@ async function retryCopy() {
         <code class="r-v2-copy-link__box">{{ link }}</code>
       </div>
     </template>
-    <template #footer>
+    <template #footer-start>
       <RBtn variant="text" @click="closeDialog">{{ t("common.close") }}</RBtn>
-      <div style="flex: 1" />
+    </template>
+    <template #footer>
       <RBtn
         variant="flat"
         color="primary"
