@@ -3,6 +3,7 @@ from typing import TypedDict
 
 class SystemDict(TypedDict):
     VERSION: str
+    GIT_BRANCH: str | None
     SHOW_SETUP_WIZARD: bool
 
 
