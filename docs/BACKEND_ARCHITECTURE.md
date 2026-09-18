@@ -309,7 +309,8 @@ backend/
 │   │   ├── update_switch_titledb.py           # Refresh Switch TitleDB
 │   │   ├── update_launchbox_metadata.py       # Refresh LaunchBox data
 │   │   ├── convert_images_to_webp.py          # Artwork WebP conversion
-│   │   └── cleanup_netplay.py                 # Prune stale netplay rooms
+│   │   ├── cleanup_netplay.py                 # Prune stale netplay rooms
+│   │   └── reap_streaming_sessions.py         # Stop abandoned streaming sessions
 │   └── manual/                # On-demand tasks
 │       ├── cleanup_missing_roms.py       # Drop DB entries for missing files
 │       ├── cleanup_orphaned_resources.py # Remove unreferenced artwork
@@ -1413,6 +1414,7 @@ Toggled via environment variables:
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
 | `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
 | `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
+| `reap_streaming_sessions`         | Streaming enabled in config                        | `* * * * *`        | Stop abandoned streams |
 
 ### Manual Tasks
 

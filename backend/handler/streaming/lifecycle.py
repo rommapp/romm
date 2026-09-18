@@ -411,18 +411,19 @@ async def teardown_released_session(
             await saves.clear_save_pull_pending(pull_mark)
 
 
-async def _teardown_abandoned_session(
+async def teardown_abandoned_session(
     container: ResolvedContainer,
     session_key: str,
     session: dict[str, Any],
     *,
-    claimed_by: int,
+    claimed_by: int | None = None,
 ) -> bool:
     """Free a container whose owner vanished without releasing (heartbeat went
     stale). Same order as an owner release: stop the emulator so the card is
     quiescent, evacuate and wipe it, credit the owner's playtime, then drop
     the claim.
 
+    `claimed_by` is the user whose claim found the session, None for the reaper.
     Returns False when the session stopped looking abandoned before any of that
     started, meaning the owner came back or another request got here first.
     """
@@ -503,7 +504,7 @@ async def await_teardown_within_budget(
     this leaves behind blocks a claim until the teardown drops it.
     """
     task = background.spawn_sync_task(
-        _teardown_abandoned_session(
+        teardown_abandoned_session(
             container, session_key, session, claimed_by=claimed_by
         )
     )

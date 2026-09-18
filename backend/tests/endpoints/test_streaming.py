@@ -5151,7 +5151,7 @@ def test_an_abandoned_teardown_marks_its_save_pull_before_stopping_the_emulator(
             patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             torn = asyncio.run(
-                lifecycle._teardown_abandoned_session(
+                lifecycle.teardown_abandoned_session(
                     _resolved(container),
                     _key_of(container),
                     session,
@@ -5201,7 +5201,7 @@ def test_an_abandoned_teardown_that_fails_before_its_pull_leaves_nothing_pending
             patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             asyncio.run(
-                lifecycle._teardown_abandoned_session(
+                lifecycle.teardown_abandoned_session(
                     _resolved(container),
                     _key_of(container),
                     session,
@@ -5367,7 +5367,7 @@ def test_an_abandoned_teardown_keeps_asking_while_the_emulator_flushes(
             ) as fetch,
         ):
             asyncio.run(
-                lifecycle._teardown_abandoned_session(
+                lifecycle.teardown_abandoned_session(
                     _resolved(container),
                     _key_of(container),
                     session,
