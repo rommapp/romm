@@ -61,6 +61,16 @@ describe("emulator labels", () => {
     expect(store.emulatorLabel("play")).toBe("Play!");
   });
 
+  it("names an emulator configured in another case", () => {
+    const store = useStreamingStore();
+    store.config = {
+      enabled: true,
+      containers: [],
+      emulator_labels: { play: "Play!" },
+    };
+    expect(store.emulatorLabel("Play")).toBe("Play!");
+  });
+
   it("falls back to the id for an emulator it was told nothing about", () => {
     const store = useStreamingStore();
     expect(store.emulatorLabel("snes9x")).toBe("snes9x");

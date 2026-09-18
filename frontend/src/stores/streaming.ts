@@ -86,7 +86,8 @@ export const useStreamingStore = defineStore("streaming", () => {
    */
   function emulatorLabel(emulator: string | null | undefined): string {
     if (!emulator) return "";
-    return config.value.emulator_labels[emulator] ?? emulator;
+    // Label keys are lowercase, and a configured emulator keeps its case.
+    return config.value.emulator_labels[emulator.toLowerCase()] ?? emulator;
   }
 
   /**
