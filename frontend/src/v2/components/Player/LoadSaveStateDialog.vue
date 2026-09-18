@@ -73,6 +73,7 @@ function closeDialog() {
 
 <template>
   <RDialog
+    v-bind="$attrs"
     id="load-save-state-dialog"
     v-model="show"
     icon="mdi-folder-open-outline"

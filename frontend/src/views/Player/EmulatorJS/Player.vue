@@ -634,8 +634,10 @@ function onPageHide() {
 }
 
 // Saves management
-async function loadSave(save: SaveSchema) {
-  saveGeneration += 1;
+// Resolves whether this pick reached the core: a later pick, a state load or
+// leaving the player voids a download still in flight.
+async function loadSave(save: SaveSchema): Promise<boolean> {
+  const generation = ++saveGeneration;
   saveLoading = true;
 
   try {
@@ -643,6 +645,7 @@ async function loadSave(save: SaveSchema) {
       responseType: "arraybuffer",
       params: { device_id: deviceIDRef.value },
     });
+    if (disposed || generation !== saveGeneration) return false;
     const bytes = new Uint8Array(data);
     loadEmulatorJSSave(bytes);
     // Writes follow the picked save only once its bytes are in the core.
@@ -653,15 +656,38 @@ async function loadSave(save: SaveSchema) {
       duration: 3000,
       icon: "mdi-cloud-download-outline",
     });
+    return true;
   } finally {
-    saveLoading = false;
+    if (generation === saveGeneration) saveLoading = false;
+  }
+}
+
+// Progress the tick has not taken yet belongs to the save being left, so it
+// goes out (or is held) before a switch replaces the SRAM.
+async function uploadUnsyncedSave() {
+  const emulator = window.EJS_emulator;
+  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
+  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
+  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  const screenshotFile = heldFor(pendingSave, saveFile)
+    ? undefined
+    : await captureScreenshot();
+  try {
+    if (
+      await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile })
+    ) {
+      romsStore.update(romRef.value);
+    }
+  } catch (error) {
+    console.error("Save sync before switching failed", error);
   }
 }
 
 // The game reads its SRAM as it boots, so a save picked mid-game restarts it.
 async function switchSave(save: SaveSchema) {
+  await uploadUnsyncedSave();
   try {
-    await loadSave(save);
+    if (!(await loadSave(save))) return;
   } catch (error) {
     console.error("Loading the picked save failed", error);
     displayMessage(t("play.load-save-failed"), {
