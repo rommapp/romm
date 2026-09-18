@@ -23,18 +23,20 @@ export function usePinnedToolbar(scrollTop: Ref<number>) {
 
   function measure() {
     const toolbar = toolbarEl.value;
-    toolbarHeight.value = toolbar?.getBoundingClientRect().height ?? 0;
-    pinnedTop.value = toolbar
-      ? parseFloat(getComputedStyle(toolbar).top) || 0
-      : 0;
-    naturalTop.value = sentinelEl.value?.offsetTop ?? 0;
+    const sentinel = sentinelEl.value;
+    if (!toolbar || !sentinel) return;
+    toolbarHeight.value = toolbar.getBoundingClientRect().height;
+    pinnedTop.value = parseFloat(getComputedStyle(toolbar).top) || 0;
+    naturalTop.value = sentinel.offsetTop;
   }
 
   // The toolbar, the sentinel and the earlier siblings (the header) that move it.
   function observedElements(): Element[] {
-    const out: Element[] = [];
-    if (toolbarEl.value) out.push(toolbarEl.value);
-    let el: Element | null | undefined = sentinelEl.value;
+    const toolbar = toolbarEl.value;
+    const sentinel = sentinelEl.value;
+    if (!toolbar || !sentinel) return [];
+    const out: Element[] = [toolbar];
+    let el: Element | null = sentinel;
     while (el) {
       out.push(el);
       el = el.previousElementSibling;
@@ -55,8 +57,13 @@ export function usePinnedToolbar(scrollTop: Ref<number>) {
     observed = next;
     observer?.disconnect();
     observer = null;
+    if (next.length === 0) {
+      toolbarHeight.value = 0;
+      pinnedTop.value = 0;
+      naturalTop.value = 0;
+      return;
+    }
     measure();
-    if (next.length === 0) return;
     observer = new ResizeObserver(measure);
     for (const el of next) observer.observe(el);
   }

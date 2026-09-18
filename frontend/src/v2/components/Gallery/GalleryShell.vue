@@ -49,6 +49,7 @@ import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
   getListMinWidth,
   isListSortKey,
+  LIST_HEADER_HEIGHT_PX,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
@@ -386,41 +387,27 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 
 // ── Toolbar ─────────────────────────────────────────────────────────
-// `toolbarHeight` drives `scrollToIndex({ stickyOffset })` (so AlphaStrip lands
-// rows below the pinned toolbar), the list header's and the strip's `top`.
 const scrollTopNow = computed(() => scrollerRef.value?.scrollTop ?? 0);
-const {
-  toolbarHeight,
-  pinDistance,
-  pinned,
-  bindToolbar: bindToolbarEl,
-  bindSentinel: bindPinSentinel,
-} = usePinnedToolbar(scrollTopNow);
-// The AlphaStrip follows the toolbar's bottom edge until it pins: a
-// scroll-driven animation (the strip is the scroller's sibling, hence
-// `timeline-scope`), else a style write that never re-renders the shell.
+const { toolbarHeight, pinDistance, pinned, bindToolbar, bindSentinel } =
+  usePinnedToolbar(scrollTopNow);
+// The AlphaStrip follows the toolbar down until it pins: a scroll-driven
+// animation (hence `timeline-scope`), else a style write on the strip alone.
 const supportsScrollTimeline =
   typeof CSS !== "undefined" &&
   CSS.supports("animation-timeline: scroll()") &&
   CSS.supports("timeline-scope: --a");
+const stripRef = ref<InstanceType<typeof AlphaStrip> | null>(null);
 if (!supportsScrollTimeline) {
+  const stripShift = computed(() =>
+    Math.max(0, pinDistance.value - scrollTopNow.value),
+  );
   watchEffect(() => {
-    sectionEl.value?.style.setProperty(
+    (stripRef.value?.$el as HTMLElement | undefined)?.style.setProperty(
       "--r-v2-shell-strip-shift",
-      `${Math.max(0, pinDistance.value - scrollTopNow.value)}px`,
+      `${stripShift.value}px`,
     );
   });
 }
-
-// The strip stays mounted in both grid and list mode regardless of how
-// many letters the backend has reported — letters that aren't in
-// `availableLetters` render as disabled buttons, so the layout column
-// stays reserved from the very first paint (skeleton phase included).
-// Without this, the scroller would shift sideways the instant the
-// bootstrap response resolves and the first letter showed up.
-const hasAlphaStrip = computed(
-  () => layout.value === "grid" || layout.value === "list",
-);
 
 // ── Viewport range / AlphaStrip / dwell prefetch ────────────────────
 const viewportRange = ref<{ first: number; last: number }>({
@@ -594,12 +581,6 @@ watch(virtualItems, () => {
   syncFetches(viewportRange.value);
 });
 
-// List mode pins a column header below the toolbar; AlphaStrip jumps
-// must land BELOW both pinned bars or the destination row would slide
-// behind the column header. Matches the height set in
-// `GameListHeader.vue` — keep in sync.
-const LIST_HEADER_HEIGHT = 40;
-
 function scrollToLetter(letter: string) {
   const idx = letterToIndex.value.get(letter);
   if (idx == null) return;
@@ -611,7 +592,7 @@ function scrollToLetter(letter: string) {
   const stickyOffset =
     navHeight +
     toolbarHeight.value +
-    (layout.value === "list" ? LIST_HEADER_HEIGHT : 0);
+    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0);
   scrollerRef.value?.scrollToIndex(idx, { smooth: true, stickyOffset });
   // The viewport-driven fetch sync handles the destination — once the
   // smooth scroll settles, `update:viewportRange` fires and the windows at
@@ -811,7 +792,6 @@ defineExpose({
     ref="sectionEl"
     class="r-v2-shell"
     :class="{
-      'r-v2-shell--has-strip': hasAlphaStrip,
       'r-v2-shell--list': layout === 'list',
       'r-v2-shell--floating': toolbarPosition === 'floating',
     }"
@@ -845,36 +825,32 @@ defineExpose({
         </template>
         <div v-else class="r-v2-shell__nav-spacer" />
 
-        <div
-          v-if="toolbarPosition === 'header'"
-          :ref="bindPinSentinel"
-          class="r-v2-shell__pin-sentinel"
-          aria-hidden="true"
-        />
-        <div
-          v-if="toolbarPosition === 'header'"
-          :ref="bindToolbarEl"
-          class="r-v2-shell__toolbar r-pinned-toolbar"
-          :class="{ 'r-pinned-toolbar--pinned': pinned }"
-        >
-          <GalleryToolbar
-            :group-by="groupBy"
-            :layout="layout"
-            :position="toolbarPosition"
-            :sort-dir="orderDir"
-            show-search
-            :search="searchInput"
-            :search-placeholder="searchPlaceholder"
-            :autofocus-search="autofocusSearch"
-            show-filter
-            :filter-active-count="filterActiveCount"
-            @update:group-by="groupBy = $event"
-            @update:layout="layout = $event"
-            @update:sort-dir="onGridSortDir"
-            @update:search="setSearch"
-            @click:filter="filterDrawerOpen = true"
-          />
-        </div>
+        <template v-if="toolbarPosition === 'header'">
+          <div :ref="bindSentinel" aria-hidden="true" />
+          <div
+            :ref="bindToolbar"
+            class="r-v2-shell__toolbar r-pinned-toolbar"
+            :class="{ 'r-pinned-toolbar--pinned': pinned }"
+          >
+            <GalleryToolbar
+              :group-by="groupBy"
+              :layout="layout"
+              :position="toolbarPosition"
+              :sort-dir="orderDir"
+              show-search
+              :search="searchInput"
+              :search-placeholder="searchPlaceholder"
+              :autofocus-search="autofocusSearch"
+              show-filter
+              :filter-active-count="filterActiveCount"
+              @update:group-by="groupBy = $event"
+              @update:layout="layout = $event"
+              @update:sort-dir="onGridSortDir"
+              @update:search="setSearch"
+              @click:filter="filterDrawerOpen = true"
+            />
+          </div>
+        </template>
 
         <!-- LIST COLUMN HEADER — sticky below the toolbar in list mode.
              Shares `LIST_GRID_TEMPLATE` with every GameListRow underneath
@@ -963,7 +939,7 @@ defineExpose({
 
     <!-- ALPHASTRIP — A-Z jump column on the right edge of the section. -->
     <AlphaStrip
-      v-if="hasAlphaStrip"
+      ref="stripRef"
       class="r-v2-shell__strip"
       :available="availableLetters"
       :current="currentLetter"
@@ -1011,8 +987,8 @@ defineExpose({
   /* AlphaStrip footprint = letter column (`--r-alpha-strip-w`, a global
      token) + gap to the viewport edge. */
   --r-alpha-strip-gap: var(--r-space-3);
-  /* The strip's footprint, added to the scroller's right gutter when shown. */
-  --r-v2-shell-strip: 0px;
+  /* The strip's footprint, added to the scroller's right gutter. */
+  --r-v2-shell-strip: calc(var(--r-alpha-strip-w) + var(--r-alpha-strip-gap));
   /* Lets the strip (a sibling) animate against the scroller's scroll. */
   timeline-scope: --r-v2-shell-scroll;
   flex: 1;
@@ -1062,9 +1038,6 @@ html[data-bp~="xs"] .r-v2-shell {
   scroll-timeline: --r-v2-shell-scroll block;
   padding: 0 calc(var(--r-row-pad) + var(--r-v2-shell-strip)) 60px
     var(--r-row-pad);
-}
-.r-v2-shell--has-strip {
-  --r-v2-shell-strip: calc(var(--r-alpha-strip-w) + var(--r-alpha-strip-gap));
 }
 
 .r-v2-shell__item {
@@ -1136,23 +1109,18 @@ html[data-bp~="xs"] .r-v2-shell {
    (z-index 3 vs 4) so it never intercepts the toolbar's pointer events. */
 .r-v2-shell__list-header {
   position: sticky;
-  top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h, 64px));
+  top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h));
   z-index: 3;
   /* Match the rows' natural width so the column header scrolls horizontally in
      step with them when the list is wider than the viewport. */
   min-width: var(--r-list-min-w);
 }
 
-/* Zero-height marker at the toolbar's natural top (see usePinnedToolbar). */
-.r-v2-shell__pin-sentinel {
-  height: 0;
-}
-
 /* The strip overlays the scroller's right gutter from the pinned toolbar's
    bottom edge, shifted down with the toolbar until it pins. */
 .r-v2-shell .r-v2-shell__strip {
   position: absolute;
-  top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h, 0px));
+  top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h));
   right: 0;
   bottom: 0;
   z-index: 5;

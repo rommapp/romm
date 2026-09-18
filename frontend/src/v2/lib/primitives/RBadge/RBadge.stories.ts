@@ -27,7 +27,6 @@ const meta: Meta<typeof RBadge> = {
     dot: { control: "boolean" },
     inline: { control: "boolean" },
     bordered: { control: "boolean" },
-    floating: { control: "boolean" },
     inset: { control: "number" },
     modelValue: { control: "boolean" },
     max: { control: "number" },
@@ -185,29 +184,10 @@ export const Bordered: Story = {
   }),
 };
 
-export const Floating: Story = {
-  name: "Floating (pushed further out)",
-  render: () => ({
-    components: { RBadge, RIcon },
-    template: `
-      <div style="display:flex;gap:36px;align-items:center;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RBadge content="3"><RIcon icon="mdi-bell" size="28" /></RBadge>
-          <span>default</span>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RBadge content="3" floating><RIcon icon="mdi-bell" size="28" /></RBadge>
-          <span>floating</span>
-        </div>
-      </div>
-    `,
-  }),
-};
-
 export const Inset: Story = {
-  name: "Inset (round anchors)",
+  name: "Inset (in for round anchors, out for dense icons)",
   render: () => ({
-    components: { RBadge, RAvatar },
+    components: { RBadge, RAvatar, RIcon },
     template: `
       <div style="display:flex;gap:36px;align-items:center;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
@@ -217,6 +197,10 @@ export const Inset: Story = {
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
           <RBadge content="3" color="primary" :inset="3"><RAvatar color="secondary" size="40">YZ</RAvatar></RBadge>
           <span>inset 3px</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <RBadge content="3" :inset="-4"><RIcon icon="mdi-bell" size="28" /></RBadge>
+          <span>inset -4px</span>
         </div>
       </div>
     `,

@@ -452,8 +452,7 @@ export const layout = {
   collectionCoverWidthXs: "150px",
   collectionCoverHeightXs: "202px",
   // AlphaStrip A-Z jump column (gallery). Wider on phones for bigger, more
-  // tappable letters. The gallery's stuck-toolbar overlay insets by this
-  // (plus the edge gap) so it lines up exactly with the in-flow toolbar.
+  // tappable letters.
   alphaStripWidth: "24px",
   alphaStripWidthXs: "30px",
   // List-mode (table) gallery geometry. `GameListRow`, `GameListHeader`

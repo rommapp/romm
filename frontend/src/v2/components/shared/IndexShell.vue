@@ -57,11 +57,7 @@ function onScroll(e: Event) {
         <slot name="header" />
       </div>
 
-      <div
-        :ref="bindSentinel"
-        class="r-v2-idx-shell__pin-sentinel"
-        aria-hidden="true"
-      />
+      <div :ref="bindSentinel" aria-hidden="true" />
       <div
         :ref="bindToolbar"
         class="r-pinned-toolbar"
@@ -120,16 +116,11 @@ html[data-bp~="sm-and-down"] .r-v2-idx-shell {
   padding-top: calc(var(--r-nav-h) + 32px);
 }
 
-/* Zero-height marker at the toolbar's natural top (see usePinnedToolbar). */
-.r-v2-idx-shell__pin-sentinel {
-  height: 0;
-}
-
 /* List column header: sticky just below the pinned toolbar, and under it
    (z-index 3 vs 4) so the toolbar always wins pointer events. */
 .r-v2-idx-shell__list-header {
   position: sticky;
-  top: calc(var(--r-nav-h) + var(--r-v2-idx-shell-toolbar-h, 64px));
+  top: calc(var(--r-nav-h) + var(--r-v2-idx-shell-toolbar-h));
   z-index: 3;
 }
 

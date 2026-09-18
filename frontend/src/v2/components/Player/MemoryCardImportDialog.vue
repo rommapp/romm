@@ -127,28 +127,28 @@ async function onDiscard(): Promise<void> {
       </div>
     </template>
 
+    <template #footer-start>
+      <RBtn variant="outlined" @click="onCancel">
+        {{ t("common.cancel") }}
+      </RBtn>
+    </template>
     <template #footer>
-      <div class="r-mc-import__actions">
-        <RBtn variant="outlined" @click="onCancel">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn variant="text" color="danger" @click="onDiscard">
-          {{
-            unreadable
-              ? t("play.memory-card-unreadable-override")
-              : t("play.memory-card-import-discard")
-          }}
-        </RBtn>
-        <RBtn
-          v-if="!unreadable"
-          variant="flat"
-          color="primary"
-          prepend-icon="mdi-download"
-          @click="onAdopt"
-        >
-          {{ t("play.memory-card-import-adopt") }}
-        </RBtn>
-      </div>
+      <RBtn variant="text" color="danger" @click="onDiscard">
+        {{
+          unreadable
+            ? t("play.memory-card-unreadable-override")
+            : t("play.memory-card-import-discard")
+        }}
+      </RBtn>
+      <RBtn
+        v-if="!unreadable"
+        variant="flat"
+        color="primary"
+        prepend-icon="mdi-download"
+        @click="onAdopt"
+      >
+        {{ t("play.memory-card-import-adopt") }}
+      </RBtn>
     </template>
   </RDialog>
 </template>
@@ -177,12 +177,5 @@ async function onDiscard(): Promise<void> {
   margin: 0;
   color: var(--r-color-danger-fg);
   font-size: var(--r-font-size-sm);
-}
-
-.r-mc-import__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--r-space-2);
-  width: 100%;
 }
 </style>

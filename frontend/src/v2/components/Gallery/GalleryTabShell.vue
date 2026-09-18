@@ -13,12 +13,10 @@ defineSlots<{
 
 <template>
   <section v-bind="$attrs" class="gallery-tab-shell">
-    <div class="gallery-tab-shell__scroll">
-      <slot name="head" />
-      <RDivider class="gallery-tab-shell__divider" />
-      <div class="gallery-tab-shell__panel">
-        <slot />
-      </div>
+    <slot name="head" />
+    <RDivider class="gallery-tab-shell__divider" />
+    <div class="gallery-tab-shell__panel">
+      <slot />
     </div>
   </section>
 </template>
@@ -26,7 +24,7 @@ defineSlots<{
 <style scoped>
 /* Plain document flow, so the page scrolls under the translucent top bar like
    Home; AppLayout's bottom padding clears the phone tab bar. */
-.gallery-tab-shell__scroll {
+.gallery-tab-shell {
   padding: 32px var(--r-row-pad) 24px;
 }
 
@@ -36,7 +34,7 @@ defineSlots<{
 
 /* Desktop: fill at least the viewport so the panel, and a `fill` child such as
    the empty firmware dropzone, reaches its bottom. */
-html[data-bp~="md-and-up"] .gallery-tab-shell__scroll {
+html[data-bp~="md-and-up"] .gallery-tab-shell {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - var(--r-nav-h));

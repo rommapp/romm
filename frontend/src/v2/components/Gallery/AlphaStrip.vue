@@ -125,7 +125,6 @@ watch(
 .alpha-strip {
   /* Width + edge gap come from the section (`--r-alpha-strip-*`). */
   width: var(--r-alpha-strip-w, 24px);
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
