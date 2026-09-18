@@ -156,6 +156,7 @@
   "state": "Stato",
   "states": "Stati",
   "states-n": "{n} Stato | {n} Stati",
+  "step-of": "Passo {current} di {total}",
   "switch-classic-ui": "Passa all'interfaccia classica",
   "sync": "Sincronizza",
   "today": "Oggi",

@@ -156,6 +156,7 @@
   "state": "Stare",
   "states": "Stări",
   "states-n": "{n} Stare | {n} Stări",
+  "step-of": "Pasul {current} din {total}",
   "switch-classic-ui": "Treci la interfața clasică",
   "sync": "Sincronizează",
   "today": "Astăzi",

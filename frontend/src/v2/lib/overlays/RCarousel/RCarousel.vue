@@ -51,8 +51,6 @@ const props = withDefaults(defineProps<RCarouselProps<T>>(), {
 
 const labels = useChromeLabels();
 
-// The props stay as per-instance overrides; unset, each falls back to the
-// injected bundle rather than an English literal.
 const closeText = computed(() => props.closeLabel ?? labels.close);
 const prevText = computed(() => props.prevLabel ?? labels.previous);
 const nextText = computed(() => props.nextLabel ?? labels.next);

@@ -156,6 +156,7 @@
   "state": "Stav",
   "states": "Stavy",
   "states-n": "{n} stavů | {n} stav | {n} stavy | {n} stavů",
+  "step-of": "Krok {current} z {total}",
   "switch-classic-ui": "Přepnout na klasické rozhraní",
   "sync": "Synchronizovat",
   "today": "Dnes",

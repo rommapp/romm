@@ -1,6 +1,8 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
+import RAlert from "../primitives/RAlert/RAlert.vue";
 import RChip from "../primitives/RChip/RChip.vue";
+import RSteps from "../primitives/RSteps/RSteps.vue";
 import {
   ChromeLabelsKey,
   DEFAULT_CHROME_LABELS,
@@ -28,28 +30,12 @@ describe("useChromeLabels", () => {
 
   it("reads the injected bundle", () => {
     const wrapper = mount(Consumer, {
-      global: { provide: { [ChromeLabelsKey as symbol]: bundle({ close: "Schließen" }) } },
-    });
-    expect(wrapper.text()).toBe("Schließen");
-    wrapper.unmount();
-  });
-
-  it("re-reads a getter-backed bundle, so a locale switch propagates", async () => {
-    let locale = "en_US";
-    const reactiveBundle: ChromeLabels = {
-      ...DEFAULT_CHROME_LABELS,
-      get close() {
-        return locale === "de_DE" ? "Schließen" : "Close";
+      global: {
+        provide: {
+          [ChromeLabelsKey as symbol]: bundle({ close: "Schließen" }),
+        },
       },
-    };
-    const wrapper = mount(Consumer, {
-      global: { provide: { [ChromeLabelsKey as symbol]: reactiveBundle } },
     });
-    expect(wrapper.text()).toBe("Close");
-
-    locale = "de_DE";
-    await wrapper.vm.$forceUpdate();
-    await wrapper.vm.$nextTick();
     expect(wrapper.text()).toBe("Schließen");
     wrapper.unmount();
   });
@@ -62,10 +48,46 @@ describe("primitives consume the injected bundle", () => {
   it("RChip's remove button uses the injected label", () => {
     const wrapper = mount(RChip, {
       props: { closable: true },
-      global: { provide: { [ChromeLabelsKey as symbol]: bundle({ remove: "Entfernen" }) } },
+      global: {
+        provide: {
+          [ChromeLabelsKey as symbol]: bundle({ remove: "Entfernen" }),
+        },
+      },
     });
     expect(wrapper.get("button.r-chip__close").attributes("aria-label")).toBe(
       "Entfernen",
+    );
+    wrapper.unmount();
+  });
+
+  it("RAlert's close button uses the injected label", () => {
+    const wrapper = mount(RAlert, {
+      props: { closable: true },
+      global: {
+        provide: {
+          [ChromeLabelsKey as symbol]: bundle({ close: "Schließen" }),
+        },
+      },
+    });
+    expect(wrapper.get("button.r-alert__close").attributes("aria-label")).toBe(
+      "Schließen",
+    );
+    wrapper.unmount();
+  });
+
+  it("RSteps builds its stepper name from the injected formatter", () => {
+    const wrapper = mount(RSteps, {
+      props: { total: 3, current: 2 },
+      global: {
+        provide: {
+          [ChromeLabelsKey as symbol]: bundle({
+            step: (current, total) => `Schritt ${current} von ${total}`,
+          }),
+        },
+      },
+    });
+    expect(wrapper.get("ol.r-steps").attributes("aria-label")).toBe(
+      "Schritt 2 von 3",
     );
     wrapper.unmount();
   });

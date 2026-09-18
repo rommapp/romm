@@ -156,6 +156,7 @@
   "state": "Spielstand",
   "states": "Spielstände",
   "states-n": "{n} Spielstand | {n} Spielstände",
+  "step-of": "Schritt {current} von {total}",
   "switch-classic-ui": "Zur klassischen Oberfläche wechseln",
   "sync": "Synchronisieren",
   "today": "Heute",

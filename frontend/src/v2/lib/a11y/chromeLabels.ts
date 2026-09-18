@@ -29,6 +29,8 @@ export interface ChromeLabels {
   nextMonth: string;
   nextYear: string;
   today: string;
+  /** Accessible name for a stepper, e.g. "Step 2 of 5". */
+  step: (current: number, total: number) => string;
 }
 
 export const DEFAULT_CHROME_LABELS: ChromeLabels = {
@@ -44,6 +46,7 @@ export const DEFAULT_CHROME_LABELS: ChromeLabels = {
   nextMonth: "Next month",
   nextYear: "Next year",
   today: "Today",
+  step: (current, total) => `Step ${current} of ${total}`,
 };
 
 export const ChromeLabelsKey: InjectionKey<ChromeLabels> =

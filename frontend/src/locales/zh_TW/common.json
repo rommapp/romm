@@ -156,6 +156,7 @@
   "state": "即時存檔",
   "states": "即時存檔",
   "states-n": "{n} 即時存檔 | {n} 即時存檔",
+  "step-of": "第 {current} 步，共 {total} 步",
   "switch-classic-ui": "切換至經典介面",
   "sync": "同步",
   "today": "今天",

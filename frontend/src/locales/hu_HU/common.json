@@ -156,6 +156,7 @@
   "state": "Állás",
   "states": "Állások",
   "states-n": "{n} Állás | {n} Állások",
+  "step-of": "{current}. lépés a {total}-ből",
   "switch-classic-ui": "Váltás a klasszikus felületre",
   "sync": "Szinkronizálás",
   "today": "Ma",

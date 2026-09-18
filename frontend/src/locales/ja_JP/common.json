@@ -156,6 +156,7 @@
   "state": "ステートセーブ",
   "states": "ステートセーブ",
   "states-n": "{n} ステートセーブ | {n} ステートセーブ",
+  "step-of": "ステップ {current}/{total}",
   "switch-classic-ui": "クラシックUIに切り替え",
   "sync": "同期",
   "today": "今日",

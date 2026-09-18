@@ -46,7 +46,17 @@ If any fails: **shared composite** if generic across features, **feature composi
 
 - **Can use**: tokens, other primitives, Vue, generic composables (`useInput*`, `useFocus*`).
 - **Cannot use**: Pinia stores, API services, `emitter`, `router` (a `RouterLink` may be accepted as a prop), `i18n` directly. **No `$t()` in primitives** — text comes via props or slots.
-- **Chrome labels** are the exception to "via props": the accessible name of a control the primitive renders for itself (a dialog's close button, a chip's remove X, a date field's steppers) is not caller-supplied content, and a per-instance prop for it has to be passed at every call site to have any effect. Read them from `useChromeLabels()` (`lib/a11y/chromeLabels.ts`), which the app fills with translations via `app.provide` and which falls back to English when unprovided. Never hard-code an `aria-label` string or an English prop default in `lib/`. A label prop may still exist as a per-instance override, defaulting to `undefined` so it resolves through the bundle.
+- **Chrome labels** are the exception to "via props": the accessible name
+  of a control the primitive renders for itself (a dialog's close button, a
+  chip's remove X, a date field's steppers, a stepper's "Step 2 of 5") is
+  not caller-supplied content, and a per-instance prop for it has to be
+  passed at every call site to have any effect. Read them from
+  `useChromeLabels()` (`lib/a11y/chromeLabels.ts`), which the app fills with
+  translations via `app.provide` and which falls back to English when
+  unprovided. Never hard-code an `aria-label` string (including a bound
+  literal like `:aria-label="'Close'"`) or an English prop default in
+  `lib/`. A label prop may still exist as a per-instance override,
+  defaulting to `undefined` so it resolves through the bundle.
 
 ---
 

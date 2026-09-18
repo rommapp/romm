@@ -185,7 +185,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const labels = useChromeLabels();
 
-// Prop stays a per-instance override; unset it follows the injected bundle.
 const allText = computed(() => props.allOptionLabel ?? labels.all);
 
 const emit = defineEmits<{

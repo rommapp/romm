@@ -82,7 +82,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const labels = useChromeLabels();
 
-// Props stay per-instance overrides; unset, each follows the injected bundle.
 const todayText = computed(() => props.todayLabel ?? labels.today);
 const clearText = computed(() => props.clearLabel ?? labels.clear);
 

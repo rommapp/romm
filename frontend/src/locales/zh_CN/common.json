@@ -156,6 +156,7 @@
   "state": "状态",
   "states": "状态",
   "states-n": "{n} 状态 | {n} 状态",
+  "step-of": "第 {current} 步，共 {total} 步",
   "switch-classic-ui": "切换到经典界面",
   "sync": "同步",
   "today": "今天",

@@ -156,6 +156,7 @@
   "state": "Durum kaydı",
   "states": "Durum kayıtları",
   "states-n": "{n} Durum kaydı | {n} Durum kaydı",
+  "step-of": "Adım {current}/{total}",
   "switch-classic-ui": "Klasik arayüze geç",
   "sync": "Senkronize et",
   "today": "Bugün",

@@ -156,6 +156,7 @@
   "state": "저장 상태",
   "states": "저장 상태",
   "states-n": "저장 상태 {n}개 | 저장 상태 {n}개",
+  "step-of": "{total}단계 중 {current}단계",
   "switch-classic-ui": "클래식 UI로 전환",
   "sync": "동기화",
   "today": "오늘",
