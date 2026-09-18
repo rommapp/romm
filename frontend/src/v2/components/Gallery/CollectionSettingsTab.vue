@@ -318,7 +318,7 @@ function discard() {
 </script>
 
 <template>
-  <div class="r-v2-coll-set">
+  <div class="r-settings-column">
     <!-- Cover artwork — regular collections only. Smart collections
          derive their cover from the contained ROMs at runtime, so an
          upload UI here would be misleading. -->
@@ -503,14 +503,6 @@ function discard() {
 </template>
 
 <style scoped>
-.r-v2-coll-set {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 460px;
-  margin-inline: auto;
-}
-
 /* ── Cover ──────────────────────────────────────────────────────── */
 .r-v2-coll-set__cover {
   display: flex;

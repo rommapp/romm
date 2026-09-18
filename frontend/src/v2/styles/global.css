@@ -313,6 +313,16 @@ html.r-v2-reduced-motion *::after {
   color: var(--r-color-fg-muted);
 }
 
+/* Column both gallery Settings tabs (platform, collection) render in, so they
+   share one width. */
+.r-settings-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 460px;
+  margin-inline: auto;
+}
+
 /* Section header: icon + small uppercase label heading a settings block. */
 .r-section-head {
   display: flex;

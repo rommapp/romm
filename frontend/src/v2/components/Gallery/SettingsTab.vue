@@ -158,7 +158,7 @@ const details = computed<DetailRow[]>(() => {
 </script>
 
 <template>
-  <div class="r-v2-plat-settings">
+  <div class="r-settings-column">
     <section class="r-v2-plat-settings__section">
       <header class="r-section-head">
         <RIcon icon="mdi-information-outline" size="14" />
@@ -207,9 +207,6 @@ const details = computed<DetailRow[]>(() => {
         </div>
       </RForm>
 
-      <!-- Read-only details. Kept as a hairline-divided table for
-           scan-ability without competing with the editable field
-           above. -->
       <div class="r-v2-plat-settings__details">
         <div
           v-for="row in details"
@@ -249,14 +246,6 @@ const details = computed<DetailRow[]>(() => {
 </template>
 
 <style scoped>
-.r-v2-plat-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 460px;
-  margin-inline: auto;
-}
-
 /* ── Name form ────────────────────────────────────────────────── */
 .r-v2-plat-settings__form {
   display: flex;

@@ -39,9 +39,8 @@ defineSlots<{
   margin: 0 0 24px;
 }
 
-/* Desktop: the shell fits the viewport, the head stays fixed and only the
-   panel scrolls. The panel's inset (cancelled by the negative margin) keeps
-   focus rings inside its clip. */
+/* Desktop: the head stays fixed and only the panel scrolls; its inset,
+   cancelled by the negative margin, keeps focus rings inside the clip. */
 html[data-bp~="md-and-up"] .gallery-tab-shell {
   height: calc(100vh - var(--r-nav-h));
   height: calc(100dvh - var(--r-nav-h));
