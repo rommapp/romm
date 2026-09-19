@@ -79,6 +79,18 @@ def test_get_user_avatar(
     assert response.headers["content-type"].startswith("image/")
 
 
+def test_refresh_ra_for_another_user_is_forbidden(
+    client, viewer_access_token: str, admin_user: User
+):
+    # Rejected on ownership before the user is looked up, so it does not depend
+    # on the target having a RetroAchievements username set.
+    response = client.post(
+        f"/api/users/{admin_user.id}/ra/refresh",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
 def test_get_user_avatar_none_set(client, access_token: str, admin_user: User):
     response = client.get(
         f"/api/users/{admin_user.id}/avatar",

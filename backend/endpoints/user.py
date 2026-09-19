@@ -12,6 +12,7 @@ from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
+from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import (
@@ -200,6 +201,12 @@ def create_user_from_invite(
     Returns:
         UserSchema: Newly created user
     """
+
+    # Checked before anything user-specific: the "already exists" errors below
+    # would otherwise let an anonymous caller enumerate accounts with a token
+    # they never had. Spent only once the account is about to be created, so a
+    # rejected username does not burn the invite.
+    auth_handler.verify_invite_link_token(token)
 
     try:
         validate_username(username)
@@ -471,18 +478,26 @@ async def update_user(
         cleaned_data["avatar_path"] = file_location
 
     if cleaned_data:
+        # Sessions are keyed by username, so the old one is what identifies
+        # them once the update has renamed the account.
+        previous_username = db_user.username
+
         db_user_handler.update_user(id, cleaned_data)
 
         # A role change alters the user's effective permissions; tell their UI.
         if "role" in cleaned_data:
             await emit_permissions_changed(id)
 
-        # Log out the current user if username or password changed
+        # Revoke every session of the user the change was applied to, not just
+        # the caller's: an admin resetting a compromised account has to be able
+        # to lock the attacker out of it.
         creds_updated = cleaned_data.get("username") or cleaned_data.get(
             "hashed_password"
         )
-        if request.user.id == id and creds_updated:
-            request.session.clear()
+        if creds_updated:
+            await RedisSessionMiddleware.clear_user_sessions(previous_username)
+            if request.user.id == id:
+                request.session.clear()
 
     db_user = db_user_handler.get_user(id)
     if not db_user:
@@ -558,6 +573,10 @@ async def refresh_retro_achievements(
     ] = False,
 ) -> None:
     """Refresh RetroAchievements progression data for a user."""
+    # Admin users can refresh any user, while other users can only refresh self
+    if id != request.user.id and request.user.role != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
     user = db_user_handler.get_user(id)
     if not user or not user.ra_username:
         raise HTTPException(

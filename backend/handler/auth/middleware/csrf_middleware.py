@@ -15,6 +15,8 @@ from starlette.requests import Request
 from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from handler.auth.constants import SESSION_COOKIE_NAME
+
 
 class CSRFMiddleware:
     def __init__(
@@ -33,6 +35,7 @@ class CSRFMiddleware:
         cookie_httponly: bool = False,
         cookie_samesite: str = "lax",
         header_name: str = "x-csrftoken",
+        session_cookie_name: str = SESSION_COOKIE_NAME,
     ) -> None:
         if safe_methods is None:
             safe_methods = {"GET", "HEAD", "OPTIONS", "TRACE"}
@@ -51,6 +54,7 @@ class CSRFMiddleware:
         self.cookie_httponly = cookie_httponly
         self.cookie_samesite = cookie_samesite
         self.header_name = header_name
+        self.session_cookie_name = session_cookie_name
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         # Skip CSRF check if not an HTTP request, like websockets
@@ -60,9 +64,16 @@ class CSRFMiddleware:
 
         request = Request(scope, receive)
 
-        # Skip CSRF check if Authorization header is present
+        # An Authorization header carries its own credential, so a caller using
+        # one cannot be riding a cookie and has nothing to forge. It only
+        # exempts the request when no session cookie is present though:
+        # `HybridAuthBackend` resolves the session first, so a cookie plus any
+        # Authorization value at all would otherwise authenticate as the cookie's
+        # owner with the check skipped.
         auth_scheme = request.headers.get("Authorization", "").split(" ", 1)[0].lower()
-        if auth_scheme == "bearer" or auth_scheme == "basic":
+        if auth_scheme in ("bearer", "basic") and not request.cookies.get(
+            self.session_cookie_name
+        ):
             await self.app(scope, receive, send)
             return None
 

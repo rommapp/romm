@@ -203,6 +203,16 @@ class TestCSRFMiddleware:
         resp = client.post("/post", headers={"Authorization": "Bearer token"})
         assert resp.status_code == 200
 
+    def test_session_cookie_defeats_auth_header_bypass(self) -> None:
+        """A session cookie is authenticated ahead of the Authorization header,
+        so its presence must keep the CSRF check in force."""
+        app = create_test_app()
+        client = TestClient(app)
+        client.cookies.set("romm_session", "session-value")
+
+        resp = client.post("/post", headers={"Authorization": "Bearer anything"})
+        assert resp.status_code == 403
+
     def test_non_http_scope_bypass(self) -> None:
         """WebSocket (or other non-HTTP) scopes should pass through."""
         # Manual ASGI call; TestClient doesn't expose WebSocket easily

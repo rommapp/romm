@@ -88,7 +88,14 @@ class AuthHandler:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def verify_password(self, plain_password, hashed_password):
-        return self.pwd_context.verify(plain_password, hashed_password)
+        try:
+            return self.pwd_context.verify(plain_password, hashed_password)
+        except ValueError:
+            # OIDC-provisioned accounts hold a placeholder rather than a bcrypt
+            # hash, and passlib raises on one it cannot identify. Failing the
+            # check keeps that a 401 instead of a 500 that tells an anonymous
+            # caller which accounts came from the provider.
+            return False
 
     def get_password_hash(self, password):
         return self.pwd_context.hash(password)
@@ -252,12 +259,26 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        invite_link = f"{ROMM_BASE_URL}/register?token={token}"
+        # The link itself goes back to the caller in the response, so only the
+        # id is logged: the token registers an account on its own, and the log
+        # reaches a wider audience than the admin who asked for it.
         log.info(
-            f"Invite link created by {hl(user.username, color=CYAN)}: {hl(invite_link)}"
+            f"Invite link created by {hl(user.username, color=CYAN)} (jti: {hl(jti)})"
         )
         redis_client.setex(f"invite-jti:{jti}", expires_in, "valid")
         return token
+
+    def verify_invite_link_token(self, token: str) -> str:
+        """Verify an invite link token without spending it.
+
+        Args:
+            token (str): The token to verify.
+
+        Returns:
+            str: The role associated with the token.
+        """
+        _, role = self._decode_invite_link_token(token)
+        return role
 
     def consume_invite_link_token(self, token: str) -> str:
         """
@@ -269,6 +290,15 @@ class AuthHandler:
         Returns:
             str: The role associated with the token.
         """
+        jti, role = self._decode_invite_link_token(token)
+
+        # Invalidate the token as soon as it's read
+        redis_client.delete(f"invite-jti:{jti}")
+
+        return role
+
+    def _decode_invite_link_token(self, token: str) -> tuple[str, str]:
+        """Validate an invite link token and return its `(jti, role)`."""
         try:
             payload = jwt.decode(token, oct_key, algorithms=[ALGORITHM])
         except (BadSignatureError, DecodeError, ValueError) as exc:
@@ -288,10 +318,7 @@ class AuthHandler:
                 detail="Invite token has already been used or is invalid.",
             )
 
-        # Invalidate the token as soon as it's read
-        redis_client.delete(f"invite-jti:{jti}")
-
-        return role
+        return jti, role
 
 
 class OAuthHandler:

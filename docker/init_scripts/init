@@ -133,12 +133,16 @@ start_bin_gunicorn() {
 	export PYTHONUNBUFFERED=1
 	export PYTHONDONTWRITEBYTECODE=1
 
+	# Only the bundled nginx (127.0.0.1) may speak for the client: trusting every
+	# hop makes uvicorn take the leftmost X-Forwarded-For entry, which the caller
+	# supplies, and every per-IP rate limit reads that address. Deployments behind
+	# a further reverse proxy set FORWARDED_ALLOW_IPS to its address.
 	local -a wrap=()
 	otel_prefix wrap api
 	"${wrap[@]}" gunicorn \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
 		--pid=/tmp/gunicorn.pid \
-		--forwarded-allow-ips="*" \
+		--forwarded-allow-ips="${FORWARDED_ALLOW_IPS:-127.0.0.1}" \
 		--worker-class uvicorn_worker.UvicornWorker \
 		--workers "${WEB_SERVER_CONCURRENCY:-4}" \
 		--timeout "${WEB_SERVER_TIMEOUT:-300}" \

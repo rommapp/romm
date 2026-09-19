@@ -27,6 +27,11 @@ def test_verify_password():
     assert not auth_handler.verify_password(
         "password", auth_handler.get_password_hash("notpassword")
     )
+    # OIDC-provisioned accounts hold a placeholder instead of a bcrypt hash;
+    # it has to fail the check rather than raise.
+    assert not auth_handler.verify_password(
+        "password", "3f2b1c7e-0c1d-4f5a-9a2b-8e7d6c5b4a39"
+    )
 
 
 def test_authenticate_user(admin_user: User):
