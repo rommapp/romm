@@ -1,5 +1,5 @@
 import zipfile
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -284,8 +284,10 @@ async def test_apply_patch_stops_a_member_that_outgrows_its_declared_size(
 
     pulled = 0
 
-    def _lying_reader(*_args, **_kwargs):
-        def _chunks():
+    def _lying_reader(
+        _file_path: Path, _excluded_names: list[str], _excluded_exts: list[str]
+    ) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+        def _chunks() -> Iterator[bytes]:
             nonlocal pulled
             for _ in range(100):
                 pulled += 1
