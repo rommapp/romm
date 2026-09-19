@@ -731,8 +731,7 @@ def drop_roms_columns(conn: sa.Connection) -> None:
 def _drop_sort_indexes(conn: sa.Connection) -> None:
     """Remove the sort indexes, which outlive the columns they were added for.
 
-    A descending one reads a value column this module inherited rather than
-    added, so nothing above drops it along with the rest of the catalog.
+    A descending one reads an inherited column, so nothing above drops it.
     """
     existing = {index["name"] for index in sa.inspect(conn).get_indexes(TABLE)}
     for column in SORTABLE_NULLABLE_ROM_COLUMNS:

@@ -280,7 +280,7 @@ class TestMetadataSortResults:
         ],
     )
     def test_unset_flag_tracks_its_value_column(
-        self, platform: Platform, column: str, metadata: dict
+        self, platform: Platform, column: str, metadata: dict[str, dict[str, str]]
     ):
         """The sort's NULL placement rests on the flag, so it has to agree
         with the value it stands for."""
