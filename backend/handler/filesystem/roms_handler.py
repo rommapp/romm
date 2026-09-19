@@ -1008,7 +1008,7 @@ class FSRomsHandler(FSHandler):
                     update_hashes(chunk)
 
             return crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h
-        except (FileNotFoundError, PermissionError):
+        except FileNotFoundError, PermissionError:
             return (
                 0,
                 rom_crc_c,

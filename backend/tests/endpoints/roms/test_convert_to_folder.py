@@ -360,7 +360,7 @@ async def test_second_upload_racing_a_promotion_keeps_the_rom_in_its_folder(
     async def gated_make_directory(path: str) -> None:
         try:
             await asyncio.wait_for(barrier.wait(), 0.5)
-        except (TimeoutError, asyncio.BrokenBarrierError):
+        except TimeoutError, asyncio.BrokenBarrierError:
             pass
         await make_directory(path)
 
@@ -411,7 +411,7 @@ async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
     async def gated_make_directory(path: str) -> None:
         try:
             await asyncio.wait_for(barrier.wait(), 0.5)
-        except (TimeoutError, asyncio.BrokenBarrierError):
+        except TimeoutError, asyncio.BrokenBarrierError:
             pass
         await make_directory(path)
 

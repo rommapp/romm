@@ -188,9 +188,11 @@ class TestProcessIncomingFileFilenameOnlyMatching:
         )
 
         # Force a server-side overwrite path if the bug picks the archival.
-        with patch("sync_watcher.compare_save_state") as mock_cmp, patch(
-            "sync_watcher.fs_asset_handler"
-        ), patch("sync_watcher.asyncio") as mock_asyncio:
+        with (
+            patch("sync_watcher.compare_save_state") as mock_cmp,
+            patch("sync_watcher.fs_asset_handler"),
+            patch("sync_watcher.asyncio") as mock_asyncio,
+        ):
             mock_cmp.return_value = MagicMock(action="upload", reason=None)
             mock_asyncio.run = MagicMock()
             _process_incoming_file(
@@ -253,9 +255,11 @@ class TestProcessIncomingFileFilenameOnlyMatching:
             )
         )
 
-        with patch("sync_watcher.compare_save_state") as mock_cmp, patch(
-            "sync_watcher.fs_asset_handler"
-        ), patch("sync_watcher.asyncio") as mock_asyncio:
+        with (
+            patch("sync_watcher.compare_save_state") as mock_cmp,
+            patch("sync_watcher.fs_asset_handler"),
+            patch("sync_watcher.asyncio") as mock_asyncio,
+        ):
             mock_cmp.return_value = MagicMock(action="upload", reason=None)
             mock_asyncio.run = MagicMock()
             _process_incoming_file(

@@ -485,7 +485,7 @@ def reset_cache() -> None:
 def _fingerprint(raw: Any) -> str:
     try:
         return json.dumps(raw, sort_keys=True, default=str)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         # Unserializable config: never matches, so it re-resolves every time
         # rather than serving a record built from something else. A fresh
         # random value rather than an object's repr, which CPython happily

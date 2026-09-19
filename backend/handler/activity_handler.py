@@ -217,7 +217,7 @@ class ActivityHandler:
             try:
                 user_id_str, device_id = member.rsplit(":", 1)
                 user_id = int(user_id_str)
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 stale_members.append(member)
                 continue
 
