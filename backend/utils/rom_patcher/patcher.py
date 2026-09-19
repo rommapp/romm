@@ -118,8 +118,16 @@ def _extract_zip_member(
                     pass
                 continue
 
+            written = 0
             with output_path.open("wb") as output:
                 for chunk in chunks:
+                    # Budgeted as the bytes come out: `file_size` is whatever
+                    # the uploader put there, and a lying header fills the disk.
+                    written += len(chunk)
+                    if written > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+                        raise PatcherInputError(
+                            "The uncompressed ROM is too large to patch"
+                        )
                     output.write(chunk)
             break
         else:
@@ -128,10 +136,10 @@ def _extract_zip_member(
             )
     except ArchiveReadError as e:
         raise PatcherInputError("The ROM archive could not be read") from e
-
-    if output_path.stat().st_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+    except PatcherInputError:
         output_path.unlink(missing_ok=True)
-        raise PatcherInputError("The uncompressed ROM is too large to patch")
+        raise
+
     return selected_name
 
 
