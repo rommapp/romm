@@ -10,6 +10,7 @@ from handler.streaming.config import (
     ResolvedContainer,
     containers_by_key,
     containers_for_platform,
+    entry_for_platform,
 )
 from handler.streaming.session_store import get_live_session
 from models.rom import Rom
@@ -106,30 +107,37 @@ async def find_session_for_user(
     return None
 
 
+def named_container(platform: str, container_key: str) -> ResolvedContainer:
+    """A container serving a platform, found by key so one in a later pool stays
+    reachable. Raises 404 when the key names no such container."""
+    candidate = entry_for_platform(containers_by_key().get(container_key, []), platform)
+    if candidate is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container '{container_key}' for platform '{platform}'",
+        )
+    return candidate
+
+
 async def resolve_named_container(
     platform: str, container_key: str
 ) -> tuple[ResolvedContainer, str, dict[str, Any] | None]:
-    """One named container serving a platform, plus whatever session it holds.
+    """A named container plus whatever session it holds.
 
     Returns (container, session_key, session), the session being None when the
-    container is free or draining. Raises 404 when the key names no container
-    serving this platform.
+    container is free or draining.
     """
-    for candidate in containers_for_platform(platform):
-        session_key = candidate.key
-        if session_key != container_key:
-            continue
-        return candidate, session_key, await get_live_session(session_key)
-    raise HTTPException(
-        status_code=404,
-        detail=f"No streaming container '{container_key}' for platform '{platform}'",
+    return (
+        named_container(platform, container_key),
+        container_key,
+        await get_live_session(container_key),
     )
 
 
 async def resolve_owned_session(
     platform: str, request: Request
 ) -> tuple[ResolvedContainer, str, dict[str, Any]]:
-    """Find the caller's session among the platform's containers.
+    """Find the caller's session in the platform's first pool.
 
     Returns (container, session_key, session). Raises 404 when the platform has
     no configured container or nothing is active, 403 when every active session
