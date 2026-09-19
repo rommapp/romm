@@ -16,7 +16,17 @@ vi.mock("@/v2/composables/useInputModality", () => ({
   useInputModality: () => ({ modality }),
 }));
 
-function mountToolbar(props: Record<string, unknown> = {}) {
+// The sort-axis control lives inside an RMenu, so its entries only exist
+// once the menu renders its slots.
+const RMenuPassthrough = {
+  name: "RMenuPassthrough",
+  template: `<div><slot name="activator" :props="{}" /><slot /></div>`,
+};
+
+function mountToolbar(
+  props: Record<string, unknown> = {},
+  menuStub: boolean | typeof RMenuPassthrough = true,
+) {
   return mount(GalleryToolbar, {
     attachTo: document.body,
     props: { groupBy: "none", layout: "grid", showSearch: true, ...props },
@@ -25,18 +35,12 @@ function mountToolbar(props: Record<string, unknown> = {}) {
         RBadge: true,
         RBtn: true,
         RIcon: true,
-        RMenu: true,
+        RMenu: menuStub,
         RSliderBtnGroup: true,
       },
     },
   });
 }
-
-// The sort-axis control lives inside an RMenu, so its entries only exist
-// once the menu renders its slots.
-const RMenuPassthrough = {
-  template: `<div><slot name="activator" :props="{}" /><slot /></div>`,
-};
 
 const SORT_OPTIONS = [
   { key: "name", label: "Title" },
@@ -44,25 +48,10 @@ const SORT_OPTIONS = [
 ] as const;
 
 function mountWithSortOptions(props: Record<string, unknown> = {}) {
-  return mount(GalleryToolbar, {
-    attachTo: document.body,
-    props: {
-      groupBy: "none",
-      layout: "grid",
-      sortKey: "name",
-      sortKeyItems: SORT_OPTIONS,
-      ...props,
-    },
-    global: {
-      stubs: {
-        RBadge: true,
-        RBtn: true,
-        RIcon: true,
-        RMenu: RMenuPassthrough,
-        RSliderBtnGroup: true,
-      },
-    },
-  });
+  return mountToolbar(
+    { sortKey: "name", sortKeyItems: SORT_OPTIONS, ...props },
+    RMenuPassthrough,
+  );
 }
 
 function sortItems(wrapper: ReturnType<typeof mountWithSortOptions>) {
@@ -129,9 +118,33 @@ describe("GalleryToolbar sort axis", () => {
   // Index views (Platforms / Collections) sort their own tiles and pass
   // no axes; the control must not paint an empty menu for them.
   it("hides the control when no axes are offered", () => {
+    const withAxes = mountWithSortOptions();
+    const menusWithAxes = withAxes.findAllComponents(RMenuPassthrough).length;
+    withAxes.unmount();
+
     const wrapper = mountWithSortOptions({ sortKeyItems: [] });
 
+    expect(wrapper.findAllComponents(RMenuPassthrough)).toHaveLength(
+      menusWithAxes - 1,
+    );
     expect(sortItems(wrapper)).toHaveLength(0);
     wrapper.unmount();
+  });
+
+  // List mode sorts through the column headers, so the toolbar's axis
+  // button has to stand down rather than offer a second, competing control.
+  it("disables the activator in list mode only", () => {
+    const activatorDisabled = (layout: string) => {
+      const wrapper = mountWithSortOptions({ layout });
+      const disabled = wrapper
+        .findComponent(RMenuPassthrough)
+        .findComponent({ name: "RBtn" })
+        .attributes("disabled");
+      wrapper.unmount();
+      return disabled;
+    };
+
+    expect(activatorDisabled("list")).toBe("true");
+    expect(activatorDisabled("grid")).toBe("false");
   });
 });

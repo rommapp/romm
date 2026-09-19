@@ -868,8 +868,8 @@ defineExpose({
 
         <!-- LIST COLUMN HEADER — sticky below the toolbar in list mode.
              Shares `LIST_GRID_TEMPLATE` with every GameListRow underneath
-             so columns align. Header click cycles asc/desc → store
-             orderBy/orderDir → invalidate + bootstrap metadata. -->
+             so columns align. Header click cycles asc/desc into the
+             store's orderBy/orderDir. -->
         <GameListHeader
           v-if="layout === 'list'"
           class="r-v2-shell__list-header"

@@ -28,10 +28,26 @@ describe("list column sort keys", () => {
 
 describe("grid-mode sort options", () => {
   it("offers exactly the axes the list headers make clickable", () => {
-    const sortable = getListColumns(true).filter(isSortableColumn);
-    expect(getSortOptions(true)).toEqual(
-      sortable.map(({ key, label }) => ({ key, label })),
+    expect(getSortOptions(true).map((option) => option.key)).toEqual([
+      "name",
+      "platform_id",
+      "fs_size_bytes",
+      "created_at",
+      "first_release_date",
+      "average_rating",
+      "hltb_main_story",
+    ]);
+  });
+
+  it("labels each axis with its column header", () => {
+    const labels = new Map(
+      getListColumns(true)
+        .filter(isSortableColumn)
+        .map((column) => [column.key, column.label]),
     );
+    for (const option of getSortOptions(true)) {
+      expect(option.label).toBe(labels.get(option.key));
+    }
   });
 
   it("drops the platform axis on single-platform surfaces", () => {

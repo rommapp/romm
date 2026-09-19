@@ -16,12 +16,13 @@
 //     unrecognised param resolves to the default, so a link without the
 //     params always lands on the same sort regardless of what the
 //     previous gallery left in the store.
-//   * Store → URL pushes via `router.replace`; comparison guards prevent
-//     a feedback loop with the URL → store watcher.
-//   * On mount the URL is applied once before the view's first fetch, so
-//     the bootstrap request already carries the right order params.
+//   * Store → URL pushes via `syncQueryParam`, whose comparison guard
+//     prevents a feedback loop with the URL → store watcher.
+//   * The URL is applied during setup, before the shell's refetch watch is
+//     registered and before the view's first fetch, so the bootstrap
+//     request already carries the right order params without echoing.
 import { storeToRefs } from "pinia";
-import { onMounted, watch } from "vue";
+import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import storeGalleryRoms, {
   DEFAULT_ORDER_BY,
@@ -31,7 +32,7 @@ import storeGalleryRoms, {
   isGalleryOrderDir,
   isGalleryOrderKey,
 } from "@/v2/stores/galleryRoms";
-import { patchQuery } from "@/v2/utils/routeQuery";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 function parseOrderBy(value: unknown): GalleryOrderKey {
   return typeof value === "string" && isGalleryOrderKey(value)
@@ -59,25 +60,23 @@ export function useGalleryOrderUrl() {
   }
 
   applyFromUrl();
-  onMounted(applyFromUrl);
 
   watch(() => route.query.orderBy, applyFromUrl);
   watch(() => route.query.orderDir, applyFromUrl);
 
-  function syncQuery(key: "orderBy" | "orderDir", value: string | undefined) {
-    const current =
-      typeof route.query[key] === "string"
-        ? (route.query[key] as string)
-        : undefined;
-    if (value === current) return;
-    patchQuery(router, { [key]: value });
-  }
-
-  // Drop the param when the value is the default — keeps URLs clean.
+  // Drop the param when the value is the default, which keeps URLs clean.
   watch(orderBy, (next) => {
-    syncQuery("orderBy", next === DEFAULT_ORDER_BY ? undefined : next);
+    syncQueryParam(
+      router,
+      "orderBy",
+      next === DEFAULT_ORDER_BY ? undefined : next,
+    );
   });
   watch(orderDir, (next) => {
-    syncQuery("orderDir", next === DEFAULT_ORDER_DIR ? undefined : next);
+    syncQueryParam(
+      router,
+      "orderDir",
+      next === DEFAULT_ORDER_DIR ? undefined : next,
+    );
   });
 }

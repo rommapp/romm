@@ -398,7 +398,10 @@ export function useGalleryVirtualItems(opts: Options) {
     void (opts.ratioVersion ? opts.ratioVersion.value : 0);
     const ratioAt = makeRatioAt();
 
-    if (opts.groupBy.value === "letter") {
+    // A non-lexical sort (size, rating, a date) gets no server char index,
+    // so grouping has nothing to build headers from; packing flat keeps the
+    // cards on screen instead of rendering an empty body.
+    if (opts.groupBy.value === "letter" && ranges.length > 0) {
       // Header + own flow-packed rows per letter (rows restart per letter).
       for (const range of ranges) {
         items.push(shareHeader(range.letter));

@@ -1,8 +1,13 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import { defineComponent, nextTick } from "vue";
-import { createMemoryHistory, createRouter, type Router } from "vue-router";
+import { createApp, defineComponent, h, nextTick } from "vue";
+import {
+  createMemoryHistory,
+  createRouter,
+  type Router,
+  RouterView,
+} from "vue-router";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { useGalleryOrderUrl } from "./index";
 
@@ -135,5 +140,43 @@ describe("useGalleryOrderUrl", () => {
       layout: "list",
       orderDir: "desc",
     });
+  });
+});
+
+// `main.ts` mounts with `app.use(router)` and no `await router.isReady()`, so
+// hydrating in setup() only is correct solely because RouterView withholds the
+// matched component until the initial navigation resolves. That is the whole
+// reason there is no `onMounted` re-application; if it ever stopped holding, a
+// pasted link would silently load unsorted.
+describe("useGalleryOrderUrl on a cold load", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("sees the URL in setup() without awaiting router.isReady", async () => {
+    const seenAtSetup: string[] = [];
+    const GalleryView = defineComponent({
+      setup() {
+        useGalleryOrderUrl();
+        seenAtSetup.push(storeGalleryRoms().orderBy);
+        return () => h("div");
+      },
+    });
+
+    const history = createMemoryHistory();
+    history.replace("/platform/1?orderBy=average_rating&orderDir=desc");
+    const router = createRouter({
+      history,
+      routes: [{ path: "/platform/:platform", component: GalleryView }],
+    });
+
+    const app = createApp({ render: () => h(RouterView) });
+    app.use(router);
+    app.mount(document.createElement("div"));
+    await flushPromises();
+
+    expect(seenAtSetup).toEqual(["average_rating"]);
+    expect(storeGalleryRoms().orderDir).toBe("desc");
+    app.unmount();
   });
 });
