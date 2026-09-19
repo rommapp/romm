@@ -340,10 +340,12 @@ onMounted(() => {
   loadForId(Number(route.params.platform));
 });
 
-onBeforeRouteUpdate((to) => {
+onBeforeRouteUpdate((to, from) => {
   // Shell saves the previous route's scroll automatically via its own
   // beforeRouteUpdate guard (runs before this one); we just trigger
-  // the new platform's load.
+  // the new platform's load. A query-only change (sort, filters,
+  // search) stays on this platform and must not reload it.
+  if (to.path === from.path) return;
   if (to.name === "platform") loadForId(Number(to.params.platform));
 });
 
