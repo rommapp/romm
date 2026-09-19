@@ -80,6 +80,20 @@ describe("useGalleryOrderUrl", () => {
     });
   });
 
+  // Grid mode exposes only the direction toggle, so a direction-only
+  // write has to reach the URL on its own.
+  it("writes a direction-only change into the query", async () => {
+    const router = makeRouter();
+    await mountAt(router, "/platform/1");
+    const gallery = storeGalleryRoms();
+
+    gallery.setOrderDir("desc");
+    await flushQueryWrite();
+
+    expect(router.currentRoute.value.query.orderDir).toBe("desc");
+    expect(router.currentRoute.value.query.orderBy).toBeUndefined();
+  });
+
   it("drops the params when the sort returns to the default", async () => {
     const router = makeRouter();
     await mountAt(router, "/platform/1?orderBy=created_at&orderDir=desc");
