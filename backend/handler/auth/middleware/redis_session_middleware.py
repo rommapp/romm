@@ -31,10 +31,17 @@ class RedisSessionMiddleware:
         Clears all active sessions for a given user.
         """
         session_ids = await async_cache.smembers(f"user_sessions:{user_id}")
-        if session_ids:
-            for session_id in session_ids:
-                await async_cache.delete(f"session:{session_id}")
-            await async_cache.delete(f"user_sessions:{user_id}")
+        if not session_ids:
+            return
+
+        # A member comes back as bytes from a client that does not decode, and
+        # it goes straight into a key name, where its repr would miss the
+        # session and leave it live.
+        keys = [
+            f"session:{sid.decode() if isinstance(sid, bytes) else sid}"
+            for sid in session_ids
+        ]
+        await async_cache.delete(*keys, f"user_sessions:{user_id}")
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):
