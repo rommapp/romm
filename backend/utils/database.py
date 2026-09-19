@@ -35,13 +35,10 @@ POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
 
 HLTB_MAIN_STORY_COLUMN = "generated_hltb_main_story"
 
-# The nullable `roms` columns the gallery sorts on. Each carries a
-# materialized `_unset` flag the ascending sort leads with: MariaDB and MySQL
-# have no NULLS LAST, and the `column IS NULL` term that emulates it is an
-# expression no index can serve, so the sort scanned `roms` and filesorted it
-# for every page. `utils.roms_columns` builds the flags and the indexes; the
-# names live here because `AUTOGENERATE_EXEMPT_INDEX_NAMES` needs them and
-# that module imports this one.
+# The nullable `roms` columns the gallery sorts on. MariaDB and MySQL have no
+# NULLS LAST and cannot index the `IS NULL` term emulating it, so each column
+# gets a materialized `_unset` flag the ascending sort leads with instead.
+# Named here rather than in `utils.roms_columns`, which imports this module.
 SORTABLE_NULLABLE_ROM_COLUMNS = (
     "generated_first_release_date",
     "generated_average_rating",

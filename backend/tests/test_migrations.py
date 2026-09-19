@@ -328,9 +328,8 @@ def test_the_roms_columns_helper_adds_every_missing_column_at_once():
 def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
     """A dropped value column leaves its `_sort` pair in two different states.
 
-    PostgreSQL drops the index with the column; MariaDB and MySQL keep it over
-    the flag alone. Restoring only the indexes that are missing by name would
-    leave the ascending gallery sort walking half an index there.
+    PostgreSQL drops the index with the column; MariaDB and MySQL keep it
+    over the flag alone, leaving the ascending sort walking half an index.
     """
     # `roms_metadata` does not project this one, so PostgreSQL lets it go
     # without the view being dropped first.

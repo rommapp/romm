@@ -200,11 +200,8 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "hltb_main_story": Rom.generated_hltb_main_story,
 }
 
-# The `_unset` flag standing in for `<column> IS NULL`, keyed by the column it
-# belongs to. `idx_roms_<column>_sort` spans the pair, so the ascending sort
-# reads its order out of an index instead of scanning `roms` and filesorting
-# it for every page. `generated_player_count` has no flag: it is not a sort
-# the gallery offers.
+# Keyed by the column each flag stands in for. `idx_roms_<column>_sort` spans
+# the pair, so the ascending sort reads its order out of an index.
 ROM_UNSET_SORT_FLAGS: dict[str, QueryableAttribute] = {
     column: getattr(Rom, rom_unset_flag_column(column))
     for column in SORTABLE_NULLABLE_ROM_COLUMNS

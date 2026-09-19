@@ -8,9 +8,8 @@ whole library on every page. The generated columns are indexed on `roms`, so
 these tests pin both the ordering results and the query reading them directly.
 
 NULL sort keys (unmatched roms) land last on every engine and both directions.
-The ascending sort reads that placement off the materialized `_unset` flag:
-`ORDER BY <column> IS NULL` is an expression, and MariaDB and MySQL (which
-have no NULLS LAST) filesorted the whole library rather than walk the index.
+The ascending sort reads that placement off the materialized `_unset` flag,
+since no index can serve the `ORDER BY <column> IS NULL` that emulated it.
 """
 
 import pytest
@@ -92,9 +91,7 @@ class TestMetadataSortQueryShape:
 
     # One dialect matrix for the shared NULL-placement block; the rom_user
     # family proves its branch separately through the NULLIF shape test.
-    # Every spelling here matches an index, so none of them filesorts: the
-    # ascending pair is `idx_roms_<column>_sort`, MariaDB's descending one is
-    # `idx_roms_<column>`, and PostgreSQL's is `idx_roms_<column>_desc`.
+    # Every spelling here matches an index, so none of them filesorts.
     @pytest.mark.parametrize(
         ("driver", "order_dir", "expected"),
         [
@@ -285,9 +282,8 @@ class TestMetadataSortResults:
     def test_unset_flag_tracks_its_value_column(
         self, platform: Platform, column: str, metadata: dict
     ):
-        """The ascending sort's NULL placement now rests on the flag rather
-        than on an `IS NULL` the database computes, so it has to agree with
-        the value it stands for."""
+        """The sort's NULL placement rests on the flag, so it has to agree
+        with the value it stands for."""
         matched = _make_rom(platform, "matched", **metadata)
         unmatched = _make_rom(platform, "unmatched")
 
