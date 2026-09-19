@@ -697,6 +697,11 @@ class Rom(BaseModel):
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
+        # The remaining gallery sorts, each paired with the `id` tiebreak the
+        # gallery orders by; the key alone would not match its ORDER BY.
+        Index("idx_roms_platform_id_sorted", "platform_id", "id"),
+        Index("idx_roms_fs_size_bytes_sorted", "fs_size_bytes", "id"),
+        Index("idx_roms_created_at_sorted", "created_at", "id"),
         Index("idx_roms_missing_from_fs", "missing_from_fs", "name_sort_key"),
         Index("idx_roms_platform_name_sort_key", "platform_id", "name_sort_key"),
         Index("idx_roms_name", "name"),
