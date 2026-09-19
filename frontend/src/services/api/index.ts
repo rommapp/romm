@@ -1,8 +1,6 @@
 import axios from "axios";
 import { default as Cookies } from "js-cookie";
 import { debounce } from "lodash";
-import router from "@/plugins/router";
-import { ROUTES, isAuthExemptRoute } from "@/plugins/router";
 
 const api = axios.create({
   // This will keep the url query params on refresh
@@ -132,6 +130,14 @@ api.interceptors.response.use(
       const search = window.location.search;
       const params = new URLSearchParams(search);
       const fullPath = pathname + search;
+
+      // Static router import created api ↔ router TDZ; dynamic load only on 401.
+      // @dpdm-ignore
+      const {
+        default: router,
+        ROUTES,
+        isAuthExemptRoute,
+      } = await import("@/plugins/router");
 
       // Don't redirect to login if already on an auth-exempt route.
       // Also resolve the route from the browser URL to handle the case where
