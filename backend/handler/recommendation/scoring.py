@@ -209,7 +209,7 @@ def release_year_from_epoch(first_release_date: int | None) -> int | None:
             else first_release_date
         )
         return 1970 + int(seconds // 31_556_952)
-    except (TypeError, ValueError, OverflowError):
+    except TypeError, ValueError, OverflowError:
         return None
 
 

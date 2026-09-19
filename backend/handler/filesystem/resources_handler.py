@@ -92,7 +92,7 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
             sample = img.convert("RGB")
             sample.thumbnail((32, 32))  # cheap: sample a downscaled copy
             raw = sample.tobytes()  # flat RGB triples
-    except (UnidentifiedImageError, OSError, ValueError):
+    except UnidentifiedImageError, OSError, ValueError:
         return False
 
     total = len(raw) // 3

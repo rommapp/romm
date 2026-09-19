@@ -235,7 +235,7 @@ async def _apply_binary_patch(
         try:
             err_data = json.loads(stderr.decode())
             message = err_data.get("error", message)
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except json.JSONDecodeError, UnicodeDecodeError:
             if stderr:
                 message = stderr.decode(errors="replace").strip()
         raise PatcherError(message)
@@ -247,7 +247,7 @@ async def _apply_binary_patch(
     try:
         result = json.loads(stdout.decode())
         return bool(result.get("validated", True))
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except json.JSONDecodeError, UnicodeDecodeError:
         return True
 
 
