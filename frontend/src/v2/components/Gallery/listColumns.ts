@@ -226,10 +226,24 @@ export function isSortableColumn(
   return column.sortable;
 }
 
+/** A sort axis offered by the toolbar's grid-mode selector. */
+export interface SortOption {
+  key: ListSortKey;
+  label: string;
+}
+
+/** Sort axes for the grid-mode selector, derived from the same columns
+ *  list mode makes clickable so the two surfaces can't drift. */
+export function getSortOptions(showPlatform: boolean): readonly SortOption[] {
+  return getListColumns(showPlatform)
+    .filter(isSortableColumn)
+    .map(({ key, label }) => ({ key, label }));
+}
+
 // The sort keys list mode can toggle, read off the columns themselves so a
 // sortable column cannot go missing from them.
 const LIST_SORT_KEYS: ReadonlySet<string> = new Set<string>(
-  LIST_COLUMNS.filter(isSortableColumn).map((column) => column.key),
+  getSortOptions(true).map((option) => option.key),
 );
 
 /** Whether the gallery's current order key is one list mode can sort by. */

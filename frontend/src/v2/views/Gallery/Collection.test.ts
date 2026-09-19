@@ -28,10 +28,10 @@ const {
   getRoms: vi.fn(),
   getVirtualCollection: vi.fn(),
   push: vi.fn(),
-  routeGuards: [] as ((to: {
-    name: string;
-    params: Record<string, string>;
-  }) => unknown)[],
+  routeGuards: [] as ((
+    to: { name: string; path: string; params: Record<string, string> },
+    from: { name: string; path: string; params: Record<string, string> },
+  ) => unknown)[],
   snackbarError: vi.fn(),
   snackbarInfo: vi.fn(),
 }));
@@ -150,6 +150,34 @@ async function mountView() {
   return wrapper;
 }
 
+/** Drive the captured route guards the way vue-router does: both `to` and
+ *  `from`, each carrying the path the guard compares. */
+/** A sort / filter / search change: same path, new query. */
+function runQueryOnlyGuards() {
+  const at = {
+    name: routeState.name,
+    path: `/collection/${routeState.params.collection}`,
+    params: { ...routeState.params },
+  };
+  routeGuards.forEach((guard) => guard({ ...at }, { ...at }));
+}
+
+function runRouteGuards(name: string, collection: string) {
+  const from = {
+    name: routeState.name,
+    path: `/collection/${routeState.params.collection}`,
+    params: { ...routeState.params },
+  };
+  routeState.name = name;
+  routeState.params = { collection };
+  const to = {
+    name,
+    path: `/collection/${collection}`,
+    params: { collection },
+  };
+  routeGuards.forEach((guard) => guard(to, from));
+}
+
 describe("Collection view random rom", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -245,10 +273,7 @@ describe("Collection view random rom", () => {
     const wrapper = await mountView();
     await wrapper.get("button.random").trigger("click");
 
-    routeState.params = { collection: "2" };
-    routeGuards.forEach((guard) =>
-      guard({ name: "collection", params: { collection: "2" } }),
-    );
+    runRouteGuards("collection", "2");
     await flushPromises();
 
     resolvePick({ data: rom(42) });
@@ -270,10 +295,7 @@ describe("Collection view random rom", () => {
     const wrapper = await mountView();
     await wrapper.get("button.random").trigger("click");
 
-    routeState.params = { collection: "2" };
-    routeGuards.forEach((guard) =>
-      guard({ name: "collection", params: { collection: "2" } }),
-    );
+    runRouteGuards("collection", "2");
     await flushPromises();
 
     failPick(new Error("boom"));
@@ -420,11 +442,10 @@ describe("Collection view freshness", () => {
     vi.spyOn(galleryRoms, "fetchInitialMetadata").mockResolvedValue();
     const wrapper = mount(CollectionView);
 
-    routeState.params = { collection: "2" };
     getCollection.mockResolvedValueOnce({
       data: { ...collection(2), rom_count: 22 },
     });
-    await routeGuards[0]?.({ name: "collection", params: { collection: "2" } });
+    runRouteGuards("collection", "2");
     await flushPromises();
 
     settleFirst({ data: { ...collection(1), rom_count: 11 } });
@@ -451,6 +472,22 @@ describe("Collection view freshness", () => {
 
     const wrapper = await mountView();
 
+    expect(wrapper.get(".rom-count").text()).toBe("9000");
+  });
+});
+
+describe("Collection view query-only navigation", () => {
+  it("does not re-read or reset the collection when only the query changes", async () => {
+    const galleryRoms = storeGalleryRoms();
+    const wrapper = await mountView();
+    getCollection.mockClear();
+    const resetGallery = vi.spyOn(galleryRoms, "resetGallery");
+
+    runQueryOnlyGuards();
+    await flushPromises();
+
+    expect(getCollection).not.toHaveBeenCalled();
+    expect(resetGallery).not.toHaveBeenCalled();
     expect(wrapper.get(".rom-count").text()).toBe("9000");
   });
 });

@@ -48,6 +48,7 @@ import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
   getListMinWidth,
+  getSortOptions,
   isListSortKey,
   LIST_HEADER_HEIGHT_PX,
   type ListSortKey,
@@ -59,6 +60,7 @@ import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
+import { useGalleryOrderUrl } from "@/v2/composables/useGalleryOrderUrl";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import {
@@ -125,6 +127,7 @@ defineSlots<{
 }>();
 
 useGalleryFilterUrl();
+useGalleryOrderUrl();
 useGalleryViewModeUrl();
 
 const { t } = useI18n();
@@ -619,10 +622,10 @@ function setSearch(value: string) {
   }, 300);
 }
 
-// ── List-mode sort ────────────────────────────────────────────────
-// Header click → store order params → invalidate + bootstrap metadata.
-// The grid-mode sort goes through the same path (toolbar dropdown), so
-// no separate code path; list just exposes the click affordance.
+// ── Sort ──────────────────────────────────────────────────────────
+// Both affordances (list column headers, grid direction toggle) only
+// write the store; `useGalleryOrderUrl` mirrors it to the URL and the
+// watch below owns the refetch.
 const listSortKey = computed<ListSortKey | null>(() => {
   const key = orderBy.value;
   return isListSortKey(key) ? key : null;
@@ -631,20 +634,19 @@ const listSortKey = computed<ListSortKey | null>(() => {
 function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(payload.key);
   galleryRoms.setOrderDir(payload.dir);
-  galleryRoms.invalidateWindows();
-  void galleryRoms.fetchInitialMetadata();
 }
 
-// Grid-mode direction toggle — wires the toolbar asc/desc into the
-// same `orderDir` the list column-header sort writes to, then triggers
-// the same invalidate+refetch path. Sort axis stays whatever the list
-// last set (default "name"); grid only exposes direction.
-function onGridSortDir(dir: "asc" | "desc") {
-  if (galleryRoms.orderDir === dir) return;
-  galleryRoms.setOrderDir(dir);
+// The toolbar's sort axes, matching the list column headers.
+const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
+
+// Watching the store rather than refetching inside the handlers also
+// covers the URL-driven writes (back/forward, a pasted link). The
+// initial URL hydration runs before this watch is set up, so it does
+// not echo here.
+watch([orderBy, orderDir], () => {
   galleryRoms.invalidateWindows();
   void galleryRoms.fetchInitialMetadata();
-}
+});
 
 // ── Scroll restoration ─────────────────────────────────────────────
 async function applyRestoredScroll() {
@@ -661,14 +663,12 @@ function saveCurrentScroll(routeFullPath: string) {
   if (root) scrollRestoration.save(routeFullPath, root.scrollTop);
 }
 
-onBeforeRouteUpdate((_to, from) => {
+onBeforeRouteUpdate((to, from) => {
   saveCurrentScroll(from.fullPath);
-  // Switching to a different gallery context (Platform A → B, Search
-  // query change that routes, Collection open) — the selection is
-  // bound to the previous context and would read as stale items if
-  // carried over. Filter / sort changes inside the same view do NOT
-  // route, so they keep the selection intact (matches the rule of
-  // "filter, select more, filter again").
+  // Search, filters, sort and view mode live in the query, so they
+  // navigate without leaving the gallery and keep the selection. Only a
+  // path change is a real context switch, where it would read as stale.
+  if (to.path === from.path) return;
   gallerySelection.clear();
 });
 onBeforeRouteLeave((_to, from) => {
@@ -837,6 +837,8 @@ defineExpose({
               :layout="layout"
               :position="toolbarPosition"
               :sort-dir="orderDir"
+              :sort-key="listSortKey"
+              :sort-key-items="sortOptions"
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
@@ -845,7 +847,8 @@ defineExpose({
               :filter-active-count="filterActiveCount"
               @update:group-by="groupBy = $event"
               @update:layout="layout = $event"
-              @update:sort-dir="onGridSortDir"
+              @update:sort-dir="galleryRoms.setOrderDir"
+              @update:sort-key="galleryRoms.setOrderBy"
               @update:search="setSearch"
               @click:filter="filterDrawerOpen = true"
             />
@@ -854,8 +857,8 @@ defineExpose({
 
         <!-- LIST COLUMN HEADER — sticky below the toolbar in list mode.
              Shares `LIST_GRID_TEMPLATE` with every GameListRow underneath
-             so columns align. Header click cycles asc/desc → store
-             orderBy/orderDir → invalidate + bootstrap metadata. -->
+             so columns align. Header click cycles asc/desc into the
+             store's orderBy/orderDir. -->
         <GameListHeader
           v-if="layout === 'list'"
           class="r-v2-shell__list-header"
@@ -958,11 +961,14 @@ defineExpose({
       :layout="layout"
       :position="toolbarPosition"
       :sort-dir="orderDir"
+      :sort-key="listSortKey"
+      :sort-key-items="sortOptions"
       show-filter
       :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
-      @update:sort-dir="onGridSortDir"
+      @update:sort-dir="galleryRoms.setOrderDir"
+      @update:sort-key="galleryRoms.setOrderBy"
       @click:filter="filterDrawerOpen = true"
     />
 
