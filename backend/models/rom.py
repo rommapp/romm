@@ -697,6 +697,14 @@ class Rom(BaseModel):
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
+        # The remaining gallery sorts. Each pairs its key with `id`, the
+        # tiebreak the gallery orders by so a row cannot repeat across pages:
+        # without it in the index the sort key alone is not enough and the
+        # database falls back to scanning the table. All three are NOT NULL,
+        # so they need no unset flag.
+        Index("idx_roms_platform_id_sorted", "platform_id", "id"),
+        Index("idx_roms_fs_size_bytes_sorted", "fs_size_bytes", "id"),
+        Index("idx_roms_created_at_sorted", "created_at", "id"),
         Index("idx_roms_missing_from_fs", "missing_from_fs", "name_sort_key"),
         Index("idx_roms_platform_name_sort_key", "platform_id", "name_sort_key"),
         Index("idx_roms_name", "name"),
