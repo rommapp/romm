@@ -94,7 +94,7 @@ def _extract_payload(data: object) -> tuple[str | None, int | None]:
     try:
         data_rom_id = data.get("rom_id")
         rom_id = int(data_rom_id) if data_rom_id else None
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         rom_id = None
     return device_id, rom_id
 

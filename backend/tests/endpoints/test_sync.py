@@ -741,13 +741,19 @@ class TestNegotiateAdvanced:
                 content_hash=content_hash,
             )
 
-        with mock.patch(
-            "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
-        ), mock.patch(
-            "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
-        ), mock.patch(
-            "endpoints.saves.scan_save",
-            new=mock.AsyncMock(side_effect=make_scanned),
+        with (
+            mock.patch(
+                "endpoints.saves.fs_asset_handler.write_file",
+                new_callable=mock.AsyncMock,
+            ),
+            mock.patch(
+                "endpoints.saves.fs_asset_handler.remove_file",
+                new_callable=mock.AsyncMock,
+            ),
+            mock.patch(
+                "endpoints.saves.scan_save",
+                new=mock.AsyncMock(side_effect=make_scanned),
+            ),
         ):
             return client.post(
                 f"/api/saves?rom_id={rom.id}&slot=autosave&emulator=eden"

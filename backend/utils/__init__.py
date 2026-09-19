@@ -44,7 +44,7 @@ def get_git_branch() -> str | None:
             timeout=2,
             shell=False,  # trunk-ignore(bandit/B603): args are hardcoded
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
 
     branch = result.stdout.strip()
@@ -66,7 +66,7 @@ def int_or_none(value: Any) -> int | None:
         return None
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
