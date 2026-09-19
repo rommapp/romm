@@ -234,6 +234,77 @@ def test_update_user_accepts_png_avatar(
     assert response.json()["avatar_path"].endswith("avatar.png")
 
 
+def _invite_token(client, access_token: str) -> str:
+    response = client.post(
+        "/api/users/invite-link",
+        params={"role": Role.USER.value},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    return response.json()["token"]
+
+
+def test_register_with_a_bad_token_does_not_disclose_existing_accounts(
+    client, access_token: str, editor_user: User
+):
+    """The token is checked first, so the duplicate-account errors below it
+    cannot be used to enumerate accounts without a valid invite."""
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": editor_user.username,
+            "email": "someone@example.com",
+            "password": "a-good-password",
+            "token": "not-a-real-token",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert editor_user.username not in response.json()["detail"]
+
+
+def test_a_rejected_registration_leaves_the_invite_usable(
+    client, access_token: str, editor_user: User
+):
+    token = _invite_token(client, access_token)
+
+    # Rejected on the duplicate username, after the token was checked.
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": editor_user.username,
+            "email": "someone@example.com",
+            "password": "a-good-password",
+            "token": token,
+        },
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+    # The invite was verified, not spent, so it still registers an account.
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": "test_invitee",
+            "email": "invitee@example.com",
+            "password": "a-good-password",
+            "token": token,
+        },
+    )
+    assert response.status_code == HTTPStatus.CREATED
+
+    # And now it is spent.
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": "test_invitee_2",
+            "email": "invitee2@example.com",
+            "password": "a-good-password",
+            "token": token,
+        },
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
 @pytest.mark.parametrize(
     "base_url, expected_url",
     [
@@ -268,6 +339,46 @@ def test_delete_user(client, access_token: str, editor_user: User):
     response = client.delete(
         f"/api/users/{editor_user.id}",
         headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+
+@pytest.mark.asyncio
+async def test_admin_password_reset_invalidates_the_target_user_sessions(
+    client, access_token: str, editor_user: User
+):
+    """The reason the revocation is not scoped to the caller: an admin resetting
+    a compromised account has to end that account's sessions, not their own."""
+    basic_auth = base64.b64encode(
+        f"{editor_user.username}:test_editor_password".encode("ascii")
+    ).decode("ascii")
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+    target_session = response.cookies.get("romm_session")
+    assert target_session is not None
+
+    target_cookie = {"Cookie": f"romm_session={target_session}"}
+    assert client.get("/api/users/me", headers=target_cookie).status_code == (
+        HTTPStatus.OK
+    )
+
+    # The admin resets the other user's password over a bearer token, so the
+    # caller is never the target.
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"password": "reset_by_admin_password"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.get("/api/users/me", headers=target_cookie)
+    assert response.status_code in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN)
+
+    # The admin's own credentials still work.
+    response = client.get(
+        "/api/users", headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == HTTPStatus.OK
 

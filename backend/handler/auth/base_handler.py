@@ -74,6 +74,15 @@ def _romm_username(provided: str, fallback: str) -> str:
     return username
 
 
+def _invite_token_spent() -> HTTPException:
+    """The one response for a spent or unusable invite, so neither caller
+    distinguishes them."""
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invite token has already been used or is invalid.",
+    )
+
+
 class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -271,7 +280,9 @@ class AuthHandler:
         Args:
             token (str): The token to check.
         """
-        self._decode_invite_link_token(token)
+        jti, _ = self._decode_invite_link_token(token)
+        if redis_client.get(f"invite-jti:{jti}") != b"valid":
+            raise _invite_token_spent()
 
     def consume_invite_link_token(self, token: str) -> str:
         """
@@ -285,13 +296,15 @@ class AuthHandler:
         """
         jti, role = self._decode_invite_link_token(token)
 
-        # Invalidate the token as soon as it's read
-        redis_client.delete(f"invite-jti:{jti}")
+        # Read and invalidate in one operation, so two registrations racing on
+        # one invite cannot both see it as valid and both create an account.
+        if redis_client.getdel(f"invite-jti:{jti}") != b"valid":
+            raise _invite_token_spent()
 
         return role
 
     def _decode_invite_link_token(self, token: str) -> tuple[str, str]:
-        """Validate an invite link token and return its `(jti, role)`."""
+        """Decode an invite link token and return its `(jti, role)`."""
         try:
             payload = jwt.decode(token, oct_key, algorithms=[ALGORITHM])
         except (BadSignatureError, DecodeError, ValueError) as exc:
@@ -305,11 +318,8 @@ class AuthHandler:
 
         jti = payload.claims.get("jti")
         role = payload.claims.get("role", "USER").upper()
-        if not jti or redis_client.get(f"invite-jti:{jti}") != b"valid":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invite token has already been used or is invalid.",
-            )
+        if not jti:
+            raise _invite_token_spent()
 
         return jti, role
 
