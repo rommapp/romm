@@ -1,17 +1,12 @@
 // useGalleryOrderUrl - bookmarkable gallery sort via URL query params.
-// Round-trips `galleryRoms.orderBy` / `orderDir` (written by the list
-// column headers and the toolbar sort controls) through the route, per
-// constitution VI.D: active filters / search query / sort are
-// bookmarkable session state.
 //
 //   ?orderBy=fs_size_bytes  (omitted at "name", the default)
 //   ?orderDir=desc          (omitted at "asc",  the default)
 //
-// An absent or unrecognised param resolves to the default, so a link
-// without them lands on the same sort whatever the previous gallery left
-// in the store. The URL is applied during setup, before the shell
-// registers its refetch watch and before the view's first fetch, so the
-// bootstrap request already carries the right params without echoing.
+// An unrecognised or absent param resolves to the default, so a link
+// without them lands on the same sort whatever the last gallery left in
+// the store. Hydration runs during setup, before the shell registers its
+// refetch watch, so the first fetch carries the params without echoing.
 import { storeToRefs } from "pinia";
 import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";

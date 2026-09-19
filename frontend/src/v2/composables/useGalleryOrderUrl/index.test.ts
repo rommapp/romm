@@ -143,11 +143,9 @@ describe("useGalleryOrderUrl", () => {
   });
 });
 
-// `main.ts` mounts with `app.use(router)` and no `await router.isReady()`, so
-// hydrating in setup() only is correct solely because RouterView withholds the
-// matched component until the initial navigation resolves. That is the whole
-// reason there is no `onMounted` re-application; if it ever stopped holding, a
-// pasted link would silently load unsorted.
+// `main.ts` mounts without awaiting `router.isReady()`, so setup-only
+// hydration holds solely because RouterView withholds the matched component
+// until the initial navigation resolves.
 describe("useGalleryOrderUrl on a cold load", () => {
   beforeEach(() => {
     setActivePinia(createPinia());

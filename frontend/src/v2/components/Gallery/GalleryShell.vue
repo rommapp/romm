@@ -663,14 +663,12 @@ function saveCurrentScroll(routeFullPath: string) {
   if (root) scrollRestoration.save(routeFullPath, root.scrollTop);
 }
 
-onBeforeRouteUpdate((_to, from) => {
+onBeforeRouteUpdate((to, from) => {
   saveCurrentScroll(from.fullPath);
-  // Switching to a different gallery context (Platform A → B, Search
-  // query change that routes, Collection open) — the selection is
-  // bound to the previous context and would read as stale items if
-  // carried over. Filter / sort changes inside the same view do NOT
-  // route, so they keep the selection intact (matches the rule of
-  // "filter, select more, filter again").
+  // Search, filters, sort and view mode live in the query, so they
+  // navigate without leaving the gallery and keep the selection. Only a
+  // path change is a real context switch, where it would read as stale.
+  if (to.path === from.path) return;
   gallerySelection.clear();
 });
 onBeforeRouteLeave((_to, from) => {

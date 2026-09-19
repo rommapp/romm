@@ -80,8 +80,8 @@ const props = withDefaults(
     /** Active sort axis. `null` when the gallery is ordered by a key the
      *  selector doesn't offer, which leaves no entry highlighted. */
     sortKey?: Ref<ListSortKey | null> | ListSortKey | null;
-    /** Axes for the sort selector. Empty hides the control — index views
-     *  sort their tiles themselves. */
+    /** Axes for the sort selector. Empty hides the control, as on index
+     *  views, which sort their tiles themselves. */
     sortKeyItems?: readonly SortOption[];
     /** Show the search field on the left. v-model:search controls its value. */
     showSearch?: boolean;
@@ -317,8 +317,8 @@ const { smAndUp } = useBreakpoint();
         @update:model-value="setGroupBy"
       />
 
-      <!-- Sort axis — a menu rather than a slider: too many options to
-           fit the segmented pattern the neighbouring clusters use. -->
+      <!-- A menu, not a slider: too many axes for the segmented pattern
+           the neighbouring clusters use. -->
       <RMenu
         v-if="smAndUp && sortKeyItems.length > 0"
         location="bottom end"
