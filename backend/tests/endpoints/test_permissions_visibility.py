@@ -158,9 +158,8 @@ def test_physical_game_create_on_hidden_platform_is_404_masked(
 
 
 def test_chunked_upload_to_hidden_platform_is_masked(client, editor_user, platform):
-    # Editor holds library-wide roms write, so the coarse gate passes. A hidden
-    # platform must answer exactly like a missing one, or the difference
-    # enumerates the ids the caller cannot see.
+    # Editor has library-wide ROM write access, but hidden platforms must answer
+    # exactly like missing ones to prevent enumeration.
     _hide(PermEntity.PLATFORMS, platform.id, editor_user.id)
 
     headers = {
