@@ -636,17 +636,8 @@ function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderDir(payload.dir);
 }
 
-// Grid-mode sort axis — the toolbar's counterpart to the list column
-// headers, offering the same set of columns.
+// The toolbar's sort axes, matching the list column headers.
 const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
-
-function onGridSortKey(key: ListSortKey) {
-  galleryRoms.setOrderBy(key);
-}
-
-function onGridSortDir(dir: "asc" | "desc") {
-  galleryRoms.setOrderDir(dir);
-}
 
 // Watching the store rather than refetching inside the handlers also
 // covers the URL-driven writes (back/forward, a pasted link). The
@@ -858,8 +849,8 @@ defineExpose({
               :filter-active-count="filterActiveCount"
               @update:group-by="groupBy = $event"
               @update:layout="layout = $event"
-              @update:sort-dir="onGridSortDir"
-              @update:sort-key="onGridSortKey"
+              @update:sort-dir="galleryRoms.setOrderDir"
+              @update:sort-key="galleryRoms.setOrderBy"
               @update:search="setSearch"
               @click:filter="filterDrawerOpen = true"
             />
@@ -978,8 +969,8 @@ defineExpose({
       :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
-      @update:sort-dir="onGridSortDir"
-      @update:sort-key="onGridSortKey"
+      @update:sort-dir="galleryRoms.setOrderDir"
+      @update:sort-key="galleryRoms.setOrderBy"
       @click:filter="filterDrawerOpen = true"
     />
 

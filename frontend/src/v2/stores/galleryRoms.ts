@@ -44,7 +44,7 @@ export type SimpleRom = SimpleRomSchema;
  * `RomUser`, so this includes fields that aren't direct properties of
  * `SimpleRomSchema` (e.g. `first_release_date` lives on RomMetadata).
  * Keep this in sync with the columns the gallery surface exposes. */
-export const GALLERY_ORDER_KEYS = [
+const GALLERY_ORDER_KEYS = [
   "name",
   "fs_name",
   "platform_id",

@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp, defineComponent, h, nextTick } from "vue";
+import { createApp, h, nextTick } from "vue";
 import {
   createMemoryHistory,
   createRouter,
@@ -13,12 +13,12 @@ import { useGalleryOrderUrl } from "./index";
 
 const Blank = { template: "<div />" };
 
-const Host = defineComponent({
+const Host = {
   setup() {
     useGalleryOrderUrl();
   },
   template: "<div />",
-});
+};
 
 async function mountAt(router: Router, path: string) {
   await router.push(path);
@@ -155,13 +155,13 @@ describe("useGalleryOrderUrl on a cold load", () => {
 
   it("sees the URL in setup() without awaiting router.isReady", async () => {
     const seenAtSetup: string[] = [];
-    const GalleryView = defineComponent({
+    const GalleryView = {
       setup() {
         useGalleryOrderUrl();
         seenAtSetup.push(storeGalleryRoms().orderBy);
         return () => h("div");
       },
-    });
+    };
 
     const history = createMemoryHistory();
     history.replace("/platform/1?orderBy=average_rating&orderDir=desc");
