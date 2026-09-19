@@ -399,8 +399,7 @@ export function useGalleryVirtualItems(opts: Options) {
     const ratioAt = makeRatioAt();
 
     // A non-lexical sort (size, rating, a date) gets no server char index,
-    // so grouping has nothing to build headers from; packing flat keeps the
-    // cards on screen instead of rendering an empty body.
+    // so grouping would have no headers to build and would render nothing.
     if (opts.groupBy.value === "letter" && ranges.length > 0) {
       // Header + own flow-packed rows per letter (rows restart per letter).
       for (const range of ranges) {

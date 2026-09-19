@@ -46,9 +46,8 @@ export function patchQuery(
   });
 }
 
-/** Write one URL-backed value: `undefined` drops the param (which is how a
- *  default keeps the URL clean). Comparing against the live query first is
- *  what stops a feedback loop with the URL-to-state watcher that reads it. */
+/** Write one URL-backed value, `undefined` dropping the param. The compare
+ *  against the live query is what stops a loop with the watcher reading it. */
 export function syncQueryParam(
   router: QueryRouter,
   key: string,
