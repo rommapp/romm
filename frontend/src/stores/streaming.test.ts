@@ -27,6 +27,7 @@ describe("platformCapabilities disc flags", () => {
           emulator: "retroarch",
           supports_memory_cards: false,
           supports_save_picker: false,
+          supports_live_states: true,
           capabilities: {
             max_slots: 0,
             has_autosave: true,

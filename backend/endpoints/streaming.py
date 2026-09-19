@@ -295,6 +295,10 @@ async def get_config(request: Request) -> StreamingConfigSchema:
                 # Whether an older save archive still lands here, so the frontend
                 # only offers the save picker where a pick means something.
                 "supports_save_picker": c.supports_save_picker,
+                # Whether the in-game Save and Load buttons reach a broker that
+                # honours them. An exit-state emulator keeps has_autosave for
+                # its state library but refuses both.
+                "supports_live_states": c.supports_live_states,
             }
         )
 

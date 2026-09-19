@@ -30,6 +30,7 @@ class StreamingContainerSchema(BaseModel):
     emulator: str
     supports_memory_cards: bool
     supports_save_picker: bool
+    supports_live_states: bool
 
 
 class StreamingConfigSchema(BaseModel):

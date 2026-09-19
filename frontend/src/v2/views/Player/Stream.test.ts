@@ -1,6 +1,7 @@
+import { RBtn } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent } from "vue";
+import { defineComponent, type Slots, type VNodeChild } from "vue";
 import type { SaveSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   loadState: vi.fn(),
   saveState: vi.fn(),
   container: null as Record<string, unknown> | null,
+  capabilities: {} as Record<string, unknown>,
   presenceTick: null as (() => Promise<void>) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   query: {} as Record<string, string>,
@@ -73,7 +75,7 @@ vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     claimSession: mocks.claimSession,
     containerForPlatform: () => mocks.container,
-    platformCapabilities: () => ({}),
+    platformCapabilities: () => mocks.capabilities,
     fetchConfig: mocks.fetchConfig,
     fetchSessionStatus: mocks.fetchSessionStatus,
     forgetJoinableSession: vi.fn(),
@@ -152,22 +154,34 @@ vi.mock("@/v2/composables/useUnloadGuard", () => ({
   useUnloadGuard: vi.fn(),
 }));
 
-/** Renders nothing and answers the methods the view calls on the real child. */
-function exposingStub(api: Record<string, unknown>) {
+/**
+ * Renders nothing, or whichever slots `render` picks, and answers the methods
+ * the view calls on the real child.
+ */
+function exposingStub(
+  api: Record<string, unknown>,
+  render: (slots: Slots) => VNodeChild = () => null,
+) {
   return defineComponent({
-    setup(_, { expose }) {
+    // A rendered slot is a fragment root, which has nowhere to put attrs.
+    inheritAttrs: false,
+    setup(_, { expose, slots }) {
       expose(api);
-      return () => null;
+      return () => render(slots);
     },
   });
 }
 
 // The stage owns fullscreen, which the ended path leaves before anything else.
-const StreamStageStub = exposingStub({
-  enterFullscreen: () => Promise.resolve(),
-  leaveFullscreen: () => Promise.resolve(),
-  focusStream: () => {},
-});
+// It also renders the control bar the view fills in, where the state buttons live.
+const StreamStageStub = exposingStub(
+  {
+    enterFullscreen: () => Promise.resolve(),
+    leaveFullscreen: () => Promise.resolve(),
+    focusStream: () => {},
+  },
+  (slots) => slots.bar?.({ isFullscreen: false, toggleFullscreen: () => {} }),
+);
 
 const GameCoverStub = exposingStub({ playLoad: () => 0 });
 
@@ -224,12 +238,14 @@ afterEach(() => {
 async function launch(opts: {
   picker: boolean;
   saves?: SaveSchema[];
+  liveStates?: boolean;
 }): Promise<VueWrapper> {
   mocks.container = {
     name: "WEBSTATION-DEV",
     emulator: "retroarch",
     protocol: "webstation",
     supports_save_picker: opts.picker,
+    supports_live_states: opts.liveStates ?? true,
     supports_memory_cards: false,
     supports_multiplayer: false,
   };
@@ -742,6 +758,41 @@ describe("Stream claim hygiene", () => {
       CLAIM.container,
       CLAIM.claimed_at,
     );
+  });
+});
+
+describe("Stream state controls", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimSession.mockResolvedValue(CLAIM);
+    mocks.capabilities = { maxSlots: 0, hasAutosave: true, autosaveSlot: 10 };
+  });
+
+  afterEach(() => {
+    mocks.capabilities = {};
+  });
+
+  async function barIcons(liveStates: boolean): Promise<unknown[]> {
+    const wrapper = await launch({ picker: false, liveStates });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    await flushPromises();
+    return wrapper.findAllComponents(RBtn).map((b) => b.props("icon"));
+  }
+
+  it("offers Save and Load where the broker takes a state mid-game", async () => {
+    const icons = await barIcons(true);
+    expect(icons).toContain("mdi-content-save-outline");
+    expect(icons).toContain("mdi-restore");
+  });
+
+  it("offers neither where the emulator writes its state only on exit", async () => {
+    // DuckStation and RPCS3 keep an autosave slot for their state library,
+    // so that slot alone must not bring the buttons back.
+    const icons = await barIcons(false);
+    expect(icons).not.toContain("mdi-content-save-outline");
+    expect(icons).not.toContain("mdi-restore");
+    expect(icons).toContain("mdi-content-save-move-outline");
   });
 });
 

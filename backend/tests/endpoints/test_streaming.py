@@ -566,6 +566,44 @@ def test_only_a_webstation_exit_state_emulator_resumes_from_its_archive():
     assert not _resolved({**base, "emulator": "duckstation"}).resumes_from_archive
 
 
+def test_an_exit_state_emulator_offers_no_live_states():
+    """DuckStation and RPCS3 brokers answer a mid-session save or load with a
+    400, so the player must not offer one. psx is one platform entry whichever
+    emulator serves it, so RetroArch on psx keeps its controls."""
+    webstation = {
+        "platform": "psx",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "protocol": "webstation",
+    }
+    assert not _resolved({**webstation, "emulator": "duckstation"}).supports_live_states
+    assert not _resolved(
+        {**webstation, "platform": "ps3", "emulator": "rpcs3"}
+    ).supports_live_states
+    assert _resolved({**webstation, "emulator": "retroarch"}).supports_live_states
+    # No states at all is no live states either.
+    assert not _resolved(
+        {**webstation, "platform": "xbox", "emulator": "xemu"}
+    ).supports_live_states
+
+
+def test_get_config_ships_whether_a_container_takes_live_states(client, access_token):
+    """The exit-state library still needs has_autosave, so the Save and Load
+    buttons read their own flag rather than switching the slot off."""
+    container = {
+        "host": "http://box:3010",
+        "protocol": "webstation",
+        "platforms": {"psx": "duckstation", "gba": "retroarch"},
+    }
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    by_platform = {c["platform"]: c for c in r.json()["containers"]}
+    assert by_platform["psx"]["supports_live_states"] is False
+    assert by_platform["psx"]["capabilities"]["has_autosave"] is True
+    assert by_platform["gba"]["supports_live_states"] is True
+
+
 def test_a_container_that_disagrees_on_clearing_saves_is_a_pool_of_its_own(caplog):
     """The picker is advertised from the head of the pool, so a member that
     keeps its own newer files would take the pick and silently discard it."""

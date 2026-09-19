@@ -1679,8 +1679,9 @@ onBeforeUnmount(() => {
           :aria-label="t('play.stream-volume')"
         />
 
-        <!-- States and the save-and-exit belong to the claim holder. -->
-        <template v-if="capabilities.hasAutosave && !isJoining">
+        <!-- States and the save-and-exit belong to the claim holder. An
+             exit-state emulator has an autosave slot but refuses both. -->
+        <template v-if="container?.supports_live_states && !isJoining">
           <RBtn
             icon="mdi-content-save-outline"
             variant="text"

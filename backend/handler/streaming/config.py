@@ -188,6 +188,12 @@ class ResolvedContainer:
         """Whether a resume rides the save archive, with no state file to push."""
         return self.is_webstation and emulator_resumes_from_archive(self.emulator)
 
+    @property
+    def supports_live_states(self) -> bool:
+        """Whether the player may save or load a state while the game runs. An
+        exit-state broker refuses both, though its slot still backs the library."""
+        return self.capabilities["has_autosave"] and not self.resumes_from_archive
+
     def interchangeable_with(self, other: ResolvedContainer) -> bool:
         """Whether two containers serving a platform are one pool: a player
         landing on either finds the same saves and the same controls."""
