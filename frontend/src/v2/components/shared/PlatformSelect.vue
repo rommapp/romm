@@ -3,11 +3,11 @@
 // platform-row visual language used across v2 (icon + display name,
 // optional category / family / missing-fs / rom-count meta).
 //
-// Consumers own the `items` list — fetch logic stays in stores or the
+// Consumers own the `items` list; fetch logic stays in stores or the
 // call site. Folder mapping passes the full supported-platforms
 // catalogue; Scan / FilterDrawer / UploadRomDialog pass DB-existing
-// platforms from `storePlatforms`. This component is purely
-// presentational + state-shaping.
+// platforms from `storePlatforms`. `promoteFilled` reorders the menu (default off).
+// Presentational + state-shaping.
 //
 // `showMeta` toggles the Scan-style rich row (category icon, family
 // name, missing-fs badge, rom-count tag). Off by default for the
@@ -19,11 +19,15 @@
 // rather than `items` so the cell still renders during loading or
 // when the row points at a slug not in the catalogue).
 import { RAvatar, RIcon, RPlatformIcon, RSelect, RTag } from "@v2/lib";
-import { computed, useSlots } from "vue";
+import { computed, ref, useSlots } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import { platformCategoryToIcon } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import {
+  formatPlatformRomCount,
+  promotePlatformsWithGamesFirst,
+} from "./platformSelect";
 
 // Per-platform scrapper match indicators — mini avatar per metadata
 // source the platform has an ID for. Mixed `_id` / `_slug` fields
@@ -96,6 +100,8 @@ interface Props {
   loading?: boolean;
   label?: string;
   placeholder?: string;
+  /** Games-first menu + divider until the user types in panel search. Default false. */
+  promoteFilled?: boolean;
   searchPlaceholder?: string;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
@@ -134,6 +140,7 @@ const props = withDefaults(defineProps<Props>(), {
   markUnscanned: false,
   unscannedLabel: undefined,
   iconSize: 28,
+  promoteFilled: false,
 });
 
 const emit = defineEmits<{
@@ -156,6 +163,32 @@ const forwardedSlotNames = computed(() =>
   ),
 );
 
+// Games-first split when the panel opens; typing in search turns it off.
+const promotion = computed(() => promotePlatformsWithGamesFirst(props.items));
+
+const panelSearch = ref("");
+const partitionMenu = computed(
+  () => props.promoteFilled && panelSearch.value.length === 0,
+);
+
+const listItems = computed(() => {
+  if (!props.promoteFilled) return props.items;
+  if (panelSearch.value.length > 0) return props.items;
+  return [...promotion.value.promoted, ...promotion.value.remaining];
+});
+
+const dividerAfter = computed(() => {
+  if (!partitionMenu.value) return undefined;
+  const { promoted, remaining } = promotion.value;
+
+  // if there's nothing to promote, or nothing to remain, we don't need to divide.
+  const makesNoDifference = promoted.length === 0 || remaining.length === 0;
+  if (makesNoDifference) return undefined;
+
+  const lastKey = promoted.at(-1)![props.itemKey];
+  return (platform: Platform) => platform[props.itemKey] === lastKey;
+});
+
 const platformByKey = computed(() => {
   const m = new Map<number | string, Platform>();
   for (const p of props.items) m.set(p[props.itemKey], p);
@@ -170,13 +203,17 @@ function platformForValue(value: unknown): Platform | undefined {
 function onUpdate(v: unknown) {
   emit("update:modelValue", v as number | string | number[] | string[] | null);
 }
+
+function onPanelSearch(query: string) {
+  panelSearch.value = query;
+}
 </script>
 
 <template>
   <RSelect
     v-bind="$attrs"
     :model-value="modelValue"
-    :items="items"
+    :items="listItems"
     item-title="display_name"
     :item-value="itemKey"
     :multiple="multiple"
@@ -195,7 +232,9 @@ function onUpdate(v: unknown) {
     :hide-details="hideDetails"
     :prefix-label="prefixLabel"
     :prepend-inner-icon="prependInnerIcon"
+    :divider-after="dividerAfter"
     @update:model-value="onUpdate"
+    @update:search="onPanelSearch"
   >
     <!-- Selection — consumer slot wins; otherwise icon + name. -->
     <template #selection="slotProps">
@@ -248,6 +287,15 @@ function onUpdate(v: unknown) {
             :show-tooltip="false"
           />
           <span class="r-select__item-title">{{ slotProps.item.title }}</span>
+          <RTag
+            v-if="promoteFilled && !showMeta"
+            size="x-small"
+            tone="plain"
+            class="r-v2-platsel__rom-badge"
+            :text="
+              formatPlatformRomCount((slotProps.item.raw as Platform).rom_count)
+            "
+          />
           <template v-if="showMeta">
             <span class="r-v2-platsel__meta">
               <RTag
@@ -322,7 +370,11 @@ function onUpdate(v: unknown) {
             <RTag
               class="r-v2-platsel__count"
               size="small"
-              :text="String((slotProps.item.raw as Platform).rom_count)"
+              :text="
+                formatPlatformRomCount(
+                  (slotProps.item.raw as Platform).rom_count,
+                )
+              "
             />
           </template>
         </li>
@@ -337,7 +389,7 @@ function onUpdate(v: unknown) {
     <template
       v-for="name in forwardedSlotNames"
       :key="name"
-      v-slot:[name]="slotProps"
+      #[name]="slotProps"
     >
       <slot :name="name" v-bind="slotProps ?? {}" />
     </template>
@@ -419,5 +471,10 @@ function onUpdate(v: unknown) {
 .r-v2-platsel__chip-icon {
   display: inline-flex;
   align-items: center;
+}
+.r-v2-platsel__rom-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--r-color-fg-muted);
 }
 </style>
