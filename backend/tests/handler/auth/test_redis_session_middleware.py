@@ -7,9 +7,9 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 
-SESSION_COOKIE = "romm_session"
 USERNAME = "user_1"
 
 
@@ -36,7 +36,7 @@ def create_test_app() -> Starlette:
         middleware=[
             Middleware(
                 RedisSessionMiddleware,
-                session_cookie=SESSION_COOKIE,
+                session_cookie=SESSION_COOKIE_NAME,
                 same_site="strict",
                 https_only=False,
             )
@@ -63,8 +63,8 @@ class TestRedisSessionMiddleware:
 
     def test_a_cookie_for_an_unknown_session_gets_a_fresh_id(self) -> None:
         client = TestClient(create_test_app())
-        client.cookies.set(SESSION_COOKIE, "not-a-real-session")
+        client.cookies.set(SESSION_COOKIE_NAME, "not-a-real-session")
 
         response = client.post("/login")
 
-        assert response.cookies[SESSION_COOKIE] != "not-a-real-session"
+        assert response.cookies[SESSION_COOKIE_NAME] != "not-a-real-session"

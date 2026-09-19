@@ -34,9 +34,8 @@ class RedisSessionMiddleware:
         if not session_ids:
             return
 
-        # A member comes back as bytes from a client that does not decode, and
-        # it goes straight into a key name, where its repr would miss the
-        # session and leave it live.
+        # A member arrives as bytes from a client that does not decode, and its
+        # repr in a key name would miss the session and leave it live.
         keys = [
             f"session:{sid.decode() if isinstance(sid, bytes) else sid}"
             for sid in session_ids
@@ -76,10 +75,8 @@ class RedisSessionMiddleware:
                     existing_id = scope["session"].pop("session_id", None)
                     session_id = existing_id or str(uuid.uuid4())
                     session_data_json = json.dumps(scope["session"])
-                    # One already in Redis is refreshed only while its record is
-                    # still there. A credential change revokes sessions through
-                    # `clear_user_sessions`, and a request already in flight when
-                    # that happens would otherwise write its copy back and undo it.
+                    # Refreshed only while its record is still there, so a
+                    # session revoked mid-request is not written back.
                     stored = await async_cache.set(
                         f"session:{session_id}",
                         session_data_json,
