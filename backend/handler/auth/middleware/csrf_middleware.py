@@ -64,12 +64,8 @@ class CSRFMiddleware:
 
         request = Request(scope, receive)
 
-        # An Authorization header carries its own credential, so a caller using
-        # one cannot be riding a cookie and has nothing to forge. It only
-        # exempts the request when no session cookie is present though:
-        # `HybridAuthBackend` resolves the session first, so a cookie plus any
-        # Authorization value at all would otherwise authenticate as the cookie's
-        # owner with the check skipped.
+        # HybridAuthBackend resolves the session cookie ahead of this header, so
+        # a request carrying both authenticates as the cookie's owner.
         auth_scheme = request.headers.get("Authorization", "").split(" ", 1)[0].lower()
         if auth_scheme in ("bearer", "basic") and not request.cookies.get(
             self.session_cookie_name

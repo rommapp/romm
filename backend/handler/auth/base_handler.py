@@ -91,10 +91,8 @@ class AuthHandler:
         try:
             return self.pwd_context.verify(plain_password, hashed_password)
         except ValueError:
-            # OIDC-provisioned accounts hold a placeholder rather than a bcrypt
-            # hash, and passlib raises on one it cannot identify. Failing the
-            # check keeps that a 401 instead of a 500 that tells an anonymous
-            # caller which accounts came from the provider.
+            # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash,
+            # and passlib raises on one it cannot identify.
             return False
 
     def get_password_hash(self, password):
@@ -259,26 +257,21 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        # The link itself goes back to the caller in the response, so only the
-        # id is logged: the token registers an account on its own, and the log
-        # reaches a wider audience than the admin who asked for it.
+        # The link is already in the response; the token registers an account on
+        # its own, so the log gets only its id.
         log.info(
             f"Invite link created by {hl(user.username, color=CYAN)} (jti: {hl(jti)})"
         )
         redis_client.setex(f"invite-jti:{jti}", expires_in, "valid")
         return token
 
-    def verify_invite_link_token(self, token: str) -> str:
-        """Verify an invite link token without spending it.
+    def assert_invite_link_token_valid(self, token: str) -> None:
+        """Raise unless the invite link token is valid, leaving it unspent.
 
         Args:
-            token (str): The token to verify.
-
-        Returns:
-            str: The role associated with the token.
+            token (str): The token to check.
         """
-        _, role = self._decode_invite_link_token(token)
-        return role
+        self._decode_invite_link_token(token)
 
     def consume_invite_link_token(self, token: str) -> str:
         """

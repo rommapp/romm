@@ -566,8 +566,8 @@ def _archive_member_command(file_path: Path, member: str) -> list[str]:
         ]
 
     # "-spd" disables wildcard matching so a member name containing "*" or "?"
-    # can't select (and concatenate) other members, and "--" stops switch
-    # parsing so one starting with "-" or "@" stays a member name.
+    # can't select other members; "--" stops switch parsing so one starting
+    # with "-" or "@" stays a member name.
     return [SEVEN_ZIP_PATH, "e", str(file_path), "-so", "-y", "-spd", "--", member]
 
 

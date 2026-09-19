@@ -202,11 +202,9 @@ def create_user_from_invite(
         UserSchema: Newly created user
     """
 
-    # Checked before anything user-specific: the "already exists" errors below
-    # would otherwise let an anonymous caller enumerate accounts with a token
-    # they never had. Spent only once the account is about to be created, so a
-    # rejected username does not burn the invite.
-    auth_handler.verify_invite_link_token(token)
+    # Ahead of the "already exists" checks, which would otherwise enumerate
+    # accounts for an invalid token. Not consumed, so a retry keeps the invite.
+    auth_handler.assert_invite_link_token_valid(token)
 
     try:
         validate_username(username)
@@ -488,9 +486,8 @@ async def update_user(
         if "role" in cleaned_data:
             await emit_permissions_changed(id)
 
-        # Revoke every session of the user the change was applied to, not just
-        # the caller's: an admin resetting a compromised account has to be able
-        # to lock the attacker out of it.
+        # The target's sessions, not the caller's: an admin resetting a
+        # compromised account has to lock its attacker out.
         creds_updated = cleaned_data.get("username") or cleaned_data.get(
             "hashed_password"
         )

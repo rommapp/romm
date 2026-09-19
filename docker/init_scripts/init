@@ -133,10 +133,8 @@ start_bin_gunicorn() {
 	export PYTHONUNBUFFERED=1
 	export PYTHONDONTWRITEBYTECODE=1
 
-	# Only the bundled nginx (127.0.0.1) may speak for the client: trusting every
-	# hop makes uvicorn take the leftmost X-Forwarded-For entry, which the caller
-	# supplies, and every per-IP rate limit reads that address. Deployments behind
-	# a further reverse proxy set FORWARDED_ALLOW_IPS to its address.
+	# Trusting every hop makes uvicorn read the leftmost X-Forwarded-For entry,
+	# which the caller supplies; only the bundled nginx may speak for the client.
 	local -a wrap=()
 	otel_prefix wrap api
 	"${wrap[@]}" gunicorn \
