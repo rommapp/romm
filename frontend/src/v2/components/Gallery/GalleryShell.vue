@@ -59,6 +59,7 @@ import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
+import { useGalleryOrderUrl } from "@/v2/composables/useGalleryOrderUrl";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import {
@@ -125,6 +126,7 @@ defineSlots<{
 }>();
 
 useGalleryFilterUrl();
+useGalleryOrderUrl();
 useGalleryViewModeUrl();
 
 const { t } = useI18n();
@@ -619,10 +621,10 @@ function setSearch(value: string) {
   }, 300);
 }
 
-// ── List-mode sort ────────────────────────────────────────────────
-// Header click → store order params → invalidate + bootstrap metadata.
-// The grid-mode sort goes through the same path (toolbar dropdown), so
-// no separate code path; list just exposes the click affordance.
+// ── Sort ──────────────────────────────────────────────────────────
+// Both affordances (list column headers, grid direction toggle) only
+// write the store; `useGalleryOrderUrl` mirrors it to the URL and the
+// watch below owns the refetch.
 const listSortKey = computed<ListSortKey | null>(() => {
   const key = orderBy.value;
   return isListSortKey(key) ? key : null;
@@ -631,20 +633,22 @@ const listSortKey = computed<ListSortKey | null>(() => {
 function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(payload.key);
   galleryRoms.setOrderDir(payload.dir);
-  galleryRoms.invalidateWindows();
-  void galleryRoms.fetchInitialMetadata();
 }
 
-// Grid-mode direction toggle — wires the toolbar asc/desc into the
-// same `orderDir` the list column-header sort writes to, then triggers
-// the same invalidate+refetch path. Sort axis stays whatever the list
-// last set (default "name"); grid only exposes direction.
+// Sort axis stays whatever the list last set (default "name"); grid
+// only exposes direction.
 function onGridSortDir(dir: "asc" | "desc") {
-  if (galleryRoms.orderDir === dir) return;
   galleryRoms.setOrderDir(dir);
+}
+
+// Watching the store rather than refetching inside the handlers also
+// covers the URL-driven writes (back/forward, a pasted link). The
+// initial URL hydration runs before this watch is set up, so it does
+// not echo here.
+watch([orderBy, orderDir], () => {
   galleryRoms.invalidateWindows();
   void galleryRoms.fetchInitialMetadata();
-}
+});
 
 // ── Scroll restoration ─────────────────────────────────────────────
 async function applyRestoredScroll() {
