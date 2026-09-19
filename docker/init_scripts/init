@@ -133,12 +133,14 @@ start_bin_gunicorn() {
 	export PYTHONUNBUFFERED=1
 	export PYTHONDONTWRITEBYTECODE=1
 
+	# Trusting every hop makes uvicorn read the leftmost X-Forwarded-For entry,
+	# which the caller supplies; only the bundled nginx may speak for the client.
 	local -a wrap=()
 	otel_prefix wrap api
 	"${wrap[@]}" gunicorn \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
 		--pid=/tmp/gunicorn.pid \
-		--forwarded-allow-ips="*" \
+		--forwarded-allow-ips="${FORWARDED_ALLOW_IPS:-127.0.0.1}" \
 		--worker-class uvicorn_worker.UvicornWorker \
 		--workers "${WEB_SERVER_CONCURRENCY:-4}" \
 		--timeout "${WEB_SERVER_TIMEOUT:-300}" \

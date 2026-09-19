@@ -416,6 +416,19 @@ class TestRarArchives:
             Path("/fake/game.7z"), "a.gba"
         )
         assert seven_zip_command[0] == archives.SEVEN_ZIP_PATH
+        assert seven_zip_command[-2:] == ["--", "a.gba"]
+
+    def test_extraction_command_terminates_switches_before_the_member(self):
+        """Member names come from the archive's own listing, so one shaped like
+        a switch has to reach 7-Zip as a name."""
+        for member in ("-x", "@listfile", "-so"):
+            command = archives._archive_member_command(Path("/fake/game.7z"), member)
+            assert command[-2:] == ["--", member]
+
+            rar_command = archives._archive_member_command(
+                Path("/fake/GAME.RAR"), member
+            )
+            assert rar_command[-2:] == ["--", member]
 
     def test_read_rar_archive_files_streams_members_in_ascii_order(self):
         listing = MagicMock(
