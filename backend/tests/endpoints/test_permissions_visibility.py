@@ -157,6 +157,31 @@ def test_physical_game_create_on_hidden_platform_is_404_masked(
     assert db_rom_handler.get_roms_scalar(platform_ids=[platform.id]) == []
 
 
+def test_chunked_upload_to_hidden_platform_is_masked(client, editor_user, platform):
+    # Editor holds library-wide roms write, so the coarse gate passes. A hidden
+    # platform must answer exactly like a missing one, or the difference
+    # enumerates the ids the caller cannot see.
+    _hide(PermEntity.PLATFORMS, platform.id, editor_user.id)
+
+    headers = {
+        **_auth(editor_user),
+        "x-upload-filename": "game.zip",
+        "x-upload-total-size": "11",
+        "x-upload-total-chunks": "2",
+    }
+    hidden = client.post(
+        "/api/roms/upload/start",
+        headers={**headers, "x-upload-platform": str(platform.id)},
+    )
+    missing = client.post(
+        "/api/roms/upload/start",
+        headers={**headers, "x-upload-platform": "999999"},
+    )
+
+    assert hidden.status_code == status.HTTP_400_BAD_REQUEST
+    assert hidden.json() == missing.json()
+
+
 @pytest.mark.parametrize(
     ("path", "exporter"),
     [
