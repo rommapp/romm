@@ -11,12 +11,17 @@
 // poll / passive DOM-event listeners / recovery watcher (idempotent). This
 // component is mounted once, under `v-if="isV2"` in RomM.vue, so it covers both
 // the auth and main shells.
+//
+// When HTTP is up but Socket.IO fell back to polling, `useSocketTransportHealth`
+// drives a second message (offline still wins if both are bad).
 import { RBtn, RIcon, RTooltip } from "@v2/lib";
 import { storeToRefs } from "pinia";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
 import { useDelayedFlag } from "@/v2/composables/useDelayedFlag";
 import { useServerConnection } from "@/v2/composables/useServerConnection";
+import { useSocketTransportHealth } from "@/v2/composables/useSocketTransportHealth";
 
 defineOptions({ inheritAttrs: false });
 
@@ -25,27 +30,52 @@ const COLLAPSE_MS = 6000;
 
 const { t } = useI18n();
 const { isOffline, retryNow } = useServerConnection();
+const { isWebSocketDegraded, retryWebSocket } = useSocketTransportHealth();
 const { playing } = storeToRefs(storePlaying());
+
+const showWebsocketNotice = computed(
+  () => !isOffline.value && isWebSocketDegraded.value,
+);
+
+const visible = computed(() => isOffline.value || showWebsocketNotice.value);
+
+const messageKey = computed(() =>
+  showWebsocketNotice.value
+    ? "common.websocket-unreachable-retrying"
+    : "common.server-offline-retrying",
+);
+
+const icon = computed(() =>
+  showWebsocketNotice.value ? "mdi-web-sync" : "mdi-lan-disconnect",
+);
 
 // A notice that cannot be dismissed has no business sitting over a running
 // game, so it says its piece and then shrinks to its icon.
 const collapsed = useDelayedFlag(
-  () => isOffline.value && playing.value,
+  () => visible.value && playing.value,
   COLLAPSE_MS,
 );
+
+function onRetry() {
+  if (showWebsocketNotice.value) {
+    retryWebSocket();
+  } else {
+    void retryNow();
+  }
+}
 </script>
 
 <template>
   <Transition name="r-backend-banner">
     <div
-      v-if="isOffline"
+      v-if="visible"
       class="r-backend-banner"
       :class="{
         'r-backend-banner--in-game': playing,
         'r-backend-banner--collapsed': collapsed,
       }"
       role="alert"
-      :aria-label="collapsed ? t('common.server-offline-retrying') : undefined"
+      :aria-label="collapsed ? t(messageKey) : undefined"
     >
       <!-- Shrunk to its icon, so the message still has to be readable. -->
       <RTooltip
@@ -53,17 +83,13 @@ const collapsed = useDelayedFlag(
         activator="parent"
         location="bottom start"
         open-on-tap
-        :text="t('common.server-offline-retrying')"
+        :text="t(messageKey)"
       />
-      <RIcon
-        icon="mdi-lan-disconnect"
-        size="18"
-        class="r-backend-banner__icon"
-      />
+      <RIcon :icon="icon" size="18" class="r-backend-banner__icon" />
       <Transition name="r-backend-banner-body">
         <div v-if="!collapsed" class="r-backend-banner__body">
           <span class="r-backend-banner__msg">
-            {{ t("common.server-offline-retrying") }}
+            {{ t(messageKey) }}
           </span>
           <RBtn
             v-if="!playing"
@@ -71,7 +97,7 @@ const collapsed = useDelayedFlag(
             variant="text"
             prepend-icon="mdi-refresh"
             class="r-backend-banner__retry"
-            @click="retryNow"
+            @click="onRetry"
           >
             {{ t("common.try-again") }}
           </RBtn>

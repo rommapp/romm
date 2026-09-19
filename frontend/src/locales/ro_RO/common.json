@@ -192,6 +192,7 @@
   "visibility": "Vizibilitate",
   "warning": "AVERTISMENT:",
   "whats-new": "Vezi noutățile",
+  "websocket-unreachable-retrying": "Conexiunea WebSocket nu este disponibilă, se reîncearcă…",
   "zoom-in": "Mărește",
   "zoom-out": "Micșorează"
 }

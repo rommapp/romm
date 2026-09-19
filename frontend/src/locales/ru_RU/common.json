@@ -192,6 +192,7 @@
   "visibility": "Видимость",
   "warning": "ВНИМАНИЕ:",
   "whats-new": "Что нового",
+  "websocket-unreachable-retrying": "Соединение WebSocket недоступно, повторная попытка…",
   "zoom-in": "Приблизить",
   "zoom-out": "Отдалить"
 }

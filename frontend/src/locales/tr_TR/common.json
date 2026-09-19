@@ -192,6 +192,7 @@
   "visibility": "Görünürlük",
   "warning": "UYARI:",
   "whats-new": "Yeniliklere göz at",
+  "websocket-unreachable-retrying": "WebSocket bağlantısı kullanılamıyor, yeniden deneniyor…",
   "zoom-in": "Yakınlaştır",
   "zoom-out": "Uzaklaştır"
 }

@@ -192,6 +192,7 @@
   "visibility": "Láthatóság",
   "warning": "FIGYELMEZTETÉS:",
   "whats-new": "Mi újság",
+  "websocket-unreachable-retrying": "A WebSocket kapcsolat nem érhető el, újrapróbálkozás…",
   "zoom-in": "Nagyítás",
   "zoom-out": "Kicsinyítés"
 }

@@ -192,6 +192,7 @@
   "visibility": "공개 범위",
   "warning": "경고:",
   "whats-new": "새로운 기능 보기",
+  "websocket-unreachable-retrying": "WebSocket 연결을 사용할 수 없습니다. 재시도 중…",
   "zoom-in": "확대",
   "zoom-out": "축소"
 }

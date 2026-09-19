@@ -192,6 +192,7 @@
   "visibility": "Visibilità",
   "warning": "AVVISO:",
   "whats-new": "Scopri le novità",
+  "websocket-unreachable-retrying": "Connessione WebSocket non disponibile, nuovo tentativo…",
   "zoom-in": "Aumenta zoom",
   "zoom-out": "Diminuisci zoom"
 }

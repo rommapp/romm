@@ -192,6 +192,7 @@
   "visibility": "Viditelnost",
   "warning": "VAROVÁNÍ:",
   "whats-new": "Co je nového",
+  "websocket-unreachable-retrying": "Připojení WebSocket není k dispozici, opakuji pokus…",
   "zoom-in": "Přiblížit",
   "zoom-out": "Oddálit"
 }

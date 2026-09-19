@@ -192,6 +192,7 @@
   "visibility": "公開設定",
   "warning": "警告:",
   "whats-new": "新機能を見る",
+  "websocket-unreachable-retrying": "WebSocket接続が利用できません。再試行中…",
   "zoom-in": "ズームイン",
   "zoom-out": "ズームアウト"
 }
