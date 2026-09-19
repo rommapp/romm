@@ -7,17 +7,28 @@ joined table: the database cannot read that from an index, so it filesorts the
 whole library on every page. The generated columns are indexed on `roms`, so
 these tests pin both the ordering results and the query reading them directly.
 
-NULL sort keys (unmatched roms) land last on every engine and both directions;
-on MariaDB/MySQL the ascending sort pays a leading IS NULL term for it.
+NULL sort keys (unmatched roms) land last on every engine and both directions.
+The ascending sort reads that placement off the materialized `_unset` flag:
+`ORDER BY <column> IS NULL` is an expression, and MariaDB and MySQL (which
+have no NULLS LAST) filesorted the whole library rather than walk the index.
 """
 
 import pytest
+import sqlalchemy as sa
 
+from config import ROMM_DB_DRIVER
 from handler.database import db_rom_handler
+from handler.database.base_handler import sync_engine
 from handler.database.rom_filters import RomFilterParams
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from utils.database import (
+    SORTABLE_NULLABLE_ROM_COLUMNS,
+    rom_desc_index_name,
+    rom_sort_index_name,
+    rom_unset_flag_column,
+)
 
 
 def _make_rom(platform: Platform, fs_name: str, **metadata) -> Rom:
@@ -50,37 +61,56 @@ class TestMetadataSortQueryShape:
         [
             ("first_release_date", "generated_first_release_date"),
             ("average_rating", "generated_average_rating"),
-            ("player_count", "generated_player_count"),
             ("hltb_main_story", "generated_hltb_main_story"),
         ],
     )
-    def test_orders_by_the_roms_column_with_nulls_last(
+    def test_orders_by_the_indexed_unset_flag_then_the_value(
         self, mariadb_driver: None, order_by: str, expected_column: str
     ):
         query, sort_key = db_rom_handler.get_roms_query(order_by=order_by)
         sql = str(query)
 
+        # Both terms are columns of `idx_roms_<column>_sort`, in its order.
         assert (
-            f"ORDER BY roms.{expected_column} IS NULL, roms.{expected_column} ASC"
+            f"ORDER BY roms.{expected_column}_unset, roms.{expected_column} ASC"
         ) in sql
+        assert "IS NULL" not in sql.split("ORDER BY")[-1]
         assert sort_key.column is getattr(Rom, expected_column)
         # `Rom.metadatum` is a `lazy="joined"` eager load, so one join to the
         # view is expected; the sort must not add a second one.
         assert sql.count("JOIN roms_metadata") == 1
 
+    def test_sort_without_a_flag_still_emulates_nulls_last(self, mariadb_driver: None):
+        """`player_count` carries no flag; the gallery does not sort on it."""
+        query, sort_key = db_rom_handler.get_roms_query(order_by="player_count")
+
+        assert (
+            "ORDER BY roms.generated_player_count IS NULL, "
+            "roms.generated_player_count ASC"
+        ) in str(query)
+        assert sort_key.column is Rom.generated_player_count
+
     # One dialect matrix for the shared NULL-placement block; the rom_user
     # family proves its branch separately through the NULLIF shape test.
+    # Every spelling here matches an index, so none of them filesorts: the
+    # ascending pair is `idx_roms_<column>_sort`, MariaDB's descending one is
+    # `idx_roms_<column>`, and PostgreSQL's is `idx_roms_<column>_desc`.
     @pytest.mark.parametrize(
         ("driver", "order_dir", "expected"),
         [
             (
                 "mariadb",
                 "asc",
-                "roms.generated_first_release_date IS NULL, "
+                "roms.generated_first_release_date_unset, "
                 "roms.generated_first_release_date ASC",
             ),
             ("mariadb", "desc", "roms.generated_first_release_date DESC"),
-            ("postgres", "asc", "roms.generated_first_release_date ASC NULLS LAST"),
+            (
+                "postgres",
+                "asc",
+                "roms.generated_first_release_date_unset, "
+                "roms.generated_first_release_date ASC",
+            ),
             ("postgres", "desc", "roms.generated_first_release_date DESC NULLS LAST"),
         ],
     )
@@ -98,9 +128,8 @@ class TestMetadataSortQueryShape:
         order_sql = str(query).split("ORDER BY")[-1]
 
         assert order_sql.strip().startswith(expected)
-        # The emulation term appears only where the engine needs it.
-        emulated = driver == "mariadb" and order_dir == "asc"
-        assert ("IS NULL" in order_sql) == emulated
+        # Nothing computes NULL placement per row any more.
+        assert "IS NULL" not in order_sql
 
     def test_rom_column_sort_is_unchanged(self):
         query, sort_key = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
@@ -135,9 +164,40 @@ class TestMetadataSortQueryShape:
         # push the dedup window off its covering index.
         assert "group_sort_value" not in sql
         assert (
-            "ORDER BY roms.generated_first_release_date IS NULL, "
+            "ORDER BY roms.generated_first_release_date_unset, "
             "roms.generated_first_release_date ASC"
         ) in sql
+
+
+class TestSortIndexes:
+    """The indexes the orderings above are shaped to read."""
+
+    @pytest.fixture
+    def roms_indexes(self) -> dict[str, list[str]]:
+        with sync_engine.connect() as connection:
+            return {
+                index["name"]: [c for c in index["column_names"] if c]
+                for index in sa.inspect(connection).get_indexes("roms")
+                if index["name"]
+            }
+
+    @pytest.mark.parametrize("column", SORTABLE_NULLABLE_ROM_COLUMNS)
+    def test_ascending_pair_is_indexed(
+        self, roms_indexes: dict[str, list[str]], column: str
+    ):
+        assert roms_indexes.get(rom_sort_index_name(column)) == [
+            rom_unset_flag_column(column),
+            column,
+        ]
+
+    @pytest.mark.parametrize("column", SORTABLE_NULLABLE_ROM_COLUMNS)
+    def test_descending_index_exists_only_on_postgresql(
+        self, roms_indexes: dict[str, list[str]], column: str
+    ):
+        """`AUTOGENERATE_EXEMPT_INDEX_NAMES` hides these from the drift check,
+        so nothing else would notice them going missing."""
+        expected = [column] if ROMM_DB_DRIVER == "postgresql" else None
+        assert roms_indexes.get(rom_desc_index_name(column)) == expected
 
 
 class TestMetadataSortResults:
@@ -207,3 +267,32 @@ class TestMetadataSortResults:
         assert reloaded is not None
         assert reloaded.metadatum.first_release_date == 1569369600000
         assert reloaded.generated_first_release_date == 1569369600000
+
+    @pytest.mark.parametrize(
+        ("column", "metadata"),
+        [
+            (
+                "generated_first_release_date",
+                {"igdb_metadata": {"first_release_date": "1569369600"}},
+            ),
+            ("generated_average_rating", {"igdb_metadata": {"total_rating": "80"}}),
+            (
+                "generated_hltb_main_story",
+                {"hltb_metadata": {"main_story": "3600"}},
+            ),
+        ],
+    )
+    def test_unset_flag_tracks_its_value_column(
+        self, platform: Platform, column: str, metadata: dict
+    ):
+        """The ascending sort's NULL placement now rests on the flag rather
+        than on an `IS NULL` the database computes, so it has to agree with
+        the value it stands for."""
+        matched = _make_rom(platform, "matched", **metadata)
+        unmatched = _make_rom(platform, "unmatched")
+
+        for rom_id, unset in ((matched.id, False), (unmatched.id, True)):
+            rom = db_rom_handler.get_rom(rom_id)
+            assert rom is not None
+            assert (getattr(rom, column) is None) is unset
+            assert getattr(rom, f"{column}_unset") is unset

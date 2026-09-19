@@ -11,6 +11,7 @@ from typing import Any, Literal, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
+    ColumnExpressionArgument,
     DateTime,
     Enum,
     Integer,
@@ -89,6 +90,7 @@ from models.rom import (
 from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
+    SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
     is_postgresql,
@@ -96,6 +98,7 @@ from utils.database import (
     json_array_contains_any,
     json_array_contains_value,
     release_day_ranges,
+    rom_unset_flag_column,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -197,22 +200,41 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "hltb_main_story": Rom.generated_hltb_main_story,
 }
 
+# The `_unset` flag standing in for `<column> IS NULL`, keyed by the column it
+# belongs to. `idx_roms_<column>_sort` spans the pair, so the ascending sort
+# reads its order out of an index instead of scanning `roms` and filesorting
+# it for every page. `generated_player_count` has no flag: it is not a sort
+# the gallery offers.
+ROM_UNSET_SORT_FLAGS: dict[str, QueryableAttribute] = {
+    column: getattr(Rom, rom_unset_flag_column(column))
+    for column in SORTABLE_NULLABLE_ROM_COLUMNS
+}
+
 
 def _nulls_last_ordering(
     sort_key: Any, descending: bool
-) -> tuple[ColumnElement[bool] | None, ColumnElement[Any]]:
+) -> tuple[ColumnExpressionArgument[bool] | None, ColumnElement[Any]]:
     """NULL sort keys land last on every engine.
 
     Returns:
-        A leading IS NULL term (or None) and the directed sort clause.
+        A leading unset term (or None) and the directed sort clause.
     """
-    # PostgreSQL says it natively; the other engines place NULLs last on
-    # DESC already, so only their ascending case needs the emulation term.
     order_clause = sort_key.desc() if descending else sort_key.asc()
+    if descending:
+        # MariaDB and MySQL place NULLs last on DESC already; PostgreSQL
+        # sorts them first, and `idx_roms_<column>_desc` matches the spelling
+        # that corrects it.
+        if ROMM_DB_DRIVER == "postgresql":
+            return None, order_clause.nulls_last()
+        return None, order_clause
+
+    flag = ROM_UNSET_SORT_FLAGS.get(getattr(sort_key, "key", ""))
+    if flag is not None:
+        return flag, order_clause
+    # A key with no materialized flag (rom_user, the view, a grouped
+    # aggregate) still has to emulate it, which costs a sort.
     if ROMM_DB_DRIVER == "postgresql":
         return None, order_clause.nulls_last()
-    if descending:
-        return None, order_clause
     return sort_key.is_(None), order_clause
 
 

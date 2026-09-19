@@ -33,12 +33,53 @@ POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
     ),
 )
 
+HLTB_MAIN_STORY_COLUMN = "generated_hltb_main_story"
+
+# The nullable `roms` columns the gallery sorts on. Each carries a
+# materialized `_unset` flag the ascending sort leads with: MariaDB and MySQL
+# have no NULLS LAST, and the `column IS NULL` term that emulates it is an
+# expression no index can serve, so the sort scanned `roms` and filesorted it
+# for every page. `utils.roms_columns` builds the flags and the indexes; the
+# names live here because `AUTOGENERATE_EXEMPT_INDEX_NAMES` needs them and
+# that module imports this one.
+SORTABLE_NULLABLE_ROM_COLUMNS = (
+    "generated_first_release_date",
+    "generated_average_rating",
+    HLTB_MAIN_STORY_COLUMN,
+)
+
+
+def rom_unset_flag_column(column: str) -> str:
+    """The NOT NULL flag column recording whether `column` is unset."""
+    return f"{column}_unset"
+
+
+def rom_sort_index_name(column: str) -> str:
+    """The composite index the ascending gallery sort on `column` walks."""
+    return f"idx_roms_{column}_sort"
+
+
+def rom_desc_index_name(column: str) -> str:
+    """The PostgreSQL-only index the descending gallery sort on `column` walks."""
+    return f"idx_roms_{column}_desc"
+
+
 # Indexes that exist in some databases but cannot be declared on a model.
-AUTOGENERATE_EXEMPT_INDEX_NAMES = frozenset(
-    # Search indexes built per dialect in 0084: FULLTEXT on MySQL/MariaDB,
-    # pg_trgm GIN on PostgreSQL. No portable model declaration exists.
-    {"idx_roms_name_fs_name_fulltext", "idx_roms_name_trgm", "idx_roms_fs_name_trgm"}
-) | frozenset(name for _, name, _ in POSTGRESQL_FK_INDEXES)
+AUTOGENERATE_EXEMPT_INDEX_NAMES = (
+    frozenset(
+        # Search indexes built per dialect in 0084: FULLTEXT on MySQL/MariaDB,
+        # pg_trgm GIN on PostgreSQL. No portable model declaration exists.
+        {
+            "idx_roms_name_fs_name_fulltext",
+            "idx_roms_name_trgm",
+            "idx_roms_fs_name_trgm",
+        }
+    )
+    | frozenset(name for _, name, _ in POSTGRESQL_FK_INDEXES)
+    # `DESC NULLS LAST` is the only spelling that matches what the descending
+    # gallery sort asks for, and no other engine parses it.
+    | frozenset(rom_desc_index_name(c) for c in SORTABLE_NULLABLE_ROM_COLUMNS)
+)
 
 
 def CustomJSON(**kwargs: Any) -> sa.JSON:

@@ -701,9 +701,23 @@ class Rom(BaseModel):
         Index("idx_roms_platform_name_sort_key", "platform_id", "name_sort_key"),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
-        # Gallery sorts exposed through ROM_METADATA_ORDER_COLUMNS.
+        # Gallery sorts exposed through ROM_METADATA_ORDER_COLUMNS. The value
+        # alone serves the descending sort and the range filters; the `_sort`
+        # pair serves the ascending sort, which leads with the unset flag.
+        # PostgreSQL also carries an `idx_roms_<column>_desc` per pair, which
+        # spells out a NULL placement no other engine has syntax for.
         Index("idx_roms_generated_first_release_date", "generated_first_release_date"),
+        Index(
+            "idx_roms_generated_first_release_date_sort",
+            "generated_first_release_date_unset",
+            "generated_first_release_date",
+        ),
         Index("idx_roms_generated_average_rating", "generated_average_rating"),
+        Index(
+            "idx_roms_generated_average_rating_sort",
+            "generated_average_rating_unset",
+            "generated_average_rating",
+        ),
         Index("idx_roms_generated_player_count", "generated_player_count"),
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
@@ -716,6 +730,11 @@ class Rom(BaseModel):
         Index("idx_roms_flashpoint_id", "flashpoint_id"),
         Index("idx_roms_hltb_id", "hltb_id"),
         Index("idx_roms_hltb_main_story", "generated_hltb_main_story"),
+        Index(
+            "idx_roms_generated_hltb_main_story_sort",
+            "generated_hltb_main_story_unset",
+            "generated_hltb_main_story",
+        ),
         Index("idx_roms_demozoo_id", "demozoo_id"),
         Index("idx_roms_pouet_id", "pouet_id"),
         Index("idx_roms_csdb_id", "csdb_id"),
@@ -803,6 +822,20 @@ class Rom(BaseModel):
     # Seconds, as HowLongToBeat reports them.
     generated_hltb_main_story: Mapped[int | None] = mapped_column(
         BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+
+    # NOT NULL companions the ascending gallery sort leads with, so a rom
+    # whose metadata is unset lands last off an index. MariaDB and MySQL have
+    # no NULLS LAST, and the `column IS NULL` term that stands in for it is an
+    # expression the sort cannot read an index through.
+    generated_first_release_date_unset: Mapped[bool] = mapped_column(
+        Boolean(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_average_rating_unset: Mapped[bool] = mapped_column(
+        Boolean(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_hltb_main_story_unset: Mapped[bool] = mapped_column(
+        Boolean(), server_default=FetchedValue(), server_onupdate=FetchedValue()
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")

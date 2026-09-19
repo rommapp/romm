@@ -20,11 +20,16 @@ from sqlalchemy.schema import CreateColumn
 
 from models.rom import FULL_PATH_HASH_LENGTH, TITLE_ID_MAX_LENGTH
 from utils.database import (
+    HLTB_MAIN_STORY_COLUMN,
+    SORTABLE_NULLABLE_ROM_COLUMNS,
     CustomJSON,
     column_names,
     full_path_digest_sql,
     is_mariadb,
     is_postgresql,
+    rom_desc_index_name,
+    rom_sort_index_name,
+    rom_unset_flag_column,
 )
 
 TABLE = "roms"
@@ -33,7 +38,6 @@ VIEW = "roms_metadata"
 PRIMARY_REGION_COLUMN = "generated_primary_region"
 PRIMARY_REGION_LENGTH = 50
 FULL_PATH_HASH_COLUMN = "full_path_hash"
-HLTB_MAIN_STORY_COLUMN = "generated_hltb_main_story"
 RATING_COUNT_COLUMN = "generated_rating_count"
 
 SAVE_TARGET_LAYOUT_COLUMN = "save_target_layout"
@@ -178,6 +182,21 @@ class GeneratedColumn:
     def ddl(self) -> str:
         return (
             f"{self.name} {self.type_} GENERATED ALWAYS AS ({self.expression}) STORED"
+        )
+
+    @property
+    def unset_flag(self) -> "GeneratedColumn":
+        """This column's companion flag, over the same expression.
+
+        PostgreSQL forbids a generated column that reads another one, so the
+        expression is repeated rather than referenced. That also keeps the
+        value column droppable: a reference would make the engine refuse the
+        DROP that `rebuild_generated_columns` issues.
+        """
+        return GeneratedColumn(
+            rom_unset_flag_column(self.name),
+            "BOOLEAN",
+            f"({self.expression}) IS NULL",
         )
 
 
@@ -409,26 +428,34 @@ def steam_fed_columns(pg: bool, *, with_steam: bool) -> list[GeneratedColumn]:
         )
 
     date_expr = _postgres_first_release_date if pg else _maria_first_release_date
-    columns.append(
-        GeneratedColumn("generated_first_release_date", "BIGINT", date_expr(with_steam))
+    release_date = GeneratedColumn(
+        "generated_first_release_date", "BIGINT", date_expr(with_steam)
     )
 
     rating_expr = _postgres_rating if pg else _maria_rating
     rating_sources = _RATING_SOURCES + ([_STEAM_RATING] if with_steam else [])
     ratings = [rating_expr(src, key, mult) for src, key, mult in rating_sources]
-    columns.append(
-        GeneratedColumn(
-            "generated_average_rating",
-            "DOUBLE PRECISION" if pg else "DOUBLE",
-            _average_expr(ratings),
-        )
+    average_rating = GeneratedColumn(
+        "generated_average_rating",
+        "DOUBLE PRECISION" if pg else "DOUBLE",
+        _average_expr(ratings),
     )
+
+    # A flag repeats its value's expression, so `_reads_steam` finds Steam in
+    # both and the pair is always rebuilt together.
+    columns += [release_date, release_date.unset_flag]
+    columns += [average_rating, average_rating.unset_flag]
     return columns
 
 
 def generated_columns(pg: bool) -> list[GeneratedColumn]:
     """Every generated column in the catalog, at its current definition."""
     array_expr = _postgres_array_expr if pg else _maria_array_expr
+    hltb_main_story = GeneratedColumn(
+        HLTB_MAIN_STORY_COLUMN,
+        "BIGINT",
+        _postgres_hltb_main_story() if pg else _maria_hltb_main_story(),
+    )
     return [
         GeneratedColumn(
             PRIMARY_REGION_COLUMN,
@@ -447,11 +474,8 @@ def generated_columns(pg: bool) -> list[GeneratedColumn]:
             "BIGINT",
             _postgres_rating_count() if pg else _maria_rating_count(),
         ),
-        GeneratedColumn(
-            HLTB_MAIN_STORY_COLUMN,
-            "BIGINT",
-            _postgres_hltb_main_story() if pg else _maria_hltb_main_story(),
-        ),
+        hltb_main_story,
+        hltb_main_story.unset_flag,
     ]
 
 
@@ -528,13 +552,36 @@ def roms_metadata_view_sql(pg: bool, columns: list[tuple[str, str]]) -> str:
     )
 
 
+def _generated_column_indexes(conn: sa.Connection) -> list[tuple[str, list[str], str]]:
+    """(name, columns read, indexed expression) for every generated-column index."""
+    indexes = [(f"idx_{TABLE}_{c}", [c], c) for c in INDEXED_GENERATED_COLUMNS]
+    for column in SORTABLE_NULLABLE_ROM_COLUMNS:
+        flag = rom_unset_flag_column(column)
+        indexes.append(
+            (rom_sort_index_name(column), [flag, column], f"{flag}, {column}")
+        )
+        # MariaDB and MySQL place NULLs last on DESC already, and an index
+        # there is ordered the same way. PostgreSQL needs both spelled out.
+        if is_postgresql(conn):
+            indexes.append(
+                (rom_desc_index_name(column), [column], f"{column} DESC NULLS LAST")
+            )
+    return indexes
+
+
 def _restore_generated_indexes(conn: sa.Connection) -> None:
-    """Recreate the single-column indexes a generated-column rebuild dropped."""
+    """Create every generated-column index the table is missing.
+
+    PostgreSQL drops an index along with the column it reads, so a rebuild
+    has to put them back. Idempotent, so it doubles as the step that brings
+    an existing install up to the current set.
+    """
     existing = {index["name"] for index in sa.inspect(conn).get_indexes(TABLE)}
-    for column in INDEXED_GENERATED_COLUMNS:
-        name = f"idx_{TABLE}_{column}"
-        if name not in existing:
-            conn.execute(sa.text(f"CREATE INDEX {name} ON {TABLE} ({column})"))
+    present = column_names(conn, TABLE)
+    for name, columns, expression in _generated_column_indexes(conn):
+        if name in existing or not set(columns) <= present:
+            continue
+        conn.execute(sa.text(f"CREATE INDEX {name} ON {TABLE} ({expression})"))
 
 
 def _drop_indexes_spanning(conn: sa.Connection, columns: set[str]) -> None:
@@ -613,8 +660,10 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
         conn.execute(
             sa.text(f"ALTER TABLE {TABLE}\n" + ",\n".join(actions))
         )  # nosec B608
-        if outdated:
-            _restore_generated_indexes(conn)
+
+    # Outside the block above so a replay after a run that died mid-ALTER
+    # still indexes the columns it did add.
+    _restore_generated_indexes(conn)
 
     # Outside the block above so a run that died between the ALTER and this
     # statement gets its view back on the replay.
