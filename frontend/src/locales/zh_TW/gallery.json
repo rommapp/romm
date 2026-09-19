@@ -27,6 +27,7 @@
   "selection-unfavorite": "從喜好中移除",
   "selection-unfavorite-success": "已從喜好中移除 {n} 個",
   "sort-ascending": "升冪排序",
+  "sort-by": "排序方式",
   "sort-descending": "降冪排序",
   "view-flat": "平面檢視",
   "view-grid": "網格",

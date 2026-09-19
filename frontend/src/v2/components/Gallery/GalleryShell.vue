@@ -48,6 +48,7 @@ import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
   getListMinWidth,
+  getSortOptions,
   isListSortKey,
   LIST_HEADER_HEIGHT_PX,
   type ListSortKey,
@@ -635,8 +636,14 @@ function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderDir(payload.dir);
 }
 
-// Sort axis stays whatever the list last set (default "name"); grid
-// only exposes direction.
+// Grid-mode sort axis — the toolbar's counterpart to the list column
+// headers, offering the same set of columns.
+const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
+
+function onGridSortKey(key: ListSortKey) {
+  galleryRoms.setOrderBy(key);
+}
+
 function onGridSortDir(dir: "asc" | "desc") {
   galleryRoms.setOrderDir(dir);
 }
@@ -841,6 +848,8 @@ defineExpose({
               :layout="layout"
               :position="toolbarPosition"
               :sort-dir="orderDir"
+              :sort-key="listSortKey"
+              :sort-key-items="sortOptions"
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
@@ -850,6 +859,7 @@ defineExpose({
               @update:group-by="groupBy = $event"
               @update:layout="layout = $event"
               @update:sort-dir="onGridSortDir"
+              @update:sort-key="onGridSortKey"
               @update:search="setSearch"
               @click:filter="filterDrawerOpen = true"
             />
@@ -962,11 +972,14 @@ defineExpose({
       :layout="layout"
       :position="toolbarPosition"
       :sort-dir="orderDir"
+      :sort-key="listSortKey"
+      :sort-key-items="sortOptions"
       show-filter
       :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
       @update:sort-dir="onGridSortDir"
+      @update:sort-key="onGridSortKey"
       @click:filter="filterDrawerOpen = true"
     />
 
