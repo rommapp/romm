@@ -1099,14 +1099,14 @@ Procedural SVG generation for:
 
 ### Scripts
 
-| Script      | Command                      | Purpose                             |
-| ----------- | ---------------------------- | ----------------------------------- |
-| `dev`       | `vite --host`                | Development server                  |
-| `build`     | `vite build`                 | Production build                    |
-| `preview`   | `vite preview`               | Preview production build            |
-| `typecheck` | `vue-tsc`                    | TypeScript validation               |
-| `generate`  | `openapi-typescript-codegen` | Generate types from backend OpenAPI |
-| `lint`      | `eslint`                     | Lint `.vue`, `.js`, `.ts` files     |
+| Script      | Command                        | Purpose                             |
+| ----------- | ------------------------------ | ----------------------------------- |
+| `dev`       | `vite --host`                  | Development server                  |
+| `build`     | `vite build`                   | Production build                    |
+| `preview`   | `vite preview`                 | Preview production build            |
+| `typecheck` | `vue-tsc`, `dpdm` (`circular`) | Types plus static import cycle gate |
+| `generate`  | `openapi-typescript-codegen`   | Generate types from backend OpenAPI |
+| `lint`      | `eslint`                       | Lint `.vue`, `.js`, `.ts` files     |
 
 ### OpenAPI Code Generation
 
