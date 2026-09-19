@@ -20,6 +20,9 @@ const heartbeat = ref({});
 // The streaming route is a store lookup rather than an engine check: a
 // container configured for the platform makes the rom streamable.
 const streamContainer = ref<object | null>(null);
+// Same for native: the desktop shell has already answered per platform, so the
+// composable only reads the cached answer.
+const nativeSupported = ref(false);
 
 vi.mock("pinia", () => ({
   storeToRefs: () => ({ value: heartbeat }),
@@ -29,6 +32,11 @@ vi.mock("@/stores/heartbeat", () => ({ default: () => ({}) }));
 vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     containerForPlatform: () => streamContainer.value,
+  }),
+}));
+vi.mock("@/stores/native", () => ({
+  useNativeStore: () => ({
+    isSupportedPlatform: () => nativeSupported.value,
   }),
 }));
 vi.mock("@/utils", () => ({
@@ -64,6 +72,7 @@ beforeEach(() => {
   support.ruffle.mockClear();
   support.jsDosBundle.mockClear();
   streamContainer.value = null;
+  nativeSupported.value = false;
 });
 
 describe("useCanPlay", () => {
@@ -106,6 +115,7 @@ describe("useCanPlay", () => {
     support.pico8Rom.mockReturnValue(true);
     support.ruffle.mockReturnValue(true);
     streamContainer.value = {};
+    nativeSupported.value = true;
     const {
       canPlay,
       canPlayEJS,
@@ -113,6 +123,7 @@ describe("useCanPlay", () => {
       canPlayPico8,
       canPlayRuffle,
       canPlayStream,
+      canPlayNative,
     } = useCanPlay(() => null);
 
     expect(canPlay.value).toBe(false);
@@ -121,6 +132,7 @@ describe("useCanPlay", () => {
     expect(canPlayPico8.value).toBe(false);
     expect(canPlayRuffle.value).toBe(false);
     expect(canPlayStream.value).toBe(false);
+    expect(canPlayNative.value).toBe(false);
   });
 
   // Streaming runs the platform's real emulator in a container, so it makes a
@@ -142,6 +154,28 @@ describe("useCanPlay", () => {
     );
 
     expect(canPlayStream.value).toBe(false);
+    expect(canPlay.value).toBe(false);
+  });
+
+  // The desktop shell runs a locally installed emulator, so it makes a rom
+  // playable on its own even where nothing on the server can touch it.
+  it("reports native support on its own flag", () => {
+    nativeSupported.value = true;
+    const { canPlay, canPlayNative } = useCanPlay(() => makeRom());
+
+    expect(canPlayNative.value).toBe(true);
+    expect(canPlay.value).toBe(true);
+  });
+
+  // The shell downloads the file from the server or reads it off disk, so it
+  // needs one just as the in-browser engines do.
+  it("refuses native play for a rom with no file on disk", () => {
+    nativeSupported.value = true;
+    const { canPlay, canPlayNative } = useCanPlay(() =>
+      makeRom({ has_file_on_disk: false }),
+    );
+
+    expect(canPlayNative.value).toBe(false);
     expect(canPlay.value).toBe(false);
   });
 

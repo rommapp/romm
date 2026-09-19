@@ -148,6 +148,31 @@ export function getDownloadPath({
   }`;
 }
 
+/**
+ * What the content endpoint will call the payload it serves for a whole rom.
+ *
+ * It mirrors `get_rom_content`, which decides the same way: a rom resolving to
+ * one file is served under that file's own name, and anything else is zipped
+ * around the rom's name. A folder rom's own `fs_name` therefore names neither.
+ */
+export function getDownloadFileName(rom: SimpleRom): string {
+  const files = rom.files ?? [];
+  if (files.length === 1) return files[0].file_name;
+  // Nothing to serve; callers gate on a file being on disk.
+  if (files.length === 0) return rom.fs_name;
+  return `${rom.fs_name}.zip`;
+}
+
+/**
+ * The single file on the server's disk this rom resolves to, or null when it
+ * resolves to several. A multi-file rom is served as an archive built on
+ * request, so it has no one path anything else can reach.
+ */
+export function getSoleRomFile(rom: SimpleRom): RomFileSchema | null {
+  const files = rom.files ?? [];
+  return files.length === 1 ? files[0] : null;
+}
+
 export function getDownloadLink({
   rom,
   fileIDs = [],
