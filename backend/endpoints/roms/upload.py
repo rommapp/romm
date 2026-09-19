@@ -18,7 +18,7 @@ from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
@@ -287,7 +287,9 @@ async def start_chunked_upload(
         )
 
     db_platform = db_platform_handler.get_platform(platform_id)
-    if not db_platform:
+    # A hidden platform answers like a missing one, so a restricted caller can
+    # neither write into its folder nor tell the two apart.
+    if not db_platform or not get_permissions(request).can_see_platform(platform_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Platform not found",
