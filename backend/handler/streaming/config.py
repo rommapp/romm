@@ -22,6 +22,7 @@ from handler.streaming.capabilities import (
     PlatformCapabilities,
     StateTransferLimits,
     emulator_clears_saves,
+    emulator_resumes_from_archive,
     known_to_lack_memory_card,
     slot_capabilities,
     state_transfer_limits,
@@ -181,6 +182,11 @@ class ResolvedContainer:
     def supports_save_picker(self) -> bool:
         """Whether the launch screen may offer a save other than the newest."""
         return self.is_webstation and self.clears_stale_saves
+
+    @property
+    def resumes_from_archive(self) -> bool:
+        """Whether a resume rides the save archive, with no state file to push."""
+        return self.is_webstation and emulator_resumes_from_archive(self.emulator)
 
     def interchangeable_with(self, other: ResolvedContainer) -> bool:
         """Whether two containers serving a platform are one pool: a player

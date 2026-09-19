@@ -120,7 +120,11 @@ async def run_launch(
     # the game running, and holds off further until the state file is there, so
     # this push lands ahead of it even though it runs after activate.
     if resume_after_launch and resume_state is not None:
-        resume_pushed = await states.push_resume_state(container, resume_state)
+        if container.resumes_from_archive:
+            # The activate's slot already handed this broker the whole resume.
+            resume_pushed = True
+        else:
+            resume_pushed = await states.push_resume_state(container, resume_state)
 
     await push_to_user(
         session.get("user_id"),

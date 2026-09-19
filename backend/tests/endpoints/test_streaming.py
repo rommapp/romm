@@ -551,6 +551,21 @@ def test_clears_stale_saves_has_no_picker_to_gate_on_a_legacy_container(caplog):
     assert "clears_stale_saves" in caplog.text
 
 
+def test_only_a_webstation_exit_state_emulator_resumes_from_its_archive():
+    """Only the webstation broker takes an archive to restore, so on any other
+    protocol the resume state still has to be pushed as a file."""
+    base = {
+        "platform": "psx",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+    }
+    webstation = {**base, "protocol": "webstation"}
+    assert _resolved({**webstation, "emulator": "duckstation"}).resumes_from_archive
+    assert _resolved({**webstation, "emulator": "rpcs3"}).resumes_from_archive
+    assert not _resolved({**webstation, "emulator": "pcsx2"}).resumes_from_archive
+    assert not _resolved({**base, "emulator": "duckstation"}).resumes_from_archive
+
+
 def test_a_container_that_disagrees_on_clearing_saves_is_a_pool_of_its_own(caplog):
     """The picker is advertised from the head of the pool, so a member that
     keeps its own newer files would take the pick and silently discard it."""
@@ -4323,6 +4338,34 @@ def test_hydrate_skipped_when_resume_state_already_pushed(rom: Rom, admin_user: 
     push.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("emulator", "name"),
+    [
+        ("duckstation", "SLUS-00594_resume.20260918-010000000000.sav"),
+        ("rpcs3", "BLUS30443_1.20260918-010000000000.SAVESTAT"),
+    ],
+)
+def test_hydrate_pushes_nothing_to_an_exit_state_emulator(
+    rom: Rom, admin_user: User, emulator, name
+):
+    """Their broker refuses a state file, and the save archive already carries
+    the exit state these library entries were pulled from."""
+    db_state_handler.add_state(_state_for(rom, admin_user, name, emulator))
+    container = {**_container_for(rom), "protocol": "webstation", "emulator": emulator}
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=b"state-bytes"),
+        ),
+        patch("handler.streaming.states.push_state_file", return_value=True) as push,
+    ):
+        pushed = asyncio.run(
+            states.hydrate_states_to_broker(admin_user.id, rom.id, _resolved(container))
+        )
+    assert pushed == 0
+    push.assert_not_called()
+
+
 def test_hydrate_pushes_newest_state_under_container_name(rom: Rom, admin_user: User):
     """Only the newest capture is hydrated, and it lands under the unstamped name
     the emulator expects on disk."""
@@ -5590,6 +5633,42 @@ def test_stamped_state_filename_round_trips_for_retroarch():
     assert states.container_state_filename(stamped) == "Super Mario.state"
 
 
+def test_exit_state_filenames_resolve_to_the_working_slot():
+    """DuckStation and RPCS3 write one state per game, as they exit, with no
+    slot in its name, so the working slot is the only one a pick can mean."""
+    assert states.slot_from_state_filename("duckstation", "SLUS-00594_resume.sav") == 0
+    assert states.slot_from_state_filename("duckstation", "SLUS-00594.mcd") is None
+    assert states.slot_from_state_filename("rpcs3", "BLUS30443_1.SAVESTAT") == 0
+    assert states.slot_from_state_filename("rpcs3", "BLUS30443_1.SAVESTAT.zst") == 0
+    assert states.slot_from_state_filename("rpcs3", "BLUS30443_1.SAVESTAT.gz") == 0
+    assert states.slot_from_state_filename("rpcs3", "PARAM.SFO") is None
+
+
+@pytest.mark.parametrize(
+    ("emulator", "name", "shape"),
+    [
+        (
+            "duckstation",
+            "SLUS-00594_resume.sav",
+            r"SLUS-00594_resume\.\d{8}-\d{12}\.sav",
+        ),
+        (
+            "rpcs3",
+            "BLUS30443_1.SAVESTAT.zst",
+            r"BLUS30443_1\.\d{8}-\d{12}\.SAVESTAT\.zst",
+        ),
+    ],
+)
+def test_stamped_exit_state_filename_round_trips(emulator, name, shape):
+    """Every exit is its own library entry, and the stamped name still resolves
+    a slot: otherwise the entries the stamp creates could never be picked."""
+    when = datetime(2026, 7, 21, 4, 56, 45, 123456, tzinfo=timezone.utc)
+    stamped = states.stamped_state_filename(emulator, name, when)
+    assert re.fullmatch(shape, stamped)
+    assert states.container_state_filename(stamped) == name
+    assert states.slot_from_state_filename(emulator, stamped) == 0
+
+
 class _ResumeClaim(NamedTuple):
     response: httpx.Response
     ready: dict[str, Any]
@@ -5814,6 +5893,48 @@ def test_webstation_resume_state_is_pushed_after_activate(
     ]
     assert order.activate.call_args.kwargs["resume_slot"] == 3
     assert order.push.call_args[0][1] == "Game.03.p2s"
+
+
+@pytest.mark.parametrize(
+    ("emulator", "name"),
+    [
+        ("duckstation", "SLUS-00594_resume.20260918-010000000000.sav"),
+        ("rpcs3", "BLUS30443_1.20260918-010000000000.SAVESTAT"),
+    ],
+)
+def test_an_exit_state_resume_is_the_activate_slot_alone(
+    client, access_token, rom: Rom, admin_user: User, emulator, name
+):
+    """These brokers refuse a state file mid-session and resume from the exit
+    state the save archive brings back, so the slot on the activate is the whole
+    resume. A push would only be refused and report the resume as lost."""
+    state = db_state_handler.add_state(_state_for(rom, admin_user, name, emulator))
+    activate = MagicMock(return_value={"url": "/room/x"})
+    push = MagicMock(return_value=False)
+    with _streaming({**_webstation_for(rom), "emulator": emulator}):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.states.push_state_file", push),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.tar"),
+            ),
+            patch(
+                "handler.filesystem.fs_asset_handler.read_file",
+                new=AsyncMock(return_value=b"state-bytes"),
+            ),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch(
+                "handler.streaming.states.hydrate_states_to_broker", new=MagicMock()
+            ) as hydrate,
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 202
+    assert activate.call_args.kwargs["resume_slot"] == 0
+    push.assert_not_called()
+    assert _launch_ready(sent)["resume"] is True
+    assert hydrate.call_args.kwargs["resume_pushed"] is True
 
 
 def test_webstation_claim_without_a_state_boots_clean(client, access_token, rom: Rom):

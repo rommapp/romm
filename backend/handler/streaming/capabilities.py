@@ -172,6 +172,11 @@ _SAVE_PICKER_EMULATORS = frozenset(
     {"eden", "retroarch", "rpcs3", "shadps4", "xemu", "xenia"}
 )
 
+# Emulators whose webstation broker writes a state only as the game exits and
+# refuses one pushed in while it runs. The save archive carries that exit state
+# back, so a resume is just the slot on the activate.
+_EXIT_STATE_EMULATORS = frozenset({"duckstation", "rpcs3"})
+
 
 def slot_capabilities(platform: str, emulator: str = "") -> PlatformCapabilities:
     """Save-state and disc capabilities for a platform, or a no-slots default.
@@ -199,6 +204,12 @@ def emulator_clears_saves(emulator: str) -> bool:
     """Whether restoring a save archive older than the container's own files is
     expected to land on this emulator, absent an operator override."""
     return emulator.strip().lower() in _SAVE_PICKER_EMULATORS
+
+
+def emulator_resumes_from_archive(emulator: str) -> bool:
+    """Whether this emulator resumes from the state its save archive restores
+    rather than from a state file pushed into the container."""
+    return emulator.strip().lower() in _EXIT_STATE_EMULATORS
 
 
 def known_to_lack_memory_card(platform: str) -> bool:
