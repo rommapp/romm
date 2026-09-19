@@ -359,8 +359,7 @@ def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
 def test_dropping_the_roms_columns_takes_the_sort_indexes_with_them():
     """0108's downgrade has to leave nothing of the catalog behind.
 
-    A descending sort index reads a value column this module inherited rather
-    than added, so it outlives the teardown that removes the catalog's own.
+    A descending sort index reads an inherited column, so nothing else drops it.
     """
     # Those indexes are PostgreSQL's alone, and only its DDL rolls back, which
     # is what keeps this teardown out of the schema the other tests share.
