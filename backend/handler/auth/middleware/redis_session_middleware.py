@@ -66,19 +66,31 @@ class RedisSessionMiddleware:
                 user_id = scope["session"].get("sub")
 
                 if scope["session"]:
-                    session_id = scope["session"].pop("session_id", None) or str(
-                        uuid.uuid4()
-                    )  # Retrieve or create session_id
+                    existing_id = scope["session"].pop("session_id", None)
+                    session_id = existing_id or str(uuid.uuid4())
                     session_data_json = json.dumps(scope["session"])
-                    await async_cache.set(
-                        f"session:{session_id}", session_data_json, ex=self.max_age
+                    # One already in Redis is refreshed only while its record is
+                    # still there. A credential change revokes sessions through
+                    # `clear_user_sessions`, and a request already in flight when
+                    # that happens would otherwise write its copy back and undo it.
+                    stored = await async_cache.set(
+                        f"session:{session_id}",
+                        session_data_json,
+                        ex=self.max_age,
+                        xx=existing_id is not None,
                     )
 
-                    # Add session_id to user set of sessions
-                    if user_id:
-                        await async_cache.sadd(f"user_sessions:{user_id}", session_id)
+                    if stored:
+                        # Add session_id to user set of sessions
+                        if user_id:
+                            await async_cache.sadd(
+                                f"user_sessions:{user_id}", session_id
+                            )
 
-                    header_value = f"{self.session_cookie}={session_id}; path=/; Max-Age={self.max_age}; {self.security_flags}"
+                        header_value = f"{self.session_cookie}={session_id}; path=/; Max-Age={self.max_age}; {self.security_flags}"
+                    else:
+                        header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
+
                     headers.append("Set-Cookie", header_value)
                 elif session_id:
                     await async_cache.delete(f"session:{session_id}")
