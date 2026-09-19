@@ -364,8 +364,11 @@ async def test_admin_password_reset_invalidates_the_target_user_sessions(
         HTTPStatus.OK
     )
 
-    # The admin resets the other user's password over a bearer token, so the
-    # caller is never the target.
+    # The bearer has to be the only credential on the reset: HybridAuthBackend
+    # resolves a session cookie ahead of it, and the jar still holds the
+    # target's, which would make this a self-update.
+    client.cookies.clear()
+
     response = client.put(
         f"/api/users/{editor_user.id}",
         data={"password": "reset_by_admin_password"},
