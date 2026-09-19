@@ -724,7 +724,21 @@ def drop_roms_columns(conn: sa.Connection) -> None:
                 if projection[0] in present and projection[0] not in drop
             ],
         )
+    _drop_sort_indexes(conn)
     drop_save_target_layout_type(conn)
+
+
+def _drop_sort_indexes(conn: sa.Connection) -> None:
+    """Remove the sort indexes, which outlive the columns they were added for.
+
+    A descending one reads a value column this module inherited rather than
+    added, so nothing above drops it along with the rest of the catalog.
+    """
+    existing = {index["name"] for index in sa.inspect(conn).get_indexes(TABLE)}
+    for column in SORTABLE_NULLABLE_ROM_COLUMNS:
+        for name in (rom_sort_index_name(column), rom_desc_index_name(column)):
+            if name in existing:
+                conn.execute(sa.text(_drop_index_sql(conn, name)))
 
 
 def _reads_steam(column: ReflectedColumn) -> bool:

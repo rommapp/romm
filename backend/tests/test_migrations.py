@@ -25,10 +25,12 @@ from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
+    SORTABLE_NULLABLE_ROM_COLUMNS,
     full_path_digest_sql,
     has_column,
     is_mariadb,
     is_postgresql,
+    rom_desc_index_name,
     rom_sort_index_name,
     rom_unset_flag_column,
 )
@@ -38,6 +40,7 @@ from utils.roms_columns import (
     ROMS_METADATA_VIEW_COLUMNS,
     STEAM_FED_COLUMNS,
     STEAM_METADATA_COLUMN,
+    drop_roms_columns,
     ensure_roms_columns,
     has_server_default,
     rebuild_generated_columns,
@@ -351,6 +354,32 @@ def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
             pair,
             False,
         )
+
+
+def test_dropping_the_roms_columns_takes_the_sort_indexes_with_them():
+    """0108's downgrade has to leave nothing of the catalog behind.
+
+    A descending sort index reads a value column this module inherited rather
+    than added, so it outlives the teardown that removes the catalog's own.
+    """
+    # Those indexes are PostgreSQL's alone, and only its DDL rolls back, which
+    # is what keeps this teardown out of the schema the other tests share.
+    with sync_engine.connect() as connection:
+        if not is_postgresql(connection):
+            pytest.skip("descending sort indexes are PostgreSQL-only")
+
+        transaction = connection.begin()
+        try:
+            descending = {
+                rom_desc_index_name(column) for column in SORTABLE_NULLABLE_ROM_COLUMNS
+            }
+            assert descending <= set(_schema_of(connection, "roms")[1])
+
+            drop_roms_columns(connection)
+
+            assert descending & set(_schema_of(connection, "roms")[1]) == set()
+        finally:
+            transaction.rollback()
 
 
 def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():
