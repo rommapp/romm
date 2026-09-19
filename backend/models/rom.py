@@ -824,10 +824,12 @@ class Rom(BaseModel):
         BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
     )
 
-    # NOT NULL companions the ascending gallery sort leads with, so a rom
-    # whose metadata is unset lands last off an index. MariaDB and MySQL have
-    # no NULLS LAST, and the `column IS NULL` term that stands in for it is an
-    # expression the sort cannot read an index through.
+    # Companions the ascending gallery sort leads with, so a rom whose
+    # metadata is unset lands last off an index. MariaDB and MySQL have no
+    # NULLS LAST, and the `column IS NULL` term that stands in for it is an
+    # expression the sort cannot read an index through. `IS NULL` never
+    # evaluates to NULL, so these are booleans despite a nullable DDL:
+    # MariaDB takes no NOT NULL on a generated column.
     generated_first_release_date_unset: Mapped[bool] = mapped_column(
         Boolean(), server_default=FetchedValue(), server_onupdate=FetchedValue()
     )

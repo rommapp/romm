@@ -569,18 +569,31 @@ def _generated_column_indexes(conn: sa.Connection) -> list[tuple[str, list[str],
     return indexes
 
 
-def _restore_generated_indexes(conn: sa.Connection) -> None:
-    """Create every generated-column index the table is missing.
+def _drop_index_sql(conn: sa.Connection, name: str) -> str:
+    """DROP INDEX, which PostgreSQL spells without the table."""
+    return f"DROP INDEX {name}" if is_postgresql(conn) else f"DROP INDEX {name} ON {TABLE}"  # fmt: skip
 
-    PostgreSQL drops an index along with the column it reads, so a rebuild
-    has to put them back. Idempotent, so it doubles as the step that brings
-    an existing install up to the current set.
+
+def _restore_generated_indexes(conn: sa.Connection) -> None:
+    """Bring every generated-column index back to the columns it should span.
+
+    A rebuild leaves the two engines in different states: PostgreSQL drops an
+    index along with the column it reads, while MariaDB and MySQL narrow a
+    composite one to the columns that survive. So an index is recreated when
+    it is missing *or* when it no longer spans what it should, not merely
+    when its name is absent. Idempotent, which also makes this the step that
+    brings an existing install up to the current set.
     """
-    existing = {index["name"] for index in sa.inspect(conn).get_indexes(TABLE)}
+    existing = {
+        index["name"]: tuple(c for c in index["column_names"] if c)
+        for index in sa.inspect(conn).get_indexes(TABLE)
+    }
     present = column_names(conn, TABLE)
     for name, columns, expression in _generated_column_indexes(conn):
-        if name in existing or not set(columns) <= present:
+        if not set(columns) <= present or existing.get(name) == tuple(columns):
             continue
+        if name in existing:
+            conn.execute(sa.text(_drop_index_sql(conn, name)))
         conn.execute(sa.text(f"CREATE INDEX {name} ON {TABLE} ({expression})"))
 
 
@@ -592,8 +605,9 @@ def _drop_indexes_spanning(conn: sa.Connection, columns: set[str]) -> None:
         return
     for index in sa.inspect(conn).get_indexes(TABLE):
         spanned = {name for name in index["column_names"] if name}
-        if spanned & columns and not spanned <= columns:
-            conn.execute(sa.text(f"DROP INDEX {index['name']} ON {TABLE}"))
+        name = index["name"]
+        if name and spanned & columns and not spanned <= columns:
+            conn.execute(sa.text(_drop_index_sql(conn, name)))
 
 
 def rebuild_generated_columns(

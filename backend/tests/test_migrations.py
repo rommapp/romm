@@ -29,6 +29,8 @@ from utils.database import (
     has_column,
     is_mariadb,
     is_postgresql,
+    rom_sort_index_name,
+    rom_unset_flag_column,
 )
 from utils.roms_columns import (
     FULL_PATH_HASH_COLUMN,
@@ -321,6 +323,35 @@ def test_the_roms_columns_helper_adds_every_missing_column_at_once():
 
         assert _schema_of(connection, "roms") == before
         assert len(alters) == 1
+
+
+def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
+    """A dropped value column leaves its `_sort` pair in two different states.
+
+    PostgreSQL drops the index with the column; MariaDB and MySQL keep it over
+    the flag alone. Restoring only the indexes that are missing by name would
+    leave the ascending gallery sort walking half an index there.
+    """
+    # `roms_metadata` does not project this one, so PostgreSQL lets it go
+    # without the view being dropped first.
+    column = HLTB_MAIN_STORY_COLUMN
+    pair = (rom_unset_flag_column(column), column)
+
+    with sync_engine.begin() as connection:
+        connection.execute(sa.text(f"ALTER TABLE roms DROP COLUMN {column}"))
+        assert _schema_of(connection, "roms")[1].get(rom_sort_index_name(column)) != (
+            pair,
+            False,
+        )
+
+        ensure_roms_columns(connection)
+        # 0128 owns the value column's own index, so its replay finishes the schema.
+        _replay(connection, "0128_hltb_main_story_column.py")
+
+        assert _schema_of(connection, "roms")[1][rom_sort_index_name(column)] == (
+            pair,
+            False,
+        )
 
 
 def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():

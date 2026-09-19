@@ -50,7 +50,7 @@ SORTABLE_NULLABLE_ROM_COLUMNS = (
 
 
 def rom_unset_flag_column(column: str) -> str:
-    """The NOT NULL flag column recording whether `column` is unset."""
+    """The generated flag column recording whether `column` is unset."""
     return f"{column}_unset"
 
 
