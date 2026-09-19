@@ -1,15 +1,9 @@
-"""Index the remaining gallery sorts
+"""Index the remaining gallery sort columns
 
-0129 gave the nullable metadata sorts an index to read their order from.
-The other three columns the gallery's list header sorts on, `platform_id`,
-`fs_size_bytes` and `created_at`, had no index the sort could use either:
-`created_at` had none at all, and the two composites that lead with
-`platform_id` carry another column before `id`, so none of them matched the
-`ORDER BY <column>, id` the gallery emits. Every page of 72 covers scanned
-the table and sorted it.
-
-Each is NOT NULL, so unlike 0129 this needs no flag column and no table
-copy, just the index pairing the sort key with the `id` tiebreak.
+Nothing matched the `ORDER BY <column>, id` the gallery emits: `created_at`
+had no index at all, and the composites leading with `platform_id` carry
+another column before `id`. All three are NOT NULL, so pairing each key with
+the `id` tiebreak is enough.
 
 Revision ID: 0130_gallery_sort_indexes
 Revises: 0129_indexed_gallery_sorts
