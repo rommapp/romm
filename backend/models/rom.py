@@ -709,11 +709,9 @@ class Rom(BaseModel):
         Index("idx_roms_platform_name_sort_key", "platform_id", "name_sort_key"),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
-        # Gallery sorts exposed through ROM_METADATA_ORDER_COLUMNS. The value
-        # alone serves the descending sort and the range filters; the `_sort`
-        # pair serves the ascending sort, which leads with the unset flag.
-        # PostgreSQL also carries an `idx_roms_<column>_desc` per pair, which
-        # spells out a NULL placement no other engine has syntax for.
+        # Gallery sorts exposed through ROM_METADATA_ORDER_COLUMNS: the value
+        # alone serves the descending sort and the range filters, the `_sort`
+        # pair the ascending one. PostgreSQL adds an `idx_roms_<column>_desc`.
         Index("idx_roms_generated_first_release_date", "generated_first_release_date"),
         Index(
             "idx_roms_generated_first_release_date_sort",
@@ -832,12 +830,9 @@ class Rom(BaseModel):
         BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
     )
 
-    # Companions the ascending gallery sort leads with, so a rom whose
-    # metadata is unset lands last off an index. MariaDB and MySQL have no
-    # NULLS LAST, and the `column IS NULL` term that stands in for it is an
-    # expression the sort cannot read an index through. `IS NULL` never
-    # evaluates to NULL, so these are booleans despite a nullable DDL:
-    # MariaDB takes no NOT NULL on a generated column.
+    # The ascending gallery sort leads with these so unset metadata lands
+    # last off an index. Never NULL despite the nullable DDL, which MariaDB
+    # forces: it takes no NOT NULL on a generated column.
     generated_first_release_date_unset: Mapped[bool] = mapped_column(
         Boolean(), server_default=FetchedValue(), server_onupdate=FetchedValue()
     )

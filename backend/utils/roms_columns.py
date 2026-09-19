@@ -188,10 +188,9 @@ class GeneratedColumn:
     def unset_flag(self) -> "GeneratedColumn":
         """This column's companion flag, over the same expression.
 
-        PostgreSQL forbids a generated column that reads another one, so the
-        expression is repeated rather than referenced. That also keeps the
-        value column droppable: a reference would make the engine refuse the
-        DROP that `rebuild_generated_columns` issues.
+        Repeated rather than referenced: PostgreSQL forbids one generated
+        column reading another, and a reference would block the DROP that
+        `rebuild_generated_columns` issues.
         """
         return GeneratedColumn(
             rom_unset_flag_column(self.name),
@@ -575,14 +574,11 @@ def _drop_index_sql(conn: sa.Connection, name: str) -> str:
 
 
 def _restore_generated_indexes(conn: sa.Connection) -> None:
-    """Bring every generated-column index back to the columns it should span.
+    """Create or re-widen every generated-column index the table is missing.
 
-    A rebuild leaves the two engines in different states: PostgreSQL drops an
-    index along with the column it reads, while MariaDB and MySQL narrow a
-    composite one to the columns that survive. So an index is recreated when
-    it is missing *or* when it no longer spans what it should, not merely
-    when its name is absent. Idempotent, which also makes this the step that
-    brings an existing install up to the current set.
+    A rebuild drops the index on PostgreSQL but narrows it on MariaDB and
+    MySQL, so this matches on the columns spanned, not just the name. Being
+    idempotent, it also brings an existing install up to the current set.
     """
     existing = {
         index["name"]: tuple(c for c in index["column_names"] if c)
