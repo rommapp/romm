@@ -273,6 +273,36 @@ async def test_apply_patch_rejects_oversized_uncompressed_member(
 
 
 @pytest.mark.asyncio
+async def test_apply_patch_stops_a_member_that_outgrows_its_declared_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # An archive zipfile cannot decode is read through 7zz, which decompresses
+    # it itself, so the entry's declared size is only the uploader's word.
+    source = tmp_path / "game.zip"
+    _write_zip(source, {"game.sfc": b"rom"})
+    monkeypatch.setattr(rom_patcher, "ROM_PATCHER_MAX_FILE_SIZE_BYTES", 8)
+
+    pulled = 0
+
+    def _lying_reader(*_args, **_kwargs):
+        def _chunks():
+            nonlocal pulled
+            for _ in range(100):
+                pulled += 1
+                yield b"X" * 16
+
+        yield "game.sfc", 3, _chunks()
+
+    monkeypatch.setattr(rom_patcher, "read_zip_archive_files", _lying_reader)
+
+    with pytest.raises(PatcherInputError, match="uncompressed ROM is too large"):
+        await apply_patch(source, tmp_path / "patch.bps", tmp_path / "patched.zip")
+
+    # Bailed on the first chunk past the budget rather than writing all 1600 bytes.
+    assert pulled == 1
+
+
+@pytest.mark.asyncio
 async def test_apply_patch_rejects_oversized_patched_member(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
