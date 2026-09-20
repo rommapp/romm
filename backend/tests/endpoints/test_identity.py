@@ -328,6 +328,36 @@ async def test_a_failed_revocation_leaves_the_password_unchanged(
 
 
 @pytest.mark.asyncio
+async def test_a_failed_post_write_revocation_does_not_fail_the_change(
+    client, access_token: str, editor_user: User
+):
+    """The write has committed by the second pass, so its failure is logged."""
+    original_hash = editor_user.hashed_password
+    calls: list[str] = []
+
+    async def revoke_then_fail(user_id: str) -> None:
+        calls.append(user_id)
+        if len(calls) == 2:
+            raise ConnectionError("redis went down mid-update")
+
+    with mock.patch.object(
+        RedisSessionMiddleware, "clear_user_sessions", side_effect=revoke_then_fail
+    ):
+        response = client.put(
+            f"/api/users/{editor_user.id}",
+            data={"password": "reset_with_redis_failing_late"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == HTTPStatus.OK
+    assert len(calls) == 2
+
+    db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user is not None
+    assert db_user.hashed_password != original_hash
+
+
+@pytest.mark.asyncio
 async def test_sessions_are_revoked_on_both_sides_of_the_write(
     client, access_token: str, editor_user: User
 ):
