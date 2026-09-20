@@ -31,6 +31,11 @@ import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 8;
+/** How close to the scroller's edge the finger has to get before a paint
+ *  drag starts pulling the list along, and how fast it pulls at the very
+ *  edge. Below that band the drag is a plain paint. */
+const EDGE_BAND_PX = 72;
+const EDGE_MAX_SPEED_PX = 14;
 
 interface LongPressState {
   romId: number;
@@ -51,11 +56,55 @@ let painted: Set<number> | null = null;
 /** True between a tracked touch going down and coming back up. The long-press
  *  state outlives that, waiting for the click it has to swallow. */
 let pressActive = false;
+/** Where the finger is, for the auto-scroll to keep painting from. */
+let paintPoint: { x: number; y: number } | null = null;
+let paintScroller: HTMLElement | null = null;
+let edgeFrame: number | null = null;
+
+function stopEdgeScroll() {
+  if (edgeFrame !== null) cancelAnimationFrame(edgeFrame);
+  edgeFrame = null;
+  paintPoint = null;
+  paintScroller = null;
+}
 
 function resetLongPress() {
   if (longPress?.timer) clearTimeout(longPress.timer);
   longPress = null;
   painted = null;
+  stopEdgeScroll();
+}
+
+/** Nearest ancestor that actually scrolls, which is what the drag pulls. */
+function scrollableAncestor(el: Element | null): HTMLElement | null {
+  for (let node = el; node instanceof HTMLElement; node = node.parentElement) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      node.scrollHeight > node.clientHeight
+    ) {
+      return node;
+    }
+  }
+  return null;
+}
+
+/** Px to scroll this frame: nothing until the finger enters the edge band,
+ *  then proportional to how far into it the finger has gone. Exported for
+ *  its own test; the drag itself reads it through `runEdgeScroll`. */
+export function edgeSpeed(y: number, top: number, bottom: number): number {
+  if (y < top + EDGE_BAND_PX) {
+    return (
+      -EDGE_MAX_SPEED_PX * Math.min(1, (top + EDGE_BAND_PX - y) / EDGE_BAND_PX)
+    );
+  }
+  if (y > bottom - EDGE_BAND_PX) {
+    return (
+      EDGE_MAX_SPEED_PX *
+      Math.min(1, (y - (bottom - EDGE_BAND_PX)) / EDGE_BAND_PX)
+    );
+  }
+  return 0;
 }
 
 export function useGallerySelectionInput() {
@@ -150,11 +199,29 @@ export function useGallerySelectionInput() {
       ?.closest<HTMLElement>("[data-rom-position]");
     if (!host) return;
     const position = Number(host.dataset.romPosition);
+    paintScroller ??= scrollableAncestor(host);
     if (!Number.isInteger(position) || painted.has(position)) return;
     const rom = galleryRoms.getRomAt(position);
     if (!rom) return;
     painted.add(position);
     selection.selectMany([rom]);
+  }
+
+  /** While the finger sits in the edge band, pull the list past it and keep
+   *  painting whatever arrives under it, so a drag can run past one screen. */
+  function runEdgeScroll() {
+    edgeFrame = null;
+    const scroller = paintScroller;
+    const point = paintPoint;
+    if (!painted || !scroller || !point) return;
+    const { top, bottom } = scroller.getBoundingClientRect();
+    const speed = edgeSpeed(point.y, top, bottom);
+    if (speed !== 0) {
+      const before = scroller.scrollTop;
+      scroller.scrollTop += speed;
+      if (scroller.scrollTop !== before) paintAt(point.x, point.y);
+    }
+    edgeFrame = requestAnimationFrame(runEdgeScroll);
   }
 
   /** True while a long press has turned into a drag that paints rows. */
@@ -175,7 +242,9 @@ export function useGallerySelectionInput() {
     // events stay with the element that got the press, so the row under the
     // finger is looked up by coordinates.
     if (longPress.consumed) {
+      paintPoint = { x: event.clientX, y: event.clientY };
       paintAt(event.clientX, event.clientY);
+      if (edgeFrame === null) edgeFrame = requestAnimationFrame(runEdgeScroll);
       return;
     }
     const dx = Math.abs(event.clientX - longPress.startX);
@@ -190,6 +259,7 @@ export function useGallerySelectionInput() {
 
   function handlePointerEnd() {
     pressActive = false;
+    stopEdgeScroll();
     // If the timer hasn't fired yet, the press was a normal tap —
     // cancel so the click event passes through unchanged. If it did
     // fire (`consumed: true`), keep the state so the synthetic click

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { rom } from "@/v2/components/Gallery/listRowFixture";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
-import { useGallerySelectionInput } from "./index";
+import { edgeSpeed, useGallerySelectionInput } from "./index";
 
 const LONG_PRESS_MS = 500;
 
@@ -122,5 +122,35 @@ describe("useGallerySelectionInput long press", () => {
     vi.advanceTimersByTime(LONG_PRESS_MS);
 
     expect(storeGallerySelection().count).toBe(0);
+  });
+});
+
+describe("edgeSpeed", () => {
+  const TOP = 100;
+  const BOTTOM = 700;
+
+  it("stays still away from both edges", () => {
+    expect(edgeSpeed(400, TOP, BOTTOM)).toBe(0);
+  });
+
+  it("pulls up near the top and down near the bottom", () => {
+    expect(edgeSpeed(TOP + 10, TOP, BOTTOM)).toBeLessThan(0);
+    expect(edgeSpeed(BOTTOM - 10, TOP, BOTTOM)).toBeGreaterThan(0);
+  });
+
+  // Deeper into the band means faster, so a finger parked at the very edge
+  // pulls hardest and one just inside it barely moves.
+  it("speeds up the deeper into the band the finger goes", () => {
+    const shallow = edgeSpeed(BOTTOM - 60, TOP, BOTTOM);
+    const deep = edgeSpeed(BOTTOM - 5, TOP, BOTTOM);
+
+    expect(deep).toBeGreaterThan(shallow);
+    expect(shallow).toBeGreaterThan(0);
+  });
+
+  it("caps the pull past the edge", () => {
+    expect(edgeSpeed(BOTTOM + 500, TOP, BOTTOM)).toBe(
+      edgeSpeed(BOTTOM, TOP, BOTTOM),
+    );
   });
 });
