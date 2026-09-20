@@ -15,7 +15,14 @@ from starlette.requests import Request
 from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from handler.auth.constants import SESSION_COOKIE_NAME
+
+def _session_authenticated(request: Request) -> bool:
+    """Whether a session naming a user reached this request.
+
+    Read after the authentication middleware, which leaves the session empty
+    when the cookie is stale and clears it when its user is gone or disabled.
+    """
+    return bool((request.scope.get("session") or {}).get("sub"))
 
 
 class CSRFMiddleware:
@@ -35,7 +42,6 @@ class CSRFMiddleware:
         cookie_httponly: bool = False,
         cookie_samesite: str = "lax",
         header_name: str = "x-csrftoken",
-        session_cookie_name: str = SESSION_COOKIE_NAME,
     ) -> None:
         if safe_methods is None:
             safe_methods = {"GET", "HEAD", "OPTIONS", "TRACE"}
@@ -54,7 +60,6 @@ class CSRFMiddleware:
         self.cookie_httponly = cookie_httponly
         self.cookie_samesite = cookie_samesite
         self.header_name = header_name
-        self.session_cookie_name = session_cookie_name
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         # Skip CSRF check if not an HTTP request, like websockets
@@ -64,12 +69,11 @@ class CSRFMiddleware:
 
         request = Request(scope, receive)
 
-        # HybridAuthBackend resolves the session cookie ahead of this header, so
-        # a request carrying both authenticates as the cookie's owner.
+        # HybridAuthBackend resolves the session before this header and returns
+        # as soon as it does, so a request its session authenticated runs as the
+        # cookie's owner and the header is not what let it in.
         auth_scheme = request.headers.get("Authorization", "").split(" ", 1)[0].lower()
-        if auth_scheme in ("bearer", "basic") and not request.cookies.get(
-            self.session_cookie_name
-        ):
+        if auth_scheme in ("bearer", "basic") and not _session_authenticated(request):
             await self.app(scope, receive, send)
             return None
 
