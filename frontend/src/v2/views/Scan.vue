@@ -51,6 +51,16 @@ import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { scanNeedsMetadataSource, type ScanType } from "@/v2/types/scan";
 
 const { t } = useI18n();
+
+// The tooltip's paragraph breaks arrive as `<br>` in every locale, and that is
+// the only markup in it, so split on them rather than render the string as
+// HTML.
+const hashesDisabledTooltip = computed(() =>
+  t("scan.hashes-disabled-tooltip")
+    .split(/(?:<br\s*\/?>\s*)+/i)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean),
+);
 const { startScan } = useScanTrigger();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
@@ -591,10 +601,13 @@ function stopScan() {
                     class="r-v2-scan-card__hash-info"
                   />
                 </template>
-                <span
-                  class="r-v2-scan-card__hash-info-text"
-                  v-html="t('scan.hashes-disabled-tooltip')"
-                />
+                <span class="r-v2-scan-card__hash-info-text">
+                  <span
+                    v-for="(paragraph, i) in hashesDisabledTooltip"
+                    :key="i"
+                    >{{ paragraph }}</span
+                  >
+                </span>
               </RTooltip>
             </span>
           </RAlert>
@@ -929,6 +942,12 @@ function stopScan() {
 }
 .r-v2-scan-card__hash-info:hover {
   opacity: 1;
+}
+/* One paragraph per line, the blank line the copy used to carry as `<br><br>`. */
+.r-v2-scan-card__hash-info-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-2);
 }
 
 /* Providers split into General / Specific groups. Each group has a
