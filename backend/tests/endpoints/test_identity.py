@@ -2,6 +2,7 @@ import base64
 import json
 from datetime import timedelta
 from http import HTTPStatus
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -365,7 +366,9 @@ async def test_sessions_are_revoked_on_both_sides_of_the_write(
     calls: list[str] = []
     real_update = DBUsersHandler.update_user
 
-    def record_update(self, id, data, *args, **kwargs):
+    def record_update(
+        self: DBUsersHandler, id: int, data: dict, *args: Any, **kwargs: Any
+    ) -> User:
         # `set_last_active` writes on every authenticated request; only the
         # credential write is being ordered here.
         if "hashed_password" in data:
