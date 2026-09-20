@@ -1,14 +1,8 @@
-// useListExpansion — one open detail panel at a time in a list-mode table.
+// useListExpansion: one open detail panel at a time in a list-mode table.
 //
-// Every surface that renders `GameListRow` (the gallery shell, Settings →
-// Missing games) needs the same two things: which row is open, and the height
-// that row now takes, since the virtualiser reserves each row's slot up front.
-// Keeping both here is what makes the two tables behave identically.
-//
-// The panel rolls open and shut like a blind, which only reads right if the
-// reserved slot grows and shrinks with it — a panel animating inside a slot
-// that already jumped to its full height just fades. So the height is animated
-// here, and both the row's panel and the virtualiser read the same number.
+// The panel rolls open like a blind, which only reads right if the slot the
+// virtualiser reserved grows with it. So the height is animated here, and the
+// row's panel and the virtualiser read the same number.
 import { onScopeDispose, ref } from "vue";
 import {
   LIST_ROW_DETAIL_HEIGHT_PX,
@@ -22,7 +16,7 @@ const DURATION_MS = parseInt(motion.med, 10);
 
 export function useListExpansion() {
   const { enabled: reducedMotion } = useReducedMotion();
-  /** The row painting a panel — set while it rolls shut, too. */
+  /** The row painting a panel, set while it rolls shut too. */
   const expandedPosition = ref<number | null>(null);
   /** How much of the panel is currently showing, in px. */
   const openHeight = ref(0);
@@ -49,7 +43,7 @@ export function useListExpansion() {
     return position != null && expandedPosition.value === position;
   }
 
-  /** Panel height for the row at `position` — 0 for every other row. */
+  /** Panel height for the row at `position`, 0 for every other row. */
   function detailHeight(position: number | null | undefined): number {
     return isExpanded(position) ? openHeight.value : 0;
   }

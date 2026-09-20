@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="K extends string">
-// ListSortMenu — the sort control a list header shows once its columns are
+// ListSortMenu: the sort control a list header shows once its columns are
 // gone (phones and tablets). Shared by the gallery, platforms and collections
 // headers, so the three can't answer "what is this sorted by" three ways.
 import { RIcon, RMenu, RMenuItem } from "@v2/lib";

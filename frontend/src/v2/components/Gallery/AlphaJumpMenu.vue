@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// AlphaJumpMenu — the gallery's jump-to-letter on phones and tablets, where
+// AlphaJumpMenu: the gallery's jump-to-letter on phones and tablets, where
 // the AlphaStrip column would eat into the grid: a toolbar button that opens
 // the same letters as a grid.
 import { RBtn, RMenu } from "@v2/lib";

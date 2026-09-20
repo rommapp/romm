@@ -1,7 +1,7 @@
 // A minimal ease-out tween over requestAnimationFrame, shared by the two
 // places that animate a number Vue renders (a rolling count, a panel's
-// height). Not a composable: it takes the duration already resolved, so
-// reduced motion and the motion tokens stay the caller's business.
+// height). The duration arrives already resolved, so reduced motion and the
+// motion tokens stay the caller's business.
 
 function easeOut(t: number): number {
   return 1 - (1 - t) ** 3;

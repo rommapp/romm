@@ -638,8 +638,8 @@ watch(virtualItems, () => {
 });
 
 // A jump holds its letter under the toolbar until the user scrolls again, so
-// a slow landing window still ends up anchored. The cap is a backstop for the
-// viewer who walks away: past it the gallery is nobody's to move.
+// a slow landing window still ends up anchored. The cap covers the viewer who
+// walks away mid-jump.
 const LETTER_JUMP_MAX_MS = 15000;
 const jumpLetter = ref<string | null>(null);
 let jumpDeadline = 0;
@@ -693,11 +693,10 @@ function reanchorToJump() {
   if (letter) anchorLetter(letter, false);
 }
 
-// Three things move a letter out from under the toolbar after the jump: the
-// landing window arriving, the covers it brings re-packing the rows, and the
-// view header rendering late, which grows the band above the virtualised
-// rows. Re-anchor on each. Watching the packed items rather than the letter
-// map keeps that O(n) map lazy: it is only built when a jump needs it.
+// Three things move a letter out from under the toolbar after a jump: the
+// landing window arriving, the covers re-packing the rows, and the view header
+// rendering late. Re-anchor on each. Watching the packed items rather than
+// `letterToIndex` keeps that map lazy, built only when a jump needs it.
 watch(
   [
     virtualItems,

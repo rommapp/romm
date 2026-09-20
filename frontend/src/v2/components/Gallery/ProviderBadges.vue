@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ProviderBadges — the metadata providers a ROM matched, as tooltipped
+// ProviderBadges: the metadata providers a ROM matched, as tooltipped
 // logo chips. Rendered twice by GameListRow (the column layout's title cell
 // and the compact row's detail panel), so it lives here rather than twice
 // in that template.

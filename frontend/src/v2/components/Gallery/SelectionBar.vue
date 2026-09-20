@@ -539,8 +539,7 @@ function clear() {
   pointer-events: none;
   opacity: 0;
   /* Rises with a little overshoot when the first ROM is picked, and drops
-     straight back out. (`--r-motion-mid` never existed, so this transition
-     had been resolving to 0s and the bar appeared in one frame.) */
+     straight back out. */
   transition:
     transform var(--r-motion-med) var(--r-motion-ease-back),
     opacity var(--r-motion-fast) var(--r-motion-ease-out);

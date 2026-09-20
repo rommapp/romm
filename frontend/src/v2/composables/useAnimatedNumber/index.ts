@@ -1,11 +1,8 @@
-// useAnimatedNumber — a count that rolls up to its new value instead of
+// useAnimatedNumber: a count that rolls up to its new value instead of
 // snapping to it, so a number that changed is a number you noticed.
 //
-// Ported from the same composable in Berserk (itself from Turtletrips), with
-// two changes for this codebase: the duration comes from the motion tokens,
-// and reduced motion is read through `useReducedMotion`, which also honours
-// the in-app setting — the global CSS guard can't reach a ref driven by
-// requestAnimationFrame.
+// Reduced motion comes from `useReducedMotion` rather than the global CSS
+// guard, which cannot reach a ref driven by requestAnimationFrame.
 import { onScopeDispose, ref, watch, type Ref } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { motion } from "@/v2/tokens";

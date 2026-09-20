@@ -48,7 +48,7 @@ describe("list row on phones and tablets", () => {
 
     expect(wrapper.find(".game-list-row__compact").exists()).toBe(true);
     expect(wrapper.find(".game-list-row__cell").exists()).toBe(false);
-    // Size, release year and rating — the columns worth scanning. Length
+    // Size, release year and rating, the columns worth scanning. Length
     // formats through the real i18n bundle, so it sits out of this one.
     expect(wrapper.find(".game-list-row__facts").text()).toBe(
       "4 MB  ·  1995  ·  ★ 9.1",

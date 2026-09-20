@@ -74,8 +74,7 @@ interface Props {
    * stays aligned with the column header above it. */
   showPlatformColumn?: boolean;
   /** Offer the chevron that opens the detail panel (phones and tablets).
-   * Only for surfaces whose virtualiser accounts for the taller row —
-   * both callers do, via `useListExpansion`. */
+   * Only for surfaces whose virtualiser reserves the taller row. */
   expandable?: boolean;
   /** Whether this row's detail panel is open. */
   expanded?: boolean;
@@ -734,8 +733,7 @@ function onRowPointerEnd() {
 
 <style scoped>
 .game-list-row {
-  /* An <a> is inline by default, and the compact branch is plain flow: without
-     this the row shrink-wraps its content and the bleed below does nothing. */
+  /* An inline <a> would shrink-wrap its content and swallow the bleed. */
   display: block;
   /* Runs to the screen edges wherever the shell asks for it. */
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));

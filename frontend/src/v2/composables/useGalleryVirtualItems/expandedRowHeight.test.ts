@@ -26,7 +26,7 @@ function rowHeights(open: number): number[] {
     .map((row) => getItemHeight(row));
 }
 
-describe("useGalleryVirtualItems — list row with a detail panel", () => {
+describe("useGalleryVirtualItems: list row with a detail panel", () => {
   it("keeps every row at the base height while none is open", () => {
     expect(rowHeights(0)).toEqual([
       LIST_ROW_HEIGHT_PX,
