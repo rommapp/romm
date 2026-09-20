@@ -66,7 +66,9 @@ dev = [
   "ipdb ~= 0.13",
   "ipykernel ~= 6.29",
   "memray ~= 1.15",
-  "mypy ~= 1.19",
+  # Keep in step with the mypy version in .trunk/trunk.yaml, which is what CI
+  # enforces; a skew means local runs disagree with the build.
+  "mypy ~= 2.3",
   "pyinstrument ~= 5.0",
   "types-colorama ~= 0.4",
   "types-passlib ~= 1.7",
