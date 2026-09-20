@@ -294,6 +294,7 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 // cards instead of one stretched card per row:
 //   inset  = scroller padding (--r-row-pad × 2) + AlphaStrip column (36)
 //            → xs 14·2+36=64, sm 20·2+36=76, default 36·2+36=108
+//            + the scroller's scrollbar gutter (`scrollbarWidth`)
 //   card   = matches the `--r-card-art-w` the shell sets per breakpoint
 //            (108 on xs, 158 otherwise) so the JS row-chunking and the
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
@@ -304,10 +305,14 @@ const sectionEl = ref<HTMLElement | null>(null);
 const CARD_GAP_PX = 12;
 const cardWidth = () => (xs.value ? 130 : 158);
 const cardHeight = () => Math.round(cardWidth() / (2 / 3));
+// Gutter the scroller's scrollbar occupies. Only the browser knows it:
+// classic scrollbars take real width, overlay ones (touch, macOS) take none.
+const scrollbarWidth = ref(0);
 const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   cardWidth,
   gap: CARD_GAP_PX,
-  inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
+  inset: () =>
+    (xs.value ? 64 : smAndDown.value ? 76 : 108) + scrollbarWidth.value,
 });
 
 // Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
@@ -388,6 +393,12 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
+
+// Re-measured on resize because browser zoom rescales the scrollbar.
+function measureScrollbar() {
+  const el = scrollerRef.value?.containerEl;
+  if (el) scrollbarWidth.value = el.offsetWidth - el.clientWidth;
+}
 
 // ── Toolbar ─────────────────────────────────────────────────────────
 const scrollTopNow = computed(() => scrollerRef.value?.scrollTop ?? 0);
@@ -718,11 +729,14 @@ let prevBodyOverflow: string | null = null;
 onMounted(() => {
   prevBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
+  measureScrollbar();
   window.addEventListener("keydown", onShellKey);
+  window.addEventListener("resize", measureScrollbar);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onShellKey);
+  window.removeEventListener("resize", measureScrollbar);
   // Selection is gallery-scoped: leaving the shell drops it so a
   // navigation back to a non-gallery view (Home, Settings) doesn't
   // keep stale picks alive.
@@ -796,6 +810,7 @@ defineExpose({
       'r-v2-shell--floating': toolbarPosition === 'floating',
     }"
     :style="{
+      '--r-v2-shell-sbw': `${scrollbarWidth}px`,
       '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
       '--r-v2-shell-pin-distance': `${pinDistance}px`,
       '--r-cover-ratio': coverAspectRatio,
@@ -809,7 +824,7 @@ defineExpose({
       :get-item-key="galleryItemKey"
       :overscan="virtualOverscan"
       :min-content-width="layout === 'list' ? listMinWidth : undefined"
-      class="r-v2-shell__scroller r-v2-scroll-hidden"
+      class="r-v2-shell__scroller"
       :tabindex="-1"
       @update:viewport-range="onViewportRangeChange"
     >
@@ -1044,6 +1059,11 @@ html[data-bp~="xs"] .r-v2-shell {
   scroll-timeline: --r-v2-shell-scroll block;
   padding: 0 calc(var(--r-row-pad) + var(--r-v2-shell-strip)) 60px
     var(--r-row-pad);
+  /* The gallery locks the document's overflow, so this is the only scrollbar
+     the user has on these routes. `stable` reserves its gutter up front:
+     without it the bar appears only once the rows overflow and every row
+     re-packs at that moment. */
+  scrollbar-gutter: stable;
 }
 
 .r-v2-shell__item {
@@ -1123,11 +1143,12 @@ html[data-bp~="xs"] .r-v2-shell {
 }
 
 /* The strip overlays the scroller's right gutter from the pinned toolbar's
-   bottom edge, shifted down with the toolbar until it pins. */
+   bottom edge, shifted down with the toolbar until it pins. Inset by the
+   scrollbar's gutter so it never sits on top of the thumb. */
 .r-v2-shell .r-v2-shell__strip {
   position: absolute;
   top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h));
-  right: 0;
+  right: var(--r-v2-shell-sbw, 0px);
   bottom: 0;
   z-index: 5;
   justify-content: flex-start;
@@ -1172,9 +1193,11 @@ html[data-bp~="xs"] .r-v2-shell {
   }
 }
 
-/* The section runs under the top bar; keep the floating dock below it. */
+/* The section runs under the top bar; keep the floating dock below it, and
+   clear of the scrollbar so the thumb stays draggable along its whole run. */
 .r-v2-shell .r-v2-shell__floating {
   top: calc(var(--r-nav-h) + 14px);
+  right: calc(14px + var(--r-v2-shell-sbw, 0px));
 }
 
 /* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so
