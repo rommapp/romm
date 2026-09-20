@@ -42,7 +42,7 @@ describe("useAnimatedNumber", () => {
     reduced.value = false;
     const source = ref<number | null>(0);
     const scope = effectScope();
-    const seen: (number | null)[] = [];
+    const seen: (string | number | null)[] = [];
     let display!: ReturnType<typeof useAnimatedNumber>;
     scope.run(() => {
       display = useAnimatedNumber(() => source.value, { duration: 60 });

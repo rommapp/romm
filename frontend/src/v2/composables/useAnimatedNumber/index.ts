@@ -9,6 +9,9 @@
 import { onScopeDispose, ref, watch, type Ref } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { motion } from "@/v2/tokens";
+import { tween } from "@/v2/utils/tween";
+
+type Source = string | number | null | undefined;
 
 interface Options {
   /** Roll duration in ms. Defaults to the `slow` motion token. */
@@ -17,59 +20,53 @@ interface Options {
   decimals?: number;
 }
 
+/**
+ * Follows `source`, rolling through the numbers on the way. Anything already
+ * formatted (a size, a date, a range) passes straight through, so a caller
+ * can hand over a value it doesn't have to classify first.
+ */
 export function useAnimatedNumber(
-  source: () => number | null | undefined,
+  source: () => Source,
   options: Options = {},
-): Ref<number | null> {
+): Ref<string | number | null> {
   const { enabled: reducedMotion } = useReducedMotion();
   const duration = options.duration ?? parseInt(motion.slow, 10);
   const decimals = options.decimals ?? 0;
-  const display = ref<number | null>(null);
-  let frame: number | null = null;
+  const display = ref<string | number | null>(null);
+  let cancel: (() => void) | null = null;
 
   function stop() {
-    if (frame !== null) cancelAnimationFrame(frame);
-    frame = null;
-  }
-
-  function animate(from: number, to: number) {
-    if (duration <= 0 || reducedMotion.value) {
-      display.value = to;
-      return;
-    }
-    // Paint the starting value now: the first frame is a whole render away,
-    // and in a background tab it never comes at all.
-    display.value = from;
-    const start = performance.now();
-    const step = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - (1 - t) ** 3;
-      // Rounding is cosmetic, for the frames in between: a raw tween value
-      // like 1567.4972637 would paint in full and widen the layout mid-roll.
-      display.value =
-        t < 1 ? Number((from + (to - from) * eased).toFixed(decimals)) : to;
-      frame = t < 1 ? requestAnimationFrame(step) : null;
-    };
-    frame = requestAnimationFrame(step);
+    cancel?.();
+    cancel = null;
   }
 
   watch(
     source,
     (target) => {
       stop();
-      // A missing value is a dash at the call site, not a number to roll to.
-      if (target == null) {
-        display.value = null;
+      // Nothing to roll through: a missing value is a dash at the call site,
+      // and a formatted one is already what the caller wants painted.
+      if (target == null || typeof target === "string") {
+        display.value = target ?? null;
         return;
       }
       // The first value rolls up from zero, which is the whole point of the
       // effect: a count that arrives is a count you watch land.
-      const from = display.value ?? 0;
+      const from = typeof display.value === "number" ? display.value : 0;
       if (from === target) {
         display.value = target;
         return;
       }
-      animate(from, target);
+      cancel = tween({
+        from,
+        to: target,
+        durationMs: reducedMotion.value ? 0 : duration,
+        // Rounding is cosmetic, for the frames in between: a raw tween value
+        // like 1567.4972637 would paint in full and widen the layout mid-roll.
+        onUpdate: (value) => (display.value = Number(value.toFixed(decimals))),
+        // The value it lands on is the caller's, decimals and all.
+        onDone: () => (display.value = target),
+      });
     },
     { immediate: true },
   );

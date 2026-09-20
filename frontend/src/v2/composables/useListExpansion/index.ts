@@ -15,13 +15,10 @@ import {
   listRowHeight,
 } from "@/v2/components/Gallery/listColumns";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
+import { motion } from "@/v2/tokens";
+import { tween } from "@/v2/utils/tween";
 
-/** Matches `--r-motion-med`, the duration the rest of v2 opens things at. */
-const DURATION_MS = 220;
-
-function easeOut(t: number): number {
-  return 1 - (1 - t) ** 3;
-}
+const DURATION_MS = parseInt(motion.med, 10);
 
 export function useListExpansion() {
   const { enabled: reducedMotion } = useReducedMotion();
@@ -30,33 +27,22 @@ export function useListExpansion() {
   /** How much of the panel is currently showing, in px. */
   const openHeight = ref(0);
 
-  let frame: number | null = null;
+  let cancelAnimation: (() => void) | null = null;
 
   function stopAnimation() {
-    if (frame !== null) cancelAnimationFrame(frame);
-    frame = null;
+    cancelAnimation?.();
+    cancelAnimation = null;
   }
 
   function animateTo(target: number, onDone?: () => void) {
     stopAnimation();
-    if (reducedMotion.value) {
-      openHeight.value = target;
-      onDone?.();
-      return;
-    }
-    const from = openHeight.value;
-    const start = performance.now();
-    const step = (now: number) => {
-      const t = Math.min(1, (now - start) / DURATION_MS);
-      openHeight.value = from + (target - from) * easeOut(t);
-      if (t < 1) {
-        frame = requestAnimationFrame(step);
-        return;
-      }
-      frame = null;
-      onDone?.();
-    };
-    frame = requestAnimationFrame(step);
+    cancelAnimation = tween({
+      from: openHeight.value,
+      to: target,
+      durationMs: reducedMotion.value ? 0 : DURATION_MS,
+      onUpdate: (value) => (openHeight.value = value),
+      onDone,
+    });
   }
 
   function isExpanded(position: number | null | undefined): boolean {
@@ -92,7 +78,6 @@ export function useListExpansion() {
   onScopeDispose(stopAnimation);
 
   return {
-    expandedPosition,
     isExpanded,
     detailHeight,
     toggle,

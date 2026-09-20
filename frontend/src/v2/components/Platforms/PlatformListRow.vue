@@ -51,7 +51,6 @@ const { t } = useI18n();
 // Phones and tablets have no room for the columns: the row goes two-line,
 // the same shape the collections list takes.
 const { smAndDown } = useBreakpoint();
-const compact = computed(() => smAndDown.value);
 const iconEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
 
@@ -90,8 +89,8 @@ function onRowClick(e: MouseEvent) {
 
 <template>
   <a
-    v-if="compact"
-    class="plat-list-row plat-list-row--compact"
+    v-if="smAndDown"
+    class="plat-list-row plat-list-row--compact r-list-compact"
     :href="href"
     :aria-label="t('common.open-item', { name: displayName })"
     @click="onRowClick"
@@ -105,20 +104,20 @@ function onRowClick(e: MouseEvent) {
         :show-tooltip="false"
       />
     </div>
-    <div class="plat-list-row__stack">
+    <div class="r-list-compact__stack">
       <div class="plat-list-row__name">{{ displayName }}</div>
-      <div class="plat-list-row__facts">
+      <div class="r-list-compact__facts">
         <span>{{
           t("collection.games-count", romCount ?? 0, {
             named: { n: romCount ?? 0 },
           })
         }}</span>
         <template v-if="categoryLabel">
-          <span class="plat-list-row__dot">·</span>
+          <span class="r-list-compact__dot">·</span>
           <span>{{ categoryLabel }}</span>
         </template>
         <template v-if="familyName">
-          <span class="plat-list-row__dot">·</span>
+          <span class="r-list-compact__dot">·</span>
           <span>{{ familyName }}</span>
         </template>
       </div>
@@ -229,39 +228,9 @@ function onRowClick(e: MouseEvent) {
 
 /* Compact (phones / tablets): icon + name, and the columns collapse into
    one line of facts. */
-.plat-list-row--compact {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-3);
-  padding: 0 var(--r-row-pad);
-}
 /* Clear of the screen edge, which the row itself runs to. */
 .plat-list-row--compact .plat-list-row__playable {
   margin-inline-end: var(--r-space-2);
-}
-.plat-list-row__stack {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-  flex: 1;
-  min-width: 0;
-}
-.plat-list-row__facts {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: var(--r-font-size-sm);
-  color: var(--r-color-fg-muted);
-  min-width: 0;
-}
-.plat-list-row__facts > span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.plat-list-row__dot {
-  color: var(--r-color-fg-faint);
 }
 
 .plat-list-row:focus-visible {

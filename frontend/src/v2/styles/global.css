@@ -365,6 +365,41 @@ html.r-v2-reduced-motion {
   pointer-events: none;
 }
 
+/* Compact list rows (phones and tablets): the anatomy the gallery, the
+   platforms and collections indexes and the loading placeholder all share.
+   Per-surface deltas (a row's height and border, a clamped title) stay in the
+   component. */
+.r-list-compact {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-3);
+  padding: 0 var(--r-row-pad);
+}
+.r-list-compact__stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.r-list-compact__facts {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-muted);
+  min-width: 0;
+}
+.r-list-compact__facts > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r-list-compact__dot {
+  color: var(--r-color-fg-faint);
+}
+
 /* Column both gallery Settings tabs (platform, collection) render in, so they
    share one width. */
 .r-settings-column {

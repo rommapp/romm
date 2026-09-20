@@ -462,6 +462,8 @@ export const layout = {
   // `<GameCard size="xs" />` — no dedicated list-cover token.)
   listRowHeight: "80px",
   listHeaderHeight: "40px",
+  // The row's leading tick column, narrower on phones (see global.css).
+  listSelectWidth: "36px",
   // Height of a list row's expanded detail panel on phones and tablets,
   // where the row collapses to two lines and the columns move in here.
   // Fixed so the virtualiser can offset the rows below it exactly.

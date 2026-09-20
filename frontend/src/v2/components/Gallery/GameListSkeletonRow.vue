@@ -45,11 +45,10 @@ const titleGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
 // Phones and tablets render the compact two-line row, so the placeholder
 // follows it instead of the columns.
 const { smAndDown } = useBreakpoint();
-const compact = computed(() => smAndDown.value);
 </script>
 
 <template>
-  <div v-if="compact" class="r-glr-skel r-glr-skel--compact">
+  <div v-if="smAndDown" class="r-glr-skel r-glr-skel--compact r-list-compact">
     <!-- Stands in for the compact row's tick column, or the cover would start
          further left here than in the row this replaces. -->
     <div class="r-glr-skel__select" />
@@ -59,7 +58,7 @@ const compact = computed(() => smAndDown.value);
         :height="LIST_COVER_HEIGHT_PX"
       />
     </div>
-    <div class="r-glr-skel__stack" :style="titleGapStyle">
+    <div class="r-list-compact__stack" :style="titleGapStyle">
       <RSkeletonBlock
         v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
         :key="i"
@@ -140,22 +139,9 @@ const compact = computed(() => smAndDown.value);
   border-bottom: 1px solid var(--r-color-border);
 }
 
-.r-glr-skel--compact {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-3);
-  padding: 0 var(--r-row-pad);
-}
 .r-glr-skel--compact > .r-glr-skel__select {
   flex: none;
-  width: var(--r-list-select-w, 36px);
-}
-.r-glr-skel__stack {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  flex: 1;
-  min-width: 0;
+  width: var(--r-list-select-w);
 }
 
 .r-glr-skel__cell {

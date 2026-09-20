@@ -156,7 +156,6 @@ function cellModifiers(key: ListColumn["key"]) {
 // Phones and tablets have no room for the columns: the row collapses to a
 // title plus the facts line, and the rest moves into the detail panel.
 const { smAndDown } = useBreakpoint();
-const compact = computed(() => smAndDown.value);
 
 /** Column header label, so the detail panel's captions and the desktop
  *  column titles can't drift apart. */
@@ -344,8 +343,8 @@ function onRowPointerEnd() {
     <template v-if="rom">
       <!-- COMPACT (phones / tablets) — two lines plus the chevron; the
            columns move into the detail panel below. -->
-      <template v-if="compact">
-        <div class="game-list-row__compact">
+      <template v-if="smAndDown">
+        <div class="game-list-row__compact r-list-compact">
           <div class="game-list-row__select">
             <RCheckbox
               v-if="!isStatic"
@@ -373,7 +372,7 @@ function onRowPointerEnd() {
             />
           </div>
 
-          <div class="game-list-row__stack">
+          <div class="r-list-compact__stack">
             <div class="game-list-row__name">
               {{ rom.name ?? rom.fs_name_no_ext }}
             </div>
@@ -701,7 +700,7 @@ function onRowPointerEnd() {
 
     <template v-else>
       <!-- Compact skeleton — same two-line shape as the compact row. -->
-      <div v-if="compact" class="game-list-row__compact">
+      <div v-if="smAndDown" class="game-list-row__compact r-list-compact">
         <div class="game-list-row__select" />
         <div class="game-list-row__cover">
           <RSkeletonBlock
@@ -709,7 +708,7 @@ function onRowPointerEnd() {
             :height="LIST_COVER_HEIGHT_PX"
           />
         </div>
-        <div class="game-list-row__stack" :style="titleSkeletonGapStyle">
+        <div class="r-list-compact__stack" :style="titleSkeletonGapStyle">
           <RSkeletonBlock
             v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
             :key="i"
@@ -815,11 +814,7 @@ html[data-bp~="sm-and-down"] .game-list-row {
   border-bottom: 0;
 }
 .game-list-row__compact {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-3);
   height: var(--r-list-row-h);
-  padding: 0 var(--r-row-pad);
   border-bottom: 1px solid var(--r-color-border);
 }
 .game-list-row--expanded .game-list-row__compact {
@@ -827,15 +822,7 @@ html[data-bp~="sm-and-down"] .game-list-row {
 }
 .game-list-row__compact > .game-list-row__select {
   flex: none;
-  width: var(--r-list-select-w, 36px);
-}
-.game-list-row__stack {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-  flex: 1;
-  min-width: 0;
+  width: var(--r-list-select-w);
 }
 /* Two lines of title: most names fit whole, and the row keeps its height
    (cover 64 + two lines + the facts line still sit inside it). */

@@ -5,8 +5,9 @@
 //
 // Phones and tablets have no columns to head (the rows go compact), so the
 // sort key they carried moves into a menu — same as the collections list.
-import { RIcon, RMenu, RMenuItem } from "@v2/lib";
+import { RIcon } from "@v2/lib";
 import { computed } from "vue";
+import ListSortMenu from "@/v2/components/shared/ListSortMenu.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   PLATFORM_COLUMNS,
@@ -26,15 +27,11 @@ const emit = defineEmits<{
 }>();
 
 const { smAndDown } = useBreakpoint();
-const compact = computed(() => smAndDown.value);
-const sortableColumns = computed(() =>
-  PLATFORM_COLUMNS.filter((col) => col.sortable),
-);
-const sortLabel = computed(
-  () =>
-    sortableColumns.value.find((col) => col.key === props.sortKey)?.label ??
-    sortableColumns.value[0]?.label ??
-    "",
+const sortOptions = computed(() =>
+  PLATFORM_COLUMNS.filter((col) => col.sortable).map((col) => ({
+    key: col.key,
+    label: col.label,
+  })),
 );
 
 function handleClick(col: PlatformColumn) {
@@ -47,46 +44,16 @@ function handleClick(col: PlatformColumn) {
 
 <template>
   <div
-    v-if="compact"
+    v-if="smAndDown"
     class="plat-list-header plat-list-header--compact"
     role="row"
   >
-    <RMenu location="bottom start" :offset="6" sheet-on-mobile>
-      <template #activator="{ props: activatorProps }">
-        <button
-          v-bind="activatorProps"
-          type="button"
-          class="plat-list-header__cell plat-list-header__cell--sortable plat-list-header__cell--active"
-        >
-          <span class="plat-list-header__label">{{ sortLabel }}</span>
-          <RIcon
-            :icon="
-              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
-            "
-            size="14"
-            class="plat-list-header__icon"
-          />
-        </button>
-      </template>
-      <RMenuItem
-        v-for="col in sortableColumns"
-        :key="col.key"
-        :label="col.label"
-        :variant="sortKey === col.key ? 'active' : 'default'"
-        @click="handleClick(col)"
-      >
-        <template #append>
-          <RIcon
-            v-if="sortKey === col.key"
-            :icon="
-              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
-            "
-            size="14"
-            class="plat-list-header__icon"
-          />
-        </template>
-      </RMenuItem>
-    </RMenu>
+    <ListSortMenu
+      :options="sortOptions"
+      :sort-key="sortKey"
+      :sort-dir="sortDir"
+      @sort="emit('sort', $event)"
+    />
   </div>
 
   <div v-else class="plat-list-header" role="row">

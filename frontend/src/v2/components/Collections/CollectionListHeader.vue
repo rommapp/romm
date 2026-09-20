@@ -3,9 +3,10 @@
 // list-mode view. Mirrors GameListHeader's anatomy: each sortable
 // column is a button that toggles asc → desc → asc on the parent's
 // sort state via the `sort` event.
-import { RIcon, RMenu, RMenuItem } from "@v2/lib";
+import { RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import ListSortMenu from "@/v2/components/shared/ListSortMenu.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   COLLECTION_LIST_COLUMNS,
@@ -36,15 +37,9 @@ const gridStyle = { gridTemplateColumns: COLLECTION_LIST_GRID_TEMPLATE };
 // Phones and tablets drop the columns (the rows go compact), so the sort
 // key they carried moves into a menu — same as the gallery's list header.
 const { smAndDown } = useBreakpoint();
-const compact = computed(() => smAndDown.value);
-const sortableColumns = computed(() =>
-  COLLECTION_LIST_COLUMNS.filter((col) => col.sortKey),
-);
-const sortLabel = computed(() =>
-  t(
-    sortableColumns.value.find((col) => col.key === props.sortKey)?.labelKey ??
-      sortableColumns.value[0]?.labelKey ??
-      "common.name",
+const sortOptions = computed(() =>
+  COLLECTION_LIST_COLUMNS.flatMap((col) =>
+    col.sortKey ? [{ key: col.sortKey, label: t(col.labelKey) }] : [],
   ),
 );
 
@@ -60,46 +55,16 @@ function handleClick(col: CollectionListColumn) {
 
 <template>
   <div
-    v-if="compact"
+    v-if="smAndDown"
     class="coll-list-header coll-list-header--compact"
     role="row"
   >
-    <RMenu location="bottom start" :offset="6" sheet-on-mobile>
-      <template #activator="{ props: activatorProps }">
-        <button
-          v-bind="activatorProps"
-          type="button"
-          class="coll-list-header__cell coll-list-header__cell--sortable coll-list-header__cell--active"
-        >
-          <span class="coll-list-header__label">{{ sortLabel }}</span>
-          <RIcon
-            :icon="
-              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
-            "
-            size="14"
-            class="coll-list-header__icon"
-          />
-        </button>
-      </template>
-      <RMenuItem
-        v-for="col in sortableColumns"
-        :key="col.key"
-        :label="t(col.labelKey)"
-        :variant="sortKey === col.sortKey ? 'active' : 'default'"
-        @click="handleClick(col)"
-      >
-        <template #append>
-          <RIcon
-            v-if="sortKey === col.sortKey"
-            :icon="
-              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
-            "
-            size="14"
-            class="coll-list-header__icon"
-          />
-        </template>
-      </RMenuItem>
-    </RMenu>
+    <ListSortMenu
+      :options="sortOptions"
+      :sort-key="sortKey"
+      :sort-dir="sortDir"
+      @sort="emit('sort', $event)"
+    />
   </div>
 
   <div v-else class="coll-list-header" :style="gridStyle" role="row">

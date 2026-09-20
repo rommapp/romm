@@ -143,7 +143,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
 
 // Fixed track widths (px) — kept as data so the grid template AND the row's
 // natural min-width (below) derive from the same numbers.
-const LIST_SELECT_TRACK_PX = 36;
+const LIST_SELECT_TRACK_PX = parseInt(layout.listSelectWidth, 10);
 const LIST_PLATFORM_TRACK_PX = 200;
 const LIST_METRIC_TRACKS_PX = [88, 96, 96, 56, 72, 110, 110, 88];
 /** Minimum width of the title column so it stays readable when the row is

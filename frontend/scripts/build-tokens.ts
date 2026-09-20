@@ -84,6 +84,7 @@ const NAME_OVERRIDES = {
     alphaStripWidth: "--r-alpha-strip-w",
     listRowHeight: "--r-list-row-h",
     listHeaderHeight: "--r-list-header-h",
+    listSelectWidth: "--r-list-select-w",
     listRowDetailHeight: "--r-list-row-detail-h",
   },
   colorBrand: {

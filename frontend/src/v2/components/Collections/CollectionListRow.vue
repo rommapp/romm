@@ -47,7 +47,6 @@ const { t } = useI18n();
 // Phones and tablets have no room for the columns: the row goes two-line,
 // same as the gallery's list rows.
 const { smAndDown } = useBreakpoint();
-const compact = computed(() => smAndDown.value);
 const router = useRouter();
 const coverEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
@@ -97,8 +96,8 @@ function onRowClick(e: MouseEvent) {
 
 <template>
   <a
-    v-if="compact"
-    class="coll-list-row coll-list-row--compact"
+    v-if="smAndDown"
+    class="coll-list-row coll-list-row--compact r-list-compact"
     :href="to"
     :aria-label="t('rom.open-game', { name })"
     @click="onRowClick"
@@ -106,12 +105,12 @@ function onRowClick(e: MouseEvent) {
     <div ref="coverEl" class="coll-list-row__thumb" :style="morphStyle">
       <CollectionMosaic :covers="covers" />
     </div>
-    <div class="coll-list-row__stack">
+    <div class="r-list-compact__stack">
       <div class="coll-list-row__name">{{ name }}</div>
-      <div class="coll-list-row__facts">
+      <div class="r-list-compact__facts">
         <RIcon :icon="kindBadge.icon" size="13" />
         <span>{{ kindBadge.label }}</span>
-        <span class="coll-list-row__dot">·</span>
+        <span class="r-list-compact__dot">·</span>
         <span>{{
           t("collection.games-count", romCount, { named: { n: romCount } })
         }}</span>
@@ -203,40 +202,10 @@ function onRowClick(e: MouseEvent) {
 
 /* Compact (phones / tablets): cover + name, and the columns collapse into
    one line of facts. */
-.coll-list-row--compact {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-3);
-  padding: 0 var(--r-row-pad);
-}
 /* Clear of the screen edge, which the row itself runs to. */
 .coll-list-row__lock {
   margin-inline-end: var(--r-space-2);
   color: var(--r-color-fg-muted);
-}
-.coll-list-row__stack {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-  flex: 1;
-  min-width: 0;
-}
-.coll-list-row__facts {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: var(--r-font-size-sm);
-  color: var(--r-color-fg-muted);
-  min-width: 0;
-}
-.coll-list-row__facts > span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.coll-list-row__dot {
-  color: var(--r-color-fg-faint);
 }
 
 .coll-list-row:focus-visible {

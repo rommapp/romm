@@ -9,9 +9,10 @@
 // Sticky positioning is owned by the parent (`GalleryShell` pins this
 // below the toolbar at `top: --r-v2-shell-toolbar-h`). The header
 // itself only paints — it doesn't manage scroll.
-import { RCheckbox, RIcon, RMenu, RMenuItem } from "@v2/lib";
+import { RCheckbox, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import ListSortMenu from "@/v2/components/shared/ListSortMenu.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -54,16 +55,7 @@ const gridStyle = computed(() => ({
 // Phones and tablets drop the columns (the rows go compact), so the sort
 // key they used to carry moves into a menu on the header.
 const { smAndDown } = useBreakpoint();
-const compact = computed(() => smAndDown.value);
 const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
-// `sortKey` is null whenever the gallery's order is one the columns don't
-// carry (`last_played`, `fs_name`, …); naming a column there would claim a
-// sort that isn't in effect.
-const sortLabel = computed(
-  () =>
-    sortOptions.value.find((option) => option.key === props.sortKey)?.label ??
-    t("gallery.sort-by"),
-);
 
 const selection = storeGallerySelection();
 // Whole-result select-all shared with the SelectionBar and Ctrl/Cmd+A;
@@ -82,22 +74,19 @@ function onSelectAllClick(e: MouseEvent) {
   }
 }
 
-function sortBy(key: ListSortKey) {
-  // Toggle direction when re-picking the active key; otherwise start the
+function handleClick(col: ListColumn) {
+  if (!isSortableColumn(col)) return;
+  // Toggle direction when re-clicking the active column; otherwise start the
   // new one ascending, like every other sortable table in the app.
   const nextDir: "asc" | "desc" =
-    props.sortKey === key && props.sortDir === "asc" ? "desc" : "asc";
-  emit("sort", { key, dir: nextDir });
-}
-
-function handleClick(col: ListColumn) {
-  if (isSortableColumn(col)) sortBy(col.key);
+    props.sortKey === col.key && props.sortDir === "asc" ? "desc" : "asc";
+  emit("sort", { key: col.key, dir: nextDir });
 }
 </script>
 
 <template>
   <div
-    v-if="compact"
+    v-if="smAndDown"
     class="game-list-header game-list-header--compact"
     role="row"
   >
@@ -118,42 +107,12 @@ function handleClick(col: ListColumn) {
       @click="onSelectAllClick"
     />
 
-    <RMenu location="bottom start" :offset="6" sheet-on-mobile>
-      <template #activator="{ props: activatorProps }">
-        <button
-          v-bind="activatorProps"
-          type="button"
-          class="game-list-header__cell game-list-header__cell--sortable game-list-header__cell--active"
-        >
-          <span class="game-list-header__label">{{ sortLabel }}</span>
-          <RIcon
-            :icon="
-              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
-            "
-            size="14"
-            class="game-list-header__icon"
-          />
-        </button>
-      </template>
-      <RMenuItem
-        v-for="option in sortOptions"
-        :key="String(option.key)"
-        :label="option.label"
-        :variant="sortKey === option.key ? 'active' : 'default'"
-        @click="sortBy(option.key)"
-      >
-        <template #append>
-          <RIcon
-            v-if="sortKey === option.key"
-            :icon="
-              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
-            "
-            size="14"
-            class="game-list-header__icon"
-          />
-        </template>
-      </RMenuItem>
-    </RMenu>
+    <ListSortMenu
+      :options="sortOptions"
+      :sort-key="sortKey"
+      :sort-dir="sortDir"
+      @sort="emit('sort', $event)"
+    />
   </div>
 
   <div v-else class="game-list-header" :style="gridStyle" role="row">
@@ -232,7 +191,7 @@ function handleClick(col: ListColumn) {
 }
 .game-list-header--compact .game-list-header__check {
   flex: none;
-  width: var(--r-list-select-w, 36px);
+  width: var(--r-list-select-w);
 }
 
 .game-list-header__cell {
