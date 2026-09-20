@@ -9,7 +9,7 @@
 // reserved slot grows and shrinks with it — a panel animating inside a slot
 // that already jumped to its full height just fades. So the height is animated
 // here, and both the row's panel and the virtualiser read the same number.
-import { ref } from "vue";
+import { onScopeDispose, ref } from "vue";
 import {
   LIST_ROW_DETAIL_HEIGHT_PX,
   listRowHeight,
@@ -88,6 +88,8 @@ export function useListExpansion() {
   function rowHeight(position: number | null | undefined): number {
     return listRowHeight(detailHeight(position));
   }
+
+  onScopeDispose(stopAnimation);
 
   return {
     expandedPosition,

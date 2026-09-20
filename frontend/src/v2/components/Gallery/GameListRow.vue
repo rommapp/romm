@@ -74,7 +74,7 @@ interface Props {
   showPlatformColumn?: boolean;
   /** Offer the chevron that opens the detail panel (phones and tablets).
    * Only for surfaces whose virtualiser accounts for the taller row —
-   * the gallery shell does, via `expandedPosition`. */
+   * both callers do, via `useListExpansion`. */
   expandable?: boolean;
   /** Whether this row's detail panel is open. */
   expanded?: boolean;
@@ -481,7 +481,6 @@ function onRowPointerEnd() {
               <span
                 v-if="providers.length > 0"
                 class="game-list-row__providers"
-                @click.stop
               >
                 <span
                   v-for="provider in providers"
@@ -722,68 +721,70 @@ function onRowPointerEnd() {
 
       <!-- Column-driven, so the per-cell shapes stay in step with
            `GameListSkeletonRow` and the row does not reflow on data arrival. -->
-      <template
-        v-for="col in compact ? [] : listSkeletonColumns"
-        :key="String(col.key)"
-      >
-        <div
-          v-if="col.key === 'select'"
-          class="game-list-row__cell game-list-row__select"
-        >
-          <!-- Empty cell during skeleton phase — no placeholder so the
+      <template v-else>
+        <template v-for="col in listSkeletonColumns" :key="String(col.key)">
+          <div
+            v-if="col.key === 'select'"
+            class="game-list-row__cell game-list-row__select"
+          >
+            <!-- Empty cell during skeleton phase — no placeholder so the
                selection chrome only appears once a real row exists. -->
-        </div>
-        <div
-          v-else-if="col.key === 'cover'"
-          class="game-list-row__cell game-list-row__cover"
-        >
-          <RSkeletonBlock
-            :width="LIST_COVER_WIDTH_PX"
-            :height="LIST_COVER_HEIGHT_PX"
-          />
-        </div>
-        <div
-          v-else-if="col.key === 'name'"
-          class="game-list-row__cell game-list-row__title"
-        >
-          <div class="game-list-row__meta" :style="titleSkeletonGapStyle">
+          </div>
+          <div
+            v-else-if="col.key === 'cover'"
+            class="game-list-row__cell game-list-row__cover"
+          >
             <RSkeletonBlock
-              v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
-              :key="i"
-              :width="bar.width"
-              :height="bar.height"
+              :width="LIST_COVER_WIDTH_PX"
+              :height="LIST_COVER_HEIGHT_PX"
             />
           </div>
-        </div>
-        <div v-else-if="col.key === 'platform_id'" class="game-list-row__cell">
-          <div class="game-list-row__platform">
-            <RSkeletonBlock :width="24" :height="24" circle />
-            <RSkeletonBlock :width="100" :height="10" />
+          <div
+            v-else-if="col.key === 'name'"
+            class="game-list-row__cell game-list-row__title"
+          >
+            <div class="game-list-row__meta" :style="titleSkeletonGapStyle">
+              <RSkeletonBlock
+                v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
+                :key="i"
+                :width="bar.width"
+                :height="bar.height"
+              />
+            </div>
           </div>
-        </div>
-        <div
-          v-else-if="col.key === 'languages' || col.key === 'regions'"
-          class="game-list-row__cell"
-        >
-          <div class="game-list-row__pills">
-            <RSkeletonBlock :width="28" :height="16" rounded="pill" />
-            <RSkeletonBlock :width="28" :height="16" rounded="pill" />
+          <div
+            v-else-if="col.key === 'platform_id'"
+            class="game-list-row__cell"
+          >
+            <div class="game-list-row__platform">
+              <RSkeletonBlock :width="24" :height="24" circle />
+              <RSkeletonBlock :width="100" :height="10" />
+            </div>
           </div>
-        </div>
-        <div
-          v-else-if="col.key === 'actions'"
-          class="game-list-row__cell"
-          :class="cellModifiers('actions')"
-        >
-          <RSkeletonBlock :width="18" :height="18" circle />
-        </div>
-        <div
-          v-else
-          class="game-list-row__cell"
-          :class="{ 'game-list-row__cell--end': col.align === 'end' }"
-        >
-          <RSkeletonBlock :width="col.skeletonWidth ?? 60" :height="10" />
-        </div>
+          <div
+            v-else-if="col.key === 'languages' || col.key === 'regions'"
+            class="game-list-row__cell"
+          >
+            <div class="game-list-row__pills">
+              <RSkeletonBlock :width="28" :height="16" rounded="pill" />
+              <RSkeletonBlock :width="28" :height="16" rounded="pill" />
+            </div>
+          </div>
+          <div
+            v-else-if="col.key === 'actions'"
+            class="game-list-row__cell"
+            :class="cellModifiers('actions')"
+          >
+            <RSkeletonBlock :width="18" :height="18" circle />
+          </div>
+          <div
+            v-else
+            class="game-list-row__cell"
+            :class="{ 'game-list-row__cell--end': col.align === 'end' }"
+          >
+            <RSkeletonBlock :width="col.skeletonWidth ?? 60" :height="10" />
+          </div>
+        </template>
       </template>
     </template>
   </a>
@@ -901,12 +902,18 @@ html[data-bp~="sm-and-down"] .game-list-row {
   gap: 2px;
   min-width: 0;
 }
+/* One line, always: the panel's height is fixed (`--r-list-row-detail-h`) for
+   the virtualiser, so a caption that wraps in another locale would push the
+   last field out of the clipped box. */
 .game-list-row__field-label {
   font-size: var(--r-font-size-xs);
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--r-color-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .game-list-row__field--wide {
   grid-column: 1 / -1;

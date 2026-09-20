@@ -113,7 +113,6 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
           icon="mdi-play-circle"
           size="14"
           :color="mode === 'stream' ? 'romm-blue' : 'success'"
-          class="r-v2-plat__playable-icon"
         />
         {{ t("platform.playable") }}
       </RChip>

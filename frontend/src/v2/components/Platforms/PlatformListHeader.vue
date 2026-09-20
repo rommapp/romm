@@ -197,11 +197,4 @@ function handleClick(col: PlatformColumn) {
   flex-shrink: 0;
   color: var(--r-color-brand-primary);
 }
-
-html[data-bp~="xs"] .plat-list-header {
-  grid-template-columns: minmax(0, 1fr) 96px;
-}
-html[data-bp~="xs"] .plat-list-header__cell--meta {
-  display: none;
-}
 </style>

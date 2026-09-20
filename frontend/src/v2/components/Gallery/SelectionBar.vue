@@ -314,9 +314,11 @@ function clear() {
   >
     <!-- Count: a notch rising from the bar's top edge, centred. Its lower
          half hides behind the bar, so the two read as one surface. -->
+    <!-- Named, not a live region: the digits change once per animation frame
+         while the count rolls, and a status role would read out every one. -->
     <div
       class="selection-bar__notch"
-      role="status"
+      role="img"
       :aria-label="t('gallery.selection-n-selected', { n: selection.count })"
     >
       <span class="selection-bar__notch-count">{{ rollingCount }}</span>
@@ -646,8 +648,8 @@ html[data-bp~="sm-and-down"] .selection-bar--visible {
   );
 }
 
-/* Tighten the action row on phones so all buttons + the count + divider
-   fit a 320px width: squeeze the inter-button gaps and side padding. */
+/* Tighten the action row on phones so all buttons + the divider fit a 320px
+   width: squeeze the inter-button gaps and side padding. */
 html[data-bp~="xs"] .selection-bar__panel {
   gap: 2px;
   padding: 0 6px;

@@ -671,11 +671,23 @@ function endLetterJump() {
   jumpLetter.value = null;
 }
 
+/** The letter still worth correcting towards, or null once the cap is up. */
+function pendingJumpLetter(): string | null {
+  const letter = jumpLetter.value;
+  if (!letter) return null;
+  if (Date.now() > jumpDeadline) {
+    endLetterJump();
+    return null;
+  }
+  return letter;
+}
+
 // The smooth scroll animates towards the target the jump computed; anything
 // that moved meanwhile (a re-pack, the header rendering) leaves it short, so
 // settle onto the letter once the animation stops.
 function onScrollEnd() {
-  if (jumpLetter.value) anchorLetter(jumpLetter.value, false);
+  const letter = pendingJumpLetter();
+  if (letter) anchorLetter(letter, false);
 }
 
 // Three things move a letter out from under the toolbar after the jump: the
@@ -689,13 +701,8 @@ watch(
     () => galleryRoms.loadedWindows.size,
   ],
   () => {
-    const letter = jumpLetter.value;
-    if (!letter) return;
-    if (Date.now() > jumpDeadline) {
-      endLetterJump();
-      return;
-    }
-    anchorLetter(letter, false);
+    const letter = pendingJumpLetter();
+    if (letter) anchorLetter(letter, false);
   },
 );
 

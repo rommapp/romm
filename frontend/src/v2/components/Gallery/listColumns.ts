@@ -144,10 +144,6 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
 // Fixed track widths (px) — kept as data so the grid template AND the row's
 // natural min-width (below) derive from the same numbers.
 const LIST_SELECT_TRACK_PX = 36;
-// Phones shrink the tick column (see global.css). The template reads the
-// variable so the header and every row narrow together; the min-width math
-// below stays on the desktop track, which only over-reserves by a few px.
-const LIST_SELECT_TRACK = `var(--r-list-select-w, ${LIST_SELECT_TRACK_PX}px)`;
 const LIST_PLATFORM_TRACK_PX = 200;
 const LIST_METRIC_TRACKS_PX = [88, 96, 96, 56, 72, 110, 110, 88];
 /** Minimum width of the title column so it stays readable when the row is
@@ -201,7 +197,7 @@ export function getListGridTemplate(showPlatform: boolean): string {
   const metrics = LIST_METRIC_TRACKS_PX.map((w) => `${w}px`).join(" ");
   // A fixed cover track keeps the title column at the same x in every row,
   // including the loading placeholders.
-  return `${LIST_SELECT_TRACK} ${LIST_COVER_TRACK_PX}px minmax(${LIST_TITLE_MIN_PX}px, 1.6fr)${platformTrack} ${metrics}`;
+  return `${LIST_SELECT_TRACK_PX}px ${LIST_COVER_TRACK_PX}px minmax(${LIST_TITLE_MIN_PX}px, 1.6fr)${platformTrack} ${metrics}`;
 }
 
 // The row/header grids also carry a `--r-space-5` column gap and a

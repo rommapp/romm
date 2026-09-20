@@ -37,6 +37,9 @@ export function useAnimatedNumber(
       display.value = to;
       return;
     }
+    // Paint the starting value now: the first frame is a whole render away,
+    // and in a background tab it never comes at all.
+    display.value = from;
     const start = performance.now();
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / duration);

@@ -50,6 +50,9 @@ const compact = computed(() => smAndDown.value);
 
 <template>
   <div v-if="compact" class="r-glr-skel r-glr-skel--compact">
+    <!-- Stands in for the compact row's tick column, or the cover would start
+         further left here than in the row this replaces. -->
+    <div class="r-glr-skel__select" />
     <div class="r-glr-skel__cell r-glr-skel__cover">
       <RSkeletonBlock
         :width="LIST_COVER_WIDTH_PX"
@@ -142,6 +145,10 @@ const compact = computed(() => smAndDown.value);
   align-items: center;
   gap: var(--r-space-3);
   padding: 0 var(--r-row-pad);
+}
+.r-glr-skel--compact > .r-glr-skel__select {
+  flex: none;
+  width: var(--r-list-select-w, 36px);
 }
 .r-glr-skel__stack {
   display: flex;

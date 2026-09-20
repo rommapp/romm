@@ -65,7 +65,6 @@ const DEFAULT_COVER_RATIO = 2 / 3;
 //   * list-row / skeleton-list-row: token-derived `LIST_ROW_HEIGHT_PX`.
 const FIXED_HEIGHT_BY_KIND: Partial<Record<GalleryItem["kind"], number>> = {
   "letter-header": 56,
-  "list-row": LIST_ROW_HEIGHT_PX,
   "skeleton-list-row": LIST_ROW_HEIGHT_PX,
   "load-more": 80,
   empty: 240,

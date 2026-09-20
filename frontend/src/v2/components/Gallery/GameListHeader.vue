@@ -56,11 +56,13 @@ const gridStyle = computed(() => ({
 const { smAndDown } = useBreakpoint();
 const compact = computed(() => smAndDown.value);
 const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
+// `sortKey` is null whenever the gallery's order is one the columns don't
+// carry (`last_played`, `fs_name`, …); naming a column there would claim a
+// sort that isn't in effect.
 const sortLabel = computed(
   () =>
     sortOptions.value.find((option) => option.key === props.sortKey)?.label ??
-    sortOptions.value[0]?.label ??
-    "",
+    t("gallery.sort-by"),
 );
 
 const selection = storeGallerySelection();

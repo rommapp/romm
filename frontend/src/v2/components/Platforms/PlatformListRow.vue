@@ -195,12 +195,9 @@ function onRowClick(e: MouseEvent) {
     </div>
 
     <div class="plat-list-row__cell plat-list-row__cell--end">
-      <span v-if="romCount != null">
-        {{ romCount }}
-        <span class="plat-list-row__count-unit">{{
-          romCount === 1 ? "game" : "games"
-        }}</span>
-      </span>
+      <span v-if="romCount != null">{{
+        t("collection.games-count", romCount, { named: { n: romCount } })
+      }}</span>
       <span v-else class="plat-list-row__count-unit">—</span>
     </div>
   </a>
@@ -349,12 +346,5 @@ function onRowClick(e: MouseEvent) {
 
 .plat-list-row__count-unit {
   color: var(--r-color-fg-muted);
-}
-
-html[data-bp~="xs"] .plat-list-row {
-  grid-template-columns: minmax(0, 1fr) 96px;
-}
-html[data-bp~="xs"] .plat-list-row__cell--meta {
-  display: none;
 }
 </style>
