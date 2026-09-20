@@ -556,14 +556,24 @@ def _generated_column_indexes(conn: sa.Connection) -> list[tuple[str, list[str],
     indexes = [(f"idx_{TABLE}_{c}", [c], c) for c in INDEXED_GENERATED_COLUMNS]
     for column in SORTABLE_NULLABLE_ROM_COLUMNS:
         flag = rom_unset_flag_column(column)
+        # Each spans through to `id`, the gallery's tiebreak: without it
+        # PostgreSQL sorts every tie, and unset roms are one tie of everything.
         indexes.append(
-            (rom_sort_index_name(column), [flag, column], f"{flag}, {column}")
+            (
+                rom_sort_index_name(column),
+                [flag, column, "id"],
+                f"{flag}, {column}, id",
+            )
         )
         # MariaDB and MySQL place NULLs last on DESC already, and an index
         # there is ordered the same way. PostgreSQL needs both spelled out.
         if is_postgresql(conn):
             indexes.append(
-                (rom_desc_index_name(column), [column], f"{column} DESC NULLS LAST")
+                (
+                    rom_desc_index_name(column),
+                    [column, "id"],
+                    f"{column} DESC NULLS LAST, id DESC",
+                )
             )
     return indexes
 
@@ -576,9 +586,8 @@ def _drop_index_sql(conn: sa.Connection, name: str) -> str:
 def _restore_generated_indexes(conn: sa.Connection) -> None:
     """Create or re-widen every generated-column index the table is missing.
 
-    A rebuild drops the index on PostgreSQL but narrows it on MariaDB and
-    MySQL, so this matches on the columns spanned, not just the name. Being
-    idempotent, it also brings an existing install up to the current set.
+    Matches on the columns spanned rather than the name: a rebuild drops the
+    index on PostgreSQL but narrows it on MariaDB and MySQL.
     """
     existing = {
         index["name"]: tuple(c for c in index["column_names"] if c)

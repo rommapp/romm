@@ -1,17 +1,11 @@
 """Make the nullable gallery sorts readable from an index
 
-Sorting the gallery by release date, rating or HowLongToBeat time placed unset
-roms last through `ORDER BY <column> IS NULL, <column>`. That leading term is
-an expression, so MariaDB and MySQL could not read the order out of
-`idx_roms_<column>`: every scroll window scanned `roms` (a dozen JSON provider
-blobs per row) and filesorted it. PostgreSQL had the mirror problem
-descending, where `DESC NULLS LAST` does not match the index's own order.
-
-Each column now carries a STORED `_unset` flag and an `idx_roms_<column>_sort`
-pair the ascending sort leads with, plus an `idx_roms_<column>_desc` on
-PostgreSQL for the descending one. The columns and the indexes both come from
-`utils.roms_columns`, so they join the table copy every 5.3.0 revision that
-widens `roms` shares.
+Placing unset roms last through `ORDER BY <column> IS NULL, <column>` leads
+with an expression, which no index serves. Each column now carries a STORED
+`_unset` flag and an `idx_roms_<column>_sort` the ascending sort leads with
+instead, plus an `idx_roms_<column>_desc` on PostgreSQL, whose descending order
+needs spelling out. Both come from `utils.roms_columns`, so they join the table
+copy every 5.3.0 revision that widens `roms` shares.
 
 Revision ID: 0129_indexed_gallery_sorts
 Revises: 0128_hltb_main_story_column

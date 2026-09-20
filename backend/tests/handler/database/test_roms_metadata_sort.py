@@ -179,12 +179,13 @@ class TestSortIndexes:
             }
 
     @pytest.mark.parametrize("column", SORTABLE_NULLABLE_ROM_COLUMNS)
-    def test_ascending_pair_is_indexed(
+    def test_ascending_sort_is_indexed_through_the_tiebreak(
         self, roms_indexes: dict[str, list[str]], column: str
     ):
         assert roms_indexes.get(rom_sort_index_name(column)) == [
             rom_unset_flag_column(column),
             column,
+            "id",
         ]
 
     @pytest.mark.parametrize("column", SORTABLE_NULLABLE_ROM_COLUMNS)
@@ -193,7 +194,7 @@ class TestSortIndexes:
     ):
         """`AUTOGENERATE_EXEMPT_INDEX_NAMES` hides these from the drift check,
         so nothing else would notice them going missing."""
-        expected = [column] if ROMM_DB_DRIVER == "postgresql" else None
+        expected = [column, "id"] if ROMM_DB_DRIVER == "postgresql" else None
         assert roms_indexes.get(rom_desc_index_name(column)) == expected
 
 

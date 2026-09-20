@@ -201,7 +201,8 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
 }
 
 # Keyed by the column each flag stands in for. `idx_roms_<column>_sort` spans
-# the pair, so the ascending sort reads its order out of an index.
+# the flag, the value and the `id` tiebreak, so the ascending sort reads the
+# whole ordering out of an index.
 ROM_UNSET_SORT_FLAGS: dict[str, QueryableAttribute] = {
     column: getattr(Rom, rom_unset_flag_column(column))
     for column in SORTABLE_NULLABLE_ROM_COLUMNS

@@ -329,20 +329,16 @@ def test_the_roms_columns_helper_adds_every_missing_column_at_once():
 
 
 def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
-    """A dropped value column leaves its `_sort` pair in two different states.
-
-    PostgreSQL drops the index with the column; MariaDB and MySQL keep it
-    over the flag alone, leaving the ascending sort walking half an index.
-    """
+    """PostgreSQL drops a `_sort` index with its column; MariaDB narrows it."""
     # `roms_metadata` does not project this one, so PostgreSQL lets it go
     # without the view being dropped first.
     column = HLTB_MAIN_STORY_COLUMN
-    pair = (rom_unset_flag_column(column), column)
+    spanned = (rom_unset_flag_column(column), column, "id")
 
     with sync_engine.begin() as connection:
         connection.execute(sa.text(f"ALTER TABLE roms DROP COLUMN {column}"))
         assert _schema_of(connection, "roms")[1].get(rom_sort_index_name(column)) != (
-            pair,
+            spanned,
             False,
         )
 
@@ -351,16 +347,13 @@ def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
         _replay(connection, "0128_hltb_main_story_column.py")
 
         assert _schema_of(connection, "roms")[1][rom_sort_index_name(column)] == (
-            pair,
+            spanned,
             False,
         )
 
 
 def test_dropping_the_roms_columns_takes_the_sort_indexes_with_them():
-    """0108's downgrade has to leave nothing of the catalog behind.
-
-    A descending sort index reads an inherited column, so nothing else drops it.
-    """
+    """A descending sort index reads an inherited column, so nothing else drops it."""
     # Those indexes are PostgreSQL's alone, and only its DDL rolls back, which
     # is what keeps this teardown out of the schema the other tests share.
     with sync_engine.connect() as connection:

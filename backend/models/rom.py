@@ -707,19 +707,21 @@ class Rom(BaseModel):
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
         # Gallery sorts exposed through ROM_METADATA_ORDER_COLUMNS: the value
-        # alone serves the descending sort and the range filters, the `_sort`
-        # pair the ascending one. PostgreSQL adds an `idx_roms_<column>_desc`.
+        # alone serves the range filters, the `_sort` triple the ascending sort
+        # through its `id` tiebreak. PostgreSQL adds `idx_roms_<column>_desc`.
         Index("idx_roms_generated_first_release_date", "generated_first_release_date"),
         Index(
             "idx_roms_generated_first_release_date_sort",
             "generated_first_release_date_unset",
             "generated_first_release_date",
+            "id",
         ),
         Index("idx_roms_generated_average_rating", "generated_average_rating"),
         Index(
             "idx_roms_generated_average_rating_sort",
             "generated_average_rating_unset",
             "generated_average_rating",
+            "id",
         ),
         Index("idx_roms_generated_player_count", "generated_player_count"),
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -737,6 +739,7 @@ class Rom(BaseModel):
             "idx_roms_generated_hltb_main_story_sort",
             "generated_hltb_main_story_unset",
             "generated_hltb_main_story",
+            "id",
         ),
         Index("idx_roms_demozoo_id", "demozoo_id"),
         Index("idx_roms_pouet_id", "pouet_id"),
