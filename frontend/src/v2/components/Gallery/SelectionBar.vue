@@ -531,43 +531,29 @@ function clear() {
   position: fixed;
   left: 50%;
   bottom: max(24px, env(safe-area-inset-bottom, 0));
-  transform: translate(-50%, calc(100% + 32px));
+  transform: translateX(-50%);
   /* Above the bottom tab bar (z 100) so the multi-select bar floats over
      it on mobile instead of being painted behind it; still below dialogs
      (z 2400) so a confirm opened from a selection covers it. */
   z-index: 101;
   pointer-events: none;
   opacity: 0;
-  /* Rises with a little overshoot when the first ROM is picked, and drops
-     straight back out. */
-  transition:
-    transform var(--r-motion-med) var(--r-motion-ease-back),
-    opacity var(--r-motion-fast) var(--r-motion-ease-out);
-  /* Respect the platform's reduced-motion preference: skip the
-     slide-up so the bar appears instantly without animation. */
+  /* Fades in and out where it stands. */
+  transition: opacity var(--r-motion-med) var(--r-motion-ease-out);
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
 }
 
 .selection-bar--visible {
-  transform: translate(-50%, 0);
   opacity: 1;
   pointer-events: auto;
 }
 
 /* On sm-and-down sit just above the bottom tab bar (8px gap) so the two
-   read as stacked, not overlapping. Anchoring `bottom` this high means
-   the base hide transform (translateY(100% + 32px)) can't clear the
-   viewport, so the hidden transform is enlarged to push the panel fully
-   past the bar + screen edge; the visible state (declared after, same
-   specificity) pins it back at the 8px gap. */
+   read as stacked, not overlapping. */
 html[data-bp~="sm-and-down"] .selection-bar {
   bottom: calc(var(--r-bottom-nav-h) + 8px + env(safe-area-inset-bottom));
-  transform: translate(-50%, calc(100% + var(--r-bottom-nav-h) + 48px));
-}
-html[data-bp~="sm-and-down"] .selection-bar--visible {
-  transform: translate(-50%, 0);
 }
 
 /* RToolbar's default surface (`--r-color-bg-elevated`) is overridden
