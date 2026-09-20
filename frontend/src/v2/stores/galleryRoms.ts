@@ -73,6 +73,18 @@ export function isGalleryOrderDir(value: string): value is GalleryOrderDir {
   return value === "asc" || value === "desc";
 }
 
+// The backend only builds a letter index over a lexically ordered result
+// (`with_char_index`), so these are the axes letter grouping can bucket.
+const LEXICAL_ORDER_KEYS: ReadonlySet<string> = new Set<string>([
+  "name",
+  "fs_name",
+]);
+
+/** Whether sorting by `key` ships the char index letter grouping needs. */
+export function isLexicalOrderKey(key: GalleryOrderKey): boolean {
+  return LEXICAL_ORDER_KEYS.has(key);
+}
+
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 // Default window size — the backend's pagination limit. Smaller windows

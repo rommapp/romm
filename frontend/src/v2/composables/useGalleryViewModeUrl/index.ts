@@ -22,25 +22,15 @@
 import { onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
+  isGroupByMode,
   type GroupByMode,
   type LayoutMode,
   useGalleryMode,
 } from "@/v2/composables/useGalleryMode";
 import { syncQueryParam } from "@/v2/utils/routeQuery";
 
-const VALID_GROUP_BY: readonly GroupByMode[] = [
-  "letter",
-  "family",
-  "category",
-  "generation",
-  "none",
-];
-
 function parseGroupBy(value: unknown): GroupByMode | null {
-  return typeof value === "string" &&
-    (VALID_GROUP_BY as readonly string[]).includes(value)
-    ? (value as GroupByMode)
-    : null;
+  return typeof value === "string" && isGroupByMode(value) ? value : null;
 }
 
 function parseLayout(value: unknown): LayoutMode | null {

@@ -59,7 +59,12 @@ import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
-import { useGalleryMode } from "@/v2/composables/useGalleryMode";
+import {
+  orderKeyForGroupBy,
+  resolveGroupBy,
+  useGalleryMode,
+  type GroupByMode,
+} from "@/v2/composables/useGalleryMode";
 import { useGalleryOrderUrl } from "@/v2/composables/useGalleryOrderUrl";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
@@ -289,6 +294,20 @@ const { total, charIndex, initialFetching, orderBy, orderDir } =
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
+// Letter buckets are built from the server's char index, which only covers a
+// lexical sort: on any other axis the gallery renders flat and the toolbar
+// says so, while the stored preference waits for a lexical axis to return.
+const effectiveGroupBy = computed(() =>
+  resolveGroupBy(groupBy.value, orderBy.value),
+);
+
+// Picking letter buckets is picking a lexical order, so the axis follows.
+function setGroupBy(mode: GroupByMode) {
+  const key = orderKeyForGroupBy(mode, orderBy.value);
+  if (key !== orderBy.value) galleryRoms.setOrderBy(key);
+  groupBy.value = mode;
+}
+
 // Responsive columns — measure the section to chunk roms into rows.
 // Card width and inset track the breakpoint so phones pack more, smaller
 // cards instead of one stretched card per row:
@@ -370,7 +389,7 @@ const notFoundMessageRef = computed(
 const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
   useGalleryVirtualItems({
     layout,
-    groupBy,
+    groupBy: effectiveGroupBy,
     total,
     charIndex,
     columns,
@@ -833,7 +852,7 @@ defineExpose({
             :class="{ 'r-pinned-toolbar--pinned': pinned }"
           >
             <GalleryToolbar
-              :group-by="groupBy"
+              :group-by="effectiveGroupBy"
               :layout="layout"
               :position="toolbarPosition"
               :sort-dir="orderDir"
@@ -845,7 +864,7 @@ defineExpose({
               :autofocus-search="autofocusSearch"
               show-filter
               :filter-active-count="filterActiveCount"
-              @update:group-by="groupBy = $event"
+              @update:group-by="setGroupBy"
               @update:layout="layout = $event"
               @update:sort-dir="galleryRoms.setOrderDir"
               @update:sort-key="galleryRoms.setOrderBy"
@@ -957,7 +976,7 @@ defineExpose({
     <GalleryToolbar
       v-if="toolbarPosition === 'floating'"
       class="r-v2-shell__floating"
-      :group-by="groupBy"
+      :group-by="effectiveGroupBy"
       :layout="layout"
       :position="toolbarPosition"
       :sort-dir="orderDir"
@@ -965,7 +984,7 @@ defineExpose({
       :sort-key-items="sortOptions"
       show-filter
       :filter-active-count="filterActiveCount"
-      @update:group-by="groupBy = $event"
+      @update:group-by="setGroupBy"
       @update:layout="layout = $event"
       @update:sort-dir="galleryRoms.setOrderDir"
       @update:sort-key="galleryRoms.setOrderBy"
