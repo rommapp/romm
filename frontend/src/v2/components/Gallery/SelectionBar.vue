@@ -634,6 +634,11 @@ function clear() {
   z-index: 101;
   pointer-events: none;
   opacity: 0;
+  /* The drop shadow belongs to the whole silhouette, not to the bar: cast
+     from the bar itself it lands on the hill, which sits behind it, and
+     tints it a shade darker than the surface it is meant to continue. */
+  border-radius: var(--r-radius-pill);
+  box-shadow: 0 12px 32px color-mix(in srgb, black 32%, transparent);
   /* Fades in and out where it stands. */
   transition: opacity var(--r-motion-med) var(--r-motion-ease-out);
   @media (prefers-reduced-motion: reduce) {
@@ -675,10 +680,6 @@ html[data-bp~="sm-and-down"] .selection-bar {
   z-index: 2;
   --r-toolbar-color: var(--r-color-panel);
   max-width: calc(100vw - 16px);
-  /* No border or inset line: the counter's hill grows out of this edge, and
-     any stroke would end where the two meet and read as a seam. The fill is
-     near-opaque, so the shadow alone carries the silhouette. */
-  box-shadow: 0 12px 32px color-mix(in srgb, black 32%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
 }
 
