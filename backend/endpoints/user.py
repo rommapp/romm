@@ -12,6 +12,7 @@ from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
+from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import (
@@ -471,18 +472,25 @@ async def update_user(
         cleaned_data["avatar_path"] = file_location
 
     if cleaned_data:
+        # Sessions are keyed by username, so the old one is what identifies
+        # them once the update has renamed the account.
+        previous_username = db_user.username
+
         db_user_handler.update_user(id, cleaned_data)
 
         # A role change alters the user's effective permissions; tell their UI.
         if "role" in cleaned_data:
             await emit_permissions_changed(id)
 
-        # Log out the current user if username or password changed
+        # The target's sessions, not the caller's: an admin resetting a
+        # compromised account has to lock its attacker out.
         creds_updated = cleaned_data.get("username") or cleaned_data.get(
             "hashed_password"
         )
-        if request.user.id == id and creds_updated:
-            request.session.clear()
+        if creds_updated:
+            await RedisSessionMiddleware.clear_user_sessions(previous_username)
+            if request.user.id == id:
+                request.session.clear()
 
     db_user = db_user_handler.get_user(id)
     if not db_user:

@@ -261,6 +261,49 @@ def test_delete_user(client, access_token: str, editor_user: User):
 
 
 @pytest.mark.asyncio
+async def test_admin_password_reset_invalidates_the_target_user_sessions(
+    client, access_token: str, editor_user: User
+):
+    """The reason the revocation is not scoped to the caller: an admin resetting
+    a compromised account has to end that account's sessions, not their own."""
+    basic_auth = base64.b64encode(
+        f"{editor_user.username}:test_editor_password".encode("ascii")
+    ).decode("ascii")
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+    target_session = response.cookies.get("romm_session")
+    assert target_session is not None
+
+    target_cookie = {"Cookie": f"romm_session={target_session}"}
+    assert client.get("/api/users/me", headers=target_cookie).status_code == (
+        HTTPStatus.OK
+    )
+
+    # The bearer has to be the only credential on the reset: HybridAuthBackend
+    # resolves a session cookie ahead of it, and the jar still holds the
+    # target's, which would make this a self-update.
+    client.cookies.clear()
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"password": "reset_by_admin_password"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.get("/api/users/me", headers=target_cookie)
+    assert response.status_code in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN)
+
+    # The admin's own credentials still work.
+    response = client.get(
+        "/api/users", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+
+@pytest.mark.asyncio
 async def test_password_change_invalidates_sessions(client, admin_user: User):
     # Get the user's session cookie
     basic_auth = base64.b64encode(
