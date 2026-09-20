@@ -46,7 +46,7 @@ import {
   RDivider,
 } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
@@ -301,6 +301,84 @@ function bulkDelete() {
   emitter?.emit("showDeleteRomDialog", selection.roms);
 }
 
+// ── Outline ─────────────────────────────────────────────────────────
+// The bar, the hill and the fillets between them are three separate fills, so
+// no per-box border can trace their union: the arcs and the hill's sides are
+// measured from different edges and meet at a kink. One path over the lot is
+// the only line that closes.
+
+/** Overlap of the hill's foot into the bar; matches `bottom` in the CSS. */
+const NOTCH_OVERLAP_PX = 6;
+/** Radius of the concave corner where the hill meets the bar. */
+const FILLET_PX = 12;
+
+const barEl = ref<HTMLElement | null>(null);
+const notchEl = ref<HTMLElement | null>(null);
+const barSize = ref({ w: 0, h: 0 });
+const notchSize = ref({ w: 0, h: 0 });
+
+function measure() {
+  const bar = barEl.value;
+  const notch = notchEl.value;
+  if (bar) barSize.value = { w: bar.offsetWidth, h: bar.offsetHeight };
+  if (notch) notchSize.value = { w: notch.offsetWidth, h: notch.offsetHeight };
+}
+
+// The bar's width follows its buttons and the hill's follows the digit count,
+// so both are watched rather than measured once.
+let sizeObserver: ResizeObserver | null = null;
+onMounted(() => {
+  measure();
+  sizeObserver = new ResizeObserver(measure);
+  if (barEl.value) sizeObserver.observe(barEl.value);
+  if (notchEl.value) sizeObserver.observe(notchEl.value);
+});
+onBeforeUnmount(() => sizeObserver?.disconnect());
+
+/** Height the hill stands above the bar's top edge. */
+const hillRise = computed(() =>
+  Math.max(0, notchSize.value.h - NOTCH_OVERLAP_PX),
+);
+
+const outline = computed(() => {
+  const { w: barW, h: barH } = barSize.value;
+  const notchW = notchSize.value.w;
+  const rise = hillRise.value;
+  if (barW <= 0 || barH <= 0 || notchW <= 0 || rise <= 0) return null;
+
+  const r = barH / 2;
+  const f = Math.min(FILLET_PX, (barW - notchW) / 2 - r);
+  // The hill's top is a pill, which the browser clamps to half its width.
+  const hillR = notchW / 2;
+  const left = (barW - notchW) / 2;
+  const right = left + notchW;
+  const top = rise;
+  const bottom = rise + barH;
+  if (f <= 0 || top - f <= 0 || left - f <= r) return null;
+
+  return {
+    width: barW,
+    height: bottom,
+    rise,
+    d: [
+      `M ${r} ${top}`,
+      `H ${left - f}`,
+      `A ${f} ${f} 0 0 0 ${left} ${top - f}`,
+      // Straight into the hill's corner: where the fillet lands already sits
+      // inside that arc, so a vertical run between them would double back.
+      `A ${hillR} ${hillR} 0 0 1 ${left + hillR} 0`,
+      `H ${right - hillR}`,
+      `A ${hillR} ${hillR} 0 0 1 ${right} ${top - f}`,
+      `A ${f} ${f} 0 0 0 ${right + f} ${top}`,
+      `H ${barW - r}`,
+      `A ${r} ${r} 0 0 1 ${barW - r} ${bottom}`,
+      `H ${r}`,
+      `A ${r} ${r} 0 0 1 ${r} ${top}`,
+      "Z",
+    ].join(" "),
+  };
+});
+
 function clear() {
   selection.clear();
 }
@@ -308,15 +386,31 @@ function clear() {
 
 <template>
   <div
+    ref="barEl"
     class="selection-bar"
     :class="{ 'selection-bar--visible': selection.enabled }"
     :aria-hidden="!selection.enabled"
   >
+    <!-- One stroke around bar, hill and fillets, since three boxes cannot
+         share a border without seams where their edges meet. -->
+    <svg
+      v-if="outline"
+      class="selection-bar__outline"
+      :style="{ top: `${-outline.rise}px`, height: `${outline.height}px` }"
+      :viewBox="`0 0 ${outline.width} ${outline.height}`"
+      :width="outline.width"
+      :height="outline.height"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path :d="outline.d" />
+    </svg>
     <!-- Count: a notch rising from the bar's top edge, centred. Its lower
          half hides behind the bar, so the two read as one surface. -->
     <!-- Named, not a live region: the digits change once per animation frame
          while the count rolls, and a status role would read out every one. -->
     <div
+      ref="notchEl"
       class="selection-bar__notch"
       role="img"
       :aria-label="t('gallery.selection-n-selected', { n: selection.count })"
@@ -552,18 +646,14 @@ function clear() {
   pointer-events: auto;
 }
 
-/* The bar, the counter's hill and the fillets between them are three fills
-   that have to read as one piece, so the edge is drawn as a layer BEHIND all
-   of them: this pill peeks out by 1px everywhere the fills don't cover it,
-   and the hill and its fillets cover the stretch they sit on. A border per
-   piece would leave the seams the fills exist to hide. */
-.selection-bar::before {
-  content: "";
+.selection-bar__outline {
   position: absolute;
-  inset: -1px;
-  z-index: 0;
-  border-radius: var(--r-radius-pill);
-  background: var(--r-color-selection-edge);
+  left: 0;
+  z-index: 3;
+  overflow: visible;
+  fill: none;
+  stroke: var(--r-color-selection-edge);
+  stroke-width: 1;
   pointer-events: none;
 }
 
@@ -611,8 +701,6 @@ html[data-bp~="sm-and-down"] .selection-bar {
      square corners themselves sit inside the bar, out of sight. */
   border-radius: var(--r-radius-pill) var(--r-radius-pill) 0 0;
   background: var(--r-color-panel);
-  /* Traces the hill only: the foot's share runs inside the bar, behind it. */
-  outline: 1px solid var(--r-color-selection-edge);
   /* The bar's glass too, or the fill reads a shade off against it. */
   backdrop-filter: blur(18px) saturate(140%);
   color: var(--r-color-fg);
@@ -640,9 +728,7 @@ html[data-bp~="sm-and-down"] .selection-bar {
   background: radial-gradient(
     circle var(--r-notch-fillet) at top left,
     transparent 0 var(--r-notch-fillet),
-    var(--r-color-selection-edge) var(--r-notch-fillet)
-      calc(var(--r-notch-fillet) + 1px),
-    var(--r-color-panel) calc(var(--r-notch-fillet) + 1px)
+    var(--r-color-panel) var(--r-notch-fillet)
   );
 }
 .selection-bar__notch::after {
@@ -650,9 +736,7 @@ html[data-bp~="sm-and-down"] .selection-bar {
   background: radial-gradient(
     circle var(--r-notch-fillet) at top right,
     transparent 0 var(--r-notch-fillet),
-    var(--r-color-selection-edge) var(--r-notch-fillet)
-      calc(var(--r-notch-fillet) + 1px),
-    var(--r-color-panel) calc(var(--r-notch-fillet) + 1px)
+    var(--r-color-panel) var(--r-notch-fillet)
   );
 }
 
