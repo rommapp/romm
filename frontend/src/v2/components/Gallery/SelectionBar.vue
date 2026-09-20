@@ -55,7 +55,7 @@ import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
-import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useAnimatedNumber } from "@/v2/composables/useAnimatedNumber";
 import { useCan } from "@/v2/composables/useCan";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import { useRomSync } from "@/v2/composables/useRomSync";
@@ -82,12 +82,12 @@ defineProps<Props>();
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-// On phones the bar drops the "N selected" phrase down to just the
-// number so the action row fits a 320px width without overflowing.
-const { xs } = useBreakpoint();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const selection = storeGallerySelection();
+// The count rolls up to its new value rather than snapping, so a selection
+// that grew by a tap is a number you see move.
+const rollingCount = useAnimatedNumber(() => selection.count);
 const collectionsStore = storeCollections();
 const galleryRomsStore = storeGalleryRoms();
 const { ensureFavoriteCollection } = useFavoriteToggle();
@@ -312,30 +312,23 @@ function clear() {
     :class="{ 'selection-bar--visible': selection.enabled }"
     :aria-hidden="!selection.enabled"
   >
+    <!-- Count: a notch rising from the bar's top edge, centred. Its lower
+         half hides behind the bar, so the two read as one surface. -->
+    <div
+      class="selection-bar__notch"
+      role="status"
+      :aria-label="t('gallery.selection-n-selected', { n: selection.count })"
+    >
+      <span class="selection-bar__notch-count">{{ rollingCount }}</span>
+    </div>
+
     <RToolbar
       density="compact"
       rounded="full"
       flat
       class="selection-bar__panel"
     >
-      <!-- Prepend region: count chip — leftmost item, separated from
-           the action buttons by RToolbar's built-in inter-region
-           spacing. -->
       <template #prepend>
-        <div class="selection-bar__count">
-          <RIcon
-            icon="mdi-check-circle"
-            size="18"
-            class="selection-bar__count-icon"
-          />
-          <span>
-            <template v-if="xs">{{ selection.count }}</template>
-            <template v-else>
-              {{ t("gallery.selection-n-selected", { n: selection.count }) }}
-            </template>
-          </span>
-        </div>
-
         <!-- Extends the selection to the whole filtered result; the
              sole grid-mode affordance (list mode has the header checkbox). -->
         <RTooltip :text="selectAllLabel">
@@ -542,7 +535,13 @@ function clear() {
      (z 2400) so a confirm opened from a selection covers it. */
   z-index: 101;
   pointer-events: none;
-  transition: transform var(--r-motion-mid) var(--r-motion-ease-out);
+  opacity: 0;
+  /* Rises with a little overshoot when the first ROM is picked, and drops
+     straight back out. (`--r-motion-mid` never existed, so this transition
+     had been resolving to 0s and the bar appeared in one frame.) */
+  transition:
+    transform var(--r-motion-med) var(--r-motion-ease-back),
+    opacity var(--r-motion-fast) var(--r-motion-ease-out);
   /* Respect the platform's reduced-motion preference: skip the
      slide-up so the bar appears instantly without animation. */
   @media (prefers-reduced-motion: reduce) {
@@ -552,6 +551,7 @@ function clear() {
 
 .selection-bar--visible {
   transform: translate(-50%, 0);
+  opacity: 1;
   pointer-events: auto;
 }
 
@@ -575,39 +575,75 @@ html[data-bp~="sm-and-down"] .selection-bar--visible {
    Border + shadow + backdrop-blur are stacked on top of the
    primitive's flat pill. `max-width` keeps it inside a 320px viewport. */
 .selection-bar__panel {
+  /* Over the hill, so the part that laps into the bar is hidden behind it
+     instead of painting across the buttons' own backgrounds. */
+  position: relative;
+  z-index: 1;
   --r-toolbar-color: var(--r-color-panel);
   max-width: calc(100vw - 16px);
-  border: 1px solid var(--r-color-panel-border);
-  box-shadow:
-    0 12px 32px color-mix(in srgb, black 32%, transparent),
-    0 0 0 1px color-mix(in srgb, white 4%, transparent) inset;
+  /* No border or inset line: the counter's hill grows out of this edge, and
+     any stroke would end where the two meet and read as a seam. The fill is
+     near-opaque, so the shadow alone carries the silhouette. */
+  box-shadow: 0 12px 32px color-mix(in srgb, black 32%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
 }
 
-.selection-bar__count {
+/* A hill rising from the bar's top edge. It shares the bar's fill and laps
+   into it, and the two pseudo-elements curve its foot out into the bar, so
+   bar and hill read as one surface. Nothing here carries a stroke: an edge
+   that stopped at the join is exactly what makes a seam. */
+.selection-bar__notch {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  bottom: calc(100% - 6px);
+  transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 4px;
+  padding: 9px 16px 13px;
+  /* Round over the top with the bar's own pill radius; the foot stays square
+     so the sides run straight down into the fillets below — rounding it would
+     pull the edge inward and open a gap between hill, fillet and bar. The
+     square corners themselves sit inside the bar, out of sight. */
+  border-radius: var(--r-radius-pill) var(--r-radius-pill) 0 0;
+  background: var(--r-color-panel);
+  /* The bar's glass too, or the fill reads a shade off against it. */
+  backdrop-filter: blur(18px) saturate(140%);
+  color: var(--r-color-fg);
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  --r-notch-fillet: 12px;
 }
-
-.selection-bar__count-icon {
-  color: var(--r-color-brand-primary);
+.selection-bar__notch-count {
+  display: inline-block;
 }
-
-html[data-bp~="xs"] .selection-bar__count {
-  padding: 0 2px;
-  font-size: var(--r-font-size-sm);
+.selection-bar__notch::before,
+.selection-bar__notch::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  width: var(--r-notch-fillet);
+  height: var(--r-notch-fillet);
+  pointer-events: none;
 }
-
-/* The count icon is decorative; on xs its width budget goes to the
-   select-all button so the bar still fits a 320px viewport. */
-html[data-bp~="xs"] .selection-bar__count-icon {
-  display: none;
+.selection-bar__notch::before {
+  /* 1px under the hill, so no hairline survives between the two fills. */
+  right: calc(100% - 1px);
+  background: radial-gradient(
+    circle var(--r-notch-fillet) at top left,
+    transparent 0 var(--r-notch-fillet),
+    var(--r-color-panel) var(--r-notch-fillet)
+  );
+}
+.selection-bar__notch::after {
+  left: calc(100% - 1px);
+  background: radial-gradient(
+    circle var(--r-notch-fillet) at top right,
+    transparent 0 var(--r-notch-fillet),
+    var(--r-color-panel) var(--r-notch-fillet)
+  );
 }
 
 /* Tighten the action row on phones so all buttons + the count + divider

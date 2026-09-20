@@ -13,6 +13,7 @@
 // both flavours stay visually identical.
 import { RSkeletonBlock } from "@v2/lib";
 import { computed } from "vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   getListColumns,
   getListGridTemplate,
@@ -40,10 +41,32 @@ const gridStyle = computed(() => ({
   gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
 }));
 const titleGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
+
+// Phones and tablets render the compact two-line row, so the placeholder
+// follows it instead of the columns.
+const { smAndDown } = useBreakpoint();
+const compact = computed(() => smAndDown.value);
 </script>
 
 <template>
-  <div class="r-glr-skel" :style="gridStyle">
+  <div v-if="compact" class="r-glr-skel r-glr-skel--compact">
+    <div class="r-glr-skel__cell r-glr-skel__cover">
+      <RSkeletonBlock
+        :width="LIST_COVER_WIDTH_PX"
+        :height="LIST_COVER_HEIGHT_PX"
+      />
+    </div>
+    <div class="r-glr-skel__stack" :style="titleGapStyle">
+      <RSkeletonBlock
+        v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
+        :key="i"
+        :width="bar.width"
+        :height="bar.height"
+      />
+    </div>
+  </div>
+
+  <div v-else class="r-glr-skel" :style="gridStyle">
     <template v-for="col in columns" :key="String(col.key)">
       <div v-if="col.key === 'select'" class="r-glr-skel__cell" />
       <div
@@ -112,6 +135,20 @@ const titleGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
   padding: 0 var(--r-space-3);
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
+}
+
+.r-glr-skel--compact {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-3);
+  padding: 0 var(--r-row-pad);
+}
+.r-glr-skel__stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
 }
 
 .r-glr-skel__cell {

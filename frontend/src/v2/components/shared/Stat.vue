@@ -2,6 +2,8 @@
 // Stat — KPI column: big value on top, small uppercase label below.
 // Feature component; InfoPanel and the gallery hero cards reuse it, but
 // it's not general enough to be a design-system primitive.
+import { computed } from "vue";
+import { useAnimatedNumber } from "@/v2/composables/useAnimatedNumber";
 
 defineOptions({ inheritAttrs: false });
 
@@ -10,16 +12,25 @@ interface Props {
   label?: string;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   value: undefined,
   label: undefined,
 });
+
+// A count rolls up to its value; anything already formatted (a size, a date)
+// is printed as it comes.
+const rolling = useAnimatedNumber(() =>
+  typeof props.value === "number" ? props.value : null,
+);
+const text = computed(() =>
+  typeof props.value === "number" ? rolling.value : props.value,
+);
 </script>
 
 <template>
   <div class="stat">
     <div class="stat__value">
-      <slot>{{ value }}</slot>
+      <slot>{{ text }}</slot>
     </div>
     <div class="stat__label">
       <slot name="label">{{ label }}</slot>

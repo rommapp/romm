@@ -292,7 +292,7 @@ function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
   }
 }
 
-defineExpose({ scrollToIndex, containerEl, scrollTop });
+defineExpose({ scrollToIndex, containerEl, scrollTop, innerOffsetTop });
 
 const minContentWidthCss = computed(() => {
   const w = props.minContentWidth;

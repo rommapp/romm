@@ -11,15 +11,26 @@
 // gallery views (Platform / Collection / Search) share one separator
 // regardless of which header sits above it.
 import { RTag } from "@v2/lib";
+import { computed } from "vue";
+import { useAnimatedNumber } from "@/v2/composables/useAnimatedNumber";
 
 defineOptions({ inheritAttrs: false });
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     title: string;
     count?: number | string | null;
   }>(),
   { count: null },
+);
+
+// A numeric count rolls up to its value; a string one (a range, a label) is
+// printed as it comes.
+const rolling = useAnimatedNumber(() =>
+  typeof props.count === "number" ? props.count : null,
+);
+const countText = computed(() =>
+  typeof props.count === "number" ? rolling.value : props.count,
 );
 </script>
 
@@ -31,7 +42,7 @@ withDefaults(
         {{ title }}
       </h1>
       <slot name="count">
-        <RTag v-if="count != null" :text="count" />
+        <RTag v-if="countText != null" :text="countText" />
       </slot>
     </div>
     <slot />

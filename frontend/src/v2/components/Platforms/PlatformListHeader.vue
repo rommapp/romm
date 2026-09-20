@@ -3,12 +3,11 @@
 // view. Mirrors GameListHeader: shared CSS-grid template with every
 // row underneath, clickable sortable columns that toggle asc → desc.
 //
-// The four metadata columns (Family / Category / Generation / Playable)
-// drop out on narrow viewports (see the `html[data-bp~="xs"]` rules
-// below) so the row stays legible on mobile without horizontal scroll.
-// The grid template flips in the same breakpoint so the cells re-align
-// with the row's compact layout.
-import { RIcon } from "@v2/lib";
+// Phones and tablets have no columns to head (the rows go compact), so the
+// sort key they carried moves into a menu — same as the collections list.
+import { RIcon, RMenu, RMenuItem } from "@v2/lib";
+import { computed } from "vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   PLATFORM_COLUMNS,
   type PlatformColumn,
@@ -26,6 +25,18 @@ const emit = defineEmits<{
   (e: "sort", payload: { key: PlatformSortKey; dir: "asc" | "desc" }): void;
 }>();
 
+const { smAndDown } = useBreakpoint();
+const compact = computed(() => smAndDown.value);
+const sortableColumns = computed(() =>
+  PLATFORM_COLUMNS.filter((col) => col.sortable),
+);
+const sortLabel = computed(
+  () =>
+    sortableColumns.value.find((col) => col.key === props.sortKey)?.label ??
+    sortableColumns.value[0]?.label ??
+    "",
+);
+
 function handleClick(col: PlatformColumn) {
   if (!col.sortable) return;
   const nextDir: "asc" | "desc" =
@@ -35,7 +46,50 @@ function handleClick(col: PlatformColumn) {
 </script>
 
 <template>
-  <div class="plat-list-header" role="row">
+  <div
+    v-if="compact"
+    class="plat-list-header plat-list-header--compact"
+    role="row"
+  >
+    <RMenu location="bottom start" :offset="6" sheet-on-mobile>
+      <template #activator="{ props: activatorProps }">
+        <button
+          v-bind="activatorProps"
+          type="button"
+          class="plat-list-header__cell plat-list-header__cell--sortable plat-list-header__cell--active"
+        >
+          <span class="plat-list-header__label">{{ sortLabel }}</span>
+          <RIcon
+            :icon="
+              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
+            "
+            size="14"
+            class="plat-list-header__icon"
+          />
+        </button>
+      </template>
+      <RMenuItem
+        v-for="col in sortableColumns"
+        :key="col.key"
+        :label="col.label"
+        :variant="sortKey === col.key ? 'active' : 'default'"
+        @click="handleClick(col)"
+      >
+        <template #append>
+          <RIcon
+            v-if="sortKey === col.key"
+            :icon="
+              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
+            "
+            size="14"
+            class="plat-list-header__icon"
+          />
+        </template>
+      </RMenuItem>
+    </RMenu>
+  </div>
+
+  <div v-else class="plat-list-header" role="row">
     <button
       v-for="col in PLATFORM_COLUMNS"
       :key="col.key"
@@ -78,10 +132,15 @@ function handleClick(col: PlatformColumn) {
   gap: 0 var(--r-space-3);
   padding: 0 var(--r-space-3);
   height: var(--r-list-header-h);
-  background: var(--r-color-bg-elevated);
-  border-bottom: 1px solid var(--r-color-border);
-  /* Glass so rows scrolling under the pinned header read soft behind it. */
-  backdrop-filter: blur(10px);
+  /* Overridable so a pinned header can run it edge to edge (r-pinned-list-header). */
+  border-bottom: var(--r-list-header-border, 1px solid var(--r-color-border));
+}
+
+/* Compact (phones / tablets): one sort control instead of the columns. */
+.plat-list-header--compact {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--r-row-pad);
 }
 
 .plat-list-header__cell {

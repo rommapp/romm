@@ -59,7 +59,11 @@ const { toolbarHeight, pinned, bindToolbar, bindSentinel } = usePinnedToolbar();
       <slot name="toolbar" />
     </div>
 
-    <div v-if="listMode" class="r-v2-idx-shell__list-header">
+    <div
+      v-if="listMode"
+      class="r-v2-idx-shell__list-header"
+      :class="{ 'r-pinned-list-header': pinned }"
+    >
       <slot name="listHeader" />
     </div>
 
@@ -83,5 +87,14 @@ html[data-bp~="xs"] .r-v2-idx-shell {
   position: sticky;
   top: calc(var(--r-nav-h) + var(--r-v2-idx-shell-toolbar-h));
   z-index: 3;
+}
+
+/* Compact list mode: the column header and the rows run to the screen
+   edges, out of the shell's gutter — each keeps that gutter as its own
+   padding, so only the separators and the row fill reach the edge. */
+html[data-bp~="sm-and-down"] .r-v2-idx-shell__list-header,
+html[data-bp~="sm-and-down"] .r-v2-idx-shell :deep(.coll-list-row--compact),
+html[data-bp~="sm-and-down"] .r-v2-idx-shell :deep(.plat-list-row) {
+  margin-inline: calc(-1 * var(--r-row-pad));
 }
 </style>

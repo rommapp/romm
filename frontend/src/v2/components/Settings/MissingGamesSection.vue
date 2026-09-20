@@ -44,6 +44,7 @@ import {
 } from "@/v2/components/Gallery/listColumns";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useListExpansion } from "@/v2/composables/useListExpansion";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
@@ -142,8 +143,15 @@ const virtualItems = computed<VItem[]>(() => {
   return items;
 });
 
-function vItemHeight(_item: unknown): number {
-  return LIST_ROW_HEIGHT_PX;
+// The rows are the gallery's, detail panel and all, so their heights come
+// from the same place.
+const listExpansion = useListExpansion();
+
+function vItemHeight(item: unknown): number {
+  const v = item as VItem;
+  return isListRow(v)
+    ? listExpansion.rowHeight(v.position)
+    : LIST_ROW_HEIGHT_PX;
 }
 
 interface VListRow {
@@ -211,6 +219,7 @@ function onViewportRange(range: { first: number; last: number }) {
 // (rows 0..N are visible in both), so the scroller may not re-emit. Sync
 // immediately against the current viewport so the first window loads.
 watch(virtualItems, () => {
+  listExpansion.collapse();
   if (fetchDebounceTimer) {
     clearTimeout(fetchDebounceTimer);
     fetchDebounceTimer = null;
@@ -378,6 +387,10 @@ onBeforeUnmount(() => {
             v-if="isListRow(item as VItem)"
             :position="rowPosition(item)"
             :webp="supportsWebp"
+            expandable
+            :expanded="listExpansion.isExpanded(rowPosition(item))"
+            :detail-height="listExpansion.detailHeight(rowPosition(item))"
+            @toggle-expand="listExpansion.toggle(rowPosition(item))"
           />
           <GameListSkeletonRow v-else />
         </template>

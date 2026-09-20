@@ -12,20 +12,21 @@
 //
 // All admin actions are forwarded as events; permission gating lives
 // on the parent so the bar stays in sync with `useCan`.
-import { RBtn, RChip, RPlatformIcon, RTabNav } from "@v2/lib";
+import { RBtn, RChip, RIcon, RPlatformIcon, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import {
+  playTooltip,
+  usePlatformPlayable,
+} from "@/v2/composables/usePlatformPlayable";
+import type { StatRow } from "@/v2/types/stats";
 
 defineOptions({ inheritAttrs: false });
-
-interface StatRow {
-  label: string;
-  value: string;
-}
 
 interface ProviderChip {
   key: string;
@@ -35,7 +36,7 @@ interface ProviderChip {
   title?: string;
 }
 
-defineProps<{
+const props = defineProps<{
   platform: Platform;
   tab: string;
   tabs: RTabNavItem[];
@@ -75,6 +76,12 @@ defineEmits<{
 // the icon to a fixed box height, which — for a tall icon — either overflowed
 // (overlap) or, once clipped, cut it off.
 const { xs } = useBreakpoint();
+const { t } = useI18n();
+// Same play-mode marker the platforms list carries, so a platform reads the
+// same in its own header as it does in the index.
+const { mode, emulator, streamLabel } = usePlatformPlayable(
+  () => props.platform.slug,
+);
 const iconSize = computed(() => (xs.value ? 116 : 148));
 </script>
 
@@ -94,7 +101,22 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
       </div>
     </template>
 
-    <template v-if="tags.length || description" #tags>
+    <template v-if="tags.length || description || mode" #tags>
+      <RChip
+        v-if="mode"
+        size="small"
+        variant="translucent"
+        :rounded="20"
+        :title="playTooltip(mode, emulator, streamLabel)"
+      >
+        <RIcon
+          icon="mdi-play-circle"
+          size="14"
+          :color="mode === 'stream' ? 'romm-blue' : 'success'"
+          class="r-v2-plat__playable-icon"
+        />
+        {{ t("platform.playable") }}
+      </RChip>
       <RChip
         v-for="tag in tags"
         :key="tag"

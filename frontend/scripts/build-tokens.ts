@@ -82,9 +82,9 @@ const NAME_OVERRIDES = {
     collectionCoverWidthXs: "--r-coll-cover-w-xs",
     collectionCoverHeightXs: "--r-coll-cover-h-xs",
     alphaStripWidth: "--r-alpha-strip-w",
-    alphaStripWidthXs: "--r-alpha-strip-w-xs",
     listRowHeight: "--r-list-row-h",
     listHeaderHeight: "--r-list-header-h",
+    listRowDetailHeight: "--r-list-row-detail-h",
   },
   colorBrand: {
     fav: "--r-color-fav",

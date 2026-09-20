@@ -132,6 +132,11 @@ const emit = defineEmits<{
   (e: "click:filter"): void;
 }>();
 
+defineSlots<{
+  /** Extra controls right after the filter button. */
+  actions?(): unknown;
+}>();
+
 // Support both a Ref or a plain value — keeps consumption flexible.
 function toValue<T>(source: Ref<T> | T): T {
   return source && typeof source === "object" && "value" in (source as object)
@@ -288,6 +293,8 @@ const { smAndUp } = useBreakpoint();
         @click="emit('click:filter')"
       />
     </RBadge>
+
+    <slot name="actions" />
 
     <template v-if="smAndUp">
       <RSliderBtnGroup

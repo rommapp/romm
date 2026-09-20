@@ -42,6 +42,8 @@ html[data-bp~="sm-and-down"].r-v2 {
 }
 html[data-bp~="xs"].r-v2 {
   --r-row-pad: 14px;
+  /* List mode: a tighter tick column, so the table spends its width on data. */
+  --r-list-select-w: 24px;
 }
 
 /* The nav chrome unmounts while a player stage owns the viewport, so its
@@ -313,8 +315,9 @@ html.r-v2-reduced-motion *::after {
   color: var(--r-color-fg-muted);
 }
 
-/* Top-bar glass, shared with the toolbars that pin under it. Reduced motion
-   swaps the blur (costly, murky over its solid background) for a flat bg. */
+/* Top-bar glass, shared with the toolbars and list column headers that pin
+   under it. Reduced motion swaps the blur (costly, murky over its solid
+   background) for a flat bg. */
 .r-v2 {
   --r-glass-bar-bg: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
   --r-glass-bar-filter: blur(20px);
@@ -344,6 +347,22 @@ html.r-v2-reduced-motion {
 }
 .r-pinned-toolbar--pinned::before {
   opacity: 1;
+}
+
+/* List column header once pinned: the same glass, edge to edge, with its
+   border moved onto it. Goes on the sticky element, which anchors the glass. */
+.r-pinned-list-header {
+  --r-list-header-border: 0;
+}
+.r-pinned-list-header::before {
+  content: "";
+  position: absolute;
+  inset: 0 calc(-1 * var(--r-row-pad));
+  z-index: -1;
+  background: var(--r-glass-bar-bg);
+  backdrop-filter: var(--r-glass-bar-filter);
+  border-bottom: 1px solid var(--r-color-border);
+  pointer-events: none;
 }
 
 /* Column both gallery Settings tabs (platform, collection) render in, so they
