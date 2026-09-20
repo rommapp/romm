@@ -2386,7 +2386,7 @@ requires-dist = [
     { name = "joserfc", specifier = "~=1.6.8" },
     { name = "memray", marker = "extra == 'dev'", specifier = "~=1.15" },
     { name = "mutagen", specifier = "~=1.47" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = "~=2.3" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = "~=2.3.0" },
     { name = "opentelemetry-distro", specifier = "~=0.56" },
     { name = "opentelemetry-exporter-otlp", specifier = "~=1.36" },
     { name = "opentelemetry-instrumentation-aiohttp-client", specifier = "~=0.56" },
