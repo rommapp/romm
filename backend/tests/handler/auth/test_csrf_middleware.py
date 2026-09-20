@@ -12,7 +12,7 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from config import ROMM_AUTH_SECRET_KEY
-from handler.auth.constants import ALGORITHM
+from handler.auth.constants import ALGORITHM, SESSION_COOKIE_NAME
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.session_middleware import SessionMiddleware
 from models.user import User
@@ -202,6 +202,15 @@ class TestCSRFMiddleware:
 
         resp = client.post("/post", headers={"Authorization": "Bearer token"})
         assert resp.status_code == 200
+
+    def test_session_cookie_defeats_auth_header_bypass(self) -> None:
+        """A session cookie authenticates ahead of the header, so it keeps CSRF on."""
+        app = create_test_app()
+        client = TestClient(app)
+        client.cookies.set(SESSION_COOKIE_NAME, "session-value")
+
+        resp = client.post("/post", headers={"Authorization": "Bearer anything"})
+        assert resp.status_code == 403
 
     def test_non_http_scope_bypass(self) -> None:
         """WebSocket (or other non-HTTP) scopes should pass through."""
