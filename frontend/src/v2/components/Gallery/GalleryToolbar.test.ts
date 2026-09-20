@@ -7,8 +7,9 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
+const smAndUp = ref(true);
 vi.mock("@/v2/composables/useBreakpoint", () => ({
-  useBreakpoint: () => ({ smAndUp: ref(true) }),
+  useBreakpoint: () => ({ smAndUp }),
 }));
 
 const modality = ref<"mouse" | "pad">("mouse");
@@ -132,19 +133,72 @@ describe("GalleryToolbar sort axis", () => {
   });
 
   // List mode sorts through the column headers, so the toolbar's axis
-  // button has to stand down rather than offer a second, competing control.
-  it("disables the activator in list mode only", () => {
-    const activatorDisabled = (layout: string) => {
-      const wrapper = mountWithSortOptions({ layout });
-      const disabled = wrapper
-        .findComponent(RMenuPassthrough)
-        .findComponent({ name: "RBtn" })
-        .attributes("disabled");
-      wrapper.unmount();
-      return disabled;
-    };
+  // control has to stand down rather than offer a second, competing one.
+  it("hides the control in list mode", () => {
+    const wrapper = mountWithSortOptions({ layout: "list" });
 
-    expect(activatorDisabled("list")).toBe("true");
-    expect(activatorDisabled("grid")).toBe("false");
+    expect(wrapper.findAllComponents(RMenuPassthrough)).toHaveLength(0);
+    expect(sortItems(wrapper)).toHaveLength(0);
+    wrapper.unmount();
+  });
+});
+
+describe("GalleryToolbar layout-scoped clusters", () => {
+  const clusterLabels = (wrapper: ReturnType<typeof mountToolbar>) =>
+    wrapper
+      .findAllComponents({ name: "RSliderBtnGroup" })
+      .map((cluster) => cluster.props("ariaLabel"));
+
+  it("offers grouping and sort direction in grid mode", () => {
+    const wrapper = mountToolbar({ layout: "grid" });
+
+    expect(clusterLabels(wrapper)).toEqual([
+      "settings.platforms-drawer-group-by",
+      "gallery.sort-ascending",
+      "common.type",
+    ]);
+    wrapper.unmount();
+  });
+
+  it("leaves only the layout switch in list mode", () => {
+    const wrapper = mountToolbar({ layout: "list" });
+
+    expect(clusterLabels(wrapper)).toEqual(["common.type"]);
+    wrapper.unmount();
+  });
+});
+
+// Below smAndUp the sliders collapse into the kebab, which has to hide
+// the same clusters the inline ones do.
+describe("GalleryToolbar kebab mirror", () => {
+  const kebabLabels = (layout: string) => {
+    smAndUp.value = false;
+    const wrapper = mountWithSortOptions({ layout });
+    const labels = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .map((item) => item.props("label"));
+    wrapper.unmount();
+    smAndUp.value = true;
+    return labels;
+  };
+
+  it("mirrors grouping and sort entries in grid mode", () => {
+    expect(kebabLabels("grid")).toEqual([
+      "gallery.view-flat",
+      "gallery.view-grouped",
+      "Title",
+      "Size",
+      "gallery.sort-ascending",
+      "gallery.sort-descending",
+      "gallery.view-grid",
+      "gallery.view-list",
+    ]);
+  });
+
+  it("drops them in list mode", () => {
+    expect(kebabLabels("list")).toEqual([
+      "gallery.view-grid",
+      "gallery.view-list",
+    ]);
   });
 });
