@@ -528,6 +528,8 @@ function clear() {
 
 <style scoped>
 .selection-bar {
+  /* Same brand edge a selected card carries, a hair thinner. */
+  --r-color-selection-edge: var(--r-color-brand-primary);
   position: fixed;
   left: 50%;
   bottom: max(24px, env(safe-area-inset-bottom, 0));
@@ -550,6 +552,21 @@ function clear() {
   pointer-events: auto;
 }
 
+/* The bar, the counter's hill and the fillets between them are three fills
+   that have to read as one piece, so the edge is drawn as a layer BEHIND all
+   of them: this pill peeks out by 1px everywhere the fills don't cover it,
+   and the hill and its fillets cover the stretch they sit on. A border per
+   piece would leave the seams the fills exist to hide. */
+.selection-bar::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  border-radius: var(--r-radius-pill);
+  background: var(--r-color-selection-edge);
+  pointer-events: none;
+}
+
 /* On sm-and-down sit just above the bottom tab bar (8px gap) so the two
    read as stacked, not overlapping. */
 html[data-bp~="sm-and-down"] .selection-bar {
@@ -565,7 +582,7 @@ html[data-bp~="sm-and-down"] .selection-bar {
   /* Over the hill, so the part that laps into the bar is hidden behind it
      instead of painting across the buttons' own backgrounds. */
   position: relative;
-  z-index: 1;
+  z-index: 2;
   --r-toolbar-color: var(--r-color-panel);
   max-width: calc(100vw - 16px);
   /* No border or inset line: the counter's hill grows out of this edge, and
@@ -581,7 +598,7 @@ html[data-bp~="sm-and-down"] .selection-bar {
    that stopped at the join is exactly what makes a seam. */
 .selection-bar__notch {
   position: absolute;
-  z-index: 0;
+  z-index: 1;
   left: 50%;
   bottom: calc(100% - 6px);
   transform: translateX(-50%);
@@ -594,6 +611,8 @@ html[data-bp~="sm-and-down"] .selection-bar {
      square corners themselves sit inside the bar, out of sight. */
   border-radius: var(--r-radius-pill) var(--r-radius-pill) 0 0;
   background: var(--r-color-panel);
+  /* Traces the hill only: the foot's share runs inside the bar, behind it. */
+  outline: 1px solid var(--r-color-selection-edge);
   /* The bar's glass too, or the fill reads a shade off against it. */
   backdrop-filter: blur(18px) saturate(140%);
   color: var(--r-color-fg);
@@ -621,7 +640,9 @@ html[data-bp~="sm-and-down"] .selection-bar {
   background: radial-gradient(
     circle var(--r-notch-fillet) at top left,
     transparent 0 var(--r-notch-fillet),
-    var(--r-color-panel) var(--r-notch-fillet)
+    var(--r-color-selection-edge) var(--r-notch-fillet)
+      calc(var(--r-notch-fillet) + 1px),
+    var(--r-color-panel) calc(var(--r-notch-fillet) + 1px)
   );
 }
 .selection-bar__notch::after {
@@ -629,7 +650,9 @@ html[data-bp~="sm-and-down"] .selection-bar {
   background: radial-gradient(
     circle var(--r-notch-fillet) at top right,
     transparent 0 var(--r-notch-fillet),
-    var(--r-color-panel) var(--r-notch-fillet)
+    var(--r-color-selection-edge) var(--r-notch-fillet)
+      calc(var(--r-notch-fillet) + 1px),
+    var(--r-color-panel) calc(var(--r-notch-fillet) + 1px)
   );
 }
 
