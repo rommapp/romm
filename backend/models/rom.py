@@ -830,17 +830,27 @@ class Rom(BaseModel):
         BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
     )
 
-    # The ascending gallery sort leads with these so unset metadata lands
-    # last off an index. Never NULL despite the nullable DDL, which MariaDB
-    # forces: it takes no NOT NULL on a generated column.
+    # The ascending gallery sort leads with these so unset metadata lands last
+    # off an index. `nullable=True` matches the DDL, which MariaDB forces by
+    # taking no NOT NULL on a generated column; `IS NULL` never yields NULL, so
+    # the values themselves are always `bool`.
     generated_first_release_date_unset: Mapped[bool] = mapped_column(
-        Boolean(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        Boolean(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
     generated_average_rating_unset: Mapped[bool] = mapped_column(
-        Boolean(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        Boolean(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
     generated_hltb_main_story_unset: Mapped[bool] = mapped_column(
-        Boolean(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        Boolean(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
