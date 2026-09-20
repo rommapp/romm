@@ -33,7 +33,7 @@ jobs:
         run: npm ci
         working-directory: frontend
 
-      - name: Run typecheck (vue-tsc and circular dependency check)
+      - name: Run typecheck
         run: npm run typecheck
         working-directory: frontend
 

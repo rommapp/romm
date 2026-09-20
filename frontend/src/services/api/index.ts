@@ -134,7 +134,6 @@ api.interceptors.response.use(
 
       // Loaded lazily: a static import evaluates the router while this module
       // is still initialising, so `router` reads as undefined.
-      // @dpdm-ignore
       const { default: router } = await import("@/plugins/router");
 
       // Don't redirect to login if already on an auth-exempt route.
