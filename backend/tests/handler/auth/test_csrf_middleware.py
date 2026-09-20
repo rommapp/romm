@@ -1,5 +1,6 @@
 import asyncio
 import re
+from typing import Any
 
 from itsdangerous import URLSafeSerializer
 from starlette.applications import Starlette
@@ -59,7 +60,7 @@ def create_test_app(**csrf_kwargs) -> Starlette:
     return Starlette(routes=routes, middleware=middleware)
 
 
-def create_session_app(session: dict) -> Starlette:
+def create_session_app(session: dict[str, Any]) -> Starlette:
     """A CSRF app behind a resolved session, as `main.py` orders them."""
 
     class StubSessionMiddleware:
