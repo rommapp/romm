@@ -131,6 +131,8 @@ const { smAndDown } = useBreakpoint();
 
 <style scoped>
 .r-glr-skel {
+  /* Bleeds with the row it stands in for (see GameListRow). */
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
   display: grid;
   align-items: center;
   gap: 0 var(--r-space-5);

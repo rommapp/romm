@@ -36,8 +36,6 @@ export const METADATUM: RomMetadataSchema = {
   average_rating: 9.1,
 };
 
-/** A complete `SimpleRom`, so a new required field breaks the build instead of
- *  hiding behind a cast. Tests override only the fields they read. */
 export const ROM_DEFAULTS: SimpleRom = {
   id: 1,
   igdb_id: null,

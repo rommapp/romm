@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ref } from "vue";
 import GameListRow from "./GameListRow.vue";
 import GameListSkeletonRow from "./GameListSkeletonRow.vue";
 import { getListColumns, LIST_COVER_TRACK_PX } from "./listColumns";
@@ -15,6 +16,11 @@ vi.mock("vue-router", async (importOriginal) => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
+const smAndDown = ref(false);
+vi.mock("@/v2/composables/useBreakpoint", () => ({
+  useBreakpoint: () => ({ smAndDown }),
+}));
+
 /** Per-column placeholder geometry: every inline style in the cell, so both
  *  each block's size and its stack's spacing are compared. */
 function shapes(row: HTMLElement): string[][] {
@@ -23,6 +29,15 @@ function shapes(row: HTMLElement): string[][] {
       (el) => el.getAttribute("style") ?? "",
     ),
   );
+}
+
+/** The compact row nests its placeholders one level down, under the single
+ *  flex container that stands in for the columns. */
+function compactShapes(row: HTMLElement): string[][] {
+  const compact = row.classList.contains("r-list-compact")
+    ? row
+    : row.querySelector<HTMLElement>(".r-list-compact");
+  return compact ? shapes(compact) : [];
 }
 
 /** Per-column right-edge flag, in column order. */
@@ -59,6 +74,7 @@ function mountHydratedRow() {
 describe("list-mode skeleton row", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    smAndDown.value = false;
   });
 
   it("paints the bootstrap row's per-column shapes", () => {
@@ -87,6 +103,17 @@ describe("list-mode skeleton row", () => {
     const hydrated = mountHydratedRow().element;
 
     expect(tabularFigures(hydrated)).toEqual(expected);
+  });
+
+  it("paints the bootstrap row's compact shapes too", () => {
+    // The compact branch is a second copy of the same placeholder; a tick
+    // column or a bar stack that drifts moves every cover on a phone.
+    smAndDown.value = true;
+    const pending = mount(GameListRow, { props: { position: 0 } }).element;
+    const bootstrap = mount(GameListSkeletonRow).element;
+
+    expect(compactShapes(pending)).toEqual(compactShapes(bootstrap));
+    expect(compactShapes(pending).length).toBeGreaterThan(0);
   });
 
   it("sizes the cover column off the art cap, not the measured ratios", () => {

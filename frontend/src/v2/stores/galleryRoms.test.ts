@@ -6,6 +6,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms, {
   orderSupportsLetters,
   SELECT_ALL_PAGE_SIZE,
+  type GalleryOrderKey,
 } from "@/v2/stores/galleryRoms";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
@@ -417,16 +418,22 @@ describe("galleryRoms length filter", () => {
 
 describe("orderSupportsLetters", () => {
   // The backend indexes first letters off a text column only, so every other
-  // order answers with an empty char_index.
-  it("claims letters for the text orders", () => {
-    expect(orderSupportsLetters("name")).toBe(true);
-    expect(orderSupportsLetters("fs_name")).toBe(true);
-  });
+  // order answers with an empty char_index. Spelling out every key means a new
+  // sort key fails here until someone says which kind it is.
+  const EXPECTED: Record<GalleryOrderKey, boolean> = {
+    name: true,
+    fs_name: true,
+    platform_id: false,
+    fs_size_bytes: false,
+    created_at: false,
+    updated_at: false,
+    first_release_date: false,
+    average_rating: false,
+    hltb_main_story: false,
+    last_played: false,
+  };
 
-  it("claims none for numbers, dates and enums", () => {
-    expect(orderSupportsLetters("fs_size_bytes")).toBe(false);
-    expect(orderSupportsLetters("first_release_date")).toBe(false);
-    expect(orderSupportsLetters("average_rating")).toBe(false);
-    expect(orderSupportsLetters("last_played")).toBe(false);
+  it.each(Object.entries(EXPECTED))("answers for %s", (key, expected) => {
+    expect(orderSupportsLetters(key as GalleryOrderKey)).toBe(expected);
   });
 });

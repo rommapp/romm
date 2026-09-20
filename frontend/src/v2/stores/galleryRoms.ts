@@ -70,7 +70,10 @@ export function isGalleryOrderKey(value: string): value is GalleryOrderKey {
 }
 
 /** The keys the backend answers with a `char_index`: it indexes first letters
- * only for a text column, so every other order comes back without letters. */
+ * only for a text column, so every other order comes back without letters.
+ * Stated here rather than read off an empty `charIndex`, which is also what an
+ * unfetched gallery looks like: the letter affordances would flicker away on
+ * every refetch. A test pins this against the full key list. */
 const LEXICAL_ORDER_KEYS: ReadonlySet<string> = new Set(["name", "fs_name"]);
 
 export function orderSupportsLetters(key: GalleryOrderKey): boolean {

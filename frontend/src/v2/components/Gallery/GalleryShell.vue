@@ -309,6 +309,9 @@ const sectionEl = ref<HTMLElement | null>(null);
 // the letter affordances go away with the letters themselves.
 const lettersSupported = computed(() => orderSupportsLetters(orderBy.value));
 const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
+const jumpMenuVisible = computed(
+  () => smAndDown.value && lettersSupported.value,
+);
 // The strip's footprint: its letter column plus `--r-alpha-strip-gap`.
 const STRIP_INSET_PX =
   parseInt(layoutTokens.alphaStripWidth, 10) + parseInt(space[3], 10);
@@ -685,25 +688,23 @@ function pendingJumpLetter(): string | null {
 // The smooth scroll animates towards the target the jump computed; anything
 // that moved meanwhile (a re-pack, the header rendering) leaves it short, so
 // settle onto the letter once the animation stops.
-function onScrollEnd() {
+function reanchorToJump() {
   const letter = pendingJumpLetter();
   if (letter) anchorLetter(letter, false);
 }
 
 // Three things move a letter out from under the toolbar after the jump: the
-// landing window arriving, the covers it brings re-packing the rows (the map
-// is rebuilt with them), and the view header rendering late, which grows the
-// band above the virtualised rows. Re-anchor on each.
+// landing window arriving, the covers it brings re-packing the rows, and the
+// view header rendering late, which grows the band above the virtualised
+// rows. Re-anchor on each. Watching the packed items rather than the letter
+// map keeps that O(n) map lazy: it is only built when a jump needs it.
 watch(
   [
-    letterToIndex,
+    virtualItems,
     () => scrollerRef.value?.innerOffsetTop ?? 0,
     () => galleryRoms.loadedWindows.size,
   ],
-  () => {
-    const letter = pendingJumpLetter();
-    if (letter) anchorLetter(letter, false);
-  },
+  reanchorToJump,
 );
 
 // ── Search filter (debounced) ───────────────────────────────────────
@@ -920,7 +921,7 @@ defineExpose({
       @wheel.passive="endLetterJump"
       @pointerdown.passive="endLetterJump"
       @keydown="endLetterJump"
-      @scrollend="onScrollEnd"
+      @scrollend="reanchorToJump"
       @update:viewport-range="onViewportRangeChange"
     >
       <!-- HEADER (Section 1) + TOOLBAR (Section 2). Both live in the
@@ -964,7 +965,7 @@ defineExpose({
             >
               <template #actions>
                 <AlphaJumpMenu
-                  v-if="smAndDown && lettersSupported"
+                  v-if="jumpMenuVisible"
                   :available="availableLetters"
                   :current="currentLetter"
                   :direction="orderDir"
@@ -1114,7 +1115,7 @@ defineExpose({
     >
       <template #actions>
         <AlphaJumpMenu
-          v-if="smAndDown && lettersSupported"
+          v-if="jumpMenuVisible"
           :available="availableLetters"
           :current="currentLetter"
           :direction="orderDir"
@@ -1189,11 +1190,14 @@ html[data-bp~="sm-and-down"] .r-v2-shell {
 
 /* Compact list mode: the rows and their column header run to the screen
    edges, out of the scroller's gutter — each keeps that gutter as its own
-   padding, so only the separators and the row fill reach the edge. */
-html[data-bp~="sm-and-down"] .r-v2-shell__list-header,
-html[data-bp~="sm-and-down"] .r-v2-shell .game-list-row,
-html[data-bp~="sm-and-down"] .r-v2-shell .r-glr-skel {
-  margin-inline: calc(-1 * var(--r-row-pad));
+   padding, so only the separators and the row fill reach the edge. The shell
+   publishes how far to bleed and the rows apply it themselves, so no row's
+   class name is load-bearing in here. */
+html[data-bp~="sm-and-down"] .r-v2-shell {
+  --r-list-bleed: var(--r-row-pad);
+}
+html[data-bp~="sm-and-down"] .r-v2-shell__list-header {
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
 }
 
 /* The horizontal pads live here so all in-flow content (header, toolbar,

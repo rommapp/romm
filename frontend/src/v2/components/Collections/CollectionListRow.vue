@@ -183,6 +183,8 @@ function onRowClick(e: MouseEvent) {
 
 <style scoped>
 .coll-list-row {
+  /* Runs to the screen edges wherever the shell asks for it. */
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
   display: grid;
   align-items: center;
   gap: 0 var(--r-space-3);

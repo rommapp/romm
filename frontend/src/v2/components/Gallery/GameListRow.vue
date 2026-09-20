@@ -27,6 +27,7 @@ import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, toBrowserLocale } from "@/utils";
+import ProviderBadges from "@/v2/components/Gallery/ProviderBadges.vue";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
@@ -142,6 +143,21 @@ const gridStyle = computed(() => ({
   gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
 }));
 const titleSkeletonGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
+
+/** What the compact row leaves out, in the order the panel lays it out: the
+ *  file name across the top, then two rows of three. */
+const detailFields = computed(() => {
+  const item = rom.value;
+  if (!item) return [];
+  return [
+    { label: t("rom.filename"), value: item.fs_name, wide: true },
+    { label: labelOf("created_at"), value: formatDate(item.created_at) },
+    { label: labelOf("first_release_date"), value: releaseDate(item) },
+    { label: labelOf("hltb_main_story"), value: lengthValue(item) },
+    { label: labelOf("languages"), value: listValue(item.languages) },
+    { label: labelOf("regions"), value: listValue(item.regions) },
+  ];
+});
 
 /** Alignment / figure modifiers for a cell, read off the column config so
  *  the body cannot drift from the header above it. */
@@ -318,11 +334,12 @@ function onRowPointerEnd() {
   <a
     class="game-list-row"
     :class="{
+      'game-list-row--columns': !smAndDown,
       'game-list-row--clickable': !!rom,
       'game-list-row--selected': isSelected,
       'game-list-row--expanded': expanded,
     }"
-    :style="gridStyle"
+    :style="smAndDown ? undefined : gridStyle"
     :href="rom ? `/rom/${rom.id}` : undefined"
     :aria-label="
       rom
@@ -427,79 +444,23 @@ function onRowPointerEnd() {
           @click.stop
         >
           <div class="game-list-row__detail-inner">
-            <div class="game-list-row__field game-list-row__field--wide">
-              <span class="game-list-row__field-label">{{
-                t("rom.filename")
-              }}</span>
-              <span class="game-list-row__field-value">{{ rom.fs_name }}</span>
-            </div>
-            <div class="game-list-row__field">
-              <span class="game-list-row__field-label">{{
-                labelOf("created_at")
-              }}</span>
-              <span class="game-list-row__field-value">{{
-                formatDate(rom.created_at)
-              }}</span>
-            </div>
-            <div class="game-list-row__field">
-              <span class="game-list-row__field-label">{{
-                labelOf("first_release_date")
-              }}</span>
-              <span class="game-list-row__field-value">{{
-                releaseDate(rom)
-              }}</span>
-            </div>
-            <div class="game-list-row__field">
-              <span class="game-list-row__field-label">{{
-                labelOf("hltb_main_story")
-              }}</span>
-              <span class="game-list-row__field-value">{{
-                lengthValue(rom)
-              }}</span>
-            </div>
-            <div class="game-list-row__field">
-              <span class="game-list-row__field-label">{{
-                labelOf("languages")
-              }}</span>
-              <span class="game-list-row__field-value">{{
-                listValue(rom.languages)
-              }}</span>
-            </div>
-            <div class="game-list-row__field">
-              <span class="game-list-row__field-label">{{
-                labelOf("regions")
-              }}</span>
-              <span class="game-list-row__field-value">{{
-                listValue(rom.regions)
-              }}</span>
+            <div
+              v-for="field in detailFields"
+              :key="field.label"
+              class="game-list-row__field"
+              :class="{ 'game-list-row__field--wide': field.wide }"
+            >
+              <span class="game-list-row__field-label">{{ field.label }}</span>
+              <span class="game-list-row__field-value">{{ field.value }}</span>
             </div>
             <div class="game-list-row__field game-list-row__field--wide">
               <span class="game-list-row__field-label">{{
                 t("scan.metadata-sources")
               }}</span>
-              <span
+              <ProviderBadges
                 v-if="providers.length > 0"
-                class="game-list-row__providers"
-              >
-                <span
-                  v-for="provider in providers"
-                  :key="provider.key"
-                  class="game-list-row__provider"
-                  :style="provider.bg ? { background: provider.bg } : undefined"
-                >
-                  <img
-                    :src="`/assets/scrappers/${provider.logo}`"
-                    :alt="provider.title"
-                    width="14"
-                    height="14"
-                  />
-                  <RTooltip
-                    activator="parent"
-                    :text="provider.title"
-                    location="top"
-                  />
-                </span>
-              </span>
+                :providers="providers"
+              />
               <span v-else class="game-list-row__field-value">—</span>
             </div>
           </div>
@@ -559,30 +520,12 @@ function onRowPointerEnd() {
               </div>
             </div>
             <div class="game-list-row__filename">{{ rom.fs_name }}</div>
-            <div
+            <ProviderBadges
               v-if="providers.length > 0"
               class="game-list-row__providers"
+              :providers="providers"
               @click.stop
-            >
-              <span
-                v-for="provider in providers"
-                :key="provider.key"
-                class="game-list-row__provider"
-                :style="provider.bg ? { background: provider.bg } : undefined"
-              >
-                <img
-                  :src="`/assets/scrappers/${provider.logo}`"
-                  :alt="provider.title"
-                  width="14"
-                  height="14"
-                />
-                <RTooltip
-                  activator="parent"
-                  :text="provider.title"
-                  location="top"
-                />
-              </span>
-            </div>
+            />
           </div>
         </div>
 
@@ -791,28 +734,32 @@ function onRowPointerEnd() {
 
 <style scoped>
 .game-list-row {
-  display: grid;
-  align-items: center;
-  gap: 0 var(--r-space-5);
-  padding: 0 var(--r-space-3);
-  height: var(--r-list-row-h);
-  border-bottom: 1px solid var(--r-color-border);
+  /* An <a> is inline by default, and the compact branch is plain flow: without
+     this the row shrink-wraps its content and the bleed below does nothing. */
+  display: block;
+  /* Runs to the screen edges wherever the shell asks for it. */
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
   font-size: var(--r-font-size-md);
   color: var(--r-color-fg-secondary);
   cursor: default;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
+/* Column layout, for the viewports that still have columns. The compact
+   branch is plain flow, so it needs nothing cancelled. */
+.game-list-row--columns {
+  display: grid;
+  align-items: center;
+  gap: 0 var(--r-space-5);
+  padding: 0 var(--r-space-3);
+  height: var(--r-list-row-h);
+  border-bottom: 1px solid var(--r-color-border);
+}
+
 /* ── Compact layout (phones / tablets) ───────────────────────────────
    No columns: a two-line block, and a detail panel whose fixed height the
    virtualiser mirrors (`LIST_ROW_DETAIL_HEIGHT_PX`) so the rows below an
    open row sit clear of it. */
-html[data-bp~="sm-and-down"] .game-list-row {
-  display: block;
-  height: auto;
-  padding: 0;
-  border-bottom: 0;
-}
 .game-list-row__compact {
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
@@ -1049,28 +996,10 @@ html[data-bp~="sm-and-down"] .game-list-row {
   text-overflow: ellipsis;
 }
 
+/* The badges own their look; the column layout only adds the gap under the
+   file name above them. */
 .game-list-row__providers {
-  display: flex;
-  align-items: center;
-  gap: 3px;
   margin-top: 4px;
-  overflow: hidden;
-}
-
-.game-list-row__provider {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  background: var(--r-color-surface);
-  flex-shrink: 0;
-}
-
-.game-list-row__provider img {
-  display: block;
-  object-fit: contain;
 }
 
 /* Pills cell — chips wrap to multiple lines inside the cell when they

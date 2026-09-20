@@ -92,10 +92,11 @@ html[data-bp~="xs"] .r-v2-idx-shell {
 /* Compact list mode: the column header and the rows run to the screen
    edges, out of the shell's gutter — each keeps that gutter as its own
    padding, so only the separators and the row fill reach the edge. */
-html[data-bp~="sm-and-down"] .r-v2-idx-shell__list-header,
-html[data-bp~="sm-and-down"] .r-v2-idx-shell :deep(.coll-list-row--compact),
-html[data-bp~="sm-and-down"] .r-v2-idx-shell :deep(.plat-list-row--compact) {
-  margin-inline: calc(-1 * var(--r-row-pad));
+html[data-bp~="sm-and-down"] .r-v2-idx-shell {
+  --r-list-bleed: var(--r-row-pad);
+}
+html[data-bp~="sm-and-down"] .r-v2-idx-shell__list-header {
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
 }
 /* The header already reaches both edges by the margin above, so the pinned
    glass must not add the gutter a second time: the page has no horizontal

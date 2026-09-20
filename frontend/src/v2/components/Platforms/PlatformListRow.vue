@@ -208,6 +208,8 @@ function onRowClick(e: MouseEvent) {
    view's narrative; the row applies it via CSS so the breakpoint
    switch can override without an inline-style override fight). */
 .plat-list-row {
+  /* Runs to the screen edges wherever the shell asks for it. */
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
   display: grid;
   grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
   align-items: center;

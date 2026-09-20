@@ -317,50 +317,52 @@ const { smAndUp } = useBreakpoint();
          they collapse into the kebab menu so the toolbar fits on phones
          without overflowing. -->
     <div class="gallery-toolbar__controls">
-      <RSliderBtnGroup
-        v-if="smAndUp && showGroupBy && !listMode"
-        :model-value="groupByValue"
-        :items="effectiveGroupByItems"
-        variant="segmented"
-        :aria-label="t('settings.platforms-drawer-group-by')"
-        @update:model-value="setGroupBy"
-      />
-
-      <!-- A menu, not a slider: too many axes for the segmented pattern
-           the neighbouring clusters use. -->
-      <RMenu
-        v-if="smAndUp && sortKeyItems.length > 0 && !listMode"
-        location="bottom end"
-        :offset="8"
-        width="220px"
-      >
-        <template #activator="{ props: activatorProps }">
-          <RBtn
-            v-bind="activatorProps"
-            variant="outlined"
-            surface
-            icon="mdi-sort"
-            rounded="circle"
-            :aria-label="t('gallery.sort-by')"
-          />
-        </template>
-        <RMenuItem
-          v-for="item in sortKeyItems"
-          :key="item.key"
-          :label="item.label"
-          :variant="sortKeyValue === item.key ? 'active' : 'default'"
-          @click="setSortKey(item.key)"
+      <!-- Grouping and sort: list mode sorts from its column header instead. -->
+      <template v-if="smAndUp && !listMode">
+        <RSliderBtnGroup
+          v-if="showGroupBy"
+          :model-value="groupByValue"
+          :items="effectiveGroupByItems"
+          variant="segmented"
+          :aria-label="t('settings.platforms-drawer-group-by')"
+          @update:model-value="setGroupBy"
         />
-      </RMenu>
 
-      <RSliderBtnGroup
-        v-if="smAndUp && !listMode"
-        :model-value="sortDirValue"
-        :items="sortDirItems"
-        variant="segmented"
-        :aria-label="t('gallery.sort-ascending')"
-        @update:model-value="setSortDir"
-      />
+        <!-- A menu, not a slider: too many axes for the segmented pattern
+             the neighbouring clusters use. -->
+        <RMenu
+          v-if="sortKeyItems.length > 0"
+          location="bottom end"
+          :offset="8"
+          width="220px"
+        >
+          <template #activator="{ props: activatorProps }">
+            <RBtn
+              v-bind="activatorProps"
+              variant="outlined"
+              surface
+              icon="mdi-sort"
+              rounded="circle"
+              :aria-label="t('gallery.sort-by')"
+            />
+          </template>
+          <RMenuItem
+            v-for="item in sortKeyItems"
+            :key="item.key"
+            :label="item.label"
+            :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            @click="setSortKey(item.key)"
+          />
+        </RMenu>
+
+        <RSliderBtnGroup
+          :model-value="sortDirValue"
+          :items="sortDirItems"
+          variant="segmented"
+          :aria-label="t('gallery.sort-ascending')"
+          @update:model-value="setSortDir"
+        />
+      </template>
 
       <RSliderBtnGroup
         v-if="smAndUp"
