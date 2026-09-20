@@ -346,6 +346,11 @@ function onCardPointerEnd() {
   if (!props.selectable) return;
   selectionInput.handlePointerEnd();
 }
+function onCardTouchMove(e: TouchEvent) {
+  // The paint drag owns the gesture; without this the grid scrolls under
+  // the finger while it is selecting.
+  if (selectionInput.isPainting()) e.preventDefault();
+}
 
 function onStaticKeydown(e: KeyboardEvent) {
   // Enter / Space activate the card when it's rendered as a plain
@@ -393,6 +398,7 @@ function onStaticKeydown(e: KeyboardEvent) {
             : undefined
     "
     :data-rom-id="rom.id"
+    :data-rom-position="selectable ? position : undefined"
     :data-focus-key="!decorative && !static ? `rom-${rom.id}` : undefined"
     @click.capture="onCardClickCapture"
     @click="onCardClick"
@@ -405,6 +411,8 @@ function onStaticKeydown(e: KeyboardEvent) {
     @pointermove="onCardPointerMove"
     @pointerup="onCardPointerEnd"
     @pointercancel="onCardPointerEnd"
+    @touchmove="onCardTouchMove"
+    @contextmenu="selectionInput.handleContextMenu"
   >
     <GameCover
       ref="coverRef"
@@ -539,6 +547,8 @@ function onStaticKeydown(e: KeyboardEvent) {
 
 <style scoped>
 .r-gc {
+  /* The long press selects the card; iOS would offer its link callout too. */
+  -webkit-touch-callout: none;
   flex-shrink: 0;
   cursor: pointer;
   position: relative;

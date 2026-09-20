@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { rom } from "@/v2/components/Gallery/listRowFixture";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import { useGallerySelectionInput } from "./index";
 
@@ -17,6 +18,16 @@ function pressOn(target: Element): PointerEvent {
   });
   Object.defineProperty(event, "target", { value: target });
   return event;
+}
+
+/** A move of the finger already tracked by the press. */
+function move(clientX: number, clientY: number): PointerEvent {
+  return new PointerEvent("pointermove", {
+    pointerType: "touch",
+    isPrimary: true,
+    clientX,
+    clientY,
+  });
 }
 
 describe("useGallerySelectionInput long press", () => {
@@ -57,6 +68,42 @@ describe("useGallerySelectionInput long press", () => {
     row.appendChild(checkbox);
 
     input.handlePointerDown(rom(), 0, pressOn(checkbox));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+
+    expect(storeGallerySelection().count).toBe(0);
+  });
+
+  // Dragging on from the press selects what it crosses, and crossing the
+  // same row twice must not flip it back off.
+  it("paints the rows the drag crosses", () => {
+    const input = useGallerySelectionInput();
+    const row = document.createElement("a");
+    row.dataset.romPosition = "0";
+    const next = document.createElement("a");
+    next.dataset.romPosition = "1";
+    document.body.append(row, next);
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(next);
+    vi.spyOn(storeGalleryRoms(), "getRomAt").mockReturnValue(rom({ id: 2 }));
+
+    input.handlePointerDown(rom({ id: 1 }), 0, pressOn(row));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    input.handlePointerMove(move(20, 40));
+    input.handlePointerMove(move(21, 41));
+
+    expect(storeGallerySelection().count).toBe(2);
+    row.remove();
+    next.remove();
+  });
+
+  it("paints nothing until the press has turned into a long one", () => {
+    const input = useGallerySelectionInput();
+    const row = document.createElement("a");
+    const next = document.createElement("a");
+    next.dataset.romPosition = "1";
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(next);
+
+    input.handlePointerDown(rom({ id: 1 }), 0, pressOn(row));
+    input.handlePointerMove(move(200, 400));
     vi.advanceTimersByTime(LONG_PRESS_MS);
 
     expect(storeGallerySelection().count).toBe(0);

@@ -45,10 +45,17 @@ interface LongPressState {
 }
 
 let longPress: LongPressState | null = null;
+/** Positions already painted by the current drag, so sliding back over one
+ *  doesn't flip it off again. Null while no drag is painting. */
+let painted: Set<number> | null = null;
+/** True between a tracked touch going down and coming back up. The long-press
+ *  state outlives that, waiting for the click it has to swallow. */
+let pressActive = false;
 
 function resetLongPress() {
   if (longPress?.timer) clearTimeout(longPress.timer);
   longPress = null;
+  painted = null;
 }
 
 export function useGallerySelectionInput() {
@@ -111,6 +118,7 @@ export function useGallerySelectionInput() {
     }
 
     resetLongPress();
+    pressActive = true;
     longPress = {
       romId: rom.id,
       position,
@@ -129,11 +137,47 @@ export function useGallerySelectionInput() {
       state.consumed = true;
       state.timer = null;
       selection.toggle(rom, position);
+      // Whatever the press selected is the drag's first row.
+      painted = new Set([position]);
     }, LONG_PRESS_MS);
   }
 
+  /** Select the row under the finger, if it is one we haven't painted. */
+  function paintAt(clientX: number, clientY: number) {
+    if (!painted) return;
+    const host = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>("[data-rom-position]");
+    if (!host) return;
+    const position = Number(host.dataset.romPosition);
+    if (!Number.isInteger(position) || painted.has(position)) return;
+    const rom = galleryRoms.getRomAt(position);
+    if (!rom) return;
+    painted.add(position);
+    selection.selectMany([rom]);
+  }
+
+  /** True while a long press has turned into a drag that paints rows. */
+  function isPainting(): boolean {
+    return painted !== null;
+  }
+
+  /** Suppress the native callout the browser offers on a long press, which
+   *  would otherwise cover the selection the press just made. Only a live
+   *  touch counts, so a right-click still opens the browser's menu. */
+  function handleContextMenu(event: Event) {
+    if (pressActive) event.preventDefault();
+  }
+
   function handlePointerMove(event: PointerEvent) {
-    if (!longPress || longPress.consumed) return;
+    if (!longPress) return;
+    // Past the long press, the drag selects every row it crosses. Touch
+    // events stay with the element that got the press, so the row under the
+    // finger is looked up by coordinates.
+    if (longPress.consumed) {
+      paintAt(event.clientX, event.clientY);
+      return;
+    }
     const dx = Math.abs(event.clientX - longPress.startX);
     const dy = Math.abs(event.clientY - longPress.startY);
     if (
@@ -145,6 +189,7 @@ export function useGallerySelectionInput() {
   }
 
   function handlePointerEnd() {
+    pressActive = false;
     // If the timer hasn't fired yet, the press was a normal tap —
     // cancel so the click event passes through unchanged. If it did
     // fire (`consumed: true`), keep the state so the synthetic click
@@ -155,6 +200,8 @@ export function useGallerySelectionInput() {
 
   return {
     handleActivate,
+    handleContextMenu,
+    isPainting,
     handlePointerDown,
     handlePointerMove,
     handlePointerEnd,

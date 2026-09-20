@@ -329,6 +329,11 @@ function onRowPointerEnd() {
   if (isStatic.value) return;
   selectionInput.handlePointerEnd();
 }
+function onRowTouchMove(e: TouchEvent) {
+  // The paint drag owns the gesture; without this the list scrolls under
+  // the finger while it is selecting.
+  if (selectionInput.isPainting()) e.preventDefault();
+}
 </script>
 
 <template>
@@ -357,6 +362,8 @@ function onRowPointerEnd() {
     @pointermove="onRowPointerMove"
     @pointerup="onRowPointerEnd"
     @pointercancel="onRowPointerEnd"
+    @touchmove="onRowTouchMove"
+    @contextmenu="selectionInput.handleContextMenu"
   >
     <template v-if="rom">
       <!-- COMPACT (phones / tablets): two lines plus the chevron; the
@@ -737,6 +744,8 @@ function onRowPointerEnd() {
 .game-list-row {
   /* An inline <a> would shrink-wrap its content and swallow the bleed. */
   display: block;
+  /* The long press selects the row; iOS would offer its link callout too. */
+  -webkit-touch-callout: none;
   /* Runs to the screen edges wherever the shell asks for it. */
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
   font-size: var(--r-font-size-md);
