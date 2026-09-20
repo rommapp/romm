@@ -35,7 +35,7 @@ const { t } = useI18n();
 const gridStyle = { gridTemplateColumns: COLLECTION_LIST_GRID_TEMPLATE };
 
 // Phones and tablets drop the columns (the rows go compact), so the sort
-// key they carried moves into a menu — same as the gallery's list header.
+// key they carried moves into a menu, same as the gallery's list header.
 const { smAndDown } = useBreakpoint();
 const sortOptions = computed(() =>
   COLLECTION_LIST_COLUMNS.flatMap((col) =>

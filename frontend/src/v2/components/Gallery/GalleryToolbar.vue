@@ -373,7 +373,7 @@ const { smAndUp } = useBreakpoint();
         @update:model-value="setLayout"
       />
 
-      <!-- Kebab mirror — only visible below smAndUp, carrying the same
+      <!-- Kebab mirror, only visible below smAndUp, carrying the same
            clusters the inline sliders do. -->
       <RMenu
         v-if="!smAndUp"

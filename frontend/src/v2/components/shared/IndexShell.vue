@@ -90,7 +90,7 @@ html[data-bp~="xs"] .r-v2-idx-shell {
 }
 
 /* Compact list mode: the column header and the rows run to the screen
-   edges, out of the shell's gutter — each keeps that gutter as its own
+   edges, out of the shell's gutter. Each keeps that gutter as its own
    padding, so only the separators and the row fill reach the edge. */
 html[data-bp~="sm-and-down"] .r-v2-idx-shell {
   --r-list-bleed: var(--r-row-pad);

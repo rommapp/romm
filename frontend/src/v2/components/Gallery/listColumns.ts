@@ -167,7 +167,7 @@ export const LIST_ROW_DETAIL_HEIGHT_PX = parseInt(
   10,
 );
 
-/** The slot a list row needs with `detailHeight` px of its panel showing —
+/** The slot a list row needs with `detailHeight` px of its panel showing:
  *  the panel rolls open, so this lands anywhere between the bare row and the
  *  row plus a full panel. Every surface that virtualises `GameListRow`
  *  reserves its rows with this. */

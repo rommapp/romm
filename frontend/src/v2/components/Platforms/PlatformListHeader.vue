@@ -4,7 +4,7 @@
 // row underneath, clickable sortable columns that toggle asc → desc.
 //
 // Phones and tablets have no columns to head (the rows go compact), so the
-// sort key they carried moves into a menu — same as the collections list.
+// sort key they carried moves into a menu, same as the collections list.
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
 import ListSortMenu from "@/v2/components/shared/ListSortMenu.vue";

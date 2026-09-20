@@ -697,7 +697,7 @@ html[data-bp~="sm-and-down"] .selection-bar {
   align-items: center;
   padding: 9px 16px 13px;
   /* Round over the top with the bar's own pill radius; the foot stays square
-     so the sides run straight down into the fillets below — rounding it would
+     so the sides run straight down into the fillets below. Rounding it would
      pull the edge inward and open a gap between hill, fillet and bar. The
      square corners themselves sit inside the bar, out of sight. */
   border-radius: var(--r-radius-pill) var(--r-radius-pill) 0 0;

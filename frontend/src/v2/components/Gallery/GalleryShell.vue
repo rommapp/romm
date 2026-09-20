@@ -1093,7 +1093,7 @@ defineExpose({
       </template>
     </RVirtualScroller>
 
-    <!-- ALPHASTRIP — A-Z jump column on the right edge of the section.
+    <!-- ALPHASTRIP: A-Z jump column on the right edge of the section.
          Phones and tablets jump from the toolbar instead (AlphaJumpMenu). -->
     <AlphaStrip
       v-if="stripVisible"
@@ -1202,7 +1202,7 @@ html[data-bp~="sm-and-down"] .r-v2-shell {
 }
 
 /* Compact list mode: the rows and their column header run to the screen
-   edges, out of the scroller's gutter — each keeps that gutter as its own
+   edges, out of the scroller's gutter. Each keeps that gutter as its own
    padding, so only the separators and the row fill reach the edge. The shell
    publishes how far to bleed and the rows apply it themselves, so no row's
    class name is load-bearing in here. */

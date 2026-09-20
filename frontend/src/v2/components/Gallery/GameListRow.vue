@@ -78,7 +78,7 @@ interface Props {
   expandable?: boolean;
   /** Whether this row's detail panel is open. */
   expanded?: boolean;
-  /** Px of that panel currently showing — it rolls open and shut. */
+  /** Px of that panel currently showing; it rolls open and shut. */
   detailHeight?: number;
 }
 
@@ -96,7 +96,7 @@ const emit = defineEmits<{
   /** Forwards the cover's measured natural ratio so the shell's flow-packer
    *  can pack the grid by true cover shape. */
   (e: "ratio", payload: { romId: number; ratio: number }): void;
-  /** Chevron pressed — the parent owns which row is open. */
+  /** Chevron pressed; the parent owns which row is open. */
   (e: "toggle-expand"): void;
 }>();
 
@@ -357,7 +357,7 @@ function onRowPointerEnd() {
     @pointercancel="onRowPointerEnd"
   >
     <template v-if="rom">
-      <!-- COMPACT (phones / tablets) — two lines plus the chevron; the
+      <!-- COMPACT (phones / tablets): two lines plus the chevron; the
            columns move into the detail panel below. -->
       <template v-if="smAndDown">
         <div class="game-list-row__compact r-list-compact">
@@ -467,13 +467,13 @@ function onRowPointerEnd() {
       </template>
 
       <template v-else>
-        <!-- Selection cell — leftmost column. Click toggles this row;
+        <!-- Selection cell, leftmost column. Click toggles this row;
            shift-click extends the range from the last toggled position.
            Hidden at rest; reveals on row hover / focus or whenever the
            row is selected so the user always knows which rows are
            picked. RCheckbox provides the box / fill / draw animations
-           — same animation language as the GameCard checkbox in grid
-           mode. -->
+           (same animation language as the GameCard checkbox in grid
+           mode). -->
         <div class="game-list-row__cell game-list-row__select">
           <RCheckbox
             v-if="!isStatic"
@@ -641,7 +641,7 @@ function onRowPointerEnd() {
     </template>
 
     <template v-else>
-      <!-- Compact skeleton — same two-line shape as the compact row. -->
+      <!-- Compact skeleton, same two-line shape as the compact row. -->
       <div v-if="smAndDown" class="game-list-row__compact r-list-compact">
         <div class="game-list-row__select" />
         <div class="game-list-row__cover">
@@ -668,7 +668,7 @@ function onRowPointerEnd() {
             v-if="col.key === 'select'"
             class="game-list-row__cell game-list-row__select"
           >
-            <!-- Empty cell during skeleton phase — no placeholder so the
+            <!-- Empty cell during skeleton phase, no placeholder so the
                selection chrome only appears once a real row exists. -->
           </div>
           <div
