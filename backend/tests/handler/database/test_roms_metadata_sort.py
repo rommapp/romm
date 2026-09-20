@@ -178,6 +178,15 @@ class TestSortIndexes:
                 if index["name"]
             }
 
+    @pytest.fixture
+    def roms_index_sorting(self) -> dict[str, dict[str, tuple[str, ...]]]:
+        with sync_engine.connect() as connection:
+            return {
+                index["name"]: index.get("column_sorting") or {}
+                for index in sa.inspect(connection).get_indexes("roms")
+                if index["name"]
+            }
+
     @pytest.mark.parametrize("column", SORTABLE_NULLABLE_ROM_COLUMNS)
     def test_ascending_sort_is_indexed_through_the_tiebreak(
         self, roms_indexes: dict[str, list[str]], column: str
@@ -196,6 +205,26 @@ class TestSortIndexes:
         so nothing else would notice them going missing."""
         expected = [column, "id"] if ROMM_DB_DRIVER == "postgresql" else None
         assert roms_indexes.get(rom_desc_index_name(column)) == expected
+
+    @pytest.mark.skipif(
+        ROMM_DB_DRIVER != "postgresql", reason="only PostgreSQL parses the spelling"
+    )
+    @pytest.mark.parametrize("column", SORTABLE_NULLABLE_ROM_COLUMNS)
+    def test_descending_index_spells_out_its_order(
+        self, roms_index_sorting: dict[str, dict[str, tuple[str, ...]]], column: str
+    ):
+        """A default ascending index reflects the same columns and serves nothing."""
+        assert roms_index_sorting[rom_desc_index_name(column)] == {
+            column: ("desc", "nulls_last"),
+            "id": ("desc",),
+        }
+
+    @pytest.mark.parametrize("column", SORTABLE_NULLABLE_ROM_COLUMNS)
+    def test_ascending_index_takes_the_engine_default_order(
+        self, roms_index_sorting: dict[str, dict[str, tuple[str, ...]]], column: str
+    ):
+        """Ascending is the direction the handler emits, so nothing is spelled out."""
+        assert roms_index_sorting[rom_sort_index_name(column)] == {}
 
 
 class TestMetadataSortResults:
