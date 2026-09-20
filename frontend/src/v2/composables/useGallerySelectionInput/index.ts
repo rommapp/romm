@@ -194,9 +194,14 @@ export function useGallerySelectionInput() {
   /** Select the row under the finger, if it is one we haven't painted. */
   function paintAt(clientX: number, clientY: number) {
     if (!painted) return;
-    const host = document
-      .elementFromPoint(clientX, clientY)
-      ?.closest<HTMLElement>("[data-rom-position]");
+    // The bottom nav and the selection bar float over the list's lower edge,
+    // which is exactly where an auto-scrolling drag parks its finger, so look
+    // down the stack for the row rather than at whatever sits on top of it.
+    let host: HTMLElement | null = null;
+    for (const el of document.elementsFromPoint(clientX, clientY)) {
+      host = el.closest<HTMLElement>("[data-rom-position]");
+      if (host) break;
+    }
     if (!host) return;
     const position = Number(host.dataset.romPosition);
     paintScroller ??= scrollableAncestor(host);

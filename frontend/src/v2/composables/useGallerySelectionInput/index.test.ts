@@ -20,6 +20,15 @@ function pressOn(target: Element): PointerEvent {
   return event;
 }
 
+/** What the drag finds under the finger. happy-dom lays nothing out and has
+ *  no `elementsFromPoint`, so the stack is supplied directly. */
+function stackAt(...els: Element[]) {
+  Object.defineProperty(document, "elementsFromPoint", {
+    value: () => els,
+    configurable: true,
+  });
+}
+
 /** A move of the finger already tracked by the press. */
 function move(clientX: number, clientY: number): PointerEvent {
   return new PointerEvent("pointermove", {
@@ -82,7 +91,7 @@ describe("useGallerySelectionInput long press", () => {
     const next = document.createElement("a");
     next.dataset.romPosition = "1";
     document.body.append(row, next);
-    vi.spyOn(document, "elementFromPoint").mockReturnValue(next);
+    stackAt(next);
     vi.spyOn(storeGalleryRoms(), "getRomAt").mockReturnValue(rom({ id: 2 }));
 
     input.handlePointerDown(rom({ id: 1 }), 0, pressOn(row));
@@ -95,12 +104,29 @@ describe("useGallerySelectionInput long press", () => {
     next.remove();
   });
 
+  // The bottom nav and the selection bar cover the list's lower edge, which
+  // is where an auto-scrolling drag parks: the row under them still paints.
+  it("paints the row under the chrome floating over it", () => {
+    const input = useGallerySelectionInput();
+    const row = document.createElement("a");
+    const next = document.createElement("a");
+    next.dataset.romPosition = "1";
+    stackAt(document.createElement("div"), next);
+    vi.spyOn(storeGalleryRoms(), "getRomAt").mockReturnValue(rom({ id: 2 }));
+
+    input.handlePointerDown(rom({ id: 1 }), 0, pressOn(row));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    input.handlePointerMove(move(20, 40));
+
+    expect(storeGallerySelection().count).toBe(2);
+  });
+
   it("paints nothing until the press has turned into a long one", () => {
     const input = useGallerySelectionInput();
     const row = document.createElement("a");
     const next = document.createElement("a");
     next.dataset.romPosition = "1";
-    vi.spyOn(document, "elementFromPoint").mockReturnValue(next);
+    stackAt(next);
 
     input.handlePointerDown(rom({ id: 1 }), 0, pressOn(row));
     input.handlePointerMove(move(200, 400));
