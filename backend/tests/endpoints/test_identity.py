@@ -282,9 +282,6 @@ async def test_admin_password_reset_invalidates_the_target_user_sessions(
         HTTPStatus.OK
     )
 
-    # The bearer has to be the only credential on the reset: HybridAuthBackend
-    # resolves a session cookie ahead of it, and the jar still holds the
-    # target's, which would make this a self-update.
     client.cookies.clear()
 
     response = client.put(
