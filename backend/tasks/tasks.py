@@ -95,10 +95,17 @@ class Task(ABC):
         """Whether an admin can trigger this task on demand."""
         return self.manual_run and self.enabled
 
-    @property
-    def job_meta(self) -> dict[str, Any]:
-        """What a job of this task carries so the API can describe it."""
-        return {"task_name": self.title, "task_type": self.task_type.value}
+    def job_meta(self, key: str) -> dict[str, Any]:
+        """What a job of this task carries so the API can describe it.
+
+        Args:
+            key: The name the task is registered under, which outlives its title.
+        """
+        return {
+            "task_key": key,
+            "task_name": self.title,
+            "task_type": self.task_type.value,
+        }
 
     @abstractmethod
     async def run(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -115,11 +122,7 @@ class RemoteFilePullTask(PeriodicTask, ABC):
         super().__init__(*args, **kwargs)
         self.url = url
 
-    async def run(self, force: bool = False) -> Any:
-        if not self.enabled and not force:
-            log.info(f"Scheduled {self.description} not enabled, skipping...")
-            return None
-
+    async def run(self) -> Any:
         log.info(f"Scheduled {self.description} started...")
 
         httpx_client = ctx_httpx_client.get()

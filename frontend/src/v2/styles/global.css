@@ -19,6 +19,17 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Opaque track: a transparent one lets the route crossfade's snapshot, with the
+   blurred art bleeding into the gutter, show through and swallow the thumb. */
+html.r-v2 {
+  scrollbar-color: color-mix(
+      in srgb,
+      var(--r-color-brand-primary) 35%,
+      transparent
+    )
+    var(--r-color-bg);
+}
+
 /* Responsive page padding — `--r-row-pad` is consumed everywhere as the
    horizontal gutter for page rows / toolbars / nav / widgets. Shrinking
    it here tightens every consumer at once on narrower viewports, so
@@ -31,6 +42,13 @@ html[data-bp~="sm-and-down"].r-v2 {
 }
 html[data-bp~="xs"].r-v2 {
   --r-row-pad: 14px;
+}
+
+/* The nav chrome unmounts while a player stage owns the viewport, so its
+   height tokens collapse for everything that offsets by them. */
+html.r-v2.r-v2-stage-active {
+  --r-nav-h: 0px;
+  --r-bottom-nav-h: 0px;
 }
 
 /* Focus rings are modality-gated — invisible for mouse/touch so we don't
@@ -289,6 +307,63 @@ html.r-v2-reduced-motion *::after {
 /* Typography utility: small uppercase label ("eyebrow") used above titles. */
 .r-eyebrow {
   font-size: 10px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-muted);
+}
+
+/* Top-bar glass, shared with the toolbars that pin under it. Reduced motion
+   swaps the blur (costly, murky over its solid background) for a flat bg. */
+.r-v2 {
+  --r-glass-bar-bg: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
+  --r-glass-bar-filter: blur(20px);
+}
+html.r-v2-reduced-motion {
+  --r-glass-bar-bg: var(--r-color-bg);
+  --r-glass-bar-filter: none;
+}
+
+/* Toolbar pinned under the top bar (usePinnedToolbar). Once `--pinned`, its
+   glass also covers the top bar, which drops its own: one surface. */
+.r-pinned-toolbar {
+  position: sticky;
+  top: var(--r-nav-h);
+  z-index: 4;
+}
+.r-pinned-toolbar::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--r-nav-h)) calc(-1 * var(--r-row-pad)) 0;
+  z-index: -1;
+  background: var(--r-glass-bar-bg);
+  backdrop-filter: var(--r-glass-bar-filter);
+  border-bottom: 1px solid var(--r-color-border);
+  opacity: 0;
+  pointer-events: none;
+}
+.r-pinned-toolbar--pinned::before {
+  opacity: 1;
+}
+
+/* Column both gallery Settings tabs (platform, collection) render in, so they
+   share one width. */
+.r-settings-column {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 460px;
+  margin-inline: auto;
+}
+
+/* Section header: icon + small uppercase label heading a settings block. */
+.r-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 11px;
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;

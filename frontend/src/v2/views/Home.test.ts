@@ -3,23 +3,42 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
+import {
+  RECENT_PLAYED_ROMS_LIMIT,
+  RECENT_ROMS_LIMIT,
+  RECOMMENDED_ROMS_LIMIT,
+} from "@/services/api/rom";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { useStreamingStore, type JoinableSession } from "@/stores/streaming";
+import { SKELETON_DELAY_MS } from "@/v2/composables/useLoadingPhase";
 import Home from "./Home.vue";
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    // Renders interpolated values alongside the key, so a caption that drops
+    // its parameter fails here instead of passing on the bare key.
+    t: (key: string, params?: unknown[]) =>
+      [key, ...(params ?? [])].filter(Boolean).join(":"),
+  }),
 }));
 
-const { getLibraryInfo } = vi.hoisted(() => ({
+const { getLibraryInfo, getRecommendedRoms } = vi.hoisted(() => ({
   getLibraryInfo: vi.fn(),
+  getRecommendedRoms: vi.fn(),
 }));
 
 vi.mock("@/services/api/setup", () => ({
   default: { getLibraryInfo },
 }));
+
+// Only the feed request is stubbed; the limit constants come from the real
+// module so these tests assert against the numbers the view actually reads.
+vi.mock("@/services/api/rom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/api/rom")>();
+  return { ...actual, default: { ...actual.default, getRecommendedRoms } };
+});
 
 vi.mock("@v2/lib", () => ({
   RChip: defineComponent({ template: "<span><slot /></span>" }),
@@ -34,13 +53,21 @@ vi.mock("@/v2/components/Collections/CollectionTile.vue", () => ({
 
 vi.mock("@/v2/components/GameCard", () => ({
   GameCard: defineComponent({ template: "<div />" }),
-  GameCardSkeleton: defineComponent({ template: "<div />" }),
+  GameCardSkeleton: defineComponent({
+    template: '<div data-test="game-skeleton" />',
+  }),
 }));
 
 vi.mock("@/v2/components/shared/CardRow.vue", () => ({
   default: defineComponent({
-    props: { title: { type: String, default: "" } },
-    template: "<section><h2>{{ title }}</h2><slot /></section>",
+    props: {
+      title: { type: String, default: "" },
+      count: { type: Number, default: undefined },
+    },
+    // Surfaces the count, so a test can tell which rows withhold it while the
+    // list behind them is still in flight.
+    template:
+      '<section><h2>{{ title }}</h2><span data-test="row-count">{{ count }}</span><slot /></section>',
   }),
 }));
 
@@ -72,6 +99,7 @@ vi.mock("@/composables/useUISettings", () => ({
     showHomeWidgets: ref(true),
     showRecentRoms: ref(true),
     showContinuePlaying: ref(true),
+    showRecommendations: ref(true),
     showPlatforms: ref(true),
     showCollections: ref(true),
     showSmartCollections: ref(false),
@@ -175,6 +203,22 @@ function stubHomeFetches(populated: boolean) {
   return { platforms, collections, roms };
 }
 
+/** Hold every dashboard row in its loading state: a request that never settles
+ *  leaves each `fetching*` flag set, since the view clears it in a `finally`. */
+function holdRowsLoading() {
+  const pending = () => new Promise<never>(() => {});
+  const { platforms, collections, roms } = stubHomeFetches(true);
+
+  platforms.fetchingPlatforms = true;
+  vi.spyOn(platforms, "fetchPlatforms").mockImplementation(pending);
+  collections.fetchingCollections = true;
+  vi.spyOn(collections, "fetchCollections").mockImplementation(pending);
+
+  vi.spyOn(roms, "fetchRecentRoms").mockImplementation(pending);
+  vi.spyOn(roms, "fetchContinuePlayingRoms").mockImplementation(pending);
+  getRecommendedRoms.mockReturnValue(pending());
+}
+
 function mountHome() {
   return mount(Home, {
     global: {
@@ -183,13 +227,33 @@ function mountHome() {
   });
 }
 
+/** Mounts with every row still loading, past the delay before skeletons show. */
+async function mountLoadingHome() {
+  holdRowsLoading();
+  vi.useFakeTimers();
+  try {
+    const wrapper = mountHome();
+    await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS);
+    return wrapper;
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
+/** The section a card row renders into, located by its heading. */
+function findRow(wrapper: ReturnType<typeof mountHome>, title: string) {
+  return wrapper.findAll("section").find((s) => s.text().startsWith(title));
+}
+
 describe("Home", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     getLibraryInfo.mockReset();
     getLibraryInfo.mockResolvedValue({
-      data: { detected_structure: "struct_a", existing_platforms: [] },
+      data: { library_ready: true, existing_platforms: [] },
     });
+    getRecommendedRoms.mockReset();
+    getRecommendedRoms.mockResolvedValue({ data: [] });
   });
 
   it("never walks the filesystem for a populated library", async () => {
@@ -215,6 +279,121 @@ describe("Home", () => {
 
     expect(getLibraryInfo).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).toContain("home.empty-headline");
+  });
+
+  it("paints neither the sections nor the empty library while a load is still quick", async () => {
+    holdRowsLoading();
+    vi.useFakeTimers();
+    try {
+      const wrapper = mountHome();
+      await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS - 1);
+
+      expect(findRow(wrapper, "home.recently-added")).toBeUndefined();
+      expect(wrapper.text()).not.toContain("home.empty-headline");
+
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(findRow(wrapper, "home.recently-added")).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("renders the recommendations row with its per-card reason", async () => {
+    stubHomeFetches(true);
+    getRecommendedRoms.mockResolvedValue({
+      data: [
+        {
+          rom: rom(7),
+          score: 0.8,
+          reasons: [{ facet: "franchise", value: "Metroid" }],
+          seed_rom_id: 1,
+          seed_rom_name: "Super Metroid",
+        },
+      ],
+    });
+
+    const wrapper = mountHome();
+    await flushPromises();
+
+    expect(getRecommendedRoms).toHaveBeenCalledTimes(1);
+    const caption = wrapper.find(".rec-reason");
+    expect(caption.text()).toBe("Super Metroid");
+    expect(caption.attributes("title")).toBe(
+      "recommendations.because-you-played:Super Metroid",
+    );
+    // The count arrives with the list, so the chip appears once it means
+    // something.
+    expect(
+      findRow(wrapper, "recommendations.for-you")
+        ?.find('[data-test="row-count"]')
+        .text(),
+    ).toBe("1");
+  });
+
+  it("hides the recommendations row when the feed comes back empty", async () => {
+    stubHomeFetches(true);
+
+    const wrapper = mountHome();
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("recommendations.for-you");
+  });
+
+  it.each([
+    ["home.continue-playing", RECENT_PLAYED_ROMS_LIMIT],
+    ["recommendations.for-you", RECOMMENDED_ROMS_LIMIT],
+    ["home.recently-added", RECENT_ROMS_LIMIT],
+  ])("paints one skeleton per requested slot in %s", async (title, limit) => {
+    const wrapper = await mountLoadingHome();
+
+    const row = findRow(wrapper, title);
+
+    expect(row?.findAll('[data-test="game-skeleton"]')).toHaveLength(limit);
+  });
+
+  it.each([
+    "home.continue-playing",
+    "recommendations.for-you",
+    "home.recently-added",
+    "common.platforms",
+    "common.collections",
+  ])("withholds %s's count until its list lands", async (title) => {
+    const wrapper = await mountLoadingHome();
+
+    // The list has not resolved, so the count is unknown: a 0 here would be a
+    // number the row is about to replace.
+    expect(
+      findRow(wrapper, title)?.find('[data-test="row-count"]').text(),
+    ).toBe("");
+  });
+
+  it("reserves the reason caption under every recommended placeholder", async () => {
+    const wrapper = await mountLoadingHome();
+
+    const units = findRow(wrapper, "recommendations.for-you")?.findAll(
+      ".r-v2-home__rec",
+    );
+
+    expect(units).toHaveLength(RECOMMENDED_ROMS_LIMIT);
+    // Only the recommended cards carry a caption, so a placeholder that skips it
+    // leaves the row shorter than the one replacing it.
+    expect(
+      units?.every((unit) => unit.find(".r-v2-home__rec-caption").exists()),
+    ).toBe(true);
+  });
+
+  it("keeps the home page usable when the feed request fails", async () => {
+    stubHomeFetches(true);
+    getRecommendedRoms.mockRejectedValue(new Error("index not built"));
+
+    const wrapper = mountHome();
+    await flushPromises();
+
+    // An unbuilt index must not surface as an error or block the rest of
+    // the dashboard from rendering.
+    expect(wrapper.text()).not.toContain("recommendations.for-you");
+    expect(wrapper.text()).not.toContain("home.empty-headline");
   });
 
   it("shows the live row only while someone hosts a multiplayer session", async () => {

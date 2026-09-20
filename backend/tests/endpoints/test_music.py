@@ -224,6 +224,55 @@ def test_tracks_order_and_paginate(
     assert body["items"][0]["duration_seconds"] == 20.0
 
 
+@pytest.mark.parametrize("order_dir", ["asc", "desc"])
+def test_tracks_sort_null_keys_last(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    music_library,
+    order_dir: str,
+):
+    """An untagged track (NULL duration) trails both sort directions."""
+    pa = music_library["platform_a"]
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=pa.id,
+            name="Untagged",
+            slug="untagged-slug",
+            fs_name="Untagged.zip",
+            fs_name_no_tags="Untagged",
+            fs_name_no_ext="Untagged",
+            fs_extension="zip",
+            fs_path=f"{pa.slug}/roms",
+        )
+    )
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="untitled.mp3",
+            file_path=f"{rom.fs_path}/Untagged/soundtrack",
+            file_size_bytes=2048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(
+                rom_id=rom.id, title="Untagged", has_embedded_cover=False
+            ),
+        )
+    )
+
+    body = client.get(
+        f"/api/music/tracks?order_by=duration&order_dir={order_dir}",
+        headers=_auth(access_token),
+    ).json()
+
+    durations = [i["duration_seconds"] for i in body["items"][:-1]]
+    assert durations == (
+        [20.0, 90.0, 120.0] if order_dir == "asc" else [120.0, 90.0, 20.0]
+    )
+    assert body["items"][-1]["title"] == "Untagged"
+    assert body["items"][-1]["duration_seconds"] is None
+
+
 # ---------- facets ----------
 
 

@@ -13,6 +13,8 @@ from fastapi import UploadFile
 from handler.database import db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot, scan_state
+from logger.formatter import highlight as hl
+from logger.logger import log
 from models.assets import Screenshot, State
 from models.rom import Rom
 from models.user import User
@@ -111,4 +113,22 @@ async def store_screenshot(
 
     return db_screenshot_handler.update_screenshot(
         existing.id, {"file_size_bytes": scanned.file_size_bytes}
+    )
+
+
+async def remove_asset_file(file_path: str, what: str) -> None:
+    """Remove an asset file; one already gone is only logged."""
+    try:
+        await fs_asset_handler.remove_file(file_path=file_path)
+    except FileNotFoundError:
+        log.error(f"{what} {hl(file_path)} not found on disk")
+
+
+async def remove_screenshot(screenshot: Screenshot | None) -> None:
+    """Drop a save's or state's screenshot row and file, if it has one."""
+    if not screenshot:
+        return
+    db_screenshot_handler.delete_screenshot(screenshot.id)
+    await remove_asset_file(
+        f"{screenshot.file_path}/{screenshot.file_name}", "Screenshot file"
     )

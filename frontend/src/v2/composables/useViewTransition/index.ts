@@ -24,7 +24,18 @@
 //   * Browser without `document.startViewTransition` → just navigate.
 import { nextTick, ref } from "vue";
 import type { RouteLocationNormalized, Router } from "vue-router";
+import { ROUTES } from "@/plugins/router";
+import { absorbPreemptionSkip } from "@/plugins/transition";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
+
+// Routes that paint a `rom-cover-<id>` hero, so any pair of them can morph.
+const MORPH_ROM_ROUTES: ReadonlySet<string> = new Set([
+  ROUTES.ROM,
+  ROUTES.EMULATORJS,
+  ROUTES.JSDOS,
+  ROUTES.PICO8,
+  ROUTES.RUFFLE,
+]);
 
 export interface MorphSource {
   el: HTMLElement;
@@ -76,6 +87,10 @@ export function useViewTransition() {
       await navigate();
     });
 
+    // `navigate()` starts the router's transition while this one is still
+    // capturing, so the browser skips this one.
+    void absorbPreemptionSkip(transition.ready);
+
     // Clean up the inline style after the transition finishes — the
     // source element usually unmounts during navigate(), but if a route
     // keeps it alive (kept-alive view, error mid-nav, …) we don't want a
@@ -97,13 +112,9 @@ export function useViewTransition() {
 function morphNameForRoute(route: RouteLocationNormalized): string | null {
   const name = route.name;
   const params = route.params as Record<string, string | string[]>;
-  // `rom` (detail) and the players (`emulatorjs` / `ruffle`) all own a
-  // `rom-cover-<id>` hero, so morph between any of them and the gallery /
-  // each other.
-  if (
-    (name === "rom" || name === "emulatorjs" || name === "ruffle") &&
-    params.rom
-  ) {
+  // `rom` (detail) and the players all own a `rom-cover-<id>` hero, so morph
+  // between any of them and the gallery, or each other.
+  if (MORPH_ROM_ROUTES.has(String(name)) && params.rom) {
     return `rom-cover-${params.rom}`;
   }
   if (name === "platform" && params.platform) {
@@ -163,6 +174,9 @@ export function installBackMorph(router: Router): () => void {
         await nextTick();
         await nextTick();
       });
+      // A navigation during the capture phase preempts this transition, same
+      // as the forward morph's.
+      void absorbPreemptionSkip(transition.ready);
       transition.finished.finally(() => {
         pendingMorphName.value = null;
       });

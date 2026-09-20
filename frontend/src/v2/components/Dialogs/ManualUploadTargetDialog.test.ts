@@ -8,9 +8,11 @@ import ManualUploadTargetDialog from "./ManualUploadTargetDialog.vue";
 
 type UploadArgs = { romId: number; filesToUpload: File[] };
 
-const { uploadManuals, uploadManualFiles, getRom } = vi.hoisted(() => ({
+const { uploadManuals, uploadFiles, getRom } = vi.hoisted(() => ({
   uploadManuals: vi.fn((_args: UploadArgs) => Promise.resolve([])),
-  uploadManualFiles: vi.fn((_args: UploadArgs) => Promise.resolve([])),
+  uploadFiles: vi.fn((_rom: DetailedRom, _folder: string, _files: File[]) =>
+    Promise.resolve({ uploaded: 1, failed: 0 }),
+  ),
   getRom: vi.fn(() => Promise.resolve({ data: {} })),
 }));
 
@@ -19,7 +21,14 @@ vi.mock("vue-i18n", () => ({
 }));
 
 vi.mock("@/services/api/rom", () => ({
-  default: { uploadManuals, uploadManualFiles, getRom },
+  default: { uploadManuals, getRom },
+}));
+
+vi.mock("@/v2/composables/useRomFileUpload", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/v2/composables/useRomFileUpload")
+  >()),
+  useRomFileUpload: () => ({ uploadFiles }),
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
@@ -105,14 +114,17 @@ describe("ManualUploadTargetDialog", () => {
     const wrapper = await upload(rom({ has_simple_single_file: true }));
 
     expect(uploadManuals).toHaveBeenCalledOnce();
-    expect(uploadManualFiles).not.toHaveBeenCalled();
+    expect(uploadFiles).not.toHaveBeenCalled();
     expect(wrapper.find("[data-test-dialog]").exists()).toBe(false);
   });
 
   it("appends to the ROM folder without asking once it holds a manual", async () => {
-    const wrapper = await upload(rom({ files: [manualFile()] }));
+    const target = rom({ files: [manualFile()] });
+    const wrapper = await upload(target);
 
-    expect(uploadManualFiles).toHaveBeenCalledOnce();
+    expect(uploadFiles).toHaveBeenCalledWith(target, "manual", [
+      expect.objectContaining({ name: "manual.pdf" }),
+    ]);
     expect(uploadManuals).not.toHaveBeenCalled();
     expect(wrapper.find("[data-test-dialog]").exists()).toBe(false);
   });
@@ -150,7 +162,7 @@ describe("ManualUploadTargetDialog", () => {
     const wrapper = await upload(rom());
 
     expect(uploadManuals).not.toHaveBeenCalled();
-    expect(uploadManualFiles).not.toHaveBeenCalled();
+    expect(uploadFiles).not.toHaveBeenCalled();
     expect(wrapper.find("[data-test-dialog]").exists()).toBe(true);
   });
 });

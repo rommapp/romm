@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import RBtn from "../RBtn/RBtn.vue";
 import "./RAlert.stories.css";
 import RAlert from "./RAlert.vue";
 
@@ -156,6 +157,21 @@ export const PrependSlot: Story = {
           <div class="r-alert-story-spinner" />
         </template>
         Scanning Nintendo 64… 42 / 128 ROMs
+      </RAlert>
+    `,
+  }),
+};
+
+export const ActionsSlot: Story = {
+  name: "Actions slot (controls under the text)",
+  render: () => ({
+    components: { RAlert, RBtn },
+    template: `
+      <RAlert type="warning" density="compact" style="width:320px"
+        text="A save from 2 hours ago is newer than this state. Resuming the state may roll your progress back.">
+        <template #actions>
+          <RBtn variant="outlined" size="small">Boot from save</RBtn>
+        </template>
       </RAlert>
     `,
   }),

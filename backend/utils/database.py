@@ -1,10 +1,44 @@
 import json
+from datetime import date
 from typing import Any, Sequence
+from uuid import uuid4
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
+
+# Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL
+# does not, so 0124 creates them there only and no model declares them.
+POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
+    ("collections", "ix_collections_user_id", "user_id"),
+    ("smart_collections", "ix_smart_collections_user_id", "user_id"),
+    ("rom_notes", "ix_rom_notes_user_id", "user_id"),
+    ("firmware", "ix_firmware_platform_id", "platform_id"),
+    ("collections_roms", "ix_collections_roms_rom_id", "rom_id"),
+    ("music_playlist_tracks", "ix_music_playlist_tracks_rom_file_id", "rom_file_id"),
+    ("music_favorite_tracks", "ix_music_favorite_tracks_rom_file_id", "rom_file_id"),
+    ("play_sessions", "ix_play_sessions_rom_id", "rom_id"),
+    ("play_sessions", "ix_play_sessions_device_id", "device_id"),
+    ("play_sessions", "ix_play_sessions_sync_session_id", "sync_session_id"),
+    ("saves", "ix_saves_user_id", "user_id"),
+    ("states", "ix_states_user_id", "user_id"),
+    ("screenshots", "ix_screenshots_user_id", "user_id"),
+    ("rom_file_user", "ix_rom_file_user_user_id", "user_id"),
+    ("memory_cards", "ix_memory_cards_platform_id", "platform_id"),
+    (
+        "streaming_container_adoptions",
+        "ix_streaming_container_adoptions_decided_by_user_id",
+        "decided_by_user_id",
+    ),
+)
+
+# Indexes that exist in some databases but cannot be declared on a model.
+AUTOGENERATE_EXEMPT_INDEX_NAMES = frozenset(
+    # Search indexes built per dialect in 0084: FULLTEXT on MySQL/MariaDB,
+    # pg_trgm GIN on PostgreSQL. No portable model declaration exists.
+    {"idx_roms_name_fs_name_fulltext", "idx_roms_name_trgm", "idx_roms_fs_name_trgm"}
+) | frozenset(name for _, name, _ in POSTGRESQL_FK_INDEXES)
 
 
 def CustomJSON(**kwargs: Any) -> sa.JSON:
@@ -41,6 +75,86 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
     if conn.engine.name != "mariadb":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
+
+
+# Error 1419, which MariaDB and MySQL raise for every trigger statement while
+# binary logging is on and the user lacks SUPER (issue #3932).
+BINLOG_TRIGGER_DDL_ERRNO = 1419
+
+
+def alembic_command_runs_revisions(command: str, *, pending: bool) -> bool:
+    """Whether this alembic command reaches revision code, trigger DDL included.
+
+    `command` is the `fn` name alembic hands its environment, not the CLI word.
+    """
+    return command == "downgrade" or (command == "upgrade" and pending)
+
+
+def is_binlog_trigger_privilege_error(exc: BaseException) -> bool:
+    """Whether `exc` is the server refusing trigger DDL under binary logging."""
+    orig = getattr(exc, "orig", exc)
+    errno = getattr(orig, "errno", None)
+    if errno is None:
+        args = getattr(orig, "args", ())
+        errno = args[0] if args else None
+    return errno == BINLOG_TRIGGER_DDL_ERRNO
+
+
+def probe_trigger_name() -> str:
+    """A trigger name no schema can already hold, for the privilege probe.
+
+    Trigger names are schema-wide, so a fixed one could name an operator's own
+    trigger and the probe would really drop it.
+    """
+    return f"romm_trigger_ddl_probe_{uuid4().hex}"
+
+
+def trigger_ddl_is_blocked(conn: sa.Connection) -> bool:
+    """Whether the server refuses the trigger DDL the migrations need.
+
+    Dropping a trigger that cannot exist is the cheapest statement that still
+    goes through the privilege check, and the only error it can raise is the
+    refusal itself. Rolls `conn` back on one.
+    """
+    if not (is_mysql(conn) or is_mariadb(conn)):
+        return False
+
+    try:
+        conn.exec_driver_sql(f"DROP TRIGGER IF EXISTS {probe_trigger_name()}")
+    except sa.exc.DBAPIError as exc:
+        conn.rollback()
+        return is_binlog_trigger_privilege_error(exc)
+
+    return False
+
+
+def column_names(conn: sa.Connection, table: str) -> set[str]:
+    """The columns `table` currently carries, for guards over a set of them.
+
+    One reflection answers the whole set; `has_column` per candidate costs one
+    round-trip each.
+    """
+    return {column["name"] for column in sa.inspect(conn).get_columns(table)}
+
+
+def has_column(conn: sa.Connection, table: str, column: str) -> bool:
+    """Whether `table` already carries `column`, which `Inspector` cannot answer."""
+    return column in column_names(conn, table)
+
+
+def full_path_digest_sql(conn: sa.Connection) -> str:
+    """`models.rom.compute_full_path_hash` spelled in SQL, for 0126's backfill.
+
+    `test_migrations` pins this to the Python function it mirrors.
+    """
+    # COALESCE because the Python side reads a NULL as "", while both dialects
+    # would fold the whole concatenation to NULL and fail 0126's NOT NULL step.
+    if is_postgresql(conn):
+        return (
+            "encode(sha256(convert_to(COALESCE(fs_path, '') || '/' || "
+            "COALESCE(fs_name, ''), 'UTF8')), 'hex')"
+        )
+    return "SHA2(CONCAT(COALESCE(fs_path, ''), '/', COALESCE(fs_name, '')), 256)"
 
 
 def json_array_contains_value(
@@ -128,6 +242,79 @@ def json_array_contains_all(
     )
 
 
+MS_PER_DAY = 86_400_000
+
+# Tennis for Two (1958) predates the epoch, so the oldest ranges are negative.
+EARLIEST_RELEASE_YEAR = 1958
+
+# The range union has to be finite, so "any year" stops here.
+LATEST_RELEASE_YEAR = 2100
+
+_EPOCH = date(1970, 1, 1)
+
+
+def day_of_year_ranges(
+    month: int, day: int, *, before_year: int
+) -> list[tuple[int, int]]:
+    """Half-open epoch-millisecond ranges covering (month, day) in each earlier year.
+
+    Ranges rather than `MONTH()/DAY()` on the value, because they are sargable
+    and emit no SQL date function, so every dialect plans them the same way.
+
+    Args:
+        month: Calendar month, 1-12.
+        day: Day of the month, 1-31.
+        before_year: Exclusive upper bound on the years covered.
+
+    Returns:
+        Ascending (start, end) pairs, skipping years the date does not exist in,
+        so an impossible date yields none at all.
+    """
+    ranges: list[tuple[int, int]] = []
+    for year in range(EARLIEST_RELEASE_YEAR, before_year):
+        try:
+            start = (date(year, month, day) - _EPOCH).days * MS_PER_DAY
+        except ValueError:
+            continue
+        ranges.append((start, start + MS_PER_DAY))
+
+    return ranges
+
+
+def release_day_ranges(
+    days: Sequence[tuple[int, int]], *, before_year: int | None = None
+) -> list[tuple[int, int]]:
+    """Epoch-millisecond ranges covering every day in `days`, in every year.
+
+    Args:
+        days: (month, day) pairs to match.
+        before_year: Exclusive upper bound on the years covered, defaulting to
+            `LATEST_RELEASE_YEAR`.
+
+    Returns:
+        (start, end) pairs, skipping years a date does not exist in.
+    """
+    bound = LATEST_RELEASE_YEAR if before_year is None else before_year
+
+    return [
+        day_range
+        for month, day in days
+        for day_range in day_of_year_ranges(month, day, before_year=bound)
+    ]
+
+
+def epoch_ms_in_ranges(
+    column: sa.Column | Any, ranges: Sequence[tuple[int, int]]
+) -> ColumnElement:
+    """Match an epoch-millisecond column against any of the given half-open ranges."""
+    if not ranges:
+        return sa.false()
+
+    return sa.or_(
+        *[sa.and_(column >= start, column < end) for start, end in sorted(ranges)]
+    )
+
+
 LIKE_ESCAPE_CHAR = "\\"
 
 
@@ -144,7 +331,7 @@ def safe_str_to_bool(value: Any, default: bool = False) -> bool:
     """Safely convert a value to bool, returning default if conversion fails."""
     try:
         return value.strip().lower() in ("1", "true", "yes", "on")
-    except (ValueError, TypeError, AttributeError):
+    except ValueError, TypeError, AttributeError:
         return default
 
 
@@ -152,7 +339,7 @@ def safe_float(value: Any, default: float = 0.0) -> float:
     """Safely convert a value to float, returning default if conversion fails."""
     try:
         return float(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return default
 
 
@@ -160,5 +347,5 @@ def safe_int(value: Any, default: int = 0) -> int:
     """Safely convert a value to int, returning default if conversion fails."""
     try:
         return int(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return default

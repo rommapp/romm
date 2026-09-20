@@ -127,7 +127,7 @@ class TestPlaySessionIngest:
             json=payload,
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_validation_negative_duration(self, client, access_token: str):
         now = datetime.now(timezone.utc)
@@ -145,7 +145,7 @@ class TestPlaySessionIngest:
             json=payload,
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_future_end_time_rejected(self, client, access_token: str):
         now = datetime.now(timezone.utc)

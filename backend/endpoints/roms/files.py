@@ -58,7 +58,7 @@ async def get_romfile(
 
     # Resolve back to the parent rom and enforce its visibility, so a file
     # belonging to a hidden rom can't be read by direct RomFile.id.
-    rom = db_rom_handler.get_rom(file.rom_id)
+    rom = db_rom_handler.get_rom_visibility(file.rom_id)
     if not rom:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -95,7 +95,7 @@ async def get_romfile_content(
 
     # 404-mask file bytes of roms hidden from the caller: resolve the parent
     # rom and apply its visibility before serving any content.
-    rom = db_rom_handler.get_rom(file.rom_id)
+    rom = db_rom_handler.get_rom_visibility(file.rom_id)
     if not rom:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -135,9 +135,8 @@ async def get_romfile_content(
     # keeps the browser from sniffing them into anything script-capable (e.g. a
     # Markdown manual into HTML).
     headers = {"X-Content-Type-Options": "nosniff"} if disposition == "inline" else {}
-    # HTML documents are sanitized on ingest, but serve them under a sandboxing
-    # CSP anyway so a crafted document can never run scripts or reach the
-    # session origin if it is opened directly.
+    # HTML documents are stored exactly as uploaded, so this CSP is what stops a
+    # crafted one running scripts or reaching the session origin.
     if disposition == "inline" and is_html_document_file(file.file_name):
         headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
 
@@ -182,7 +181,7 @@ async def delete_rom_file(
     # guard keeps them off the game files themselves.
     assert_can(get_permissions(request), PermEntity.ROMS, PermAction.DELETE)
 
-    rom = db_rom_handler.get_rom(rom_id)
+    rom = db_rom_handler.get_rom_visibility_label(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
@@ -225,7 +224,7 @@ def _assert_document_file(
     rom_id: int, file_id: int, request: Request
 ) -> RomFileCategory:
     """Resolve a document-category file, enforcing parent-rom visibility."""
-    rom = db_rom_handler.get_rom(rom_id)
+    rom = db_rom_handler.get_rom_visibility(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
     assert_rom_visible(request, rom, not_found_detail="File not found")

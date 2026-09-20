@@ -156,9 +156,7 @@ def add_ss_auth_to_url(url: str | None) -> str:
     )
 
 
-def get_preferred_regions(
-    rom: Rom | None = None, *, for_media: bool = False
-) -> list[str]:
+def get_preferred_regions(rom: Rom | None = None) -> list[str]:
     """Get preferred regions, prepending the rom's own region tags when available.
 
     When a rom is tagged with multiple regions (e.g. "(Japan, USA)"), the rom's
@@ -167,11 +165,11 @@ def get_preferred_regions(
     Filename-tagged regions not present in the priority list keep their relative
     order and follow the prioritized ones.
 
-    With SCAN_REGION_MODE set to "prefer_config" and for_media=True, the
-    configured priority is authoritative instead: config regions come first and
-    the rom's own tags become the fallback when the config regions have no
-    media. The mode only applies to media selection; name and release-date
-    selection always keep the rom-tags-first ordering.
+    With SCAN_REGION_MODE set to "prefer_config" the configured priority is
+    authoritative instead: config regions come first and the rom's own tags
+    become the fallback. Everything region-selected reads this ordering, so a
+    game picked up in French comes back with its French artwork, title and
+    release date rather than a mix.
     """
     config = cm.get_config()
     priority = config.SCAN_REGION_PRIORITY
@@ -186,7 +184,7 @@ def get_preferred_regions(
             key=lambda code: priority.index(code) if code in priority else len(priority)
         )
 
-    if for_media and config.SCAN_REGION_MODE == "prefer_config":
+    if config.SCAN_REGION_MODE == "prefer_config":
         ordered = priority + rom_codes
     else:
         ordered = rom_codes + priority
@@ -254,12 +252,10 @@ def _is_daily_quota_error(exc: HTTPException) -> bool:
 
 
 def _is_provider_exhausted(exc: HTTPException) -> bool:
-    """True for the errors that take ScreenScraper out for the rest of the scan.
+    """True for the errors a breaker raises in ScreenScraper's place.
 
-    Both an exhausted daily quota and a refused credential set trip a breaker in
-    the service, so the remaining ROMs short-circuit. The scan carries on with
-    the other providers rather than failing over a provider that has already said
-    everything it is going to say.
+    An exhausted daily quota and a refused credential set both trip one, so the
+    request never went out and the answer is not ScreenScraper's.
     """
     return _is_daily_quota_error(exc) or isinstance(exc, ScreenScraperCredentialsError)
 
@@ -340,6 +336,18 @@ class SSRom(BaseRom):
     ss_metadata: NotRequired[SSMetadata]
 
 
+class ScreenScraperExhaustedError(Exception):
+    """A breaker answered this lookup, so ScreenScraper itself never saw it.
+
+    Carries the match the lookup would have returned, which still holds the name
+    the handler derived locally.
+    """
+
+    def __init__(self, fallback: SSRom):
+        super().__init__("ScreenScraper short-circuited the lookup")
+        self.fallback = fallback
+
+
 def _get_rom_type(file: RomFile) -> str:
     if not file.is_top_level:
         return "dossier"
@@ -386,7 +394,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_normalized_path=None,
     )
 
-    for region in get_preferred_regions(rom, for_media=True):
+    for region in get_preferred_regions(rom):
         for media in game.get("medias", []):
             if media.get("region", "unk") != region or media.get("parent") != "jeu":
                 continue
@@ -548,7 +556,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
         try:
             return str(int(score) / 2)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return ""
 
     def _parse_date(date_text: str) -> int | None:
@@ -873,11 +881,9 @@ class SSHandler(MetadataHandler):
                 rom_type=_get_rom_type(first_file),
             )
         except HTTPException as exc:
-            # Quota exhausted or credentials refused: skip ScreenScraper for this
-            # ROM so the scan falls back to the other providers.
             if not _is_provider_exhausted(exc):
                 raise
-            return SSRom(ss_id=None), False
+            raise ScreenScraperExhaustedError(SSRom(ss_id=None)) from exc
         if not res:
             return SSRom(ss_id=None), False
 
@@ -996,11 +1002,9 @@ class SSHandler(MetadataHandler):
                     terms[-1], platform_ss_id, split_game_name=True
                 )
         except HTTPException as exc:
-            # Quota exhausted or credentials refused: fall back to the name-only
-            # match (if any).
             if not _is_provider_exhausted(exc):
                 raise
-            return fallback_rom
+            raise ScreenScraperExhaustedError(fallback_rom) from exc
 
         if not res or not res.get("id"):
             return fallback_rom
@@ -1014,11 +1018,9 @@ class SSHandler(MetadataHandler):
         try:
             res = await self.ss_service.get_game_info(game_id=ss_id)
         except HTTPException as exc:
-            # Quota exhausted or credentials refused: return an empty match rather
-            # than failing.
             if not _is_provider_exhausted(exc):
                 raise
-            return SSRom(ss_id=None)
+            raise ScreenScraperExhaustedError(SSRom(ss_id=None)) from exc
         if not res:
             return SSRom(ss_id=None)
 
@@ -1028,7 +1030,12 @@ class SSHandler(MetadataHandler):
         if not self.is_enabled():
             return None
 
-        game_rom = await self.get_rom_by_id(rom, ss_id)
+        try:
+            game_rom = await self.get_rom_by_id(rom, ss_id)
+        except ScreenScraperExhaustedError:
+            # A manual match wants the providers that can still answer, not this.
+            return None
+
         return game_rom if game_rom.get("ss_id", "") else None
 
     async def get_matched_roms_by_name(
@@ -1040,10 +1047,17 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return []
 
-        matched_games = await self.ss_service.search_games(
-            term=uc(search_term),
-            system_id=platform_ss_id,
-        )
+        try:
+            matched_games = await self.ss_service.search_games(
+                term=uc(search_term),
+                system_id=platform_ss_id,
+            )
+        except HTTPException as exc:
+            # A provider that has said everything it is going to say contributes
+            # no matches; it is not a failed search.
+            if not _is_provider_exhausted(exc):
+                raise
+            return []
 
         def _is_ss_region(game: SSGame) -> bool:
             return any(name.get("region") == "ss" for name in game.get("noms", []))

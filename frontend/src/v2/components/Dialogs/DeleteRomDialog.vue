@@ -165,6 +165,8 @@ function closeDialog() {
     icon="mdi-delete-outline"
     scroll-content
     width="560"
+    cancelable
+    :cancel-disabled="deleting"
     @close="closeDialog"
   >
     <template #header>
@@ -256,10 +258,6 @@ function closeDialog() {
       </div>
     </template>
     <template #footer>
-      <RBtn variant="text" :disabled="deleting" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div style="flex: 1" />
       <RBtn
         variant="translucent"
         color="error"
@@ -423,7 +421,7 @@ function closeDialog() {
 }
 
 .r-v2-del-rom__append {
-  padding: 10px 14px 0;
+  padding: 10px 14px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;

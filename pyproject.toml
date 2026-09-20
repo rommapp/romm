@@ -7,7 +7,7 @@ authors = [
   { name = "Arcane", email = "arcane@romm.app" },
   { name = "Adamantike", email = "adamantike@romm.app" },
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 readme = "README.md"
 license = "AGPL-3.0-only"
 dependencies = [
@@ -47,7 +47,7 @@ dependencies = [
   "python-magic ~= 0.4",
   "python-socketio ~= 5.16",
   "redis ~= 6.2",
-  "rq ~= 2.11",
+  "rq ~= 2.12",
   "sentry-sdk ~= 2.32",
   "starlette ~= 1.6.0",
   "streaming-form-data ~= 1.19",
@@ -140,6 +140,8 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
 
 [tool.uv]
 package = false
+# Source of truth for uv; keep in step with docker/Dockerfile and ./Dockerfile.
+required-version = "==0.12.13"
 exclude-newer = "7 days"
 
 [tool.ty.environment]

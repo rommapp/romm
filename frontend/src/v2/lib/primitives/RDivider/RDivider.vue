@@ -123,6 +123,8 @@ const lineStyle = computed(() => {
 .r-divider--with-text {
   display: flex;
   align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 .r-divider--horizontal.r-divider--with-text {
   flex-direction: row;

@@ -1,0 +1,39 @@
+# Real webstation container (emulators + romm-broker) for streaming development,
+# opt-in because the image is amd64-only and several GB:
+#   docker compose -f docker-compose.streaming.yml up -d
+#
+# Its own compose project, so a `down --remove-orphans` here can never reach the
+# dev stack. Joins romm_default, so bring the dev stack up first; see config.yml's
+# `broker_host` (server to server) vs `host` (browser) for how it is reached.
+name: romm-streaming
+
+services:
+  romm-webstation:
+    image: lscr.io/linuxserver/webstation:romm
+    # No arm64 image exists; on Apple silicon this runs under emulation and
+    # has no GPU, so the desktop renders but most emulators will not.
+    platform: linux/amd64
+    container_name: romm-webstation
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=Etc/UTC
+      - SUBFOLDER=/streaming/
+      - BROKER_SECRET=${STREAMING_BROKER_SECRET:-dev-secret}
+    volumes:
+      # Emulator configs, BIOS, save data, and the broker's export directory.
+      - ./romm_mock/webstation:/config
+      # Activate rejects any rom path outside /romm, and config.yml's
+      # library_path has to name this mount.
+      - ./romm_mock/library:/romm/library:ro
+    ports:
+      - "3010:3000" # HTTP, expects a reverse proxy in front
+      - "3011:3001" # HTTPS with a self-signed cert, for direct access
+    shm_size: "1gb"
+    networks:
+      - romm_default
+    restart: unless-stopped
+
+networks:
+  romm_default:
+    external: true

@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - "backend/alembic/versions/**"
+      - ".github/workflows/migrations.yml"
+      - pyproject.toml
+      - uv.lock
+      - .python-version
 
 permissions: read-all
 
@@ -15,7 +19,7 @@ jobs:
       pull-requests: write
     services:
       postgres:
-        image: postgres:15
+        image: postgres:18
         env:
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
@@ -37,13 +41,13 @@ jobs:
           sudo apt-get install -y libmariadb3 libmariadb-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
 
       - name: Install python
-        run: uv python install 3.13
+        run: uv python install
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Run PostgreSQL Migrations
         working-directory: backend
@@ -59,25 +63,31 @@ jobs:
         run: uv run alembic upgrade head
 
   migrate-mariadb:
+    # A server configured for utf8mb3 makes the roms table, the view literals
+    # and the JSON_TABLE columns utf8mb3, which breaks collation-sensitive
+    # migration SQL that a default utf8mb4 server accepts (issue #4350).
+    name: migrate-mariadb (${{ matrix.mariadb }}, ${{ matrix.collation }})
     runs-on: ubuntu-latest
     permissions:
       checks: write
       pull-requests: write
-    services:
-      mariadb:
-        image: mariadb:10.11
-        env:
-          MARIADB_USER: user
-          MARIADB_PASSWORD: password
-          MARIADB_DATABASE: testdb
-          MARIADB_ROOT_PASSWORD: root
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -u root --password=root"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # renovate: datasource=docker depName=mariadb
+          - mariadb: "12.3.3"
+            charset: utf8mb4
+            collation: utf8mb4_general_ci
+          # renovate: datasource=docker depName=mariadb
+          - mariadb: "12.3.3"
+            charset: utf8mb3
+            collation: utf8mb3_unicode_ci
+          # Oldest supported LTS, and the only leg still on the pre-uca1400
+          # default. Unmarked so updates cannot raise it off that floor.
+          - mariadb: "10.11.19"
+            charset: utf8mb4
+            collation: utf8mb4_general_ci
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,13 +98,41 @@ jobs:
           sudo apt-get install -y libmariadb3 libmariadb-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
 
       - name: Install python
-        run: uv python install 3.13
+        run: uv python install
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --frozen
+
+      - name: Start MariaDB
+        env:
+          CHARSET: ${{ matrix.charset }}
+          COLLATION: ${{ matrix.collation }}
+          MARIADB_IMAGE_TAG: ${{ matrix.mariadb }}
+        run: |
+          docker run -d --name mariadb -p 3306:3306 \
+            -e MARIADB_USER=user \
+            -e MARIADB_PASSWORD=password \
+            -e MARIADB_DATABASE=testdb \
+            -e MARIADB_ROOT_PASSWORD=root \
+            --health-cmd "healthcheck.sh --connect --innodb_initialized" \
+            --health-interval 5s \
+            --health-timeout 2s \
+            --health-retries 10 \
+            "mariadb:$MARIADB_IMAGE_TAG" \
+            --character-set-server="$CHARSET" \
+            --collation-server="$COLLATION"
+          for _ in $(seq 1 30); do
+            if [ "$(docker inspect -f '{{.State.Health.Status}}' mariadb)" = healthy ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MariaDB never became healthy" >&2
+          docker logs mariadb >&2
+          exit 1
 
       - name: Run MariaDB Migrations
         working-directory: backend

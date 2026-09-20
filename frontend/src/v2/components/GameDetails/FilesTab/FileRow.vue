@@ -18,10 +18,13 @@ import { useI18n } from "vue-i18n";
 import type { RomFileCategory, RomFileSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
 import HashChip from "@/v2/components/shared/HashChip.vue";
+import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+const { xs } = useBreakpoint();
 
 const props = defineProps<{
   file: RomFileSchema;
@@ -38,6 +41,8 @@ const props = defineProps<{
   showCategoryBadge: boolean;
   /** Show the per-row delete button (gated on the caller's grant). */
   canDelete: boolean;
+  /** The rom's file is not on disk, so there is nothing to fetch. */
+  missing: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -89,6 +94,8 @@ const categoryMeta = computed(() => {
   return CATEGORY_META.value[props.file.category as RomFileCategory] ?? null;
 });
 
+const rowIcon = computed(() => categoryMeta.value?.icon ?? "mdi-file-outline");
+
 function formatDuration(seconds: number | null | undefined): string | null {
   if (!seconds || seconds <= 0) return null;
   const m = Math.floor(seconds / 60);
@@ -116,32 +123,43 @@ const hasAnyHash = computed(
     :class="{ 'r-v2-file-row--selected': selected }"
     v-bind="$attrs"
   >
-    <!-- The wrapper matches the filename's first-line box height
-         (font-size × line-height) so `align-items: center` inside it
-         lands the checkbox box on the filename's vertical centre,
-         regardless of how many secondary lines stack below. -->
-    <span class="r-v2-file-row__check">
-      <RCheckbox
-        :model-value="selected"
-        size="sm"
-        hide-details
-        bare
-        :aria-label="t('rom.select-file', { path: relativePath })"
-        @update:model-value="emit('toggle')"
+    <span class="r-v2-file-row__lead">
+      <span class="r-v2-file-row__check">
+        <RCheckbox
+          :model-value="selected"
+          size="sm"
+          hide-details
+          bare
+          :aria-label="t('rom.select-file', { path: relativePath })"
+          @update:model-value="emit('toggle')"
+        />
+      </span>
+      <!-- On phones the icon sits under the checkbox, so a wrapped filename
+           keeps its lines aligned. -->
+      <RIcon
+        v-if="showRowIcon && xs"
+        :icon="rowIcon"
+        size="14"
+        class="r-v2-file-row__icon"
       />
     </span>
 
     <div class="r-v2-file-row__main">
       <div class="r-v2-file-row__name">
         <RIcon
-          v-if="showRowIcon"
-          :icon="categoryMeta?.icon ?? 'mdi-file-outline'"
+          v-if="showRowIcon && !xs"
+          :icon="rowIcon"
           size="14"
           class="r-v2-file-row__icon"
         />
         <span class="r-v2-file-row__path" :title="relativePath">
           {{ displayPath }}
         </span>
+        <MissingFSBadge
+          v-if="missing"
+          :text="t('rom.missing-from-fs-path', { path: relativePath })"
+          :size="12"
+        />
       </div>
 
       <div class="r-v2-file-row__meta">
@@ -211,6 +229,7 @@ const hasAnyHash = computed(
         icon="mdi-download-outline"
         variant="text"
         size="small"
+        :disabled="missing"
         :tooltip="t('rom.download-file')"
         :aria-label="t('rom.download-named', { name: relativePath })"
         @click="emit('download')"
@@ -219,6 +238,7 @@ const hasAnyHash = computed(
         icon="mdi-link-variant"
         variant="text"
         size="small"
+        :disabled="missing"
         :tooltip="t('rom.copy-download-link-title')"
         :aria-label="t('rom.copy-link-for', { path: relativePath })"
         @click="emit('copyLink')"
@@ -263,6 +283,14 @@ const hasAnyHash = computed(
   );
 }
 
+.r-v2-file-row__lead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--r-space-2);
+  flex-shrink: 0;
+}
+
 .r-v2-file-row__check {
   /* Mirror the filename's line box so the checkbox aligns with the
      filename's optical centre instead of the row's top edge. The
@@ -273,7 +301,6 @@ const hasAnyHash = computed(
   display: inline-flex;
   align-items: center;
   min-height: 20px;
-  flex-shrink: 0;
 }
 
 .r-v2-file-row__main {
@@ -351,5 +378,25 @@ const hasAnyHash = computed(
      the row's full height (name + meta + hashes) so the buttons sit
      mid-row instead of clinging to the top. */
   align-self: center;
+}
+
+/* Phones: the actions drop to their own row so the filename gets the full
+   width and wraps instead of truncating. */
+html[data-bp~="xs"] .r-v2-file-row {
+  flex-wrap: wrap;
+  row-gap: var(--r-space-1);
+}
+html[data-bp~="xs"] .r-v2-file-row__name {
+  align-items: flex-start;
+  line-height: 20px;
+}
+html[data-bp~="xs"] .r-v2-file-row__path {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html[data-bp~="xs"] .r-v2-file-row__actions {
+  flex-basis: 100%;
+  justify-content: flex-end;
+  margin-bottom: calc(-1 * var(--r-space-1));
 }
 </style>

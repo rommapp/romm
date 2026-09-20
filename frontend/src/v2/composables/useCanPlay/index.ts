@@ -3,13 +3,13 @@
 // inside PlayBtn.vue; v2 lifts it to a composable so the card overlay
 // and the menu item agree with the details-header CTA.
 //
-// "Playable" means EJS, js-dos, or Ruffle can run the platform on this
+// "Playable" means EJS, js-dos, PICO-8, or Ruffle can run the platform on this
 // server (admin toggles + platform support + WebGL availability) and there
 // is a file to boot, or a streaming container is configured for the
 // platform. A physical game or one missing from the filesystem has nothing
 // to hand the emulator, and js-dos additionally needs the file to be one of
 // its own bundles. The individual flags are exposed so the play action can
-// pick the right route (EJS vs js-dos vs Ruffle vs Stream).
+// pick the right route (EJS vs js-dos vs PICO-8 vs Ruffle vs Stream).
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import storeConfig from "@/stores/config";
@@ -20,6 +20,8 @@ import {
   isEJSEmulationSupported,
   isJsDosBundle,
   isJsDosEmulationSupported,
+  isPico8EmulationSupported,
+  isPico8Rom,
   isRuffleEmulationSupported,
 } from "@/utils";
 
@@ -27,6 +29,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   canPlay: ComputedRef<boolean>;
   canPlayEJS: ComputedRef<boolean>;
   canPlayJsDos: ComputedRef<boolean>;
+  canPlayPico8: ComputedRef<boolean>;
   canPlayRuffle: ComputedRef<boolean>;
   canPlayStream: ComputedRef<boolean>;
 } {
@@ -52,6 +55,11 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
     () => onJsDosPlatform.value && isJsDosBundle(getRom()),
   );
 
+  const onPico8Platform = supportedBy(isPico8EmulationSupported);
+  const canPlayPico8 = computed(
+    () => onPico8Platform.value && isPico8Rom(getRom()),
+  );
+
   // The broker is handed the ROM file, so a physical game or one missing
   // from the filesystem has nothing to stream any more than it has to boot.
   const canPlayStream = computed(() => {
@@ -64,9 +72,17 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
     () =>
       canPlayEJS.value ||
       canPlayJsDos.value ||
+      canPlayPico8.value ||
       canPlayRuffle.value ||
       canPlayStream.value,
   );
 
-  return { canPlay, canPlayEJS, canPlayJsDos, canPlayRuffle, canPlayStream };
+  return {
+    canPlay,
+    canPlayEJS,
+    canPlayJsDos,
+    canPlayPico8,
+    canPlayRuffle,
+    canPlayStream,
+  };
 }

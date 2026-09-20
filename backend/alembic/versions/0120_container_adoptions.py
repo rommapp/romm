@@ -46,8 +46,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("container_key"),
+        if_not_exists=True,
     )
 
 
 def downgrade() -> None:
-    op.drop_table("streaming_container_adoptions")
+    op.drop_table("streaming_container_adoptions", if_exists=True)

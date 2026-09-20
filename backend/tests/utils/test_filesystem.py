@@ -8,9 +8,14 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from utils.filesystem import link_or_copy_file, sanitize_filename
+from utils.filesystem import (
+    join_rel_path,
+    link_or_copy_file,
+    rel_platform_folder,
+    sanitize_filename,
+)
 
-INVALID_AFTER_SANITIZE = set('\\/:|*?"<>+\0')
+INVALID_AFTER_SANITIZE = set('\\/:|*?"<>+') | {chr(c) for c in (*range(0x20), 0x7F)}
 
 
 class TestLinkOrCopyFile:
@@ -235,3 +240,48 @@ class TestSanitizeFilename:
     def test_rejects_names_without_a_basename(self, name: str):
         with pytest.raises(ValueError):
             sanitize_filename(name)
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            ("save\n.sav", "save.sav"),
+            ("save\r\n.sav", "save.sav"),
+            ("save\t.sav", "save.sav"),
+            ("save\x7f.sav", "save.sav"),
+            ("save\0.sav", "save.sav"),
+            # A mod_zip manifest line forged through a rom folder rename: the
+            # payload needs a URI, whose slash takes the line feed with it.
+            ("game\n- 3 /decode?value=cG5n pwned", "decodevalue=cG5n pwned"),
+            ("game\n- 3 decode pwned", "game- 3 decode pwned"),
+        ],
+    )
+    def test_drops_control_characters(self, name: str, expected: str):
+        assert sanitize_filename(name) == expected
+
+    @pytest.mark.parametrize("name", ["\n", "\0", "\r\n\t"])
+    def test_rejects_names_made_only_of_control_characters(self, name: str):
+        with pytest.raises(ValueError):
+            sanitize_filename(name)
+
+
+class TestRelPlatformFolder:
+    @pytest.mark.parametrize(
+        ("fs_path", "expected"),
+        [
+            ("roms/snes", ""),
+            ("roms/snes/USA", "USA"),
+            ("roms/snes/Disks/Set A", "Disks/Set A"),
+            # A path that is not under the platform folder cannot be made relative.
+            ("roms/nes/USA", ""),
+            ("snes/roms", ""),
+        ],
+    )
+    def test_folder_below_the_platform(self, fs_path: str, expected: str):
+        assert rel_platform_folder(fs_path, "roms/snes") == expected
+
+
+class TestJoinRelPath:
+    def test_skips_the_empty_parts(self):
+        assert join_rel_path("covers", "", "game.jpg") == "covers/game.jpg"
+        assert join_rel_path("covers", "USA", "game.jpg") == "covers/USA/game.jpg"
+        assert join_rel_path("", "") == ""

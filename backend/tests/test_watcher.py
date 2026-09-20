@@ -8,6 +8,7 @@ from rq.job import Job
 from watcher import EventType, get_pending_scan_coverage, process_changes
 
 from config import LIBRARY_BASE_PATH
+from config.config_manager import parse_structure_template
 from handler.scan_handler import ScanType
 
 _job_ids = count()
@@ -131,7 +132,7 @@ class TestProcessChanges:
     @pytest.fixture(autouse=True)
     def library_layout(self, mocker):
         config = MagicMock()
-        config.has_structure_path_b = False
+        config.default_structure = parse_structure_template("roms/{platform}/{game}")
         config.EXCLUDED_SINGLE_FILES = []
         config.EXCLUDED_MULTI_FILES = []
         config.EXCLUDED_MULTI_PARTS_FILES = []

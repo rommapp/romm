@@ -10,7 +10,6 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
-from models.rom import RomNote
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -34,7 +33,7 @@ async def get_rom_notes(
     tags: list[str] = DEFAULT_TAGS,
 ) -> list[UserNoteSchema]:
     """Get all notes for a ROM."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
@@ -51,7 +50,7 @@ async def get_rom_notes(
         tags=tags,
     )
 
-    return [UserNoteSchema.model_validate(note) for note in notes]
+    return [UserNoteSchema.from_rom_note(note) for note in notes]
 
 
 @protected_route(
@@ -65,19 +64,16 @@ async def get_rom_note_identifiers(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
 ) -> list[int]:
     """Get all note identifiers for a ROM."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
     assert_rom_visible(request, rom)
 
-    notes = db_rom_handler.get_rom_notes(
+    return db_rom_handler.get_rom_note_ids(
         rom_id=id,
         user_id=request.user.id,
-        only_fields=[RomNote.id],
     )
-
-    return [note.id for note in notes]
 
 
 @protected_route(
@@ -92,7 +88,7 @@ async def create_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Create a new note for a ROM."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
@@ -127,7 +123,7 @@ async def update_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Update a ROM note."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
@@ -168,7 +164,7 @@ async def delete_rom_note(
     note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
 ) -> dict:
     """Delete a ROM note."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 

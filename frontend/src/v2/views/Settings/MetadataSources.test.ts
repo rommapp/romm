@@ -24,6 +24,11 @@ vi.mock("@v2/lib", () => ({
       '<div class="alert"><slot name="title" /><slot /><slot name="append" /></div>',
   }),
   RBtn: defineComponent({ template: "<button><slot /></button>" }),
+  RIcon: defineComponent({ template: "<i />" }),
+  RImg: defineComponent({
+    props: { src: { type: String, default: "" } },
+    template: '<img :src="src" />',
+  }),
   RTag: defineComponent({
     props: { text: { type: String, default: "" } },
     template: "<span>{{ text }}</span>",
@@ -77,7 +82,7 @@ describe("MetadataSources", () => {
     const wrapper = mountWith(true);
 
     const tileNames = (section: DOMWrapper<Element>) =>
-      section.findAll(".r-v2-meta__name").map((n) => n.text());
+      section.findAll(".r-provider-card__name").map((n) => n.text());
 
     const sections = wrapper.findAll("section");
     const section = sections.find((s) => s.attributes("data-title") === title);

@@ -29,8 +29,10 @@ class ConfigResponse(TypedDict):
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
+    EJS_ENABLE_AUTO_SAVE_SYNC: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
+    EJS_DEFAULT_CORES: dict[str, str]
     EJS_SETTINGS: dict[str, dict[str, str]]
     EJS_CONTROLS: dict[str, EjsControls]
     SCAN_METADATA_PRIORITY: list[str]

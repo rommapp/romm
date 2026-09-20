@@ -30,8 +30,10 @@ class TestFSFirmwareHandler:
             EXCLUDED_MULTI_PARTS_FILES=[],
             PLATFORMS_BINDING={},
             PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
         )
 
     def test_init_uses_library_base_path(self, handler: FSFirmwareHandler):
@@ -138,31 +140,23 @@ class TestFSFirmwareHandler:
         assert hasattr(handler, "stream_file")
         assert hasattr(handler, "exclude_single_files")
 
-    def test_firmware_path_construction_structure_a(
+    def test_firmware_path_follows_the_configured_template(
         self, handler: FSFirmwareHandler, config
     ):
-        """Test that firmware paths are constructed correctly for Structure A"""
-        platform_fs_slug = "n64"
-        config.has_structure_path_b = False
+        with patch(
+            "handler.filesystem.firmware_handler.cm.get_config", return_value=config
+        ):
+            assert handler.get_firmware_fs_structure("n64") == "n64/bios"
+
+    def test_firmware_path_can_lead_with_the_firmware_folder(
+        self, handler: FSFirmwareHandler
+    ):
+        config = Config(STRUCTURE_TEMPLATES={"firmware": "bios/{platform}"})
 
         with patch(
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config
         ):
-            path = handler.get_firmware_fs_structure(platform_fs_slug)
-            assert path == f"{config.FIRMWARE_FOLDER_NAME}/{platform_fs_slug}"
-
-    def test_firmware_path_construction_structure_b(
-        self, handler: FSFirmwareHandler, config
-    ):
-        """Test that firmware paths are constructed correctly for Structure B"""
-        platform_fs_slug = "n64"
-        config.has_structure_path_b = True
-
-        with patch(
-            "handler.filesystem.firmware_handler.cm.get_config", return_value=config
-        ):
-            path = handler.get_firmware_fs_structure(platform_fs_slug)
-            assert path == f"{platform_fs_slug}/{config.FIRMWARE_FOLDER_NAME}"
+            assert handler.get_firmware_fs_structure("n64") == "bios/n64"
 
     async def test_multiple_platform_handling(self, handler: FSFirmwareHandler, config):
         """Test handling of different platform slugs"""
@@ -174,7 +168,7 @@ class TestFSFirmwareHandler:
             for platform in platforms:
                 path = handler.get_firmware_fs_structure(platform)
                 assert platform in path
-                assert config.FIRMWARE_FOLDER_NAME in path
+                assert "bios" in path
 
                 # Test that we can actually get firmware for existing platforms
                 firmware_files = await handler.get_firmware(platform)

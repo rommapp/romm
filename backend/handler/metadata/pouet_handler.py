@@ -93,7 +93,7 @@ def pouet_id_from_location(location: str) -> int | None:
 def _float_or_none(value: Any) -> float | None:
     try:
         return float(value) if value is not None and value != "" else None
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 

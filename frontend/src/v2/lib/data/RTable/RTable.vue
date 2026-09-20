@@ -27,6 +27,8 @@
 // column or starting at "asc" on a new column. The store/composable
 // owns the actual sort state; RTable is pure UI.
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
+import REmptyState from "../../primitives/REmptyState/REmptyState.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RSkeletonBlock from "../../primitives/RSkeletonBlock/RSkeletonBlock.vue";
 import type {
@@ -55,6 +57,11 @@ const emit = defineEmits<{
   (e: "update:sort", payload: RTableSortPayload): void;
   (e: "row:click", row: T): void;
 }>();
+
+const phase = useLoadingPhase(
+  () => props.loading,
+  () => props.items.length === 0,
+);
 
 const gridTemplate = computed(() =>
   props.columns.map((c) => c.width ?? "minmax(0, 1fr)").join(" "),
@@ -123,7 +130,7 @@ const rowStyle = computed(() =>
 const hasEntered = ref(false);
 let enterTimer: ReturnType<typeof setTimeout> | undefined;
 watch(
-  () => !props.loading && props.items.length > 0,
+  () => phase.value === "content",
   (showing) => {
     if (showing && !hasEntered.value && enterTimer === undefined) {
       // animation (≈320ms) + max stagger (12 × 24ms) with headroom.
@@ -202,7 +209,7 @@ onBeforeUnmount(() => {
 
       <!-- Body — skeletons / real rows / empty state, in that order. -->
       <div class="r-table__body" role="presentation">
-        <template v-if="loading">
+        <template v-if="phase === 'skeleton'">
           <div
             v-for="i in loadingRows"
             :key="`skel-${i}`"
@@ -227,18 +234,17 @@ onBeforeUnmount(() => {
           </div>
         </template>
 
-        <template v-else-if="items.length === 0">
-          <div class="r-table__empty">
-            <slot name="empty">
-              <RIcon :icon="emptyIcon" size="32" />
-              <span v-if="emptyMessage" class="r-table__empty-text">
-                {{ emptyMessage }}
-              </span>
-            </slot>
-          </div>
+        <template v-else-if="phase === 'empty'">
+          <REmptyState
+            variant="plain"
+            size="small"
+            :icon="emptyIcon"
+            :icon-size="32"
+            :title="emptyMessage"
+          />
         </template>
 
-        <template v-else>
+        <template v-else-if="phase === 'content'">
           <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -->
           <div
             v-for="(row, idx) in items"
@@ -311,6 +317,9 @@ onBeforeUnmount(() => {
    to 0, so the grids just fill the width as before). */
 .r-table__scroll {
   overflow-x: auto;
+  /* Rows rise 6px as they enter; clipping keeps that from flashing a
+     vertical scrollbar, since the table never scrolls vertically itself. */
+  overflow-y: hidden;
   scrollbar-width: thin;
 }
 .r-table__header,
@@ -458,21 +467,6 @@ onBeforeUnmount(() => {
 }
 .r-table__cell--center {
   justify-content: center;
-}
-
-/* ----------------------- Empty state ---------------------- */
-.r-table__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 32px 16px;
-  color: var(--r-color-fg-muted);
-  text-align: center;
-}
-.r-table__empty-text {
-  font-size: 13px;
 }
 
 /* Per-cell caption — carries the column label into the mobile card-stack.

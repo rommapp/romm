@@ -97,7 +97,7 @@ def _year_unix(year: str) -> int | None:
 def production_from_xml(xml: str) -> CsdbRom:
     try:
         root = ET.fromstring(xml)
-    except (ET.ParseError, ValueError):
+    except ET.ParseError, ValueError:
         # defusedxml raises ValueError subclasses when it refuses entities.
         return CsdbRom(csdb_id=None)
     release = root.find("Release")

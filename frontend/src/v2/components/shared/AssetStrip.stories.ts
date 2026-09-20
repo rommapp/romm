@@ -300,3 +300,75 @@ export const EmptyStates: Story = {
     `,
   }),
 };
+
+// States from another emulator stay listed but cannot be picked; the
+// tooltip says why. Hover a dimmed tile.
+export const IncompatibleStates: Story = {
+  name: "States · 6, half from another emulator",
+  render: () => ({
+    components: { AssetStrip },
+    setup() {
+      const states = manyStates(6).map((state, i) => ({
+        ...state,
+        emulator: i % 2 === 0 ? "snes9x" : "builtin",
+      }));
+      const selectedId = ref<number | null>(states[0].id);
+      const disabledReason = (asset: { emulator?: string | null }) =>
+        asset.emulator === "snes9x"
+          ? null
+          : `Saved with ${asset.emulator}, which the selected core cannot load.`;
+      return {
+        states,
+        selectedId,
+        disabledReason,
+        onSelect: (a: StateSchema) => (selectedId.value = a.id),
+      };
+    },
+    template: `
+      <AssetStrip
+        :assets="states"
+        type="state"
+        :selected-id="selectedId"
+        :disabled-reason="disabledReason"
+        @select="onSelect"
+      />
+    `,
+  }),
+};
+
+// One collapsible mini grid per core. The core that cannot load starts
+// closed and its tiles are greyed out when opened.
+export const GroupedByCore: Story = {
+  name: "States · grouped by core",
+  render: () => ({
+    components: { AssetStrip },
+    setup() {
+      const states = manyStates(9).map((state, i) => ({
+        ...state,
+        emulator: i % 3 === 0 ? "snes9x" : i % 3 === 1 ? "builtin" : null,
+      }));
+      const selectedId = ref<number | null>(states[0].id);
+      const disabledReason = (asset: { emulator?: string | null }) =>
+        asset.emulator === "builtin"
+          ? "Saved with builtin, which the selected core cannot load."
+          : null;
+      return {
+        states,
+        selectedId,
+        disabledReason,
+        onSelect: (a: StateSchema) => (selectedId.value = a.id),
+      };
+    },
+    template: `
+      <AssetStrip
+        :assets="states"
+        type="state"
+        layout="flow"
+        group-by="emulator"
+        :selected-id="selectedId"
+        :disabled-reason="disabledReason"
+        @select="onSelect"
+      />
+    `,
+  }),
+};

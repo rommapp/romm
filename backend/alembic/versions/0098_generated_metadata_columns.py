@@ -19,6 +19,11 @@ Cross-engine notes:
 - PostgreSQL ``to_timestamp(text, text)`` is ``STABLE`` and so illegal in a
   generated column; the gamelist date is parsed through an ``IMMUTABLE`` UTC
   wrapper function instead.
+- MariaDB resolves ``JSON_TYPE`` and ``JSON_UNQUOTE`` under the connection
+  charset while a literal in a generated-column expression inherits the table's
+  collation, so comparing them is an illegal mix on a table that is not
+  ``general_ci``; every such operand goes through ``CAST(... AS CHAR)``, which
+  re-derives the collation from the context both sides share.
 
 Revision ID: 0098_generated_metadata_columns
 Revises: 0097_roms_platform_fs_size_index
@@ -29,7 +34,7 @@ Create Date: 2026-07-19 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import is_postgresql
+from utils.database import column_names, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0098_generated_metadata_columns"
@@ -78,6 +83,17 @@ _MARIA_ARRAY_COALESCE = {
 }
 
 
+def _maria_text(source: str, path: str) -> str:
+    """Unquoted JSON text carrying the surrounding expression's collation.
+
+    MariaDB gives JSON_UNQUOTE the connection charset's default collation, while
+    a literal in a generated-column expression takes the table's, so comparing
+    the two is an illegal mix on a table that is not ``general_ci``. CAST
+    re-derives the collation from the context both operands share.
+    """
+    return f"CAST(JSON_UNQUOTE(JSON_EXTRACT({source}, '{path}')) AS CHAR)"
+
+
 def _maria_array_expr(column: str, sources: list[str]) -> str:
     key = column[len("generated_") :]
     branches = [
@@ -101,7 +117,7 @@ def _maria_first_release_date() -> str:
     ]
     branches = []
     for src, mult in int_sources:
-        val = f"JSON_UNQUOTE(JSON_EXTRACT({src}, '$.first_release_date'))"
+        val = _maria_text(src, "$.first_release_date")
         cast = f"CAST({val} AS SIGNED)"
         if mult != 1:
             cast = f"{cast} * {mult}"
@@ -110,7 +126,7 @@ def _maria_first_release_date() -> str:
             f"AND {val} NOT IN ('null', 'None', '0', '0.0') "
             f"AND {val} REGEXP '^[0-9]+$' THEN {cast}"
         )
-    gl = "JSON_UNQUOTE(JSON_EXTRACT(gamelist_metadata, '$.first_release_date'))"
+    gl = _maria_text("gamelist_metadata", "$.first_release_date")
     # MariaDB rejects STR_TO_DATE in a GENERATED ALWAYS AS clause (it reads
     # lc_time_names), so the fixed-width "YYYYMMDDThhmmss" string is reshaped
     # into a canonical datetime literal instead. TIMESTAMPDIFF from the UTC
@@ -163,7 +179,7 @@ def _maria_first_release_date() -> str:
 
 
 def _maria_rating(source: str, key: str, multiplier: int) -> str:
-    val = f"JSON_UNQUOTE(JSON_EXTRACT({source}, '$.{key}'))"
+    val = _maria_text(source, f"$.{key}")
     cast = f"CAST({val} AS DECIMAL(10,2))"
     if multiplier != 1:
         cast = f"{cast} * {multiplier}"
@@ -200,14 +216,14 @@ _MARIA_AGE_RATINGS = """COALESCE(
     CASE WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.age_ratings')
         AND JSON_LENGTH(JSON_EXTRACT(igdb_metadata, '$.age_ratings')) > 0
         THEN IF(
-            JSON_TYPE(JSON_EXTRACT(igdb_metadata, '$.age_ratings[*].rating')) = 'ARRAY',
+            CAST(JSON_TYPE(JSON_EXTRACT(igdb_metadata, '$.age_ratings[*].rating')) AS CHAR) = 'ARRAY',
             JSON_EXTRACT(igdb_metadata, '$.age_ratings[*].rating'),
             JSON_ARRAY(JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.age_ratings[*].rating')))
         ) ELSE NULL END,
     CASE WHEN JSON_CONTAINS_PATH(ss_metadata, 'one', '$.age_ratings')
         AND JSON_LENGTH(JSON_EXTRACT(ss_metadata, '$.age_ratings')) > 0
         THEN IF(
-            JSON_TYPE(JSON_EXTRACT(ss_metadata, '$.age_ratings[*].rating')) = 'ARRAY',
+            CAST(JSON_TYPE(JSON_EXTRACT(ss_metadata, '$.age_ratings[*].rating')) AS CHAR) = 'ARRAY',
             JSON_EXTRACT(ss_metadata, '$.age_ratings[*].rating'),
             JSON_ARRAY(JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.age_ratings[*].rating')))
         ) ELSE NULL END,
@@ -218,11 +234,11 @@ _MARIA_AGE_RATINGS = """COALESCE(
     JSON_ARRAY()
 )"""
 
-_MARIA_PLAYER_COUNT = """COALESCE(
-    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(manual_metadata, '$.player_count')), '1'),
-    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.player_count')), '1'),
-    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.player_count')), '1'),
-    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(gamelist_metadata, '$.player_count')), '1'),
+_MARIA_PLAYER_COUNT = f"""COALESCE(
+    NULLIF({_maria_text("manual_metadata", "$.player_count")}, '1'),
+    NULLIF({_maria_text("ss_metadata", "$.player_count")}, '1'),
+    NULLIF({_maria_text("igdb_metadata", "$.player_count")}, '1'),
+    NULLIF({_maria_text("gamelist_metadata", "$.player_count")}, '1'),
     '1'
 )"""
 
@@ -452,14 +468,17 @@ def upgrade() -> None:
     else:
         columns = _mysql_columns()
 
+    present = column_names(connection, "roms")
     adds = ",\n".join(
         f"ADD COLUMN {name} {type_} GENERATED ALWAYS AS ({expr}) STORED"
         for name, type_, expr in columns
+        if name not in present
     )
-    op.execute(f"ALTER TABLE roms\n{adds}")  # nosec B608
+    if adds:
+        op.execute(f"ALTER TABLE roms\n{adds}")  # nosec B608
 
     for col in _INDEXED_COLUMNS:
-        op.create_index(f"idx_roms_{col}", "roms", [col])
+        op.create_index(f"idx_roms_{col}", "roms", [col], if_not_exists=True)
 
     op.execute(_thin_view_sql(pg))
 
@@ -715,7 +734,7 @@ CREATE OR REPLACE VIEW roms_metadata AS
                 WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.age_ratings')
                     AND JSON_LENGTH(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings')) > 0
                 THEN IF(
-                        JSON_TYPE(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')) = 'ARRAY',
+                        CAST(JSON_TYPE(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')) AS CHAR) = 'ARRAY',
                         JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating'),
                         JSON_ARRAY(JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')))
                     )
@@ -725,7 +744,7 @@ CREATE OR REPLACE VIEW roms_metadata AS
                 WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.age_ratings')
                     AND JSON_LENGTH(JSON_EXTRACT(r.ss_metadata, '$.age_ratings')) > 0
                 THEN IF(
-                        JSON_TYPE(JSON_EXTRACT(r.ss_metadata, '$.age_ratings[*].rating')) = 'ARRAY',
+                        CAST(JSON_TYPE(JSON_EXTRACT(r.ss_metadata, '$.age_ratings[*].rating')) AS CHAR) = 'ARRAY',
                         JSON_EXTRACT(r.ss_metadata, '$.age_ratings[*].rating'),
                         JSON_ARRAY(JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.age_ratings[*].rating')))
                     )

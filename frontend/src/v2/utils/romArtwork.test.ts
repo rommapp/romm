@@ -40,6 +40,39 @@ function makeRom(
   } as DetailedRom;
 }
 
+describe("resolveRomArtwork — cover", () => {
+  it("leads with the rom's own cover, already a browser-ready URL", () => {
+    const rom = makeRom([], {
+      path_cover_large: "/assets/romm/resources/roms/1/1/cover/big.png?ts=x",
+      ss_metadata: { logo_path: "roms/1/1/logo/logo.png" },
+    });
+    const entries = resolveRomArtwork(rom);
+
+    expect(entries.map((e) => e.key)).toEqual(["cover", "logo"]);
+    expect(entries[0].url).toBe(
+      "/assets/romm/resources/roms/1/1/cover/big.png?ts=x",
+    );
+  });
+
+  it("falls back to the provider cover when nothing was stored locally", () => {
+    const rom = makeRom([], {
+      path_cover_large: "",
+      path_cover_small: "",
+      url_cover: "https://provider.example/cover.png",
+    });
+
+    expect(resolveRomArtwork(rom)[0].url).toBe(
+      "https://provider.example/cover.png",
+    );
+  });
+
+  it("omits the cover when the rom has none", () => {
+    const rom = makeRom([], { path_cover_large: "", path_cover_small: "" });
+
+    expect(resolveRomArtwork(rom)).toHaveLength(0);
+  });
+});
+
 describe("resolveRomArtwork — scraped resources", () => {
   it("includes the ScreenScraper box front, which no other surface shows", () => {
     const rom = makeRom([], {

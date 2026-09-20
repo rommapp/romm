@@ -2,24 +2,22 @@ import sys
 from pathlib import Path
 
 from alembic import context
+from alembic.util import CommandError
 from sqlalchemy import create_engine
+from sqlalchemy.exc import DBAPIError
 
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
-from models.assets import (  # noqa
-    MemoryCard,
-    MemoryCardVersion,
-    Save,
-    Screenshot,
-    State,
-)
+from models import load_all_models
 from models.base import BaseModel
 from models.collection import VirtualCollection
-from models.firmware import Firmware  # noqa
-from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
-from models.platform import Platform  # noqa
-from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
-from models.user import User  # noqa
+from models.rom import RomMetadata, SiblingRom
+from utils.database import (
+    AUTOGENERATE_EXEMPT_INDEX_NAMES,
+    alembic_command_runs_revisions,
+    is_binlog_trigger_privilege_error,
+    trigger_ddl_is_blocked,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -31,12 +29,35 @@ unify_logger("alembic")
 # for 'autogenerate' support
 sys.path.append(f"{Path(__file__).parent.parent.resolve()}")
 
+load_all_models()
 target_metadata = BaseModel.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+
+# Ten revisions install triggers, so a denial blocks the upgrade outright.
+TRIGGER_DDL_DENIED = (
+    "The database user is not allowed to create triggers, which RomM's migrations "
+    "need: MariaDB and MySQL deny trigger statements while binary logging is on and "
+    "the user does not hold SUPER (error 1419). Ask an admin database user to run "
+    "SET GLOBAL log_bin_trust_function_creators = 1, adding it under [mysqld] in "
+    "my.cnf so it survives a restart, or to run "
+    "GRANT SUPER ON *.* TO '<romm database user>'@'%', then start RomM again. "
+    "See https://docs.romm.app/latest/install/databases/"
+)
+
+
+def will_run_revisions() -> bool:
+    """Whether this run reaches revision code, so trigger DDL may yet run."""
+    migration_context = context.get_context()
+    pending = set(migration_context.get_current_heads()) != set(
+        context.script.get_heads()
+    )
+    command = getattr(migration_context.opts.get("fn"), "__name__", "upgrade")
+    return alembic_command_runs_revisions(command, pending=pending)
 
 
 # Ignore specific models when running migrations
@@ -48,13 +69,8 @@ def include_object(object, name, type_, reflected, compare_to):
     ]:  # Virtual table
         return False
 
-    # Skip DB-specific search indexes in autogenerate
-    # to avoid false drop/create operations
-    if type_ == "index" and name in (
-        "idx_roms_name_fs_name_fulltext",
-        "idx_roms_name_trgm",
-        "idx_roms_fs_name_trgm",
-    ):
+    # Dialect-specific indexes that no model can declare.
+    if type_ == "index" and name in AUTOGENERATE_EXEMPT_INDEX_NAMES:
         return False
 
     # generated_* are STORED generated columns backing views.
@@ -112,8 +128,18 @@ def run_migrations_online() -> None:
             include_object=include_object,
         )
 
+        # The probe first: one statement, and free on the other dialects.
+        if trigger_ddl_is_blocked(connection) and will_run_revisions():
+            raise CommandError(TRIGGER_DDL_DENIED)
+
         with context.begin_transaction():
-            context.run_migrations()
+            try:
+                context.run_migrations()
+            # The backstop for a denial the probe above did not catch.
+            except DBAPIError as exc:
+                if is_binlog_trigger_privilege_error(exc):
+                    raise CommandError(TRIGGER_DDL_DENIED) from exc
+                raise
 
 
 if context.is_offline_mode():

@@ -26,10 +26,14 @@ STEAM_MAX_REQUEST_ATTEMPTS: Final[int] = 3
 STEAM_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 5
 _rate_limiter = RateLimiter(STEAM_MAX_REQUESTS_PER_SECOND)
 
-# Undocumented convention, so an app can have no capsule at this URL.
+# Undocumented conventions, so an app can have no asset at these URLs.
 STEAM_LIBRARY_CAPSULE_URL = (
     "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/"
     "{app_id}/library_600x900.jpg"
+)
+STEAM_HEADER_IMAGE_URL = (
+    "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/"
+    "{app_id}/header.jpg"
 )
 
 
@@ -142,24 +146,30 @@ class SteamService:
         return envelope.get("data")
 
     async def get_library_capsule_url(self, app_id: int) -> str | None:
-        """The portrait capsule URL when the CDN serves one, else None.
+        """The portrait capsule URL when the CDN serves one, else None."""
+        return await self._probe_cdn_asset(
+            STEAM_LIBRARY_CAPSULE_URL.format(app_id=app_id)
+        )
 
-        Served by the CDN, not the storefront, so the probe skips the limiter.
-        """
-        capsule_url = STEAM_LIBRARY_CAPSULE_URL.format(app_id=app_id)
+    async def get_header_image_url(self, app_id: int) -> str | None:
+        """The landscape header URL when the CDN serves one, else None."""
+        return await self._probe_cdn_asset(STEAM_HEADER_IMAGE_URL.format(app_id=app_id))
+
+    async def _probe_cdn_asset(self, asset_url: str) -> str | None:
+        """Served by the CDN, not the storefront, so the probe skips the limiter."""
         aiohttp_session = ctx_aiohttp_session.get()
 
         try:
             res = await aiohttp_session.head(
-                capsule_url,
+                asset_url,
                 headers={"user-agent": f"RomM/{get_version()}"},
                 timeout=ClientTimeout(total=15),
                 # aiohttp defaults HEAD to not following redirects, and the CDN
-                # can answer the capsule path with one.
+                # can answer an asset path with one.
                 allow_redirects=True,
             )
         except (aiohttp.ClientError, TimeoutError) as exc:
-            log.debug("Could not probe Steam capsule for %s: %s", app_id, exc)
+            log.debug("Could not probe Steam asset %s: %s", asset_url, exc)
             return None
 
-        return capsule_url if res.status == 200 else None
+        return asset_url if res.status == 200 else None

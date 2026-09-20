@@ -3,6 +3,7 @@ from typing import TypedDict
 
 class SystemDict(TypedDict):
     VERSION: str
+    GIT_BRANCH: str | None
     SHOW_SETUP_WIZARD: bool
 
 
@@ -36,6 +37,7 @@ class EmulationDict(TypedDict):
     DISABLE_EMULATOR_JS: bool
     DISABLE_RUFFLE_RS: bool
     DISABLE_JSDOS: bool
+    DISABLE_PICO8: bool
 
 
 class FrontendDict(TypedDict):

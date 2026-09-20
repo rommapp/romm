@@ -1,7 +1,9 @@
 import asyncio
-import weakref
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import inspect as sa_inspect
 
@@ -9,6 +11,7 @@ from config.config_manager import config_manager as cm
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.filesystem.roms_handler import RomFileKey, rom_file_key
+from handler.redis_handler import async_cache
 from handler.scan_handler import persist_soundtrack_cover
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -19,17 +22,30 @@ ROM_LEVEL_HASH_COLUMNS = ("crc_hash", "md5_hash", "sha1_hash", "ra_hash")
 
 # A refresh lists the folder and then deletes every row the listing missed, so
 # two of them running for the same rom (parallel uploads into one folder) would
-# let the slower listing drop what the faster one just registered.
-_refresh_locks: weakref.WeakValueDictionary[int, asyncio.Lock] = (
-    weakref.WeakValueDictionary()
-)
+# let the slower listing drop what the faster one just registered. The lock
+# lives in Redis because the uploads may land on different gunicorn workers,
+# and is a plain SET NX so it also works without Lua scripting.
+REFRESH_LOCK_TIMEOUT_SECONDS = 600
+REFRESH_LOCK_POLL_SECONDS = 0.1
 
 
-def _refresh_lock(rom_id: int) -> asyncio.Lock:
-    lock = _refresh_locks.get(rom_id)
-    if lock is None:
-        lock = _refresh_locks[rom_id] = asyncio.Lock()
-    return lock
+@asynccontextmanager
+async def _refresh_lock(rom_id: int) -> AsyncIterator[None]:
+    key = f"rom_files_refresh:{rom_id}"
+    token = uuid4().hex
+    for _ in range(int(REFRESH_LOCK_TIMEOUT_SECONDS / REFRESH_LOCK_POLL_SECONDS)):
+        if await async_cache.set(key, token, nx=True, ex=REFRESH_LOCK_TIMEOUT_SECONDS):
+            break
+        await asyncio.sleep(REFRESH_LOCK_POLL_SECONDS)
+    else:
+        raise TimeoutError(f"Timed out waiting to refresh the files of ROM {rom_id}")
+    try:
+        yield
+    finally:
+        # Only the owner releases; an expired lock may belong to someone else.
+        held = await async_cache.get(key)
+        if held in (token, token.encode()):
+            await async_cache.delete(key)
 
 
 @dataclass(frozen=True)

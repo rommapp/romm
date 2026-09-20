@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
-from sqlalchemy import and_, delete, select, update
-from sqlalchemy.orm import QueryableAttribute, Session, load_only, noload
+from sqlalchemy import Select, and_, delete, select, update
+from sqlalchemy.orm import Session, noload
 
 from decorators.database import begin_session
 from models.firmware import Firmware
@@ -27,23 +27,14 @@ class DBFirmwareHandler(DBBaseHandler):
     ) -> Firmware | None:
         return session.scalar(select(Firmware).filter_by(id=id).limit(1))
 
-    @begin_session
-    def list_firmware(
+    def _firmware_query(
         self,
         *,
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
         hidden_platform_ids: Sequence[int] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[Firmware]:
-        # `Firmware.platform` is lazy="joined", which drags in Platform's
-        # rom_count and fs_size_bytes subqueries. No caller here reads it.
-        query = (
-            select(Firmware)
-            .options(noload(Firmware.platform))
-            .order_by(Firmware.file_name.asc())
-        )
+    ) -> Select[tuple[Firmware]]:
+        query = select(Firmware).order_by(Firmware.file_name.asc())
 
         if platform_ids:
             query = query.filter(Firmware.platform_id.in_(platform_ids))
@@ -56,10 +47,42 @@ class DBFirmwareHandler(DBBaseHandler):
         if hidden_platform_ids:
             query = query.filter(Firmware.platform_id.not_in(hidden_platform_ids))
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
+        return query
 
-        return session.scalars(query).all()
+    @begin_session
+    def list_firmware(
+        self,
+        *,
+        platform_ids: Sequence[int] | None = None,
+        missing: bool | None = None,
+        hidden_platform_ids: Sequence[int] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Firmware]:
+        query = self._firmware_query(
+            platform_ids=platform_ids,
+            missing=missing,
+            hidden_platform_ids=hidden_platform_ids,
+        )
+        # `Firmware.platform` is lazy="joined", which drags in Platform's
+        # rom_count and fs_size_bytes subqueries. No caller here reads it.
+        return session.scalars(query.options(noload(Firmware.platform))).all()
+
+    @begin_session
+    def list_firmware_ids(
+        self,
+        *,
+        platform_ids: Sequence[int] | None = None,
+        missing: bool | None = None,
+        hidden_platform_ids: Sequence[int] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Ids only, so no `Firmware` is built and no eager platform join fires."""
+        query = self._firmware_query(
+            platform_ids=platform_ids,
+            missing=missing,
+            hidden_platform_ids=hidden_platform_ids,
+        )
+        return list(session.scalars(query.with_only_columns(Firmware.id)).all())
 
     @begin_session
     def get_firmware_by_filename(

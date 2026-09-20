@@ -78,7 +78,7 @@ export const PROVIDERS: Provider[] = [
   },
   {
     key: "flashpoint_id",
-    name: "Flashpoint Archive",
+    name: "Flashpoint",
     color: "var(--r-color-provider-flashpoint)",
     logo: "/assets/scrappers/flashpoint.png",
     url: null,

@@ -20,6 +20,7 @@ import {
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
+import storePlaying from "@/stores/playing";
 import { useStreamingStore } from "@/stores/streaming";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
@@ -36,9 +37,11 @@ import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { installOverlayRouteDismiss } from "@/v2/composables/useOverlayRouteDismiss";
+import { installPendingAssetSync } from "@/v2/composables/usePendingAssetSync";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
+import { installStageActiveClass } from "@/v2/composables/useStageActive";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
 installPermissionsHydration();
@@ -47,10 +50,14 @@ installPermissionsHydration();
 // route the user is on (navbar indicator + /scan view consume the same
 // store state).
 installScanLifecycle();
+// Saves and states a player could not hand over reach the server from any
+// route, so the next launch screen can offer them.
+installPendingAssetSync();
 // Mirror useBreakpoint() refs onto <html data-bp="…"> so scoped styles
 // can branch on viewport via `html[data-bp~="xs"] .foo { … }` instead of
 // hardcoding `@media (max-width: …)` values across every SFC.
 installBreakpointAttribute();
+installStageActiveClass();
 
 // Reduced-motion mode: mirror the flag onto <html> so global CSS can drop
 // its heaviest work via `html.r-v2-reduced-motion .foo { … }` (background-art
@@ -70,6 +77,8 @@ watch(
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
 const streamingStore = useStreamingStore();
+
+const playingStore = storePlaying();
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
@@ -186,19 +195,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="r-v2-shell">
+  <div class="r-v2-app-shell">
     <BackgroundArt
       :layer-a="layerA"
       :layer-b="layerB"
       :active-layer="activeLayer"
     />
 
-    <div class="r-v2-shell__app">
-      <AppNav />
-      <main id="r-v2-main" class="r-v2-shell__main" tabindex="-1">
+    <div class="r-v2-app-shell__body">
+      <AppNav v-if="!playingStore.stageActive" />
+      <main id="r-v2-main" class="r-v2-app-shell__main" tabindex="-1">
         <router-view name="v2" />
       </main>
-      <BottomNav />
+      <BottomNav v-if="!playingStore.stageActive" />
     </div>
 
     <GlobalDialogs />
@@ -219,9 +228,11 @@ onBeforeUnmount(() => {
        document overflow → no document scrollbar on those routes.
      · Views with natural flow (Home, Settings, Patcher, Scan, etc.)
        grow with content and the document scrolls. */
-.r-v2-shell {
+.r-v2-app-shell {
   color: var(--r-color-fg);
   position: relative;
+  /* Keep this class unique to the layout: Vue copies the parent scope id onto a
+     child's root element, so a route-root section reusing it inherits this. */
   /* `dvh` tracks the mobile visible viewport (address bar shown/hidden).
      `vh` (the large viewport) leaves the app taller than the screen while
      the bar is visible, forcing a second, document-level scroll on top of
@@ -230,16 +241,16 @@ onBeforeUnmount(() => {
   min-height: 100dvh;
 }
 
-.r-v2-shell__app {
+.r-v2-app-shell__body {
   position: relative;
   z-index: 2;
-  /* Matches .r-v2-shell so the absolutely-positioned BottomNav anchor
+  /* Matches .r-v2-app-shell so the absolutely-positioned BottomNav anchor
      spans the viewport even when the content is shorter than the screen. */
   min-height: 100vh;
   min-height: 100dvh;
 }
 
-.r-v2-shell__main {
+.r-v2-app-shell__main {
   position: relative;
   padding-top: var(--r-nav-h);
   outline: none;
@@ -251,7 +262,7 @@ onBeforeUnmount(() => {
    clear of the bar. Fixed-height views with their own internal scroll
    (galleries) subtract the same amount from their height calc so the
    totals still sum to one viewport with no document overflow. */
-html[data-bp~="sm-and-down"] .r-v2-shell__main {
+html[data-bp~="sm-and-down"] .r-v2-app-shell__main {
   padding-bottom: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom));
 }
 </style>

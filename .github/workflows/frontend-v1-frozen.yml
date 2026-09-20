@@ -32,7 +32,9 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           HAS_BYPASS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'allow-v1-changes') }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          # A shallow fetch would leave origin/$BASE_REF without a merge base
+          # against HEAD as soon as the base branch moves on.
+          git fetch --no-tags origin "$BASE_REF"
 
           v1_files=$(git diff --name-only "origin/$BASE_REF...HEAD" -- \
             "frontend/src/views/" \

@@ -602,7 +602,9 @@ export function getSupportedEJSCores(
 }
 
 /**
- * Check if a given EJS core requires threads enabled.
+ * Whether an EJS core ships only as a threaded build; a core added here gets
+ * the cross-origin isolated document it needs from the v2 launch view (see
+ * `useIsolatedLaunch`).
  *
  * @param core The core name.
  * @returns True if threads are required, false otherwise.
@@ -732,6 +734,39 @@ export function isJsDosEmulationSupported(
  */
 export function isJsDosBundle(rom: SimpleRom | null | undefined) {
   return rom?.fs_extension.toLowerCase() === "jsdos";
+}
+
+/**
+ * Check if PICO-8 emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isPico8EmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_PICO8) return false;
+
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return slug.toLowerCase() === "pico";
+}
+
+/**
+ * Check if a ROM file is a PICO-8 cartridge.
+ *
+ * `fs_extension` holds only `png` for a `.p8.png` cart: the backend joins
+ * multi-part extensions from letter-only segments, and `p8` has a digit.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the file is a PICO-8 cartridge, false otherwise.
+ */
+export function isPico8Rom(rom: SimpleRom | null | undefined) {
+  const name = rom?.fs_name.toLowerCase();
+  return name?.endsWith(".p8") === true || name?.endsWith(".p8.png") === true;
 }
 
 export type PlayingStatus =

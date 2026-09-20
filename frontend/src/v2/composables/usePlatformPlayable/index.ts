@@ -9,11 +9,10 @@
 // slugs at once (sort comparators, group-by buckets in PlatformsIndex).
 //
 // `emulator` resolves to the in-browser engine that actually drives the
-// platform: "ruffle" for Flash, "jsdos" for Windows 3.x/9x, "dosbox"
-// when the EJS catalogue picks the dosbox_pure core (DOS is wrapped by
-// EJS but distinctive enough to surface by name in the UI),
-// "emulatorjs" for everything else playable, and `null` when nothing on
-// the server can run it.
+// platform: "ruffle" for Flash, "jsdos" for Windows 3.x/9x, "dosbox" when
+// the EJS catalogue picks the dosbox_pure core (DOS is wrapped by EJS but
+// distinctive enough to surface by name in the UI), "emulatorjs" for
+// everything else playable, and `null` when nothing on the server can run it.
 //
 // `mode` folds the in-browser answer together with streaming: a platform
 // served by a configured streaming container is playable too, just not in
@@ -29,12 +28,13 @@ import {
   getSupportedEJSCores,
   isEJSEmulationSupported,
   isJsDosEmulationSupported,
+  isPico8EmulationSupported,
   isRuffleEmulationSupported,
   resolvePlatformSlug,
 } from "@/utils";
 
 export type PlatformEmulator =
-  "emulatorjs" | "ruffle" | "jsdos" | "dosbox" | null;
+  "emulatorjs" | "ruffle" | "jsdos" | "pico8" | "dosbox" | null;
 
 export type PlatformPlayMode = "browser" | "stream" | "both" | null;
 
@@ -56,6 +56,7 @@ function resolveEmulator(
   if (!slug) return null;
   if (isRuffleEmulationSupported(slug, heartbeat, config)) return "ruffle";
   if (isJsDosEmulationSupported(slug, heartbeat, config)) return "jsdos";
+  if (isPico8EmulationSupported(slug, heartbeat, config)) return "pico8";
   if (!isEJSEmulationSupported(slug, heartbeat, config)) return null;
   const cores = getSupportedEJSCores(resolvePlatformSlug(slug, config));
   if (cores.includes("dosbox_pure")) return "dosbox";
@@ -155,6 +156,8 @@ export function playTooltip(
           return t("platform.playable-browser-ruffle");
         case "jsdos":
           return t("platform.playable-browser-jsdos");
+        case "pico8":
+          return t("platform.playable-browser-pico8");
         case "dosbox":
           return t("platform.playable-browser-dosbox");
         default:

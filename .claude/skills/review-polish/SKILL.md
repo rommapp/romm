@@ -1,17 +1,17 @@
 ---
 name: review-polish
-description: The before-review and before-handoff pass for RomM, covering both stacks. First shapes the code the checks can't see — comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, loose typing in tests. Then runs the verification gate that keeps CI green — frontend (typecheck/lint/test/build/i18n/tokens), backend (pytest/alembic/trunk), the OpenAPI regen step, and (for UI) manual browser/theme/input/Storybook checks. Use after the code works, right before committing, opening a PR, or telling the user a change is done.
+description: The before-review and before-handoff pass for RomM, covering both stacks. First shapes the code the checks can't see — comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, loose typing in tests. Then runs the verification gate that keeps CI green — frontend (typecheck/lint/test/build/i18n/tokens), backend (pytest/alembic/trunk), the OpenAPI regen step, and (for UI) manual browser/theme/input/Storybook checks. Ends with what the PR description owes a reviewer: screenshots of a UI change, a mermaid diagram of an architectural one. Use after the code works, right before committing, opening a PR, or telling the user a change is done.
 ---
 
 # RomM: Review Polish & Verification
 
 Two passes, in order, once the change works:
 
-1. **Polish (A–F):** shape the code the checks can't see. Derived from the
+1. **Polish (A–D):** shape the code the checks can't see. Derived from the
    corrections a maintainer actually pushed on top of 37 approved contributor
    PRs — every rule below is something that got hand-fixed after review, so
    applying it up front saves a round trip.
-2. **Verify (G):** run the checks that match what you touched, mirroring the CI
+2. **Verify (E):** run the checks that match what you touched, mirroring the CI
    gates so review isn't the first place a failure shows up. Polish comes
    first, since it renames things, extracts helpers, and edits tests; `trunk
 fmt && trunk check` comes last of all, so nothing lands unformatted. If
@@ -94,25 +94,7 @@ trimmed too.
 
 ---
 
-## C. Reuse the existing mechanism before inventing one
-
-- **Use the existing foreign key.** A durable-reference scheme of your own
-  (`(rom_id, md5_hash)` because file ids churn on rescan) loses to
-  `rom_file_id` with `ondelete="CASCADE"`. If the real problem is churn, fix the
-  churn.
-- **Reach for VueUse before hand-rolling.** Persisted UI state is
-  `useLocalStorage(key, default, { writeDefaults: false, serializer })`, not a
-  `ref` plus a `watch` plus `localStorage.setItem`.
-- **Put display logic on the component that renders it.** A bespoke
-  `ratingChips` computed in a tab belongs in the card component and its
-  `providers.ts` config.
-- **Prefer a spread over mutate-after-construct.**
-  `{ ...(x !== undefined ? { x } : {}) }` over building an object then
-  conditionally assigning.
-
----
-
-## D. Names say what the thing does
+## C. Names say what the thing does
 
 - `syncRom` renamed to `syncCachedRom`: it updates the cache, it does not fetch.
 - Sort on `display_name` when `display_name` is what the user sees.
@@ -122,7 +104,7 @@ short a word.
 
 ---
 
-## E. Tests: strict typing is part of the test
+## D. Tests: strict typing is part of the test
 
 Trunk runs mypy over `backend/tests/`, and `vue-tsc` covers frontend tests. Both
 catch these, but only after the contributor has handed the PR over.
@@ -142,25 +124,7 @@ catch these, but only after the contributor has handed the PR over.
 
 ---
 
-## F. Async and reactive lifecycle (v2)
-
-See `frontend-v2-patterns` for the full set. The three that get fixed in review:
-
-1. **Snapshot any reactive value a decision depends on before the first
-   `await`.** The selection and the collection's `rom_ids` both move while
-   requests are in flight, so `const wasAllFavorited = allFavorited.value` comes
-   before the call, not after.
-2. **Watch the narrowest source.** Watching `authStore.user` refires on every
-   unrelated profile update; watch a derived primitive
-   (`user?.oauth_scopes.includes("tasks.run") ? user.id : null`) so the
-   watch is self-guarding and no manual "already ran for this id" flag is
-   needed.
-3. **Guard late resolutions with `useIsAlive()`** rather than a local
-   `unmounted` flag and `onBeforeUnmount`.
-
----
-
-## G. Verification before handoff
+## E. Verification before handoff
 
 Run the checks that match what you touched. **Static checks don't prove a
 feature works** — when UI changed, also test it in the browser. **Never
@@ -199,6 +163,10 @@ With `uiVersion = "v2"`:
 - **Responsive sweep:** 320px → 4K across the `useBreakpoint` tiers; overlays full-bleed on `xs`.
 - **Accessibility:** contrast, keyboard reachability with no traps, aria-labels on icon-only controls.
 - **Performance:** lists/grids of 1000+ items stay smooth; every `v-for` has a stable `:key`.
+- **Screenshots:** capture the change while you're in there, at least one and enough to
+  convey what's different. Shoot the component or view in its real surroundings, not a
+  full-page dump, and save to a temp dir outside the repo.
+  See [F. The PR description](#f-the-pr-description).
 
 #### Storybook (for `/lib`)
 
@@ -222,8 +190,77 @@ Run from `backend/`:
 ### Don't
 
 - Open a PR without manually testing the UI when UI was touched.
+- Open a PR on a UI change with an empty `Screenshots` section.
+- Describe a boundary change in prose alone when a diagram would land it in one read.
 - `--no-verify` on commits.
 - Leave a locale key English-only, a token un-generated, or a migration one-directional.
+
+---
+
+## F. The PR description
+
+Base it on `.github/PULL_REQUEST_TEMPLATE.md`, and carry the two things a reviewer cannot
+reconstruct from the diff.
+
+### Screenshots, for a UI change
+
+The template's `Screenshots (if applicable)` heading is not optional for a UI change; a reviewer
+who can't see the change reviews the diff instead of the result. Shoot enough to give that
+reviewer the gist, and stop there: one shot carries most changes.
+
+- **Before/after** when the change alters something that already existed and the after alone
+  wouldn't read as different, labelled as such.
+- **A second theme** only when the change is theme-dependent; a state or breakpoint only when it's
+  the point of the change.
+- Name the files for what they show (`missing-games-actions.png`); the filename is the alt text
+  when you don't supply one.
+
+Upload them yourself with `gh`, which takes `--attach '<file>#<alt text>'` (up to 50 per command)
+on `pr create`, `pr edit` and `pr comment`. Write the body referencing each file by its local path
+and `gh` rewrites the reference to the uploaded asset, so the shots land under the `Screenshots`
+heading instead of being appended at the end:
+
+```bash
+# /tmp/pr-body.md, under the Screenshots heading:
+#   ![The new actions row on a missing game](/tmp/shots/missing-games-actions.png)
+gh pr create --title '...' --body-file /tmp/pr-body.md \
+  --attach /tmp/shots/missing-games-actions.png
+```
+
+On an existing PR, `gh pr edit --attach` keeps the current body and appends the upload unless the
+body already references the file. A partial upload still creates or updates the PR and exits
+non-zero, so check the body rather than trusting the exit code. Never commit the images or push
+them to a branch to get a URL. Only fall back to handing the user file paths when the upload
+fails.
+
+### Mermaid diagram, for an architectural change
+
+GitHub renders a fenced `mermaid` block in a PR body, so a change that moves a boundary gets one:
+a new service, handler, or task in a request or job path; a model or relationship change; a new
+external provider or integration; a different call path across layers; an auth, session, or socket
+flow. Code that changes inside an existing boundary does not.
+
+- **Draw what changed**, with the new pieces distinguishable from what was already there. A
+  diagram that redraws the whole backend teaches nothing.
+- **Pick the type for the question:** `flowchart` for a call or data path, `sequenceDiagram` for an
+  exchange whose order over time is the point (auth handshake, scan lifecycle), `erDiagram` for
+  models and their relationships.
+- **Label the edges** with what crosses them, the call, the payload, the event name, not "uses".
+- **No custom colors or styling.** The default theme is the one that reads in both of GitHub's.
+- **Make sure it parses.** An unparseable block renders as raw text in the description. When the
+  syntax isn't one you're sure of, render it first:
+  `npx -y @mermaid-js/mermaid-cli -i d.mmd -o d.svg -p pc.json`, where `pc.json` is
+  `{"executablePath": "<a local Chrome>", "args": ["--no-sandbox"]}` (puppeteer downloads no
+  browser of its own here).
+
+```mermaid
+flowchart LR
+    client[Web client] -->|POST /api/roms/scan| api[roms endpoint]
+    api -->|enqueue| queue[(RQ queue)]
+    queue --> worker[scan task]
+    worker -->|emit scan:done| socket[Socket.IO]
+    socket --> client
+```
 
 ---
 
@@ -232,13 +269,13 @@ Run from `backend/`:
 - [ ] No comment or docstring over two lines of prose; no change history, no
       restatement, no justification of the obvious
 - [ ] Every new constant, type, limit, and getter searched for first
-- [ ] No new mechanism where an FK, a VueUse composable, or an existing
-      component already does it
 - [ ] Names say what the code touches
 - [ ] Tests typecheck strictly and exercise the production path
-- [ ] Reactive values snapshotted before `await`; watches on narrow sources
-- [ ] Stack checks in G green for everything touched (typecheck/test/build,
+- [ ] Stack checks in E green for everything touched (typecheck/test/build,
       pytest, migrations both directions, OpenAPI regen)
 - [ ] UI changes tested in the browser: both themes, all four input modalities,
       responsive sweep
+- [ ] UI changes screenshotted (enough to convey the change), and the shots
+      uploaded to the PR with `gh ... --attach`
+- [ ] Architectural changes carry a `mermaid` diagram in the PR description
 - [ ] `trunk fmt && trunk check` clean, with whatever fmt rewrote committed

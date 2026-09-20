@@ -7,8 +7,8 @@
 // Each row shows what the container is running and offers the two actions
 // an admin needs: open its desktop to configure the emulator inside it, and
 // end whatever session is holding it.
-import { RBtn, RIcon, RSpinner } from "@v2/lib";
-import { onMounted, ref } from "vue";
+import { RBtn, REmptyState, RIcon, RSpinner } from "@v2/lib";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -34,6 +34,25 @@ const enabled = ref(false);
 const loadFailed = ref(false);
 const containers = ref<AdminStreamingContainer[]>([]);
 const releasing = ref<string | null>(null);
+
+const emptyState = computed<{ icon: string; title: string } | null>(() => {
+  if (loadFailed.value) {
+    return {
+      icon: "mdi-alert-circle-outline",
+      title: t("settings.streaming-load-failed"),
+    };
+  }
+  if (!enabled.value) {
+    return { icon: "mdi-monitor-off", title: t("settings.streaming-disabled") };
+  }
+  if (containers.value.length === 0) {
+    return {
+      icon: "mdi-monitor-dashboard",
+      title: t("settings.streaming-none"),
+    };
+  }
+  return null;
+});
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -120,17 +139,7 @@ onMounted(load);
       <RSpinner />
     </div>
 
-    <p v-else-if="loadFailed" class="r-v2-streaming__empty">
-      {{ t("settings.streaming-load-failed") }}
-    </p>
-
-    <p v-else-if="!enabled" class="r-v2-streaming__empty">
-      {{ t("settings.streaming-disabled") }}
-    </p>
-
-    <p v-else-if="containers.length === 0" class="r-v2-streaming__empty">
-      {{ t("settings.streaming-none") }}
-    </p>
+    <REmptyState v-else-if="emptyState" size="small" v-bind="emptyState" />
 
     <template v-else>
       <div
@@ -206,12 +215,9 @@ onMounted(load);
 </template>
 
 <style scoped>
-.r-v2-streaming__loading,
-.r-v2-streaming__empty {
+.r-v2-streaming__loading {
   padding: 16px;
   color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
-  margin: 0;
 }
 
 .r-v2-streaming__row {

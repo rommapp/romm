@@ -5,17 +5,18 @@
 // add the toggle key in `useUISettings`. Both the `WidgetBar` and the
 // settings reorder list pick it up automatically.
 import type { Component } from "vue";
+import AnniversaryWidget from "./AnniversaryWidget.vue";
 import LibraryStatsWidget from "./LibraryStatsWidget.vue";
 import RandomPickWidget from "./RandomPickWidget.vue";
 
-export type WidgetId = "randomPick" | "libraryStats";
+export type WidgetId = "randomPick" | "anniversaries" | "libraryStats";
 
 export interface WidgetDef {
   id: WidgetId;
   /** The component to render. */
   component: Component;
   /** Key in `useUISettings` that controls visibility. */
-  enabledKey: "widgetRandomPick" | "widgetLibraryStats";
+  enabledKey: "widgetRandomPick" | "widgetLibraryStats" | "widgetAnniversaries";
   /** i18n key for the user-facing label (settings reorder list). */
   labelKey: string;
   /** Optional MDI icon used in the reorder list. */
@@ -29,6 +30,13 @@ export const WIDGETS: readonly WidgetDef[] = [
     enabledKey: "widgetRandomPick",
     labelKey: "settings.widget-random-pick",
     icon: "mdi-dice-5-outline",
+  },
+  {
+    id: "anniversaries",
+    component: AnniversaryWidget,
+    enabledKey: "widgetAnniversaries",
+    labelKey: "settings.widget-anniversaries",
+    icon: "mdi-calendar-star",
   },
   {
     id: "libraryStats",

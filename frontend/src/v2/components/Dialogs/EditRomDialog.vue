@@ -29,7 +29,9 @@ import AdditionalDetails from "@/v2/components/EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "@/v2/components/EditRom/MetadataIdSection.vue";
 import RawMetadataPanel from "@/v2/components/EditRom/RawMetadataPanel.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
+import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { getMissingCoverImage } from "@/v2/utils/covers";
@@ -60,6 +62,7 @@ const coverFileInput = ref<HTMLInputElement | null>(null);
 const saving = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const confirm = useConfirm();
 const { applyRomWrite } = useRomSync();
 
 const openHandler = async (romToEdit: SimpleRom) => {
@@ -267,6 +270,13 @@ async function handleRomUpdate(
 
 async function unmatchRom() {
   if (!rom.value) return;
+  const ok = await confirm({
+    title: t("rom.unmatch"),
+    body: t("rom.unmatch-hint"),
+    confirmText: t("rom.unmatch"),
+    tone: "danger",
+  });
+  if (!ok || !rom.value) return;
   await handleRomUpdate(
     { rom: rom.value, unmatch: true },
     t("rom.unmatch-success"),
@@ -303,6 +313,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     scroll-content
     full-height-on-mobile
     :width="lgAndUp ? 900 : '95vw'"
+    cancelable
+    :cancel-disabled="saving"
     @close="closeDialog"
   >
     <template #header>
@@ -329,7 +341,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               density="compact"
               :tooltip="t('rom.search-cover')"
               :disabled="
-                !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
+                !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED &&
+                !heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED
               "
               @click="
                 emitter?.emit('showSearchCoverDialog', {
@@ -456,24 +469,26 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           />
         </div>
       </div>
+
+      <DangerZone
+        v-if="!rom.is_unidentified"
+        :title="t('rom.unmatch')"
+        :hint="t('rom.unmatch-hint')"
+      >
+        <RBtn
+          variant="outlined"
+          color="danger"
+          prepend-icon="mdi-link-variant-off"
+          :loading="saving"
+          :disabled="saving"
+          @click="unmatchRom"
+        >
+          {{ t("rom.unmatch") }}
+        </RBtn>
+      </DangerZone>
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="saving" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div style="flex: 1" />
-      <RBtn
-        v-if="!rom.is_unidentified"
-        variant="outlined"
-        color="error"
-        prepend-icon="mdi-link-variant-off"
-        :loading="saving"
-        :disabled="saving"
-        @click="unmatchRom"
-      >
-        {{ t("rom.unmatch") }}
-      </RBtn>
       <RBtn
         variant="translucent"
         color="primary"

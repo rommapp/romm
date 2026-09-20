@@ -141,7 +141,7 @@ def _pick_safe_address(addr_infos: typing.Iterable[typing.Any], host: str) -> st
     for *_, sockaddr in addr_infos:
         try:
             ip = ipaddress.ip_address(sockaddr[0])
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             continue
         if is_forbidden_ip(ip):
             msg = (

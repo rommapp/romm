@@ -375,10 +375,10 @@ defineExpose({
    above for the bloom. A blur(16px) per cover, ~100 at once on a full grid,
    is expensive on weak GPUs; the covers still fade in, just without the
    blur/scale flourish. */
-:global(html.r-v2-reduced-motion) .game-cover__img {
+html.r-v2-reduced-motion .game-cover__img {
   transition: opacity 0.25s ease;
 }
-:global(html.r-v2-reduced-motion) .game-cover__img--reveal {
+html.r-v2-reduced-motion .game-cover__img--reveal {
   filter: none;
   scale: 1;
 }

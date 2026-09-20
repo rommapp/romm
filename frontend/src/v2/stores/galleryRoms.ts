@@ -35,6 +35,7 @@ import {
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
+import { playtimeHoursToSeconds } from "@/v2/utils/time";
 
 export type SimpleRom = SimpleRomSchema;
 
@@ -43,16 +44,34 @@ export type SimpleRom = SimpleRomSchema;
  * `RomUser`, so this includes fields that aren't direct properties of
  * `SimpleRomSchema` (e.g. `first_release_date` lives on RomMetadata).
  * Keep this in sync with the columns the gallery surface exposes. */
-export type GalleryOrderKey =
-  | "name"
-  | "fs_name"
-  | "platform_id"
-  | "fs_size_bytes"
-  | "created_at"
-  | "updated_at"
-  | "first_release_date"
-  | "average_rating"
-  | "last_played";
+const GALLERY_ORDER_KEYS = [
+  "name",
+  "fs_name",
+  "platform_id",
+  "fs_size_bytes",
+  "created_at",
+  "updated_at",
+  "first_release_date",
+  "average_rating",
+  "hltb_main_story",
+  "last_played",
+] as const;
+
+export type GalleryOrderKey = (typeof GALLERY_ORDER_KEYS)[number];
+
+export type GalleryOrderDir = "asc" | "desc";
+
+export const DEFAULT_ORDER_BY: GalleryOrderKey = "name";
+export const DEFAULT_ORDER_DIR: GalleryOrderDir = "asc";
+
+/** Narrows an untrusted string (a URL query param) to a sort key. */
+export function isGalleryOrderKey(value: string): value is GalleryOrderKey {
+  return (GALLERY_ORDER_KEYS as readonly string[]).includes(value);
+}
+
+export function isGalleryOrderDir(value: string): value is GalleryOrderDir {
+  return value === "asc" || value === "desc";
+}
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
@@ -60,6 +79,22 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 // mean more round-trips but finer-grained fills; larger windows mean
 // fewer requests but each one downloads more.
 const WINDOW_SIZE = 72;
+
+// Page size for the whole-result fetch behind "select all": the
+// backend's ceiling on the `/roms` limit param (le=10_000). Exported
+// for the tests that exercise the paging.
+export const SELECT_ALL_PAGE_SIZE = 10_000;
+
+// One home for "skip every sidecar": each flag is its own server-side
+// scan, and a misspelled name would silently re-enable one.
+export const NO_SIDECARS: SidecarOptions = {
+  withCharIndex: false,
+  withFilterValues: false,
+  withRomIdIndex: false,
+};
+
+// Sidecars plus the COUNT, for fetches that only need their items.
+const SKIP_AGGREGATES = { ...NO_SIDECARS, withTotal: false };
 
 // In-flight `AbortController`s keyed by request: `window:${offset}`
 // for a windowed fetch, `bootstrap` for the lightweight metadata
@@ -201,10 +236,12 @@ interface State {
   // bootstrap dedup independently of `loadedWindows` (metadata
   // bootstrap doesn't load any window).
   metadataLoaded: boolean;
+  // True while a whole-result select-all fetch is in flight.
+  selectingAll: boolean;
   // Order params — gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value).
   orderBy: GalleryOrderKey;
-  orderDir: "asc" | "desc";
+  orderDir: GalleryOrderDir;
 }
 
 const defaults = (): State => ({
@@ -222,8 +259,9 @@ const defaults = (): State => ({
   failedWindows: new Set(),
   initialFetching: false,
   metadataLoaded: false,
-  orderBy: "name",
-  orderDir: "asc",
+  selectingAll: false,
+  orderBy: DEFAULT_ORDER_BY,
+  orderDir: DEFAULT_ORDER_DIR,
 });
 
 function alignToWindow(offset: number): number {
@@ -244,6 +282,11 @@ export default defineStore("v2GalleryRoms", {
       ),
     /** True when at least the first window has loaded. */
     hasInitial: (state) => state.loadedWindows.size > 0,
+    /** The full ordered id list of the current filtered result, or null
+     * while it is unknown (off the gallery view, or bootstrap pending). */
+    filteredRomIds(): number[] | null {
+      return this.onGalleryView && this.metadataLoaded ? this.romIdIndex : null;
+    },
   },
 
   actions: {
@@ -263,7 +306,7 @@ export default defineStore("v2GalleryRoms", {
     setOrderBy(key: GalleryOrderKey) {
       this.orderBy = key;
     },
-    setOrderDir(dir: "asc" | "desc") {
+    setOrderDir(dir: GalleryOrderDir) {
       this.orderDir = dir;
     },
 
@@ -303,6 +346,7 @@ export default defineStore("v2GalleryRoms", {
       this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
+      this.selectingAll = false;
     },
 
     /** Drop the loaded windows but keep the gallery context — used when
@@ -319,6 +363,7 @@ export default defineStore("v2GalleryRoms", {
       this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
+      this.selectingAll = false;
     },
 
     _shouldGroupRoms(): boolean {
@@ -385,6 +430,12 @@ export default defineStore("v2GalleryRoms", {
         playerCountsLogic: galleryFilter.playerCountsLogic,
         metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
         tagsLogic: galleryFilter.tagsLogic,
+        hltbMainStoryMin: playtimeHoursToSeconds(
+          galleryFilter.selectedLengthMinHours,
+        ),
+        hltbMainStoryMax: playtimeHoursToSeconds(
+          galleryFilter.selectedLengthMaxHours,
+        ),
       };
     },
 
@@ -539,14 +590,7 @@ export default defineStore("v2GalleryRoms", {
       try {
         const response = await romApi.getRoms({
           ...params,
-          ...(withAggregations
-            ? {}
-            : {
-                withCharIndex: false,
-                withFilterValues: false,
-                withRomIdIndex: false,
-                withTotal: false,
-              }),
+          ...(withAggregations ? {} : SKIP_AGGREGATES),
           signal: controller.signal,
         });
         // Re-check identity: invalidateWindows / resetGallery / a context
@@ -633,6 +677,54 @@ export default defineStore("v2GalleryRoms", {
           if (offset === 0) this.initialFetching = false;
           // A slot freed up — start the next queued window, if any.
           this._drainWindowQueue();
+        }
+      }
+    },
+
+    /** Fetch every ROM of the current filtered result in backend-capped
+     * pages, for the whole-result "select all".
+     *
+     * Returns:
+     *   The full result set, or null when aborted or superseded.
+     *   Non-cancel errors are rethrown for the caller to surface. */
+    async fetchAllFilteredRoms(): Promise<SimpleRom[] | null> {
+      // The filters only scope the query on the gallery view; anywhere
+      // else the params would silently describe the whole library.
+      if (!this.onGalleryView) return null;
+      const galleryFilter = storeGalleryFilter();
+      const params = this._buildRequestParams(galleryFilter, 0);
+      const ctrlKey = "select-all";
+      // A re-trigger supersedes the previous run.
+      inFlightControllers.get(ctrlKey)?.abort();
+      const controller = new AbortController();
+      inFlightControllers.set(ctrlKey, controller);
+      this.selectingAll = true;
+
+      try {
+        const all: SimpleRom[] = [];
+        let page: SimpleRom[];
+        do {
+          const response = await romApi.getRoms({
+            ...params,
+            ...SKIP_AGGREGATES,
+            limit: SELECT_ALL_PAGE_SIZE,
+            offset: all.length,
+            signal: controller.signal,
+          });
+          if (inFlightControllers.get(ctrlKey) !== controller) return null;
+          page = response.data.items;
+          for (const rom of page) all.push(rom);
+        } while (page.length === SELECT_ALL_PAGE_SIZE);
+        return all;
+      } catch (err) {
+        if (axios.isCancel(err)) return null;
+        throw err;
+      } finally {
+        const current = inFlightControllers.get(ctrlKey);
+        if (current === controller) inFlightControllers.delete(ctrlKey);
+        // A newer run owns the flag; an external abort cleared the map.
+        if (current === controller || current === undefined) {
+          this.selectingAll = false;
         }
       }
     },

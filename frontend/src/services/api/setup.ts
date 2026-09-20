@@ -1,15 +1,14 @@
 import api from "@/services/api";
 import type { Platform } from "@/stores/platforms";
 
-export type LibraryStructure = "struct_a" | "struct_b" | null;
-
 export interface ExistingPlatform {
   fs_slug: string;
   rom_count: number;
 }
 
 export interface SetupLibraryInfo {
-  detected_structure: LibraryStructure;
+  library_ready: boolean;
+  library_structure: string;
   existing_platforms: ExistingPlatform[];
   supported_platforms: Platform[];
 }

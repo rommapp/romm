@@ -1,5 +1,6 @@
-// useCoverFilters — client-side filtering + sorting over the SGDB cover
-// grid and the per-provider cover row shown in SearchCoverDialog.
+// useCoverFilters: client-side filtering + sorting over the cover grid
+// (SteamGridDB and Steam) and the per-provider cover row shown in
+// SearchCoverDialog.
 //
 // The backend returns every content variant (NSFW / humor / epilepsy)
 // with its per-cover metadata in one call, so every control here just
@@ -7,13 +8,21 @@
 // The dialog owns the search flow and passes the raw `covers` /
 // `providerCovers` refs in; this composable owns the filter state
 // and every derived view of those two lists.
-import { computed, ref, type Ref } from "vue";
+import { computed, ref, watch, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SearchCoverSchema, SGDBResource } from "@/__generated__";
+import type { CoverResource, SearchCoverSchema } from "@/__generated__";
 import type { MatchedSource } from "@/v2/components/MatchRom/types";
 
 export type CoverType = "all" | "static" | "animated";
 export type SortMode = "relevance" | "votes";
+export type CoverProvider = SearchCoverSchema["provider"];
+
+const ALL_PROVIDERS_ACTIVE: Record<CoverProvider, boolean> = {
+  sgdb: true,
+  steam: true,
+};
+
+const CONTENT_DEFAULTS = { nsfw: false, humor: true, epilepsy: true };
 
 // SGDB serves styles as raw slugs; map the known set to readable labels
 // and fall back to the slug for anything new SGDB adds later.
@@ -36,20 +45,34 @@ export function useCoverFilters(
   const styleFilter = ref("all");
   const uploaderFilter = ref("all");
   const uploaderSearch = ref("");
-  const showNsfw = ref(false);
-  const showHumor = ref(true);
-  const showEpilepsy = ref(true);
+  const showNsfw = ref(CONTENT_DEFAULTS.nsfw);
+  const showHumor = ref(CONTENT_DEFAULTS.humor);
+  const showEpilepsy = ref(CONTENT_DEFAULTS.epilepsy);
   const sortMode = ref<SortMode>("relevance");
+  const activeProviders = ref<Record<CoverProvider, boolean>>({
+    ...ALL_PROVIDERS_ACTIVE,
+  });
 
-  function resetFilters() {
-    coverType.value = "all";
+  function toggleProvider(provider: CoverProvider) {
+    activeProviders.value[provider] = !activeProviders.value[provider];
+  }
+
+  // A pick can't outlive the results that offered it.
+  function resetResultFilters() {
     resolutionFilter.value = "all";
     styleFilter.value = "all";
     uploaderFilter.value = "all";
     uploaderSearch.value = "";
-    showNsfw.value = false;
-    showHumor.value = true;
-    showEpilepsy.value = true;
+  }
+  watch(covers, resetResultFilters);
+
+  function resetFilters() {
+    activeProviders.value = { ...ALL_PROVIDERS_ACTIVE };
+    coverType.value = "all";
+    resetResultFilters();
+    showNsfw.value = CONTENT_DEFAULTS.nsfw;
+    showHumor.value = CONTENT_DEFAULTS.humor;
+    showEpilepsy.value = CONTENT_DEFAULTS.epilepsy;
     sortMode.value = "relevance";
   }
 
@@ -58,14 +81,53 @@ export function useCoverFilters(
     return key ? t(key) : style;
   }
 
+  const sortItems = computed<{ id: SortMode; label: string; icon: string }[]>(
+    () => [
+      {
+        id: "relevance",
+        label: t("rom.cover-sort-relevance"),
+        icon: "mdi-target",
+      },
+      {
+        id: "votes",
+        label: t("rom.cover-sort-votes"),
+        icon: "mdi-thumb-up-outline",
+      },
+    ],
+  );
+
   const coverTypeItems = computed(() => [
     { title: t("rom.cover-type-all"), value: "all" },
     { title: t("rom.cover-type-static"), value: "static" },
     { title: t("rom.cover-type-animated"), value: "animated" },
   ]);
 
-  // Every SGDB resource across all matched games
+  // Every grid resource across all matched games, whichever provider.
   const allResources = computed(() => covers.value.flatMap((g) => g.resources));
+  // The style, uploader, votes and content flags are SteamGridDB's own, so
+  // their controls only appear when SteamGridDB answered.
+  const hasSgdbCovers = computed(() =>
+    covers.value.some((g) => g.provider === "sgdb" && g.resources.length > 0),
+  );
+
+  // Advanced-panel filters moved off their defaults. The content switches
+  // only render when SteamGridDB answered, so only then do they count.
+  const activeFilterCount = computed(() => {
+    const changed = [
+      coverType.value !== "all",
+      resolutionFilter.value !== "all",
+      styleFilter.value !== "all",
+      uploaderFilter.value !== "all",
+    ];
+    if (hasSgdbCovers.value) {
+      changed.push(
+        showNsfw.value !== CONTENT_DEFAULTS.nsfw,
+        showHumor.value !== CONTENT_DEFAULTS.humor,
+        showEpilepsy.value !== CONTENT_DEFAULTS.epilepsy,
+      );
+    }
+    return changed.filter(Boolean).length;
+  });
 
   const resolutionValues = computed(() => {
     const set = new Set<string>();
@@ -107,8 +169,8 @@ export function useCoverFilters(
     ...uploaderValues.value.map((v) => ({ title: v, value: v })),
   ]);
 
-  // Does a single SGDB resource pass all active filters?
-  function matchesFilters(r: SGDBResource): boolean {
+  // Does a single grid resource pass all active filters?
+  function matchesFilters(r: CoverResource): boolean {
     if (coverType.value !== "all" && r.type !== coverType.value) return false;
     if (
       resolutionFilter.value !== "all" &&
@@ -126,12 +188,13 @@ export function useCoverFilters(
     return true;
   }
 
-  // Filter (and optionally re-sort by votes) the fetched SGDB list without
+  // Filter (and optionally re-sort by votes) the fetched list without
   // re-hitting the API. SGDB sometimes returns a game entry with an empty
   // `resources` array — or one emptied by the active filters — so we drop
   // those so the accordion doesn't render an empty section.
   const filteredCovers = computed<SearchCoverSchema[]>(() => {
     return covers.value
+      .filter((game) => activeProviders.value[game.provider])
       .map((game) => {
         const resources = game.resources.filter(matchesFilters);
         if (sortMode.value === "votes") {
@@ -142,7 +205,7 @@ export function useCoverFilters(
       .filter((g) => g.resources.length > 0);
   });
 
-  const hasSgdbCovers = computed(() => allResources.value.length > 0);
+  const hasGridCovers = computed(() => allResources.value.length > 0);
   const hasProviderCovers = computed(() => providerCovers.value.length > 0);
   // Provider covers (IGDB / Moby / SS / …) are static artwork only — they
   // don't carry an animated variant, so hide them when filtering to
@@ -151,17 +214,17 @@ export function useCoverFilters(
     coverType.value === "animated" ? [] : providerCovers.value,
   );
 
-  const hasSgdbResults = computed(() => filteredCovers.value.length > 0);
+  const hasGridResults = computed(() => filteredCovers.value.length > 0);
   const showProviderCovers = computed(
     () => visibleProviderCovers.value.length > 0,
   );
   // Raw results present (pre-filter) — drives whether the filter bar shows,
   // so filtering everything out never hides the controls needed to undo it.
   const hasRawResults = computed(
-    () => hasSgdbCovers.value || hasProviderCovers.value,
+    () => hasGridCovers.value || hasProviderCovers.value,
   );
   const hasResults = computed(
-    () => hasSgdbResults.value || showProviderCovers.value,
+    () => hasGridResults.value || showProviderCovers.value,
   );
 
   return {
@@ -175,8 +238,13 @@ export function useCoverFilters(
     showHumor,
     showEpilepsy,
     sortMode,
+    activeProviders,
+    toggleProvider,
     resetFilters,
-    // Select option lists + their raw value sets (drive `v-if` on selects)
+    activeFilterCount,
+    // Option lists for the sort menu and the selects, plus their raw value
+    // sets (drive `v-if` on selects)
+    sortItems,
     coverTypeItems,
     resolutionItems,
     resolutionValues,
@@ -188,7 +256,6 @@ export function useCoverFilters(
     filteredCovers,
     visibleProviderCovers,
     hasSgdbCovers,
-    hasSgdbResults,
     showProviderCovers,
     hasRawResults,
     hasResults,

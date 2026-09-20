@@ -80,7 +80,7 @@ const supportedSlugSet = computed(
 
 const detectedPlatforms = computed<Array<Platform & { unidentified: boolean }>>(
   () => {
-    if (!props.libraryInfo.detected_structure) return [];
+    if (!props.libraryInfo.library_ready) return [];
     const identified = props.libraryInfo.supported_platforms
       .filter((p) => detectedSlugSet.value.has(p.fs_slug))
       .map((p) => ({ ...p, unidentified: false }));
@@ -176,17 +176,19 @@ interface Group {
   items: Platform[];
 }
 
+const OTHER_GROUP = "__other";
+
 const groupedAvailable = computed<Group[]>(() => {
   const map = new Map<string, Platform[]>();
   for (const p of supportedAvailable.value) {
-    const key = p.family_name || "Other";
+    const key = p.family_name || OTHER_GROUP;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(p);
   }
   const groups: Group[] = [];
   const keys = [...map.keys()].sort((a, b) => {
-    if (a === "Other") return 1;
-    if (b === "Other") return -1;
+    if (a === OTHER_GROUP) return 1;
+    if (b === OTHER_GROUP) return -1;
     return a.localeCompare(b);
   });
   for (const key of keys) {
@@ -197,7 +199,11 @@ const groupedAvailable = computed<Group[]>(() => {
       if (aGen !== bGen) return aGen - bGen;
       return (a.name ?? a.fs_slug).localeCompare(b.name ?? b.fs_slug);
     });
-    groups.push({ key, label: key, items });
+    groups.push({
+      key,
+      label: key === OTHER_GROUP ? t("platform.group-other") : key,
+      items,
+    });
   }
   return groups;
 });
@@ -303,11 +309,8 @@ function setGroupOpen(key: string, open: boolean) {
 
 // ── Structure banner copy ──────────────────────────────────────────
 
-const detectedStructure = computed(() => props.libraryInfo.detected_structure);
-const structurePattern = computed(() => {
-  if (detectedStructure.value === "struct_b") return "{platform}/roms";
-  return "roms/{platform}";
-});
+const libraryReady = computed(() => props.libraryInfo.library_ready);
+const structurePattern = computed(() => props.libraryInfo.library_structure);
 const detectedPlatformCount = computed(
   () => props.libraryInfo.existing_platforms.length,
 );
@@ -322,22 +325,20 @@ const detectedPlatformCount = computed(
 
     <div
       class="r-setup-platforms__banner"
-      :data-tone="detectedStructure ? 'info' : 'warning'"
+      :data-tone="libraryReady ? 'info' : 'warning'"
     >
       <div class="r-setup-platforms__banner-text">
         <strong>
           {{
-            detectedStructure === "struct_a"
-              ? t("setup.structure-a-detected")
-              : detectedStructure === "struct_b"
-                ? t("setup.structure-b-detected")
-                : t("setup.no-structure-banner-title")
+            libraryReady
+              ? t("setup.library-structure-detected")
+              : t("setup.no-structure-banner-title")
           }}
         </strong>
         <code class="r-setup-platforms__banner-pattern">
           {{ structurePattern }}
         </code>
-        <span v-if="!detectedStructure" class="r-setup-platforms__banner-meta">
+        <span v-if="!libraryReady" class="r-setup-platforms__banner-meta">
           — {{ t("setup.no-structure-banner-body") }}
         </span>
       </div>
@@ -698,6 +699,7 @@ const detectedPlatformCount = computed(
 .r-setup-platforms__banner {
   display: flex;
   align-items: center;
+  min-width: 0;
   padding: var(--r-space-3) var(--r-space-4);
   border-radius: var(--r-radius-md);
   border: 1px solid var(--r-color-border);
@@ -749,6 +751,8 @@ const detectedPlatformCount = computed(
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-sm);
   color: var(--r-color-fg);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .r-setup-platforms__banner-meta {
@@ -1030,5 +1034,6 @@ html[data-bp~="sm-and-down"] .r-setup-platforms__pane-scroll {
   font-family: var(--r-font-family-mono);
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-muted);
+  overflow-wrap: anywhere;
 }
 </style>

@@ -15,6 +15,7 @@ from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
+from tasks.scheduled.build_recommendations import build_recommendations_task
 from tasks.scheduled.cleanup_conversion_cache import cleanup_conversion_cache_task
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
 from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
@@ -38,6 +39,7 @@ SCHEDULED_TASKS: Final[dict[str, PeriodicTask]] = {
     "scan_library": scan_library_task,
     "update_launchbox_metadata": update_launchbox_metadata_task,
     "update_switch_titledb": update_switch_titledb_task,
+    "build_recommendations": build_recommendations_task,
     "convert_images_to_webp": convert_images_to_webp_task,
     "cleanup_zip_cache": cleanup_zip_cache_task,
     "cleanup_orphaned_resources": cleanup_orphaned_resources_task,
@@ -90,7 +92,7 @@ def enqueue_task(
         kwargs={"name": name, "task_kwargs": task_kwargs or {}},
         job_timeout=task.timeout,
         result_ttl=TASK_RESULT_TTL,
-        meta=task.job_meta,
+        meta=task.job_meta(name),
         **job_options,
     )
 

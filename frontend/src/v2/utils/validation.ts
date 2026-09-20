@@ -8,7 +8,7 @@
 //   const rules = [required(), email];
 //
 // Composable rules accept an optional message override:
-//   required(t("auth.email-required"))
+//   required(t("settings.repeat-password-required"))
 import i18n from "@/locales";
 
 type Rule = (v: string | number | null | undefined) => true | string;
@@ -23,6 +23,13 @@ function isEmpty(v: unknown): boolean {
 
 export function required(msg?: string): Rule {
   return (v) => !isEmpty(v) || (msg ?? t("common.required"));
+}
+
+/** `required` that also rejects whitespace-only text. */
+export function notBlank(msg?: string): Rule {
+  return (v) =>
+    (typeof v === "string" ? v.trim().length > 0 : !isEmpty(v)) ||
+    (msg ?? t("common.required"));
 }
 
 export const email: Rule = (v) =>

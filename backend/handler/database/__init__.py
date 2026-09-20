@@ -9,6 +9,7 @@ from .music_playlists_handler import DBMusicPlaylistsHandler
 from .permissions_handler import DBPermissionsHandler
 from .platforms_handler import DBPlatformsHandler
 from .play_sessions_handler import DBPlaySessionsHandler
+from .recommendations_handler import DBRecommendationsHandler
 from .roms_handler import DBRomsHandler
 from .saves_handler import DBSavesHandler
 from .screenshots_handler import DBScreenshotsHandler
@@ -28,6 +29,7 @@ db_music_playlist_handler = DBMusicPlaylistsHandler()
 db_permission_handler = DBPermissionsHandler()
 db_platform_handler = DBPlatformsHandler()
 db_play_session_handler = DBPlaySessionsHandler()
+db_recommendation_handler = DBRecommendationsHandler()
 db_rom_handler = DBRomsHandler()
 db_save_handler = DBSavesHandler()
 db_screenshot_handler = DBScreenshotsHandler()

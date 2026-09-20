@@ -36,6 +36,7 @@ from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache
 from handler.streaming import (
     access,
+    broker,
     commands,
     lifecycle,
     memory_cards,
@@ -99,6 +100,12 @@ def clear_streaming_sessions():
     yield
 
 
+@pytest.fixture(autouse=True)
+def no_pull_backoff(monkeypatch):
+    """The pull tests assert on how many attempts happen, not on the wait."""
+    monkeypatch.setattr(broker, "PULL_RETRY_DELAY", 0)
+
+
 def _access_token(user: User):
     return oauth_handler.create_access_token(
         data={
@@ -118,6 +125,11 @@ def access_token(admin_user: User):
 @pytest.fixture
 def viewer_access_token(viewer_user: User):
     return _access_token(viewer_user)
+
+
+@pytest.fixture
+def editor_access_token(editor_user: User):
+    return _access_token(editor_user)
 
 
 def _mock_cm(enabled=True, containers=None):
@@ -206,10 +218,12 @@ def _auth(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _claim(client, token, rom_id, state_id=None):
+def _claim(client, token, rom_id, state_id=None, save_id=None):
     body = {"rom_id": rom_id}
     if state_id is not None:
         body["state_id"] = state_id
+    if save_id is not None:
+        body["save_id"] = save_id
     return client.post("/api/streaming/sessions", json=body, headers=_auth(token))
 
 
@@ -423,6 +437,151 @@ def test_get_config_reports_memory_card_support(client, access_token, rom: Rom):
     supported = {c["platform"]: c["supports_memory_cards"] for c in containers}
     assert supported[rom.platform_slug] is False
     assert supported["ps2"] is True
+
+
+def test_get_config_reports_save_picker_support(client, access_token, rom: Rom):
+    """The picker gate: a pick other than the newest only lands where the
+    broker clears the save tree first, which is a webstation emulator."""
+    clearing = {
+        **_container_for(rom),
+        "protocol": "webstation",
+        "emulator": "retroarch",
+    }
+    keeping = {
+        **_container_for(rom),
+        "platform": "ps2",
+        "protocol": "webstation",
+        "emulator": "pcsx2",
+    }
+    legacy = {**_container_for(rom), "platform": "gba", "emulator": "retroarch"}
+    with _streaming(clearing, keeping, legacy):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    supported = {
+        c["platform"]: c["supports_save_picker"] for c in response.json()["containers"]
+    }
+    assert supported[rom.platform_slug] is True
+    assert supported["ps2"] is False
+    # Restoring is the legacy broker's own business, so RomM cannot promise a
+    # pick survives it.
+    assert supported["gba"] is False
+
+
+def test_clears_stale_saves_overrides_the_emulator_default(client, access_token, rom):
+    """The default mirrors a flag that lives in the broker's repo, so an
+    operator on a fork or a newer broker can say what theirs actually does."""
+    turned_on = {
+        **_container_for(rom),
+        "platform": "ps2",
+        "protocol": "webstation",
+        "emulator": "pcsx2",
+        "clears_stale_saves": True,
+    }
+    turned_off = {
+        **_container_for(rom),
+        "platform": "gba",
+        "protocol": "webstation",
+        "emulator": "retroarch",
+        "clears_stale_saves": False,
+    }
+    with _streaming(turned_on, turned_off):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    supported = {
+        c["platform"]: c["supports_save_picker"] for c in response.json()["containers"]
+    }
+    assert supported["ps2"] is True
+    assert supported["gba"] is False
+
+
+def test_clears_stale_saves_is_a_platform_block_override():
+    """It sits alongside memory_card_sync, so one webstation can answer for
+    each emulator it serves rather than for all of them at once."""
+    expanded = _expand(
+        {
+            "host": "http://box:3010",
+            "protocol": "webstation",
+            "clears_stale_saves": True,
+            "platforms": {
+                "ps2": {"emulator": "pcsx2", "clears_stale_saves": False},
+                "snes": "retroarch",
+            },
+        }
+    )
+
+    by_platform = {row.platform: row for row in expanded}
+    assert by_platform["ps2"].clears_stale_saves is False
+    # A block that omits the key falls through to the container.
+    assert by_platform["snes"].clears_stale_saves is True
+
+
+def test_clears_stale_saves_has_no_picker_to_gate_on_a_legacy_container(caplog):
+    """Only the webstation broker takes an archive to restore, so the flag
+    would promise a picker that has no route behind it."""
+    entry = {
+        "platform": "gba",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "retroarch",
+        "clears_stale_saves": True,
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            resolved = _expand(entry)
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert resolved[0].supports_save_picker is False
+    assert "clears_stale_saves" in caplog.text
+
+
+def test_a_container_that_disagrees_on_clearing_saves_is_not_a_pool_member(caplog):
+    """The picker is advertised from the head of the pool, so a member that
+    keeps its own newer files would take the pick and silently discard it."""
+    first = {
+        "platform": "ps2",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "protocol": "webstation",
+        "emulator": "pcsx2",
+        "clears_stale_saves": True,
+    }
+    second = {
+        **first,
+        "host": "http://192.168.1.11:3000",
+        "broker_host": "http://192.168.1.11:8000",
+        "clears_stale_saves": False,
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(first, second):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert [c.clears_stale_saves for c in candidates] == [True]
+    assert "not a pool" in caplog.text
+
+
+def test_legacy_containers_still_pool_under_an_inert_clearing_flag():
+    """The flag is logged as having no effect without a webstation broker, so
+    it must not quietly split a pool that would otherwise be one."""
+    first = {
+        "platform": "ps2",
+        "host": "http://192.168.1.10:3000",
+        "emulator": "pcsx2",
+        "clears_stale_saves": True,
+    }
+    second = {
+        **first,
+        "host": "http://192.168.1.11:3000",
+        "clears_stale_saves": False,
+    }
+    with _streaming(first, second):
+        candidates = streaming.containers_for_platform("ps2")
+    assert len(candidates) == 2
 
 
 def test_memory_card_sync_ignored_on_a_platform_without_a_card(client, access_token):
@@ -816,7 +975,7 @@ def test_launch_phase_is_pushed_while_a_webstation_unpacks(
                 side_effect=phases + ["installing"] * 20,
             ),
             patch("handler.streaming.webstation.activate", _activate),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
             patch(
                 "handler.streaming.saves.hydrate_saves_to_webstation", new=AsyncMock()
             ),
@@ -1037,24 +1196,95 @@ def _session_raw(container: dict):
     return asyncio.run(async_cache.get(key))
 
 
-def test_pool_claim_falls_through_to_a_free_container(client, access_token, rom: Rom):
-    """A second claim is not a 409 when another container serves the platform."""
+def test_pool_claim_falls_through_to_a_free_container(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Another player's claim is not a 409 when a second container serves the
+    platform. Rollover is for whoever has no container, not for the holder."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         r1 = _claim_ok(client, access_token, rom.id)
-        r2 = _claim_ok(client, access_token, rom.id)
+        r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert [r1.status_code, r2.status_code] == [202, 202]
     # Config order, so the head of the pool stays warm.
     assert r1.json()["container"] == _key_of(_pool_member(rom, 0))
     assert r2.json()["container"] == _key_of(_pool_member(rom, 1))
 
 
-def test_pool_409s_only_once_every_container_is_held(client, access_token, rom: Rom):
+def test_pool_409s_only_once_every_container_is_held(
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
+):
+    """One player per container, so filling a pool of two takes two of them and
+    the third is the one told the platform is busy."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
-        _claim_ok(client, access_token, rom.id)
-        r3 = _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        r3 = _claim_ok(client, editor_access_token, rom.id)
     assert r3.status_code == 409
     assert "2 containers" in r3.json()["detail"]["message"]
+
+
+def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
+    client, access_token, rom: Rom
+):
+    """The holder claiming again is a 409, not a second container: status,
+    heartbeat and release resolve by platform and would never reach a second."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        r1 = _claim_ok(client, access_token, rom.id)
+        r2 = _claim_ok(client, access_token, rom.id)
+        free = asyncio.run(session_store.get_session(_key_of(_pool_member(rom, 1))))
+    assert [r1.status_code, r2.status_code] == [202, 409]
+    assert r2.json()["detail"]["rom_name"] == rom.name
+    # The second container stayed free for a player who actually needs one.
+    assert free is None
+
+
+@contextmanager
+def _claim_in_flight(platform: str, user_id: int) -> Iterator[None]:
+    """Stand in for a claim from the same player that is inside the reserve and
+    has not put its session on a container key yet."""
+    key = session_store._claim_gate_redis_key(platform, user_id)
+    assert asyncio.run(
+        async_cache.set(key, "1", nx=True, ex=session_store._CLAIM_GATE_TTL_SECONDS)
+    )
+    try:
+        yield
+    finally:
+        asyncio.run(async_cache.delete(key))
+
+
+def test_a_pool_refuses_a_claim_racing_one_from_the_same_player(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Reserving is atomic per container, not across a pool: two claims racing
+    would each read no session of their own and win a different member."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        with _claim_in_flight(rom.platform_slug, admin_user.id):
+            r = _claim_ok(client, access_token, rom.id)
+        held = [
+            asyncio.run(session_store.get_session(_key_of(_pool_member(rom, i))))
+            for i in (0, 1)
+        ]
+    assert r.status_code == 409
+    # Nothing reserved, so the racing claim still has the whole pool to win.
+    assert held == [None, None]
+
+
+def test_a_pool_hands_the_owner_of_a_stale_session_their_own_container_back(
+    client, access_token, rom: Rom
+):
+    """A crashed tab leaves the owner holding a container nothing refreshes, and
+    claiming again takes that one back rather than reserving a second."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, access_token, rom.id)
+        _age_session_on(
+            _pool_member(rom, 0), session_store._STREAMING_SESSION_STALE_SECONDS + 60
+        )
+        with patch("handler.streaming.commands.stop", return_value=None):
+            r2 = _claim_ok(client, access_token, rom.id)
+        free = asyncio.run(session_store.get_session(_key_of(_pool_member(rom, 1))))
+    assert r2.status_code == 202
+    assert r2.json()["container"] == _key_of(_pool_member(rom, 0))
+    assert free is None
 
 
 def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
@@ -1076,11 +1306,11 @@ def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
 
 
 def test_pool_takes_over_a_stale_session_once_every_container_is_held(
-    client, access_token, viewer_access_token, rom: Rom
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
 ):
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
-        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, editor_access_token, rom.id)
         _age_session_on(
             _pool_member(rom, 1), session_store._STREAMING_SESSION_STALE_SECONDS + 60
         )
@@ -1133,24 +1363,24 @@ def test_an_admin_controls_the_pools_one_active_session(
 
 
 def test_an_admin_cannot_guess_which_of_two_sessions_to_control(
-    client, access_token, viewer_access_token, rom: Rom
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
 ):
     """Two sessions and a path that names neither, so ask rather than pick."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, viewer_access_token, rom.id)
-        _claim_ok(client, viewer_access_token, rom.id)
+        _claim_ok(client, editor_access_token, rom.id)
         r = _volume(client, access_token, rom.platform_slug)
     assert r.status_code == 409
 
 
 def test_admin_release_names_the_container(
-    client, access_token, viewer_access_token, rom: Rom
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
 ):
     """`container` is the key GET /streaming/sessions reports, and it must
     release that member and leave the rest of the pool playing."""
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, viewer_access_token, rom.id)
-        _claim_ok(client, viewer_access_token, rom.id)
+        _claim_ok(client, editor_access_token, rom.id)
         with patch("handler.streaming.commands.stop", return_value=None):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
@@ -1237,6 +1467,166 @@ def test_a_container_that_disagrees_on_the_emulator_is_not_a_pool_member(caplog)
         romm_logger.removeHandler(caplog.handler)
     assert [c.emulator for c in candidates] == ["pcsx2"]
     assert "not a pool" in caplog.text
+
+
+def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog):
+    """Same-origin pool members each carry their own subfolder, and a subfolder
+    only changes how routes are built, not what the broker can do."""
+    first = {
+        "platform": "ps2",
+        "host": "/streaming",
+        "broker_host": "http://192.168.1.10:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+        "emulator": "pcsx2",
+    }
+    second = {
+        **first,
+        "host": "/streaming-2",
+        "broker_host": "http://192.168.1.11:8000",
+        "subfolder": "/streaming-2",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(first, second):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert [c.broker_host for c in candidates] == [
+        "http://192.168.1.10:8000",
+        "http://192.168.1.11:8000",
+    ]
+    assert "not a pool" not in caplog.text
+
+
+def test_a_proxied_host_disagreeing_with_its_subfolder_cannot_be_claimed(caplog):
+    """The broker's absolute room path replaces the one `host` carries, so a
+    mount that disagrees would route the player to whoever owns that path."""
+    entry = {
+        "platform": "ps2",
+        "host": "/streaming-2",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+        "emulator": "pcsx2",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(entry):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+                listed = streaming.resolve_containers()
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert candidates == []
+    # Still resolved, so the fleet view shows the operator what is wrong.
+    assert [c.key for c in listed] == [""]
+    assert "must be the container's own SUBFOLDER" in caplog.text
+
+
+def test_a_subfolder_left_to_its_default_is_caught_against_the_mount_path(caplog):
+    """The likeliest form of the mistake: a second member proxied at its own
+    path with `subfolder` forgotten, which defaults to /streaming."""
+    entry = {
+        "platform": "ps2",
+        "host": "/streaming-2",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "emulator": "pcsx2",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(entry):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert candidates == []
+
+
+def test_a_container_mounted_at_the_root_agrees_with_an_empty_subfolder():
+    """SUBFOLDER=/ makes the broker's prefix empty and RomM's subfolder "", and
+    a host of "/" is the same mount. Normalization has to see those as equal."""
+    entry = {
+        "platform": "ps2",
+        "host": "/",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "subfolder": "/",
+        "emulator": "pcsx2",
+    }
+    with _streaming(entry):
+        candidates = streaming.containers_for_platform("ps2")
+    assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
+
+
+def test_a_bare_origin_host_may_differ_from_its_subfolder():
+    """A host that is only an origin carries no mount path, so the broker's
+    absolute room path lands on it whatever the subfolder says."""
+    entry = {
+        "platform": "ps2",
+        "host": "https://webstation.example.com",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+        "emulator": "pcsx2",
+    }
+    with _streaming(entry):
+        candidates = streaming.containers_for_platform("ps2")
+    assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
+
+
+def test_a_cross_origin_mount_path_is_checked_against_the_subfolder(caplog):
+    """An absolute URL can carry a mount path too, and the broker's room path
+    replaces it exactly as it would on RomM's own origin."""
+    entry = {
+        "platform": "ps2",
+        "host": "https://webstation.example.com/streaming-2",
+        "broker_host": "http://192.168.1.11:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+        "emulator": "pcsx2",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(entry):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert candidates == []
+    assert "must be the container's own SUBFOLDER" in caplog.text
+
+
+def test_webstation_pool_claim_rolls_over_across_different_subfolders(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """End to end: a second claim on a same-origin webstation pool must reach
+    the free member instead of 409ing on the first one being held."""
+    first = {
+        "platform": rom.platform_slug,
+        "host": "/streaming",
+        "broker_host": "http://192.168.1.20:8000",
+        "protocol": "webstation",
+        "subfolder": "/streaming",
+    }
+    second = {
+        **first,
+        "host": "/streaming-2",
+        "broker_host": "http://192.168.1.21:8000",
+        "subfolder": "/streaming-2",
+    }
+    with _streaming(first, second):
+        r1 = _claim_webstation_ok(client, access_token, rom.id)
+        r2 = _claim_webstation_ok(client, viewer_access_token, rom.id)
+    assert [r1.status_code, r2.status_code] == [202, 202]
+    assert r1.json()["container"] == _key_of(first)
+    assert r2.json()["container"] == _key_of(second)
 
 
 def test_the_session_platform_picks_the_config_entry_for_its_container():
@@ -1607,6 +1997,20 @@ def test_stale_session_taken_over_on_claim(
         with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r1.status_code == 202
+    assert r2.status_code == 202
+    stop_broker.assert_called_once()
+
+
+def test_the_owner_of_a_stale_session_can_claim_it_again(
+    client, access_token, rom: Rom
+):
+    """A held session bars a second one only while the first is still alive, so
+    the owner of a crashed tab can press Play again."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
+            r2 = _claim_ok(client, access_token, rom.id)
     assert r2.status_code == 202
     stop_broker.assert_called_once()
 
@@ -2079,30 +2483,6 @@ def test_status_on_a_legacy_container_never_asks_for_a_phase(
     broker.assert_not_called()
 
 
-def test_a_slow_launch_keeps_its_own_claim_fresh(client, access_token):
-    """Nothing beats for the player until the stream is up, so a claim whose
-    activate outlasts the staleness window has to refresh itself. Without that
-    the next claimant reads the record as abandoned and tears the container
-    down mid-extraction."""
-    ps2_rom = _rom_on("ps2")
-
-    def slow_activate(*args, **kwargs):
-        time.sleep(0.5)
-        return {"url": "/room/x"}
-
-    with (
-        _streaming(_webstation()),
-        patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0.05),
-        patch.object(session_store, "_STREAMING_SESSION_STALE_SECONDS", 0.2),
-        patch("handler.streaming.webstation.activate", slow_activate),
-    ):
-        assert _claim(client, access_token, ps2_rom.id).status_code == 202
-        key = session_store.session_redis_key(_key_of(_first_container("ps2")))
-        session = json.loads(asyncio.run(async_cache.get(key)))
-        # Read under the shrunk window: outside it every stamp looks fresh.
-        assert session_store.session_is_stale(session) is False
-
-
 # ── Release / ownership ───────────────────────────────────────────────────────
 
 
@@ -2152,6 +2532,14 @@ async def _run_spawned(tasks: list) -> None:
     for task in tasks:
         if asyncio.iscoroutine(task):
             await task
+
+
+def _spawns_nothing():
+    """Close the spawned coroutine, which a bare MagicMock would leave unawaited."""
+    return patch(
+        "handler.streaming.background.spawn_sync_task",
+        side_effect=lambda coro: coro.close(),
+    )
 
 
 def test_save_and_exit_releases_session_once_the_state_is_pulled(
@@ -2310,6 +2698,27 @@ def _state_for(rom: Rom, user: User, file_name: str, emulator: str) -> State:
     )
 
 
+def _screenshot_for(rom: Rom, stem: str) -> Screenshot:
+    """A scan_screenshot() stand-in on `stem`, the name State.screenshot matches."""
+    return Screenshot(
+        file_name=f"{stem}.png",
+        file_name_no_tags=stem,
+        file_name_no_ext=stem,
+        file_extension="png",
+        file_path=f"{rom.platform_slug}/screenshots",
+        file_size_bytes=7,
+    )
+
+
+def _written_screenshot(write_file: AsyncMock) -> bytes:
+    """The bytes stored under the state's .png, from a patched write_file."""
+    calls = [
+        c for c in write_file.await_args_list if c.kwargs["filename"].endswith(".png")
+    ]
+    assert len(calls) == 1, "expected exactly one screenshot write"
+    return calls[0].kwargs["file"]
+
+
 def test_claim_spawns_state_hydration(client, access_token, rom: Rom):
     """Claiming a session must schedule a background hydration of the
     container's save-state slots from the user's stored states."""
@@ -2359,7 +2768,7 @@ def test_save_and_exit_pulls_broker_effective_slot(client, access_token, rom: Ro
         _claim_ok(client, access_token, rom.id)
         with (
             patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
-            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            _spawns_nothing() as spawn,
             patch(
                 "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as pull,
@@ -2418,7 +2827,7 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
             patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
             patch("handler.streaming.states.pull_state_to_library", new=MagicMock()),
             patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -2689,18 +3098,11 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
     assert db_state.emulator == "pcsx2"
 
 
-def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
+def test_pull_state_takes_the_broker_screenshot(rom: Rom, admin_user: User):
     """Dolphin states embed no frame, so the pull takes the broker's capture."""
     container = {**_container_for(rom), "label": "Dolphin"}
     scanned = _state_for(rom, admin_user, "Game.s03", "dolphin")
-    scanned_shot = Screenshot(
-        file_name="Game.s03.png",
-        file_name_no_tags="Game.s03",
-        file_name_no_ext="Game.s03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned_shot = _screenshot_for(rom, "Game.s03")
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
@@ -2729,29 +3131,22 @@ def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
     assert db_state.screenshot is not None
 
 
-def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
-    """A frame the browser grabbed off the canvas beats asking the broker."""
-    container = {**_container_for(rom), "label": "Dolphin"}
-    scanned = _state_for(rom, admin_user, "Game.s04", "dolphin")
-    scanned_shot = Screenshot(
-        file_name="Game.s04.png",
-        file_name_no_tags="Game.s04",
-        file_name_no_ext="Game.s04",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+def test_pull_state_prefers_broker_screenshot_over_embedded(rom: Rom, admin_user: User):
+    """The container's capture is the frame the player saw, so it beats the one
+    PCSX2 embedded in the state."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    scanned = _state_for(rom, admin_user, "Game.05.p2s", "pcsx2")
+    scanned_shot = _screenshot_for(rom, "Game.05")
+    embedded = states.PNG_MAGIC + b"embedded-frame"
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.s04", b"state-bytes"),
+            return_value=("Game.05.p2s", _p2s_bytes(embedded)),
         ),
         patch(
-            "handler.streaming.states.take_state_frame",
-            new=AsyncMock(return_value=_PNG),
-        ),
-        patch("handler.streaming.states.fetch_state_screenshot") as fetch_shot,
-        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+            "handler.streaming.states.fetch_state_screenshot", return_value=_PNG
+        ) as fetch_shot,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
         patch(
             "handler.asset_store.scan_screenshot",
@@ -2759,41 +3154,63 @@ def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
         ),
     ):
         ok = asyncio.run(
-            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 4)
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 5)
         )
     assert ok is True
-    fetch_shot.assert_not_called()
+    fetch_shot.assert_called_once()
+    assert _written_screenshot(wf) == _PNG
 
 
-def test_state_frame_stashes_capture(client, access_token):
-    """The endpoint holds the frame for the save that follows it."""
-    rom = _rom_on("ps2")
-    with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
-        with patch(
-            "handler.streaming.states.stash_state_frame", new=AsyncMock()
-        ) as stash:
-            r = client.post(
-                f"/api/streaming/sessions/{rom.platform_slug}/state-frame",
-                content=_PNG,
-                headers={**_auth(access_token), "Content-Type": "image/png"},
-            )
-    assert r.status_code == 200
-    stash.assert_awaited_once()
-    assert stash.await_args_list[0].args[2] == _PNG
-
-
-def test_state_frame_rejects_non_png(client, access_token):
-    """Only PNG survives the asset pipeline, so anything else is refused here."""
-    rom = _rom_on("ps2")
-    with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
-        r = client.post(
-            f"/api/streaming/sessions/{rom.platform_slug}/state-frame",
-            content=b"GIF89a-not-a-png",
-            headers={**_auth(access_token), "Content-Type": "image/png"},
+def test_pull_state_falls_back_to_embedded_screenshot(rom: Rom, admin_user: User):
+    """A container that captured no frame leaves PCSX2's embedded one."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    scanned = _state_for(rom, admin_user, "Game.06.p2s", "pcsx2")
+    scanned_shot = _screenshot_for(rom, "Game.06")
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=("Game.06.p2s", _p2s_bytes(_PNG)),
+        ),
+        patch(
+            "handler.streaming.states.fetch_state_screenshot", return_value=None
+        ) as fetch_shot,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
+        patch(
+            "handler.asset_store.scan_screenshot",
+            new=AsyncMock(return_value=scanned_shot),
+        ),
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 6)
         )
-    assert r.status_code == 400
+    assert ok is True
+    fetch_shot.assert_called_once()
+    assert _written_screenshot(wf) == _PNG
+
+
+def test_pull_state_asks_the_broker_for_a_screenshot_once(rom: Rom, admin_user: User):
+    """No frame from either source: the state still syncs, on one broker call."""
+    container = {**_container_for(rom), "label": "RetroArch"}
+    scanned = _state_for(rom, admin_user, "Game.state5", "retroarch")
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=("Game.state5", b"state-bytes"),
+        ),
+        patch(
+            "handler.streaming.states.fetch_state_screenshot", return_value=None
+        ) as fetch_shot,
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
+        patch("handler.asset_store.scan_screenshot", new=AsyncMock()) as scan_shot,
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 5)
+        )
+    assert ok is True
+    fetch_shot.assert_called_once()
+    scan_shot.assert_not_awaited()
 
 
 def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
@@ -2992,6 +3409,16 @@ def test_extract_state_screenshot_not_a_zip_returns_none():
     assert states.extract_state_screenshot("pcsx2", b"not-a-zip") is None
 
 
+def test_fetch_state_screenshot_rejects_a_non_png_body(rom: Rom):
+    """A body that is not a PNG has to read as no frame, or it would shadow the
+    frame a state embeds for itself and leave the state with no thumbnail."""
+    with patch(
+        "handler.streaming.broker.get_binary_safe",
+        return_value=(MagicMock(), b"GIF89a-not-a-png"),
+    ):
+        assert states.fetch_state_screenshot(_resolved(_container_for(rom)), 3) is None
+
+
 def test_state_transfer_limits_default_for_an_unlisted_emulator():
     assert state_transfer_limits("pcsx2") == DEFAULT_STATE_TRANSFER
 
@@ -3072,14 +3499,7 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
     """A stored state screenshot lands in the screenshots dir under the state's
     stem, so State.screenshot resolves it as the resume-picker thumbnail."""
     db_state_handler.add_state(_state_for(rom, admin_user, "Game.03.p2s", "pcsx2"))
-    scanned = Screenshot(
-        file_name="Game.03.png",
-        file_name_no_tags="Game.03",
-        file_name_no_ext="Game.03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned = _screenshot_for(rom, "Game.03")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch(
@@ -3121,14 +3541,7 @@ def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
 def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
     """End to end: storing a state with a frame binds it as the thumbnail."""
     scanned_state = _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
-    scanned_shot = Screenshot(
-        file_name="Game.03.png",
-        file_name_no_tags="Game.03",
-        file_name_no_ext="Game.03",
-        file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
-        file_size_bytes=7,
-    )
+    scanned_shot = _screenshot_for(rom, "Game.03")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
@@ -3340,6 +3753,226 @@ def test_hydrate_saves_no_matching_save_returns_false(rom: Rom, admin_user: User
     push.assert_not_called()
 
 
+def _clearing_webstation(rom: Rom) -> dict:
+    """A webstation container whose emulator empties the save tree before a
+    restore, the only kind that honours a pick other than the newest."""
+    return {
+        **_container_for(rom),
+        "protocol": "webstation",
+        "emulator": "retroarch",
+    }
+
+
+def _three_archives(rom: Rom, user: User) -> list[Save]:
+    """Three stored retroarch archives, oldest first."""
+    return [
+        db_save_handler.add_save(
+            _save_for(rom, user, f"Game [retroarch {tag}].saves.zip", "retroarch", tag)
+        )
+        for tag in ("a", "b", "c")
+    ]
+
+
+def test_hydrate_saves_uploads_the_picked_archive(rom: Rom, admin_user: User):
+    """A pick is restored even when a newer archive exists."""
+    oldest, _, _ = _three_archives(rom, admin_user)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch(
+            "handler.streaming.webstation.upload_archive", return_value="/config/x.zip"
+        ) as upload,
+    ):
+        path = asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id,
+                rom.id,
+                _resolved(_clearing_webstation(rom)),
+                oldest,
+            )
+        )
+    assert path == "/config/x.zip"
+    assert upload.call_args[0][2] == oldest.full_path.encode()
+
+
+def test_hydrate_saves_without_a_pick_uploads_the_newest(rom: Rom, admin_user: User):
+    """No pick keeps the behaviour every container had before the picker."""
+    *_, newest = _three_archives(rom, admin_user)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch(
+            "handler.streaming.webstation.upload_archive", return_value="/config/x.zip"
+        ) as upload,
+    ):
+        asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id, rom.id, _resolved(_clearing_webstation(rom))
+            )
+        )
+    assert upload.call_args[0][2] == newest.full_path.encode()
+
+
+def test_hydrate_saves_uploads_nothing_when_the_pick_left_the_disk(
+    rom: Rom, admin_user: User
+):
+    """Deleted between the pick and the claim. Falling back to the newest would
+    restore a save the player did not choose, so the launch gets none."""
+    oldest, _, _ = _three_archives(rom, admin_user)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=FileNotFoundError),
+        ),
+        patch("handler.streaming.webstation.upload_archive") as upload,
+    ):
+        path = asyncio.run(
+            saves.hydrate_saves_to_webstation(
+                admin_user.id, rom.id, _resolved(_clearing_webstation(rom)), oldest
+            )
+        )
+    assert path is None
+    upload.assert_not_called()
+
+
+def test_resolve_save_archive_accepts_the_players_own_archive(
+    rom: Rom, admin_user: User
+):
+    """The happy path the launch screen's picker produces."""
+    archive = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    resolved = saves.resolve_save_archive(
+        admin_user.id, rom, _resolved(_clearing_webstation(rom)), archive.id
+    )
+    assert resolved.id == archive.id
+
+
+def test_resolve_save_archive_rejects_a_save_that_is_not_the_players(
+    rom: Rom, admin_user: User, viewer_user: User
+):
+    """Saves are private, so another player's archive must not be nameable."""
+    theirs = db_save_handler.add_save(
+        _save_for(rom, viewer_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), theirs.id
+        )
+    assert exc.value.status_code == 404
+
+
+def test_resolve_save_archive_rejects_a_save_from_another_rom(
+    rom: Rom, second_rom: Rom, admin_user: User
+):
+    """The pick is scoped to the ROM being launched, so the player's own
+    archive for a different game is as unnameable as someone else's."""
+    elsewhere = db_save_handler.add_save(
+        _save_for(second_rom, admin_user, "Other [retroarch a].saves.zip", "retroarch")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), elsewhere.id
+        )
+    assert exc.value.status_code == 404
+
+
+def test_resolve_save_archive_rejects_another_emulators_archive(
+    rom: Rom, admin_user: User
+):
+    """Another emulator's archive lays its members out where this one never
+    reads, so the restore would write files the game never opens."""
+    other = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+        )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Save was made by a different emulator"
+
+
+def test_resolve_save_archive_rejects_a_bare_save_file(rom: Rom, admin_user: User):
+    """A loose save carries no layout the broker could restore it from."""
+    loose = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), loose.id
+        )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Save is not a restorable archive"
+
+
+def test_resolve_save_archive_rejects_a_pick_where_it_would_not_land(
+    rom: Rom, admin_user: User
+):
+    """An emulator that keeps the container's own save files skips any member
+    it already holds a newer copy of, so honouring the pick would be a lie."""
+    archive = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    with pytest.raises(HTTPException) as exc:
+        saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_webstation_for(rom)), archive.id
+        )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "This emulator always restores the newest save"
+
+
+def test_claim_hydrates_the_picked_save(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The claim carries the pick all the way into the activate body."""
+    picked, *_ = _three_archives(rom, admin_user)
+    activate = MagicMock(return_value={"url": "/room/x"})
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch(
+                "handler.filesystem.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=lambda path: path.encode()),
+            ),
+            patch(
+                "handler.streaming.webstation.upload_archive",
+                return_value="/config/picked.zip",
+            ) as upload,
+            _spawns_nothing(),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+        ):
+            r = _claim(client, access_token, rom.id, save_id=picked.id)
+    assert r.status_code == 202
+    assert upload.call_args[0][2] == picked.full_path.encode()
+    assert activate.call_args.kwargs["archive_path"] == "/config/picked.zip"
+
+
+def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The pick is validated before the claim, so a bad one fails cleanly
+    rather than leaving a container wedged behind a refused launch."""
+    loose = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            _spawns_nothing(),
+        ):
+            refused = _claim(client, access_token, rom.id, save_id=loose.id)
+            after = _claim(client, access_token, rom.id)
+    assert refused.status_code == 400
+    activate.assert_called_once()
+    assert after.status_code == 202
+
+
 def test_claim_hydrates_saves_before_launch(client, access_token, rom: Rom):
     """Claiming a session must push stored in-game saves to the container before
     the broker launch (games read saves at boot)."""
@@ -3354,7 +3987,7 @@ def test_claim_hydrates_saves_before_launch(client, access_token, rom: Rom):
                 "handler.streaming.saves.hydrate_saves_to_broker",
                 new=AsyncMock(side_effect=lambda *a, **k: call_order.append("saves")),
             ) as hydrate_saves,
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
             patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
         ):
             r = _claim(client, access_token, rom.id)
@@ -3445,7 +4078,7 @@ def _resume_claim(client, token, rom, state_id, push_ok=True) -> _ResumeClaim:
                 "handler.filesystem.fs_asset_handler.read_file",
                 new=AsyncMock(return_value=b"state-bytes"),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
             patch(
                 "handler.streaming.states.hydrate_states_to_broker", new=MagicMock()
             ) as hydrate,
@@ -3631,7 +4264,7 @@ def test_webstation_resume_state_is_pushed_after_activate(
                 "handler.filesystem.fs_asset_handler.read_file",
                 new=AsyncMock(return_value=b"state-bytes"),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
             patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
         ):
             with _pushes() as sent:
@@ -3658,7 +4291,7 @@ def test_webstation_claim_without_a_state_boots_clean(client, access_token, rom:
                 "handler.streaming.saves.hydrate_saves_to_webstation",
                 new=AsyncMock(return_value="/romm/saves/archive.tar"),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
             patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
         ):
             r = _claim(client, access_token, rom.id)
@@ -3733,7 +4366,7 @@ def test_releasing_a_webstation_session_pulls_the_exit_state(
                 new=AsyncMock(return_value=None),
             ),
             patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             _claim_ok(client, access_token, rom.id)
         with (
@@ -3742,7 +4375,7 @@ def test_releasing_a_webstation_session_pulls_the_exit_state(
                 return_value={"state_saved": True, "state_slot": 10},
             ),
             patch("handler.streaming.states.pull_state_to_library", pull),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
@@ -3770,13 +4403,13 @@ def test_releasing_without_saving_files_no_state(client, access_token, rom: Rom)
                 new=AsyncMock(return_value=None),
             ),
             patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             _claim_ok(client, access_token, rom.id)
         with (
             patch("handler.streaming.commands.stop", stop),
             patch("handler.streaming.states.pull_state_to_library", pull),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}?save=false",
@@ -4193,7 +4826,7 @@ def test_claim_hydrates_memory_card_before_launch(client, access_token, rom: Rom
             patch(
                 "handler.streaming.saves.hydrate_saves_to_broker", new=AsyncMock()
             ) as legacy,
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4217,7 +4850,7 @@ def test_claim_aborts_when_card_hydration_fails(
                 "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=False),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 502
@@ -4239,7 +4872,7 @@ def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
                 "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             _mc_claim(client, access_token, rom.id)
         with (
@@ -4252,7 +4885,8 @@ def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
                 "handler.streaming.memory_cards.wipe_session_card", new=AsyncMock()
             ) as wipe,
             patch("handler.streaming.saves.pull_saves_to_library") as legacy,
-            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.pull_state_to_library", new=MagicMock()),
+            _spawns_nothing(),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -4275,7 +4909,7 @@ def test_release_evacuates_card(client, access_token, rom: Rom):
                 "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             _mc_claim(client, access_token, rom.id)
         with (
@@ -4315,7 +4949,7 @@ def test_release_frees_the_claim_when_teardown_raises(client, access_token, rom:
                 "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             _mc_claim(client, access_token, rom.id)
         with (
@@ -4324,7 +4958,7 @@ def test_release_frees_the_claim_when_teardown_raises(client, access_token, rom:
                 "handler.streaming.memory_cards.evacuate_session_card",
                 new=AsyncMock(side_effect=OSError("broker went away")),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
@@ -4347,7 +4981,7 @@ def test_save_and_exit_wait_false_forces_blocking_on_card_sync(
                 "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             _mc_claim(client, access_token, rom.id)
         with (
@@ -4359,7 +4993,8 @@ def test_save_and_exit_wait_false_forces_blocking_on_card_sync(
                 new=AsyncMock(return_value=True),
             ) as evac,
             patch("handler.streaming.memory_cards.wipe_session_card", new=AsyncMock()),
-            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.pull_state_to_library", new=MagicMock()),
+            _spawns_nothing(),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -4384,7 +5019,7 @@ def test_lost_claim_race_does_not_create_blank_card(
                 "handler.streaming.memory_cards.hydrate_card_to_broker",
                 new=AsyncMock(return_value=True),
             ),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             assert _mc_claim(client, access_token, rom.id).status_code == 202
             assert db_memory_card_handler.get_cards(viewer_user.id, "pcsx2") == []
@@ -4440,7 +5075,7 @@ def test_first_claim_with_existing_card_asks_before_wiping(
         ),
         patch("handler.streaming.memory_cards.push_card") as push,
         patch("handler.streaming.commands.launch") as launch,
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 428
@@ -4466,7 +5101,7 @@ def test_unreadable_card_blocks_the_claim(client, access_token, rom: Rom):
         ),
         patch("handler.streaming.memory_cards.push_card") as push,
         patch("handler.streaming.commands.launch"),
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 428
@@ -4489,7 +5124,7 @@ def test_absent_card_claims_without_prompting(client, access_token, rom: Rom):
         patch("handler.streaming.memory_cards.fetch_card", return_value=None),
         patch("handler.streaming.memory_cards.push_card", return_value=True),
         patch("handler.streaming.commands.launch"),
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4513,7 +5148,7 @@ def test_decided_container_does_not_probe_again(
         patch("handler.streaming.memory_cards.fetch_card") as fetch,
         patch("handler.streaming.memory_cards.push_card", return_value=True),
         patch("handler.streaming.commands.launch"),
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4527,7 +5162,7 @@ def test_sync_disabled_container_does_not_probe(client, access_token, rom: Rom):
         patch("handler.streaming.memory_cards.fetch_card") as fetch,
         patch("handler.streaming.commands.launch"),
         patch("handler.streaming.saves.hydrate_saves_to_broker", new=AsyncMock()),
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4546,7 +5181,7 @@ def test_adopt_stores_the_container_card_as_version_one(
         patch("handler.streaming.memory_cards.fetch_card", return_value=card_bytes),
         patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
         patch("handler.streaming.commands.launch"),
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 202
@@ -4570,7 +5205,7 @@ def test_discard_wipes_and_records_the_decision(client, access_token, rom: Rom):
         ),
         patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
         patch("handler.streaming.commands.launch"),
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="discard")
     assert r.status_code == 202
@@ -4590,7 +5225,7 @@ def test_unreadable_card_with_override_starts_fresh(client, access_token, rom: R
         ),
         patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
         patch("handler.streaming.commands.launch"),
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="discard")
     assert r.status_code == 202
@@ -4615,7 +5250,7 @@ def test_failed_adopt_aborts_the_claim_without_wiping(
         ),
         patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
         patch("handler.streaming.commands.launch") as launch,
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 502
@@ -4651,7 +5286,7 @@ def test_adopt_retry_recovers_when_the_version_was_already_stored(
         patch("handler.streaming.memory_cards.fetch_card", return_value=card_bytes),
         patch("handler.streaming.memory_cards.push_card", return_value=True),
         patch("handler.streaming.commands.launch"),
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 202
@@ -4685,7 +5320,7 @@ def test_adopt_aborts_when_dedup_matches_an_older_version(
         patch("handler.streaming.memory_cards.fetch_card", return_value=card_bytes),
         patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
         patch("handler.streaming.commands.launch") as launch,
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(
             client, access_token, rom.id, memory_card_id=card.id, card_import="adopt"
@@ -4711,7 +5346,7 @@ def test_adopt_with_unreadable_card_aborts_without_recording(
         ),
         patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
         patch("handler.streaming.commands.launch") as launch,
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 502
@@ -4734,7 +5369,7 @@ def test_adopt_with_absent_card_aborts_without_recording(
         patch("handler.streaming.memory_cards.fetch_card", return_value=None),
         patch("handler.streaming.memory_cards.push_card", return_value=True) as push,
         patch("handler.streaming.commands.launch") as launch,
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, access_token, rom.id, card_import="adopt")
     assert r.status_code == 502
@@ -4775,7 +5410,7 @@ def test_occupied_undecided_container_returns_409_not_428(
         ) as fetch,
         patch("handler.streaming.memory_cards.push_card") as push,
         patch("handler.streaming.commands.launch") as launch,
-        patch("handler.streaming.background.spawn_sync_task"),
+        _spawns_nothing(),
     ):
         r = _mc_claim(client, viewer_access_token, rom.id)
     assert r.status_code == 409
@@ -4824,7 +5459,7 @@ def test_webstation_claim_hydrates_the_card_and_the_states(
             patch(
                 "handler.streaming.saves.hydrate_saves_to_broker", new=AsyncMock()
             ) as legacy,
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -4849,7 +5484,7 @@ def test_webstation_claim_tells_the_broker_the_card_is_synced(
                 new=AsyncMock(return_value=True),
             ),
             patch("handler.streaming.states.hydrate_states_to_broker", new=AsyncMock()),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
         ):
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 202
@@ -5767,7 +6402,7 @@ def test_a_state_captured_after_a_swap_records_the_disc(client, access_token):
             )
         with (
             patch("handler.streaming.commands.save_state", return_value=True),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
             patch(
                 "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as pull,
@@ -5788,7 +6423,7 @@ def _retroarch_resume(client, token, rom, state_id):
         with (
             patch("handler.streaming.commands.launch"),
             patch("handler.streaming.states.push_resume_state", return_value=True),
-            patch("handler.streaming.background.spawn_sync_task"),
+            _spawns_nothing(),
             patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
             patch(
                 "handler.streaming.states.restore_session_disc", new=MagicMock()

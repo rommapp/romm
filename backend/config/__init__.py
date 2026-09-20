@@ -89,6 +89,8 @@ DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
 DB_NAME: Final[str] = _get_env("DB_NAME", "romm")
 DB_QUERY_JSON: Final[str | None] = _get_env("DB_QUERY_JSON")
 ROMM_DB_DRIVER: Final[str] = _get_env("ROMM_DB_DRIVER", "mariadb")
+# Kept under the idle `wait_timeout` a host may impose; -1 never recycles.
+DB_POOL_RECYCLE_SECONDS: Final[int] = safe_int(_get_env("DB_POOL_RECYCLE_SECONDS"), 300)
 
 # REDIS
 REDIS_HOST: Final[str | None] = _get_env("REDIS_HOST")
@@ -246,7 +248,7 @@ OIDC_END_SESSION_ENDPOINT: Final[str] = _get_env("OIDC_END_SESSION_ENDPOINT", ""
 
 # SCANS
 SCAN_TIMEOUT: Final[int] = safe_int(_get_env("SCAN_TIMEOUT"), 60 * 60 * 4)  # 4 hours
-SCAN_WORKERS: Final[int] = max(1, safe_int(_get_env("SCAN_WORKERS"), 1))
+SCAN_WORKERS: Final[int] = max(1, safe_int(_get_env("SCAN_WORKERS"), 4))
 
 # TASKS
 TASK_TIMEOUT: Final[int] = safe_int(_get_env("TASK_TIMEOUT"), 60 * 5)  # 5 minutes
@@ -302,6 +304,15 @@ SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
     "SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+# On by default: the similarity index is what both the "Similar games" section
+# and the personalised feed read, so leaving it off silently empties them.
+ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS", "true")
+)
+SCHEDULED_BUILD_RECOMMENDATIONS_CRON: Final[str] = _get_env(
+    "SCHEDULED_BUILD_RECOMMENDATIONS_CRON",
+    "30 5 * * *",  # At 5:30 AM every day, after the nightly scan and metadata tasks
+)
 
 # SYNC
 SYNC_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/sync"
@@ -327,6 +338,7 @@ SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
 DISABLE_JSDOS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_JSDOS"))
+DISABLE_PICO8: Final[bool] = safe_str_to_bool(_get_env("DISABLE_PICO8"))
 
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
@@ -339,6 +351,8 @@ MAX_ASSET_UPLOAD_SIZE_BYTES: Final[int] = safe_int(
 MAX_AUTOCLEANUP_LIMIT: Final[int] = max(
     1, safe_int(_get_env("MAX_AUTOCLEANUP_LIMIT"), 100)
 )
+# Versions the server keeps per save slot whatever the client asks; 0 disables.
+MAX_SAVES_PER_SLOT: Final[int] = max(0, safe_int(_get_env("MAX_SAVES_PER_SLOT"), 50))
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()

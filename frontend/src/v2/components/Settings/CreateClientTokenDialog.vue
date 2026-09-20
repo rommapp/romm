@@ -392,6 +392,7 @@ onBeforeUnmount(() => {
     :icon="isRegenerate ? 'mdi-refresh' : 'mdi-key-plus'"
     :width="720"
     scroll-content
+    :cancelable="step === 'config' || step === 'delivery'"
     @close="closeDialog"
   >
     <template #header>
@@ -572,37 +573,34 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
+    <template #footer-start>
+      <RBtn
+        v-if="step !== 'config' && step !== 'delivery'"
+        variant="text"
+        @click="step = 'delivery'"
+      >
+        {{ t("common.back") }}
+      </RBtn>
+    </template>
     <template #footer>
-      <template v-if="step === 'config'">
-        <RBtn variant="text" @click="closeDialog">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <div style="flex: 1" />
-        <RBtn
-          variant="flat"
-          color="primary"
-          :loading="loading"
-          :disabled="!configValid"
-          @click="createToken"
-        >
-          {{ t("common.create") }}
-        </RBtn>
-      </template>
-      <template v-else-if="step === 'delivery'">
-        <div style="flex: 1" />
-        <RBtn variant="text" @click="closeDialog">
-          {{ t("common.cancel") }}
-        </RBtn>
-      </template>
-      <template v-else>
-        <RBtn variant="text" @click="step = 'delivery'">
-          {{ t("common.back") }}
-        </RBtn>
-        <div style="flex: 1" />
-        <RBtn variant="flat" color="primary" @click="closeDialog">
-          {{ t("common.close") }}
-        </RBtn>
-      </template>
+      <RBtn
+        v-if="step === 'config'"
+        variant="flat"
+        color="primary"
+        :loading="loading"
+        :disabled="!configValid"
+        @click="createToken"
+      >
+        {{ t("common.create") }}
+      </RBtn>
+      <RBtn
+        v-else-if="step !== 'delivery'"
+        variant="flat"
+        color="primary"
+        @click="closeDialog"
+      >
+        {{ t("common.close") }}
+      </RBtn>
     </template>
   </RDialog>
 </template>

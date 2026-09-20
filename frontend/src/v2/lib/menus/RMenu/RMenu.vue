@@ -49,6 +49,7 @@ import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import RTextField from "../../forms/RTextField/RTextField.vue";
 import {
   type EscapableEntry,
+  isInsideEscapableAbove,
   popEscapable,
   pushEscapable,
 } from "../../overlays/RDialog/escapeStack.js";
@@ -307,6 +308,8 @@ function onDocPointerDown(evt: PointerEvent) {
   )
     return;
   if (panelRef.value?.contains(target)) return;
+  // A nested menu's panel is teleported outside this one.
+  if (isInsideEscapableAbove(escEntry, target)) return;
   close();
 }
 
@@ -317,9 +320,18 @@ function onDocPointerDown(evt: PointerEvent) {
 // reaching into the DOM. LIFO ordering means nested menus close one
 // at a time (the inner-most first), matching the previous per-instance
 // `document.keydown` behaviour.
+// `disabled` only blocks opening, so a menu disabled while open closes too.
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) close();
+  },
+);
+
 const escEntry: EscapableEntry = {
   close: () => close(),
   persistent: false,
+  panel: () => panelRef.value,
 };
 
 watch(
@@ -328,6 +340,10 @@ watch(
     if (open) pushEscapable(escEntry);
     else popEscapable(escEntry);
   },
+  // `immediate: true` so a menu that mounts already open registers too, the
+  // same reason RDialog does it: otherwise the watch never sees the initial
+  // `true` and Esc, gamepad-back and tooltip suppression all miss the panel.
+  { immediate: true },
 );
 
 onMounted(() => {

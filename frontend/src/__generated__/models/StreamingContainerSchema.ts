@@ -13,5 +13,6 @@ export type StreamingContainerSchema = {
     capabilities: SlotCapabilitiesSchema;
     emulator: string;
     supports_memory_cards: boolean;
+    supports_save_picker: boolean;
 };
 

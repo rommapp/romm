@@ -12,6 +12,7 @@ from redis import Redis
 from rq import get_current_job
 from rq.exceptions import AbandonedJobError
 from rq.job import Job, JobStatus
+from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
@@ -52,6 +53,7 @@ from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
+from handler.recommendation import top_up_similarity
 from handler.redis_handler import (
     cancel_job,
     get_job_status,
@@ -100,30 +102,48 @@ def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
     }
 
 
+# Set on the job by `finish`, so a scan that reports its own end is not
+# reported a second time from the outside.
+SCAN_REPORTED_META_KEY: Final = "reported_terminal_event"
+
+# How to word the end of a scan that never got to report itself.
+_SCAN_FAILURE_REASONS: Final[dict[type[BaseException], str]] = {
+    AbandonedJobError: "the worker running it stopped unexpectedly",
+    # SIGALRM parked between coroutine steps unwinds the event loop, not a
+    # `scan_platforms` frame, so none of the scan's own exit paths run.
+    JobTimeoutException: f"it exceeded the {SCAN_TIMEOUT}s SCAN_TIMEOUT",
+}
+
+
+def _scan_reported_itself(job: Job) -> bool:
+    """Whether the scan already emitted a terminal event before it unwound."""
+    try:
+        return bool(job.get_meta().get(SCAN_REPORTED_META_KEY))
+    except Exception:
+        # Saying so twice beats leaving a finished scan on screen forever.
+        log.debug(f"Could not re-read meta for scan {job.id}", exc_info=True)
+        return False
+
+
 def report_scan_failure(
     job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
 ) -> None:
     """Tell the clients a scan is over when the scan could not say so itself.
 
-    A worker killed mid-scan never reaches the handler that emits this, so the
-    clients would keep showing a scan that no longer exists.
+    A killed worker, or a timeout parked in the event loop, never reaches the
+    handler that emits this, so the clients would keep showing a dead scan.
     """
-    # Every other failure is reported by the scan as it unwinds, and emitting
-    # here too would report it twice.
-    if exc_type is not AbandonedJobError:
+    if _scan_reported_itself(job):
         return
 
-    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} was abandoned by its worker")
+    reason = _SCAN_FAILURE_REASONS.get(exc_type, "it stopped unexpectedly")
+    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} is over: {reason}")
     try:
-        asyncio.run(
-            _get_socket_manager().emit(
-                "scan:done_ko", "the worker running it stopped unexpectedly"
-            )
-        )
+        asyncio.run(_get_socket_manager().emit("scan:done_ko", reason))
     except Exception:
         # RQ re-raises out of the registry sweep that calls this, which would
-        # leave the abandoned scans in the registry and stop the worker.
-        log.error(f"Could not report abandoned scan {job.id}", exc_info=True)
+        # leave the failed scans in the registry and stop the worker.
+        log.error(f"Could not report failed scan {job.id}", exc_info=True)
 
 
 def _scan_job_label(job: Job) -> str:
@@ -529,9 +549,9 @@ async def _identify_rom(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
-    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
+    scanned_rom_ids: set[int],
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -560,7 +580,9 @@ async def _identify_rom(
 
     # Update properties that don't require metadata
     parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+    # The discovered path is the rom's actual directory, which may be nested
+    # under the platform roms folder when a custom structure is configured.
+    roms_path = fs_rom["fs_path"]
 
     rom_attrs = {
         "fs_name": fs_rom["fs_name"],
@@ -722,7 +744,6 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
         newly_added=newly_added,
         launchbox_remote_enabled=launchbox_remote_enabled,
-        playmatch_enabled=playmatch_enabled,
         socket_manager=socket_manager,
     )
 
@@ -734,6 +755,7 @@ async def _identify_rom(
     )
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
+    scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
         await _emit_scanning_rom(socket_manager, _added_rom)
@@ -770,9 +792,9 @@ async def _scan_selected_roms(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
-    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
+    scanned_rom_ids: set[int],
 ) -> ScanStats:
     """Scan a hand-picked set of ROMs without touching the rest of their platform.
 
@@ -818,15 +840,15 @@ async def _scan_selected_roms(
 
             await _identify_rom(
                 platform=platform,
-                fs_rom=build_hashless_fs_rom(rom.fs_name, flat=is_flat),
+                fs_rom=build_hashless_fs_rom(rom.fs_name, rom.fs_path, flat=is_flat),
                 rom=rom,
                 scan_type=scan_type,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
-                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
+                scanned_rom_ids=scanned_rom_ids,
             )
 
     results = await asyncio.gather(
@@ -855,9 +877,9 @@ async def _identify_platform(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
-    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
+    scanned_rom_ids: set[int],
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -949,10 +971,11 @@ async def _identify_platform(
     previously_missing_rom_ids = db_rom_handler.get_missing_rom_ids(platform.id)
 
     # Flag entries whose file is gone before identifying files, so a renamed or
-    # moved ROM (a new file with no fs_name match) can be reassociated by hash
+    # moved ROM (a new file with no full-path match) can be reassociated by hash
     # with its now-missing entry instead of spawning a duplicate. The end-of-scan
     # call below re-syncs and logs, unmarking any entry that got reassociated.
-    db_rom_handler.mark_missing_roms(platform.id, [rom["fs_name"] for rom in fs_roms])
+    fs_rom_paths = [f"{rom['fs_path']}/{rom['fs_name']}" for rom in fs_roms]
+    db_rom_handler.mark_missing_roms(platform.id, fs_rom_paths)
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
@@ -968,13 +991,16 @@ async def _identify_platform(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
-                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
+                scanned_rom_ids=scanned_rom_ids,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
+        # Key matches on the rom's full path (fs_path/fs_name), not just the
+        # file name, so identically-named files in different folders don't
+        # collide under a custom library structure.
+        roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
             with_files=scan_type == ScanType.QUICK,
@@ -986,7 +1012,7 @@ async def _identify_platform(
         roms_to_scan: list[tuple[FSRom, Rom | None]] = []
 
         for fs_rom in fs_roms_batch:
-            rom = roms_by_fs_name.get(fs_rom["fs_name"])
+            rom = roms_by_full_path.get(f"{fs_rom['fs_path']}/{fs_rom['fs_name']}")
             if rom and rom.id in previously_missing_rom_ids:
                 restored_roms.append(rom)
             if should_scan_rom(
@@ -1034,13 +1060,26 @@ async def _identify_platform(
                 if isinstance(result, Exception):
                     log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
 
-    missing_roms = db_rom_handler.mark_missing_roms(
-        platform.id, [rom["fs_name"] for rom in fs_roms]
-    )
+    missing_roms = db_rom_handler.mark_missing_roms(platform.id, fs_rom_paths)
     if len(missing_roms) > 0:
         log.warning(f"{hl('Missing')} roms from filesystem:")
+        # A folder a custom structure now descends into used to be a single
+        # multi-file rom; that old entry shows up here as missing. Flag those so
+        # it's clear the "missing" is expected and the stale entry can be
+        # deleted. A superseded folder's path is a parent of a discovered rom.
+        descended_paths = {rom["fs_path"] for rom in fs_roms}
         for r in missing_roms:
-            log.warning(f" - {r.fs_name}")
+            superseded = any(
+                p == r.full_path or p.startswith(f"{r.full_path}/")
+                for p in descended_paths
+            )
+            if superseded:
+                log.warning(
+                    f" - {r.fs_name} (now scanned as a folder of roms, "
+                    "delete this stale entry to clean up)"
+                )
+            else:
+                log.warning(f" - {r.fs_name}")
 
     missing_firmware = db_firmware_handler.mark_missing_firmware(
         platform.id, [fw for fw in fs_firmware]
@@ -1063,7 +1102,6 @@ async def scan_platforms(
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
-    playmatch_enabled: bool = True,
     platform_fs_slugs: list[str] | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
@@ -1095,8 +1133,13 @@ async def scan_platforms(
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
+    # Filled in by the ROM pass, and read by the post-scan work that has to know
+    # which entries changed rather than how many.
+    scanned_rom_ids: set[int] = set()
+
     async def finish(event: str, payload: Any) -> None:
         """End the scan, reporting whatever a coalesced increment held back."""
+        update_job_meta({SCAN_REPORTED_META_KEY: True})
         await scan_stats.flush(socket_manager)
         await socket_manager.emit(event, payload)
 
@@ -1240,9 +1283,9 @@ async def scan_platforms(
                     roms_ids=roms_ids,
                     metadata_sources=metadata_sources,
                     launchbox_remote_enabled=launchbox_remote_enabled,
-                    playmatch_enabled=playmatch_enabled,
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
+                    scanned_rom_ids=scanned_rom_ids,
                 )
         else:
             if len(platform_list) == 0:
@@ -1263,9 +1306,9 @@ async def scan_platforms(
                     roms_ids=roms_ids,
                     metadata_sources=metadata_sources,
                     launchbox_remote_enabled=launchbox_remote_enabled,
-                    playmatch_enabled=playmatch_enabled,
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
+                    scanned_rom_ids=scanned_rom_ids,
                 )
 
             missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
@@ -1293,6 +1336,20 @@ async def scan_platforms(
                 db_collection_handler.refresh_smart_collections()
         except Exception as e:
             log.error(f"Couldn't refresh smart collections after the scan: {e}")
+
+        # A fresh install sampled `rom_identity_keys` while it was empty, and
+        # this scan is what filled it. Failing here only costs a query plan.
+        try:
+            db_rom_handler.refresh_identity_key_statistics()
+        except Exception as e:
+            log.error(f"Couldn't resample the sibling identity keys: {e}")
+
+        # Otherwise the games scanned today have an empty "Similar games"
+        # section until the nightly build. Threaded: the scoring is CPU-bound.
+        try:
+            await asyncio.to_thread(top_up_similarity, scanned_rom_ids)
+        except Exception as e:
+            log.error(f"Couldn't update recommendations after the scan: {e}")
 
         # Export metadata files if enabled in config
         config = cm.get_config()
@@ -1408,7 +1465,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
-    playmatch_enabled = bool(options.get("playmatch_enabled", True))
 
     if DEV_MODE:
         return await scan_platforms(
@@ -1417,7 +1473,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             scan_type=scan_type,
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
-            playmatch_enabled=playmatch_enabled,
             platform_fs_slugs=platform_fs_slugs,
         )
 
@@ -1432,7 +1487,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         scan_type=scan_type,
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
-        playmatch_enabled=playmatch_enabled,
         platform_fs_slugs=platform_fs_slugs,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,

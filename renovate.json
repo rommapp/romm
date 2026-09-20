@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommitTypeAll(chore)"],
+  "enabledManagers": ["github-actions", "docker-compose", "custom.regex"],
+  "ignorePaths": ["examples/**"],
+  "packageRules": [
+    {
+      "description": "One PR per service, since each tag is repeated across several workflows and compose files.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mariadb"],
+      "groupName": "mariadb"
+    },
+    {
+      "description": "The shipped image installs valkey from Alpine's package repo, currently the 9.0 line. Hold the test pins there so they keep matching what users run, and raise this bound deliberately when ALPINE_VERSION in docker/Dockerfile moves.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["valkey/valkey"],
+      "groupName": "valkey",
+      "allowedVersions": "<9.1"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres"],
+      "groupName": "postgres"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchDepTypes": ["action"],
+      "groupName": "github actions"
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Image tags built at runtime in workflow steps, marked with a renovate comment. Legs deliberately left unmarked stay pinned.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+?) depName=(?<depName>[^\\s]+?)\\s+-?\\s*[A-Za-z0-9_-]+?: [\"'](?<currentValue>[^\"'\\s]+)[\"']"
+      ],
+      "versioningTemplate": "docker"
+    }
+  ]
+}

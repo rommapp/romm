@@ -123,6 +123,48 @@ export const SaveSelected: Story = {
   }),
 };
 
+export const SaveWithScreenshot: Story = {
+  name: "Save · with screenshot",
+  render: () => ({
+    components: { AssetPreview },
+    setup: () => ({
+      asset: makeSave({
+        screenshot: {
+          id: 2,
+          rom_id: 1,
+          user_id: 1,
+          file_name: "main_quest.png",
+          file_name_no_tags: "main_quest.png",
+          file_name_no_ext: "main_quest",
+          file_extension: "png",
+          file_path: "/screenshots/snes",
+          download_path:
+            "https://placehold.co/640x360/1a3d2e/ffffff?text=Main+Quest",
+        } as SaveSchema["screenshot"],
+      }),
+    }),
+    template: `<AssetPreview :asset="asset" type="save" />`,
+  }),
+};
+
+// A state is armed, so the save is the write-back target, not what boots.
+export const SaveAsWriteTarget: Story = {
+  name: "Save · write-back target",
+  render: () => ({
+    components: { AssetPreview },
+    setup: () => ({ asset: makeSave() }),
+    template: `<AssetPreview :asset="asset" type="save" state-armed />`,
+  }),
+};
+
+export const EmptySaveWithStateArmed: Story = {
+  name: "Empty · no save, state armed",
+  render: () => ({
+    components: { AssetPreview },
+    template: `<AssetPreview :asset="null" type="save" state-armed />`,
+  }),
+};
+
 // Long filename should ellipsis cleanly.
 export const LongFilename: Story = {
   name: "Long filename",

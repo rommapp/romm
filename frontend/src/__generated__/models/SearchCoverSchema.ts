@@ -2,9 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { SGDBResource } from './SGDBResource';
+import type { CoverResource } from './CoverResource';
 export type SearchCoverSchema = {
+    provider: 'sgdb' | 'steam';
     name: string;
-    resources: Array<SGDBResource>;
+    resources: Array<CoverResource>;
 };
 

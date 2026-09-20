@@ -16,12 +16,10 @@ release's primary market.
 `idx_roms_sibling_cover` grows by a varchar(50), well inside both the InnoDB
 3072-byte key limit and PostgreSQL's btree tuple limit.
 
-Cross-engine notes:
-- MariaDB JSON_EXTRACT returns a quoted scalar, so JSON_UNQUOTE runs before the
-  result reaches the varchar.
-- Both expressions truncate with LEFT, because `regions` has no length cap of
-  its own: an unrecognized `[Reg-...]` tag is kept verbatim, and a value longer
-  than the column would otherwise fail the INSERT under strict mode.
+The column's expression lives in `utils.roms_columns`, which adds it along with
+every other column the 5.3.0 revisions put on `roms` in a single table copy. The
+downgrade takes back whatever of that set is still there: a chain that stopped
+before a later revision leaves that revision's columns to this one.
 
 Revision ID: 0108_roms_primary_region
 Revises: 0107_roms_dedup_cover_index
@@ -31,16 +29,17 @@ Create Date: 2026-08-21 00:00:00.000000
 
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import is_postgresql
+from utils.roms_columns import (
+    PRIMARY_REGION_COLUMN,
+    drop_roms_columns,
+    ensure_roms_columns,
+)
 
 # revision identifiers, used by Alembic.
 revision = "0108_roms_primary_region"
 down_revision = "0107_roms_dedup_cover_index"
 branch_labels = None
 depends_on = None
-
-COLUMN_NAME = "generated_primary_region"
-COLUMN_LENGTH = 50
 
 INDEX_NAME = "idx_roms_sibling_cover"
 _INDEX_HEAD = [
@@ -56,10 +55,7 @@ _INDEX_HEAD = [
     "fs_name_no_ext",
 ]
 OLD_INDEX_COLUMNS = [*_INDEX_HEAD, "id"]
-NEW_INDEX_COLUMNS = [*_INDEX_HEAD, COLUMN_NAME, "id"]
-
-_MARIA_EXPR = f"LEFT(JSON_UNQUOTE(JSON_EXTRACT(regions, '$[0]')), {COLUMN_LENGTH})"
-_POSTGRES_EXPR = f"left(regions ->> 0, {COLUMN_LENGTH})"
+NEW_INDEX_COLUMNS = [*_INDEX_HEAD, PRIMARY_REGION_COLUMN, "id"]
 
 
 def _rebuild_index(columns: list[str]) -> None:
@@ -74,14 +70,10 @@ def _rebuild_index(columns: list[str]) -> None:
 
 
 def upgrade() -> None:
-    expr = _POSTGRES_EXPR if is_postgresql(op.get_bind()) else _MARIA_EXPR
-    op.execute(
-        f"ALTER TABLE roms ADD COLUMN {COLUMN_NAME} VARCHAR({COLUMN_LENGTH}) "  # nosec B608
-        f"GENERATED ALWAYS AS ({expr}) STORED"
-    )
+    ensure_roms_columns(op.get_bind())
     _rebuild_index(NEW_INDEX_COLUMNS)
 
 
 def downgrade() -> None:
     _rebuild_index(OLD_INDEX_COLUMNS)
-    op.execute(f"ALTER TABLE roms DROP COLUMN {COLUMN_NAME}")  # nosec B608
+    drop_roms_columns(op.get_bind())

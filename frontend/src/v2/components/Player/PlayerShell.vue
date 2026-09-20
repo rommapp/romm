@@ -2,12 +2,14 @@
 // PlayerShell — the pre-game chrome a simple v2 player needs: cover column,
 // settings card, play and back buttons, and the full-bleed running stage. A
 // player supplies only the controls above the Play button and whatever it
-// mounts as a stage, through the `settings` and `stage` slots.
+// mounts as a stage, through the `settings` and `stage` slots. A player that
+// needs its own on-stage chrome replaces the quit button via `stage-actions`.
 import { RBtn, RCard, RSpinner } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { useStageActive } from "@/v2/composables/useStageActive";
 
 interface Props {
   /** Full rom once loaded, else the cover-only seed during the morph-in. */
@@ -29,10 +31,11 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { backToRom, backToPlatform } = usePlayerNav(
+const { romRoute, platformRoute } = usePlayerNav(
   props.romId,
   () => props.heroRom?.platform_id,
 );
+useStageActive(() => props.running);
 </script>
 
 <template>
@@ -80,7 +83,7 @@ const { backToRom, backToPlatform } = usePlayerNav(
             variant="text"
             size="small"
             prepend-icon="mdi-arrow-left"
-            @click="backToRom"
+            :to="romRoute"
           >
             {{ t("play.back-to-game-details") }}
           </RBtn>
@@ -89,7 +92,8 @@ const { backToRom, backToPlatform } = usePlayerNav(
             variant="text"
             size="small"
             prepend-icon="mdi-view-grid-outline"
-            @click="backToPlatform"
+            :to="platformRoute"
+            :disabled="!platformRoute"
           >
             {{ t("play.back-to-gallery") }}
           </RBtn>
@@ -103,7 +107,9 @@ const { backToRom, backToPlatform } = usePlayerNav(
 
     <div v-else class="r-v2-player__stage-wrap">
       <slot name="stage" />
+      <slot v-if="$slots['stage-actions']" name="stage-actions" />
       <RBtn
+        v-else
         class="r-v2-player__quit"
         variant="translucent"
         prepend-icon="mdi-exit-to-app"

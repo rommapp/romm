@@ -48,8 +48,8 @@ async def run_scan(
             rom=rom,
             fs_rom={
                 "fs_name": rom.fs_name,
+                "fs_path": rom.fs_path,
                 "flat": True,
-                "nested": False,
                 "files": [],
                 "crc_hash": "",
                 "md5_hash": "",

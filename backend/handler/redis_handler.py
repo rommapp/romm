@@ -8,6 +8,7 @@ from redis.asyncio import Redis as AsyncRedis
 from rq import Queue, Worker
 from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobError
 from rq.job import Job, JobStatus
+from rq.worker import WorkerStatus
 
 from config import IS_PYTEST_RUN, REDIS_URL
 from logger.logger import log
@@ -65,6 +66,20 @@ def __get_async_cache() -> AsyncRedis:
 
 sync_cache = __get_sync_cache()
 async_cache = __get_async_cache()
+
+
+def __get_async_binary_cache() -> AsyncRedis:
+    """A client that leaves values as bytes, since `async_cache` decodes every
+    response as UTF-8 and a zstd frame is not."""
+    if IS_PYTEST_RUN:
+        # Two fakeredis clients get two keyspaces, so the fake is shared. It
+        # does not decode responses, which is what this client wants anyway.
+        return async_cache
+
+    return AsyncRedis.from_url(REDIS_URL)
+
+
+async_binary_cache = __get_async_binary_cache()
 
 
 def get_job_func_name(job: Job, fallback: str = "") -> str:
@@ -147,3 +162,13 @@ def get_worker_current_job(worker: Worker) -> Job | None:
         return worker.get_current_job()
     except NoSuchJobError:
         return None
+
+
+def has_live_worker(queue: Queue) -> bool:
+    """Whether a job enqueued on ``queue`` would be picked up."""
+    # A worker that crashed without announcing it stays registered until its
+    # key TTL lapses, so this can still say yes for a few minutes after a kill.
+    return any(
+        worker.death_date is None and worker.get_state() != WorkerStatus.SUSPENDED
+        for worker in Worker.all(queue=queue)
+    )

@@ -36,7 +36,6 @@ from endpoints.responses.streaming import (
     SaveAndExitResponse,
     SaveStateResponse,
     SessionStatusSchema,
-    StateFrameResponse,
     StreamingConfigSchema,
     SwapDiscResponse,
     VolumeResponse,
@@ -81,6 +80,7 @@ from handler.streaming.session_store import (
     STREAMING_SESSION_TTL_SECONDS,
     StreamingSessionContended,
     claim_drain_marker,
+    claim_gate,
     clear_termination,
     get_live_session,
     get_session,
@@ -98,7 +98,7 @@ from handler.streaming.session_store import (
     stamp_launched,
 )
 from logger.logger import log
-from models.assets import MemoryCard, MemoryCardVersion
+from models.assets import MemoryCard, MemoryCardVersion, Save
 from models.rom import Rom
 from models.user import Role
 from utils.m3u import playlist_files
@@ -113,6 +113,9 @@ class ClaimStreamingSessionRequest(BaseModel):
     # before launch and the broker loads its slot once the game is up. Must be
     # the claiming user's own state or a public one shared by another user.
     state_id: Annotated[int, Field(ge=1)] | None = None
+    # Optional save archive to restore, the claiming user's own on this ROM.
+    # Omitted = the newest one for the container's emulator.
+    save_id: Annotated[int, Field(ge=1)] | None = None
     # Optional memory card to mount (whole-card sync containers only). Omitted =
     # the user's most-recently-used card for the emulator, or a fresh one on
     # first play. Must be one the claiming user owns.
@@ -227,26 +230,6 @@ async def _session_status(platform: str, request: Request) -> dict[str, Any]:
     }
 
 
-async def _read_capped_body(request: Request, max_bytes: int) -> bytes | None:
-    """The request body, or None once it goes past `max_bytes`.
-
-    `Request.body()` buffers everything the client sends before any check can
-    look at the size, so the cap is applied as the chunks arrive instead.
-    """
-    declared = request.headers.get("content-length")
-    if declared is not None and declared.isdigit() and int(declared) > max_bytes:
-        return None
-
-    chunks: list[bytes] = []
-    size = 0
-    async for chunk in request.stream():
-        size += len(chunk)
-        if size > max_bytes:
-            return None
-        chunks.append(chunk)
-    return b"".join(chunks)
-
-
 def _joinable_container_label(
     grouped: dict[str, list[ResolvedContainer]], container_key: str
 ) -> str | None:
@@ -284,6 +267,9 @@ async def get_config(request: Request) -> StreamingConfigSchema:
             # Whether this container syncs whole memory cards, so the
             # frontend only offers the card picker where it applies.
             "supports_memory_cards": c.memory_card_sync,
+            # Whether an older save archive still lands here, so the frontend
+            # only offers the save picker where a pick means something.
+            "supports_save_picker": c.supports_save_picker,
         }
 
     return StreamingConfigSchema(
@@ -302,6 +288,51 @@ async def _win_container(
     Raises 409 when every one of them is held, with enough of the holder for
     the launch screen to say what the player is waiting on.
     """
+    # Reserving is atomic per container, which is not enough on a pool: two
+    # claims from one player would each read no session of their own and then
+    # win a different member, leaving the second one unreachable. The gate
+    # serializes them, so the loser reads the winner's session rather than a
+    # free container. Held only across the reserve: once the session is on the
+    # container key, a later claim's ownership check finds it.
+    async with claim_gate(platform, request.user.id) as entered:
+        if not entered:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "You already have a session on this platform",
+                    "draining": False,
+                    "rom_name": None,
+                    "claimed_at": None,
+                },
+            )
+        return await _reserve_container(request, candidates, session, platform)
+
+
+async def _reserve_container(
+    request: Request,
+    candidates: list[ResolvedContainer],
+    session: dict[str, Any],
+    platform: str,
+) -> ResolvedContainer:
+    """Walk the platform's containers and claim the first one available."""
+    # Status, heartbeat and release all resolve by platform and answer with the
+    # first match, so a second session for one user is one nothing can reach.
+    held = await access.find_session_for_user(candidates, request.user.id)
+    if held is not None:
+        holder, _, mine = held
+        if not session_is_stale(mine):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "You already have a session on this platform",
+                    "draining": False,
+                    "rom_name": access.visible_rom_name(request, mine),
+                    "claimed_at": mine.get("claimed_at"),
+                },
+            )
+        # Their own session, abandoned. Take that container back rather than
+        # rolling them onto a free one and stranding this one until its TTL.
+        candidates = [holder]
 
     async def try_claim(candidate: ResolvedContainer) -> bool:
         # SET NX is atomic: exactly one concurrent claim wins the key. The TTL
@@ -543,6 +574,7 @@ async def _hydrate_saves(
     rom: Rom,
     card: MemoryCard | None,
     blank_card_id: int | None,
+    save: Save | None = None,
 ) -> str | None:
     """Put the player's save data on the container before the game reads it.
 
@@ -575,7 +607,7 @@ async def _hydrate_saves(
         # Best-effort: a failed upload just means the container keeps its own.
         try:
             return await saves.hydrate_saves_to_webstation(
-                request.user.id, rom.id, container
+                request.user.id, rom.id, container, save
             )
         except Exception:
             log.exception("save hydration failed, continuing launch")
@@ -648,6 +680,14 @@ async def claim_session(
     if req.state_id is not None:
         resume_state, resume_slot = states.resolve_resume_state(
             request.user.id, rom, reference, req.state_id
+        )
+
+    # Same for the save pick: a save the player cannot restore here has to
+    # fail before the container is reserved, not during the launch.
+    picked_save = None
+    if req.save_id is not None:
+        picked_save = saves.resolve_save_archive(
+            request.user.id, rom, reference, req.save_id
         )
 
     # Resolve the memory card to mount before claiming too, so a bad card id
@@ -737,7 +777,13 @@ async def claim_session(
         resume_pushed = await states.push_resume_state(container, resume_state)
 
     archive_path = await _hydrate_saves(
-        request, container, session, rom, memory_card, created_blank_card_id
+        request,
+        container,
+        session,
+        rom,
+        memory_card,
+        created_blank_card_id,
+        picked_save,
     )
 
     # Detached because an activate blocks through pkg and archive extraction,
@@ -1076,31 +1122,6 @@ async def save_state(
 
 
 @protected_route(
-    router.post, "/sessions/{platform}/state-frame", [Scope.ROMS_USER_WRITE]
-)
-async def put_state_frame(request: Request, platform: str) -> StateFrameResponse:
-    """Stash a frame the browser grabbed off the stream canvas, for the state
-    save that follows it to pick up as its thumbnail."""
-    _, session_key, session = await access.resolve_owned_session(platform, request)
-
-    image = await _read_capped_body(request, states.SCREENSHOT_MAX_BYTES)
-    if image is None:
-        raise HTTPException(status_code=413, detail="Frame too large")
-    if not image.startswith(states.PNG_MAGIC):
-        raise HTTPException(status_code=400, detail="Frame must be a PNG")
-
-    rom_id = session.get("rom_id")
-    if not isinstance(rom_id, int):
-        raise HTTPException(status_code=409, detail="Session has no rom")
-
-    await states.stash_state_frame(
-        access.session_owner_id(session, request), rom_id, image
-    )
-    await refresh_session(session_key)
-    return StateFrameResponse(status="ok", platform=platform)
-
-
-@protected_route(
     router.post, "/sessions/{platform}/load-state", [Scope.ROMS_USER_WRITE]
 )
 async def load_state(
@@ -1141,8 +1162,8 @@ async def swap_disc(
     if rom_file is None or rom_file.rom_id != rom_id:
         raise HTTPException(status_code=404, detail="File does not belong to this rom")
 
-    # Loaded separately: the file comes back detached, so reaching its rom from
-    # there is a lazy load with no session behind it.
+    # The file row's own rom load is narrow, and the swap reads the playlist
+    # entries off the full rom.
     rom = db_rom_handler.get_rom(rom_id)
     if rom is None:
         raise HTTPException(status_code=404, detail="Rom not found")

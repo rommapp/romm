@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import RProgressLinear from "./RProgressLinear.vue";
 
 const meta: Meta<typeof RProgressLinear> = {
@@ -13,6 +13,7 @@ const meta: Meta<typeof RProgressLinear> = {
     indeterminate: { control: "boolean" },
     rounded: { control: "boolean" },
     striped: { control: "boolean" },
+    stream: { control: "boolean" },
   },
 };
 
@@ -116,6 +117,22 @@ export const Striped: Story = {
   }),
 };
 
+// ── Stream (work still running between updates) ────────────
+
+export const Stream: Story = {
+  name: "Stream (running between updates)",
+  args: { modelValue: 30, stream: true, height: 4, color: "primary" },
+  render: (args) => ({
+    components: { RProgressLinear },
+    setup: () => ({ args }),
+    template: `
+      <div style="width:360px;padding:24px">
+        <RProgressLinear v-bind="args" />
+      </div>
+    `,
+  }),
+};
+
 // ── With external label (typical compose pattern) ──────────
 
 export const WithLabel: Story = {
@@ -143,13 +160,17 @@ export const LiveTicker: Story = {
     components: { RProgressLinear },
     setup() {
       const value = ref(0);
-      let frame = 0;
-      function step() {
-        frame += 1;
-        value.value = (frame % 100) + 1;
-        requestAnimationFrame(() => setTimeout(step, 80));
-      }
-      step();
+      let timer: ReturnType<typeof setInterval> | undefined;
+      onMounted(() => {
+        let frame = 0;
+        timer = setInterval(() => {
+          frame += 1;
+          value.value = (frame % 100) + 1;
+        }, 80);
+      });
+      onUnmounted(() => {
+        if (timer) clearInterval(timer);
+      });
       return { value };
     },
     template: `

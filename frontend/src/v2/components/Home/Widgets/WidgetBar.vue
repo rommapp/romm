@@ -11,8 +11,7 @@ import { parseWidgetOrder, WIDGETS } from "./widgets";
 defineOptions({ inheritAttrs: false });
 
 const settings = useUISettings();
-const { widgetRandomPick, widgetLibraryStats, libraryStatsMode, widgetOrder } =
-  settings;
+const { libraryStatsMode, widgetOrder } = settings;
 
 const statsMode = computed<"compact" | "extended">(() =>
   libraryStatsMode.value === "extended" ? "extended" : "compact",
@@ -34,9 +33,7 @@ function widgetProps(id: string): Record<string, unknown> {
   return {};
 }
 
-const anyEnabled = computed(
-  () => widgetRandomPick.value || widgetLibraryStats.value,
-);
+const anyEnabled = computed(() => orderedWidgets.value.length > 0);
 </script>
 
 <template>

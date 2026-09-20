@@ -104,6 +104,30 @@ class TestRomFacets:
         assert "Atari" in filters["publishers"]
         assert "Artech Studios" in filters["developers"]
 
+    def test_steam_only_metadata_mirrors(self, rom: Rom):
+        # Steam feeds the same generated columns as every other provider, so a
+        # game matched only there is filterable and indexable like any other.
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "steam_metadata": {
+                    "genres": ["Action", "Indie"],
+                    "companies": ["Team Cherry"],
+                    "developers": ["Team Cherry"],
+                    "publishers": ["Team Cherry"],
+                    "game_modes": ["Single player"],
+                }
+            },
+        )
+
+        facets = _facets(rom.id)
+        assert facets is not None
+        assert facets.genres == ["Action", "Indie"]
+        assert facets.companies == ["Team Cherry"]
+        assert facets.developers == ["Team Cherry"]
+        assert facets.publishers == ["Team Cherry"]
+        assert facets.game_modes == ["Single player"]
+
     def test_delete_cascades(self, rom: Rom):
         rom_id = rom.id
         db_rom_handler.delete_rom(rom_id)

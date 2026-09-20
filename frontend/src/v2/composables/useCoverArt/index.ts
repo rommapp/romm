@@ -40,7 +40,7 @@ import {
   isCDBasedSystem,
   isArcadeSystem,
 } from "@/utils";
-import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { toWebpUrl, useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 export type BoxartStyle =
   | "cover_path"
@@ -84,8 +84,6 @@ export const COVER_RATIOS: Record<BoxartStyle, number> = {
   miximage_path: 1,
   miximage_v2_path: 1,
 };
-
-const RASTER_EXT = /\.(png|jpe?g)$/i;
 
 export function isBoxartStyle(value: unknown): value is BoxartStyle {
   return (
@@ -203,8 +201,7 @@ export function computeCoverArt(
     coverUrl = `${opts.resourcesPath}/${altPath}`;
   } else {
     const local = rom.path_cover_large ?? rom.path_cover_small ?? null;
-    coverUrl =
-      local && opts.supportsWebp ? local.replace(RASTER_EXT, ".webp") : local;
+    coverUrl = local ? toWebpUrl(local, opts.supportsWebp) : local;
   }
 
   const fallbackUrl = override != null ? null : (rom.url_cover ?? null);

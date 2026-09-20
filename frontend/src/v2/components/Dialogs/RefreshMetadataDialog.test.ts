@@ -47,7 +47,6 @@ vi.mock("@/v2/composables/useScanProviders", async () => {
       buildScanPayload: () => ({
         apis: sources.value.map((s) => s.value),
         launchbox_remote_enabled: false,
-        playmatch_enabled: false,
       }),
       persistSelection,
     }),
@@ -56,7 +55,7 @@ vi.mock("@/v2/composables/useScanProviders", async () => {
 
 const RDialog = {
   props: ["modelValue"],
-  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /><slot name="footer" /></div>`,
+  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /><slot name="footer-start" /><slot name="footer" /></div>`,
 };
 const RSelect = {
   props: ["modelValue", "items"],
@@ -133,7 +132,6 @@ describe("RefreshMetadataDialog", () => {
         type: "quick",
         apis: [],
         launchbox_remote_enabled: false,
-        playmatch_enabled: false,
       },
     ]);
     expect(persistSelection).toHaveBeenCalled();

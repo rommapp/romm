@@ -13,6 +13,7 @@ const {
   createCollection,
   getCollections,
   removeRomsFromCollection,
+  selectAll,
   snackbarError,
   snackbarSuccess,
 } = vi.hoisted(() => ({
@@ -20,8 +21,19 @@ const {
   createCollection: vi.fn(),
   getCollections: vi.fn(),
   removeRomsFromCollection: vi.fn(),
+  selectAll: vi.fn(),
   snackbarError: vi.fn(),
   snackbarSuccess: vi.fn(),
+}));
+
+// The whole-result behavior is covered by the composable's own tests;
+// here we only assert the bar's wiring to it.
+vi.mock("@/v2/composables/useGallerySelectAll", () => ({
+  useGallerySelectAll: () => ({
+    selectingAll: ref(false),
+    allSelected: ref(false),
+    selectAll,
+  }),
 }));
 
 // `t` echoes the key plus its params so a test can assert *which* message was
@@ -31,6 +43,14 @@ vi.mock("vue-i18n", () => ({
     t: (key: string, params?: Record<string, unknown>) =>
       params ? `${key}::${JSON.stringify(params)}` : key,
   }),
+}));
+
+// Importing the real router also pulls in its lazy auth views, which can still
+// be loading when the test environment tears down.
+vi.mock("@/plugins/router", () => ({
+  default: {},
+  ROUTES: {},
+  isAuthExemptRoute: () => false,
 }));
 
 vi.mock("@/services/api/collection", () => ({
@@ -78,8 +98,9 @@ function select(...roms: SimpleRom[]) {
   roms.forEach((r, i) => selection.toggle(r, i));
 }
 
-function mountBar() {
+function mountBar(props: { hideDownload?: boolean } = {}) {
   return mount(SelectionBar, {
+    props,
     global: {
       stubs: {
         RToolbar: {
@@ -259,5 +280,62 @@ describe("SelectionBar bulk favorite", () => {
 
     expect(createCollection).toHaveBeenCalledTimes(1);
     expect(addRomsToCollection).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SelectionBar download", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  it("offers the download action by default", () => {
+    select(rom(1));
+
+    expect(
+      mountBar().find('[aria-label="gallery.selection-download"]').exists(),
+    ).toBe(true);
+  });
+
+  // Hosts whose rows have no file on disk (the Missing games tab) opt out,
+  // so the bar never offers a transfer that can only fail.
+  it("drops the download action when the host hides it", () => {
+    select(rom(1));
+
+    expect(
+      mountBar({ hideDownload: true })
+        .find('[aria-label="gallery.selection-download"]')
+        .exists(),
+    ).toBe(false);
+  });
+});
+
+describe("SelectionBar select all", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  it("triggers the whole-result select-all", async () => {
+    select(rom(1));
+    const wrapper = mountBar();
+
+    await wrapper
+      .get('[aria-label="gallery.selection-select-all"]')
+      .trigger("click");
+
+    expect(selectAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels the button with the filtered-result total when known", () => {
+    storeGalleryRoms().total = 42;
+    select(rom(1));
+    const wrapper = mountBar();
+
+    expect(
+      wrapper
+        .find("[aria-label='gallery.selection-select-all-count::{\"n\":42}']")
+        .exists(),
+    ).toBe(true);
   });
 });

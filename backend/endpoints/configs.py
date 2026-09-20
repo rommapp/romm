@@ -10,6 +10,7 @@ from config.config_manager import (
     VALID_GAMELIST_IMAGE_TYPES,
     VALID_GAMELIST_THUMBNAIL_TYPES,
     VALID_SCAN_PRIORITY_SOURCES,
+    ExclusionType,
     MetadataMediaType,
 )
 from config.config_manager import config_manager as cm
@@ -34,7 +35,17 @@ class PlatformBindingPayload(BaseModel):
 
 class ExclusionPayload(BaseModel):
     exclusion_value: str
+    # Left a string rather than the enum to keep the generated frontend type one.
     exclusion_type: str
+
+    @field_validator("exclusion_type")
+    @classmethod
+    def validate_exclusion_type(cls, value: str) -> str:
+        if value not in ExclusionType:
+            raise ValueError(
+                f"Unknown exclusion type, expected one of {[t.value for t in ExclusionType]}"
+            )
+        return value
 
 
 class ScanSettingsPayload(BaseModel):
@@ -165,12 +176,14 @@ def get_config(request: Request) -> ConfigResponse:
         EJS_CACHE_LIMIT=cfg.EJS_CACHE_LIMIT,
         EJS_DISABLE_AUTO_UNLOAD=cfg.EJS_DISABLE_AUTO_UNLOAD,
         EJS_DISABLE_BATCH_BOOTUP=cfg.EJS_DISABLE_BATCH_BOOTUP,
+        EJS_ENABLE_AUTO_SAVE_SYNC=cfg.EJS_ENABLE_AUTO_SAVE_SYNC,
         EJS_NETPLAY_ENABLED=cfg.EJS_NETPLAY_ENABLED,
         # Contains credentials, so only send when authenticated
         EJS_NETPLAY_ICE_SERVERS=(
             cfg.EJS_NETPLAY_ICE_SERVERS if request.user.is_authenticated else []
         ),
         EJS_CONTROLS=cfg.EJS_CONTROLS,
+        EJS_DEFAULT_CORES=cfg.EJS_DEFAULT_CORES,
         EJS_SETTINGS=cfg.EJS_SETTINGS,
         SCAN_METADATA_PRIORITY=cfg.SCAN_METADATA_PRIORITY,
         SCAN_ARTWORK_PRIORITY=cfg.SCAN_ARTWORK_PRIORITY,
@@ -256,7 +269,7 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     """Add platform exclusion to the configuration"""
 
     exclusion_value = payload.exclusion_value
-    exclusion_type = payload.exclusion_type
+    exclusion_type = ExclusionType(payload.exclusion_type)
     try:
         cm.add_exclusion(exclusion_type, exclusion_value)
     except ConfigNotWritableException as exc:
@@ -272,7 +285,7 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     [Scope.PLATFORMS_WRITE],
 )
 async def delete_exclusion(
-    request: Request, exclusion_type: str, exclusion_value: str
+    request: Request, exclusion_type: ExclusionType, exclusion_value: str
 ) -> None:
     """Delete platform binding from the configuration"""
 

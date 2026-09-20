@@ -12,8 +12,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final, NotRequired, TypedDict
 
-from anyio import Path as AnyioPath
-
 from adapters.services.rom_converto import CONVERTO_PLATFORM_SLUGS, rom_converto_service
 from adapters.services.sigil import (
     SIGIL_PLATFORM_SLUGS,
@@ -26,6 +24,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
     Config,
+    StructureTemplate,
 )
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
@@ -40,6 +39,7 @@ from models.rom import (
     RomIdentity,
     SaveTargetLayout,
     TrackMeta,
+    compute_name_sort_key,
 )
 from utils import switch
 from utils.archives import (
@@ -58,7 +58,7 @@ from utils.archives import (
     read_zip_archive_files,
     read_zip_file,
 )
-from utils.filesystem import iter_files
+from utils.filesystem import COMPRESSED_FILE_SUFFIXES, iter_files
 from utils.hashing import crc32_to_hex
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -108,14 +108,28 @@ NON_HASHABLE_PLATFORMS = frozenset(
 
 class FSRom(TypedDict):
     fs_name: str
+    fs_path: str
     flat: bool
-    nested: bool
     files: list[RomFile]
     crc_hash: str
     md5_hash: str
     sha1_hash: str
     ra_hash: str
     identity: NotRequired[RomIdentity]
+
+
+def build_empty_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
+    """An `FSRom` carrying only its location: no files listed, no hashes read."""
+    return FSRom(
+        fs_name=fs_name,
+        fs_path=fs_path,
+        flat=flat,
+        files=[],
+        crc_hash="",
+        md5_hash="",
+        sha1_hash="",
+        ra_hash="",
+    )
 
 
 class FileHash(TypedDict):
@@ -128,6 +142,18 @@ class FileHash(TypedDict):
 def category_matches(category: str, path_parts: list[str]) -> bool:
     return any(
         form in path_parts for form in (category, f"{category}s", f"{category}es")
+    )
+
+
+def category_for_path_parts(path_parts_lower: list[str]) -> RomFileCategory | None:
+    """The file category a folder path implies, from its lowercased parts."""
+    return next(
+        (
+            category
+            for category in RomFileCategory
+            if category_matches(category.value, path_parts_lower)
+        ),
+        None,
     )
 
 
@@ -277,6 +303,28 @@ NON_BINARY_FILE_CATEGORIES: Final = DOCUMENT_CATEGORIES | {
     RomFileCategory.CHEAT,
 }
 
+
+def _may_hold_title_id(path: Path, category: RomFileCategory | None) -> bool:
+    """Whether sigil can read a title id from this file."""
+    return (
+        not path.name.lower().endswith(COMPRESSED_FILE_SUFFIXES)
+        and category not in NON_BINARY_FILE_CATEGORIES
+    )
+
+
+@dataclass(frozen=True)
+class _TitleIdSource:
+    path: Path
+    rom_file: RomFile
+
+    def order(self) -> tuple[Path, str, str]:
+        """A folder's own files before its subfolders', each in natural name order.
+
+        The exact name settles two names differing only in case.
+        """
+        return self.path.parent, compute_name_sort_key(self.path.name), self.path.name
+
+
 # Exclusion patterns holding one of these need fnmatch; the rest match literally.
 _GLOB_CHARS_RE: Final = re.compile(r"[*?\[]")
 
@@ -330,11 +378,24 @@ class FSRomsHandler(FSHandler):
         super().__init__(base_path=LIBRARY_BASE_PATH)
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
-        cnfg = cm.get_config()
-        return (
-            f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
-            if cnfg.has_structure_path_b
-            else f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
+        return cm.get_config().default_structure.games_dir(fs_slug)
+
+    def get_roms_upload_path(self, fs_slug: str) -> str:
+        """Where a newly uploaded rom file has to land to be discovered again.
+
+        Raises:
+            ValueError: when the platform's structure leaves the folder to the
+                user, so no destination can be derived.
+        """
+        for structure in cm.get_config().platform_structure(fs_slug):
+            if structure.has_wildcard_levels:
+                continue
+            return structure.games_dir(fs_slug)
+
+        raise ValueError(
+            f"The custom library structure configured for {fs_slug} has no folder "
+            "an upload can be placed in. Add the file to the library from the "
+            "filesystem and rescan the platform."
         )
 
     def parse_tags(self, fs_name: str) -> ParsedTags:
@@ -407,6 +468,8 @@ class FSRomsHandler(FSHandler):
         )
 
     def exclude_multi_roms(self, roms: list[str]) -> list[str]:
+        """Drop the folders that are never a multi-file rom: the excluded names and
+        the hidden (dot-prefixed) ones."""
         excluded_names = cm.get_config().EXCLUDED_MULTI_FILES
         normalized_patterns = {
             excluded_name.lower().strip() for excluded_name in excluded_names
@@ -417,6 +480,9 @@ class FSRomsHandler(FSHandler):
 
         kept_roms: list[str] = []
         for rom in roms:
+            if rom.startswith("."):
+                continue
+
             normalized_rom_name = rom.strip().lower()
             if normalized_rom_name in normalized_patterns:
                 continue
@@ -443,14 +509,8 @@ class FSRomsHandler(FSHandler):
     ) -> RomFile:
         abs_file_path = Path(self.base_path, rom_path, file_name)
 
-        path_parts_lower = list(map(str.lower, rom_path.parts))
-        matching_category = next(
-            (
-                category
-                for category in RomFileCategory
-                if category_matches(category.value, path_parts_lower)
-            ),
-            None,
+        matching_category = category_for_path_parts(
+            list(map(str.lower, rom_path.parts))
         )
 
         track_meta = None
@@ -566,10 +626,11 @@ class FSRomsHandler(FSHandler):
         from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
 
-        rel_roms_path = self.get_roms_fs_structure(
-            rom.platform.fs_slug
-        )  # Relative path to roms
-        abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to roms
+        # The rom's stored directory is the source of truth for its location, so
+        # roms inside a nested folder (custom library structure) resolve to their
+        # real path rather than the platform roms root.
+        rel_roms_path = rom.fs_path  # Relative path to the rom's directory
+        abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to that dir
         rom_files: list[RomFile] = []
 
         # Skip hashing games for platforms that don't have a hash database or when hashes are disabled
@@ -586,48 +647,49 @@ class FSRomsHandler(FSHandler):
         # sigil it also reads archives, and it has no save-target guidance,
         # which stays sigil's job.
         converto_active = extract_title_ids and await self._converto_active(rom)
+        is_multi_part = await self.directory_exists(rom.full_path)
         sigil_extractions: list[SigilExtractionResult] = []
         embed_candidates: list[TitleIdEmbedCandidate] = []
+        title_id_sources: list[_TitleIdSource] = []
         sigil_service = SigilService()
 
-        async def _extract_title_id(rom_file: RomFile, is_rom_level: bool) -> None:
-            """Read the file's title id, recording it and any category it settles."""
-            # Only Switch needs a per-file content type; one extraction is
-            # enough elsewhere.
-            if not sigil_platform or (sigil_extractions and not is_switch):
-                return
+        def _record_title_id_source(path: Path, rom_file: RomFile) -> None:
+            """Queue a file for extraction when sigil can read a title id from it."""
+            if sigil_platform and _may_hold_title_id(path, rom_file.category):
+                title_id_sources.append(_TitleIdSource(path, rom_file))
 
+        async def _extract_title_id(source: _TitleIdSource) -> None:
+            """Read the source's title id, recording it and any category it settles."""
             extraction = await sigil_service.extract_title_id(
-                rom.platform_slug,
-                str(Path(self.base_path, rom_file.file_path, rom_file.file_name)),
+                rom.platform_slug, str(source.path)
             )
             if extraction is None:
                 return
             # rom-converto already identified this file; sigil keeps its
             # save-target knowledge but takes that id.
-            if rom_file.title_id:
+            if source.rom_file.title_id:
                 extraction = dataclasses.replace(
                     extraction,
-                    title_id=rom_file.title_id,
+                    title_id=source.rom_file.title_id,
                     version=(
-                        rom_file.title_version
-                        if rom_file.title_version is not None
+                        source.rom_file.title_version
+                        if source.rom_file.title_version is not None
                         else extraction.version
                     ),
                 )
             if extraction.content_type is not None:
                 category = switch.CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
                 if category is not None:
-                    rom_file.category = category
+                    source.rom_file.category = category
             sigil_extractions.append(extraction)
 
             # Embedding is Switch-only even though sigil covers more platforms.
             if is_switch and extraction.title_id:
                 embed_candidates.append(
                     TitleIdEmbedCandidate(
-                        rom_file=rom_file,
+                        rom_file=source.rom_file,
                         extraction=extraction,
-                        is_rom_level=is_rom_level,
+                        is_rom_level=not is_multi_part,
                     )
                 )
 
@@ -647,8 +709,7 @@ class FSRomsHandler(FSHandler):
         rom_dir = Path(abs_fs_path, rom.fs_name)
         rom_ext = f".{rom.fs_extension.lower()}" if rom.fs_extension else ""
 
-        # Check if rom is a multi-part rom
-        if await AnyioPath(f"{abs_fs_path}/{rom.fs_name}").is_dir():
+        if is_multi_part:
             rel_rom_dir = str(rom_dir.relative_to(self.base_path))
             entries = await asyncio.to_thread(self._list_rom_dir, rom_dir, cnfg)
             if existing_by_key is not None:
@@ -682,6 +743,7 @@ class FSRomsHandler(FSHandler):
             for f_path, file_name, st in entries:
                 is_top_level = f_path == rom_dir
                 rel_dir = f_path.relative_to(self.base_path)
+                abs_file_path = Path(f_path, file_name)
                 row = (
                     existing_by_key.get((str(rel_dir), file_name))
                     if existing_by_key is not None
@@ -700,9 +762,8 @@ class FSRomsHandler(FSHandler):
                     )
                 ):
                     rom_files.append(row)
+                    _record_title_id_source(abs_file_path, row)
                     continue
-
-                abs_file_path = Path(f_path, file_name)
 
                 if hashable_platform:
                     try:
@@ -750,7 +811,7 @@ class FSRomsHandler(FSHandler):
                     file_size_bytes=st.st_size,
                     last_modified=st.st_mtime,
                 )
-                # Extract from every ROM file (base, updates and DLC in
+                # Every ROM file is a candidate (base, updates and DLC in
                 # subfolders), not just the top-level one. rom-converto goes
                 # first and also covers archive files sigil cannot read.
                 if (
@@ -758,11 +819,7 @@ class FSRomsHandler(FSHandler):
                     and rom_file.category not in NON_BINARY_FILE_CATEGORIES
                 ):
                     await self._read_converto_title_id(rom_file)
-                if (
-                    abs_file_path.suffix.lower() not in ARCHIVE_READERS
-                    and rom_file.category not in NON_BINARY_FILE_CATEGORIES
-                ):
-                    await _extract_title_id(rom_file, is_rom_level=False)
+                _record_title_id_source(abs_file_path, rom_file)
                 rom_files.append(rom_file)
         elif (
             existing_by_key is not None
@@ -772,6 +829,7 @@ class FSRomsHandler(FSHandler):
         ):
             rom_files.append(flat_row)
             top_level_changed = False
+            _record_title_id_source(rom_dir, flat_row)
         elif hashable_platform and rom_ext in ARCHIVE_READERS:
             # Multi-file archive: compute a composite hash across all
             # internal entries (in ASCII path order) for hash-database
@@ -923,8 +981,14 @@ class FSRomsHandler(FSHandler):
             # sigil then reads what it can, trusting converto's ids.
             if converto_active:
                 await self._read_converto_title_id(rom_file)
-            if rom_ext not in ARCHIVE_READERS:
-                await _extract_title_id(rom_file, is_rom_level=True)
+            _record_title_id_source(rom_dir, rom_file)
+
+        # Listings come in no fixed order; a ROM is identified by its first disc,
+        # and only Switch reads past it for each file's content type.
+        for source in sorted(title_id_sources, key=_TitleIdSource.order):
+            await _extract_title_id(source)
+            if sigil_extractions and not is_switch:
+                break
 
         if top_level_changed:
             crc_hash = crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else ""
@@ -1021,7 +1085,7 @@ class FSRomsHandler(FSHandler):
                     update_hashes(chunk)
 
             return crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h
-        except (FileNotFoundError, PermissionError):
+        except FileNotFoundError, PermissionError:
             return (
                 0,
                 rom_crc_c,
@@ -1031,20 +1095,88 @@ class FSRomsHandler(FSHandler):
                 rom_sha1_h,
             )
 
-    async def count_roms(self, platform: Platform) -> int:
-        """Return the number of filesystem roms for a platform without
-        materializing FSRom objects.
+    async def _discover_structured_roms(
+        self, structure: StructureTemplate, fs_slug: str
+    ) -> list[FSRom]:
+        """Discover a platform's roms following one library structure template.
+
+        At the ``{game}`` terminal each file is a rom of its own and each folder
+        is one multi-file rom. Hidden folders are never descended into.
         """
+        dirs = [structure.platform_path(fs_slug)]
+        for level in structure.levels:
+            next_dirs: list[str] = []
+            for directory in dirs:
+                subs = await self.list_directories(directory)
+                # A wildcard matches any folder, so the ones that are never a
+                # game are dropped; naming one outright is an explicit opt-in.
+                if level.literal is None:
+                    subs = self.exclude_multi_roms(subs)
+                for sub in subs:
+                    if sub.startswith("."):
+                        continue
+                    if level.literal is not None and sub != level.literal:
+                        continue
+                    next_dirs.append(f"{directory}/{sub}")
+            dirs = next_dirs
+
+        fs_roms: list[FSRom] = []
+        for directory in dirs:
+            fs_roms += [
+                build_empty_fs_rom(name, directory, flat=True)
+                for name in self.exclude_single_files(await self.list_files(directory))
+            ]
+            fs_roms += [
+                build_empty_fs_rom(name, directory, flat=False)
+                for name in self.exclude_multi_roms(
+                    await self.list_directories(directory)
+                )
+            ]
+        return fs_roms
+
+    async def _collect_fs_roms(self, platform: Platform) -> list[FSRom]:
+        """Discover a platform's roms following its library structure.
+
+        Several templates union, deduplicated by full path so an overlap does
+        not surface a rom twice.
+        """
+        cnfg = cm.get_config()
+        platform_path = cnfg.default_structure.platform_path(platform.fs_slug)
+        structures = cnfg.platform_structure(platform.fs_slug)
+
+        fs_roms: list[FSRom] = []
+        seen: set[tuple[str, str]] = set()
+        for structure in structures:
+            for rom in await self._discover_structured_roms(
+                structure, platform.fs_slug
+            ):
+                key = (rom["fs_path"], rom["fs_name"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                fs_roms.append(rom)
+
+        # A folder one template reads as a multi-file game can be a level another
+        # template descends through (`{game}` + `{category}/{game}`). It is a
+        # grouping level there, so drop it rather than surface its contents twice.
+        grouping: set[str] = set()
+        for path in {rom["fs_path"] for rom in fs_roms}:
+            while len(path) > len(platform_path):
+                grouping.add(path)
+                path = path.rsplit("/", 1)[0]
+
+        return [
+            rom
+            for rom in fs_roms
+            if rom["flat"] or f"{rom['fs_path']}/{rom['fs_name']}" not in grouping
+        ]
+
+    async def count_roms(self, platform: Platform) -> int:
+        """Return the number of filesystem roms for a platform."""
         try:
-            rel_roms_path = self.get_roms_fs_structure(platform.fs_slug)
-            fs_single_roms = await self.list_files(path=rel_roms_path)
-            fs_multi_roms = await self.list_directories(path=rel_roms_path)
+            return len(await self._collect_fs_roms(platform))
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
-
-        return len(self.exclude_single_files(fs_single_roms)) + len(
-            self.exclude_multi_roms(fs_multi_roms)
-        )
 
     async def get_roms(self, platform: Platform) -> list[FSRom]:
         """Gets all filesystem roms for a platform
@@ -1055,37 +1187,13 @@ class FSRomsHandler(FSHandler):
             list with all the filesystem roms for a platform
         """
         try:
-            rel_roms_path = self.get_roms_fs_structure(
-                platform.fs_slug
-            )  # Relative path to roms
-
-            fs_single_roms = await self.list_files(path=rel_roms_path)
-            fs_multi_roms = await self.list_directories(path=rel_roms_path)
+            fs_roms = await self._collect_fs_roms(platform)
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
-        def build_rom(fs_name: str, *, flat: bool) -> FSRom:
-            return FSRom(
-                fs_name=fs_name,
-                flat=flat,
-                nested=not flat,
-                files=[],
-                crc_hash="",
-                md5_hash="",
-                sha1_hash="",
-                ra_hash="",
-            )
-
-        # Built in one pass and sorted in place, so a platform holding tens of
-        # thousands of entries never has two full copies of the list alive.
-        fs_roms = [
-            build_rom(rom, flat=True)
-            for rom in self.exclude_single_files(fs_single_roms)
-        ]
-        fs_roms += [
-            build_rom(rom, flat=False) for rom in self.exclude_multi_roms(fs_multi_roms)
-        ]
-        fs_roms.sort(key=lambda rom: rom["fs_name"])
+        # Sorted in place, so a platform holding tens of thousands of entries
+        # never has two full copies of the list alive.
+        fs_roms.sort(key=lambda rom: (rom["fs_path"], rom["fs_name"]))
 
         return fs_roms
 

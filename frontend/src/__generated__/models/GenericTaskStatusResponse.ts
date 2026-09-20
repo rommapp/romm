@@ -5,6 +5,7 @@
 import type { GenericTaskMeta } from './GenericTaskMeta';
 import type { JobStatus } from './JobStatus';
 export type GenericTaskStatusResponse = {
+    task_key: (string | null);
     task_name: string;
     task_id: string;
     status: JobStatus;

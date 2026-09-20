@@ -1,15 +1,12 @@
 import { defineStore } from "pinia";
-import type { ConfigResponse, EjsControlsButton } from "@/__generated__";
+import type {
+  ConfigResponse,
+  EjsControlsButton,
+  ExclusionType,
+} from "@/__generated__";
 import api from "@/services/api";
 
 export type Config = ConfigResponse;
-type ExclusionTypes =
-  | "EXCLUDED_PLATFORMS"
-  | "EXCLUDED_SINGLE_EXT"
-  | "EXCLUDED_SINGLE_FILES"
-  | "EXCLUDED_MULTI_FILES"
-  | "EXCLUDED_MULTI_PARTS_EXT"
-  | "EXCLUDED_MULTI_PARTS_FILES";
 
 const defaultConfig = {
   CONFIG_FILE_MOUNTED: false,
@@ -33,7 +30,9 @@ const defaultConfig = {
   EJS_CACHE_LIMIT: null,
   EJS_DISABLE_AUTO_UNLOAD: false,
   EJS_DISABLE_BATCH_BOOTUP: false,
+  EJS_ENABLE_AUTO_SAVE_SYNC: true,
   EJS_NETPLAY_ICE_SERVERS: [],
+  EJS_DEFAULT_CORES: {},
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
   SCAN_METADATA_PRIORITY: [],
@@ -79,10 +78,10 @@ export default defineStore("config", {
     removePlatformVersion(fsSlug: string) {
       delete this.config.PLATFORMS_VERSIONS[fsSlug];
     },
-    addExclusion(exclusionType: ExclusionTypes, exclusionValue: string) {
+    addExclusion(exclusionType: ExclusionType, exclusionValue: string) {
       this.config[exclusionType].push(exclusionValue);
     },
-    removeExclusion(exclusionValue: string, exclusionType: ExclusionTypes) {
+    removeExclusion(exclusionValue: string, exclusionType: ExclusionType) {
       const index = this.config[exclusionType].indexOf(exclusionValue);
       if (index !== -1) {
         this.config[exclusionType].splice(index, 1);
@@ -92,8 +91,11 @@ export default defineStore("config", {
         );
       }
     },
-    isExclusionType(type: string): type is ExclusionTypes {
+    isExclusionType(type: string): type is ExclusionType {
       return Object.keys(this.config).includes(type);
+    },
+    getEJSDefaultCore(platformSlug: string): string | null {
+      return this.config.EJS_DEFAULT_CORES[platformSlug.toLowerCase()] ?? null;
     },
     getEJSCoreOptions(core: string | null): Record<string, string | boolean> {
       const defaultOptions = this.config.EJS_SETTINGS["default"] || {};

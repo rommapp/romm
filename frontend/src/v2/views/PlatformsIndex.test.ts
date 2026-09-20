@@ -29,6 +29,10 @@ vi.mock("@v2/lib", () => ({
     props: { label: { type: String, default: "" } },
     template: "<h2>{{ label }}</h2>",
   }),
+  REmptyState: defineComponent({
+    props: { title: { type: String, default: "" } },
+    template: '<div class="empty-state">{{ title }}</div>',
+  }),
   RSkeletonBlock: defineComponent({ template: "<div />" }),
 }));
 
@@ -59,13 +63,6 @@ vi.mock("@/v2/components/Platforms/PlatformTile.vue", () => ({
     },
     template:
       '<div class="platform-tile">{{ displayName }} {{ romCount }}</div>',
-  }),
-}));
-
-vi.mock("@/v2/components/shared/EmptyState.vue", () => ({
-  default: defineComponent({
-    props: { message: { type: String, default: "" } },
-    template: '<div class="empty-state">{{ message }}</div>',
   }),
 }));
 
@@ -195,8 +192,8 @@ describe("PlatformsIndex", () => {
     const headings = wrapper
       .findAll(".r-v2-pidx__group-heading")
       .map((h) => h.text());
-    expect(headings).toContain("Playable");
-    expect(headings).not.toContain("Not playable");
+    expect(headings).toContain("platform.playable");
+    expect(headings).not.toContain("platform.not-playable");
   });
 
   describe("search", () => {

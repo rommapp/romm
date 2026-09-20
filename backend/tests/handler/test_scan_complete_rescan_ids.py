@@ -12,10 +12,11 @@ from fastapi import HTTPException
 from tests.handler.scan_stubs import add_n64_platform, add_rom, run_scan
 
 from handler.database import db_rom_handler
+from handler.metadata.hasheous_handler import HasheousRom
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.pouet_handler import PouetRom
 from handler.metadata.sgdb_handler import SGDBRom
-from handler.metadata.ss_handler import SSRom
+from handler.metadata.ss_handler import ScreenScraperExhaustedError, SSRom
 from handler.scan_handler import MetadataSource, ScanType
 from models.rom import Rom
 
@@ -25,12 +26,16 @@ STALE_MOBY_ID = 42
 STALE_SGDB_ID = 777
 STALE_POUET_ID = 106640
 STALE_SS_ID = 314
+STALE_HASHEOUS_ID = 2718
 
 MISS = IGDBRom(igdb_id=None)
 SGDB_MISS = SGDBRom(sgdb_id=None)
 POUET_MISS = PouetRom(pouet_id=None)
 MATCH = IGDBRom(igdb_id=9999, name="A Real Game")
 UNREACHABLE = HTTPException(status_code=503, detail="provider is down")
+SS_MISS = SSRom(ss_id=None)
+SS_SHORT_CIRCUITED = ScreenScraperExhaustedError(SS_MISS)
+HASHEOUS_MISS = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
 
 def _lookup(result: Any) -> AsyncMock:
@@ -48,10 +53,15 @@ async def _rescan(
     sgdb_result: SGDBRom | Exception = SGDB_MISS,
     pouet_result: PouetRom | Exception = POUET_MISS,
     platform_igdb_id: int | None = 4,
-    ss_breaker_tripped: bool = False,
+    ss_lookup_result: tuple[SSRom, bool] | Exception = (SS_MISS, False),
+    ss_get_rom_result: SSRom | Exception = SS_MISS,
+    platform_hasheous_id: int | None = None,
+    hasheous_lookup_result: tuple[HasheousRom, bool] = (HASHEOUS_MISS, True),
 ) -> Rom:
     """Rescan a ROM carrying hand-set IDs, and persist the result."""
-    platform = add_n64_platform(igdb_id=platform_igdb_id, ss_id=14)
+    platform = add_n64_platform(
+        igdb_id=platform_igdb_id, ss_id=14, hasheous_id=platform_hasheous_id
+    )
     rom = add_rom(
         platform,
         FS_NAME,
@@ -63,6 +73,7 @@ async def _rescan(
         sgdb_id=STALE_SGDB_ID,
         pouet_id=STALE_POUET_ID,
         ss_id=STALE_SS_ID,
+        hasheous_id=STALE_HASHEOUS_ID,
     )
 
     igdb_mock = _lookup(igdb_result)
@@ -78,15 +89,26 @@ async def _rescan(
         patch("handler.scan_handler.meta_pouet_handler.get_rom_by_id", new=pouet_mock),
         patch(
             "handler.scan_handler.meta_ss_handler.lookup_rom",
-            new=AsyncMock(return_value=(SSRom(ss_id=None), False)),
+            new=_lookup(ss_lookup_result),
         ),
         patch(
             "handler.scan_handler.meta_ss_handler.get_rom",
-            new=AsyncMock(return_value=SSRom(ss_id=None)),
+            new=_lookup(ss_get_rom_result),
         ),
         patch(
-            "handler.scan_handler.is_breaker_tripped",
-            return_value=ss_breaker_tripped,
+            "handler.scan_handler.meta_hasheous_handler.is_enabled", return_value=True
+        ),
+        patch(
+            "handler.scan_handler.meta_hasheous_handler.lookup_rom",
+            new=_lookup(hasheous_lookup_result),
+        ),
+        patch(
+            "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
+            new=_lookup(HASHEOUS_MISS),
+        ),
+        patch(
+            "handler.scan_handler.meta_hasheous_handler.get_ra_game",
+            new=_lookup(HASHEOUS_MISS),
         ),
     ):
         scanned = await run_scan(
@@ -134,12 +156,47 @@ async def test_a_source_that_could_not_be_reached_keeps_its_id():
 
 
 async def test_a_screenscraper_breaker_keeps_its_id():
-    """An exhausted quota answers empty for every remaining ROM."""
+    """A breaker answers every remaining ROM, so it rules nothing out."""
     saved = await _rescan(
-        [MetadataSource.IGDB, MetadataSource.SS], ss_breaker_tripped=True
+        [MetadataSource.IGDB, MetadataSource.SS],
+        ss_lookup_result=SS_SHORT_CIRCUITED,
+        ss_get_rom_result=SS_SHORT_CIRCUITED,
     )
 
     assert saved.ss_id == STALE_SS_ID
+
+
+async def test_a_screenscraper_breaker_that_recovers_mid_rom_keeps_its_id():
+    """The breaker can clear between this rom's two lookups, but the hash lookup
+    it short-circuited still ruled nothing out."""
+    saved = await _rescan(
+        [MetadataSource.IGDB, MetadataSource.SS],
+        ss_lookup_result=SS_SHORT_CIRCUITED,
+        ss_get_rom_result=SS_MISS,
+    )
+
+    assert saved.ss_id == STALE_SS_ID
+
+
+async def test_a_hasheous_lookup_that_never_answered_keeps_its_id():
+    """Hasheous swallows its own failures, so the conclusive flag is all a rescan
+    has to tell an outage from a miss it confirmed."""
+    saved = await _rescan(
+        [MetadataSource.IGDB, MetadataSource.HASHEOUS],
+        platform_hasheous_id=64,
+        hasheous_lookup_result=(HASHEOUS_MISS, False),
+    )
+
+    assert saved.hasheous_id == STALE_HASHEOUS_ID
+
+
+async def test_a_hasheous_miss_it_confirmed_still_drops_its_id():
+    saved = await _rescan(
+        [MetadataSource.IGDB, MetadataSource.HASHEOUS],
+        platform_hasheous_id=64,
+    )
+
+    assert saved.hasheous_id is None
 
 
 async def test_a_selected_screenscraper_that_misses_still_drops_its_id():

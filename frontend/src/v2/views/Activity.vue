@@ -10,6 +10,7 @@
 import {
   RBtn,
   RDialog,
+  REmptyState,
   RIcon,
   RSkeletonBlock,
   RTextField,
@@ -27,8 +28,8 @@ import streamingApi, {
 import storeActivity from "@/stores/activity";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import ActivityCard from "@/v2/components/Activity/ActivityCard.vue";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
@@ -141,7 +142,10 @@ const orphanStreamingSessions = computed(() => {
   );
 });
 
-const loading = computed(() => !initialized.value);
+const phase = useLoadingPhase(
+  () => !initialized.value,
+  () => mergedActivities.value.length === 0,
+);
 
 function romRoute(entry: ActivityEntry) {
   return { name: ROUTES.ROM, params: { rom: entry.rom_id } };
@@ -275,7 +279,7 @@ function elapsedLabel(startedAt: string): string {
       </div>
     </div>
 
-    <div v-if="loading" class="r-v2-activity__grid">
+    <div v-if="phase === 'skeleton'" class="r-v2-activity__grid">
       <RSkeletonBlock
         v-for="n in 8"
         :key="`sk-${n}`"
@@ -285,14 +289,17 @@ function elapsedLabel(startedAt: string): string {
       />
     </div>
 
-    <EmptyState
-      v-else-if="mergedActivities.length === 0"
-      variant="boxed"
+    <REmptyState
+      v-else-if="phase === 'empty'"
       icon="mdi-access-point-off"
-      :message="t('activity.no-activity')"
+      :title="t('activity.no-activity')"
     />
 
-    <div v-else ref="gridRoot" class="r-v2-activity__grid">
+    <div
+      v-else-if="phase === 'content'"
+      ref="gridRoot"
+      class="r-v2-activity__grid"
+    >
       <ActivityCard
         v-for="({ entry, streaming }, i) in mergedActivities"
         :key="`${entry.user_id}-${entry.device_id}`"
@@ -363,6 +370,7 @@ function elapsedLabel(startedAt: string): string {
       :model-value="releaseTarget !== null"
       icon="mdi-account-cancel"
       :width="440"
+      cancelable
       @close="releaseTarget = null"
       @update:model-value="releaseTarget = null"
     >
@@ -382,9 +390,6 @@ function elapsedLabel(startedAt: string): string {
         </RTextField>
       </template>
       <template #footer>
-        <RBtn variant="text" @click="releaseTarget = null">
-          {{ t("common.cancel") }}
-        </RBtn>
         <RBtn variant="flat" color="danger" @click="confirmRelease">
           {{ t("activity.release-session") }}
         </RBtn>

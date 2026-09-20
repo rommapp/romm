@@ -1,6 +1,7 @@
 """Background task to convert existing images to WebP format."""
 
 import asyncio
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List
@@ -14,6 +15,7 @@ from config import (
 )
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType, update_job_meta
+from utils.images import frame_durations, webp_loop
 from utils.media_types import ALLOWED_IMAGE_EXTENSIONS
 
 
@@ -72,11 +74,24 @@ class ImageConverter:
 
         try:
             with Image.open(image_path) as img:
-                # Convert image mode if necessary
-                img = self._convert_image_mode(img)
-
-                # Save as WebP
-                img.save(webp_path, "WEBP", quality=self.quality, optimize=True)
+                if img.format == "WEBP":
+                    # Re-encoding would only lose quality, and writing over the
+                    # source in place would truncate it mid-read.
+                    if webp_path != image_path:
+                        shutil.copyfile(image_path, webp_path)
+                elif durations := frame_durations(img):
+                    img.save(
+                        webp_path,
+                        "WEBP",
+                        save_all=True,
+                        duration=durations,
+                        loop=webp_loop(img),
+                        quality=self.quality,
+                    )
+                else:
+                    self._convert_image_mode(img).save(
+                        webp_path, "WEBP", quality=self.quality, optimize=True
+                    )
                 log.info(f"Created WebP version: {webp_path}")
                 return True
 

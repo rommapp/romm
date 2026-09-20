@@ -62,24 +62,35 @@
 # system:
 #   # Asociate different platform names to your current file system platform names
 #   # [your custom platform folder name]: [RomM platform name]
-#   # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
+#   # Case-insensitive. Batocera, RetroBat and ES-DE folders are already recognised.
 #   platforms:
-#     gc: ngc
 #     ps1: psx
+#     super_nintendo: snes
 
 #   # Asociate one platform to it's main version (IGDB only)
 #   versions:
 #     naomi: arcade
 
 # filesystem:
-#   # Custom games folder name only (eg. `retro_games/`)
-#   roms_folder: 'roms'
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)
 #   skip_hash_calculation: false
 #   # Skip reading platform-native title IDs out of ROM binaries during scans
 #   skip_title_id_extraction: false
 #   # Rename Switch ROMs to embed ` [TITLEID][vVERSION]` in their filename
 #   embed_switch_title_ids: false
+#   # Library structure, relative to the library root. `{platform}` is the
+#   # platform folder; `{game}` is where a game begins, a file there being one
+#   # game and a folder one multi-file game. Any other macro is a wildcard level.
+#   # https://docs.romm.app/latest/getting-started/folder-structure/#custom-library-structure
+#   structure:
+#     default: 'roms/{platform}/{game}'
+#     firmware: 'bios/{platform}'
+#     # Overrides by fs_slug; a list unions its layouts.
+#     nes:
+#       - 'roms/{platform}/{game}'
+#       - 'roms/{platform}/{category}/{game}'
+#     ps3: 'roms/{platform}/{category}/{game}'
+#     snes: 'roms/{platform}/{region}/{game}'
 
 # scan:
 #   # Metadata priority during scans
@@ -97,6 +108,7 @@
 #       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat (lowest priority)
 #     artwork: # Cover art and screenshots
+#       - sgdb # SteamGridDB (highest priority)
 #       - igdb # IGDB
 #       - moby # MobyGames
 #       - ss # Screenscraper
@@ -156,13 +168,13 @@
 #     - marquee  # Custom marquee
 #   # Auto-export metadata files after scan completes
 #   gamelist:
-#     export: false # Whether to export gamelist.xml for ES-DE/Batocera/RetroBAT
+#     export: false # Whether to export gamelist.xml for ES-DE/Batocera/RetroBAT (merged into an existing file)
 #     media:
 #       # Select a media type from the list above (eg. box2d, screenshot, etc.)
 #       thumbnail: box2d # Use as the <thumbnail> tag in the exported gamelist.xml
 #       image: screenshot  # Use as the <image> tag in the exported gamelist.xml
 #   pegasus:
-#     export: false # Whether to export metadata.pegasus.txt for Pegasus
+#     export: false # Whether to export metadata.pegasus.txt for Pegasus (merged into an existing file)
 
 # EmulatorJS per-core options
 # emulatorjs:
@@ -170,6 +182,11 @@
 #   cache_limit: null # Cache limit per ROM (in bytes)
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
+#   auto_save_sync: true # Upload the save to the server seconds after the game writes it, without Save & Quit
+#   default_cores: # Core preselected per platform, unless overridden on the device
+#     # Use the exact core name, as listed for the platform in the docs
+#     nds: desmume
+#     nintendo-dsi: melonds
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled
@@ -204,7 +221,7 @@
 #   containers:
 #     # One container can serve many platforms. Container keys are defaults
 #     # for every platform it serves; a platform block may override emulator,
-#     # label, and memory_card_sync.
+#     # label, memory_card_sync, and clears_stale_saves.
 #     - protocol: webstation
 #       host: https://192.168.1.56:3010  # browser-facing UI, must be https
 #       subfolder: /streaming            # matches the container's SUBFOLDER
@@ -217,6 +234,13 @@
 #         ps2:                            # ...or a block overriding container keys
 #           emulator: pcsx2
 #           memory_card_sync: true
+#         # Whether the broker wipes the save tree before restoring, which is
+#         # what lets the launch screen restore a save other than the newest.
+#         # RomM assumes what each emulator's broker does; set this only on a
+#         # fork or a broker newer than your RomM.
+#         wii:
+#           emulator: dolphin
+#           clears_stale_saves: true
 
 # converto:
 #   # Serve single-file downloads converted by rom-converto (needs ROM_CONVERTO_ENABLED)

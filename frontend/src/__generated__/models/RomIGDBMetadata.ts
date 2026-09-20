@@ -8,10 +8,14 @@ import type { IGDBMetadataPlatform } from './IGDBMetadataPlatform';
 import type { IGDBRelatedGame } from './IGDBRelatedGame';
 export type RomIGDBMetadata = {
     total_rating?: (string | null);
+    total_rating_count?: (number | null);
     aggregated_rating?: (string | null);
     first_release_date?: (number | null);
     youtube_video_id?: (string | null);
     genres?: Array<string>;
+    keywords?: Array<string>;
+    themes?: Array<string>;
+    player_perspectives?: Array<string>;
     franchises?: Array<string>;
     alternative_names?: Array<string>;
     collections?: Array<string>;

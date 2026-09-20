@@ -136,11 +136,10 @@ const isPending = computed(() => favorites.isPending(props.track.id));
 </template>
 
 <style scoped>
-/* Fixed height: RVirtualScroller positions rows from `getItemHeight`, so the
-   rendered row must match ROW_HEIGHT in Panel.vue (48px + 4px gap). */
+/* Panel sets the height and gap, the same numbers it gives RVirtualScroller. */
 .r-v2-stp__row {
-  height: 48px;
-  margin-bottom: 4px;
+  height: var(--stp-row-h);
+  margin-bottom: var(--stp-row-gap);
   box-sizing: border-box;
   display: flex;
   align-items: stretch;
@@ -149,8 +148,9 @@ const isPending = computed(() => favorites.isPending(props.track.id));
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
-html[data-input="mouse"] .r-v2-stp__row:hover,
-html[data-input="touch"] .r-v2-stp__row:hover {
+/* Pointer hover and gamepad / keyboard focus light the row the same way. */
+html:not([data-input="pad"]) .r-v2-stp__row:hover,
+.r-v2-stp__row:focus-within {
   background: var(--r-color-surface-hover);
 }
 
@@ -158,8 +158,8 @@ html[data-input="touch"] .r-v2-stp__row:hover {
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 
-html[data-input="mouse"] .r-v2-stp__row--active:hover,
-html[data-input="touch"] .r-v2-stp__row--active:hover {
+html:not([data-input="pad"]) .r-v2-stp__row--active:hover,
+.r-v2-stp__row--active:focus-within {
   background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
 }
 
@@ -181,7 +181,8 @@ html[data-input="touch"] .r-v2-stp__row--active:hover {
 
 /* Leading cell: queue position / play glyph / equalizer / spinner. */
 .r-v2-stp__row-lead {
-  flex: 0 0 34px;
+  width: 34px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
 }
@@ -265,14 +266,14 @@ html[data-input="touch"] .r-v2-stp__row--active:hover {
 /* Pointer or keyboard on the row swaps the lead cell for a play / pause
    glyph. Hover is gated to pointer modalities (constitution: no bare
    :hover competing with pad focus). */
-html[data-input="mouse"] .r-v2-stp__row:hover .r-v2-stp__row-index,
-html[data-input="mouse"] .r-v2-stp__row:hover .r-v2-stp__row-eq,
+html:not([data-input="pad"]) .r-v2-stp__row:hover .r-v2-stp__row-index,
+html:not([data-input="pad"]) .r-v2-stp__row:hover .r-v2-stp__row-eq,
 .r-v2-stp__row-btn:focus-visible .r-v2-stp__row-index,
 .r-v2-stp__row-btn:focus-visible .r-v2-stp__row-eq {
   visibility: hidden;
 }
 
-html[data-input="mouse"] .r-v2-stp__row:hover .r-v2-stp__row-glyph,
+html:not([data-input="pad"]) .r-v2-stp__row:hover .r-v2-stp__row-glyph,
 .r-v2-stp__row-btn:focus-visible .r-v2-stp__row-glyph {
   visibility: visible;
 }
@@ -323,10 +324,9 @@ html[data-input="mouse"] .r-v2-stp__row:hover .r-v2-stp__row-glyph,
   text-align: right;
 }
 
-/* The heart stays put once favorited; otherwise it only surfaces on
-   pointer hover or focus. Non-mouse modalities keep it always visible
-   since they have no hover to reveal it with. */
-html[data-input="mouse"]
+/* The heart stays put once favorited; otherwise it surfaces on hover or focus.
+   Phone and tablet widths keep it visible: there is no hover to reveal it. */
+html[data-bp~="md-and-up"]
   .r-v2-stp__row:not(:hover):not(:focus-within)
   .r-v2-stp__row-fav:not(.r-v2-stp__row-fav--on) {
   opacity: 0;
@@ -338,5 +338,63 @@ html[data-input="mouse"]
 
 .r-v2-stp__row-fav--on {
   color: var(--r-color-fav);
+}
+
+/* Phones: the title takes the full width and the actions share the subtitle's
+   line; the play button subgrids the row so its text shares their tracks. */
+html[data-bp~="xs"] .r-v2-stp__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: 1fr auto auto 1fr;
+  row-gap: 0;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-btn {
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-lead {
+  grid-row: 1 / -1;
+  grid-column: 1;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-meta {
+  display: contents;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-title {
+  grid-row: 2;
+  grid-column: 2 / -1;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-subtitle {
+  grid-area: 3 / 2;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-right {
+  grid-area: 3 / 3;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-duration {
+  min-width: 0;
+}
+
+html[data-bp~="xs"] .r-v2-stp__row-size {
+  display: none;
+}
+
+/* Chrome and Edge below 117 ignore subgrid, so the button's text cannot share
+   the row's tracks there; fall back to the flex row the wider layout uses. */
+@supports not (grid-template-columns: subgrid) {
+  html[data-bp~="xs"] .r-v2-stp__row,
+  html[data-bp~="xs"] .r-v2-stp__row-btn,
+  html[data-bp~="xs"] .r-v2-stp__row-meta {
+    display: flex;
+  }
 }
 </style>

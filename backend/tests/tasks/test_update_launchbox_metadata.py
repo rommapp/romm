@@ -1,10 +1,12 @@
 import os
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import anyio
 import pytest
 
 from config import TASK_TIMEOUT
+from handler.dump_cache import decode
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_FILES_KEY,
@@ -15,6 +17,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_STORE,
     LAUNCHBOX_PLATFORMS_KEY,
 )
 from handler.redis_handler import async_cache
@@ -62,16 +65,16 @@ class TestUpdateLaunchboxMetadataTask:
         """Test run method when Launchbox API is enabled"""
         mock_super_run.return_value = sample_zip_content
 
-        await task.run(force=True)
+        await task.run()
 
-        mock_super_run.assert_called_once_with(True)
+        mock_super_run.assert_called_once_with()
 
     async def test_run_when_launchbox_api_disabled(self, task, mocker):
         """Test run method when Launchbox API is disabled"""
         mocker.patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=False)
         mock_log = mocker.patch("tasks.scheduled.update_launchbox_metadata.log")
 
-        await task.run(force=True)
+        await task.run()
 
         mock_log.warning.assert_called_once_with(
             "Launchbox API is not enabled, skipping metadata update"
@@ -83,7 +86,7 @@ class TestUpdateLaunchboxMetadataTask:
         """Test run method when super().run() returns None"""
         mock_super_run.return_value = None
 
-        await task.run(force=True)
+        await task.run()
 
         mock_super_run.assert_called_once()
 
@@ -99,7 +102,7 @@ class TestUpdateLaunchboxMetadataTask:
         """Test run method with corrupt ZIP file"""
         mock_super_run.return_value = corrupt_zip_content
 
-        await task.run(force=True)
+        await task.run()
 
         mock_log.error.assert_called_once_with(
             "Bad zip file in launchbox metadata update"
@@ -113,14 +116,14 @@ class TestUpdateLaunchboxMetadataTask:
         """Test successful completion of the task"""
         mock_super_run.return_value = sample_zip_content
 
-        await task.run(force=True)
+        await task.run()
 
         mock_log.info.assert_called_with(
             "Scheduled launchbox metadata update completed!"
         )
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_xml_parsing(
         self,
         mock_async_cache_pipeline,
@@ -138,7 +141,7 @@ class TestUpdateLaunchboxMetadataTask:
         )
         mock_async_cache_pipeline.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        await task.run(force=True)
+        await task.run()
 
         # Verify calls
         assert mock_async_cache_pipeline.called
@@ -210,8 +213,38 @@ class TestUpdateLaunchboxMetadataTask:
         assert fields(metadata_image_calls) == {"12345"}
         assert fields(mame_calls) == {"mario.zip", "pacman.zip"}
 
+        def values(calls) -> list[Any]:
+            return [
+                decode(value) for call in calls for value in call[1]["mapping"].values()
+            ]
+
+        # The title indexes point at the record, rather than repeating it.
+        assert sorted(values(metadata_name_calls)) == ["12345", "67890"]
+        assert sorted(values(metadata_folded_calls)) == ["12345", "67890"]
+
+        # Images keep only the fields media selection reads.
+        assert values(metadata_image_calls) == [
+            [
+                {"FileName": "super_mario_64.jpg", "Type": "Cover"},
+                {"FileName": "super_mario_64_screenshot.jpg", "Type": "Screenshot"},
+            ]
+        ]
+
+        # The alternate name index points at the record like the other two.
+        assert values(metadata_alt_calls) == ["12345"]
+
+        # A store keeps its reader's field, never one the key already carries.
+        assert values(files_calls) == [
+            {"GameName": "Super Mario 64"},
+            {"GameName": "Crash Bandicoot"},
+        ]
+        assert values(mame_calls) == [
+            {"Name": "Super Mario Bros."},
+            {"Name": "Pac-Man"},
+        ]
+
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_empty_xml_elements_handling(
         self,
         mock_async_cache_pipeline,
@@ -234,7 +267,7 @@ class TestUpdateLaunchboxMetadataTask:
         )
         mock_async_cache_pipeline.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        await task.run(force=True)
+        await task.run()
 
         # Verify calls
         assert mock_async_cache_pipeline.called
@@ -250,7 +283,7 @@ class TestUpdateLaunchboxMetadataTask:
         assert len(platform_calls) == 1
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_missing_xml_files_handling(
         self,
         mock_async_cache_pipeline,
@@ -273,7 +306,7 @@ class TestUpdateLaunchboxMetadataTask:
         )
         mock_async_cache_pipeline.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        await task.run(force=True)
+        await task.run()
 
         # Verify calls
         assert mock_async_cache_pipeline.called
@@ -310,7 +343,7 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
         return UpdateLaunchboxMetadataTask()
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_full_workflow_integration(
         self, mock_async_cache_pipeline, mock_super_run, task, sample_zip_content
     ):
@@ -324,7 +357,7 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
         )
         mock_async_cache_pipeline.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        await task.run(force=True)
+        await task.run()
 
         # Check hset call details
         hset_calls = mock_pipe.hset.call_args_list
@@ -333,18 +366,8 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
         # Verify that all expected Redis keys were used
         redis_keys_used = [call[0][0] for call in hset_calls]
 
-        expected_keys = [
-            LAUNCHBOX_PLATFORMS_KEY,
-            LAUNCHBOX_METADATA_DATABASE_ID_KEY,
-            LAUNCHBOX_METADATA_NAME_KEY,
-            LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
-            LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-            LAUNCHBOX_METADATA_IMAGE_KEY,
-            LAUNCHBOX_MAME_KEY,
-            LAUNCHBOX_FILES_KEY,
-        ]
-
-        for expected_key in expected_keys:
+        # The tuple the schema drop deletes has to name every key written.
+        for expected_key in LAUNCHBOX_METADATA_STORE.keys:
             assert (
                 expected_key in redis_keys_used
             ), f"Expected key {expected_key} not found in Redis operations"
@@ -387,15 +410,17 @@ class TestBatchedCacheWriter:
 
         assert pipe.execute.call_count == 0
 
-    async def test_values_are_json_encoded(self):
+    async def test_values_go_through_the_dump_codec(self):
         pipe = AsyncMock()
         writer = BatchedCacheWriter(pipe, batch_size=10)
+        record = {"Name": "Super Mario Bros."}
 
-        await writer.hset("key", "field", {"Name": "Super Mario Bros."})
+        await writer.hset("key", "field", record)
 
-        pipe.hset.assert_called_once_with(
-            "key", mapping={"field": '{"Name": "Super Mario Bros."}'}
-        )
+        stored = pipe.hset.call_args.kwargs["mapping"]["field"]
+        # Bytes, because a compressed value is not valid UTF-8.
+        assert isinstance(stored, bytes)
+        assert decode(stored) == record
 
     async def test_large_input_flushes_repeatedly(self, task, sample_zip_content):
         """A real dump must not end up in one pipeline execute."""
@@ -413,7 +438,7 @@ class TestBatchedCacheWriter:
             mock_pipeline.return_value.__aenter__ = AsyncMock(return_value=mock_pipe)
             mock_pipeline.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            await task.run(force=True)
+            await task.run()
 
         # One execute per queued write rather than one for the whole file.
         assert mock_pipe.execute.call_count == mock_pipe.hset.call_count
@@ -424,7 +449,7 @@ class TestInitialImportFlag:
     ready to the provider heartbeat."""
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_first_import_flags_and_clears_on_completion(
         self, mock_pipeline, mock_super_run, task, sample_zip_content
     ):
@@ -434,16 +459,23 @@ class TestInitialImportFlag:
 
         with (
             patch.object(async_cache, "exists", AsyncMock(return_value=0)),
+            patch.object(async_cache, "get", AsyncMock(return_value=None)),
             patch.object(async_cache, "set", AsyncMock()) as mock_set,
             patch.object(async_cache, "delete", AsyncMock()) as mock_delete,
         ):
-            await task.run(force=True)
+            await task.run()
 
-        mock_set.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1")
+        assert [call.args for call in mock_set.await_args_list] == [
+            (LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1"),
+            (
+                LAUNCHBOX_METADATA_STORE.schema_key,
+                str(LAUNCHBOX_METADATA_STORE.version),
+            ),
+        ]
         mock_delete.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY)
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_binary_cache.pipeline")
     async def test_refresh_of_a_filled_store_is_not_flagged(
         self, mock_pipeline, mock_super_run, task, sample_zip_content
     ):
@@ -454,12 +486,20 @@ class TestInitialImportFlag:
 
         with (
             patch.object(async_cache, "exists", AsyncMock(return_value=1)),
+            patch.object(
+                async_cache,
+                "get",
+                AsyncMock(return_value=str(LAUNCHBOX_METADATA_STORE.version)),
+            ),
             patch.object(async_cache, "set", AsyncMock()) as mock_set,
             patch.object(async_cache, "delete", AsyncMock()),
         ):
-            await task.run(force=True)
+            await task.run()
 
-        mock_set.assert_not_awaited()
+        # Only the schema stamp, never the initial-import flag.
+        mock_set.assert_awaited_once_with(
+            LAUNCHBOX_METADATA_STORE.schema_key, str(LAUNCHBOX_METADATA_STORE.version)
+        )
 
     @patch.object(RemoteFilePullTask, "run")
     async def test_flag_survives_a_failed_run(
@@ -472,7 +512,7 @@ class TestInitialImportFlag:
             patch.object(async_cache, "set", AsyncMock()),
             patch.object(async_cache, "delete", AsyncMock()) as mock_delete,
         ):
-            await task.run(force=True)
+            await task.run()
 
         mock_delete.assert_not_awaited()
 
