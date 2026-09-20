@@ -416,11 +416,26 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     gap: CARD_GAP_PX,
     ratioAt,
     ratioVersion,
-    listDetailHeight: listExpansion.detailHeight,
+    listSettledDetail: listExpansion.settledPanelHeight,
     fallbackRatio: coverAspectRatio,
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
+
+// Where the open row sits in the packed list. Recomputed when a row opens or
+// the list re-packs, never on the animation's frames.
+const expandedIndex = computed(() => {
+  const position = listExpansion.expandedPosition.value;
+  if (position == null) return -1;
+  return virtualItems.value.findIndex(
+    (item) => item.kind === "list-row" && item.position === position,
+  );
+});
+const listOffsetShift = computed(() =>
+  expandedIndex.value < 0
+    ? undefined
+    : { fromIndex: expandedIndex.value, px: listExpansion.shiftPx.value },
+);
 
 // ── Toolbar ─────────────────────────────────────────────────────────
 const scrollTopNow = computed(() => scrollerRef.value?.scrollTop ?? 0);
@@ -911,6 +926,7 @@ defineExpose({
       :items="virtualItems"
       :get-item-height="getItemHeight"
       :get-item-key="galleryItemKey"
+      :offset-shift="listOffsetShift"
       :overscan="virtualOverscan"
       :min-content-width="
         layout === 'list' && !smAndDown ? listMinWidth : undefined
@@ -1041,9 +1057,7 @@ defineExpose({
               listExpansion.isExpanded(asListRow(item as GalleryItem).position)
             "
             :detail-height="
-              listExpansion.detailHeight(
-                asListRow(item as GalleryItem).position,
-              )
+              listExpansion.panelHeight(asListRow(item as GalleryItem).position)
             "
             @ratio="onCardRatio"
             @toggle-expand="

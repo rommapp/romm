@@ -21,7 +21,7 @@ describe("useListExpansion", () => {
     list.toggle(3);
 
     expect(list.isExpanded(3)).toBe(true);
-    expect(list.detailHeight(3)).toBe(LIST_ROW_DETAIL_HEIGHT_PX);
+    expect(list.panelHeight(3)).toBe(LIST_ROW_DETAIL_HEIGHT_PX);
     expect(list.rowHeight(3)).toBe(OPEN_HEIGHT);
   });
 
@@ -30,7 +30,7 @@ describe("useListExpansion", () => {
 
     list.toggle(3);
 
-    expect(list.detailHeight(4)).toBe(0);
+    expect(list.panelHeight(4)).toBe(0);
     expect(list.rowHeight(4)).toBe(LIST_ROW_HEIGHT_PX);
   });
 
@@ -53,6 +53,23 @@ describe("useListExpansion", () => {
 
     expect(list.isExpanded(3)).toBe(false);
     expect(list.rowHeight(3)).toBe(LIST_ROW_HEIGHT_PX);
+  });
+
+  // Rows below an open one are pulled back by whatever the panel has yet to
+  // paint, so the two move together without a per-frame height.
+  it("reports no shift once the panel has settled", () => {
+    const list = useListExpansion();
+
+    list.toggle(3);
+
+    expect(list.settledPanelHeight(3)).toBe(LIST_ROW_DETAIL_HEIGHT_PX);
+    expect(list.shiftPx.value).toBe(0);
+  });
+
+  it("reports no shift while nothing is open", () => {
+    const list = useListExpansion();
+
+    expect(list.shiftPx.value).toBe(0);
   });
 
   it("drops everything when the list underneath changes", () => {

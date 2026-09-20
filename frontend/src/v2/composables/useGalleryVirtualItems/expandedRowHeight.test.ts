@@ -6,7 +6,7 @@ import {
 } from "@/v2/components/Gallery/listColumns";
 import { useGalleryVirtualItems, type GalleryItem } from "./index";
 
-/** Row heights for a three-row list, with `open` px of panel on row 1. */
+/** Row heights for a three-row list, with row 1's panel settling at `open`. */
 function rowHeights(open: number): number[] {
   const { virtualItems, getItemHeight } = useGalleryVirtualItems({
     layout: ref("list"),
@@ -16,7 +16,7 @@ function rowHeights(open: number): number[] {
     columns: ref(1),
     loadingInitial: computed(() => false),
     emptyMessage: ref(""),
-    listDetailHeight: (position) => (position === 1 ? open : 0),
+    listSettledDetail: (position: number) => (position === 1 ? open : 0),
   });
   return virtualItems.value
     .filter(
@@ -39,17 +39,6 @@ describe("useGalleryVirtualItems: list row with a detail panel", () => {
     expect(rowHeights(LIST_ROW_DETAIL_HEIGHT_PX)).toEqual([
       LIST_ROW_HEIGHT_PX,
       LIST_ROW_HEIGHT_PX + LIST_ROW_DETAIL_HEIGHT_PX,
-      LIST_ROW_HEIGHT_PX,
-    ]);
-  });
-
-  it("follows the panel mid-roll, so the rows below track it", () => {
-    // Half open: the virtualiser has to reserve exactly what is showing.
-    const half = Math.round(LIST_ROW_DETAIL_HEIGHT_PX / 2);
-
-    expect(rowHeights(half)).toEqual([
-      LIST_ROW_HEIGHT_PX,
-      LIST_ROW_HEIGHT_PX + half,
       LIST_ROW_HEIGHT_PX,
     ]);
   });

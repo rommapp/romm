@@ -154,6 +154,21 @@ function vItemHeight(item: unknown): number {
     : LIST_ROW_HEIGHT_PX;
 }
 
+// The open row's slot is reserved at its settled height; these are the frames
+// on the way there (see `useListExpansion`).
+const expandedIndex = computed(() => {
+  const position = listExpansion.expandedPosition.value;
+  if (position == null) return -1;
+  return virtualItems.value.findIndex(
+    (item) => isListRow(item) && item.position === position,
+  );
+});
+const offsetShift = computed(() =>
+  expandedIndex.value < 0
+    ? undefined
+    : { fromIndex: expandedIndex.value, px: listExpansion.shiftPx.value },
+);
+
 interface VListRow {
   kind: "list-row";
   position: number;
@@ -378,6 +393,7 @@ onBeforeUnmount(() => {
       <RVirtualScroller
         :items="virtualItems"
         :get-item-height="vItemHeight"
+        :offset-shift="offsetShift"
         :overscan="25"
         class="r-v2-missing__scroller"
         @update:viewport-range="onViewportRange"
@@ -389,7 +405,7 @@ onBeforeUnmount(() => {
             :webp="supportsWebp"
             expandable
             :expanded="listExpansion.isExpanded(rowPosition(item))"
-            :detail-height="listExpansion.detailHeight(rowPosition(item))"
+            :detail-height="listExpansion.panelHeight(rowPosition(item))"
             @toggle-expand="listExpansion.toggle(rowPosition(item))"
           />
           <GameListSkeletonRow v-else />

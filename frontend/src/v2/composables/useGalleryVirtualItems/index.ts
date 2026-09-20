@@ -154,9 +154,10 @@ interface Options {
   fallbackRatio?: MaybeRefOrGetter<number>;
   /** Bump to force a re-pack when measured ratios change (Vue tracks it). */
   ratioVersion?: Ref<number> | ComputedRef<number>;
-  /** Px of detail panel showing on the list row at `position` (0 for the
-   *  rest), so the rows below an opening one sit clear of it. */
-  listDetailHeight?: (position: number) => number;
+  /** Px of detail panel the list row at `position` settles at (0 for the
+   *  rest), so the rows below an open one sit clear of it. The frames on the
+   *  way there are the scroller's `offsetShift`, not a height change. */
+  listSettledDetail?: (position: number) => number;
 }
 
 const ALPHABET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@".split("");
@@ -259,7 +260,7 @@ export function useGalleryVirtualItems(opts: Options) {
     const { kind } = entry;
     if (kind === "row" || kind === "skeleton-row") return rowHeightPx.value;
     if (kind !== "list-row") return FIXED_HEIGHT_BY_KIND[kind] ?? 0;
-    return listRowHeight(opts.listDetailHeight?.(entry.position) ?? 0);
+    return listRowHeight(opts.listSettledDetail?.(entry.position) ?? 0);
   }
 
   // ── Structural sharing across re-packs ────────────────────────────────

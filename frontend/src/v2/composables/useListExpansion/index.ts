@@ -1,9 +1,12 @@
 // useListExpansion: one open detail panel at a time in a list-mode table.
 //
-// The panel rolls open like a blind, which only reads right if the slot the
-// virtualiser reserved grows with it. So the height is animated here, and the
-// row's panel and the virtualiser read the same number.
-import { onScopeDispose, ref } from "vue";
+// The panel rolls open like a blind, which only reads right if the rows below
+// it move with it. They do, but not by animating the row's slot: the offset
+// table an open row belongs to is O(n) to rebuild, so a per-frame height would
+// rebuild it on every frame of the roll. Instead the table reserves the
+// settled height from the moment the row opens, and `shiftPx` carries the
+// difference for the frames in between (see RVirtualScroller's `offsetShift`).
+import { computed, onScopeDispose, ref } from "vue";
 import {
   LIST_ROW_DETAIL_HEIGHT_PX,
   listRowHeight,
@@ -43,10 +46,29 @@ export function useListExpansion() {
     return position != null && expandedPosition.value === position;
   }
 
-  /** Panel height for the row at `position`, 0 for every other row. */
-  function detailHeight(position: number | null | undefined): number {
+  /** Panel px to paint on the row at `position`, mid-roll included. */
+  function panelHeight(position: number | null | undefined): number {
     return isExpanded(position) ? openHeight.value : 0;
   }
+
+  /** What the open row's panel settles at, which is what the offset table
+   *  reserves from the moment it opens. */
+  function settledPanelHeight(position: number | null | undefined): number {
+    return isExpanded(position) ? LIST_ROW_DETAIL_HEIGHT_PX : 0;
+  }
+
+  /** Settled height of the row at `position`, panel included when open. */
+  function rowHeight(position: number | null | undefined): number {
+    return listRowHeight(settledPanelHeight(position));
+  }
+
+  /** How far the rows below the open one still are from their settled place:
+   *  0 at rest, down to -LIST_ROW_DETAIL_HEIGHT_PX the moment it opens. */
+  const shiftPx = computed(() =>
+    expandedPosition.value == null
+      ? 0
+      : openHeight.value - LIST_ROW_DETAIL_HEIGHT_PX,
+  );
 
   function toggle(position: number) {
     if (isExpanded(position)) {
@@ -64,18 +86,16 @@ export function useListExpansion() {
     openHeight.value = 0;
   }
 
-  /** Height of the row at `position`, however much panel is showing. */
-  function rowHeight(position: number | null | undefined): number {
-    return listRowHeight(detailHeight(position));
-  }
-
   onScopeDispose(stopAnimation);
 
   return {
+    expandedPosition,
+    shiftPx,
     isExpanded,
-    detailHeight,
+    panelHeight,
+    settledPanelHeight,
+    rowHeight,
     toggle,
     collapse,
-    rowHeight,
   };
 }
