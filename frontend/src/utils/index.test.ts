@@ -1,22 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
-import type { SimpleRom } from "@/stores/roms";
 import {
   isJsDosBundle,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
   isPico8Rom,
 } from "./index";
-
-function makeRom(overrides: Partial<SimpleRom>): SimpleRom {
-  return {
-    id: 1,
-    fs_name: "Game",
-    files: [],
-    ...overrides,
-  } as SimpleRom;
-}
+import { makeRom } from "./rom.fixtures";
 
 function makeHeartbeat(
   emulation: Partial<Heartbeat["EMULATION"]> = {},
