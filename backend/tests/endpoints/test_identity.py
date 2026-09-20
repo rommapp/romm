@@ -304,6 +304,31 @@ async def test_admin_password_reset_invalidates_the_target_user_sessions(
 
 
 @pytest.mark.asyncio
+async def test_a_failed_revocation_leaves_the_password_unchanged(
+    client, access_token: str, editor_user: User
+):
+    """Revoking before the write keeps the two from disagreeing: a password
+    that changed while its sessions survived would outlive the reset."""
+    original_hash = editor_user.hashed_password
+
+    with mock.patch.object(
+        RedisSessionMiddleware,
+        "clear_user_sessions",
+        side_effect=ConnectionError("redis is down"),
+    ):
+        with pytest.raises(ConnectionError):
+            client.put(
+                f"/api/users/{editor_user.id}",
+                data={"password": "reset_while_redis_is_down"},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+    db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user is not None
+    assert db_user.hashed_password == original_hash
+
+
+@pytest.mark.asyncio
 async def test_password_change_invalidates_sessions(client, admin_user: User):
     # Get the user's session cookie
     basic_auth = base64.b64encode(

@@ -475,6 +475,14 @@ async def update_user(
         # Sessions are keyed by username, so the old one is what identifies
         # them once the update has renamed the account.
         previous_username = db_user.username
+        creds_updated = cleaned_data.get("username") or cleaned_data.get(
+            "hashed_password"
+        )
+
+        # Ahead of the write: an unreachable Redis then aborts the change
+        # rather than committing it with the account's sessions left live.
+        if creds_updated:
+            await RedisSessionMiddleware.clear_user_sessions(previous_username)
 
         db_user_handler.update_user(id, cleaned_data)
 
@@ -482,15 +490,8 @@ async def update_user(
         if "role" in cleaned_data:
             await emit_permissions_changed(id)
 
-        # The target's sessions, not the caller's: an admin resetting a
-        # compromised account has to lock its attacker out.
-        creds_updated = cleaned_data.get("username") or cleaned_data.get(
-            "hashed_password"
-        )
-        if creds_updated:
-            await RedisSessionMiddleware.clear_user_sessions(previous_username)
-            if request.user.id == id:
-                request.session.clear()
+        if creds_updated and request.user.id == id:
+            request.session.clear()
 
     db_user = db_user_handler.get_user(id)
     if not db_user:
