@@ -479,19 +479,22 @@ async def update_user(
             "hashed_password"
         )
 
-        # Ahead of the write: an unreachable Redis then aborts the change
-        # rather than committing it with the account's sessions left live.
+        # Once before the write, so an unreachable Redis aborts rather than
+        # commits, and once after, to catch a login the old password was still
+        # good for while the write was in progress.
         if creds_updated:
             await RedisSessionMiddleware.clear_user_sessions(previous_username)
 
         db_user_handler.update_user(id, cleaned_data)
 
+        if creds_updated:
+            await RedisSessionMiddleware.clear_user_sessions(previous_username)
+            if request.user.id == id:
+                request.session.clear()
+
         # A role change alters the user's effective permissions; tell their UI.
         if "role" in cleaned_data:
             await emit_permissions_changed(id)
-
-        if creds_updated and request.user.id == id:
-            request.session.clear()
 
     db_user = db_user_handler.get_user(id)
     if not db_user:

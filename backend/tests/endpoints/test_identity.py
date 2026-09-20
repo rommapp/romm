@@ -307,8 +307,7 @@ async def test_admin_password_reset_invalidates_the_target_user_sessions(
 async def test_a_failed_revocation_leaves_the_password_unchanged(
     client, access_token: str, editor_user: User
 ):
-    """Revoking before the write keeps the two from disagreeing: a password
-    that changed while its sessions survived would outlive the reset."""
+    """An unreachable Redis aborts the change instead of committing it."""
     original_hash = editor_user.hashed_password
 
     with mock.patch.object(
@@ -326,6 +325,40 @@ async def test_a_failed_revocation_leaves_the_password_unchanged(
     db_user = DBUsersHandler().get_user(editor_user.id)
     assert db_user is not None
     assert db_user.hashed_password == original_hash
+
+
+@pytest.mark.asyncio
+async def test_sessions_are_revoked_on_both_sides_of_the_write(
+    client, access_token: str, editor_user: User
+):
+    """The second pass catches a login the old password was still good for."""
+    calls: list[str] = []
+    real_update = DBUsersHandler.update_user
+
+    def record_update(self, id, data, *args, **kwargs):
+        # `set_last_active` writes on every authenticated request; only the
+        # credential write is being ordered here.
+        if "hashed_password" in data:
+            calls.append("write")
+        return real_update(self, id, data, *args, **kwargs)
+
+    async def record_revoke(user_id: str) -> None:
+        calls.append("revoke")
+
+    with (
+        mock.patch.object(DBUsersHandler, "update_user", record_update),
+        mock.patch.object(
+            RedisSessionMiddleware, "clear_user_sessions", side_effect=record_revoke
+        ),
+    ):
+        response = client.put(
+            f"/api/users/{editor_user.id}",
+            data={"password": "another_reset_password"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == HTTPStatus.OK
+    assert calls == ["revoke", "write", "revoke"]
 
 
 @pytest.mark.asyncio

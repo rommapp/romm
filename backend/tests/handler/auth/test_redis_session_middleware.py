@@ -52,8 +52,7 @@ class TestRedisSessionMiddleware:
         assert client.get("/whoami").json()["sub"] == USERNAME
 
     def test_revoked_session_is_not_restored_by_an_in_flight_request(self) -> None:
-        """A request holding a copy of a session revoked mid-flight must not
-        write it back, or a credential change could never lock anyone out."""
+        """A session revoked mid-flight must not be written back."""
         client = TestClient(create_test_app())
         client.post("/login")
 
