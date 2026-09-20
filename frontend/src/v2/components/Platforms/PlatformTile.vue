@@ -4,6 +4,7 @@
 // around RPlatformIcon and the shared Tile chrome; not a primitive.
 import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import Tile from "@/v2/components/shared/Tile.vue";
 import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
@@ -42,6 +43,7 @@ const href = computed(() => props.to ?? `/platform/${props.id ?? ""}`);
 
 // Shared-element morph between the platform tile icon and the
 // RPlatformIcon shown in the Platform view's InfoPanel cover slot.
+const { t } = useI18n();
 const router = useRouter();
 const iconEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
@@ -102,7 +104,7 @@ const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
     </template>
     {{ displayName }}
     <template v-if="romCount != null" #count>
-      {{ romCount }} {{ romCount === 1 ? "game" : "games" }}
+      {{ t("collection.games-count", romCount, { named: { n: romCount } }) }}
     </template>
   </Tile>
 </template>

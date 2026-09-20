@@ -1,16 +1,11 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { defineComponent, h, nextTick, ref } from "vue";
+import { defineComponent, h } from "vue";
 import AlphaJumpMenu from "./AlphaJumpMenu.vue";
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
-}));
-
-const modality = ref<"mouse" | "key">("mouse");
-vi.mock("@/v2/composables/useInputModality", () => ({
-  useInputModality: () => ({ modality }),
 }));
 
 vi.mock("@/v2/composables/useWrapGridNav", () => ({
@@ -18,10 +13,15 @@ vi.mock("@/v2/composables/useWrapGridNav", () => ({
 }));
 
 // Renders the panel inline while open, and toggles it from the activator.
+let initialFocus: readonly string[] | undefined;
 const RMenuStub = defineComponent({
-  props: { modelValue: { type: Boolean, default: false } },
+  props: {
+    modelValue: { type: Boolean, default: false },
+    initialFocus: { type: Array, default: undefined },
+  },
   emits: ["update:modelValue"],
   setup(props, { slots, emit }) {
+    initialFocus = props.initialFocus as readonly string[] | undefined;
     const toggle = () => emit("update:modelValue", !props.modelValue);
     return () =>
       h("div", [
@@ -74,17 +74,13 @@ describe("AlphaJumpMenu", () => {
     wrapper.unmount();
   });
 
-  it("starts keyboard users on the current letter", async () => {
-    modality.value = "key";
+  // RMenu does the focusing (and tests that); this pins the order asked for,
+  // so a keyboard or pad lands on the current letter, not the first one.
+  it("asks the menu to open on the current letter", () => {
     const wrapper = mountMenu();
-    await wrapper.get(".jump-btn").trigger("click");
-    await nextTick();
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => resolve()),
-    );
 
-    expect(document.activeElement).toBe(letter(wrapper, "M").element);
-    modality.value = "mouse";
+    expect(initialFocus?.[0]).toContain("--current");
+    expect(initialFocus?.[1]).toBe(".alpha-strip__btn:not(:disabled)");
     wrapper.unmount();
   });
 });

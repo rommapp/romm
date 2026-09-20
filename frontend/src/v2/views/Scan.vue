@@ -829,7 +829,7 @@ function stopScan() {
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
-  transition: opacity var(--r-motion-mid) var(--r-motion-ease-out);
+  transition: opacity var(--r-motion-med) var(--r-motion-ease-out);
 }
 .r-v2-scan-card--locked {
   /* Slight dim + pointer hold so the running scan reads as "in-flight,
@@ -1197,8 +1197,8 @@ function stopScan() {
    are already on screen stay put; only new arrivals animate. */
 .r-v2-scan-panel-enter-active {
   transition:
-    opacity var(--r-motion-mid) var(--r-motion-ease-out),
-    transform var(--r-motion-mid) var(--r-motion-ease-back);
+    opacity var(--r-motion-med) var(--r-motion-ease-out),
+    transform var(--r-motion-med) var(--r-motion-ease-back);
 }
 .r-v2-scan-panel-enter-from {
   opacity: 0;

@@ -3,10 +3,9 @@
 // the AlphaStrip column would eat into the grid: a toolbar button that opens
 // the same letters as a grid.
 import { RBtn, RMenu } from "@v2/lib";
-import { nextTick, ref, watch } from "vue";
+import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
-import { useInputModality } from "@/v2/composables/useInputModality";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 
 interface Props {
@@ -24,32 +23,25 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const LETTER_SELECTOR = ".alpha-strip__btn:not(:disabled)";
+// Opened from a keyboard or pad, start on the current letter so the arrows
+// have somewhere to move from.
+const INITIAL_FOCUS = [
+  ".alpha-strip__btn--current:not(:disabled)",
+  LETTER_SELECTOR,
+];
 
 const open = ref(false);
 const gridEl = ref<HTMLElement | null>(null);
 useWrapGridNav(gridEl, { cellSelector: LETTER_SELECTOR });
-
-// Opened from a keyboard or pad, start on the current letter so the arrows
-// have somewhere to move from.
-const { modality } = useInputModality();
-watch(open, async (isOpen) => {
-  if (!isOpen || (modality.value !== "key" && modality.value !== "pad")) {
-    return;
-  }
-  await nextTick();
-  // RMenu positions the panel on the next frame; focusing earlier scrolls.
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  const grid = gridEl.value;
-  const target =
-    grid?.querySelector<HTMLElement>(
-      ".alpha-strip__btn--current:not(:disabled)",
-    ) ?? grid?.querySelector<HTMLElement>(LETTER_SELECTOR);
-  target?.focus();
-});
 </script>
 
 <template>
-  <RMenu v-model="open" location="bottom end" sheet-on-mobile>
+  <RMenu
+    v-model="open"
+    location="bottom end"
+    sheet-on-mobile
+    :initial-focus="INITIAL_FOCUS"
+  >
     <template #activator="{ props: activatorProps }">
       <RBtn
         v-bind="activatorProps"
