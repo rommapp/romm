@@ -20,6 +20,11 @@ function pressOn(target: Element): PointerEvent {
   return event;
 }
 
+/** A bare row element for the press to land on. */
+function rowEl(): HTMLElement {
+  return document.createElement("a");
+}
+
 /** What the drag finds under the finger. happy-dom lays nothing out and has
  *  no `elementsFromPoint`, so the stack is supplied directly. */
 function stackAt(...els: Element[]) {
@@ -82,26 +87,80 @@ describe("useGallerySelectionInput long press", () => {
     expect(storeGallerySelection().count).toBe(0);
   });
 
-  // Dragging on from the press selects what it crosses, and crossing the
-  // same row twice must not flip it back off.
-  it("paints the rows the drag crosses", () => {
-    const input = useGallerySelectionInput();
-    const row = document.createElement("a");
-    row.dataset.romPosition = "0";
-    const next = document.createElement("a");
-    next.dataset.romPosition = "1";
-    document.body.append(row, next);
-    stackAt(next);
-    vi.spyOn(storeGalleryRoms(), "getRomAt").mockReturnValue(rom({ id: 2 }));
+  /** The drag reports the row at `position` as the one under the finger. */
+  function overRow(position: number) {
+    const el = document.createElement("a");
+    el.dataset.romPosition = String(position);
+    stackAt(el);
+  }
 
-    input.handlePointerDown(rom({ id: 1 }), 0, pressOn(row));
+  it("selects the rows the drag reaches", () => {
+    const input = useGallerySelectionInput();
+    vi.spyOn(storeGalleryRoms(), "getRomAt").mockImplementation((p: number) =>
+      rom({ id: 100 + p }),
+    );
+
+    input.handlePointerDown(rom({ id: 100 }), 0, pressOn(rowEl()));
     vi.advanceTimersByTime(LONG_PRESS_MS);
+    overRow(1);
     input.handlePointerMove(move(20, 40));
-    input.handlePointerMove(move(21, 41));
+    overRow(2);
+    input.handlePointerMove(move(20, 60));
+
+    expect(storeGallerySelection().count).toBe(3);
+  });
+
+  // Coming back up the list hands back what the drag had taken, so a range
+  // can be corrected without lifting the finger.
+  it("gives a row back when the drag leaves it behind", () => {
+    const input = useGallerySelectionInput();
+    vi.spyOn(storeGalleryRoms(), "getRomAt").mockImplementation((p: number) =>
+      rom({ id: 100 + p }),
+    );
+
+    input.handlePointerDown(rom({ id: 100 }), 0, pressOn(rowEl()));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    overRow(3);
+    input.handlePointerMove(move(20, 80));
+    overRow(1);
+    input.handlePointerMove(move(20, 40));
 
     expect(storeGallerySelection().count).toBe(2);
-    row.remove();
-    next.remove();
+  });
+
+  it("leaves a row that was already selected where it was", () => {
+    const input = useGallerySelectionInput();
+    vi.spyOn(storeGalleryRoms(), "getRomAt").mockImplementation((p: number) =>
+      rom({ id: 100 + p }),
+    );
+    storeGallerySelection().selectMany([rom({ id: 102 })]);
+
+    input.handlePointerDown(rom({ id: 100 }), 0, pressOn(rowEl()));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    overRow(2);
+    input.handlePointerMove(move(20, 60));
+    overRow(0);
+    input.handlePointerMove(move(20, 20));
+
+    // The anchor and the row the user had picked before the drag started.
+    expect(storeGallerySelection().isSelected(102)).toBe(true);
+    expect(storeGallerySelection().count).toBe(2);
+  });
+
+  it("keeps the row the press started on when the drag returns to it", () => {
+    const input = useGallerySelectionInput();
+    vi.spyOn(storeGalleryRoms(), "getRomAt").mockImplementation((p: number) =>
+      rom({ id: 100 + p }),
+    );
+
+    input.handlePointerDown(rom({ id: 100 }), 0, pressOn(rowEl()));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    overRow(2);
+    input.handlePointerMove(move(20, 60));
+    overRow(0);
+    input.handlePointerMove(move(20, 20));
+
+    expect(storeGallerySelection().count).toBe(1);
   });
 
   // The bottom nav and the selection bar cover the list's lower edge, which

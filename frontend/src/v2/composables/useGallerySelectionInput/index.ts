@@ -50,9 +50,13 @@ interface LongPressState {
 }
 
 let longPress: LongPressState | null = null;
-/** Positions already painted by the current drag, so sliding back over one
- *  doesn't flip it off again. Null while no drag is painting. */
-let painted: Set<number> | null = null;
+/** The drag's own selections, keyed by position, so dragging back out of the
+ *  range gives them back. Null while no drag is painting. */
+let painted: Map<number, number> | null = null;
+/** Where the drag started and how far it has reached: the range it owns is
+ *  everything between the two. */
+let paintAnchor: number | null = null;
+let paintReach: number | null = null;
 /** True between a tracked touch going down and coming back up. The long-press
  *  state outlives that, waiting for the click it has to swallow. */
 let pressActive = false;
@@ -72,6 +76,8 @@ function resetLongPress() {
   if (longPress?.timer) clearTimeout(longPress.timer);
   longPress = null;
   painted = null;
+  paintAnchor = null;
+  paintReach = null;
   stopEdgeScroll();
 }
 
@@ -186,8 +192,10 @@ export function useGallerySelectionInput() {
       state.consumed = true;
       state.timer = null;
       selection.toggle(rom, position);
-      // Whatever the press selected is the drag's first row.
-      painted = new Set([position]);
+      // Whatever the press selected anchors the drag; it owns nothing yet.
+      painted = new Map();
+      paintAnchor = position;
+      paintReach = position;
     }, LONG_PRESS_MS);
   }
 
@@ -205,11 +213,41 @@ export function useGallerySelectionInput() {
     if (!host) return;
     const position = Number(host.dataset.romPosition);
     paintScroller ??= scrollableAncestor(host);
-    if (!Number.isInteger(position) || painted.has(position)) return;
-    const rom = galleryRoms.getRomAt(position);
-    if (!rom) return;
-    painted.add(position);
-    selection.selectMany([rom]);
+    if (!Number.isInteger(position)) return;
+    reachTo(position);
+  }
+
+  /** Move the drag's far end to `position`: everything now between it and the
+   *  anchor is selected, and everything the drag has left behind is given
+   *  back. Only the rows this drag selected are ever unselected. */
+  function reachTo(position: number) {
+    if (!painted || paintAnchor === null || paintReach === null) return;
+    if (position === paintReach) return;
+    const low = Math.min(paintAnchor, position);
+    const high = Math.max(paintAnchor, position);
+    // Only the stretch between the old and the new far end can have changed.
+    for (
+      let p = Math.min(paintReach, position);
+      p <= Math.max(paintReach, position);
+      p++
+    ) {
+      if (p === paintAnchor) continue;
+      if (p >= low && p <= high) {
+        if (painted.has(p)) continue;
+        const rom = galleryRoms.getRomAt(p);
+        // A row that was already selected is the user's, not the drag's: it
+        // stays put, and leaving it behind must not take it away.
+        if (!rom || selection.isSelected(rom.id)) continue;
+        painted.set(p, rom.id);
+        selection.selectMany([rom]);
+      } else {
+        const id = painted.get(p);
+        if (id === undefined) continue;
+        painted.delete(p);
+        selection.removeIds([id]);
+      }
+    }
+    paintReach = position;
   }
 
   /** While the finger sits in the edge band, pull the list past it and keep
