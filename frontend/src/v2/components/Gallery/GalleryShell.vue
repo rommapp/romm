@@ -75,10 +75,12 @@ import { usePinnedToolbar } from "@/v2/composables/usePinnedToolbar";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, {
+  orderSupportsLetters,
+} from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
-import { layout as layoutTokens } from "@/v2/tokens";
+import { layout as layoutTokens, space } from "@/v2/tokens";
 
 interface Props {
   /** Whether the header slot has content to render. False suppresses
@@ -296,13 +298,20 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 // Responsive columns — measure the section to chunk roms into rows.
 // Card width and inset track the breakpoint so phones pack more, smaller
 // cards instead of one stretched card per row:
-//   inset  = scroller padding (--r-row-pad × 2) + AlphaStrip column (36)
-//            → xs 14·2+36=64, sm 20·2+36=76, default 36·2+36=108
+//   inset  = scroller padding (--r-row-pad × 2), plus the AlphaStrip column
+//            (`--r-alpha-strip-w` + its gap) wherever the strip renders
 //   card   = matches the `--r-card-art-w` the shell sets per breakpoint
 //            (108 on xs, 158 otherwise) so the JS row-chunking and the
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
+// A jump to "M" means nothing when the gallery is sorted by size or date, so
+// the letter affordances go away with the letters themselves.
+const lettersSupported = computed(() => orderSupportsLetters(orderBy.value));
+const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
+// The strip's footprint: its letter column plus `--r-alpha-strip-gap`.
+const STRIP_INSET_PX =
+  parseInt(layoutTokens.alphaStripWidth, 10) + parseInt(space[3], 10);
 // Card-art width reference (matches GameCard's `--r-card-art-w`); sets the
 // fixed card HEIGHT (a 2/3 cover at this width). Real width follows the ratio.
 const CARD_GAP_PX = 12;
@@ -311,7 +320,9 @@ const cardHeight = () => Math.round(cardWidth() / (2 / 3));
 const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   cardWidth,
   gap: CARD_GAP_PX,
-  inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
+  inset: () =>
+    (xs.value ? 28 : smAndDown.value ? 40 : 72) +
+    (stripVisible.value ? STRIP_INSET_PX : 0),
 });
 
 // Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
@@ -879,6 +890,7 @@ defineExpose({
     :class="{
       'r-v2-shell--list': layout === 'list',
       'r-v2-shell--floating': toolbarPosition === 'floating',
+      'r-v2-shell--no-strip': !stripVisible,
     }"
     :style="{
       '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
@@ -945,7 +957,7 @@ defineExpose({
             >
               <template #actions>
                 <AlphaJumpMenu
-                  v-if="smAndDown"
+                  v-if="smAndDown && lettersSupported"
                   :available="availableLetters"
                   :current="currentLetter"
                   :direction="orderDir"
@@ -1063,7 +1075,7 @@ defineExpose({
     <!-- ALPHASTRIP — A-Z jump column on the right edge of the section.
          Phones and tablets jump from the toolbar instead (AlphaJumpMenu). -->
     <AlphaStrip
-      v-if="!smAndDown"
+      v-if="stripVisible"
       ref="stripRef"
       class="r-v2-shell__strip"
       :available="availableLetters"
@@ -1095,7 +1107,7 @@ defineExpose({
     >
       <template #actions>
         <AlphaJumpMenu
-          v-if="smAndDown"
+          v-if="smAndDown && lettersSupported"
           :available="availableLetters"
           :current="currentLetter"
           :direction="orderDir"
@@ -1162,8 +1174,9 @@ html[data-bp~="sm-and-down"] .r-v2-shell {
     -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
   );
 }
-/* Phones and tablets have no strip column to leave room for. */
-html[data-bp~="sm-and-down"] .r-v2-shell {
+/* No strip to leave room for: phones and tablets jump from the toolbar, and
+   a sort the letters can't address has no jump at all. */
+.r-v2-shell--no-strip {
   --r-v2-shell-strip: 0px;
 }
 

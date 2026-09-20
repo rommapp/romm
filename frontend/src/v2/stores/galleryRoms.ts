@@ -69,6 +69,14 @@ export function isGalleryOrderKey(value: string): value is GalleryOrderKey {
   return (GALLERY_ORDER_KEYS as readonly string[]).includes(value);
 }
 
+/** The keys the backend answers with a `char_index`: it indexes first letters
+ * only for a text column, so every other order comes back without letters. */
+const LEXICAL_ORDER_KEYS: ReadonlySet<string> = new Set(["name", "fs_name"]);
+
+export function orderSupportsLetters(key: GalleryOrderKey): boolean {
+  return LEXICAL_ORDER_KEYS.has(key);
+}
+
 export function isGalleryOrderDir(value: string): value is GalleryOrderDir {
   return value === "asc" || value === "desc";
 }

@@ -148,6 +148,9 @@ const groupByValue = computed(() => toValue(props.groupBy));
 const layoutValue = computed(() => toValue(props.layout));
 const sortDirValue = computed(() => toValue(props.sortDir));
 const sortKeyValue = computed(() => toValue(props.sortKey));
+// List mode sorts from its own column header, so the toolbar's sort and
+// grouping controls step aside rather than sit there inert.
+const listMode = computed(() => layoutValue.value === "list");
 
 const layoutItems = computed(() => [
   {
@@ -315,19 +318,18 @@ const { smAndUp } = useBreakpoint();
          without overflowing. -->
     <div class="gallery-toolbar__controls">
       <RSliderBtnGroup
-        v-if="smAndUp && showGroupBy"
+        v-if="smAndUp && showGroupBy && !listMode"
         :model-value="groupByValue"
         :items="effectiveGroupByItems"
         variant="segmented"
         :aria-label="t('settings.platforms-drawer-group-by')"
-        :disabled="layoutValue === 'list'"
         @update:model-value="setGroupBy"
       />
 
       <!-- A menu, not a slider: too many axes for the segmented pattern
            the neighbouring clusters use. -->
       <RMenu
-        v-if="smAndUp && sortKeyItems.length > 0"
+        v-if="smAndUp && sortKeyItems.length > 0 && !listMode"
         location="bottom end"
         :offset="8"
         width="220px"
@@ -339,7 +341,6 @@ const { smAndUp } = useBreakpoint();
             surface
             icon="mdi-sort"
             rounded="circle"
-            :disabled="layoutValue === 'list'"
             :aria-label="t('gallery.sort-by')"
           />
         </template>
@@ -353,12 +354,11 @@ const { smAndUp } = useBreakpoint();
       </RMenu>
 
       <RSliderBtnGroup
-        v-if="smAndUp"
+        v-if="smAndUp && !listMode"
         :model-value="sortDirValue"
         :items="sortDirItems"
         variant="segmented"
         :aria-label="t('gallery.sort-ascending')"
-        :disabled="layoutValue === 'list'"
         @update:model-value="setSortDir"
       />
 
@@ -371,9 +371,8 @@ const { smAndUp } = useBreakpoint();
         @update:model-value="setLayout"
       />
 
-      <!-- Kebab mirror — only visible below smAndUp. Mirrors the slider
-           state: `groupBy` items disable in list mode, same way the
-           inline GroupBy slider does. -->
+      <!-- Kebab mirror — only visible below smAndUp, carrying the same
+           clusters the inline sliders do. -->
       <RMenu
         v-if="!smAndUp"
         location="bottom end"
@@ -403,44 +402,42 @@ const { smAndUp } = useBreakpoint();
           />
           <RDivider />
         </template>
-        <template v-if="showGroupBy && effectiveGroupByItems.length > 0">
+        <template
+          v-if="showGroupBy && effectiveGroupByItems.length > 0 && !listMode"
+        >
           <RMenuItem
             v-for="item in effectiveGroupByItems"
             :key="item.id"
             :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
             :icon="item.icon"
             :variant="groupByValue === item.id ? 'active' : 'default'"
-            :disabled="layoutValue === 'list'"
             @click="setGroupBy(item.id)"
           />
           <RDivider />
         </template>
-        <template v-if="sortKeyItems.length > 0">
+        <template v-if="!listMode">
           <RMenuItem
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
             :variant="sortKeyValue === item.key ? 'active' : 'default'"
-            :disabled="layoutValue === 'list'"
             @click="setSortKey(item.key)"
+          />
+          <RDivider v-if="sortKeyItems.length > 0" />
+          <RMenuItem
+            :label="t('gallery.sort-ascending')"
+            icon="mdi-sort-ascending"
+            :variant="sortDirValue === 'asc' ? 'active' : 'default'"
+            @click="setSortDir('asc')"
+          />
+          <RMenuItem
+            :label="t('gallery.sort-descending')"
+            icon="mdi-sort-descending"
+            :variant="sortDirValue === 'desc' ? 'active' : 'default'"
+            @click="setSortDir('desc')"
           />
           <RDivider />
         </template>
-        <RMenuItem
-          :label="t('gallery.sort-ascending')"
-          icon="mdi-sort-ascending"
-          :variant="sortDirValue === 'asc' ? 'active' : 'default'"
-          :disabled="layoutValue === 'list'"
-          @click="setSortDir('asc')"
-        />
-        <RMenuItem
-          :label="t('gallery.sort-descending')"
-          icon="mdi-sort-descending"
-          :variant="sortDirValue === 'desc' ? 'active' : 'default'"
-          :disabled="layoutValue === 'list'"
-          @click="setSortDir('desc')"
-        />
-        <RDivider />
         <RMenuItem
           :label="t('gallery.view-grid')"
           icon="mdi-view-grid-outline"

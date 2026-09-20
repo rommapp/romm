@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
 // Import after the mock so the store binds to the mocked rom API.
 import storeGalleryRoms, {
+  orderSupportsLetters,
   SELECT_ALL_PAGE_SIZE,
 } from "@/v2/stores/galleryRoms";
 
@@ -411,5 +412,21 @@ describe("galleryRoms length filter", () => {
 
     expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBeNull();
     expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(10 * 3600);
+  });
+});
+
+describe("orderSupportsLetters", () => {
+  // The backend indexes first letters off a text column only, so every other
+  // order answers with an empty char_index.
+  it("claims letters for the text orders", () => {
+    expect(orderSupportsLetters("name")).toBe(true);
+    expect(orderSupportsLetters("fs_name")).toBe(true);
+  });
+
+  it("claims none for numbers, dates and enums", () => {
+    expect(orderSupportsLetters("fs_size_bytes")).toBe(false);
+    expect(orderSupportsLetters("first_release_date")).toBe(false);
+    expect(orderSupportsLetters("average_rating")).toBe(false);
+    expect(orderSupportsLetters("last_played")).toBe(false);
   });
 });
