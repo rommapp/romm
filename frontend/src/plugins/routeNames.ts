@@ -46,6 +46,8 @@ export const ROUTES = {
   NOT_FOUND: "404",
 } as const;
 
+export type RouteName = (typeof ROUTES)[keyof typeof ROUTES];
+
 const authExemptRoutes = [
   ROUTES.LOGIN,
   ROUTES.SETUP,

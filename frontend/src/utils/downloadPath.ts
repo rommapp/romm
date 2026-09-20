@@ -1,18 +1,11 @@
-import type { SimpleRomSchema } from "@/__generated__";
+import type { SimpleRom } from "@/stores/roms";
 
-type DownloadRom = Pick<
-  SimpleRomSchema,
-  "id" | "fs_name" | "has_nested_single_file" | "files"
->;
-
-/**
- * Generate a download link for ROM content.
- */
+/** Build the `/api` path that serves a ROM's content. */
 export function getDownloadPath({
   rom,
   fileIDs = [],
 }: {
-  rom: DownloadRom;
+  rom: SimpleRom;
   fileIDs?: number[];
 }) {
   const queryParams = new URLSearchParams();
@@ -45,7 +38,7 @@ export function getDownloadLink({
   rom,
   fileIDs = [],
 }: {
-  rom: DownloadRom;
+  rom: SimpleRom;
   fileIDs?: number[];
 }) {
   return `${window.location.origin}${encodeURI(

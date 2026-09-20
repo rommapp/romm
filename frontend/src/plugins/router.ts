@@ -7,7 +7,11 @@ import {
   type RouteLocationNormalized,
 } from "vue-router";
 import i18n, { loadLocale } from "@/locales";
-import { isAuthExemptRoute, ROUTES } from "@/plugins/routeNames";
+import {
+  isAuthExemptRoute,
+  ROUTES,
+  type RouteName,
+} from "@/plugins/routeNames";
 import { startViewTransition } from "@/plugins/transition";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
@@ -20,11 +24,11 @@ import {
   v2RouteComponents,
 } from "@/v2/router/routes";
 
-export { isAuthExemptRoute, ROUTES } from "@/plugins/routeNames";
+export { isAuthExemptRoute, ROUTES };
 
 // Resolve the v2 component for a given route name, falling back to the 404
 // view so every route renders something when the user is on uiVersion=v2.
-function v2For(routeName: string) {
+function v2For(routeName: RouteName) {
   const component = v2RouteComponents[routeName];
   if (!component && import.meta.env.DEV) {
     console.warn(`[v2] route "${routeName}" has no v2 component; showing 404`);

@@ -6,7 +6,6 @@ export default defineConfig({
   files: ["src/**/*.ts", ".storybook/*.ts"],
   // `src/console` is frozen v1 and still holds cycles we are not refactoring.
   exclude: "node_modules|/src/console/",
-  circular: true,
   tree: false,
   warning: false,
   exitCode: "circular:1",

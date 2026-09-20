@@ -9,6 +9,8 @@ import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
+export { getDownloadLink, getDownloadPath } from "@/utils/downloadPath";
+
 /**
  * Views configuration object.
  */
@@ -106,8 +108,6 @@ export function convertCronExperssion(expression: string) {
     convertedExpression.substr(1);
   return convertedExpression;
 }
-
-export { getDownloadLink, getDownloadPath } from "@/utils/downloadPath";
 
 /**
  * Format bytes as human-readable text.

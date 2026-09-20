@@ -132,13 +132,10 @@ api.interceptors.response.use(
       const params = new URLSearchParams(search);
       const fullPath = pathname + search;
 
-      // The router instance is pulled in lazily so the module graph stays
-      // acyclic; a failed chunk load just leaves the caller with the 401.
+      // Loaded lazily: a static import evaluates the router while this module
+      // is still initialising, so `router` reads as undefined.
       // @dpdm-ignore
-      const router = await import("@/plugins/router")
-        .then((m) => m.default)
-        .catch(() => null);
-      if (!router) return Promise.reject(error);
+      const { default: router } = await import("@/plugins/router");
 
       // Don't redirect to login if already on an auth-exempt route.
       // Also resolve the route from the browser URL to handle the case where
