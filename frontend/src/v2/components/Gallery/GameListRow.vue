@@ -317,6 +317,8 @@ function onRowHighlight() {
 function onRowPointerDown(e: PointerEvent) {
   const item = rom.value;
   if (!item || isStatic.value || props.position === undefined) return;
+  // Reading the open panel is not a press on the row.
+  if ((e.target as Element | null)?.closest(".game-list-row__detail")) return;
   selectionInput.handlePointerDown(item, props.position, e);
 }
 function onRowPointerMove(e: PointerEvent) {

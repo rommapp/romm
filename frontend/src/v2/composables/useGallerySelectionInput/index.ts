@@ -100,6 +100,15 @@ export function useGallerySelectionInput() {
   ) {
     if (event.pointerType !== "touch") return;
     if (event.isPrimary === false) return;
+    // A press that lands on a control belongs to that control. The row and
+    // the card are an `<a>`, so neither matches this and both still track.
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest("button, input, select, textarea, [role='menuitem']")
+    ) {
+      return;
+    }
 
     resetLongPress();
     longPress = {
