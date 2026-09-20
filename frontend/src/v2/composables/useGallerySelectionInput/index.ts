@@ -63,6 +63,9 @@ let pressActive = false;
 /** Where the finger is, for the auto-scroll to keep painting from. */
 let paintPoint: { x: number; y: number } | null = null;
 let paintScroller: HTMLElement | null = null;
+/** The stretch of the scroller the list is actually reachable in, measured
+ *  past the chrome pinned over it. The bands live at its two ends. */
+let paintBounds: { top: number; bottom: number } | null = null;
 let edgeFrame: number | null = null;
 
 function stopEdgeScroll() {
@@ -70,6 +73,39 @@ function stopEdgeScroll() {
   edgeFrame = null;
   paintPoint = null;
   paintScroller = null;
+  paintBounds = null;
+}
+
+/** First row found straight down the hit stack, past anything over it. */
+function rowAt(x: number, y: number): HTMLElement | null {
+  for (const el of document.elementsFromPoint(x, y)) {
+    const host = el.closest<HTMLElement>("[data-rom-position]");
+    if (host) return host;
+  }
+  return null;
+}
+
+/** Where the list stops being covered, at each end: the column header and
+ *  toolbar pinned over the top, the nav and the selection bar over the
+ *  bottom. Probed rather than named, so no chrome's class name is load
+ *  bearing in here, and measured once per drag since it barely moves. */
+function reachableBounds(
+  scroller: HTMLElement,
+  x: number,
+): { top: number; bottom: number } {
+  const rect = scroller.getBoundingClientRect();
+  const STEP_PX = 8;
+  // Uncovered means the row is what the finger would touch, not chrome.
+  const uncovered = (y: number) =>
+    document.elementFromPoint(x, y)?.closest("[data-rom-position]") != null;
+
+  let top = rect.top;
+  while (top < rect.bottom && !uncovered(top)) top += STEP_PX;
+  if (top >= rect.bottom) return { top: rect.top, bottom: rect.bottom };
+
+  let bottom = rect.bottom;
+  while (bottom > top && !uncovered(bottom)) bottom -= STEP_PX;
+  return { top, bottom };
 }
 
 function resetLongPress() {
@@ -202,14 +238,10 @@ export function useGallerySelectionInput() {
   /** Select the row under the finger, if it is one we haven't painted. */
   function paintAt(clientX: number, clientY: number) {
     if (!painted) return;
-    // The bottom nav and the selection bar float over the list's lower edge,
-    // which is exactly where an auto-scrolling drag parks its finger, so look
-    // down the stack for the row rather than at whatever sits on top of it.
-    let host: HTMLElement | null = null;
-    for (const el of document.elementsFromPoint(clientX, clientY)) {
-      host = el.closest<HTMLElement>("[data-rom-position]");
-      if (host) break;
-    }
+    // Chrome floats over both ends of the list, and a drag parks its finger
+    // at exactly those ends, so take the row under it rather than the thing
+    // on top of it.
+    const host = rowAt(clientX, clientY);
     if (!host) return;
     const position = Number(host.dataset.romPosition);
     paintScroller ??= scrollableAncestor(host);
@@ -257,7 +289,8 @@ export function useGallerySelectionInput() {
     const scroller = paintScroller;
     const point = paintPoint;
     if (!painted || !scroller || !point) return;
-    const { top, bottom } = scroller.getBoundingClientRect();
+    paintBounds ??= reachableBounds(scroller, point.x);
+    const { top, bottom } = paintBounds;
     const speed = edgeSpeed(point.y, top, bottom);
     if (speed !== 0) {
       const before = scroller.scrollTop;
