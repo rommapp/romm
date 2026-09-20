@@ -72,7 +72,9 @@ import { usePinnedToolbar } from "@/v2/composables/usePinnedToolbar";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, {
+  orderSupportsLetters,
+} from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
 
@@ -289,11 +291,15 @@ const { total, charIndex, initialFetching, orderBy, orderDir } =
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
+// A non-alphabetical sort leaves the backend's letter offsets empty, so the
+// AlphaStrip and the letter grouping have nothing to point at.
+const lettersSupported = computed(() => orderSupportsLetters(orderBy.value));
+
 // Responsive columns — measure the section to chunk roms into rows.
 // Card width and inset track the breakpoint so phones pack more, smaller
 // cards instead of one stretched card per row:
-//   inset  = scroller padding (--r-row-pad × 2) + AlphaStrip column (36)
-//            → xs 14·2+36=64, sm 20·2+36=76, default 36·2+36=108
+//   inset  = scroller padding (--r-row-pad × 2) + the AlphaStrip column,
+//            which a sort without letters gives back to the cards
 //   card   = matches the `--r-card-art-w` the shell sets per breakpoint
 //            (108 on xs, 158 otherwise) so the JS row-chunking and the
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
@@ -302,12 +308,16 @@ const sectionEl = ref<HTMLElement | null>(null);
 // Card-art width reference (matches GameCard's `--r-card-art-w`); sets the
 // fixed card HEIGHT (a 2/3 cover at this width). Real width follows the ratio.
 const CARD_GAP_PX = 12;
+// JS mirrors of the CSS gutter: `--r-row-pad` per breakpoint, and the strip
+// column the scroller reserves on its right (`--r-v2-shell-strip`).
+const rowPadPx = () => (xs.value ? 14 : smAndDown.value ? 20 : 36);
+const STRIP_INSET_PX = 36;
 const cardWidth = () => (xs.value ? 130 : 158);
 const cardHeight = () => Math.round(cardWidth() / (2 / 3));
 const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   cardWidth,
   gap: CARD_GAP_PX,
-  inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
+  inset: () => rowPadPx() * 2 + (lettersSupported.value ? STRIP_INSET_PX : 0),
 });
 
 // Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
@@ -794,6 +804,7 @@ defineExpose({
     :class="{
       'r-v2-shell--list': layout === 'list',
       'r-v2-shell--floating': toolbarPosition === 'floating',
+      'r-v2-shell--no-strip': !lettersSupported,
     }"
     :style="{
       '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
@@ -834,6 +845,7 @@ defineExpose({
           >
             <GalleryToolbar
               :group-by="groupBy"
+              :group-by-disabled="!lettersSupported"
               :layout="layout"
               :position="toolbarPosition"
               :sort-dir="orderDir"
@@ -940,8 +952,10 @@ defineExpose({
       </template>
     </RVirtualScroller>
 
-    <!-- ALPHASTRIP — A-Z jump column on the right edge of the section. -->
+    <!-- ALPHASTRIP — A-Z jump column on the right edge of the section.
+         Only an alphabetical sort gives its letters anywhere to jump to. -->
     <AlphaStrip
+      v-if="lettersSupported"
       ref="stripRef"
       class="r-v2-shell__strip"
       :available="availableLetters"
@@ -958,6 +972,7 @@ defineExpose({
       v-if="toolbarPosition === 'floating'"
       class="r-v2-shell__floating"
       :group-by="groupBy"
+      :group-by-disabled="!lettersSupported"
       :layout="layout"
       :position="toolbarPosition"
       :sort-dir="orderDir"
@@ -1030,6 +1045,11 @@ html[data-bp~="sm-and-down"] .r-v2-shell {
     -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
   );
 }
+/* No strip to reserve room for, so the rows take the column back. */
+.r-v2-shell--no-strip {
+  --r-v2-shell-strip: 0px;
+}
+
 /* Phones: a wider letter column (bigger, more tappable letters). */
 html[data-bp~="xs"] .r-v2-shell {
   --r-alpha-strip-w: var(--r-alpha-strip-w-xs);

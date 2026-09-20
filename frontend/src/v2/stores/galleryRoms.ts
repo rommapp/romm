@@ -73,6 +73,21 @@ export function isGalleryOrderDir(value: string): value is GalleryOrderDir {
   return value === "asc" || value === "desc";
 }
 
+/** Sort keys backed by a plain string column. The backend builds its per-letter
+ * offset table (`with_char_index`) for those alone, and answers empty for the
+ * rest. */
+const LEXICAL_ORDER_KEYS: ReadonlySet<GalleryOrderKey> = new Set([
+  "name",
+  "fs_name",
+] as const);
+
+/** Whether the AlphaStrip and letter grouping have offsets to work with. Read
+ * off the key, not off an empty `charIndex`, which is also what a gallery
+ * shows before its first window lands. */
+export function orderSupportsLetters(key: GalleryOrderKey): boolean {
+  return LEXICAL_ORDER_KEYS.has(key);
+}
+
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 // Default window size — the backend's pagination limit. Smaller windows

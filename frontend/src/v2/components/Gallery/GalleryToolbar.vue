@@ -74,6 +74,10 @@ const props = withDefaults(
      *  to expose richer modes (family / category / generation) beyond
      *  the default flat / letter pair. */
     groupByItems?: GroupByItem[];
+    /** Dim the GroupBy control on top of the list-mode rule, for a sort
+     *  the grouping can't follow (the gallery's letter groups under a
+     *  non-alphabetical order). */
+    groupByDisabled?: boolean;
     /** Direction toggle for grid-mode sort. Disabled in list mode
      *  (list-mode sort is driven by the column-header clicks). */
     sortDir?: Ref<"asc" | "desc"> | "asc" | "desc";
@@ -103,6 +107,7 @@ const props = withDefaults(
   {
     position: "header",
     showGroupBy: true,
+    groupByDisabled: false,
     // Default groupBy items live in a setup-scope computed
     // (`defaultGroupByItems`) so labels go through `t()`. The
     // `withDefaults` factory is hoisted outside `setup()` and cannot
@@ -143,6 +148,12 @@ const groupByValue = computed(() => toValue(props.groupBy));
 const layoutValue = computed(() => toValue(props.layout));
 const sortDirValue = computed(() => toValue(props.sortDir));
 const sortKeyValue = computed(() => toValue(props.sortKey));
+
+// List mode sorts from its column headers, which leaves grouping inert;
+// the parent's own reason stacks on top of that.
+const effectiveGroupByDisabled = computed(
+  () => layoutValue.value === "list" || props.groupByDisabled,
+);
 
 const layoutItems = computed(() => [
   {
@@ -313,7 +324,7 @@ const { smAndUp } = useBreakpoint();
         :items="effectiveGroupByItems"
         variant="segmented"
         :aria-label="t('settings.platforms-drawer-group-by')"
-        :disabled="layoutValue === 'list'"
+        :disabled="effectiveGroupByDisabled"
         @update:model-value="setGroupBy"
       />
 
@@ -364,9 +375,8 @@ const { smAndUp } = useBreakpoint();
         @update:model-value="setLayout"
       />
 
-      <!-- Kebab mirror — only visible below smAndUp. Mirrors the slider
-           state: `groupBy` items disable in list mode, same way the
-           inline GroupBy slider does. -->
+      <!-- Kebab mirror — only visible below smAndUp. Mirrors the inline
+           sliders' state, including their disabled rules. -->
       <RMenu
         v-if="!smAndUp"
         location="bottom end"
@@ -403,7 +413,7 @@ const { smAndUp } = useBreakpoint();
             :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
             :icon="item.icon"
             :variant="groupByValue === item.id ? 'active' : 'default'"
-            :disabled="layoutValue === 'list'"
+            :disabled="effectiveGroupByDisabled"
             @click="setGroupBy(item.id)"
           />
           <RDivider />

@@ -7,8 +7,10 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
+// Shared so a test can collapse the toolbar into its kebab mirror.
+const smAndUp = ref(true);
 vi.mock("@/v2/composables/useBreakpoint", () => ({
-  useBreakpoint: () => ({ smAndUp: ref(true) }),
+  useBreakpoint: () => ({ smAndUp }),
 }));
 
 const modality = ref<"mouse" | "pad">("mouse");
@@ -146,5 +148,51 @@ describe("GalleryToolbar sort axis", () => {
 
     expect(activatorDisabled("list")).toBe("true");
     expect(activatorDisabled("grid")).toBe("false");
+  });
+});
+
+describe("GalleryToolbar group-by", () => {
+  function groupBySlider(wrapper: ReturnType<typeof mountToolbar>) {
+    return wrapper
+      .findAllComponents({ name: "RSliderBtnGroup" })
+      .find(
+        (slider) =>
+          slider.props("ariaLabel") === "settings.platforms-drawer-group-by",
+      );
+  }
+
+  function groupByMenuItems(wrapper: ReturnType<typeof mountToolbar>) {
+    return wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .filter((item) => item.props("label") === "gallery.view-grouped");
+  }
+
+  // The gallery dims the control when the active sort has no letters to
+  // group by; list mode dims it for its own reasons.
+  it("dims the cluster when the parent asks", () => {
+    const wrapper = mountToolbar({ groupByDisabled: true });
+
+    expect(groupBySlider(wrapper)?.props("disabled")).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("leaves the cluster live in grid mode by default", () => {
+    const wrapper = mountToolbar();
+
+    expect(groupBySlider(wrapper)?.props("disabled")).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("mirrors the disabled state into the kebab menu", () => {
+    smAndUp.value = false;
+    const wrapper = mountToolbar({ groupByDisabled: true }, RMenuPassthrough);
+
+    expect(groupByMenuItems(wrapper)).not.toHaveLength(0);
+    for (const item of groupByMenuItems(wrapper)) {
+      expect(item.props("disabled")).toBe(true);
+    }
+
+    wrapper.unmount();
+    smAndUp.value = true;
   });
 });

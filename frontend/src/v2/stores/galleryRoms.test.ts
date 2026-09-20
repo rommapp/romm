@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
 // Import after the mock so the store binds to the mocked rom API.
 import storeGalleryRoms, {
+  type GalleryOrderKey,
+  orderSupportsLetters,
   SELECT_ALL_PAGE_SIZE,
 } from "@/v2/stores/galleryRoms";
 
@@ -411,5 +413,30 @@ describe("galleryRoms length filter", () => {
 
     expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBeNull();
     expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(10 * 3600);
+  });
+});
+
+// Mirrors the backend's lexical test in `with_char_index`: it answers with an
+// empty letter table for anything but a string column, and the gallery hides
+// its letter surfaces on exactly those keys.
+describe("galleryRoms letter-capable sorts", () => {
+  it.each<GalleryOrderKey>(["name", "fs_name"])(
+    "indexes letters under %s",
+    (key) => {
+      expect(orderSupportsLetters(key)).toBe(true);
+    },
+  );
+
+  it.each<GalleryOrderKey>([
+    "platform_id",
+    "fs_size_bytes",
+    "created_at",
+    "updated_at",
+    "first_release_date",
+    "average_rating",
+    "hltb_main_story",
+    "last_played",
+  ])("has no letters to index under %s", (key) => {
+    expect(orderSupportsLetters(key)).toBe(false);
   });
 });
