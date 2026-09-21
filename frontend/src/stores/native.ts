@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import romApi from "@/services/api/rom";
 import {
+  canLaunchFullscreen,
   cancelNative,
   fetchPlatformSupport,
   isNativeShell,
@@ -27,6 +28,20 @@ import {
 
 export type { LaunchState, PlatformSupport } from "@/types/rommNative";
 
+/**
+ * What the play page has already settled about a session, for the launch that
+ * follows. Every field is optional: a caller with no panel behind it, a gallery
+ * card, asks for none of it and gets the platform's own answers.
+ */
+export interface NativeLaunchChoice {
+  /** The core to try first. A name the shell cannot find is one it installs, so
+   *  this is honoured even for a core the machine has never had. */
+  core?: string | null;
+  /** Whether to start the emulator fullscreen. Undefined asks for nothing,
+   *  leaving the emulator's own configuration to decide. */
+  fullscreen?: boolean;
+}
+
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -44,6 +59,10 @@ export const useNativeStore = defineStore("native", () => {
   /** Whether the page is running inside the shell at all. */
   const available = ref(isNativeShell());
   const shellVersion = ref(nativeShellVersion());
+  /** Whether a native launch takes the page's full-screen choice with it.
+   *  Read once, like the two above: the bridge is injected before the app
+   *  boots and a shell cannot gain a capability while its page is open. */
+  const honoursFullscreen = ref(canLaunchFullscreen());
 
   // Null prototype: RomM keeps whatever slug a folder is named, so "constructor"
   // and "toString" are slugs like any other, and on a plain object they would
@@ -218,6 +237,17 @@ export const useNativeStore = defineStore("native", () => {
     support.value = merged;
   }
 
+  /** The platform's cores with the page's choice at the front, named once. A
+   *  core the platform map does not list is still honoured: the page offered
+   *  it, and the shell's own preferences outrank this list anyway. */
+  function coresFor(rom: SimpleRom, chosen?: string | null): string[] {
+    const supported = getSupportedEJSCores(
+      resolvePlatformSlug(rom.platform_slug, configStore.config),
+    );
+    if (!chosen) return supported;
+    return [chosen, ...supported.filter((core) => core !== chosen)];
+  }
+
   /** The rom with its file entries, fetched when the copy in hand has none.
    *  `/api/roms` omits them unless asked (`with_files`), so a rom off a gallery
    *  card cannot say what the download endpoint will serve it as. */
@@ -232,11 +262,22 @@ export const useNativeStore = defineStore("native", () => {
     }
   }
 
-  /** Hand a ROM to the shell to launch, resolving with an error message only
-   *  when the shell never took the request (no bridge, a malformed request, a
-   *  game already running). A launch it accepted and then failed is left to
-   *  the launch state, whose error code every shell version reports. */
-  async function launch(rom: SimpleRom): Promise<string | null> {
+  /**
+   * Hand a ROM to the shell to launch, resolving with an error message only
+   * when the shell never took the request (no bridge, a malformed request, a
+   * game already running). A launch it accepted and then failed is left to
+   * the launch state, whose error code every shell version reports.
+   *
+   * `choice` is what the play page has already asked the user, so a native
+   * launch honours the same answers as the in-browser one rather than
+   * ignoring the panel they were given in. Everything it leaves out falls back
+   * to what the platform supports, which is what a caller with no page behind
+   * it (a gallery card) has to offer.
+   */
+  async function launch(
+    rom: SimpleRom,
+    choice: NativeLaunchChoice = {},
+  ): Promise<string | null> {
     const before = stateCount.value[rom.id] ?? 0;
     // A fresh launch is not the cancelled one, however the last ended.
     cancelled.value.delete(rom.id);
@@ -272,10 +313,18 @@ export const useNativeStore = defineStore("native", () => {
         // neither `fs_name` nor `fs_name` with an extension.
         fileName: getDownloadFileName(detailed),
         platformSlug: rom.platform_slug,
-        cores: getSupportedEJSCores(
-          resolvePlatformSlug(rom.platform_slug, configStore.config),
-        ),
+        // The page's core first, since the shell resolves the first candidate
+        // it finds installed and installs the first one it cannot find. The
+        // rest follow, so a choice whose core turns out not to be published
+        // still lands on something that plays the game.
+        cores: coresFor(rom, choice.core),
         name: rom.name ?? undefined,
+        // Sent whatever the shell advertises: an older one drops an unknown
+        // field and starts the emulator as its own config says, which is
+        // where it was before the page could ask.
+        ...(choice.fullscreen === undefined
+          ? {}
+          : { fullscreen: choice.fullscreen }),
         // Lets a shell on the same machine as the server play the file where it
         // already is. A shell without library-passthrough downloads instead.
         ...(soleFile
@@ -312,6 +361,7 @@ export const useNativeStore = defineStore("native", () => {
   return {
     available,
     shellVersion,
+    honoursFullscreen,
     // Exposed for a caller that builds a function inside a computed and needs
     // it rebuilt when the probe lands, the way streaming exposes its config.
     support,

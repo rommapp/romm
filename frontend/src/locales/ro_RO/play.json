@@ -120,6 +120,8 @@
   "multiplayer": "Mod multiplayer",
   "multiplayer-hint": "Afișează un buton Alătură-te pe pagina acestui joc și păstrează vizibile chatul și camera web.",
   "mute": "Dezactivează sunetul",
+  "native-applies-core": "Alegerea nucleului se aplică și emulatorului de pe acest dispozitiv.",
+  "native-applies-core-fullscreen": "Alegerea nucleului și a ecranului complet se aplică și emulatorului de pe acest dispozitiv.",
   "native-cancel": "Anulează lansarea",
   "native-cancel-failed": "Lansarea nu a putut fi anulată",
   "native-canceled": "Lansare anulată",

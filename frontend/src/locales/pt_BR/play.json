@@ -120,6 +120,8 @@
   "multiplayer": "Modo multijogador",
   "multiplayer-hint": "Mostra um botão Entrar na página deste jogo e mantém o chat e a webcam visíveis.",
   "mute": "Silenciar",
+  "native-applies-core": "A escolha de núcleo também se aplica ao emulador deste dispositivo.",
+  "native-applies-core-fullscreen": "A escolha de núcleo e tela cheia também se aplica ao emulador deste dispositivo.",
   "native-cancel": "Cancelar inicialização",
   "native-cancel-failed": "Não foi possível cancelar a inicialização",
   "native-canceled": "Inicialização cancelada",

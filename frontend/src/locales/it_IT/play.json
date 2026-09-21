@@ -120,6 +120,8 @@
   "multiplayer": "Modalità multigiocatore",
   "multiplayer-hint": "Mostra un pulsante Partecipa nella pagina di questo gioco e mantiene visibili chat e webcam.",
   "mute": "Disattiva audio",
+  "native-applies-core": "La scelta del core vale anche per l'emulatore di questo dispositivo.",
+  "native-applies-core-fullscreen": "La scelta del core e dello schermo intero vale anche per l'emulatore di questo dispositivo.",
   "native-cancel": "Annulla avvio",
   "native-cancel-failed": "Impossibile annullare l'avvio",
   "native-canceled": "Avvio annullato",

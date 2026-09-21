@@ -120,6 +120,8 @@
   "multiplayer": "Tryb wieloosobowy",
   "multiplayer-hint": "Wyświetla przycisk Dołącz na stronie tej gry i utrzymuje widoczny czat oraz kamerę internetową.",
   "mute": "Wycisz",
+  "native-applies-core": "Wybór rdzenia dotyczy też emulatora na tym urządzeniu.",
+  "native-applies-core-fullscreen": "Wybór rdzenia i pełnego ekranu dotyczy też emulatora na tym urządzeniu.",
   "native-cancel": "Anuluj uruchamianie",
   "native-cancel-failed": "Nie udało się anulować uruchamiania",
   "native-canceled": "Uruchamianie anulowane",

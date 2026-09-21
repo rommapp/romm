@@ -4,6 +4,7 @@ import type {
   RommNativeBridge,
 } from "@/types/rommNative";
 import {
+  canLaunchFullscreen,
   canSyncSaves,
   cancelNative,
   fetchPlatformSupport,
@@ -82,6 +83,30 @@ describe("canSyncSaves", () => {
     });
 
     expect(canSyncSaves()).toBe(true);
+  });
+});
+
+describe("canLaunchFullscreen", () => {
+  // Such a shell starts the emulator however its own configuration says, so the
+  // page's switch stays the browser player's alone rather than claiming both.
+  it("is false on a shell that does not advertise it", () => {
+    installBridge({ launch: vi.fn(), capabilities: ["save-sync"] });
+
+    expect(canLaunchFullscreen()).toBe(false);
+  });
+
+  it("is true once the shell advertises it", () => {
+    installBridge({
+      launch: vi.fn(),
+      capabilities: ["launch-fullscreen"],
+    });
+
+    expect(canLaunchFullscreen()).toBe(true);
+  });
+
+  // Outside the shell there is no launch to make fullscreen.
+  it("is false with no bridge at all", () => {
+    expect(canLaunchFullscreen()).toBe(false);
   });
 });
 

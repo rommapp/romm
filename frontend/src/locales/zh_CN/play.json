@@ -120,6 +120,8 @@
   "multiplayer": "多人模式",
   "multiplayer-hint": "在该游戏页面显示“加入”按钮，并保持聊天和摄像头可见。",
   "mute": "静音",
+  "native-applies-core": "核心选项同样适用于本设备上的模拟器。",
+  "native-applies-core-fullscreen": "核心与全屏选项同样适用于本设备上的模拟器。",
   "native-cancel": "取消启动",
   "native-cancel-failed": "无法取消启动",
   "native-canceled": "已取消启动",

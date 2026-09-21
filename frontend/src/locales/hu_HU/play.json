@@ -120,6 +120,8 @@
   "multiplayer": "Többjátékos mód",
   "multiplayer-hint": "Csatlakozás gombot jelenít meg a játék oldalán, és láthatóan tartja a csevegést és a webkamerát.",
   "mute": "Némítás",
+  "native-applies-core": "A mag beállítása a készülék emulátorára is érvényes.",
+  "native-applies-core-fullscreen": "A mag és a teljes képernyő beállítása a készülék emulátorára is érvényes.",
   "native-cancel": "Indítás megszakítása",
   "native-cancel-failed": "Az indítást nem sikerült megszakítani",
   "native-canceled": "Indítás megszakítva",

@@ -120,6 +120,8 @@
   "multiplayer": "Multiplayer mode",
   "multiplayer-hint": "Shows a Join button on this game's page and keeps chat and webcam visible.",
   "mute": "Mute",
+  "native-applies-core": "The core choice applies to this device's emulator too.",
+  "native-applies-core-fullscreen": "The core and full-screen choices apply to this device's emulator too.",
   "native-cancel": "Cancel launch",
   "native-cancel-failed": "Could not cancel the launch",
   "native-canceled": "Launch cancelled",

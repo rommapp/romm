@@ -17,6 +17,14 @@ const mocks = vi.hoisted(() => ({
   emulator: null as string | null,
   launching: false,
   launchState: null as LaunchState | null,
+  /** What the platform's core map offers, which is what the setup panel lists
+   *  and what the first core resolves from. */
+  cores: [] as string[],
+  /** Whether the shell takes the page's full-screen answer with it. */
+  honoursFullscreen: false,
+  // A box, like syncOutcome: the preference is a ref the view keeps, so a test
+  // that flips it has to write through the same object.
+  fullscreen: { value: false },
   // A box rather than the value: the store's getter has to read something the
   // watcher can track, so the mock swaps this for a reactive object.
   syncOutcome: { value: null as SaveSyncOutcome | null },
@@ -63,6 +71,7 @@ vi.mock("@/stores/native", async () => {
       labelForPlatform: () => mocks.emulator,
       launchStateFor: () => mocks.launchState,
       syncFor: () => mocks.syncOutcome.value,
+      honoursFullscreen: mocks.honoursFullscreen,
       launch: mocks.launch,
       cancel: mocks.cancel,
     }),
@@ -72,7 +81,7 @@ vi.mock("@/stores/native", async () => {
 vi.mock("@/utils", () => ({
   areThreadsRequiredForEJSCore: () => false,
   formatRelativeDate: (value: string) => value,
-  getSupportedEJSCores: () => [],
+  getSupportedEJSCores: () => mocks.cores,
 }));
 
 vi.mock("@/v2/composables/useCanPlay", async () => {
@@ -109,8 +118,9 @@ vi.mock("@/v2/composables/useFullscreenFallback", () => ({
 }));
 
 vi.mock("@/v2/composables/useFullscreenPref", async () => {
-  const { ref } = await import("vue");
-  return { useFullscreenPref: () => ({ fullscreenOnPlay: ref(false) }) };
+  const { reactive } = await import("vue");
+  Object.assign(mocks, { fullscreen: reactive(mocks.fullscreen) });
+  return { useFullscreenPref: () => ({ fullscreenOnPlay: mocks.fullscreen }) };
 });
 
 vi.mock("@/v2/composables/useInputModality", async () => {
@@ -217,6 +227,9 @@ beforeEach(() => {
   mocks.launching = false;
   mocks.launchState = null;
   mocks.syncOutcome.value = null;
+  mocks.cores = [];
+  mocks.honoursFullscreen = false;
+  mocks.fullscreen.value = false;
 });
 
 describe("EmulatorJS launch screen — play routes", () => {
@@ -270,7 +283,68 @@ describe("EmulatorJS launch screen — play routes", () => {
 
     await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
 
-    expect(mocks.launch).toHaveBeenCalledWith(ROM);
+    // No core map for the platform is no core to ask for, which leaves the
+    // shell to resolve one from the candidates it is given.
+    expect(mocks.launch).toHaveBeenCalledWith(ROM, {
+      core: undefined,
+      fullscreen: false,
+    });
+  });
+
+  // The setup panel sits beside both buttons, so a choice made in it that only
+  // reached one of them would be a panel that lies about half the page.
+  it("sends the panel's core and full-screen answers with the launch", async () => {
+    mocks.canPlayNative = true;
+    mocks.cores = ["mgba", "vba_next"];
+    mocks.fullscreen.value = true;
+    const wrapper = await launchScreen();
+
+    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+
+    expect(mocks.launch).toHaveBeenCalledWith(ROM, {
+      core: "mgba",
+      fullscreen: true,
+    });
+  });
+});
+
+describe("EmulatorJS launch screen — what the setup panel claims", () => {
+  beforeEach(() => {
+    mocks.canPlayNative = true;
+    mocks.cores = ["mgba", "vba_next"];
+  });
+
+  it("says the core and full-screen answers reach the shell", async () => {
+    mocks.honoursFullscreen = true;
+
+    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+      "play.native-applies-core-fullscreen",
+    );
+  });
+
+  it("claims only the core on a shell that cannot take the rest", async () => {
+    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+      "play.native-applies-core",
+    );
+  });
+
+  it("says nothing about a route the page is not offering", async () => {
+    mocks.canPlayNative = false;
+
+    expect((await launchScreen()).find(".r-v2-ejs__setup-note").exists()).toBe(
+      false,
+    );
+  });
+
+  // The line would name a select that is not rendered: a platform with one core
+  // is not offering a choice to carry anywhere.
+  it("says nothing where there is no core to choose", async () => {
+    mocks.cores = ["mgba"];
+    mocks.honoursFullscreen = true;
+
+    expect((await launchScreen()).find(".r-v2-ejs__setup-note").exists()).toBe(
+      false,
+    );
   });
 });
 

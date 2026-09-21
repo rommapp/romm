@@ -36,6 +36,13 @@ export function canSyncSaves(): boolean {
   return isNativeShell() && hasCapability("save-sync");
 }
 
+/** Whether a native launch honours the page's full-screen choice. A shell
+ *  without it starts the emulator however the user's own emulator config says,
+ *  so the switch is the browser player's alone. */
+export function canLaunchFullscreen(): boolean {
+  return isNativeShell() && hasCapability("launch-fullscreen");
+}
+
 /** Whether the page is running inside the desktop shell at all. */
 export function isNativeShell(): boolean {
   return hasMethod("launch");

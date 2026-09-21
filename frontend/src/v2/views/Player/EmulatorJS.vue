@@ -310,6 +310,21 @@ const nativeEmulator = computed(() =>
   emulatorName(nativeStore.labelForPlatform(heroRom.value?.platform_slug)),
 );
 
+// What the settings panel says about the other route. Null outside the shell,
+// on a platform with no in-browser core at all, where the panel is not
+// rendered, and on one with a single core, where the line would name a control
+// that is not on screen: a choice nobody was offered needs no explaining.
+const nativeSettingsNote = computed(() => {
+  if (!canPlayNative.value || nativeOnly.value) return null;
+  if (supportedCores.value.length <= 1) return null;
+  // Not named after the emulator: what the line has to say is which of these
+  // controls survive the choice of player, and the buttons above have already
+  // named the emulator.
+  return nativeStore.honoursFullscreen
+    ? t("play.native-applies-core-fullscreen")
+    : t("play.native-applies-core");
+});
+
 // The native button is its own progress readout, so while the shell works the
 // label says what it is waiting for.
 const nativeLabel = computed(() => {
@@ -350,7 +365,13 @@ const nativeLabel = computed(() => {
 // here. The refusal's own wording is English, hence the console.
 async function onPlayNative() {
   if (!rom.value) return;
-  const refusal = await nativeStore.launch(rom.value);
+  // Remembered for both routes: the core is a choice about this game, not
+  // about which player runs it.
+  rememberCore(romId, rom.value.platform_slug, selectedCore.value);
+  const refusal = await nativeStore.launch(rom.value, {
+    core: selectedCore.value,
+    fullscreen: fullscreenOnPlay.value,
+  });
   if (!refusal) return;
   console.error("[native] The shell refused the launch:", refusal);
   snackbar.error(t("play.native-launch-failed", { name: title.value }), {
@@ -1007,6 +1028,13 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
             v-model="showBezel"
             :label="t('play.show-bezel')"
           />
+          <!-- Which of the above the native route takes with it. Said here
+               rather than left to be discovered: the rest of this panel is
+               EmulatorJS' own, and a choice that silently applies to one
+               player and not the other is worse than a line of text. -->
+          <p v-if="nativeSettingsNote" class="r-v2-ejs__setup-note">
+            {{ nativeSettingsNote }}
+          </p>
         </div>
         <div class="r-v2-ejs__setup-foot">
           <RBtn
@@ -1345,6 +1373,11 @@ html[data-bp~="md-and-up"]
   flex-direction: column;
   gap: 12px;
   flex: 1;
+}
+.r-v2-ejs__setup-note {
+  margin: 0;
+  font-size: var(--r-font-size-xs);
+  color: var(--r-color-fg-faint);
 }
 .r-v2-ejs__setup-foot {
   border-top: 1px solid var(--r-color-border);

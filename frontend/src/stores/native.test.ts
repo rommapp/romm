@@ -229,6 +229,36 @@ describe("useNativeStore.launch", () => {
     });
   });
 
+  // The shell resolves the first candidate it finds installed, and installs
+  // the first one it cannot find, so the page's pick has to lead the list.
+  it("puts the chosen core first and keeps the rest behind it", async () => {
+    const store = useNativeStore();
+
+    await store.launch(makeRom(), { core: "bsnes" });
+
+    expect(launchNative.mock.calls[0]?.[0].cores).toEqual(["bsnes", "snes9x"]);
+  });
+
+  it("names a chosen core once, however the platform lists it", async () => {
+    const store = useNativeStore();
+
+    await store.launch(makeRom(), { core: "snes9x" });
+
+    expect(launchNative.mock.calls[0]?.[0].cores).toEqual(["snes9x"]);
+  });
+
+  it("asks for a display mode only when the page answered", async () => {
+    const store = useNativeStore();
+
+    await store.launch(makeRom(), { fullscreen: true });
+    expect(launchNative.mock.calls[0]?.[0].fullscreen).toBe(true);
+
+    await store.launch(makeRom());
+    // Absent rather than false: a launch with nothing to say leaves the
+    // emulator's own configuration to decide.
+    expect(launchNative.mock.calls[1]?.[0]).not.toHaveProperty("fullscreen");
+  });
+
   // The rom's own fs_name is neither what a folder rom is served as nor what
   // it is stored as, so the request carries what the helper resolved.
   it("sends the name the endpoint will serve, not the rom's own", async () => {

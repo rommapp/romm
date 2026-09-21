@@ -37,6 +37,11 @@ export interface LaunchRequest {
   /** Size in bytes as the server reports it, checked against the local file
    *  before it stands in for a download. */
   fileSize?: number;
+  /** Start the emulator fullscreen, so the play page's own choice covers both
+   *  routes. Only a shell advertising `launch-fullscreen` acts on it, and only
+   *  on its built-in RetroArch path; a configured emulator decides it in the
+   *  arguments its owner wrote. */
+  fullscreen?: boolean;
 }
 
 export type LaunchStatus =
@@ -147,7 +152,10 @@ export type ShellCapability =
   /** Saves are moved between the server and the emulator around a native
    *  launch. Save states are not, and a shell without this leaves both sides of
    *  it undone. */
-  | "save-sync";
+  | "save-sync"
+  /** `LaunchRequest.fullscreen` is honoured, so the page's own full-screen
+   *  choice covers a native launch as well as the in-browser one. */
+  | "launch-fullscreen";
 
 export interface RommNativeBridge {
   readonly shellVersion: string;

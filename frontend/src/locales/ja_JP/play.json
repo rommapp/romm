@@ -120,6 +120,8 @@
   "multiplayer": "マルチプレイヤーモード",
   "multiplayer-hint": "このゲームのページに参加ボタンを表示し、チャットとウェブカメラを表示したままにします。",
   "mute": "ミュート",
+  "native-applies-core": "コアの選択は、この端末のエミュレーターにも適用されます。",
+  "native-applies-core-fullscreen": "コアと全画面の選択は、この端末のエミュレーターにも適用されます。",
   "native-cancel": "起動をキャンセル",
   "native-cancel-failed": "起動をキャンセルできませんでした",
   "native-canceled": "起動をキャンセルしました",

@@ -120,6 +120,8 @@
   "multiplayer": "Çok oyunculu mod",
   "multiplayer-hint": "Bu oyunun sayfasında bir Katıl düğmesi gösterir, sohbeti ve web kamerasını görünür tutar.",
   "mute": "Sessize al",
+  "native-applies-core": "Çekirdek seçimi bu cihazdaki emülatör için de geçerlidir.",
+  "native-applies-core-fullscreen": "Çekirdek ve tam ekran seçimi bu cihazdaki emülatör için de geçerlidir.",
   "native-cancel": "Başlatmayı iptal et",
   "native-cancel-failed": "Başlatma iptal edilemedi",
   "native-canceled": "Başlatma iptal edildi",

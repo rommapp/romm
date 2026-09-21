@@ -120,6 +120,8 @@
   "multiplayer": "Mode multijoueur",
   "multiplayer-hint": "Affiche un bouton Rejoindre sur la page de ce jeu et garde le chat et la webcam visibles.",
   "mute": "Couper le son",
+  "native-applies-core": "Le choix du noyau s'applique aussi à l'émulateur de cet appareil.",
+  "native-applies-core-fullscreen": "Le choix du noyau et du plein écran s'applique aussi à l'émulateur de cet appareil.",
   "native-cancel": "Annuler le lancement",
   "native-cancel-failed": "Impossible d'annuler le lancement",
   "native-canceled": "Lancement annulé",

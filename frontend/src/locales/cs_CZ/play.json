@@ -120,6 +120,8 @@
   "multiplayer": "Režim pro více hráčů",
   "multiplayer-hint": "Na stránce hry se zobrazí tlačítko Připojit se a chat i webkamera zůstanou viditelné.",
   "mute": "Ztlumit",
+  "native-applies-core": "Volba jádra platí i pro emulátor v tomto zařízení.",
+  "native-applies-core-fullscreen": "Volba jádra a celé obrazovky platí i pro emulátor v tomto zařízení.",
   "native-cancel": "Zrušit spuštění",
   "native-cancel-failed": "Spuštění nelze zrušit",
   "native-canceled": "Spuštění zrušeno",
