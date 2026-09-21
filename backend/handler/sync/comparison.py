@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Literal, NamedTuple
 
 from utils.datetime import to_utc
