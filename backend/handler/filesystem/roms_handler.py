@@ -205,7 +205,7 @@ REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
 # ("[tr]", "[tr fr]") and plainer sets ("(Translation)") write it. Anchored so
 # a tag that merely starts with "tr", like "Trainer", is not one.
 TRANSLATION_TAG_REGEX = re.compile(
-    r"^(?:t[+-](?P<goodtools>[a-z]{2,3}).*"
+    r"^(?:t(?:(?P<superseded>-)|\+)(?P<goodtools>[a-z]{2,3})(?P<patch>.*)"
     r"|t[\s_-]+(?P<spaced>[a-z]{2,3}).*"
     r"|tr(?:[\s_-]+(?P<tosec>[a-z]{2,3}))?"
     r"|translat(?:ed|ion))$",
@@ -430,9 +430,12 @@ class FSRomsHandler(FSHandler):
                 code = spaced or translation_match["goodtools"]
                 code = code or translation_match["tosec"]
                 language = translation_language(code) if code else None
-                # "T Fre" is a translation, "T Rex" is a tag: a space carries
-                # no meaning, so that spelling has to name a language.
-                if language or not spaced:
+                # "T Rex" and a suffixless "T-Rex" collide with ordinary words,
+                # so those two spellings only count when the code is a language.
+                bare_superseded = (
+                    translation_match["superseded"] and not translation_match["patch"]
+                )
+                if language or not (spaced or bare_superseded):
                     if TRANSLATION_TAG not in other_tags:
                         other_tags.append(TRANSLATION_TAG)
                     if language and language not in languages:

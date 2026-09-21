@@ -333,6 +333,22 @@ class TestFSRomsHandler:
         assert parsed.languages == ["German"]
         assert parsed.other_tags == ["Translation"]
 
+    def test_parse_tags_leaves_a_hyphenated_word_alone(self, handler: FSRomsHandler):
+        """A suffixless "T-" tag has to name a language, so "T-Rex" is a tag."""
+        parsed = handler.parse_tags("Game (USA) (T-Rex).nes")
+
+        assert parsed.other_tags == ["T-Rex"]
+        assert parsed.languages == []
+
+    def test_parse_tags_reads_a_superseded_patch_of_an_unnamed_language(
+        self, handler: FSRomsHandler
+    ):
+        """Carrying a patch version marks it as GoodTools', not a stray word."""
+        parsed = handler.parse_tags("Game (Japan) [T-Tha1.0_Grp].gba")
+
+        assert parsed.other_tags == ["Translation"]
+        assert parsed.languages == []
+
     def test_parse_tags_reads_a_spaced_translation(self, handler: FSRomsHandler):
         """GoodTools also separates with a space, as ScreenScraper spells it."""
         parsed = handler.parse_tags("Super Mario Bros. (W) [T Fre].nes")
