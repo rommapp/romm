@@ -1449,14 +1449,14 @@ async def scan_rom(
                 break
 
     for field in PROVIDER_MERGED_TAG_FIELDS:
-        merged = list(rom_attrs.get(field) or [])
+        merged_tags = list(rom_attrs.get(field) or [])
         for source_name in priority_ordered:
             if source_name not in HASH_MATCHED_TAG_SOURCES:
                 continue
             for tag in metadata_handlers[source_name]["handler"].get(field) or []:
-                if tag not in merged:
-                    merged.append(tag)
-        rom_attrs[field] = merged
+                if tag not in merged_tags:
+                    merged_tags.append(tag)
+        rom_attrs[field] = merged_tags
 
     # Artwork sources are prioritized separately, and each field can carry its
     # own override on top of the shared artwork priority.
