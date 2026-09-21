@@ -200,6 +200,39 @@ def normalize_language(tag: str) -> str | None:
     return _LANGUAGE_BY_ALIAS.get(tag.strip().lower())
 
 
+# The three-letter codes a translation tag names its target language with
+# ("[T+Eng]", "[T-Ita]"), which no other tag uses. Only the languages RomM can
+# name: a translation into one it cannot is still tagged, just not filed under
+# a language.
+_TRANSLATION_LANGUAGE_ALIASES = {
+    "ara": "Arabic",
+    "chi": "Chinese",
+    "dan": "Danish",
+    "dut": "Dutch",
+    "eng": "English",
+    "fin": "Finnish",
+    "fre": "French",
+    "ger": "German",
+    "gre": "Greek",
+    "ita": "Italian",
+    "jap": "Japanese",
+    "kor": "Korean",
+    "nor": "Norwegian",
+    "pol": "Polish",
+    "por": "Portuguese",
+    "rus": "Russian",
+    "ser": "Serbian",
+    "spa": "Spanish",
+    "swe": "Swedish",
+}
+
+
+def translation_language(code: str) -> str | None:
+    """Resolve the language a translation tag targets, or None."""
+    tag = code.strip().lower()
+    return normalize_language(tag) or _TRANSLATION_LANGUAGE_ALIASES.get(tag)
+
+
 class CoverSize(Enum):
     SMALL = "small"
     BIG = "big"

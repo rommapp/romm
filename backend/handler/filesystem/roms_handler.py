@@ -69,6 +69,7 @@ from .base_handler import (
     FSHandler,
     normalize_language,
     normalize_region,
+    translation_language,
 )
 
 # PICO-8 cartridges are often stored as PNG files
@@ -199,6 +200,20 @@ GENERIC_TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)(?:[\s._-](.*)|([.\d].*))", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
 REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
+
+# A fan translation, as GoodTools ("[T+Eng1.1_RPGe]", "[T-Ita]"), TOSEC
+# ("[tr]", "[tr fr]") and plainer sets ("(Translation)") write it. Anchored so
+# a tag that merely starts with "tr", like "Trainer", is not one.
+TRANSLATION_TAG_REGEX = re.compile(
+    r"^(?:t[+-](?P<goodtools>[a-z]{2,3}).*"
+    r"|tr(?:[\s_-]+(?P<tosec>[a-z]{2,3}))?"
+    r"|translat(?:ed|ion))$",
+    re.I,
+)
+
+# The tag a translated dump carries, in place of the group and patch version
+# the raw tag encodes, which would give every translation its own facet value.
+TRANSLATION_TAG = "Translation"
 
 
 @dataclass(frozen=True)
@@ -404,6 +419,18 @@ class FSRomsHandler(FSHandler):
             # Language by exact code, for the same reason
             if raw_tag in LANGUAGES_BY_SHORTCODE.keys():
                 languages.append(LANGUAGES_BY_SHORTCODE[raw_tag])
+                continue
+
+            # A translation names its target language, so it is read before the
+            # language pass: the game is playable in that language now.
+            translation_match = TRANSLATION_TAG_REGEX.match(raw_tag)
+            if translation_match:
+                if TRANSLATION_TAG not in other_tags:
+                    other_tags.append(TRANSLATION_TAG)
+                code = translation_match["goodtools"] or translation_match["tosec"]
+                language = translation_language(code) if code else None
+                if language and language not in languages:
+                    languages.append(language)
                 continue
 
             # Region by name, alternate spelling, or differently-cased code.

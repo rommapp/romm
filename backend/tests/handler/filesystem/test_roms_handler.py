@@ -303,6 +303,61 @@ class TestFSRomsHandler:
         assert handler.parse_tags("Game (nl).rom").regions == ["Netherlands"]
         assert handler.parse_tags("Game (no).rom").regions == ["Norway"]
 
+    def test_parse_tags_reads_a_goodtools_translation(self, handler: FSRomsHandler):
+        """A fan translation is playable in the language it targets, so the tag
+        names the language as well as marking the dump."""
+        parsed = handler.parse_tags("Final Fantasy V (Japan) [T+Eng1.1_RPGe].sfc")
+
+        assert parsed.regions == ["Japan"]
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_superseded_translation(self, handler: FSRomsHandler):
+        """GoodTools marks an older patch "T-", which is still a translation."""
+        parsed = handler.parse_tags("Bahamut Lagoon (Japan) [T-Eng0.98_DeJap].sfc")
+
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_tosec_translation(self, handler: FSRomsHandler):
+        parsed = handler.parse_tags("Game (1994)(Konami)(JP)[tr fr].tap")
+
+        assert parsed.languages == ["French"]
+        assert "Translation" in parsed.other_tags
+
+    def test_parse_tags_translation_without_a_language(self, handler: FSRomsHandler):
+        """ "(Tr)" names no language, so the dump is marked and nothing more."""
+        parsed = handler.parse_tags("Game (Japan) (Tr).md")
+
+        assert parsed.languages == []
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_translation_does_not_repeat_a_language(
+        self, handler: FSRomsHandler
+    ):
+        """A file carrying both spellings is filed under the language once."""
+        parsed = handler.parse_tags("Seiken Densetsu 3 (Japan) (En) (Translation).sfc")
+
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_leaves_other_tr_tags_alone(self, handler: FSRomsHandler):
+        """Only the translation forms match: a tag merely starting with "tr" is
+        an ordinary tag."""
+        parsed = handler.parse_tags("Game (USA) (Trainer).nes")
+
+        assert parsed.other_tags == ["Trainer"]
+        assert parsed.languages == []
+
+    def test_parse_tags_translation_into_an_unnamed_language(
+        self, handler: FSRomsHandler
+    ):
+        """A language RomM cannot name still marks the dump as translated."""
+        parsed = handler.parse_tags("Game (Japan) [T+Tha].gba")
+
+        assert parsed.languages == []
+        assert parsed.other_tags == ["Translation"]
+
     def test_parse_tags_language_casing_is_normalized(self, handler: FSRomsHandler):
         """Language names collapse to one canonical spelling regardless of casing."""
         for fs_name in (
