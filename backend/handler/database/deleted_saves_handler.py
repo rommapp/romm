@@ -11,9 +11,8 @@ from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler
 
-# Versions remembered per slot. A slot emptied again and again is a slot whose
-# oldest versions no device still holds, and the row is read on every
-# negotiation that finds the slot empty.
+# Versions remembered per slot: the oldest are ones no device still holds,
+# and this row is read on every negotiation that finds the slot empty.
 MAX_REMEMBERED_HASHES = 20
 
 
@@ -86,9 +85,8 @@ class DBDeletedSavesHandler(DBBaseHandler):
         if content_hash and content_hash not in hashes:
             hashes.append(content_hash)
         record.content_hashes = hashes[-MAX_REMEMBERED_HASHES:]
-        # The latest, so a row read by hand says when the slot was last
-        # emptied. Through to_utc, since a stored value comes back naive on
-        # MariaDB and comparing that with an aware one raises.
+        # Through to_utc: a stored value comes back naive on MariaDB, and
+        # comparing that with an aware one raises.
         record.deleted_at = max(to_utc(record.deleted_at), to_utc(deleted_at))
         session.flush()
         return record

@@ -198,9 +198,8 @@ def negotiate_sync(
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
 
-    # Slots this user emptied, which is what tells a client holding one that it
-    # was deleted rather than never uploaded. Only read when the slot has no row
-    # left, so a slot refilled since keeps its record harmlessly.
+    # Read only when a slot has no row left, so a slot refilled since keeps
+    # its record harmlessly.
     deleted_map: dict[tuple[int, str | None], DeletedSave] = {
         (record.rom_id, record.slot): record
         for record in db_deleted_save_handler.get_deletions(
@@ -224,9 +223,8 @@ def negotiate_sync(
         server_save = server_save_map.get(key)
 
         if server_save is None:
-            # A slot emptied here is the one case the client cannot work out:
-            # its own copy looks the same either way, so without this it would
-            # upload the save back and undo the deletion.
+            # Without this the client offers the save back and the deletion
+            # undoes itself.
             deletion = deleted_map.get(key)
             deleted = deletion is not None and deleted_slot_covers(
                 client_save.content_hash, deletion.content_hashes or []

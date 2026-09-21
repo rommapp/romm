@@ -77,10 +77,8 @@ def compare_save_state(
 def deleted_slot_covers(client_hash: str | None, deleted_hashes: Sequence[str]) -> bool:
     """Whether a client's copy is one of the versions a slot lost.
 
-    Identity rather than time: a client's timestamp comes from its own clock,
-    and a device running slow would be told to delete progress it made after
-    the deletion. Bytes nobody deleted are offered back instead, which costs a
-    deletion that does not reach that device rather than a save that is gone.
+    Identity rather than time, since a client's clock is not the server's:
+    bytes nobody deleted are offered back rather than dropped.
 
     Args:
         client_hash: The digest the client reported, when it reported one.

@@ -771,12 +771,9 @@ async def delete_saves(
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
-        # Remembered first. A slot emptied on purpose is the one thing a
-        # negotiation cannot work out for itself, since the save's device
-        # pairings go with it, and the two steps are separate transactions with
-        # file removal between them: a record for a save that is somehow still
-        # there is never read, while a deletion with no record offers the save
-        # back to every device holding it.
+        # Remembered first: these are separate transactions, and a record for
+        # a save still present is never read, while a deletion with no record
+        # offers the save back to every device holding it.
         if save.slot:
             db_deleted_save_handler.record_deletion(
                 user_id=request.user.id,
