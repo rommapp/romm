@@ -1401,9 +1401,11 @@ class ConfigManager:
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
         fs_slug = fs_slug.lower()
         platform_bindings = self.config.PLATFORMS_BINDING
-        if fs_slug in platform_bindings:
-            log.warning(f"Binding for {hl(fs_slug)} already exists")
+        bound = platform_bindings.get(fs_slug)
+        if bound == slug:
             return None
+        if bound:
+            log.info(f"Rebinding {hl(fs_slug)} from {hl(bound)} to {hl(slug)}")
 
         platform_bindings[fs_slug] = slug
         self.config.PLATFORMS_BINDING = platform_bindings
@@ -1423,9 +1425,11 @@ class ConfigManager:
     def add_platform_version(self, fs_slug: str, slug: str) -> None:
         fs_slug = fs_slug.lower()
         platform_versions = self.config.PLATFORMS_VERSIONS
-        if fs_slug in platform_versions:
-            log.warning(f"Version for {hl(fs_slug)} already exists")
+        parent = platform_versions.get(fs_slug)
+        if parent == slug:
             return None
+        if parent:
+            log.info(f"Reparenting {hl(fs_slug)} from {hl(parent)} to {hl(slug)}")
 
         platform_versions[fs_slug] = slug
         self.config.PLATFORMS_VERSIONS = platform_versions

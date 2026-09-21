@@ -630,6 +630,26 @@ def test_platform_binding_lookup_ignores_case(tmp_path):
     assert loader.config.PLATFORMS_BINDING == {}
 
 
+def test_rebinding_a_folder_replaces_the_existing_platform(tmp_path):
+    loader = _write_config(tmp_path, '  platforms:\n    GameCube: "ngc"\n')
+
+    loader.add_platform_binding("GameCube", "wii")
+
+    assert loader.config.PLATFORMS_BINDING == {"gamecube": "wii"}
+    reloaded = ConfigManager(loader.config_file)
+    assert reloaded.config.PLATFORMS_BINDING == {"gamecube": "wii"}
+
+
+def test_reparenting_a_folder_replaces_the_existing_version(tmp_path):
+    loader = _write_config(tmp_path, '  versions:\n    NAOMI: "arcade"\n')
+
+    loader.add_platform_version("naomi", "dc")
+
+    assert loader.config.PLATFORMS_VERSIONS == {"naomi": "dc"}
+    reloaded = ConfigManager(loader.config_file)
+    assert reloaded.config.PLATFORMS_VERSIONS == {"naomi": "dc"}
+
+
 def _write_emulatorjs_config(tmp_path: Path, emulatorjs_block: str) -> ConfigManager:
     config_file = tmp_path / "config.yml"
     config_file.write_text(f"emulatorjs:\n{emulatorjs_block}")

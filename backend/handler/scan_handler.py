@@ -292,7 +292,16 @@ async def scan_platform(
         if platform:
             known_fs_slug = resolve_fs_slug(platform.slug, cnfg)
             if known_fs_slug:
-                platform_attrs["fs_slug"] = known_fs_slug
+                # Config keys are lowercased, but every path is built from the
+                # folder's own casing, so prefer the one on disk.
+                platform_attrs["fs_slug"] = next(
+                    (
+                        folder
+                        for folder in fs_platforms
+                        if folder.lower() == known_fs_slug.lower()
+                    ),
+                    known_fs_slug,
+                )
 
     platform_attrs["slug"] = resolve_platform_slug(fs_slug, cnfg)
 
