@@ -319,17 +319,29 @@ class TestFSRomsHandler:
         assert parsed.languages == ["English"]
         assert parsed.other_tags == ["Translation"]
 
+    def test_parse_tags_reads_a_two_letter_translation(self, handler: FSRomsHandler):
+        """The code may be the two-letter form, "[T-En]" for "[T-Eng]"."""
+        parsed = handler.parse_tags("Game (Japan) [T-En].sfc")
+
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_non_iso_translation_code(self, handler: FSRomsHandler):
+        """Ge, Sp, Du, Gr and Jp are not ISO codes but do name a language."""
+        parsed = handler.parse_tags("Game (Japan) [T+Ge].sfc")
+
+        assert parsed.languages == ["German"]
+        assert parsed.other_tags == ["Translation"]
+
     def test_parse_tags_reads_a_spaced_translation(self, handler: FSRomsHandler):
-        """GoodTools also separates with a space, which is how ScreenScraper
-        carries the dump: "Super Mario Bros. (W) [T Fre].nes"."""
+        """GoodTools also separates with a space, as ScreenScraper spells it."""
         parsed = handler.parse_tags("Super Mario Bros. (W) [T Fre].nes")
 
         assert parsed.languages == ["French"]
         assert parsed.other_tags == ["Translation"]
 
     def test_parse_tags_spaced_form_needs_a_language(self, handler: FSRomsHandler):
-        """A space carries no meaning of its own, so the word after "T" has to
-        name a language: "T Rex" is an ordinary tag."""
+        """The word after a spaced "T" has to name a language."""
         parsed = handler.parse_tags("Game (USA) (T Rex).nes")
 
         assert parsed.other_tags == ["T Rex"]
@@ -358,8 +370,7 @@ class TestFSRomsHandler:
         assert parsed.other_tags == ["Translation"]
 
     def test_parse_tags_leaves_other_tr_tags_alone(self, handler: FSRomsHandler):
-        """Only the translation forms match: a tag merely starting with "tr" is
-        an ordinary tag."""
+        """A tag merely starting with "tr" is not a translation."""
         parsed = handler.parse_tags("Game (USA) (Trainer).nes")
 
         assert parsed.other_tags == ["Trainer"]
@@ -368,7 +379,7 @@ class TestFSRomsHandler:
     def test_parse_tags_translation_into_an_unnamed_language(
         self, handler: FSRomsHandler
     ):
-        """A language RomM cannot name still marks the dump as translated."""
+        """An unnamed target language still marks the dump as translated."""
         parsed = handler.parse_tags("Game (Japan) [T+Tha].gba")
 
         assert parsed.languages == []

@@ -422,17 +422,16 @@ class FSRomsHandler(FSHandler):
                 languages.append(LANGUAGES_BY_SHORTCODE[raw_tag])
                 continue
 
-            # A translation names its target language, so it is read before the
-            # language pass: the game is playable in that language now.
+            # Read before the language pass: a translated game is playable in
+            # the language its tag names.
             translation_match = TRANSLATION_TAG_REGEX.match(raw_tag)
             if translation_match:
                 spaced = translation_match["spaced"]
                 code = spaced or translation_match["goodtools"]
                 code = code or translation_match["tosec"]
                 language = translation_language(code) if code else None
-                # "T Fre" is a translation; "T Rex" is a tag. The separator
-                # carries no meaning of its own, so the word has to name a
-                # language for that spelling to count.
+                # "T Fre" is a translation, "T Rex" is a tag: a space carries
+                # no meaning, so that spelling has to name a language.
                 if language or not spaced:
                     if TRANSLATION_TAG not in other_tags:
                         other_tags.append(TRANSLATION_TAG)

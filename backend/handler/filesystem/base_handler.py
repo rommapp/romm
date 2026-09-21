@@ -200,26 +200,31 @@ def normalize_language(tag: str) -> str | None:
     return _LANGUAGE_BY_ALIAS.get(tag.strip().lower())
 
 
-# Three-letter codes only a translation tag uses for its target language
-# ("[T+Eng]", "[T-Ita]"). A translation into an unlisted language is still tagged.
+# Codes only a translation tag uses for its target language ("[T+Eng]",
+# "[T-Ge]"). Two-letter ISO codes are absent: normalize_language has those.
 _TRANSLATION_LANGUAGE_ALIASES = {
     "ara": "Arabic",
     "chi": "Chinese",
     "dan": "Danish",
+    "du": "Dutch",
     "dut": "Dutch",
     "eng": "English",
     "fin": "Finnish",
     "fre": "French",
+    "ge": "German",
     "ger": "German",
+    "gr": "Greek",
     "gre": "Greek",
     "ita": "Italian",
     "jap": "Japanese",
+    "jp": "Japanese",
     "kor": "Korean",
     "nor": "Norwegian",
     "pol": "Polish",
     "por": "Portuguese",
     "rus": "Russian",
     "ser": "Serbian",
+    "sp": "Spanish",
     "spa": "Spanish",
     "swe": "Swedish",
 }

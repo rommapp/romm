@@ -10,7 +10,11 @@ import pytest
 from fastapi import UploadFile
 
 from config.config_manager import DEFAULT_EXCLUDED_FILES
-from handler.filesystem.base_handler import FSHandler, region_ranks_for_priority
+from handler.filesystem.base_handler import (
+    FSHandler,
+    region_ranks_for_priority,
+    translation_language,
+)
 from models.base import FILE_NAME_MAX_LENGTH
 
 
@@ -637,3 +641,25 @@ class TestRegionRanksForPriority:
 
     def test_empty_priority_yields_no_ranks(self):
         assert region_ranks_for_priority([]) == {}
+
+
+class TestTranslationLanguage:
+    @pytest.mark.parametrize(
+        ("code", "expected"),
+        [
+            ("Eng", "English"),
+            ("En", "English"),
+            ("Ita", "Italian"),
+            ("It", "Italian"),
+            ("Ge", "German"),
+            ("Sp", "Spanish"),
+            ("Du", "Dutch"),
+            ("Gr", "Greek"),
+            ("Jp", "Japanese"),
+        ],
+    )
+    def test_resolves_the_forms_a_translation_tag_uses(self, code: str, expected: str):
+        assert translation_language(code) == expected
+
+    def test_an_unnamed_language_resolves_to_none(self):
+        assert translation_language("Tha") is None
