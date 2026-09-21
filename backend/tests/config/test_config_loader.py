@@ -630,6 +630,21 @@ def test_platform_binding_lookup_ignores_case(tmp_path):
     assert loader.config.PLATFORMS_BINDING == {}
 
 
+def test_case_variant_folder_keys_collapse_with_a_warning(caplog, tmp_path):
+    """One key covers both, so the dropped mapping must not vanish silently."""
+    loader = _write_config(tmp_path, '  platforms:\n    PSX: "ps2"\n    psx: "psx"\n')
+
+    assert loader.config.PLATFORMS_BINDING == {"psx": "psx"}
+    assert "case variant" in caplog.text
+
+
+def test_identical_case_variant_mappings_do_not_warn(caplog, tmp_path):
+    loader = _write_config(tmp_path, '  platforms:\n    PSX: "psx"\n    psx: "psx"\n')
+
+    assert loader.config.PLATFORMS_BINDING == {"psx": "psx"}
+    assert "case variant" not in caplog.text
+
+
 def test_rebinding_a_folder_replaces_the_existing_platform(tmp_path):
     loader = _write_config(tmp_path, '  platforms:\n    GameCube: "ngc"\n')
 

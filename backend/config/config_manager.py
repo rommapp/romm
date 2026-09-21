@@ -919,7 +919,17 @@ class ConfigManager:
                     f"Invalid config.yml: {config_key}.{key} must be a non-empty string"
                 )
                 sys.exit(3)
-            normalized[str(key).lower()] = value
+            folded = str(key).lower()
+            # A case-sensitive filesystem can hold both `PSX` and `psx`, but
+            # one key covers them both, so say which mapping is being dropped.
+            if folded in normalized and normalized[folded] != value:
+                log.warning(
+                    f"{config_key}.{key} replaces a case variant of the same "
+                    f"folder name: {hl(normalized[folded])} is dropped for "
+                    f"{hl(value)}, since folder names are matched "
+                    "case-insensitively"
+                )
+            normalized[folded] = value
 
         return normalized
 
