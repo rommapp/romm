@@ -920,8 +920,8 @@ class ConfigManager:
                 )
                 sys.exit(3)
             folded = str(key).lower()
-            # A case-sensitive filesystem can hold both `PSX` and `psx`, but
-            # one key covers them both, so say which mapping is being dropped.
+            # One key covers `PSX` and `psx` alike, so a second spelling of the
+            # same folder silently replaces the first.
             if folded in normalized and normalized[folded] != value:
                 log.warning(
                     f"{config_key}.{key} replaces a case variant of the same "

@@ -18,6 +18,7 @@ from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
+from handler.filesystem import fs_platform_handler
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -169,6 +170,28 @@ def get_config(request: Request) -> ConfigResponse:
     )
 
 
+async def _reject_ambiguous_folder(fs_slug: str) -> None:
+    """Refuse a mapping that several folders on disk would share.
+
+    Folder names key the config case-insensitively, so siblings differing only
+    by case (which only a case-sensitive filesystem allows) resolve to one
+    entry and would silently remap each other.
+    """
+    matches = [
+        folder
+        for folder in await fs_platform_handler.get_platforms()
+        if folder.lower() == fs_slug.lower()
+    ]
+    if len(matches) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Folders {', '.join(sorted(matches))} differ only by case and share "
+                "a single mapping. Rename one to map them to different platforms."
+            ),
+        )
+
+
 @protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])
 async def add_platform_binding(
     request: Request, payload: PlatformBindingPayload
@@ -177,6 +200,7 @@ async def add_platform_binding(
 
     fs_slug = payload.fs_slug
     slug = payload.slug
+    await _reject_ambiguous_folder(fs_slug)
 
     try:
         cm.add_platform_binding(fs_slug, slug)
@@ -208,6 +232,7 @@ async def add_platform_version(
 
     fs_slug = payload.fs_slug
     slug = payload.slug
+    await _reject_ambiguous_folder(fs_slug)
 
     try:
         cm.add_platform_version(fs_slug, slug)

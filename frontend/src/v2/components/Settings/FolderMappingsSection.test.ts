@@ -56,8 +56,7 @@ interface Row {
   type: "alias" | "variant" | "auto" | null;
 }
 
-// The row list is what the case-sensitive lookup used to get wrong, so the
-// stub exposes it and renders the Platform cell the edit actions hang off.
+// Exposes the built rows and renders the Platform cell the edit actions hang off.
 const RTableStub = {
   name: "RTable",
   props: ["items"],
@@ -110,9 +109,7 @@ describe("FolderMappingsSection", () => {
     storeConfig().config.CONFIG_FILE_WRITABLE = true;
   });
 
-  // The backend lowercases folder names on the way into config.yml, so a
-  // folder named "Nintendo 64" is stored as "nintendo 64". Matching the two
-  // literally left the mapping invisible and unreachable in the UI.
+  // config.yml stores "Nintendo 64" under the key "nintendo 64".
   it("shows a binding written for a folder whose name is not lowercase", async () => {
     storeConfig().config.PLATFORMS_BINDING = { "nintendo 64": "n64" };
 
@@ -142,8 +139,7 @@ describe("FolderMappingsSection", () => {
     expect(rows[0]).toMatchObject({ slug: "ps2", type: "auto" });
   });
 
-  // A mapped row replaces its binding; treating it as auto-detected instead
-  // sent a bare add, which the backend used to drop as an existing binding.
+  // A bare add on a folder that already has a binding is a no-op server-side.
   it("replaces the binding when a mapped folder is pointed at another platform", async () => {
     storeConfig().config.PLATFORMS_BINDING = { "nintendo 64": "n64" };
 
