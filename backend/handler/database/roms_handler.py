@@ -2341,6 +2341,36 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(select(RomUser).filter_by(id=id).limit(1))
 
     @begin_session
+    def get_rom_users_with_play_state(
+        self,
+        user_id: int,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[RomUser]:
+        """The user's rows that say something about play state, for export.
+
+        A row the user only owns (created by a main-sibling pick, say) carries
+        nothing worth exporting, so it is filtered out here rather than
+        downstream. `RomUser.rom` is a joined eager load, hence `.unique()`.
+        """
+        return (
+            session.scalars(
+                select(RomUser).filter(
+                    RomUser.user_id == user_id,
+                    RomUser.hidden.is_(False),
+                    or_(
+                        RomUser.status.is_not(None),
+                        RomUser.backlogged.is_(True),
+                        RomUser.now_playing.is_(True),
+                        RomUser.rating > 0,
+                        RomUser.last_played.is_not(None),
+                    ),
+                )
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def update_rom_user(
         self,
         id: int,

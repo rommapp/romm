@@ -6,6 +6,7 @@
 //   • Account Details section (form rows + Discard / Apply buttons,
 //     password handled by ChangePasswordDialog)
 //   • RetroAchievements section (own component)
+//   • Play history export section (own component)
 //
 // While `userToEdit` is loading we render a thin skeleton so the
 // layout doesn't pop in. Apply is disabled until the form is dirty;
@@ -26,6 +27,7 @@ import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { formatTimestamp, getRoleIcon } from "@/utils";
 import ChangePasswordDialog from "@/v2/components/Settings/ChangePasswordDialog.vue";
+import PlayHistoryExportSection from "@/v2/components/Settings/PlayHistoryExportSection.vue";
 import RetroAchievementsSection from "@/v2/components/Settings/RetroAchievementsSection.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
@@ -313,6 +315,8 @@ onUnmounted(() => {
       </SettingsSection>
 
       <RetroAchievementsSection />
+
+      <PlayHistoryExportSection />
     </template>
 
     <!-- Skeleton — shown until userToEdit is hydrated from auth.user. -->

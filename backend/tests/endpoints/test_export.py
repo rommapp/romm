@@ -1,8 +1,15 @@
+import csv
+import io
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import status
 
+from handler.database import db_rom_handler
+from models.rom import Rom, RomUserStatus
+from models.user import User
+from utils.backloggd_exporter import CSV_HEADER
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
@@ -78,3 +85,107 @@ def test_export_rejects_batch_with_one_unknown_platform(
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     export_mock.assert_not_awaited()
+
+
+BACKLOGGD_PATH = "/api/export/backloggd"
+
+
+def _backloggd_rows(body: str) -> list[list[str]]:
+    return list(csv.reader(io.StringIO(body)))
+
+
+def test_backloggd_rejects_anonymous(client):
+    response = client.get(BACKLOGGD_PATH)
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_backloggd_allows_viewer(client, viewer_access_token: str):
+    # Reading your own play state is a read scope, unlike the library exports.
+    response = client.get(
+        BACKLOGGD_PATH, headers={"Authorization": f"Bearer {viewer_access_token}"}
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert _backloggd_rows(response.text) == [CSV_HEADER]
+
+
+def test_backloggd_serves_a_csv_download(client, access_token: str):
+    response = client.get(
+        BACKLOGGD_PATH, headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["content-type"].startswith("text/csv")
+    assert response.headers["content-disposition"].startswith("attachment;")
+    assert ".csv" in response.headers["content-disposition"]
+
+
+def test_backloggd_exports_the_callers_play_state(
+    client, access_token: str, admin_user: User, rom: Rom
+):
+    rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+    assert rom_user is not None
+    db_rom_handler.update_rom_user(
+        rom_user.id,
+        {
+            "rating": 7,
+            "status": RomUserStatus.FINISHED,
+            "last_played": datetime(2024, 3, 4, tzinfo=timezone.utc),
+        },
+    )
+
+    response = client.get(
+        BACKLOGGD_PATH, headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert _backloggd_rows(response.text)[1] == [
+        "test_rom",
+        "",
+        "3.5",
+        "completed",
+        "2024-03-04",
+    ]
+
+
+def test_backloggd_skips_roms_with_no_play_state(
+    client, access_token: str, rom: Rom, second_rom: Rom, admin_user: User
+):
+    # Both ROMs have a rom_user row; only one of them says anything.
+    rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+    assert rom_user is not None
+    db_rom_handler.update_rom_user(rom_user.id, {"backlogged": True})
+
+    response = client.get(
+        BACKLOGGD_PATH, headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert [row[0] for row in _backloggd_rows(response.text)[1:]] == ["test_rom"]
+
+
+def test_backloggd_skips_hidden_roms(
+    client, access_token: str, rom: Rom, admin_user: User
+):
+    rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+    assert rom_user is not None
+    db_rom_handler.update_rom_user(rom_user.id, {"rating": 9, "hidden": True})
+
+    response = client.get(
+        BACKLOGGD_PATH, headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert _backloggd_rows(response.text) == [CSV_HEADER]
+
+
+def test_backloggd_does_not_leak_another_users_play_state(
+    client, viewer_access_token: str, rom: Rom, admin_user: User
+):
+    rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+    assert rom_user is not None
+    db_rom_handler.update_rom_user(rom_user.id, {"rating": 10})
+
+    response = client.get(
+        BACKLOGGD_PATH, headers={"Authorization": f"Bearer {viewer_access_token}"}
+    )
+
+    assert _backloggd_rows(response.text) == [CSV_HEADER]

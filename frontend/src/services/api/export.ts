@@ -14,8 +14,14 @@ async function exportPegasus({ platformIds }: { platformIds: number[] }) {
   await api.post(`/export/pegasus?${params.toString()}`);
 }
 
+// The caller's own play state, shaped for the community Backloggd importers.
+async function exportBackloggdCsv() {
+  return api.get<Blob>("/export/backloggd", { responseType: "blob" });
+}
+
 export default {
   exportApi,
   exportGamelistXml,
   exportPegasus,
+  exportBackloggdCsv,
 };

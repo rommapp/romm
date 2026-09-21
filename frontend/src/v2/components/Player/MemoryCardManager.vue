@@ -21,6 +21,7 @@ import { formatBytes, formatRelativeDate } from "@/utils";
 import MemoryCardNameDialog from "@/v2/components/Player/MemoryCardNameDialog.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { downloadBlob, filenameFromResponse } from "@/v2/utils/download";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 const props = defineProps<{
@@ -221,27 +222,18 @@ const downloading = reactive(new Set<number>());
 const uploading = ref(false);
 const uploadInput = ref<HTMLInputElement | null>(null);
 
-function filenameFromResponse(disposition: unknown, fallback: string): string {
-  const match = /filename="?([^";]+)"?/.exec(String(disposition ?? ""));
-  return match ? match[1] : fallback;
-}
-
 async function downloadCard(card: MemoryCardSchema): Promise<void> {
   if (downloading.has(card.id)) return;
   downloading.add(card.id);
   try {
     const response = await memoryCardApi.downloadMemoryCard({ id: card.id });
-    const url = URL.createObjectURL(response.data);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filenameFromResponse(
-      response.headers["content-disposition"],
-      `${card.name}.zip`,
+    downloadBlob(
+      response.data,
+      filenameFromResponse(
+        response.headers["content-disposition"],
+        `${card.name}.zip`,
+      ),
     );
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   } catch (err) {
     // The body of a failed blob request is itself a blob, so the usual detail
     // extraction has nothing to read: go by status instead.

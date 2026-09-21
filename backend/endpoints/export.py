@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated, List
 
 from fastapi import HTTPException, Query, Request, status
@@ -7,10 +8,11 @@ from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_platform_visible
-from handler.database import db_platform_handler
+from handler.database import db_platform_handler, db_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.backloggd_exporter import build_csv as build_backloggd_csv
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 from utils.router import APIRouter
@@ -144,3 +146,20 @@ async def export_pegasus(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to export Pegasus metadata",
         ) from e
+
+
+@protected_route(router.get, "/backloggd", [Scope.ROMS_USER_READ])
+async def export_backloggd(request: Request) -> Response:
+    """Export the caller's play state as a Backloggd-importable CSV download"""
+    rom_users = db_rom_handler.get_rom_users_with_play_state(request.user.id)
+    csv_content = build_backloggd_csv(rom_users)
+    filename = f"romm-backloggd-{datetime.now(UTC):%Y-%m-%d}.csv"
+
+    log.info(
+        f"Exported a Backloggd CSV from {hl(str(len(rom_users)), color=BLUE)} logged ROM(s)"
+    )
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
