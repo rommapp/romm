@@ -11,12 +11,8 @@ from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler
 
-# Versions remembered per slot, read on every negotiation that finds the slot
-# empty. Trimming drops the oldest, which are the ones a long-offline device is
-# likeliest to still hold, so the bound is set where that device would have had
-# to miss a hundred delete-and-refill cycles of one slot. Past it the slot's
-# deletion is simply not known for those bytes and the device is answered
-# `upload`, which is the direction that cannot lose a save.
+# Trimming drops the oldest, which a long-offline device is likeliest to hold;
+# past the bound that device is answered `upload` rather than `delete`.
 MAX_REMEMBERED_HASHES = 100
 
 
