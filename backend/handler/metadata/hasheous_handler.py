@@ -1,5 +1,5 @@
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from typing import Any, Final, NotRequired, TypedDict
 
@@ -9,7 +9,12 @@ import yarl
 from fastapi import status
 
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
-from handler.filesystem.base_handler import normalize_language, provider_region_name
+from handler.filesystem.base_handler import (
+    normalize_language,
+    normalize_provider_languages,
+    normalize_provider_regions,
+    provider_region_name,
+)
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
@@ -67,20 +72,35 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {UPS.DC: ["bin", "chd", "cue"]}
 # together or, for ScreenScraper, carry the game's whole release spread.
 PREFERRED_SIGNATURE_SOURCES: Final = ("NoIntros", "Redump")
 
+# Codes Hasheous prints as ISO-3166 that a filename shortcode claims for
+# somewhere else: CH is Switzerland here and China in a No-Intro name, AS is
+# American Samoa and Asia. The name printed beside them decides instead.
+_AMBIGUOUS_COUNTRY_CODES: Final = frozenset({"ch", "as"})
+
+
+def _country_name(code: str) -> str | None:
+    if code.strip().lower() in _AMBIGUOUS_COUNTRY_CODES:
+        return None
+    return provider_region_name(code)
+
 
 def _tags_from_signatures(
     signatures: dict[str, Any],
     field: str,
     resolve: Callable[[str], str | None],
+    normalize: Callable[[Iterable[str]], list[str]],
 ) -> list[str]:
     """Read one dump's countries or languages out of the matched signatures.
 
-    Hasheous gives each as a code to display-name mapping, so a code RomM
-    knows wins, a code it does not falls back to the name Hasheous printed,
-    and a bare code with neither (ScreenScraper's "ss" bucket) is dropped.
     Only the `rom` entry is read: the `game` beside it spans every release of
-    the title, which is the imprecision a hash match exists to avoid.
+    the title, which is the imprecision a hash match exists to avoid. Hasheous
+    gives each as a code to display-name mapping, so a code RomM knows wins and
+    the printed name is the fallback, canonicalized like any other provider
+    spelling; a bucket with neither (ScreenScraper's "ss") drops out.
     """
+    if not isinstance(signatures, dict):
+        return []
+
     ordered_sources = sorted(
         signatures,
         key=lambda source: (
@@ -90,16 +110,23 @@ def _tags_from_signatures(
         ),
     )
 
+    # Every field below comes straight off the wire, so none of its shapes are
+    # assumed: a raise here would abort the scan of the rom.
     for source in ordered_sources:
-        for entry in signatures.get(source) or []:
-            tags = (entry.get("rom") or {}).get(field) or {}
-            values = [
-                resolved
+        entries = signatures.get(source)
+        for entry in entries if isinstance(entries, list) else []:
+            rom_block = entry.get("rom") if isinstance(entry, dict) else None
+            tags = rom_block.get(field) if isinstance(rom_block, dict) else None
+            if not isinstance(tags, dict):
+                continue
+
+            values = normalize(
+                resolve(code) or (name if isinstance(name, str) else "")
                 for code, name in tags.items()
-                if (resolved := resolve(code) or (name or "").strip())
-            ]
+                if isinstance(code, str)
+            )
             if values:
-                return list(dict.fromkeys(values))
+                return values
 
     return []
 
@@ -400,10 +427,16 @@ class HasheousHandler(MetadataHandler):
                 hasheous_id=hasheous_game["id"],
                 name=hasheous_game.get("name", ""),
                 regions=_tags_from_signatures(
-                    signatures, "country", provider_region_name
+                    signatures,
+                    "country",
+                    _country_name,
+                    normalize_provider_regions,
                 ),
                 languages=_tags_from_signatures(
-                    signatures, "language", normalize_language
+                    signatures,
+                    "language",
+                    normalize_language,
+                    normalize_provider_languages,
                 ),
                 igdb_id=int(igdb_id) if igdb_id else None,
                 tgdb_id=int(tgdb_id) if tgdb_id else None,

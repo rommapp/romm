@@ -126,12 +126,8 @@ SCENE_METADATA_SOURCES = frozenset(
     {MetadataSource.DEMOZOO, MetadataSource.POUET, MetadataSource.CSDB}
 )
 
-# ScreenScraper and Hasheous answer a hash with the record of that exact dump,
-# so their regions and languages describe the copy on disk. They only fill a
-# gap the filename left: the tags are the user's own labelling, and the
-# ScreenScraper and IGDB locale pickers read them back to choose artwork and
-# titles. A gamelist.xml sits with the library and is curated the same way a
-# filename is, so it keeps writing them through the merge below.
+# Sources that report the dump a hash matched rather than the title. Their tags
+# only fill a gap the filename left, because the locale pickers read them back.
 HASH_MATCHED_TAG_SOURCES = frozenset({MetadataSource.SS, MetadataSource.HASHEOUS})
 PROVIDER_TAG_FIELDS = ("regions", "languages")
 

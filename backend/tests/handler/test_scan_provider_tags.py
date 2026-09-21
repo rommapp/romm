@@ -49,11 +49,27 @@ def hasheous_lookup():
 
 @pytest.fixture
 def ss_lookup():
-    """Patch the ScreenScraper filename lookup."""
+    """Patch the ScreenScraper hash lookup, the only one that names a dump."""
     with patch(
-        "handler.scan_handler.meta_ss_handler.get_rom",
-        new=AsyncMock(return_value=SS_MATCH),
-    ) as by_name:
+        "handler.scan_handler.meta_ss_handler.lookup_rom",
+        new=AsyncMock(return_value=(SS_MATCH, False)),
+    ) as by_hash:
+        yield by_hash
+
+
+@pytest.fixture
+def ss_name_search():
+    """Patch the ScreenScraper name search, which identifies a title, not a dump."""
+    with (
+        patch(
+            "handler.scan_handler.meta_ss_handler.lookup_rom",
+            new=AsyncMock(return_value=(SSRom(ss_id=None), False)),
+        ),
+        patch(
+            "handler.scan_handler.meta_ss_handler.get_rom",
+            new=AsyncMock(return_value=SSRom(ss_id=42, name="Mario Kart 64")),
+        ) as by_name,
+    ):
         yield by_name
 
 
@@ -92,3 +108,11 @@ async def test_screenscraper_leaves_the_filename_tags_alone(ss_lookup):
     result = await _scan(MetadataSource.SS, regions=["Japan"])
 
     assert result.regions == ["Japan"]
+
+
+async def test_a_screenscraper_name_match_reports_no_regions(ss_name_search):
+    """A title matched by name says nothing about which dump is on disk."""
+    result = await _scan(MetadataSource.SS, regions=[])
+
+    assert result.ss_id == 42
+    assert result.regions == []

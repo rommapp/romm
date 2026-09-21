@@ -2055,3 +2055,14 @@ class TestExtractRegionsFromSSRom:
         game = cast(SSGame, {"id": 1, "rom": []})
 
         assert extract_regions_from_ss_rom(game) == []
+
+    def test_a_null_region_string_is_ignored(self):
+        game = cast(SSGame, {"id": 1, "rom": {"romregions": None}})
+
+        assert extract_regions_from_ss_rom(game) == []
+
+    def test_screenscrapers_own_buckets_do_not_become_regions(self):
+        # "ss" and "cus" name a ScreenScraper collection, not a place.
+        game = cast(SSGame, {"id": 1, "rom": {"romregions": "ss,cus,jp"}})
+
+        assert extract_regions_from_ss_rom(game) == ["Japan"]

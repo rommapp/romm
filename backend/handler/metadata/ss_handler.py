@@ -234,6 +234,9 @@ SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
 # `romregions` packs a dump's regions into one string ("eu,us").
 _SS_REGION_SEPARATORS: Final = re.compile(r"[,\s]+")
 
+# ScreenScraper buckets that name no place, so they must not become facet values.
+_SS_PSEUDO_REGIONS: Final = frozenset({"ss", "cus"})
+
 NOTGAME_NAME_PREFIX: Final = "ZZZ(NOTGAME)"
 
 _ISO_EXTENSIONS: Final = frozenset({"iso", "cue", "chd", "gdi", "cdi", "bin"})
@@ -676,8 +679,13 @@ def extract_regions_from_ss_rom(game: SSGame) -> list[str]:
     name the copy on disk. ScreenScraper carries no language there.
     """
     rom_block = game.get("rom")
-    romregions = rom_block.get("romregions", "") if isinstance(rom_block, dict) else ""
-    return normalize_provider_regions(_SS_REGION_SEPARATORS.split(romregions))
+    romregions = rom_block.get("romregions") if isinstance(rom_block, dict) else None
+    codes = _SS_REGION_SEPARATORS.split(
+        romregions if isinstance(romregions, str) else ""
+    )
+    return normalize_provider_regions(
+        code for code in codes if code.strip().lower() not in _SS_PSEUDO_REGIONS
+    )
 
 
 def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
@@ -740,7 +748,6 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     ss_id = int(game["id"]) if game.get("id") is not None else None
     game_rom: SSRom = {
         "ss_id": ss_id,
-        "regions": extract_regions_from_ss_rom(game),
         "name": html.unescape(res_name.replace(" : ", ": ")),  # Normalize colons
         "summary": html.unescape(res_summary),
         "url_cover": str(url_cover) if url_cover else "",
@@ -912,7 +919,14 @@ class SSHandler(MetadataHandler):
             )
             return SSRom(ss_id=None), True
 
-        return build_ss_game(rom, res), False
+        # Only this lookup identifies a dump, so it is the only caller allowed to
+        # report regions: the name search and the id refetch describe a title.
+        game_rom = build_ss_game(rom, res)
+        regions = extract_regions_from_ss_rom(res)
+        if regions:
+            game_rom["regions"] = regions
+
+        return game_rom, False
 
     async def get_rom(self, rom: Rom, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
