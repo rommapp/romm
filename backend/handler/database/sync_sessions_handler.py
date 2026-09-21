@@ -10,7 +10,6 @@ from models.sync_session import SyncSession, SyncSessionStatus
 
 from .base_handler import DBBaseHandler
 
-
 # What a session that nobody ever closed is recorded as. Failed rather than
 # cancelled: nobody cancelled it, the client simply never came back, and the row
 # is the only place that can be said.
