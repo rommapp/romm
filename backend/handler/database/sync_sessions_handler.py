@@ -10,10 +10,9 @@ from models.sync_session import SyncSession, SyncSessionStatus
 
 from .base_handler import DBBaseHandler
 
-# What a session that nobody ever closed is recorded as. Failed rather than
-# cancelled: nobody cancelled it, the client simply never came back, and the row
-# is the only place that can be said.
-STALE_SESSION_MESSAGE = "No client reported this session as completed"
+# What a session nobody ever closed is recorded as. Sessions are opened by
+# clients and by the server's own workers alike, so this names neither.
+STALE_SESSION_MESSAGE = "No completion was reported before this session expired"
 
 
 class DBSyncSessionsHandler(DBBaseHandler):
@@ -109,22 +108,41 @@ class DBSyncSessionsHandler(DBBaseHandler):
         operations_completed: int = 0,
         operations_failed: int = 0,
         session: Session = None,  # type: ignore
-    ) -> SyncSession:
-        session.execute(
+    ) -> SyncSession | None:
+        """Complete a session, unless it has been completed already.
+
+        Args:
+            session_id: The session to close.
+            operations_completed: How many operations its owner finished.
+            operations_failed: How many it could not.
+
+        Returns:
+            The completed session, or None when one had already completed it.
+        """
+        # Decided in the statement rather than before it, so a completion and
+        # the cleanup landing together cannot both win.
+        updated = session.execute(
             update(SyncSession)
-            .where(SyncSession.id == session_id)
+            .where(
+                SyncSession.id == session_id,
+                SyncSession.status != SyncSessionStatus.COMPLETED,
+            )
             .values(
                 status=SyncSessionStatus.COMPLETED,
                 completed_at=datetime.now(timezone.utc),
                 operations_completed=operations_completed,
                 operations_failed=operations_failed,
+                # A session the cleanup gave up on, then closed by its owner,
+                # is a completed session rather than one still carrying why it
+                # was given up on.
+                error_message=None,
             )
             .execution_options(synchronize_session="evaluate")
-        )
+        ).rowcount
         result = session.scalar(select(SyncSession).filter_by(id=session_id))
         if not result:
             raise NoResultFound(f"SyncSession {session_id} not found after complete")
-        return result
+        return result if updated else None
 
     @begin_session
     def fail_session(

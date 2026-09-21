@@ -391,6 +391,31 @@ class TestSyncSessions:
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_complete_a_session_the_cleanup_gave_up_on(
+        self, client, access_token: str, admin_user: User
+    ):
+        # A game open past the cutoff, or a client asleep and back again: the
+        # counts it returns with are the record, not the cleanup's guess.
+        device = db_device_handler.add_device(
+            Device(id="session-dev-stale", user_id=admin_user.id)
+        )
+        sync_session = db_sync_session_handler.create_session(
+            device_id=device.id, user_id=admin_user.id
+        )
+        db_sync_session_handler.fail_stale_sessions(
+            older_than=datetime.now(timezone.utc) + timedelta(minutes=1)
+        )
+
+        response = client.post(
+            f"/api/sync/sessions/{sync_session.id}/complete",
+            json={"operations_completed": 2, "operations_failed": 0},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["session"]["status"] == "COMPLETED"
+        assert response.json()["session"]["operations_completed"] == 2
+
     def test_list_sessions(self, client, access_token: str, admin_user: User):
         device = db_device_handler.add_device(
             Device(id="session-dev-list", user_id=admin_user.id)

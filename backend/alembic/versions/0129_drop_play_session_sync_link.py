@@ -1,22 +1,5 @@
 """Drop the play session's link to a sync session
 
-``play_sessions.sync_session_id`` was written by one caller, the sync session's
-own completion, and read by nothing: no query filters on it, the model's
-relationship is ``lazy="raise"`` and never traversed, and no client asks for it.
-It recorded "which sync moved the save this play produced", which the row cannot
-actually answer, since a sync session records operation counts rather than the
-saves themselves.
-
-The desktop shell now reports playtime to ``/api/play-sessions`` in every case
-rather than riding on the sync completion, so nothing writes the column at all.
-``POST /api/sync/sessions/{id}/complete`` still ingests play sessions for a
-client that sends them; they are simply stored like any other.
-
-The constraint was created unnamed inside 0076's CREATE TABLE, so the server
-chose its name. PostgreSQL drops a column's constraints with it; MariaDB and
-MySQL refuse until the foreign key is gone, so it is looked up and dropped
-first.
-
 Revision ID: 0129_drop_play_session_sync_link
 Revises: 0128_hltb_main_story_column
 Create Date: 2026-09-21 00:00:00.000000
@@ -35,29 +18,29 @@ branch_labels = None
 depends_on = None
 
 INDEX_NAME = "ix_play_sessions_sync_session_id"
+FK_NAME = "fk_play_sessions_sync_session_id"
 
 
-def _mysql_fk_name(conn: sa.Connection) -> str | None:
-    return conn.execute(
-        sa.text(
-            "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE "
-            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'play_sessions' "
-            "AND COLUMN_NAME = 'sync_session_id' "
-            "AND REFERENCED_TABLE_NAME = 'sync_sessions' LIMIT 1"
-        )
-    ).scalar()
+def _existing_fk_name(conn: sa.Connection) -> str | None:
+    """The constraint on this column, under whatever name its server chose."""
+    for fk in sa.inspect(conn).get_foreign_keys("play_sessions"):
+        if fk.get("referred_table") == "sync_sessions" and fk.get(
+            "constrained_columns"
+        ) == ["sync_session_id"]:
+            return fk.get("name") or FK_NAME
+    return None
 
 
 def upgrade() -> None:
     conn = op.get_bind()
 
+    # PostgreSQL drops a column's constraints with it; MariaDB and MySQL refuse
+    # until the foreign key is gone, and 0076 left it for the server to name.
     if not is_postgresql(conn):
-        name = _mysql_fk_name(conn)
+        name = _existing_fk_name(conn)
         if name:
             op.drop_constraint(name, "play_sessions", type_="foreignkey")
 
-    # Only PostgreSQL has this one: 0124 created the FK indexes MariaDB and
-    # MySQL already imply, which is why no model declares it.
     op.drop_index(INDEX_NAME, table_name="play_sessions", if_exists=True)
     op.drop_column("play_sessions", "sync_session_id", if_exists=True)
 
@@ -72,18 +55,19 @@ def downgrade() -> None:
     )
     # Only on PostgreSQL, which is where 0124 put it: MariaDB and MySQL index a
     # single-column foreign key themselves, and the index they make backs the
-    # constraint, so one created here could not be dropped again -- "needed in a
-    # foreign key constraint" is what they answer. Creating the constraint with
-    # no index in place is what 0089 does, and InnoDB makes its own.
+    # constraint, so one created here could not be dropped again.
     if is_postgresql(conn):
         op.create_index(
             INDEX_NAME, "play_sessions", ["sync_session_id"], if_not_exists=True
         )
-    op.create_foreign_key(
-        "fk_play_sessions_sync_session_id",
-        "play_sessions",
-        "sync_sessions",
-        ["sync_session_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    # Guarded like the steps above, since these databases commit each one and a
+    # downgrade that stopped halfway is replayed from the top.
+    if not _existing_fk_name(conn):
+        op.create_foreign_key(
+            FK_NAME,
+            "play_sessions",
+            "sync_sessions",
+            ["sync_session_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )

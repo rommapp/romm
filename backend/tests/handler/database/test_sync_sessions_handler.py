@@ -101,10 +101,51 @@ class TestCompleteSession:
         result = db_sync_session_handler.complete_session(
             created.id, operations_completed=10, operations_failed=2
         )
+        assert result is not None
         assert result.status == SyncSessionStatus.COMPLETED
         assert result.operations_completed == 10
         assert result.operations_failed == 2
         assert result.completed_at is not None
+
+    def test_completes_a_session_the_cleanup_gave_up_on(self, admin_user: User):
+        # Counts, and the play sessions a client carries with them, are worth
+        # more than the cleanup's guess that nobody would ever report them.
+        device = db_device_handler.add_device(
+            Device(id="comp-dev-2", user_id=admin_user.id)
+        )
+        created = db_sync_session_handler.create_session(device.id, admin_user.id)
+        db_sync_session_handler.fail_stale_sessions(
+            older_than=datetime.now(timezone.utc) + timedelta(minutes=1)
+        )
+
+        result = db_sync_session_handler.complete_session(
+            created.id, operations_completed=3
+        )
+
+        assert result is not None
+        assert result.status == SyncSessionStatus.COMPLETED
+        assert result.operations_completed == 3
+        # The row is a completed session now, not one still carrying why it was
+        # given up on.
+        assert result.error_message is None
+
+    def test_a_second_completion_changes_nothing(self, admin_user: User):
+        # The statement decides it, so a completion and the cleanup landing
+        # together cannot both win.
+        device = db_device_handler.add_device(
+            Device(id="comp-dev-3", user_id=admin_user.id)
+        )
+        created = db_sync_session_handler.create_session(device.id, admin_user.id)
+        db_sync_session_handler.complete_session(created.id, operations_completed=4)
+
+        assert (
+            db_sync_session_handler.complete_session(created.id, operations_completed=9)
+            is None
+        )
+
+        stored = db_sync_session_handler.get_session(created.id, admin_user.id)
+        assert stored is not None
+        assert stored.operations_completed == 4
 
 
 class TestFailSession:

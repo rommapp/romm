@@ -4,10 +4,8 @@ from handler.database import db_sync_session_handler
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 
-# Longer than any launch: a session is opened before a game starts and closed
-# after it exits, and a day of one sitting is not a session anyone is still in.
-# Nothing else ever closes one, so without this a client that is killed, put to
-# sleep or taken off the network leaves its row open for good.
+# Longer than any launch, since nothing else closes a session: one killed, put
+# to sleep or taken off the network would otherwise stay open for good.
 STALE_AFTER_HOURS = 24
 
 

@@ -172,6 +172,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0123_recommendation_metadata.py", "roms"),
         ("0126_unique_rom_full_path.py", "roms"),
         ("0128_hltb_main_story_column.py", "roms"),
+        ("0129_drop_play_session_sync_link.py", "play_sessions"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -182,6 +183,29 @@ def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
         _replay(connection, filename)
 
         assert _schema_of(connection, table) == before
+
+
+def test_the_play_session_sync_link_revision_reverses_and_replays():
+    """0129 drops a column whose constraint each dialect handles differently.
+
+    MariaDB and MySQL index the foreign key themselves and refuse to drop the
+    column while it stands; PostgreSQL takes both with the column and needs the
+    index 0124 made. Each step is guarded, so both directions replay.
+    """
+    migration = _load_migration("0129_drop_play_session_sync_link.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "play_sessions")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert has_column(connection, "play_sessions", "sync_session_id")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert not has_column(connection, "play_sessions", "sync_session_id")
+        assert _schema_of(connection, "play_sessions") == before
 
 
 def test_the_rom_similarity_revision_fills_in_a_missing_index():
