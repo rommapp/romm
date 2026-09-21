@@ -5737,6 +5737,14 @@ def test_the_rom_language_is_reduced_to_an_iso_code(client, access_token, rom: R
     assert _activate_body(client, access_token, rom)["rom"]["language"] == "fr"
 
 
+def test_a_provider_only_language_is_reduced_too(client, access_token, rom: Rom):
+    """The languages only a provider reports ("Czech") have no filename
+    shortcode, so the broker would otherwise get nothing for them."""
+    db_rom_handler.update_rom(rom.id, {"languages": ["Czech"]})
+
+    assert _activate_body(client, access_token, rom)["rom"]["language"] == "cs"
+
+
 def test_an_unknown_rom_language_is_sent_as_none(client, access_token, rom: Rom):
     """A value RomM cannot reduce leaves the broker on its own default rather
     than failing the launch."""
