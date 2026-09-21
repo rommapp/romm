@@ -80,15 +80,36 @@ class SSGameMedia(TypedDict):
     format: str
 
 
-class SSGameRom(TypedDict):
-    """The dump jeuInfos matched, present only when the lookup identified one."""
+class SSRomRegions(TypedDict):
+    """Parallel arrays, one entry per region, keyed by name language."""
 
-    id: NotRequired[str]
+    regions_shortname: NotRequired[list[str]]
+    regions_en: NotRequired[list[str]]
+
+
+class SSRomLanguages(TypedDict):
+    """Parallel arrays, one entry per language, keyed by name language."""
+
+    langues_shortname: NotRequired[list[str]]
+    langues_en: NotRequired[list[str]]
+
+
+class SSGameRom(TypedDict):
+    """One dump of a game, as `jeu.roms` lists every dump ScreenScraper knows."""
+
+    id: NotRequired[int]
     romfilename: NotRequired[str]
-    romregions: NotRequired[str]
     romcrc: NotRequired[str]
     rommd5: NotRequired[str]
     romsha1: NotRequired[str]
+    regions: NotRequired[SSRomRegions]
+    langues: NotRequired[SSRomLanguages]
+    beta: NotRequired[int]
+    demo: NotRequired[int]
+    proto: NotRequired[int]
+    trad: NotRequired[int]
+    hack: NotRequired[int]
+    unl: NotRequired[int]
 
 
 # https://api.screenscraper.fr/webapi2.php#jeuInfos
@@ -112,4 +133,4 @@ class SSGame(TypedDict):
     modes: list[SSGameMode]
     familles: list[SSGameFranchise]
     medias: list[SSGameMedia]
-    rom: NotRequired[SSGameRom]
+    roms: NotRequired[list[SSGameRom]]

@@ -17,7 +17,7 @@ from adapters.services.screenscraper import (
     prime_account_limits,
     reset_scan_state,
 )
-from adapters.services.screenscraper_types import SSGame, SSGameDate
+from adapters.services.screenscraper_types import SSGame, SSGameDate, SSGameRom
 from config import (
     SCREENSCRAPER_DEV_ID,
     SCREENSCRAPER_DEV_PASSWORD,
@@ -28,12 +28,13 @@ from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import (
+    normalize_provider_languages,
     normalize_provider_regions,
     region_name_to_provider_shortcode,
 )
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomFile
+from models.rom import LookupHashes, Rom, RomFile
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
@@ -231,8 +232,6 @@ ARCADES_SS_IDS: Final = [ARCADE_SS_ID, CPS1_SS_ID, CPS2_SS_ID, CPS3_SS_ID]
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
 
-# `romregions` packs a dump's regions into one string ("eu,us").
-_SS_REGION_SEPARATORS: Final = re.compile(r"[,\s]+")
 
 # ScreenScraper buckets that name no place, so they must not become facet values.
 _SS_PSEUDO_REGIONS: Final = frozenset({"ss", "cus"})
@@ -343,6 +342,7 @@ class SSMetadata(SSMetadataMedia):
 class SSRom(BaseRom):
     ss_id: int | None
     regions: NotRequired[list[str]]
+    languages: NotRequired[list[str]]
     ss_metadata: NotRequired[SSMetadata]
 
 
@@ -672,20 +672,50 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
     )
 
 
-def extract_regions_from_ss_rom(game: SSGame) -> list[str]:
-    """Regions of the dump jeuInfos matched, empty when it matched none.
+def find_ss_dump(game: SSGame, hashes: LookupHashes) -> SSGameRom | None:
+    """The entry in `jeu.roms` our own file is, by hash, or None.
 
-    The `rom` block describes one dump rather than the game, so its regions
-    name the copy on disk. ScreenScraper carries no language there.
+    `jeu.romid` names a dump of the game that is not necessarily the one asked
+    about, so the hashes decide instead. Nothing else in the response is
+    specific to the copy on disk.
     """
-    rom_block = game.get("rom")
-    romregions = rom_block.get("romregions") if isinstance(rom_block, dict) else None
-    codes = _SS_REGION_SEPARATORS.split(
-        romregions if isinstance(romregions, str) else ""
-    )
+    wanted = {
+        key: value.lower()
+        for key, value in (
+            ("rommd5", hashes.md5),
+            ("romsha1", hashes.sha1),
+            ("romcrc", hashes.crc),
+        )
+        if value
+    }
+    if not wanted:
+        return None
+
+    for dump in game.get("roms") or []:
+        if not isinstance(dump, dict):
+            continue
+        if any(
+            str(dump.get(key, "")).lower() == value for key, value in wanted.items()
+        ):
+            return dump
+
+    return None
+
+
+def extract_regions_from_ss_dump(dump: SSGameRom) -> list[str]:
+    """Regions of one dump. Its buckets name no place, so they are dropped."""
+    codes = (dump.get("regions") or {}).get("regions_shortname") or []
     return normalize_provider_regions(
-        code for code in codes if code.strip().lower() not in _SS_PSEUDO_REGIONS
+        code
+        for code in codes
+        if isinstance(code, str) and code.strip().lower() not in _SS_PSEUDO_REGIONS
     )
+
+
+def extract_languages_from_ss_dump(dump: SSGameRom) -> list[str]:
+    """Languages of one dump, which a translation carries its target in."""
+    codes = (dump.get("langues") or {}).get("langues_shortname") or []
+    return normalize_provider_languages(code for code in codes if isinstance(code, str))
 
 
 def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
@@ -919,13 +949,16 @@ class SSHandler(MetadataHandler):
             )
             return SSRom(ss_id=None), True
 
-        # Regions describe the dump, so only a hash may report them. jeuInfos
-        # also answers a bare romnom, which identifies a title like the name
-        # search does, and the id refetch behind a manual match identifies one
-        # too.
+        # Tags describe the dump, so they are read only off the entry our own
+        # hash matched: jeuInfos also answers a bare romnom, which identifies a
+        # title the way the name search does.
         game_rom = build_ss_game(rom, res)
-        if md5_hash or sha1_hash or crc_hash:
-            game_rom["regions"] = extract_regions_from_ss_rom(res)
+        dump = find_ss_dump(
+            res, LookupHashes(crc=crc_hash, md5=md5_hash, sha1=sha1_hash)
+        )
+        if dump is not None:
+            game_rom["regions"] = extract_regions_from_ss_dump(dump)
+            game_rom["languages"] = extract_languages_from_ss_dump(dump)
 
         return game_rom, False
 
