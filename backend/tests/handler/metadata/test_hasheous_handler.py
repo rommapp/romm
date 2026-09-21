@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -101,11 +102,11 @@ SIGNATURES = {
 }
 
 
-def _regions(signatures: dict) -> list[str]:
+def _regions(signatures: dict[str, Any]) -> list[str]:
     return _tags_from_signatures(signatures, "country", _country_name)
 
 
-def _languages(signatures: dict) -> list[str]:
+def _languages(signatures: dict[str, Any]) -> list[str]:
     return _tags_from_signatures(signatures, "language", provider_language_name)
 
 

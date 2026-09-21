@@ -1412,9 +1412,20 @@ async def scan_rom(
             if field_value:
                 rom_attrs[key] = field_value
 
-    # The hash-matched tags, applied only where the filename left the slot empty.
+    # The hash-matched tags fill a slot no local source claims. The filename is
+    # re-read rather than taken off the row, which cannot say whether its value
+    # is a tag the user wrote or what a provider left there on an earlier scan.
+    filename_tags = fs_rom_handler.parse_tags(rom_attrs["fs_name"])
+    local_tags = {
+        "regions": filename_tags.regions,
+        "languages": filename_tags.languages,
+    }
     for field in PROVIDER_TAG_FIELDS:
-        if rom_attrs.get(field):
+        if local_tags[field] or any(
+            metadata_handlers[source_name]["handler"].get(field)
+            for source_name in priority_ordered
+            if source_name not in HASH_MATCHED_TAG_SOURCES
+        ):
             continue
         for source_name in priority_ordered:
             if source_name not in HASH_MATCHED_TAG_SOURCES:

@@ -5,6 +5,8 @@ tags describe the copy on disk. They fill a gap the filename left, and never
 overwrite the tags the filename already produced.
 """
 
+from collections.abc import Iterator
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -28,7 +30,7 @@ SS_MATCH = SSRom(ss_id=42, name="Mario Kart 64", regions=["Europe"])
 
 
 @pytest.fixture
-def hasheous_lookup():
+def hasheous_lookup() -> Iterator[AsyncMock]:
     """Patch the Hasheous hash lookup and the two proxied catalog fetches."""
     with (
         patch(
@@ -48,7 +50,7 @@ def hasheous_lookup():
 
 
 @pytest.fixture
-def ss_lookup():
+def ss_lookup() -> Iterator[AsyncMock]:
     """Patch the ScreenScraper hash lookup, the only one that names a dump."""
     with patch(
         "handler.scan_handler.meta_ss_handler.lookup_rom",
@@ -58,7 +60,7 @@ def ss_lookup():
 
 
 @pytest.fixture
-def ss_name_search():
+def ss_name_search() -> Iterator[AsyncMock]:
     """Patch the ScreenScraper name search, which identifies a title, not a dump."""
     with (
         patch(
@@ -73,46 +75,67 @@ def ss_name_search():
         yield by_name
 
 
-async def _scan(source: MetadataSource, **rom_overrides) -> Rom:
+async def _scan(
+    source: MetadataSource,
+    fs_name: str = "Mario Kart 64.z64",
+    **rom_overrides: Any,
+) -> Rom:
     platform = add_n64_platform(hasheous_id=4, ss_id=14)
-    rom = add_rom(platform, "Mario Kart 64.z64", "Mario Kart 64", **rom_overrides)
+    rom = add_rom(platform, fs_name, "Mario Kart 64", **rom_overrides)
 
     return await run_scan(
         platform, rom, scan_type=ScanType.COMPLETE, metadata_sources=[source]
     )
 
 
-async def test_hasheous_fills_untagged_regions_and_languages(hasheous_lookup):
+async def test_hasheous_fills_untagged_regions_and_languages(
+    hasheous_lookup: AsyncMock,
+):
     result = await _scan(MetadataSource.HASHEOUS, regions=[], languages=[])
 
     assert result.regions == ["Japan"]
     assert result.languages == ["Japanese"]
 
 
-async def test_hasheous_leaves_the_filename_tags_alone(hasheous_lookup):
+async def test_hasheous_leaves_the_filename_tags_alone(hasheous_lookup: AsyncMock):
     result = await _scan(
-        MetadataSource.HASHEOUS, regions=["USA"], languages=["English"]
+        MetadataSource.HASHEOUS,
+        fs_name="Mario Kart 64 (USA) (En).z64",
+        regions=["USA"],
+        languages=["English"],
     )
 
     assert result.regions == ["USA"]
     assert result.languages == ["English"]
 
 
-async def test_screenscraper_fills_untagged_regions(ss_lookup):
+async def test_screenscraper_fills_untagged_regions(ss_lookup: AsyncMock):
     result = await _scan(MetadataSource.SS, regions=[])
 
     assert result.regions == ["Europe"]
 
 
-async def test_screenscraper_leaves_the_filename_tags_alone(ss_lookup):
-    result = await _scan(MetadataSource.SS, regions=["Japan"])
+async def test_screenscraper_leaves_the_filename_tags_alone(ss_lookup: AsyncMock):
+    result = await _scan(
+        MetadataSource.SS, fs_name="Mario Kart 64 (Japan).z64", regions=["Japan"]
+    )
 
     assert result.regions == ["Japan"]
 
 
-async def test_a_screenscraper_name_match_reports_no_regions(ss_name_search):
+async def test_a_screenscraper_name_match_reports_no_regions(ss_name_search: AsyncMock):
     """A title matched by name says nothing about which dump is on disk."""
     result = await _scan(MetadataSource.SS, regions=[])
 
     assert result.ss_id == 42
     assert result.regions == []
+
+
+async def test_a_tag_an_earlier_scan_stored_is_refreshed(hasheous_lookup: AsyncMock):
+    """The filename owns the slot, not whatever a provider left on the row."""
+    result = await _scan(
+        MetadataSource.HASHEOUS, regions=["Europe"], languages=["French"]
+    )
+
+    assert result.regions == ["Japan"]
+    assert result.languages == ["Japanese"]

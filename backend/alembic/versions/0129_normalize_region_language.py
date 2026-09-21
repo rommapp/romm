@@ -1,17 +1,11 @@
 """Normalize the region and language values metadata providers wrote
 
-Filename parsing canonicalizes every tag it reads ("usa", "U" and "USA" all
-become ``USA``), but the gamelist provider wrote ``<region>`` and ``<lang>``
-through verbatim, so a scraped library stores provider shortcodes ("us", "en")
-next to canonical names. The two spellings are separate facet values in the
-filter drawer, and ``generated_primary_region`` is matched against canonical
-names, so a rom whose region reads "us" ranks last in the sibling dedup window
-instead of first.
-
-The handler now canonicalizes on the way in. This rewrites the rows already
-stored. ``roms_facets`` and ``generated_primary_region`` follow on their own:
-the facets mirror is trigger-fed from ``roms`` (0100) and the primary region is
-a generated column over ``regions[0]`` (0098).
+The gamelist provider wrote its ``<region>`` and ``<lang>`` elements through
+verbatim, so a scraped library holds provider shortcodes ("us") beside the
+canonical names filename parsing produces ("USA"). The handler canonicalizes on
+the way in now; this rewrites the rows already stored. ``roms_facets`` and
+``generated_primary_region`` follow on their own, being trigger-fed (0100) and
+generated (0098).
 
 Revision ID: 0129_normalize_region_language
 Revises: 0128_hltb_main_story_column

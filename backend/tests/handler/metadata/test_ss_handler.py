@@ -1226,6 +1226,66 @@ class TestLookupRom:
         assert is_not_game is False
 
     @pytest.mark.asyncio
+    async def test_a_filename_match_reports_no_regions(self):
+        """A bare romnom match identifies a title, so it says nothing about the
+        dump on disk and must not tag it."""
+        config = _make_config(region_priority=["us"])
+        game = {
+            "id": "1234",
+            "noms": [{"region": "us", "text": "Adventure Island 2"}],
+            "medias": [],
+            "synopsis": [],
+            "dates": [],
+            "genres": [],
+            "familles": [],
+            "modes": [],
+            "joueurs": {},
+            "note": {},
+            "rom": {"romregions": "jp"},
+        }
+        handler = SSHandler()
+        mock_file = self._make_unhashed_file("Adventure Island II.nes")
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=[])
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch.object(handler.ss_service, "get_game_info", return_value=game),
+        ):
+            result, _ = await handler.lookup_rom(rom, 3, [mock_file])
+
+        assert result["ss_id"] == 1234
+        assert "regions" not in result
+
+    @pytest.mark.asyncio
+    async def test_a_hash_match_reports_the_dumps_regions(self):
+        """A hash identifies the dump, so its `rom` block does describe it."""
+        config = _make_config(region_priority=["us"])
+        game = {
+            "id": "1234",
+            "noms": [{"region": "us", "text": "Adventure Island 2"}],
+            "medias": [],
+            "synopsis": [],
+            "dates": [],
+            "genres": [],
+            "familles": [],
+            "modes": [],
+            "joueurs": {},
+            "note": {},
+            "rom": {"romregions": "jp"},
+        }
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=[])
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch.object(handler.ss_service, "get_game_info", return_value=game),
+        ):
+            result, _ = await handler.lookup_rom(rom, 3, [mock_file])
+
+        assert result["regions"] == ["Japan"]
+
+    @pytest.mark.asyncio
     async def test_no_hash_no_filename_skips_lookup(self):
         """With neither a hash nor a filename there is nothing to match on, so the
         lookup is skipped without spending an API call."""

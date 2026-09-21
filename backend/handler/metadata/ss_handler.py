@@ -919,10 +919,13 @@ class SSHandler(MetadataHandler):
             )
             return SSRom(ss_id=None), True
 
-        # Only this lookup identifies a dump, so it is the only caller allowed to
-        # report regions: the name search and the id refetch describe a title.
+        # Regions describe the dump, so only a hash may report them. jeuInfos
+        # also answers a bare romnom, which identifies a title like the name
+        # search does, and the id refetch behind a manual match identifies one
+        # too.
         game_rom = build_ss_game(rom, res)
-        game_rom["regions"] = extract_regions_from_ss_rom(res)
+        if md5_hash or sha1_hash or crc_hash:
+            game_rom["regions"] = extract_regions_from_ss_rom(res)
 
         return game_rom, False
 
