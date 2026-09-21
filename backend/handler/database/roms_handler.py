@@ -2344,31 +2344,40 @@ class DBRomsHandler(DBBaseHandler):
     def get_rom_users_with_play_state(
         self,
         user_id: int,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[RomUser]:
         """The user's rows that say something about play state, for export.
 
-        A row the user only owns (created by a main-sibling pick, say) carries
-        nothing worth exporting, so it is filtered out here rather than
-        downstream. `RomUser.rom` is a joined eager load, hence `.unique()`.
+        Args:
+            user_id: Owner of the rows to return.
+            hidden_platform_ids: Platforms the caller's permissions hide.
+            hidden_rom_ids: ROMs the caller's permissions hide.
         """
-        return (
-            session.scalars(
-                select(RomUser).filter(
-                    RomUser.user_id == user_id,
-                    RomUser.hidden.is_(False),
-                    or_(
-                        RomUser.status.is_not(None),
-                        RomUser.backlogged.is_(True),
-                        RomUser.now_playing.is_(True),
-                        RomUser.rating > 0,
-                        RomUser.last_played.is_not(None),
-                    ),
-                )
+        # A row the user only owns (from a main-sibling pick, say) says nothing
+        # worth exporting. `RomUser.rom` is a joined eager load, hence unique().
+        query = (
+            select(RomUser)
+            .join(Rom, RomUser.rom_id == Rom.id)
+            .filter(
+                RomUser.user_id == user_id,
+                RomUser.hidden.is_(False),
+                or_(
+                    RomUser.status.is_not(None),
+                    RomUser.backlogged.is_(True),
+                    RomUser.now_playing.is_(True),
+                    RomUser.rating > 0,
+                    RomUser.last_played.is_not(None),
+                ),
             )
-            .unique()
-            .all()
         )
+        if hidden_platform_ids:
+            query = query.filter(Rom.platform_id.not_in(hidden_platform_ids))
+        if hidden_rom_ids:
+            query = query.filter(Rom.id.not_in(hidden_rom_ids))
+
+        return session.scalars(query).unique().all()
 
     @begin_session
     def update_rom_user(

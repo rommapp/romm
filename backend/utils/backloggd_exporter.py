@@ -11,9 +11,8 @@ from models.rom import RomUser, RomUserStatus
 # importers read, so the file is only as stable as they are.
 CSV_HEADER: Final = ["Game", "Year Released", "Rating", "Status", "Date Played"]
 
-# A Backloggd log carries one status, where RomM spreads the same information
-# over `status`, `backlogged` and `now_playing`. `retired` and `never_playing`
-# have no counterpart and export blank, as does RomM's lack of a wishlist.
+# A Backloggd log carries one status where RomM spreads the same information
+# over three fields. What is absent here has no counterpart and exports blank.
 _STATUS_BY_ROM_USER_STATUS: Final[dict[RomUserStatus, str]] = {
     RomUserStatus.FINISHED: "completed",
     RomUserStatus.COMPLETED_100: "completed",
@@ -27,12 +26,16 @@ _STATUS_RANK: Final[dict[str, int]] = {
     "completed": 3,
 }
 
+# A spreadsheet evaluates a cell opening with one of these, and a game name
+# reaches the file from provider metadata or the filename on disk.
+_FORMULA_PREFIXES: Final = ("=", "+", "-", "@")
+
 
 def _status(rom_user: RomUser) -> str:
+    # The flags are independent of `status`, so an explicit `retired` has to
+    # stop here rather than fall through to a stale `now_playing`.
     if rom_user.status:
-        mapped = _STATUS_BY_ROM_USER_STATUS.get(rom_user.status)
-        if mapped:
-            return mapped
+        return _STATUS_BY_ROM_USER_STATUS.get(rom_user.status, "")
     if rom_user.now_playing:
         return "playing"
     if rom_user.backlogged:
@@ -67,6 +70,11 @@ def _game_name(rom_user: RomUser) -> str:
     return (rom_user.rom.name or rom_user.rom.fs_name or "").strip()
 
 
+def _formula_safe(name: str) -> str:
+    """Prefix a name a spreadsheet would evaluate as a formula, keeping it text."""
+    return f"'{name}" if name.startswith(_FORMULA_PREFIXES) else name
+
+
 def _group_key(rom_user: RomUser) -> tuple[str, str | int]:
     """One log per game: siblings are separate ROMs but the same Backloggd entry."""
     rom = rom_user.rom
@@ -76,16 +84,13 @@ def _group_key(rom_user: RomUser) -> tuple[str, str | int]:
 
 
 def _row(group: list[RomUser]) -> list[str]:
-    """Fold sibling ROMs into the one log Backloggd would hold for the game.
-
-    Every field takes the group's best value rather than picking a winning row,
-    so a rating on one regional dump and a play date on another both survive.
-    Each rule is order-independent: the DB hands back siblings in no set order.
-    """
+    """Fold sibling ROMs into the one log Backloggd would hold for the game."""
+    # Each field takes the group's best value rather than picking a winning row,
+    # by a rule that is order-independent: siblings arrive in no set order.
     years = [_release_year(ru.rom.generated_first_release_date) for ru in group]
     dates = [_date_played(ru.last_played) for ru in group]
     return [
-        min(_game_name(ru) for ru in group),
+        _formula_safe(min(_game_name(ru) for ru in group)),
         min((year for year in years if year), default=""),
         _rating(max((ru.rating for ru in group if ru.rating), default=0)),
         max((_status(ru) for ru in group), key=lambda status: _STATUS_RANK[status]),

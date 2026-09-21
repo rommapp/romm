@@ -204,6 +204,27 @@ def test_export_of_hidden_platform_is_404_masked(
     assert resp.status_code == status.HTTP_404_NOT_FOUND
 
 
+@pytest.mark.parametrize("entity", [PermEntity.ROMS, PermEntity.PLATFORMS])
+def test_backloggd_export_omits_a_hidden_rom(
+    client, viewer_user, rom, platform, entity
+):
+    # A play-state row outlives the hide that comes after it, so the export has
+    # to re-check visibility rather than trust the row's own hidden flag.
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=viewer_user.id)
+    rom_user = db_rom_handler.get_rom_user(rom.id, viewer_user.id)
+    assert rom_user is not None
+    db_rom_handler.update_rom_user(rom_user.id, {"rating": 8})
+
+    before = client.get("/api/export/backloggd", headers=_auth(viewer_user))
+    assert rom.name in before.text
+
+    entity_id = rom.id if entity is PermEntity.ROMS else platform.id
+    _hide(entity, entity_id, viewer_user.id)
+
+    after = client.get("/api/export/backloggd", headers=_auth(viewer_user))
+    assert rom.name not in after.text
+
+
 def test_hidden_rom_props_update_is_404_masked(client, viewer_user, rom):
     # ROMS_USER_WRITE is a self-service scope every user holds, so the coarse
     # gate passes; the hidden rom must still be masked, not confirmed.

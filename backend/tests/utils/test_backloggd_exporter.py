@@ -105,6 +105,32 @@ def test_explicit_status_wins_over_the_flags():
     assert _rows(csv_content)[1][3] == "completed"
 
 
+@pytest.mark.parametrize("status", [RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING])
+def test_a_status_with_no_counterpart_blanks_rather_than_falling_through(
+    status: RomUserStatus,
+):
+    # The flags are independent of `status`, so both can be set at once.
+    csv_content = build_csv(
+        [_rom_user("Game", status=status, now_playing=True, backlogged=True)]
+    )
+
+    assert _rows(csv_content)[1][3] == ""
+
+
+@pytest.mark.parametrize("name", ["=1+1", "+cmd", "-2", "@SUM(A1)"])
+def test_a_name_a_spreadsheet_would_evaluate_is_kept_as_text(name: str):
+    assert _rows(build_csv([_rom_user(name)]))[1][0] == f"'{name}"
+
+
+def test_a_whitespace_led_name_needs_no_prefix():
+    # `_game_name` strips, so a tab or CR never reaches the formula guard.
+    assert _rows(build_csv([_rom_user("\tTabbed")]))[1][0] == "Tabbed"
+
+
+def test_an_ordinary_name_is_left_alone():
+    assert _rows(build_csv([_rom_user("Mega Man 2")]))[1][0] == "Mega Man 2"
+
+
 def test_now_playing_wins_over_backlogged():
     csv_content = build_csv([_rom_user("Game", now_playing=True, backlogged=True)])
 

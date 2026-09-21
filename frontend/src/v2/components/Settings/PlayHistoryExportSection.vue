@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// PlayHistoryExportSection — downloads the caller's play state as a CSV the
-// community Backloggd importers accept. One-way and point-in-time: Backloggd
-// has no API to sync against, so re-exporting is how you catch it up.
+// Backloggd has no API to sync against, so this is a point-in-time snapshot:
+// re-exporting is how you catch it up.
 import { RBtn } from "@v2/lib";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";

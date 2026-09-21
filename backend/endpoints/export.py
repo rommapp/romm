@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_platform_visible
+from handler.auth.dependencies import assert_platform_visible, get_permissions
 from handler.database import db_platform_handler, db_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -151,7 +151,14 @@ async def export_pegasus(
 @protected_route(router.get, "/backloggd", [Scope.ROMS_USER_READ])
 async def export_backloggd(request: Request) -> Response:
     """Export the caller's play state as a Backloggd-importable CSV download"""
-    rom_users = db_rom_handler.get_rom_users_with_play_state(request.user.id)
+    # A row can outlive the permission that let the user make it, so the export
+    # drops what the caller can no longer see, as the activity feed does.
+    perms = get_permissions(request)
+    rom_users = db_rom_handler.get_rom_users_with_play_state(
+        request.user.id,
+        hidden_platform_ids=None if perms.is_admin else list(perms.hidden_platform_ids),
+        hidden_rom_ids=None if perms.is_admin else list(perms.hidden_rom_ids),
+    )
     csv_content = build_backloggd_csv(rom_users)
     filename = f"romm-backloggd-{datetime.now(UTC):%Y-%m-%d}.csv"
 
