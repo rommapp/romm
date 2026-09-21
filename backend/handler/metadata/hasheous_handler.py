@@ -90,11 +90,8 @@ def _tags_from_signatures(
 ) -> list[str]:
     """Read one dump's countries or languages out of the matched signatures.
 
-    Only the `rom` entry is read: the `game` beside it spans every release of
-    the title, which is the imprecision a hash match exists to avoid. Hasheous
-    gives each as a code to display-name mapping, so a code RomM knows wins and
-    the printed name is the fallback, canonicalized like any other provider
-    spelling; a bucket with neither (ScreenScraper's "ss") drops out.
+    Only `rom` is read, never the `game` beside it, which spans every release
+    of the title. A resolved code wins over the name Hasheous printed.
     """
     if not isinstance(signatures, dict):
         return []

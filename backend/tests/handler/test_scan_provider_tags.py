@@ -1,8 +1,6 @@
 """How a scan applies the regions and languages a hash-matched provider reports.
 
-ScreenScraper and Hasheous answer a hash with the record of one dump, so their
-tags describe the copy on disk. They fill a gap the filename left, and never
-overwrite the tags the filename already produced.
+A hash names one dump, so its tags fill a gap the filename left, never overwrite it.
 """
 
 from collections.abc import Iterator

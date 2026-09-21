@@ -176,6 +176,8 @@ class TestTagsFromSignatures:
             ),
         ],
     )
-    def test_a_shape_hasheous_did_not_promise_reports_nothing(self, signatures: dict):
+    def test_a_shape_hasheous_did_not_promise_reports_nothing(
+        self, signatures: dict[str, Any]
+    ):
         # A raise here would abort the scan of the rom, not just its tags.
         assert _regions(signatures) == []
