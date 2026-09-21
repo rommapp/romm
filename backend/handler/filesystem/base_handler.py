@@ -270,6 +270,18 @@ _LANGUAGE_BY_PROVIDER_ALIAS = {
     **{code: name for code, name in PROVIDER_LANGUAGES},
 }
 
+# Region shortcodes a filename can also carry, as TOSEC and similar sets write
+# them ("(US)", "(JP)"). Added once both language vocabularies are known, and
+# only for a code neither claims: "(De)" is German, and "(Tr)" marks a
+# translation rather than Turkey (issue #3026).
+_REGION_BY_ALIAS.update(
+    {
+        code: names[0]
+        for code, names in _REGION_NAMES_BY_PROVIDER_SHORTCODE.items()
+        if code not in _LANGUAGE_BY_ALIAS and code not in _LANGUAGE_BY_PROVIDER_ALIAS
+    }
+)
+
 
 def provider_language_name(value: str) -> str | None:
     """Resolve a metadata provider's language spelling to its canonical name."""
