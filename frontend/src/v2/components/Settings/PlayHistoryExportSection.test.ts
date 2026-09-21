@@ -69,6 +69,27 @@ describe("PlayHistoryExportSection", () => {
     );
   });
 
+  it("refuses a second click while the first export is in flight", async () => {
+    let release: (value: unknown) => void = () => {};
+    exportBackloggdCsv.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+
+    const { wrapper, click } = clickExport();
+    await click();
+    await click();
+
+    expect(exportBackloggdCsv).toHaveBeenCalledTimes(1);
+    expect(wrapper.get("button").attributes("disabled")).toBeDefined();
+
+    release({ data: new Blob([]), headers: {} });
+    await flushPromises();
+
+    expect(wrapper.get("button").attributes("disabled")).toBeUndefined();
+  });
+
   it("surfaces a failed export and downloads nothing", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     exportBackloggdCsv.mockRejectedValue(new Error("boom"));

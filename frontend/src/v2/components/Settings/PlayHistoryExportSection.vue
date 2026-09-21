@@ -49,6 +49,7 @@ async function exportBackloggd() {
         variant="flat"
         color="primary"
         :loading="exporting"
+        :disabled="exporting"
         prepend-icon="mdi-file-delimited-outline"
         @click="exportBackloggd"
       >
