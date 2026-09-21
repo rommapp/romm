@@ -182,7 +182,7 @@ def region_ranks_for_priority(shortcodes: Sequence[str]) -> dict[str, int]:
     return ranks
 
 
-def _provider_region_name(value: str) -> str | None:
+def provider_region_name(value: str) -> str | None:
     """Resolve a metadata provider's region spelling to its canonical name.
 
     Kept apart from the filename aliases because several provider shortcodes
@@ -206,7 +206,7 @@ def normalize_provider_regions(values: Iterable[str]) -> list[str]:
     """
     return list(
         dict.fromkeys(
-            _provider_region_name(value) or value.strip()
+            provider_region_name(value) or value.strip()
             for value in values
             if value and value.strip()
         )

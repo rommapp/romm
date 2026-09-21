@@ -80,6 +80,17 @@ class SSGameMedia(TypedDict):
     format: str
 
 
+class SSGameRom(TypedDict):
+    """The dump jeuInfos matched, present only when the lookup identified one."""
+
+    id: NotRequired[str]
+    romfilename: NotRequired[str]
+    romregions: NotRequired[str]
+    romcrc: NotRequired[str]
+    rommd5: NotRequired[str]
+    romsha1: NotRequired[str]
+
+
 # https://api.screenscraper.fr/webapi2.php#jeuInfos
 class SSGame(TypedDict):
     id: int
@@ -101,3 +112,4 @@ class SSGame(TypedDict):
     modes: list[SSGameMode]
     familles: list[SSGameFranchise]
     medias: list[SSGameMedia]
+    rom: NotRequired[SSGameRom]

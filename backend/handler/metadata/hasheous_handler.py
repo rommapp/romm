@@ -1,6 +1,7 @@
 import json
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import httpx
 import pydash
@@ -8,6 +9,7 @@ import yarl
 from fastapi import status
 
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
+from handler.filesystem.base_handler import normalize_language, provider_region_name
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
@@ -47,6 +49,8 @@ class HasheousPlatform(TypedDict):
 
 class HasheousRom(BaseRom):
     hasheous_id: int | None
+    regions: NotRequired[list[str]]
+    languages: NotRequired[list[str]]
     igdb_id: NotRequired[int | None]
     slug: NotRequired[str]
     igdb_metadata: NotRequired[IGDBMetadata]
@@ -57,6 +61,47 @@ class HasheousRom(BaseRom):
 
 
 ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {UPS.DC: ["bin", "chd", "cue"]}
+
+# Signature sources whose region data is preferred, as Hasheous spells them.
+# The curated per-region dumps describe one release; the rest lump variants
+# together or, for ScreenScraper, carry the game's whole release spread.
+PREFERRED_SIGNATURE_SOURCES: Final = ("NoIntros", "Redump")
+
+
+def _tags_from_signatures(
+    signatures: dict[str, Any],
+    field: str,
+    resolve: Callable[[str], str | None],
+) -> list[str]:
+    """Read one dump's countries or languages out of the matched signatures.
+
+    Hasheous gives each as a code to display-name mapping, so a code RomM
+    knows wins, a code it does not falls back to the name Hasheous printed,
+    and a bare code with neither (ScreenScraper's "ss" bucket) is dropped.
+    Only the `rom` entry is read: the `game` beside it spans every release of
+    the title, which is the imprecision a hash match exists to avoid.
+    """
+    ordered_sources = sorted(
+        signatures,
+        key=lambda source: (
+            PREFERRED_SIGNATURE_SOURCES.index(source)
+            if source in PREFERRED_SIGNATURE_SOURCES
+            else len(PREFERRED_SIGNATURE_SOURCES)
+        ),
+    )
+
+    for source in ordered_sources:
+        for entry in signatures.get(source) or []:
+            tags = (entry.get("rom") or {}).get(field) or {}
+            values = [
+                resolved
+                for code, name in tags.items()
+                if (resolved := resolve(code) or (name or "").strip())
+            ]
+            if values:
+                return list(dict.fromkeys(values))
+
+    return []
 
 
 def _involved_company_names(rom: dict[str, Any], role: str) -> list[str]:
@@ -323,7 +368,7 @@ class HasheousHandler(MetadataHandler):
 
         metadata = hasheous_game.get("metadata", [])
         attributes = hasheous_game.get("attributes", [])
-        signatures = hasheous_game.get("signatures", {}).keys()
+        signatures = hasheous_game.get("signatures", {})
 
         igdb_id = None
         tgdb_id = None
@@ -354,6 +399,12 @@ class HasheousHandler(MetadataHandler):
             HasheousRom(
                 hasheous_id=hasheous_game["id"],
                 name=hasheous_game.get("name", ""),
+                regions=_tags_from_signatures(
+                    signatures, "country", provider_region_name
+                ),
+                languages=_tags_from_signatures(
+                    signatures, "language", normalize_language
+                ),
                 igdb_id=int(igdb_id) if igdb_id else None,
                 tgdb_id=int(tgdb_id) if tgdb_id else None,
                 ra_id=int(ra_id) if ra_id else None,

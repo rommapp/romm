@@ -31,6 +31,7 @@ from handler.metadata.ss_handler import (
     build_ss_game,
     extract_media_from_ss_game,
     extract_metadata_from_ss_rom,
+    extract_regions_from_ss_rom,
     get_preferred_languages,
     get_preferred_regions,
     get_rate_limited_rom_names,
@@ -2026,3 +2027,31 @@ class TestDevCredentials:
             ),
         ):
             assert SSHandler.has_dev_credentials() is expected
+
+
+class TestExtractRegionsFromSSRom:
+    """The `rom` block names the dump jeuInfos matched, not the whole game."""
+
+    def test_reads_the_matched_dumps_regions(self):
+        game = cast(SSGame, {"id": 1, "rom": {"romregions": "eu,us"}})
+
+        assert extract_regions_from_ss_rom(game) == ["Europe", "USA"]
+
+    def test_reads_a_single_region(self):
+        game = cast(SSGame, {"id": 1, "rom": {"romregions": "wor"}})
+
+        assert extract_regions_from_ss_rom(game) == ["World"]
+
+    def test_a_game_matched_without_a_dump_has_no_regions(self):
+        assert extract_regions_from_ss_rom(cast(SSGame, {"id": 1})) == []
+
+    def test_an_empty_region_string_yields_nothing(self):
+        game = cast(SSGame, {"id": 1, "rom": {"romregions": ""}})
+
+        assert extract_regions_from_ss_rom(game) == []
+
+    def test_a_rom_block_that_is_not_an_object_is_ignored(self):
+        # ScreenScraper answers an empty collection with a list, not an object.
+        game = cast(SSGame, {"id": 1, "rom": []})
+
+        assert extract_regions_from_ss_rom(game) == []

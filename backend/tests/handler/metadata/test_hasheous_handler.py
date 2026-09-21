@@ -4,8 +4,10 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
+from handler.filesystem.base_handler import normalize_language, provider_region_name
 from handler.metadata.hasheous_handler import (
     HasheousHandler,
+    _tags_from_signatures,
     extract_metadata_from_igdb_rom,
 )
 
@@ -75,3 +77,79 @@ async def test_request_propagates_an_unreachable_hasheous(failure: Exception):
     ):
         ctx.get.return_value = client
         await handler._request("https://hasheous.org/api")
+
+
+# Shaped after a real /Lookup/ByHash answer: every signature source reports the
+# matched dump under `rom`, with the game it belongs to beside it.
+SIGNATURES = {
+    "TOSEC": [
+        {
+            "game": {"country": {"EU": "Europe", "US": "United States"}},
+            "rom": {"country": {"EU": "Europe"}, "language": {}},
+        }
+    ],
+    "NoIntros": [
+        {
+            "game": {"country": {"EU": "Europe", "JP": "Japan", "US": "United States"}},
+            "rom": {
+                "country": {"US": "United States"},
+                "language": {"en": "English"},
+            },
+        }
+    ],
+}
+
+
+class TestTagsFromSignatures:
+    """Region and language data for the dump a hash matched."""
+
+    def test_prefers_the_curated_dump_over_the_other_sources(self):
+        regions = _tags_from_signatures(SIGNATURES, "country", provider_region_name)
+
+        # TOSEC says Europe for the same hash; No-Intro wins.
+        assert regions == ["USA"]
+
+    def test_reads_the_language_of_the_matched_dump(self):
+        languages = _tags_from_signatures(SIGNATURES, "language", normalize_language)
+
+        assert languages == ["English"]
+
+    def test_falls_through_to_a_source_that_has_the_field(self):
+        signatures = {"TOSEC": SIGNATURES["TOSEC"], "NoIntros": [{"rom": {}}]}
+
+        assert _tags_from_signatures(signatures, "country", provider_region_name) == [
+            "Europe"
+        ]
+
+    def test_resolves_a_code_romm_knows_rather_than_its_printed_name(self):
+        signatures = {"NoIntros": [{"rom": {"country": {"wor": "", "JP": "Japan"}}}]}
+
+        assert _tags_from_signatures(signatures, "country", provider_region_name) == [
+            "World",
+            "Japan",
+        ]
+
+    def test_keeps_the_printed_name_of_a_code_romm_does_not_know(self):
+        signatures = {"NoIntros": [{"rom": {"country": {"PL": "Poland"}}}]}
+
+        assert _tags_from_signatures(signatures, "country", provider_region_name) == [
+            "Poland"
+        ]
+
+    def test_drops_a_bucket_that_names_no_region(self):
+        # "ss" is a ScreenScraper bucket, and it comes with no display name.
+        signatures = {
+            "NoIntros": [{"rom": {"country": {"ss": "", "US": "United States"}}}]
+        }
+
+        assert _tags_from_signatures(signatures, "country", provider_region_name) == [
+            "USA"
+        ]
+
+    def test_a_game_only_match_reports_nothing(self):
+        signatures = {"NoIntros": [{"game": {"country": {"US": "United States"}}}]}
+
+        assert _tags_from_signatures(signatures, "country", provider_region_name) == []
+
+    def test_no_signatures_report_nothing(self):
+        assert _tags_from_signatures({}, "country", provider_region_name) == []

@@ -126,6 +126,15 @@ SCENE_METADATA_SOURCES = frozenset(
     {MetadataSource.DEMOZOO, MetadataSource.POUET, MetadataSource.CSDB}
 )
 
+# ScreenScraper and Hasheous answer a hash with the record of that exact dump,
+# so their regions and languages describe the copy on disk. They only fill a
+# gap the filename left: the tags are the user's own labelling, and the
+# ScreenScraper and IGDB locale pickers read them back to choose artwork and
+# titles. A gamelist.xml sits with the library and is curated the same way a
+# filename is, so it keeps writing them through the merge below.
+HASH_MATCHED_TAG_SOURCES = frozenset({MetadataSource.SS, MetadataSource.HASHEOUS})
+PROVIDER_TAG_FIELDS = ("regions", "languages")
+
 
 def scene_apply_sources(
     available_sources: list[MetadataSource],
@@ -1401,8 +1410,25 @@ async def scan_rom(
         handler_data = metadata_handlers[source_name]["handler"]
         # Only update fields that have valid values
         for key, field_value in handler_data.items():
+            if key in PROVIDER_TAG_FIELDS and source_name in HASH_MATCHED_TAG_SOURCES:
+                continue
             if field_value:
                 rom_attrs[key] = field_value
+
+    # The hash-matched tags, applied only where the filename left the slot empty.
+    hash_matched_ordered = [
+        source_name
+        for source_name in priority_ordered
+        if source_name in HASH_MATCHED_TAG_SOURCES
+    ]
+    for field in PROVIDER_TAG_FIELDS:
+        if rom_attrs.get(field):
+            continue
+        for source_name in hash_matched_ordered:
+            field_value = metadata_handlers[source_name]["handler"].get(field)
+            if field_value:
+                rom_attrs[field] = field_value
+                break
 
     # Artwork sources are prioritized separately, and each field can carry its
     # own override on top of the shared artwork priority.

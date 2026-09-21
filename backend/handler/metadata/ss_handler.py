@@ -27,7 +27,10 @@ from config import (
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
-from handler.filesystem.base_handler import region_name_to_provider_shortcode
+from handler.filesystem.base_handler import (
+    normalize_provider_regions,
+    region_name_to_provider_shortcode,
+)
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile
@@ -228,6 +231,9 @@ ARCADES_SS_IDS: Final = [ARCADE_SS_ID, CPS1_SS_ID, CPS2_SS_ID, CPS3_SS_ID]
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
 
+# `romregions` packs a dump's regions into one string ("eu,us").
+_SS_REGION_SEPARATORS: Final = re.compile(r"[,\s]+")
+
 NOTGAME_NAME_PREFIX: Final = "ZZZ(NOTGAME)"
 
 _ISO_EXTENSIONS: Final = frozenset({"iso", "cue", "chd", "gdi", "cdi", "bin"})
@@ -333,6 +339,7 @@ class SSMetadata(SSMetadataMedia):
 
 class SSRom(BaseRom):
     ss_id: int | None
+    regions: NotRequired[list[str]]
     ss_metadata: NotRequired[SSMetadata]
 
 
@@ -662,6 +669,17 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
     )
 
 
+def extract_regions_from_ss_rom(game: SSGame) -> list[str]:
+    """Regions of the dump jeuInfos matched, empty when it matched none.
+
+    The `rom` block describes one dump rather than the game, so its regions
+    name the copy on disk. ScreenScraper carries no language there.
+    """
+    rom_block = game.get("rom")
+    romregions = rom_block.get("romregions", "") if isinstance(rom_block, dict) else ""
+    return normalize_provider_regions(_SS_REGION_SEPARATORS.split(romregions))
+
+
 def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     ss_metadata = extract_metadata_from_ss_rom(rom, game)
     preferred_media_types = get_preferred_media_types()
@@ -722,6 +740,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     ss_id = int(game["id"]) if game.get("id") is not None else None
     game_rom: SSRom = {
         "ss_id": ss_id,
+        "regions": extract_regions_from_ss_rom(game),
         "name": html.unescape(res_name.replace(" : ", ": ")),  # Normalize colons
         "summary": html.unescape(res_summary),
         "url_cover": str(url_cover) if url_cover else "",
