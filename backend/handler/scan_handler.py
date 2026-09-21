@@ -135,6 +135,9 @@ SCENE_METADATA_SOURCES = frozenset(
 # library, so they own these fields and the locale pickers read them back.
 HASH_MATCHED_TAG_SOURCES = frozenset({MetadataSource.SS, MetadataSource.HASHEOUS})
 PROVIDER_TAG_FIELDS = ("regions", "languages")
+# Tags merge rather than fill: being a translation says nothing about being a
+# revision, so a dump's tags join the filename's instead of replacing them.
+PROVIDER_MERGED_TAG_FIELDS = ("tags",)
 
 
 def scene_apply_sources(
@@ -1415,7 +1418,10 @@ async def scan_rom(
         handler_data = metadata_handlers[source_name]["handler"]
         # Only update fields that have valid values
         for key, field_value in handler_data.items():
-            if key in PROVIDER_TAG_FIELDS and source_name in HASH_MATCHED_TAG_SOURCES:
+            if (
+                key in PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+                and source_name in HASH_MATCHED_TAG_SOURCES
+            ):
                 continue
             if field_value:
                 rom_attrs[key] = field_value
@@ -1441,6 +1447,16 @@ async def scan_rom(
             if field_value:
                 rom_attrs[field] = field_value
                 break
+
+    for field in PROVIDER_MERGED_TAG_FIELDS:
+        merged = list(rom_attrs.get(field) or [])
+        for source_name in priority_ordered:
+            if source_name not in HASH_MATCHED_TAG_SOURCES:
+                continue
+            for tag in metadata_handlers[source_name]["handler"].get(field) or []:
+                if tag not in merged:
+                    merged.append(tag)
+        rom_attrs[field] = merged
 
     # Artwork sources are prioritized separately, and each field can carry its
     # own override on top of the shared artwork priority.

@@ -28,6 +28,7 @@ from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import (
+    TRANSLATION_TAG,
     normalize_provider_languages,
     normalize_provider_regions,
     region_name_to_provider_shortcode,
@@ -343,6 +344,7 @@ class SSRom(BaseRom):
     ss_id: int | None
     regions: NotRequired[list[str]]
     languages: NotRequired[list[str]]
+    tags: NotRequired[list[str]]
     ss_metadata: NotRequired[SSMetadata]
 
 
@@ -718,6 +720,12 @@ def extract_languages_from_ss_dump(dump: SSGameRom) -> list[str]:
     return normalize_provider_languages(code for code in codes if isinstance(code, str))
 
 
+def extract_tags_from_ss_dump(dump: SSGameRom) -> list[str]:
+    """Tags of one dump. Only `trad` today, which marks a fan translation."""
+    # ScreenScraper sends these flags as "1", not 1.
+    return [TRANSLATION_TAG] if str(dump.get("trad", "")).strip() == "1" else []
+
+
 def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     ss_metadata = extract_metadata_from_ss_rom(rom, game)
     preferred_media_types = get_preferred_media_types()
@@ -959,6 +967,7 @@ class SSHandler(MetadataHandler):
         if dump is not None:
             game_rom["regions"] = extract_regions_from_ss_dump(dump)
             game_rom["languages"] = extract_languages_from_ss_dump(dump)
+            game_rom["tags"] = extract_tags_from_ss_dump(dump)
 
         return game_rom, False
 

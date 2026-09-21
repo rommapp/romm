@@ -30,6 +30,7 @@ from handler.metadata.ss_handler import (
     add_ss_auth_to_url,
     build_ss_game,
     extract_languages_from_ss_dump,
+    extract_tags_from_ss_dump,
     extract_media_from_ss_game,
     extract_metadata_from_ss_rom,
     extract_regions_from_ss_dump,
@@ -2183,11 +2184,25 @@ class TestExtractFromSSDump:
             "French"
         ]
 
+    def test_a_translated_dump_is_tagged(self):
+        """ScreenScraper sends the flag as a string, not an int."""
+        assert extract_tags_from_ss_dump(cast(SSGameRom, {"trad": "1"})) == [
+            "Translation"
+        ]
+        assert extract_tags_from_ss_dump(cast(SSGameRom, {"trad": 1})) == [
+            "Translation"
+        ]
+
+    def test_an_untranslated_dump_is_not_tagged(self):
+        for trad in ("0", 0, "", None):
+            assert extract_tags_from_ss_dump(cast(SSGameRom, {"trad": trad})) == []
+
     def test_a_dump_without_tags_reports_nothing(self):
         dump = cast(SSGameRom, {"id": 1})
 
         assert extract_regions_from_ss_dump(dump) == []
         assert extract_languages_from_ss_dump(dump) == []
+        assert extract_tags_from_ss_dump(dump) == []
 
     def test_a_game_with_no_dumps_matches_nothing(self):
         game = cast(SSGame, {"id": 1})

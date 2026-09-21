@@ -25,6 +25,7 @@ HASHEOUS_MATCH = HasheousRom(
     languages=["Japanese"],
 )
 SS_MATCH = SSRom(ss_id=42, name="Mario Kart 64", regions=["Europe"])
+SS_TRANSLATED = SSRom(ss_id=42, name="Mario Kart 64", tags=["Translation"])
 
 
 @pytest.fixture
@@ -53,6 +54,16 @@ def ss_lookup() -> Iterator[AsyncMock]:
     with patch(
         "handler.scan_handler.meta_ss_handler.lookup_rom",
         new=AsyncMock(return_value=(SS_MATCH, False)),
+    ) as by_hash:
+        yield by_hash
+
+
+@pytest.fixture
+def ss_translated() -> Iterator[AsyncMock]:
+    """Patch a hash lookup whose dump carries ScreenScraper's `trad` flag."""
+    with patch(
+        "handler.scan_handler.meta_ss_handler.lookup_rom",
+        new=AsyncMock(return_value=(SS_TRANSLATED, False)),
     ) as by_hash:
         yield by_hash
 
@@ -137,3 +148,30 @@ async def test_a_tag_an_earlier_scan_stored_is_refreshed(hasheous_lookup: AsyncM
 
     assert result.regions == ["Japan"]
     assert result.languages == ["Japanese"]
+
+
+async def test_screenscraper_tags_a_translated_dump(ss_translated: AsyncMock):
+    result = await _scan(MetadataSource.SS, tags=[])
+
+    assert result.tags == ["Translation"]
+
+
+async def test_a_dump_tag_joins_the_filename_tags(ss_translated: AsyncMock):
+    """Unlike a region, a tag adds: the dump is a translation and a revision."""
+    result = await _scan(
+        MetadataSource.SS,
+        fs_name="Mario Kart 64 (Japan) (Rev A).z64",
+        tags=["Rev A"],
+    )
+
+    assert result.tags == ["Rev A", "Translation"]
+
+
+async def test_a_tag_both_sources_report_is_not_repeated(ss_translated: AsyncMock):
+    result = await _scan(
+        MetadataSource.SS,
+        fs_name="Mario Kart 64 (Japan) [T+Eng].z64",
+        tags=["Translation"],
+    )
+
+    assert result.tags == ["Translation"]

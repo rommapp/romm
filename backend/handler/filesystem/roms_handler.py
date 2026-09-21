@@ -66,6 +66,7 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,
+    TRANSLATION_TAG,
     FSHandler,
     normalize_language,
     normalize_region,
@@ -210,10 +211,6 @@ TRANSLATION_TAG_REGEX = re.compile(
     r"|translat(?:ed|ion))$",
     re.I,
 )
-
-# The tag a translated dump carries, in place of the group and patch version
-# the raw tag encodes, which would give every translation its own facet value.
-TRANSLATION_TAG = "Translation"
 
 
 @dataclass(frozen=True)
