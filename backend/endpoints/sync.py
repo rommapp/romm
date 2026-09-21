@@ -26,7 +26,7 @@ from handler.database import (
 )
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
-from handler.sync.comparison import compare_save_state
+from handler.sync.comparison import compare_save_state, deleted_slot_covers
 from logger.logger import log
 from models.assets import Save
 from models.deleted_save import DeletedSave
@@ -68,27 +68,6 @@ class ClientSaveState(BaseModel):
         description="Last-modified timestamp of the save on the client."
     )
     file_size_bytes: int = Field(description="Size of the save file in bytes.")
-
-
-def _covered_by_deletion(client_save: ClientSaveState, deletion: DeletedSave) -> bool:
-    """Whether the copy a client still holds is the one deleted here.
-
-    Args:
-        client_save: The save the client says it has.
-        deletion: What the server remembers about that slot.
-
-    Returns:
-        True when the client should drop its copy rather than offer it back.
-    """
-    if (
-        client_save.content_hash
-        and deletion.content_hash
-        and client_save.content_hash == deletion.content_hash
-    ):
-        return True
-    # Anything written after the deletion is progress the server never held,
-    # and emptying a slot is not a licence to delete a newer save.
-    return to_utc(client_save.updated_at) <= to_utc(deletion.deleted_at)
 
 
 class SyncNegotiatePayload(BaseModel):
@@ -249,8 +228,8 @@ def negotiate_sync(
             # its own copy looks the same either way, so without this it would
             # upload the save back and undo the deletion.
             deletion = deleted_map.get(key)
-            deleted = deletion is not None and _covered_by_deletion(
-                client_save, deletion
+            deleted = deletion is not None and deleted_slot_covers(
+                client_save.content_hash, deletion.content_hashes or []
             )
             operations.append(
                 SyncOperationSchema(

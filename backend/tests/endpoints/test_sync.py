@@ -91,10 +91,10 @@ class TestSyncNegotiate:
         assert data["total_upload"] == 0
         assert data["operations"][0]["action"] == "delete"
 
-    def test_negotiate_progress_made_after_a_deletion(
+    def test_negotiate_bytes_the_deletion_never_covered(
         self, client, access_token: str, admin_user: User, rom: Rom
     ):
-        """Played since the slot was emptied -> upload, not delete."""
+        """Progress the server never held -> upload, whatever the clocks say."""
         device = db_device_handler.add_device(
             Device(id="neg-dev-deleted-2", user_id=admin_user.id, sync_enabled=True)
         )
@@ -116,7 +116,10 @@ class TestSyncNegotiate:
                         "file_name": "test_save.sav",
                         "slot": "autosave",
                         "content_hash": "f00d",
-                        "updated_at": "2026-01-11T00:00:00Z",
+                        # Older than the deletion, which decides nothing: the
+                        # client's clock is not the server's, and these bytes
+                        # are not among the ones that went.
+                        "updated_at": "2026-01-09T00:00:00Z",
                         "file_size_bytes": 1024,
                     }
                 ],

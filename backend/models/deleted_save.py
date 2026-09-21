@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import TIMESTAMP, ForeignKey, Index, String
+from sqlalchemy import JSON, TIMESTAMP, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.assets import SAVE_SLOT_MAX_LENGTH
@@ -33,7 +33,10 @@ class DeletedSave(BaseModel):
         ForeignKey("roms.id", ondelete="CASCADE"), index=True
     )
     slot: Mapped[str] = mapped_column(String(length=SAVE_SLOT_MAX_LENGTH))
-    # What the slot held, so a device carrying exactly those bytes is told to
-    # drop them however the two clocks compare.
-    content_hash: Mapped[str | None] = mapped_column(String(length=32))
+    # Every version the slot has held and lost, so a device carrying any of
+    # them is told to drop it. Identity rather than time: the two clocks are
+    # not comparable, and a device running slow would otherwise be told to
+    # delete progress it made after the deletion.
+    content_hashes: Mapped[list] = mapped_column(JSON, default=list)
+    # For reading a row, not for deciding anything.
     deleted_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))

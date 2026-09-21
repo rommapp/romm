@@ -2,7 +2,11 @@
 
 from datetime import datetime, timezone
 
-from handler.sync.comparison import SyncComparisonResult, compare_save_state
+from handler.sync.comparison import (
+    SyncComparisonResult,
+    compare_save_state,
+    deleted_slot_covers,
+)
 
 
 class TestCompareIdenticalHashes:
@@ -141,3 +145,22 @@ class TestCompareReturnType:
         assert isinstance(result, SyncComparisonResult)
         assert isinstance(result.action, str)
         assert isinstance(result.reason, str)
+
+
+class TestDeletedSlotCovers:
+    def test_a_version_the_slot_lost_is_covered(self):
+        assert deleted_slot_covers("abc123", ["def456", "abc123"])
+
+    def test_bytes_nobody_deleted_are_not(self):
+        # Progress made after the deletion, or on a device that never synced
+        # it. Offering it back costs a deletion that does not reach that
+        # device; deleting it would cost the save.
+        assert not deleted_slot_covers("fresh", ["abc123"])
+
+    def test_a_client_that_reports_no_digest_is_not_covered(self):
+        # Nothing to match on, so the safe answer is to keep the file.
+        assert not deleted_slot_covers(None, ["abc123"])
+        assert not deleted_slot_covers("", ["abc123"])
+
+    def test_a_slot_that_lost_nothing_covers_nothing(self):
+        assert not deleted_slot_covers("abc123", [])

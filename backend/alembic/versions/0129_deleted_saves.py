@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("rom_id", sa.Integer(), nullable=False),
         sa.Column("slot", sa.String(length=255), nullable=False),
-        sa.Column("content_hash", sa.String(length=32), nullable=True),
+        sa.Column("content_hashes", sa.JSON(), nullable=False),
         sa.Column("deleted_at", sa.TIMESTAMP(timezone=True), nullable=False),
         sa.Column(
             "created_at",

@@ -771,19 +771,21 @@ async def delete_saves(
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
-        # Read before the row goes, and remembered after it has: a slot emptied
-        # on purpose is the one thing a negotiation cannot work out for itself,
-        # since the save's device pairings go with it.
-        rom_id, slot, content_hash = save.rom_id, save.slot, save.content_hash
-        await _delete_save(save)
-        if slot:
+        # Remembered first. A slot emptied on purpose is the one thing a
+        # negotiation cannot work out for itself, since the save's device
+        # pairings go with it, and the two steps are separate transactions with
+        # file removal between them: a record for a save that is somehow still
+        # there is never read, while a deletion with no record offers the save
+        # back to every device holding it.
+        if save.slot:
             db_deleted_save_handler.record_deletion(
                 user_id=request.user.id,
-                rom_id=rom_id,
-                slot=slot,
-                content_hash=content_hash,
+                rom_id=save.rom_id,
+                slot=save.slot,
+                content_hash=save.content_hash,
                 deleted_at=datetime.now(timezone.utc),
             )
+        await _delete_save(save)
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 

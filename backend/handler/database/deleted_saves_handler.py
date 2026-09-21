@@ -1,13 +1,20 @@
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
 from models.deleted_save import DeletedSave
+from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler
+
+# Versions remembered per slot. A slot emptied again and again is a slot whose
+# oldest versions no device still holds, and the row is read on every
+# negotiation that finds the slot empty.
+MAX_REMEMBERED_HASHES = 20
 
 
 class DBDeletedSavesHandler(DBBaseHandler):
@@ -21,33 +28,68 @@ class DBDeletedSavesHandler(DBBaseHandler):
         deleted_at: datetime,
         session: Session = None,  # type: ignore
     ) -> DeletedSave:
-        """Remember that this slot was emptied, replacing any earlier record.
+        """Remember a version this slot lost, keeping one row per slot.
 
         Args:
             user_id: Whose library the slot belongs to.
-            rom_id: The ROM whose slot was emptied.
+            rom_id: The ROM whose slot lost a version.
             slot: The slot itself.
-            content_hash: What it held, when the save recorded one.
-            deleted_at: When it was emptied.
+            content_hash: What that version held, when the save recorded one.
+            deleted_at: When it went.
 
         Returns:
             The record a negotiation will read.
         """
-        session.execute(
-            delete(DeletedSave).where(
-                DeletedSave.user_id == user_id,
-                DeletedSave.rom_id == rom_id,
-                DeletedSave.slot == slot,
-            )
-        )
+        existing = self._locked(session, user_id, rom_id, slot)
+        if existing:
+            return self._merge(existing, content_hash, deleted_at, session)
+
         record = DeletedSave(
             user_id=user_id,
             rom_id=rom_id,
             slot=slot,
-            content_hash=content_hash,
+            content_hashes=[content_hash] if content_hash else [],
             deleted_at=deleted_at,
         )
-        session.add(record)
+        try:
+            # Two deletions of the same slot can each find no row to lock,
+            # since there is nothing there to lock yet. The loser merges.
+            with session.begin_nested():
+                session.add(record)
+                session.flush()
+        except IntegrityError:
+            winner = self._locked(session, user_id, rom_id, slot)
+            if not winner:
+                raise
+            return self._merge(winner, content_hash, deleted_at, session)
+        return record
+
+    def _locked(
+        self, session: Session, user_id: int, rom_id: int, slot: str
+    ) -> DeletedSave | None:
+        """This slot's record, held against a concurrent deletion of the same."""
+        return session.scalar(
+            select(DeletedSave)
+            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
+            .with_for_update()
+        )
+
+    def _merge(
+        self,
+        record: DeletedSave,
+        content_hash: str | None,
+        deleted_at: datetime,
+        session: Session,
+    ) -> DeletedSave:
+        """Add this version to what the slot is known to have lost."""
+        hashes = list(record.content_hashes or [])
+        if content_hash and content_hash not in hashes:
+            hashes.append(content_hash)
+        record.content_hashes = hashes[-MAX_REMEMBERED_HASHES:]
+        # The latest, so a row read by hand says when the slot was last
+        # emptied. Through to_utc, since a stored value comes back naive on
+        # MariaDB and comparing that with an aware one raises.
+        record.deleted_at = max(to_utc(record.deleted_at), to_utc(deleted_at))
         session.flush()
         return record
 
