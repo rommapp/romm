@@ -200,10 +200,8 @@ def normalize_language(tag: str) -> str | None:
     return _LANGUAGE_BY_ALIAS.get(tag.strip().lower())
 
 
-# The three-letter codes a translation tag names its target language with
-# ("[T+Eng]", "[T-Ita]"), which no other tag uses. Only the languages RomM can
-# name: a translation into one it cannot is still tagged, just not filed under
-# a language.
+# Three-letter codes only a translation tag uses for its target language
+# ("[T+Eng]", "[T-Ita]"). A translation into an unlisted language is still tagged.
 _TRANSLATION_LANGUAGE_ALIASES = {
     "ara": "Arabic",
     "chi": "Chinese",
