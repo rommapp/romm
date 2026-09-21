@@ -53,6 +53,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 | `pr-ready`               | Before opening a PR - the four passes in order: `security-audit`, `code-review xhigh --fix`, `simplify`, `review-polish`. Not auto-invoked.                   |
 | `address-bot-reviews`    | After Greptile and Copilot review a PR - triage each finding, fix what holds up, reply with the fix or the reason, and resolve the threads. Not auto-invoked. |
 | `draft-release-notes`    | Drafting the GitHub release notes for a release, stable or alpha/beta, from the diff since the previous stable tag.                                           |
+| `draft-announcement`     | Drafting the Discord announcement for a release, from the release notes plus an interview about community news. Not auto-invoked.                             |
 
 ---
 
