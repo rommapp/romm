@@ -1,7 +1,12 @@
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from handler.database import db_save_handler, db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_deleted_save_handler,
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
@@ -18,6 +23,14 @@ def test_delete_saves(client, access_token, save):
 
     body = response.json()
     assert len(body) == 1
+
+    # The row and its device pairings go together, so what the user did is only
+    # recoverable from this: without it a device still holding the save offers
+    # it back and the deletion undoes itself.
+    deletions = db_deleted_save_handler.get_deletions(
+        user_id=save.user_id, rom_ids=[save.rom_id]
+    )
+    assert [record.slot for record in deletions] == [save.slot]
 
 
 def test_delete_states(client, access_token, state):

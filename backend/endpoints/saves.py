@@ -17,6 +17,7 @@ from handler.asset_store import remove_asset_file, remove_screenshot
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
+    db_deleted_save_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_rom_handler,
@@ -770,7 +771,19 @@ async def delete_saves(
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
+        # Read before the row goes, and remembered after it has: a slot emptied
+        # on purpose is the one thing a negotiation cannot work out for itself,
+        # since the save's device pairings go with it.
+        rom_id, slot, content_hash = save.rom_id, save.slot, save.content_hash
         await _delete_save(save)
+        if slot:
+            db_deleted_save_handler.record_deletion(
+                user_id=request.user.id,
+                rom_id=rom_id,
+                slot=slot,
+                content_hash=content_hash,
+                deleted_at=datetime.now(timezone.utc),
+            )
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 

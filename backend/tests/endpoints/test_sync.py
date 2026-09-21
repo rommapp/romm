@@ -8,6 +8,7 @@ from unittest import mock
 from fastapi import status
 
 from handler.database import (
+    db_deleted_save_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_play_session_handler,
@@ -49,6 +50,83 @@ class TestSyncNegotiate:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["total_upload"] == 1
+        assert data["operations"][0]["action"] == "upload"
+
+    def test_negotiate_slot_the_owner_deleted(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        """Server emptied the slot the client still holds -> delete."""
+        device = db_device_handler.add_device(
+            Device(id="neg-dev-deleted", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_deleted_save_handler.record_deletion(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            content_hash="deadbeef",
+            deleted_at=datetime(2026, 1, 10, tzinfo=timezone.utc),
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={
+                "device_id": device.id,
+                "saves": [
+                    {
+                        "rom_id": rom.id,
+                        "file_name": "test_save.sav",
+                        "slot": "autosave",
+                        "content_hash": "deadbeef",
+                        "updated_at": "2026-01-09T00:00:00Z",
+                        "file_size_bytes": 1024,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_delete"] == 1
+        assert data["total_upload"] == 0
+        assert data["operations"][0]["action"] == "delete"
+
+    def test_negotiate_progress_made_after_a_deletion(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        """Played since the slot was emptied -> upload, not delete."""
+        device = db_device_handler.add_device(
+            Device(id="neg-dev-deleted-2", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_deleted_save_handler.record_deletion(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            content_hash="deadbeef",
+            deleted_at=datetime(2026, 1, 10, tzinfo=timezone.utc),
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={
+                "device_id": device.id,
+                "saves": [
+                    {
+                        "rom_id": rom.id,
+                        "file_name": "test_save.sav",
+                        "slot": "autosave",
+                        "content_hash": "f00d",
+                        "updated_at": "2026-01-11T00:00:00Z",
+                        "file_size_bytes": 1024,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_delete"] == 0
         assert data["operations"][0]["action"] == "upload"
 
     def test_negotiate_server_has_save_client_doesnt(

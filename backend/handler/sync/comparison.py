@@ -5,7 +5,7 @@ from typing import Literal, NamedTuple
 
 from utils.datetime import to_utc
 
-SyncAction = Literal["upload", "download", "conflict", "no_op"]
+SyncAction = Literal["upload", "download", "conflict", "no_op", "delete"]
 
 
 class SyncComparisonResult(NamedTuple):

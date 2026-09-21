@@ -7,12 +7,13 @@ from .play_session import PlaySessionIngestResponse
 
 
 class SyncOperationSchema(BaseModel):
-    action: Literal["upload", "download", "conflict", "no_op"] = Field(
+    action: Literal["upload", "download", "conflict", "no_op", "delete"] = Field(
         description=(
             "Operation the client should perform. 'upload' when the client has a "
             "save the server lacks (including any null-slot save, which is never "
             "paired with server saves), 'download' when the server has a newer or "
-            "unknown save, 'conflict' when both sides changed independently, and "
+            "unknown save, 'conflict' when both sides changed independently, "
+            "'delete' when the slot the client still holds was emptied here, and "
             "'no_op' when no action is needed."
         )
     )
@@ -52,6 +53,7 @@ class SyncNegotiateResponse(BaseModel):
     total_download: int
     total_conflict: int
     total_no_op: int
+    total_delete: int = 0
 
 
 class SyncSessionSchema(BaseModel):

@@ -18,6 +18,7 @@ from endpoints.responses.sync import (
 )
 from handler.auth.constants import Scope
 from handler.database import (
+    db_deleted_save_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
@@ -28,6 +29,7 @@ from handler.redis_handler import high_prio_queue
 from handler.sync.comparison import compare_save_state
 from logger.logger import log
 from models.assets import Save
+from models.deleted_save import DeletedSave
 from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
 from utils.datetime import to_utc
@@ -66,6 +68,27 @@ class ClientSaveState(BaseModel):
         description="Last-modified timestamp of the save on the client."
     )
     file_size_bytes: int = Field(description="Size of the save file in bytes.")
+
+
+def _covered_by_deletion(client_save: ClientSaveState, deletion: DeletedSave) -> bool:
+    """Whether the copy a client still holds is the one deleted here.
+
+    Args:
+        client_save: The save the client says it has.
+        deletion: What the server remembers about that slot.
+
+    Returns:
+        True when the client should drop its copy rather than offer it back.
+    """
+    if (
+        client_save.content_hash
+        and deletion.content_hash
+        and client_save.content_hash == deletion.content_hash
+    ):
+        return True
+    # Anything written after the deletion is progress the server never held,
+    # and emptying a slot is not a licence to delete a newer save.
+    return to_utc(client_save.updated_at) <= to_utc(deletion.deleted_at)
 
 
 class SyncNegotiatePayload(BaseModel):
@@ -122,7 +145,8 @@ def negotiate_sync(
     """Negotiate sync operations between a client device and the server.
 
     The client sends its current save state, and the server returns a list of
-    operations (upload, download, conflict, no_op) to bring both sides in sync.
+    operations (upload, download, conflict, delete, no_op) to bring both sides
+    in sync.
 
     A client that only holds part of the library can send `rom_ids` to scope the
     negotiation to the ROMs installed on the device, which keeps the response
@@ -195,6 +219,16 @@ def negotiate_sync(
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
 
+    # Slots this user emptied, which is what tells a client holding one that it
+    # was deleted rather than never uploaded. Only read when the slot has no row
+    # left, so a slot refilled since keeps its record harmlessly.
+    deleted_map: dict[tuple[int, str | None], DeletedSave] = {
+        (record.rom_id, record.slot): record
+        for record in db_deleted_save_handler.get_deletions(
+            user_id=request.user.id, rom_ids=rom_id_scope
+        )
+    }
+
     # Only the newest row per slot is ever looked up, so superseded rows stay out.
     current_save_ids = [s.id for s in server_save_map.values()]
     device_syncs = db_device_save_sync_handler.get_syncs_for_device_and_saves(
@@ -211,16 +245,26 @@ def negotiate_sync(
         server_save = server_save_map.get(key)
 
         if server_save is None:
-            # Client has a save the server doesn't -> upload
+            # A slot emptied here is the one case the client cannot work out:
+            # its own copy looks the same either way, so without this it would
+            # upload the save back and undo the deletion.
+            deletion = deleted_map.get(key)
+            deleted = deletion is not None and _covered_by_deletion(
+                client_save, deletion
+            )
             operations.append(
                 SyncOperationSchema(
-                    action="upload",
+                    action="delete" if deleted else "upload",
                     rom_id=client_save.rom_id,
                     save_id=None,
                     file_name=client_save.file_name,
                     slot=client_save.slot,
                     emulator=client_save.emulator,
-                    reason="Save exists on client but not on server",
+                    reason=(
+                        "Save was deleted on the server"
+                        if deleted
+                        else "Save exists on client but not on server"
+                    ),
                 )
             )
             continue
@@ -320,12 +364,15 @@ def negotiate_sync(
     total_download = sum(1 for op in operations if op.action == "download")
     total_conflict = sum(1 for op in operations if op.action == "conflict")
     total_no_op = sum(1 for op in operations if op.action == "no_op")
+    total_delete = sum(1 for op in operations if op.action == "delete")
 
     db_sync_session_handler.update_session(
         session_id=sync_session.id,
         data={
             "status": SyncSessionStatus.IN_PROGRESS,
-            "operations_planned": total_upload + total_download + total_conflict,
+            "operations_planned": (
+                total_upload + total_download + total_conflict + total_delete
+            ),
         },
     )
 
@@ -335,7 +382,8 @@ def negotiate_sync(
     log.info(
         f"Sync negotiation for device {device.id}: "
         f"{total_upload} uploads, {total_download} downloads, "
-        f"{total_conflict} conflicts, {total_no_op} no-ops"
+        f"{total_conflict} conflicts, {total_delete} deletions, "
+        f"{total_no_op} no-ops"
     )
 
     return SyncNegotiateResponse(
@@ -345,6 +393,7 @@ def negotiate_sync(
         total_download=total_download,
         total_conflict=total_conflict,
         total_no_op=total_no_op,
+        total_delete=total_delete,
     )
 
 
