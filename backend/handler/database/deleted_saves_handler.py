@@ -11,9 +11,13 @@ from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler
 
-# Versions remembered per slot: the oldest are ones no device still holds,
-# and this row is read on every negotiation that finds the slot empty.
-MAX_REMEMBERED_HASHES = 20
+# Versions remembered per slot, read on every negotiation that finds the slot
+# empty. Trimming drops the oldest, which are the ones a long-offline device is
+# likeliest to still hold, so the bound is set where that device would have had
+# to miss a hundred delete-and-refill cycles of one slot. Past it the slot's
+# deletion is simply not known for those bytes and the device is answered
+# `upload`, which is the direction that cannot lose a save.
+MAX_REMEMBERED_HASHES = 100
 
 
 class DBDeletedSavesHandler(DBBaseHandler):

@@ -164,3 +164,14 @@ class TestDeletedSlotCovers:
 
     def test_a_slot_that_lost_nothing_covers_nothing(self):
         assert not deleted_slot_covers("abc123", [])
+
+    def test_a_version_trimmed_out_of_the_record_is_offered_back(self):
+        # The record keeps a bounded history, so a device offline across more
+        # delete-and-refill cycles than it holds arrives with a digest that
+        # aged out. That device is answered `upload`, which is a deletion not
+        # reaching it rather than a save destroyed on it. The bound is where
+        # this stops being reachable, not a case that cannot happen.
+        aged_out = "the-version-this-device-still-holds"
+        remembered = [f"hash-{index}" for index in range(100)]
+
+        assert not deleted_slot_covers(aged_out, remembered)
