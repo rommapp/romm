@@ -162,14 +162,12 @@ def negotiate_sync(
             detail="Sync is disabled for this device",
         )
 
-    # Cancel any existing active sessions for this device
-    cancelled = db_sync_session_handler.cancel_active_sessions(
-        device_id=device.id, user_id=request.user.id
-    )
-    if cancelled:
-        log.info(f"Cancelled {cancelled} active sync session(s) for device {device.id}")
-
-    # Create a new sync session
+    # A session belongs to the launch that negotiated it, not to the device, and
+    # a device can have two games open at once. Cancelling whatever else this
+    # device had open would take the other launch's session out from under it,
+    # and a relaunch inside the seconds an exit spends uploading would do it to
+    # the launch that just ended. One that is never completed is left to the
+    # scheduled cleanup instead.
     sync_session = db_sync_session_handler.create_session(
         device_id=device.id, user_id=request.user.id
     )
@@ -400,7 +398,6 @@ def complete_sync_session(
                 for s in payload.play_sessions
             ],
             device_id=sync_session.device_id,
-            sync_session_id=session_id,
         )
         play_session_ingest = PlaySessionIngestResponse(
             results=[

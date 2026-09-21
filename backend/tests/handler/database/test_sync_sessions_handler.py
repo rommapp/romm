@@ -1,7 +1,10 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy.exc import NoResultFound
 
 from handler.database import db_device_handler, db_sync_session_handler
+from handler.database.sync_sessions_handler import STALE_SESSION_MESSAGE
 from models.device import Device
 from models.sync_session import SyncSessionStatus
 from models.user import User
@@ -171,32 +174,66 @@ class TestNoResultFoundOnMissingSession:
             db_sync_session_handler.fail_session(999999, error_message="test")
 
 
-class TestCancelActiveSessions:
-    def test_cancels_active_sessions(self, admin_user: User):
+class TestFailStaleSessions:
+    def test_fails_sessions_left_open(self, admin_user: User):
+        # Nothing else closes one now that a negotiation leaves the device's
+        # other sessions alone, so a client that never comes back is what this
+        # exists for.
         device = db_device_handler.add_device(
-            Device(id="cancel-dev-1", user_id=admin_user.id)
+            Device(id="stale-dev-1", user_id=admin_user.id)
         )
-        db_sync_session_handler.create_session(device.id, admin_user.id)
-        s2 = db_sync_session_handler.create_session(device.id, admin_user.id)
+        pending = db_sync_session_handler.create_session(device.id, admin_user.id)
+        running = db_sync_session_handler.create_session(device.id, admin_user.id)
         db_sync_session_handler.update_session(
-            s2.id, {"status": SyncSessionStatus.IN_PROGRESS}
+            running.id, {"status": SyncSessionStatus.IN_PROGRESS}
         )
 
-        count = db_sync_session_handler.cancel_active_sessions(device.id, admin_user.id)
+        count = db_sync_session_handler.fail_stale_sessions(
+            older_than=datetime.now(timezone.utc) + timedelta(minutes=1)
+        )
         assert count == 2
 
-        active = db_sync_session_handler.get_active_session(device.id, admin_user.id)
-        assert active is None
+        for session_id in (pending.id, running.id):
+            failed = db_sync_session_handler.get_session(session_id, admin_user.id)
+            assert failed is not None
+            assert failed.status == SyncSessionStatus.FAILED
+            # Failed rather than cancelled, and the row is the only place the
+            # difference can be recorded.
+            assert failed.error_message == STALE_SESSION_MESSAGE
+            assert failed.completed_at is not None
 
-    def test_does_not_cancel_completed(self, admin_user: User):
+    def test_leaves_a_session_still_in_its_launch(self, admin_user: User):
+        # A game can be open for hours, so only a session older than the cutoff
+        # is past accounting for.
         device = db_device_handler.add_device(
-            Device(id="cancel-dev-2", user_id=admin_user.id)
+            Device(id="stale-dev-2", user_id=admin_user.id)
+        )
+        created = db_sync_session_handler.create_session(device.id, admin_user.id)
+
+        count = db_sync_session_handler.fail_stale_sessions(
+            older_than=datetime.now(timezone.utc) - timedelta(hours=24)
+        )
+        assert count == 0
+
+        still_open = db_sync_session_handler.get_session(created.id, admin_user.id)
+        assert still_open is not None
+        assert still_open.status == SyncSessionStatus.PENDING
+
+    def test_leaves_a_finished_session_alone(self, admin_user: User):
+        device = db_device_handler.add_device(
+            Device(id="stale-dev-3", user_id=admin_user.id)
         )
         created = db_sync_session_handler.create_session(device.id, admin_user.id)
         db_sync_session_handler.complete_session(created.id)
 
-        count = db_sync_session_handler.cancel_active_sessions(device.id, admin_user.id)
+        count = db_sync_session_handler.fail_stale_sessions(
+            older_than=datetime.now(timezone.utc) + timedelta(minutes=1)
+        )
         assert count == 0
+
+        completed = db_sync_session_handler.get_session(created.id, admin_user.id)
+        assert completed is not None
+        assert completed.status == SyncSessionStatus.COMPLETED
 
 
 class TestGetSessions:

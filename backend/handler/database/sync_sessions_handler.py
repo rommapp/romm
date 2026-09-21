@@ -11,6 +11,12 @@ from models.sync_session import SyncSession, SyncSessionStatus
 from .base_handler import DBBaseHandler
 
 
+# What a session that nobody ever closed is recorded as. Failed rather than
+# cancelled: nobody cancelled it, the client simply never came back, and the row
+# is the only place that can be said.
+STALE_SESSION_MESSAGE = "No client reported this session as completed"
+
+
 class DBSyncSessionsHandler(DBBaseHandler):
     @begin_session
     def create_session(
@@ -144,18 +150,23 @@ class DBSyncSessionsHandler(DBBaseHandler):
         return result
 
     @begin_session
-    def cancel_active_sessions(
+    def fail_stale_sessions(
         self,
-        device_id: str,
-        user_id: int,
+        older_than: datetime,
         session: Session = None,  # type: ignore
     ) -> int:
-        """Cancel all active sessions for a device. Returns count of cancelled sessions."""
+        """Fail every session opened before ``older_than`` and never closed.
+
+        Args:
+            older_than: The moment a session still open is past accounting for.
+
+        Returns:
+            How many rows were failed.
+        """
         result = session.execute(
             update(SyncSession)
             .where(
-                SyncSession.device_id == device_id,
-                SyncSession.user_id == user_id,
+                SyncSession.initiated_at < older_than,
                 SyncSession.status.in_(
                     [
                         SyncSessionStatus.PENDING,
@@ -164,8 +175,9 @@ class DBSyncSessionsHandler(DBBaseHandler):
                 ),
             )
             .values(
-                status=SyncSessionStatus.CANCELLED,
+                status=SyncSessionStatus.FAILED,
                 completed_at=datetime.now(timezone.utc),
+                error_message=STALE_SESSION_MESSAGE,
             )
             .execution_options(synchronize_session="evaluate")
         )
