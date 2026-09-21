@@ -129,6 +129,22 @@ class TestCompleteSession:
         # given up on.
         assert result.error_message is None
 
+    def test_leaves_a_session_something_failed_on_purpose(self, admin_user: User):
+        # Only the cleanup's own failure reopens: it says nobody reported this
+        # session, where a worker's failure is a report of what happened.
+        device = db_device_handler.add_device(
+            Device(id="comp-dev-4", user_id=admin_user.id)
+        )
+        created = db_sync_session_handler.create_session(device.id, admin_user.id)
+        db_sync_session_handler.fail_session(created.id, error_message="the wire went")
+
+        assert db_sync_session_handler.complete_session(created.id) is None
+
+        stored = db_sync_session_handler.get_session(created.id, admin_user.id)
+        assert stored is not None
+        assert stored.status == SyncSessionStatus.FAILED
+        assert stored.error_message == "the wire went"
+
     def test_a_second_completion_changes_nothing(self, admin_user: User):
         # The statement decides it, so a completion and the cleanup landing
         # together cannot both win.

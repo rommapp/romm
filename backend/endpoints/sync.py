@@ -359,9 +359,9 @@ def complete_sync_session(
             detail=f"Sync session with ID {session_id} not found",
         )
 
-    # A session the cleanup gave up on can still be completed: its counts and
-    # the play sessions the client carries are worth more than the guess that
-    # nobody would ever report them.
+    # A session the cleanup expired can still be completed: its counts and the
+    # play sessions the client carries are worth more than the guess that
+    # nobody would ever report them. One closed on purpose is refused.
     completed = db_sync_session_handler.complete_session(
         session_id=session_id,
         operations_completed=payload.operations_completed,
@@ -370,7 +370,7 @@ def complete_sync_session(
     if completed is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Session is already completed",
+            detail=f"Session is already {sync_session.status}",
         )
 
     log.info(

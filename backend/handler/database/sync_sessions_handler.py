@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 
@@ -109,7 +109,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         operations_failed: int = 0,
         session: Session = None,  # type: ignore
     ) -> SyncSession | None:
-        """Complete a session, unless it has been completed already.
+        """Complete a session that is still open, or that the cleanup expired.
 
         Args:
             session_id: The session to close.
@@ -117,15 +117,26 @@ class DBSyncSessionsHandler(DBBaseHandler):
             operations_failed: How many it could not.
 
         Returns:
-            The completed session, or None when one had already completed it.
+            The completed session, or None when it was already closed.
         """
         # Decided in the statement rather than before it, so a completion and
-        # the cleanup landing together cannot both win.
+        # the cleanup landing together cannot both win. The cleanup's own
+        # failure is the one closed state a completion may reopen: it says
+        # nobody reported this, and somebody just has. A session cancelled, or
+        # failed by whatever ran it, was closed on purpose.
         updated = session.execute(
             update(SyncSession)
             .where(
                 SyncSession.id == session_id,
-                SyncSession.status != SyncSessionStatus.COMPLETED,
+                or_(
+                    SyncSession.status.in_(
+                        [SyncSessionStatus.PENDING, SyncSessionStatus.IN_PROGRESS]
+                    ),
+                    and_(
+                        SyncSession.status == SyncSessionStatus.FAILED,
+                        SyncSession.error_message == STALE_SESSION_MESSAGE,
+                    ),
+                ),
             )
             .values(
                 status=SyncSessionStatus.COMPLETED,
