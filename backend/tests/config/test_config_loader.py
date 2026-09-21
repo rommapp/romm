@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,22 @@ from config.config_manager import (
     parse_platform_templates,
     parse_structure_template,
 )
+
+
+@contextmanager
+def capture_romm_logs(caplog, level=logging.WARNING):
+    """Capture the `romm` logger, whose records never reach caplog on their own.
+
+    It sets `propagate = False`, so caplog's handler has to be attached to it
+    directly rather than to the root logger.
+    """
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(level, logger="romm"):
+            yield caplog
+    finally:
+        romm_logger.removeHandler(caplog.handler)
 
 
 def test_config_loader():
@@ -524,15 +541,8 @@ def test_legacy_streaming_container_logs_deprecation_warning(caplog, tmp_path):
         "      broker_host: http://192.168.1.51:8000\n"
         "      label: PCSX2\n"
     )
-    # The "romm" logger has propagate=False, so caplog's handler must be
-    # added directly to it rather than relying on root-logger propagation.
-    romm_logger = logging.getLogger("romm")
-    romm_logger.addHandler(caplog.handler)
-    try:
-        with caplog.at_level(logging.WARNING, logger="romm"):
-            loader = ConfigManager(str(config_file))
-    finally:
-        romm_logger.removeHandler(caplog.handler)
+    with capture_romm_logs(caplog):
+        loader = ConfigManager(str(config_file))
 
     assert loader.config.STREAMING_CONTAINERS
     assert "deprecated" in caplog.text
@@ -552,13 +562,8 @@ def test_webstation_streaming_container_does_not_warn(caplog, tmp_path):
         "      platforms:\n"
         "        ps2: pcsx2\n"
     )
-    romm_logger = logging.getLogger("romm")
-    romm_logger.addHandler(caplog.handler)
-    try:
-        with caplog.at_level(logging.WARNING, logger="romm"):
-            ConfigManager(str(config_file))
-    finally:
-        romm_logger.removeHandler(caplog.handler)
+    with capture_romm_logs(caplog):
+        ConfigManager(str(config_file))
 
     assert "deprecated" not in caplog.text
 
@@ -632,14 +637,21 @@ def test_platform_binding_lookup_ignores_case(tmp_path):
 
 def test_case_variant_folder_keys_collapse_with_a_warning(caplog, tmp_path):
     """One key covers both, so the dropped mapping must not vanish silently."""
-    loader = _write_config(tmp_path, '  platforms:\n    PSX: "ps2"\n    psx: "psx"\n')
+    with capture_romm_logs(caplog):
+        loader = _write_config(
+            tmp_path, '  platforms:\n    PSX: "ps2"\n    psx: "psx"\n'
+        )
 
     assert loader.config.PLATFORMS_BINDING == {"psx": "psx"}
     assert "case variant" in caplog.text
+    assert "ps2" in caplog.text
 
 
 def test_identical_case_variant_mappings_do_not_warn(caplog, tmp_path):
-    loader = _write_config(tmp_path, '  platforms:\n    PSX: "psx"\n    psx: "psx"\n')
+    with capture_romm_logs(caplog):
+        loader = _write_config(
+            tmp_path, '  platforms:\n    PSX: "psx"\n    psx: "psx"\n'
+        )
 
     assert loader.config.PLATFORMS_BINDING == {"psx": "psx"}
     assert "case variant" not in caplog.text
