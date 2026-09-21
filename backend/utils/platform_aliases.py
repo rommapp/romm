@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Final
 
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -190,3 +191,23 @@ def resolve_fs_slug(slug: str, config: Config) -> str | None:
             if bound == slug:
                 return fs_slug
     return PLATFORM_SLUG_FOLDERS.get(slug)
+
+
+def resolve_fs_folder(fs_slug: str, fs_platforms: Iterable[str]) -> str | None:
+    """Resolve a folder name to the one on disk it names, ignoring case.
+
+    Config keys are lowercased, but paths are built from the folder's own
+    casing. An exact match wins, so on a case-sensitive filesystem two folders
+    differing only by case each still resolve to themselves.
+
+    Returns:
+        The folder as it is spelled on disk, or None when none matches.
+    """
+    folded = fs_slug.lower()
+    fallback: str | None = None
+    for folder in fs_platforms:
+        if folder == fs_slug:
+            return folder
+        if fallback is None and folder.lower() == folded:
+            fallback = folder
+    return fallback

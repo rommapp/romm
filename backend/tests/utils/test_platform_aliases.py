@@ -7,6 +7,7 @@ from config.config_manager import Config
 from utils.platform_aliases import (
     PLATFORM_FS_ALIASES,
     PLATFORM_SLUG_FOLDERS,
+    resolve_fs_folder,
     resolve_fs_slug,
     resolve_platform_slug,
 )
@@ -83,6 +84,23 @@ def test_slug_reached_by_several_folders_has_no_reverse():
     assert resolve_fs_slug("amiga", _config()) is None
     assert resolve_fs_slug("ngc", _config()) is None
     assert resolve_fs_slug("my-custom-slug", _config()) is None
+
+
+def test_resolves_a_config_key_to_the_folder_on_disk():
+    """Config keys are lowercased; paths need the folder's own casing."""
+    assert resolve_fs_folder("nintendo 64", ["Nintendo 64", "psx"]) == "Nintendo 64"
+
+
+def test_resolves_a_folder_that_is_not_on_disk_to_nothing():
+    assert resolve_fs_folder("nintendo 64", ["psx"]) is None
+
+
+def test_two_folders_differing_only_by_case_each_resolve_to_themselves():
+    """A case-sensitive filesystem allows both; neither may claim the other."""
+    folders = ["PSX", "psx"]
+
+    assert resolve_fs_folder("psx", folders) == "psx"
+    assert resolve_fs_folder("PSX", folders) == "PSX"
 
 
 def test_reverse_map_agrees_with_alias_table():
