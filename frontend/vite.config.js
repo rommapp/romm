@@ -5,6 +5,11 @@ import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import {
+  createRommDevProxy,
+  logDevProxyTarget,
+  resolveDevProxyTarget,
+} from "./scripts/devProxy.js";
 import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
 import { precompress } from "./scripts/precompress";
 
@@ -69,6 +74,12 @@ export default defineConfig(({ mode }) => {
   const backendPort = env.DEV_PORT ?? "5000";
   const httpsMode = env.DEV_HTTPS === "true";
   const pwaDevEnabled = env.DEV_PWA === "true";
+
+  const proxyTarget = resolveDevProxyTarget(env.DEV_PROXY_TARGET, backendPort);
+  logDevProxyTarget(proxyTarget);
+  const proxy = createRommDevProxy(proxyTarget.target, {
+    remote: proxyTarget.remote,
+  });
 
   return {
     optimizeDeps: {
@@ -143,23 +154,7 @@ export default defineConfig(({ mode }) => {
           "**/assets/pico8/**",
         ],
       },
-      proxy: {
-        "/api": {
-          target: `http://127.0.0.1:${backendPort}`,
-          changeOrigin: false,
-          secure: false,
-        },
-        "^/(?:ws|netplay)": {
-          target: `http://127.0.0.1:${backendPort}`,
-          changeOrigin: false,
-          ws: true,
-        },
-        "/openapi.json": {
-          target: `http://127.0.0.1:${backendPort}`,
-          changeOrigin: false,
-          rewrite: (path) => path.replace(/^\/openapi.json/, "/openapi.json"),
-        },
-      },
+      proxy,
       port: httpsMode ? 8443 : 3000,
       allowedHosts: ["localhost", "127.0.0.1", "romm.dev"],
       ...(httpsMode
@@ -170,6 +165,9 @@ export default defineConfig(({ mode }) => {
             },
           }
         : {}),
+    },
+    preview: {
+      proxy,
     },
   };
 });

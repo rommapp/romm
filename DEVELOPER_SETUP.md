@@ -183,6 +183,16 @@ npm run storybook:test   # composeStories + play() + a11y (v2 /lib stories)
 
 For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.
 
+#### - Optional: local frontend against a remote RomM backend
+
+When you want `npm run dev` or `npm run preview` on localhost but API, WebSocket, and library assets (`/assets/romm`) should come from another RomM instance (for example a home server with a full library), set **`DEV_PROXY_TARGET`** in the repo-root **`.env`** (see `env.template`). Use an `http://` or `https://` origin with no trailing path. Do not commit your real hostname.
+
+```dotenv
+DEV_PROXY_TARGET=https://romm.example.com
+```
+
+Unset or leave commented to keep the default proxy to `http://127.0.0.1:${DEV_PORT}`. On startup, Vite logs when remote proxying is active, or warns and falls back if the URL is invalid.
+
 ## Setting up the linter
 
 We use [Trunk](https://trunk.io) for linting, which combines multiple linters and formatters with sensible defaults and a single configuration file. You'll need to install the Trunk CLI to use it.
