@@ -201,9 +201,8 @@ VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)(?:[\s._-](.*)|([.\d].*))", r
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
 REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
 
-# A fan translation, as GoodTools ("[T+Eng1.1_RPGe]", "[T-Ita]"), TOSEC
-# ("[tr]", "[tr fr]") and plainer sets ("(Translation)") write it. Anchored so
-# a tag that merely starts with "tr", like "Trainer", is not one.
+# A fan translation, as GoodTools ("[T+Eng1.1_RPGe]"), TOSEC ("[tr fr]") and
+# plainer sets ("(Translation)") write it. Anchored, so "Trainer" is not one.
 TRANSLATION_TAG_REGEX = re.compile(
     r"^(?:t(?:(?P<superseded>-)|\+)(?P<goodtools>[a-z]{2,3})(?P<patch>.*)"
     r"|t[\s_-]+(?P<spaced>[a-z]{2,3}).*"
