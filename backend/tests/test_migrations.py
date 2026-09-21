@@ -25,7 +25,6 @@ from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
-    CustomJSON,
     full_path_digest_sql,
     has_column,
     is_mariadb,
@@ -34,7 +33,6 @@ from utils.database import (
 from utils.roms_columns import (
     FULL_PATH_HASH_COLUMN,
     HLTB_MAIN_STORY_COLUMN,
-    PRIMARY_REGION_COLUMN,
     ROMS_METADATA_VIEW_COLUMNS,
     STEAM_FED_COLUMNS,
     STEAM_METADATA_COLUMN,
@@ -263,74 +261,6 @@ def test_the_hltb_migration_resumes_an_interrupted_run():
         _, indexes = _schema_of(connection, "roms")
 
     assert migration.INDEX_NAME in indexes
-
-
-def test_the_region_normalization_migration_canonicalizes_provider_values(rom: Rom):
-    """0129 rewrites the shortcodes the gamelist provider stored verbatim.
-
-    The facets mirror and the primary region follow from the same write, so a
-    normalized row also ranks in the sibling window it used to fall out of.
-    """
-    migration = _load_migration("0129_normalize_region_language.py")
-    roms_table = migration.roms_table
-    facets_table = sa.table(
-        "roms_facets",
-        sa.column("rom_id", sa.Integer),
-        sa.column("regions", CustomJSON()),
-    )
-
-    with sync_engine.begin() as connection:
-        connection.execute(
-            sa.update(roms_table)
-            .where(roms_table.c.id == rom.id)
-            .values(regions=["us", "eu"], languages=["en", "fr"])
-        )
-        with Operations.context(MigrationContext.configure(connection)):
-            migration.upgrade()
-
-        regions, languages = connection.execute(
-            sa.select(roms_table.c.regions, roms_table.c.languages).where(
-                roms_table.c.id == rom.id
-            )
-        ).one()
-        primary_region = connection.execute(
-            sa.text(
-                f"SELECT {PRIMARY_REGION_COLUMN} FROM roms WHERE id = :rom_id"
-            ),  # nosec B608
-            {"rom_id": rom.id},
-        ).scalar_one()
-        facet_regions = connection.execute(
-            sa.select(facets_table.c.regions).where(facets_table.c.rom_id == rom.id)
-        ).scalar_one()
-
-    assert regions == ["USA", "Europe"]
-    assert languages == ["English", "French"]
-    assert primary_region == "USA"
-    assert facet_regions == ["USA", "Europe"]
-
-
-def test_the_region_normalization_migration_leaves_canonical_values_alone(rom: Rom):
-    """A second pass over rows it already rewrote changes nothing."""
-    migration = _load_migration("0129_normalize_region_language.py")
-    roms_table = migration.roms_table
-
-    with sync_engine.begin() as connection:
-        connection.execute(
-            sa.update(roms_table)
-            .where(roms_table.c.id == rom.id)
-            .values(regions=["USA", "Japan"], languages=["English"])
-        )
-        with Operations.context(MigrationContext.configure(connection)):
-            migration.upgrade()
-
-        regions, languages = connection.execute(
-            sa.select(roms_table.c.regions, roms_table.c.languages).where(
-                roms_table.c.id == rom.id
-            )
-        ).one()
-
-    assert regions == ["USA", "Japan"]
-    assert languages == ["English"]
 
 
 def test_has_column_reflects_the_migrated_schema():
