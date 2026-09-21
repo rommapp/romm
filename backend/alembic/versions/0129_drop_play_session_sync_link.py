@@ -70,12 +70,15 @@ def downgrade() -> None:
         sa.Column("sync_session_id", sa.Integer(), nullable=True),
         if_not_exists=True,
     )
-    # Order matters on MariaDB: the index backs the constraint, so it comes
-    # first. The name is the shell's own rather than the server's, since an
-    # unnamed constraint is what made the drop above dialect-specific.
-    op.create_index(
-        INDEX_NAME, "play_sessions", ["sync_session_id"], if_not_exists=True
-    )
+    # Only on PostgreSQL, which is where 0124 put it: MariaDB and MySQL index a
+    # single-column foreign key themselves, and the index they make backs the
+    # constraint, so one created here could not be dropped again -- "needed in a
+    # foreign key constraint" is what they answer. Creating the constraint with
+    # no index in place is what 0089 does, and InnoDB makes its own.
+    if is_postgresql(conn):
+        op.create_index(
+            INDEX_NAME, "play_sessions", ["sync_session_id"], if_not_exists=True
+        )
     op.create_foreign_key(
         "fk_play_sessions_sync_session_id",
         "play_sessions",
@@ -84,8 +87,3 @@ def downgrade() -> None:
         ["id"],
         ondelete="SET NULL",
     )
-    if is_postgresql(conn):
-        return
-    # MariaDB and MySQL index a single-column FK implicitly, so the explicit one
-    # above is redundant there and 0124 only ever created it on PostgreSQL.
-    op.drop_index(INDEX_NAME, table_name="play_sessions", if_exists=True)
