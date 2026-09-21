@@ -4,7 +4,7 @@ import os
 import re
 import shutil
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
@@ -182,6 +182,37 @@ def region_ranks_for_priority(shortcodes: Sequence[str]) -> dict[str, int]:
     return ranks
 
 
+def _provider_region_name(value: str) -> str | None:
+    """Resolve a metadata provider's region spelling to its canonical name.
+
+    Kept apart from the filename aliases because several provider shortcodes
+    ("de", "fr", "nl", "ru") also spell a language tag, and filename parsing
+    reads region first (issue #3026).
+    """
+    tag = value.strip().lower()
+    canonical = _REGION_BY_ALIAS.get(tag)
+    if canonical:
+        return canonical
+
+    names = _REGION_NAMES_BY_PROVIDER_SHORTCODE.get(tag)
+    return names[0] if names else None
+
+
+def normalize_provider_regions(values: Iterable[str]) -> list[str]:
+    """Canonicalize the regions a metadata provider reports, dropping duplicates.
+
+    An unrecognized value is kept as given, the way filename parsing keeps a
+    region tag it does not know rather than dropping it.
+    """
+    return list(
+        dict.fromkeys(
+            _provider_region_name(value) or value.strip()
+            for value in values
+            if value and value.strip()
+        )
+    )
+
+
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
 
 # Every accepted language spelling, lowercased, mapped to its canonical name.
@@ -198,6 +229,21 @@ def normalize_language(tag: str) -> str | None:
     facet value. Returns None for tags that name no known language.
     """
     return _LANGUAGE_BY_ALIAS.get(tag.strip().lower())
+
+
+def normalize_provider_languages(values: Iterable[str]) -> list[str]:
+    """Canonicalize the languages a metadata provider reports, dropping duplicates.
+
+    Provider codes are ISO-639-1, which the LANGUAGES shortcodes already spell,
+    so an unknown value here is kept as given rather than dropped.
+    """
+    return list(
+        dict.fromkeys(
+            normalize_language(value) or value.strip()
+            for value in values
+            if value and value.strip()
+        )
+    )
 
 
 class CoverSize(Enum):
