@@ -93,7 +93,7 @@ def test_mapping_a_folder_with_a_case_variant_sibling_is_rejected(
     """One config key covers both, so the write would remap the sibling too."""
     with (
         patch(
-            "endpoints.configs.fs_platform_handler.get_platforms",
+            "endpoints.configs.fs_platform_handler.find_ambiguous_folders",
             AsyncMock(return_value=["PSX", "psx"]),
         ),
         patch.object(cm, "add_platform_binding") as add_platform_binding,
@@ -112,8 +112,8 @@ def test_mapping_a_folder_with_a_case_variant_sibling_is_rejected(
 def test_mapping_a_folder_whose_name_is_unique_is_allowed(client, access_token: str):
     with (
         patch(
-            "endpoints.configs.fs_platform_handler.get_platforms",
-            AsyncMock(return_value=["Nintendo 64", "psx"]),
+            "endpoints.configs.fs_platform_handler.find_ambiguous_folders",
+            AsyncMock(return_value=[]),
         ),
         patch.object(cm, "add_platform_binding") as add_platform_binding,
     ):

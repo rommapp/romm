@@ -171,23 +171,14 @@ def get_config(request: Request) -> ConfigResponse:
 
 
 async def _reject_ambiguous_folder(fs_slug: str) -> None:
-    """Refuse a mapping that several folders on disk would share.
-
-    Folder names key the config case-insensitively, so siblings differing only
-    by case (which only a case-sensitive filesystem allows) resolve to one
-    entry and would silently remap each other.
-    """
-    matches = [
-        folder
-        for folder in await fs_platform_handler.get_platforms()
-        if folder.lower() == fs_slug.lower()
-    ]
-    if len(matches) > 1:
+    """Refuse a mapping that several folders on disk would share."""
+    ambiguous = await fs_platform_handler.find_ambiguous_folders(fs_slug)
+    if ambiguous:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Folders {', '.join(sorted(matches))} differ only by case and share "
-                "a single mapping. Rename one to map them to different platforms."
+                f"Folders {', '.join(ambiguous)} differ only by case and share a "
+                "single mapping. Rename one to map them to different platforms."
             ),
         )
 
