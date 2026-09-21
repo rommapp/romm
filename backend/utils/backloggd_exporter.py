@@ -85,8 +85,7 @@ def _group_key(rom_user: RomUser) -> tuple[str, str | int]:
 
 def _row(group: list[RomUser]) -> list[str]:
     """Fold sibling ROMs into the one log Backloggd would hold for the game."""
-    # Each field takes the group's best value rather than picking a winning row,
-    # by a rule that is order-independent: siblings arrive in no set order.
+    # Every rule here is order-independent: siblings arrive in no set order.
     years = [_release_year(ru.rom.generated_first_release_date) for ru in group]
     dates = [_date_played(ru.last_played) for ru in group]
     return [
