@@ -662,10 +662,8 @@ export function applyRouteTitle(
     document.title = i18n.global.t(route.meta.title as string);
     return;
   }
-  // Routes without `meta.title` own it through `usePageTitle`, whose watcher
-  // doesn't refire on a query/hash-only navigation (the v2 GameDetails
-  // `?tab=`, gallery filter syncs) because its source never changes. Falling
-  // back to "RomM" here would drop the title the view already set.
+  // A query/hash-only navigation leaves the view mounted, so `usePageTitle`
+  // won't refire and the fallback would drop the title it already set.
   if (from && route.path === from.path) return;
   document.title = "RomM";
 }

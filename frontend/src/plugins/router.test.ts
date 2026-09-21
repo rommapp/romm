@@ -28,8 +28,13 @@ describe("route titles", () => {
 });
 
 describe("applyRouteTitle", () => {
-  const routeAt = (path: string, meta: Record<string, unknown> = {}) =>
-    ({ path, meta }) as unknown as RouteLocationNormalized;
+  const routeAt = (
+    path: string,
+    meta: RouteLocationNormalized["meta"] = {},
+  ): RouteLocationNormalized => {
+    const resolved = router.resolve(path);
+    return { ...resolved, name: resolved.name ?? undefined, meta };
+  };
 
   beforeAll(async () => {
     await localesReady;
