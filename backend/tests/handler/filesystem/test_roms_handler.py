@@ -319,6 +319,22 @@ class TestFSRomsHandler:
         assert parsed.languages == ["English"]
         assert parsed.other_tags == ["Translation"]
 
+    def test_parse_tags_reads_a_spaced_translation(self, handler: FSRomsHandler):
+        """GoodTools also separates with a space, which is how ScreenScraper
+        carries the dump: "Super Mario Bros. (W) [T Fre].nes"."""
+        parsed = handler.parse_tags("Super Mario Bros. (W) [T Fre].nes")
+
+        assert parsed.languages == ["French"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_spaced_form_needs_a_language(self, handler: FSRomsHandler):
+        """A space carries no meaning of its own, so the word after "T" has to
+        name a language: "T Rex" is an ordinary tag."""
+        parsed = handler.parse_tags("Game (USA) (T Rex).nes")
+
+        assert parsed.other_tags == ["T Rex"]
+        assert parsed.languages == []
+
     def test_parse_tags_reads_a_tosec_translation(self, handler: FSRomsHandler):
         parsed = handler.parse_tags("Game (1994)(Konami)(JP)[tr fr].tap")
 
