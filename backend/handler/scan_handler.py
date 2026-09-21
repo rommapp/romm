@@ -127,7 +127,8 @@ SCENE_METADATA_SOURCES = frozenset(
 )
 
 # Sources that report the dump a hash matched rather than the title. Their tags
-# only fill a gap the filename left, because the locale pickers read them back.
+# fill an empty slot only: a filename and a gamelist.xml are curated with the
+# library, so they own these fields and the locale pickers read them back.
 HASH_MATCHED_TAG_SOURCES = frozenset({MetadataSource.SS, MetadataSource.HASHEOUS})
 PROVIDER_TAG_FIELDS = ("regions", "languages")
 
@@ -1412,15 +1413,12 @@ async def scan_rom(
                 rom_attrs[key] = field_value
 
     # The hash-matched tags, applied only where the filename left the slot empty.
-    hash_matched_ordered = [
-        source_name
-        for source_name in priority_ordered
-        if source_name in HASH_MATCHED_TAG_SOURCES
-    ]
     for field in PROVIDER_TAG_FIELDS:
         if rom_attrs.get(field):
             continue
-        for source_name in hash_matched_ordered:
+        for source_name in priority_ordered:
+            if source_name not in HASH_MATCHED_TAG_SOURCES:
+                continue
             field_value = metadata_handlers[source_name]["handler"].get(field)
             if field_value:
                 rom_attrs[field] = field_value

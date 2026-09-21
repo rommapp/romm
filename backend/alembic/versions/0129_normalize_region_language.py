@@ -50,15 +50,12 @@ roms_table = sa.table(
 )
 
 
-def _normalized(
-    value: Any, normalize: Callable[[Iterable[str]], list[str]]
-) -> list[str] | None:
-    """Canonicalize a stored list, or None when the row needs no rewrite."""
+def _normalized(value: Any, normalize: Callable[[Iterable[str]], list[str]]) -> Any:
+    """Canonicalize a stored list, leaving anything else as it was found."""
     if not isinstance(value, list):
-        return None
+        return value
 
-    normalized = normalize(item for item in value if isinstance(item, str))
-    return normalized if normalized != value else None
+    return normalize(item for item in value if isinstance(item, str))
 
 
 def upgrade() -> None:
@@ -88,15 +85,13 @@ def upgrade() -> None:
         for row in page:
             regions = _normalized(row.regions, normalize_provider_regions)
             languages = _normalized(row.languages, normalize_provider_languages)
-            if regions is None and languages is None:
+            if regions == row.regions and languages == row.languages:
                 continue
             params.append(
                 {
                     "row_id": row.id,
-                    "new_regions": row.regions if regions is None else regions,
-                    "new_languages": (
-                        row.languages if languages is None else languages
-                    ),
+                    "new_regions": regions,
+                    "new_languages": languages,
                 }
             )
 

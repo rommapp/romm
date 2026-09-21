@@ -922,9 +922,7 @@ class SSHandler(MetadataHandler):
         # Only this lookup identifies a dump, so it is the only caller allowed to
         # report regions: the name search and the id refetch describe a title.
         game_rom = build_ss_game(rom, res)
-        regions = extract_regions_from_ss_rom(res)
-        if regions:
-            game_rom["regions"] = regions
+        game_rom["regions"] = extract_regions_from_ss_rom(res)
 
         return game_rom, False
 

@@ -1,5 +1,5 @@
 import json
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any, Final, NotRequired, TypedDict
 
@@ -10,9 +10,8 @@ from fastapi import status
 
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
 from handler.filesystem.base_handler import (
-    normalize_language,
-    normalize_provider_languages,
-    normalize_provider_regions,
+    normalize_provider_values,
+    provider_language_name,
     provider_region_name,
 )
 from logger.logger import log
@@ -88,7 +87,6 @@ def _tags_from_signatures(
     signatures: dict[str, Any],
     field: str,
     resolve: Callable[[str], str | None],
-    normalize: Callable[[Iterable[str]], list[str]],
 ) -> list[str]:
     """Read one dump's countries or languages out of the matched signatures.
 
@@ -101,29 +99,26 @@ def _tags_from_signatures(
     if not isinstance(signatures, dict):
         return []
 
-    ordered_sources = sorted(
-        signatures,
-        key=lambda source: (
-            PREFERRED_SIGNATURE_SOURCES.index(source)
-            if source in PREFERRED_SIGNATURE_SOURCES
-            else len(PREFERRED_SIGNATURE_SOURCES)
-        ),
-    )
+    ordered_sources = [
+        source for source in PREFERRED_SIGNATURE_SOURCES if source in signatures
+    ] + [source for source in signatures if source not in PREFERRED_SIGNATURE_SOURCES]
 
     # Every field below comes straight off the wire, so none of its shapes are
     # assumed: a raise here would abort the scan of the rom.
     for source in ordered_sources:
         entries = signatures.get(source)
         for entry in entries if isinstance(entries, list) else []:
-            rom_block = entry.get("rom") if isinstance(entry, dict) else None
-            tags = rom_block.get(field) if isinstance(rom_block, dict) else None
+            tags = pydash.get(entry, ["rom", field])
             if not isinstance(tags, dict):
                 continue
 
-            values = normalize(
-                resolve(code) or (name if isinstance(name, str) else "")
-                for code, name in tags.items()
-                if isinstance(code, str)
+            values = normalize_provider_values(
+                (
+                    resolve(code) or (name if isinstance(name, str) else "")
+                    for code, name in tags.items()
+                    if isinstance(code, str)
+                ),
+                resolve,
             )
             if values:
                 return values
@@ -426,17 +421,9 @@ class HasheousHandler(MetadataHandler):
             HasheousRom(
                 hasheous_id=hasheous_game["id"],
                 name=hasheous_game.get("name", ""),
-                regions=_tags_from_signatures(
-                    signatures,
-                    "country",
-                    _country_name,
-                    normalize_provider_regions,
-                ),
+                regions=_tags_from_signatures(signatures, "country", _country_name),
                 languages=_tags_from_signatures(
-                    signatures,
-                    "language",
-                    normalize_language,
-                    normalize_provider_languages,
+                    signatures, "language", provider_language_name
                 ),
                 igdb_id=int(igdb_id) if igdb_id else None,
                 tgdb_id=int(tgdb_id) if tgdb_id else None,

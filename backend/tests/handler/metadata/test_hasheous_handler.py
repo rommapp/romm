@@ -4,11 +4,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from handler.filesystem.base_handler import (
-    normalize_language,
-    normalize_provider_languages,
-    normalize_provider_regions,
-)
+from handler.filesystem.base_handler import provider_language_name
 from handler.metadata.hasheous_handler import (
     HasheousHandler,
     _country_name,
@@ -106,15 +102,11 @@ SIGNATURES = {
 
 
 def _regions(signatures: dict) -> list[str]:
-    return _tags_from_signatures(
-        signatures, "country", _country_name, normalize_provider_regions
-    )
+    return _tags_from_signatures(signatures, "country", _country_name)
 
 
 def _languages(signatures: dict) -> list[str]:
-    return _tags_from_signatures(
-        signatures, "language", normalize_language, normalize_provider_languages
-    )
+    return _tags_from_signatures(signatures, "language", provider_language_name)
 
 
 class TestTagsFromSignatures:
