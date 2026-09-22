@@ -38,6 +38,7 @@ from handler.streaming import (
     access,
     broker,
     commands,
+    imports,
     launch,
     lifecycle,
     memory_cards,
@@ -5173,6 +5174,166 @@ def test_resolve_resume_state_rejects_an_unrecognized_slot_when_no_import_spec(
             )
     assert exc.value.status_code == 400
     assert exc.value.detail == "State filename carries no recognizable slot number"
+
+
+def test_origin_of_tags_a_device_capture_as_hardware():
+    assert imports.origin_of("retroarch", "device-123") == "hardware"
+
+
+def test_origin_of_tags_an_untagged_save_as_unknown():
+    assert imports.origin_of(None, None) == "unknown"
+    assert imports.origin_of("", None) == "unknown"
+
+
+def test_origin_of_tags_a_streaming_emulator_as_standalone():
+    assert imports.origin_of("retroarch", None) == "standalone"
+
+
+def test_origin_of_tags_anything_else_as_emulatorjs():
+    assert imports.origin_of("mgba-wasm", None) == "emulatorjs"
+
+
+def test_build_import_archive_wraps_a_foreign_save_with_no_base():
+    """A foreign save pick with no native base builds a fresh zip: no v1
+    entries to carry over, one `.import/save/...` member."""
+    member = imports.ForeignMember(
+        kind="save", name="Game.srm", content=b"save-bytes", origin="standalone"
+    )
+    zip_bytes = imports.build_import_archive(rom_id=7, base=None, members=[member])
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        assert ".import/save/Game.srm" in names
+        assert zf.read(".import/save/Game.srm") == b"save-bytes"
+        manifest = json.loads(zf.read(".broker-manifest.json"))
+    assert manifest["version"] == 2
+    assert manifest["import"] == {"source": "romm", "rom_id": 7}
+    assert manifest["files"] == [
+        {"path": ".import/save/Game.srm", "kind": "save", "origin": "standalone"}
+    ]
+
+
+def test_build_import_archive_expands_a_foreign_zips_own_members():
+    """A foreign pick that is itself a zip has its members unpacked under the
+    import prefix, not nested as a zip-within-zip."""
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as izf:
+        izf.writestr("save.mcr", b"card-bytes")
+    member = imports.ForeignMember(
+        kind="save", name="Game.saves.zip", content=inner.getvalue(), origin="hardware"
+    )
+    zip_bytes = imports.build_import_archive(rom_id=7, base=None, members=[member])
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        assert ".import/save/save.mcr" in zf.namelist()
+        assert zf.read(".import/save/save.mcr") == b"card-bytes"
+
+
+def test_build_import_archive_keeps_a_native_base_alongside_a_foreign_state():
+    """One native save and one foreign state in the same launch: the save
+    stays entirely on its own v1 entry, only the state gets an import
+    member. This is the mixed-kind case Appendix A(e) describes."""
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr("Game.srm", b"native-save-bytes")
+        bzf.writestr(
+            ".broker-manifest.json",
+            json.dumps({"version": 1, "files": [{"path": "Game.srm", "kind": "save"}]}),
+        )
+    state_member = imports.ForeignMember(
+        kind="state", name="Game.00.pcsx2", content=b"state-bytes", origin="standalone"
+    )
+    zip_bytes = imports.build_import_archive(
+        rom_id=7, base=("Game.saves.zip", base_zip.getvalue()), members=[state_member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        assert "Game.srm" in names
+        assert zf.read("Game.srm") == b"native-save-bytes"
+        assert ".import/state/Game.00.pcsx2" in names
+        manifest = json.loads(zf.read(".broker-manifest.json"))
+    assert manifest["version"] == 2
+    paths = {f["path"] for f in manifest["files"]}
+    assert paths == {"Game.srm", ".import/state/Game.00.pcsx2"}
+
+
+def test_build_import_archive_strips_the_bases_own_state_member_when_importing_a_foreign_state():
+    """The base's own v1 state entry is stripped whenever a foreign state
+    rides in the same zip, so the two never collide on the emulator's one
+    state slot."""
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr("Game.srm", b"native-save-bytes")
+        bzf.writestr("Game.00.pcsx2", b"native-state-bytes")
+        bzf.writestr(
+            ".broker-manifest.json",
+            json.dumps(
+                {
+                    "version": 1,
+                    "files": [
+                        {"path": "Game.srm", "kind": "save"},
+                        {"path": "Game.00.pcsx2", "kind": "state"},
+                    ],
+                }
+            ),
+        )
+    state_member = imports.ForeignMember(
+        kind="state",
+        name="Game.00.dolphin",
+        content=b"foreign-state",
+        origin="standalone",
+    )
+    zip_bytes = imports.build_import_archive(
+        rom_id=7, base=("Game.saves.zip", base_zip.getvalue()), members=[state_member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        assert "Game.srm" in names
+        assert "Game.00.pcsx2" not in names
+        assert ".import/state/Game.00.dolphin" in names
+
+
+def test_build_import_archive_strips_dotfiles_and_macosx_junk():
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr("Game.srm", b"native-save-bytes")
+        bzf.writestr("__MACOSX/._Game.srm", b"junk")
+        bzf.writestr(".DS_Store", b"junk")
+        bzf.writestr(
+            ".broker-manifest.json",
+            json.dumps({"version": 1, "files": [{"path": "Game.srm", "kind": "save"}]}),
+        )
+    zip_bytes = imports.build_import_archive(
+        rom_id=7,
+        base=("Game.saves.zip", base_zip.getvalue()),
+        members=[
+            imports.ForeignMember(
+                kind="state", name="Game.00.pcsx2", content=b"s", origin="standalone"
+            )
+        ],
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        assert not any(
+            "__MACOSX" in n
+            or n.split("/")[-1].startswith(".")
+            and n != ".broker-manifest.json"
+            for n in names
+        )
 
 
 def test_claim_hydrates_the_picked_save(
