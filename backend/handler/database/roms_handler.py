@@ -39,7 +39,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     ColumnProperty,
     Mapper,
-    Query,
     QueryableAttribute,
     Session,
     joinedload,
@@ -1746,9 +1745,7 @@ class DBRomsHandler(DBBaseHandler):
                 # Add a filter to the original query to only include the primary ROM from each group
                 query = query.filter(
                     Rom.id.in_(
-                        session.query(group_subquery.c.id).filter(
-                            group_subquery.c.row_num == 1
-                        )
+                        select(group_subquery.c.id).where(group_subquery.c.row_num == 1)
                     )
                 )
 
@@ -2125,7 +2122,7 @@ class DBRomsHandler(DBBaseHandler):
             # Re-derive the key from the new name, but only when the stored key
             # is still the derived value (i.e. not a manual override). Mirrors
             # the `@validates` logic, which the bulk update() bypasses.
-            existing = session.query(Rom).filter_by(id=id).one()
+            existing = session.scalars(select(Rom).filter_by(id=id)).one()
             if (
                 existing.name_sort_key is None
                 or existing.name_sort_key == compute_name_sort_key(existing.name)
@@ -2144,7 +2141,7 @@ class DBRomsHandler(DBBaseHandler):
         if "fs_name" in data or "fs_path" in data:
             # The unique index reads the digest, so whichever half the caller
             # left out has to come from the stored row.
-            stored = session.query(Rom).filter_by(id=id).one()
+            stored = session.scalars(select(Rom).filter_by(id=id)).one()
             data = {
                 **data,
                 "full_path_hash": compute_full_path_hash(
@@ -2159,7 +2156,7 @@ class DBRomsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Rom).filter_by(id=id).one()
+        return session.scalars(select(Rom).filter_by(id=id)).one()
 
     @begin_session
     def convert_rom_to_folder(
@@ -2170,7 +2167,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> None:
         parts = compute_file_name_parts(folder)
-        stored = session.query(Rom).filter_by(id=id).one()
+        stored = session.scalars(select(Rom).filter_by(id=id)).one()
         session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -2355,7 +2352,7 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_user = session.query(RomUser).filter_by(id=id).one_or_none()
+        rom_user = session.scalars(select(RomUser).filter_by(id=id)).one_or_none()
         if not rom_user:
             return None
 
@@ -2639,7 +2636,7 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        return session.query(RomFile).filter_by(id=id).one_or_none()
+        return session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
 
     @begin_session
     def upsert_track_meta(
@@ -3297,8 +3294,8 @@ class DBRomsHandler(DBBaseHandler):
         search: str | None = "",
         tags: list[str] | None = None,
         session: Session,
-    ) -> Query[RomNote]:
-        query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
+    ) -> Select[tuple[RomNote]]:
+        query = select(RomNote).filter(RomNote.rom_id == rom_id)
 
         if public_only:
             query = query.filter(RomNote.is_public)
@@ -3329,13 +3326,15 @@ class DBRomsHandler(DBBaseHandler):
         tags: list[str] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[RomNote]:
-        return self._rom_notes_query(
-            rom_id=rom_id,
-            user_id=user_id,
-            public_only=public_only,
-            search=search,
-            tags=tags,
-            session=session,
+        return session.scalars(
+            self._rom_notes_query(
+                rom_id=rom_id,
+                user_id=user_id,
+                public_only=public_only,
+                search=search,
+                tags=tags,
+                session=session,
+            )
         ).all()
 
     @begin_session
@@ -3357,7 +3356,7 @@ class DBRomsHandler(DBBaseHandler):
             tags=tags,
             session=session,
         )
-        return [row[0] for row in query.with_entities(RomNote.id).all()]
+        return list(session.scalars(query.with_only_columns(RomNote.id)).all())
 
     @begin_session
     def create_rom_note(
@@ -3403,14 +3402,14 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
         **fields,
     ) -> dict | None:
-        note = (
-            session.query(RomNote)
+        note = session.scalar(
+            select(RomNote)
             .filter(
                 RomNote.id == note_id,
                 RomNote.user_id == user_id,
                 RomNote.rom_id == rom_id,
             )
-            .first()
+            .limit(1)
         )
 
         if not note:
