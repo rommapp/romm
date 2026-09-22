@@ -32,13 +32,18 @@ describe("resolveDevProxyTarget", () => {
 });
 
 describe("createRommDevProxy", () => {
-  it("includes library asset path", () => {
-    const proxy = createRommDevProxy("https://roms.example.com", {
+  it("proxies library assets only for remote targets", () => {
+    const remote = createRommDevProxy("https://roms.example.com", {
       remote: true,
     });
-    expect(proxy["/assets/romm"]).toMatchObject({
+    expect(remote["/assets/romm"]).toMatchObject({
       target: "https://roms.example.com",
       changeOrigin: true,
     });
+
+    const local = createRommDevProxy("http://127.0.0.1:5000", {
+      remote: false,
+    });
+    expect(local["/assets/romm"]).toBeUndefined();
   });
 });

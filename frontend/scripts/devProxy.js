@@ -73,7 +73,7 @@ export function createRommDevProxy(target, { remote }) {
         secure: false,
       };
 
-  return {
+  const proxy = {
     "/api": { target, ...shared },
     "^/(?:ws|netplay)": { target, ...shared, ws: true },
     "/openapi.json": {
@@ -81,8 +81,14 @@ export function createRommDevProxy(target, { remote }) {
       ...shared,
       rewrite: (path) => path.replace(/^\/openapi.json/, "/openapi.json"),
     },
-    "/assets/romm": { target, ...shared },
   };
+
+  // Remote only: local dev serves covers from the frontend/assets symlink.
+  if (remote) {
+    proxy["/assets/romm"] = { target, ...shared };
+  }
+
+  return proxy;
 }
 
 /** @param {ResolvedDevProxyTarget} resolved */
