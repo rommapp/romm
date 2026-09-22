@@ -82,6 +82,17 @@ describe("PlatformSelect promoteFilled + search", () => {
     );
   }
 
+  function romBadgeFor(displayName: string): string | undefined {
+    const row = Array.from(
+      document.querySelectorAll(".r-select__list > li:not(.r-select__divider)"),
+    ).find(
+      (li) =>
+        li.querySelector(".r-select__item-title")?.textContent?.trim() ===
+        displayName,
+    );
+    return row?.querySelector(".r-v2-platsel__rom-badge")?.textContent?.trim();
+  }
+
   function panelSearchInput(): DOMWrapper<HTMLInputElement> {
     const el = document.querySelector(".r-select__search input");
     expect(el).not.toBeNull();
@@ -123,6 +134,22 @@ describe("PlatformSelect promoteFilled + search", () => {
     const rows = menuRows();
     expect(rows).not.toContain("---");
     expect(rows).toEqual(["Adventure Game Studio", "Game Boy Advance"]);
+    expect(document.querySelectorAll(".r-v2-platsel__rom-badge")).toHaveLength(
+      0,
+    );
+  });
+
+  it("shows neutral rom badges only for promoted rows when partitioned", async () => {
+    await openPromoteFilledMenu();
+    const badges = document.querySelectorAll(".r-v2-platsel__rom-badge");
+    expect(badges.length).toBeGreaterThan(0);
+    for (const badge of badges) {
+      expect(badge.classList.contains("r-tag--neutral")).toBe(true);
+    }
+    const { remaining } = promotePlatformsWithGamesFirst(CATALOG);
+    for (const platform of remaining) {
+      expect(romBadgeFor(platform.display_name)).toBeUndefined();
+    }
   });
 
   it("restores partition after search is cleared", async () => {

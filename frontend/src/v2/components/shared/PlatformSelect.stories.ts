@@ -272,6 +272,9 @@ export const PromotedTypingInSearch: Story = {
           p.display_name.toLowerCase().includes(searchCharacter),
         ).map((p) => p.display_name);
         expect(rows).toEqual(expected);
+        expect(
+          document.querySelectorAll(".r-v2-platsel__rom-badge"),
+        ).toHaveLength(0);
       });
     });
   },

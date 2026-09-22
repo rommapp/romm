@@ -207,6 +207,15 @@ function onUpdate(v: unknown) {
 function onPanelSearch(query: string) {
   panelSearch.value = query;
 }
+
+function showPromoteRomBadge(platform: Platform): boolean {
+  return (
+    props.promoteFilled &&
+    !props.showMeta &&
+    partitionMenu.value &&
+    platform.rom_count > 0
+  );
+}
 </script>
 
 <template>
@@ -288,9 +297,9 @@ function onPanelSearch(query: string) {
           />
           <span class="r-select__item-title">{{ slotProps.item.title }}</span>
           <RTag
-            v-if="promoteFilled && !showMeta"
+            v-if="showPromoteRomBadge(slotProps.item.raw as Platform)"
             size="x-small"
-            tone="plain"
+            tone="neutral"
             class="r-v2-platsel__rom-badge"
             :text="
               formatPlatformRomCount((slotProps.item.raw as Platform).rom_count)
@@ -475,6 +484,5 @@ function onPanelSearch(query: string) {
 .r-v2-platsel__rom-badge {
   margin-left: auto;
   flex-shrink: 0;
-  color: var(--r-color-fg-muted);
 }
 </style>
