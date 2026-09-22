@@ -88,6 +88,11 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
     desc: t("scan.info-hashes-desc"),
   },
   {
+    id: "title_ids",
+    title: t("scan.title-ids"),
+    desc: t("scan.info-title-ids-desc"),
+  },
+  {
     id: "complete",
     title: t("scan.complete-rescan"),
     desc: t("scan.info-complete-rescan-desc"),

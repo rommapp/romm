@@ -335,6 +335,8 @@
   "refresh-hashes-desc-bulk": "선택한 ROM의 파일 해시(CRC, MD5, SHA-1)를 다시 계산합니다",
   "refresh-metadata": "메타데이터 새로 고침",
   "refresh-metadata-bulk": "{n}개 게임의 메타데이터 새로 고침 중…",
+  "refresh-title-ids-desc": "이 게임의 파일에서 타이틀 ID와 세이브 위치를 다시 읽습니다",
+  "refresh-title-ids-desc-bulk": "선택한 게임의 파일에서 타이틀 ID와 세이브 위치를 다시 읽습니다",
   "refresh-update-desc": "선택한 제공자에서 메타데이터를 다시 가져옵니다",
   "refresh-update-desc-bulk": "선택한 제공자에서 메타데이터를 다시 가져옵니다",
   "refreshing-files": "{name} 파일 새로 고침 중…",

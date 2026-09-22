@@ -335,6 +335,8 @@
   "refresh-hashes-desc-bulk": "Ricalcola gli hash dei file (CRC, MD5, SHA-1) per le ROM selezionate",
   "refresh-metadata": "Aggiorna metadati",
   "refresh-metadata-bulk": "Aggiornamento metadati per {n} giochi…",
+  "refresh-title-ids-desc": "Rileggi l'ID titolo e la posizione dei salvataggi dai file di questo gioco",
+  "refresh-title-ids-desc-bulk": "Rileggi l'ID titolo e la posizione dei salvataggi dai file dei giochi selezionati",
   "refresh-update-desc": "Recupera di nuovo i metadati dai provider selezionati",
   "refresh-update-desc-bulk": "Recupera di nuovo i metadati dai provider selezionati",
   "refreshing-files": "Aggiornamento file di {name}…",

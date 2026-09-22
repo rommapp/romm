@@ -63,7 +63,7 @@ const {
 // quick scan does for a ROM that already exists.
 type ScanType = Extract<
   SharedScanType,
-  "update" | "hashes" | "quick" | "complete"
+  "update" | "hashes" | "title_ids" | "quick" | "complete"
 >;
 
 const isBulk = computed(() => roms.value.length > 1);
@@ -92,6 +92,13 @@ const scanOptions = computed<ScanOption[]>(() => [
     disabled: calculateHashes.value
       ? undefined
       : t("scan.hash-calculation-disabled"),
+  },
+  {
+    title: t("scan.title-ids"),
+    subtitle: isBulk.value
+      ? t("rom.refresh-title-ids-desc-bulk")
+      : t("rom.refresh-title-ids-desc"),
+    value: "title_ids",
   },
   {
     title: t("rom.refresh-files"),

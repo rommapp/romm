@@ -335,6 +335,8 @@
   "refresh-hashes-desc-bulk": "重新计算所选 ROM 的文件哈希值（CRC、MD5、SHA-1）",
   "refresh-metadata": "刷新元数据",
   "refresh-metadata-bulk": "正在为 {n} 个游戏刷新元数据…",
+  "refresh-title-ids-desc": "从此游戏的文件中重新读取标题 ID 和存档位置",
+  "refresh-title-ids-desc-bulk": "从所选游戏的文件中重新读取标题 ID 和存档位置",
   "refresh-update-desc": "从所选来源重新获取元数据",
   "refresh-update-desc-bulk": "从所选来源重新获取元数据",
   "refreshing-files": "正在刷新 {name} 文件…",

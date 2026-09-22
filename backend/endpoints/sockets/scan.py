@@ -360,6 +360,8 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
+        # Title ids are re-read from every rom's binaries
+        or (scan_type == ScanType.TITLE_IDS)
         or (
             rom
             and (
@@ -406,6 +408,7 @@ def _should_get_rom_files(
         newly_added
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
+        or (scan_type == ScanType.TITLE_IDS)
         or (rom and rom.id in roms_ids)
     )
 
@@ -416,8 +419,9 @@ def _should_extract_title_ids(scan_type: ScanType, rom: Rom) -> bool:
     Extraction is a native parse of every ROM file, so it is not repeated for a
     rom that already carries an id. A scan that re-reads the bytes refreshes it
     regardless, since replaced files would otherwise keep the old id next to
-    the new hashes. The Switch family always re-reads because the same parse is
-    what settles its per-file categories.
+    the new hashes, and a title-ids scan re-reads every rom because refreshing
+    the id is what it is for. The Switch family always re-reads because the
+    same parse is what settles its per-file categories.
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
@@ -425,7 +429,7 @@ def _should_extract_title_ids(scan_type: ScanType, rom: Rom) -> bool:
     """
 
     return bool(
-        scan_type in (ScanType.COMPLETE, ScanType.HASHES)
+        scan_type in (ScanType.COMPLETE, ScanType.HASHES, ScanType.TITLE_IDS)
         or not rom.title_id
         or rom.platform_slug in SWITCH_PLATFORM_SLUGS
     )
@@ -462,6 +466,8 @@ def _should_hash_incrementally(
 
     Only COMPLETE and HASHES promise to re-read every byte. A quick scan does
     not reach here: it reconciles an existing rom through `refresh_rom_files`.
+    A title-ids scan keeps stored hashes for every rom it touches, selected or
+    not, since it reads headers rather than whole files.
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
@@ -470,9 +476,14 @@ def _should_hash_incrementally(
     """
 
     return bool(
-        scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
-        and rom
-        and rom.id in roms_ids
+        rom
+        and (
+            scan_type == ScanType.TITLE_IDS
+            or (
+                scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
+                and rom.id in roms_ids
+            )
+        )
     )
 
 
@@ -770,8 +781,8 @@ async def _identify_rom(
         for saved in synced.files:
             persist_soundtrack_cover(saved, _added_rom)
 
-    # Short circuit if the scan type is hashes
-    if scan_type == ScanType.HASHES:
+    # Neither scan type fetches metadata, so there is nothing new to download.
+    if scan_type in (ScanType.HASHES, ScanType.TITLE_IDS):
         return
 
     await download_rom_resources(

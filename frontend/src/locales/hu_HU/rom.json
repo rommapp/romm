@@ -335,6 +335,8 @@
   "refresh-hashes-desc-bulk": "A fájl hash-értékeinek (CRC, MD5, SHA-1) újraszámítása a kiválasztott ROM-okhoz",
   "refresh-metadata": "Metaadatok frissítése",
   "refresh-metadata-bulk": "{n} játék metaadatainak frissítése…",
+  "refresh-title-ids-desc": "A cím-azonosító és a mentési hely újraolvasása ennek a játéknak a fájljaiból",
+  "refresh-title-ids-desc-bulk": "A cím-azonosító és a mentési hely újraolvasása a kiválasztott játékok fájljaiból",
   "refresh-update-desc": "Metaadatok újbóli lekérése a kiválasztott szolgáltatóktól",
   "refresh-update-desc-bulk": "Metaadatok újbóli lekérése a kiválasztott szolgáltatóktól",
   "refreshing-files": "{name} fájljainak frissítése…",

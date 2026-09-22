@@ -523,6 +523,8 @@ class TestShouldScanRom:
             (ScanType.COMPLETE, True, False, False, True),
             (ScanType.HASHES, False, None, False, True),
             (ScanType.HASHES, True, False, False, True),
+            (ScanType.TITLE_IDS, False, None, False, True),
+            (ScanType.TITLE_IDS, True, False, False, True),
             (ScanType.UNMATCHED, True, False, False, True),
             (ScanType.UNMATCHED, True, True, False, False),
             (ScanType.UPDATE, True, True, False, True),
@@ -633,6 +635,13 @@ class TestShouldExtractTitleIds:
         rom = self._rom(platform_slug, "0100ABCD12340000")
 
         assert _should_extract_title_ids(ScanType.UPDATE, rom) is True
+
+    def test_a_title_ids_scan_re_reads_a_stored_id(self):
+        """Refreshing the id is the whole point, so a stored one is no reason
+        to skip the rom."""
+        rom = self._rom("ngc", "47414645")
+
+        assert _should_extract_title_ids(ScanType.TITLE_IDS, rom) is True
 
 
 class TestIdentifyRomTagReparse:
@@ -2496,6 +2505,15 @@ class TestShouldHashIncrementally:
     @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
     def test_full_rescans_read_every_file(self, rom: Rom, scan_type: ScanType):
         assert _should_hash_incrementally(scan_type, rom, [rom.id]) is False
+
+    def test_a_title_ids_scan_keeps_hashes_without_a_selection(self, rom: Rom):
+        """It reads headers, so re-hashing a library it never looks at the
+        bytes of would be the bulk of its cost."""
+        assert _should_hash_incrementally(ScanType.TITLE_IDS, rom, []) is True
+        assert _should_hash_incrementally(ScanType.TITLE_IDS, rom, [rom.id]) is True
+
+    def test_a_missing_rom_is_never_incremental(self):
+        assert _should_hash_incrementally(ScanType.TITLE_IDS, None, []) is False
 
 
 @pytest.fixture

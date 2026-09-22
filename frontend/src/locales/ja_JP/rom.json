@@ -335,6 +335,8 @@
   "refresh-hashes-desc-bulk": "選択したROMのファイルハッシュ(CRC、MD5、SHA-1)を再計算します",
   "refresh-metadata": "メタデータを更新",
   "refresh-metadata-bulk": "{n}件のゲームのメタデータを更新中…",
+  "refresh-title-ids-desc": "このゲームのファイルからタイトルIDとセーブの保存先を読み直します",
+  "refresh-title-ids-desc-bulk": "選択したゲームのファイルからタイトルIDとセーブの保存先を読み直します",
   "refresh-update-desc": "選択したプロバイダからメタデータを再取得します",
   "refresh-update-desc-bulk": "選択したプロバイダからメタデータを再取得します",
   "refreshing-files": "{name}のファイルを更新中…",

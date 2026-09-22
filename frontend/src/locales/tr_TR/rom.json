@@ -335,6 +335,8 @@
   "refresh-hashes-desc-bulk": "Seçili ROM'lar için dosya hash değerlerini (CRC, MD5, SHA-1) yeniden hesapla",
   "refresh-metadata": "Meta veri yenile",
   "refresh-metadata-bulk": "{n} oyun için meta veri yenileniyor…",
+  "refresh-title-ids-desc": "Bu oyunun dosyalarından başlık kimliğini ve kayıt konumunu yeniden oku",
+  "refresh-title-ids-desc-bulk": "Seçili oyunların dosyalarından başlık kimliğini ve kayıt konumunu yeniden oku",
   "refresh-update-desc": "Seçili sağlayıcılardan meta verileri yeniden getir",
   "refresh-update-desc-bulk": "Seçili sağlayıcılardan meta verileri yeniden getir",
   "refreshing-files": "{name} dosyaları yenileniyor…",

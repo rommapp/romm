@@ -97,6 +97,7 @@ class ScanType(enum.StrEnum):
     UNMATCHED = "unmatched"
     COMPLETE = "complete"
     HASHES = "hashes"
+    TITLE_IDS = "title_ids"
 
 
 @enum.unique
@@ -1425,11 +1426,13 @@ async def scan_rom(
             if field_value:
                 rom_attrs[field] = field_value
 
-    # Don't overwrite existing base fields on update, unmatched and hashes scans
+    # Don't overwrite existing base fields on a scan that only refreshes part
+    # of a rom's record
     if not newly_added and scan_type in (
         ScanType.UNMATCHED,
         ScanType.UPDATE,
         ScanType.HASHES,
+        ScanType.TITLE_IDS,
     ):
         # A ROM's name defaults to a filename-derived placeholder when first
         # created. Treat that placeholder as "no name" so a freshly matched provider

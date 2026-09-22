@@ -335,6 +335,8 @@
   "refresh-hashes-desc-bulk": "Přepočítat hashe souborů (CRC, MD5, SHA-1) pro vybrané ROMy",
   "refresh-metadata": "Obnovit metadata",
   "refresh-metadata-bulk": "Obnovování metadat pro {n} her…",
+  "refresh-title-ids-desc": "Znovu načíst ID titulu a umístění uložených pozic ze souborů této hry",
+  "refresh-title-ids-desc-bulk": "Znovu načíst ID titulu a umístění uložených pozic ze souborů vybraných her",
   "refresh-update-desc": "Znovu načíst metadata od vybraných poskytovatelů",
   "refresh-update-desc-bulk": "Znovu načíst metadata od vybraných poskytovatelů",
   "refreshing-files": "Obnovování souborů {name}…",

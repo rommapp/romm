@@ -157,6 +157,11 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
     value: "hashes",
   },
   {
+    title: t("scan.title-ids"),
+    subtitle: t("scan.title-ids-desc"),
+    value: "title_ids",
+  },
+  {
     title: t("scan.complete-rescan"),
     subtitle: t("scan.complete-rescan-desc"),
     value: "complete",
