@@ -11,11 +11,19 @@ from typing import Any
 from fastapi import HTTPException
 
 from endpoints.responses.streaming import (
+    ImportRefusalSchema,
     LaunchFailedPayload,
     LaunchPhasePayload,
     LaunchReadyPayload,
 )
-from handler.streaming import background, commands, lifecycle, states, webstation
+from handler.streaming import (
+    background,
+    broker,
+    commands,
+    lifecycle,
+    states,
+    webstation,
+)
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import (
     hold_session_claim,
@@ -99,6 +107,11 @@ async def run_launch(
     except Exception as exc:
         log.exception("launch failed, platform=%s", platform)
         await lifecycle.abort_claim(session_key, session, blank_card_id)
+        refusals = (
+            [ImportRefusalSchema(**vars(r)) for r in exc.refusals]
+            if isinstance(exc, broker.ImportRefusedError)
+            else None
+        )
         await push_to_user(
             session.get("user_id"),
             "streaming:launch-failed",
@@ -107,6 +120,7 @@ async def run_launch(
                 container=session_key,
                 claimed_at=session["claimed_at"],
                 detail=_failure_detail(exc),
+                refusals=refusals,
             ).model_dump(),
         )
         return
@@ -168,6 +182,9 @@ async def run_launch(
 
 def _failure_detail(exc: BaseException) -> str:
     """What to tell the player about a launch that never came up."""
+    if isinstance(exc, broker.ImportRefusedError):
+        reasons = "; ".join(r.reason for r in exc.refusals)
+        return reasons or "The broker refused the picked save or state"
     if isinstance(exc, HTTPException):
         return str(exc.detail)
     return "The container could not start the game"

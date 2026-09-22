@@ -96,6 +96,17 @@ class LaunchReadyPayload(BaseModel):
     pushed and the session started fresh."""
 
 
+class ImportRefusalSchema(BaseModel):
+    """One `.import/` member the broker's activate declined to place."""
+
+    reason: str
+    member: str | None = None
+    expected: str | None = None
+    detail: str | None = None
+    suggest_emulator: str | None = None
+    docs: str | None = None
+
+
 class LaunchFailedPayload(BaseModel):
     """`streaming:launch-failed`. The claim is already released."""
 
@@ -103,6 +114,7 @@ class LaunchFailedPayload(BaseModel):
     container: str
     claimed_at: str
     detail: str
+    refusals: list[ImportRefusalSchema] | None = None
 
 
 class LaunchPhasePayload(BaseModel):

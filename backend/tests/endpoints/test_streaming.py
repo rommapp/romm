@@ -5157,6 +5157,64 @@ def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
     assert sent_rom["save_target_layout"] == "folder-exact"
 
 
+def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
+    rom: Rom, admin_user: User
+):
+    """An import refusal must reach the player's tabs as structured refusal
+    data, not just a flattened error string."""
+    refusal = broker.ImportRefusal(
+        reason="shape_mismatch",
+        member=".import/save/Game.mcr",
+        expected="folder",
+        detail=None,
+        suggest_emulator=None,
+        docs=None,
+    )
+    activate = MagicMock(side_effect=broker.ImportRefusedError([refusal], 0))
+    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    pushed = AsyncMock()
+    with (
+        patch("handler.streaming.launch.webstation.activate", activate),
+        patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
+        patch("handler.streaming.launch.lifecycle.abort_claim", new=AsyncMock()),
+        patch("handler.streaming.launch.push_to_user", pushed),
+    ):
+        asyncio.run(
+            launch.run_launch(
+                container=_resolved(_webstation_for(rom)),
+                session_key="k1",
+                session=session,
+                user=admin_user,
+                rom=rom,
+                platform=rom.platform_slug,
+                rom_name=rom.name,
+                rom_path="rom/path",
+                rom_language=None,
+                gui_language=None,
+                archive_path=None,
+                resume_state=None,
+                resume_slot=None,
+                resume_pushed=False,
+                resume_after_launch=False,
+                memory_card_synced=False,
+                multiplayer=False,
+                blank_card_id=None,
+            )
+        )
+    payload = pushed.call_args.args[2]
+    assert payload["refusals"] == [
+        {
+            "reason": "shape_mismatch",
+            "member": ".import/save/Game.mcr",
+            "expected": "folder",
+            "detail": None,
+            "suggest_emulator": None,
+            "docs": None,
+        }
+    ]
+    assert "shape_mismatch" in payload["detail"]
+
+
 def test_release_spawns_saves_pull(client, access_token, rom: Rom):
     """Releasing a session must schedule a background pull of in-game saves."""
     with _streaming(_container_for(rom)):
