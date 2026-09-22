@@ -36,7 +36,7 @@ jobs:
           OWNER: ${{ github.repository_owner }}
         run: |
           if [[ -n "$CALLER_IMAGES" ]]; then
-            images="$CALLER_IMAGES"
+            images=$(jq -c . <<<"$CALLER_IMAGES")
           elif [[ -n "$DISPATCH_IMAGE" ]]; then
             images=$(jq -cn --arg image "$DISPATCH_IMAGE" '[$image]')
           else
@@ -76,6 +76,8 @@ jobs:
           # purpose, so the secret scanner would only ever report those.
           scanners: vuln
           severity: HIGH,CRITICAL
+          # Without this, trivy-action drops `severity` for SARIF output.
+          limit-severities-for-sarif: true
           ignore-unfixed: true
           format: sarif
           output: trivy.sarif
@@ -107,4 +109,6 @@ jobs:
         uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: trivy.sarif
-          category: trivy-image-${{ endsWith(matrix.image, '-slim') && 'slim' || 'full' }}
+          # Keyed by image ref, so a dispatched scan of an older tag can't
+          # replace the analysis of latest.
+          category: trivy-image-${{ matrix.image }}

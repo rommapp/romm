@@ -283,8 +283,8 @@ jobs:
           push_variant /tmp/digests/slim "$SLIM_METADATA"
           push_variant /tmp/digests/full "$FULL_METADATA"
 
-  # The weekly run in image-scan.yml is what keeps these tags covered as new
-  # vulnerabilities are disclosed; this leg only records what shipped.
+  # The weekly run in image-scan.yml rescans latest as new vulnerabilities are
+  # disclosed; this leg only records what shipped.
   scan:
     needs: merge
     permissions:
