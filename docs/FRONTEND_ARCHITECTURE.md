@@ -1108,7 +1108,7 @@ Procedural SVG generation for:
 | `typecheck`         | `vue-tsc --noEmit`                   | App SFCs (`tsconfig.json`)                             |
 | `typecheck:scripts` | `tsc --noEmit -p tsconfig.node.json` | Node/Vite tooling in `scripts/` (`tsconfig.node.json`) |
 | `generate`          | `openapi-typescript-codegen`         | Generate types from backend OpenAPI                    |
-| `lint`              | `eslint`                             | Lint `.vue`, `.js`, `.ts` files                        |
+| `lint`              | `eslint`                             | Lint `.vue`, `.js`, `.ts`; import cycles               |
 
 ### OpenAPI Code Generation
 
