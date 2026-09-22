@@ -38,6 +38,7 @@ from sqlalchemy import (
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     ColumnProperty,
+    Mapper,
     Query,
     QueryableAttribute,
     Session,
@@ -63,7 +64,7 @@ from handler.database.rom_filters import (
 from handler.redis_handler import sync_cache
 from logger.logger import log
 from models.assets import Save, Screenshot, State
-from models.base import PRERELEASE_FILENAME_TAGS, BaseModel, compute_file_name_parts
+from models.base import PRERELEASE_FILENAME_TAGS, compute_file_name_parts
 from models.collection import Collection, CollectionRom, SmartCollection
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
@@ -274,15 +275,16 @@ TRACK_META_SCANNED_COLUMNS = (
 
 
 @functools.cache
-def _nullable_columns(model: type[BaseModel]) -> frozenset[str]:
-    return frozenset(c.key for c in sa_inspect(model).columns if c.nullable)
+def _nullable_columns(model: type) -> frozenset[str]:
+    mapper: Mapper[Any] = sa_inspect(model)
+    return frozenset(c.key for c in mapper.columns if c.nullable)
 
 
 def _copy_scanned_columns(
     source: RomFile | TrackMeta,
     target: RomFile | TrackMeta,
     columns: Sequence[str],
-    model: type[BaseModel],
+    model: type,
     keep_when_unset: frozenset[str] = frozenset(),
 ) -> None:
     """Copy scanned values onto a row, writing only the columns that changed.
