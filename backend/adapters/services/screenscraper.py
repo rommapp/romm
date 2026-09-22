@@ -411,7 +411,7 @@ def _parse_ss_int(value: object, *, minimum: int = 0) -> int | None:
     """Read one of the account's numeric fields, ignoring absent or junk values."""
     try:
         parsed = int(str(value))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
     return parsed if parsed >= minimum else None

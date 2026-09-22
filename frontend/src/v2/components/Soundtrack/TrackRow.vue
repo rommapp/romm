@@ -387,4 +387,14 @@ html[data-bp~="xs"] .r-v2-stp__row-duration {
 html[data-bp~="xs"] .r-v2-stp__row-size {
   display: none;
 }
+
+/* Chrome and Edge below 117 ignore subgrid, so the button's text cannot share
+   the row's tracks there; fall back to the flex row the wider layout uses. */
+@supports not (grid-template-columns: subgrid) {
+  html[data-bp~="xs"] .r-v2-stp__row,
+  html[data-bp~="xs"] .r-v2-stp__row-btn,
+  html[data-bp~="xs"] .r-v2-stp__row-meta {
+    display: flex;
+  }
+}
 </style>

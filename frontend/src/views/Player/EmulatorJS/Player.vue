@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
+import {
+  inject,
+  onBeforeUnmount,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+} from "vue";
+import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 import type {
@@ -12,8 +20,13 @@ import type {
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import { saveApi as api } from "@/services/api/save";
+import pendingAssetStore, {
+  pendingAssetId,
+  type PendingAsset,
+} from "@/services/pending-asset";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeLanguage from "@/stores/language";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
@@ -24,9 +37,14 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
+import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
 import {
   saveSave,
-  resolveStateScreenshot,
+  captureScreenshot,
+  dumpSaveFile,
+  exitEmulatorOnce,
+  heldFor,
+  resolveScreenshot,
   saveState,
   loadEmulatorJSSave,
   loadEmulatorJSState,
@@ -35,6 +53,8 @@ import {
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
+  labelContextMenuButton,
+  createRetryBackoff,
   createSaveSyncTracker,
   bytesEqual,
   pollSaveFiles,
@@ -48,8 +68,10 @@ const authStore = storeAuth();
 const romsStore = storeRoms();
 const playingStore = storePlaying();
 const configStore = storeConfig();
+const heartbeatStore = storeHeartbeat();
 const languageStore = storeLanguage();
 const router = useRouter();
+const { t } = useI18n();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -60,6 +82,8 @@ const props = defineProps<{
   disc: number | null;
   /** Slot for new saves when the loaded save has none; defaults to autosave. */
   saveSlot?: string | null;
+  /** Load State button label; the shell names the picker it opens. */
+  loadStateLabel?: string;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 // The save the session booted from, and the version this session has written
@@ -70,19 +94,70 @@ const deviceIDRef = ref(authStore.user?.current_device_id ?? undefined);
 // Bytes the server already holds, so forced writes can skip an unchanged SRAM.
 const saveTracker = createSaveSyncTracker();
 function baselineSaveTrackerFromEmulator() {
-  // Passing false reads the SRAM without dumping it, so this fires no tick.
-  saveTracker.baseline(
-    window.EJS_emulator?.gameManager?.getSaveFile(false) ?? null,
-  );
+  saveTracker.baseline(dumpSaveFile());
 }
-// Writes run one at a time so concurrent writers cannot both open a version;
-// loading a save bumps the generation, which voids writes queued before it,
-// and bytes read while a load is in flight are stale, so they are dropped.
+// Writes run one at a time so two cannot both open a version. A restore bumps
+// the generation, voiding writes queued before it, and gates new ones.
 let saveWrite: Promise<unknown> = Promise.resolve();
 let saveGeneration = 0;
 let saveLoading = false;
 // The bytes of the write on the wire, for the unload path to leave alone.
 let inFlightSave: Uint8Array | null = null;
+// Progress the server has not taken yet, kept in the browser with the frame
+// from when the game wrote it, so a later retry pictures that moment.
+let pendingSave: PendingAsset | null = null;
+// A private window keeps nothing, and a notice must not promise it did.
+let pendingSaveKept = false;
+// One row per session: a save an earlier session never got through still owes
+// the server its own version, so this must not write over it.
+const pendingSaveId = pendingAssetId(romRef.value.id);
+function currentSlot(): string | undefined {
+  return loadedSave?.slot || props.saveSlot || undefined;
+}
+async function rememberPendingSave(
+  saveBytes: ArrayBuffer,
+  screenshotBytes?: ArrayBuffer,
+) {
+  pendingSave = {
+    id: pendingSaveId,
+    kind: "save",
+    romId: romRef.value.id,
+    romName: romRef.value.name ?? romRef.value.fs_name_no_ext,
+    fsNameNoExt: romRef.value.fs_name_no_ext,
+    cover: romRef.value.path_cover_small,
+    bytes: saveBytes,
+    screenshotBytes,
+    slot: currentSlot(),
+    emulator: window.EJS_core,
+    deviceId: deviceIDRef.value,
+    capturedAt: Date.now(),
+  };
+  pendingSaveKept = await pendingAssetStore.write(pendingSave);
+}
+async function forgetPendingSave() {
+  pendingSave = null;
+  pendingSaveKept = false;
+  await pendingAssetStore.clear(pendingSaveId);
+}
+// The tick re-offers a failed save every pass: each save the game writes is
+// announced once, not every retry of it.
+let heldBackSave: Uint8Array | null = null;
+function announceSaveHeldBack(saveFile: Uint8Array) {
+  heldBackSave = saveFile;
+  announceHeldBack("save", pendingSaveKept);
+}
+const HELD_BACK_MESSAGE = {
+  save: { kept: "play.save-kept-for-later", lost: "play.save-not-kept" },
+  state: { kept: "play.state-kept-for-later", lost: "play.state-not-kept" },
+} as const;
+// Kept, it syncs on a later pass; not kept, it is lost once the game closes.
+function announceHeldBack(kind: "save" | "state", kept: boolean) {
+  displayMessage(t(HELD_BACK_MESSAGE[kind][kept ? "kept" : "lost"]), {
+    duration: kept ? 4000 : 6000,
+    tone: kept ? "warning" : "error",
+    icon: kept ? "mdi-cloud-clock-outline" : "mdi-cloud-off-outline",
+  });
+}
 function writeSave(
   file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer },
   generation = saveGeneration,
@@ -93,17 +168,29 @@ function writeSave(
     const bytes = new Uint8Array(file.saveFile);
     inFlightSave = bytes;
     try {
+      // Held before the attempt and dropped once taken, so no path uploads
+      // without a copy; held bytes keep their frame and are not written again.
+      const held = heldFor(pendingSave, bytes);
+      const screenshotFile = held?.screenshotBytes ?? file.screenshotFile;
+      if (!held || held.screenshotBytes !== screenshotFile) {
+        await rememberPendingSave(file.saveFile, screenshotFile);
+      }
+      // Nothing gets through while the server is down; the held bytes go once
+      // it is back.
+      if (!heartbeatStore.connected) return null;
       const save = await saveSave({
         rom: romRef.value,
         save: sessionSaveRef.value,
         deviceId: deviceIDRef.value,
-        slot: loadedSave?.slot || props.saveSlot || undefined,
-        ...file,
+        slot: currentSlot(),
+        saveFile: file.saveFile,
+        screenshotFile,
       });
       if (save && generation === saveGeneration) {
         sessionSaveRef.value = save;
         saveTracker.markUploaded(bytes);
       }
+      if (save) await forgetPendingSave();
       return save;
     } finally {
       inFlightSave = null;
@@ -112,9 +199,8 @@ function writeSave(
   saveWrite = write.catch(() => null);
   return write;
 }
-// Forced writes (Save button, Save & Quit) wait for the queue, then skip only
-// when no version was opened yet and the SRAM still matches a slotted save
-// loaded from the server (a slot-less one still has to reach the slot).
+// Forced writes (Sync save, Save & Quit) wait for the queue, then skip only when
+// no version was opened yet and the SRAM still matches a slotted server save.
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
@@ -129,6 +215,33 @@ async function writeSaveIfChanged(file: {
     return true;
   }
   return (await writeSave(file, generation)) !== null;
+}
+// A state restores the machine mid-scene: its frames, sound and SRAM on the way
+// there are not the moment the player picked, so all three are held back.
+const applyingState = ref(false);
+let restoreVolume: (() => void) | null = null;
+function holdBackUntilStateApplied() {
+  applyingState.value = true;
+  saveLoading = true;
+  saveGeneration += 1;
+  const emulator = window.EJS_emulator;
+  if (restoreVolume || typeof emulator?.setVolume !== "function") return;
+  const { volume, muted } = emulator;
+  emulator.setVolume(0);
+  restoreVolume = () => {
+    emulator.setVolume(muted ? 0 : volume);
+    // setVolume persists the settings itself, in an order the EmulatorJS build
+    // decides, so the player's own level and mute are written back last.
+    emulator.volume = volume;
+    emulator.muted = muted;
+    emulator.saveSettings?.();
+  };
+}
+function stateApplied() {
+  applyingState.value = false;
+  saveLoading = false;
+  restoreVolume?.();
+  restoreVolume = null;
 }
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -167,7 +280,7 @@ declare global {
     EJS_disableAutoLang: boolean;
     EJS_DEBUG_XX: boolean;
     EJS_CacheLimit: number;
-    EJS_Buttons: Record<string, boolean>;
+    EJS_Buttons: Record<string, boolean | { displayName: string }>;
     EJS_VirtualGamepadSettings: Record<string, unknown>;
     EJS_volume: number;
     EJS_paths: Record<string, string>;
@@ -227,9 +340,30 @@ window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = `${window.location.origin}/assets/logos/romm_logo_xbox_one_circle_boot.svg`;
 window.EJS_backgroundColor = theme.current.value.colors.background;
+// Labels come from RomM's locales, which cover languages EmulatorJS does not.
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
+  // Saves load from the picker. Without auto-sync, Sync save uploads on demand.
+  saveSavFiles: configStore.config.EJS_ENABLE_AUTO_SAVE_SYNC
+    ? false
+    : { displayName: t("play.sync-save") },
+  loadSavFiles: false,
+  restart: { displayName: t("play.restart") },
+  pause: { displayName: t("play.pause") },
+  play: { displayName: t("play.resume") },
+  saveState: { displayName: t("play.save-state") },
+  loadState: { displayName: props.loadStateLabel ?? t("play.load-state") },
+  gamepad: { displayName: t("play.control-settings") },
+  cheat: { displayName: t("play.cheats") },
+  cacheManager: { displayName: t("play.cache-manager") },
+  netplay: { displayName: t("play.netplay") },
+  mute: { displayName: t("play.mute") },
+  unmute: { displayName: t("play.unmute") },
+  diskButton: { displayName: t("play.discs") },
+  settings: { displayName: t("common.settings") },
+  enterFullscreen: { displayName: t("play.full-screen") },
+  exitFullscreen: { displayName: t("play.exit-full-screen") },
 };
 const coreOptions = configStore.getEJSCoreOptions(window.EJS_core);
 window.EJS_defaultOptions = {
@@ -271,7 +405,7 @@ installEJSDefaultOptionsTrap();
 onMounted(() => {
   window.scrollTo(0, 0);
   // Registered before EmulatorJS binds its own unload handler, so the
-  // pending-save check runs first.
+  // unsynced-save check runs first.
   window.addEventListener("beforeunload", onBeforeUnload);
   window.addEventListener("pagehide", onPageHide);
   if (props.bios) {
@@ -304,7 +438,7 @@ onMounted(() => {
     localStorage.removeItem(`player:${romRef.value.id}:disc`);
   }
 
-  emitter?.on("saveSelected", loadSave);
+  emitter?.on("saveSelected", switchSave);
   emitter?.on("stateSelected", loadState);
 });
 
@@ -313,35 +447,28 @@ onBeforeUnmount(async () => {
   window.removeEventListener("beforeunload", onBeforeUnload);
   window.removeEventListener("pagehide", onPageHide);
   uninstallAutoSaveSync();
-  emitter?.off("saveSelected", loadSave);
+  emitter?.off("saveSelected", switchSave);
   emitter?.off("stateSelected", loadState);
-  window.EJS_emulator?.callEvent("exit");
+  exitEmulatorOnce();
   fullScreen.value = false;
   playing.value = false;
 });
 
+// The app's own toast host, which stacks: two notices raised together read as two.
+const snackbar = useSnackbar();
 function displayMessage(
   message: string,
   {
     duration,
-    className,
+    tone = "info",
     icon,
   }: {
     duration: number;
-    className?: "msg-error" | "msg-success";
+    tone?: SnackbarTone;
     icon?: string;
   },
 ) {
-  window.EJS_emulator?.displayMessage(message, duration);
-  const element = document.querySelector("#game .ejs_message");
-  if (element) {
-    const classes = [className, icon].filter((c): c is string => !!c);
-    if (classes.length === 0) return;
-    element.classList.add(...classes);
-    setTimeout(() => {
-      element.classList.remove(...classes);
-    }, duration);
-  }
+  snackbar.show(tone, message, { icon, timeout: duration });
 }
 
 // Poll until EmulatorJS' gameManager is ready to accept save/state
@@ -358,8 +485,8 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
   return false;
 }
 
-// Settle window after boot before applying a state. Some cores need a few
-// frames rendered before loadState takes cleanly.
+// Settle window around applying a state: cores need a few frames rendered
+// before loadState takes cleanly, and RetroArch applies it off its task queue.
 const STATE_APPLY_SETTLE_MS = 500;
 
 // Periodic save upload on the "saveSaveFiles" tick that pollSaveFiles fires
@@ -369,6 +496,12 @@ let autoSaveSyncEmulator: object | null = null;
 let stopSavePolling: (() => void) | null = null;
 // The boot path awaits before installing, so it may land after unmount.
 let disposed = false;
+const retryBackoff = createRetryBackoff();
+// Back from an outage, the held save goes on the next tick, not after a wait.
+watch(
+  () => heartbeatStore.connected,
+  (connected) => connected && retryBackoff.reset(),
+);
 function installAutoSaveSync() {
   const emulator = window.EJS_emulator;
   if (disposed || !emulator?.gameManager) return;
@@ -376,19 +509,48 @@ function installAutoSaveSync() {
   autoSaveSyncEmulator = emulator;
   let uploading = false;
   emulator.on("saveSaveFiles", async (saveFile: Uint8Array | null) => {
-    if (autoSaveSyncEmulator !== emulator || uploading || !saveFile?.byteLength)
+    if (
+      autoSaveSyncEmulator !== emulator ||
+      uploading ||
+      saveLoading ||
+      !saveFile?.byteLength
+    )
       return;
     if (!saveTracker.shouldUpload(saveFile)) return;
+    // Down, the write makes no request, so only a server that answered with a
+    // failure has anything to back off from.
+    const online = heartbeatStore.connected;
+    if (online && !retryBackoff.ready()) return;
     uploading = true;
     try {
-      const save = await writeSave({ saveFile: toArrayBuffer(saveFile) });
+      // The capture needs the game running, so it happens here, once per save:
+      // a retry keeps the frame from when the game wrote the bytes.
+      const screenshotFile = heldFor(pendingSave, saveFile)
+        ? undefined
+        : await captureScreenshot();
+      const save = await writeSave({
+        saveFile: toArrayBuffer(saveFile),
+        screenshotFile,
+      });
       if (save) {
+        retryBackoff.reset();
+        heldBackSave = null;
         romsStore.update(romRef.value);
-        displayMessage("Save synced with server", {
+        displayMessage(t("play.save-synced"), {
           duration: 3000,
-          className: "msg-success",
+          tone: "success",
           icon: "mdi-cloud-sync",
         });
+        return;
+      }
+      if (online) retryBackoff.failed();
+      // A write voided by a restore holds nothing back, so there is nothing to
+      // promise for it either.
+      if (
+        heldFor(pendingSave, saveFile) &&
+        !bytesEqual(saveFile, heldBackSave)
+      ) {
+        announceSaveHeldBack(saveFile);
       }
     } catch (error) {
       console.error("Periodic save sync failed", error);
@@ -409,12 +571,23 @@ async function flushPendingSave() {
   const emulator = window.EJS_emulator;
   if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
   uninstallAutoSaveSync();
+  // A save the tick has not held yet takes its frame now, while the game still
+  // runs; bytes the tick already held keep the one taken when it wrote them.
+  const unsynced: Uint8Array | null = emulator.gameManager.getSaveFile(false);
+  const screenshotFile =
+    unsynced?.byteLength &&
+    saveTracker.hasChanges(unsynced) &&
+    !heldFor(pendingSave, unsynced)
+      ? await captureScreenshot()
+      : undefined;
   emulator.pause();
   await new Promise((resolve) => setTimeout(resolve, 50));
   const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
   if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
   try {
-    if (await writeSave({ saveFile: toArrayBuffer(saveFile) })) {
+    if (
+      await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile })
+    ) {
       romsStore.update(romRef.value);
     }
   } catch (error) {
@@ -456,87 +629,132 @@ function onPageHide() {
     save: sessionSaveRef.value,
     saveFile: toArrayBuffer(unloadSave),
     deviceId: deviceIDRef.value,
-    slot: loadedSave?.slot || props.saveSlot || undefined,
+    slot: currentSlot(),
   });
 }
 
 // Saves management
-async function loadSave(save: SaveSchema) {
-  saveGeneration += 1;
+// Resolves whether this pick reached the core: a later pick, a state load or
+// leaving the player voids a download still in flight.
+async function loadSave(save: SaveSchema): Promise<boolean> {
+  const generation = ++saveGeneration;
   saveLoading = true;
-  loadedSave = save;
-  sessionSaveRef.value = null;
 
   try {
     const { data } = await api.get(save.download_path.replace("/api", ""), {
       responseType: "arraybuffer",
       params: { device_id: deviceIDRef.value },
     });
-    if (data) {
-      const bytes = new Uint8Array(data);
-      loadEmulatorJSSave(bytes);
-      saveTracker.seed(bytes);
-      displayMessage("Save loaded from server", {
-        duration: 3000,
-        icon: "mdi-cloud-download-outline",
-      });
-      return;
-    }
-
-    const file = await window.EJS_emulator.selectFile();
-    loadEmulatorJSSave(new Uint8Array(await file.arrayBuffer()));
+    if (disposed || generation !== saveGeneration) return false;
+    const bytes = new Uint8Array(data);
+    loadEmulatorJSSave(bytes);
+    // Writes follow the picked save only once its bytes are in the core.
+    loadedSave = save;
+    sessionSaveRef.value = null;
+    saveTracker.seed(bytes);
+    displayMessage(t("play.save-loaded"), {
+      duration: 3000,
+      icon: "mdi-cloud-download-outline",
+    });
+    return true;
   } finally {
-    saveLoading = false;
+    if (generation === saveGeneration) saveLoading = false;
   }
 }
 
-window.EJS_onLoadSave = async function () {
-  window.EJS_emulator.pause();
-  window.EJS_emulator.toggleFullscreen(false);
-  emitter?.emit("selectSaveDialog", romRef.value);
-};
+// Progress the tick has not taken yet belongs to the save being left, so it
+// goes out (or is held) before a switch replaces the SRAM.
+async function uploadUnsyncedSave() {
+  const emulator = window.EJS_emulator;
+  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
+  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
+  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  const screenshotFile = heldFor(pendingSave, saveFile)
+    ? undefined
+    : await captureScreenshot();
+  try {
+    if (
+      await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile })
+    ) {
+      romsStore.update(romRef.value);
+    }
+  } catch (error) {
+    console.error("Save sync before switching failed", error);
+  }
+}
 
+// The game reads its SRAM as it boots, so a save picked mid-game restarts it.
+async function switchSave(save: SaveSchema) {
+  await uploadUnsyncedSave();
+  try {
+    if (!(await loadSave(save))) return;
+  } catch (error) {
+    console.error("Loading the picked save failed", error);
+    displayMessage(t("play.load-save-failed"), {
+      duration: 4000,
+      tone: "error",
+      icon: "mdi-cloud-off-outline",
+    });
+    return;
+  }
+  window.EJS_emulator.gameManager.restart();
+}
+
+// Sync save, offered when auto-sync is off: the tick's upload, on demand.
 window.EJS_onSaveSave = async function ({
   save: saveFile,
-  screenshot: screenshotFile,
+  screenshot: emulatorScreenshot,
 }) {
+  if (!saveFile?.byteLength) {
+    displayMessage(t("play.save-data-none"), { duration: 3000 });
+    return;
+  }
+  const screenshotFile = await resolveScreenshot(emulatorScreenshot);
   const synced = await writeSaveIfChanged({ saveFile, screenshotFile });
-
   romsStore.update(romRef.value);
-
   if (synced) {
-    displayMessage("Save synced with server", {
+    displayMessage(t("play.save-synced"), {
       duration: 4000,
-      className: "msg-success",
+      tone: "success",
       icon: "mdi-cloud-sync",
     });
-  } else {
-    displayMessage("Error syncing save with server", {
-      duration: 4000,
-      className: "msg-error",
-      icon: "mdi-sync-alert",
-    });
+  } else if (heldFor(pendingSave, new Uint8Array(saveFile))) {
+    announceHeldBack("save", pendingSaveKept);
   }
 };
 
 // States management
+// Every way a state arrives goes through here: the SRAM it restores becomes the
+// new baseline rather than progress the player made.
+async function applyState(state: Uint8Array) {
+  holdBackUntilStateApplied();
+  try {
+    loadEmulatorJSState(state);
+    await new Promise((resolve) => setTimeout(resolve, STATE_APPLY_SETTLE_MS));
+    baselineSaveTrackerFromEmulator();
+  } finally {
+    stateApplied();
+  }
+}
+
 async function loadState(state: StateSchema) {
-  const { data } = await api.get(state.download_path.replace("/api", ""), {
-    responseType: "arraybuffer",
-  });
-  if (data) {
-    loadEmulatorJSState(new Uint8Array(data));
-    displayMessage("State loaded from server", {
+  // Raised before the download, since the picker resumes the game meanwhile.
+  holdBackUntilStateApplied();
+  try {
+    const { data } = await api.get(state.download_path.replace("/api", ""), {
+      responseType: "arraybuffer",
+    });
+    await applyState(new Uint8Array(data));
+    displayMessage(t("play.state-loaded"), {
       duration: 3000,
       icon: "mdi-cloud-download-outline",
     });
-    return;
+  } finally {
+    stateApplied();
   }
-
-  const file = await window.EJS_emulator.selectFile();
-  loadEmulatorJSState(new Uint8Array(await file.arrayBuffer()));
 }
 
+// v2 answers with its save/state picker, v1 with its states-only one.
 window.EJS_onLoadState = async function () {
   window.EJS_emulator.pause();
   window.EJS_emulator.toggleFullscreen(false);
@@ -547,8 +765,8 @@ window.EJS_onSaveState = async function ({
   state: stateFile,
   screenshot: emulatorScreenshot,
 }) {
-  const screenshotFile = await resolveStateScreenshot(emulatorScreenshot);
-  const state = await saveState({
+  const screenshotFile = await resolveScreenshot(emulatorScreenshot);
+  const { state, kept } = await saveState({
     rom: romRef.value,
     stateFile,
     screenshotFile,
@@ -561,21 +779,26 @@ window.EJS_onSaveState = async function ({
   romsStore.update(romRef.value);
 
   if (state) {
-    displayMessage("State synced with server", {
+    displayMessage(t("play.state-synced"), {
       duration: 4000,
-      className: "msg-success",
+      tone: "success",
       icon: "mdi-cloud-sync",
     });
   } else {
-    displayMessage("Error syncing state with server", {
-      duration: 4000,
-      className: "msg-error",
-      icon: "mdi-sync-alert",
-    });
+    announceHeldBack("state", kept);
   }
 };
 
 window.EJS_onGameStart = async () => {
+  // EmulatorJS' own notices (its browser save-state slots) go through the
+  // same host, so nothing of ours is overwritten by one of theirs.
+  const emulator = window.EJS_emulator;
+  if (emulator) {
+    emulator.displayMessage = (text: string, duration?: number) =>
+      displayMessage(text, { duration: duration ?? 3000 });
+  }
+
+  if (props.state) holdBackUntilStateApplied();
   // The emulator now owns the keyboard: every key, "/" included, belongs to
   // the game (a DOS prompt typing "mount A / -t floppy" must not reach the
   // global hotkeys). Callers flag this at launch too, but taking it from the
@@ -621,6 +844,7 @@ window.EJS_onGameStart = async () => {
     const ready = await waitForGameManager();
     if (!ready) {
       console.warn("Game manager not ready for save/state injection");
+      stateApplied();
     } else {
       // A state restores the whole machine, SRAM included, so a save applied
       // alongside it would be discarded: the state wins when both are set.
@@ -629,7 +853,6 @@ window.EJS_onGameStart = async () => {
           setTimeout(resolve, STATE_APPLY_SETTLE_MS),
         );
         await loadState(props.state);
-        baselineSaveTrackerFromEmulator();
       } else if (props.save) {
         await loadSave(props.save);
       } else {
@@ -652,7 +875,9 @@ window.EJS_onGameStart = async () => {
     }
   })();
 
-  const quickLoad = createQuickLoadButton();
+  labelContextMenuButton(t("play.context-menu"));
+
+  const quickLoad = createQuickLoadButton(t("play.load-latest-state"));
   quickLoad.addEventListener("click", () => {
     if (
       window.EJS_emulator.settings["save-state-location"] === "browser" &&
@@ -660,9 +885,9 @@ window.EJS_onGameStart = async () => {
     ) {
       window.EJS_emulator.storage.states
         .get(window.EJS_emulator.getBaseFileName() + ".state")
-        .then((e: Uint8Array) => {
-          window.EJS_emulator.gameManager.loadState(e);
-          displayMessage("Quick load from server", {
+        .then(async (e: Uint8Array) => {
+          await applyState(e);
+          displayMessage(t("play.quick-state-loaded"), {
             duration: 3000,
             icon: "mdi-flash",
           });
@@ -670,7 +895,7 @@ window.EJS_onGameStart = async () => {
     }
   });
 
-  const exitEmulation = createExitEmulationButton();
+  const exitEmulation = createExitEmulationButton(t("play.quit"));
   exitEmulation.addEventListener("click", async () => {
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
     await flushPendingSave();
@@ -678,26 +903,34 @@ window.EJS_onGameStart = async () => {
     immediateExit();
   });
 
-  const saveAndQuit = createSaveQuitButton();
+  const saveAndQuit = createSaveQuitButton(t("play.save-and-quit"));
   saveAndQuit.addEventListener("click", async () => {
     uninstallAutoSaveSync();
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
-    // Grab the screenshot while the game is still running (EmulatorJS reads
-    // the live canvas), then pause before serializing state/save. Reading
-    // state from a running threaded core (SNES, N64) races the worker thread
-    // and yields torn buffers, producing corrupt states that never load.
-    const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
+    // Capture first (EmulatorJS reads the live canvas), then pause: a running
+    // threaded core (SNES, N64) tears the state it serializes.
+    const screenshotFile = await captureScreenshot();
     window.EJS_emulator.pause();
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const stateFile = window.EJS_emulator.gameManager.getState();
-    const saveFile = window.EJS_emulator.gameManager.getSaveFile();
+    // Null for a game without SRAM, which has no save to write at all.
+    const saveFile: Uint8Array | null =
+      window.EJS_emulator.gameManager.getSaveFile();
 
-    // The state and the save go to different endpoints, so upload both at once
+    // Different endpoints, so both go at once. The save takes the frame just
+    // captured unless the server already holds these bytes with their own.
     await Promise.all([
       saveState({ rom: romRef.value, stateFile, screenshotFile }),
-      writeSaveIfChanged({ saveFile, screenshotFile }),
+      saveFile?.byteLength
+        ? writeSaveIfChanged({
+            saveFile: toArrayBuffer(saveFile),
+            screenshotFile: saveTracker.isUploaded(saveFile)
+              ? undefined
+              : screenshotFile,
+          })
+        : undefined,
     ]);
 
     romsStore.update(romRef.value);
@@ -723,6 +956,7 @@ onUnmounted(() => {
 
 <template>
   <div id="game" />
+  <div v-if="applyingState" class="ejs-state-cover" aria-hidden="true" />
   <div
     v-if="rom.ss_metadata?.bezel_path"
     class="pointer-events-none fixed inset-0 flex items-center justify-center z-20 overflow-hidden"
@@ -739,6 +973,16 @@ onUnmounted(() => {
 </template>
 
 <style>
+/* Up until a state has been applied: the core has to render frames for the
+   load to take, and they picture a scene the player did not ask for. */
+.ejs-state-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  background: black;
+}
+
 #game .ejs_cheat_code {
   background-color: white;
 }
@@ -754,61 +998,5 @@ onUnmounted(() => {
 /* Hide the exit button */
 #game .ejs_menu_bar .ejs_menu_button:nth-child(-1) {
   display: none;
-}
-
-/* EmulatorJS raises its own messages through this element and adds none of
-   RomM's classes, so the unclassed state has to be legible. It wears the v2
-   toast's glass panel; the fallbacks keep it readable under the v1 theme. */
-#game .ejs_message {
-  top: 16px;
-  left: 16px;
-  margin: 0;
-  padding: 10px 12px;
-  max-width: min(420px, calc(100% - 32px));
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid
-    var(--r-color-border-strong, rgba(var(--v-theme-on-surface), 0.15));
-  border-radius: var(--r-radius-md, 8px);
-  background: var(--r-color-toast-bg, rgba(var(--v-theme-surface), 0.92));
-  backdrop-filter: blur(18px);
-  box-shadow:
-    0 10px 28px color-mix(in srgb, black 45%, transparent),
-    0 2px 6px color-mix(in srgb, black 30%, transparent);
-  color: var(--r-color-fg, rgb(var(--v-theme-on-surface)));
-  font: 13px / 1.45 var(--r-font-family-sans, inherit);
-  text-shadow: none;
-  transition:
-    opacity var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out),
-    transform var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out);
-}
-
-/* A message expires by having its text cleared, not the element removed, so
-   the empty state is where it fades out. */
-#game .ejs_message:empty {
-  opacity: 0;
-  transform: translateY(-6px);
-  visibility: hidden;
-  transition:
-    opacity var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out),
-    transform var(--r-motion-fast, 160ms) var(--r-motion-ease-out, ease-out),
-    visibility 0s var(--r-motion-fast, 160ms);
-}
-
-/* The icon class lands on the message itself, so the glyph is its ::before,
-   tinted by tone like the v2 toast icon. */
-#game .ejs_message::before {
-  flex-shrink: 0;
-  font: normal normal normal 18px / 1 "Material Design Icons";
-  color: var(--r-color-brand-primary, rgb(var(--v-theme-romm-blue)));
-}
-
-#game .ejs_message.msg-success::before {
-  color: var(--r-color-success, rgb(var(--v-theme-romm-green)));
-}
-
-#game .ejs_message.msg-error::before {
-  color: var(--r-color-danger-fg, rgb(var(--v-theme-romm-red)));
 }
 </style>

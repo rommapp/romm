@@ -1,14 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaveSchema } from "@/__generated__";
 import type { StateSchema } from "@/__generated__";
+import { sessionStateName } from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
 import {
   buildStateFormData,
-  captureStateScreenshot,
+  captureScreenshot,
+  dumpSaveFile,
+  heldFor,
+  createRetryBackoff,
   createSaveSyncTracker,
+  RETRY_BACKOFF_MAX_MS,
+  RETRY_BACKOFF_MIN_MS,
   installEJSDefaultOptionsTrap,
   pollSaveFiles,
-  resolveStateScreenshot,
+  resolveScreenshot,
   saveSave,
   saveSaveOnUnload,
   saveState,
@@ -22,12 +28,25 @@ const saveApiMocks = vi.hoisted(() => ({
 const stateApiMocks = vi.hoisted(() => ({
   uploadStates: vi.fn(),
 }));
+const pendingAssetMocks = vi.hoisted(() => ({
+  write: vi.fn(),
+  clear: vi.fn(),
+}));
 
 vi.mock("@/services/api/save", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/api/save")>()),
   default: saveApiMocks,
 }));
-vi.mock("@/services/api/state", () => ({ default: stateApiMocks }));
+vi.mock("@/services/api/state", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/api/state")>()),
+  default: stateApiMocks,
+}));
+const heartbeat = vi.hoisted(() => ({ connected: true }));
+vi.mock("@/stores/heartbeat", () => ({ default: () => heartbeat }));
+vi.mock("@/services/pending-asset", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/pending-asset")>()),
+  default: pendingAssetMocks,
+}));
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -258,6 +277,54 @@ describe("createSaveSyncTracker", () => {
   });
 });
 
+describe("createRetryBackoff", () => {
+  let clock = 0;
+  const backoff = () => createRetryBackoff(() => clock);
+
+  beforeEach(() => {
+    clock = 0;
+  });
+
+  it("tries straight away until something has failed", () => {
+    expect(backoff().ready()).toBe(true);
+  });
+
+  // Once a second only hammers a server that keeps saying no.
+  it("doubles the wait after each failure, up to a cap", () => {
+    const retry = backoff();
+    const waits: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      retry.failed();
+      const start = clock;
+      while (!retry.ready()) clock += 1_000;
+      waits.push(clock - start);
+    }
+
+    expect(waits).toEqual([
+      RETRY_BACKOFF_MIN_MS,
+      4_000,
+      8_000,
+      16_000,
+      RETRY_BACKOFF_MAX_MS,
+      RETRY_BACKOFF_MAX_MS,
+    ]);
+  });
+
+  it("starts over once an upload lands or the server is back", () => {
+    const retry = backoff();
+    retry.failed();
+    retry.failed();
+    expect(retry.ready()).toBe(false);
+
+    retry.reset();
+    expect(retry.ready()).toBe(true);
+
+    retry.failed();
+    clock += RETRY_BACKOFF_MIN_MS;
+    expect(retry.ready()).toBe(true);
+  });
+});
+
 describe("pollSaveFiles", () => {
   const emulatorWith = (sramBytes: number) => ({
     started: true,
@@ -299,7 +366,7 @@ describe("pollSaveFiles", () => {
   });
 });
 
-describe("captureStateScreenshot", () => {
+describe("captureScreenshot", () => {
   /* eslint-disable @typescript-eslint/no-explicit-any */
   afterEach(() => {
     delete (window as any).EJS_emulator;
@@ -311,14 +378,14 @@ describe("captureStateScreenshot", () => {
       gameManager: { screenshot: async () => shot },
     };
 
-    await expect(captureStateScreenshot()).resolves.toBe(shot);
+    await expect(captureScreenshot()).resolves.toBe(shot);
   });
 
-  // A manual save state still has to reach the server without its picture.
+  // A save or state still has to reach the server without its picture.
   it("returns nothing when the emulator has no game manager yet", async () => {
     (window as any).EJS_emulator = {};
 
-    await expect(captureStateScreenshot()).resolves.toBeUndefined();
+    await expect(captureScreenshot()).resolves.toBeUndefined();
   });
 
   it("swallows a capture that throws", async () => {
@@ -330,11 +397,92 @@ describe("captureStateScreenshot", () => {
       },
     };
 
-    await expect(captureStateScreenshot()).resolves.toBeUndefined();
+    await expect(captureScreenshot()).resolves.toBeUndefined();
+  });
+
+  it("treats an empty readback as no picture", async () => {
+    (window as any).EJS_emulator = {
+      gameManager: { screenshot: async () => new ArrayBuffer(0) },
+    };
+
+    await expect(captureScreenshot()).resolves.toBeUndefined();
+  });
+
+  // EmulatorJS waits for its screenshot by polling the filesystem forever, and
+  // a capture deletes the file the one before it is still waiting on.
+  it("takes one capture at a time", async () => {
+    const order: string[] = [];
+    let release: (() => void) | undefined;
+    const first = new Promise<ArrayBuffer>((resolve) => {
+      release = () => resolve(new ArrayBuffer(8));
+    });
+    const screenshot = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        order.push("first");
+        return first;
+      })
+      .mockImplementationOnce(async () => {
+        order.push("second");
+        return new ArrayBuffer(4);
+      });
+    (window as any).EJS_emulator = { gameManager: { screenshot } };
+
+    const pending = [captureScreenshot(), captureScreenshot()];
+    await vi.waitFor(() => expect(order).toEqual(["first"]));
+
+    release?.();
+    await Promise.all(pending);
+
+    expect(order).toEqual(["first", "second"]);
+  });
+
+  // That poll runs for the rest of the session unless the file turns up.
+  it("releases a capture that never arrived", async () => {
+    vi.useFakeTimers();
+    const writeFile = vi.fn();
+    (window as any).EJS_emulator = {
+      gameManager: {
+        FS: { writeFile },
+        screenshot: () => new Promise(() => {}),
+      },
+    };
+
+    const capture = captureScreenshot();
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await expect(capture).resolves.toBeUndefined();
+    expect(writeFile).toHaveBeenCalledWith(
+      "/screenshot.png",
+      new Uint8Array(0),
+    );
+    vi.useRealTimers();
   });
 });
 
-describe("resolveStateScreenshot", () => {
+describe("dumpSaveFile", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  afterEach(() => {
+    (window as any).EJS_emulator = undefined;
+  });
+
+  // A state restores the SRAM into the core's memory, not into the file, so a
+  // read that skips the dump hands back bytes from before the restore.
+  it("has the core write its SRAM out before reading it", () => {
+    const getSaveFile = vi.fn(() => new Uint8Array([1, 2, 3]));
+    (window as any).EJS_emulator = { gameManager: { getSaveFile } };
+
+    expect(dumpSaveFile()).toEqual(new Uint8Array([1, 2, 3]));
+    expect(getSaveFile).toHaveBeenCalledWith(true);
+  });
+
+  it("has nothing to offer before the emulator is up", () => {
+    expect(dumpSaveFile()).toBeNull();
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+});
+
+describe("resolveScreenshot", () => {
   /* eslint-disable @typescript-eslint/no-explicit-any */
   afterEach(() => {
     delete (window as any).EJS_emulator;
@@ -346,19 +494,46 @@ describe("resolveStateScreenshot", () => {
       gameManager: { screenshot: async () => live },
     };
 
-    await expect(resolveStateScreenshot(new ArrayBuffer(4))).resolves.toBe(
-      live,
-    );
+    await expect(resolveScreenshot(new ArrayBuffer(4))).resolves.toBe(live);
   });
 
   it("falls back to EmulatorJS's picture when the canvas gives none", async () => {
     const fallback = new ArrayBuffer(4);
     (window as any).EJS_emulator = {};
 
-    await expect(resolveStateScreenshot(fallback)).resolves.toBe(fallback);
-    await expect(resolveStateScreenshot()).resolves.toBeUndefined();
+    await expect(resolveScreenshot(fallback)).resolves.toBe(fallback);
+    await expect(resolveScreenshot()).resolves.toBeUndefined();
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */
+});
+
+describe("heldFor", () => {
+  const held = (bytes: ArrayBuffer) => ({
+    id: "1:a",
+    kind: "save" as const,
+    romId: 1,
+    romName: "Game",
+    bytes,
+    screenshotBytes: new Uint8Array([9, 9]).buffer,
+    capturedAt: 0,
+  });
+
+  it("hands back the row holding these exact bytes", () => {
+    const row = held(new Uint8Array([1, 2, 3]).buffer);
+
+    expect(heldFor(row, new Uint8Array([1, 2, 3]))).toBe(row);
+  });
+
+  // The game wrote again, so the row pictures a moment that has passed.
+  it("lets go once the save has moved on", () => {
+    const row = held(new Uint8Array([1, 2, 3]).buffer);
+
+    expect(heldFor(row, new Uint8Array([1, 2, 4]))).toBeNull();
+  });
+
+  it("has nothing to offer when nothing is held", () => {
+    expect(heldFor(null, new Uint8Array([1]))).toBeNull();
+  });
 });
 
 describe("saveState", () => {
@@ -375,6 +550,9 @@ describe("saveState", () => {
     stateApiMocks.uploadStates.mockResolvedValue([
       { status: "fulfilled", value: { id: 7 } as StateSchema },
     ]);
+    pendingAssetMocks.write.mockReset().mockResolvedValue(true);
+    heartbeat.connected = true;
+    pendingAssetMocks.clear.mockReset().mockResolvedValue(undefined);
   });
 
   it("uploads the screenshot named after the state", async () => {
@@ -390,6 +568,76 @@ describe("saveState", () => {
 
     const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
     expect(statesToUpload[0].screenshotFile).toBeUndefined();
+  });
+
+  it("holds the state in the browser until the server takes it", async () => {
+    await saveState({ rom, stateFile: bytes, screenshotFile: bytes });
+
+    const held = pendingAssetMocks.write.mock.calls[0][0];
+    expect(held).toMatchObject({
+      kind: "state",
+      romId: 1,
+      romName: "game",
+      fsNameNoExt: "game",
+      bytes,
+      screenshotBytes: bytes,
+    });
+    expect(pendingAssetMocks.clear).toHaveBeenCalledWith(held.id);
+  });
+
+  it("keeps a state the server refused", async () => {
+    stateApiMocks.uploadStates.mockResolvedValue([
+      { status: "rejected", reason: new Error("offline") },
+    ]);
+
+    await expect(saveState({ rom, stateFile: bytes })).resolves.toEqual({
+      state: null,
+      kept: true,
+    });
+
+    expect(pendingAssetMocks.write).toHaveBeenCalledTimes(1);
+    expect(pendingAssetMocks.clear).not.toHaveBeenCalled();
+  });
+
+  // Down, the attempt would only fail: the state is held for the shell's pass.
+  it("holds a state without trying while the server is down", async () => {
+    heartbeat.connected = false;
+
+    await expect(saveState({ rom, stateFile: bytes })).resolves.toEqual({
+      state: null,
+      kept: true,
+    });
+
+    expect(pendingAssetMocks.write).toHaveBeenCalledTimes(1);
+    expect(stateApiMocks.uploadStates).not.toHaveBeenCalled();
+  });
+
+  // A private window keeps nothing, and the notice must not promise it did.
+  it("says so when the browser could not keep it either", async () => {
+    stateApiMocks.uploadStates.mockResolvedValue([
+      { status: "rejected", reason: new Error("offline") },
+    ]);
+    pendingAssetMocks.write.mockResolvedValue(false);
+
+    await expect(saveState({ rom, stateFile: bytes })).resolves.toEqual({
+      state: null,
+      kept: false,
+    });
+  });
+
+  // The name pins the moment of the capture, so a retry updates the row the
+  // first attempt opened instead of leaving a second copy behind.
+  it("names the state after the moment it was captured", async () => {
+    await saveState({ rom, stateFile: bytes });
+
+    const { capturedAt } = pendingAssetMocks.write.mock.calls[0][0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    expect(statesToUpload[0].stateFile.name).toMatch(
+      /^game \[\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}-\d{3}\]\.state$/,
+    );
+    expect(statesToUpload[0].stateFile.name).toBe(
+      `${sessionStateName(rom, new Date(capturedAt))}.state`,
+    );
   });
 });
 

@@ -330,9 +330,13 @@ const fadeIndex = computed(() =>
 /* Each slot sits on its own neutral band, so the gaps between sections
    read as separators. */
 .r-asset-list__group--slot {
-  padding: 6px 8px 8px;
+  padding-bottom: 8px;
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
+}
+.r-asset-list__group--slot > .r-asset-list__items,
+.r-asset-list__group--slot > .r-asset-list__fold {
+  margin-inline: 8px;
 }
 
 .r-asset-list__items {

@@ -1,5 +1,6 @@
 {
   "add-collection": "Добави колекция",
+  "collection-deleted": "Колекцията „{name}“ е изтрита",
   "cover": "Изображение на корица",
   "create-collection": "Създай колекция",
   "create-failed": "Неуспешно създаване на колекция",
@@ -7,6 +8,8 @@
   "current-filters": "Текущи филтри",
   "danger-zone": "Опасна зона",
   "delete-collection": "Изтрий колекция",
+  "delete-collection-body": "Премахва „{name}“ ({count} ROM в колекцията). Самите ROM файлове не се изтриват.",
+  "delete-collection-failed": "Неуспешно изтриване на колекцията: {error}",
   "delete-collection-hint": "Премахва колекцията от RomM. Самите ROM файлове не се изтриват.",
   "description": "Описание",
   "download-collection": "Изтегли колекция",

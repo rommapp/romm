@@ -29,6 +29,9 @@ services:
       - /app/frontend/dist # Empty directory
       - ./romm_mock:/app/romm
       - ~/.vite-plugin-mkcert:/app/.vite-plugin-mkcert
+      # Read-only, so the backend can report the checked-out branch (see
+      # backend/utils/__init__.py get_git_branch) without git write access.
+      - ./.git:/app/.git:ro
     depends_on:
       - romm-db-dev
       - romm-valkey-dev

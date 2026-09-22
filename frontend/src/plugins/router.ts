@@ -349,6 +349,7 @@ const routes = [
             name: ROUTES.UPLOAD,
             meta: {
               title: "common.upload-roms",
+              fill: "desktop",
             },
             components: {
               // v1 has no Upload view (the dialog was its only entry

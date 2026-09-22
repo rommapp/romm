@@ -10,7 +10,7 @@ from endpoints.heartbeat import METADATA_HEARTBEAT_RATE_LIMIT
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.redis_handler import sync_cache
-from utils import get_version
+from utils import get_git_branch, get_version
 
 
 def test_heartbeat(client):
@@ -22,6 +22,9 @@ def test_heartbeat(client):
     assert "SYSTEM" in heartbeat
     system = heartbeat["SYSTEM"]
     assert system["VERSION"] == get_version()
+    assert system["GIT_BRANCH"] == (
+        get_git_branch() if system["VERSION"] == "development" else None
+    )
     assert isinstance(system["SHOW_SETUP_WIZARD"], bool)
 
     assert "METADATA_SOURCES" in heartbeat

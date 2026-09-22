@@ -113,6 +113,24 @@ def test_markdown_manual_served_inline(
     assert r.headers["x-content-type-options"] == "nosniff"
 
 
+def test_html_manual_served_under_a_sandboxing_csp(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    # Nothing sanitizes an uploaded HTML document, so this header is all that
+    # stands between a crafted one and the session origin.
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, "manual.html", RomFileCategory.MANUAL)
+
+    r = client.get(
+        f"/api/roms/{file.id}/files/content/manual.html",
+        headers=_auth(access_token),
+    )
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.headers["content-disposition"].startswith("inline")
+    assert r.headers["content-security-policy"] == "sandbox; default-src 'none'"
+
+
 def test_non_manual_document_served_as_attachment(
     client: TestClient, access_token: str, admin_user: User, platform: Platform
 ):

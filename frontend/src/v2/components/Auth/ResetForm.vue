@@ -59,7 +59,7 @@ async function submit() {
       {{ t("login.send-reset-link") }}
     </RBtn>
     <RBtn
-      variant="text"
+      variant="outlined"
       block
       prepend-icon="mdi-chevron-left"
       @click="

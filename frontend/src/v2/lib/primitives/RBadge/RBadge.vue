@@ -47,9 +47,9 @@ interface Props {
   location?: Anchor;
   /** Show / hide the badge with a pop transition. */
   modelValue?: boolean;
-  /** Pushes the badge further out of the anchor's corner — handy when
-   *  the badge would otherwise sit too close to the content. */
-  floating?: boolean;
+  /** Pulls the badge this many px in from its anchor (negative pushes it
+   *  out); round anchors need it, their box corner lies outside the shape. */
+  inset?: number;
   /** Numeric content > `max` is clamped: `max + "+"`. */
   max?: number;
   /** MDI icon shown inside the badge instead of text. */
@@ -64,7 +64,7 @@ const props = withDefaults(defineProps<Props>(), {
   inline: false,
   location: "top end",
   modelValue: true,
-  floating: false,
+  inset: 0,
   max: 99,
   icon: undefined,
 });
@@ -122,11 +122,13 @@ const locationClass = computed(
           {
             'r-badge--dot': dot,
             'r-badge--bordered': bordered,
-            'r-badge--floating': floating,
             'r-badge--inline': inline,
           },
         ]"
-        :style="{ '--r-badge-color': resolvedColor }"
+        :style="{
+          '--r-badge-color': resolvedColor,
+          '--r-badge-inset': `${inset}px`,
+        }"
         aria-hidden="true"
       >
         <template v-if="!dot">
@@ -209,62 +211,46 @@ const locationClass = computed(
 }
 
 .r-badge--at-top-start {
-  top: 0;
-  left: 0;
+  top: var(--r-badge-inset);
+  left: var(--r-badge-inset);
   transform: translate(-50%, -50%);
 }
 .r-badge--at-top-end {
-  top: 0;
-  right: 0;
+  top: var(--r-badge-inset);
+  right: var(--r-badge-inset);
   transform: translate(50%, -50%);
 }
 .r-badge--at-bottom-start {
-  bottom: 0;
-  left: 0;
+  bottom: var(--r-badge-inset);
+  left: var(--r-badge-inset);
   transform: translate(-50%, 50%);
 }
 .r-badge--at-bottom-end {
-  bottom: 0;
-  right: 0;
+  bottom: var(--r-badge-inset);
+  right: var(--r-badge-inset);
   transform: translate(50%, 50%);
 }
 
 /* Side anchors — center along the edge. */
 .r-badge--at-top {
-  top: 0;
+  top: var(--r-badge-inset);
   left: 50%;
   transform: translate(-50%, -50%);
 }
 .r-badge--at-bottom {
-  bottom: 0;
+  bottom: var(--r-badge-inset);
   left: 50%;
   transform: translate(-50%, 50%);
 }
 .r-badge--at-start {
   top: 50%;
-  left: 0;
+  left: var(--r-badge-inset);
   transform: translate(-50%, -50%);
 }
 .r-badge--at-end {
   top: 50%;
-  right: 0;
+  right: var(--r-badge-inset);
   transform: translate(50%, -50%);
-}
-
-/* Floating bumps the translate further out so the badge sits clearly
-   outside the anchor — useful for icons inside dense toolbars where
-   the default half-overlap would crowd the glyph. */
-.r-badge--floating.r-badge--at-top-end {
-  transform: translate(75%, -75%);
-}
-.r-badge--floating.r-badge--at-top-start {
-  transform: translate(-75%, -75%);
-}
-.r-badge--floating.r-badge--at-bottom-end {
-  transform: translate(75%, 75%);
-}
-.r-badge--floating.r-badge--at-bottom-start {
-  transform: translate(-75%, 75%);
 }
 
 /* ── Pop animation — spring overshoot in / quick fade out ──────── */

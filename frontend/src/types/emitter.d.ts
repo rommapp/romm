@@ -15,6 +15,8 @@ export type SnackbarStatus = {
   timeout?: number;
   icon?: string;
   color?: string;
+  /** Artwork shown in place of the icon, e.g. the cover of the game it concerns. */
+  image?: string | null;
 };
 
 export type Events = {

@@ -1,7 +1,5 @@
 <script setup lang="ts">
-// HLTBStrip — "How Long To Beat" stats bar. Up to four columns (main story,
-// main + extras, completionist, all styles). Each column: uppercase label,
-// big value, optional "N players" subcount.
+// HLTBStrip: "How long to beat" stats bar, one column per play style.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomHLTBMetadata } from "@/__generated__";
@@ -51,9 +49,13 @@ const entries = computed<Entry[]>(() => {
 </template>
 
 <style scoped>
+/* Shared rows keep a wrapped label from pushing its value out of line. */
 .r-v2-det-hltb {
-  display: flex;
-  align-items: stretch;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  row-gap: 4px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
@@ -62,16 +64,31 @@ const entries = computed<Entry[]>(() => {
 }
 
 .r-v2-det-hltb__item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: subgrid;
+  grid-row: span 3;
   padding: 0 12px;
   border-right: 1px solid var(--r-color-border);
+  text-align: center;
 }
 .r-v2-det-hltb__item:last-child {
   border-right: none;
+}
+
+/* Chrome and Edge below 117 ignore subgrid, so stack each column on its own
+   there; equal columns survive, the shared rows do not. */
+@supports not (grid-template-rows: subgrid) {
+  .r-v2-det-hltb {
+    display: flex;
+  }
+  .r-v2-det-hltb__item {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 4px;
+  }
 }
 
 .r-v2-det-hltb__label {
@@ -80,7 +97,8 @@ const entries = computed<Entry[]>(() => {
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--r-color-fg-faint);
-  text-align: center;
+  /* Break an over-long label instead of spilling over the divider. */
+  overflow-wrap: break-word;
 }
 .r-v2-det-hltb__value {
   font-size: 20px;

@@ -11,8 +11,8 @@
 //   3. Setup: disc / core / firmware + fullscreen + clear-cache.
 //
 // The running state mounts the v1 <Player> component (600 lines of EJS
-// wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
-// + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
+// wiring, not worth rewriting). LoadSaveStateDialog + EmulatorJSCacheDialog
+// are mounted in GlobalDialogs so the emitter bridge works.
 import {
   RAlert,
   RBtn,
@@ -69,10 +69,11 @@ import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { useSaveStateTabs } from "@/v2/composables/useSaveStateTabs";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
+import type { AssetType } from "@/v2/utils/assets";
 import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
 import {
   resolveBezelHost,
@@ -103,6 +104,7 @@ import {
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
+import { exitEmulatorOnce } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
   isLaunchIntent,
@@ -214,21 +216,17 @@ declare global {
   }
 }
 
-function isCoreCompatible(asset: { emulator?: string | null }): boolean {
-  return !asset.emulator || asset.emulator === selectedCore.value;
-}
-const compatibleStates = computed(
-  () => rom.value?.user_states.filter(isCoreCompatible) ?? [],
+const {
+  tabs: assetTabs,
+  stateCount,
+  compatibleStates,
+  allStatesCompatible,
+  stateDisabledReason,
+} = useSaveStateTabs(
+  () => rom.value?.user_saves ?? [],
+  () => rom.value?.user_states ?? [],
+  selectedCore,
 );
-const stateCount = computed(() => rom.value?.user_states.length ?? 0);
-const allStatesCompatible = computed(
-  () => compatibleStates.value.length === stateCount.value,
-);
-// Other emulators' states stay listed, disabled, so the count adds up.
-function stateDisabledReason(asset: { emulator?: string | null }) {
-  if (isCoreCompatible(asset)) return null;
-  return t("play.state-incompatible-core", { emulator: asset.emulator });
-}
 
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
@@ -516,7 +514,7 @@ onBeforeUnmount(() => {
   // Hand the keyboard and gamepad back to the UI; the flag otherwise
   // stays true and pad/hotkey navigation is dead until a reload.
   playing.value = false;
-  window.EJS_emulator?.callEvent("exit");
+  exitEmulatorOnce();
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
   window.removeEventListener("gamepad:buttondown", onGamepadButton);
@@ -526,29 +524,11 @@ function openCacheDialog() {
   emitter?.emit("openEmulatorJSCacheDialog", null);
 }
 
-type AssetTab = "save" | "state";
-const activeAssetTab = computed<AssetTab>(() =>
+const activeAssetTab = computed<AssetType>(() =>
   isSavesTabSelected.value ? "save" : "state",
 );
 
-const assetTabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
-  {
-    id: "save",
-    label: t("common.saves"),
-    badge: rom.value?.user_saves.length ?? 0,
-    icon: "mdi-content-save",
-  },
-  {
-    id: "state",
-    label: t("common.states"),
-    badge: allStatesCompatible.value
-      ? stateCount.value
-      : `${compatibleStates.value.length}/${stateCount.value}`,
-    icon: "mdi-file",
-  },
-]);
-
-function setAssetTab(id: AssetTab) {
+function setAssetTab(id: AssetType) {
   isSavesTabSelected.value = id === "save";
 }
 
@@ -886,6 +866,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         :state="resume.state"
         :save="resume.save"
         :save-slot="saveSlot"
+        :load-state-label="t('rom.load-save-or-state')"
         :bios="selectedFirmware"
         :core="selectedCore"
         :disc="bootDiscId(selectedDisc)"
@@ -1086,6 +1067,38 @@ html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-body--split
   .r-v2-ejs__resume-main {
   order: -1;
+}
+/* Chrome and Edge below 117 ignore subgrid, so lift each column's label and
+   content into the grid itself to keep the two titles on a shared row. */
+@supports not (grid-template-rows: subgrid) {
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-main,
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-side {
+    display: contents;
+  }
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-main
+    > .r-v2-ejs__strip-label {
+    grid-area: 1 / 1;
+  }
+  html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split .r-v2-ejs__assets {
+    grid-area: 2 / 1;
+  }
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-side
+    > .r-v2-ejs__strip-label {
+    grid-area: 1 / 2;
+  }
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-side-body {
+    grid-area: 2 / 2;
+  }
 }
 /* Beside the grid the stage can afford the screenshots' own ratio, which
    also gives the empty copy room. */
