@@ -5447,6 +5447,38 @@ def test_claim_hydrates_the_picked_save(
     assert activate.call_args.kwargs["archive_path"] == "/config/picked.zip"
 
 
+def test_claim_hydrates_a_foreign_save_through_the_import_path(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """A foreign save pick must be uploaded through imports.hydrate_import_archive,
+    not the native hydrate_saves_to_webstation path."""
+    foreign = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    spec = webstation.ImportSpec(
+        kinds=(webstation.ImportKindSpec("save", False, None),),
+        state_channel="archive",
+        state_slot=0,
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    hydrate_import = AsyncMock(return_value="rom-1.zip")
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.saves.webstation.import_spec", return_value=spec),
+            patch("endpoints.streaming.webstation.import_spec", return_value=spec),
+            patch("handler.streaming.imports.hydrate_import_archive", hydrate_import),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+        ):
+            resp = _claim(client, access_token, rom.id, save_id=foreign.id)
+    assert resp.status_code == 202
+    hydrate_import.assert_called_once()
+    call_kwargs = hydrate_import.call_args.kwargs
+    assert call_kwargs["save_is_foreign"] is True
+    assert call_kwargs["save"].id == foreign.id
+
+
 def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
     client, access_token, rom: Rom, admin_user: User
 ):

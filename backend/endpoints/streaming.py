@@ -52,6 +52,7 @@ from handler.streaming import (
     access,
     background,
     commands,
+    imports,
     languages,
     launch,
     lifecycle,
@@ -101,7 +102,7 @@ from handler.streaming.session_store import (
     stamp_launched,
 )
 from logger.logger import log
-from models.assets import MemoryCard, MemoryCardVersion, Save
+from models.assets import MemoryCard, MemoryCardVersion, Save, State
 from models.rom import Rom
 from models.user import Role
 from utils.m3u import playlist_files
@@ -625,6 +626,8 @@ async def _hydrate_saves(
     card: MemoryCard | None,
     blank_card_id: int | None,
     save: Save | None = None,
+    save_foreign: bool = False,
+    import_state: State | None = None,
 ) -> str | None:
     """Put the player's save data on the container before the game reads it.
 
@@ -650,6 +653,23 @@ async def _hydrate_saves(
             )
 
     if container.is_webstation:
+        if save_foreign or import_state is not None:
+            # A foreign pick never has its kind's v1 path built; it rides in
+            # a `.import/` member instead, alongside whichever kind (if any)
+            # stayed native. A memory-card-synced container is not special-
+            # cased here: the broker refuses with memcard_synced_separately.
+            try:
+                return await imports.hydrate_import_archive(
+                    request.user.id,
+                    rom,
+                    container,
+                    save=save,
+                    save_is_foreign=save_foreign,
+                    state=import_state,
+                )
+            except Exception:
+                log.exception("import archive hydration failed, continuing launch")
+                return None
         # Restore runs inside activate on this protocol, so hydration only gets
         # the bytes onto the container and names the path activate restores.
         # Still runs under whole-card sync: the archive carries the state the
@@ -817,6 +837,18 @@ async def claim_session(
         request, container, session, memory_card, rom, probe
     )
 
+    # A foreign resume pick only got a best-effort pre-win check inside
+    # resolve_resume_state; now that a container is actually won, this
+    # authoritative check decides whether the pick rides the import archive.
+    resume_via_import = False
+    if resume_state is not None and resume_foreign:
+        resume_spec = await asyncio.to_thread(
+            webstation.import_spec, container, container.emulator, container.platform
+        )
+        resume_via_import = (
+            resume_spec is not None and resume_spec.state_channel == "archive"
+        )
+
     # Push the resume state before launch so its file is in place when the
     # broker's deferred slot load fires. Best-effort: a failed push falls
     # back to a fresh launch, reported through `resume` in the response.
@@ -838,6 +870,8 @@ async def claim_session(
         memory_card,
         created_blank_card_id,
         picked_save,
+        save_foreign=save_foreign,
+        import_state=resume_state if resume_via_import else None,
     )
 
     # Detached because an activate blocks through pkg and archive extraction,
