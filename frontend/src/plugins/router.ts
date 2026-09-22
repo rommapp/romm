@@ -246,18 +246,15 @@ const routes = [
         beforeEnter: (async (to, _from, next) => {
           const romsStore = storeRoms();
 
-          if (
-            !romsStore.currentRom ||
-            romsStore.currentRom.id !== parseInt(to.params.rom as string)
-          ) {
-            try {
-              const data = await romApi.getRom({
-                romId: parseInt(to.params.rom as string),
-              });
-              romsStore.setCurrentRom(data.data);
-            } catch (error) {
-              console.error(error);
-            }
+          // Read the ROM on every entry, a matching id included: a play page
+          // writes saves server-side, then navigates here to hand the tab back.
+          try {
+            const data = await romApi.getRom({
+              romId: parseInt(to.params.rom as string),
+            });
+            romsStore.setCurrentRom(data.data);
+          } catch (error) {
+            console.error(error);
           }
           next();
         }) as NavigationGuardWithThis<undefined>,
