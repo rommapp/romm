@@ -384,11 +384,11 @@ async function submitLabels(labels: string[]) {
   }
 }
 
-// Every label already in play on this ROM, so an edit reuses one instead of
-// coining a near-duplicate.
+// Every label the user already put on this ROM, so an edit reuses one instead
+// of coining a near-duplicate. Community items carry none: labels are private.
 const labelSuggestions = computed(() => {
   const all = new Set<string>();
-  for (const asset of [...allSaves.value, ...allStates.value]) {
+  for (const asset of [...mySaves.value, ...myStates.value]) {
     for (const label of asset.labels ?? []) all.add(label);
   }
   return [...all].sort((a, b) => a.localeCompare(b));

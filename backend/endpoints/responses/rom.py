@@ -9,6 +9,7 @@ from fastapi import Request
 from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
 
 from endpoints.responses.assets import (
+    HIDDEN_ASSET_ANNOTATIONS,
     SaveSchema,
     ScreenshotSchema,
     StateSchema,
@@ -719,6 +720,7 @@ class DetailedRomSchema(RomSchema):
             UserSaveSchema.model_validate(
                 {
                     **SaveSchema.model_validate(s).model_dump(),
+                    **({} if s.user_id == user_id else HIDDEN_ASSET_ANNOTATIONS),
                     "username": s.user.username,
                     "user_avatar_path": s.user.avatar_path,
                     "user_updated_at": s.user.updated_at,
@@ -734,6 +736,7 @@ class DetailedRomSchema(RomSchema):
             UserStateSchema.model_validate(
                 {
                     **StateSchema.model_validate(s).model_dump(),
+                    **({} if s.user_id == user_id else HIDDEN_ASSET_ANNOTATIONS),
                     "username": s.user.username,
                     "user_avatar_path": s.user.avatar_path,
                     "user_updated_at": s.user.updated_at,

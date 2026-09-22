@@ -174,12 +174,17 @@ const fold = useGroupFold<SlotGroup>({
 function isExpanded(group: SlotGroup): boolean {
   return !grouped.value || fold.isOpen(group);
 }
-function visibleVersions(group: SlotGroup): Asset[] {
-  if (isExpanded(group)) return group.versions;
-  // Folding hides older versions, never the newest save nor a favorited one.
+// Folding hides older versions, never the newest save nor a favorited one.
+function foldedVersions(group: SlotGroup): Asset[] {
   return group.versions.filter(
     (asset) => asset.is_favorite || asset.id === group.newestId,
   );
+}
+function visibleVersions(group: SlotGroup): Asset[] {
+  return isExpanded(group) ? group.versions : foldedVersions(group);
+}
+function hiddenCount(group: SlotGroup): number {
+  return group.versions.length - foldedVersions(group).length;
 }
 
 const fadeIndex = computed(() =>
@@ -322,7 +327,7 @@ const fadeIndex = computed(() =>
         </ul>
 
         <RBtn
-          v-if="grouped && group.versions.length > 1"
+          v-if="grouped && hiddenCount(group) > 0"
           class="r-asset-list__fold"
           variant="text"
           size="x-small"
@@ -335,7 +340,7 @@ const fadeIndex = computed(() =>
           {{
             isExpanded(group)
               ? t("play.hide-older-versions")
-              : t("play.show-older-versions", group.versions.length - 1)
+              : t("play.show-older-versions", hiddenCount(group))
           }}
         </RBtn>
       </li>
@@ -548,14 +553,17 @@ const fadeIndex = computed(() =>
   opacity: 0.85;
 }
 
-/* Phones: the timestamp and the check drop under the text so the name gets
-   the full width and wraps; the action buttons take a third row. */
+/* Phones give each part its own band, which `display: contents` allows by
+   lifting the text block's children into the row grid: the name rides the
+   thumbnail, then labels, then facts beside the timestamp, then the actions. */
 html[data-bp~="xs"] .r-asset-list__row {
   padding: var(--r-space-2) var(--r-space-3);
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    "icon main main"
-    ". time actions";
+    "icon name name"
+    "labels labels labels"
+    "facts facts time"
+    "actions actions actions";
   gap: var(--r-space-1) var(--r-space-3);
 }
 html[data-bp~="xs"] .r-asset-list__icon {
@@ -575,16 +583,7 @@ html[data-bp~="xs"] .r-asset-list__actions {
 }
 html[data-bp~="xs"] .r-asset-list__actions {
   margin-block: calc(-1 * var(--r-space-1));
-}
-
-/* Phones give each part its own band, which `display: contents` allows by
-   lifting the text block's children into the row grid. */
-html[data-bp~="xs"] .r-asset-list__row {
-  grid-template-areas:
-    "icon name name"
-    "labels labels labels"
-    "facts facts time"
-    "actions actions actions";
+  justify-content: flex-end;
 }
 html[data-bp~="xs"] .r-asset-list__main,
 html[data-bp~="xs"] .r-asset-list__chips {
@@ -606,8 +605,5 @@ html[data-bp~="xs"] .r-asset-list__marks:empty {
 }
 html[data-bp~="xs"] .r-asset-list__facts {
   grid-area: facts;
-}
-html[data-bp~="xs"] .r-asset-list__actions {
-  justify-content: flex-end;
 }
 </style>

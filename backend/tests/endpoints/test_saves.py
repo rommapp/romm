@@ -3707,3 +3707,39 @@ class TestSaveFavoritesAndLabels:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_a_shared_save_hides_its_owners_annotations(
+        self,
+        client,
+        access_token: str,
+        viewer_access_token: str,
+        rom: Rom,
+        save: Save,
+    ):
+        owner = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=owner,
+        )
+        client.put(
+            f"/api/saves/{save.id}/favorite", json={"is_favorite": True}, headers=owner
+        )
+        client.put(
+            f"/api/saves/{save.id}/visibility", json={"is_public": True}, headers=owner
+        )
+
+        mine = client.get(f"/api/roms/{rom.id}", headers=owner)
+        assert mine.status_code == status.HTTP_200_OK
+        row = next(s for s in mine.json()["all_user_saves"] if s["id"] == save.id)
+        assert row["labels"] == ["seed 42"]
+        assert row["is_favorite"] is True
+
+        theirs = client.get(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+        assert theirs.status_code == status.HTTP_200_OK
+        row = next(s for s in theirs.json()["all_user_saves"] if s["id"] == save.id)
+        assert row["labels"] == []
+        assert row["is_favorite"] is False

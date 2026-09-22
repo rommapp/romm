@@ -26,7 +26,6 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const labels = ref<string[]>([...props.initialLabels]);
-const valid = ref(true);
 
 // Reopening is what resets the field, so a cancelled edit does not carry into
 // the next one.
@@ -35,7 +34,6 @@ watch(
   (open) => {
     if (open) labels.value = [...props.initialLabels];
   },
-  { immediate: true },
 );
 
 function close(): void {
@@ -44,7 +42,7 @@ function close(): void {
 
 function submit(): void {
   if (props.busy) return;
-  emit("submit", labels.value);
+  emit("submit", [...labels.value]);
 }
 </script>
 
@@ -69,19 +67,16 @@ function submit(): void {
     <template #content>
       <!-- The combobox owns Enter (it commits a label), so the form must not
            also treat it as submit and close on the first one. -->
-      <RForm v-model="valid" disable-enter-submit @submit="submit">
+      <RForm disable-enter-submit>
         <RComboboxField
           v-model="labels"
           :items="suggestions"
+          :label="t('rom.asset-labels')"
           :placeholder="t('rom.asset-labels-placeholder')"
           :hint="t('rom.asset-labels-hint')"
           prefix-label="stacked"
           clearable
-        >
-          <template #prefix-label>
-            {{ t("rom.asset-labels") }}
-          </template>
-        </RComboboxField>
+        />
       </RForm>
     </template>
 

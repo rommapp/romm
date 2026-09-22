@@ -238,7 +238,9 @@ const fadeIndex = computed(() =>
               <div class="r-asset-strip__body">
                 <div class="r-asset-strip__meta">
                   <p class="r-asset-strip__name">
-                    {{ asset.file_name }}
+                    <span class="r-asset-strip__name-text">
+                      {{ asset.file_name }}
+                    </span>
                     <!-- The list layout has no thumbnail to ride. -->
                     <AssetFavoriteMark
                       v-if="layout === 'list'"
@@ -593,7 +595,15 @@ const fadeIndex = computed(() =>
   color: var(--r-color-fg);
   overflow-wrap: anywhere;
 }
+/* One line with the heart pinned beside it: only the text truncates, so the
+   mark survives a long filename. */
 .r-asset-strip--list .r-asset-strip__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.r-asset-strip--list .r-asset-strip__name-text {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

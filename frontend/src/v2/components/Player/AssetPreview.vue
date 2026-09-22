@@ -527,7 +527,7 @@ const emptyText = computed(() =>
 .r-asset-preview__when-exact {
   color: var(--r-color-fg-muted);
 }
-/* A separator only once the exact stamp follows the relative one on a line. */
+/* Separates the exact stamp from the relative one it trails. */
 .r-asset-preview__when-exact::before {
   content: "·";
   margin-right: 4px;

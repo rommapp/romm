@@ -53,7 +53,7 @@ const hasLabels = computed(() => (props.asset.labels ?? []).length > 0);
           ? t('rom.remove-from-favorites')
           : t('rom.add-to-favorites')
       "
-      :aria-pressed="asset.is_favorite"
+      :aria-pressed="!!asset.is_favorite"
       @click="emit('toggleFavorite')"
     />
     <RBtn
