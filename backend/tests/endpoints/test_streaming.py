@@ -38,6 +38,7 @@ from handler.streaming import (
     access,
     broker,
     commands,
+    launch,
     lifecycle,
     memory_cards,
     saves,
@@ -64,7 +65,7 @@ from handler.streaming.protocol import protocol_for
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, SaveTargetLayout
 from models.user import User
 from utils.memory_cards import content_hash_of_bytes
 
@@ -5104,6 +5105,56 @@ def test_claim_hydrates_saves_before_launch(client, access_token, rom: Rom):
     assert r.status_code == 202
     hydrate_saves.assert_awaited_once()
     assert call_order == ["saves", "launch"]
+
+
+def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
+    """The broker needs the ROM's identity triple to answer import-spec and
+    to fold a foreign pick's members against the right title."""
+    rom.title_id = "SLUS-12345"
+    rom.save_target = "SLUS-12345"
+    rom.save_target_layout = SaveTargetLayout.FOLDER_EXACT
+    activate = MagicMock(return_value={"url": "/room/x"})
+    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    with (
+        patch("handler.streaming.launch.webstation.activate", activate),
+        patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
+        patch(
+            "handler.streaming.launch.lifecycle.publish_session_activity",
+            new=AsyncMock(),
+        ),
+        patch("handler.streaming.launch.stamp_launched", new=AsyncMock()),
+        patch("handler.streaming.launch.push_to_user", new=AsyncMock()),
+        patch("handler.streaming.launch.background.spawn_sync_task"),
+        patch(
+            "handler.streaming.launch.states.hydrate_states_to_broker", new=AsyncMock()
+        ),
+    ):
+        asyncio.run(
+            launch.run_launch(
+                container=_resolved(_webstation_for(rom)),
+                session_key="k1",
+                session=session,
+                user=admin_user,
+                rom=rom,
+                platform=rom.platform_slug,
+                rom_name=rom.name,
+                rom_path="rom/path",
+                rom_language=None,
+                gui_language=None,
+                archive_path=None,
+                resume_state=None,
+                resume_slot=None,
+                resume_pushed=False,
+                resume_after_launch=False,
+                memory_card_synced=False,
+                multiplayer=False,
+                blank_card_id=None,
+            )
+        )
+    sent_rom = activate.call_args.kwargs["rom"]
+    assert sent_rom["title_id"] == "SLUS-12345"
+    assert sent_rom["save_target"] == "SLUS-12345"
+    assert sent_rom["save_target_layout"] == "folder-exact"
 
 
 def test_release_spawns_saves_pull(client, access_token, rom: Rom):
