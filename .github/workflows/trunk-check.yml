@@ -24,5 +24,52 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Install mariadb connectors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb3 libmariadb-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Install python
+        run: |
+          uv python install
+
+      # mypy.ini points mypy at .venv so it resolves the project's packages.
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --extra dev --extra test
+
       - name: Trunk Check
         uses: trunk-io/trunk-action@e1234e67a86010d61ddac8d8ebf4b783e2ffd2fa # v2.0.0
+
+  # Trunk only checks changed files, so this catches breakage in untouched callers.
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install mariadb connectors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb3 libmariadb-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Install python
+        run: |
+          uv python install
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --extra dev --extra test
+
+      - name: Type check the backend
+        run: |
+          uv run mypy --config-file .trunk/configs/mypy.ini backend

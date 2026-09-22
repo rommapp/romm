@@ -111,4 +111,4 @@ python3 src/locales/check_i18n_locales.py   # i18n parity check
 python3 src/locales/check_i18n_sorted.py    # locale keys sorted (--fix to sort)
 ```
 
-**Lint (both stacks):** `trunk fmt && trunk check`.
+**Lint (both stacks):** `trunk fmt && trunk check`. Backend types, whole project, from the repo root: `uv run mypy --config-file .trunk/configs/mypy.ini backend`.
