@@ -187,6 +187,7 @@ function onClose(evt: MouseEvent) {
   pointer-events: none;
 }
 
+/* Content must make room for both descenders and ellipsis truncation. */
 .r-chip__content {
   min-width: 0;
   line-height: 1.2;
