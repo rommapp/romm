@@ -28,7 +28,7 @@ from fastapi import (
 )
 from fastapi.responses import Response
 from fastapi_pagination import resolve_params
-from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
+from fastapi_pagination.limit_offset import LimitOffsetParams
 from fastapi_pagination.types import GreaterEqualZero
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
@@ -42,6 +42,7 @@ from config import (
 )
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
+from endpoints.responses.base import TypedLimitOffsetPage
 from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
@@ -412,8 +413,9 @@ class CustomLimitOffsetParams(LimitOffsetParams):
     offset: int = Query(0, ge=0, description="Page offset")
 
 
-class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
-    total: GreaterEqualZero | None
+class CustomLimitOffsetPage[T: BaseModel](TypedLimitOffsetPage[T]):
+    # Null when the caller opts out of the count with `with_total=false`.
+    total: GreaterEqualZero | None  # type: ignore[assignment]
     char_index: dict[str, int]
     rom_id_index: list[int]
     filter_values: RomFiltersDict
@@ -702,7 +704,7 @@ def get_roms(
                 else None
             )
 
-        params = resolve_params()
+        params: CustomLimitOffsetParams = resolve_params()
         if with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
         else:
