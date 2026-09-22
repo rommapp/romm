@@ -10,6 +10,7 @@ import {
   makeState,
   manyStates,
   mixedCommunityStates,
+  storyStateScreenshot,
 } from "@/v2/utils/saveStateStoryFixtures";
 import {
   canvas,
@@ -134,20 +135,19 @@ export const LongFilenames: Story = {
       makeState({
         id: 1,
         file_name: "the_legend_of_zelda_a_link_to_the_past_speedrun_27.state",
-        screenshot: {
-          ...(makeState().screenshot as NonNullable<StateSchema["screenshot"]>),
-          download_path: "https://placehold.co/640x360/2d2147/ffffff?text=LTTP",
-        } as StateSchema["screenshot"],
+        screenshot: storyStateScreenshot(
+          "https://placehold.co/640x360/2d2147/ffffff?text=LTTP",
+          1,
+        ),
       }),
       makeState({
         id: 2,
         file_name:
           "chrono_trigger_new_game_plus_attempt_third_run_boss_room.state",
-        screenshot: {
-          ...(makeState().screenshot as NonNullable<StateSchema["screenshot"]>),
-          download_path:
-            "https://placehold.co/640x360/4a1a1a/ffffff?text=CT+NG%2B",
-        } as StateSchema["screenshot"],
+        screenshot: storyStateScreenshot(
+          "https://placehold.co/640x360/4a1a1a/ffffff?text=CT+NG%2B",
+          2,
+        ),
       }),
       makeState({
         id: 3,

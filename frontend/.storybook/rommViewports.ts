@@ -3,7 +3,7 @@ import { MINIMAL_VIEWPORTS, type ViewportMap } from "storybook/viewport";
 /**
  * RomM v2 breakpoints match useBreakpoint (xs <600, sm-and-down ≤959.98, md ≥960).
  * CSS that targets html[data-bp~="xs"] (e.g. compact AssetList rows) only applies when
- * the preview iframe is narrower than 600px — use "RomM phone (xs)" or resize below 600.
+ * the preview iframe is narrower than 600px, so use "RomM phone (xs)" or resize below 600.
  */
 export const ROMM_DEVICE_VIEWPORTS = {
   rommPhoneXs: {

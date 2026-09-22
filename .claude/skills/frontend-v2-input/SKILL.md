@@ -57,4 +57,4 @@ When a dialog opens, push a scope; when it closes, pop. This stops Escape from c
 - **Label→icon collapse** (the AppNav precedent) is the canonical way to compress chrome; the four primary destinations relocate to `BottomNav` on `sm-and-down`.
 - **Grids** size via `useResponsiveColumns` (ResizeObserver), never a fixed column count.
 
-Verification adds a breakpoint sweep — see `review-polish`. In Storybook, use the viewport toolbar presets in `.storybook/rommViewports.ts` (RomM tiers plus Steam Deck, AYN Thor top screen, Switch handheld). Layout that depends on `html[data-bp~="xs"]` needs a canvas **under 600px** wide (e.g. **RomM phone (xs)**), not just `useBreakpoint()` switching subtabs at tablet widths.
+Verification adds a breakpoint sweep; see `review-polish`. In Storybook, use the viewport toolbar presets in `.storybook/rommViewports.ts` (RomM tiers plus Steam Deck, AYN Thor top screen, Switch handheld). Layout that depends on `html[data-bp~="xs"]` needs a canvas **under 600px** wide (e.g. **RomM phone (xs)**), not just `useBreakpoint()` switching subtabs at tablet widths.
