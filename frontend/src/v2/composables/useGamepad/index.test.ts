@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storePlaying from "@/stores/playing";
 import { useInputModality } from "@/v2/composables/useInputModality";
-import { AXIS_THRESHOLD, useGamepad } from "./index";
+import { AXIS_THRESHOLD, PAD_BUTTON, useGamepad } from "./index";
 
 vi.mock("vue-router", () => ({
   useRoute: () => ({ path: "/platforms" }),
@@ -29,6 +29,15 @@ function padWithStick(x: number, y: number): Gamepad {
     timestamp: 0,
     vibrationActuator: noHaptics,
   };
+}
+
+function padHolding(button: number): Gamepad {
+  const buttons = Array.from({ length: 17 }, (_, i) => ({
+    pressed: i === button,
+    touched: i === button,
+    value: i === button ? 1 : 0,
+  }));
+  return { ...padWithStick(0, 0), buttons };
 }
 
 describe("useGamepad", () => {
@@ -86,6 +95,7 @@ describe("useGamepad", () => {
     wrapper?.unmount();
     wrapper = null;
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("steers with the left stick", () => {
@@ -112,6 +122,18 @@ describe("useGamepad", () => {
     step();
 
     expect(keys).toEqual([]);
+    expect(modality.value).toBe("pad");
+  });
+
+  it("keeps a held d-pad on the pad as it repeats", () => {
+    const now = vi.spyOn(performance, "now").mockReturnValue(0);
+    installOnMouse(padHolding(PAD_BUTTON["dpad-down"]));
+
+    step();
+    now.mockReturnValue(1000);
+    step();
+
+    expect(keys).toEqual(["ArrowDown", "ArrowDown"]);
     expect(modality.value).toBe("pad");
   });
 

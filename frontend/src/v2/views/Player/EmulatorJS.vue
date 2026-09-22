@@ -158,11 +158,8 @@ const {
   relaunch: relaunchIsolated,
 } = useIsolatedLaunch<LaunchIntent>("ejs", romId, isLaunchIntent);
 
-usePlayFocus(
-  ".r-v2-ejs__play",
-  () => !!rom.value && !relaunching.value,
-  gameRunning,
-);
+const playReady = computed(() => !!rom.value && !relaunching.value);
+usePlayFocus(".r-v2-ejs__play", playReady, gameRunning);
 
 // The EmulatorJS loader declares top-level classes, so a document it reached
 // cannot host another launch. Tracked from the injection, which a departure
@@ -603,8 +600,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           block
           prepend-icon="mdi-play"
           class="r-v2-ejs__play"
-          :loading="!rom || relaunching"
-          :disabled="!rom || relaunching"
+          :loading="!playReady"
+          :disabled="!playReady"
           @click="onPlay"
         >
           {{ t("play.play") }}

@@ -97,15 +97,22 @@ declare global {
 
 type Binding = { key: string; code?: string };
 
+const ARROWS = {
+  up: { key: "ArrowUp", code: "ArrowUp" },
+  down: { key: "ArrowDown", code: "ArrowDown" },
+  left: { key: "ArrowLeft", code: "ArrowLeft" },
+  right: { key: "ArrowRight", code: "ArrowRight" },
+} satisfies Record<string, Binding>;
+
 // Standard gamepad button index → synthetic keyboard event. Only the
 // navigational keys live here (arrows); face buttons and bumpers get
 // handled by BUTTON_ACTIONS below where a .click() / router.push() can
 // actually do the thing.
 const BUTTON_MAP: Record<number, Binding | undefined> = {
-  12: { key: "ArrowUp", code: "ArrowUp" },
-  13: { key: "ArrowDown", code: "ArrowDown" },
-  14: { key: "ArrowLeft", code: "ArrowLeft" },
-  15: { key: "ArrowRight", code: "ArrowRight" },
+  12: ARROWS.up,
+  13: ARROWS.down,
+  14: ARROWS.left,
+  15: ARROWS.right,
 };
 
 // Guards the polling loop against phantom gamepads.
@@ -236,6 +243,8 @@ export function useGamepad() {
     let rafId = 0;
     let everSawPad = false;
 
+    // Also runs after every synthetic arrow, which useInputModality reads as a
+    // key press: "key" modality never trips the grid-nav autofocus.
     const onAnyInput = () => setModality("pad");
     const onConnect = () => setModality("pad");
     window.addEventListener("gamepadconnected", onConnect);
@@ -288,29 +297,15 @@ export function useGamepad() {
           axisNextAt: { x: 0, y: 0 },
         });
 
-        // Left stick → ArrowKey equivalents. The synthetic arrow reads as a
-        // keyboard press on its way through useInputModality, so re-assert the
-        // pad after it: "key" modality never trips the grid-nav autofocus.
+        // Left stick → ArrowKey equivalents.
         const x = pad.axes[0] ?? 0;
         const y = pad.axes[1] ?? 0;
         tickAxis(st, "x", x, t, (dir) => {
-          if (!gameOwnsInput) {
-            dispatchKey(
-              dir < 0
-                ? { key: "ArrowLeft", code: "ArrowLeft" }
-                : { key: "ArrowRight", code: "ArrowRight" },
-            );
-          }
+          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.left : ARROWS.right);
           onAnyInput();
         });
         tickAxis(st, "y", y, t, (dir) => {
-          if (!gameOwnsInput) {
-            dispatchKey(
-              dir < 0
-                ? { key: "ArrowUp", code: "ArrowUp" }
-                : { key: "ArrowDown", code: "ArrowDown" },
-            );
-          }
+          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.up : ARROWS.down);
           onAnyInput();
         });
 
@@ -351,6 +346,7 @@ export function useGamepad() {
             } else if (!gameOwnsInput && binding && t >= prev.nextRepeatAt) {
               // Only synthetic-key bindings repeat while held.
               dispatchKey(binding);
+              onAnyInput();
               prev.nextRepeatAt = t + REPEAT_MS;
             }
           } else {
