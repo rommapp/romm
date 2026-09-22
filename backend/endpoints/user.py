@@ -562,6 +562,10 @@ async def refresh_retro_achievements(
     ] = False,
 ) -> None:
     """Refresh RetroAchievements progression data for a user."""
+    # Admin users can refresh any user, while other users can only refresh self
+    if id != request.user.id and request.user.role != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
     user = db_user_handler.get_user(id)
     if not user or not user.ra_username:
         raise HTTPException(
