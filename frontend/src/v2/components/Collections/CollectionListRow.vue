@@ -13,6 +13,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useStaggeredEntrance } from "@/v2/composables/useStaggeredEntrance";
 import {
   pendingMorphName,
   useViewTransition,
@@ -47,6 +48,9 @@ const { t } = useI18n();
 // Phones and tablets have no room for the columns: the row goes two-line,
 // same as the gallery's list rows.
 const { smAndDown } = useBreakpoint();
+const rowEl = ref<HTMLElement | null>(null);
+const { entranceClass, entranceStyle, endEntrance } =
+  useStaggeredEntrance(rowEl);
 const router = useRouter();
 const coverEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
@@ -97,10 +101,14 @@ function onRowClick(e: MouseEvent) {
 <template>
   <a
     v-if="smAndDown"
+    ref="rowEl"
     class="coll-list-row coll-list-row--compact r-list-compact"
+    :class="entranceClass"
+    :style="entranceStyle"
     :href="to"
     :aria-label="t('rom.open-game', { name })"
     @click="onRowClick"
+    @animationend.self="endEntrance"
   >
     <div ref="coverEl" class="coll-list-row__thumb" :style="morphStyle">
       <CollectionMosaic :covers="covers" />
@@ -129,11 +137,14 @@ function onRowClick(e: MouseEvent) {
 
   <a
     v-else
+    ref="rowEl"
     class="coll-list-row coll-list-row--columns"
-    :style="gridStyle"
+    :class="entranceClass"
+    :style="[gridStyle, entranceStyle]"
     :href="to"
     :aria-label="t('rom.open-game', { name })"
     @click="onRowClick"
+    @animationend.self="endEntrance"
   >
     <div class="coll-list-row__cell coll-list-row__title">
       <div ref="coverEl" class="coll-list-row__thumb" :style="morphStyle">

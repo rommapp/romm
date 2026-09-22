@@ -22,7 +22,7 @@ import {
   RTooltip,
 } from "@v2/lib";
 import { formatPlaytime, formatReleaseDate, releaseYear } from "@v2/utils/time";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
@@ -35,6 +35,7 @@ import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
+import { useStaggeredEntrance } from "@/v2/composables/useStaggeredEntrance";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import { toWebpUrl } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
@@ -173,6 +174,12 @@ function cellModifiers(key: ListColumn["key"]) {
 // Phones and tablets have no room for the columns: the row collapses to a
 // title plus the facts line, and the rest moves into the detail panel.
 const { smAndDown } = useBreakpoint();
+
+const rowEl = ref<HTMLElement | null>(null);
+const { entranceClass, entranceStyle, endEntrance } = useStaggeredEntrance(
+  rowEl,
+  () => rom.value != null,
+);
 
 /** Column header label, so the detail panel's captions and the desktop
  *  column titles can't drift apart. */
@@ -335,14 +342,18 @@ function onRowTouchMove(e: TouchEvent) {
 
 <template>
   <a
+    ref="rowEl"
     class="game-list-row"
-    :class="{
-      'game-list-row--columns': !smAndDown,
-      'game-list-row--clickable': !!rom,
-      'game-list-row--selected': isSelected,
-      'game-list-row--expanded': expanded,
-    }"
-    :style="smAndDown ? undefined : gridStyle"
+    :class="[
+      {
+        'game-list-row--columns': !smAndDown,
+        'game-list-row--clickable': !!rom,
+        'game-list-row--selected': isSelected,
+        'game-list-row--expanded': expanded,
+      },
+      entranceClass,
+    ]"
+    :style="[smAndDown ? undefined : gridStyle, entranceStyle]"
     :href="rom ? `/rom/${rom.id}` : undefined"
     :aria-label="
       rom
@@ -361,6 +372,7 @@ function onRowTouchMove(e: TouchEvent) {
     @pointercancel="onRowPointerEnd"
     @touchmove="onRowTouchMove"
     @contextmenu="selectionInput.handleContextMenu"
+    @animationend.self="endEntrance"
   >
     <template v-if="rom">
       <!-- COMPACT (phones / tablets): two lines plus the chevron; the

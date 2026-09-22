@@ -11,6 +11,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
+import { useStaggeredEntrance } from "@/v2/composables/useStaggeredEntrance";
 import {
   pendingMorphName,
   useViewTransition,
@@ -51,6 +52,9 @@ const { t } = useI18n();
 // Phones and tablets have no room for the columns: the row goes two-line,
 // the same shape the collections list takes.
 const { smAndDown } = useBreakpoint();
+const rowEl = ref<HTMLElement | null>(null);
+const { entranceClass, entranceStyle, endEntrance } =
+  useStaggeredEntrance(rowEl);
 const iconEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
 
@@ -90,10 +94,14 @@ function onRowClick(e: MouseEvent) {
 <template>
   <a
     v-if="smAndDown"
+    ref="rowEl"
     class="plat-list-row plat-list-row--compact r-list-compact"
+    :class="entranceClass"
+    :style="entranceStyle"
     :href="href"
     :aria-label="t('common.open-item', { name: displayName })"
     @click="onRowClick"
+    @animationend.self="endEntrance"
   >
     <div ref="iconEl" class="plat-list-row__thumb" :style="morphStyle">
       <RPlatformIcon
@@ -134,10 +142,14 @@ function onRowClick(e: MouseEvent) {
 
   <a
     v-else
+    ref="rowEl"
     class="plat-list-row plat-list-row--columns"
+    :class="entranceClass"
+    :style="entranceStyle"
     :href="href"
     :aria-label="t('common.open-item', { name: displayName })"
     @click="onRowClick"
+    @animationend.self="endEntrance"
   >
     <div class="plat-list-row__cell plat-list-row__title">
       <div ref="iconEl" class="plat-list-row__thumb" :style="morphStyle">
