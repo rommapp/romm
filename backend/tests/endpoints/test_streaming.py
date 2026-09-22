@@ -5563,6 +5563,7 @@ def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
                 resume_slot=None,
                 resume_pushed=False,
                 resume_after_launch=False,
+                resume_via_import=False,
                 memory_card_synced=False,
                 multiplayer=False,
                 blank_card_id=None,
@@ -5613,6 +5614,7 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
                 resume_slot=None,
                 resume_pushed=False,
                 resume_after_launch=False,
+                resume_via_import=False,
                 memory_card_synced=False,
                 multiplayer=False,
                 blank_card_id=None,
@@ -5630,6 +5632,58 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
         }
     ]
     assert "shape_mismatch" in payload["detail"]
+
+
+def test_run_launch_skips_the_state_push_when_resuming_via_import(
+    rom: Rom, admin_user: User
+):
+    """A foreign state folded into the import archive must not also be
+    pushed through the ordinary state-file PUT."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    push_resume = AsyncMock()
+    with (
+        patch("handler.streaming.launch.webstation.activate", activate),
+        patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
+        patch(
+            "handler.streaming.launch.lifecycle.publish_session_activity",
+            new=AsyncMock(),
+        ),
+        patch("handler.streaming.launch.stamp_launched", new=AsyncMock()),
+        patch("handler.streaming.launch.push_to_user", new=AsyncMock()),
+        patch("handler.streaming.launch.background.spawn_sync_task"),
+        patch(
+            "handler.streaming.launch.states.hydrate_states_to_broker", new=AsyncMock()
+        ),
+        patch("handler.streaming.launch.states.push_resume_state", push_resume),
+    ):
+        asyncio.run(
+            launch.run_launch(
+                container=_resolved(_webstation_for(rom)),
+                session_key="k1",
+                session=session,
+                user=admin_user,
+                rom=rom,
+                platform=rom.platform_slug,
+                rom_name=rom.name,
+                rom_path="rom/path",
+                rom_language=None,
+                gui_language=None,
+                archive_path="rom-1.zip",
+                resume_state=state,
+                resume_slot=0,
+                resume_pushed=False,
+                resume_after_launch=True,
+                resume_via_import=True,
+                memory_card_synced=False,
+                multiplayer=False,
+                blank_card_id=None,
+            )
+        )
+    push_resume.assert_not_called()
 
 
 def test_release_spawns_saves_pull(client, access_token, rom: Rom):

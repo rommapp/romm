@@ -893,6 +893,7 @@ async def claim_session(
         resume_slot=resume_slot,
         resume_pushed=resume_pushed,
         resume_after_launch=resume_after_launch,
+        resume_via_import=resume_via_import,
         memory_card_synced=memory_card is not None,
         multiplayer=multiplayer,
         blank_card_id=created_blank_card_id,

@@ -53,6 +53,7 @@ async def run_launch(
     resume_slot: int | None,
     resume_pushed: bool,
     resume_after_launch: bool,
+    resume_via_import: bool,
     memory_card_synced: bool,
     multiplayer: bool,
     blank_card_id: int | None,
@@ -137,8 +138,9 @@ async def run_launch(
     # the game running, and holds off further until the state file is there, so
     # this push lands ahead of it even though it runs after activate.
     if resume_after_launch and resume_state is not None:
-        if container.resumes_from_archive:
-            # The activate's slot already handed this broker the whole resume.
+        if container.resumes_from_archive or resume_via_import:
+            # The activate's archive/slot already handed this broker the
+            # whole resume; there is no separate state file to push.
             resume_pushed = True
         else:
             resume_pushed = await states.push_resume_state(container, resume_state)
