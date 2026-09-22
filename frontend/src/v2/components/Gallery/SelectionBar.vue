@@ -70,6 +70,11 @@ import {
   type StatusFlagKey,
   VISIBILITY_FLAG_KEYS,
 } from "@/v2/utils/romStatus";
+import {
+  FILLET_PX,
+  NOTCH_RADIUS_PX,
+  selectionBarOutline,
+} from "./selectionBarOutline";
 
 interface Props {
   /** Hides the download action where the selected ROMs have no file on
@@ -302,15 +307,12 @@ function bulkDelete() {
 }
 
 // ── Outline ─────────────────────────────────────────────────────────
-// The bar, the hill and the fillets between them are three separate fills, so
-// no per-box border can trace their union: the arcs and the hill's sides are
-// measured from different edges and meet at a kink. One path over the lot is
-// the only line that closes.
 
-/** Overlap of the hill's foot into the bar; matches `bottom` in the CSS. */
-const NOTCH_OVERLAP_PX = 6;
-/** Radius of the concave corner where the hill meets the bar. */
-const FILLET_PX = 12;
+/** The hill's own geometry, which its fill and the outline both read. */
+const notchStyle = {
+  "--r-notch-fillet": `${FILLET_PX}px`,
+  "--r-notch-radius": `${NOTCH_RADIUS_PX}px`,
+};
 
 const barEl = ref<HTMLElement | null>(null);
 const notchEl = ref<HTMLElement | null>(null);
@@ -335,49 +337,9 @@ onMounted(() => {
 });
 onBeforeUnmount(() => sizeObserver?.disconnect());
 
-/** Height the hill stands above the bar's top edge. */
-const hillRise = computed(() =>
-  Math.max(0, notchSize.value.h - NOTCH_OVERLAP_PX),
+const outline = computed(() =>
+  selectionBarOutline(barSize.value, notchSize.value),
 );
-
-const outline = computed(() => {
-  const { w: barW, h: barH } = barSize.value;
-  const notchW = notchSize.value.w;
-  const rise = hillRise.value;
-  if (barW <= 0 || barH <= 0 || notchW <= 0 || rise <= 0) return null;
-
-  const r = barH / 2;
-  const f = Math.min(FILLET_PX, (barW - notchW) / 2 - r);
-  // The hill's top is a pill, which the browser clamps to half its width.
-  const hillR = notchW / 2;
-  const left = (barW - notchW) / 2;
-  const right = left + notchW;
-  const top = rise;
-  const bottom = rise + barH;
-  if (f <= 0 || top - f <= 0 || left - f <= r) return null;
-
-  return {
-    width: barW,
-    height: bottom,
-    rise,
-    d: [
-      `M ${r} ${top}`,
-      `H ${left - f}`,
-      `A ${f} ${f} 0 0 0 ${left} ${top - f}`,
-      // Straight into the hill's corner: where the fillet lands already sits
-      // inside that arc, so a vertical run between them would double back.
-      `A ${hillR} ${hillR} 0 0 1 ${left + hillR} 0`,
-      `H ${right - hillR}`,
-      `A ${hillR} ${hillR} 0 0 1 ${right} ${top - f}`,
-      `A ${f} ${f} 0 0 0 ${right + f} ${top}`,
-      `H ${barW - r}`,
-      `A ${r} ${r} 0 0 1 ${barW - r} ${bottom}`,
-      `H ${r}`,
-      `A ${r} ${r} 0 0 1 ${r} ${top}`,
-      "Z",
-    ].join(" "),
-  };
-});
 
 function clear() {
   selection.clear();
@@ -412,6 +374,7 @@ function clear() {
     <div
       ref="notchEl"
       class="selection-bar__notch"
+      :style="notchStyle"
       role="img"
       :aria-label="t('gallery.selection-n-selected', { n: selection.count })"
     >
@@ -696,11 +659,11 @@ html[data-bp~="sm-and-down"] .selection-bar {
   display: inline-flex;
   align-items: center;
   padding: 9px 16px 13px;
-  /* Round over the top with the bar's own pill radius; the foot stays square
-     so the sides run straight down into the fillets below. Rounding it would
-     pull the edge inward and open a gap between hill, fillet and bar. The
-     square corners themselves sit inside the bar, out of sight. */
-  border-radius: var(--r-radius-pill) var(--r-radius-pill) 0 0;
+  /* The foot stays square so the sides run straight down into the fillets
+     below. Rounding it would pull the edge inward and open a gap between
+     hill, fillet and bar. The square corners themselves sit inside the bar,
+     out of sight. */
+  border-radius: var(--r-notch-radius) var(--r-notch-radius) 0 0;
   background: var(--r-color-panel);
   /* The bar's glass too, or the fill reads a shade off against it. */
   backdrop-filter: blur(18px) saturate(140%);
@@ -709,7 +672,6 @@ html[data-bp~="sm-and-down"] .selection-bar {
   font-weight: var(--r-font-weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  --r-notch-fillet: 12px;
 }
 .selection-bar__notch-count {
   display: inline-block;
