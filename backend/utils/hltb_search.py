@@ -3,8 +3,6 @@ discovery script."""
 
 from typing import Final, NamedTuple
 
-from utils import get_version
-
 HLTB_BASE_URL: Final[str] = "https://howlongtobeat.com"
 
 # HLTB issues a session at the search route's own /init sibling.
@@ -32,10 +30,16 @@ def parse_session(data: dict) -> HLTBSession | None:
     return HLTBSession(token, hp_key, hp_val)
 
 
+# HLTB's firewall rejects tool-style "Name/version" agents with a 403, so send a
+# browser's. The session is bound to it, so every call has to send the same one.
+HLTB_USER_AGENT: Final[str] = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+)
+
+
 def base_headers(base_url: str) -> dict[str, str]:
-    # HLTB binds a session to the user agent that requested it, so every call
-    # has to send the same one.
-    return {"Referer": base_url, "User-Agent": f"RomM/{get_version()}"}
+    return {"Referer": base_url, "User-Agent": HLTB_USER_AGENT}
 
 
 def search_headers(base_url: str, session: HLTBSession) -> dict[str, str]:
