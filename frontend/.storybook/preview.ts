@@ -64,6 +64,9 @@ const preview: Preview = {
     a11y: {
       test: "error",
     },
+    test: {
+      timeout: 5000,
+    },
     controls: {
       matchers: {
         color: /(background|color)$/i,

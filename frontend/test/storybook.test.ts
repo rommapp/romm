@@ -64,10 +64,22 @@ async function checkA11y(
   ).toHaveLength(0);
 }
 
-const storyModules = import.meta.glob<StoryModule>(
-  "../src/v2/lib/**/*.stories.ts",
-  { eager: true },
-);
+// All v2 primitives plus an explicit allowlist of composite stories with play()/a11y gates.
+const storyModules = {
+  ...import.meta.glob<StoryModule>("../src/v2/lib/**/*.stories.ts", {
+    eager: true,
+  }),
+  ...import.meta.glob<StoryModule>(
+    [
+      "../src/v2/components/shared/AssetList.stories.ts",
+      "../src/v2/components/shared/AssetStrip.stories.ts",
+      "../src/v2/components/shared/AssetChips.stories.ts",
+      "../src/v2/components/GameDetails/AssetActions.stories.ts",
+      "../src/v2/components/GameDetails/SaveDataTab.stories.ts",
+    ],
+    { eager: true },
+  ),
+};
 
 for (const [path, module] of Object.entries(storyModules)) {
   const composed = composeStories(module);

@@ -107,6 +107,7 @@ npm run build                       # production build
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
 npm run storybook                   # component library on :6006
+npm run storybook:test              # composeStories + play() + a11y (lib + selected composites)
 python3 src/locales/check_i18n_locales.py   # i18n parity check
 python3 src/locales/check_i18n_sorted.py    # locale keys sorted (--fix to sort)
 ```
