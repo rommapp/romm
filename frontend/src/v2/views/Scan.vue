@@ -83,6 +83,7 @@ const sortedPlatforms = computed(() =>
 
 const {
   calculateHashes,
+  extractTitleIds,
   generalProviders,
   specificProviders,
   metadataSources,
@@ -602,6 +603,14 @@ function stopScan() {
                 />
               </RTooltip>
             </span>
+          </RAlert>
+          <RAlert
+            v-if="scanType === 'title_ids' && !extractTitleIds"
+            type="warning"
+            density="compact"
+            :icon="false"
+          >
+            {{ t("scan.title-id-extraction-disabled") }}
           </RAlert>
         </div>
 

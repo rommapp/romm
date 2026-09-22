@@ -72,6 +72,7 @@
   "select-one-source": "Wybierz co najmniej jedno źródło metadanych, aby wzbogacić bibliotekę o grafiki i informacje",
   "source-disabled": "Źródło wyłączone",
   "title": "Skanowanie biblioteki",
+  "title-id-extraction-disabled": "Odczyt ID tytułów jest wyłączony na tym serwerze",
   "title-ids": "Odśwież ID tytułów",
   "title-ids-desc": "Ponownie odczytuje ID tytułów dla wybranych platform",
   "unmatched-games": "Niedopasowane gry",

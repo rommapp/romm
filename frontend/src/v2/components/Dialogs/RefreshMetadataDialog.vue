@@ -43,6 +43,7 @@ const { startScan } = useScanTrigger();
 
 const {
   calculateHashes,
+  extractTitleIds,
   generalProviders,
   specificProviders,
   metadataSources,
@@ -65,6 +66,11 @@ type ScanType = Extract<
   SharedScanType,
   "update" | "hashes" | "title_ids" | "quick" | "complete"
 >;
+
+const PROGRESS_MESSAGES: Partial<Record<ScanType, string>> = {
+  quick: "rom.refreshing-files",
+  title_ids: "rom.refreshing-title-ids",
+};
 
 const isBulk = computed(() => roms.value.length > 1);
 
@@ -99,6 +105,9 @@ const scanOptions = computed<ScanOption[]>(() => [
       ? t("rom.refresh-title-ids-desc-bulk")
       : t("rom.refresh-title-ids-desc"),
     value: "title_ids",
+    disabled: extractTitleIds.value
+      ? undefined
+      : t("scan.title-id-extraction-disabled"),
   },
   {
     title: t("rom.refresh-files"),
@@ -183,9 +192,9 @@ function onScan() {
   } else {
     const name = singleRomTitle.value;
     snackbar.info(
-      scanType.value === "quick"
-        ? t("rom.refreshing-files", { name })
-        : t("rom.refreshing-metadata", { name }),
+      t(PROGRESS_MESSAGES[scanType.value] ?? "rom.refreshing-metadata", {
+        name,
+      }),
       { icon: "mdi-loading mdi-spin" },
     );
   }

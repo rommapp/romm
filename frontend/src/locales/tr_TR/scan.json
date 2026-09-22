@@ -72,6 +72,7 @@
   "select-one-source": "Kütüphanenizi kapak görselleri ve meta verilerle zenginleştirmek için lütfen en az bir meta veri kaynağı seçin",
   "source-disabled": "Kaynak devre dışı",
   "title": "Kütüphane taraması",
+  "title-id-extraction-disabled": "Bu sunucuda başlık kimliği okuma devre dışı",
   "title-ids": "Başlık kimliklerini yenile",
   "title-ids-desc": "Seçili platformlar için başlık kimliklerini yeniden okur",
   "unmatched-games": "Eşleşmemiş oyunlar",

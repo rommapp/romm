@@ -341,6 +341,7 @@
   "refresh-update-desc-bulk": "Ponownie pobierz metadane od wybranych dostawców",
   "refreshing-files": "Odświeżanie plików {name}…",
   "refreshing-metadata": "Odświeżanie metadanych {name}...",
+  "refreshing-title-ids": "Ponowny odczyt ID tytułu {name}…",
   "regions": "Regiony",
   "related-content": "Powiązana zawartość",
   "related-dlc": "DLC",

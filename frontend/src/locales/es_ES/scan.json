@@ -72,6 +72,7 @@
   "select-one-source": "Por favor, elige al menos una fuente de metadatos para enriquecer tu biblioteca con carátulas y metadatos",
   "source-disabled": "Fuente desactivada",
   "title": "Escanear",
+  "title-id-extraction-disabled": "La lectura de IDs de título está deshabilitada en este servidor",
   "title-ids": "Actualizar IDs de título",
   "title-ids-desc": "Vuelve a leer los IDs de título de las plataformas seleccionadas",
   "unmatched-games": "Juegos sin coincidencia",

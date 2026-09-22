@@ -414,7 +414,6 @@ class TestShouldScanRom:
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id + 99], ["igdb"]) is False
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id], ["igdb"]) is True
 
-    # Test TITLE_IDS scan type
     def test_title_ids_scan_only_touches_existing_roms(self, rom: Rom):
         """It refreshes ids without rehashing, and importing a file with no
         entry yet would cost the full hash of that file."""

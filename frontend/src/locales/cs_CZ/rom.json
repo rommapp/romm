@@ -341,6 +341,7 @@
   "refresh-update-desc-bulk": "Znovu načíst metadata od vybraných poskytovatelů",
   "refreshing-files": "Obnovování souborů {name}…",
   "refreshing-metadata": "Obnovování metadat {name}...",
+  "refreshing-title-ids": "Znovu se načítá ID titulu {name}…",
   "regions": "Regiony",
   "related-content": "Související obsah",
   "related-dlc": "DLC",

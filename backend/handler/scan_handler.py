@@ -1426,8 +1426,7 @@ async def scan_rom(
             if field_value:
                 rom_attrs[field] = field_value
 
-    # Don't overwrite existing base fields on a scan that only refreshes part
-    # of a rom's record
+    # Don't overwrite existing base fields on a partial rescan
     if not newly_added and scan_type in (
         ScanType.UNMATCHED,
         ScanType.UPDATE,

@@ -72,6 +72,7 @@
   "select-one-source": "请至少选择一个元数据源，以丰富您的游戏库",
   "source-disabled": "来源已禁用",
   "title": "游戏库扫描",
+  "title-id-extraction-disabled": "此服务器已禁用标题 ID 读取",
   "title-ids": "刷新标题 ID",
   "title-ids-desc": "重新读取所选平台的标题 ID",
   "unmatched-games": "未匹配的游戏",

@@ -72,6 +72,7 @@
   "select-one-source": "Vă rugăm să alegeți cel puțin o sursă de metadate pentru a îmbogăți biblioteca cu coperți și metadate",
   "source-disabled": "Sursă dezactivată",
   "title": "Scanare bibliotecă",
+  "title-id-extraction-disabled": "Citirea ID-urilor de titlu este dezactivată pe acest server",
   "title-ids": "Reîmprospătează ID-urile de titlu",
   "title-ids-desc": "Recitește ID-urile de titlu pentru platformele selectate",
   "unmatched-games": "Jocuri fără potrivire",

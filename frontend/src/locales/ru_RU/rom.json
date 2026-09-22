@@ -341,6 +341,7 @@
   "refresh-update-desc-bulk": "Повторно получить метаданные от выбранных провайдеров",
   "refreshing-files": "Обновление файлов {name}…",
   "refreshing-metadata": "Обновление метаданных {name}...",
+  "refreshing-title-ids": "Повторное считывание ID тайтла {name}…",
   "regions": "Регионы",
   "related-content": "Связанный контент",
   "related-dlc": "DLC",

@@ -341,6 +341,7 @@
   "refresh-update-desc-bulk": "Metaadatok újbóli lekérése a kiválasztott szolgáltatóktól",
   "refreshing-files": "{name} fájljainak frissítése…",
   "refreshing-metadata": "{name} metaadatainak frissítése…",
+  "refreshing-title-ids": "{name} cím-azonosítójának újraolvasása…",
   "regions": "Regiók",
   "related-content": "Kapcsolódó tartalom",
   "related-dlc": "DLC",

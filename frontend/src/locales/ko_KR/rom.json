@@ -341,6 +341,7 @@
   "refresh-update-desc-bulk": "선택한 제공자에서 메타데이터를 다시 가져옵니다",
   "refreshing-files": "{name} 파일 새로 고침 중…",
   "refreshing-metadata": "{name} 메타데이터 새로 고침 중...",
+  "refreshing-title-ids": "{name} 타이틀 ID 다시 읽는 중…",
   "regions": "지역",
   "related-content": "관련 컨텐츠",
   "related-dlc": "DLC",

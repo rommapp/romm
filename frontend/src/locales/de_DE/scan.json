@@ -72,6 +72,7 @@
   "select-one-source": "Bitte wähle mindestens eine Metadatenquelle, wenn du die Bibliothek mit Cover-Artworks und Metadaten anreichern möchtest",
   "source-disabled": "Quelle deaktiviert",
   "title": "Bibliotheks-Scan",
+  "title-id-extraction-disabled": "Das Auslesen von Titel-IDs ist auf diesem Server deaktiviert",
   "title-ids": "Titel-IDs aktualisieren",
   "title-ids-desc": "Liest Titel-IDs für ausgewählte Plattformen neu ein",
   "unmatched-games": "Nicht zugeordnete Spiele",

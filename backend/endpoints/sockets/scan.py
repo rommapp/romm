@@ -94,7 +94,6 @@ from utils.pegasus_exporter import PegasusExporter
 STOP_SCAN_FLAG: Final = "scan:stop"
 
 
-# Names that title-casing the enum value would get wrong.
 _SCAN_TYPE_LABELS: Final[dict[ScanType, str]] = {ScanType.TITLE_IDS: "Title IDs"}
 
 
@@ -786,8 +785,6 @@ async def _identify_rom(
         for saved in synced.files:
             persist_soundtrack_cover(saved, _added_rom)
 
-    # Neither scan type refetches metadata for a rom it already had, so its
-    # stored urls still point at the resources on disk.
     if scan_type in (ScanType.HASHES, ScanType.TITLE_IDS):
         return
 
@@ -1020,8 +1017,6 @@ async def _identify_platform(
         roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-            # Both scans read every rom's stored rows, so loading them here
-            # costs one query instead of one per rom.
             with_files=scan_type in (ScanType.QUICK, ScanType.TITLE_IDS),
         )
 

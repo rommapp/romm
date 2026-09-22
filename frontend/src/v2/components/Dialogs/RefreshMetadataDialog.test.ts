@@ -33,6 +33,7 @@ vi.mock("@/v2/composables/useScanProviders", async () => {
   return {
     useScanProviders: () => ({
       calculateHashes: ref(true),
+      extractTitleIds: ref(true),
       generalProviders: ref([]),
       specificProviders: ref([]),
       metadataSources: ref([]),

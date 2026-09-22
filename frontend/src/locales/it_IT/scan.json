@@ -72,6 +72,7 @@
   "select-one-source": "Seleziona almeno una fonte di metadati per arricchire la tua libreria con artwork e metadati",
   "source-disabled": "Sorgente disabilitata",
   "title": "Scansione libreria",
+  "title-id-extraction-disabled": "La lettura degli ID titolo è disabilitata su questo server",
   "title-ids": "Aggiorna gli ID titolo",
   "title-ids-desc": "Rilegge gli ID titolo per le piattaforme selezionate",
   "unmatched-games": "Giochi senza corrispondenza",

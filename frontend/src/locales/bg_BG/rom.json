@@ -341,6 +341,7 @@
   "refresh-update-desc-bulk": "Извлечи отново метаданните от избраните източници",
   "refreshing-files": "Обновяване на файловете на {name}…",
   "refreshing-metadata": "Обновяване на метаданните на {name}...",
+  "refreshing-title-ids": "Повторно четене на ID на заглавието на {name}…",
   "regions": "Региони",
   "related-content": "Свързано съдържание",
   "related-dlc": "DLC",

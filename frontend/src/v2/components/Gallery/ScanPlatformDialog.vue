@@ -47,6 +47,7 @@ const { startScan } = useScanTrigger();
 
 const {
   calculateHashes,
+  extractTitleIds,
   generalProviders,
   specificProviders,
   metadataSources,
@@ -402,6 +403,15 @@ function onScan() {
           class="r-v2-scan-plat__hint"
         >
           {{ t("scan.hash-calculation-disabled") }}
+        </RAlert>
+        <RAlert
+          v-if="scanType === 'title_ids' && !extractTitleIds"
+          type="warning"
+          density="compact"
+          :icon="false"
+          class="r-v2-scan-plat__hint"
+        >
+          {{ t("scan.title-id-extraction-disabled") }}
         </RAlert>
       </div>
     </template>

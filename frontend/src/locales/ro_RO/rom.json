@@ -341,6 +341,7 @@
   "refresh-update-desc-bulk": "Preia din nou metadatele de la furnizorii selectați",
   "refreshing-files": "Se actualizează fișierele {name}…",
   "refreshing-metadata": "Se actualizează metadatele {name}...",
+  "refreshing-title-ids": "Se recitește ID-ul de titlu al {name}…",
   "regions": "Regiuni",
   "related-content": "Conținut similar",
   "related-dlc": "DLC",

@@ -72,6 +72,7 @@
   "select-one-source": "アートワークやメタデータを使用したい場合は少なくとも1つのソースを選択してください",
   "source-disabled": "ソースが無効です",
   "title": "ライブラリのスキャン",
+  "title-id-extraction-disabled": "このサーバーではタイトルIDの読み取りが無効になっています",
   "title-ids": "タイトルIDを更新",
   "title-ids-desc": "選択されたプラットフォームのタイトルIDを読み直します",
   "unmatched-games": "一致しないゲーム",

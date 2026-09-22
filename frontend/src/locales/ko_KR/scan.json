@@ -72,6 +72,7 @@
   "select-one-source": "표지와 메타데이터로 라이브러리를 꾸미고 싶으시면 메타데이터 DB를 하나 이상 선택해주세요",
   "source-disabled": "소스가 비활성화됨",
   "title": "라이브러리 스캔",
+  "title-id-extraction-disabled": "이 서버에서는 타이틀 ID 추출이 비활성화되어 있습니다",
   "title-ids": "타이틀 ID 새로 고침",
   "title-ids-desc": "선택한 플랫폼의 타이틀 ID를 다시 읽습니다",
   "unmatched-games": "일치하지 않는 게임",
