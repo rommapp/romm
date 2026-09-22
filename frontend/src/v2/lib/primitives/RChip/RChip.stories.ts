@@ -1,6 +1,26 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect } from "storybook/test";
 import { ref } from "vue";
 import RChip from "./RChip.vue";
+
+/** Strings that expose descenders, ascenders, and mixed scripts in tight pills. */
+const TYPOGRAPHY_FIXTURES = [
+  "gjpqy",
+  "Typography",
+  "Ångström",
+  "niño",
+  "日本語",
+  "9999+",
+  "Co-op",
+] as const;
+
+const CHIP_SIZES = ["x-small", "small", "default", "large", "x-large"] as const;
+
+function textBounds(content: Element): DOMRect {
+  const range = document.createRange();
+  range.selectNodeContents(content);
+  return range.getBoundingClientRect();
+}
 
 const meta: Meta<typeof RChip> = {
   title: "Primitives/RChip",
@@ -238,6 +258,83 @@ export const Disabled: Story = {
       </div>
     `,
   }),
+};
+
+// ── Typography ─────────────────────────────────────────────────────
+
+export const TypographyDescenders: Story = {
+  name: "Typography · descenders & special characters",
+  render: () => ({
+    components: { RChip },
+    setup: () => ({
+      rowLabels: [...TYPOGRAPHY_FIXTURES],
+      sizes: CHIP_SIZES,
+    }),
+    template: `
+      <div style="display:flex;flex-direction:column;gap:20px;max-width:720px">
+        <p style="margin:0;font:12px/1.4 sans-serif;color:var(--r-color-fg-muted)">
+          Fixture strings for descenders, ascenders, and mixed scripts across the
+          size ladder (translucent · primary).
+        </p>
+        <div
+          v-for="size in sizes"
+          :key="size"
+          style="display:flex;flex-wrap:wrap;align-items:center;gap:8px"
+        >
+          <span
+            style="width:52px;font:10px/1 sans-serif;color:var(--r-color-fg-faint);text-transform:uppercase"
+          >
+            {{ size }}
+          </span>
+          <RChip
+            v-for="label in rowLabels"
+            :key="size + label"
+            variant="translucent"
+            color="primary"
+            :size="size"
+            data-testid="typography-chip"
+          >
+            {{ label }}
+          </RChip>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <span style="font:10px/1 sans-serif;color:var(--r-color-fg-faint)">closable</span>
+          <RChip
+            v-for="label in rowLabels"
+            :key="'close-' + label"
+            variant="translucent"
+            color="primary"
+            size="small"
+            closable
+            data-testid="typography-chip"
+          >
+            {{ label }}
+          </RChip>
+        </div>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    await step("chip text fits inside the pill vertically", async () => {
+      const chips = Array.from(
+        canvasElement.querySelectorAll('[data-testid="typography-chip"]'),
+      );
+      expect(chips.length).toBeGreaterThan(0);
+
+      for (const chip of chips) {
+        const content = chip.querySelector(".r-chip__content");
+        expect(content).not.toBeNull();
+        if (!content?.textContent?.trim()) continue;
+
+        const chipRect = chip.getBoundingClientRect();
+        const textRect = textBounds(content);
+        const pad = 1;
+
+        expect(textRect.top).toBeGreaterThanOrEqual(chipRect.top - pad);
+        expect(textRect.bottom).toBeLessThanOrEqual(chipRect.bottom + pad);
+      }
+    });
+  },
 };
 
 // ── Real-world ──────────────────────────────────────────────────────
