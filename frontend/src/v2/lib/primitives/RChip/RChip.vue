@@ -185,10 +185,10 @@ function onClose(evt: MouseEvent) {
   pointer-events: none;
 }
 
-/* No overflow:hidden — it clips descenders in the fixed-height ladder. */
+/* Content must make room for descenders within fixed height. */
 .r-chip__content {
   min-width: 0;
-  line-height: 1.2; /* below inherited line box so descenders fit fixed heights */
+  line-height: 1.2;
 }
 
 .r-chip__icon {

@@ -359,3 +359,20 @@ export const GalleryTags: Story = {
     `,
   }),
 };
+
+export const ConstrainedGalleryCell: Story = {
+  name: "Constrained gallery language/region cell",
+  render: () => ({
+    components: { RChip },
+    template: `
+      <div style="width:110px;overflow:hidden;border:1px dashed var(--r-color-border);padding:4px">
+        <div style="display:flex;flex-wrap:wrap;gap:3px">
+          <RChip size="x-small" variant="translucent" color="primary">
+            Chinese (Simplified)
+          </RChip>
+          <RChip size="x-small" variant="translucent" color="primary">English</RChip>
+        </div>
+      </div>
+    `,
+  }),
+};
