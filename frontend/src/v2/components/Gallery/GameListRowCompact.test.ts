@@ -48,11 +48,22 @@ describe("list row on phones and tablets", () => {
 
     expect(wrapper.find(".game-list-row__compact").exists()).toBe(true);
     expect(wrapper.find(".game-list-row__cell").exists()).toBe(false);
-    // Size, release year and rating, the columns worth scanning. Length
-    // formats through the real i18n bundle, so it sits out of this one.
     expect(wrapper.find(".game-list-row__facts").text()).toBe(
-      "4 MB  ·  1995  ·  ★ 9.1",
+      "Super Nintendo  ·  4 MB  ·  1995",
     );
+  });
+
+  it("leaves the platform out where the whole list shares one", () => {
+    const wrapper = mountRow({ showPlatformColumn: false });
+
+    expect(wrapper.find(".game-list-row__facts").text()).toBe("4 MB  ·  1995");
+  });
+
+  // An empty file is still a size worth reading, not a missing one.
+  it("states a zero-byte file's size", () => {
+    const wrapper = mountRow({ rom: rom({ fs_size_bytes: 0 }) });
+
+    expect(wrapper.find(".game-list-row__facts").text()).toContain("0 Bytes");
   });
 
   it("keeps the columns on wider viewports", () => {
@@ -86,6 +97,7 @@ describe("list row on phones and tablets", () => {
       .map((el) => el.text());
     // The file name, plus what the facts line leaves out.
     expect(fields).toContain("Chrono Trigger.sfc");
+    expect(fields).toContain("9.1");
     expect(fields).toContain("USA");
     expect(fields).toContain("en");
   });

@@ -152,6 +152,7 @@ const detailFields = computed(() => {
     { label: t("rom.filename"), value: item.fs_name, wide: true },
     { label: labelOf("created_at"), value: formatDate(item.created_at) },
     { label: labelOf("first_release_date"), value: releaseDate(item) },
+    { label: labelOf("average_rating"), value: ratingValue(item) },
     { label: labelOf("hltb_main_story"), value: lengthValue(item) },
     { label: labelOf("languages"), value: listValue(item.languages) },
     { label: labelOf("regions"), value: listValue(item.regions) },
@@ -182,17 +183,18 @@ function listValue(values: string[] | null | undefined): string {
   return values && values.length > 0 ? values.join(", ") : "—";
 }
 
-/** The facts line under the title: what a library owner scans for, in the
- *  order the columns had them. */
+/** The facts line under the title: what a library owner scans for, led by
+ *  the platform wherever the list mixes them. */
 const facts = computed(() => {
   const item = rom.value;
   if (!item) return "";
   const year = releaseYear(item.metadatum?.first_release_date);
-  const rating = ratingValue(item);
   return [
-    item.fs_size_bytes ? formatBytes(item.fs_size_bytes) : null,
+    props.showPlatformColumn
+      ? item.platform_custom_name || item.platform_display_name
+      : null,
+    formatBytes(item.fs_size_bytes),
     year ? String(year) : null,
-    rating === "—" ? null : `★ ${rating}`,
   ]
     .filter(Boolean)
     .join("  ·  ");
@@ -790,7 +792,7 @@ function onRowTouchMove(e: TouchEvent) {
   white-space: normal;
   line-height: 1.25;
 }
-/* The line the owner scans: size, year, rating, and the favourite mark. */
+/* The line the owner scans: platform, size, year, and the favourite mark. */
 .game-list-row__facts {
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-muted);
