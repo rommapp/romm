@@ -385,6 +385,9 @@ const emptyText = computed(() =>
 }
 
 .r-asset-preview__clear {
+  /* Anchors the ::before hit area below; the stage variant overrides this
+     with `absolute`, which anchors it just the same. */
+  position: relative;
   appearance: none;
   border: 1px solid color-mix(in srgb, white 22%, transparent);
   background: color-mix(in srgb, black 55%, transparent);
