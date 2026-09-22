@@ -58,6 +58,9 @@ function baseRom(
 const meta: Meta<StoryArgs> = {
   title: "GameDetails/SaveDataTab",
   component: SaveDataTab,
+  parameters: {
+    layout: "fullscreen",
+  },
   args: {
     subtab: "saves",
     rom: baseRom(),
@@ -77,14 +80,13 @@ const meta: Meta<StoryArgs> = {
       },
       template: `
         <div style="
-          width: min(960px, 95vw);
-          height: min(720px, 85vh);
-          padding: 20px;
+          box-sizing: border-box;
+          width: 100%;
+          min-height: 100%;
+          padding: var(--r-space-4);
           background: var(--r-color-bg);
-          border: 1px solid var(--r-color-border);
-          border-radius: var(--r-radius-lg);
         ">
-          <SaveDataTab :rom="rom" style="height: 100%;" />
+          <SaveDataTab :rom="rom" style="height: min(720px, 85vh);" />
         </div>
       `,
     }),

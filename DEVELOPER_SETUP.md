@@ -172,6 +172,17 @@ ln -s ../../../romm_mock/resources assets/romm/resources
 npm run dev
 ```
 
+#### - Storybook (v2 components)
+
+Component docs and visual QA for `frontend/src/v2/` (port 6006):
+
+```sh
+npm run storybook
+npm run storybook:test   # composeStories + play() + a11y (lib + selected composites)
+```
+
+Responsive layouts use `html[data-bp]` (same as the app). Storybook installs that in `.storybook/preview.ts`; use the viewport toolbar presets from `.storybook/rommViewports.ts`. For compact mobile rows (e.g. save lists), pick a preset **under 600px** wide, not only a handheld with a wider logical width.
+
 ## Setting up the linter
 
 We use [Trunk](https://trunk.io) for linting, which combines multiple linters and formatters with sensible defaults and a single configuration file. You'll need to install the Trunk CLI to use it.

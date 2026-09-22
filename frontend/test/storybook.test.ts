@@ -1,6 +1,10 @@
 import { composeStories } from "@storybook/vue3-vite";
 import axe from "axe-core";
 import { describe, expect, it } from "vitest";
+import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
+
+// Match `.storybook/preview.ts` so responsive CSS keyed on html[data-bp] applies in happy-dom.
+installBreakpointAttribute();
 
 type StoryModule = Record<string, unknown>;
 
@@ -64,6 +68,7 @@ async function checkA11y(
   ).toHaveLength(0);
 }
 
+// All v2 primitives plus an explicit allowlist of composite stories with play()/a11y gates.
 const storyModules = {
   ...import.meta.glob<StoryModule>("../src/v2/lib/**/*.stories.ts", {
     eager: true,

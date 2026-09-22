@@ -174,6 +174,7 @@ With `uiVersion = "v2"`:
 - New primitive → mandatory story with controls + at least one variant per theme; interactive ones get a `play()`.
 - Modified primitive → existing story still renders and interactions still pass.
 - Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
+- Responsive composites: confirm `html[data-bp]` matches the viewport (Storybook toolbar presets in `.storybook/rommViewports.ts`; xs layout needs width under 600px).
 
 ### Backend (`backend/`)
 
