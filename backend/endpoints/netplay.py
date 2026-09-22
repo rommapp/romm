@@ -4,6 +4,8 @@ from fastapi import Request
 
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
+from handler.database import db_rom_handler
 from handler.netplay_handler import NetplayRoom, netplay_handler
 from utils.router import APIRouter
 
@@ -45,8 +47,29 @@ class RoomsResponse(TypedDict):
     hasPassword: bool
 
 
+def _caller_may_see_rom(request: Request, game_id: str) -> bool:
+    """Whether the caller may know that ``game_id`` has open rooms.
+
+    A rom the caller cannot see, like one that does not exist, reads as having
+    no rooms rather than as forbidden, so the listing cannot be used to probe
+    for hidden roms.
+    """
+    try:
+        rom = db_rom_handler.get_rom_visibility(int(game_id))
+    except (TypeError, ValueError):
+        return False
+
+    if rom is None:
+        return False
+
+    return get_permissions(request).can_see_rom(rom.id, rom.platform_id)
+
+
 @protected_route(router.get, "/list", [Scope.ASSETS_READ])
 async def get_rooms(request: Request, game_id: str) -> Dict[str, RoomsResponse]:
+    if not _caller_may_see_rom(request, game_id):
+        return {}
+
     netplay_rooms = await netplay_handler.get_all()
 
     open_rooms: Dict[str, RoomsResponse] = {
