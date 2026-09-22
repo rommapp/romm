@@ -5336,6 +5336,91 @@ def test_build_import_archive_strips_dotfiles_and_macosx_junk():
         )
 
 
+def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
+    rom: Rom, admin_user: User
+):
+    save = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    upload = MagicMock(return_value="rom-1.zip")
+    with (
+        patch(
+            "handler.streaming.imports.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=b"picked-bytes"),
+        ),
+        patch("handler.streaming.imports.webstation.upload_archive", upload),
+    ):
+        path = asyncio.run(
+            imports.hydrate_import_archive(
+                admin_user.id,
+                rom,
+                _resolved(_clearing_webstation(rom)),
+                save=save,
+                save_is_foreign=True,
+                state=None,
+            )
+        )
+    assert path == "rom-1.zip"
+    upload.assert_called_once()
+    uploaded_bytes = upload.call_args.args[2]
+    with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
+        assert f".import/save/{save.file_name}" in zf.namelist()
+
+
+def test_hydrate_import_archive_falls_back_to_the_newest_native_save_as_base(
+    rom: Rom, admin_user: User
+):
+    """A state-only foreign pick (no save_id) still carries the newest
+    native save as the base, matching today's implicit-newest behavior."""
+    db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.pcsx2", "pcsx2")
+    )
+    upload = MagicMock(return_value="rom-1.zip")
+    with (
+        patch(
+            "handler.streaming.imports.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch("handler.streaming.imports.webstation.upload_archive", upload),
+    ):
+        path = asyncio.run(
+            imports.hydrate_import_archive(
+                admin_user.id,
+                rom,
+                _resolved(_clearing_webstation(rom)),
+                save=None,
+                save_is_foreign=False,
+                state=state,
+            )
+        )
+    assert path == "rom-1.zip"
+    uploaded_bytes = upload.call_args.args[2]
+    with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
+        assert ".import/state/Game.00.pcsx2" in zf.namelist()
+
+
+def test_hydrate_import_archive_returns_none_when_nothing_is_foreign(
+    rom: Rom, admin_user: User
+):
+    save = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    path = asyncio.run(
+        imports.hydrate_import_archive(
+            admin_user.id,
+            rom,
+            _resolved(_clearing_webstation(rom)),
+            save=save,
+            save_is_foreign=False,
+            state=None,
+        )
+    )
+    assert path is None
+
+
 def test_claim_hydrates_the_picked_save(
     client, access_token, rom: Rom, admin_user: User
 ):
