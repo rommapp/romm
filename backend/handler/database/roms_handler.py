@@ -100,7 +100,7 @@ from utils.database import (
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
@@ -3449,7 +3449,7 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
         )
-        return result.rowcount > 0
+        return affected_rows(result) > 0
 
     @begin_session
     @with_details

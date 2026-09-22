@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from decorators.database import begin_session
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 
 class DBMusicPlaylistsHandler(DBBaseHandler):
@@ -183,9 +183,9 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
                 MusicPlaylistTrack.rom_file_id.in_(rom_file_ids),
             )
         )
-        if result.rowcount > 0:
+        if affected_rows(result) > 0:
             self._touch(playlist_id, session)
-        return result.rowcount
+        return affected_rows(result)
 
     @begin_session
     def set_playlist_track_order(
@@ -260,7 +260,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
                 MusicFavoriteTrack.rom_file_id.in_(rom_file_ids),
             )
         )
-        return result.rowcount
+        return affected_rows(result)
 
     @staticmethod
     def _touch(playlist_id: int, session: Session) -> None:
