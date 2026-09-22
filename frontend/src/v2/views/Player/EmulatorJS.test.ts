@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => ({
   cores: [] as string[],
   /** Whether the shell takes the page's full-screen answer with it. */
   honoursFullscreen: false,
+  /** Whether the shell takes the page's disc answer with it. */
+  honoursDisc: false,
   // A box, like syncOutcome: the preference is a ref the view keeps, so a test
   // that flips it has to write through the same object.
   fullscreen: { value: false },
@@ -35,6 +37,9 @@ vi.mock("vue-i18n", () => ({
     // Rendered params matter to the progress readout, so they are kept.
     t: (key: string, params?: Record<string, unknown>) =>
       params ? `${key}:${Object.values(params).join(",")}` : key,
+    // Read by the setup note, which joins the names of the controls a native
+    // launch carries into one phrase.
+    locale: { value: "en_US" },
   }),
 }));
 
@@ -72,6 +77,7 @@ vi.mock("@/stores/native", async () => {
       launchStateFor: () => mocks.launchState,
       syncFor: () => mocks.syncOutcome.value,
       honoursFullscreen: mocks.honoursFullscreen,
+      honoursDisc: mocks.honoursDisc,
       launch: mocks.launch,
       cancel: mocks.cancel,
     }),
@@ -172,6 +178,16 @@ const ROM = {
   user_screenshots: [],
 } as unknown as DetailedRom;
 
+// Two discs, so the panel renders its disc selector and there is a pick to
+// carry. Ids rather than names: a pick is a rom file's id.
+const DISC_SET = {
+  ...ROM,
+  files: [
+    { id: 101, file_name: "Game (Disc 1).chd" },
+    { id: 102, file_name: "Game (Disc 2).chd" },
+  ],
+} as unknown as DetailedRom;
+
 // The launch flourish reaches into the cover, so the stub has to answer.
 const GameCoverStub = defineComponent({
   setup(_, { expose }) {
@@ -229,6 +245,7 @@ beforeEach(() => {
   mocks.syncOutcome.value = null;
   mocks.cores = [];
   mocks.honoursFullscreen = false;
+  mocks.honoursDisc = false;
   mocks.fullscreen.value = false;
 });
 
@@ -288,6 +305,9 @@ describe("EmulatorJS launch screen — play routes", () => {
     expect(mocks.launch).toHaveBeenCalledWith(ROM, {
       core: undefined,
       fullscreen: false,
+      // A rom of one file has no disc to pick, and the default for one that
+      // does is its first file rather than a set nobody asked for.
+      disc: null,
     });
   });
 
@@ -304,6 +324,27 @@ describe("EmulatorJS launch screen — play routes", () => {
     expect(mocks.launch).toHaveBeenCalledWith(ROM, {
       core: "mgba",
       fullscreen: true,
+      disc: null,
+    });
+  });
+
+  // Without this the shell fetches all four discs of a game the player picked
+  // disc two of, and boots the playlist rather than the disc.
+  it("sends the panel's disc answer with the launch", async () => {
+    mocks.canPlayNative = true;
+    mocks.getRom.mockResolvedValue({ data: DISC_SET });
+    const wrapper = await launchScreen();
+
+    const discs = wrapper
+      .findAllComponents(RSelect)
+      .filter((select) => select.props("label") === "rom.file");
+    await discs[0].setValue(102);
+    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+
+    expect(mocks.launch).toHaveBeenCalledWith(DISC_SET, {
+      core: undefined,
+      fullscreen: false,
+      disc: 102,
     });
   });
 });
@@ -314,17 +355,33 @@ describe("EmulatorJS launch screen — what the setup panel claims", () => {
     mocks.cores = ["mgba", "vba_next"];
   });
 
-  it("says the core and full-screen answers reach the shell", async () => {
+  it("names every control on screen that the shell takes with it", async () => {
     mocks.honoursFullscreen = true;
+    mocks.honoursDisc = true;
+    mocks.getRom.mockResolvedValue({ data: DISC_SET });
 
-    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
-      "play.native-applies-core-fullscreen",
+    const note = (await launchScreen()).find(".r-v2-ejs__setup-note").text();
+
+    // In the order the panel renders them, which is the order they are read in.
+    expect(note).toBe(
+      "play.native-applies:rom.file, common.core, and play.full-screen",
     );
   });
 
   it("claims only the core on a shell that cannot take the rest", async () => {
     expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
-      "play.native-applies-core",
+      "play.native-applies:common.core",
+    );
+  });
+
+  // A shell without disc-choice boots the set whole, so the selector above it
+  // is the browser player's alone and the line must not claim it.
+  it("leaves out a disc the shell would not honour", async () => {
+    mocks.honoursDisc = false;
+    mocks.getRom.mockResolvedValue({ data: DISC_SET });
+
+    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+      "play.native-applies:common.core",
     );
   });
 
@@ -336,11 +393,10 @@ describe("EmulatorJS launch screen — what the setup panel claims", () => {
     );
   });
 
-  // The line would name a select that is not rendered: a platform with one core
-  // is not offering a choice to carry anywhere.
-  it("says nothing where there is no core to choose", async () => {
+  // Nothing on screen carries over: one core is not a choice, the rom is one
+  // file, and this shell leaves the full-screen switch to the browser.
+  it("says nothing when none of the controls carry", async () => {
     mocks.cores = ["mgba"];
-    mocks.honoursFullscreen = true;
 
     expect((await launchScreen()).find(".r-v2-ejs__setup-note").exists()).toBe(
       false,
@@ -407,6 +463,22 @@ describe("EmulatorJS launch screen — a launch in flight", () => {
     expect(playLabels(await launchScreen())[0]).toBe(
       "play.native-fetching-firmware:scph5501.bin",
     );
+  });
+
+  // No percentage for either: whether anything moves is the server's answer,
+  // and these are megabytes where the percentage is for gigabytes.
+  it.each([
+    ["save", "play.native-syncing-save"],
+    ["state", "play.native-syncing-states"],
+  ])("names the %s sync rather than counting bytes", async (stage, label) => {
+    mocks.launchState = {
+      romId: 7,
+      status: "downloading",
+      stage,
+      progress: 0.1,
+    } as LaunchState;
+
+    expect(playLabels(await launchScreen())[0]).toBe(label);
   });
 
   // Booting a core here would run a second session for the same game while the

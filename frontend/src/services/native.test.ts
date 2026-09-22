@@ -5,6 +5,7 @@ import type {
 } from "@/types/rommNative";
 import {
   canLaunchFullscreen,
+  canPickDisc,
   canSyncSaves,
   cancelNative,
   fetchPlatformSupport,
@@ -107,6 +108,26 @@ describe("canLaunchFullscreen", () => {
   // Outside the shell there is no launch to make fullscreen.
   it("is false with no bridge at all", () => {
     expect(canLaunchFullscreen()).toBe(false);
+  });
+});
+
+describe("canPickDisc", () => {
+  // Such a shell boots a multi-disc set whole and changes disc in the
+  // emulator's own menu, so the page's selector must not claim it.
+  it("is false on a shell that does not advertise it", () => {
+    installBridge({ launch: vi.fn(), capabilities: ["save-sync"] });
+
+    expect(canPickDisc()).toBe(false);
+  });
+
+  it("is true once the shell advertises it", () => {
+    installBridge({ launch: vi.fn(), capabilities: ["disc-choice"] });
+
+    expect(canPickDisc()).toBe(true);
+  });
+
+  it("is false with no bridge at all", () => {
+    expect(canPickDisc()).toBe(false);
   });
 });
 

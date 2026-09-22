@@ -81,6 +81,7 @@ import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { AssetType } from "@/v2/utils/assets";
 import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
+import { joinNames } from "@/v2/utils/lists";
 import {
   resolveBezelHost,
   resolveBezelUrl,
@@ -132,7 +133,7 @@ const Player = defineAsyncComponent(
   () => import("@/views/Player/EmulatorJS/Player.vue"),
 );
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
 const playingStore = storePlaying();
@@ -310,19 +311,32 @@ const nativeEmulator = computed(() =>
   emulatorName(nativeStore.labelForPlatform(heroRom.value?.platform_slug)),
 );
 
+// The controls above that a native launch takes with it, in the order they are
+// rendered. Only those actually on screen: a choice nobody was offered needs no
+// explaining, and one the shell does not advertise is not carried at all.
+const nativeCarriedControls = computed(() => {
+  const carried: string[] = [];
+  if (nativeStore.honoursDisc && bootableRomFiles.value.length > 1) {
+    carried.push(t("rom.file"));
+  }
+  if (supportedCores.value.length > 1) carried.push(t("common.core"));
+  if (nativeStore.honoursFullscreen) carried.push(t("play.full-screen"));
+  return carried;
+});
+
 // What the settings panel says about the other route. Null outside the shell,
 // on a platform with no in-browser core at all, where the panel is not
-// rendered, and on one with a single core, where the line would name a control
-// that is not on screen: a choice nobody was offered needs no explaining.
+// rendered, and when nothing on screen carries over.
 const nativeSettingsNote = computed(() => {
   if (!canPlayNative.value || nativeOnly.value) return null;
-  if (supportedCores.value.length <= 1) return null;
+  const carried = nativeCarriedControls.value;
+  if (carried.length === 0) return null;
   // Not named after the emulator: what the line has to say is which of these
   // controls survive the choice of player, and the buttons above have already
   // named the emulator.
-  return nativeStore.honoursFullscreen
-    ? t("play.native-applies-core-fullscreen")
-    : t("play.native-applies-core");
+  return t("play.native-applies", {
+    controls: joinNames(carried, locale.value),
+  });
 });
 
 // The native button is its own progress readout, so while the shell works the
@@ -352,6 +366,11 @@ const nativeLabel = computed(() => {
   if (state?.stage === "save") {
     return t("play.native-syncing-save");
   }
+  // Same reasoning as the save: whether anything moves is the server's answer,
+  // and a state is megabytes rather than the gigabytes a percentage is for.
+  if (state?.stage === "state") {
+    return t("play.native-syncing-states");
+  }
   if (state?.progress != null) {
     return t("play.native-downloading", {
       percent: Math.round(state.progress * 100),
@@ -365,12 +384,14 @@ const nativeLabel = computed(() => {
 // here. The refusal's own wording is English, hence the console.
 async function onPlayNative() {
   if (!rom.value) return;
-  // Remembered for both routes: the core is a choice about this game, not
-  // about which player runs it.
+  // Remembered for both routes: the core and the disc are choices about this
+  // game, not about which player runs it.
   rememberCore(romId, rom.value.platform_slug, selectedCore.value);
+  rememberDisc(romId, selectedDisc.value);
   const refusal = await nativeStore.launch(rom.value, {
     core: selectedCore.value,
     fullscreen: fullscreenOnPlay.value,
+    disc: selectedDisc.value,
   });
   if (!refusal) return;
   console.error("[native] The shell refused the launch:", refusal);

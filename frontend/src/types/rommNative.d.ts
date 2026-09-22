@@ -42,6 +42,11 @@ export interface LaunchRequest {
    *  on its built-in RetroArch path; a configured emulator decides it in the
    *  arguments its owner wrote. */
   fullscreen?: boolean;
+  /** Which of a multi-disc rom's files to boot, as the page's disc selector
+   *  asks it: a rom file's id, or `"all"` for the whole set. Only a shell
+   *  advertising `disc-choice` acts on it; one without always boots the set
+   *  whole, which is where it was before the page could ask. */
+  disc?: number | "all";
 }
 
 export type LaunchStatus =
@@ -82,8 +87,9 @@ export interface LaunchState {
   /** What is being fetched while downloading. Absent means the ROM.
    *  "emulator" covers both fetching a standalone emulator and the wait while
    *  the user installs it, which has no progress to report. "save" is the save
-   *  pull, after the ROM is ready and before the emulator starts. */
-  stage?: "rom" | "core" | "emulator" | "firmware" | "save";
+   *  pull, after the ROM is ready and before the emulator starts, and "state"
+   *  is the savestate restore, just before it does. */
+  stage?: "rom" | "core" | "emulator" | "firmware" | "save" | "state";
   /** The core being installed, while stage is "core". */
   core?: string;
   /** The firmware file being fetched, while stage is "firmware". Its own field
@@ -150,9 +156,17 @@ export type ShellCapability =
   | "firmware-mirror"
   | "multi-disc"
   /** Saves are moved between the server and the emulator around a native
-   *  launch. Save states are not, and a shell without this leaves both sides of
-   *  it undone. */
+   *  launch. Save states are a separate setting, and a shell without this
+   *  leaves both sides of it undone. */
   | "save-sync"
+  /** Save states travel both ways: the ones RomM holds for the emulator a
+   *  launch runs are restored into their slots before it starts, reported as
+   *  the "state" stage, and the ones the run writes go up after it exits. A
+   *  shell without this only sends them. */
+  | "state-restore"
+  /** `LaunchRequest.disc` is honoured, so the page's disc selector covers a
+   *  native launch too: one disc of a set is fetched and booted on its own. */
+  | "disc-choice"
   /** `LaunchRequest.fullscreen` is honoured, so the page's own full-screen
    *  choice covers a native launch as well as the in-browser one. */
   | "launch-fullscreen";

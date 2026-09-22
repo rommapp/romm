@@ -259,6 +259,24 @@ describe("useNativeStore.launch", () => {
     expect(launchNative.mock.calls[1]?.[0]).not.toHaveProperty("fullscreen");
   });
 
+  it("asks for a disc only when the page picked one", async () => {
+    const store = useNativeStore();
+
+    await store.launch(makeRom(), { disc: 102 });
+    expect(launchNative.mock.calls[0]?.[0].disc).toBe(102);
+
+    await store.launch(makeRom(), { disc: "all" });
+    expect(launchNative.mock.calls[1]?.[0].disc).toBe("all");
+
+    // A rom with one file has no disc to pick, and the shell looking for a set
+    // it does not have is the launch it performs anyway.
+    await store.launch(makeRom(), { disc: null });
+    expect(launchNative.mock.calls[2]?.[0]).not.toHaveProperty("disc");
+
+    await store.launch(makeRom());
+    expect(launchNative.mock.calls[3]?.[0]).not.toHaveProperty("disc");
+  });
+
   // The rom's own fs_name is neither what a folder rom is served as nor what
   // it is stored as, so the request carries what the helper resolved.
   it("sends the name the endpoint will serve, not the rom's own", async () => {

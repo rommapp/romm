@@ -43,6 +43,14 @@ export function canLaunchFullscreen(): boolean {
   return isNativeShell() && hasCapability("launch-fullscreen");
 }
 
+/** Whether a native launch honours the page's disc choice. A shell without it
+ *  boots a multi-disc set whole and changes disc in the emulator's own menu,
+ *  so the selector is the browser player's alone. The choice is sent either
+ *  way: an older shell drops a field it does not know. */
+export function canPickDisc(): boolean {
+  return isNativeShell() && hasCapability("disc-choice");
+}
+
 /** Whether the page is running inside the desktop shell at all. */
 export function isNativeShell(): boolean {
   return hasMethod("launch");

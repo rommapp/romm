@@ -3,6 +3,7 @@ import { ref } from "vue";
 import romApi from "@/services/api/rom";
 import {
   canLaunchFullscreen,
+  canPickDisc,
   cancelNative,
   fetchPlatformSupport,
   isNativeShell,
@@ -25,6 +26,7 @@ import {
   getSupportedEJSCores,
   resolvePlatformSlug,
 } from "@/utils";
+import type { DiscSelection } from "@/v2/utils/playerDisc";
 
 export type { LaunchState, PlatformSupport } from "@/types/rommNative";
 
@@ -40,6 +42,9 @@ export interface NativeLaunchChoice {
   /** Whether to start the emulator fullscreen. Undefined asks for nothing,
    *  leaving the emulator's own configuration to decide. */
   fullscreen?: boolean;
+  /** Which file of a multi-disc rom to boot, or ALL_DISCS for the whole set.
+   *  Null and undefined both ask for nothing, which boots the set whole. */
+  disc?: DiscSelection;
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -63,6 +68,9 @@ export const useNativeStore = defineStore("native", () => {
    *  Read once, like the two above: the bridge is injected before the app
    *  boots and a shell cannot gain a capability while its page is open. */
   const honoursFullscreen = ref(canLaunchFullscreen());
+  /** Whether a launch takes the page's disc choice with it. Read once, like
+   *  the others: a shell cannot gain a capability while its page is open. */
+  const honoursDisc = ref(canPickDisc());
 
   // Null prototype: RomM keeps whatever slug a folder is named, so "constructor"
   // and "toString" are slugs like any other, and on a plain object they would
@@ -325,6 +333,10 @@ export const useNativeStore = defineStore("native", () => {
         ...(choice.fullscreen === undefined
           ? {}
           : { fullscreen: choice.fullscreen }),
+        // A rom with one file has no disc to pick, so the page's answer for it
+        // is not one to send: the shell would look for a disc set and find a
+        // single file, which is the launch it performs anyway.
+        ...(choice.disc == null ? {} : { disc: choice.disc }),
         // Lets a shell on the same machine as the server play the file where it
         // already is. A shell without library-passthrough downloads instead.
         ...(soleFile
@@ -362,6 +374,7 @@ export const useNativeStore = defineStore("native", () => {
     available,
     shellVersion,
     honoursFullscreen,
+    honoursDisc,
     // Exposed for a caller that builds a function inside a computed and needs
     // it rebuilt when the probe lands, the way streaming exposes its config.
     support,
