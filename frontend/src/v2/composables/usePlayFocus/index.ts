@@ -24,8 +24,8 @@ export function usePlayFocus(
   // own default action first (Tab moving focus, Enter activating the target).
   const { start: claimSoon } = useTimeoutFn(
     () => {
-      if (toValue(running)) return;
       if (
+        !toValue(running) &&
         shouldClaimFocusOnModality(
           modality.value,
           document.activeElement,

@@ -243,8 +243,6 @@ export function useGamepad() {
     let rafId = 0;
     let everSawPad = false;
 
-    // Also runs after every synthetic arrow, which useInputModality reads as a
-    // key press: "key" modality never trips the grid-nav autofocus.
     const onAnyInput = () => setModality("pad");
     const onConnect = () => setModality("pad");
     window.addEventListener("gamepadconnected", onConnect);
@@ -346,7 +344,6 @@ export function useGamepad() {
             } else if (!gameOwnsInput && binding && t >= prev.nextRepeatAt) {
               // Only synthetic-key bindings repeat while held.
               dispatchKey(binding);
-              onAnyInput();
               prev.nextRepeatAt = t + REPEAT_MS;
             }
           } else {
