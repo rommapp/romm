@@ -357,18 +357,46 @@ describe("Stream save picker", () => {
     expect(saveList(wrapper)!.props("selectedId")).toBe(3);
   });
 
-  it("leaves another emulator's archives out of the picker", async () => {
+  it("offers another emulator's archives too, still defaulting to this one's newest", async () => {
     const wrapper = await launch({
       picker: true,
       saves: [
-        save(9, "Pool [pcsx2 a].saves.zip", { emulator: "pcsx2" }),
+        save(9, "Pool [pcsx2 a].saves.zip", {
+          emulator: "pcsx2",
+          created_at: "2026-09-13T00:00:00",
+          updated_at: "2026-09-13T00:00:00",
+        }),
         ...ARCHIVES,
       ],
     });
 
     expect(
       (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
-    ).toEqual([3, 2, 1]);
+    ).toEqual([3, 2, 1, 9]);
+    expect(saveList(wrapper)!.props("selectedId")).toBe(3);
+  });
+
+  it("sends a foreign-emulator pick on the claim", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool [pcsx2 a].saves.zip", {
+          emulator: "pcsx2",
+          created_at: "2026-09-13T00:00:00",
+          updated_at: "2026-09-13T00:00:00",
+        }),
+        ...ARCHIVES,
+      ],
+    });
+
+    await saveList(wrapper)!.vm.$emit(
+      "select",
+      save(9, "Pool [pcsx2 a].saves.zip", { emulator: "pcsx2" }),
+    );
+    expect(saveList(wrapper)!.props("selectedId")).toBe(9);
+
+    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
+    expect(mocks.claimSession.mock.calls[0][2]).toBe(9);
   });
 
   it("reports instead of offering where the emulator keeps its save tree", async () => {

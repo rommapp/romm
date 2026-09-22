@@ -305,7 +305,7 @@ const selectedState = ref<UserStateSchema | null>(null);
 // Only an archive carries a layout the broker can restore from. Re-sorted on
 // created_at because user_saves arrives on updated_at, which a rehash moves;
 // the rows are dated on created_at to match.
-const restorableSaves = computed<SaveSchema[]>(() => {
+const nativeRestorableSaves = computed<SaveSchema[]>(() => {
   const emulator = emulatorKey(container.value?.emulator);
   if (!rom.value || !emulator) return [];
   return (rom.value.user_saves ?? [])
@@ -320,9 +320,23 @@ const restorableSaves = computed<SaveSchema[]>(() => {
     );
 });
 
-// The one the broker restores before boot when the claim names none.
+// Every archive regardless of which emulator wrote it, so the picker can
+// offer a foreign pick. The broker still 400s a foreign claim today.
+const pickableSaves = computed<SaveSchema[]>(() => {
+  if (!rom.value) return [];
+  return (rom.value.user_saves ?? [])
+    .filter((s) => s.file_name.endsWith(".zip"))
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
+        b.id - a.id,
+    );
+});
+
+// The one the broker restores before boot when the claim names none: this
+// emulator's own, so the fallback restore always succeeds.
 const newestSave = computed<SaveSchema | null>(
-  () => restorableSaves.value[0] ?? null,
+  () => nativeRestorableSaves.value[0] ?? null,
 );
 
 // A pick only lands where the broker empties the save tree first; elsewhere
@@ -330,7 +344,7 @@ const newestSave = computed<SaveSchema | null>(
 const showSavePicker = computed(
   () =>
     (container.value?.supports_save_picker ?? false) &&
-    restorableSaves.value.length > 0,
+    pickableSaves.value.length > 0,
 );
 
 // The id rather than the row, so a pick that is no longer on offer falls back
@@ -339,17 +353,23 @@ const savePickId = ref<number | null>(null);
 
 const selectedSave = computed<SaveSchema | null>(
   () =>
-    restorableSaves.value.find((s) => s.id === savePickId.value) ??
+    pickableSaves.value.find((s) => s.id === savePickId.value) ??
     newestSave.value,
 );
 
-const streamStates = computed<UserStateSchema[]>(() => {
+const nativeStreamStates = computed<UserStateSchema[]>(() => {
   const emulator = emulatorKey(container.value?.emulator);
   if (!rom.value || !emulator) return [];
   return (rom.value.all_user_states ?? []).filter(
     (s) => emulatorKey(s.emulator) === emulator,
   );
 });
+
+// Every state regardless of which emulator wrote it, so the picker can offer
+// a foreign pick. The broker still 400s a foreign claim today.
+const pickableStates = computed<UserStateSchema[]>(() =>
+  rom.value ? (rom.value.all_user_states ?? []) : [],
+);
 
 // Every capture is kept, so a heavy save-stater ends up with a history the
 // horizontal strip buries. Grid and list trade thumbnail size for how many
@@ -370,15 +390,15 @@ const stateLayout = useLocalStorage<AssetLayout>(
 // list recomputes on every rom/config refresh and must not re-pick.
 const statePreselected = ref(false);
 watch(
-  streamStates,
-  (states) => {
+  [pickableStates, nativeStreamStates],
+  ([states, native]) => {
     const current = selectedState.value;
     if (current && !states.some((s) => s.id === current.id)) {
       selectedState.value = null;
     }
-    if (!statePreselected.value && states.length > 0) {
+    if (!statePreselected.value && native.length > 0) {
       statePreselected.value = true;
-      if (!selectedState.value) selectedState.value = states[0];
+      if (!selectedState.value) selectedState.value = native[0];
     }
   },
   { immediate: true },
@@ -404,7 +424,7 @@ type ResumeTab = "state" | "save";
 const resumeTab = ref<ResumeTab>("state");
 
 const showResumeTabs = computed(
-  () => supportsStates.value && restorableSaves.value.length > 0,
+  () => supportsStates.value && pickableSaves.value.length > 0,
 );
 
 // The pick only counts when there is something to pick between.
@@ -421,13 +441,13 @@ const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
   {
     id: "state",
     label: t("common.states"),
-    badge: streamStates.value.length,
+    badge: pickableStates.value.length,
     icon: "mdi-file",
   },
   {
     id: "save",
     label: t("common.saves"),
-    badge: restorableSaves.value.length,
+    badge: pickableSaves.value.length,
     icon: "mdi-content-save",
   },
 ]);
@@ -1486,7 +1506,7 @@ onBeforeUnmount(() => {
             <div class="r-v2-stream__strip-label">
               <span aria-hidden="true">{{ t("play.all-states") }}</span>
               <span class="r-v2-stream__strip-count" aria-hidden="true">{{
-                streamStates.length
+                pickableStates.length
               }}</span>
               <div
                 class="r-v2-stream__strip-views"
@@ -1509,7 +1529,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <AssetStrip
-              :assets="streamStates"
+              :assets="pickableStates"
               type="state"
               :selected-id="selectedState?.id ?? null"
               :layout="stateLayout"
@@ -1529,11 +1549,11 @@ onBeforeUnmount(() => {
             <div class="r-v2-stream__strip-label">
               <span aria-hidden="true">{{ t("play.all-saves") }}</span>
               <span class="r-v2-stream__strip-count" aria-hidden="true">{{
-                restorableSaves.length
+                pickableSaves.length
               }}</span>
             </div>
             <AssetList
-              :assets="restorableSaves"
+              :assets="pickableSaves"
               type="save"
               :selected-id="selectedSave?.id ?? null"
               timestamp="created"
