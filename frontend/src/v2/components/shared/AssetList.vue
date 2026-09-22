@@ -287,18 +287,7 @@ const fadeIndex = computed(() =>
                 :align="xs ? 'start' : 'end'"
               />
 
-              <span
-                v-if="selectable"
-                class="r-asset-list__check"
-                aria-hidden="true"
-              >
-                <RIcon
-                  v-if="asset.id === selectedId"
-                  icon="mdi-check-circle"
-                  size="18"
-                />
-              </span>
-              <span v-else class="r-asset-list__actions">
+              <span v-if="!selectable" class="r-asset-list__actions">
                 <slot name="actions" :asset="asset" />
               </span>
 
@@ -413,7 +402,7 @@ const fadeIndex = computed(() =>
   background: var(--r-color-bg-elevated);
   width: 100%;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
@@ -441,6 +430,7 @@ const fadeIndex = computed(() =>
 /* Manage mode: rows are static info containers, not selectable buttons.
    No pointer cursor, no hover-lift — only the action buttons react. */
 .r-asset-list__row--static {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   cursor: default;
 }
 .r-asset-list__row--static:hover {
@@ -510,17 +500,6 @@ const fadeIndex = computed(() =>
   display: contents;
 }
 
-.r-asset-list__check {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  color: var(--r-color-fg-faint);
-}
-.r-asset-list__item--active .r-asset-list__check {
-  color: var(--r-color-brand-primary);
-}
-
 /* Manage mode: trailing action buttons (download / delete / toggle). */
 .r-asset-list__actions {
   display: inline-flex;
@@ -573,7 +552,6 @@ html[data-bp~="xs"] .r-asset-list__name {
 html[data-bp~="xs"] .r-asset-list__time {
   grid-area: time;
 }
-html[data-bp~="xs"] .r-asset-list__check,
 html[data-bp~="xs"] .r-asset-list__actions {
   grid-area: actions;
 }

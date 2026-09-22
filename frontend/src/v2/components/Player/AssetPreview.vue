@@ -120,7 +120,6 @@ const emptyText = computed(() =>
       <AssetFavoriteMark
         v-if="asset"
         class="r-asset-preview__stage-fav"
-        :class="{ 'r-asset-preview__stage-fav--clearable': clearable }"
         :favorite="asset.is_favorite"
         :size="16"
       />
@@ -474,6 +473,12 @@ const emptyText = computed(() =>
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A state's name has the stage's full width under it, so it wraps instead. */
+.r-asset-preview:not(.r-asset-preview--save) .r-asset-preview__name {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
 
 .r-asset-preview__chips {
   display: flex;
@@ -495,11 +500,8 @@ const emptyText = computed(() =>
 .r-asset-preview__stage-fav {
   position: absolute;
   top: 12px;
-  right: 12px;
+  left: 12px;
   filter: drop-shadow(0 1px 4px color-mix(in srgb, black 75%, transparent));
-}
-.r-asset-preview__stage-fav--clearable {
-  right: 46px;
 }
 
 /* The size is the least telling fact here, so it sits a step below the

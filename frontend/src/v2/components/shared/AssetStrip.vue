@@ -191,20 +191,7 @@ const fadeIndex = computed(() =>
               :aria-disabled="reasonOf(asset) ? true : undefined"
               @click="selectable && !reasonOf(asset) && $emit('select', asset)"
             >
-              <!-- List rows trade the screenshot for density, so the selection
-               badge moves out of the thumbnail and leads the row instead. -->
-              <span
-                v-if="layout === 'list'"
-                class="r-asset-strip__mark"
-                aria-hidden="true"
-              >
-                <RIcon
-                  v-if="selectable && asset.id === selectedId"
-                  icon="mdi-check-circle"
-                  size="14"
-                />
-              </span>
-              <div v-else class="r-asset-strip__thumb">
+              <div v-if="layout !== 'list'" class="r-asset-strip__thumb">
                 <div
                   v-if="type === 'state' && screenshotOf(asset)"
                   class="r-asset-strip__thumb-img"
@@ -218,19 +205,8 @@ const fadeIndex = computed(() =>
                     size="28"
                   />
                 </div>
-                <span
-                  v-if="selectable && asset.id === selectedId"
-                  class="r-asset-strip__check"
-                  aria-hidden="true"
-                >
-                  <RIcon icon="mdi-check" size="14" />
-                </span>
                 <AssetFavoriteMark
                   class="r-asset-strip__fav"
-                  :class="{
-                    'r-asset-strip__fav--checked':
-                      selectable && asset.id === selectedId,
-                  }"
                   :favorite="selectable && asset.is_favorite"
                   :size="14"
                 />
@@ -421,12 +397,6 @@ const fadeIndex = computed(() =>
 .r-asset-strip--list .r-asset-strip__tile--active:hover {
   background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
 }
-.r-asset-strip--list .r-asset-strip__mark {
-  flex: 0 0 14px;
-  display: grid;
-  place-items: center;
-  color: var(--r-color-brand-primary);
-}
 .r-asset-strip--list .r-asset-strip__meta {
   flex: 1;
   min-width: 0;
@@ -548,25 +518,6 @@ const fadeIndex = computed(() =>
   right: 6px;
   filter: drop-shadow(0 1px 3px color-mix(in srgb, black 75%, transparent));
 }
-/* Steps aside when the selection check owns the corner. */
-.r-asset-strip__fav--checked {
-  right: 30px;
-}
-
-.r-asset-strip__check {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  background: var(--r-color-brand-primary);
-  color: white;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px color-mix(in srgb, black 35%, transparent);
-}
-
 .r-asset-strip__body {
   display: flex;
   flex-direction: column;
