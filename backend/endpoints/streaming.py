@@ -881,6 +881,22 @@ async def claim_session(
     if picked_save is not None and save_foreign:
         save_foreign = spec is not None and spec.accepts("save")
 
+    # A native pick on an archive-resume container (DuckStation, RPCS3) still
+    # needs the import archive when it is not the newest capture: the save
+    # archive already carries the newest exit state, but an older one picked
+    # from the resume history is not in there and would otherwise be
+    # silently dropped in favor of that newest state.
+    if (
+        resume_state is not None
+        and not resume_foreign
+        and container.resumes_from_archive
+    ):
+        newest_states = states.user_states_for_emulator(
+            request.user.id, rom.id, container.emulator
+        )
+        if not newest_states or newest_states[0].id != resume_state.id:
+            resume_via_import = True
+
     # Push the resume state before launch so its file is in place when the
     # broker's deferred slot load fires. Best-effort: a failed push falls
     # back to a fresh launch, reported through `resume` in the response.
@@ -908,6 +924,7 @@ async def claim_session(
     # Only now, after the archive was actually built and uploaded, is it known
     # whether the resume state really rode inside it. run_launch trusts this
     # flag to skip the native state push and report the resume as done.
+    resume_needs_import = resume_via_import
     resume_via_import = resume_via_import and state_imported
 
     # Detached because an activate blocks through pkg and archive extraction,
@@ -930,6 +947,7 @@ async def claim_session(
         resume_pushed=resume_pushed,
         resume_after_launch=resume_after_launch,
         resume_via_import=resume_via_import,
+        resume_needs_import=resume_needs_import,
         memory_card_synced=memory_card is not None,
         multiplayer=multiplayer,
         blank_card_id=created_blank_card_id,

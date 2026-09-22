@@ -55,6 +55,7 @@ async def run_launch(
     resume_pushed: bool,
     resume_after_launch: bool,
     resume_via_import: bool,
+    resume_needs_import: bool,
     memory_card_synced: bool,
     multiplayer: bool,
     blank_card_id: int | None,
@@ -147,9 +148,18 @@ async def run_launch(
     # the game running, and holds off further until the state file is there, so
     # this push lands ahead of it even though it runs after activate.
     if resume_after_launch and resume_state is not None:
-        if container.resumes_from_archive or resume_via_import:
-            # The activate's archive/slot already handed this broker the
-            # whole resume; there is no separate state file to push.
+        if resume_via_import:
+            # The activate's archive already handed this broker the whole
+            # resume; there is no separate state file to push.
+            resume_pushed = True
+        elif resume_needs_import:
+            # The pick never made it into the archive (a failed read, an
+            # upload that fell through), and this broker refuses a state
+            # pushed in after activate, so there is no fallback delivery.
+            resume_pushed = False
+        elif container.resumes_from_archive:
+            # No import was needed at all: this pick is the newest capture,
+            # already the exit state the save archive naturally carries.
             resume_pushed = True
         else:
             resume_pushed = await states.push_resume_state(container, resume_state)

@@ -786,7 +786,9 @@ function sendVolumeToBroker(level: number): void {
     if (platform)
       streamingApi
         .setVolume(platform, level, claimedContainer.value, claimedAt.value)
-        .catch((err) => console.warn("[streaming] Could not set volume:", err));
+        .catch((err) =>
+          console.error("[streaming] Could not set volume:", err),
+        );
   }, 150);
 }
 
@@ -805,7 +807,7 @@ function toggleMute(): void {
   if (platform)
     streamingApi
       .setMute(platform, isMuted.value, claimedContainer.value, claimedAt.value)
-      .catch((err) => console.warn("[streaming] Could not set mute:", err));
+      .catch((err) => console.error("[streaming] Could not set mute:", err));
 }
 
 // ── Session lifecycle ──────────────────────────────────────────────
@@ -859,7 +861,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         updateLastPlayed: true,
       })
       .catch((err) => {
-        console.warn("[stream] Could not update last-played:", err);
+        console.error("[stream] Could not update last-played:", err);
       });
   }
 
@@ -1119,7 +1121,7 @@ async function handleSaveState(): Promise<void> {
       claimedAt.value,
     );
   } catch (err) {
-    console.warn("[streaming] Could not save state:", err);
+    console.error("[streaming] Could not save state:", err);
     snackbar.error(t("play.stream-save-state-failed"), { timeout: 6000 });
   } finally {
     isSavingState.value = false;
@@ -1138,7 +1140,7 @@ async function handleLoadState(): Promise<void> {
       claimedAt.value,
     );
   } catch (err) {
-    console.warn("[streaming] Could not load state:", err);
+    console.error("[streaming] Could not load state:", err);
     snackbar.error(t("play.stream-load-state-failed"), { timeout: 6000 });
   } finally {
     isLoadingState.value = false;
@@ -1162,7 +1164,7 @@ async function handleSwapDisc(): Promise<void> {
     );
     showDiscSwap.value = false;
   } catch (err) {
-    console.warn("[streaming] Could not swap disc:", err);
+    console.error("[streaming] Could not swap disc:", err);
     snackbar.error(t("play.swap-disc-failed"), { timeout: 6000 });
   } finally {
     isSwappingDisc.value = false;

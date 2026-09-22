@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple
 
 from handler.filesystem import fs_asset_handler
-from handler.streaming import saves, states, webstation
+from handler.streaming import broker, saves, states, webstation
 from handler.streaming.config import ResolvedContainer, emulator_labels
 from logger.logger import log
 from models.assets import Save, State
@@ -24,6 +24,14 @@ from models.rom import Rom
 from utils.zip_cache import ensure_zipfile_writable
 
 _MANIFEST_NAME = ".broker-manifest.json"
+
+# A base or foreign archive's nested zip entries are trusted only for their
+# own central-directory metadata (`info.file_size`) until charged here, never
+# for their compressed size: a small, highly compressible upload could
+# otherwise expand far past what it looked like on disk. Reuses the same
+# ceiling as any other stored save archive rather than inventing a second one.
+_MAX_EXPANDED_BYTES = broker.SAVE_FILE_MAX_BYTES
+_MAX_MEMBERS = 2000
 
 
 @dataclass(frozen=True)
@@ -80,7 +88,26 @@ def _read_base_manifest(base_zf: zipfile.ZipFile) -> dict[str, Any] | None:
 _Staged = dict[str, tuple[bytes, dict[str, Any]]]
 
 
-def _write_member(member: ForeignMember, staged: _Staged) -> None:
+@dataclass
+class _ArchiveBudget:
+    """Cumulative expanded-size and member-count budget for one archive
+    build, charged from each entry's own metadata before it is read."""
+
+    bytes_left: int = _MAX_EXPANDED_BYTES
+    members_left: int = _MAX_MEMBERS
+
+    def charge(self, size: int) -> None:
+        self.bytes_left -= size
+        self.members_left -= 1
+        if self.bytes_left < 0 or self.members_left < 0:
+            raise ValueError(
+                "import archive exceeds the expanded-size or member-count limit"
+            )
+
+
+def _write_member(
+    member: ForeignMember, staged: _Staged, budget: _ArchiveBudget
+) -> None:
     """Stage one foreign member's own inner entries (or itself, when not a
     zip) by archive path. A later write at the same path replaces an
     earlier one rather than duplicating it, matching how a zip reader
@@ -93,12 +120,14 @@ def _write_member(member: ForeignMember, staged: _Staged) -> None:
                 name = _safe_name(info.filename)
                 if name is None:
                     continue
+                budget.charge(info.file_size)
                 path = f".import/{member.kind}/{name}"
                 staged[path] = (
                     inner.read(info.filename),
                     {"path": path, "kind": member.kind, "origin": member.origin},
                 )
         return
+    budget.charge(len(member.content))
     name = _safe_name(member.name) or "data"
     path = f".import/{member.kind}/{name}"
     staged[path] = (
@@ -130,6 +159,7 @@ def build_import_archive(
     ensure_zipfile_writable()
     strip_state = any(m.kind == "state" for m in members)
     staged: _Staged = {}
+    budget = _ArchiveBudget()
     if base is not None:
         base_name, base_content = base
         try:
@@ -158,12 +188,13 @@ def build_import_archive(
                         and entry.get("kind") == "state"
                     ):
                         continue
+                    budget.charge(info.file_size)
                     staged[name] = (
                         base_zf.read(info.filename),
                         entry if entry is not None else {"path": name, "kind": "save"},
                     )
     for member in members:
-        _write_member(member, staged)
+        _write_member(member, staged, budget)
 
     carried = [entry for _content, entry in staged.values()]
     out = io.BytesIO()
@@ -211,8 +242,9 @@ async def hydrate_import_archive(
     """Build this launch's one archive (native base plus any foreign
     `.import/` members) and upload it.
 
-    `state`, when given, is always foreign: a native resume state never
-    reaches this function, it stays on the ordinary state-push path.
+    `state` rides here whenever the container takes no separate state push:
+    a foreign pick always, and a native one on an archive-resume container
+    (DuckStation, RPCS3), since a push after activate would be refused.
 
     Returns:
         The container path `activate`'s `save.archive` wants (None when

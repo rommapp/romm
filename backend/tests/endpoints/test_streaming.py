@@ -5340,6 +5340,41 @@ def test_build_import_archive_strips_dotfiles_and_macosx_junk():
         )
 
 
+def test_archive_budget_charges_bytes_and_members():
+    budget = imports._ArchiveBudget(bytes_left=10, members_left=2)
+    budget.charge(4)
+    assert budget.bytes_left == 6
+    assert budget.members_left == 1
+
+
+def test_archive_budget_raises_once_the_byte_budget_is_exceeded():
+    budget = imports._ArchiveBudget(bytes_left=10, members_left=2000)
+    with pytest.raises(ValueError):
+        budget.charge(11)
+
+
+def test_archive_budget_raises_once_the_member_budget_is_exceeded():
+    budget = imports._ArchiveBudget(bytes_left=1_000_000, members_left=1)
+    budget.charge(1)
+    with pytest.raises(ValueError):
+        budget.charge(1)
+
+
+def test_build_import_archive_rejects_a_foreign_member_over_the_expanded_byte_budget():
+    """A member's own byte length is charged before it is staged, so an
+    oversized upload is rejected rather than fully expanded in memory."""
+    member = imports.ForeignMember(
+        kind="save", name="Game.srm", content=b"x" * 10, origin="standalone"
+    )
+    real_budget = imports._ArchiveBudget
+    with patch(
+        "handler.streaming.imports._ArchiveBudget",
+        lambda: real_budget(bytes_left=5, members_left=2000),
+    ):
+        with pytest.raises(ValueError):
+            imports.build_import_archive(rom_id=7, base=None, members=[member])
+
+
 def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
     rom: Rom, admin_user: User
 ):
@@ -5681,6 +5716,7 @@ def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
                 resume_pushed=False,
                 resume_after_launch=False,
                 resume_via_import=False,
+                resume_needs_import=False,
                 memory_card_synced=False,
                 multiplayer=False,
                 blank_card_id=None,
@@ -5732,6 +5768,7 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
                 resume_pushed=False,
                 resume_after_launch=False,
                 resume_via_import=False,
+                resume_needs_import=False,
                 memory_card_synced=False,
                 multiplayer=False,
                 blank_card_id=None,
@@ -5841,6 +5878,7 @@ def test_run_launch_skips_the_state_push_when_resuming_via_import(
                 resume_pushed=False,
                 resume_after_launch=True,
                 resume_via_import=True,
+                resume_needs_import=True,
                 memory_card_synced=False,
                 multiplayer=False,
                 blank_card_id=None,
@@ -6718,6 +6756,54 @@ def test_an_exit_state_resume_is_the_activate_slot_alone(
     push.assert_not_called()
     assert _launch_ready(sent)["resume"] is True
     assert hydrate.call_args.kwargs["resume_pushed"] is True
+
+
+@pytest.mark.parametrize(
+    ("emulator", "older_name", "newer_name"),
+    [
+        (
+            "duckstation",
+            "SLUS-00594_resume.20260917-010000000000.sav",
+            "SLUS-00594_resume.20260918-010000000000.sav",
+        ),
+        (
+            "rpcs3",
+            "BLUS30443_1.20260917-010000000000.SAVESTAT",
+            "BLUS30443_1.20260918-010000000000.SAVESTAT",
+        ),
+    ],
+)
+def test_an_older_exit_state_resume_rides_the_import_archive(
+    client, access_token, rom: Rom, admin_user: User, emulator, older_name, newer_name
+):
+    """Picking anything but the newest capture on one of these containers must
+    still reach the game: the save archive on its own only ever carries the
+    newest exit state, so an older pick needs the import channel or it is
+    silently swapped for a state the player never chose."""
+    older = db_state_handler.add_state(
+        _state_for(rom, admin_user, older_name, emulator)
+    )
+    db_state_handler.add_state(_state_for(rom, admin_user, newer_name, emulator))
+    activate = MagicMock(return_value={"url": "/room/x"})
+    upload = MagicMock(return_value="rom-1.zip")
+    with _streaming({**_webstation_for(rom), "emulator": emulator}):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch(
+                "handler.streaming.imports.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=lambda path: path.encode()),
+            ),
+            patch("handler.streaming.imports.webstation.upload_archive", upload),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id, state_id=older.id)
+    assert r.status_code == 202
+    upload.assert_called_once()
+    uploaded_bytes = upload.call_args.args[2]
+    with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
+        assert any(name.startswith(".import/state/") for name in zf.namelist())
+    assert _launch_ready(sent)["resume"] is True
 
 
 def test_webstation_claim_without_a_state_boots_clean(client, access_token, rom: Rom):
