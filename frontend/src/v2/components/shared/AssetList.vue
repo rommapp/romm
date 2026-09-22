@@ -48,8 +48,11 @@ interface SlotGroup {
   owner: AssetOwner | null;
   /** Favorites first, then newest first. */
   versions: Asset[];
-  /** Carried separately because a heart, not recency, decides the lead row. */
-  newestId: number;
+  /** Carried because a heart, not recency, decides which row leads. */
+  newest: Asset | null;
+  /** The two halves of `versions` while the band is folded. */
+  pinned: Asset[];
+  hidden: Asset[];
 }
 
 const props = withDefaults(
@@ -119,7 +122,9 @@ const groups = computed<SlotGroup[]>(() => {
         slot: null,
         owner: null,
         versions,
-        newestId: newest(props.assets)?.id ?? -1,
+        newest: null,
+        pinned: versions,
+        hidden: [],
       },
     ];
   }
@@ -134,7 +139,9 @@ const groups = computed<SlotGroup[]>(() => {
         slot,
         owner: ownerOf(asset),
         versions: [],
-        newestId: -1,
+        newest: null,
+        pinned: [],
+        hidden: [],
       };
       byKey.set(key, group);
     }
@@ -144,13 +151,16 @@ const groups = computed<SlotGroup[]>(() => {
     group.slot === null ? 2 : group.slot === AUTOSAVE_SLOT ? 0 : 1;
   const list = [...byKey.values()];
   for (const group of list) {
-    group.newestId = newest(group.versions)?.id ?? -1;
+    group.newest = newest(group.versions);
     group.versions.sort((a, b) => byFavoriteFirst(a, b) || byUpdatedDesc(a, b));
+    // Folding hides older versions, never the newest save nor a favorited one.
+    for (const asset of group.versions) {
+      const pinned = asset.is_favorite || asset.id === group.newest?.id;
+      (pinned ? group.pinned : group.hidden).push(asset);
+    }
   }
   // Bands still rank on their newest save: a heart reorders rows, not slots.
-  const newestOf = (group: SlotGroup) =>
-    group.versions.find((asset) => asset.id === group.newestId) ??
-    group.versions[0];
+  const newestOf = (group: SlotGroup) => group.newest ?? group.versions[0];
   return list.sort(
     (a, b) => rank(a) - rank(b) || byUpdatedDesc(newestOf(a), newestOf(b)),
   );
@@ -162,29 +172,15 @@ const fold = useGroupFold<SlotGroup>({
   keyOf: (group) => group.key,
   holdsSelection: (group) =>
     props.selectable &&
-    group.versions.some(
-      (asset) =>
-        asset.id === props.selectedId &&
-        !asset.is_favorite &&
-        asset.id !== group.newestId,
-    ),
+    group.hidden.some((asset) => asset.id === props.selectedId),
   defaultOpen: () => false,
   selectedId: () => props.selectedId,
 });
 function isExpanded(group: SlotGroup): boolean {
   return !grouped.value || fold.isOpen(group);
 }
-// Folding hides older versions, never the newest save nor a favorited one.
-function foldedVersions(group: SlotGroup): Asset[] {
-  return group.versions.filter(
-    (asset) => asset.is_favorite || asset.id === group.newestId,
-  );
-}
 function visibleVersions(group: SlotGroup): Asset[] {
-  return isExpanded(group) ? group.versions : foldedVersions(group);
-}
-function hiddenCount(group: SlotGroup): number {
-  return group.versions.length - foldedVersions(group).length;
+  return isExpanded(group) ? group.versions : group.pinned;
 }
 
 const fadeIndex = computed(() =>
@@ -278,7 +274,7 @@ const fadeIndex = computed(() =>
                     :show-emulator="type === 'state'"
                     :latest="
                       grouped &&
-                      asset.id === group.newestId &&
+                      asset.id === group.newest?.id &&
                       group.versions.length > 1
                     "
                   />
@@ -327,7 +323,7 @@ const fadeIndex = computed(() =>
         </ul>
 
         <RBtn
-          v-if="grouped && hiddenCount(group) > 0"
+          v-if="grouped && group.hidden.length > 0"
           class="r-asset-list__fold"
           variant="text"
           size="x-small"
@@ -340,7 +336,7 @@ const fadeIndex = computed(() =>
           {{
             isExpanded(group)
               ? t("play.hide-older-versions")
-              : t("play.show-older-versions", hiddenCount(group))
+              : t("play.show-older-versions", group.hidden.length)
           }}
         </RBtn>
       </li>

@@ -9,23 +9,21 @@ def normalize_asset_labels(labels: list[str]) -> list[str]:
     Raises:
         HTTPException: if a label is too long or there are too many of them.
     """
-    cleaned: list[str] = []
-    seen: set[str] = set()
+    # Keyed by the folded form, so the first spelling of a label wins.
+    cleaned: dict[str, str] = {}
     for label in labels:
         trimmed = label.strip()
-        if not trimmed or trimmed.casefold() in seen:
+        if not trimmed:
             continue
         if len(trimmed) > ASSET_LABEL_MAX_LENGTH:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Labels cannot exceed {ASSET_LABEL_MAX_LENGTH} characters",
             )
-        seen.add(trimmed.casefold())
-        cleaned.append(trimmed)
-
-    if len(cleaned) > ASSET_LABELS_MAX:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"An asset cannot carry more than {ASSET_LABELS_MAX} labels",
-        )
-    return cleaned
+        cleaned.setdefault(trimmed.casefold(), trimmed)
+        if len(cleaned) > ASSET_LABELS_MAX:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"An asset cannot carry more than {ASSET_LABELS_MAX} labels",
+            )
+    return list(cleaned.values())

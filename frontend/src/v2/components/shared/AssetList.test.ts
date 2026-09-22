@@ -58,9 +58,8 @@ function mountList(
     assets?: SaveSchema[];
   } = {},
 ) {
-  const { assets, ...rest } = props;
   return mount(AssetList, {
-    props: { assets: assets ?? library(), type: "save", ...rest },
+    props: { assets: library(), type: "save", ...props },
     global: { stubs },
   });
 }

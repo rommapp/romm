@@ -31,6 +31,14 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const hasLabels = computed(() => (props.asset.labels ?? []).length > 0);
+const favoriteLabel = computed(() =>
+  props.asset.is_favorite
+    ? t("rom.remove-from-favorites")
+    : t("rom.add-to-favorites"),
+);
+const labelsLabel = computed(() =>
+  hasLabels.value ? t("rom.edit-labels") : t("rom.add-labels"),
+);
 </script>
 
 <template>
@@ -43,16 +51,8 @@ const hasLabels = computed(() => (props.asset.labels ?? []).length > 0);
       size="small"
       :color="asset.is_favorite ? 'primary' : undefined"
       :loading="favoriting"
-      :tooltip="
-        asset.is_favorite
-          ? t('rom.remove-from-favorites')
-          : t('rom.add-to-favorites')
-      "
-      :aria-label="
-        asset.is_favorite
-          ? t('rom.remove-from-favorites')
-          : t('rom.add-to-favorites')
-      "
+      :tooltip="favoriteLabel"
+      :aria-label="favoriteLabel"
       :aria-pressed="!!asset.is_favorite"
       @click="emit('toggleFavorite')"
     />
@@ -62,8 +62,8 @@ const hasLabels = computed(() => (props.asset.labels ?? []).length > 0);
       variant="text"
       size="small"
       :color="hasLabels ? 'primary' : undefined"
-      :tooltip="hasLabels ? t('rom.edit-labels') : t('rom.add-labels')"
-      :aria-label="hasLabels ? t('rom.edit-labels') : t('rom.add-labels')"
+      :tooltip="labelsLabel"
+      :aria-label="labelsLabel"
       @click="emit('editLabels')"
     />
     <RBtn

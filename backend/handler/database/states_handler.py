@@ -134,9 +134,7 @@ class DBStatesHandler(DBBaseHandler):
             touch: False keeps `updated_at`, since annotating is not a write
                 to the bytes and device sync reads it to detect staleness.
         """
-        values = dict(data)
-        if not touch:
-            values.setdefault("updated_at", State.updated_at)
+        values = data if touch else {**data, "updated_at": State.updated_at}
         session.execute(
             update(State)
             .where(State.id == id)

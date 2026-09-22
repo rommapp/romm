@@ -386,9 +386,6 @@ const emptyText = computed(() =>
 }
 
 .r-asset-preview__clear {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   appearance: none;
   border: 1px solid color-mix(in srgb, white 22%, transparent);
   background: color-mix(in srgb, black 55%, transparent);
@@ -419,11 +416,6 @@ const emptyText = computed(() =>
 /* Off the screenshot the overlay-style clear button reads too heavy
    against a light surface; switch to a tonal pill. */
 .r-asset-preview__clear--inline {
-  position: relative;
-  /* The stage variant is absolutely placed; in flow those offsets would push
-     the button off the centre the layout already gives it. */
-  top: auto;
-  right: auto;
   flex-shrink: 0;
   border-color: var(--r-color-border);
   background: var(--r-color-bg-elevated);
@@ -490,6 +482,12 @@ const emptyText = computed(() =>
 
 .r-asset-preview__labels {
   row-gap: 6px;
+}
+
+.r-asset-preview__stage .r-asset-preview__clear {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 
 .r-asset-preview__stage-fav {

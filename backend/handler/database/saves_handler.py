@@ -235,9 +235,7 @@ class DBSavesHandler(DBBaseHandler):
             touch: False keeps `updated_at`, since annotating is not a write
                 to the bytes and device sync reads it to detect staleness.
         """
-        values = dict(data)
-        if not touch:
-            values.setdefault("updated_at", Save.updated_at)
+        values = data if touch else {**data, "updated_at": Save.updated_at}
         session.execute(
             update(Save)
             .where(Save.id == id)

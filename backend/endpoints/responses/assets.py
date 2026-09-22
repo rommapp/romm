@@ -44,7 +44,8 @@ class AssetAnnotations(BaseModel):
 
 # A shared save or state shows its author's name, never their annotations:
 # a label names a run for its owner and is not part of what sharing offers.
-HIDDEN_ASSET_ANNOTATIONS: dict[str, Any] = {"is_favorite": False, "labels": []}
+# Derived from the model so a field added there is masked without a second edit.
+HIDDEN_ASSET_ANNOTATIONS: dict[str, Any] = AssetAnnotations().model_dump()
 
 
 class ScreenshotSchema(BaseAsset):
