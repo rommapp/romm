@@ -75,7 +75,7 @@ class TestIsAnimated:
         pages = [Image.new("RGB", (4, 4)), Image.new("RGB", (4, 4), "red")]
         pages[0].save(buf, format="TIFF", save_all=True, append_images=pages[1:])
         with Image.open(buf) as img:
-            assert img.is_animated
+            assert getattr(img, "is_animated", False)
             assert not is_animated(img)
 
     def test_over_pixel_budget(self, monkeypatch: pytest.MonkeyPatch):

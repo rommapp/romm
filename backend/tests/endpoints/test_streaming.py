@@ -219,6 +219,13 @@ def _auth(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _load_session(key: str) -> dict[str, Any]:
+    """The session stored at `key`, failing the test if nothing is there."""
+    raw = asyncio.run(async_cache.get(key))
+    assert raw is not None, f"no session stored at {key}"
+    return json.loads(raw)
+
+
 def _claim(client, token, rom_id, state_id=None, save_id=None):
     body = {"rom_id": rom_id}
     if state_id is not None:
@@ -2094,8 +2101,7 @@ def test_swap_disc_broker_has_nothing_to_call_on_a_legacy_container():
 def _age_session_on(container: dict, seconds: int) -> None:
     """Rewrite one container's stored session last_seen to `seconds` ago."""
     key = session_store.session_redis_key(_key_of(container))
-    raw = asyncio.run(async_cache.get(key))
-    session = json.loads(raw)
+    session = _load_session(key)
     session["last_seen"] = (
         datetime.now(timezone.utc) - timedelta(seconds=seconds)
     ).isoformat()
@@ -2156,11 +2162,9 @@ def test_takeover_leaves_the_displaced_owner_a_notice(
     container = _container_for(rom)
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        owner = json.loads(
-            asyncio.run(
-                async_cache.get(session_store.session_redis_key(_key_of(container)))
-            )
-        )["user_id"]
+        owner = _load_session(session_store.session_redis_key(_key_of(container)))[
+            "user_id"
+        ]
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
         with patch("handler.streaming.commands.stop", return_value=None):
             _claim_ok(client, viewer_access_token, rom.id)
@@ -2234,7 +2238,7 @@ def test_heartbeat_refreshes_last_seen(client, access_token, rom: Rom):
     assert r.status_code == 200
     assert r.json()["status"] == "active"
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
-    session = json.loads(asyncio.run(async_cache.get(key)))
+    session = _load_session(key)
     assert not session_store.session_is_stale(session)
 
 
@@ -2270,7 +2274,7 @@ def test_heartbeat_does_not_revive_a_draining_session(client, access_token, rom:
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         key = session_store.session_redis_key(_key_of(container))
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        session = _load_session(key)
         session["draining"] = True
         asyncio.run(async_cache.set(key, json.dumps(session)))
 
@@ -2304,7 +2308,7 @@ def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
                 headers=_auth(access_token),
             )
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        session = _load_session(key)
 
     assert r.json()["status"] == "active"
     assert session["disc_file_id"] == 4242
@@ -2378,7 +2382,7 @@ def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
             headers=_auth(access_token),
         )
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
-    session = json.loads(asyncio.run(async_cache.get(key)))
+    session = _load_session(key)
     assert session_store.session_is_stale(session)
 
 
@@ -2534,7 +2538,7 @@ def _unstamp_launch(container: dict) -> None:
     """Drop the launched_at stamp, leaving the record in the state a claim
     holds while its activate is still running."""
     key = session_store.session_redis_key(_key_of(container))
-    session = json.loads(asyncio.run(async_cache.get(key)))
+    session = _load_session(key)
     session.pop("launched_at", None)
     asyncio.run(async_cache.set(key, json.dumps(session)))
 
@@ -2999,7 +3003,7 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     key = session_store.session_redis_key(_key_of(container))
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        session = _load_session(key)
         session.pop("rom_id")
         asyncio.run(
             async_cache.set(
@@ -3044,7 +3048,7 @@ def test_drain_marker_is_not_claimed_over_a_takeover():
             asyncio.run(session_store.claim_drain_marker("cas-takeover", claim)) is None
         )
         # The claim that took over is still there, untouched.
-        current = json.loads(asyncio.run(async_cache.get(key)))
+        current = _load_session(key)
         assert current["claimed_at"] == "2026-01-01T00:05:00+00:00"
         assert "draining" not in current
     finally:
@@ -3172,7 +3176,7 @@ def test_work_running_under_a_claim_keeps_it_off_the_stale_list():
             patch.object(session_store, "_HOLD_CEILING_SECONDS", 0),
         ):
             asyncio.run(session_store.hold_session_claim("cas-hold-claim", claim))
-        current = json.loads(asyncio.run(async_cache.get(key)))
+        current = _load_session(key)
         assert current["last_seen"] != "2026-01-01T00:00:00+00:00"
         assert not session_store.session_is_stale(current)
     finally:
@@ -3193,7 +3197,7 @@ def test_holding_a_claim_stops_once_it_is_somebody_else_s():
                     session_store.hold_session_claim("cas-hold-lost", claim), 5
                 )
             )
-        current = json.loads(asyncio.run(async_cache.get(key)))
+        current = _load_session(key)
         assert current["claimed_at"] == "2026-01-01T00:05:00+00:00"
         assert "last_seen" not in current
     finally:
