@@ -88,7 +88,12 @@ class AuthHandler:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def verify_password(self, plain_password, hashed_password):
-        return self.pwd_context.verify(plain_password, hashed_password)
+        try:
+            return self.pwd_context.verify(plain_password, hashed_password)
+        except ValueError:
+            # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash,
+            # and passlib raises on one it cannot identify.
+            return False
 
     def get_password_hash(self, password):
         return self.pwd_context.hash(password)
