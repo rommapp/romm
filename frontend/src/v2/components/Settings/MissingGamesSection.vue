@@ -44,6 +44,8 @@ import {
 } from "@/v2/components/Gallery/listColumns";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
+import { useListExpansion } from "@/v2/composables/useListExpansion";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
@@ -142,9 +144,31 @@ const virtualItems = computed<VItem[]>(() => {
   return items;
 });
 
-function vItemHeight(_item: unknown): number {
-  return LIST_ROW_HEIGHT_PX;
+// The rows are the gallery's, detail panel and all, so their heights come
+// from the same place.
+const listExpansion = useListExpansion();
+
+function vItemHeight(item: unknown): number {
+  const v = item as VItem;
+  return isListRow(v)
+    ? listExpansion.rowHeight(v.position)
+    : LIST_ROW_HEIGHT_PX;
 }
+
+// The open row's slot is reserved at its settled height; these are the frames
+// on the way there (see `useListExpansion`).
+const expandedIndex = computed(() => {
+  const position = listExpansion.expandedPosition.value;
+  if (position == null) return -1;
+  return virtualItems.value.findIndex(
+    (item) => isListRow(item) && item.position === position,
+  );
+});
+const offsetShift = computed(() =>
+  expandedIndex.value < 0
+    ? undefined
+    : { fromIndex: expandedIndex.value, px: listExpansion.shiftPx.value },
+);
 
 interface VListRow {
   kind: "list-row";
@@ -211,6 +235,7 @@ function onViewportRange(range: { first: number; last: number }) {
 // (rows 0..N are visible in both), so the scroller may not re-emit. Sync
 // immediately against the current viewport so the first window loads.
 watch(virtualItems, () => {
+  listExpansion.collapse();
   if (fetchDebounceTimer) {
     clearTimeout(fetchDebounceTimer);
     fetchDebounceTimer = null;
@@ -267,6 +292,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  // A press still in flight would otherwise fire into the next surface.
+  useGallerySelectionInput().cancel();
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
   galleryFilter.setFilterMissing(prevFilterMissing);
   galleryFilter.setSelectedFilterPlatforms(prevSelectedPlatforms);
@@ -369,6 +396,7 @@ onBeforeUnmount(() => {
       <RVirtualScroller
         :items="virtualItems"
         :get-item-height="vItemHeight"
+        :offset-shift="offsetShift"
         :overscan="25"
         class="r-v2-missing__scroller"
         @update:viewport-range="onViewportRange"
@@ -378,6 +406,10 @@ onBeforeUnmount(() => {
             v-if="isListRow(item as VItem)"
             :position="rowPosition(item)"
             :webp="supportsWebp"
+            expandable
+            :expanded="listExpansion.isExpanded(rowPosition(item))"
+            :detail-height="listExpansion.panelHeight(rowPosition(item))"
+            @toggle-expand="listExpansion.toggle(rowPosition(item))"
           />
           <GameListSkeletonRow v-else />
         </template>
