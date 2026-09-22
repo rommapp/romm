@@ -116,6 +116,8 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
+# A wildcard origin here would make Starlette echo any caller's Origin with
+# credentials attached, so this list only ever holds explicit origins.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ROMM_CORS_ALLOWED_ORIGINS,
