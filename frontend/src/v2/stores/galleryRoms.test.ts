@@ -2,6 +2,7 @@ import { flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 // Import after the mock so the store binds to the mocked rom API.
 import storeGalleryRoms, {
   SELECT_ALL_PAGE_SIZE,
@@ -189,7 +190,8 @@ describe("galleryRoms windowed fetch", () => {
     expect(galleryFilter.filterGenres).toEqual(["RPG", "Shooter"]);
   });
 
-  it("coerces null filter_value lists from the API", async () => {
+  it("coerces null or missing filter_value lists from the API", async () => {
+    // Publishers and developers are omitted, as an older API sends them.
     getRoms.mockResolvedValue({
       data: {
         total: 1,
@@ -201,8 +203,6 @@ describe("galleryRoms windowed fetch", () => {
           franchises: null,
           collections: null,
           companies: null,
-          publishers: null,
-          developers: null,
           age_ratings: null,
           regions: null,
           languages: null,
@@ -212,12 +212,18 @@ describe("galleryRoms windowed fetch", () => {
         },
       },
     });
+    storePlatforms().set([{ id: 1 } as Platform]);
     const galleryFilter = storeGalleryFilter();
+    galleryFilter.setFilterGenres(["RPG"]);
     const store = storeGalleryRoms();
 
     await store.fetchInitialMetadata();
 
+    // The bootstrap swallows errors, so this proves nothing threw midway.
+    expect(store.metadataLoaded).toBe(true);
+    expect(galleryFilter.filterPlatforms).toEqual([]);
     expect(galleryFilter.filterGenres).toEqual([]);
+    expect(galleryFilter.filterDevelopers).toEqual([]);
     expect(galleryFilter.filterTags).toEqual([]);
   });
 

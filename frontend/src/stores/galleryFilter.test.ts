@@ -13,6 +13,7 @@ describe("galleryFilter filter option lists", () => {
     store.setFilterGenres(null);
     expect(store.filterGenres).toEqual([]);
 
+    store.setFilterTags(["Retro"]);
     store.setFilterTags(undefined);
     expect(store.filterTags).toEqual([]);
   });

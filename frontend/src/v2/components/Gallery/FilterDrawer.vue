@@ -596,7 +596,7 @@ function saveAsSmartCollection() {
           <RSelect
             :model-value="s.selected.value"
             :items="
-              (s.items.value ?? []).map((raw) => ({
+              s.items.value.map((raw) => ({
                 title: s.toTitle ? s.toTitle(raw) : raw,
                 value: raw,
               }))
