@@ -1,9 +1,5 @@
-// The only module that touches `window.rommNative`, the bridge the RomM
-// desktop shell injects into the page it loads (see `@/types/rommNative`).
-//
-// The shell loads whatever frontend its server serves, so a shell older than
-// this server may be missing methods declared here: every call feature-detects
-// its own and absence reads as "no native play".
+// The only module that touches `window.rommNative`, the bridge the desktop shell
+// injects. Every call feature-detects its own: a shell serves its own frontend.
 import type {
   LaunchRequest,
   LaunchResult,
@@ -22,31 +18,26 @@ function hasMethod(name: keyof RommNativeBridge): boolean {
   return typeof bridge()?.[name] === "function";
 }
 
-/** Whether this shell advertises a behaviour a method's presence cannot express:
- *  a field it fills in, a change to what an existing method does. Read from the
- *  list rather than from a parsed `shellVersion`, which is for display only. */
+/** Whether this shell advertises a behaviour a method's presence cannot express.
+ *  Read from the list, not `shellVersion`, which is for display only. */
 export function hasCapability(name: ShellCapability): boolean {
   return bridge()?.capabilities?.includes(name) === true;
 }
 
-/** Whether a native launch moves saves to and from the server. Without it the
- *  saves a launch reads and writes stay on this disk, which is what a shell
- *  predating save sync does, so nothing is broken by asking. */
+/** Whether a native launch moves saves to and from the server. A shell without
+ *  it leaves them on this disk. */
 export function canSyncSaves(): boolean {
   return isNativeShell() && hasCapability("save-sync");
 }
 
-/** Whether a native launch honours the page's full-screen choice. A shell
- *  without it starts the emulator however the user's own emulator config says,
- *  so the switch is the browser player's alone. */
+/** Whether a native launch honours the page's full-screen choice, which is
+ *  otherwise the browser player's alone. */
 export function canLaunchFullscreen(): boolean {
   return isNativeShell() && hasCapability("launch-fullscreen");
 }
 
-/** Whether a native launch honours the page's disc choice. A shell without it
- *  boots a multi-disc set whole and changes disc in the emulator's own menu,
- *  so the selector is the browser player's alone. The choice is sent either
- *  way: an older shell drops a field it does not know. */
+/** Whether a native launch honours the page's disc choice, which is otherwise
+ *  the browser player's alone. Sent regardless: a shell drops unknown fields. */
 export function canPickDisc(): boolean {
   return isNativeShell() && hasCapability("disc-choice");
 }
@@ -62,14 +53,12 @@ export function nativeShellVersion(): string | null {
   return bridge()?.shellVersion ?? null;
 }
 
-/** The shell rejects a bulk query larger than this, whole, so a library with
- *  more platforms than it has to be asked in batches. Vendored from the
- *  shell's `MAX_PLATFORM_QUERIES`, like the types above. */
+/** The shell rejects a bulk query larger than this, whole, so a bigger library
+ *  is asked in batches. Vendored from the shell's own limit. */
 const MAX_PLATFORM_QUERIES = 512;
 
 /** Ask which of these platforms the shell can launch, keyed by platform slug.
- *  Never throws: a probe that fails means no native play, which is what the
- *  empty answer says. */
+ *  Never throws: a failed probe means no native play, which is what it answers. */
 export async function fetchPlatformSupport(
   queries: PlatformSupportQuery[],
 ): Promise<Record<string, PlatformSupport>> {
@@ -93,10 +82,8 @@ export async function fetchPlatformSupport(
       return answers;
     }
     if (typeof native.getPlatformSupport !== "function") return {};
-    // One call per platform on a shell without the bulk method. Asked in the
-    // same batches, so a library of folder-named platforms cannot open a
-    // renderer-to-main call per platform at once, which is the storm the bulk
-    // method exists to avoid.
+    // One call per platform here, in the same batches: a full library would
+    // otherwise open a renderer-to-main call per platform at once.
     const answers: Record<string, PlatformSupport> = {};
     for (let at = 0; at < queries.length; at += MAX_PLATFORM_QUERIES) {
       const batch = queries.slice(at, at + MAX_PLATFORM_QUERIES);
@@ -122,8 +109,7 @@ export async function fetchPlatformSupport(
 }
 
 /** Start a ROM in a locally installed emulator. An older shell drops the error
- *  code crossing its IPC boundary, so the code is read off the `failed` launch
- *  state emitted alongside the rejection. */
+ *  code crossing its IPC boundary, so it is read off the `failed` state. */
 export function launchNative(request: LaunchRequest): Promise<LaunchResult> {
   const native = bridge();
   if (typeof native?.launch !== "function") {
@@ -132,16 +118,8 @@ export function launchNative(request: LaunchRequest): Promise<LaunchResult> {
   return native.launch(request);
 }
 
-/**
- * Abort a launch that is still downloading. A running emulator is left alone
- * by the shell, so this is only meaningful before the game starts.
- *
- * Answers whether the request reached the shell, which is all a `Promise<void>`
- * can tell us: the shell's `cancel` returns silently both when it knows no such
- * launch and when the emulator has already started. What actually happened is
- * read off the launch state, where an aborted transfer arrives as a failure the
- * caller matches against the cancel it asked for.
- */
+/** Abort a still-downloading launch. Answers whether the request reached the
+ *  shell: `cancel` is silent either way, so the outcome comes off the state. */
 export async function cancelNative(romId: number): Promise<boolean> {
   const native = bridge();
   if (typeof native?.cancel !== "function") return false;
@@ -154,9 +132,8 @@ export async function cancelNative(romId: number): Promise<boolean> {
   }
 }
 
-/** The message out of anything the bridge throws. A shell carrying
- *  rommapp/romm-desktop#11 rejects with a plain LaunchFailure rather than an
- *  Error, which String() renders as "[object Object]". */
+/** The message out of anything the bridge throws, including a rejection that is
+ *  a plain object rather than an Error. */
 export function nativeErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "object" && error !== null && "message" in error) {
@@ -187,9 +164,8 @@ export function canOpenNativeSettings(): boolean {
   return hasMethod("openSettings");
 }
 
-/** Ask the shell to show its own settings, answering whether it did. A missing
- *  or unwritable configuration fails here, and a caller that ignored it would
- *  leave the button looking like it does nothing. */
+/** Ask the shell to show its own settings, answering whether it did, so a caller
+ *  can tell a refusal from a press. */
 export async function openNativeSettings(): Promise<boolean> {
   const native = bridge();
   if (typeof native?.openSettings !== "function") return false;

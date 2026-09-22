@@ -50,9 +50,7 @@ const getRom = vi.fn(async (_args: { romId: number }) => ({
 }));
 vi.mock("@/services/api/rom", () => ({ default: { getRom } }));
 // The two rom-shape helpers are stubbed rather than reimplemented: what they
-// answer is `utils`' own test, and what the store does with the answer is this
-// one's. `soleFile` is the knob for "one file on disk" versus "an archive the
-// endpoint builds".
+// answer is `utils`' own test. `soleFile` is the knob for "one file on disk".
 const soleFile = {
   value: null as { full_path: string; file_size_bytes: number } | null,
 };
@@ -187,6 +185,34 @@ describe("useNativeStore.probe", () => {
     await store.probe(["snes"], { force: true });
 
     expect(store.isSupportedPlatform("snes")).toBe(true);
+  });
+
+  // A forced probe can start while the probe from mount is still in flight: the
+  // older reply landing last would undo a newly installed emulator's answer.
+  it("does not let a superseded probe overwrite a newer answer", async () => {
+    let answerOlder:
+      ((answers: Record<string, PlatformSupport>) => void) | undefined;
+    fetchPlatformSupport.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answerOlder = resolve;
+        }),
+    );
+    const store = useNativeStore();
+    const older = store.probe(["snes"]);
+
+    fetchPlatformSupport.mockResolvedValue({
+      snes: { supported: true, emulator: "RetroArch" },
+    });
+    await store.probe(["snes"], { force: true });
+
+    answerOlder?.({
+      snes: { supported: false, reason: "no-emulator-configured" },
+    });
+    await older;
+
+    expect(store.isSupportedPlatform("snes")).toBe(true);
+    expect(store.labelForPlatform("snes")).toBe("RetroArch");
   });
 
   it("asks nothing at all outside the desktop shell", async () => {
@@ -388,9 +414,8 @@ describe("useNativeStore.launch", () => {
   });
 
   it("reads the message off a LaunchFailure, which is not an Error", async () => {
-    // A shell carrying romm-desktop#11 rejects with a plain object, because the
-    // context bridge drops an Error's own properties. String() on it yields
-    // "[object Object]", which is what the user would have been shown.
+    // A shell carrying romm-desktop#11 rejects with a plain object, which
+    // String() renders as "[object Object]" for the user to read.
     launchNative.mockRejectedValue({
       name: "LaunchError",
       code: "already-running",

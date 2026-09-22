@@ -555,10 +555,8 @@ watch(selectedCore, (newSelectedCore) => {
   if (armed?.emulator && armed.emulator !== newSelectedCore) unselectState();
 });
 
-// The shell moves saves on the server's side of this page, before the emulator
-// starts and after it exits, so what was fetched on mount goes stale as soon as
-// a native launch runs. Re-read the rom, which is what carries the save list,
-// and the three things derived from it on the way in.
+// A native launch moves saves on the server's side of this page, so the rom
+// fetched on mount goes stale. Re-read it: it carries the save list.
 async function refreshRomAfterSync(): Promise<void> {
   try {
     const { data } = await romApi.getRom({ romId });
@@ -576,10 +574,14 @@ async function refreshRomAfterSync(): Promise<void> {
   }
 }
 
+// Only what the shell wrote to the server is worth re-reading: a pull writes
+// nothing back, and re-reading it would cost the user their slot and tab.
 watch(
   () => nativeStore.syncFor(romId),
   (outcome) => {
-    if (outcome) void refreshRomAfterSync();
+    if (!outcome) return;
+    if (outcome.action === "uploaded" || outcome.action === "archived")
+      void refreshRomAfterSync();
   },
 );
 

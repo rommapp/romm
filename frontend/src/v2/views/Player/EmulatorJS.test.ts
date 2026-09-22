@@ -433,9 +433,8 @@ describe("EmulatorJS launch screen — what the setup panel claims", () => {
     );
   });
 
-  // Nothing on screen carries over and nothing on it is EmulatorJS' own either:
-  // one core is not a choice, the rom is one file, this shell leaves the
-  // full-screen switch to the browser, and the game has no bezel or BIOS.
+  // Nothing on screen carries over and nothing on it is EmulatorJS' own: one
+  // core, one file, the full-screen switch, and no bezel or BIOS to name.
   it("says nothing when the panel offers nothing to choose", async () => {
     mocks.cores = ["mgba"];
 
@@ -559,8 +558,7 @@ describe("EmulatorJS launch screen — a launch in flight", () => {
 });
 
 // The shell moves saves on the server before the emulator starts and after it
-// exits, so the save list this page fetched on mount is stale by the time a
-// native launch is done with it.
+// exits, so the list this page fetched on mount is stale once a launch is done.
 describe("EmulatorJS launch screen — a save the shell moved", () => {
   function slotItems(wrapper: VueWrapper): unknown[] {
     const select = wrapper
@@ -569,9 +567,8 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
     return (select?.props("items") as unknown[]) ?? [];
   }
 
-  // Not the call count: nothing unmounts the wrappers earlier tests mounted,
-  // and their watchers are still live on the same mock store, so one outcome
-  // re-reads every rom on screen. What this wrapper shows is its own business.
+  // Not the call count: earlier wrappers' watchers are still live on the same
+  // mock store, so one outcome re-reads every rom on screen.
   it("re-reads the rom once the shell reports what happened to the save", async () => {
     const wrapper = await launchScreen();
     expect(slotItems(wrapper)).toHaveLength(2);
@@ -579,10 +576,33 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
     mocks.getRom.mockResolvedValue({
       data: { ...ROM, user_saves: [{ slot: "slots/2" }] },
     });
-    mocks.syncOutcome.value = { action: "downloaded" };
+    mocks.syncOutcome.value = { action: "uploaded" };
     await flushPromises();
 
     expect(slotItems(wrapper)).toHaveLength(3);
+  });
+
+  // A pull changes nothing on the server, and it lands before the emulator
+  // starts, when the panel behind the progress readout is still the user's.
+  it("leaves the list and the choices alone for a pull", async () => {
+    const wrapper = await launchScreen();
+    const slot = wrapper
+      .findAllComponents(RSelect)
+      .find((c) => c.props("info") === "play.slot-tooltip");
+    await slot?.setValue({ kind: "existing", slot: "slots/2" });
+    await flushPromises();
+
+    mocks.getRom.mockResolvedValue({
+      data: { ...ROM, user_saves: [{ slot: "slots/2" }] },
+    });
+    mocks.syncOutcome.value = { action: "downloaded" };
+    await flushPromises();
+
+    expect(slotItems(wrapper)).toHaveLength(2);
+    expect(slot?.props("modelValue")).toEqual({
+      kind: "existing",
+      slot: "slots/2",
+    });
   });
 
   it("leaves the save list alone when the shell says nothing", async () => {

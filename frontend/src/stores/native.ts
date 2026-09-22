@@ -30,11 +30,8 @@ import type { DiscSelection } from "@/v2/utils/playerDisc";
 
 export type { LaunchState, PlatformSupport } from "@/types/rommNative";
 
-/**
- * What the play page has already settled about a session, for the launch that
- * follows. Every field is optional: a caller with no panel behind it, a gallery
- * card, asks for none of it and gets the platform's own answers.
- */
+/** What the play page has already settled about a session. Every field is
+ *  optional: a gallery card with no panel behind it asks for none of it. */
 export interface NativeLaunchChoice {
   /** The core to try first. A name the shell cannot find is one it installs, so
    *  this is honoured even for a core the machine has never had. */
@@ -49,15 +46,8 @@ export interface NativeLaunchChoice {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
-/**
- * Native play through the RomM desktop shell: launching a ROM in a locally
- * installed emulator instead of an in-browser core.
- *
- * Shaped after the streaming store, so the per-platform getters are
- * synchronous: a Play button inside a virtualised gallery cannot await. The
- * answer is a property of the user's own machine, so it is never cached beyond
- * the session.
- */
+/** Native play through the RomM desktop shell. The getters answer synchronously
+ *  and are never cached beyond the session: they describe the user's machine. */
 export const useNativeStore = defineStore("native", () => {
   const configStore = storeConfig();
 
@@ -78,6 +68,11 @@ export const useNativeStore = defineStore("native", () => {
   const support = ref<Record<string, PlatformSupport>>(
     Object.create(null) as Record<string, PlatformSupport>,
   );
+  // The probe that asked about each slug last, so an answer cannot outlive the
+  // request that superseded it: a focus re-probe overlaps the probe still in
+  // flight from mount, and the shell's answer changes between them.
+  let probeSeq = 0;
+  const askedAt = new Map<string, number>();
 
   /** The shell's last word on each launch, keyed by ROM id. */
   const launches = ref<Record<number, LaunchState>>({});
@@ -150,10 +145,8 @@ export const useNativeStore = defineStore("native", () => {
     return names.value[romId] ?? "";
   }
 
-  /** Whether a cancel is outstanding for this ROM. Answers once, so a later
-   *  genuine failure for the same ROM still reports, and callers clear the mark
-   *  on any other ending too: a cancel the shell never took must not silence
-   *  the failure of a launch that went on running. */
+  /** Whether a cancel is outstanding for this ROM, answered once so a genuine
+   *  failure later still reports. Any other ending clears the mark. */
   function consumeCancelled(romId: number): boolean {
     if (!cancelled.value.has(romId)) return false;
     cancelled.value.delete(romId);
@@ -171,11 +164,8 @@ export const useNativeStore = defineStore("native", () => {
         ...stateCount.value,
         [state.romId]: (stateCount.value[state.romId] ?? 0) + 1,
       };
-      // A save moving is not the launch moving. Filed on its own and returned
-      // from, rather than folded into `launches`, so a sync landing mid-launch
-      // cannot read as the launch having ended: the save pull happens after the
-      // ROM is ready and before the emulator starts, and the launch states
-      // around it still have to arrive.
+      // A save moving is not the launch moving: filed apart and returned from,
+      // so a sync landing mid-launch cannot read as the launch having ended.
       if (state.status === "sync") {
         if (state.sync) {
           syncs.value = { ...syncs.value, [state.romId]: state.sync };
@@ -201,16 +191,12 @@ export const useNativeStore = defineStore("native", () => {
     });
   }
 
-  /**
-   * Ask the shell which of these platforms it can launch, and cache the
-   * answers. Platforms already answered are skipped, so this can be called
-   * again as the library grows. The cores come from the same EJS map the
-   * in-browser Play button reads.
+  /** Ask the shell which of these platforms it can launch, and cache the
+   *  answers. Merged rather than cleared, so an affordance never blinks out.
    *
    * Args:
    *   force: re-ask about platforms already answered, for when the machine
-   *     itself may have changed. Answers are merged rather than cleared
-   *     first, so an affordance does not blink out while the shell replies.
+   *     itself may have changed.
    */
   async function probe(
     slugs: string[],
@@ -227,6 +213,8 @@ export const useNativeStore = defineStore("native", () => {
     );
     if (wanted.size === 0) return;
 
+    const seq = ++probeSeq;
+    for (const slug of wanted) askedAt.set(slug, seq);
     const answers = await fetchPlatformSupport(
       [...wanted].map((slug) => ({
         platformSlug: slug,
@@ -240,7 +228,10 @@ export const useNativeStore = defineStore("native", () => {
       support.value,
     );
     for (const [slug, answer] of Object.entries(answers)) {
-      merged[slug.toLowerCase()] = answer;
+      const key = slug.toLowerCase();
+      // A slug a later probe has since asked about belongs to that probe.
+      if (askedAt.get(key) !== seq) continue;
+      merged[key] = answer;
     }
     support.value = merged;
   }
@@ -270,17 +261,13 @@ export const useNativeStore = defineStore("native", () => {
     }
   }
 
-  /**
-   * Hand a ROM to the shell to launch, resolving with an error message only
-   * when the shell never took the request (no bridge, a malformed request, a
-   * game already running). A launch it accepted and then failed is left to
-   * the launch state, whose error code every shell version reports.
+  /** Hand a ROM to the shell to launch, resolving with an error only when the
+   *  shell never took the request: a launch it accepted and then failed is left
+   *  to the launch state.
    *
-   * `choice` is what the play page has already asked the user, so a native
-   * launch honours the same answers as the in-browser one rather than
-   * ignoring the panel they were given in. Everything it leaves out falls back
-   * to what the platform supports, which is what a caller with no page behind
-   * it (a gallery card) has to offer.
+   * Args:
+   *   choice: what the play page has already asked the user, so a native launch
+   *     honours the same answers as the in-browser one.
    */
   async function launch(
     rom: SimpleRom,
@@ -302,10 +289,8 @@ export const useNativeStore = defineStore("native", () => {
     // and both helpers below would answer from the rom's own name. Fetched
     // rather than guessed.
     const detailed = await withRomFiles(rom);
-    // `fs_name` is the served name for an ordinary single-file rom, but a
-    // nested one is served as the file inside it, so without the entries there
-    // is nothing to name the download and the shell would cache it under a name
-    // no emulator opens. Better to say so than to launch something broken.
+    // A nested rom is served as the file inside it, so without the entries there
+    // is nothing to name the download and the shell caches an unopenable name.
     if ((detailed.files ?? []).length === 0 && rom.has_nested_single_file) {
       starting.value.delete(rom.id);
       return "The rom's files could not be read.";
@@ -321,10 +306,8 @@ export const useNativeStore = defineStore("native", () => {
         // neither `fs_name` nor `fs_name` with an extension.
         fileName: getDownloadFileName(detailed),
         platformSlug: rom.platform_slug,
-        // The page's core first, since the shell resolves the first candidate
-        // it finds installed and installs the first one it cannot find. The
-        // rest follow, so a choice whose core turns out not to be published
-        // still lands on something that plays the game.
+        // The page's core first: the shell installs the first candidate it
+        // cannot find, so the rest are there for a core that is not published.
         cores: coresFor(rom, choice.core),
         name: rom.name ?? undefined,
         // Sent whatever the shell advertises: an older one drops an unknown
@@ -356,9 +339,7 @@ export const useNativeStore = defineStore("native", () => {
   }
 
   /** Ask the shell to abort a launch, answering whether the request reached it.
-   *  Delivery is not acceptance: the shell returns silently when the emulator
-   *  has already started, so the mark this leaves only claims a cancellation
-   *  once an aborted transfer actually arrives (see `consumeCancelled`). */
+   *  Delivery is not acceptance: the mark lands when the transfer aborts. */
   async function cancel(romId: number): Promise<boolean> {
     if (!(await cancelNative(romId))) return false;
     cancelled.value.add(romId);
