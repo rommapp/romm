@@ -42,8 +42,9 @@ either one does not get spotlighted again.
 From the notes, pull:
 
 - the Highlights, as candidate features to name,
-- every `> [!WARNING]`, which **must** survive into the announcement (`4.1.0` led
-  with the mandatory `config.yml`, `4.0.0` led with the RCE advisory),
+- every `> [!WARNING]` and `> [!CAUTION]`, which **must** survive into the
+  announcement (`4.1.0` led with the mandatory `config.yml`, `4.0.0` led with the
+  RCE advisory),
 - a rough PR count and whether the release is mostly fixes, which decides the hook.
 
 ## 2. Interview the user, one step at a time
@@ -142,7 +143,7 @@ features:` bullet list when there is a tail.
 
 - Every feature named appears in the release notes.
 - The hook opens on something timely, and the reference matches today's date.
-- Every warning in the notes appears in the announcement.
+- Every warning and caution in the notes appears in the announcement.
 - Every handle, repo URL and number came from the user or from the notes, never
   from you, and every URL is one you have actually seen.
 - No app spotlighted in either of the last two announcements.

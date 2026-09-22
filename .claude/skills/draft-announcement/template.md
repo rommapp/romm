@@ -1,20 +1,16 @@
-<!-- trunk-ignore-all(markdownlint/MD041) -->
-<!-- trunk-ignore-all(markdownlint/MD034) -->
+# Discord announcement skeletons
 
-<!--
-Two skeletons for a RomM Discord announcement. Pick one by how many real
-headliners the release has, drop any section with no content, and stay under
-2000 characters. Bare URLs and loose headings are deliberate: Discord renders
-this, not GitHub.
--->
+Pick a shape by how many real headliners the release has, drop any section with no
+content, and stay under 2000 characters. Bare URLs and loose headings inside the
+skeletons are deliberate: Discord renders them, not GitHub.
 
 ## Bullet shape (a long tail of changes)
 
+```text
 @everyone <one or two sentences: the version in backticks, the angle, what this
 release is about>
 
-<!-- only if the release notes carry a warning -->
-
+<only if the release notes carry a warning:>
 ⚠️ <what the reader must do before upgrading, imperative, bold the breaking part>
 
 <A couple of the bigger items are also included, like:>
@@ -38,12 +34,15 @@ More details on each of these features, and a complete list of changes, can be
 found in the [release notes](https://github.com/rommapp/romm/releases/tag/X.Y.Z).
 
 See you soon! :mario_here_we_go:
-
----
+```
 
 ## Section shape (two to five real headliners)
 
+```text
 @everyone <hook>
+
+<only if the release notes carry a warning:>
+⚠️ <what the reader must do before upgrading, imperative, bold the breaking part>
 
 ### <Feature name>
 
@@ -67,3 +66,4 @@ More details on each of these features, and a complete list of changes, can be
 found in the [release notes](https://github.com/rommapp/romm/releases/tag/X.Y.Z).
 
 See you soon! :mario_here_we_go:
+```
