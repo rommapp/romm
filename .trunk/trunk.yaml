@@ -22,7 +22,6 @@ lint:
     - oxipng
     - pyright
   enabled:
-    - grype@0.110.0
     - pinact@4.0.0
     - dotenv-linter@4.0.0
     - hadolint@2.14.0
