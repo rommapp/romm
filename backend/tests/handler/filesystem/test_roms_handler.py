@@ -2758,15 +2758,15 @@ class TestExtractCHDHash:
 
         chd_file.write_bytes(header)
 
-        # Remove read permissions
-        chd_file.chmod(0o000)
-
-        try:
+        # Root ignores permission bits, so chmod can't simulate this.
+        with patch(
+            "utils.archives.open",
+            create=True,
+            side_effect=PermissionError(13, "Permission denied"),
+        ):
             result = extract_chd_hash(chd_file)
-            assert result == ""
-        finally:
-            # Restore permissions for cleanup
-            chd_file.chmod(0o644)
+
+        assert result == ""
 
     def test_extract_chd_hash_real_header(self, tmp_path):
         """Test extracting hash from real Pebble Beach Golf Links CHD v5 header
