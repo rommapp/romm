@@ -10,6 +10,7 @@ from rq.registry import FailedJobRegistry, FinishedJobRegistry
 from config import ENABLE_RESCAN_ON_FILESYSTEM_CHANGE, RESCAN_ON_FILESYSTEM_CHANGE_DELAY
 from decorators.auth import protected_route
 from endpoints.responses import (
+    BaseTaskStatusResponse,
     CleanupStats,
     CleanupTaskStatusResponse,
     ConversionTaskStatusResponse,
@@ -116,7 +117,7 @@ def _build_task_status_response(
     ended_at = job.ended_at.isoformat() if job.ended_at else None
     enqueued_at = job.enqueued_at.isoformat() if job.enqueued_at else None
 
-    common_data = {
+    common_data: BaseTaskStatusResponse = {
         "task_key": task_key,
         "task_name": task_name,
         "task_id": job.id,
@@ -131,7 +132,7 @@ def _build_task_status_response(
         return GenericTaskStatusResponse(
             task_type=TaskType.GENERIC,
             meta={},
-            **common_data,  # trunk-ignore(mypy/typeddict-item)
+            **common_data,
         )
 
     match TaskType(task_type):
@@ -139,19 +140,19 @@ def _build_task_status_response(
             return ScanTaskStatusResponse(
                 task_type=TaskType.SCAN,
                 meta={"scan_stats": _fill_scan_stats(job_meta.get("scan_stats"))},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.CONVERSION:
             return ConversionTaskStatusResponse(
                 task_type=TaskType.CONVERSION,
                 meta={"conversion_stats": job_meta.get("conversion_stats")},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.UPDATE:
             return UpdateTaskStatusResponse(
                 task_type=TaskType.UPDATE,
                 meta={"update_stats": job_meta.get("update_stats")},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.CLEANUP:
             return CleanupTaskStatusResponse(
@@ -159,25 +160,25 @@ def _build_task_status_response(
                 meta={
                     "cleanup_stats": _fill_cleanup_stats(job_meta.get("cleanup_stats"))
                 },
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.SYNC:
             return SyncTaskStatusResponse(
                 task_type=TaskType.SYNC,
                 meta={},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.WATCHER:
             return WatcherTaskStatusResponse(
                 task_type=TaskType.WATCHER,
                 meta={},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.GENERIC:
             return GenericTaskStatusResponse(
                 task_type=TaskType.GENERIC,
                 meta={},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case _:
             raise ValueError(f"Invalid task type: {task_type}")

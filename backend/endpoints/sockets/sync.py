@@ -12,7 +12,7 @@ RQ background workers (push-pull task, folder watcher) that don't have
 access to the main socket server instance.
 """
 
-import socketio  # type: ignore
+import socketio
 
 from config import REDIS_URL
 
