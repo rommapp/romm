@@ -6,6 +6,7 @@ progress behind it reach the player over the socket instead.
 """
 
 import asyncio
+import dataclasses
 from typing import Any
 
 from fastapi import HTTPException
@@ -109,9 +110,12 @@ async def run_launch(
         log.exception("launch failed, platform=%s", platform)
         await lifecycle.abort_claim(session_key, session, blank_card_id)
         refusals = (
-            [ImportRefusalSchema(**vars(r)) for r in exc.refusals]
+            [ImportRefusalSchema(**dataclasses.asdict(r)) for r in exc.refusals]
             if isinstance(exc, broker.ImportRefusedError)
             else None
+        )
+        refusals_truncated = (
+            exc.truncated if isinstance(exc, broker.ImportRefusedError) else 0
         )
         await push_to_user(
             session.get("user_id"),
@@ -122,6 +126,7 @@ async def run_launch(
                 claimed_at=session["claimed_at"],
                 detail=_failure_detail(exc),
                 refusals=refusals,
+                refusals_truncated=refusals_truncated,
             ).model_dump(),
         )
         return

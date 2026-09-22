@@ -239,7 +239,11 @@ async def hydrate_import_archive(
             )
             state_included = True
 
-    if not members and base is None:
+    if not members:
+        # No foreign material made it in (nothing was foreign, or reading it
+        # failed): there is nothing to import. Let the caller fall through
+        # to ordinary hydration for any native save, rather than uploading a
+        # v2 archive whose `.import/` section is empty.
         return ImportHydration(None, False)
 
     archive_bytes = await asyncio.to_thread(build_import_archive, rom.id, base, members)

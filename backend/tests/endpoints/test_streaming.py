@@ -5404,6 +5404,40 @@ def test_hydrate_import_archive_falls_back_to_the_newest_native_save_as_base(
         assert ".import/state/Game.00.pcsx2" in zf.namelist()
 
 
+def test_hydrate_import_archive_falls_through_when_the_only_foreign_read_fails(
+    rom: Rom, admin_user: User
+):
+    """A native save plus a foreign state whose bytes are missing on disk:
+    there is nothing foreign to carry, so this must not upload a base-only
+    import archive. The caller falls back to ordinary save hydration."""
+    save = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.pcsx2", "pcsx2")
+    )
+    upload = MagicMock(return_value="rom-1.zip")
+    with (
+        patch(
+            "handler.streaming.imports.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=FileNotFoundError),
+        ),
+        patch("handler.streaming.imports.webstation.upload_archive", upload),
+    ):
+        result = asyncio.run(
+            imports.hydrate_import_archive(
+                admin_user.id,
+                rom,
+                _resolved(_clearing_webstation(rom)),
+                save=save,
+                save_is_foreign=False,
+                state=state,
+            )
+        )
+    assert result == imports.ImportHydration(None, False)
+    upload.assert_not_called()
+
+
 def test_hydrate_import_archive_returns_none_when_nothing_is_foreign(
     rom: Rom, admin_user: User
 ):
@@ -5667,7 +5701,7 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
         suggest_emulator=None,
         docs=None,
     )
-    activate = MagicMock(side_effect=broker.ImportRefusedError([refusal], 0))
+    activate = MagicMock(side_effect=broker.ImportRefusedError([refusal], 2))
     session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
     pushed = AsyncMock()
     with (
@@ -5710,6 +5744,7 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
             "docs": None,
         }
     ]
+    assert payload["refusals_truncated"] == 2
     assert "shape_mismatch" in payload["detail"]
 
 

@@ -70,10 +70,12 @@ def reset_import_spec_cache() -> None:
 def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
     raw_kinds = body.get("kinds")
     if not isinstance(raw_kinds, list):
+        log.warning("import-spec response has no kinds list, treating as unknown")
         return None
     kinds = []
     for entry in raw_kinds:
         if not isinstance(entry, dict) or not isinstance(entry.get("kind"), str):
+            log.warning("import-spec response has a malformed kind entry, %r", entry)
             return None
         max_members = entry.get("max_members")
         kinds.append(
@@ -85,6 +87,10 @@ def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
         )
     state_channel = body.get("state_channel")
     if state_channel not in ("archive", "push", "none"):
+        log.warning(
+            "import-spec response has an unrecognized state_channel, %r",
+            state_channel,
+        )
         return None
     state_slot = body.get("state_slot")
     return ImportSpec(
@@ -119,10 +125,14 @@ def import_spec(
             return None
         log.warning("import-spec check failed with HTTP %d, treating as unknown", code)
         return None
-    except (urllib.error.URLError, OSError, ValueError):
+    except (urllib.error.URLError, OSError):
         log.warning("import-spec check unreachable, treating as unknown")
         return None
+    except ValueError as exc:
+        log.warning("import-spec response was not valid JSON, %s", exc)
+        return None
     if not isinstance(resp, dict):
+        log.warning("import-spec response was not a JSON object, treating as unknown")
         return None
     return _parse_import_spec(resp)
 

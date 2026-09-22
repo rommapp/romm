@@ -115,6 +115,7 @@ class LaunchFailedPayload(BaseModel):
     claimed_at: str
     detail: str
     refusals: list[ImportRefusalSchema] | None = None
+    refusals_truncated: int = 0
 
 
 class LaunchPhasePayload(BaseModel):
