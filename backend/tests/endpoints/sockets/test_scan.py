@@ -2777,10 +2777,9 @@ class TestIdentifyPlatformLoadsFileRows:
             "model_validate",
             return_value=Mock(model_dump=Mock(return_value={})),
         )
+        self.get_firmware = AsyncMock(return_value=[])
         mocker.patch.object(
-            scan_module.fs_firmware_handler,
-            "get_firmware",
-            AsyncMock(return_value=[]),
+            scan_module.fs_firmware_handler, "get_firmware", self.get_firmware
         )
         fs_rom: FSRom = {
             "fs_name": "Game",
@@ -2854,5 +2853,5 @@ class TestIdentifyPlatformLoadsFileRows:
             scanned_rom_ids=set(),
         )
 
-        assert scan_module.fs_firmware_handler.get_firmware.called is walks_firmware
+        assert self.get_firmware.called is walks_firmware
         assert self.db_firmware.mark_missing_firmware.called is walks_firmware
