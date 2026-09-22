@@ -370,7 +370,9 @@ async function submitLabels(labels: string[]) {
       await stateApi.setStateLabels({ id: target.asset.id, labels });
     }
     await refreshRom();
-    labelTarget.value = null;
+    // Escape closes the dialog mid-save, so a slow write must not shut the
+    // editor the user has since opened on another asset.
+    if (labelTarget.value === target) labelTarget.value = null;
     snackbar.success(t("rom.labels-updated"), { icon: "mdi-check-bold" });
   } catch (error) {
     snackbar.error(

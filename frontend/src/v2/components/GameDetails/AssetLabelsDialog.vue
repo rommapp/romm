@@ -1,8 +1,6 @@
 <script setup lang="ts">
 // AssetLabelsDialog: names the runs behind a save or state ("100% run",
-// "Seed: 000X43LKR3"). Submitting no labels is meaningful: it clears them.
-// `suggestions` offers the labels already used elsewhere on this ROM, so a
-// set stays consistent instead of drifting into near-duplicates.
+// "Seed: 000X43LKR3"). Submitting no labels clears them.
 import { RBtn, RComboboxField, RDialog, RForm } from "@v2/lib";
 import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
