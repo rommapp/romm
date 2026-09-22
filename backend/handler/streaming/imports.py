@@ -13,7 +13,7 @@ import json
 import time
 import zipfile
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from handler.filesystem import fs_asset_handler
 from handler.streaming import saves, states, webstation
@@ -177,6 +177,13 @@ async def _read_asset(file_path: str, file_name: str) -> bytes | None:
         return None
 
 
+class ImportHydration(NamedTuple):
+    """What `hydrate_import_archive` actually got onto the container."""
+
+    path: str | None
+    state_imported: bool
+
+
 async def hydrate_import_archive(
     user_id: int,
     rom: Rom,
@@ -185,17 +192,21 @@ async def hydrate_import_archive(
     save: Save | None,
     save_is_foreign: bool,
     state: State | None,
-) -> str | None:
+) -> ImportHydration:
     """Build this launch's one archive (native base plus any foreign
-    `.import/` members) and upload it, returning the container path
-    `activate`'s `save.archive` wants, or None when there is nothing to
-    send through the import path (both kinds stayed native).
+    `.import/` members) and upload it.
 
     `state`, when given, is always foreign: a native resume state never
     reaches this function, it stays on the ordinary state-push path.
+
+    Returns:
+        The container path `activate`'s `save.archive` wants (None when
+        there is nothing to send through the import path), and whether
+        `state` specifically made it into the uploaded archive.
     """
     members: list[ForeignMember] = []
     base: tuple[str, bytes] | None = None
+    state_included = False
 
     if save is not None and save_is_foreign:
         content = await _read_asset(save.file_path, save.file_name)
@@ -226,11 +237,13 @@ async def hydrate_import_archive(
                     origin=origin_of(state.emulator, None),
                 )
             )
+            state_included = True
 
-    if not members:
-        return None
+    if not members and base is None:
+        return ImportHydration(None, False)
 
-    archive_bytes = build_import_archive(rom.id, base, members)
-    return await asyncio.to_thread(
+    archive_bytes = await asyncio.to_thread(build_import_archive, rom.id, base, members)
+    path = await asyncio.to_thread(
         webstation.upload_archive, container, f"rom-{rom.id}.zip", archive_bytes
     )
+    return ImportHydration(path, state_included and path is not None)

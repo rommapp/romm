@@ -618,6 +618,13 @@ async def _settle_memory_card(
     return card, created_blank_card_id
 
 
+class _HydrationResult(NamedTuple):
+    """What actually reached the container from `_hydrate_saves`."""
+
+    archive_path: str | None
+    state_imported: bool
+
+
 async def _hydrate_saves(
     request: Request,
     container: ResolvedContainer,
@@ -628,12 +635,16 @@ async def _hydrate_saves(
     save: Save | None = None,
     save_foreign: bool = False,
     import_state: State | None = None,
-) -> str | None:
+) -> _HydrationResult:
     """Put the player's save data on the container before the game reads it.
 
     Games read saves at boot, so unlike states this cannot be deferred to a
-    background task. Returns the container path of an uploaded archive, for the
-    protocols that restore one as part of the launch.
+    background task.
+
+    Returns:
+        The container path of an uploaded archive (for the protocols that
+        restore one as part of the launch), and whether `import_state`
+        specifically made it onto the container.
     """
     if card is not None:
         # Whole-card sync: hydrate (or wipe to blank) is REQUIRED. If it fails
@@ -659,7 +670,7 @@ async def _hydrate_saves(
             # stayed native. A memory-card-synced container is not special-
             # cased here: the broker refuses with memcard_synced_separately.
             try:
-                return await imports.hydrate_import_archive(
+                result = await imports.hydrate_import_archive(
                     request.user.id,
                     rom,
                     container,
@@ -669,16 +680,25 @@ async def _hydrate_saves(
                 )
             except Exception:
                 log.exception("import archive hydration failed, continuing launch")
-                return None
+                result = imports.ImportHydration(None, False)
+            if result.path is not None:
+                return _HydrationResult(result.path, result.state_imported)
+            if save_foreign:
+                # The foreign save itself is what failed; there is no native
+                # side of this pick to fall back to.
+                return _HydrationResult(None, False)
+            # The foreign state failed to import; a native save riding
+            # alongside it (or none at all) still gets ordinary hydration.
         # Restore runs inside activate on this protocol, so hydration only gets
         # the bytes onto the container and names the path activate restores.
         # Still runs under whole-card sync: the archive carries the state the
         # last session ended on, which the card does not.
         # Best-effort: a failed upload just means the container keeps its own.
         try:
-            return await saves.hydrate_saves_to_webstation(
+            path = await saves.hydrate_saves_to_webstation(
                 request.user.id, rom.id, container, save
             )
+            return _HydrationResult(path, False)
         except Exception:
             log.exception("save hydration failed, continuing launch")
     elif card is None:
@@ -688,7 +708,7 @@ async def _hydrate_saves(
             await saves.hydrate_saves_to_broker(request.user.id, rom.id, container)
         except Exception:
             log.exception("save hydration failed, continuing launch")
-    return None
+    return _HydrationResult(None, False)
 
 
 @protected_route(
@@ -748,8 +768,10 @@ async def claim_session(
     resume_slot: int | None = None
     resume_foreign = False
     if req.state_id is not None:
-        resume_state, resume_slot, resume_foreign = states.resolve_resume_state(
-            request.user.id, rom, reference, req.state_id
+        # Wrapped in asyncio.to_thread because it internally calls a
+        # synchronous broker request.
+        resume_state, resume_slot, resume_foreign = await asyncio.to_thread(
+            states.resolve_resume_state, request.user.id, rom, reference, req.state_id
         )
 
     # Same for the save pick: a save the player cannot restore here has to
@@ -757,8 +779,10 @@ async def claim_session(
     picked_save = None
     save_foreign = False
     if req.save_id is not None:
-        picked_save, save_foreign = saves.resolve_save_archive(
-            request.user.id, rom, reference, req.save_id
+        # Wrapped in asyncio.to_thread because it internally calls a
+        # synchronous broker request.
+        picked_save, save_foreign = await asyncio.to_thread(
+            saves.resolve_save_archive, request.user.id, rom, reference, req.save_id
         )
 
     # Resolve the memory card to mount before claiming too, so a bad card id
@@ -862,7 +886,7 @@ async def claim_session(
     # The last exit's detached save pull may still be filing the archive to hydrate.
     await saves.wait_for_save_pull(request.user.id, rom.id)
 
-    archive_path = await _hydrate_saves(
+    archive_path, state_imported = await _hydrate_saves(
         request,
         container,
         session,
@@ -873,6 +897,10 @@ async def claim_session(
         save_foreign=save_foreign,
         import_state=resume_state if resume_via_import else None,
     )
+    # Only now, after the archive was actually built and uploaded, is it known
+    # whether the resume state really rode inside it. run_launch trusts this
+    # flag to skip the native state push and report the resume as done.
+    resume_via_import = resume_via_import and state_imported
 
     # Detached because an activate blocks through pkg and archive extraction,
     # minutes on a large title, which no player can cancel out of.
