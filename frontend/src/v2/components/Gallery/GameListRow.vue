@@ -16,6 +16,7 @@ import {
   RCheckbox,
   RChip,
   RIcon,
+  RMarquee,
   RPlatformIcon,
   RSkeletonBlock,
   RTooltip,
@@ -143,18 +144,17 @@ const gridStyle = computed(() => ({
 }));
 const titleSkeletonGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
 
-/** What the compact row leaves out, in the order the panel lays it out: the
- *  file name across the top, then rows of three that end beside the sources. */
+/** The panel's fields after the file name, in the order it lays them out:
+ *  the size beside the name, then two rows of three. */
 const detailFields = computed(() => {
   const item = rom.value;
   if (!item) return [];
   return [
-    { label: t("rom.filename"), value: item.fs_name, wide: true },
     { label: labelOf("fs_size_bytes"), value: formatBytes(item.fs_size_bytes) },
     { label: labelOf("created_at"), value: formatDate(item.created_at) },
     { label: labelOf("first_release_date"), value: releaseDate(item) },
-    { label: labelOf("average_rating"), value: ratingValue(item) },
     { label: labelOf("hltb_main_story"), value: lengthValue(item) },
+    { label: labelOf("average_rating"), value: ratingValue(item) },
     { label: labelOf("languages"), value: listValue(item.languages) },
     { label: labelOf("regions"), value: listValue(item.regions) },
   ];
@@ -467,16 +467,23 @@ function onRowTouchMove(e: TouchEvent) {
           @click.stop
         >
           <div class="game-list-row__detail-inner">
+            <div class="game-list-row__field game-list-row__field--filename">
+              <span class="game-list-row__field-label">{{
+                t("rom.filename")
+              }}</span>
+              <RMarquee class="game-list-row__field-value">{{
+                rom.fs_name
+              }}</RMarquee>
+            </div>
             <div
               v-for="field in detailFields"
               :key="field.label"
               class="game-list-row__field"
-              :class="{ 'game-list-row__field--wide': field.wide }"
             >
               <span class="game-list-row__field-label">{{ field.label }}</span>
               <span class="game-list-row__field-value">{{ field.value }}</span>
             </div>
-            <div class="game-list-row__field game-list-row__field--sources">
+            <div class="game-list-row__field game-list-row__field--wide">
               <span class="game-list-row__field-label">{{
                 t("scan.metadata-sources")
               }}</span>
@@ -869,7 +876,8 @@ function onRowTouchMove(e: TouchEvent) {
 .game-list-row__field--wide {
   grid-column: 1 / -1;
 }
-.game-list-row__field--sources {
+/* Loops sideways when it overflows, so a long name reads whole in one line. */
+.game-list-row__field--filename {
   grid-column: span 2;
 }
 .game-list-row__field-value {
