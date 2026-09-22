@@ -12,6 +12,8 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useStaggeredEntrance } from "@/v2/composables/useStaggeredEntrance";
 import {
   pendingMorphName,
   useViewTransition,
@@ -43,6 +45,12 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const { t } = useI18n();
+// Phones and tablets have no room for the columns: the row goes two-line,
+// same as the gallery's list rows.
+const { smAndDown } = useBreakpoint();
+const rowEl = ref<HTMLElement | null>(null);
+const { entranceClass, entranceStyle, endEntrance } =
+  useStaggeredEntrance(rowEl);
 const router = useRouter();
 const coverEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
@@ -92,11 +100,51 @@ function onRowClick(e: MouseEvent) {
 
 <template>
   <a
-    class="coll-list-row"
-    :style="gridStyle"
+    v-if="smAndDown"
+    ref="rowEl"
+    class="coll-list-row coll-list-row--compact r-list-compact"
+    :class="entranceClass"
+    :style="entranceStyle"
     :href="to"
     :aria-label="t('rom.open-game', { name })"
     @click="onRowClick"
+    @animationend.self="endEntrance"
+  >
+    <div ref="coverEl" class="coll-list-row__thumb" :style="morphStyle">
+      <CollectionMosaic :covers="covers" />
+    </div>
+    <div class="r-list-compact__stack">
+      <div class="coll-list-row__name">{{ name }}</div>
+      <div class="r-list-compact__facts">
+        <RIcon :icon="kindBadge.icon" size="13" />
+        <span>{{ kindBadge.label }}</span>
+        <span class="r-list-compact__dot">·</span>
+        <span>{{
+          t("collection.games-count", romCount, { named: { n: romCount } })
+        }}</span>
+      </div>
+    </div>
+    <!-- Private is the state worth flagging; public is the default and
+         would mark almost every row. -->
+    <RIcon
+      v-if="visibility && !isPublic"
+      class="coll-list-row__lock"
+      :icon="visibility.icon"
+      size="18"
+      :aria-label="visibility.label"
+    />
+  </a>
+
+  <a
+    v-else
+    ref="rowEl"
+    class="coll-list-row coll-list-row--columns"
+    :class="entranceClass"
+    :style="[gridStyle, entranceStyle]"
+    :href="to"
+    :aria-label="t('rom.open-game', { name })"
+    @click="onRowClick"
+    @animationend.self="endEntrance"
   >
     <div class="coll-list-row__cell coll-list-row__title">
       <div ref="coverEl" class="coll-list-row__thumb" :style="morphStyle">
@@ -146,10 +194,9 @@ function onRowClick(e: MouseEvent) {
 
 <style scoped>
 .coll-list-row {
-  display: grid;
+  /* Runs to the screen edges wherever the shell asks for it. */
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
   align-items: center;
-  gap: 0 var(--r-space-3);
-  padding: 0 var(--r-space-3);
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
   font-size: var(--r-font-size-md);
@@ -161,6 +208,19 @@ function onRowClick(e: MouseEvent) {
 
 .coll-list-row:hover {
   background: var(--r-color-bg-elevated);
+}
+
+/* Kept off the compact row, whose shared flex layout this would outrank. */
+.coll-list-row--columns {
+  display: grid;
+  gap: 0 var(--r-space-3);
+  padding: 0 var(--r-space-3);
+}
+
+/* Clear of the screen edge, which the row itself runs to. */
+.coll-list-row__lock {
+  margin-inline-end: var(--r-space-2);
+  color: var(--r-color-fg-muted);
 }
 
 .coll-list-row:focus-visible {

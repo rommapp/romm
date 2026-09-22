@@ -4,7 +4,7 @@ import functools
 from typing import Any
 
 import pydash
-import socketio  # type: ignore
+import socketio
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
@@ -80,7 +80,11 @@ from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
 from utils.filesystem import sanitize_filename
-from utils.platform_aliases import resolve_fs_slug, resolve_platform_slug
+from utils.platform_aliases import (
+    resolve_fs_folder,
+    resolve_fs_slug,
+    resolve_platform_slug,
+)
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -292,7 +296,11 @@ async def scan_platform(
         if platform:
             known_fs_slug = resolve_fs_slug(platform.slug, cnfg)
             if known_fs_slug:
-                platform_attrs["fs_slug"] = known_fs_slug
+                # `resolve_fs_slug` answers with a lowercased config key, but
+                # every path is built from the folder's own casing.
+                platform_attrs["fs_slug"] = (
+                    resolve_fs_folder(known_fs_slug, fs_platforms) or known_fs_slug
+                )
 
     platform_attrs["slug"] = resolve_platform_slug(fs_slug, cnfg)
 

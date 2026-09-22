@@ -239,7 +239,7 @@ def _assert_document_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document file not found",
         )
-    return rom_file.category  # type: ignore[return-value]
+    return rom_file.category
 
 
 @protected_route(

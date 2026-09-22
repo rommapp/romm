@@ -123,7 +123,8 @@ frontend/
 ├── index.html                     # HTML entry point (<div id="app">)
 ├── package.json                   # Dependencies & scripts
 ├── vite.config.js                 # Vite build config with plugins
-├── tsconfig.json                  # TypeScript configuration
+├── tsconfig.json                  # Vue app TypeScript (vue-tsc)
+├── tsconfig.node.json             # Node/Vite tooling TypeScript (tsc -p)
 ├── eslint.config.js               # ESLint flat config
 ├── .nvmrc                         # Node 24
 │
@@ -1099,14 +1100,15 @@ Procedural SVG generation for:
 
 ### Scripts
 
-| Script      | Command                      | Purpose                             |
-| ----------- | ---------------------------- | ----------------------------------- |
-| `dev`       | `vite --host`                | Development server                  |
-| `build`     | `vite build`                 | Production build                    |
-| `preview`   | `vite preview`               | Preview production build            |
-| `typecheck` | `vue-tsc`                    | TypeScript validation               |
-| `generate`  | `openapi-typescript-codegen` | Generate types from backend OpenAPI |
-| `lint`      | `eslint`                     | Lint `.vue`, `.js`, `.ts` files     |
+| Script              | Command                              | Purpose                                                |
+| ------------------- | ------------------------------------ | ------------------------------------------------------ |
+| `dev`               | `vite --host`                        | Development server                                     |
+| `build`             | `vite build`                         | Production build                                       |
+| `preview`           | `vite preview`                       | Preview production build                               |
+| `typecheck`         | `vue-tsc --noEmit`                   | App SFCs (`tsconfig.json`)                             |
+| `typecheck:scripts` | `tsc --noEmit -p tsconfig.node.json` | Node/Vite tooling in `scripts/` (`tsconfig.node.json`) |
+| `generate`          | `openapi-typescript-codegen`         | Generate types from backend OpenAPI                    |
+| `lint`              | `eslint`                             | Lint `.vue`, `.js`, `.ts`; import cycles               |
 
 ### OpenAPI Code Generation
 

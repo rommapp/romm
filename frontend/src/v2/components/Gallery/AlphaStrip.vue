@@ -11,6 +11,9 @@
 //
 // When both are set, `visible` wins visually because it reflects the real
 // scroll position. Letters that don't fit scroll within the strip.
+//
+// `grid` lays the letters out as a wrapping grid instead of a column, for the
+// phone and tablet jump menu (AlphaJumpMenu).
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
@@ -33,6 +36,8 @@ interface Props {
   visible?: Set<string> | string[];
   /** Render order — reversed when the gallery sorts descending. */
   direction?: "asc" | "desc";
+  /** Lay the letters out as a wrapping grid instead of a column. */
+  grid?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -40,6 +45,7 @@ const props = withDefaults(defineProps<Props>(), {
   current: "",
   visible: () => new Set<string>(),
   direction: "asc",
+  grid: false,
 });
 
 const letters = computed(() =>
@@ -99,6 +105,7 @@ watch(
     v-bind="$attrs"
     ref="rootEl"
     class="alpha-strip r-v2-scroll-hidden"
+    :class="{ 'alpha-strip--grid': grid }"
     :aria-label="t('gallery.jump-to-letter')"
   >
     <button
@@ -180,21 +187,20 @@ watch(
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 
-/* On phones the gallery section extends UNDER the translucent bottom tab bar
-   (the glass effect), so centring the strip in the section drops the letters
-   low — nearer the bottom bar than the top nav. Reserve the bar's height as
-   bottom padding so the letters centre in the VISIBLE content band instead. */
-html[data-bp~="sm-and-down"] .alpha-strip {
-  padding-bottom: calc(
-    var(--r-space-2) + var(--r-bottom-nav-h) + env(safe-area-inset-bottom)
-  );
+.alpha-strip--grid {
+  width: auto;
+  display: grid;
+  grid-template-columns: repeat(7, var(--r-touch-target));
+  justify-content: center;
+  gap: var(--r-space-1);
+  overflow: visible;
+  padding: var(--r-space-2);
+  margin-right: 0;
 }
-
-/* Phones: the column width / edge gap come from the section vars (see
-   `.alpha-strip`), which are widened on `xs`; tighter letters so fewer scroll. */
-html[data-bp~="xs"] .alpha-strip__btn {
-  font-size: 11px;
-  padding: 2px 0;
-  margin-top: 2px;
+.alpha-strip--grid .alpha-strip__btn {
+  height: var(--r-touch-target);
+  margin-top: 0;
+  font-size: var(--r-font-size-lg);
+  border-radius: var(--r-radius-sm);
 }
 </style>

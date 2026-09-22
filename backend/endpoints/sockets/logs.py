@@ -15,7 +15,7 @@ import asyncio
 import uuid
 from typing import Any, Final
 
-import socketio  # type: ignore
+import socketio
 
 from config import DISABLE_LOGS_VIEWER, REDIS_URL
 from endpoints.sockets.activity import store_authenticated_user
@@ -33,7 +33,7 @@ FORWARDER_LOCK_KEY: Final = "romm:logs:forwarder"
 FORWARDER_LOCK_TTL: Final = 30  # seconds
 
 
-@socket_handler.socket_server.on("connect")  # type: ignore
+@socket_handler.socket_server.on("connect")
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     """Resolve the authenticated user on socket connect.
 

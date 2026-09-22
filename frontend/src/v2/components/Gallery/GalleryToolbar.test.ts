@@ -132,19 +132,18 @@ describe("GalleryToolbar sort axis", () => {
   });
 
   // List mode sorts through the column headers, so the toolbar's axis
-  // button has to stand down rather than offer a second, competing control.
-  it("disables the activator in list mode only", () => {
-    const activatorDisabled = (layout: string) => {
-      const wrapper = mountWithSortOptions({ layout });
-      const disabled = wrapper
-        .findComponent(RMenuPassthrough)
-        .findComponent({ name: "RBtn" })
-        .attributes("disabled");
-      wrapper.unmount();
-      return disabled;
-    };
+  // control steps aside rather than offer a second, competing one.
+  it("drops the control in list mode only", () => {
+    const grid = mountWithSortOptions({ layout: "grid" });
+    const menusInGrid = grid.findAllComponents(RMenuPassthrough).length;
+    grid.unmount();
 
-    expect(activatorDisabled("list")).toBe("true");
-    expect(activatorDisabled("grid")).toBe("false");
+    const wrapper = mountWithSortOptions({ layout: "list" });
+
+    expect(wrapper.findAllComponents(RMenuPassthrough)).toHaveLength(
+      menusInGrid - 1,
+    );
+    expect(sortItems(wrapper)).toHaveLength(0);
+    wrapper.unmount();
   });
 });

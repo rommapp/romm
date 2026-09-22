@@ -179,8 +179,7 @@ def extract_media_from_gamelist_rom(
     for media_key, xml_tag in XML_TAG_MAP.items():
         elem = game.find(xml_tag)
         if elem is not None and elem.text:
-            # trunk-ignore(mypy/literal-required)
-            gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
+            gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)  # type: ignore[literal-required]
 
     # Fallback to searching media folders by ROM basename
     path_elem = game.find("path")
@@ -188,16 +187,14 @@ def extract_media_from_gamelist_rom(
         rom_stem = os.path.splitext(os.path.basename(path_elem.text))[0]
 
         for media_key, folder_name in ESDE_MEDIA_MAP.items():
-            # trunk-ignore(mypy/literal-required)
-            if gamelist_media[media_key]:
+            if gamelist_media[media_key]:  # type: ignore[literal-required]
                 continue
 
             search_pattern = os.path.join(platform_dir, folder_name, f"{rom_stem}.*")
             search_path = fs_platform_handler.validate_path(search_pattern)
             found_files = glob.glob(str(search_path))
             if found_files:
-                # trunk-ignore(mypy/literal-required)
-                gamelist_media[media_key] = (
+                gamelist_media[media_key] = (  # type: ignore[literal-required]
                     f"file://{str(Path(found_files[0]).relative_to(fs_platform_handler.base_path))}"
                 )
 

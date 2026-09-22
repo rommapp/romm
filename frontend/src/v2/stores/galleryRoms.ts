@@ -69,6 +69,15 @@ export function isGalleryOrderKey(value: string): value is GalleryOrderKey {
   return (GALLERY_ORDER_KEYS as readonly string[]).includes(value);
 }
 
+/** The keys the backend answers with a `char_index`: it indexes first letters
+ * only for a text column. Listed rather than read off an empty `charIndex`,
+ * which is also what an unfetched gallery looks like. */
+const LEXICAL_ORDER_KEYS: ReadonlySet<string> = new Set(["name", "fs_name"]);
+
+export function orderSupportsLetters(key: GalleryOrderKey): boolean {
+  return LEXICAL_ORDER_KEYS.has(key);
+}
+
 export function isGalleryOrderDir(value: string): value is GalleryOrderDir {
   return value === "asc" || value === "desc";
 }
@@ -463,9 +472,10 @@ export default defineStore("v2GalleryRoms", {
       }
       if (sidecars.withFilterValues !== false && data.filter_values) {
         if (galleryFilter.filterPlatforms.length === 0) {
+          const platformIds = data.filter_values.platforms ?? [];
           galleryFilter.setFilterPlatforms(
             platformsStore.allPlatforms.filter((p) =>
-              data.filter_values.platforms.includes(p.id),
+              platformIds.includes(p.id),
             ),
           );
         }

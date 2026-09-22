@@ -57,6 +57,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -112,8 +114,10 @@ jobs:
             org.opencontainers.image.licenses="AGPLv3"
 
       - name: Set version
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          sed -i 's/<version>/${{ steps.meta.outputs.version }}/' backend/__version__.py
+          sed -i "s/<version>/$VERSION/" backend/__version__.py
 
       - name: Build and push slim image by digest
         id: build-slim
@@ -125,6 +129,10 @@ jobs:
           labels: ${{ steps.meta-slim.outputs.labels }}
           target: slim-image
           outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          # Both stages run `apk upgrade` off a fixed base digest, so nothing in
+          # them changes between releases and the cache would serve the package
+          # set of whenever the layer was first built.
+          no-cache-filters: python-runtime,production-stage
           # Deliberately not seeded from the preview cache: those layers are
           # built from PR head content and must not reach a release image.
           cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
@@ -144,6 +152,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: full-image
           outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          no-cache-filters: python-runtime,production-stage
           cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
           cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }},mode=max
           build-args: |
