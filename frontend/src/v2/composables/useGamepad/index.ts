@@ -97,15 +97,22 @@ declare global {
 
 type Binding = { key: string; code?: string };
 
+const ARROWS = {
+  up: { key: "ArrowUp", code: "ArrowUp" },
+  down: { key: "ArrowDown", code: "ArrowDown" },
+  left: { key: "ArrowLeft", code: "ArrowLeft" },
+  right: { key: "ArrowRight", code: "ArrowRight" },
+} satisfies Record<string, Binding>;
+
 // Standard gamepad button index → synthetic keyboard event. Only the
 // navigational keys live here (arrows); face buttons and bumpers get
 // handled by BUTTON_ACTIONS below where a .click() / router.push() can
 // actually do the thing.
 const BUTTON_MAP: Record<number, Binding | undefined> = {
-  12: { key: "ArrowUp", code: "ArrowUp" },
-  13: { key: "ArrowDown", code: "ArrowDown" },
-  14: { key: "ArrowLeft", code: "ArrowLeft" },
-  15: { key: "ArrowRight", code: "ArrowRight" },
+  12: ARROWS.up,
+  13: ARROWS.down,
+  14: ARROWS.left,
+  15: ARROWS.right,
 };
 
 // Guards the polling loop against phantom gamepads.
@@ -292,20 +299,12 @@ export function useGamepad() {
         const x = pad.axes[0] ?? 0;
         const y = pad.axes[1] ?? 0;
         tickAxis(st, "x", x, t, (dir) => {
-          if (gameOwnsInput) return;
-          dispatchKey(
-            dir < 0
-              ? { key: "ArrowLeft", code: "ArrowLeft" }
-              : { key: "ArrowRight", code: "ArrowRight" },
-          );
+          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.left : ARROWS.right);
+          onAnyInput();
         });
         tickAxis(st, "y", y, t, (dir) => {
-          if (gameOwnsInput) return;
-          dispatchKey(
-            dir < 0
-              ? { key: "ArrowUp", code: "ArrowUp" }
-              : { key: "ArrowDown", code: "ArrowDown" },
-          );
+          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.up : ARROWS.down);
+          onAnyInput();
         });
 
         // Buttons. Three tracks, evaluated in order:

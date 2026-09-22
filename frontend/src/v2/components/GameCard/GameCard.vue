@@ -338,14 +338,6 @@ function onCardPointerDown(e: PointerEvent) {
   if (!props.selectable || props.position == null) return;
   selectionInput.handlePointerDown(props.rom, props.position, e);
 }
-function onCardPointerMove(e: PointerEvent) {
-  if (!props.selectable) return;
-  selectionInput.handlePointerMove(e);
-}
-function onCardPointerEnd() {
-  if (!props.selectable) return;
-  selectionInput.handlePointerEnd();
-}
 
 function onStaticKeydown(e: KeyboardEvent) {
   // Enter / Space activate the card when it's rendered as a plain
@@ -393,6 +385,7 @@ function onStaticKeydown(e: KeyboardEvent) {
             : undefined
     "
     :data-rom-id="rom.id"
+    :data-rom-position="selectable ? position : undefined"
     :data-focus-key="!decorative && !static ? `rom-${rom.id}` : undefined"
     @click.capture="onCardClickCapture"
     @click="onCardClick"
@@ -402,9 +395,7 @@ function onStaticKeydown(e: KeyboardEvent) {
     @focus="onCoverFocus"
     @blur="onCoverBlur"
     @pointerdown="onCardPointerDown"
-    @pointermove="onCardPointerMove"
-    @pointerup="onCardPointerEnd"
-    @pointercancel="onCardPointerEnd"
+    @contextmenu="selectionInput.handleContextMenu"
   >
     <GameCover
       ref="coverRef"
@@ -539,6 +530,8 @@ function onStaticKeydown(e: KeyboardEvent) {
 
 <style scoped>
 .r-gc {
+  /* The long press selects the card; iOS would offer its link callout too. */
+  -webkit-touch-callout: none;
   flex-shrink: 0;
   cursor: pointer;
   position: relative;

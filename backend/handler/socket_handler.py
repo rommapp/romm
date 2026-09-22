@@ -1,4 +1,4 @@
-import socketio  # type: ignore
+import socketio
 
 from config import REDIS_URL
 from utils import json_module

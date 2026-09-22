@@ -66,11 +66,11 @@ import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
-import { useInputModality } from "@/v2/composables/useInputModality";
 import {
   hasSharedArrayBuffer,
   useIsolatedLaunch,
 } from "@/v2/composables/useIsolatedLaunch";
+import { usePlayFocus } from "@/v2/composables/usePlayFocus";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
@@ -80,7 +80,6 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { AssetType } from "@/v2/utils/assets";
-import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
 import { joinNames } from "@/v2/utils/lists";
 import {
   resolveBezelHost,
@@ -142,22 +141,7 @@ const nativeStore = useNativeStore();
 const { playing } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
-const { modality } = useInputModality();
 const playSession = usePlaySession();
-
-// Ref the Play CTA so we can imperatively focus it on enter (and again
-// when the user comes back from a running session). RBtn forwards to
-// its rendered <button>/<a>, but resolving the DOM node via a class
-// query is simpler and survives the lazy-load of the inner element.
-// The first one is the primary route, which is the native launch where the
-// desktop shell offers one; a launch already in flight disables it, so the
-// in-browser route below takes the focus instead.
-function focusPlayButton() {
-  const btn = document.querySelector<HTMLElement>(
-    ".r-v2-ejs__play:not([disabled])",
-  );
-  btn?.focus({ preventScroll: true });
-}
 
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
@@ -181,6 +165,11 @@ const {
   relaunching,
   relaunch: relaunchIsolated,
 } = useIsolatedLaunch<LaunchIntent>("ejs", romId, isLaunchIntent);
+
+const playReady = computed(() => !!rom.value && !relaunching.value);
+// The first CTA is the native launch where the desktop shell offers one; a
+// launch in flight disables it, so the in-browser route takes the focus.
+usePlayFocus(".r-v2-ejs__play:not([disabled])", playReady, gameRunning);
 
 // The EmulatorJS loader declares top-level classes, so a document it reached
 // cannot host another launch. Tracked from the injection, which a departure
@@ -657,41 +646,16 @@ onMounted(async () => {
     void onPlay();
     return;
   }
-
-  // Land gamepad/keyboard users on the primary action without an extra Tab.
-  if (
-    shouldClaimFocusOnModality(
-      modality.value,
-      document.activeElement,
-      document.body,
-    )
-  ) {
-    await nextTick();
-    focusPlayButton();
-  }
-});
-
-// This view has no spatial navigation for a d-pad to walk, so landing on Play
-// the moment the user picks up a pad is the only entry point into the view.
-watch(modality, (next) => {
-  if (gameRunning.value) return;
-  if (!shouldClaimFocusOnModality(next, document.activeElement, document.body))
-    return;
-  nextTick(focusPlayButton);
 });
 
 // Drive the live-activity lifecycle off the deterministic running state:
-// announce on enter, clear + stop heartbeats on exit. Also restores focus
-// to Play on exit so a Start-Play loop stays on the pad.
+// announce on enter, clear + stop heartbeats on exit.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
     if (rom.value) playSession.start(rom.value);
     presence.start();
   }
-  if (prev && !running) {
-    endSession();
-    nextTick(focusPlayButton);
-  }
+  if (prev && !running) endSession();
 });
 
 // Y toggles the saves/states tab — view-local binding wired through
@@ -837,7 +801,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           :prepend-icon="nativeLaunching ? 'mdi-loading mdi-spin' : 'mdi-play'"
           class="r-v2-ejs__play"
           :loading="!rom"
-          :disabled="!rom || nativeLaunching || relaunching"
+          :disabled="!playReady || nativeLaunching"
           @click="onPlayNative"
         >
           {{ nativeLabel }}
@@ -866,8 +830,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           :prepend-icon="canPlayNative ? 'mdi-web' : 'mdi-play'"
           class="r-v2-ejs__play"
           :class="{ 'r-v2-ejs__play--secondary': canPlayNative }"
-          :loading="!rom || relaunching"
-          :disabled="!rom || relaunching || nativeLaunching"
+          :loading="!playReady"
+          :disabled="!playReady || nativeLaunching"
           @click="onPlay"
         >
           {{ canPlayNative ? t("play.play-in-browser") : t("play.play") }}

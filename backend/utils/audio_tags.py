@@ -256,7 +256,7 @@ def extract_audio_meta(full_path: str) -> AudioTags | None:
 
     common = _extract_common_tags(audio)
     for key in ("title", "artist", "album", "year", "genre", "track", "disc"):
-        meta[key] = common.get(key)  # type: ignore[literal-required]
+        meta[key] = common.get(key)
 
     info = getattr(audio, "info", None)
     duration = getattr(info, "length", None) if info is not None else None

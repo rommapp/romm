@@ -159,20 +159,25 @@ class DBPlatformsHandler(DBBaseHandler):
                         Platform.slug.is_(None),
                     )
                 )
-            )  # type: ignore[attr-defined]
+            )
             .unique()
             .all()
         )
         session.execute(
             update(Platform)
-            .where(or_(Platform.fs_slug.not_in(fs_platforms_to_keep), Platform.slug.is_(None)))  # type: ignore[attr-defined]
+            .where(
+                or_(
+                    Platform.fs_slug.not_in(fs_platforms_to_keep),
+                    Platform.slug.is_(None),
+                )
+            )
             .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="fetch")
         )
 
         session.execute(
             update(Rom)
-            .where(Rom.platform_id.in_([p.id for p in missing_platforms]))  # type: ignore[attr-defined]
+            .where(Rom.platform_id.in_([p.id for p in missing_platforms]))
             .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="fetch")
         )

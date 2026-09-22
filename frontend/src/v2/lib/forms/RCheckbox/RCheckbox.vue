@@ -430,6 +430,27 @@ const hasLabel = computed(
     0 0 16px color-mix(in srgb, var(--r-cb-fill) 40%, transparent);
 }
 
+/* The inset top highlight reads as a sheen across a flat edge, but on a
+   circle it follows the curve and lands as a white arc over the fill. The
+   round variant keeps the glow and drops the highlight. */
+.r-checkbox--shape-circle.r-checkbox--checked .r-checkbox__box,
+.r-checkbox--shape-circle.r-checkbox--indeterminate .r-checkbox__box,
+.r-checkbox--shape-circle.r-checkbox--multi-active .r-checkbox__box {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--r-cb-fill) 32%, transparent);
+}
+.r-checkbox--shape-circle.r-checkbox--checked:not(.r-checkbox--disabled):hover
+  .r-checkbox__box,
+.r-checkbox--shape-circle.r-checkbox--indeterminate:not(
+    .r-checkbox--disabled
+  ):hover
+  .r-checkbox__box,
+.r-checkbox--shape-circle.r-checkbox--multi-active:not(
+    .r-checkbox--disabled
+  ):hover
+  .r-checkbox__box {
+  box-shadow: 0 0 16px color-mix(in srgb, var(--r-cb-fill) 40%, transparent);
+}
+
 /* ── Glyph (check / minus) — drawn-in stroke ──────────────────── */
 /* SVG icon — sized to the per-size --r-cb-icon var, color inherits
    white from the box. Always mounted (so the path animations have a

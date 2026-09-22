@@ -4,7 +4,7 @@ import functools
 from typing import Any
 
 import pydash
-import socketio  # type: ignore
+import socketio
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm

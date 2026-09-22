@@ -207,10 +207,9 @@ export default defineStore("roms", {
 
       // Only set the list of platforms on first fetch
       if (galleryFilter.filterPlatforms.length === 0) {
+        const platformIds = filter_values?.platforms ?? [];
         galleryFilter.setFilterPlatforms(
-          platformsStore.allPlatforms.filter((p) =>
-            filter_values.platforms.includes(p.id),
-          ),
+          platformsStore.allPlatforms.filter((p) => platformIds.includes(p.id)),
         );
       }
 

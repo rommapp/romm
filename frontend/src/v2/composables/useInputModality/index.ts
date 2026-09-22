@@ -59,6 +59,8 @@ export function useInputModality() {
       setModality("touch");
     };
     const onKey = (e: KeyboardEvent) => {
+      // useGamepad's synthetic arrows are pad input, not keyboard.
+      if (!e.isTrusted) return;
       // Ignore modifier-only presses and clicks that happen to be keyboard-
       // triggered — what we care about is real navigational keys.
       if (
