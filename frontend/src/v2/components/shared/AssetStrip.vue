@@ -512,10 +512,11 @@ const fadeIndex = computed(() =>
   );
 }
 
+/* Top left, matching the state preview's stage. */
 .r-asset-strip__fav {
   position: absolute;
   top: 4px;
-  right: 6px;
+  left: 6px;
   filter: drop-shadow(0 1px 3px color-mix(in srgb, black 75%, transparent));
 }
 .r-asset-strip__body {
