@@ -450,6 +450,8 @@ type StreamVm = {
   endedDialogOpen: boolean;
   holdsClaim: boolean;
   containerHost: string;
+  errorMessage: string;
+  errorHint: string;
 };
 
 function vmOf(wrapper: VueWrapper): StreamVm {
@@ -477,6 +479,19 @@ async function launchReady(
     ...CLAIM,
     host: "http://webstation-dev:8080",
     resume: null,
+    ...payload,
+  });
+}
+
+async function launchFailed(
+  payload: Record<string, unknown> = {},
+): Promise<void> {
+  const handler = mocks.socketHandlers["streaming:launch-failed"];
+  expect(handler).toBeTypeOf("function");
+  await handler({
+    platform: "gba",
+    ...CLAIM,
+    detail: "The broker refused the picked save or state",
     ...payload,
   });
 }
@@ -927,6 +942,66 @@ describe("Stream launch recovery", () => {
     await pollStatus();
 
     expect(vmOf(wrapper).playerState).toBe("loading");
+  });
+
+  it("shows the generic error and the flattened detail when there are no refusals", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchFailed({ detail: "The container could not start the game" });
+
+    expect(vmOf(wrapper).playerState).toBe("error");
+    expect(vmOf(wrapper).errorMessage).toBe("play.stream-error-generic");
+    expect(vmOf(wrapper).errorHint).toBe(
+      "The container could not start the game",
+    );
+  });
+
+  it("builds the hint from structured refusals instead of the flattened detail", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchFailed({
+      detail: "shape_mismatch",
+      refusals: [
+        {
+          reason: "shape_mismatch",
+          member: ".import/save/Game.mcr",
+          expected: "folder",
+          detail: null,
+          suggest_emulator: "duckstation",
+          docs: null,
+        },
+      ],
+      refusals_truncated: 2,
+    });
+
+    expect(vmOf(wrapper).playerState).toBe("error");
+    expect(vmOf(wrapper).errorMessage).toBe("play.stream-error-import-refused");
+    expect(vmOf(wrapper).errorHint).toBe(
+      "duckstation (play.import-refusals-truncated)",
+    );
+  });
+
+  it("skips the truncated-count suffix when nothing was truncated", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchFailed({
+      refusals: [
+        {
+          reason: "shape_mismatch",
+          member: ".import/save/Game.mcr",
+          expected: "folder",
+          detail: null,
+          suggest_emulator: null,
+          docs: null,
+        },
+      ],
+      refusals_truncated: 0,
+    });
+
+    expect(vmOf(wrapper).errorHint).toBe("shape_mismatch");
   });
 });
 

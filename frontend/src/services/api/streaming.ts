@@ -59,6 +59,7 @@ export interface LaunchFailed {
   claimed_at: string;
   detail: string;
   refusals?: ImportRefusal[] | null;
+  refusals_truncated?: number | null;
 }
 
 /** `streaming:launch-phase`, while a broker unpacks a large title. */

@@ -728,8 +728,19 @@ useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   launchPhase.value = null;
   if ((playerState.value as PlayerState) === "exited") return;
   errorType.value = "server";
-  errorMessage.value = t("play.stream-error-generic");
-  errorHint.value = payload.detail;
+  if (payload.refusals?.length) {
+    errorMessage.value = t("play.stream-error-import-refused");
+    const hints = payload.refusals
+      .map((r) => r.suggest_emulator || r.reason)
+      .join(", ");
+    const truncated = payload.refusals_truncated;
+    errorHint.value = truncated
+      ? `${hints} (${t("play.import-refusals-truncated", truncated)})`
+      : hints;
+  } else {
+    errorMessage.value = t("play.stream-error-generic");
+    errorHint.value = payload.detail;
+  }
   playerState.value = "error";
 });
 
