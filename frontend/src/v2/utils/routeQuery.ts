@@ -45,3 +45,16 @@ export function patchQuery(
     void router.replace({ query });
   });
 }
+
+/** Write one URL-backed value, `undefined` dropping the param. The compare
+ *  against the live query is what stops a loop with the watcher reading it. */
+export function syncQueryParam(
+  router: QueryRouter,
+  key: string,
+  value: string | undefined,
+): void {
+  const raw = router.currentRoute.value.query[key];
+  const current = typeof raw === "string" ? raw : undefined;
+  if (value === current) return;
+  patchQuery(router, { [key]: value });
+}

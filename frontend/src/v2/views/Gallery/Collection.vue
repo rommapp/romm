@@ -262,7 +262,11 @@ onMounted(() => {
   loadForRoute(kindFromRoute(route.name), String(route.params.collection));
 });
 
-onBeforeRouteUpdate((to) => {
+onBeforeRouteUpdate((to, from) => {
+  // `loadForRoute` resets the gallery, so running it for a query-only
+  // change (sort, filters, search) would blank and re-bootstrap the
+  // collection already on screen.
+  if (to.path === from.path) return;
   loadForRoute(kindFromRoute(to.name), String(to.params.collection));
 });
 

@@ -29,6 +29,7 @@ import type {
 } from "@/v2/composables/useGalleryMode";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
+import type { ListSortKey, SortOption } from "./listColumns";
 
 defineOptions({ inheritAttrs: false });
 
@@ -76,6 +77,12 @@ const props = withDefaults(
     /** Direction toggle for grid-mode sort. Disabled in list mode
      *  (list-mode sort is driven by the column-header clicks). */
     sortDir?: Ref<"asc" | "desc"> | "asc" | "desc";
+    /** Active sort axis. `null` when the gallery is ordered by a key the
+     *  selector doesn't offer, which leaves no entry highlighted. */
+    sortKey?: Ref<ListSortKey | null> | ListSortKey | null;
+    /** Axes for the sort selector. Empty hides the control, as on index
+     *  views, which sort their tiles themselves. */
+    sortKeyItems?: readonly SortOption[];
     /** Show the search field on the left. v-model:search controls its value. */
     showSearch?: boolean;
     search?: string;
@@ -103,6 +110,8 @@ const props = withDefaults(
     // substitute downstream through `effectiveGroupByItems`.
     groupByItems: () => [],
     sortDir: "asc",
+    sortKey: null,
+    sortKeyItems: () => [],
     showSearch: false,
     search: "",
     searchPlaceholder: "",
@@ -117,6 +126,7 @@ const emit = defineEmits<{
   (e: "update:groupBy", value: GroupByMode): void;
   (e: "update:layout", value: LayoutMode): void;
   (e: "update:sortDir", value: "asc" | "desc"): void;
+  (e: "update:sortKey", value: ListSortKey): void;
   (e: "update:search", value: string): void;
   (e: "update:segmentFilter", payload: { key: string; value: string }): void;
   (e: "click:filter"): void;
@@ -132,6 +142,7 @@ function toValue<T>(source: Ref<T> | T): T {
 const groupByValue = computed(() => toValue(props.groupBy));
 const layoutValue = computed(() => toValue(props.layout));
 const sortDirValue = computed(() => toValue(props.sortDir));
+const sortKeyValue = computed(() => toValue(props.sortKey));
 
 const layoutItems = computed(() => [
   {
@@ -211,6 +222,10 @@ function setLayout(value: LayoutMode) {
 
 function setSortDir(value: "asc" | "desc") {
   emit("update:sortDir", value);
+}
+
+function setSortKey(value: ListSortKey) {
+  emit("update:sortKey", value);
 }
 
 function setSearch(value: string) {
@@ -302,6 +317,34 @@ const { smAndUp } = useBreakpoint();
         @update:model-value="setGroupBy"
       />
 
+      <!-- A menu, not a slider: too many axes for the segmented pattern
+           the neighbouring clusters use. -->
+      <RMenu
+        v-if="smAndUp && sortKeyItems.length > 0"
+        location="bottom end"
+        :offset="8"
+        width="220px"
+      >
+        <template #activator="{ props: activatorProps }">
+          <RBtn
+            v-bind="activatorProps"
+            variant="outlined"
+            surface
+            icon="mdi-sort"
+            rounded="circle"
+            :disabled="layoutValue === 'list'"
+            :aria-label="t('gallery.sort-by')"
+          />
+        </template>
+        <RMenuItem
+          v-for="item in sortKeyItems"
+          :key="item.key"
+          :label="item.label"
+          :variant="sortKeyValue === item.key ? 'active' : 'default'"
+          @click="setSortKey(item.key)"
+        />
+      </RMenu>
+
       <RSliderBtnGroup
         v-if="smAndUp"
         :model-value="sortDirValue"
@@ -362,6 +405,17 @@ const { smAndUp } = useBreakpoint();
             :variant="groupByValue === item.id ? 'active' : 'default'"
             :disabled="layoutValue === 'list'"
             @click="setGroupBy(item.id)"
+          />
+          <RDivider />
+        </template>
+        <template v-if="sortKeyItems.length > 0">
+          <RMenuItem
+            v-for="item in sortKeyItems"
+            :key="item.key"
+            :label="item.label"
+            :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            :disabled="layoutValue === 'list'"
+            @click="setSortKey(item.key)"
           />
           <RDivider />
         </template>

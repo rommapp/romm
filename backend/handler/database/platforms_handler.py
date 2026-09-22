@@ -2,7 +2,7 @@ import functools
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
 
 from decorators.database import begin_session
@@ -103,7 +103,15 @@ class DBPlatformsHandler(DBBaseHandler):
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Platform | None:
-        return session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
+        platform = session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
+        if platform:
+            return platform
+
+        # Folder names are matched case-insensitively everywhere else, so a
+        # folder renamed only in case is the same platform, not a new one.
+        return session.scalar(
+            query.filter(func.lower(Platform.fs_slug) == fs_slug.lower()).limit(1)
+        )
 
     @begin_session
     @with_firmware

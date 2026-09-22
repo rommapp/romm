@@ -1,0 +1,5 @@
+/* Probed by test/devCssPrefixing.test.ts. `backdrop-filter` needs a
+   `-webkit-` prefix below Safari 18.4, and the build targets cover it. */
+.prefix-probe {
+  backdrop-filter: blur(1px);
+}
