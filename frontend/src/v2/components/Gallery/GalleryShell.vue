@@ -1314,6 +1314,12 @@ html[data-bp~="sm-and-down"] .r-v2-shell__list-header {
   justify-content: flex-start;
   transform: translateY(var(--r-v2-shell-strip-shift, 0px));
 }
+/* The column header's glass spans the strip column, so the letters start below it. */
+.r-v2-shell--list .r-v2-shell__strip {
+  top: calc(
+    var(--r-nav-h) + var(--r-v2-shell-toolbar-h) + var(--r-list-header-h)
+  );
+}
 /* The floating dock sits over the strip's top; centre the letters clear of it. */
 .r-v2-shell--floating .r-v2-shell__strip {
   justify-content: safe center;
