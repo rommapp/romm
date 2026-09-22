@@ -1,5 +1,6 @@
 {
   "add-collection": "Koleksiyon ekle",
+  "collection-deleted": "\"{name}\" koleksiyonu silindi",
   "cover": "Kapak tasarımı",
   "create-collection": "Koleksiyon oluştur",
   "create-failed": "Koleksiyon oluşturulamadı",
@@ -7,6 +8,8 @@
   "current-filters": "Mevcut filtreler",
   "danger-zone": "Tehlikeli bölge",
   "delete-collection": "Koleksiyonu sil",
+  "delete-collection-body": "\"{name}\" koleksiyonunu kaldırır (koleksiyonda {count} ROM). ROM dosyalarının kendisi silinmez.",
+  "delete-collection-failed": "Koleksiyon silinemedi: {error}",
   "delete-collection-hint": "Koleksiyonu RomM'den kaldırır. ROM dosyalarının kendisi silinmez.",
   "description": "Açıklama",
   "download-collection": "Koleksiyonu indir",

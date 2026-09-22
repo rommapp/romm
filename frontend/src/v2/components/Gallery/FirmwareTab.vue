@@ -217,6 +217,7 @@ async function performDelete(
   <RDropzone
     v-if="firmwareList.length === 0 && pendingFiles.length === 0 && canWrite"
     ref="firmwareDz"
+    fill
     :title="t('platform.upload-firmware')"
     :hint="t('platform.firmware-dropzone-description')"
     :active-title="t('common.dropzone-drag-over')"
@@ -230,6 +231,7 @@ async function performDelete(
   <RDropzone
     v-else
     ref="firmwareDz"
+    fill
     overlay
     :disabled="!canWrite"
     :release-label="t('common.dropzone-drag-over')"
@@ -245,8 +247,8 @@ async function performDelete(
             t("common.upload-files-selected", { count: pendingFiles.length })
           }}</span>
           <RBtn
-            variant="text"
-            size="small"
+            variant="flat"
+            color="primary"
             prepend-icon="mdi-plus"
             @click="openUpload"
           >

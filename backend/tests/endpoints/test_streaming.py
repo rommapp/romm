@@ -54,6 +54,7 @@ from handler.streaming.config import (
     ResolvedContainer,
     _derive_broker_host,
     emulator_display_label,
+    pools_for_platform,
     reset_cache,
     resolve_entry,
 )
@@ -536,7 +537,7 @@ def test_clears_stale_saves_has_no_picker_to_gate_on_a_legacy_container(caplog):
     assert "clears_stale_saves" in caplog.text
 
 
-def test_a_container_that_disagrees_on_clearing_saves_is_not_a_pool_member(caplog):
+def test_a_container_that_disagrees_on_clearing_saves_is_a_pool_of_its_own(caplog):
     """The picker is advertised from the head of the pool, so a member that
     keeps its own newer files would take the pick and silently discard it."""
     first = {
@@ -562,7 +563,7 @@ def test_a_container_that_disagrees_on_clearing_saves_is_not_a_pool_member(caplo
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert [c.clears_stale_saves for c in candidates] == [True]
-    assert "not a pool" in caplog.text
+    assert "never claimed for a game" in caplog.text
 
 
 def test_legacy_containers_still_pool_under_an_inert_clearing_flag():
@@ -1223,6 +1224,22 @@ def test_pool_409s_only_once_every_container_is_held(
     assert "2 containers" in r3.json()["detail"]["message"]
 
 
+def test_a_claim_never_lands_in_a_later_pool(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Only the first pool matches the settings a claim is validated against,
+    so a later pool stays out of reach even when it is the only one free."""
+    later = {**_pool_member(rom, 1), "emulator": "other"}
+    with _streaming(_pool_member(rom, 0), later):
+        r1 = _claim_ok(client, access_token, rom.id)
+        r2 = _claim_ok(client, viewer_access_token, rom.id)
+        assert _session_raw(later) is None
+        assert len(pools_for_platform(rom.platform_slug)) == 2
+    assert r1.status_code == 202
+    assert r1.json()["container"] == _key_of(_pool_member(rom, 0))
+    assert r2.status_code == 409
+
+
 def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
     client, access_token, rom: Rom
 ):
@@ -1405,6 +1422,103 @@ def test_admin_release_rejects_a_container_that_serves_another_platform(
     assert r.status_code == 404
 
 
+def _in_a_later_ps2_pool() -> dict:
+    """A second webstation that disagrees with `_webstation()` on the ps2
+    emulator, so it forms a later ps2 pool."""
+    return _webstation(
+        host="http://192.168.1.11:3000",
+        broker_host="http://192.168.1.11:8000",
+        platforms={"ps2": "play", "ngc": "dolphin"},
+    )
+
+
+def test_admin_release_ends_a_session_on_a_container_in_a_later_pool(
+    client, access_token
+):
+    """A game claim never reaches a later pool, but an admin can still end a
+    session there by naming the container."""
+    later = _in_a_later_ps2_pool()
+    with _streaming(_webstation(), later):
+        key = _key_of(later)
+        assert key not in [c.key for c in streaming.containers_for_platform("ps2")]
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            r = client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key},
+                headers=_auth(access_token),
+            )
+        assert r.status_code == 200
+        assert r.json()["status"] == "released"
+        assert _session_raw(later) is None
+
+
+def test_heartbeat_naming_the_container_refreshes_a_desktop_in_a_later_pool(
+    client, access_token
+):
+    """The platform's lookup only walks the first pool, so only the named key
+    keeps this desktop claim fresh."""
+    later = _in_a_later_ps2_pool()
+    with _streaming(_webstation(), later):
+        key = _key_of(later)
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        _age_session_on(later, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(access_token),
+        )
+        session = json.loads(_session_raw(later))
+    assert r.status_code == 200
+    assert r.json()["status"] == "active"
+    assert not session_store.session_is_stale(session)
+
+
+def test_heartbeat_naming_a_released_container_reports_ended(client, access_token):
+    """A session the caller holds on another of the platform's containers must
+    not answer for the named one."""
+    later = _in_a_later_ps2_pool()
+    with _streaming(_webstation(), later):
+        key = _key_of(later)
+        assert (
+            _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
+        )
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            released = client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key},
+                headers=_auth(access_token),
+            )
+        assert released.status_code == 200
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+
+
+def test_heartbeat_naming_a_container_leaves_another_users_session_alone(
+    client, access_token, viewer_access_token
+):
+    later = _in_a_later_ps2_pool()
+    with _streaming(_webstation(), later):
+        key = _key_of(later)
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        _age_session_on(later, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(viewer_access_token),
+        )
+        session = json.loads(_session_raw(later))
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert session_store.session_is_stale(session)
+
+
 def test_status_finds_the_termination_on_whichever_container_held_it(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -1445,9 +1559,9 @@ def test_heartbeat_refreshes_the_session_on_the_container_that_holds_it(
     assert after > before
 
 
-def test_a_container_that_disagrees_on_the_emulator_is_not_a_pool_member(caplog):
+def test_a_container_that_disagrees_on_the_emulator_is_a_later_pool(caplog):
     """Pool members file states and cards in one place, so an entry naming a
-    different emulator is a separate setup rather than a spare container."""
+    different emulator is a pool of its own rather than a spare container."""
     first = {
         "platform": "ps2",
         "host": "http://192.168.1.10:3000",
@@ -1457,16 +1571,35 @@ def test_a_container_that_disagrees_on_the_emulator_is_not_a_pool_member(caplog)
     second = {**first, "host": "http://192.168.1.11:3000"}
     second["broker_host"] = "http://192.168.1.11:8000"
     second["emulator"] = "play"
+    third = {
+        **first,
+        "host": "http://192.168.1.12:3000",
+        "broker_host": "http://192.168.1.12:8000",
+    }
     romm_logger = logging.getLogger("romm")
     romm_logger.addHandler(caplog.handler)
     try:
-        with _streaming(first, second):
+        with _streaming(first, second, third):
             with caplog.at_level(logging.WARNING, logger="romm"):
+                pools = pools_for_platform("ps2")
                 candidates = streaming.containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
-    assert [c.emulator for c in candidates] == ["pcsx2"]
-    assert "not a pool" in caplog.text
+    assert [[c.emulator for c in pool] for pool in pools] == [
+        ["pcsx2", "pcsx2"],
+        ["play"],
+    ]
+    assert candidates == pools[0]
+    # Once per config, not once per lookup.
+    assert caplog.text.count("never claimed for a game") == 1
+    assert _key_of(second) in caplog.text
+
+
+def test_a_lone_container_is_a_pool_of_one(rom: Rom):
+    member = _pool_member(rom, 0)
+    with _streaming(member):
+        pools = pools_for_platform(rom.platform_slug)
+    assert [[c.key for c in pool] for pool in pools] == [[_key_of(member)]]
 
 
 def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog):
@@ -1498,7 +1631,7 @@ def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog
         "http://192.168.1.10:8000",
         "http://192.168.1.11:8000",
     ]
-    assert "not a pool" not in caplog.text
+    assert "never claimed for a game" not in caplog.text
 
 
 def test_a_proxied_host_disagreeing_with_its_subfolder_cannot_be_claimed(caplog):

@@ -334,7 +334,7 @@ class HasheousHandler(MetadataHandler):
                 try:
                     # TEMP: Hasheous is slowly replacing slugs with IDs
                     igdb_id = int(meta["immutableId"])
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     log.debug(
                         f"Found an IGDB slug instead of an ID: {meta['immutableId']}"
                     )

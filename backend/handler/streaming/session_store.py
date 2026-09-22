@@ -117,7 +117,7 @@ async def get_session(session_key: str) -> dict[str, Any] | None:
         return None
     try:
         return json.loads(raw)
-    except (TypeError, json.JSONDecodeError):
+    except TypeError, json.JSONDecodeError:
         # Corrupt entry, drop it rather than wedging the container forever.
         await async_cache.delete(session_redis_key(session_key))
         return None
@@ -223,7 +223,7 @@ async def cas_session(
                 return _CasOutcome.MISSING, None
             try:
                 session = json.loads(raw)
-            except (TypeError, json.JSONDecodeError):
+            except TypeError, json.JSONDecodeError:
                 session = None
             if not isinstance(session, dict):
                 await pipe.unwatch()
@@ -596,7 +596,7 @@ async def get_termination(session_key: str, user_id: int) -> dict[str, Any] | No
         return None
     try:
         return json.loads(raw)
-    except (TypeError, json.JSONDecodeError):
+    except TypeError, json.JSONDecodeError:
         await async_cache.delete(_termination_redis_key(session_key, user_id))
         return None
 

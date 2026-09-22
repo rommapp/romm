@@ -135,9 +135,8 @@ async def get_romfile_content(
     # keeps the browser from sniffing them into anything script-capable (e.g. a
     # Markdown manual into HTML).
     headers = {"X-Content-Type-Options": "nosniff"} if disposition == "inline" else {}
-    # HTML documents are sanitized on ingest, but serve them under a sandboxing
-    # CSP anyway so a crafted document can never run scripts or reach the
-    # session origin if it is opened directly.
+    # HTML documents are stored exactly as uploaded, so this CSP is what stops a
+    # crafted one running scripts or reaching the session origin.
     if disposition == "inline" and is_html_document_file(file.file_name):
         headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
 

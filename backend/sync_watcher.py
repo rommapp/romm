@@ -58,7 +58,7 @@ def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
         platform_slug = parts[2]
         filename = parts[-1]
         return (device_id, platform_slug, filename)
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         return None
 
 

@@ -279,7 +279,7 @@ class PlaymatchHandler(MetadataHandler):
 
             try:
                 parsed_id = int(provider_game_id)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 log.debug(
                     "Playmatch returned non-int ID for %s: %r",
                     provider_name,

@@ -421,7 +421,9 @@ const spinnerSize = computed(() => {
 .r-btn::before {
   content: "";
   position: absolute;
-  inset: 0;
+  /* -1px reaches over the 1px border, so the hover area matches the full
+     box a filled button paints (text / outlined otherwise read smaller). */
+  inset: -1px;
   background: currentColor;
   opacity: 0;
   border-radius: inherit;
@@ -448,7 +450,7 @@ const spinnerSize = computed(() => {
 /* ── Ripple — circular wave from the activation point ─────────── */
 .r-btn__ripples {
   position: absolute;
-  inset: 0;
+  inset: -1px;
   overflow: hidden;
   border-radius: inherit;
   pointer-events: none;

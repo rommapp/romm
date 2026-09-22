@@ -20,8 +20,7 @@ import NewVersionBanner from "@/v2/components/Notifications/NewVersionBanner.vue
 import NotificationHost from "@/v2/components/Notifications/NotificationHost.vue";
 import UploadProgressToast from "@/v2/components/Notifications/UploadProgressToast.vue";
 import EmulatorJSCacheDialog from "@/v2/components/Player/EmulatorJSCacheDialog.vue";
-import SelectSaveDialog from "@/v2/components/Player/SelectSaveDialog.vue";
-import SelectStateDialog from "@/v2/components/Player/SelectStateDialog.vue";
+import LoadSaveStateDialog from "@/v2/components/Player/LoadSaveStateDialog.vue";
 import ConfirmDialog from "@/v2/components/shared/ConfirmDialog.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -46,7 +45,6 @@ defineOptions({ inheritAttrs: false });
   <AddPhysicalGameDialog />
   <AboutDialog />
   <ChangelogDialog />
-  <SelectSaveDialog />
-  <SelectStateDialog />
+  <LoadSaveStateDialog />
   <EmulatorJSCacheDialog />
 </template>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // RDialog — teleports to <body>, paints a scrim + glass panel, and
 // locks page scroll while open. Slot layout: header / toolbar /
-// content / append / footer.
+// content / append / footer-start + footer. `cancelable` adds a Cancel
+// button at the footer's start that closes like Escape.
 //
 // Behaviour:
 //   • Escape closes (unless `persistent`).
@@ -16,6 +17,8 @@
 // belong inside the consumer's `#content` slot — composed from
 // REmptyState / RProgressCircular / RSpinner as needed.
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import { createBodyScrollLock, overlayCount } from "../bodyScrollLock";
 import {
@@ -45,6 +48,16 @@ const props = withDefaults(
      *  better as a stable full-screen surface. Needs `scrollContent` so the
      *  body scrolls internally. Ignored on desktop / when not a sheet. */
     fullHeightOnMobile?: boolean;
+    /** Body padding. `compact` uses the toolbar and footer inset so dense
+     *  content lines up with the controls above it; `flush` drops padding
+     *  and gap for edge-to-edge rows. */
+    bodyPadding?: "default" | "compact" | "flush";
+    /** Render a Cancel button at the footer's start; it closes the dialog
+     *  (even when `persistent`), emitting `update:modelValue` and `close`. */
+    cancelable?: boolean;
+    cancelDisabled?: boolean;
+    /** Replaces the Cancel label (defaults to the chrome `cancel` label). */
+    cancelText?: string;
   }>(),
   {
     scrollContent: false,
@@ -54,6 +67,10 @@ const props = withDefaults(
     persistent: false,
     fullscreenOnMobile: true,
     fullHeightOnMobile: false,
+    bodyPadding: "default",
+    cancelable: false,
+    cancelDisabled: false,
+    cancelText: undefined,
   },
 );
 
@@ -63,6 +80,8 @@ const emit = defineEmits<{
 }>();
 
 const slots = useSlots();
+
+const labels = useChromeLabels();
 
 const panelRef = ref<HTMLElement | null>(null);
 // Element that had focus before the dialog opened — focus returns here
@@ -230,7 +249,7 @@ const panelStyle = computed(() => {
             <button
               type="button"
               class="r-dialog__close"
-              aria-label="Close"
+              :aria-label="labels.close"
               @click="closeDialog"
             >
               <RIcon icon="mdi-close" size="16" />
@@ -247,7 +266,10 @@ const panelStyle = computed(() => {
                padded, optionally-scrollable region. -->
           <div
             class="r-dialog__body"
-            :class="{ 'r-dialog__body--scroll': scrollContent }"
+            :class="[
+              `r-dialog__body--${bodyPadding}`,
+              { 'r-dialog__body--scroll': scrollContent },
+            ]"
           >
             <slot name="content" />
           </div>
@@ -257,8 +279,24 @@ const panelStyle = computed(() => {
             <slot name="append" />
           </div>
 
-          <!-- Footer bar -->
-          <footer v-if="slots.footer" class="r-dialog__footer">
+          <!-- Footer bar: Cancel and `footer-start` sit left, `footer`
+               actions are pushed right. -->
+          <footer
+            v-if="cancelable || slots.footer || slots['footer-start']"
+            class="r-dialog__footer"
+          >
+            <template v-if="cancelable || slots['footer-start']">
+              <RBtn
+                v-if="cancelable"
+                variant="outlined"
+                :disabled="cancelDisabled"
+                @click="closeDialog"
+              >
+                {{ cancelText ?? labels.cancel }}
+              </RBtn>
+              <slot name="footer-start" />
+              <span class="r-dialog__footer-spacer" aria-hidden="true" />
+            </template>
             <slot name="footer" />
           </footer>
         </div>
@@ -290,6 +328,8 @@ const panelStyle = computed(() => {
 }
 
 .r-dialog__panel {
+  /* Inset shared by the toolbar, the footer and a compact body. */
+  --r-dialog-inset: 14px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -382,7 +422,7 @@ html[data-bp~="sm-and-down"]
 
 /* ── Toolbar / append / footer ────────────────────────────────── */
 .r-dialog__toolbar {
-  padding: 8px 14px;
+  padding: 8px var(--r-dialog-inset);
   background: var(--r-color-bg-elevated);
   border-bottom: 1px solid var(--r-color-border);
 }
@@ -412,12 +452,22 @@ html[data-bp~="sm-and-down"]
   overflow-y: auto;
   scrollbar-width: thin;
 }
+.r-dialog__body--compact {
+  padding: var(--r-dialog-inset);
+}
+.r-dialog__body--flush {
+  padding: 0;
+  gap: 0;
+}
 .r-dialog__footer {
-  padding: 10px 14px;
+  padding: 10px var(--r-dialog-inset);
   border-top: 1px solid var(--r-color-border);
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.r-dialog__footer-spacer {
+  flex: 1;
 }
 
 /* ── Open motion only ────────────────────────────────────────

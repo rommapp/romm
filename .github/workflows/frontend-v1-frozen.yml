@@ -16,7 +16,8 @@ on:
       - "frontend/src/console/**"
       - "frontend/src/layouts/**"
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   check-v1-frozen:

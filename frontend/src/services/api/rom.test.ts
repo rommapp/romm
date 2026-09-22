@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import romApi, { type UpdateRom } from "@/services/api/rom";
+import storeUpload from "@/stores/upload";
 
 const { get, post, put } = vi.hoisted(() => ({
   get: vi.fn(),
@@ -162,6 +163,26 @@ describe("romApi.uploadRoms", () => {
     });
 
     expect(startCall().body).toEqual({ filename: "readme.txt", rom_id: 42 });
+  });
+
+  it("completes an empty file without sending chunks", async () => {
+    const results = await romApi.uploadRoms({
+      platformId: 3,
+      filesToUpload: [new File([], "empty.nsp")],
+    });
+
+    expect(results[0].status).toBe("fulfilled");
+    expect(startCall().headers).toMatchObject({
+      "X-Upload-Total-Size": "0",
+      "X-Upload-Total-Chunks": "0",
+    });
+    expect(put).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledWith(
+      "/roms/upload/u-1/complete",
+      null,
+      expect.anything(),
+    );
+    expect(storeUpload().files[0].finished).toBe(true);
   });
 });
 

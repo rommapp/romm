@@ -1,4 +1,5 @@
 # Stages:
+#   - python-runtime: Patch the Python image's libraries before they ship
 #   - frontend-build: Build frontend
 #   - backend-build: Build backend environment
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
@@ -15,19 +16,28 @@
 
 # ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.24
-ARG ALPINE_SHA256=28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
-ARG PYTHON_ALPINE_SHA256=c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc
+ARG PYTHON_ALPINE_SHA256=9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
 ARG NODE_VERSION=24.16
 ARG NODE_ALPINE_SHA256=21f403ab171f2dc89bad4dd69d7721bfd15f084ccb46cdd225f31f2bc59b5c9a
 ARG NGINX_VERSION=1.30.5
-ARG NGINX_SHA256=25820c39dba41369486df729ad6697de2fab631ca809e0503e1d1e0c73d9a232
+ARG NGINX_SHA256=a5f2157a0302eb0c5e300415effb63a9e70ed1eb9c107283819bf6d149ab607c
 ARG UV_VERSION=0.12.13
 ARG UV_SHA256=eb47c391d3a252d9d912270dd2b5e234af5493e92039fedb483f1dd1cb5659ce
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
+
+
+# PATCHED PYTHON RUNTIME
+# production-stage copies /usr/lib from here over its own, so these libraries
+# need the same patches, or the stale ones land in the final image. Kept apart
+# from python-alias so that busting this layer's cache (see `no-cache-filters`
+# in build.yml) does not also rebuild the venv and the sigil bindings.
+FROM python-alias AS python-runtime
+RUN apk upgrade --no-cache
 
 
 # FRONTEND BUILD
@@ -217,7 +227,9 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
 FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
-RUN apk add --no-cache \
+# Alpine backports security fixes to its repo faster than the base image is
+# rebuilt, so the digest pin alone leaves known-vulnerable packages in the image.
+RUN apk upgrade --no-cache && apk add --no-cache \
     bash \
     libarchive-tools \
     libmagic \
@@ -234,11 +246,11 @@ RUN apk add --no-cache \
 # TODO: Replace with a bundled installation of Python using `uv`, when it is supported.
 #       Related issue: https://github.com/astral-sh/uv/issues/7865
 ARG PYTHON_VERSION
-COPY --from=python-alias /usr/lib/* /usr/lib/
-COPY --from=python-alias /usr/local/bin/* /usr/local/bin/
-COPY --from=python-alias /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
-COPY --from=python-alias /usr/local/lib/libpython* /usr/local/lib/
-COPY --from=python-alias /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
+COPY --from=python-runtime /usr/lib/* /usr/lib/
+COPY --from=python-runtime /usr/local/bin/* /usr/local/bin/
+COPY --from=python-runtime /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
+COPY --from=python-runtime /usr/local/lib/libpython* /usr/local/lib/
+COPY --from=python-runtime /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/

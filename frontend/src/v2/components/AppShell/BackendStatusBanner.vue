@@ -11,36 +11,72 @@
 // poll / passive DOM-event listeners / recovery watcher (idempotent). This
 // component is mounted once, under `v-if="isV2"` in RomM.vue, so it covers both
 // the auth and main shells.
-import { RBtn, RIcon } from "@v2/lib";
+import { RBtn, RIcon, RTooltip } from "@v2/lib";
+import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import storePlaying from "@/stores/playing";
+import { useDelayedFlag } from "@/v2/composables/useDelayedFlag";
 import { useServerConnection } from "@/v2/composables/useServerConnection";
 
 defineOptions({ inheritAttrs: false });
 
+// Long enough to read before the notice gets out of the way of the game.
+const COLLAPSE_MS = 6000;
+
 const { t } = useI18n();
 const { isOffline, retryNow } = useServerConnection();
+const { playing } = storeToRefs(storePlaying());
+
+// A notice that cannot be dismissed has no business sitting over a running
+// game, so it says its piece and then shrinks to its icon.
+const collapsed = useDelayedFlag(
+  () => isOffline.value && playing.value,
+  COLLAPSE_MS,
+);
 </script>
 
 <template>
   <Transition name="r-backend-banner">
-    <div v-if="isOffline" class="r-backend-banner" role="alert">
+    <div
+      v-if="isOffline"
+      class="r-backend-banner"
+      :class="{
+        'r-backend-banner--in-game': playing,
+        'r-backend-banner--collapsed': collapsed,
+      }"
+      role="alert"
+      :aria-label="collapsed ? t('common.server-offline-retrying') : undefined"
+    >
+      <!-- Shrunk to its icon, so the message still has to be readable. -->
+      <RTooltip
+        v-if="collapsed"
+        activator="parent"
+        location="bottom start"
+        open-on-tap
+        :text="t('common.server-offline-retrying')"
+      />
       <RIcon
         icon="mdi-lan-disconnect"
         size="18"
         class="r-backend-banner__icon"
       />
-      <span class="r-backend-banner__msg">
-        {{ t("common.server-offline-retrying") }}
-      </span>
-      <RBtn
-        size="small"
-        variant="text"
-        prepend-icon="mdi-refresh"
-        class="r-backend-banner__retry"
-        @click="retryNow"
-      >
-        {{ t("common.try-again") }}
-      </RBtn>
+      <Transition name="r-backend-banner-body">
+        <div v-if="!collapsed" class="r-backend-banner__body">
+          <span class="r-backend-banner__msg">
+            {{ t("common.server-offline-retrying") }}
+          </span>
+          <RBtn
+            v-if="!playing"
+            size="small"
+            variant="text"
+            prepend-icon="mdi-refresh"
+            class="r-backend-banner__retry"
+            @click="retryNow"
+          >
+            {{ t("common.try-again") }}
+          </RBtn>
+        </div>
+      </Transition>
     </div>
   </Transition>
 </template>
@@ -79,9 +115,38 @@ const { isOffline, retryNow } = useServerConnection();
   line-height: 1.4;
 }
 
+/* A running game owns the screen, so the notice moves out of its middle and
+   into a corner the player's own toasts leave free. */
+.r-backend-banner--in-game {
+  top: 16px;
+  left: 16px;
+  right: auto;
+  transform: none;
+  max-width: min(420px, calc(100vw - 32px));
+  /* The retry button is what pads the right edge out; without it the text
+     needs the same room the icon gets. */
+  padding: 8px 14px;
+}
+
+.r-backend-banner--in-game .r-backend-banner__body {
+  white-space: nowrap;
+}
+
+.r-backend-banner--collapsed {
+  padding: 8px;
+}
+
 .r-backend-banner__icon {
   flex-shrink: 0;
   color: var(--r-color-danger-fg);
+}
+
+.r-backend-banner__body {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .r-backend-banner__msg {
@@ -105,6 +170,24 @@ const { isOffline, retryNow } = useServerConnection();
   opacity: 0;
   transform: translate(-50%, -12px);
 }
+.r-backend-banner--in-game.r-backend-banner-enter-from,
+.r-backend-banner--in-game.r-backend-banner-leave-to {
+  transform: translateY(-12px);
+}
+
+/* The text slides shut as the notice collapses to its icon. */
+.r-backend-banner-body-enter-active,
+.r-backend-banner-body-leave-active {
+  transition:
+    opacity var(--r-motion-med) var(--r-motion-ease-out),
+    max-width var(--r-motion-med) var(--r-motion-ease-out);
+  max-width: 420px;
+}
+.r-backend-banner-body-enter-from,
+.r-backend-banner-body-leave-to {
+  opacity: 0;
+  max-width: 0;
+}
 
 /* On phones keep it centred but allow the safe full width. */
 html[data-bp~="xs"] .r-backend-banner {
@@ -117,5 +200,11 @@ html[data-bp~="xs"] .r-backend-banner {
 html[data-bp~="xs"] .r-backend-banner-enter-from,
 html[data-bp~="xs"] .r-backend-banner-leave-to {
   transform: translateY(-12px);
+}
+html[data-bp~="xs"] .r-backend-banner--in-game {
+  left: 12px;
+  right: auto;
+  max-width: calc(100vw - 24px);
+  justify-content: flex-start;
 }
 </style>

@@ -1,5 +1,6 @@
 {
   "add-collection": "新增收藏庫",
+  "collection-deleted": "已刪除收藏庫「{name}」",
   "cover": "封面圖片",
   "create-collection": "建立收藏庫",
   "create-failed": "建立收藏庫失敗",
@@ -7,6 +8,8 @@
   "current-filters": "目前篩選條件",
   "danger-zone": "危險操作",
   "delete-collection": "刪除收藏庫",
+  "delete-collection-body": "將移除「{name}」（收藏庫中有 {count} 個 ROM）。ROM 檔案本身不會被刪除。",
+  "delete-collection-failed": "刪除收藏庫失敗：{error}",
   "delete-collection-hint": "從 RomM 中移除收藏庫。ROM 檔案本身不會被刪除。",
   "description": "說明",
   "download-collection": "下載收藏庫",

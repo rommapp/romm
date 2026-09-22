@@ -17,8 +17,8 @@ ALLOWED_IMAGE_EXTENSIONS = frozenset(
 ALLOWED_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".ogv", ".mov", ".m4v"})
 ALLOWED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".md", ".txt", ".html", ".htm"})
 
-# Document extensions that are HTML and therefore must be served under a
-# sandboxing CSP even after ingest-time sanitization (defense in depth).
+# Document extensions that are HTML. Nothing sanitizes them on the way in, so
+# they require a sandboxing CSP when served inline.
 HTML_DOCUMENT_EXTENSIONS = frozenset({".html", ".htm"})
 
 # MIME types the stdlib mimetypes module guesses inconsistently (or not at

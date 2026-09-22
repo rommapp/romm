@@ -31,20 +31,20 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 
 ## 1. Overview
 
-| Property             | Value                                          |
-| -------------------- | ---------------------------------------------- |
-| **Framework**        | Vue 3.4.27 (Composition API, `<script setup>`) |
-| **Build Tool**       | Vite 6.4.2                                     |
-| **Language**         | TypeScript 5.7.3 (`noImplicitAny: true`)       |
-| **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only       |
-| **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only   |
-| **State Management** | Pinia 3.0.1 (18 stores)                        |
-| **Routing**          | Vue Router 4.3.2                               |
-| **HTTP Client**      | Axios 1.15.0                                   |
-| **i18n**             | vue-i18n 11.1.10 (17 languages)                |
-| **Real-time**        | Socket.IO Client 4.7.5                         |
-| **Icons**            | Material Design Icons (MDI) 7.4.47             |
-| **Node**             | 24 (via `.nvmrc`)                              |
+| Property             | Value                                        |
+| -------------------- | -------------------------------------------- |
+| **Framework**        | Vue 3.5 (Composition API, `<script setup>`)  |
+| **Build Tool**       | Vite 6.4.2                                   |
+| **Language**         | TypeScript 5.9.3 (`noImplicitAny: true`)     |
+| **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only     |
+| **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only |
+| **State Management** | Pinia 3.0.1 (18 stores)                      |
+| **Routing**          | Vue Router 4.3.2                             |
+| **HTTP Client**      | Axios 1.15.0                                 |
+| **i18n**             | vue-i18n 11.1.10 (17 languages)              |
+| **Real-time**        | Socket.IO Client 4.7.5                       |
+| **Icons**            | Material Design Icons (MDI) 7.4.47           |
+| **Node**             | 24 (via `.nvmrc`)                            |
 
 **Total:** ~216 Vue components (168 under `components/`, rest in views/console/layouts), 18 Pinia stores, 17 API service modules, 36 named routes across 3 layouts.
 
@@ -123,7 +123,8 @@ frontend/
 ├── index.html                     # HTML entry point (<div id="app">)
 ├── package.json                   # Dependencies & scripts
 ├── vite.config.js                 # Vite build config with plugins
-├── tsconfig.json                  # TypeScript configuration
+├── tsconfig.json                  # Vue app TypeScript (vue-tsc)
+├── tsconfig.node.json             # Node/Vite tooling TypeScript (tsc -p)
 ├── eslint.config.js               # ESLint flat config
 ├── .nvmrc                         # Node 24
 │
@@ -1099,14 +1100,15 @@ Procedural SVG generation for:
 
 ### Scripts
 
-| Script      | Command                      | Purpose                             |
-| ----------- | ---------------------------- | ----------------------------------- |
-| `dev`       | `vite --host`                | Development server                  |
-| `build`     | `vite build`                 | Production build                    |
-| `preview`   | `vite preview`               | Preview production build            |
-| `typecheck` | `vue-tsc`                    | TypeScript validation               |
-| `generate`  | `openapi-typescript-codegen` | Generate types from backend OpenAPI |
-| `lint`      | `eslint`                     | Lint `.vue`, `.js`, `.ts` files     |
+| Script              | Command                              | Purpose                                                |
+| ------------------- | ------------------------------------ | ------------------------------------------------------ |
+| `dev`               | `vite --host`                        | Development server                                     |
+| `build`             | `vite build`                         | Production build                                       |
+| `preview`           | `vite preview`                       | Preview production build                               |
+| `typecheck`         | `vue-tsc --noEmit`                   | App SFCs (`tsconfig.json`)                             |
+| `typecheck:scripts` | `tsc --noEmit -p tsconfig.node.json` | Node/Vite tooling in `scripts/` (`tsconfig.node.json`) |
+| `generate`          | `openapi-typescript-codegen`         | Generate types from backend OpenAPI                    |
+| `lint`              | `eslint`                             | Lint `.vue`, `.js`, `.ts` files                        |
 
 ### OpenAPI Code Generation
 
