@@ -360,9 +360,8 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
-        # Title ids are re-read from the binaries of every rom already in the
-        # library. A file with no entry yet is left to a scan that adds roms,
-        # since importing one costs the full hash this scan promises to skip.
+        # Importing a file with no entry yet costs the full hash a title-ids
+        # scan exists to skip, so it leaves those to a scan that adds roms
         or (scan_type == ScanType.TITLE_IDS and rom is not None)
         or (
             rom
@@ -408,9 +407,7 @@ def _should_get_rom_files(
 
     return bool(
         newly_added
-        or (scan_type == ScanType.COMPLETE)
-        or (scan_type == ScanType.HASHES)
-        or (scan_type == ScanType.TITLE_IDS)
+        or scan_type in (ScanType.COMPLETE, ScanType.HASHES, ScanType.TITLE_IDS)
         or (rom and rom.id in roms_ids)
     )
 
