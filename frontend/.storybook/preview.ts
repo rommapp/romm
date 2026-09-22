@@ -13,6 +13,23 @@ import { dark, light } from "../src/styles/themes";
 import { ChromeLabelsKey } from "../src/v2/lib/a11y/chromeLabels";
 import "../src/v2/styles/global.css";
 import { createChromeLabels } from "../src/v2/utils/chromeLabels";
+import { GAMEPAD_GLOBAL_KEY } from "./gamepad/constants";
+import { withGamepad } from "./gamepad/withGamepad";
+
+/*
+ * Gamepad POC (Storybook-only, draft):
+ *
+ * 1. globalTypes below register the manager toolbar toggle (Off / On).
+ * 2. Decorator `withGamepad` wraps every story in GamepadStoryHost (see .storybook/gamepad/).
+ * 3. When On, the host mounts GamepadInputLayer, which calls the same v2 composables as the app
+ *    (useInputModality + useGamepad). Stories that need D-pad focus must opt in to grid nav
+ *    (e.g. QA/Gamepad gallery uses useWrapGridNav + `.gamepad-cell` wrappers).
+ * 4. Canvas status bar (connection, activity LEDs, last button) is preview-only UI; the toolbar
+ *    caption stays "Gamepad: Off|On". manager.ts listens on the Storybook channel to sync labels
+ *    and hide the default toolbar icon (see GAMEPAD_TOOLBAR_LABEL_EVENT in constants.ts).
+ *
+ * Per-story override: parameters.gamepad === true forces the layer on regardless of the toolbar.
+ */
 
 // Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
 // v2 primitives are Vuetify-free at runtime — Vuetify stays registered only
@@ -57,6 +74,25 @@ setup((app) => {
 });
 
 const preview: Preview = {
+  globalTypes: {
+    // Wired to withGamepad via GAMEPAD_GLOBAL_KEY; manager.ts keeps the button label in sync.
+    [GAMEPAD_GLOBAL_KEY]: {
+      description:
+        "RomM gamepad layer (useGamepad + modality). Canvas status appears only while On.",
+      toolbar: {
+        title: "Gamepad",
+        items: [
+          { value: false, title: "🎮 Gamepad: Off" },
+          { value: true, title: "🎮 Gamepad: On" },
+        ],
+        showName: true,
+        dynamicTitle: false,
+      },
+    },
+  },
+  initialGlobals: {
+    [GAMEPAD_GLOBAL_KEY]: false,
+  },
   parameters: {
     layout: "centered",
     backgrounds: { disable: true },
@@ -79,6 +115,7 @@ const preview: Preview = {
     options: {
       storySort: {
         order: [
+          "QA",
           "Primitives",
           "Forms",
           "Structural",
@@ -91,6 +128,7 @@ const preview: Preview = {
     },
   },
   decorators: [
+    withGamepad,
     withThemeByClassName({
       themes: {
         dark: "r-v2 r-v2-dark v-theme--dark",
