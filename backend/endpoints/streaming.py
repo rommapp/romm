@@ -618,13 +618,6 @@ async def _settle_memory_card(
     return card, created_blank_card_id
 
 
-class _HydrationResult(NamedTuple):
-    """What actually reached the container from `_hydrate_saves`."""
-
-    archive_path: str | None
-    state_imported: bool
-
-
 async def _hydrate_saves(
     request: Request,
     container: ResolvedContainer,
@@ -635,7 +628,7 @@ async def _hydrate_saves(
     save: Save | None = None,
     save_foreign: bool = False,
     import_state: State | None = None,
-) -> _HydrationResult:
+) -> imports.ImportHydration:
     """Put the player's save data on the container before the game reads it.
 
     Games read saves at boot, so unlike states this cannot be deferred to a
@@ -682,11 +675,11 @@ async def _hydrate_saves(
                 log.exception("import archive hydration failed, continuing launch")
                 result = imports.ImportHydration(None, False)
             if result.path is not None:
-                return _HydrationResult(result.path, result.state_imported)
+                return result
             if save_foreign:
                 # The foreign save itself is what failed; there is no native
                 # side of this pick to fall back to.
-                return _HydrationResult(None, False)
+                return imports.ImportHydration(None, False)
             # The foreign state failed to import; a native save riding
             # alongside it (or none at all) still gets ordinary hydration.
         # Restore runs inside activate on this protocol, so hydration only gets
@@ -698,7 +691,7 @@ async def _hydrate_saves(
             path = await saves.hydrate_saves_to_webstation(
                 request.user.id, rom.id, container, save
             )
-            return _HydrationResult(path, False)
+            return imports.ImportHydration(path, False)
         except Exception:
             log.exception("save hydration failed, continuing launch")
     elif card is None:
@@ -708,7 +701,7 @@ async def _hydrate_saves(
             await saves.hydrate_saves_to_broker(request.user.id, rom.id, container)
         except Exception:
             log.exception("save hydration failed, continuing launch")
-    return _HydrationResult(None, False)
+    return imports.ImportHydration(None, False)
 
 
 @protected_route(
@@ -861,29 +854,32 @@ async def claim_session(
         request, container, session, memory_card, rom, probe
     )
 
-    # A foreign resume pick only got a best-effort pre-win check inside
-    # resolve_resume_state; now that a container is actually won, this
-    # authoritative check decides whether the pick rides the import archive.
+    # A foreign resume/save pick only got a best-effort pre-win check inside
+    # resolve_resume_state/resolve_save_archive; now that a container is
+    # actually won, this authoritative check decides whether either pick
+    # rides the import archive. One spec answers both, so a claim carrying
+    # both picks only pays for one broker round trip.
     resume_via_import = False
-    if resume_state is not None and resume_foreign:
-        resume_spec = await asyncio.to_thread(
+    needs_recheck = (resume_state is not None and resume_foreign) or (
+        picked_save is not None and save_foreign
+    )
+    spec = None
+    if needs_recheck:
+        spec = await asyncio.to_thread(
             webstation.import_spec, container, container.emulator, container.platform
         )
-        resume_via_import = (
-            resume_spec is not None and resume_spec.state_channel == "archive"
-        )
+
+    if resume_state is not None and resume_foreign and spec is not None:
+        resume_via_import = spec.state_channel == "archive"
         if resume_via_import:
             # A foreign filename never yields a slot, so the archive channel
             # takes it from the spec instead of resolve_resume_state's guess.
-            resume_slot = resume_spec.state_slot
+            resume_slot = spec.state_slot
 
     # Same authoritative recheck for a foreign save pick: the won container
     # may answer import-spec differently than the pre-win reference did.
     if picked_save is not None and save_foreign:
-        save_spec = await asyncio.to_thread(
-            webstation.import_spec, container, container.emulator, container.platform
-        )
-        save_foreign = save_spec is not None and save_spec.accepts("save")
+        save_foreign = spec is not None and spec.accepts("save")
 
     # Push the resume state before launch so its file is in place when the
     # broker's deferred slot load fires. Best-effort: a failed push falls

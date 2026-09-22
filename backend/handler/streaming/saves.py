@@ -251,7 +251,7 @@ def _is_restorable(save: Save, emulator: str) -> bool:
     return _written_by(save, emulator) and _is_archive(save)
 
 
-def _newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
+def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
     """The user's most recent restorable archive for this emulator."""
     archives = [
         save
@@ -261,11 +261,6 @@ def _newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
     # Ties on id, because created_at only has second resolution: two archives
     # written in the same second would otherwise pick arbitrarily.
     return max(archives, key=lambda s: (s.created_at, s.id), default=None)
-
-
-def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
-    """Public alias of `_newest_restorable` for `imports.py`."""
-    return _newest_restorable(user_id, rom_id, emulator)
 
 
 def resolve_save_archive(
@@ -308,7 +303,7 @@ def resolve_save_archive(
     )
 
 
-async def _read_archive(save: Save) -> tuple[str, bytes] | None:
+async def read_restorable_archive(save: Save) -> tuple[str, bytes] | None:
     """The archive's (file name, content), or None when it is gone off disk."""
     try:
         content = await fs_asset_handler.read_file(f"{save.file_path}/{save.file_name}")
@@ -316,11 +311,6 @@ async def _read_archive(save: Save) -> tuple[str, bytes] | None:
         log.warning("stored save missing on disk, %s", save.file_name)
         return None
     return save.file_name, content
-
-
-async def read_restorable_archive(save: Save) -> tuple[str, bytes] | None:
-    """Public alias of `_read_archive` for `imports.py`: (file name, bytes)."""
-    return await _read_archive(save)
 
 
 async def hydrate_saves_to_broker(
@@ -334,10 +324,10 @@ async def hydrate_saves_to_broker(
     if db_user_handler.get_user(user_id) is None or rom is None:
         return False
 
-    newest = _newest_restorable(user_id, rom_id, container.emulator)
+    newest = newest_restorable(user_id, rom_id, container.emulator)
     if newest is None:
         return False
-    archive = await _read_archive(newest)
+    archive = await read_restorable_archive(newest)
     if archive is None:
         return False
     file_name, content = archive
@@ -356,10 +346,10 @@ async def hydrate_saves_to_webstation(
     The webstation broker restores as part of activate, so hydration only gets
     the bytes into place. `save` is the player's pick, newest when absent.
     """
-    picked = save or _newest_restorable(user_id, rom_id, container.emulator)
+    picked = save or newest_restorable(user_id, rom_id, container.emulator)
     if picked is None:
         return None
-    archive = await _read_archive(picked)
+    archive = await read_restorable_archive(picked)
     if archive is None:
         return None
     file_name, content = archive

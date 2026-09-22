@@ -223,13 +223,14 @@ async def hydrate_import_archive(
     base: tuple[str, bytes] | None = None
 
     if save is not None and save_is_foreign:
-        content = await _read_asset(save.file_path, save.file_name)
-        if content is not None:
+        archive = await saves.read_restorable_archive(save)
+        if archive is not None:
+            _file_name, save_content = archive
             members.append(
                 ForeignMember(
                     kind="save",
                     name=save.file_name,
-                    content=content,
+                    content=save_content,
                     origin=origin_of(save.emulator, save.origin_device_id),
                 )
             )

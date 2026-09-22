@@ -109,20 +109,18 @@ async def run_launch(
     except Exception as exc:
         log.exception("launch failed, platform=%s", platform)
         await lifecycle.abort_claim(session_key, session, blank_card_id)
-        try:
-            refusals = (
-                [ImportRefusalSchema(**dataclasses.asdict(r)) for r in exc.refusals]
-                if isinstance(exc, broker.ImportRefusedError)
-                else None
-            )
-        except Exception:
-            # A malformed refusal shouldn't also swallow the failure
-            # notification below and strand the player mid-launch.
-            log.exception("could not build refusal payload, platform=%s", platform)
-            refusals = None
-        refusals_truncated = (
-            exc.truncated if isinstance(exc, broker.ImportRefusedError) else 0
-        )
+        refusals = None
+        refusals_truncated = 0
+        if isinstance(exc, broker.ImportRefusedError):
+            refusals_truncated = exc.truncated
+            try:
+                refusals = [
+                    ImportRefusalSchema(**dataclasses.asdict(r)) for r in exc.refusals
+                ]
+            except Exception:
+                # A malformed refusal shouldn't also swallow the failure
+                # notification below and strand the player mid-launch.
+                log.exception("could not build refusal payload, platform=%s", platform)
         await push_to_user(
             session.get("user_id"),
             "streaming:launch-failed",
