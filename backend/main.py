@@ -29,6 +29,7 @@ from config import (
     ROMM_CORS_ALLOWED_ORIGINS,
     ROMM_SESSION_SECURE_COOKIE,
     SENTRY_DSN,
+    cors_allow_credentials,
 )
 from endpoints.activity import router as activity_router
 from endpoints.auth import router as auth_router
@@ -116,12 +117,10 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
-# A wildcard origin here would make Starlette echo any caller's Origin with
-# credentials attached, so this list only ever holds explicit origins.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ROMM_CORS_ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=cors_allow_credentials(ROMM_CORS_ALLOWED_ORIGINS),
     allow_methods=["*"],
     allow_headers=["*"],
 )

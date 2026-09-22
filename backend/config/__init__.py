@@ -190,12 +190,18 @@ DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
 )
 
-# No fallback origin, so an unset value denies cross-origin instead of allowing all.
 ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
     o.strip()
     for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS") or "").split(",")
     if o.strip()
 ]
+
+
+def cors_allow_credentials(origins: list[str]) -> bool:
+    """A wildcard origin carries no credentials, since it echoes any caller's."""
+    return "*" not in origins
+
+
 ROMM_SESSION_SECURE_COOKIE: Final[bool] = safe_str_to_bool(
     _get_env("ROMM_SESSION_SECURE_COOKIE")
 )
