@@ -192,10 +192,15 @@ def _swappable_disc_file_ids(rom: Rom) -> set[int]:
     return {f.id for f in playlist_files(rom.files)}
 
 
-async def _session_status(platform: str, request: Request) -> dict[str, Any]:
-    """Whether the caller still holds this platform's session, and if not, why
-    it ended. Read-only, so it is safe to poll."""
-    candidates = containers_for_platform(platform)
+async def _session_status(
+    platform: str,
+    request: Request,
+    candidates: list[ResolvedContainer] | None = None,
+) -> dict[str, Any]:
+    """Whether the caller holds a session among `candidates` (the platform's first
+    pool by default), and if not, why it ended. Read-only, so it is safe to poll."""
+    if candidates is None:
+        candidates = containers_for_platform(platform)
     if not candidates:
         raise HTTPException(
             status_code=404,
@@ -648,7 +653,7 @@ async def claim_session(
     The ROM's filesystem path is derived server-side from its database row -
     the client only supplies a ROM id, never a path.
     Returns 404 if the ROM doesn't exist or no container serves its platform.
-    Returns 409 if every container serving the platform is occupied.
+    Returns 409 if every container in the platform's first pool is occupied.
     Returns 428 if the container's pre-existing memory card needs a decision.
     """
     rom = db_rom_handler.get_rom(req.rom_id)
@@ -668,9 +673,8 @@ async def claim_session(
             detail=f"No streaming container configured for platform '{platform}'",
         )
 
-    # Pool members are interchangeable on emulator and card sync (enforced by
-    # containers_for_platform), so the pre-claim validation below holds for
-    # whichever one the walk ends up winning.
+    # Pool members are interchangeable (`ResolvedContainer.interchangeable_with`),
+    # so the pre-claim validation below holds for whichever one the walk wins.
     reference = candidates[0]
 
     # Validate the resume pick before claiming so a bad state_id cannot
@@ -933,7 +937,11 @@ async def save_and_exit_session(
 
 
 @protected_route(router.post, "/sessions/{platform}/heartbeat", [Scope.ROMS_USER_WRITE])
-async def heartbeat_session(request: Request, platform: str) -> SessionStatusSchema:
+async def heartbeat_session(
+    request: Request,
+    platform: str,
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
+) -> SessionStatusSchema:
     """Refresh the session's liveness stamp and report whether it still exists.
 
     The frontend calls this every ~30s while a session is active. A session
@@ -943,28 +951,32 @@ async def heartbeat_session(request: Request, platform: str) -> SessionStatusSch
     Reports `ended` rather than raising 404 when the caller no longer holds the
     session, so a force-released player learns why on the poll they are already
     making rather than watching a dead stream.
+
+    `container` names the claim to refresh, needed for a desktop on a container
+    outside the platform's first pool.
     """
-    candidates = containers_for_platform(platform)
-    if not candidates:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No streaming container configured for platform '{platform}'",
-        )
-    found = await access.find_session_for_user(candidates, request.user.id)
+    user_id = request.user.id
+    # A named claim answers for itself: another session the caller holds on the
+    # platform is not the one this client is beating.
+    candidates = (
+        [access.named_container(platform, container_key)]
+        if container_key is not None
+        else containers_for_platform(platform)
+    )
+    found = await access.find_session_for_user(candidates, user_id)
     if found is None:
-        return SessionStatusSchema(**await _session_status(platform, request))
+        return SessionStatusSchema(
+            **await _session_status(platform, request, candidates)
+        )
     _, session_key, _ = found
 
-    # Merging rather than writing the copy read above keeps a swap that landed
-    # in between; refusing a draining session keeps a heartbeat from making a
-    # container that is already being torn down look live. Either returns None,
-    # meaning the claim is gone and reporting "active" would leave the client
-    # beating a session it no longer holds.
+    # Merging keeps a swap that landed since the read. Refusing a draining or
+    # re-claimed session returns None, so the client stops beating a dead claim.
     try:
         refreshed = await mutate_session(
             session_key,
             {"last_seen": datetime.now(timezone.utc).isoformat()},
-            require=lambda s: not s.get("draining"),
+            require=lambda s: not s.get("draining") and s.get("user_id") == user_id,
         )
     except StreamingSessionContended:
         # A key too busy to write is a key that exists, so the session is live
@@ -972,7 +984,9 @@ async def heartbeat_session(request: Request, platform: str) -> SessionStatusSch
         log.warning("heartbeat could not stamp contended session %s", session_key)
         return SessionStatusSchema(status="active", platform=platform)
     if refreshed is None:
-        return SessionStatusSchema(**await _session_status(platform, request))
+        return SessionStatusSchema(
+            **await _session_status(platform, request, candidates)
+        )
     await lifecycle.refresh_session_activity(session_key, refreshed)
     return SessionStatusSchema(status="active", platform=platform)
 
