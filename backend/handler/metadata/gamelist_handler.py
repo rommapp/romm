@@ -4,7 +4,7 @@ import re
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Final, Literal, NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 
 import pydash
@@ -57,24 +57,6 @@ class GamelistMetadataMedia(TypedDict):
     video_url: str | None
 
 
-type GamelistMediaKey = Literal[
-    "box2d_url",
-    "box2d_back_url",
-    "box3d_url",
-    "fanart_url",
-    "image_url",
-    "manual_url",
-    "marquee_url",
-    "miximage_url",
-    "miximage_v2_url",
-    "physical_url",
-    "screenshot_url",
-    "thumbnail_url",
-    "title_screen_url",
-    "video_url",
-]
-
-
 class GamelistMetadata(GamelistMetadataMedia):
     rating: float | None
     first_release_date: str | None
@@ -104,7 +86,7 @@ class GamelistRom(BaseRom):
     gamelist_metadata: NotRequired[GamelistMetadata]
 
 
-ESDE_MEDIA_MAP: Final[dict[GamelistMediaKey, str]] = {
+ESDE_MEDIA_MAP: Final = {
     "image_url": PLATFORM_MEDIA_DIRS["image"],
     "box2d_url": PLATFORM_MEDIA_DIRS["box2d"],
     "box2d_back_url": PLATFORM_MEDIA_DIRS["box2d_back"],
@@ -121,7 +103,7 @@ ESDE_MEDIA_MAP: Final[dict[GamelistMediaKey, str]] = {
     "video_url": PLATFORM_MEDIA_DIRS["video"],
 }
 
-XML_TAG_MAP: Final[dict[GamelistMediaKey, str]] = {
+XML_TAG_MAP: Final = {
     "image_url": "image",
     "box2d_url": "cover",
     "box2d_back_url": "backcover",
@@ -197,7 +179,7 @@ def extract_media_from_gamelist_rom(
     for media_key, xml_tag in XML_TAG_MAP.items():
         elem = game.find(xml_tag)
         if elem is not None and elem.text:
-            gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
+            gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)  # type: ignore[literal-required]
 
     # Fallback to searching media folders by ROM basename
     path_elem = game.find("path")
@@ -205,14 +187,14 @@ def extract_media_from_gamelist_rom(
         rom_stem = os.path.splitext(os.path.basename(path_elem.text))[0]
 
         for media_key, folder_name in ESDE_MEDIA_MAP.items():
-            if gamelist_media[media_key]:
+            if gamelist_media[media_key]:  # type: ignore[literal-required]
                 continue
 
             search_pattern = os.path.join(platform_dir, folder_name, f"{rom_stem}.*")
             search_path = fs_platform_handler.validate_path(search_pattern)
             found_files = glob.glob(str(search_path))
             if found_files:
-                gamelist_media[media_key] = (
+                gamelist_media[media_key] = (  # type: ignore[literal-required]
                     f"file://{str(Path(found_files[0]).relative_to(fs_platform_handler.base_path))}"
                 )
 
