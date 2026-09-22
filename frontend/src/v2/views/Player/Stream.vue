@@ -458,11 +458,10 @@ const emulatorLabel = computed(
   () => container.value?.label ?? platformLabel.value,
 );
 
-usePlayFocus(
-  ".r-v2-stream__play",
+const playReady = computed(
   () => !!rom.value && playerState.value !== "loading",
-  gameRunning,
 );
+usePlayFocus(".r-v2-stream__play", playReady, gameRunning);
 
 // ── Live activity ("now playing") ──────────────────────────────────
 // Each beat also refreshes the backend claim's liveness stamp: a session whose
@@ -1294,7 +1293,7 @@ onBeforeUnmount(() => {
           :prepend-icon="playerState === 'loading' ? 'mdi-loading' : 'mdi-play'"
           class="r-v2-stream__play"
           :class="{ 'r-v2-stream__play--launching': playerState === 'loading' }"
-          :disabled="!rom || playerState === 'loading'"
+          :disabled="!playReady"
           @click="onPlay()"
         >
           {{

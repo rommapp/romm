@@ -13,11 +13,10 @@ describe("usePlayFocus", () => {
   const ready = ref(false);
   const running = ref(false);
 
-  // Two ticks: one for the watcher's flush, one for the nextTick it defers
-  // the focus call to.
+  // The watcher's flush, then the task the claim is deferred to.
   async function settle() {
     await nextTick();
-    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve));
   }
 
   function run() {
@@ -70,6 +69,20 @@ describe("usePlayFocus", () => {
     elsewhere.focus();
 
     setModality("pad");
+    await settle();
+
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it("lets the key that switched modality move focus first", async () => {
+    run();
+    ready.value = true;
+    await settle();
+
+    setModality("key");
+    await nextTick();
+    // Tab's own focus move, which lands after the modality listener has run.
+    elsewhere.focus();
     await settle();
 
     expect(document.activeElement).toBe(elsewhere);
