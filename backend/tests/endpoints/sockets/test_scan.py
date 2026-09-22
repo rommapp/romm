@@ -25,6 +25,7 @@ from endpoints.sockets.scan import (
     _should_reparse_tags,
     reject_unauthorized_scan,
     scan_handler,
+    scan_job_meta,
     scan_platforms,
     should_scan_rom,
     stop_scan_handler,
@@ -2503,6 +2504,21 @@ class TestQuickScanCoversRomFiles:
         assert should_scan_rom(ScanType.QUICK, None, [rom.id], []) is False
         assert should_scan_rom(ScanType.QUICK, rom, [rom.id + 99], []) is False
         assert should_scan_rom(ScanType.QUICK, rom, [rom.id], []) is True
+
+
+class TestScanJobMeta:
+    """The task name reaches the tasks history verbatim, so it is user copy."""
+
+    @pytest.mark.parametrize(
+        "scan_type,expected",
+        [
+            (ScanType.QUICK, "Quick Scan"),
+            (ScanType.NEW_PLATFORMS, "New Platforms Scan"),
+            (ScanType.TITLE_IDS, "Title IDs Scan"),
+        ],
+    )
+    def test_the_task_name_matches_the_ui(self, scan_type: ScanType, expected: str):
+        assert scan_job_meta(scan_type)["task_name"] == expected
 
 
 class TestShouldGetRomFiles:

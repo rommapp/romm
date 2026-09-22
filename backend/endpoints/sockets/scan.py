@@ -94,10 +94,15 @@ from utils.pegasus_exporter import PegasusExporter
 STOP_SCAN_FLAG: Final = "scan:stop"
 
 
+# Names that title-casing the enum value would get wrong.
+_SCAN_TYPE_LABELS: Final[dict[ScanType, str]] = {ScanType.TITLE_IDS: "Title IDs"}
+
+
 def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
     """What a scan job carries so a client can tell which scan is running."""
+    label = _SCAN_TYPE_LABELS.get(scan_type, scan_type.value.replace("_", " ").title())
     return {
-        "task_name": f"{scan_type.value.replace('_', ' ').title()} Scan",
+        "task_name": f"{label} Scan",
         "task_type": TaskType.SCAN.value,
     }
 
