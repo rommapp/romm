@@ -8,7 +8,7 @@ from redis.asyncio import Redis as AsyncRedis
 from rq import Queue, Worker
 from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobError
 from rq.job import Job, JobStatus
-from rq.worker import WorkerStatus
+from rq.worker import BaseWorker, WorkerStatus
 
 from config import IS_PYTEST_RUN, REDIS_URL
 from logger.logger import log
@@ -148,7 +148,7 @@ def cancel_job(job: Job) -> bool:
     return True
 
 
-def get_worker_current_job(worker: Worker) -> Job | None:
+def get_worker_current_job(worker: BaseWorker) -> Job | None:
     """Safely get the job a worker is holding, which can be gone before the
     worker's own registration expires.
 
