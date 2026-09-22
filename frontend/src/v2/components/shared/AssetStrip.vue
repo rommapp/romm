@@ -1,7 +1,14 @@
 <script setup lang="ts">
 // Tile strip or grid of saves/states, shared by the launch screens (selection)
 // and the Save data subtab (management). `groupBy` folds the tiles per core.
-import { REmptyState, RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
+import {
+  RCheckbox,
+  REmptyState,
+  RExpandTransition,
+  RIcon,
+  RTag,
+  RTooltip,
+} from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatTimestamp } from "@/utils";
@@ -37,6 +44,10 @@ const props = withDefaults(
     /** Why an asset cannot be picked here; a reason disables its tile. */
     disabledReason?: (asset: Asset) => string | null;
     groupBy?: "emulator";
+    /** Manage mode: lead each tile with a checkbox for bulk actions. Distinct
+     *  from `selectable`, which is the player's single-asset picker. */
+    checkable?: boolean;
+    checkedIds?: ReadonlySet<number>;
   }>(),
   {
     selectable: true,
@@ -45,11 +56,14 @@ const props = withDefaults(
     layout: "strip",
     disabledReason: undefined,
     groupBy: undefined,
+    checkable: false,
+    checkedIds: () => new Set<number>(),
   },
 );
 
 defineEmits<{
   select: [asset: Asset];
+  toggle: [asset: Asset];
 }>();
 
 defineSlots<{
@@ -185,6 +199,8 @@ const fadeIndex = computed(() =>
                   selectable && asset.id === selectedId,
                 'r-asset-strip__tile--static': !selectable,
                 'r-asset-strip__tile--disabled': reasonOf(asset),
+                'r-asset-strip__tile--checked':
+                  checkable && checkedIds.has(asset.id),
               }"
               :style="{ '--asset-fade-i': fadeIndex.get(asset.id) }"
               :aria-pressed="selectable ? asset.id === selectedId : undefined"
@@ -246,6 +262,18 @@ const fadeIndex = computed(() =>
                   />
                 </div>
                 <div v-if="!selectable" class="r-asset-strip__actions">
+                  <span v-if="checkable" class="r-asset-strip__check">
+                    <RCheckbox
+                      :model-value="checkedIds.has(asset.id)"
+                      size="sm"
+                      hide-details
+                      bare
+                      :aria-label="
+                        t('rom.select-asset', { name: asset.file_name })
+                      "
+                      @update:model-value="$emit('toggle', asset)"
+                    />
+                  </span>
                   <slot name="actions" :asset="asset" />
                 </div>
               </div>
@@ -587,6 +615,19 @@ const fadeIndex = computed(() =>
   align-items: center;
   justify-content: center;
   gap: 2px;
+}
+.r-asset-strip__check {
+  display: inline-flex;
+  align-items: center;
+  margin-right: auto;
+}
+.r-asset-strip__tile--checked {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 40%,
+    transparent
+  );
 }
 
 .r-asset-strip__tip {

@@ -20,9 +20,15 @@ const RTag = {
   props: { text: { type: String, default: "" } },
   template: `<span class="tag">{{ text }}</span>`,
 };
+const RCheckbox = {
+  props: { modelValue: { type: Boolean, default: false } },
+  emits: ["update:modelValue"],
+  template: `<input type="checkbox" class="check" :checked="modelValue" @change="$emit('update:modelValue', !modelValue)" />`,
+};
 const stubs = {
   RBtn,
   RTag,
+  RCheckbox,
   RIcon: true,
   RTooltip: true,
   RAvatar: true,
@@ -61,6 +67,9 @@ function mountList(
     selectedId?: number;
     type?: "save" | "state";
     assets?: SaveSchema[];
+    selectable?: boolean;
+    checkable?: boolean;
+    checkedIds?: ReadonlySet<number>;
   } = {},
 ) {
   return mount(AssetList, {
@@ -162,5 +171,38 @@ describe("AssetList slot grouping", () => {
 
     expect(names(wrapper)).toEqual(["save_2.srm", "save_1.srm"]);
     expect(wrapper.findAll(".fold")).toHaveLength(0);
+  });
+
+  it("leads each row with a checkbox only when checkable", () => {
+    expect(mountList({}).findAll(".check")).toHaveLength(0);
+
+    const wrapper = mountList({ selectable: false, checkable: true });
+
+    expect(wrapper.findAll(".check").length).toBe(names(wrapper).length);
+  });
+
+  it("emits the toggled asset and marks the checked row", async () => {
+    nextId = 1;
+    const only = save("main_quest", 1);
+    const wrapper = mountList({
+      assets: [only],
+      selectable: false,
+      checkable: true,
+      checkedIds: new Set<number>(),
+    });
+
+    await wrapper.get(".check").trigger("change");
+
+    expect(wrapper.emitted("toggle")?.[0]?.[0]).toMatchObject({ id: only.id });
+    expect(wrapper.findAll(".r-asset-list__item--checked")).toHaveLength(0);
+
+    const checked = mountList({
+      assets: [only],
+      selectable: false,
+      checkable: true,
+      checkedIds: new Set([only.id]),
+    });
+
+    expect(checked.findAll(".r-asset-list__item--checked")).toHaveLength(1);
   });
 });

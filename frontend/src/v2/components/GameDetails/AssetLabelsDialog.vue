@@ -12,8 +12,15 @@ const props = withDefaults(
     initialLabels?: string[];
     suggestions?: string[];
     busy?: boolean;
+    /** Defaults to the field's own name; a bulk edit says "Add labels". */
+    title?: string;
   }>(),
-  { initialLabels: () => [], suggestions: () => [], busy: false },
+  {
+    initialLabels: () => [],
+    suggestions: () => [],
+    busy: false,
+    title: undefined,
+  },
 );
 
 const emit = defineEmits<{
@@ -59,7 +66,7 @@ function submit(): void {
     @close="close"
   >
     <template #header>
-      <span>{{ t("rom.asset-labels") }}</span>
+      <span>{{ title ?? t("rom.asset-labels") }}</span>
     </template>
 
     <template #content>

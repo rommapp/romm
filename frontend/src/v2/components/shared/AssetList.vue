@@ -11,7 +11,7 @@
 //   * manage (selectable=false) — Save data subtab. Rows are static; the
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
-import { RBtn, REmptyState, RIcon, RTooltip } from "@v2/lib";
+import { RBtn, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
@@ -72,6 +72,10 @@ const props = withDefaults(
     timestamp?: AssetDateField;
     /** Off for lists whose saves are not slot versions (stream archives). */
     groupBySlot?: boolean;
+    /** Manage mode: lead each row with a checkbox for bulk actions. Distinct
+     *  from `selectable`, which is the player's single-asset picker. */
+    checkable?: boolean;
+    checkedIds?: ReadonlySet<number>;
   }>(),
   {
     selectable: true,
@@ -80,11 +84,14 @@ const props = withDefaults(
     scrollable: true,
     timestamp: "updated",
     groupBySlot: true,
+    checkable: false,
+    checkedIds: () => new Set<number>(),
   },
 );
 
 defineEmits<{
   select: [asset: Asset];
+  toggle: [asset: Asset];
 }>();
 
 defineSlots<{
@@ -220,6 +227,8 @@ const fadeIndex = computed(() =>
             :class="{
               'r-asset-list__item--active':
                 selectable && asset.id === selectedId,
+              'r-asset-list__item--checked':
+                checkable && checkedIds.has(asset.id),
             }"
             :style="{ '--asset-fade-i': fadeIndex.get(asset.id) }"
           >
@@ -227,10 +236,24 @@ const fadeIndex = computed(() =>
               :is="selectable ? 'button' : 'div'"
               :type="selectable ? 'button' : undefined"
               class="r-asset-list__row"
-              :class="{ 'r-asset-list__row--static': !selectable }"
+              :class="{
+                'r-asset-list__row--static': !selectable,
+                'r-asset-list__row--checkable': checkable,
+              }"
               :aria-pressed="selectable ? asset.id === selectedId : undefined"
               @click="selectable && $emit('select', asset)"
             >
+              <span v-if="checkable" class="r-asset-list__check">
+                <RCheckbox
+                  :model-value="checkedIds.has(asset.id)"
+                  size="sm"
+                  hide-details
+                  bare
+                  :aria-label="t('rom.select-asset', { name: asset.file_name })"
+                  @update:model-value="$emit('toggle', asset)"
+                />
+              </span>
+
               <span
                 class="r-asset-list__icon"
                 :class="{ 'r-asset-list__icon--shot': screenshotOf(asset) }"
@@ -486,6 +509,25 @@ const fadeIndex = computed(() =>
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.r-asset-list__row--static.r-asset-list__row--checkable {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+}
+
+.r-asset-list__check {
+  display: grid;
+  align-items: start;
+  /* Aligns the box to the filename's line box rather than the row top. */
+  min-height: 20px;
+}
+.r-asset-list__item--checked .r-asset-list__row {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 40%,
+    transparent
+  );
+}
+
 .r-asset-list__item--active .r-asset-list__name {
   color: var(--r-color-brand-primary);
 }
@@ -540,6 +582,18 @@ html[data-bp~="xs"] .r-asset-list__row {
     "facts facts time"
     "actions actions actions";
   gap: var(--r-space-1) var(--r-space-3);
+}
+html[data-bp~="xs"] .r-asset-list__row--checkable {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "check icon name name"
+    "check labels labels labels"
+    "check facts facts time"
+    "check actions actions actions";
+}
+html[data-bp~="xs"] .r-asset-list__check {
+  grid-area: check;
+  align-self: start;
 }
 html[data-bp~="xs"] .r-asset-list__icon {
   grid-area: icon;

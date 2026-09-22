@@ -13,7 +13,7 @@
 // into a specific list works.
 import { RBtn, RDropzone } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   DetailedRomSchema,
@@ -29,6 +29,7 @@ import storeConfig from "@/stores/config";
 import { getSupportedEJSCores } from "@/utils";
 import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
 import AssetLabelsDialog from "@/v2/components/GameDetails/AssetLabelsDialog.vue";
+import AssetSelectionToolbar from "@/v2/components/GameDetails/AssetSelectionToolbar.vue";
 import SubtabNav, {
   type SubtabNavItem,
 } from "@/v2/components/GameDetails/SubtabNav.vue";
@@ -328,10 +329,152 @@ async function toggleStateVisibility(state: StateSchema) {
   }
 }
 
+// ---------- Bulk selection (own items only) ----------
+// A save and a state can share an id and both panels stay mounted, so each
+// kind keeps its own set rather than one keyed by id alone.
+const checkedSaves = ref<Set<number>>(new Set());
+const checkedStates = ref<Set<number>>(new Set());
+
+function checkedSetFor(type: AssetType) {
+  return type === "save" ? checkedSaves : checkedStates;
+}
+
+// Only count what is still on screen, so an upload or a delete elsewhere
+// cannot leave a stale id inflating the total.
+const checkedSaveList = computed(() =>
+  mySaves.value.filter((s) => checkedSaves.value.has(s.id)),
+);
+const checkedStateList = computed(() =>
+  myStates.value.filter((s) => checkedStates.value.has(s.id)),
+);
+
+function toggleChecked(type: AssetType, asset: AssetSlot) {
+  const set = checkedSetFor(type);
+  const next = new Set(set.value);
+  if (next.has(asset.id)) next.delete(asset.id);
+  else next.add(asset.id);
+  set.value = next;
+}
+
+function toggleAllChecked(type: AssetType) {
+  const set = checkedSetFor(type);
+  const all = type === "save" ? mySaves.value : myStates.value;
+  const checked =
+    type === "save" ? checkedSaveList.value : checkedStateList.value;
+  set.value =
+    checked.length === all.length ? new Set() : new Set(all.map((a) => a.id));
+}
+
+function clearChecked(type: AssetType) {
+  checkedSetFor(type).value = new Set();
+}
+
+// A selection only makes sense against the list it was made on.
+watch([subTab, () => props.rom.id], () => {
+  checkedSaves.value = new Set();
+  checkedStates.value = new Set();
+});
+
+const allCheckedFavorite = (type: AssetType) => {
+  const assets =
+    type === "save" ? checkedSaveList.value : checkedStateList.value;
+  return assets.length > 0 && assets.every((a) => a.is_favorite);
+};
+
+/** Reports a fanned-out bulk write, which has no single-call route. */
+async function reportBulk(
+  results: PromiseSettledResult<unknown>[],
+  okKey: string,
+  failKey: string,
+) {
+  const ok = results.filter((r) => r.status === "fulfilled").length;
+  if (ok > 0) {
+    snackbar.success(t(okKey, ok, { named: { n: ok } }), {
+      icon: "mdi-check-bold",
+    });
+  }
+  const failed = results.find((r) => r.status === "rejected") as
+    PromiseRejectedResult | undefined;
+  if (failed) {
+    snackbar.error(t(failKey, { error: errorMessage(failed.reason) }), {
+      icon: "mdi-close-circle",
+    });
+  }
+  await refreshRom();
+}
+
+async function toggleCheckedFavorite(type: AssetType) {
+  const assets =
+    type === "save" ? checkedSaveList.value : checkedStateList.value;
+  if (assets.length === 0) return;
+  const isFavorite = !allCheckedFavorite(type);
+
+  const results = await Promise.allSettled(
+    assets.map((asset) =>
+      type === "save"
+        ? saveApi.setSaveFavorite({ id: asset.id, isFavorite })
+        : stateApi.setStateFavorite({ id: asset.id, isFavorite }),
+    ),
+  );
+  await reportBulk(
+    results,
+    "rom.favorites-updated-n",
+    "rom.cant-toggle-favorite",
+  );
+}
+
+async function deleteChecked(type: AssetType) {
+  const assets =
+    type === "save" ? checkedSaveList.value : checkedStateList.value;
+  if (assets.length === 0) return;
+
+  const ok = await confirm({
+    title: t(
+      type === "save" ? "rom.delete-saves-title" : "rom.delete-states-title",
+      assets.length,
+      { named: { n: assets.length } },
+    ),
+    body: t("rom.delete-assets-body"),
+    confirmText: t("common.delete"),
+    tone: "danger",
+  });
+  if (!ok) return;
+
+  clearChecked(type);
+  try {
+    if (type === "save") {
+      await saveApi.deleteSaves({ saves: assets as SaveSchema[] });
+    } else {
+      await stateApi.deleteStates({ states: assets as StateSchema[] });
+    }
+    snackbar.success(
+      t(
+        type === "save" ? "rom.saves-deleted-n" : "rom.states-deleted-n",
+        assets.length,
+        { named: { n: assets.length } },
+      ),
+      { icon: "mdi-check-bold" },
+    );
+    await refreshRom();
+  } catch (error) {
+    snackbar.error(
+      t(type === "save" ? "rom.cant-delete-save" : "rom.cant-delete-state", {
+        error: errorMessage(error),
+      }),
+      { icon: "mdi-close-circle" },
+    );
+  }
+}
+
 // ---------- Favorite and labels (own items only) ----------
 // Keyed by type too: a save and a state can share an id.
 const favoritingKey = ref<string | null>(null);
-const labelTarget = ref<{ type: AssetType; asset: AssetSlot } | null>(null);
+// Editing one asset replaces its labels; editing a selection adds to each,
+// so a bulk edit can never wipe a label it did not show the user.
+type LabelEdit =
+  | { kind: "one"; type: AssetType; asset: AssetSlot }
+  | { kind: "many"; type: AssetType };
+const labelTarget = ref<LabelEdit | null>(null);
 const savingLabels = ref(false);
 
 function isFavoriting(type: AssetType, asset: AssetSlot): boolean {
@@ -359,21 +502,40 @@ async function toggleFavorite(type: AssetType, asset: AssetSlot) {
   }
 }
 
+function writeLabels(type: AssetType, id: number, labels: string[]) {
+  return type === "save"
+    ? saveApi.setSaveLabels({ id, labels })
+    : stateApi.setStateLabels({ id, labels });
+}
+
 async function submitLabels(labels: string[]) {
   const target = labelTarget.value;
   if (!target || savingLabels.value) return;
   savingLabels.value = true;
   try {
-    if (target.type === "save") {
-      await saveApi.setSaveLabels({ id: target.asset.id, labels });
+    if (target.kind === "one") {
+      await writeLabels(target.type, target.asset.id, labels);
+      await refreshRom();
+      snackbar.success(t("rom.labels-updated"), { icon: "mdi-check-bold" });
     } else {
-      await stateApi.setStateLabels({ id: target.asset.id, labels });
+      const assets =
+        target.type === "save" ? checkedSaveList.value : checkedStateList.value;
+      const results = await Promise.allSettled(
+        assets.map((asset) =>
+          writeLabels(target.type, asset.id, [
+            ...new Set([...(asset.labels ?? []), ...labels]),
+          ]),
+        ),
+      );
+      await reportBulk(
+        results,
+        "rom.labels-applied-n",
+        "rom.cant-update-labels",
+      );
     }
-    await refreshRom();
     // Escape closes the dialog mid-save, so a slow write must not shut the
     // editor the user has since opened on another asset.
     if (labelTarget.value === target) labelTarget.value = null;
-    snackbar.success(t("rom.labels-updated"), { icon: "mdi-check-bold" });
   } catch (error) {
     snackbar.error(
       t("rom.cant-update-labels", { error: errorMessage(error) }),
@@ -468,11 +630,32 @@ const labelSuggestions = computed(() =>
             multiple
             @files="openUpload('save', $event)"
           >
+            <AssetSelectionToolbar
+              v-if="mySaves.length > 0"
+              :count="checkedSaveList.length"
+              :total="mySaves.length"
+              :all-checked="
+                mySaves.length > 0 && checkedSaveList.length === mySaves.length
+              "
+              :some-checked="
+                checkedSaveList.length > 0 &&
+                checkedSaveList.length < mySaves.length
+              "
+              :all-favorite="allCheckedFavorite('save')"
+              @toggle-all="toggleAllChecked('save')"
+              @toggle-favorite="toggleCheckedFavorite('save')"
+              @edit-labels="labelTarget = { kind: 'many', type: 'save' }"
+              @delete="deleteChecked('save')"
+              @clear="clearChecked('save')"
+            />
             <AssetList
               :assets="mySaves"
               type="save"
               :selectable="false"
               :scrollable="false"
+              checkable
+              :checked-ids="checkedSaves"
+              @toggle="toggleChecked('save', $event)"
             >
               <template #actions="{ asset }">
                 <AssetActions
@@ -482,7 +665,9 @@ const labelSuggestions = computed(() =>
                   :toggling="togglingSaveId === asset.id"
                   :favoriting="isFavoriting('save', asset)"
                   @toggle-favorite="toggleFavorite('save', asset)"
-                  @edit-labels="labelTarget = { type: 'save', asset }"
+                  @edit-labels="
+                    labelTarget = { kind: 'one', type: 'save', asset }
+                  "
                   @toggle-visibility="toggleSaveVisibility(asSave(asset))"
                   @download="downloadAsset(asset)"
                   @delete="deleteSave(asSave(asset))"
@@ -562,12 +747,34 @@ const labelSuggestions = computed(() =>
             multiple
             @files="openUpload('state', $event)"
           >
+            <AssetSelectionToolbar
+              v-if="myStates.length > 0"
+              :count="checkedStateList.length"
+              :total="myStates.length"
+              :all-checked="
+                myStates.length > 0 &&
+                checkedStateList.length === myStates.length
+              "
+              :some-checked="
+                checkedStateList.length > 0 &&
+                checkedStateList.length < myStates.length
+              "
+              :all-favorite="allCheckedFavorite('state')"
+              @toggle-all="toggleAllChecked('state')"
+              @toggle-favorite="toggleCheckedFavorite('state')"
+              @edit-labels="labelTarget = { kind: 'many', type: 'state' }"
+              @delete="deleteChecked('state')"
+              @clear="clearChecked('state')"
+            />
             <AssetStrip
               :assets="myStates"
               type="state"
               :selectable="false"
+              checkable
+              :checked-ids="checkedStates"
               layout="flow"
               group-by="emulator"
+              @toggle="toggleChecked('state', $event)"
             >
               <template #actions="{ asset }">
                 <AssetActions
@@ -577,7 +784,9 @@ const labelSuggestions = computed(() =>
                   :toggling="togglingStateId === asset.id"
                   :favoriting="isFavoriting('state', asset)"
                   @toggle-favorite="toggleFavorite('state', asset)"
-                  @edit-labels="labelTarget = { type: 'state', asset }"
+                  @edit-labels="
+                    labelTarget = { kind: 'one', type: 'state', asset }
+                  "
                   @toggle-visibility="toggleStateVisibility(asState(asset))"
                   @download="downloadAsset(asset)"
                   @delete="deleteState(asState(asset))"
@@ -628,7 +837,10 @@ const labelSuggestions = computed(() =>
 
     <AssetLabelsDialog
       :model-value="labelTarget !== null"
-      :initial-labels="labelTarget?.asset.labels ?? []"
+      :initial-labels="
+        labelTarget?.kind === 'one' ? (labelTarget.asset.labels ?? []) : []
+      "
+      :title="labelTarget?.kind === 'many' ? t('rom.add-labels') : undefined"
       :suggestions="labelSuggestions"
       :busy="savingLabels"
       @update:model-value="!$event && (labelTarget = null)"
