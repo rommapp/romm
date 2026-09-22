@@ -1362,6 +1362,12 @@ Client  ←──Socket.IO──→  FastAPI (python-socketio)  ←──Redis P
 
 ### Netplay (`/netplay`)
 
+Rooms are authorized per ROM. A socket is identified once, at `connect`, from its
+session cookie. `open-room` requires a logged-in user with `roms.read` who can see
+the ROM being played; `join-room` requires either that same access or the password
+the room owner set, which is the guest invite path. WebRTC signals relay only
+between peers of the same room.
+
 **Events:**
 
 | Event           | Direction       | Description             |

@@ -1,8 +1,34 @@
-from typing import Any, NotRequired, TypedDict
+"""Netplay rooms over Socket.IO.
+
+A room is a WebRTC mesh: peers find each other through ``users-updated`` and
+exchange offers, answers and candidates through ``webrtc-signal``. Opening a
+room is gated on the ROM being played, so the owner must be logged in, hold
+``roms.read`` and be allowed to see that ROM. A guest may still join a room the
+owner password-protected: the room password is the owner's invite and stands in
+for the ROM gate.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 
 from endpoints.netplay import DEFAULT_MAX_PLAYERS
+from handler.auth.constants import Scope
+from handler.auth.permissions import resolve_permissions
+from handler.database import db_rom_handler, db_user_handler
 from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom, netplay_handler
 from handler.socket_handler import netplay_socket_handler
+from logger.logger import log
+from utils.auth import get_session_from_environ
+
+if TYPE_CHECKING:
+    from models.user import User
+
+# Session keys. The connect-time identity and the room membership share one
+# server-side session dict, so every read goes through these names.
+AUTH_USER_SESSION_KEY = "netplay_auth_user_id"
+ROOM_SESSION_KEY = "session_id"
+PLAYER_SESSION_KEY = "player_id"
 
 
 class RoomDataExtra(TypedDict):
@@ -21,6 +47,82 @@ class RoomData(TypedDict):
     maxPlayers: NotRequired[int]
 
 
+class WebRTCSignalData(TypedDict, total=False):
+    target: str
+    candidate: Any
+    offer: Any
+    answer: Any
+    requestRenegotiate: bool
+
+
+async def _get_session(sid: str) -> dict[str, Any]:
+    try:
+        return await netplay_socket_handler.socket_server.get_session(sid) or {}
+    except KeyError:
+        return {}
+
+
+async def _save_session(sid: str, **values: Any) -> None:
+    session = await _get_session(sid)
+    session.update(values)
+    await netplay_socket_handler.socket_server.save_session(sid, session)
+
+
+async def _authenticated_user(sid: str) -> User | None:
+    """The user resolved server-side at connect time, or ``None`` for a guest."""
+    user_id = (await _get_session(sid)).get(AUTH_USER_SESSION_KEY)
+    if user_id is None:
+        return None
+    return db_user_handler.get_user(int(user_id))
+
+
+def _may_play(user: User | None, game_id: str | None) -> bool:
+    """Whether this user may play ``game_id``.
+
+    The gate the ROM endpoints apply: the ``roms.read`` scope plus the per-ROM
+    visibility check, so a hidden ROM cannot be played through netplay either.
+    """
+    if user is None or Scope.ROMS_READ not in user.oauth_scopes:
+        return False
+
+    try:
+        rom_id = int(game_id)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+
+    rom = db_rom_handler.get_rom_visibility(rom_id)
+    if rom is None:
+        return False
+    return resolve_permissions(user).can_see_rom(rom.id, rom.platform_id)
+
+
+@netplay_socket_handler.socket_server.on("connect")  # type: ignore
+async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
+    """Record the session user on the socket, never refusing the connection.
+
+    Guessing a room password is the guest path, so an anonymous client has to
+    reach ``join-room``. Identity is stored here and read back by the handlers
+    that do gate, never taken from the client payload. Always returns ``None``
+    (accepts the connection).
+    """
+    try:
+        session = await get_session_from_environ(environ)
+        if session.get("iss") != "romm:auth":
+            return
+
+        username = session.get("sub")
+        if not username:
+            return
+
+        user = db_user_handler.get_user_by_username(username)
+        if not user or not user.enabled:
+            return
+
+        await _save_session(sid, **{AUTH_USER_SESSION_KEY: user.id})
+    except Exception:  # noqa: BLE001 - never let auth resolution refuse a socket
+        log.exception("Failed to resolve user on netplay connect")
+
+
 @netplay_socket_handler.socket_server.on("open-room")  # type: ignore
 async def open_room(sid: str, data: RoomData):
     extra_data = data["extra"]
@@ -30,6 +132,10 @@ async def open_room(sid: str, data: RoomData):
 
     if not session_id or not player_id:
         return "Invalid data: sessionId and playerId required"
+
+    if not _may_play(await _authenticated_user(sid), extra_data.get("game_id")):
+        log.warning("Netplay room creation rejected: not authorized for this rom")
+        return "Not authorized to open a room for this game"
 
     if await netplay_handler.get(session_id):
         return "Room already exists"
@@ -54,12 +160,8 @@ async def open_room(sid: str, data: RoomData):
     await netplay_handler.set(session_id, new_room)
 
     await netplay_socket_handler.socket_server.enter_room(sid, session_id)
-    await netplay_socket_handler.socket_server.save_session(
-        sid,
-        {
-            "session_id": session_id,
-            "player_id": player_id,
-        },
+    await _save_session(
+        sid, **{ROOM_SESSION_KEY: session_id, PLAYER_SESSION_KEY: player_id}
     )
     await netplay_socket_handler.socket_server.emit(
         "users-updated", new_room["players"], room=session_id
@@ -80,10 +182,16 @@ async def join_room(sid: str, data: RoomData):
     if not current_room:
         return "Room not found"
 
-    if current_room["password"] and current_room["password"] != extra_data.get(
-        "room_password"
-    ):
+    password = current_room["password"]
+    invited = bool(password) and password == extra_data.get("room_password")
+    if password and not invited:
         return "Incorrect password"
+
+    if not invited and not _may_play(
+        await _authenticated_user(sid), current_room["game_id"]
+    ):
+        log.warning("Netplay join rejected: not authorized for this rom")
+        return "Not authorized to join this room"
 
     if len(current_room["players"].keys()) >= current_room["max_players"]:
         return "Room is full"
@@ -97,18 +205,27 @@ async def join_room(sid: str, data: RoomData):
     await netplay_handler.set(session_id, current_room)
 
     await netplay_socket_handler.socket_server.enter_room(sid, session_id)
-    await netplay_socket_handler.socket_server.save_session(
-        sid,
-        {
-            "session_id": session_id,
-            "player_id": player_id,
-        },
+    await _save_session(
+        sid, **{ROOM_SESSION_KEY: session_id, PLAYER_SESSION_KEY: player_id}
     )
     await netplay_socket_handler.socket_server.emit(
         "users-updated", current_room["players"], room=session_id
     )
 
     return None, current_room["players"]
+
+
+async def _room_peer_socket_ids(sid: str) -> set[str]:
+    """The socket ids of the peers in the room the caller belongs to."""
+    session_id = (await _get_session(sid)).get(ROOM_SESSION_KEY)
+    if not session_id:
+        return set()
+
+    room = await netplay_handler.get(session_id)
+    if not room:
+        return set()
+
+    return {player["socketId"] for player in room["players"].values()}
 
 
 async def _handle_leave(sid: str, session_id: str, player_id: str):
@@ -140,39 +257,34 @@ async def _handle_leave(sid: str, session_id: str, player_id: str):
 
 @netplay_socket_handler.socket_server.on("leave-room")  # type: ignore
 async def leave_room(sid: str):
-    stored_session = await netplay_socket_handler.socket_server.get_session(sid)
-    session_id = stored_session.get("session_id")
-    player_id = stored_session.get("player_id")
+    stored_session = await _get_session(sid)
+    session_id = stored_session.get(ROOM_SESSION_KEY)
+    player_id = stored_session.get(PLAYER_SESSION_KEY)
 
     if session_id and player_id:
         await _handle_leave(sid, session_id, player_id)
         await netplay_socket_handler.socket_server.leave_room(sid, session_id)
 
 
-class WebRTCSignalData(TypedDict, total=False):
-    target: str
-    candidate: Any
-    offer: Any
-    answer: Any
-    requestRenegotiate: bool
-
-
 @netplay_socket_handler.socket_server.on("webrtc-signal")  # type: ignore
 async def webrtc_signal(sid: str, data: WebRTCSignalData):
     target = data.get("target")
-    request_renegotiate = data.get("requestRenegotiate", False)
+    if not target:
+        return  # drop message, no recipient
 
-    if request_renegotiate:
-        if not target:
-            return
+    # Signals relay only between peers of one room, so a client cannot inject an
+    # offer or answer into a session it never joined.
+    if target not in await _room_peer_socket_ids(sid):
+        log.warning("Netplay signal to a non-peer rejected")
+        return
+
+    if data.get("requestRenegotiate", False):
         await netplay_socket_handler.socket_server.emit(
             "webrtc-signal",
             {"sender": sid, "requestRenegotiate": True},
             to=target,
         )
     else:
-        if not target:
-            return  # drop message, no recipient
         await netplay_socket_handler.socket_server.emit(
             "webrtc-signal",
             {
@@ -192,17 +304,16 @@ async def webrtc_signal_error(_sid: str, _error: str, _data: Any):
 
 @netplay_socket_handler.socket_server.on("disconnect")  # type: ignore
 async def disconnect(sid: str):
-    stored_session = await netplay_socket_handler.socket_server.get_session(sid)
-    session_id = stored_session.get("session_id")
-    player_id = stored_session.get("player_id")
+    stored_session = await _get_session(sid)
+    session_id = stored_session.get(ROOM_SESSION_KEY)
+    player_id = stored_session.get(PLAYER_SESSION_KEY)
 
     if session_id and player_id:
         await _handle_leave(sid, session_id, player_id)
 
 
 async def _broadcast_to_room(sid: str, event: str, data: Any):
-    stored_session = await netplay_socket_handler.socket_server.get_session(sid)
-    session_id = stored_session.get("session_id")
+    session_id = (await _get_session(sid)).get(ROOM_SESSION_KEY)
     if session_id:
         await netplay_socket_handler.socket_server.emit(
             event, data, room=session_id, skip_sid=sid
