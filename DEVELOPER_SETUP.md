@@ -189,10 +189,11 @@ trunk fmt
 trunk check
 ```
 
-Trunk's mypy resolves the backend's packages from `.venv` at the repository root, so run `uv sync --all-extras --dev` before `trunk check`. Trunk only checks the files you changed; CI also type-checks the whole backend, which you can run from the repository root:
+Type checking runs separately from Trunk, against the project's own environment. CI type-checks the whole backend on every backend change; to run it locally:
 
 ```sh
-uv run mypy --config-file .trunk/configs/mypy.ini backend
+cd backend
+uv run mypy --config-file ../.trunk/configs/mypy.ini .
 ```
 
 **Failing to install and run the linter will result in a failed CI check, which won't allow us to merge your PR.**

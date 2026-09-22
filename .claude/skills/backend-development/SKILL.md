@@ -99,5 +99,6 @@ uv run pytest <path/file>         # tests - affected files only, NEVER the whole
 ```
 
 - Tests: pytest + pytest-asyncio, isolated per `pytest-xdist` worker (per-worker DBs); `fakeredis`; `pytest-recording` VCR cassettes mock external APIs; Hypothesis for property tests. Mirror the `backend/<area>/` layout under `backend/tests/`. First-time test DB setup: `docker exec -i romm-db-dev mariadb -uroot -p<pw> < backend/romm_test/setup.sql`.
-- **Lint / format / type-check run through Trunk** (ruff, black, isort, mypy, bandit): `trunk fmt && trunk check`. CI enforces Trunk on every PR. Never bypass with `--no-verify`.
+- **Lint / format run through Trunk** (ruff, black, isort, bandit): `trunk fmt && trunk check`. CI enforces Trunk on every PR. Never bypass with `--no-verify`.
+- **Type-check with mypy**, outside Trunk so it sees the project's packages: `uv run mypy --config-file ../.trunk/configs/mypy.ini .` from `backend/`. CI's `mypy.yml` requires zero errors.
 - New/changed logic needs a test; new endpoints need endpoint tests.
