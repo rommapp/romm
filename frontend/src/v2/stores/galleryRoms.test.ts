@@ -19,6 +19,29 @@ interface Deferred {
   resolve: (value: unknown) => void;
 }
 
+function platform(overrides: Partial<Platform> = {}): Platform {
+  return {
+    id: 1,
+    slug: "snes",
+    fs_slug: "snes",
+    rom_count: 1,
+    name: "Super Nintendo",
+    igdb_slug: null,
+    moby_slug: null,
+    hltb_slug: null,
+    libretro_slug: null,
+    created_at: "",
+    updated_at: "",
+    fs_size_bytes: 0,
+    is_unidentified: false,
+    is_identified: true,
+    missing_from_fs: false,
+    display_name: "Super Nintendo",
+    firmware_count: 0,
+    ...overrides,
+  };
+}
+
 function deferred(): Deferred {
   let resolve!: (value: unknown) => void;
   const promise = new Promise<unknown>((r) => {
@@ -212,7 +235,7 @@ describe("galleryRoms windowed fetch", () => {
         },
       },
     });
-    storePlatforms().set([{ id: 1 } as Platform]);
+    storePlatforms().set([platform()]);
     const galleryFilter = storeGalleryFilter();
     galleryFilter.setFilterGenres(["RPG"]);
     const store = storeGalleryRoms();

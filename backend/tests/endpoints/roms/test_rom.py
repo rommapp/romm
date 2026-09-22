@@ -664,7 +664,7 @@ def test_get_roms_filter_by_tags(
     assert {item["id"] for item in body["items"]} == {rom.id}
 
 
-def assert_filter_values_are_lists(filter_values: dict) -> None:
+def assert_filter_values_are_lists(filter_values: dict[str, object]) -> None:
     assert filter_values.keys() == RomFiltersDict.__annotations__.keys()
     assert all(isinstance(value, list) for value in filter_values.values())
 
@@ -676,7 +676,7 @@ def test_get_roms_filter_values_are_never_null(
     rom: Rom,
     platform: Platform,
     with_filter_values: bool,
-):
+) -> None:
     # `rom` carries no metadata, so every facet column is null.
     response = client.get(
         "/api/roms",
@@ -693,7 +693,7 @@ def test_get_roms_filter_values_are_never_null(
 
 def test_get_rom_filters_are_never_null(
     client: TestClient, access_token: str, rom: Rom
-):
+) -> None:
     response = client.get(
         "/api/roms/filters",
         headers={"Authorization": f"Bearer {access_token}"},
