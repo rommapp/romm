@@ -5350,7 +5350,7 @@ def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
         ),
         patch("handler.streaming.imports.webstation.upload_archive", upload),
     ):
-        path = asyncio.run(
+        result = asyncio.run(
             imports.hydrate_import_archive(
                 admin_user.id,
                 rom,
@@ -5360,7 +5360,8 @@ def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
                 state=None,
             )
         )
-    assert path == "rom-1.zip"
+    assert result.path == "rom-1.zip"
+    assert result.state_imported is False
     upload.assert_called_once()
     uploaded_bytes = upload.call_args.args[2]
     with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
@@ -5386,7 +5387,7 @@ def test_hydrate_import_archive_falls_back_to_the_newest_native_save_as_base(
         ),
         patch("handler.streaming.imports.webstation.upload_archive", upload),
     ):
-        path = asyncio.run(
+        result = asyncio.run(
             imports.hydrate_import_archive(
                 admin_user.id,
                 rom,
@@ -5396,7 +5397,8 @@ def test_hydrate_import_archive_falls_back_to_the_newest_native_save_as_base(
                 state=state,
             )
         )
-    assert path == "rom-1.zip"
+    assert result.path == "rom-1.zip"
+    assert result.state_imported is True
     uploaded_bytes = upload.call_args.args[2]
     with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
         assert ".import/state/Game.00.pcsx2" in zf.namelist()
@@ -5408,7 +5410,7 @@ def test_hydrate_import_archive_returns_none_when_nothing_is_foreign(
     save = db_save_handler.add_save(
         _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
     )
-    path = asyncio.run(
+    result = asyncio.run(
         imports.hydrate_import_archive(
             admin_user.id,
             rom,
@@ -5418,7 +5420,8 @@ def test_hydrate_import_archive_returns_none_when_nothing_is_foreign(
             state=None,
         )
     )
-    assert path is None
+    assert result.path is None
+    assert result.state_imported is False
 
 
 def test_claim_hydrates_the_picked_save(
@@ -5461,7 +5464,7 @@ def test_claim_hydrates_a_foreign_save_through_the_import_path(
         state_slot=0,
     )
     activate = MagicMock(return_value={"url": "/room/x"})
-    hydrate_import = AsyncMock(return_value="rom-1.zip")
+    hydrate_import = AsyncMock(return_value=imports.ImportHydration("rom-1.zip", False))
     with _streaming(_clearing_webstation(rom)):
         with (
             patch("handler.streaming.webstation.activate", activate),
@@ -5477,6 +5480,82 @@ def test_claim_hydrates_a_foreign_save_through_the_import_path(
     call_kwargs = hydrate_import.call_args.kwargs
     assert call_kwargs["save_is_foreign"] is True
     assert call_kwargs["save"].id == foreign.id
+
+
+def test_claim_hydrates_a_foreign_resume_state_through_the_import_path(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """A foreign resume pick must actually land in the uploaded archive, not
+    just be trusted to: this is what proves resume_via_import is only ever
+    set once the state import genuinely succeeded."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
+    )
+    spec = webstation.ImportSpec(
+        kinds=(webstation.ImportKindSpec("state", False, None),),
+        state_channel="archive",
+        state_slot=0,
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    upload = MagicMock(return_value="rom-1.zip")
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.states.webstation.import_spec", return_value=spec),
+            patch("endpoints.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.imports.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=lambda path: path.encode()),
+            ),
+            patch("handler.streaming.imports.webstation.upload_archive", upload),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 202
+    upload.assert_called_once()
+    uploaded_bytes = upload.call_args.args[2]
+    with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
+        assert any(name.startswith(".import/state/") for name in zf.namelist())
+    assert [event for event, _ in sent] == ["streaming:launch-ready"]
+    assert _launch_ready(sent)["resume"] is True
+
+
+def test_a_missing_foreign_state_does_not_falsely_claim_resume_via_import(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The foreign state's bytes are missing on disk, so the import archive
+    never actually carries it. resume_via_import must not reach run_launch as
+    True on the strength of the pre-win check alone, and the native save
+    hydration path must still get its turn."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
+    )
+    spec = webstation.ImportSpec(
+        kinds=(webstation.ImportKindSpec("state", False, None),),
+        state_channel="archive",
+        state_slot=0,
+    )
+    native_hydrate = AsyncMock(return_value=None)
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.states.webstation.import_spec", return_value=spec),
+            patch("endpoints.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.imports.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=FileNotFoundError),
+            ),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation", native_hydrate
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 202
+    run_launch_mock.assert_called_once()
+    assert run_launch_mock.call_args.kwargs["resume_via_import"] is False
+    native_hydrate.assert_called_once()
 
 
 def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
@@ -5632,6 +5711,51 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
         }
     ]
     assert "shape_mismatch" in payload["detail"]
+
+
+def test_activate_refusal_frees_the_container_for_a_new_claim(
+    client, access_token, rom: Rom
+):
+    """An import refusal at activate time must release the claim, not just
+    report it: a second claim on the same container has to succeed too, not
+    only see `streaming:launch-failed` and an emptied session record."""
+    refusal = broker.ImportRefusal(
+        reason="shape_mismatch",
+        member=".import/save/Game.mcr",
+        expected="folder",
+        detail=None,
+        suggest_emulator=None,
+        docs=None,
+    )
+    with _streaming(_webstation_for(rom)):
+        with (
+            patch(
+                "handler.streaming.webstation.activate",
+                side_effect=broker.ImportRefusedError([refusal], 0),
+            ),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation", new=AsyncMock()
+            ),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id)
+        assert [event for event, _ in sent] == ["streaming:launch-failed"]
+        assert _session_raw(_webstation_for(rom)) is None
+
+        with (
+            patch(
+                "handler.streaming.webstation.activate",
+                return_value={"url": "/room/x"},
+            ),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation", new=AsyncMock()
+            ),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            r2 = _claim(client, access_token, rom.id)
+    assert r.status_code == 202
+    assert r2.status_code == 202
+    assert _session_raw(_webstation_for(rom)) is not None
 
 
 def test_run_launch_skips_the_state_push_when_resuming_via_import(
