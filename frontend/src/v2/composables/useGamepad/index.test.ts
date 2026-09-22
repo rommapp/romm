@@ -85,8 +85,7 @@ describe("useGamepad", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
     window.addEventListener("keydown", onKeydown);
-    // The listener that reads a synthetic arrow as a keyboard press is half
-    // of what this suite exercises, so the real modality tracker is live.
+    // Live so the suite sees the tracker ignore the synthetic arrows.
     useInputModality().install();
   });
 
