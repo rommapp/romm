@@ -315,6 +315,12 @@ class ImportRefusedError(Exception):
         super().__init__(f"import refused: {len(refusals)} refusal(s)")
 
 
+def _str_or_none(value: Any) -> str | None:
+    """Coerce one broker-JSON field to the `str | None` shape callers rely
+    on, since the broker's own response isn't validated against a schema."""
+    return value if isinstance(value, str) or value is None else str(value)
+
+
 def raise_http_error(exc: urllib.error.HTTPError) -> NoReturn:
     """Translate a broker error response into the 502 the frontend parses, or
     an ImportRefusedError when the broker refused a declared import."""
@@ -335,16 +341,18 @@ def raise_http_error(exc: urllib.error.HTTPError) -> NoReturn:
         refusals = [
             ImportRefusal(
                 reason=str(r.get("reason", "")),
-                member=r.get("member"),
-                expected=r.get("expected"),
-                detail=r.get("detail"),
-                suggest_emulator=r.get("suggest_emulator"),
-                docs=r.get("docs"),
+                member=_str_or_none(r.get("member")),
+                expected=_str_or_none(r.get("expected")),
+                detail=_str_or_none(r.get("detail")),
+                suggest_emulator=_str_or_none(r.get("suggest_emulator")),
+                docs=_str_or_none(r.get("docs")),
             )
             for r in refusal["refusals"]
             if isinstance(r, dict)
         ]
-        raise ImportRefusedError(refusals, int(refusal.get("truncated", 0))) from exc
+        truncated_raw = refusal.get("truncated", 0)
+        truncated = truncated_raw if isinstance(truncated_raw, int) else 0
+        raise ImportRefusedError(refusals, truncated) from exc
     raise HTTPException(
         status_code=502, detail=f"Broker returned {exc.code}: {detail}"
     ) from exc

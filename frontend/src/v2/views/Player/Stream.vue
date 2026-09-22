@@ -972,6 +972,13 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         });
         errorHint.value = t("play.error-hint-not-configured");
       }
+    } else if (status === 400 && typeof detail === "string") {
+      // A save/state pick the backend refused (e.g. no container will
+      // import it) carries a specific reason worth showing over the
+      // generic hint.
+      errorType.value = "server";
+      errorMessage.value = t("play.stream-error-generic");
+      errorHint.value = detail;
     } else {
       errorType.value = "server";
       // The axios message ("Request failed with status code 502") is English

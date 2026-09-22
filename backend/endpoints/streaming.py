@@ -872,6 +872,18 @@ async def claim_session(
         resume_via_import = (
             resume_spec is not None and resume_spec.state_channel == "archive"
         )
+        if resume_via_import:
+            # A foreign filename never yields a slot, so the archive channel
+            # takes it from the spec instead of resolve_resume_state's guess.
+            resume_slot = resume_spec.state_slot
+
+    # Same authoritative recheck for a foreign save pick: the won container
+    # may answer import-spec differently than the pre-win reference did.
+    if picked_save is not None and save_foreign:
+        save_spec = await asyncio.to_thread(
+            webstation.import_spec, container, container.emulator, container.platform
+        )
+        save_foreign = save_spec is not None and save_spec.accepts("save")
 
     # Push the resume state before launch so its file is in place when the
     # broker's deferred slot load fires. Best-effort: a failed push falls

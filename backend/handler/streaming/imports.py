@@ -71,14 +71,20 @@ def _read_base_manifest(base_zf: zipfile.ZipFile) -> dict[str, Any] | None:
     if _MANIFEST_NAME not in base_zf.namelist():
         return None
     try:
-        return json.loads(base_zf.read(_MANIFEST_NAME))
-    except (json.JSONDecodeError, KeyError):
+        manifest = json.loads(base_zf.read(_MANIFEST_NAME))
+    except (json.JSONDecodeError, KeyError, UnicodeDecodeError):
         return None
+    return manifest if isinstance(manifest, dict) else None
 
 
-def _write_member(
-    zf: zipfile.ZipFile, member: ForeignMember, carried: list[dict[str, Any]]
-) -> None:
+_Staged = dict[str, tuple[bytes, dict[str, Any]]]
+
+
+def _write_member(member: ForeignMember, staged: _Staged) -> None:
+    """Stage one foreign member's own inner entries (or itself, when not a
+    zip) by archive path. A later write at the same path replaces an
+    earlier one rather than duplicating it, matching how a zip reader
+    resolves duplicate entries."""
     if zipfile.is_zipfile(io.BytesIO(member.content)):
         with zipfile.ZipFile(io.BytesIO(member.content)) as inner:
             for info in inner.infolist():
@@ -88,22 +94,24 @@ def _write_member(
                 if name is None:
                     continue
                 path = f".import/{member.kind}/{name}"
-                zf.writestr(_utf8_zipinfo(path), inner.read(info.filename))
-                carried.append(
-                    {"path": path, "kind": member.kind, "origin": member.origin}
+                staged[path] = (
+                    inner.read(info.filename),
+                    {"path": path, "kind": member.kind, "origin": member.origin},
                 )
         return
     name = _safe_name(member.name) or "data"
     path = f".import/{member.kind}/{name}"
-    zf.writestr(_utf8_zipinfo(path), member.content)
-    carried.append({"path": path, "kind": member.kind, "origin": member.origin})
+    staged[path] = (
+        member.content,
+        {"path": path, "kind": member.kind, "origin": member.origin},
+    )
 
 
 def build_import_archive(
     rom_id: int,
     base: tuple[str, bytes] | None,
     members: list[ForeignMember],
-) -> bytes:
+) -> tuple[bytes, list[dict[str, Any]]]:
     """Build the single zip `activate`'s `save.archive` wants.
 
     Carries over the base archive's own members verbatim (its old
@@ -112,49 +120,56 @@ def build_import_archive(
     `members` since the import replaces it. Adds one `.import/<kind>/<name>`
     member per foreign member (its own inner members, when its content is
     itself a zip). Drops dotfiles and `__MACOSX` entries and forces UTF-8
-    names on every member copied in, base or foreign.
+    names on every member copied in, base or foreign. A path collision
+    (base vs. a foreign member, or between two foreign members' own inner
+    zips) keeps only the last write.
+
+    Returns:
+        The archive bytes, and the manifest's `files` list actually written.
     """
     ensure_zipfile_writable()
     strip_state = any(m.kind == "state" for m in members)
-    carried: list[dict[str, Any]] = []
+    staged: _Staged = {}
+    if base is not None:
+        base_name, base_content = base
+        try:
+            base_zf_handle = zipfile.ZipFile(io.BytesIO(base_content))
+        except zipfile.BadZipFile:
+            log.warning("base save archive is not a valid zip, %s", base_name)
+            base_zf_handle = None
+        if base_zf_handle is not None:
+            with base_zf_handle as base_zf:
+                base_manifest = _read_base_manifest(base_zf)
+                base_files = {
+                    f["path"]: f
+                    for f in (base_manifest or {}).get("files", [])
+                    if isinstance(f, dict) and isinstance(f.get("path"), str)
+                }
+                for info in base_zf.infolist():
+                    if info.is_dir() or info.filename == _MANIFEST_NAME:
+                        continue
+                    name = _safe_name(info.filename)
+                    if name is None:
+                        continue
+                    entry = base_files.get(info.filename) or base_files.get(name)
+                    if (
+                        strip_state
+                        and entry is not None
+                        and entry.get("kind") == "state"
+                    ):
+                        continue
+                    staged[name] = (
+                        base_zf.read(info.filename),
+                        entry if entry is not None else {"path": name, "kind": "save"},
+                    )
+    for member in members:
+        _write_member(member, staged)
+
+    carried = [entry for _content, entry in staged.values()]
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
-        if base is not None:
-            base_name, base_content = base
-            try:
-                base_zf_handle = zipfile.ZipFile(io.BytesIO(base_content))
-            except zipfile.BadZipFile:
-                log.warning("base save archive is not a valid zip, %s", base_name)
-                base_zf_handle = None
-            if base_zf_handle is not None:
-                with base_zf_handle as base_zf:
-                    base_manifest = _read_base_manifest(base_zf)
-                    base_files = {
-                        f["path"]: f
-                        for f in (base_manifest or {}).get("files", [])
-                        if isinstance(f, dict) and isinstance(f.get("path"), str)
-                    }
-                    for info in base_zf.infolist():
-                        if info.is_dir() or info.filename == _MANIFEST_NAME:
-                            continue
-                        name = _safe_name(info.filename)
-                        if name is None:
-                            continue
-                        entry = base_files.get(info.filename) or base_files.get(name)
-                        if (
-                            strip_state
-                            and entry is not None
-                            and entry.get("kind") == "state"
-                        ):
-                            continue
-                        zf.writestr(_utf8_zipinfo(name), base_zf.read(info.filename))
-                        carried.append(
-                            entry
-                            if entry is not None
-                            else {"path": name, "kind": "save"}
-                        )
-        for member in members:
-            _write_member(zf, member, carried)
+        for path, (content, _entry) in staged.items():
+            zf.writestr(_utf8_zipinfo(path), content)
         zf.writestr(
             _MANIFEST_NAME,
             json.dumps(
@@ -166,7 +181,7 @@ def build_import_archive(
                 }
             ),
         )
-    return out.getvalue()
+    return out.getvalue(), carried
 
 
 async def _read_asset(file_path: str, file_name: str) -> bytes | None:
@@ -206,7 +221,6 @@ async def hydrate_import_archive(
     """
     members: list[ForeignMember] = []
     base: tuple[str, bytes] | None = None
-    state_included = False
 
     if save is not None and save_is_foreign:
         content = await _read_asset(save.file_path, save.file_name)
@@ -237,7 +251,6 @@ async def hydrate_import_archive(
                     origin=origin_of(state.emulator, None),
                 )
             )
-            state_included = True
 
     if not members:
         # No foreign material made it in (nothing was foreign, or reading it
@@ -246,8 +259,14 @@ async def hydrate_import_archive(
         # v2 archive whose `.import/` section is empty.
         return ImportHydration(None, False)
 
-    archive_bytes = await asyncio.to_thread(build_import_archive, rom.id, base, members)
+    archive_bytes, carried = await asyncio.to_thread(
+        build_import_archive, rom.id, base, members
+    )
     path = await asyncio.to_thread(
         webstation.upload_archive, container, f"rom-{rom.id}.zip", archive_bytes
     )
-    return ImportHydration(path, state_included and path is not None)
+    # A member whose own inner zip filtered out to nothing (junk entries
+    # only) never lands in `carried`, so this reflects what actually made it
+    # into the archive rather than merely what was attempted.
+    state_included = path is not None and any(f.get("kind") == "state" for f in carried)
+    return ImportHydration(path, state_included)

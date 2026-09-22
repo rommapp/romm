@@ -5199,7 +5199,9 @@ def test_build_import_archive_wraps_a_foreign_save_with_no_base():
     member = imports.ForeignMember(
         kind="save", name="Game.srm", content=b"save-bytes", origin="standalone"
     )
-    zip_bytes = imports.build_import_archive(rom_id=7, base=None, members=[member])
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=None, members=[member]
+    )
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         names = zf.namelist()
         assert ".import/save/Game.srm" in names
@@ -5225,7 +5227,9 @@ def test_build_import_archive_expands_a_foreign_zips_own_members():
     member = imports.ForeignMember(
         kind="save", name="Game.saves.zip", content=inner.getvalue(), origin="hardware"
     )
-    zip_bytes = imports.build_import_archive(rom_id=7, base=None, members=[member])
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=None, members=[member]
+    )
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         assert ".import/save/save.mcr" in zf.namelist()
         assert zf.read(".import/save/save.mcr") == b"card-bytes"
@@ -5249,7 +5253,7 @@ def test_build_import_archive_keeps_a_native_base_alongside_a_foreign_state():
     state_member = imports.ForeignMember(
         kind="state", name="Game.00.pcsx2", content=b"state-bytes", origin="standalone"
     )
-    zip_bytes = imports.build_import_archive(
+    zip_bytes, _carried = imports.build_import_archive(
         rom_id=7, base=("Game.saves.zip", base_zip.getvalue()), members=[state_member]
     )
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
@@ -5293,7 +5297,7 @@ def test_build_import_archive_strips_the_bases_own_state_member_when_importing_a
         content=b"foreign-state",
         origin="standalone",
     )
-    zip_bytes = imports.build_import_archive(
+    zip_bytes, _carried = imports.build_import_archive(
         rom_id=7, base=("Game.saves.zip", base_zip.getvalue()), members=[state_member]
     )
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
@@ -5317,7 +5321,7 @@ def test_build_import_archive_strips_dotfiles_and_macosx_junk():
             ".broker-manifest.json",
             json.dumps({"version": 1, "files": [{"path": "Game.srm", "kind": "save"}]}),
         )
-    zip_bytes = imports.build_import_archive(
+    zip_bytes, _carried = imports.build_import_archive(
         rom_id=7,
         base=("Game.saves.zip", base_zip.getvalue()),
         members=[
