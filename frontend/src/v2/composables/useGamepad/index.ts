@@ -288,24 +288,30 @@ export function useGamepad() {
           axisNextAt: { x: 0, y: 0 },
         });
 
-        // Left stick → ArrowKey equivalents.
+        // Left stick → ArrowKey equivalents. The synthetic arrow reads as a
+        // keyboard press on its way through useInputModality, so re-assert the
+        // pad after it: "key" modality never trips the grid-nav autofocus.
         const x = pad.axes[0] ?? 0;
         const y = pad.axes[1] ?? 0;
         tickAxis(st, "x", x, t, (dir) => {
-          if (gameOwnsInput) return;
-          dispatchKey(
-            dir < 0
-              ? { key: "ArrowLeft", code: "ArrowLeft" }
-              : { key: "ArrowRight", code: "ArrowRight" },
-          );
+          if (!gameOwnsInput) {
+            dispatchKey(
+              dir < 0
+                ? { key: "ArrowLeft", code: "ArrowLeft" }
+                : { key: "ArrowRight", code: "ArrowRight" },
+            );
+          }
+          onAnyInput();
         });
         tickAxis(st, "y", y, t, (dir) => {
-          if (gameOwnsInput) return;
-          dispatchKey(
-            dir < 0
-              ? { key: "ArrowUp", code: "ArrowUp" }
-              : { key: "ArrowDown", code: "ArrowDown" },
-          );
+          if (!gameOwnsInput) {
+            dispatchKey(
+              dir < 0
+                ? { key: "ArrowUp", code: "ArrowUp" }
+                : { key: "ArrowDown", code: "ArrowDown" },
+            );
+          }
+          onAnyInput();
         });
 
         // Buttons. Three tracks, evaluated in order:

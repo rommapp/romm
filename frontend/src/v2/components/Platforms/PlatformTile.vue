@@ -75,9 +75,11 @@ const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
 </script>
 
 <template>
+  <!-- `plat-tile` is the cell selector PlatformsIndex's spatial nav walks. -->
   <Tile
     :to="href"
     v-bind="$attrs"
+    class="plat-tile"
     :row="variant === 'row'"
     :focus-key="id != null ? `platform-${id}` : undefined"
     @click="onTileClick"

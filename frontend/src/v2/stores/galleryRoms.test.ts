@@ -2,6 +2,7 @@ import { flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 // Import after the mock so the store binds to the mocked rom API.
 import storeGalleryRoms, {
   orderSupportsLetters,
@@ -18,6 +19,29 @@ vi.mock("@/services/api/rom", () => ({
 interface Deferred {
   promise: Promise<unknown>;
   resolve: (value: unknown) => void;
+}
+
+function platform(overrides: Partial<Platform> = {}): Platform {
+  return {
+    id: 1,
+    slug: "snes",
+    fs_slug: "snes",
+    rom_count: 1,
+    name: "Super Nintendo",
+    igdb_slug: null,
+    moby_slug: null,
+    hltb_slug: null,
+    libretro_slug: null,
+    created_at: "",
+    updated_at: "",
+    fs_size_bytes: 0,
+    is_unidentified: false,
+    is_identified: true,
+    missing_from_fs: false,
+    display_name: "Super Nintendo",
+    firmware_count: 0,
+    ...overrides,
+  };
 }
 
 function deferred(): Deferred {
@@ -189,6 +213,43 @@ describe("galleryRoms windowed fetch", () => {
     await store.fetchInitialMetadata({ withFilterValues: false });
 
     expect(galleryFilter.filterGenres).toEqual(["RPG", "Shooter"]);
+  });
+
+  it("coerces null or missing filter_value lists from the API", async () => {
+    // Publishers and developers are omitted, as an older API sends them.
+    getRoms.mockResolvedValue({
+      data: {
+        total: 1,
+        items: [],
+        char_index: {},
+        rom_id_index: [],
+        filter_values: {
+          genres: null,
+          franchises: null,
+          collections: null,
+          companies: null,
+          age_ratings: null,
+          regions: null,
+          languages: null,
+          player_counts: null,
+          tags: null,
+          platforms: null,
+        },
+      },
+    });
+    storePlatforms().set([platform()]);
+    const galleryFilter = storeGalleryFilter();
+    galleryFilter.setFilterGenres(["RPG"]);
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata();
+
+    // The bootstrap swallows errors, so this proves nothing threw midway.
+    expect(store.metadataLoaded).toBe(true);
+    expect(galleryFilter.filterPlatforms).toEqual([]);
+    expect(galleryFilter.filterGenres).toEqual([]);
+    expect(galleryFilter.filterDevelopers).toEqual([]);
+    expect(galleryFilter.filterTags).toEqual([]);
   });
 
   it("keeps the bootstrap char_index when the first window skips aggregations", async () => {

@@ -151,8 +151,12 @@ async function saveAndExit(platform: string, slot = 0, wait = true) {
   });
 }
 
-async function heartbeatSession(platform: string) {
-  return api.post<SessionStatus>(`/streaming/sessions/${platform}/heartbeat`);
+async function heartbeatSession(platform: string, container?: string) {
+  return api.post<SessionStatus>(
+    `/streaming/sessions/${platform}/heartbeat`,
+    undefined,
+    { params: { container } },
+  );
 }
 
 async function sessionStatus(platform: string) {

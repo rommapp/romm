@@ -471,18 +471,25 @@ async def update_user(
         cleaned_data["avatar_path"] = file_location
 
     if cleaned_data:
-        db_user_handler.update_user(id, cleaned_data)
+        # Sessions are keyed by username, so the old one is what identifies
+        # them once the update has renamed the account.
+        previous_username = db_user.username
+        creds_updated = cleaned_data.get("username") or cleaned_data.get(
+            "hashed_password"
+        )
+
+        await auth_handler.apply_user_update(
+            id,
+            cleaned_data,
+            revoke_sessions_for=previous_username if creds_updated else None,
+        )
+
+        if creds_updated and request.user.id == id:
+            request.session.clear()
 
         # A role change alters the user's effective permissions; tell their UI.
         if "role" in cleaned_data:
             await emit_permissions_changed(id)
-
-        # Log out the current user if username or password changed
-        creds_updated = cleaned_data.get("username") or cleaned_data.get(
-            "hashed_password"
-        )
-        if request.user.id == id and creds_updated:
-            request.session.clear()
 
     db_user = db_user_handler.get_user(id)
     if not db_user:

@@ -176,6 +176,7 @@ html[data-input="pad"] .r-v2 {
 
 /* Dark surface palette — translucent white over the near-black base. */
 .r-v2.r-v2-dark {
+  color-scheme: dark;
   --r-color-bg: #07070f;
   --r-color-bg-elevated: rgba(255, 255, 255, 0.045);
   --r-color-surface: rgba(255, 255, 255, 0.07);
@@ -204,6 +205,7 @@ html[data-input="pad"] .r-v2 {
 
 /* Light surface palette — translucent black over the off-white base. */
 .r-v2.r-v2-light {
+  color-scheme: light;
   --r-color-bg: #f5f5fa;
   --r-color-bg-elevated: rgba(0, 0, 0, 0.025);
   --r-color-surface: rgba(0, 0, 0, 0.035);
