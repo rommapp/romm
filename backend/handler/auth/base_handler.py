@@ -88,7 +88,12 @@ class AuthHandler:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def verify_password(self, plain_password, hashed_password):
-        return self.pwd_context.verify(plain_password, hashed_password)
+        try:
+            return self.pwd_context.verify(plain_password, hashed_password)
+        except ValueError:
+            # OIDC accounts hold a placeholder rather than a bcrypt hash, and
+            # passlib raises on a hash it cannot identify.
+            return False
 
     def get_password_hash(self, password):
         return self.pwd_context.hash(password)
@@ -252,9 +257,10 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        invite_link = f"{ROMM_BASE_URL}/register?token={token}"
+        # The link goes back to the caller in the response, and the token on its
+        # own registers an account, so the log gets its id instead.
         log.info(
-            f"Invite link created by {hl(user.username, color=CYAN)}: {hl(invite_link)}"
+            f"Invite link created by {hl(user.username, color=CYAN)} (jti: {hl(jti)})"
         )
         redis_client.setex(f"invite-jti:{jti}", expires_in, "valid")
         return token
@@ -282,14 +288,13 @@ class AuthHandler:
 
         jti = payload.claims.get("jti")
         role = payload.claims.get("role", "USER").upper()
-        if not jti or redis_client.get(f"invite-jti:{jti}") != b"valid":
+        # Read and invalidate in one operation, so two registrations racing on
+        # one invite cannot both find it valid.
+        if not jti or redis_client.getdel(f"invite-jti:{jti}") != b"valid":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invite token has already been used or is invalid.",
             )
-
-        # Invalidate the token as soon as it's read
-        redis_client.delete(f"invite-jti:{jti}")
 
         return role
 

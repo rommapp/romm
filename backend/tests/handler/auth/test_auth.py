@@ -1,3 +1,4 @@
+import uuid
 from base64 import b64encode
 from datetime import timedelta
 
@@ -15,9 +16,10 @@ from handler.database import (
     db_device_handler,
     db_user_handler,
 )
+from handler.redis_handler import redis_client
 from models.client_token import ClientToken
 from models.device import Device
-from models.user import User
+from models.user import Role, User
 
 
 def test_verify_password():
@@ -27,6 +29,24 @@ def test_verify_password():
     assert not auth_handler.verify_password(
         "password", auth_handler.get_password_hash("notpassword")
     )
+
+
+def test_verify_password_rejects_a_hash_it_cannot_identify():
+    # An OIDC account is provisioned with a random placeholder in place of a
+    # bcrypt hash, and passlib raises rather than returning False on one.
+    assert not auth_handler.verify_password("password", str(uuid.uuid4()))
+
+
+def test_authenticate_user_with_an_oidc_placeholder_hash():
+    oidc_user = db_user_handler.add_user(
+        User(
+            username="test_oidc",
+            hashed_password=str(uuid.uuid4()),
+            role=Role.USER,
+        )
+    )
+
+    assert auth_handler.authenticate_user(oidc_user.username, "password") is None
 
 
 def test_authenticate_user(admin_user: User):
@@ -328,3 +348,37 @@ async def test_hybrid_auth_client_token_bound_sets_device_id_and_bumps_last_seen
     )
     assert refreshed is not None
     assert refreshed.last_seen is not None
+
+
+def test_invite_link_token_is_single_use(admin_user: User):
+    token = auth_handler.generate_invite_link_token(admin_user, role=Role.USER.value)
+
+    assert auth_handler.consume_invite_link_token(token) == Role.USER.name
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth_handler.consume_invite_link_token(token)
+
+    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_two_registrations_cannot_race_one_invite_link_token(
+    admin_user: User, monkeypatch: pytest.MonkeyPatch
+):
+    """A plain read of the invite would leave a window before its delete."""
+    token = auth_handler.generate_invite_link_token(admin_user, role=Role.USER.value)
+    unpatched_get = redis_client.get
+    racing_roles: list[str] = []
+    raced = False
+
+    def racing_get(name: str) -> bytes | None:
+        nonlocal raced
+        if not raced:
+            raced = True
+            # The second registration, landing in that window if there is one.
+            racing_roles.append(auth_handler.consume_invite_link_token(token))
+        return unpatched_get(name)
+
+    monkeypatch.setattr(redis_client, "get", racing_get)
+
+    assert auth_handler.consume_invite_link_token(token) == Role.USER.name
+    assert racing_roles == []
