@@ -710,9 +710,15 @@ const spinnerSize = computed(() => {
    background to draw against. The 0.55 opacity carve-out, on the
    other hand, only applies when NOT loading — fading a disabled-only
    button reads as "off-limits", while a disabled-loading button needs
-   its spinner at full brightness to signal "action in flight". */
-.r-btn:disabled,
-.r-btn--disabled {
+   its spinner at full brightness to signal "action in flight".
+   Ink mutes for every variant, including colourless ones that would
+   otherwise keep full-strength ink. */
+/* Matches each variant rule's 0,2,0 specificity so the mute lands on
+   every variant; `.r-btn--disabled` is the only hook on disabled
+   RouterLink roots, which never get a native `:disabled`. */
+.r-btn.r-btn--disabled,
+.r-btn:disabled {
+  color: var(--r-color-fg-muted);
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -726,22 +732,15 @@ const spinnerSize = computed(() => {
 .r-btn--elevated.r-btn--has-color.r-btn--disabled,
 .r-btn--elevated.r-btn--has-color:disabled {
   background: var(--r-color-surface);
-  color: var(--r-color-fg-muted);
   box-shadow: none;
 }
 .r-btn--translucent.r-btn--has-color.r-btn--disabled,
 .r-btn--translucent.r-btn--has-color:disabled {
   background: var(--r-color-surface);
-  color: var(--r-color-fg-muted);
 }
 .r-btn--outlined.r-btn--has-color.r-btn--disabled,
 .r-btn--outlined.r-btn--has-color:disabled {
-  color: var(--r-color-fg-muted);
   border-color: var(--r-color-border);
-}
-.r-btn--text.r-btn--has-color.r-btn--disabled,
-.r-btn--text.r-btn--has-color:disabled {
-  color: var(--r-color-fg-muted);
 }
 
 /* ── Reduced motion — drop hover overlay fade + ripple animation ── */

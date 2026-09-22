@@ -333,6 +333,7 @@ const { smAndUp } = useBreakpoint();
             icon="mdi-sort"
             rounded="circle"
             :disabled="layoutValue === 'list'"
+            :tooltip="t('gallery.sort-by')"
             :aria-label="t('gallery.sort-by')"
           />
         </template>

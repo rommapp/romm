@@ -147,4 +147,17 @@ describe("GalleryToolbar sort axis", () => {
     expect(activatorDisabled("list")).toBe("true");
     expect(activatorDisabled("grid")).toBe("false");
   });
+
+  // The disc carries no visible label, so hover and screen readers both
+  // depend on the activator naming the control.
+  it("names the activator with a tooltip and an aria-label", () => {
+    const wrapper = mountWithSortOptions();
+    const activator = wrapper
+      .findComponent(RMenuPassthrough)
+      .findComponent({ name: "RBtn" });
+
+    expect(activator.attributes("tooltip")).toBe("gallery.sort-by");
+    expect(activator.attributes("aria-label")).toBe("gallery.sort-by");
+    wrapper.unmount();
+  });
 });
