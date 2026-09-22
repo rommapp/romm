@@ -1,0 +1,167 @@
+import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { onMounted } from "vue";
+import { useRouter } from "vue-router";
+import type { DetailedRomSchema } from "@/__generated__";
+import storeAuth from "@/stores/auth";
+import type { User } from "@/stores/users";
+import {
+  mixedCommunitySaves,
+  mixedCommunityStates,
+} from "@/v2/utils/saveStateStoryFixtures";
+import SaveDataTab from "./SaveDataTab.vue";
+
+type Subtab = "saves" | "states";
+
+interface StoryArgs {
+  subtab: Subtab;
+  rom: DetailedRomSchema;
+}
+
+function storyUser(): User {
+  return {
+    id: 1,
+    username: "player",
+    email: null,
+    enabled: true,
+    role: "admin",
+    oauth_scopes: [],
+    avatar_path: "",
+    last_login: null,
+    last_active: null,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  } as User;
+}
+
+function baseRom(
+  overrides: Partial<DetailedRomSchema> = {},
+): DetailedRomSchema {
+  return {
+    id: 1,
+    platform_id: 3,
+    platform_slug: "snes",
+    platform_fs_slug: "snes",
+    platform_display_name: "Super Nintendo",
+    fs_name: "Chrono Trigger",
+    all_user_saves: mixedCommunitySaves(),
+    all_user_states: mixedCommunityStates(),
+    ...overrides,
+  } as DetailedRomSchema;
+}
+
+const meta: Meta<StoryArgs> = {
+  title: "GameDetails/SaveDataTab",
+  component: SaveDataTab,
+  args: {
+    subtab: "saves",
+    rom: baseRom(),
+  },
+  decorators: [
+    (_, { args }) => ({
+      components: { SaveDataTab },
+      setup() {
+        const router = useRouter();
+        onMounted(() => {
+          storeAuth().setCurrentUser(storyUser());
+          void router.replace({
+            query: { tab: "save-data", subtab: args.subtab },
+          });
+        });
+        return { rom: args.rom };
+      },
+      template: `
+        <div style="
+          width: min(960px, 95vw);
+          height: min(720px, 85vh);
+          padding: 20px;
+          background: var(--r-color-bg);
+          border: 1px solid var(--r-color-border);
+          border-radius: var(--r-radius-lg);
+        ">
+          <SaveDataTab :rom="rom" style="height: 100%;" />
+        </div>
+      `,
+    }),
+  ],
+};
+
+export default meta;
+type Story = StoryObj<StoryArgs>;
+
+export const SavesFull: Story = {
+  name: "Saves · mine + community",
+  args: { subtab: "saves", rom: baseRom() },
+};
+
+export const StatesFull: Story = {
+  name: "States · mine + community",
+  args: { subtab: "states", rom: baseRom() },
+};
+
+export const SavesEmptyMine: Story = {
+  name: "Saves · empty mine",
+  args: {
+    subtab: "saves",
+    rom: baseRom({
+      all_user_saves: mixedCommunitySaves().filter((s) => s.user_id !== 1),
+    }),
+  },
+};
+
+export const StatesEmptyMine: Story = {
+  name: "States · empty mine",
+  args: {
+    subtab: "states",
+    rom: baseRom({
+      all_user_states: mixedCommunityStates().filter((s) => s.user_id !== 1),
+    }),
+  },
+};
+
+export const SavesMineOnly: Story = {
+  name: "Saves · mine only (no community)",
+  args: {
+    subtab: "saves",
+    rom: baseRom({
+      all_user_saves: mixedCommunitySaves().filter((s) => s.user_id === 1),
+    }),
+  },
+};
+
+export const StatesMineOnly: Story = {
+  name: "States · mine only",
+  args: {
+    subtab: "states",
+    rom: baseRom({
+      all_user_states: mixedCommunityStates().filter((s) => s.user_id === 1),
+    }),
+  },
+};
+
+export const CompletelyEmpty: Story = {
+  name: "Empty · no saves or states",
+  args: {
+    subtab: "saves",
+    rom: baseRom({ all_user_saves: [], all_user_states: [] }),
+  },
+};
+
+export const SingleCommunitySave: Story = {
+  name: "Saves · community only",
+  args: {
+    subtab: "saves",
+    rom: baseRom({
+      all_user_saves: mixedCommunitySaves().filter((s) => s.user_id !== 1),
+    }),
+  },
+};
+
+export const SingleCommunityState: Story = {
+  name: "States · community only",
+  args: {
+    subtab: "states",
+    rom: baseRom({
+      all_user_states: mixedCommunityStates().filter((s) => s.user_id !== 1),
+    }),
+  },
+};
