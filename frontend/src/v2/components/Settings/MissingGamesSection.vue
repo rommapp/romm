@@ -44,6 +44,7 @@ import {
 } from "@/v2/components/Gallery/listColumns";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useListExpansion } from "@/v2/composables/useListExpansion";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -291,6 +292,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  // A press still in flight would otherwise fire into the next surface.
+  useGallerySelectionInput().cancel();
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
   galleryFilter.setFilterMissing(prevFilterMissing);
   galleryFilter.setSelectedFilterPlatforms(prevSelectedPlatforms);

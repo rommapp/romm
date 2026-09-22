@@ -338,19 +338,6 @@ function onCardPointerDown(e: PointerEvent) {
   if (!props.selectable || props.position == null) return;
   selectionInput.handlePointerDown(props.rom, props.position, e);
 }
-function onCardPointerMove(e: PointerEvent) {
-  if (!props.selectable) return;
-  selectionInput.handlePointerMove(e);
-}
-function onCardPointerEnd() {
-  if (!props.selectable) return;
-  selectionInput.handlePointerEnd();
-}
-function onCardTouchMove(e: TouchEvent) {
-  // The paint drag owns the gesture; without this the grid scrolls under
-  // the finger while it is selecting.
-  if (selectionInput.isPainting()) e.preventDefault();
-}
 
 function onStaticKeydown(e: KeyboardEvent) {
   // Enter / Space activate the card when it's rendered as a plain
@@ -408,10 +395,6 @@ function onStaticKeydown(e: KeyboardEvent) {
     @focus="onCoverFocus"
     @blur="onCoverBlur"
     @pointerdown="onCardPointerDown"
-    @pointermove="onCardPointerMove"
-    @pointerup="onCardPointerEnd"
-    @pointercancel="onCardPointerEnd"
-    @touchmove="onCardTouchMove"
     @contextmenu="selectionInput.handleContextMenu"
   >
     <GameCover

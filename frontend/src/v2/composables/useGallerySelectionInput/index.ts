@@ -67,6 +67,8 @@ let paintScroller: HTMLElement | null = null;
  *  past the chrome pinned over it. The bands live at its two ends. */
 let paintBounds: { top: number; bottom: number } | null = null;
 let edgeFrame: number | null = null;
+/** Drops the window listeners the live gesture is tracked through. */
+let untrackPointer: (() => void) | null = null;
 
 function stopEdgeScroll() {
   if (edgeFrame !== null) cancelAnimationFrame(edgeFrame);
@@ -109,6 +111,7 @@ function reachableBounds(
 }
 
 function resetLongPress() {
+  untrackPointer?.();
   if (longPress?.timer) clearTimeout(longPress.timer);
   longPress = null;
   painted = null;
@@ -209,6 +212,7 @@ export function useGallerySelectionInput() {
     }
 
     resetLongPress();
+    trackPointer();
     pressActive = true;
     longPress = {
       romId: rom.id,
@@ -300,6 +304,37 @@ export function useGallerySelectionInput() {
     edgeFrame = requestAnimationFrame(runEdgeScroll);
   }
 
+  // The row that took the press unmounts mid-drag whenever the virtualiser
+  // recycles it, and the finger ends a drag over the chrome at the list's
+  // edge rather than over a row. Either way its own events stop arriving, so
+  // the gesture is followed on the window until the finger lifts.
+  function trackPointer() {
+    const move = (event: PointerEvent) => handlePointerMove(event);
+    const end = () => handlePointerEnd();
+    // A painting finger owns the gesture; the page must not scroll under it.
+    const scroll = (event: TouchEvent) => {
+      if (isPainting()) event.preventDefault();
+    };
+    window.addEventListener("pointermove", move, { passive: true });
+    window.addEventListener("pointerup", end, { passive: true });
+    window.addEventListener("pointercancel", end, { passive: true });
+    window.addEventListener("touchmove", scroll, { passive: false });
+    untrackPointer = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("touchmove", scroll);
+      untrackPointer = null;
+    };
+  }
+
+  /** Drops a gesture still in flight, for a surface going away under it:
+   *  its timer would otherwise select into the gallery that replaced it. */
+  function cancel() {
+    resetLongPress();
+    pressActive = false;
+  }
+
   /** True while a long press has turned into a drag that paints rows. */
   function isPainting(): boolean {
     return painted !== null;
@@ -334,6 +369,7 @@ export function useGallerySelectionInput() {
   }
 
   function handlePointerEnd() {
+    untrackPointer?.();
     pressActive = false;
     stopEdgeScroll();
     // If the timer hasn't fired yet, the press was a normal tap —
@@ -349,7 +385,6 @@ export function useGallerySelectionInput() {
     handleContextMenu,
     isPainting,
     handlePointerDown,
-    handlePointerMove,
-    handlePointerEnd,
+    cancel,
   };
 }

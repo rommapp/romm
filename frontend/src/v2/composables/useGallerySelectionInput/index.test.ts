@@ -34,7 +34,8 @@ function stackAt(...els: Element[]) {
   });
 }
 
-/** A move of the finger already tracked by the press. */
+/** A move of the finger already tracked by the press. The press follows it
+ *  on the window, so that is where the tests raise it. */
 function move(clientX: number, clientY: number): PointerEvent {
   return new PointerEvent("pointermove", {
     pointerType: "touch",
@@ -42,6 +43,10 @@ function move(clientX: number, clientY: number): PointerEvent {
     clientX,
     clientY,
   });
+}
+
+function lift(): PointerEvent {
+  return new PointerEvent("pointerup", { pointerType: "touch" });
 }
 
 describe("useGallerySelectionInput long press", () => {
@@ -103,9 +108,9 @@ describe("useGallerySelectionInput long press", () => {
     input.handlePointerDown(rom({ id: 100 }), 0, pressOn(rowEl()));
     vi.advanceTimersByTime(LONG_PRESS_MS);
     overRow(1);
-    input.handlePointerMove(move(20, 40));
+    window.dispatchEvent(move(20, 40));
     overRow(2);
-    input.handlePointerMove(move(20, 60));
+    window.dispatchEvent(move(20, 60));
 
     expect(storeGallerySelection().count).toBe(3);
   });
@@ -121,9 +126,9 @@ describe("useGallerySelectionInput long press", () => {
     input.handlePointerDown(rom({ id: 100 }), 0, pressOn(rowEl()));
     vi.advanceTimersByTime(LONG_PRESS_MS);
     overRow(3);
-    input.handlePointerMove(move(20, 80));
+    window.dispatchEvent(move(20, 80));
     overRow(1);
-    input.handlePointerMove(move(20, 40));
+    window.dispatchEvent(move(20, 40));
 
     expect(storeGallerySelection().count).toBe(2);
   });
@@ -138,9 +143,9 @@ describe("useGallerySelectionInput long press", () => {
     input.handlePointerDown(rom({ id: 100 }), 0, pressOn(rowEl()));
     vi.advanceTimersByTime(LONG_PRESS_MS);
     overRow(2);
-    input.handlePointerMove(move(20, 60));
+    window.dispatchEvent(move(20, 60));
     overRow(0);
-    input.handlePointerMove(move(20, 20));
+    window.dispatchEvent(move(20, 20));
 
     // The anchor and the row the user had picked before the drag started.
     expect(storeGallerySelection().isSelected(102)).toBe(true);
@@ -156,9 +161,9 @@ describe("useGallerySelectionInput long press", () => {
     input.handlePointerDown(rom({ id: 100 }), 0, pressOn(rowEl()));
     vi.advanceTimersByTime(LONG_PRESS_MS);
     overRow(2);
-    input.handlePointerMove(move(20, 60));
+    window.dispatchEvent(move(20, 60));
     overRow(0);
-    input.handlePointerMove(move(20, 20));
+    window.dispatchEvent(move(20, 20));
 
     expect(storeGallerySelection().count).toBe(1);
   });
@@ -175,7 +180,7 @@ describe("useGallerySelectionInput long press", () => {
 
     input.handlePointerDown(rom({ id: 1 }), 0, pressOn(row));
     vi.advanceTimersByTime(LONG_PRESS_MS);
-    input.handlePointerMove(move(20, 40));
+    window.dispatchEvent(move(20, 40));
 
     expect(storeGallerySelection().count).toBe(2);
   });
@@ -188,10 +193,56 @@ describe("useGallerySelectionInput long press", () => {
     stackAt(next);
 
     input.handlePointerDown(rom({ id: 1 }), 0, pressOn(row));
-    input.handlePointerMove(move(200, 400));
+    window.dispatchEvent(move(200, 400));
     vi.advanceTimersByTime(LONG_PRESS_MS);
 
     expect(storeGallerySelection().count).toBe(0);
+  });
+
+  // The row that took the press is recycled out from under a long drag, and
+  // a finger parked at the list's edge sits over the chrome, not over a row:
+  // either way the gesture has to keep coming from the window.
+  it("keeps painting once the pressed row is gone", () => {
+    const input = useGallerySelectionInput();
+    vi.spyOn(storeGalleryRoms(), "getRomAt").mockImplementation((p: number) =>
+      rom({ id: 100 + p }),
+    );
+    const row = rowEl();
+    document.body.appendChild(row);
+
+    input.handlePointerDown(rom({ id: 100 }), 0, pressOn(row));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    row.remove();
+    overRow(1);
+    window.dispatchEvent(move(20, 40));
+
+    expect(storeGallerySelection().count).toBe(2);
+  });
+
+  it("drops the gesture when the surface goes away under it", () => {
+    const input = useGallerySelectionInput();
+
+    input.handlePointerDown(rom(), 0, pressOn(rowEl()));
+    input.cancel();
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+
+    expect(storeGallerySelection().count).toBe(0);
+  });
+
+  // Nothing is left listening for a finger that has already lifted.
+  it("stops following the finger once it lifts", () => {
+    const input = useGallerySelectionInput();
+    vi.spyOn(storeGalleryRoms(), "getRomAt").mockImplementation((p: number) =>
+      rom({ id: 100 + p }),
+    );
+
+    input.handlePointerDown(rom({ id: 100 }), 0, pressOn(rowEl()));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    window.dispatchEvent(lift());
+    overRow(5);
+    window.dispatchEvent(move(20, 200));
+
+    expect(storeGallerySelection().count).toBe(1);
   });
 
   it("leaves the mouse alone", () => {

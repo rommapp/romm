@@ -325,19 +325,6 @@ function onRowPointerDown(e: PointerEvent) {
   if ((e.target as Element | null)?.closest(".game-list-row__detail")) return;
   selectionInput.handlePointerDown(item, props.position, e);
 }
-function onRowPointerMove(e: PointerEvent) {
-  if (isStatic.value) return;
-  selectionInput.handlePointerMove(e);
-}
-function onRowPointerEnd() {
-  if (isStatic.value) return;
-  selectionInput.handlePointerEnd();
-}
-function onRowTouchMove(e: TouchEvent) {
-  // The paint drag owns the gesture; without this the list scrolls under
-  // the finger while it is selecting.
-  if (selectionInput.isPainting()) e.preventDefault();
-}
 </script>
 
 <template>
@@ -367,10 +354,6 @@ function onRowTouchMove(e: TouchEvent) {
     @mouseenter="onRowHighlight"
     @focus="onRowHighlight"
     @pointerdown="onRowPointerDown"
-    @pointermove="onRowPointerMove"
-    @pointerup="onRowPointerEnd"
-    @pointercancel="onRowPointerEnd"
-    @touchmove="onRowTouchMove"
     @contextmenu="selectionInput.handleContextMenu"
     @animationend.self="endEntrance"
   >

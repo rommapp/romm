@@ -64,6 +64,7 @@ import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryOrderUrl } from "@/v2/composables/useGalleryOrderUrl";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
+import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import {
   useGalleryVirtualItems,
@@ -141,6 +142,7 @@ const route = useRoute();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
 const gallerySelection = storeGallerySelection();
+const selectionInput = useGallerySelectionInput();
 const scrollRestoration = storeScrollRestoration();
 const {
   searchTerm,
@@ -841,6 +843,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onShellKey);
+  // A press still in flight would otherwise fire its timer into whatever
+  // replaces this gallery.
+  selectionInput.cancel();
   // Selection is gallery-scoped: leaving the shell drops it so a
   // navigation back to a non-gallery view (Home, Settings) doesn't
   // keep stale picks alive.
