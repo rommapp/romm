@@ -5,12 +5,14 @@ import { REmptyState, RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatTimestamp } from "@/utils";
+import AssetAnnotations from "@/v2/components/shared/AssetAnnotations.vue";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
+  byFavoriteFirst,
   ownerOf,
   screenshotOf,
   staggerIndex,
@@ -68,7 +70,7 @@ function reasonOf(asset: Asset): string | null {
 interface AssetGroup {
   key: string;
   label: string;
-  /** Source order, so a newest-first list reads top-left. */
+  /** Favorites first, then source order, so a newest-first list reads top-left. */
   assets: Asset[];
   /** Every tile disabled: nothing in this group can be picked. */
   disabled: boolean;
@@ -84,7 +86,7 @@ const groups = computed<AssetGroup[]>(() => {
       {
         key: "all",
         label: "",
-        assets: props.assets,
+        assets: [...props.assets].sort(byFavoriteFirst),
         disabled: false,
         newest: "",
         newestId: null,
@@ -113,7 +115,9 @@ const groups = computed<AssetGroup[]>(() => {
       group.newestId = asset.id;
     }
   }
-  return [...byKey.values()].sort(
+  const list = [...byKey.values()];
+  for (const group of list) group.assets.sort(byFavoriteFirst);
+  return list.sort(
     (a, b) =>
       Number(a.disabled) - Number(b.disabled) ||
       b.newest.localeCompare(a.newest),
@@ -226,6 +230,10 @@ const fadeIndex = computed(() =>
                   <p class="r-asset-strip__name">
                     {{ asset.file_name }}
                   </p>
+                  <AssetAnnotations
+                    :asset="asset"
+                    :show-favorite="selectable"
+                  />
                   <AssetChips
                     :asset="asset"
                     :latest="

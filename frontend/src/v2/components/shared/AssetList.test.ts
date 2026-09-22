@@ -51,9 +51,16 @@ function library() {
   ];
 }
 
-function mountList(props: { selectedId?: number; type?: "save" | "state" }) {
+function mountList(
+  props: {
+    selectedId?: number;
+    type?: "save" | "state";
+    assets?: SaveSchema[];
+  } = {},
+) {
+  const { assets, ...rest } = props;
   return mount(AssetList, {
-    props: { assets: library(), type: "save", ...props },
+    props: { assets: assets ?? library(), type: "save", ...rest },
     global: { stubs },
   });
 }
@@ -120,5 +127,23 @@ describe("AssetList slot grouping", () => {
     expect(titles(wrapper)).toEqual([]);
     expect(wrapper.findAll(".fold")).toHaveLength(0);
     expect(names(wrapper)).toHaveLength(6);
+  });
+
+  it("floats a favorited version to the top of its slot, without folding away the newest", async () => {
+    nextId = 1;
+    const newest = save("main_quest", 1);
+    const middle = save("main_quest", 5);
+    const oldest = { ...save("main_quest", 50), is_favorite: true };
+    const wrapper = mountList({ assets: [newest, middle, oldest] });
+
+    expect(names(wrapper)).toEqual(["save_3.srm", "save_1.srm"]);
+    // "Latest" follows the newest save, not whichever row renders first.
+    expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual([
+      "play.latest-version",
+    ]);
+
+    await wrapper.get(".fold").trigger("click");
+
+    expect(names(wrapper)).toEqual(["save_3.srm", "save_1.srm", "save_2.srm"]);
   });
 });

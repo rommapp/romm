@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// The facts shared by every save and state row or tile: newest-in-its-group
-// tag, emulator tag and file size, in one wrapping row.
+// A save or state's own facts: newest-in-its-group tag, emulator tag and file
+// size, in one wrapping row. The owner's marks live in <AssetAnnotations>.
 import { RIcon, RTag } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import { formatBytes } from "@/utils";

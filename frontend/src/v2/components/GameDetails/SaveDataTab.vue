@@ -28,6 +28,7 @@ import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import { getSupportedEJSCores } from "@/utils";
 import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
+import AssetLabelsDialog from "@/v2/components/GameDetails/AssetLabelsDialog.vue";
 import SubtabNav, {
   type SubtabNavItem,
 } from "@/v2/components/GameDetails/SubtabNav.vue";
@@ -326,6 +327,72 @@ async function toggleStateVisibility(state: StateSchema) {
     togglingStateId.value = null;
   }
 }
+
+// ---------- Favorite and labels (own items only) ----------
+// Keyed by type too: a save and a state can share an id.
+const favoritingKey = ref<string | null>(null);
+const labelTarget = ref<{ type: AssetType; asset: AssetSlot } | null>(null);
+const savingLabels = ref(false);
+
+function isFavoriting(type: AssetType, asset: AssetSlot): boolean {
+  return favoritingKey.value === `${type}:${asset.id}`;
+}
+
+async function toggleFavorite(type: AssetType, asset: AssetSlot) {
+  if (favoritingKey.value != null) return;
+  favoritingKey.value = `${type}:${asset.id}`;
+  const isFavorite = !asset.is_favorite;
+  try {
+    if (type === "save") {
+      await saveApi.setSaveFavorite({ id: asset.id, isFavorite });
+    } else {
+      await stateApi.setStateFavorite({ id: asset.id, isFavorite });
+    }
+    await refreshRom();
+  } catch (error) {
+    snackbar.error(
+      t("rom.cant-toggle-favorite", { error: errorMessage(error) }),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    favoritingKey.value = null;
+  }
+}
+
+async function submitLabels(labels: string[]) {
+  const target = labelTarget.value;
+  if (!target || savingLabels.value) return;
+  savingLabels.value = true;
+  try {
+    if (target.type === "save") {
+      await saveApi.setSaveLabels({ id: target.asset.id, labels });
+    } else {
+      await stateApi.setStateLabels({ id: target.asset.id, labels });
+    }
+    await refreshRom();
+    labelTarget.value = null;
+    snackbar.success(t("rom.labels-updated"), { icon: "mdi-check-bold" });
+  } catch (error) {
+    snackbar.error(
+      t("rom.cant-update-labels", { error: errorMessage(error) }),
+      {
+        icon: "mdi-close-circle",
+      },
+    );
+  } finally {
+    savingLabels.value = false;
+  }
+}
+
+// Every label already in play on this ROM, so an edit reuses one instead of
+// coining a near-duplicate.
+const labelSuggestions = computed(() => {
+  const all = new Set<string>();
+  for (const asset of [...allSaves.value, ...allStates.value]) {
+    for (const label of asset.labels ?? []) all.add(label);
+  }
+  return [...all].sort((a, b) => a.localeCompare(b));
+});
 </script>
 
 <template>
@@ -411,6 +478,9 @@ async function toggleStateVisibility(state: StateSchema) {
                   type="save"
                   own
                   :toggling="togglingSaveId === asset.id"
+                  :favoriting="isFavoriting('save', asset)"
+                  @toggle-favorite="toggleFavorite('save', asset)"
+                  @edit-labels="labelTarget = { type: 'save', asset }"
                   @toggle-visibility="toggleSaveVisibility(asSave(asset))"
                   @download="downloadAsset(asset)"
                   @delete="deleteSave(asSave(asset))"
@@ -503,6 +573,9 @@ async function toggleStateVisibility(state: StateSchema) {
                   type="state"
                   own
                   :toggling="togglingStateId === asset.id"
+                  :favoriting="isFavoriting('state', asset)"
+                  @toggle-favorite="toggleFavorite('state', asset)"
+                  @edit-labels="labelTarget = { type: 'state', asset }"
                   @toggle-visibility="toggleStateVisibility(asState(asset))"
                   @download="downloadAsset(asset)"
                   @delete="deleteState(asState(asset))"
@@ -549,6 +622,15 @@ async function toggleStateVisibility(state: StateSchema) {
       :initial-files="uploadDialog?.files ?? []"
       @update:model-value="!$event && closeUpload()"
       @submit="onUploadSubmit"
+    />
+
+    <AssetLabelsDialog
+      :model-value="labelTarget !== null"
+      :initial-labels="labelTarget?.asset.labels ?? []"
+      :suggestions="labelSuggestions"
+      :busy="savingLabels"
+      @update:model-value="!$event && (labelTarget = null)"
+      @submit="submitLabels"
     />
   </div>
 </template>

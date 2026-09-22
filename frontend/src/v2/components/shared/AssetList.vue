@@ -16,6 +16,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
 import { formatTimestamp } from "@/utils";
+import AssetAnnotations from "@/v2/components/shared/AssetAnnotations.vue";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
@@ -23,8 +24,10 @@ import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
+  byFavoriteFirst,
   byUpdatedDesc,
   dateOf,
+  newest,
   ownerOf,
   screenshotOf,
   staggerIndex,
@@ -42,8 +45,10 @@ interface SlotGroup {
   /** Null for the archive of slot-less saves and for ungrouped states. */
   slot: string | null;
   owner: AssetOwner | null;
-  /** Newest first. */
+  /** Favorites first, then newest first. */
   versions: Asset[];
+  /** Carried separately because a heart, not recency, decides the lead row. */
+  newestId: number;
 }
 
 const props = withDefaults(
@@ -106,7 +111,16 @@ const grouped = computed(() => props.type === "save" && props.groupBySlot);
 // list. Community lists key by owner too so two users' slots never merge.
 const groups = computed<SlotGroup[]>(() => {
   if (!grouped.value) {
-    return [{ key: "all", slot: null, owner: null, versions: props.assets }];
+    const versions = [...props.assets].sort(byFavoriteFirst);
+    return [
+      {
+        key: "all",
+        slot: null,
+        owner: null,
+        versions,
+        newestId: newest(props.assets)?.id ?? -1,
+      },
+    ];
   }
   const byKey = new Map<string, SlotGroup>();
   for (const asset of props.assets) {
@@ -114,7 +128,13 @@ const groups = computed<SlotGroup[]>(() => {
     const key = `${asset.user_id}:${slot ?? ""}`;
     let group = byKey.get(key);
     if (!group) {
-      group = { key, slot, owner: ownerOf(asset), versions: [] };
+      group = {
+        key,
+        slot,
+        owner: ownerOf(asset),
+        versions: [],
+        newestId: -1,
+      };
       byKey.set(key, group);
     }
     group.versions.push(asset);
@@ -122,9 +142,16 @@ const groups = computed<SlotGroup[]>(() => {
   const rank = (group: SlotGroup) =>
     group.slot === null ? 2 : group.slot === AUTOSAVE_SLOT ? 0 : 1;
   const list = [...byKey.values()];
-  for (const group of list) group.versions.sort(byUpdatedDesc);
+  for (const group of list) {
+    group.newestId = newest(group.versions)?.id ?? -1;
+    group.versions.sort((a, b) => byFavoriteFirst(a, b) || byUpdatedDesc(a, b));
+  }
+  // Bands still rank on their newest save: a heart reorders rows, not slots.
+  const newestOf = (group: SlotGroup) =>
+    group.versions.find((asset) => asset.id === group.newestId) ??
+    group.versions[0];
   return list.sort(
-    (a, b) => rank(a) - rank(b) || byUpdatedDesc(a.versions[0], b.versions[0]),
+    (a, b) => rank(a) - rank(b) || byUpdatedDesc(newestOf(a), newestOf(b)),
   );
 });
 
@@ -134,7 +161,12 @@ const fold = useGroupFold<SlotGroup>({
   keyOf: (group) => group.key,
   holdsSelection: (group) =>
     props.selectable &&
-    group.versions.slice(1).some((asset) => asset.id === props.selectedId),
+    group.versions.some(
+      (asset) =>
+        asset.id === props.selectedId &&
+        !asset.is_favorite &&
+        asset.id !== group.newestId,
+    ),
   defaultOpen: () => false,
   selectedId: () => props.selectedId,
 });
@@ -142,7 +174,11 @@ function isExpanded(group: SlotGroup): boolean {
   return !grouped.value || fold.isOpen(group);
 }
 function visibleVersions(group: SlotGroup): Asset[] {
-  return isExpanded(group) ? group.versions : group.versions.slice(0, 1);
+  if (isExpanded(group)) return group.versions;
+  // Folding hides older versions, never the newest save nor a favorited one.
+  return group.versions.filter(
+    (asset) => asset.is_favorite || asset.id === group.newestId,
+  );
 }
 
 const fadeIndex = computed(() =>
@@ -176,7 +212,7 @@ const fadeIndex = computed(() =>
 
         <ul class="r-asset-list__items">
           <li
-            v-for="(asset, i) in visibleVersions(group)"
+            v-for="asset in visibleVersions(group)"
             :key="asset.id"
             class="r-asset-list__item r-v2-asset-fade"
             :class="{
@@ -215,13 +251,26 @@ const fadeIndex = computed(() =>
               <span class="r-asset-list__main">
                 <span class="r-asset-list__name">{{ asset.file_name }}</span>
                 <span class="r-asset-list__chips">
-                  <AssetOwnerChip
-                    v-if="!grouped && showOwner && ownerOf(asset)"
-                    :owner="ownerOf(asset)!"
-                  />
+                  <!-- `display: contents` on desktop, so these flow in the one
+                       chip row; a phone turns it into a band of its own. -->
+                  <span class="r-asset-list__marks">
+                    <AssetOwnerChip
+                      v-if="!grouped && showOwner && ownerOf(asset)"
+                      :owner="ownerOf(asset)!"
+                    />
+                    <AssetAnnotations
+                      :asset="asset"
+                      :show-favorite="selectable"
+                    />
+                  </span>
                   <AssetChips
+                    class="r-asset-list__facts"
                     :asset="asset"
-                    :latest="grouped && i === 0 && group.versions.length > 1"
+                    :latest="
+                      grouped &&
+                      asset.id === group.newestId &&
+                      group.versions.length > 1
+                    "
                   />
                 </span>
               </span>
@@ -444,6 +493,10 @@ const fadeIndex = computed(() =>
   align-items: center;
 }
 
+.r-asset-list__marks {
+  display: contents;
+}
+
 .r-asset-list__check {
   display: grid;
   place-items: center;
@@ -483,8 +536,8 @@ const fadeIndex = computed(() =>
   opacity: 0.85;
 }
 
-/* Phones: the timestamp and the actions or check drop to a row of their own
-   under the text, so the name gets the full width and wraps. */
+/* Phones: the timestamp and the check drop under the text so the name gets
+   the full width and wraps; the action buttons take a third row. */
 html[data-bp~="xs"] .r-asset-list__row {
   padding: var(--r-space-2) var(--r-space-3);
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -513,5 +566,39 @@ html[data-bp~="xs"] .r-asset-list__actions {
 }
 html[data-bp~="xs"] .r-asset-list__actions {
   margin-block: calc(-1 * var(--r-space-1));
+}
+
+/* Phones give each part its own band, which `display: contents` allows by
+   lifting the text block's children into the row grid. */
+html[data-bp~="xs"] .r-asset-list__row {
+  grid-template-areas:
+    "icon name name"
+    "labels labels labels"
+    "facts facts time"
+    "actions actions actions";
+}
+html[data-bp~="xs"] .r-asset-list__main,
+html[data-bp~="xs"] .r-asset-list__chips {
+  display: contents;
+}
+html[data-bp~="xs"] .r-asset-list__name {
+  grid-area: name;
+}
+html[data-bp~="xs"] .r-asset-list__marks {
+  grid-area: labels;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+html[data-bp~="xs"] .r-asset-list__marks:empty {
+  display: none;
+}
+html[data-bp~="xs"] .r-asset-list__facts {
+  grid-area: facts;
+}
+html[data-bp~="xs"] .r-asset-list__actions {
+  justify-content: flex-end;
 }
 </style>

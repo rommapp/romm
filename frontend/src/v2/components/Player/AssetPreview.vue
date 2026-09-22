@@ -7,6 +7,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import AssetAnnotations from "@/v2/components/shared/AssetAnnotations.vue";
 import { dateOf, type AssetDateField } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
 
@@ -165,6 +166,7 @@ const emptyText = computed(() =>
           </RTooltip>
         </p>
         <div class="r-asset-preview__chips">
+          <AssetAnnotations :asset="asset" />
           <RTag
             v-if="'slot' in asset && asset.slot"
             tone="brand"

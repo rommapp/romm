@@ -1,35 +1,71 @@
 <script setup lang="ts">
-// The per-item buttons of the Save data tab: visibility toggle and delete
-// for the user's own saves and states, download for everything.
+// The per-item buttons of the Save data tab: favorite, labels, visibility
+// toggle and delete for own saves and states, download for everything.
 import { RBtn } from "@v2/lib";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Asset, AssetType } from "@/v2/utils/assets";
 
 defineOptions({ inheritAttrs: false });
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     asset: Asset;
     type: AssetType;
-    /** Own items also get the visibility toggle and delete. */
+    /** Own items also get the heart, labels, visibility toggle and delete. */
     own?: boolean;
     toggling?: boolean;
+    favoriting?: boolean;
   }>(),
-  { own: false, toggling: false },
+  { own: false, toggling: false, favoriting: false },
 );
 
 const emit = defineEmits<{
+  toggleFavorite: [];
+  editLabels: [];
   toggleVisibility: [];
   download: [];
   delete: [];
 }>();
 
 const { t } = useI18n();
+
+const hasLabels = computed(() => (props.asset.labels ?? []).length > 0);
 </script>
 
 <template>
   <!-- `display: contents`, so the buttons stay flex children of the slot. -->
   <span class="r-asset-actions" v-bind="$attrs">
+    <RBtn
+      v-if="own"
+      :icon="asset.is_favorite ? 'mdi-heart' : 'mdi-heart-outline'"
+      variant="text"
+      size="small"
+      :color="asset.is_favorite ? 'primary' : undefined"
+      :loading="favoriting"
+      :tooltip="
+        asset.is_favorite
+          ? t('rom.remove-from-favorites')
+          : t('rom.add-to-favorites')
+      "
+      :aria-label="
+        asset.is_favorite
+          ? t('rom.remove-from-favorites')
+          : t('rom.add-to-favorites')
+      "
+      :aria-pressed="asset.is_favorite"
+      @click="emit('toggleFavorite')"
+    />
+    <RBtn
+      v-if="own"
+      icon="mdi-label-outline"
+      variant="text"
+      size="small"
+      :color="hasLabels ? 'primary' : undefined"
+      :tooltip="hasLabels ? t('rom.edit-labels') : t('rom.add-labels')"
+      :aria-label="hasLabels ? t('rom.edit-labels') : t('rom.add-labels')"
+      @click="emit('editLabels')"
+    />
     <RBtn
       v-if="own"
       :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
