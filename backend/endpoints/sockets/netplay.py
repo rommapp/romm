@@ -68,12 +68,26 @@ async def _save_session(sid: str, **values: Any) -> None:
     await netplay_socket_handler.socket_server.save_session(sid, session)
 
 
+async def _clear_room_session(sid: str) -> None:
+    session = await _get_session(sid)
+    session.pop(ROOM_SESSION_KEY, None)
+    session.pop(PLAYER_SESSION_KEY, None)
+    await netplay_socket_handler.socket_server.save_session(sid, session)
+
+
 async def _authenticated_user(sid: str) -> User | None:
-    """The user resolved server-side at connect time, or ``None`` for a guest."""
+    """The user resolved at connect time, or ``None`` for a guest or a disabled user.
+
+    Reloaded per call, so disabling an account takes effect without a reconnect.
+    """
     user_id = (await _get_session(sid)).get(AUTH_USER_SESSION_KEY)
     if user_id is None:
         return None
-    return db_user_handler.get_user(int(user_id))
+
+    user = db_user_handler.get_user(int(user_id))
+    if not user or not user.enabled:
+        return None
+    return user
 
 
 def _may_play(user: User | None, game_id: str | None) -> bool:
@@ -216,7 +230,7 @@ async def join_room(sid: str, data: RoomData):
 
 
 async def _room_peer_socket_ids(sid: str) -> set[str]:
-    """The socket ids of the peers in the room the caller belongs to."""
+    """The socket ids of the peers in the caller's room, empty if the caller is not one."""
     session_id = (await _get_session(sid)).get(ROOM_SESSION_KEY)
     if not session_id:
         return set()
@@ -225,7 +239,8 @@ async def _room_peer_socket_ids(sid: str) -> set[str]:
     if not room:
         return set()
 
-    return {player["socketId"] for player in room["players"].values()}
+    peers = {player["socketId"] for player in room["players"].values()}
+    return peers if sid in peers else set()
 
 
 async def _handle_leave(sid: str, session_id: str, player_id: str):
@@ -264,6 +279,7 @@ async def leave_room(sid: str):
     if session_id and player_id:
         await _handle_leave(sid, session_id, player_id)
         await netplay_socket_handler.socket_server.leave_room(sid, session_id)
+        await _clear_room_session(sid)
 
 
 @netplay_socket_handler.socket_server.on("webrtc-signal")  # type: ignore

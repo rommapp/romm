@@ -65,7 +65,7 @@ def _caller_may_see_rom(request: Request, game_id: str) -> bool:
     return get_permissions(request).can_see_rom(rom.id, rom.platform_id)
 
 
-@protected_route(router.get, "/list", [Scope.ASSETS_READ])
+@protected_route(router.get, "/list", [Scope.ROMS_READ])
 async def get_rooms(request: Request, game_id: str) -> Dict[str, RoomsResponse]:
     if not _caller_may_see_rom(request, game_id):
         return {}

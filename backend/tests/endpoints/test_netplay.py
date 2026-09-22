@@ -8,17 +8,18 @@ import pytest
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import netplay as netplay_endpoints
 from handler.auth import oauth_handler
+from handler.auth.constants import Scope
 from handler.database.base_handler import sync_session
 from models.permission import HiddenEntity, PermEntity
 
 
-def _auth(user):
+def _auth(user, scopes=None):
     # Re-reads the user's current (projected) scopes each call.
     token = oauth_handler.create_access_token(
         data={
             "sub": user.username,
             "iss": "romm:oauth",
-            "scopes": " ".join(user.oauth_scopes),
+            "scopes": " ".join(scopes if scopes is not None else user.oauth_scopes),
         },
         expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
     )
@@ -82,3 +83,13 @@ def test_listing_of_a_missing_rom_is_empty(client, viewer_user, rooms):
 
     assert resp.status_code == 200
     assert resp.json() == {}
+
+
+def test_listing_needs_the_rom_read_scope(client, viewer_user, rooms):
+    """The listing answers about a rom, so asset access alone is not enough."""
+    headers = _auth(viewer_user, scopes=[Scope.ASSETS_READ])
+
+    resp = client.get("/api/netplay/list?game_id=1", headers=headers)
+
+    assert resp.status_code == 403
+    rooms.assert_not_awaited()

@@ -8,7 +8,9 @@ from endpoints.sockets import netplay as netplay_module
 from endpoints.sockets.netplay import (
     AUTH_USER_SESSION_KEY,
     connect,
+    data_message,
     join_room,
+    leave_room,
     open_room,
     webrtc_signal,
 )
@@ -36,7 +38,13 @@ def _room(**overrides) -> dict:
                 "player_name": "Owner",
                 "userid": "owner",
                 "playerId": "owner",
-            }
+            },
+            "me": {
+                "socketId": "sid",
+                "player_name": "Me",
+                "userid": "me",
+                "playerId": "me",
+            },
         },
         "peers": [],
         "room_name": "Room",
@@ -70,8 +78,14 @@ def server(mocker):
         socket_server, "save_session", AsyncMock(side_effect=save_session)
     )
     enter_room = mocker.patch.object(socket_server, "enter_room", AsyncMock())
+    leave_room_event = mocker.patch.object(socket_server, "leave_room", AsyncMock())
     emit = mocker.patch.object(socket_server, "emit", AsyncMock())
-    return Mock(sessions=sessions, enter_room=enter_room, emit=emit)
+    return Mock(
+        sessions=sessions,
+        enter_room=enter_room,
+        leave_room=leave_room_event,
+        emit=emit,
+    )
 
 
 @pytest.fixture
@@ -129,6 +143,22 @@ class TestOpenRoomAuthorization:
             "_authenticated_user",
             AsyncMock(return_value=_user(Scope.ASSETS_READ)),
         )
+
+        result = await open_room("sid", _open("sid"))
+
+        assert "Not authorized" in result
+        rooms.handler.set.assert_not_awaited()
+
+    async def test_rejects_a_user_disabled_after_connecting(
+        self, mocker, server, rooms
+    ):
+        """The identity is reloaded per call, so a disable lands without a reconnect."""
+        disabled = _user(Scope.ROMS_READ)
+        disabled.enabled = False
+        mocker.patch.object(
+            netplay_module.db_user_handler, "get_user", return_value=disabled
+        )
+        server.sessions["sid"] = {AUTH_USER_SESSION_KEY: 1}
 
         result = await open_room("sid", _open("sid"))
 
@@ -312,6 +342,48 @@ class TestWebRtcSignalRelay:
         rooms.store["room-1"] = _room()
 
         await webrtc_signal("sid", {"target": "sid-owner", "offer": {"sdp": "x"}})
+
+        server.emit.assert_not_awaited()
+
+    async def test_drops_a_signal_from_a_socket_that_is_not_a_player(
+        self, mocker, server, rooms
+    ):
+        """A room id in the session is not enough; the sender must still be a player."""
+        rooms.store["room-1"] = _room(
+            players={
+                "owner": {
+                    "socketId": "sid-owner",
+                    "player_name": "Owner",
+                    "userid": "owner",
+                    "playerId": "owner",
+                }
+            }
+        )
+        server.sessions["sid"] = {"session_id": "room-1"}
+
+        await webrtc_signal("sid", {"target": "sid-owner", "offer": {"sdp": "x"}})
+
+        server.emit.assert_not_awaited()
+
+
+class TestLeaveRoom:
+    async def test_clears_the_room_session_keys(self, server, rooms):
+        rooms.store["room-1"] = _room()
+        server.sessions["sid"] = {"session_id": "room-1", "player_id": "me"}
+
+        await leave_room("sid")
+
+        assert "session_id" not in server.sessions["sid"]
+        assert "player_id" not in server.sessions["sid"]
+
+    async def test_stops_broadcasting_after_leaving(self, server, rooms):
+        rooms.store["room-1"] = _room()
+        server.sessions["sid"] = {"session_id": "room-1", "player_id": "me"}
+
+        await leave_room("sid")
+        server.emit.reset_mock()
+
+        await data_message("sid", {"frame": 1})
 
         server.emit.assert_not_awaited()
 
