@@ -24,7 +24,8 @@ router = APIRouter(prefix="/music", tags=["music"])
 
 
 class MusicLimitOffsetParams(LimitOffsetParams):
-    limit: int = Query(50, ge=1, le=10_000, description="Page size limit")
+    # Sized to the largest page the jukebox requests (a whole soundtrack).
+    limit: int = Query(50, ge=1, le=1_000, description="Page size limit")
     offset: int = Query(0, ge=0, description="Page offset")
 
 
