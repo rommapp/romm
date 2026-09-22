@@ -430,14 +430,14 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You cannot demote the last admin user",
             )
-        cleaned_data["role"] = new_role  # type: ignore[assignment]
+        cleaned_data["role"] = new_role
 
     # You can't disable yourself
     if form_data.enabled is not None and request.user.id != id:
-        cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
+        cleaned_data["enabled"] = form_data.enabled
 
     if form_data.ra_username:
-        cleaned_data["ra_username"] = form_data.ra_username  # type: ignore[assignment]
+        cleaned_data["ra_username"] = form_data.ra_username
 
     if form_data.ui_settings is not None:
         try:
@@ -449,7 +449,7 @@ async def update_user(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=msg,
                 )
-            cleaned_data["ui_settings"] = ui_settings  # type: ignore[assignment]
+            cleaned_data["ui_settings"] = ui_settings
         except (json.JSONDecodeError, ValueError) as exc:
             msg = f"Invalid ui_settings JSON: {str(exc)}"
             log.error(msg)

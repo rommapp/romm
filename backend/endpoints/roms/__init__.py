@@ -556,8 +556,8 @@ def get_roms(
         order_by=order_by,
         order_dir=order_dir,
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
-        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
+        hidden_platform_ids=perms.hidden_platform_ids,
+        hidden_rom_ids=perms.hidden_rom_ids,
         updated_after=updated_after,
         released_days=parsed_released_days,
         released_before_year=released_before_year,
@@ -789,8 +789,8 @@ def get_random_rom(
             smart_collection_id=smart_collection_id,
         ),
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
-        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
+        hidden_platform_ids=perms.hidden_platform_ids,
+        hidden_rom_ids=perms.hidden_rom_ids,
         include_related=False,
     )
 

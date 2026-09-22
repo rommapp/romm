@@ -1836,7 +1836,7 @@ class DBRomsHandler(DBBaseHandler):
     def _scoped_roms_query(
         self,
         *,
-        session: Session,  # type: ignore
+        session: Session,
         include_related: bool = True,
         **kwargs,
     ) -> Query[Rom]:
