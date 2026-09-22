@@ -108,6 +108,8 @@ import { useCan } from "@/v2/composables/useCan";
 - A new interactive primitive that warrants gamepad navigation ships a `play()` interaction.
 - Modified primitive: existing story must still render and its interactions still pass.
 - `npm run test` runs Vitest **and** every `/lib` story's `play()` via `composeStories`. Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
+- **Composite stories (opt-in CI):** `frontend/test/storybook.test.ts` also composes selected `src/v2/components/**` story files (save/state QA today). Add a path to that glob when a composite story ships `play()` + a11y coverage that should gate CI; keep the list small.
+- **Fixtures:** shared save/state mocks live in `src/v2/utils/saveStateStoryFixtures.ts`; DOM helpers for `play()` in `saveStateStoryPlays.ts`.
 
 ---
 
