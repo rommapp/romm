@@ -43,7 +43,24 @@ describe("shortenGithubLinks", () => {
 
   // Rewriting these would nest a link inside a link.
   it("leaves a reference that is already a link alone", () => {
-    const notes = [`[the fix](${PR})`, `[${PR}](${PR})`, `<${PR}>`].join("\n");
+    const notes = [
+      `[the fix](${PR})`,
+      `[${PR}](${PR})`,
+      `[see ${PR} for the details](${PR})`,
+      `<${PR}>`,
+    ].join("\n");
+
+    expect(shortenGithubLinks(notes, REPO)).toBe(notes);
+  });
+
+  // Code reads as written, so a rewrite would show the markdown itself.
+  it("leaves a reference inside code alone", () => {
+    const notes = [
+      `Compare it with \`${PR}\`:`,
+      "```sh",
+      `curl ${PR}`,
+      "```",
+    ].join("\n");
 
     expect(shortenGithubLinks(notes, REPO)).toBe(notes);
   });
@@ -52,6 +69,7 @@ describe("shortenGithubLinks", () => {
     const notes = [
       `${PR}/files`,
       `${PR}#issuecomment-1`,
+      `${PR}?diff=split`,
       "https://github.com/rommapp/romm/compare/5.0.0...5.1.0",
     ].join("\n");
 

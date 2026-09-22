@@ -1,7 +1,8 @@
-// A bare pull request or issue URL, not one already inside a markdown link
-// (as its text or its target) or an `<autolink>`, and not a deeper page of it.
-const REFERENCE_URL =
-  /(?<!\]\(|<|\[)https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/(?:pull|issues)\/(\d+)(?![\w/#])/g;
+// Either a span that reads as written (code, or a link that is already one),
+// which the first alternative claims before the second can reach into it, or a
+// bare pull request / issue URL, which the trailing guard keeps to a plain one.
+const VERBATIM_OR_REFERENCE =
+  /(```[\s\S]*?```|`[^`]*`|\[[^\]]*\]\([^)]*\)|<[^>\s]*>)|https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/(?:pull|issues)\/(\d+)(?![\w/#?])/g;
 
 /**
  * Rewrites bare pull request and issue URLs in `markdown` the way GitHub
@@ -13,8 +14,9 @@ const REFERENCE_URL =
  */
 export function shortenGithubLinks(markdown: string, repo: string): string {
   return markdown.replace(
-    REFERENCE_URL,
-    (url, target: string, number: string) => {
+    VERBATIM_OR_REFERENCE,
+    (url, verbatim: string | undefined, target: string, number: string) => {
+      if (verbatim !== undefined) return verbatim;
       const prefix = target.toLowerCase() === repo.toLowerCase() ? "" : target;
       return `[${prefix}#${number}](${url})`;
     },
