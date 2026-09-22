@@ -14,7 +14,7 @@ holds the same values in a few MB. See `RomFacets`.
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, TypedDict
 
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import QueryableAttribute
@@ -62,6 +62,23 @@ ROM_FILTER_SPECS: tuple[RomFilterSpec, ...] = (
 
 # `statuses` is absent above on purpose: it matches against RomUser, after the
 # grouping window, carrying the default "hide hidden roms" behaviour.
+
+
+# Values each filter dropdown can offer; every key is always a list.
+class RomFiltersDict(TypedDict):
+    genres: list[str]
+    franchises: list[str]
+    collections: list[str]
+    companies: list[str]
+    publishers: list[str]
+    developers: list[str]
+    game_modes: list[str]
+    age_ratings: list[str]
+    player_counts: list[str]
+    regions: list[str]
+    languages: list[str]
+    tags: list[str]
+    platforms: list[int]
 
 
 # Filters whose criteria were stored as a single value before they accepted

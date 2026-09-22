@@ -7,11 +7,21 @@ import storeAuth from "@/stores/auth";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
-const { getRom } = vi.hoisted(() => ({ getRom: vi.fn() }));
+const { getRom, stubView } = vi.hoisted(() => ({
+  getRom: vi.fn(),
+  stubView: () => ({ default: { render: () => null } }),
+}));
 
 vi.mock("@/services/api/rom", () => ({
   default: { getRom },
 }));
+
+// Navigating resolves the route's lazy views, which import most of the app and
+// outlast the test timeout when the whole suite transforms in parallel.
+vi.mock("@/layouts/Main.vue", stubView);
+vi.mock("@/views/GameDetails.vue", stubView);
+vi.mock("@/v2/layouts/AppLayout.vue", stubView);
+vi.mock("@/v2/views/GameDetails.vue", stubView);
 
 function makeRom(overrides: Partial<DetailedRom> = {}): DetailedRom {
   return {

@@ -463,9 +463,10 @@ export default defineStore("v2GalleryRoms", {
       }
       if (sidecars.withFilterValues !== false && data.filter_values) {
         if (galleryFilter.filterPlatforms.length === 0) {
+          const platformIds = data.filter_values.platforms ?? [];
           galleryFilter.setFilterPlatforms(
             platformsStore.allPlatforms.filter((p) =>
-              data.filter_values.platforms.includes(p.id),
+              platformIds.includes(p.id),
             ),
           );
         }
