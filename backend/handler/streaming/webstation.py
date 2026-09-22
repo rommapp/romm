@@ -54,10 +54,12 @@ class ImportSpec:
         return any(k.kind == kind for k in self.kinds)
 
 
-# Keyed on (emulator, platform); only a confirmed 404 (broker predates
-# imports) or 422 (unrecognized pair) is cached, both stable for the
-# worker's life. Any other failure is treated as unknown and retried.
-_import_spec_cache: dict[tuple[str, str], "ImportSpec | None"] = {}
+# Keyed on (container.key, emulator, platform), so one broker's answer
+# never disables imports for another container running the same pair; only
+# a confirmed 404 (broker predates imports) or 422 (unrecognized pair) is
+# cached, both stable for the worker's life. Any other failure is treated
+# as unknown and retried.
+_import_spec_cache: dict[tuple[str, str, str], "ImportSpec | None"] = {}
 
 
 def reset_import_spec_cache() -> None:
@@ -99,7 +101,7 @@ def import_spec(
     (emulator, platform), or None when nothing will (no imports at all, an
     unrecognized pair, or the check itself could not be answered right now).
     """
-    cache_key = (emulator, platform)
+    cache_key = (container.key, emulator, platform)
     if cache_key in _import_spec_cache:
         return _import_spec_cache[cache_key]
     path = container.protocol.session_route(
@@ -117,7 +119,7 @@ def import_spec(
             return None
         log.warning("import-spec check failed with HTTP %d, treating as unknown", code)
         return None
-    except (urllib.error.URLError, OSError):
+    except (urllib.error.URLError, OSError, ValueError):
         log.warning("import-spec check unreachable, treating as unknown")
         return None
     if not isinstance(resp, dict):
