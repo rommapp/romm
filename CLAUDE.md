@@ -98,6 +98,7 @@ uv run alembic upgrade head         # apply migrations
 npm install                         # install (Node 24)
 npm run dev                         # dev server :3000
 npm run typecheck                   # vue-tsc
+npm run typecheck:scripts           # tsc on the Node/Vite tooling in scripts/
 npm run test                        # vitest (+ Storybook play() tests)
 npm run test:e2e                    # playwright (needs a running app + seeded e2e users)
 npm run build                       # production build

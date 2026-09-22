@@ -143,9 +143,10 @@ mypy wanting explicit annotations on `__init__` attributes
 Run from `frontend/`:
 
 1. `npm run typecheck` — zero errors (`vue-tsc --noEmit`).
-2. `npm run lint` _(if present)_ / ESLint clean. Trunk also runs ESLint + Prettier in CI.
-3. `npm run test` — zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` story's `play()` via `composeStories`).
-4. `npm run build` — zero failures (CI sanity check).
+2. `npm run typecheck:scripts` — zero errors (`tsc -p tsconfig.node.json`, covers `scripts/`).
+3. `npm run lint` _(if present)_ / ESLint clean. Trunk also runs ESLint + Prettier in CI.
+4. `npm run test` — zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` story's `play()` via `composeStories`).
+5. `npm run build` — zero failures (CI sanity check).
 
 **If you touched the backend API:** start the backend, run `npm run generate`, then re-`typecheck`.
 

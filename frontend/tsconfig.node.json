@@ -8,7 +8,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  // Aids `npm run typecheck` in expanding typechecking
-  // to Node/Vite tooling that vue-tsc does not cover.
   "include": ["scripts/**/*.ts"]
 }
