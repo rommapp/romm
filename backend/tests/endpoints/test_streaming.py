@@ -6503,6 +6503,46 @@ def _http_error(code: int, headers: dict[str, str] | None = None):
     return urllib.error.HTTPError("http://broker/memory-card", code, "err", hdrs, None)
 
 
+def test_raise_http_error_raises_import_refused_as_a_typed_error():
+    """A refused import must reach the caller as structured data, not folded
+    into the generic 502 string every other broker error becomes."""
+    payload = json.dumps(
+        {
+            "detail": {
+                "error": "import_refused",
+                "refusals": [
+                    {
+                        "reason": "shape_mismatch",
+                        "member": ".import/save/Game.mcr",
+                        "expected": "folder",
+                        "detail": "wanted a directory member",
+                        "suggest_emulator": None,
+                        "docs": None,
+                    }
+                ],
+                "truncated": 0,
+            }
+        }
+    ).encode()
+    exc = _http_error(422)
+    with patch.object(exc, "read", return_value=payload):
+        with pytest.raises(broker.ImportRefusedError) as raised:
+            broker.raise_http_error(exc)
+    assert raised.value.truncated == 0
+    assert len(raised.value.refusals) == 1
+    assert raised.value.refusals[0].reason == "shape_mismatch"
+    assert raised.value.refusals[0].member == ".import/save/Game.mcr"
+
+
+def test_raise_http_error_still_raises_502_for_a_plain_broker_error():
+    """An ordinary broker error (not an import refusal) keeps today's shape."""
+    exc = _http_error(500)
+    with patch.object(exc, "read", return_value=b"boom"):
+        with pytest.raises(HTTPException) as raised:
+            broker.raise_http_error(exc)
+    assert raised.value.status_code == 502
+
+
 def test_fetch_memory_card_returns_bytes(rom: Rom):
     resp = MagicMock()
     resp.__enter__.return_value.read.side_effect = _reads(b"card-bytes")
