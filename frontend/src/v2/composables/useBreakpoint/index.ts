@@ -89,6 +89,8 @@ function applyAttribute() {
  *  Called from every top-level layout (AppLayout AND AuthLayout) so the
  *  attribute is present across the whole app, including the auth / setup
  *  flow — otherwise the `html[data-bp~="…"]` rules silently no-op there.
+ *  Storybook and `frontend/test/storybook.test.ts` call this too so iframe
+ *  stories honor the same `html[data-bp~="…"]` CSS as the running app.
  *
  *  The watcher runs in a DETACHED effect scope, not bound to the calling
  *  component, so it survives a layout swap (AuthLayout ↔ AppLayout) instead

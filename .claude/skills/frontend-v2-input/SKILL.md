@@ -48,7 +48,7 @@ When a dialog opens, push a scope; when it closes, pop. This stops Escape from c
 
 ## Responsive layout (universal viewport)
 
-- **Single breakpoint source: `useBreakpoint`** (`src/v2/composables/useBreakpoint/`). Material thresholds — `xs <600`, `sm 600–959`, `md 960–1279`, `lg 1280–1919`, `xl ≥1920`. `installBreakpointAttribute()` (mounted once in `AppLayout`) mirrors the active set onto `<html data-bp="…">`.
+- **Single breakpoint source: `useBreakpoint`** (`src/v2/composables/useBreakpoint/`). Material thresholds — `xs <600`, `sm 600–959`, `md 960–1279`, `lg 1280–1919`, `xl ≥1920`. `installBreakpointAttribute()` mirrors the active set onto `<html data-bp="…">` (once from `AppLayout` and `AuthLayout` in the app; also from `.storybook/preview.ts` and `frontend/test/storybook.test.ts` so Storybook and composed-story tests match production CSS).
 - **Layout switches live in CSS** via the attribute selector: `html[data-bp~="xs"] .foo { … }`, `html[data-bp~="sm-and-down"] .foo { … }`. **No raw `@media` for layout** — the only allowed `@media` are `prefers-reduced-motion` and print. The attribute is on `<html>` so it reaches teleported overlays.
 - **Conditional rendering** (mount/unmount a different component per tier) uses the `useBreakpoint()` refs in `<script>` — e.g. `v-if="xs"`. Prefer mount-gating over `display:none` for focusable chrome so hidden controls never sit in the tab/spatial-nav order.
 - **`--r-row-pad` is the global horizontal gutter**, already re-scoped responsive in `global.css` (36 → 20 → 14px). Consume `var(--r-row-pad)`; don't hard-code a smaller `xs` padding per component.
@@ -57,4 +57,4 @@ When a dialog opens, push a scope; when it closes, pop. This stops Escape from c
 - **Label→icon collapse** (the AppNav precedent) is the canonical way to compress chrome; the four primary destinations relocate to `BottomNav` on `sm-and-down`.
 - **Grids** size via `useResponsiveColumns` (ResizeObserver), never a fixed column count.
 
-Verification adds a breakpoint sweep — see `review-polish`.
+Verification adds a breakpoint sweep; see `review-polish`. In Storybook, use the viewport toolbar presets in `.storybook/rommViewports.ts` (RomM tiers plus AYN Thor top/bottom screens, landscape). Layout that depends on `html[data-bp~="xs"]` needs a canvas **under 600px** wide (e.g. **390×844 · RomM phone**), not just `useBreakpoint()` switching subtabs at tablet widths.
