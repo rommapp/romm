@@ -263,13 +263,22 @@ def _newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
     return max(archives, key=lambda s: (s.created_at, s.id), default=None)
 
 
+def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
+    """Public alias of `_newest_restorable` for `imports.py`."""
+    return _newest_restorable(user_id, rom_id, emulator)
+
+
 def resolve_save_archive(
     user_id: int, rom: Rom, container: ResolvedContainer, save_id: int
-) -> Save:
-    """Validate a pick from the launch screen's save list and return the save.
+) -> tuple[Save, bool]:
+    """Validate a pick from the launch screen's save list and return
+    (save, is_foreign).
 
-    Raises 404 for a save that is not the claiming user's own on this ROM, and
-    400 when it cannot be restored on this container.
+    Raises 404 for a save that is not the claiming user's own on this ROM. A
+    pick this emulator can restore natively resolves as (save, False). A
+    pick it cannot is checked against the broker's own import-spec before
+    being refused with 400, resolving as (save, True) when the broker says
+    it would still take it as a declared import.
     """
     save = db_save_handler.get_save(user_id=user_id, id=save_id)
     # Same 404 for another user's save and another ROM's, so neither leaks.
@@ -281,17 +290,22 @@ def resolve_save_archive(
             status_code=400,
             detail="This emulator always restores the newest save",
         )
-    if not _written_by(save, container.emulator):
-        raise HTTPException(
-            status_code=400,
-            detail="Save was made by a different emulator",
-        )
+    if _is_restorable(save, container.emulator):
+        return save, False
+
+    spec = webstation.import_spec(container, container.emulator, container.platform)
+    if spec is not None and spec.accepts("save"):
+        return save, True
+
     if not _is_archive(save):
         raise HTTPException(
             status_code=400,
             detail="Save is not a restorable archive",
         )
-    return save
+    raise HTTPException(
+        status_code=400,
+        detail="Save was made by a different emulator",
+    )
 
 
 async def _read_archive(save: Save) -> tuple[str, bytes] | None:
@@ -302,6 +316,11 @@ async def _read_archive(save: Save) -> tuple[str, bytes] | None:
         log.warning("stored save missing on disk, %s", save.file_name)
         return None
     return save.file_name, content
+
+
+async def read_restorable_archive(save: Save) -> tuple[str, bytes] | None:
+    """Public alias of `_read_archive` for `imports.py`: (file name, bytes)."""
+    return await _read_archive(save)
 
 
 async def hydrate_saves_to_broker(

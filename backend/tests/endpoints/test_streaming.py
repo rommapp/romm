@@ -4957,10 +4957,11 @@ def test_resolve_save_archive_accepts_the_players_own_archive(
     archive = db_save_handler.add_save(
         _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
     )
-    resolved = saves.resolve_save_archive(
+    resolved, is_foreign = saves.resolve_save_archive(
         admin_user.id, rom, _resolved(_clearing_webstation(rom)), archive.id
     )
     assert resolved.id == archive.id
+    assert is_foreign is False
 
 
 def test_resolve_save_archive_rejects_a_save_that_is_not_the_players(
@@ -5000,10 +5001,11 @@ def test_resolve_save_archive_rejects_another_emulators_archive(
     other = db_save_handler.add_save(
         _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     )
-    with pytest.raises(HTTPException) as exc:
-        saves.resolve_save_archive(
-            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
-        )
+    with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
+        with pytest.raises(HTTPException) as exc:
+            saves.resolve_save_archive(
+                admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+            )
     assert exc.value.status_code == 400
     assert exc.value.detail == "Save was made by a different emulator"
 
@@ -5013,10 +5015,11 @@ def test_resolve_save_archive_rejects_a_bare_save_file(rom: Rom, admin_user: Use
     loose = db_save_handler.add_save(
         _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
     )
-    with pytest.raises(HTTPException) as exc:
-        saves.resolve_save_archive(
-            admin_user.id, rom, _resolved(_clearing_webstation(rom)), loose.id
-        )
+    with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
+        with pytest.raises(HTTPException) as exc:
+            saves.resolve_save_archive(
+                admin_user.id, rom, _resolved(_clearing_webstation(rom)), loose.id
+            )
     assert exc.value.status_code == 400
     assert exc.value.detail == "Save is not a restorable archive"
 
@@ -5035,6 +5038,42 @@ def test_resolve_save_archive_rejects_a_pick_where_it_would_not_land(
         )
     assert exc.value.status_code == 400
     assert exc.value.detail == "This emulator always restores the newest save"
+
+
+def test_resolve_save_archive_accepts_a_foreign_pick_the_broker_will_import(
+    rom: Rom, admin_user: User
+):
+    """A pick that fails the native check is not turned away outright: it is
+    checked against the broker's own import-spec first."""
+    other = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    spec = webstation.ImportSpec(
+        kinds=(webstation.ImportKindSpec("save", False, None),),
+        state_channel="archive",
+        state_slot=0,
+    )
+    with patch("handler.streaming.saves.webstation.import_spec", return_value=spec):
+        save, is_foreign = saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+        )
+    assert save.id == other.id
+    assert is_foreign is True
+
+
+def test_resolve_save_archive_still_refuses_when_the_broker_has_no_import_spec(
+    rom: Rom, admin_user: User
+):
+    other = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
+        with pytest.raises(HTTPException) as exc:
+            saves.resolve_save_archive(
+                admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+            )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Save was made by a different emulator"
 
 
 def test_claim_hydrates_the_picked_save(
@@ -5075,6 +5114,7 @@ def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
     with _streaming(_clearing_webstation(rom)):
         with (
             patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.saves.webstation.import_spec", return_value=None),
             patch("handler.streaming.background.spawn_sync_task"),
         ):
             refused = _claim(client, access_token, rom.id, save_id=loose.id)

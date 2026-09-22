@@ -734,8 +734,9 @@ async def claim_session(
     # Same for the save pick: a save the player cannot restore here has to
     # fail before the container is reserved, not during the launch.
     picked_save = None
+    save_foreign = False
     if req.save_id is not None:
-        picked_save = saves.resolve_save_archive(
+        picked_save, save_foreign = saves.resolve_save_archive(
             request.user.id, rom, reference, req.save_id
         )
 
