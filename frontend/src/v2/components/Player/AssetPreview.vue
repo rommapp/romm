@@ -7,7 +7,8 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
-import AssetAnnotations from "@/v2/components/shared/AssetAnnotations.vue";
+import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
+import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
 import { dateOf, type AssetDateField } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
 
@@ -116,6 +117,14 @@ const emptyText = computed(() =>
         </p>
       </div>
 
+      <AssetFavoriteMark
+        v-if="asset"
+        class="r-asset-preview__stage-fav"
+        :class="{ 'r-asset-preview__stage-fav--clearable': clearable }"
+        :favorite="asset.is_favorite"
+        :size="16"
+      />
+
       <!-- Clear button — only when something is selected. -->
       <button
         v-if="asset && clearable"
@@ -151,8 +160,13 @@ const emptyText = computed(() =>
       </div>
 
       <div v-if="asset" class="r-asset-preview__meta">
-        <p class="r-asset-preview__name">
-          {{ asset.file_name }}
+        <p class="r-asset-preview__title">
+          <span class="r-asset-preview__name">{{ asset.file_name }}</span>
+          <AssetFavoriteMark
+            v-if="type === 'save'"
+            :favorite="asset.is_favorite"
+            :size="14"
+          />
           <RTooltip activator="parent" location="top" :open-delay="400">
             <div class="r-asset-preview__tip">
               <span class="r-asset-preview__tip-name">
@@ -165,7 +179,7 @@ const emptyText = computed(() =>
             </div>
           </RTooltip>
         </p>
-        <AssetAnnotations class="r-asset-preview__annotations" :asset="asset" />
+        <AssetLabels class="r-asset-preview__labels" :asset="asset" />
         <div class="r-asset-preview__chips">
           <RTag
             v-if="'slot' in asset && asset.slot"
@@ -406,6 +420,10 @@ const emptyText = computed(() =>
    against a light surface; switch to a tonal pill. */
 .r-asset-preview__clear--inline {
   position: relative;
+  /* The stage variant is absolutely placed; in flow those offsets would push
+     the button off the centre the layout already gives it. */
+  top: auto;
+  right: auto;
   flex-shrink: 0;
   border-color: var(--r-color-border);
   background: var(--r-color-bg-elevated);
@@ -445,8 +463,16 @@ const emptyText = computed(() =>
   gap: 2px;
 }
 
-.r-asset-preview__name {
+.r-asset-preview__title {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.r-asset-preview__name {
+  min-width: 0;
   font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
@@ -462,8 +488,18 @@ const emptyText = computed(() =>
   gap: 6px;
 }
 
-.r-asset-preview__annotations {
+.r-asset-preview__labels {
   row-gap: 6px;
+}
+
+.r-asset-preview__stage-fav {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  filter: drop-shadow(0 1px 4px color-mix(in srgb, black 75%, transparent));
+}
+.r-asset-preview__stage-fav--clearable {
+  right: 46px;
 }
 
 .r-asset-preview__chip {
@@ -518,5 +554,51 @@ const emptyText = computed(() =>
 .r-asset-preview__tip-sub {
   font-size: 11px;
   opacity: 0.85;
+}
+
+/* Phones read the save preview like a save row: thumbnail and name together,
+   then labels, facts and the timestamp each across the full width. */
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "badge title clear"
+    "labels labels labels"
+    "facts facts facts"
+    "when when when";
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+  min-height: 70px;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__save-badge {
+  grid-area: badge;
+  align-self: start;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__meta {
+  display: contents;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__meta--empty {
+  display: flex;
+  grid-area: title;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__title {
+  grid-area: title;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__clear--inline {
+  grid-area: clear;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__labels {
+  grid-area: labels;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__chips {
+  grid-area: facts;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__when {
+  grid-area: when;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__name {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 </style>

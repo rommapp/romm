@@ -5,9 +5,10 @@ import { REmptyState, RExpandTransition, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatTimestamp } from "@/utils";
-import AssetAnnotations from "@/v2/components/shared/AssetAnnotations.vue";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
+import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
+import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
@@ -224,16 +225,28 @@ const fadeIndex = computed(() =>
                 >
                   <RIcon icon="mdi-check" size="14" />
                 </span>
+                <AssetFavoriteMark
+                  class="r-asset-strip__fav"
+                  :class="{
+                    'r-asset-strip__fav--checked':
+                      selectable && asset.id === selectedId,
+                  }"
+                  :favorite="selectable && asset.is_favorite"
+                  :size="14"
+                />
               </div>
               <div class="r-asset-strip__body">
                 <div class="r-asset-strip__meta">
                   <p class="r-asset-strip__name">
                     {{ asset.file_name }}
+                    <!-- The list layout has no thumbnail to ride. -->
+                    <AssetFavoriteMark
+                      v-if="layout === 'list'"
+                      :favorite="selectable && asset.is_favorite"
+                      :size="13"
+                    />
                   </p>
-                  <AssetAnnotations
-                    :asset="asset"
-                    :show-favorite="selectable"
-                  />
+                  <AssetLabels :asset="asset" />
                   <AssetChips
                     :asset="asset"
                     :latest="
@@ -402,7 +415,8 @@ const fadeIndex = computed(() =>
   transform: none;
   background: var(--r-color-surface-hover);
 }
-.r-asset-strip--list .r-asset-strip__tile--active {
+.r-asset-strip--list .r-asset-strip__tile--active,
+.r-asset-strip--list .r-asset-strip__tile--active:hover {
   background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
 }
 .r-asset-strip--list .r-asset-strip__mark {
@@ -467,7 +481,8 @@ const fadeIndex = computed(() =>
   border-color: var(--r-color-border-strong);
   background: var(--r-color-surface);
 }
-.r-asset-strip__tile--active {
+.r-asset-strip__tile--active,
+.r-asset-strip__tile--active:hover {
   border-color: var(--r-color-brand-primary);
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
@@ -525,6 +540,17 @@ const fadeIndex = computed(() =>
   );
 }
 
+.r-asset-strip__fav {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  filter: drop-shadow(0 1px 3px color-mix(in srgb, black 75%, transparent));
+}
+/* Steps aside when the selection check owns the corner. */
+.r-asset-strip__fav--checked {
+  right: 30px;
+}
+
 .r-asset-strip__check {
   position: absolute;
   top: 4px;
@@ -565,6 +591,9 @@ const fadeIndex = computed(() =>
   font-size: 11px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
+  overflow-wrap: anywhere;
+}
+.r-asset-strip--list .r-asset-strip__name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
