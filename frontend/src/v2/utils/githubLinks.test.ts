@@ -75,4 +75,15 @@ describe("shortenGithubLinks", () => {
 
     expect(shortenGithubLinks(notes, REPO)).toBe(notes);
   });
+
+  // Without the caps on the link label and target this takes ~2s, four times
+  // that for twice the text: every unclosed bracket scans what follows it.
+  it("does not slow to a crawl on a flood of unclosed brackets", () => {
+    const notes = "[x".repeat(50_000);
+
+    const started = performance.now();
+    shortenGithubLinks(notes, REPO);
+
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
 });
