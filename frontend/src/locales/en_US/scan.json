@@ -72,7 +72,6 @@
   "select-one-source": "Please select at least one metadata source to enrich your library with artwork and metadata",
   "source-disabled": "Source disabled",
   "title": "Library scan",
-  "title-id-extraction-disabled": "Title ID extraction is disabled on this server",
   "title-ids": "Refresh title IDs",
   "title-ids-desc": "Re-reads title IDs for selected platforms",
   "unmatched-games": "Unmatched games",

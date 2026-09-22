@@ -364,8 +364,7 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
-        # Importing a file with no entry yet costs the full hash a title-ids
-        # scan exists to skip, so it leaves those to a scan that adds roms
+        # Importing a new file costs the full hash a title-ids scan skips
         or (scan_type == ScanType.TITLE_IDS and rom is not None)
         or (
             rom
@@ -422,9 +421,8 @@ def _should_extract_title_ids(scan_type: ScanType, rom: Rom) -> bool:
     Extraction is a native parse of every ROM file, so it is not repeated for a
     rom that already carries an id. A scan that re-reads the bytes refreshes it
     regardless, since replaced files would otherwise keep the old id next to
-    the new hashes, and a title-ids scan re-reads every rom because refreshing
-    the id is what it is for. The Switch family always re-reads because the
-    same parse is what settles its per-file categories.
+    the new hashes. The Switch family always re-reads because the same parse is
+    what settles its per-file categories.
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
@@ -469,9 +467,7 @@ def _should_hash_incrementally(
 
     Only COMPLETE and HASHES promise to re-read every byte. A quick scan does
     not reach here: it reconciles an existing rom through `refresh_rom_files`.
-    A title-ids scan reads headers rather than whole files, so it offers every
-    rom it touches its stored hashes, selected or not. A row that carries none
-    is still re-read: `rom_file_unchanged` will not vouch for it.
+    A row with no stored hash is re-read either way.
 
     Args:
         scan_type (ScanType): Type of scan to be performed.

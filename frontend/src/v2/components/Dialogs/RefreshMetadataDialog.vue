@@ -99,16 +99,17 @@ const scanOptions = computed<ScanOption[]>(() => [
       ? undefined
       : t("scan.hash-calculation-disabled"),
   },
-  {
-    title: t("scan.title-ids"),
-    subtitle: isBulk.value
-      ? t("rom.refresh-title-ids-desc-bulk")
-      : t("rom.refresh-title-ids-desc"),
-    value: "title_ids",
-    disabled: extractTitleIds.value
-      ? undefined
-      : t("scan.title-id-extraction-disabled"),
-  },
+  ...(extractTitleIds.value
+    ? [
+        {
+          title: t("scan.title-ids"),
+          subtitle: isBulk.value
+            ? t("rom.refresh-title-ids-desc-bulk")
+            : t("rom.refresh-title-ids-desc"),
+          value: "title_ids" as const,
+        },
+      ]
+    : []),
   {
     title: t("rom.refresh-files"),
     subtitle: isBulk.value

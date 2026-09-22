@@ -131,7 +131,9 @@ function onScroll(e: Event) {
   userScrolledDown = el.scrollTop > 1;
 }
 
-const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
+const scanOptions = computed<
+  { title: string; subtitle: string; value: ScanType }[]
+>(() => [
   {
     title: t("scan.new-platforms"),
     subtitle: t("scan.new-platforms-desc"),
@@ -157,17 +159,21 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
     subtitle: t("scan.hashes-desc"),
     value: "hashes",
   },
-  {
-    title: t("scan.title-ids"),
-    subtitle: t("scan.title-ids-desc"),
-    value: "title_ids",
-  },
+  ...(extractTitleIds.value
+    ? [
+        {
+          title: t("scan.title-ids"),
+          subtitle: t("scan.title-ids-desc"),
+          value: "title_ids" as const,
+        },
+      ]
+    : []),
   {
     title: t("scan.complete-rescan"),
     subtitle: t("scan.complete-rescan-desc"),
     value: "complete",
   },
-];
+]);
 const scanType = ref<ScanType>("quick");
 
 const needsMetadataSource = computed(() =>
@@ -603,14 +609,6 @@ function stopScan() {
                 />
               </RTooltip>
             </span>
-          </RAlert>
-          <RAlert
-            v-if="scanType === 'title_ids' && !extractTitleIds"
-            type="warning"
-            density="compact"
-            :icon="false"
-          >
-            {{ t("scan.title-id-extraction-disabled") }}
           </RAlert>
         </div>
 

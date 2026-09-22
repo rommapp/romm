@@ -72,7 +72,6 @@
   "select-one-source": "請至少選擇一個元數據來源，以豐富您的遊戲庫",
   "source-disabled": "來源已停用",
   "title": "遊戲庫掃描",
-  "title-id-extraction-disabled": "此伺服器已停用標題 ID 讀取",
   "title-ids": "重新整理標題 ID",
   "title-ids-desc": "重新讀取所選平台的標題 ID",
   "unmatched-games": "未匹配的遊戲",

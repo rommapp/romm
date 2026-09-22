@@ -72,7 +72,6 @@
   "select-one-source": "Vyberte alespoň jeden zdroj metadat pro doplnění knihovny o artworky a metadata",
   "source-disabled": "Zdroj zakázán",
   "title": "Skenování knihovny",
-  "title-id-extraction-disabled": "Čtení ID titulů je na tomto serveru zakázáno",
   "title-ids": "Obnovit ID titulů",
   "title-ids-desc": "Znovu načte ID titulů pro vybrané platformy",
   "unmatched-games": "Nespárované hry",

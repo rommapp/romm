@@ -72,7 +72,6 @@
   "select-one-source": "Veuillez choisir au moins une source de métadonnées pour enrichir votre bibliothèque avec des jaquettes et des métadonnées",
   "source-disabled": "Source désactivée",
   "title": "Analyse de la bibliothèque",
-  "title-id-extraction-disabled": "La lecture des ID de titre est désactivée sur ce serveur",
   "title-ids": "Actualiser les ID de titre",
   "title-ids-desc": "Relit les ID de titre des plateformes sélectionnées",
   "unmatched-games": "Jeux non correspondants",

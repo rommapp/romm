@@ -91,11 +91,15 @@ const scanOptions = computed<
     subtitle: t("scan.hashes-desc"),
     value: "hashes",
   },
-  {
-    title: t("scan.title-ids"),
-    subtitle: t("scan.title-ids-desc"),
-    value: "title_ids",
-  },
+  ...(extractTitleIds.value
+    ? [
+        {
+          title: t("scan.title-ids"),
+          subtitle: t("scan.title-ids-desc"),
+          value: "title_ids" as const,
+        },
+      ]
+    : []),
   {
     title: t("scan.complete-rescan"),
     subtitle: t("scan.complete-rescan-desc"),
@@ -403,15 +407,6 @@ function onScan() {
           class="r-v2-scan-plat__hint"
         >
           {{ t("scan.hash-calculation-disabled") }}
-        </RAlert>
-        <RAlert
-          v-if="scanType === 'title_ids' && !extractTitleIds"
-          type="warning"
-          density="compact"
-          :icon="false"
-          class="r-v2-scan-plat__hint"
-        >
-          {{ t("scan.title-id-extraction-disabled") }}
         </RAlert>
       </div>
     </template>

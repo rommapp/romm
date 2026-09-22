@@ -72,7 +72,6 @@
   "select-one-source": "Kérjük, válassz legalább egy metaadat-forrást, hogy könyvtárad illusztrációkkal és metaadatokkal gazdagítsa.",
   "source-disabled": "Forrás letiltva",
   "title": "Könyvtár szkennelése",
-  "title-id-extraction-disabled": "A cím-azonosítók kiolvasása le van tiltva ezen a kiszolgálón",
   "title-ids": "Cím-azonosítók frissítése",
   "title-ids-desc": "Újraolvassa a cím-azonosítókat a kiválasztott platformokon",
   "unmatched-games": "Nem egyeztetett játékok",
