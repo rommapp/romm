@@ -13,6 +13,11 @@ vi.mock("vue-router", () => ({
 
 const PUSHED = AXIS_THRESHOLD + 0.2;
 
+const noHaptics: GamepadHapticActuator = {
+  playEffect: () => Promise.resolve("complete"),
+  reset: () => Promise.resolve("complete"),
+};
+
 function padWithStick(x: number, y: number): Gamepad {
   return {
     index: 0,
@@ -22,7 +27,8 @@ function padWithStick(x: number, y: number): Gamepad {
     axes: [x, y],
     buttons: [],
     timestamp: 0,
-  } as unknown as Gamepad;
+    vibrationActuator: noHaptics,
+  };
 }
 
 describe("useGamepad", () => {

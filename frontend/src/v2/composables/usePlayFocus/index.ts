@@ -1,10 +1,5 @@
-// usePlayFocus
-//
-// Lands focus on a player's Play CTA. A player's setup screen has no spatial
-// navigation for a d-pad to walk, so the CTA is the only way a gamepad gets
-// into the view at all (#4397): claim it once the screen is ready, again when
-// the user picks up a pad, and again when a running game hands the screen
-// back.
+// Lands focus on a player's Play CTA, the only gamepad entry point into a
+// setup screen that has no spatial navigation.
 import { nextTick, toValue, watch, type MaybeRefOrGetter } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
