@@ -2,7 +2,7 @@
 // A save or state's own facts: newest-in-its-group tag, emulator tag and file
 // size, in one wrapping row. The owner's marks live in <AssetLabels> and
 // <AssetFavoriteMark>.
-import { RIcon, RTag } from "@v2/lib";
+import { RTag } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import { formatBytes } from "@/utils";
 import type { Asset } from "@/v2/utils/assets";
@@ -39,7 +39,6 @@ const { t } = useI18n();
       :text="asset.emulator"
     />
     <span class="r-asset-chips__size">
-      <RIcon icon="mdi-weight" size="11" />
       {{ formatBytes(asset.file_size_bytes) }}
     </span>
   </span>

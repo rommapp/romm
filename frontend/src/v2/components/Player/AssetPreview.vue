@@ -195,7 +195,6 @@ const emptyText = computed(() =>
             :text="asset.emulator"
           />
           <span class="r-asset-preview__chip">
-            <RIcon icon="mdi-weight" size="12" />
             {{ formatBytes(asset.file_size_bytes) }}
           </span>
         </div>
@@ -500,15 +499,16 @@ const emptyText = computed(() =>
   right: 46px;
 }
 
+/* The size is the least telling fact here, so it sits a step below the
+   labels and the slot rather than above them. */
 .r-asset-preview__chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  padding: 1px 6px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--r-color-fg-secondary);
 }
 

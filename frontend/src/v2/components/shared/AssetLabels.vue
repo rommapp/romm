@@ -19,7 +19,6 @@ const labels = computed(() => props.asset.labels ?? []);
       :key="label"
       tone="info"
       size="x-small"
-      prepend-icon="mdi-label-outline"
       :text="label"
     />
   </span>
