@@ -2,10 +2,11 @@ from typing import Annotated
 
 from fastapi import HTTPException, Query, Request, status
 from fastapi_pagination import resolve_params
-from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
+from fastapi_pagination.limit_offset import LimitOffsetParams
 from pydantic import BaseModel
 
 from decorators.auth import protected_route
+from endpoints.responses.base import TypedLimitOffsetPage
 from endpoints.responses.music import (
     FacetValueSchema,
     MusicGameFacetSchema,
@@ -27,7 +28,7 @@ class MusicLimitOffsetParams(LimitOffsetParams):
     offset: int = Query(0, ge=0, description="Page offset")
 
 
-class MusicPage[T: BaseModel](LimitOffsetPage[T]):
+class MusicPage[T: BaseModel](TypedLimitOffsetPage[T]):
     __params_type__ = MusicLimitOffsetParams
 
 
@@ -103,7 +104,7 @@ def get_music_tracks(
 ) -> MusicPage[MusicTrackSchema]:
     """Flat, filterable, paginated list of soundtrack tracks."""
     perms = get_permissions(request)
-    params = resolve_params()
+    params: MusicLimitOffsetParams = resolve_params()
     rows, total = db_rom_handler.get_music_tracks(
         hidden_platform_ids=perms.hidden_platform_ids,
         hidden_rom_ids=perms.hidden_rom_ids,
@@ -166,7 +167,7 @@ def get_music_favorites(
 ) -> MusicPage[MusicTrackSchema]:
     """The requesting user's favorite tracks; same shape and filters as /tracks."""
     perms = get_permissions(request)
-    params = resolve_params()
+    params: MusicLimitOffsetParams = resolve_params()
     rows, total = db_rom_handler.get_music_tracks(
         hidden_platform_ids=perms.hidden_platform_ids,
         hidden_rom_ids=perms.hidden_rom_ids,
@@ -229,7 +230,7 @@ def _facet_page(
     order_dir: str,
 ) -> MusicPage[FacetValueSchema]:
     perms = get_permissions(request)
-    params = resolve_params()
+    params: MusicLimitOffsetParams = resolve_params()
     rows, total = db_rom_handler.get_music_facet(
         field=field,
         hidden_platform_ids=perms.hidden_platform_ids,
@@ -394,7 +395,7 @@ def get_music_game_genres(
     Distinct from `/genres`, which facets the tag written on the audio file.
     """
     perms = get_permissions(request)
-    params = resolve_params()
+    params: MusicLimitOffsetParams = resolve_params()
     rows, total = db_rom_handler.get_music_game_genre_facet(
         hidden_platform_ids=perms.hidden_platform_ids,
         hidden_rom_ids=perms.hidden_rom_ids,
@@ -435,7 +436,7 @@ def get_music_platforms(
 ) -> MusicPage[MusicPlatformFacetSchema]:
     """Platforms that have soundtrack tracks, with per-platform counts."""
     perms = get_permissions(request)
-    params = resolve_params()
+    params: MusicLimitOffsetParams = resolve_params()
     rows, total = db_rom_handler.get_music_platform_facet(
         hidden_platform_ids=perms.hidden_platform_ids,
         hidden_rom_ids=perms.hidden_rom_ids,
@@ -479,7 +480,7 @@ def get_music_games(
 ) -> MusicPage[MusicGameFacetSchema]:
     """Games that have soundtrack tracks -- the jukebox's album list."""
     perms = get_permissions(request)
-    params = resolve_params()
+    params: MusicLimitOffsetParams = resolve_params()
     rows, total = db_rom_handler.get_music_game_facet(
         hidden_platform_ids=perms.hidden_platform_ids,
         hidden_rom_ids=perms.hidden_rom_ids,
