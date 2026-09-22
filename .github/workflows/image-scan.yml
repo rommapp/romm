@@ -16,7 +16,7 @@ on:
         default: ghcr.io/rommapp/romm:latest
   schedule:
     # Most vulnerabilities affecting a published image are disclosed after it
-    # was built, so the shipped tags are rescanned weekly, not only on release.
+    # was built, so latest is rescanned weekly, not only on release.
     - cron: "0 7 * * 1"
 
 permissions:
