@@ -3037,14 +3037,14 @@ class DBRomsHandler(DBBaseHandler):
         row = session.execute(
             self._music_facet_joins(
                 select(
-                    func.count().label("count"),
+                    func.count().label("total"),
                     func.coalesce(func.sum(TrackMeta.duration_seconds), 0.0).label(
                         "duration"
                     ),
                 )
             ).where(*where)
         ).one()
-        return int(row.count or 0), float(row.duration or 0.0)
+        return int(row.total or 0), float(row.duration or 0.0)
 
     @begin_session
     def get_music_game_genre_facet(
@@ -3090,10 +3090,10 @@ class DBRomsHandler(DBBaseHandler):
             session=session,
         )
         per_rom = self._music_facet_joins(
-            select(Rom.id.label("rom_id"), func.count().label("count"))
+            select(Rom.id.label("rom_id"), func.count().label("total"))
         ).where(*where)
         counts_by_rom = {
-            row.rom_id: row.count
+            row.rom_id: row.total
             for row in session.execute(per_rom.group_by(Rom.id)).all()
         }
         if not counts_by_rom:
