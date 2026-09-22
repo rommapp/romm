@@ -243,6 +243,11 @@ function playIcons(wrapper: VueWrapper): unknown[] {
     .map((btn) => btn.props("prependIcon"));
 }
 
+// One line per route, which is what the panel draws.
+function noteLines(wrapper: VueWrapper): string[] {
+  return wrapper.findAll(".r-v2-ejs__setup-note").map((line) => line.text());
+}
+
 beforeEach(() => {
   mocks.getRom.mockResolvedValue({ data: ROM });
   mocks.getFirmware.mockResolvedValue({ data: [] });
@@ -371,18 +376,18 @@ describe("EmulatorJS launch screen — what the setup panel claims", () => {
     mocks.honoursDisc = true;
     mocks.getRom.mockResolvedValue({ data: DISC_SET });
 
-    const note = (await launchScreen()).find(".r-v2-ejs__setup-note").text();
+    const note = noteLines(await launchScreen());
 
     // In the order the panel renders them, which is the order they are read in.
-    expect(note).toBe(
+    expect(note).toEqual([
       "play.native-applies:rom.file, common.core, and play.full-screen",
-    );
+    ]);
   });
 
   it("claims only the core on a shell that cannot take the rest", async () => {
-    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+    expect(noteLines(await launchScreen())).toEqual([
       "play.native-applies:common.core",
-    );
+    ]);
   });
 
   // A shell without disc-choice boots the set whole, so the selector above it
@@ -391,17 +396,15 @@ describe("EmulatorJS launch screen — what the setup panel claims", () => {
     mocks.honoursDisc = false;
     mocks.getRom.mockResolvedValue({ data: DISC_SET });
 
-    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+    expect(noteLines(await launchScreen())).toEqual([
       "play.native-applies:common.core",
-    );
+    ]);
   });
 
   it("says nothing about a route the page is not offering", async () => {
     mocks.canPlayNative = false;
 
-    expect((await launchScreen()).find(".r-v2-ejs__setup-note").exists()).toBe(
-      false,
-    );
+    expect(noteLines(await launchScreen())).toEqual([]);
   });
 
   // The bug this guards: a note that only ever claimed what carries would leave
@@ -410,27 +413,30 @@ describe("EmulatorJS launch screen — what the setup panel claims", () => {
     mocks.cores = ["mgba"];
     mocks.getFirmware.mockResolvedValue({ data: FIRMWARE_SET });
 
-    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+    expect(noteLines(await launchScreen())).toEqual([
       "play.native-browser-only:common.firmware",
-    );
+    ]);
   });
 
   it("names the bezel the browser player draws for itself", async () => {
     mocks.cores = ["mgba"];
     mocks.getRom.mockResolvedValue({ data: BEZELED_ROM });
 
-    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+    expect(noteLines(await launchScreen())).toEqual([
       "play.native-browser-only:play.show-bezel",
-    );
+    ]);
   });
 
-  it("says both halves, in the order the panel renders them", async () => {
+  // Two lines, not one run-on: the reader has to be able to tell which
+  // controls stay with which route.
+  it("says both halves, one line each, in the order the panel renders them", async () => {
     mocks.getFirmware.mockResolvedValue({ data: FIRMWARE_SET });
     mocks.getRom.mockResolvedValue({ data: BEZELED_ROM });
 
-    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
-      "play.native-applies:common.core play.native-browser-only:common.firmware and play.show-bezel",
-    );
+    expect(noteLines(await launchScreen())).toEqual([
+      "play.native-applies:common.core",
+      "play.native-browser-only:common.firmware and play.show-bezel",
+    ]);
   });
 
   // Nothing on screen carries over and nothing on it is EmulatorJS' own: one
@@ -438,9 +444,7 @@ describe("EmulatorJS launch screen — what the setup panel claims", () => {
   it("says nothing when the panel offers nothing to choose", async () => {
     mocks.cores = ["mgba"];
 
-    expect((await launchScreen()).find(".r-v2-ejs__setup-note").exists()).toBe(
-      false,
-    );
+    expect(noteLines(await launchScreen())).toEqual([]);
   });
 });
 

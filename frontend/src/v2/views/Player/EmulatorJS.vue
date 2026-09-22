@@ -336,13 +336,13 @@ const nativeBrowserOnlyControls = computed(() => {
   return browserOnly;
 });
 
-// What the settings panel says about the other route. Null outside the shell
-// and on a platform with no in-browser core at all, where the panel is not
-// rendered. Either half can stand alone: a panel whose every control stays
-// behind says only that, and one with nothing left behind says only what
-// carries.
-const nativeSettingsNote = computed(() => {
-  if (!canPlayNative.value || nativeOnly.value) return null;
+// What the settings panel says about the other route, one line per route.
+// Empty outside the shell and on a platform with no in-browser core at all,
+// where the panel is not rendered. Either half can stand alone: a panel whose
+// every control stays behind says only that, and one with nothing left behind
+// says only what carries.
+const nativeSettingsLines = computed(() => {
+  if (!canPlayNative.value || nativeOnly.value) return [];
   const lines: string[] = [];
   const carried = nativeCarriedControls.value;
   if (carried.length > 0) {
@@ -361,7 +361,7 @@ const nativeSettingsNote = computed(() => {
       }),
     );
   }
-  return lines.length > 0 ? lines.join(" ") : null;
+  return lines;
 });
 
 // The native button is its own progress readout, so while the shell works the
@@ -1076,12 +1076,16 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
             v-model="showBezel"
             :label="t('play.show-bezel')"
           />
-          <!-- Which of the above the native route takes with it. Said here
-               rather than left to be discovered: the rest of this panel is
-               EmulatorJS' own, and a choice that silently applies to one
-               player and not the other is worse than a line of text. -->
-          <p v-if="nativeSettingsNote" class="r-v2-ejs__setup-note">
-            {{ nativeSettingsNote }}
+          <!-- Which of the above the native route takes with it, one line per
+               route. Said here rather than left to be discovered: the rest of
+               this panel is EmulatorJS' own, and a choice that silently applies
+               to one player and not the other is worse than a line of text. -->
+          <p
+            v-for="line in nativeSettingsLines"
+            :key="line"
+            class="r-v2-ejs__setup-note"
+          >
+            {{ line }}
           </p>
         </div>
         <div class="r-v2-ejs__setup-foot">
