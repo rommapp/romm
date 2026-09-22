@@ -241,7 +241,7 @@ const fadeIndex = computed(() =>
                       group.assets.length > 1 &&
                       asset.id === group.newestId
                     "
-                    :show-emulator="!groupBy"
+                    :show-emulator="!groupBy && type === 'state'"
                   />
                   <AssetTimestamp
                     :date="asset.updated_at"

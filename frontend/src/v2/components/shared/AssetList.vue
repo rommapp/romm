@@ -266,6 +266,7 @@ const fadeIndex = computed(() =>
                   <AssetChips
                     class="r-asset-list__facts"
                     :asset="asset"
+                    :show-emulator="type === 'state'"
                     :latest="
                       grouped &&
                       asset.id === group.newestId &&

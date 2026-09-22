@@ -13,7 +13,8 @@ withDefaults(
     asset: Asset;
     /** Newest of several versions in its slot or core. */
     latest?: boolean;
-    /** Off where the emulator is already the group's title. */
+    /** Off for saves, which load in any core, and where the emulator is
+     *  already the group's title. */
     showEmulator?: boolean;
   }>(),
   { latest: false, showEmulator: true },

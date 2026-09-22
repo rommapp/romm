@@ -165,8 +165,8 @@ const emptyText = computed(() =>
             </div>
           </RTooltip>
         </p>
+        <AssetAnnotations class="r-asset-preview__annotations" :asset="asset" />
         <div class="r-asset-preview__chips">
-          <AssetAnnotations :asset="asset" />
           <RTag
             v-if="'slot' in asset && asset.slot"
             tone="brand"
@@ -174,24 +174,23 @@ const emptyText = computed(() =>
             prepend-icon="mdi-content-save-all-outline"
             :text="asset.slot"
           />
-          <span class="r-asset-preview__chip">
-            <RIcon icon="mdi-clock-outline" size="12" />
-            {{ formatRelativeDate(dateOf(asset, timestamp)) }}
-          </span>
-          <span class="r-asset-preview__chip">
-            <RIcon icon="mdi-weight" size="12" />
-            {{ formatBytes(asset.file_size_bytes) }}
-          </span>
           <RTag
-            v-if="asset.emulator"
+            v-if="type === 'state' && asset.emulator"
             tone="warning"
             size="x-small"
             :text="asset.emulator"
           />
+          <span class="r-asset-preview__chip">
+            <RIcon icon="mdi-weight" size="12" />
+            {{ formatBytes(asset.file_size_bytes) }}
+          </span>
         </div>
-        <p class="r-asset-preview__exact">
-          <RIcon icon="mdi-calendar-clock" size="11" />
-          {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
+        <p class="r-asset-preview__when">
+          <RIcon icon="mdi-clock-outline" size="11" />
+          {{ formatRelativeDate(dateOf(asset, timestamp)) }}
+          <span class="r-asset-preview__when-exact">
+            {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
+          </span>
         </p>
       </div>
 
@@ -427,13 +426,12 @@ const emptyText = computed(() =>
 .r-asset-preview__meta {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding: 0 2px;
   flex: 1;
   min-width: 0;
   /* Reserve the row even when content is shorter, so the strip below
-     doesn't shift between filled and empty. Worst case so far is
-     name + wrapped chips + exact = ~3 lines @ ~22px each. */
+     doesn't shift between filled and empty. */
   min-height: 70px;
 }
 .r-asset-preview__meta--empty {
@@ -460,7 +458,12 @@ const emptyText = computed(() =>
 .r-asset-preview__chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+}
+
+.r-asset-preview__annotations {
+  row-gap: 6px;
 }
 
 .r-asset-preview__chip {
@@ -475,14 +478,23 @@ const emptyText = computed(() =>
   color: var(--r-color-fg-secondary);
 }
 
-.r-asset-preview__exact {
+.r-asset-preview__when {
   margin: 0;
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: var(--r-color-fg-muted);
+  color: var(--r-color-fg-secondary);
   font-variant-numeric: tabular-nums;
+}
+.r-asset-preview__when-exact {
+  color: var(--r-color-fg-muted);
+}
+/* A separator only once the exact stamp follows the relative one on a line. */
+.r-asset-preview__when-exact::before {
+  content: "·";
+  margin-right: 4px;
 }
 
 .r-asset-preview__empty-hint {
