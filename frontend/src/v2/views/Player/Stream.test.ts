@@ -345,7 +345,7 @@ describe("Stream save picker", () => {
     expect(mocks.claimSession.mock.calls[0][2]).toBe(1);
   });
 
-  it("leaves bare save files out of the picker", async () => {
+  it("includes bare (non-archive) save files in the picker", async () => {
     const wrapper = await launch({
       picker: true,
       saves: [save(9, "Pool.srm"), ...ARCHIVES],
@@ -353,7 +353,7 @@ describe("Stream save picker", () => {
 
     expect(
       (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
-    ).toEqual([3, 2, 1]);
+    ).toEqual([9, 3, 2, 1]);
     expect(saveList(wrapper)!.props("selectedId")).toBe(3);
   });
 

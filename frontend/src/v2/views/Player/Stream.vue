@@ -324,7 +324,7 @@ const nativeRestorableSaves = computed<SaveSchema[]>(() => {
 // a foreign pick; the broker routes one through the declared-import path.
 const pickableSaves = computed<SaveSchema[]>(() => {
   if (!rom.value) return [];
-  return (rom.value.user_saves ?? []).sort(
+  return [...(rom.value.user_saves ?? [])].sort(
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
       b.id - a.id,
