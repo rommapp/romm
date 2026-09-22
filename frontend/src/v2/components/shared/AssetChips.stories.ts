@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect } from "storybook/test";
 import { makeSave } from "@/v2/utils/saveStateStoryFixtures";
+import { canvas } from "@/v2/utils/saveStateStoryPlays";
 import AssetChips from "./AssetChips.vue";
 
 const meta: Meta<typeof AssetChips> = {
@@ -28,10 +30,22 @@ export const Default: Story = {
     },
     template: `<AssetChips :asset="asset" />`,
   }),
+  play: async ({ canvasElement, step }) => {
+    await step("emulator tag and formatted size render", async () => {
+      const ui = canvas(canvasElement);
+      expect(ui.getByText("snes9x")).toBeTruthy();
+      expect(ui.getByText("8 KB")).toBeTruthy();
+    });
+  },
 };
 
 export const Latest: Story = {
   name: "Latest tag",
+  play: async ({ canvasElement, step }) => {
+    await step("latest badge when requested", async () => {
+      expect(canvas(canvasElement).getByText("Latest")).toBeTruthy();
+    });
+  },
   render: () => ({
     components: { AssetChips },
     setup() {

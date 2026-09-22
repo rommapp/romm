@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect } from "storybook/test";
 import { makeSave, makeState } from "@/v2/utils/saveStateStoryFixtures";
+import { canvas } from "@/v2/utils/saveStateStoryPlays";
 import AssetActions from "./AssetActions.vue";
 
 const meta: Meta<typeof AssetActions> = {
@@ -26,6 +28,14 @@ type Story = StoryObj<typeof AssetActions>;
 
 export const OwnPublic: Story = {
   name: "Own · public",
+  play: async ({ canvasElement, step }) => {
+    const ui = canvas(canvasElement);
+    await step("public save shows make-private control", async () => {
+      expect(ui.getByRole("button", { name: "Make Private" })).toBeTruthy();
+      expect(ui.getByRole("button", { name: /^Download /i })).toBeTruthy();
+      expect(ui.getByRole("button", { name: /^Delete /i })).toBeTruthy();
+    });
+  },
   render: () => ({
     components: { AssetActions },
     setup() {
@@ -41,6 +51,13 @@ export const OwnPublic: Story = {
 
 export const OwnPrivate: Story = {
   name: "Own · private",
+  play: async ({ canvasElement, step }) => {
+    await step("private save shows make-public control", async () => {
+      expect(
+        canvas(canvasElement).getByRole("button", { name: "Make Public" }),
+      ).toBeTruthy();
+    });
+  },
   render: () => ({
     components: { AssetActions },
     setup() {
@@ -71,6 +88,14 @@ export const OwnToggling: Story = {
 
 export const Community: Story = {
   name: "Community · download only",
+  play: async ({ canvasElement, step }) => {
+    const ui = canvas(canvasElement);
+    await step("community item is download-only", async () => {
+      expect(ui.getByRole("button", { name: /^Download /i })).toBeTruthy();
+      expect(ui.queryByRole("button", { name: /^Delete /i })).toBeNull();
+      expect(ui.queryByRole("button", { name: "Make Private" })).toBeNull();
+    });
+  },
   render: () => ({
     components: { AssetActions },
     setup() {

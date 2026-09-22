@@ -2,6 +2,7 @@
 // Saves render through <AssetList> (vertical rows). Stories here cover strip
 // layouts plus Save data manage mode (flow + group-by emulator).
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent } from "storybook/test";
 import { ref } from "vue";
 import type { StateSchema } from "@/__generated__";
 import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
@@ -10,6 +11,11 @@ import {
   manyStates,
   mixedCommunityStates,
 } from "@/v2/utils/saveStateStoryFixtures";
+import {
+  canvas,
+  downloadButtons,
+  stripTiles,
+} from "@/v2/utils/saveStateStoryPlays";
 import AssetStrip from "./AssetStrip.vue";
 
 const stripDecorator = [
@@ -71,6 +77,21 @@ export const FewStatesScreenshots: Story = {
   render: () => {
     const states = manyStates(5);
     return selectableStrip(states, states[0].id);
+  },
+  play: async ({ canvasElement, step }) => {
+    await step("state tiles render with filenames", async () => {
+      expect(stripTiles(canvasElement).length).toBe(5);
+      expect(canvasElement.textContent).toContain("overworld_1.state");
+    });
+    await step("clicking a tile selects it", async () => {
+      const tiles = stripTiles(canvasElement);
+      const target = tiles.find(
+        (t) => t.getAttribute("aria-pressed") === "false",
+      );
+      expect(target).toBeTruthy();
+      await userEvent.click(target!);
+      expect(target).toHaveAttribute("aria-pressed", "true");
+    });
   },
 };
 
@@ -151,6 +172,13 @@ export const EmptyStates: Story = {
       <AssetStrip :assets="[]" type="state" :selected-id="null" />
     `,
   }),
+  play: async ({ canvasElement, step }) => {
+    await step("empty states message", async () => {
+      expect(
+        canvas(canvasElement).getByText("No states available"),
+      ).toBeTruthy();
+    });
+  },
 };
 
 export const IncompatibleStates: Story = {
@@ -228,6 +256,19 @@ export const ManageFlowGrouped: Story = {
       </AssetStrip>
     `,
   }),
+  play: async ({ canvasElement, step }) => {
+    const ui = canvas(canvasElement);
+    await step("core group headings appear", async () => {
+      expect(ui.getByRole("button", { name: /snes9x/i })).toBeTruthy();
+    });
+    await step("static tiles host per-item actions", async () => {
+      const staticTiles = canvasElement.querySelectorAll(
+        ".r-asset-strip__tile--static",
+      );
+      expect(staticTiles.length).toBeGreaterThan(0);
+      expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
+    });
+  },
 };
 
 export const ManageCommunity: Story = {

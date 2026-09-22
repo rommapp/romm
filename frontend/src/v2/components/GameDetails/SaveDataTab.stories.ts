@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, waitFor } from "storybook/test";
 import { onMounted } from "vue";
 import { useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__";
@@ -8,6 +9,11 @@ import {
   mixedCommunitySaves,
   mixedCommunityStates,
 } from "@/v2/utils/saveStateStoryFixtures";
+import {
+  canvas,
+  downloadButtons,
+  pickSaveDataSubtab,
+} from "@/v2/utils/saveStateStoryPlays";
 import SaveDataTab from "./SaveDataTab.vue";
 
 type Subtab = "saves" | "states";
@@ -91,11 +97,34 @@ type Story = StoryObj<StoryArgs>;
 export const SavesFull: Story = {
   name: "Saves · mine + community",
   args: { subtab: "saves", rom: baseRom() },
+  play: async ({ canvasElement, step }) => {
+    const ui = canvas(canvasElement);
+    await step("saves subtab shows mine and community sections", async () => {
+      await waitFor(() => {
+        expect(ui.getByText("My saves")).toBeTruthy();
+      });
+      expect(ui.getAllByText("Community").length).toBeGreaterThanOrEqual(1);
+      expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
+    });
+    await step("switching to states subtab", async () => {
+      await pickSaveDataSubtab(canvasElement, /^States/i);
+      await waitFor(() => {
+        expect(ui.getByText("My states")).toBeTruthy();
+      });
+    });
+  },
 };
 
 export const StatesFull: Story = {
   name: "States · mine + community",
   args: { subtab: "states", rom: baseRom() },
+  play: async ({ canvasElement, step }) => {
+    await step("states subtab lists mine section", async () => {
+      await waitFor(() => {
+        expect(canvas(canvasElement).getByText("My states")).toBeTruthy();
+      });
+    });
+  },
 };
 
 export const SavesEmptyMine: Story = {
@@ -105,6 +134,13 @@ export const SavesEmptyMine: Story = {
     rom: baseRom({
       all_user_saves: mixedCommunitySaves().filter((s) => s.user_id !== 1),
     }),
+  },
+  play: async ({ canvasElement, step }) => {
+    await step("empty mine promotes upload dropzone", async () => {
+      await waitFor(() => {
+        expect(canvas(canvasElement).getByText("No saves yet")).toBeTruthy();
+      });
+    });
   },
 };
 
