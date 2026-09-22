@@ -135,10 +135,12 @@ start_bin_gunicorn() {
 
 	local -a wrap=()
 	otel_prefix wrap api
+	# Trust only this container's own nginx by default: anything further left in
+	# X-Forwarded-For was supplied by the caller.
 	"${wrap[@]}" gunicorn \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
 		--pid=/tmp/gunicorn.pid \
-		--forwarded-allow-ips="*" \
+		--forwarded-allow-ips="${FORWARDED_ALLOW_IPS:-127.0.0.1}" \
 		--worker-class uvicorn_worker.UvicornWorker \
 		--workers "${WEB_SERVER_CONCURRENCY:-4}" \
 		--timeout "${WEB_SERVER_TIMEOUT:-300}" \

@@ -86,3 +86,25 @@ def test_env_template_documents_the_same_keepalive_default() -> None:
     match = re.search(r"^WEB_SERVER_KEEPALIVE=(\d+)", ENV_TEMPLATE.read_text(), re.M)
     assert match, "env.template is missing WEB_SERVER_KEEPALIVE"
     assert int(match.group(1)) == _init_script_keepalive()
+
+
+def _init_script_forwarded_allow_ips() -> str:
+    match = re.search(
+        r'--forwarded-allow-ips="\$\{FORWARDED_ALLOW_IPS:-([^}]+)\}"',
+        INIT_SCRIPT.read_text(),
+    )
+    assert match, "could not read the gunicorn --forwarded-allow-ips default"
+    return match.group(1)
+
+
+def test_gunicorn_does_not_trust_every_hop() -> None:
+    assert _init_script_forwarded_allow_ips() != "*", (
+        "trusting every hop lets a caller choose its own X-Forwarded-For, which is "
+        "the key the rate limits and device fingerprints are derived from"
+    )
+
+
+def test_env_template_documents_the_same_forwarded_allow_ips_default() -> None:
+    match = re.search(r"^FORWARDED_ALLOW_IPS=(\S+)", ENV_TEMPLATE.read_text(), re.M)
+    assert match, "env.template is missing FORWARDED_ALLOW_IPS"
+    assert match.group(1) == _init_script_forwarded_allow_ips()
