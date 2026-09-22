@@ -6648,6 +6648,77 @@ def test_fetch_memory_card_transport_error_raises(rom: Rom):
             memory_cards.fetch_card(_resolved(_mc_container_for(rom)))
 
 
+def test_import_spec_parses_the_brokers_discovery_response(rom: Rom):
+    webstation.reset_import_spec_cache()
+    body = json.dumps(
+        {
+            "import_api": 1,
+            "manifest_version": 2,
+            "kinds": [
+                {
+                    "kind": "save",
+                    "shapes": ["folder"],
+                    "requires_resume_slot": False,
+                    "max_members": 8,
+                },
+                {
+                    "kind": "state",
+                    "shapes": ["file"],
+                    "requires_resume_slot": True,
+                    "max_members": 1,
+                },
+            ],
+            "state_channel": "archive",
+            "state_slot": 0,
+        }
+    ).encode()
+    resp = MagicMock()
+    resp.__enter__.return_value.read.side_effect = _reads(body)
+    resp.__enter__.return_value.status = 200
+    with patch("handler.streaming.broker.urllib.request.urlopen", return_value=resp):
+        spec = webstation.import_spec(
+            _resolved(_webstation_for(rom)), "dolphin", rom.platform_slug
+        )
+    assert spec is not None
+    assert spec.state_channel == "archive"
+    assert spec.state_slot == 0
+    assert spec.accepts("save")
+    assert spec.accepts("state")
+    assert not spec.accepts("memcard")
+
+
+def test_import_spec_returns_none_and_caches_on_404(rom: Rom):
+    """A broker that predates imports answers 404; that answer is stable for
+    the worker's life, so it is cached rather than re-checked every claim."""
+    webstation.reset_import_spec_cache()
+    container = _resolved(_webstation_for(rom))
+    with patch(
+        "handler.streaming.broker.urllib.request.urlopen",
+        side_effect=_http_error(404),
+    ) as urlopen:
+        first = webstation.import_spec(container, "dolphin", rom.platform_slug)
+        second = webstation.import_spec(container, "dolphin", rom.platform_slug)
+    assert first is None
+    assert second is None
+    assert urlopen.call_count == 1
+
+
+def test_import_spec_returns_none_uncached_on_a_transient_failure(rom: Rom):
+    """A network blip is not the same stable answer a 404/422 is, so it must
+    never be cached (a future call should try again)."""
+    webstation.reset_import_spec_cache()
+    container = _resolved(_webstation_for(rom))
+    with patch(
+        "handler.streaming.broker.urllib.request.urlopen",
+        side_effect=OSError("unreachable"),
+    ) as urlopen:
+        first = webstation.import_spec(container, "dolphin", rom.platform_slug)
+        second = webstation.import_spec(container, "dolphin", rom.platform_slug)
+    assert first is None
+    assert second is None
+    assert urlopen.call_count == 2
+
+
 def test_claim_hydrates_memory_card_before_launch(client, access_token, rom: Rom):
     """On a sync container the whole card hydrates before launch, and the legacy
     per-file save path is skipped."""

@@ -22,6 +22,7 @@ missing here is volume, mute and whole-card sync.
 """
 
 import urllib.error
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
 
@@ -31,6 +32,97 @@ from handler.streaming.config import ResolvedContainer
 from handler.streaming.protocol import ACK_TIMEOUT
 from logger.logger import log
 from models.user import User
+
+
+@dataclass(frozen=True)
+class ImportKindSpec:
+    kind: str
+    requires_resume_slot: bool
+    max_members: int | None
+
+
+@dataclass(frozen=True)
+class ImportSpec:
+    """What one (emulator, platform) pair will accept through a declared
+    import, per the broker's `GET /api/session/import-spec`."""
+
+    kinds: tuple[ImportKindSpec, ...]
+    state_channel: str
+    state_slot: int | None
+
+    def accepts(self, kind: str) -> bool:
+        return any(k.kind == kind for k in self.kinds)
+
+
+# Keyed on (emulator, platform); only a confirmed 404 (broker predates
+# imports) or 422 (unrecognized pair) is cached, both stable for the
+# worker's life. Any other failure is treated as unknown and retried.
+_import_spec_cache: dict[tuple[str, str], "ImportSpec | None"] = {}
+
+
+def reset_import_spec_cache() -> None:
+    """Test-only: clear the process-lifetime cache between cases."""
+    _import_spec_cache.clear()
+
+
+def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
+    raw_kinds = body.get("kinds")
+    if not isinstance(raw_kinds, list):
+        return None
+    kinds = []
+    for entry in raw_kinds:
+        if not isinstance(entry, dict) or not isinstance(entry.get("kind"), str):
+            return None
+        max_members = entry.get("max_members")
+        kinds.append(
+            ImportKindSpec(
+                kind=entry["kind"],
+                requires_resume_slot=bool(entry.get("requires_resume_slot", False)),
+                max_members=max_members if isinstance(max_members, int) else None,
+            )
+        )
+    state_channel = body.get("state_channel")
+    if state_channel not in ("archive", "push", "none"):
+        return None
+    state_slot = body.get("state_slot")
+    return ImportSpec(
+        kinds=tuple(kinds),
+        state_channel=state_channel,
+        state_slot=state_slot if isinstance(state_slot, int) else None,
+    )
+
+
+def import_spec(
+    container: ResolvedContainer, emulator: str, platform: str
+) -> ImportSpec | None:
+    """What this container's broker will accept as a declared import for
+    (emulator, platform), or None when nothing will (no imports at all, an
+    unrecognized pair, or the check itself could not be answered right now).
+    """
+    cache_key = (emulator, platform)
+    if cache_key in _import_spec_cache:
+        return _import_spec_cache[cache_key]
+    path = container.protocol.session_route(
+        f"/import-spec?emulator={quote(emulator, safe='')}&platform={quote(platform, safe='')}"
+    )
+    try:
+        resp = broker.request(
+            container, path, method="GET", timeout=STREAMING_SAVE_TIMEOUT
+        )
+    except urllib.error.HTTPError as exc:
+        code = exc.code
+        exc.close()
+        if code in (404, 422):
+            _import_spec_cache[cache_key] = None
+            return None
+        log.warning("import-spec check failed with HTTP %d, treating as unknown", code)
+        return None
+    except (urllib.error.URLError, OSError):
+        log.warning("import-spec check unreachable, treating as unknown")
+        return None
+    if not isinstance(resp, dict):
+        return None
+    return _parse_import_spec(resp)
 
 
 def activate(
