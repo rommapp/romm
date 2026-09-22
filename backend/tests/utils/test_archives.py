@@ -143,6 +143,23 @@ def test_read_7z_archive_files_raises_when_a_member_fails_midway():
             list(chunks)
 
 
+def test_largest_member_hashing_terminates_switches_before_the_member():
+    """The hashing path builds its own 7-Zip command, so a switch-shaped member
+    name from the archive's own listing must reach it as a name too."""
+    # The size comparison has to pick "-x" for it to be the name passed on.
+    listing = MagicMock(stdout=_fake_7z_listing_sized([("game.bin", 5), ("-x", 99)]))
+    popen = _mock_popen_streaming([[b"data"]], [0])
+
+    with (
+        patch.object(archives.subprocess, "run", return_value=listing),
+        patch.object(archives.subprocess, "Popen", popen),
+    ):
+        assert archives._process_largest_7z_member(Path("/fake/game.7z"), MagicMock())
+
+    command = popen.call_args[0][0]
+    assert command[-2:] == ["--", "-x"]
+
+
 class TestExtractLargestArchiveMember:
     """Extraction of an archive's largest member to a destination directory,
     used to feed RAHasher a real ROM file instead of raw container bytes

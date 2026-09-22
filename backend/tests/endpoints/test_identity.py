@@ -1,5 +1,6 @@
 import base64
 import json
+import threading
 from datetime import timedelta
 from http import HTTPStatus
 from unittest import mock
@@ -8,6 +9,7 @@ import pytest
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from handler.auth import base_handler as auth_handler_module
 from handler.auth import oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database.users_handler import DBUsersHandler
@@ -303,6 +305,66 @@ def test_a_rejected_registration_leaves_the_invite_usable(
         },
     )
     assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_overlapping_registrations_spend_one_invite_once(client, access_token: str):
+    """Two registrations racing on one invite must not both create an account."""
+    from handler.database import db_user_handler
+
+    token = _invite_token(client, access_token)
+    # Hold each request at the token check until the other arrives, so the only
+    # thing that can keep the second out is the consume being one operation.
+    rendezvous = threading.Barrier(2)
+    live_redis = auth_handler_module.redis_client
+
+    class _RendezvousRedis:
+        def get(self, key, *args, **kwargs):
+            value = live_redis.get(key, *args, **kwargs)
+            if key.startswith("invite-jti:"):
+                rendezvous.wait(timeout=30)
+            return value
+
+        def __getattr__(self, name):
+            return getattr(live_redis, name)
+
+    responses: list = []
+
+    def register(index: int) -> None:
+        responses.append(
+            client.post(
+                "/api/users/register",
+                json={
+                    "username": f"test_racer_{index}",
+                    "email": f"racer{index}@example.com",
+                    "password": "a-good-password",
+                    "token": token,
+                },
+            )
+        )
+
+    with mock.patch.object(auth_handler_module, "redis_client", _RendezvousRedis()):
+        threads = [threading.Thread(target=register, args=(i,)) for i in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    created = [r for r in responses if r.status_code == HTTPStatus.CREATED]
+    assert len(created) == 1
+
+    rejected = [r for r in responses if r.status_code == HTTPStatus.BAD_REQUEST]
+    assert [r.json()["detail"] for r in rejected] == [
+        "Invite token has already been used or is invalid."
+    ]
+
+    # And the loser left no account behind.
+    assert (
+        sum(
+            db_user_handler.get_user_by_username(f"test_racer_{i}") is not None
+            for i in range(2)
+        )
+        == 1
+    )
 
 
 @pytest.mark.parametrize(
