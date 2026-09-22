@@ -19,6 +19,11 @@ export type FilterType =
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
+/** Remote or older APIs may omit or null individual filter_value lists. */
+function listOrEmpty(value: string[] | null | undefined): string[] {
+  return value ?? [];
+}
+
 // Built lazily so `romStatusMap` isn't read at module-evaluation time —
 // utils ↔ stores have a circular import chain (utils → navigation → router →
 // roms → galleryFilter → utils) that's harmless in the app shell because
@@ -96,38 +101,38 @@ export default defineStore("galleryFilter", {
     setFilterPlatforms(platforms: Platform[]) {
       this.filterPlatforms = platforms;
     },
-    setFilterGenres(genres: string[]) {
-      this.filterGenres = genres;
+    setFilterGenres(genres: string[] | null | undefined) {
+      this.filterGenres = listOrEmpty(genres);
     },
-    setFilterFranchises(franchises: string[]) {
-      this.filterFranchises = franchises;
+    setFilterFranchises(franchises: string[] | null | undefined) {
+      this.filterFranchises = listOrEmpty(franchises);
     },
-    setFilterCollections(collections: string[]) {
-      this.filterCollections = collections;
+    setFilterCollections(collections: string[] | null | undefined) {
+      this.filterCollections = listOrEmpty(collections);
     },
-    setFilterCompanies(companies: string[]) {
-      this.filterCompanies = companies;
+    setFilterCompanies(companies: string[] | null | undefined) {
+      this.filterCompanies = listOrEmpty(companies);
     },
-    setFilterPublishers(publishers: string[]) {
-      this.filterPublishers = publishers;
+    setFilterPublishers(publishers: string[] | null | undefined) {
+      this.filterPublishers = listOrEmpty(publishers);
     },
-    setFilterDevelopers(developers: string[]) {
-      this.filterDevelopers = developers;
+    setFilterDevelopers(developers: string[] | null | undefined) {
+      this.filterDevelopers = listOrEmpty(developers);
     },
-    setFilterAgeRatings(ageRatings: string[]) {
-      this.filterAgeRatings = ageRatings;
+    setFilterAgeRatings(ageRatings: string[] | null | undefined) {
+      this.filterAgeRatings = listOrEmpty(ageRatings);
     },
-    setFilterRegions(regions: string[]) {
-      this.filterRegions = regions;
+    setFilterRegions(regions: string[] | null | undefined) {
+      this.filterRegions = listOrEmpty(regions);
     },
-    setFilterLanguages(languages: string[]) {
-      this.filterLanguages = languages;
+    setFilterLanguages(languages: string[] | null | undefined) {
+      this.filterLanguages = listOrEmpty(languages);
     },
-    setFilterPlayerCounts(playerCounts: string[]) {
-      this.filterPlayerCounts = playerCounts;
+    setFilterPlayerCounts(playerCounts: string[] | null | undefined) {
+      this.filterPlayerCounts = listOrEmpty(playerCounts);
     },
-    setFilterTags(tags: string[]) {
-      this.filterTags = tags;
+    setFilterTags(tags: string[] | null | undefined) {
+      this.filterTags = listOrEmpty(tags);
     },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform

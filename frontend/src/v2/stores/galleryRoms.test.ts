@@ -189,6 +189,38 @@ describe("galleryRoms windowed fetch", () => {
     expect(galleryFilter.filterGenres).toEqual(["RPG", "Shooter"]);
   });
 
+  it("coerces null filter_value lists from the API", async () => {
+    getRoms.mockResolvedValue({
+      data: {
+        total: 1,
+        items: [],
+        char_index: {},
+        rom_id_index: [],
+        filter_values: {
+          genres: null,
+          franchises: null,
+          collections: null,
+          companies: null,
+          publishers: null,
+          developers: null,
+          age_ratings: null,
+          regions: null,
+          languages: null,
+          player_counts: null,
+          tags: null,
+          platforms: null,
+        },
+      },
+    });
+    const galleryFilter = storeGalleryFilter();
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata();
+
+    expect(galleryFilter.filterGenres).toEqual([]);
+    expect(galleryFilter.filterTags).toEqual([]);
+  });
+
   it("keeps the bootstrap char_index when the first window skips aggregations", async () => {
     getRoms.mockImplementation((params: { limit?: number }) => {
       // The bootstrap (limit 1) carries the char index; the follow-up
