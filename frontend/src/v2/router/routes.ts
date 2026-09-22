@@ -10,11 +10,8 @@
 // v2 AppLayout renders the v2 component. Routes without a v2 entry fall
 // through to `notFoundComponent`, which is correct now that every route the
 // v2 UI links to is migrated: an unregistered name leads nowhere in v2.
-//
-// NOTE: We use string keys instead of importing ROUTES from @/plugins/router
-// to avoid a circular import (router.ts ↔ v2/router/routes.ts). Keys here
-// MUST match the string values in the ROUTES constant in plugins/router.ts.
 import type { Component } from "vue";
+import { ROUTES, type RouteName } from "@/plugins/routeNames";
 
 export type V2Route = () => Promise<Component>;
 
@@ -23,53 +20,58 @@ export type V2Route = () => Promise<Component>;
 export const notFoundComponent: V2Route = () =>
   import("@/v2/views/NotFound.vue");
 
-export const v2RouteComponents: Partial<Record<string, V2Route>> = {
-  home: () => import("@/v2/views/Home.vue"),
-  activity: () => import("@/v2/views/Activity.vue"),
+export const v2RouteComponents: Partial<Record<RouteName, V2Route>> = {
+  [ROUTES.HOME]: () => import("@/v2/views/Home.vue"),
+  [ROUTES.ACTIVITY]: () => import("@/v2/views/Activity.vue"),
   // Wave 1 — Auth flows
-  login: () => import("@/v2/views/Auth/Login.vue"),
-  "reset-password": () => import("@/v2/views/Auth/ResetPassword.vue"),
-  register: () => import("@/v2/views/Auth/Register.vue"),
-  setup: () => import("@/v2/views/Auth/Setup.vue"),
+  [ROUTES.LOGIN]: () => import("@/v2/views/Auth/Login.vue"),
+  [ROUTES.RESET_PASSWORD]: () => import("@/v2/views/Auth/ResetPassword.vue"),
+  [ROUTES.REGISTER]: () => import("@/v2/views/Auth/Register.vue"),
+  [ROUTES.SETUP]: () => import("@/v2/views/Auth/Setup.vue"),
   // Wave 3 — Gallery
-  platform: () => import("@/v2/views/Gallery/Platform.vue"),
-  search: () => import("@/v2/views/Gallery/Search.vue"),
-  music: () => import("@/v2/views/Jukebox/index.vue"),
-  collection: () => import("@/v2/views/Gallery/Collection.vue"),
-  "virtual-collection": () => import("@/v2/views/Gallery/Collection.vue"),
-  "smart-collection": () => import("@/v2/views/Gallery/Collection.vue"),
+  [ROUTES.PLATFORM]: () => import("@/v2/views/Gallery/Platform.vue"),
+  [ROUTES.SEARCH]: () => import("@/v2/views/Gallery/Search.vue"),
+  [ROUTES.MUSIC]: () => import("@/v2/views/Jukebox/index.vue"),
+  [ROUTES.COLLECTION]: () => import("@/v2/views/Gallery/Collection.vue"),
+  [ROUTES.VIRTUAL_COLLECTION]: () =>
+    import("@/v2/views/Gallery/Collection.vue"),
+  [ROUTES.SMART_COLLECTION]: () => import("@/v2/views/Gallery/Collection.vue"),
   // Wave 4 — Game details
-  rom: () => import("@/v2/views/GameDetails.vue"),
+  [ROUTES.ROM]: () => import("@/v2/views/GameDetails.vue"),
   // Wave 5 — Players
-  emulatorjs: () => import("@/v2/views/Player/EmulatorJS.vue"),
-  jsdos: () => import("@/v2/views/Player/JsDos.vue"),
-  pico8: () => import("@/v2/views/Player/Pico8.vue"),
-  ruffle: () => import("@/v2/views/Player/Ruffle.vue"),
-  stream: () => import("@/v2/views/Player/Stream.vue"),
-  "stream-desktop": () => import("@/v2/views/Player/Desktop.vue"),
+  [ROUTES.EMULATORJS]: () => import("@/v2/views/Player/EmulatorJS.vue"),
+  [ROUTES.JSDOS]: () => import("@/v2/views/Player/JsDos.vue"),
+  [ROUTES.PICO8]: () => import("@/v2/views/Player/Pico8.vue"),
+  [ROUTES.RUFFLE]: () => import("@/v2/views/Player/Ruffle.vue"),
+  [ROUTES.STREAM]: () => import("@/v2/views/Player/Stream.vue"),
+  [ROUTES.STREAM_DESKTOP]: () => import("@/v2/views/Player/Desktop.vue"),
   // Wave 6 — Library Tools (Scan / Upload) + Pair
-  scan: () => import("@/v2/views/Scan.vue"),
-  upload: () => import("@/v2/views/Upload.vue"),
+  [ROUTES.SCAN]: () => import("@/v2/views/Scan.vue"),
+  [ROUTES.UPLOAD]: () => import("@/v2/views/Upload.vue"),
   // Pair is wired via a top-level PairDispatcher (see plugins/router.ts); no
   // named-view entry is needed — the dispatcher picks v1 or v2 itself.
   // Wave 7 — Settings suite
-  "user-profile": () => import("@/v2/views/Settings/UserProfile.vue"),
-  "user-interface": () => import("@/v2/views/Settings/UserInterface.vue"),
-  "library-management": () =>
+  [ROUTES.USER_PROFILE]: () => import("@/v2/views/Settings/UserProfile.vue"),
+  [ROUTES.USER_INTERFACE]: () =>
+    import("@/v2/views/Settings/UserInterface.vue"),
+  [ROUTES.LIBRARY_MANAGEMENT]: () =>
     import("@/v2/views/Settings/LibraryManagement.vue"),
-  "scan-settings": () => import("@/v2/views/Settings/ScanSettings.vue"),
-  "metadata-sources": () => import("@/v2/views/Settings/MetadataSources.vue"),
-  "client-api-tokens": () => import("@/v2/views/Settings/ClientApiTokens.vue"),
-  administration: () => import("@/v2/views/Settings/Administration.vue"),
-  "server-stats": () => import("@/v2/views/Settings/ServerStats.vue"),
-  logs: () => import("@/v2/views/Settings/Logs.vue"),
+  [ROUTES.SCAN_SETTINGS]: () => import("@/v2/views/Settings/ScanSettings.vue"),
+  [ROUTES.METADATA_SOURCES]: () =>
+    import("@/v2/views/Settings/MetadataSources.vue"),
+  [ROUTES.CLIENT_API_TOKENS]: () =>
+    import("@/v2/views/Settings/ClientApiTokens.vue"),
+  [ROUTES.ADMINISTRATION]: () =>
+    import("@/v2/views/Settings/Administration.vue"),
+  [ROUTES.SERVER_STATS]: () => import("@/v2/views/Settings/ServerStats.vue"),
+  [ROUTES.LOGS]: () => import("@/v2/views/Settings/Logs.vue"),
   // V2-only index pages (no v1 equivalent — the v1 UI uses its drawer)
-  "platforms-index": () => import("@/v2/views/PlatformsIndex.vue"),
-  "collections-index": () => import("@/v2/views/CollectionsIndex.vue"),
+  [ROUTES.PLATFORMS_INDEX]: () => import("@/v2/views/PlatformsIndex.vue"),
+  [ROUTES.COLLECTIONS_INDEX]: () => import("@/v2/views/CollectionsIndex.vue"),
   // V2-only dev tool — live gamepad input inspector.
-  "controller-debug": () => import("@/v2/views/ControllerDebug.vue"),
+  [ROUTES.CONTROLLER_DEBUG]: () => import("@/v2/views/ControllerDebug.vue"),
   // v1-only easter egg: no v2 component links here, so the URL is a dead end.
-  "april-fools": notFoundComponent,
+  [ROUTES.APRIL_FOOLS]: notFoundComponent,
 };
 
 export const v2Layouts = {

@@ -9,14 +9,12 @@ on:
       - uv.lock
       - .python-version
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   migrate-postgres:
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
     services:
       postgres:
         image: postgres:18
@@ -41,7 +39,7 @@ jobs:
           sudo apt-get install -y libmariadb3 libmariadb-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install python
         run: uv python install
@@ -68,9 +66,6 @@ jobs:
     # migration SQL that a default utf8mb4 server accepts (issue #4350).
     name: migrate-mariadb (${{ matrix.mariadb }}, ${{ matrix.collation }})
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
@@ -98,7 +93,7 @@ jobs:
           sudo apt-get install -y libmariadb3 libmariadb-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install python
         run: uv python install

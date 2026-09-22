@@ -125,6 +125,10 @@ jobs:
           labels: ${{ steps.meta-slim.outputs.labels }}
           target: slim-image
           outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          # Both stages run `apk upgrade` off a fixed base digest, so nothing in
+          # them changes between releases and the cache would serve the package
+          # set of whenever the layer was first built.
+          no-cache-filters: python-runtime,production-stage
           # Deliberately not seeded from the preview cache: those layers are
           # built from PR head content and must not reach a release image.
           cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
@@ -144,6 +148,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: full-image
           outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          no-cache-filters: python-runtime,production-stage
           cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
           cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }},mode=max
           build-args: |
