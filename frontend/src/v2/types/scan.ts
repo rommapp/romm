@@ -9,15 +9,11 @@ export type ScanType =
   | "title_ids"
   | "complete";
 
-/** Scan types that read the library on their own and contact no provider. */
-const SELF_CONTAINED_SCANS: ReadonlySet<ScanType> = new Set<ScanType>([
-  "quick",
-  "title_ids",
-]);
-
-/** Whether a scan type is worth starting with no metadata source picked. */
+/** Whether a scan type is worth starting with no metadata source picked. A
+ *  quick scan reconciles files on its own, and a title-ids scan reads the
+ *  binaries, so neither has anything to ask a provider. */
 export function scanNeedsMetadataSource(scanType: ScanType): boolean {
-  return !SELF_CONTAINED_SCANS.has(scanType);
+  return scanType !== "quick" && scanType !== "title_ids";
 }
 
 /** One `scan` socket event. The provider flags are optional because a

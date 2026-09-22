@@ -413,6 +413,17 @@ class TestShouldScanRom:
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id + 99], ["igdb"]) is False
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id], ["igdb"]) is True
 
+    # Test TITLE_IDS scan type
+    def test_title_ids_scan_only_touches_existing_roms(self, rom: Rom):
+        """It refreshes ids without rehashing, and importing a file with no
+        entry yet would cost the full hash of that file."""
+        assert should_scan_rom(ScanType.TITLE_IDS, None, [], ["igdb"]) is False
+        assert should_scan_rom(ScanType.TITLE_IDS, rom, [], ["igdb"]) is True
+        assert (
+            should_scan_rom(ScanType.TITLE_IDS, rom, [rom.id + 99], ["igdb"]) is False
+        )
+        assert should_scan_rom(ScanType.TITLE_IDS, rom, [rom.id], ["igdb"]) is True
+
     # Test UNMATCHED scan type
     def test_unmatched_scan_with_no_rom(self):
         """UNMATCHED should not scan when rom is None"""
@@ -523,7 +534,6 @@ class TestShouldScanRom:
             (ScanType.COMPLETE, True, False, False, True),
             (ScanType.HASHES, False, None, False, True),
             (ScanType.HASHES, True, False, False, True),
-            (ScanType.TITLE_IDS, False, None, False, True),
             (ScanType.TITLE_IDS, True, False, False, True),
             (ScanType.UNMATCHED, True, False, False, True),
             (ScanType.UNMATCHED, True, True, False, False),
@@ -2495,6 +2505,32 @@ class TestQuickScanCoversRomFiles:
         assert should_scan_rom(ScanType.QUICK, rom, [rom.id], []) is True
 
 
+class TestShouldGetRomFiles:
+    def test_a_title_ids_scan_rebuilds_every_rom(self, rom: Rom):
+        """Extraction reads the files, so the rows have to be walked even for a
+        rom no selection names."""
+        assert (
+            scan_module._should_get_rom_files(
+                scan_type=ScanType.TITLE_IDS,
+                rom=rom,
+                newly_added=False,
+                roms_ids=[],
+            )
+            is True
+        )
+
+    def test_a_metadata_scan_leaves_an_unselected_rom_alone(self, rom: Rom):
+        assert (
+            scan_module._should_get_rom_files(
+                scan_type=ScanType.UPDATE,
+                rom=rom,
+                newly_added=False,
+                roms_ids=[],
+            )
+            is False
+        )
+
+
 class TestShouldHashIncrementally:
     def test_selected_metadata_scans_are_incremental(self, rom: Rom):
         assert _should_hash_incrementally(ScanType.UPDATE, rom, [rom.id]) is True
@@ -2701,9 +2737,9 @@ class TestIdentifyRomIncrementalHashing:
         assert kwargs["existing_files"] is None
 
 
-class TestIdentifyPlatformLoadsFilesForQuickScan:
-    """A quick scan reconciles every existing rom's files, so their rows are
-    loaded with the batch lookup instead of one query per rom."""
+class TestIdentifyPlatformLoadsFileRows:
+    """A quick or title-ids scan reads every existing rom's files, so their rows
+    are loaded with the batch lookup instead of one query per rom."""
 
     @pytest.fixture
     def patched(self, mocker):
@@ -2757,9 +2793,14 @@ class TestIdentifyPlatformLoadsFilesForQuickScan:
         return db_rom
 
     @pytest.mark.parametrize(
-        "scan_type,with_files", [(ScanType.QUICK, True), (ScanType.COMPLETE, False)]
+        "scan_type,with_files",
+        [
+            (ScanType.QUICK, True),
+            (ScanType.TITLE_IDS, True),
+            (ScanType.COMPLETE, False),
+        ],
     )
-    async def test_rows_are_loaded_only_for_quick_scans(
+    async def test_rows_are_loaded_only_for_the_scans_that_read_them(
         self, patched, scan_type, with_files
     ):
         await scan_module._identify_platform(

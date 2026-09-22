@@ -360,8 +360,10 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
-        # Title ids are re-read from every rom's binaries
-        or (scan_type == ScanType.TITLE_IDS)
+        # Title ids are re-read from the binaries of every rom already in the
+        # library. A file with no entry yet is left to a scan that adds roms,
+        # since importing one costs the full hash this scan promises to skip.
+        or (scan_type == ScanType.TITLE_IDS and rom is not None)
         or (
             rom
             and (
@@ -466,8 +468,9 @@ def _should_hash_incrementally(
 
     Only COMPLETE and HASHES promise to re-read every byte. A quick scan does
     not reach here: it reconciles an existing rom through `refresh_rom_files`.
-    A title-ids scan keeps stored hashes for every rom it touches, selected or
-    not, since it reads headers rather than whole files.
+    A title-ids scan reads headers rather than whole files, so it offers every
+    rom it touches its stored hashes, selected or not. A row that carries none
+    is still re-read: `rom_file_unchanged` will not vouch for it.
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
@@ -781,7 +784,8 @@ async def _identify_rom(
         for saved in synced.files:
             persist_soundtrack_cover(saved, _added_rom)
 
-    # Neither scan type fetches metadata, so there is nothing new to download.
+    # Neither scan type refetches metadata for a rom it already had, so its
+    # stored urls still point at the resources on disk.
     if scan_type in (ScanType.HASHES, ScanType.TITLE_IDS):
         return
 
@@ -1014,7 +1018,9 @@ async def _identify_platform(
         roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-            with_files=scan_type == ScanType.QUICK,
+            # Both scans read every rom's stored rows, so loading them here
+            # costs one query instead of one per rom.
+            with_files=scan_type in (ScanType.QUICK, ScanType.TITLE_IDS),
         )
 
         # Separate skipped ROMs from those that need scanning
