@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from decorators.auth import protected_route
 from endpoints.music import (
+    MusicLimitOffsetParams,
     MusicPage,
     MusicTrackIdsPayload,
     resolve_track_ids,
@@ -166,7 +167,7 @@ def get_playlist_tracks(
     than the playlist's stored track_count."""
     playlist = _get_visible_playlist(request, id)
     perms = get_permissions(request)
-    params = resolve_params()
+    params: MusicLimitOffsetParams = resolve_params()
     rows, total = db_rom_handler.get_music_tracks(
         hidden_platform_ids=perms.hidden_platform_ids,
         hidden_rom_ids=perms.hidden_rom_ids,
