@@ -121,6 +121,7 @@
   "multiplayer-hint": "Bu oyunun sayfasında bir Katıl düğmesi gösterir, sohbeti ve web kamerasını görünür tutar.",
   "mute": "Sessize al",
   "native-applies": "Bunlar bu cihazdaki emülatör için de geçerlidir: {controls}.",
+  "native-browser-only": "Bunlar yalnızca tarayıcı oynatıcısı için geçerlidir: {controls}.",
   "native-cancel": "Başlatmayı iptal et",
   "native-cancel-failed": "Başlatma iptal edilemedi",
   "native-canceled": "Başlatma iptal edildi",

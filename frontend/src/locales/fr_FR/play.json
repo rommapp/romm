@@ -121,6 +121,7 @@
   "multiplayer-hint": "Affiche un bouton Rejoindre sur la page de ce jeu et garde le chat et la webcam visibles.",
   "mute": "Couper le son",
   "native-applies": "Ceci s'applique aussi à l'émulateur de cet appareil : {controls}.",
+  "native-browser-only": "Ceci ne s'applique qu'au lecteur du navigateur : {controls}.",
   "native-cancel": "Annuler le lancement",
   "native-cancel-failed": "Impossible d'annuler le lancement",
   "native-canceled": "Lancement annulé",

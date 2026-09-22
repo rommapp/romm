@@ -121,6 +121,7 @@
   "multiplayer-hint": "Shows a Join button on this game's page and keeps chat and webcam visible.",
   "mute": "Mute",
   "native-applies": "These also apply to this device's emulator: {controls}.",
+  "native-browser-only": "These apply to the browser player only: {controls}.",
   "native-cancel": "Cancel launch",
   "native-cancel-failed": "Could not cancel the launch",
   "native-canceled": "Launch cancelled",

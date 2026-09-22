@@ -121,6 +121,7 @@
   "multiplayer-hint": "Wyświetla przycisk Dołącz na stronie tej gry i utrzymuje widoczny czat oraz kamerę internetową.",
   "mute": "Wycisz",
   "native-applies": "Dotyczy to też emulatora na tym urządzeniu: {controls}.",
+  "native-browser-only": "Dotyczy to tylko odtwarzacza w przeglądarce: {controls}.",
   "native-cancel": "Anuluj uruchamianie",
   "native-cancel-failed": "Nie udało się anulować uruchamiania",
   "native-canceled": "Uruchamianie anulowane",

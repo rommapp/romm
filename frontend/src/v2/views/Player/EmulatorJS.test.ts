@@ -88,6 +88,7 @@ vi.mock("@/utils", () => ({
   areThreadsRequiredForEJSCore: () => false,
   formatRelativeDate: (value: string) => value,
   getSupportedEJSCores: () => mocks.cores,
+  FRONTEND_RESOURCES_PATH: "/assets/romm/resources",
 }));
 
 vi.mock("@/v2/composables/useCanPlay", async () => {
@@ -187,6 +188,16 @@ const DISC_SET = {
     { id: 102, file_name: "Game (Disc 2).chd" },
   ],
 } as unknown as DetailedRom;
+
+// A scraped bezel, which is what puts the panel's bezel switch on screen.
+const BEZELED_ROM = {
+  ...ROM,
+  ss_metadata: { bezel_path: "roms/7/bezel/bezel.png" },
+} as unknown as DetailedRom;
+
+// One BIOS file for the platform, which is what puts the firmware picker on
+// screen. Its contents do not matter: the panel lists what the server returns.
+const FIRMWARE_SET = [{ id: 3, file_name: "scph1001.bin" }];
 
 // The launch flourish reaches into the cover, so the stub has to answer.
 const GameCoverStub = defineComponent({
@@ -393,9 +404,39 @@ describe("EmulatorJS launch screen — what the setup panel claims", () => {
     );
   });
 
-  // Nothing on screen carries over: one core is not a choice, the rom is one
-  // file, and this shell leaves the full-screen switch to the browser.
-  it("says nothing when none of the controls carry", async () => {
+  // The bug this guards: a note that only ever claimed what carries would leave
+  // a panel of BIOS and bezel with no note at all, reading as fully shared.
+  it("names the controls the shell leaves behind", async () => {
+    mocks.cores = ["mgba"];
+    mocks.getFirmware.mockResolvedValue({ data: FIRMWARE_SET });
+
+    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+      "play.native-browser-only:common.firmware",
+    );
+  });
+
+  it("names the bezel the browser player draws for itself", async () => {
+    mocks.cores = ["mgba"];
+    mocks.getRom.mockResolvedValue({ data: BEZELED_ROM });
+
+    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+      "play.native-browser-only:play.show-bezel",
+    );
+  });
+
+  it("says both halves, in the order the panel renders them", async () => {
+    mocks.getFirmware.mockResolvedValue({ data: FIRMWARE_SET });
+    mocks.getRom.mockResolvedValue({ data: BEZELED_ROM });
+
+    expect((await launchScreen()).find(".r-v2-ejs__setup-note").text()).toBe(
+      "play.native-applies:common.core play.native-browser-only:common.firmware and play.show-bezel",
+    );
+  });
+
+  // Nothing on screen carries over and nothing on it is EmulatorJS' own either:
+  // one core is not a choice, the rom is one file, this shell leaves the
+  // full-screen switch to the browser, and the game has no bezel or BIOS.
+  it("says nothing when the panel offers nothing to choose", async () => {
     mocks.cores = ["mgba"];
 
     expect((await launchScreen()).find(".r-v2-ejs__setup-note").exists()).toBe(

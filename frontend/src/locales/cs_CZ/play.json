@@ -121,6 +121,7 @@
   "multiplayer-hint": "Na stránce hry se zobrazí tlačítko Připojit se a chat i webkamera zůstanou viditelné.",
   "mute": "Ztlumit",
   "native-applies": "Pro emulátor v tomto zařízení platí také: {controls}.",
+  "native-browser-only": "Platí pouze pro přehrávač v prohlížeči: {controls}.",
   "native-cancel": "Zrušit spuštění",
   "native-cancel-failed": "Spuštění nelze zrušit",
   "native-canceled": "Spuštění zrušeno",

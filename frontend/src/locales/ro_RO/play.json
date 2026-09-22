@@ -121,6 +121,7 @@
   "multiplayer-hint": "Afișează un buton Alătură-te pe pagina acestui joc și păstrează vizibile chatul și camera web.",
   "mute": "Dezactivează sunetul",
   "native-applies": "Acestea se aplică și emulatorului de pe acest dispozitiv: {controls}.",
+  "native-browser-only": "Acestea se aplică doar playerului din browser: {controls}.",
   "native-cancel": "Anulează lansarea",
   "native-cancel-failed": "Lansarea nu a putut fi anulată",
   "native-canceled": "Lansare anulată",

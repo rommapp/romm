@@ -121,6 +121,7 @@
   "multiplayer-hint": "Mostra un pulsante Partecipa nella pagina di questo gioco e mantiene visibili chat e webcam.",
   "mute": "Disattiva audio",
   "native-applies": "Valgono anche per l'emulatore di questo dispositivo: {controls}.",
+  "native-browser-only": "Valgono solo per il lettore nel browser: {controls}.",
   "native-cancel": "Annulla avvio",
   "native-cancel-failed": "Impossibile annullare l'avvio",
   "native-canceled": "Avvio annullato",

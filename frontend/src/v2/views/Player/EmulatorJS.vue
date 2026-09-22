@@ -324,19 +324,44 @@ const nativeCarriedControls = computed(() => {
   return carried;
 });
 
-// What the settings panel says about the other route. Null outside the shell,
-// on a platform with no in-browser core at all, where the panel is not
-// rendered, and when nothing on screen carries over.
+// The controls above that stay with the in-browser player, in the order they
+// are rendered. Both are EmulatorJS' own: the BIOS it loads into its core, and
+// the bezel it draws over the canvas.
+const nativeBrowserOnlyControls = computed(() => {
+  const browserOnly: string[] = [];
+  if (firmwareOptions.value.length > 0) {
+    browserOnly.push(t("common.firmware"));
+  }
+  if (bezelUrl.value) browserOnly.push(t("play.show-bezel"));
+  return browserOnly;
+});
+
+// What the settings panel says about the other route. Null outside the shell
+// and on a platform with no in-browser core at all, where the panel is not
+// rendered. Either half can stand alone: a panel whose every control stays
+// behind says only that, and one with nothing left behind says only what
+// carries.
 const nativeSettingsNote = computed(() => {
   if (!canPlayNative.value || nativeOnly.value) return null;
+  const lines: string[] = [];
   const carried = nativeCarriedControls.value;
-  if (carried.length === 0) return null;
-  // Not named after the emulator: what the line has to say is which of these
-  // controls survive the choice of player, and the buttons above have already
-  // named the emulator.
-  return t("play.native-applies", {
-    controls: joinNames(carried, locale.value),
-  });
+  if (carried.length > 0) {
+    // Not named after the emulator: what the line has to say is which of these
+    // controls survive the choice of player, and the buttons above have already
+    // named the emulator.
+    lines.push(
+      t("play.native-applies", { controls: joinNames(carried, locale.value) }),
+    );
+  }
+  const browserOnly = nativeBrowserOnlyControls.value;
+  if (browserOnly.length > 0) {
+    lines.push(
+      t("play.native-browser-only", {
+        controls: joinNames(browserOnly, locale.value),
+      }),
+    );
+  }
+  return lines.length > 0 ? lines.join(" ") : null;
 });
 
 // The native button is its own progress readout, so while the shell works the

@@ -121,6 +121,7 @@
   "multiplayer-hint": "Csatlakozás gombot jelenít meg a játék oldalán, és láthatóan tartja a csevegést és a webkamerát.",
   "mute": "Némítás",
   "native-applies": "Ezek a készülék emulátorára is érvényesek: {controls}.",
+  "native-browser-only": "Ezek csak a böngészős lejátszóra érvényesek: {controls}.",
   "native-cancel": "Indítás megszakítása",
   "native-cancel-failed": "Az indítást nem sikerült megszakítani",
   "native-canceled": "Indítás megszakítva",

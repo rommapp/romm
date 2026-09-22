@@ -121,6 +121,7 @@
   "multiplayer-hint": "이 게임 페이지에 참가 버튼을 표시하고 채팅과 웹캠을 계속 보이게 합니다.",
   "mute": "음소거",
   "native-applies": "이 설정은 이 기기의 에뮬레이터에도 적용됩니다: {controls}.",
+  "native-browser-only": "이 설정은 브라우저 플레이어에만 적용됩니다: {controls}.",
   "native-cancel": "실행 취소",
   "native-cancel-failed": "실행을 취소할 수 없습니다",
   "native-canceled": "실행이 취소되었습니다",

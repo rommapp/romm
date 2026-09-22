@@ -121,6 +121,7 @@
   "multiplayer-hint": "在该游戏页面显示“加入”按钮，并保持聊天和摄像头可见。",
   "mute": "静音",
   "native-applies": "这些设置同样适用于本设备的模拟器：{controls}。",
+  "native-browser-only": "这些设置仅适用于浏览器播放器：{controls}。",
   "native-cancel": "取消启动",
   "native-cancel-failed": "无法取消启动",
   "native-canceled": "已取消启动",

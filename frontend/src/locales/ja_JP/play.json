@@ -121,6 +121,7 @@
   "multiplayer-hint": "このゲームのページに参加ボタンを表示し、チャットとウェブカメラを表示したままにします。",
   "mute": "ミュート",
   "native-applies": "これらはこの端末のエミュレーターにも適用されます: {controls}。",
+  "native-browser-only": "これらはブラウザプレイヤーにのみ適用されます: {controls}。",
   "native-cancel": "起動をキャンセル",
   "native-cancel-failed": "起動をキャンセルできませんでした",
   "native-canceled": "起動をキャンセルしました",

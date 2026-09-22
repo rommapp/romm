@@ -121,6 +121,7 @@
   "multiplayer-hint": "在此遊戲頁面顯示「加入」按鈕，並保持聊天與網路攝影機可見。",
   "mute": "靜音",
   "native-applies": "這些設定同樣適用於本機的模擬器：{controls}。",
+  "native-browser-only": "這些設定僅適用於瀏覽器播放器：{controls}。",
   "native-cancel": "取消啟動",
   "native-cancel-failed": "無法取消啟動",
   "native-canceled": "已取消啟動",

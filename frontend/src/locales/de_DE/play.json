@@ -121,6 +121,7 @@
   "multiplayer-hint": "Zeigt auf der Seite dieses Spiels eine Schaltfläche zum Beitreten und hält Chat und Webcam sichtbar.",
   "mute": "Stummschalten",
   "native-applies": "Gilt auch für den Emulator auf diesem Gerät: {controls}.",
+  "native-browser-only": "Diese gelten nur für den Player im Browser: {controls}.",
   "native-cancel": "Start abbrechen",
   "native-cancel-failed": "Start konnte nicht abgebrochen werden",
   "native-canceled": "Start abgebrochen",

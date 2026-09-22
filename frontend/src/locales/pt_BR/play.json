@@ -121,6 +121,7 @@
   "multiplayer-hint": "Mostra um botão Entrar na página deste jogo e mantém o chat e a webcam visíveis.",
   "mute": "Silenciar",
   "native-applies": "Isto também se aplica ao emulador deste dispositivo: {controls}.",
+  "native-browser-only": "Isto se aplica apenas ao player do navegador: {controls}.",
   "native-cancel": "Cancelar inicialização",
   "native-cancel-failed": "Não foi possível cancelar a inicialização",
   "native-canceled": "Inicialização cancelada",
