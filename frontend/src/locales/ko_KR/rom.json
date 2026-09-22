@@ -342,6 +342,7 @@
   "refreshing-files": "{name} 파일 새로 고침 중…",
   "refreshing-metadata": "{name} 메타데이터 새로 고침 중...",
   "refreshing-title-ids": "{name} 타이틀 ID 다시 읽는 중…",
+  "refreshing-title-ids-bulk": "{n}개 게임의 타이틀 ID 다시 읽는 중…",
   "regions": "지역",
   "related-content": "관련 컨텐츠",
   "related-dlc": "DLC",

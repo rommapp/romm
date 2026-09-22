@@ -342,6 +342,7 @@
   "refreshing-files": "Actualizando archivos de {name}…",
   "refreshing-metadata": "Actualizando metadatos…",
   "refreshing-title-ids": "Releyendo el ID de título de {name}…",
+  "refreshing-title-ids-bulk": "Releyendo los IDs de título de {n} juegos…",
   "regions": "Regiones",
   "related-content": "Contenido relacionado",
   "related-dlc": "DLC",

@@ -342,6 +342,7 @@
   "refreshing-files": "Se actualizează fișierele {name}…",
   "refreshing-metadata": "Se actualizează metadatele {name}...",
   "refreshing-title-ids": "Se recitește ID-ul de titlu al {name}…",
+  "refreshing-title-ids-bulk": "Se recitesc ID-urile de titlu pentru {n} jocuri…",
   "regions": "Regiuni",
   "related-content": "Conținut similar",
   "related-dlc": "DLC",

@@ -72,6 +72,10 @@ const PROGRESS_MESSAGES: Partial<Record<ScanType, string>> = {
   title_ids: "rom.refreshing-title-ids",
 };
 
+const BULK_PROGRESS_MESSAGES: Partial<Record<ScanType, string>> = {
+  title_ids: "rom.refreshing-title-ids-bulk",
+};
+
 const isBulk = computed(() => roms.value.length > 1);
 
 interface ScanOption {
@@ -187,9 +191,12 @@ function onScan() {
   persistSelection();
 
   if (isBulk.value) {
-    snackbar.info(t("rom.refresh-metadata-bulk", { n: roms.value.length }), {
-      icon: "mdi-loading mdi-spin",
-    });
+    snackbar.info(
+      t(BULK_PROGRESS_MESSAGES[scanType.value] ?? "rom.refresh-metadata-bulk", {
+        n: roms.value.length,
+      }),
+      { icon: "mdi-loading mdi-spin" },
+    );
   } else {
     const name = singleRomTitle.value;
     snackbar.info(

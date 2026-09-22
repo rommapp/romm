@@ -342,6 +342,7 @@
   "refreshing-files": "Обновление файлов {name}…",
   "refreshing-metadata": "Обновление метаданных {name}...",
   "refreshing-title-ids": "Повторное считывание ID тайтла {name}…",
+  "refreshing-title-ids-bulk": "Повторное считывание ID тайтлов для {n} игр…",
   "regions": "Регионы",
   "related-content": "Связанный контент",
   "related-dlc": "DLC",

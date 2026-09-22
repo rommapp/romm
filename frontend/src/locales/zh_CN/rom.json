@@ -342,6 +342,7 @@
   "refreshing-files": "正在刷新 {name} 文件…",
   "refreshing-metadata": "正在刷新 {name} 元数据…",
   "refreshing-title-ids": "正在重新读取 {name} 的标题 ID…",
+  "refreshing-title-ids-bulk": "正在为 {n} 个游戏重新读取标题 ID…",
   "regions": "地区",
   "related-content": "相关内容",
   "related-dlc": "DLC",

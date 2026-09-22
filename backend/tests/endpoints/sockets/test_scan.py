@@ -2805,6 +2805,7 @@ class TestIdentifyPlatformLoadsFileRows:
         db_rom.mark_missing_roms.return_value = []
         db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
         db_firmware.mark_missing_firmware.return_value = []
+        self.db_firmware = db_firmware
         return db_rom
 
     @pytest.mark.parametrize(
@@ -2831,3 +2832,27 @@ class TestIdentifyPlatformLoadsFileRows:
         )
 
         assert patched.get_roms_by_fs_name.call_args.kwargs["with_files"] is with_files
+
+    @pytest.mark.parametrize(
+        "scan_type,walks_firmware",
+        [(ScanType.QUICK, True), (ScanType.TITLE_IDS, False)],
+    )
+    async def test_firmware_is_left_alone_by_a_title_ids_scan(
+        self, patched, scan_type, walks_firmware
+    ):
+        """Hashing firmware is the full read the scan skips, and a folder it
+        never walked cannot say which entries went missing."""
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=scan_type,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
+        )
+
+        assert scan_module.fs_firmware_handler.get_firmware.called is walks_firmware
+        assert self.db_firmware.mark_missing_firmware.called is walks_firmware

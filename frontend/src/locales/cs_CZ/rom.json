@@ -342,6 +342,7 @@
   "refreshing-files": "Obnovování souborů {name}…",
   "refreshing-metadata": "Obnovování metadat {name}...",
   "refreshing-title-ids": "Znovu se načítá ID titulu {name}…",
+  "refreshing-title-ids-bulk": "Znovu se načítají ID titulů pro {n} her…",
   "regions": "Regiony",
   "related-content": "Související obsah",
   "related-dlc": "DLC",

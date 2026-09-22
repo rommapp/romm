@@ -342,6 +342,7 @@
   "refreshing-files": "{name} dosyaları yenileniyor…",
   "refreshing-metadata": "{name} meta verisi yenileniyor...",
   "refreshing-title-ids": "{name} başlık kimliği yeniden okunuyor…",
+  "refreshing-title-ids-bulk": "{n} oyun için başlık kimlikleri yeniden okunuyor…",
   "regions": "Bölgeler",
   "related-content": "İlgili içerik",
   "related-dlc": "DLC",

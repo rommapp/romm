@@ -342,6 +342,7 @@
   "refreshing-files": "{name} fájljainak frissítése…",
   "refreshing-metadata": "{name} metaadatainak frissítése…",
   "refreshing-title-ids": "{name} cím-azonosítójának újraolvasása…",
+  "refreshing-title-ids-bulk": "{n} játék cím-azonosítójának újraolvasása…",
   "regions": "Regiók",
   "related-content": "Kapcsolódó tartalom",
   "related-dlc": "DLC",

@@ -342,6 +342,7 @@
   "refreshing-files": "{name}のファイルを更新中…",
   "refreshing-metadata": "{name}のメタデータを更新中...",
   "refreshing-title-ids": "{name}のタイトルIDを読み直し中…",
+  "refreshing-title-ids-bulk": "{n}件のゲームのタイトルIDを読み直し中…",
   "regions": "リージョン",
   "related-content": "関連コンテンツ",
   "related-dlc": "DLC",

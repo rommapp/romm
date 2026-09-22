@@ -916,26 +916,29 @@ async def _identify_platform(
     if MetadataSource.GAMELIST in metadata_sources:
         await meta_gamelist_handler.populate_cache(platform)
 
-    # Scanning firmware
-    try:
-        fs_firmware = await fs_firmware_handler.get_firmware(platform.fs_slug)
-    except FirmwareNotFoundException:
-        fs_firmware = []
-
-    if len(fs_firmware) == 0:
-        log.warning(
-            f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
-        )
-    else:
-        log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
-
     new_firmware = 0
-    for fs_fw in fs_firmware:
-        new_firmware += await _identify_firmware(
-            platform=platform,
-            fs_fw=fs_fw,
-            scan_type=scan_type,
-        )
+    fs_firmware: list[str] = []
+    # Firmware carries no title id, and hashing one is the full read a
+    # title-ids scan skips.
+    if scan_type != ScanType.TITLE_IDS:
+        try:
+            fs_firmware = await fs_firmware_handler.get_firmware(platform.fs_slug)
+        except FirmwareNotFoundException:
+            fs_firmware = []
+
+        if len(fs_firmware) == 0:
+            log.warning(
+                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
+            )
+        else:
+            log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
+
+        for fs_fw in fs_firmware:
+            new_firmware += await _identify_firmware(
+                platform=platform,
+                fs_fw=fs_fw,
+                scan_type=scan_type,
+            )
 
     # `new_firmware_count` is scoped to this scan: the client reports what the
     # scan discovered, not the platform's total firmware library.
@@ -1091,8 +1094,13 @@ async def _identify_platform(
             else:
                 log.warning(f" - {r.fs_name}")
 
-    missing_firmware = db_firmware_handler.mark_missing_firmware(
-        platform.id, [fw for fw in fs_firmware]
+    # A scan that never walked the firmware folder cannot say what is missing.
+    missing_firmware = (
+        []
+        if scan_type == ScanType.TITLE_IDS
+        else db_firmware_handler.mark_missing_firmware(
+            platform.id, [fw for fw in fs_firmware]
+        )
     )
     if len(missing_firmware) > 0:
         log.warning(f"{hl('Missing')} firmware from filesystem:")
@@ -1139,6 +1147,11 @@ async def scan_platforms(
 
     if not platform_fs_slugs:
         platform_fs_slugs = []
+
+    # A title-ids scan reads binaries and asks no provider anything, so the
+    # list is dropped here rather than trusted to arrive empty.
+    if scan_type == ScanType.TITLE_IDS:
+        metadata_sources = []
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
