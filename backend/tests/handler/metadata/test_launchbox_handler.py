@@ -460,7 +460,7 @@ class TestLocalSource:
             "super mario bros..nes": {"Title": "Cached Entry", "DatabaseID": "9999"}
         }
         source._cache["nes"] = cached_index
-        source._mtime["nes"] = nes_xml.stat().st_mtime_ns  # trunk-ignore(ruff/ASYNC240)
+        source._mtime["nes"] = (await AnyioPath(nes_xml).stat()).st_mtime_ns
 
         with patch(
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
