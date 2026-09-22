@@ -19,11 +19,6 @@ export type FilterType =
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
-/** Remote or older APIs may omit or null individual filter_value lists. */
-function listOrEmpty(value: string[] | null | undefined): string[] {
-  return value ?? [];
-}
-
 // Built lazily so `romStatusMap` isn't read at module-evaluation time —
 // utils ↔ stores have a circular import chain (utils → navigation → router →
 // roms → galleryFilter → utils) that's harmless in the app shell because
@@ -102,37 +97,37 @@ export default defineStore("galleryFilter", {
       this.filterPlatforms = platforms;
     },
     setFilterGenres(genres: string[] | null | undefined) {
-      this.filterGenres = listOrEmpty(genres);
+      this.filterGenres = genres ?? [];
     },
     setFilterFranchises(franchises: string[] | null | undefined) {
-      this.filterFranchises = listOrEmpty(franchises);
+      this.filterFranchises = franchises ?? [];
     },
     setFilterCollections(collections: string[] | null | undefined) {
-      this.filterCollections = listOrEmpty(collections);
+      this.filterCollections = collections ?? [];
     },
     setFilterCompanies(companies: string[] | null | undefined) {
-      this.filterCompanies = listOrEmpty(companies);
+      this.filterCompanies = companies ?? [];
     },
     setFilterPublishers(publishers: string[] | null | undefined) {
-      this.filterPublishers = listOrEmpty(publishers);
+      this.filterPublishers = publishers ?? [];
     },
     setFilterDevelopers(developers: string[] | null | undefined) {
-      this.filterDevelopers = listOrEmpty(developers);
+      this.filterDevelopers = developers ?? [];
     },
     setFilterAgeRatings(ageRatings: string[] | null | undefined) {
-      this.filterAgeRatings = listOrEmpty(ageRatings);
+      this.filterAgeRatings = ageRatings ?? [];
     },
     setFilterRegions(regions: string[] | null | undefined) {
-      this.filterRegions = listOrEmpty(regions);
+      this.filterRegions = regions ?? [];
     },
     setFilterLanguages(languages: string[] | null | undefined) {
-      this.filterLanguages = listOrEmpty(languages);
+      this.filterLanguages = languages ?? [];
     },
     setFilterPlayerCounts(playerCounts: string[] | null | undefined) {
-      this.filterPlayerCounts = listOrEmpty(playerCounts);
+      this.filterPlayerCounts = playerCounts ?? [];
     },
     setFilterTags(tags: string[] | null | undefined) {
-      this.filterTags = listOrEmpty(tags);
+      this.filterTags = tags ?? [];
     },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform
