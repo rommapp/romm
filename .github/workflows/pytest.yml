@@ -22,14 +22,12 @@ on:
       - Dockerfile
       - docker/Dockerfile
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
     strategy:
       fail-fast: false
       matrix:

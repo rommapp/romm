@@ -10,7 +10,8 @@ on:
     paths:
       - "frontend/**"
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   test:

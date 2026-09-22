@@ -9,14 +9,12 @@ on:
       - uv.lock
       - .python-version
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   migrate-postgres:
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
     services:
       postgres:
         image: postgres:18
@@ -68,9 +66,6 @@ jobs:
     # migration SQL that a default utf8mb4 server accepts (issue #4350).
     name: migrate-mariadb (${{ matrix.mariadb }}, ${{ matrix.collation }})
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
