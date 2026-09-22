@@ -16,7 +16,7 @@
 // `label` makes the chip square-cornered (mostly used for tags inline
 // in lists). `rounded` overrides the default pill / label radius if
 // you need a specific radius.
-import { computed } from "vue";
+import { computed, ref, useAttrs } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "../RIcon/RIcon.vue";
 
@@ -56,6 +56,18 @@ const emit = defineEmits<{
 }>();
 
 const labels = useChromeLabels();
+const attrs = useAttrs();
+
+const contentEl = ref<HTMLElement | null>(null);
+const truncatedTitle = ref<string | undefined>();
+
+// Measured on hover so idle chips cost no layout reads.
+function syncTruncatedTitle() {
+  const el = contentEl.value;
+  if (!el || attrs.title) return;
+  truncatedTitle.value =
+    el.scrollWidth > el.clientWidth ? el.textContent?.trim() : undefined;
+}
 
 const TONE_MAP: Record<string, string> = {
   primary: "var(--r-color-brand-primary)",
@@ -125,14 +137,16 @@ function onClose(evt: MouseEvent) {
       '--r-chip-color': resolvedColor,
       borderRadius: resolvedRounded,
     }"
+    :title="(attrs.title as string | undefined) ?? truncatedTitle"
     :aria-disabled="disabled || undefined"
+    @pointerenter="syncTruncatedTitle"
   >
     <RIcon
       v-if="prependIcon"
       :icon="prependIcon"
       class="r-chip__icon r-chip__icon--prepend"
     />
-    <span class="r-chip__content">
+    <span ref="contentEl" class="r-chip__content">
       <slot />
     </span>
     <RIcon
@@ -186,10 +200,9 @@ function onClose(evt: MouseEvent) {
   pointer-events: none;
 }
 
-/* Content must make room for both descenders and ellipsis truncation. */
+/* Clipping only the x axis keeps descenders visible under the ellipsis. */
 .r-chip__content {
   min-width: 0;
-  line-height: 1.2;
   overflow-x: clip;
   text-overflow: ellipsis;
 }
