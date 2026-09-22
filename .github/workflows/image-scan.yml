@@ -1,0 +1,110 @@
+name: Scan Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: "JSON array of image references to scan"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      # trunk-ignore(checkov/CKV_GHA_7)
+      image:
+        description: "Image reference to scan"
+        required: true
+        default: ghcr.io/rommapp/romm:latest
+  schedule:
+    # Most vulnerabilities affecting a published image are disclosed after it
+    # was built, so the shipped tags are rescanned weekly, not only on release.
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.resolve.outputs.images }}
+    steps:
+      - name: Resolve images to scan
+        id: resolve
+        env:
+          CALLER_IMAGES: ${{ inputs.images }}
+          DISPATCH_IMAGE: ${{ inputs.image }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [[ -n "$CALLER_IMAGES" ]]; then
+            images="$CALLER_IMAGES"
+          elif [[ -n "$DISPATCH_IMAGE" ]]; then
+            images=$(jq -cn --arg image "$DISPATCH_IMAGE" '[$image]')
+          else
+            images=$(jq -cn --arg owner "$OWNER" '["ghcr.io/\($owner)/romm:latest", "ghcr.io/\($owner)/romm:latest-slim"]')
+          fi
+          echo "images=$images" >>"$GITHUB_OUTPUT"
+
+  scan:
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.resolve.outputs.images) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image }}
+          # The ScreenScraper build args are baked into the image config on
+          # purpose, so the secret scanner would only ever report those.
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy.sarif
+          # A vulnerability disclosed after the build must not fail a release:
+          # the report is the deliverable, not a gate.
+          exit-code: "0"
+
+      - name: Write summary
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          {
+            echo "### ${IMAGE}"
+            echo
+            if [[ "$(jq '[.runs[].results[]] | length' trivy.sarif)" -eq 0 ]]; then
+              echo "No fixable high or critical vulnerabilities."
+            else
+              echo "| Severity | ID | Package | Installed | Fixed |"
+              echo "| --- | --- | --- | --- | --- |"
+              jq -r '.runs[].results[] as $result
+                | ($result.message.text | split("\n") | map(split(": ") | {(.[0]): (.[1:] | join(": "))}) | add) as $fields
+                | "| \($fields.Severity) | \($result.ruleId) | \($fields.Package) | \($fields["Installed Version"]) | \($fields["Fixed Version"]) |"' trivy.sarif
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      # Code scanning rejects a tag ref, so release runs stop at the summary.
+      - name: Upload results to code scanning
+        if: github.ref_type == 'branch'
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-image-${{ endsWith(matrix.image, '-slim') && 'slim' || 'full' }}
