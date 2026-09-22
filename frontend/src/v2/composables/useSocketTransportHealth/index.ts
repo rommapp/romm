@@ -1,6 +1,7 @@
 import { debounce } from "lodash";
-import { computed, ref } from "vue";
+import { computed, effectScope, onScopeDispose, ref } from "vue";
 import socket from "@/services/socket";
+import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
 const UPGRADE_RECHECK_MS = 2500;
 
@@ -19,34 +20,48 @@ function syncDegradedFromTransport() {
   );
 }
 
+type Engine = NonNullable<typeof socket.io>["engine"];
+
+let engineBinding: { engine: Engine; handler: () => void } | null = null;
+
+function clearEngineUpgradeListener() {
+  if (!engineBinding) return;
+  engineBinding.engine.off("upgrade", engineBinding.handler);
+  engineBinding = null;
+}
+
 function bindEngineUpgradeListener() {
   const engine = socket.io?.engine;
   if (!engine) return;
+  clearEngineUpgradeListener();
   const onUpgrade = () => {
     websocketDegraded.value = false;
   };
-  engine.off("upgrade", onUpgrade);
   engine.on("upgrade", onUpgrade);
+  engineBinding = { engine, handler: onUpgrade };
 }
 
 function install() {
-  const onConnect = () => {
-    bindEngineUpgradeListener();
-    syncDegradedFromTransport();
-    setTimeout(() => syncDegradedFromTransport(), UPGRADE_RECHECK_MS);
-  };
+  effectScope(true).run(() => {
+    const onConnect = () => {
+      bindEngineUpgradeListener();
+      syncDegradedFromTransport();
+      setTimeout(() => syncDegradedFromTransport(), UPGRADE_RECHECK_MS);
+    };
 
-  socket.on("connect", onConnect);
-  socket.on(
-    "connect_error",
-    debounce(() => {
+    const onConnectError = debounce(() => {
       websocketDegraded.value = true;
-    }, 300),
-  );
+    }, 300);
 
-  if (socket.connected) {
-    onConnect();
-  }
+    useSocketEvent("connect", onConnect, { connect: false });
+    useSocketEvent("connect_error", onConnectError, { connect: false });
+
+    onScopeDispose(clearEngineUpgradeListener);
+
+    if (socket.connected) {
+      onConnect();
+    }
+  });
 }
 
 export function useSocketTransportHealth() {

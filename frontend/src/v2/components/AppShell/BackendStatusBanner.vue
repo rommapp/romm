@@ -16,9 +16,10 @@
 // drives a second message (offline still wins if both are bad).
 import { RBtn, RIcon, RTooltip } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
+import { backendStatusBannerStoryKey } from "@/v2/components/AppShell/backendStatusBannerStoryKey";
 import { useDelayedFlag } from "@/v2/composables/useDelayedFlag";
 import { useServerConnection } from "@/v2/composables/useServerConnection";
 import { useSocketTransportHealth } from "@/v2/composables/useSocketTransportHealth";
@@ -29,8 +30,18 @@ defineOptions({ inheritAttrs: false });
 const COLLAPSE_MS = 6000;
 
 const { t } = useI18n();
-const { isOffline, retryNow } = useServerConnection();
-const { isWebSocketDegraded, retryWebSocket } = useSocketTransportHealth();
+const storyState = inject(backendStatusBannerStoryKey, null);
+const { isOffline, retryNow, isWebSocketDegraded, retryWebSocket } = (() => {
+  if (storyState) return storyState;
+  const server = useServerConnection();
+  const transport = useSocketTransportHealth();
+  return {
+    isOffline: server.isOffline,
+    retryNow: server.retryNow,
+    isWebSocketDegraded: transport.isWebSocketDegraded,
+    retryWebSocket: transport.retryWebSocket,
+  };
+})();
 const { playing } = storeToRefs(storePlaying());
 
 const showWebsocketNotice = computed(
