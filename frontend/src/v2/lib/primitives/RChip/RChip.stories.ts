@@ -319,13 +319,13 @@ const CONSTRAINED_GALLERY_LADDER = [
   { widthPx: 80, size: "large" },
 ] as const;
 
-const CONSTRAINED_CELL_FRAME =
-  "box-sizing:border-box;padding:6px;" +
-  "border:2px dashed var(--r-color-fg-muted);" +
-  "border-radius:6px;" +
-  "background:color-mix(in srgb, var(--r-color-bg-elevated) 65%, transparent);" +
-  "outline:1px solid color-mix(in srgb, var(--r-color-border) 80%, transparent);" +
-  "outline-offset:-1px";
+const CONSTRAINED_CELL_FRAME = {
+  boxSizing: "border-box",
+  padding: "6px",
+  border: "2px dashed var(--r-color-fg-muted)",
+  borderRadius: "6px",
+  background: "color-mix(in srgb, var(--r-color-bg-elevated) 65%, transparent)",
+} as const;
 
 export const TypographyEllipses: Story = {
   name: "Typography · ellipses",
@@ -346,9 +346,7 @@ export const TypographyEllipses: Story = {
           <span style="font:10px/1 ui-monospace,monospace;color:var(--r-color-fg-faint)">
             {{ row.widthPx }}px · {{ row.size }}
           </span>
-          <div
-            :style="cellFrame + ';width:' + row.widthPx + 'px'"
-          >
+          <div :style="[cellFrame, { width: row.widthPx + 'px' }]">
             <div style="display:flex;flex-wrap:wrap;gap:3px">
               <RChip
                 v-for="text in labels"
