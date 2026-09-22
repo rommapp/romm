@@ -129,7 +129,7 @@ function onRowClick(e: MouseEvent) {
 
   <a
     v-else
-    class="coll-list-row"
+    class="coll-list-row coll-list-row--columns"
     :style="gridStyle"
     :href="to"
     :aria-label="t('rom.open-game', { name })"
@@ -185,10 +185,7 @@ function onRowClick(e: MouseEvent) {
 .coll-list-row {
   /* Runs to the screen edges wherever the shell asks for it. */
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
-  display: grid;
   align-items: center;
-  gap: 0 var(--r-space-3);
-  padding: 0 var(--r-space-3);
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
   font-size: var(--r-font-size-md);
@@ -202,8 +199,13 @@ function onRowClick(e: MouseEvent) {
   background: var(--r-color-bg-elevated);
 }
 
-/* Compact (phones / tablets): cover + name, and the columns collapse into
-   one line of facts. */
+/* Kept off the compact row, whose shared flex layout this would outrank. */
+.coll-list-row--columns {
+  display: grid;
+  gap: 0 var(--r-space-3);
+  padding: 0 var(--r-space-3);
+}
+
 /* Clear of the screen edge, which the row itself runs to. */
 .coll-list-row__lock {
   margin-inline-end: var(--r-space-2);

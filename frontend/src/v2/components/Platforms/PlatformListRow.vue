@@ -134,7 +134,7 @@ function onRowClick(e: MouseEvent) {
 
   <a
     v-else
-    class="plat-list-row"
+    class="plat-list-row plat-list-row--columns"
     :href="href"
     :aria-label="t('common.open-item', { name: displayName })"
     @click="onRowClick"
@@ -210,11 +210,7 @@ function onRowClick(e: MouseEvent) {
 .plat-list-row {
   /* Runs to the screen edges wherever the shell asks for it. */
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
   align-items: center;
-  gap: 0 var(--r-space-3);
-  padding: 0 var(--r-space-3);
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
   font-size: var(--r-font-size-md);
@@ -228,8 +224,14 @@ function onRowClick(e: MouseEvent) {
   background: var(--r-color-bg-elevated);
 }
 
-/* Compact (phones / tablets): icon + name, and the columns collapse into
-   one line of facts. */
+/* Kept off the compact row, whose shared flex layout this would outrank. */
+.plat-list-row--columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
+  gap: 0 var(--r-space-3);
+  padding: 0 var(--r-space-3);
+}
+
 /* Clear of the screen edge, which the row itself runs to. */
 .plat-list-row--compact .plat-list-row__playable {
   margin-inline-end: var(--r-space-2);
