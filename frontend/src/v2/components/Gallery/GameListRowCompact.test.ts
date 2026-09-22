@@ -37,6 +37,13 @@ function mountRow(props: Record<string, unknown> = {}) {
   });
 }
 
+/** The facts line's text pieces, separators included. */
+function facts(wrapper: ReturnType<typeof mountRow>): string[] {
+  return wrapper
+    .findAll(".r-list-compact__facts > span")
+    .map((el) => el.text());
+}
+
 describe("list row on phones and tablets", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -48,22 +55,13 @@ describe("list row on phones and tablets", () => {
 
     expect(wrapper.find(".game-list-row__compact").exists()).toBe(true);
     expect(wrapper.find(".game-list-row__cell").exists()).toBe(false);
-    expect(wrapper.find(".game-list-row__facts").text()).toBe(
-      "Super Nintendo  ·  4 MB  ·  1995",
-    );
+    expect(facts(wrapper)).toEqual(["Super Nintendo", "·", "1995"]);
   });
 
   it("leaves the platform out where the whole list shares one", () => {
     const wrapper = mountRow({ showPlatformColumn: false });
 
-    expect(wrapper.find(".game-list-row__facts").text()).toBe("4 MB  ·  1995");
-  });
-
-  // An empty file is still a size worth reading, not a missing one.
-  it("states a zero-byte file's size", () => {
-    const wrapper = mountRow({ rom: rom({ fs_size_bytes: 0 }) });
-
-    expect(wrapper.find(".game-list-row__facts").text()).toContain("0 Bytes");
+    expect(facts(wrapper)).toEqual(["1995"]);
   });
 
   it("keeps the columns on wider viewports", () => {
@@ -97,6 +95,7 @@ describe("list row on phones and tablets", () => {
       .map((el) => el.text());
     // The file name, plus what the facts line leaves out.
     expect(fields).toContain("Chrono Trigger.sfc");
+    expect(fields).toContain("4 MB");
     expect(fields).toContain("9.1");
     expect(fields).toContain("USA");
     expect(fields).toContain("en");

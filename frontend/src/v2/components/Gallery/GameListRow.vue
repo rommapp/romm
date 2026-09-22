@@ -144,12 +144,13 @@ const gridStyle = computed(() => ({
 const titleSkeletonGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
 
 /** What the compact row leaves out, in the order the panel lays it out: the
- *  file name across the top, then two rows of three. */
+ *  file name across the top, then rows of three that end beside the sources. */
 const detailFields = computed(() => {
   const item = rom.value;
   if (!item) return [];
   return [
     { label: t("rom.filename"), value: item.fs_name, wide: true },
+    { label: labelOf("fs_size_bytes"), value: formatBytes(item.fs_size_bytes) },
     { label: labelOf("created_at"), value: formatDate(item.created_at) },
     { label: labelOf("first_release_date"), value: releaseDate(item) },
     { label: labelOf("average_rating"), value: ratingValue(item) },
@@ -183,22 +184,16 @@ function listValue(values: string[] | null | undefined): string {
   return values && values.length > 0 ? values.join(", ") : "—";
 }
 
-/** The facts line under the title: what a library owner scans for, led by
- *  the platform wherever the list mixes them. */
-const facts = computed(() => {
+/** Leads the facts line wherever the list mixes platforms. */
+const platformName = computed(() => {
   const item = rom.value;
-  if (!item) return "";
-  const year = releaseYear(item.metadatum?.first_release_date);
-  return [
-    props.showPlatformColumn
-      ? item.platform_custom_name || item.platform_display_name
-      : null,
-    formatBytes(item.fs_size_bytes),
-    year ? String(year) : null,
-  ]
-    .filter(Boolean)
-    .join("  ·  ");
+  if (!item || !props.showPlatformColumn) return null;
+  return item.platform_custom_name || item.platform_display_name;
 });
+
+const year = computed(() =>
+  releaseYear(rom.value?.metadatum?.first_release_date),
+);
 
 const isFavorited = computed(() =>
   rom.value ? collectionsStore.isFavorite(rom.value) : false,
@@ -403,15 +398,33 @@ function onRowTouchMove(e: TouchEvent) {
             <div class="game-list-row__name">
               {{ rom.name ?? rom.fs_name_no_ext }}
             </div>
-            <div class="game-list-row__facts">
-              {{ facts }}
-              <RIcon
-                v-if="isFavorited"
-                icon="mdi-heart"
-                size="11"
-                class="game-list-row__fav"
-                :aria-label="t('rom.favorite')"
-              />
+            <div class="r-list-compact__facts">
+              <template v-if="platformName">
+                <RPlatformIcon
+                  class="game-list-row__facts-icon"
+                  :slug="rom.platform_slug"
+                  :fs-slug="rom.platform_fs_slug"
+                  :alt="platformName"
+                  :size="14"
+                  :show-tooltip="false"
+                />
+                <span>{{ platformName }}</span>
+              </template>
+              <span v-if="platformName && year" class="r-list-compact__dot"
+                >·</span
+              >
+              <span v-if="year">{{ year }}</span>
+              <template v-if="isFavorited">
+                <span v-if="platformName || year" class="r-list-compact__dot"
+                  >·</span
+                >
+                <RIcon
+                  icon="mdi-heart"
+                  size="11"
+                  class="game-list-row__fav"
+                  :aria-label="t('rom.favorite')"
+                />
+              </template>
             </div>
             <div class="game-list-row__badges" @click.stop>
               <GameActionBtn
@@ -463,7 +476,7 @@ function onRowTouchMove(e: TouchEvent) {
               <span class="game-list-row__field-label">{{ field.label }}</span>
               <span class="game-list-row__field-value">{{ field.value }}</span>
             </div>
-            <div class="game-list-row__field game-list-row__field--wide">
+            <div class="game-list-row__field game-list-row__field--sources">
               <span class="game-list-row__field-label">{{
                 t("scan.metadata-sources")
               }}</span>
@@ -557,7 +570,7 @@ function onRowTouchMove(e: TouchEvent) {
           class="game-list-row__cell"
           :class="cellModifiers('fs_size_bytes')"
         >
-          {{ rom.fs_size_bytes ? formatBytes(rom.fs_size_bytes) : "—" }}
+          {{ formatBytes(rom.fs_size_bytes) }}
         </div>
         <div class="game-list-row__cell" :class="cellModifiers('created_at')">
           {{ formatDate(rom.created_at) }}
@@ -792,19 +805,12 @@ function onRowTouchMove(e: TouchEvent) {
   white-space: normal;
   line-height: 1.25;
 }
-/* The line the owner scans: platform, size, year, and the favourite mark. */
-.game-list-row__facts {
-  font-size: var(--r-font-size-sm);
-  color: var(--r-color-fg-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.game-list-row__facts-icon,
+.game-list-row__fav {
+  flex-shrink: 0;
 }
 .game-list-row__fav {
   color: var(--r-color-brand-primary);
-  vertical-align: -1px;
-  margin-inline-start: 2px;
 }
 
 .game-list-row__chevron {
@@ -862,6 +868,9 @@ function onRowTouchMove(e: TouchEvent) {
 }
 .game-list-row__field--wide {
   grid-column: 1 / -1;
+}
+.game-list-row__field--sources {
+  grid-column: span 2;
 }
 .game-list-row__field-value {
   font-size: var(--r-font-size-md);
