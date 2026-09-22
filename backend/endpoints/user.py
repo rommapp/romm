@@ -201,6 +201,10 @@ def create_user_from_invite(
         UserSchema: Newly created user
     """
 
+    # Ahead of the "already exists" checks, which would otherwise enumerate
+    # accounts for an invalid token. Not consumed, so a retry keeps the invite.
+    auth_handler.assert_invite_link_token_valid(token)
+
     try:
         validate_username(username)
         validate_password(password)

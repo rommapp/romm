@@ -222,6 +222,77 @@ def test_update_user_accepts_png_avatar(
     assert response.json()["avatar_path"].endswith("avatar.png")
 
 
+def _invite_token(client, access_token: str) -> str:
+    response = client.post(
+        "/api/users/invite-link",
+        params={"role": Role.USER.value},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    return response.json()["token"]
+
+
+def test_register_with_a_bad_token_does_not_disclose_existing_accounts(
+    client, access_token: str, editor_user: User
+):
+    """The token is checked first, so the duplicate-account errors below it
+    cannot be used to enumerate accounts without a valid invite."""
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": editor_user.username,
+            "email": "someone@example.com",
+            "password": "a-good-password",
+            "token": "not-a-real-token",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert editor_user.username not in response.json()["detail"]
+
+
+def test_a_rejected_registration_leaves_the_invite_usable(
+    client, access_token: str, editor_user: User
+):
+    token = _invite_token(client, access_token)
+
+    # Rejected on the duplicate username, after the token was checked.
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": editor_user.username,
+            "email": "someone@example.com",
+            "password": "a-good-password",
+            "token": token,
+        },
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+    # The invite was verified, not spent, so it still registers an account.
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": "test_invitee",
+            "email": "invitee@example.com",
+            "password": "a-good-password",
+            "token": token,
+        },
+    )
+    assert response.status_code == HTTPStatus.CREATED
+
+    # And now it is spent.
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": "test_invitee_2",
+            "email": "invitee2@example.com",
+            "password": "a-good-password",
+            "token": token,
+        },
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
 @pytest.mark.parametrize(
     "base_url, expected_url",
     [
