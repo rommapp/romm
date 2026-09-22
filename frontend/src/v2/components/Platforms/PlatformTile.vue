@@ -41,9 +41,10 @@ const props = withDefaults(defineProps<Props>(), {
 
 const href = computed(() => props.to ?? `/platform/${props.id ?? ""}`);
 
+const { t } = useI18n();
+
 // Shared-element morph between the platform tile icon and the
 // RPlatformIcon shown in the Platform view's InfoPanel cover slot.
-const { t } = useI18n();
 const router = useRouter();
 const iconEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
