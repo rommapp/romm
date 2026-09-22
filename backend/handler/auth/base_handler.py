@@ -9,6 +9,7 @@ from joserfc import jwt
 from joserfc.errors import BadSignatureError, DecodeError
 from joserfc.jwk import OctKey
 from passlib.context import CryptContext
+from redis.exceptions import RedisError
 from starlette.requests import HTTPConnection
 
 from config import (
@@ -205,6 +206,43 @@ class AuthHandler:
 
         return user
 
+    async def apply_user_update(
+        self,
+        user_id: int,
+        data: dict[str, Any],
+        revoke_sessions_for: str | None = None,
+    ) -> None:
+        """
+        Write an update to a user, revoking that account's sessions around it.
+        Args:
+            user_id (int): The user the update applies to.
+            data (dict[str, Any]): The fields to write.
+            revoke_sessions_for (str | None): Username the sessions are keyed by,
+                or None to write without revoking.
+        """
+        from handler.database import db_user_handler
+
+        if revoke_sessions_for:
+            # Ahead of the write: an unreachable Redis then aborts the change
+            # rather than committing it with the account's sessions left live.
+            await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+
+        db_user_handler.update_user(user_id, data)
+
+        if revoke_sessions_for:
+            # After it, for a login the old password was still good for. The
+            # write has committed, so a failure here is logged, not raised.
+            try:
+                await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+            except RedisError, OSError:
+                log.error(
+                    "Credentials for '%s' changed, but revoking its sessions "
+                    "afterwards failed; a session created during the update may "
+                    "still be live",
+                    hl(revoke_sessions_for, color=CYAN),
+                    exc_info=True,
+                )
+
     async def set_user_new_password(self, user: Any, new_password: str) -> None:
         """
         Set the new password for the user.
@@ -212,12 +250,11 @@ class AuthHandler:
             user (Any): The user object.
             new_password (str): The new password to set.
         """
-        from handler.database import db_user_handler
-
-        db_user_handler.update_user(
-            user.id, {"hashed_password": self.get_password_hash(new_password)}
+        await self.apply_user_update(
+            user.id,
+            {"hashed_password": self.get_password_hash(new_password)},
+            revoke_sessions_for=user.username,
         )
-        await RedisSessionMiddleware.clear_user_sessions(user.username)
 
     def generate_invite_link_token(
         self, user: Any, role: str, expiration: int | None = None
