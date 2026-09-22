@@ -205,6 +205,24 @@ class TestFSPlatformsHandler:
             assert "n64" in result
             assert "psx" not in result
 
+    async def test_find_ambiguous_folders_reports_case_variant_siblings(
+        self, handler: FSPlatformsHandler
+    ):
+        """One config key covers both, so they cannot be mapped apart."""
+        with patch.object(handler, "get_platforms", return_value=["PSX", "n64", "psx"]):
+            assert await handler.find_ambiguous_folders("psx") == ["PSX", "psx"]
+            assert await handler.find_ambiguous_folders("PSX") == ["PSX", "psx"]
+
+    async def test_find_ambiguous_folders_ignores_an_unshared_name(
+        self, handler: FSPlatformsHandler
+    ):
+        with patch.object(
+            handler, "get_platforms", return_value=["Nintendo 64", "psx"]
+        ):
+            assert await handler.find_ambiguous_folders("Nintendo 64") == []
+            assert await handler.find_ambiguous_folders("nintendo 64") == []
+            assert await handler.find_ambiguous_folders("absent") == []
+
     async def test_get_platforms_calls_list_directories_with_correct_path(
         self, handler: FSPlatformsHandler, config
     ):

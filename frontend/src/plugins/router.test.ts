@@ -1,8 +1,25 @@
 import { createPinia, setActivePinia } from "pinia";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RouteLocationNormalized } from "vue-router";
 import i18n, { localesReady } from "@/locales";
-import router, { applyRouteTitle } from "@/plugins/router";
+import router, { applyRouteTitle, ROUTES } from "@/plugins/router";
+import storeAuth from "@/stores/auth";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { User } from "@/stores/users";
+
+const { getRom } = vi.hoisted(() => ({ getRom: vi.fn() }));
+
+vi.mock("@/services/api/rom", () => ({
+  default: { getRom },
+}));
+
+function makeRom(overrides: Partial<DetailedRom> = {}): DetailedRom {
+  return {
+    id: 1,
+    name: "Chrono Trigger",
+    ...overrides,
+  } as unknown as DetailedRom;
+}
 
 describe("route titles", () => {
   beforeAll(async () => {
@@ -64,5 +81,28 @@ describe("applyRouteTitle", () => {
     document.title = "stale";
     applyRouteTitle(routeAt("/", { title: "settings.home" }), routeAt("/"));
     expect(document.title).toBe(i18n.global.t("settings.home"));
+  });
+});
+
+describe("the rom route", () => {
+  beforeAll(async () => {
+    setActivePinia(createPinia());
+    await localesReady;
+  });
+
+  // A play page writes saves server-side and then navigates here, so an id
+  // matching the route is not proof the store's copy is current.
+  it("re-reads a rom the store already holds", async () => {
+    const roms = storeRoms();
+    storeAuth().setCurrentUser({ id: 1 } as User);
+    roms.setCurrentRom(makeRom({ id: 9, name: "before the session" }));
+    getRom.mockResolvedValue({
+      data: makeRom({ id: 9, name: "after the session" }),
+    });
+
+    await router.push({ name: ROUTES.ROM, params: { rom: 9 } });
+
+    expect(getRom).toHaveBeenCalledWith({ romId: 9 });
+    expect(roms.currentRom?.name).toBe("after the session");
   });
 });

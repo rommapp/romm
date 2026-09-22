@@ -2,6 +2,7 @@ import base64
 import json
 from datetime import timedelta
 from http import HTTPStatus
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -258,6 +259,136 @@ def test_delete_user(client, access_token: str, editor_user: User):
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == HTTPStatus.OK
+
+
+@pytest.mark.asyncio
+async def test_admin_password_reset_invalidates_the_target_user_sessions(
+    client, access_token: str, editor_user: User
+):
+    """The reason the revocation is not scoped to the caller: an admin resetting
+    a compromised account has to end that account's sessions, not their own."""
+    basic_auth = base64.b64encode(
+        f"{editor_user.username}:test_editor_password".encode("ascii")
+    ).decode("ascii")
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+    target_session = response.cookies.get("romm_session")
+    assert target_session is not None
+
+    target_cookie = {"Cookie": f"romm_session={target_session}"}
+    assert client.get("/api/users/me", headers=target_cookie).status_code == (
+        HTTPStatus.OK
+    )
+
+    client.cookies.clear()
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"password": "reset_by_admin_password"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.get("/api/users/me", headers=target_cookie)
+    assert response.status_code in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN)
+
+    # The admin's own credentials still work.
+    response = client.get(
+        "/api/users", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+
+@pytest.mark.asyncio
+async def test_a_failed_revocation_leaves_the_password_unchanged(
+    client, access_token: str, editor_user: User
+):
+    """An unreachable Redis aborts the change instead of committing it."""
+    original_hash = editor_user.hashed_password
+
+    with mock.patch.object(
+        RedisSessionMiddleware,
+        "clear_user_sessions",
+        side_effect=ConnectionError("redis is down"),
+    ):
+        with pytest.raises(ConnectionError):
+            client.put(
+                f"/api/users/{editor_user.id}",
+                data={"password": "reset_while_redis_is_down"},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+    db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user is not None
+    assert db_user.hashed_password == original_hash
+
+
+@pytest.mark.asyncio
+async def test_a_failed_post_write_revocation_does_not_fail_the_change(
+    client, access_token: str, editor_user: User
+):
+    """The write has committed by the second pass, so its failure is logged."""
+    original_hash = editor_user.hashed_password
+    calls: list[str] = []
+
+    async def revoke_then_fail(user_id: str) -> None:
+        calls.append(user_id)
+        if len(calls) == 2:
+            raise ConnectionError("redis went down mid-update")
+
+    with mock.patch.object(
+        RedisSessionMiddleware, "clear_user_sessions", side_effect=revoke_then_fail
+    ):
+        response = client.put(
+            f"/api/users/{editor_user.id}",
+            data={"password": "reset_with_redis_failing_late"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == HTTPStatus.OK
+    assert len(calls) == 2
+
+    db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user is not None
+    assert db_user.hashed_password != original_hash
+
+
+@pytest.mark.asyncio
+async def test_sessions_are_revoked_on_both_sides_of_the_write(
+    client, access_token: str, editor_user: User
+):
+    """The second pass catches a login the old password was still good for."""
+    calls: list[str] = []
+    real_update = DBUsersHandler.update_user
+
+    def record_update(
+        self: DBUsersHandler, id: int, data: dict, *args: Any, **kwargs: Any
+    ) -> User:
+        # `set_last_active` writes on every authenticated request; only the
+        # credential write is being ordered here.
+        if "hashed_password" in data:
+            calls.append("write")
+        return real_update(self, id, data, *args, **kwargs)
+
+    async def record_revoke(user_id: str) -> None:
+        calls.append("revoke")
+
+    with (
+        mock.patch.object(DBUsersHandler, "update_user", record_update),
+        mock.patch.object(
+            RedisSessionMiddleware, "clear_user_sessions", side_effect=record_revoke
+        ),
+    ):
+        response = client.put(
+            f"/api/users/{editor_user.id}",
+            data={"password": "another_reset_password"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == HTTPStatus.OK
+    assert calls == ["revoke", "write", "revoke"]
 
 
 @pytest.mark.asyncio

@@ -18,6 +18,11 @@ NGINX_UPSTREAM_IDLE_TIMEOUT = 60
 # pool is off entirely and the timeout invariant stops meaning anything.
 NGINX_UPSTREAM_KEEPALIVE_SINCE = (1, 29, 7)
 
+# njs 0.9.7 dropped the "js vm init njs" notice it logged on every start. nginx
+# 1.30.0 also shipped builds bundling njs 0.9.6, so 1.30.1 is the first release
+# that never logs it.
+NJS_QUIET_STARTUP_SINCE = (1, 30, 1)
+
 REQUIRED_GZIP_TYPES = [
     "application/wasm",  # EmulatorJS, js-dos and FAKE-08 cores
     "image/svg+xml",  # player logos and favicons
@@ -47,13 +52,29 @@ def test_compressible_types_are_gzipped(gzip_types: set[str], media_type: str) -
     assert media_type in gzip_types, f"{media_type} would be served uncompressed"
 
 
-def test_nginx_defaults_upstream_keepalive_on() -> None:
+def _format(version: tuple[int, ...]) -> str:
+    return ".".join(str(part) for part in version)
+
+
+def _nginx_version() -> tuple[int, ...]:
     match = re.search(r"^ARG NGINX_VERSION=(\S+)", DOCKERFILE.read_text(), re.M)
     assert match, "docker/Dockerfile is missing an ARG NGINX_VERSION pin"
-    version = tuple(int(part) for part in match.group(1).split("."))
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def test_nginx_defaults_upstream_keepalive_on() -> None:
+    version = _nginx_version()
     assert version >= NGINX_UPSTREAM_KEEPALIVE_SINCE, (
-        f"nginx {match.group(1)} does not pool upstream connections by default, "
+        f"nginx {_format(version)} does not pool upstream connections by default, "
         f"so every API request opens a new one"
+    )
+
+
+def test_nginx_starts_without_the_njs_notice() -> None:
+    version = _nginx_version()
+    assert version >= NJS_QUIET_STARTUP_SINCE, (
+        f"nginx {_format(version)} bundles an njs that logs a 'js vm init njs' "
+        f"notice on every start, because the config imports a VM at the http level"
     )
 
 
