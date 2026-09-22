@@ -159,7 +159,6 @@ function onClose(evt: MouseEvent) {
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  min-width: 0;
   white-space: nowrap;
   font-weight: var(--r-font-weight-medium);
   line-height: 1;
@@ -328,6 +327,7 @@ function onClose(evt: MouseEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   background: transparent;
   border: none;
   padding: 0;

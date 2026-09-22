@@ -25,7 +25,7 @@ const meta: Meta<typeof RChip> = {
     },
     size: {
       control: "select",
-      options: ["x-small", "small", "default", "large", "x-large"],
+      options: CHIP_SIZES,
     },
     color: { control: "text" },
     label: { control: "boolean" },
@@ -260,7 +260,7 @@ export const TypographyDescenders: Story = {
   render: () => ({
     components: { RChip },
     setup: () => ({
-      rowLabels: [...TYPOGRAPHY_FIXTURES],
+      labels: TYPOGRAPHY_FIXTURES,
       sizes: CHIP_SIZES,
     }),
     template: `
@@ -276,7 +276,7 @@ export const TypographyDescenders: Story = {
             {{ size }}
           </span>
           <RChip
-            v-for="label in rowLabels"
+            v-for="label in labels"
             :key="size + label"
             variant="translucent"
             color="primary"
@@ -288,7 +288,7 @@ export const TypographyDescenders: Story = {
         <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
           <span style="font:10px/1 sans-serif;color:var(--r-color-fg-faint)">closable</span>
           <RChip
-            v-for="label in rowLabels"
+            v-for="label in labels"
             :key="'close-' + label"
             variant="translucent"
             color="primary"
@@ -313,14 +313,14 @@ const CONSTRAINED_GALLERY_LABELS = [
 ] as const;
 
 const CONSTRAINED_GALLERY_LADDER = [
-  { widthPx: 170, size: "x-small" as const },
-  { widthPx: 140, size: "small" as const },
-  { widthPx: 110, size: "default" as const },
-  { widthPx: 80, size: "large" as const },
+  { widthPx: 170, size: "x-small" },
+  { widthPx: 140, size: "small" },
+  { widthPx: 110, size: "default" },
+  { widthPx: 80, size: "large" },
 ] as const;
 
 const CONSTRAINED_CELL_FRAME =
-  "overflow:hidden;box-sizing:border-box;padding:6px;" +
+  "box-sizing:border-box;padding:6px;" +
   "border:2px dashed var(--r-color-fg-muted);" +
   "border-radius:6px;" +
   "background:color-mix(in srgb, var(--r-color-bg-elevated) 65%, transparent);" +
