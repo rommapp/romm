@@ -1,5 +1,6 @@
 """Authorization for the netplay socket namespace."""
 
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -7,6 +8,8 @@ import pytest
 from endpoints.sockets import netplay as netplay_module
 from endpoints.sockets.netplay import (
     AUTH_USER_SESSION_KEY,
+    RoomData,
+    RoomDataExtra,
     connect,
     data_message,
     join_room,
@@ -15,6 +18,7 @@ from endpoints.sockets.netplay import (
     webrtc_signal,
 )
 from handler.auth.constants import Scope
+from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom
 
 ROM_ID = 42
 PLATFORM_ID = 7
@@ -29,45 +33,47 @@ def _user(*scopes: Scope) -> Mock:
     return user
 
 
-def _room(**overrides) -> dict:
-    room: dict = {
-        "owner": "sid-owner",
-        "players": {
-            "owner": {
-                "socketId": "sid-owner",
-                "player_name": "Owner",
-                "userid": "owner",
-                "playerId": "owner",
-            },
-            "me": {
-                "socketId": "sid",
-                "player_name": "Me",
-                "userid": "me",
-                "playerId": "me",
-            },
+def _player(socket_id: str, name: str, player_id: str) -> NetplayPlayerInfo:
+    return NetplayPlayerInfo(
+        socketId=socket_id,
+        player_name=name,
+        userid=player_id,
+        playerId=player_id,
+    )
+
+
+def _room(
+    *,
+    password: str | None = None,
+    players: dict[str, NetplayPlayerInfo] | None = None,
+) -> NetplayRoom:
+    return NetplayRoom(
+        owner="sid-owner",
+        players=players
+        or {
+            "owner": _player("sid-owner", "Owner", "owner"),
+            "me": _player("sid", "Me", "me"),
         },
-        "peers": [],
-        "room_name": "Room",
-        "game_id": str(ROM_ID),
-        "domain": None,
-        "password": None,
-        "max_players": 4,
-    }
-    room.update(overrides)
-    return room
+        peers=[],
+        room_name="Room",
+        game_id=str(ROM_ID),
+        domain=None,
+        password=password,
+        max_players=4,
+    )
 
 
 @pytest.fixture
-def server(mocker):
+def server(mocker) -> Mock:
     """The netplay socket server, with the session store stubbed per socket."""
-    sessions: dict[str, dict] = {}
+    sessions: dict[str, dict[str, Any]] = {}
 
-    async def get_session(sid: str) -> dict:
+    async def get_session(sid: str) -> dict[str, Any]:
         if sid not in sessions:
             raise KeyError(sid)
         return sessions[sid]
 
-    async def save_session(sid: str, session: dict) -> None:
+    async def save_session(sid: str, session: dict[str, Any]) -> None:
         sessions[sid] = session
 
     socket_server = netplay_module.netplay_socket_handler.socket_server
@@ -89,15 +95,15 @@ def server(mocker):
 
 
 @pytest.fixture
-def rooms(mocker):
+def rooms(mocker) -> Mock:
     """The room store, plus the ROM and permission lookups the gate uses."""
-    store: dict[str, dict] = {}
+    store: dict[str, NetplayRoom] = {}
     handler = mocker.patch.object(netplay_module, "netplay_handler")
 
-    async def get(session_id: str):
+    async def get(session_id: str) -> NetplayRoom | None:
         return store.get(session_id)
 
-    async def set_(session_id: str, room: dict) -> None:
+    async def set_(session_id: str, room: NetplayRoom) -> None:
         store[session_id] = room
 
     handler.get = AsyncMock(side_effect=get)
@@ -112,17 +118,18 @@ def rooms(mocker):
     return Mock(store=store, handler=handler, permissions=permissions)
 
 
-def _open(sid: str, *, game_id: str | None = str(ROM_ID)) -> dict:
-    extra: dict = {"sessionid": "room-1", "userid": "me"}
+def _open(*, game_id: str | None = str(ROM_ID)) -> RoomData:
+    extra = RoomDataExtra(sessionid="room-1", userid="me", playerId=None)
     if game_id is not None:
         extra["game_id"] = game_id
-    return {"extra": extra}
+    return RoomData(extra=extra)
 
 
-def _join(sid: str, **extra_overrides) -> dict:
-    extra = {"sessionid": "room-1", "userid": "me"}
-    extra.update(extra_overrides)
-    return {"extra": extra}
+def _join(*, room_password: str | None = None) -> RoomData:
+    extra = RoomDataExtra(sessionid="room-1", userid="me", playerId=None)
+    if room_password is not None:
+        extra["room_password"] = room_password
+    return RoomData(extra=extra)
 
 
 class TestOpenRoomAuthorization:
@@ -131,7 +138,7 @@ class TestOpenRoomAuthorization:
             netplay_module, "_authenticated_user", AsyncMock(return_value=None)
         )
 
-        result = await open_room("sid", _open("sid"))
+        result = await open_room("sid", _open())
 
         assert "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
@@ -144,7 +151,7 @@ class TestOpenRoomAuthorization:
             AsyncMock(return_value=_user(Scope.ASSETS_READ)),
         )
 
-        result = await open_room("sid", _open("sid"))
+        result = await open_room("sid", _open())
 
         assert "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
@@ -160,7 +167,7 @@ class TestOpenRoomAuthorization:
         )
         server.sessions["sid"] = {AUTH_USER_SESSION_KEY: 1}
 
-        result = await open_room("sid", _open("sid"))
+        result = await open_room("sid", _open())
 
         assert "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
@@ -173,7 +180,7 @@ class TestOpenRoomAuthorization:
         )
         rooms.permissions.return_value.can_see_rom = Mock(return_value=False)
 
-        result = await open_room("sid", _open("sid"))
+        result = await open_room("sid", _open())
 
         assert "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
@@ -188,7 +195,7 @@ class TestOpenRoomAuthorization:
             netplay_module.db_rom_handler, "get_rom_visibility", return_value=None
         )
 
-        result = await open_room("sid", _open("sid"))
+        result = await open_room("sid", _open())
 
         assert "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
@@ -200,7 +207,7 @@ class TestOpenRoomAuthorization:
             AsyncMock(return_value=_user(Scope.ROMS_READ)),
         )
 
-        result = await open_room("sid", _open("sid", game_id=None))
+        result = await open_room("sid", _open(game_id=None))
 
         assert "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
@@ -212,7 +219,7 @@ class TestOpenRoomAuthorization:
             AsyncMock(return_value=_user(Scope.ROMS_READ)),
         )
 
-        assert await open_room("sid", _open("sid")) is None
+        assert await open_room("sid", _open()) is None
 
         assert "room-1" in rooms.store
         server.enter_room.assert_awaited_once_with("sid", "room-1")
@@ -229,7 +236,7 @@ class TestOpenRoomAuthorization:
         )
         server.sessions["sid"] = {AUTH_USER_SESSION_KEY: 1}
 
-        await open_room("sid", _open("sid"))
+        await open_room("sid", _open())
 
         assert server.sessions["sid"][AUTH_USER_SESSION_KEY] == 1
         assert server.sessions["sid"]["session_id"] == "room-1"
@@ -242,7 +249,7 @@ class TestJoinRoomAuthorization:
             netplay_module, "_authenticated_user", AsyncMock(return_value=None)
         )
 
-        result = await join_room("sid", _join("sid"))
+        result = await join_room("sid", _join())
 
         assert "Not authorized" in result
         server.enter_room.assert_not_awaited()
@@ -253,7 +260,7 @@ class TestJoinRoomAuthorization:
             netplay_module, "_authenticated_user", AsyncMock(return_value=None)
         )
 
-        result = await join_room("sid", _join("sid", room_password="guess"))
+        result = await join_room("sid", _join(room_password="guess"))
 
         assert result == "Incorrect password"
         server.enter_room.assert_not_awaited()
@@ -264,7 +271,7 @@ class TestJoinRoomAuthorization:
             netplay_module, "_authenticated_user", AsyncMock(return_value=None)
         )
 
-        assert await join_room("sid", _join("sid", room_password="s3cret")) is not None
+        assert await join_room("sid", _join(room_password="s3cret")) is not None
 
         server.enter_room.assert_awaited_once_with("sid", "room-1")
 
@@ -277,7 +284,7 @@ class TestJoinRoomAuthorization:
             AsyncMock(return_value=_user(Scope.ROMS_READ)),
         )
 
-        result = await join_room("sid", _join("sid"))
+        result = await join_room("sid", _join())
 
         assert "Not authorized" in result
         server.enter_room.assert_not_awaited()
@@ -294,7 +301,7 @@ class TestJoinRoomAuthorization:
             AsyncMock(return_value=_user()),
         )
 
-        assert await join_room("sid", _join("sid", room_password="s3cret")) is not None
+        assert await join_room("sid", _join(room_password="s3cret")) is not None
 
         server.enter_room.assert_awaited_once_with("sid", "room-1")
 
@@ -306,7 +313,7 @@ class TestJoinRoomAuthorization:
             AsyncMock(return_value=_user(Scope.ROMS_READ)),
         )
 
-        joined = await join_room("sid", _join("sid"))
+        joined = await join_room("sid", _join())
 
         assert joined is not None
         server.enter_room.assert_awaited_once_with("sid", "room-1")
@@ -323,18 +330,20 @@ class TestWebRtcSignalRelay:
 
     async def test_relays_a_signal_to_a_peer(self, mocker, server, rooms):
         rooms.store["room-1"] = _room()
-        rooms.store["room-1"]["players"]["guest"] = {
-            "socketId": "sid-peer",
-            "player_name": "Guest",
-            "userid": None,
-            "playerId": "guest",
-        }
+        rooms.store["room-1"]["players"]["guest"] = NetplayPlayerInfo(
+            socketId="sid-peer",
+            player_name="Guest",
+            userid=None,
+            playerId="guest",
+        )
         server.sessions["sid"] = {"session_id": "room-1"}
 
         await webrtc_signal("sid", {"target": "sid-peer", "offer": {"sdp": "x"}})
 
         server.emit.assert_awaited_once()
-        assert server.emit.await_args.kwargs["to"] == "sid-peer"
+        await_args = server.emit.await_args
+        assert await_args is not None
+        assert await_args.kwargs["to"] == "sid-peer"
 
     async def test_drops_a_signal_from_a_socket_with_no_room(
         self, mocker, server, rooms
@@ -350,14 +359,7 @@ class TestWebRtcSignalRelay:
     ):
         """A room id in the session is not enough; the sender must still be a player."""
         rooms.store["room-1"] = _room(
-            players={
-                "owner": {
-                    "socketId": "sid-owner",
-                    "player_name": "Owner",
-                    "userid": "owner",
-                    "playerId": "owner",
-                }
-            }
+            players={"owner": _player("sid-owner", "Owner", "owner")}
         )
         server.sessions["sid"] = {"session_id": "room-1"}
 

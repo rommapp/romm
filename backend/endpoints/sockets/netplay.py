@@ -1,11 +1,6 @@
-"""Netplay rooms over Socket.IO.
+"""Netplay rooms over Socket.IO, gated on the ROM being played.
 
-A room is a WebRTC mesh: peers find each other through ``users-updated`` and
-exchange offers, answers and candidates through ``webrtc-signal``. Opening a
-room is gated on the ROM being played, so the owner must be logged in, hold
-``roms.read`` and be allowed to see that ROM. A guest may still join a room the
-owner password-protected: the room password is the owner's invite and stands in
-for the ROM gate.
+A guest may bypass that gate with the owner's room password.
 """
 
 from __future__ import annotations
@@ -76,10 +71,7 @@ async def _clear_room_session(sid: str) -> None:
 
 
 async def _authenticated_user(sid: str) -> User | None:
-    """The user resolved at connect time, or ``None`` for a guest or a disabled user.
-
-    Reloaded per call, so disabling an account takes effect without a reconnect.
-    """
+    """The connect-time user, reloaded per call so a disable lands without a reconnect."""
     user_id = (await _get_session(sid)).get(AUTH_USER_SESSION_KEY)
     if user_id is None:
         return None
@@ -91,11 +83,7 @@ async def _authenticated_user(sid: str) -> User | None:
 
 
 def _may_play(user: User | None, game_id: str | None) -> bool:
-    """Whether this user may play ``game_id``.
-
-    The gate the ROM endpoints apply: the ``roms.read`` scope plus the per-ROM
-    visibility check, so a hidden ROM cannot be played through netplay either.
-    """
+    """The gate the ROM endpoints apply, so a hidden ROM cannot be played here either."""
     if user is None or Scope.ROMS_READ not in user.oauth_scopes:
         return False
 
@@ -112,13 +100,7 @@ def _may_play(user: User | None, game_id: str | None) -> bool:
 
 @netplay_socket_handler.socket_server.on("connect")  # type: ignore
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
-    """Record the session user on the socket, never refusing the connection.
-
-    Guessing a room password is the guest path, so an anonymous client has to
-    reach ``join-room``. Identity is stored here and read back by the handlers
-    that do gate, never taken from the client payload. Always returns ``None``
-    (accepts the connection).
-    """
+    """Never refuses, since the guest path needs ``join-room``, and stores identity from the session rather than the payload."""
     try:
         session = await get_session_from_environ(environ)
         if session.get("iss") != "romm:auth":

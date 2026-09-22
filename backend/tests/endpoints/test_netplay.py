@@ -1,7 +1,7 @@
 """The netplay room listing must not reveal rooms for a hidden rom."""
 
 from datetime import timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -10,10 +10,12 @@ from endpoints import netplay as netplay_endpoints
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
 from handler.database.base_handler import sync_session
+from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom
 from models.permission import HiddenEntity, PermEntity
+from models.user import User
 
 
-def _auth(user, scopes=None):
+def _auth(user: User, scopes: list[Scope] | None = None) -> dict[str, str]:
     # Re-reads the user's current (projected) scopes each call.
     token = oauth_handler.create_access_token(
         data={
@@ -26,33 +28,33 @@ def _auth(user, scopes=None):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _hide(entity, entity_id, user_id):
+def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
     with sync_session.begin() as s:
         s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
-def _room(rom_id: int) -> dict:
-    return {
-        "owner": "sid",
-        "players": {
-            "p": {
-                "socketId": "sid",
-                "player_name": "Player p",
-                "userid": None,
-                "playerId": "p",
-            }
+def _room(rom_id: int) -> NetplayRoom:
+    return NetplayRoom(
+        owner="sid",
+        players={
+            "p": NetplayPlayerInfo(
+                socketId="sid",
+                player_name="Player p",
+                userid=None,
+                playerId="p",
+            )
         },
-        "peers": [],
-        "room_name": "Room",
-        "game_id": str(rom_id),
-        "domain": None,
-        "password": None,
-        "max_players": 4,
-    }
+        peers=[],
+        room_name="Room",
+        game_id=str(rom_id),
+        domain=None,
+        password=None,
+        max_players=4,
+    )
 
 
 @pytest.fixture
-def rooms(mocker):
+def rooms(mocker) -> Mock:
     return mocker.patch.object(
         netplay_endpoints.netplay_handler, "get_all", AsyncMock(return_value={})
     )
@@ -73,16 +75,15 @@ def test_listing_hides_rooms_for_a_hidden_rom(client, viewer_user, rom, rooms):
 
     resp = client.get(f"/api/netplay/list?game_id={rom.id}", headers=_auth(viewer_user))
 
-    assert resp.status_code == 200
-    assert resp.json() == {}
+    assert resp.status_code == 404
     rooms.assert_not_awaited()
 
 
-def test_listing_of_a_missing_rom_is_empty(client, viewer_user, rooms):
+def test_listing_of_a_missing_rom_is_not_found(client, viewer_user, rooms):
     resp = client.get("/api/netplay/list?game_id=999999", headers=_auth(viewer_user))
 
-    assert resp.status_code == 200
-    assert resp.json() == {}
+    assert resp.status_code == 404
+    rooms.assert_not_awaited()
 
 
 def test_listing_needs_the_rom_read_scope(client, viewer_user, rooms):
