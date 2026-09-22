@@ -516,11 +516,11 @@ class DBCollectionsHandler(DBBaseHandler):
     def build_smart_collection_query(
         self,
         *,
-        query: Query,
+        query: Select,
         smart_collection: SmartCollection,
         user_id: int | None,
         session: Session,
-    ) -> Query:
+    ) -> Select:
         """Apply a smart collection's stored criteria to a ROM query.
 
         The criteria are `filter_roms`'s own vocabulary, so membership composes
@@ -574,9 +574,7 @@ class DBCollectionsHandler(DBBaseHandler):
             smart_collection=smart_collection,
             user_id=user_id,
             session=session,
-        ).with_only_columns(  # type: ignore
-            Rom.id, Rom.path_cover_s, Rom.path_cover_l
-        )
+        ).with_only_columns(Rom.id, Rom.path_cover_s, Rom.path_cover_l)
 
         return session.execute(query).all()
 

@@ -994,7 +994,7 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(
             Rom.id.in_(
                 db_collection_handler.build_smart_collection_query(
-                    query=member_ids,  # type: ignore
+                    query=member_ids,
                     smart_collection=smart_collection,
                     user_id=user_id,
                     session=session,
@@ -1030,7 +1030,7 @@ class DBRomsHandler(DBBaseHandler):
         return set(
             session.scalars(
                 db_collection_handler.build_smart_collection_query(
-                    query=query,  # type: ignore
+                    query=query,
                     smart_collection=smart_collection,
                     user_id=user_id,
                     session=session,
@@ -1381,7 +1381,7 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def filter_roms(
         self,
-        query: RomSelect,
+        query: Select,
         filters: RomFilterParams | None = None,
         *,
         # The grouped dedup aggregates the active sort key over each group;
@@ -1401,7 +1401,7 @@ class DBRomsHandler(DBBaseHandler):
         hidden_platform_ids: Sequence[int] | None = None,
         hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
-    ) -> RomSelect:
+    ) -> Select:
         from handler.scan_handler import MetadataSource
 
         filters = filters or RomFilterParams()
