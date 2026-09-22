@@ -320,17 +320,15 @@ const nativeRestorableSaves = computed<SaveSchema[]>(() => {
     );
 });
 
-// Every archive regardless of which emulator wrote it, so the picker can
-// offer a foreign pick. The broker still 400s a foreign claim today.
+// Every save regardless of which emulator wrote it, so the picker can offer
+// a foreign pick; the broker routes one through the declared-import path.
 const pickableSaves = computed<SaveSchema[]>(() => {
   if (!rom.value) return [];
-  return (rom.value.user_saves ?? [])
-    .filter((s) => s.file_name.endsWith(".zip"))
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
-        b.id - a.id,
-    );
+  return (rom.value.user_saves ?? []).sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
+      b.id - a.id,
+  );
 });
 
 // The one the broker restores before boot when the claim names none: this
@@ -366,7 +364,7 @@ const nativeStreamStates = computed<UserStateSchema[]>(() => {
 });
 
 // Every state regardless of which emulator wrote it, so the picker can offer
-// a foreign pick. The broker still 400s a foreign claim today.
+// a foreign pick; the broker routes one through the declared-import path.
 const pickableStates = computed<UserStateSchema[]>(() =>
   rom.value ? (rom.value.all_user_states ?? []) : [],
 );

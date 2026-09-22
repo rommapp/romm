@@ -42,12 +42,23 @@ export interface LaunchReady {
   resume: boolean | null;
 }
 
+/** One `.import/` member the broker's activate declined to place. */
+export interface ImportRefusal {
+  reason: string;
+  member: string | null;
+  expected: string | null;
+  detail: string | null;
+  suggest_emulator: string | null;
+  docs: string | null;
+}
+
 /** `streaming:launch-failed`. The claim is already released. */
 export interface LaunchFailed {
   platform: string;
   container: string;
   claimed_at: string;
   detail: string;
+  refusals?: ImportRefusal[] | null;
 }
 
 /** `streaming:launch-phase`, while a broker unpacks a large title. */
