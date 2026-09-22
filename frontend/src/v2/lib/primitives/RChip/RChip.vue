@@ -158,6 +158,8 @@ function onClose(evt: MouseEvent) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
+  min-width: 0;
   white-space: nowrap;
   font-weight: var(--r-font-weight-medium);
   line-height: 1;
@@ -185,10 +187,11 @@ function onClose(evt: MouseEvent) {
   pointer-events: none;
 }
 
-/* Content must make room for descenders within fixed height. */
 .r-chip__content {
   min-width: 0;
   line-height: 1.2;
+  overflow-x: clip;
+  text-overflow: ellipsis;
 }
 
 .r-chip__icon {

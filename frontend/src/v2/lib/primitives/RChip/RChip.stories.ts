@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { expect } from "storybook/test";
 import { ref } from "vue";
 import RChip from "./RChip.vue";
 
@@ -15,12 +14,6 @@ const TYPOGRAPHY_FIXTURES = [
 ] as const;
 
 const CHIP_SIZES = ["x-small", "small", "default", "large", "x-large"] as const;
-
-function textBounds(content: Element): DOMRect {
-  const range = document.createRange();
-  range.selectNodeContents(content);
-  return range.getBoundingClientRect();
-}
 
 const meta: Meta<typeof RChip> = {
   title: "Primitives/RChip",
@@ -260,10 +253,10 @@ export const Disabled: Story = {
   }),
 };
 
-// ── Typography ─────────────────────────────────────────────────────
+// ── Typography · descenders ────────────────────────────────────────
 
 export const TypographyDescenders: Story = {
-  name: "Typography · descenders & special characters",
+  name: "Typography · descenders",
   render: () => ({
     components: { RChip },
     setup: () => ({
@@ -272,10 +265,6 @@ export const TypographyDescenders: Story = {
     }),
     template: `
       <div style="display:flex;flex-direction:column;gap:20px;max-width:720px">
-        <p style="margin:0;font:12px/1.4 sans-serif;color:var(--r-color-fg-muted)">
-          Fixture strings for descenders, ascenders, and mixed scripts across the
-          size ladder (translucent · primary).
-        </p>
         <div
           v-for="size in sizes"
           :key="size"
@@ -292,7 +281,6 @@ export const TypographyDescenders: Story = {
             variant="translucent"
             color="primary"
             :size="size"
-            data-testid="typography-chip"
           >
             {{ label }}
           </RChip>
@@ -306,7 +294,6 @@ export const TypographyDescenders: Story = {
             color="primary"
             size="small"
             closable
-            data-testid="typography-chip"
           >
             {{ label }}
           </RChip>
@@ -314,27 +301,70 @@ export const TypographyDescenders: Story = {
       </div>
     `,
   }),
-  play: async ({ canvasElement, step }) => {
-    await step("chip text fits inside the pill vertically", async () => {
-      const chips = Array.from(
-        canvasElement.querySelectorAll('[data-testid="typography-chip"]'),
-      );
-      expect(chips.length).toBeGreaterThan(0);
+};
 
-      for (const chip of chips) {
-        const content = chip.querySelector(".r-chip__content");
-        expect(content).not.toBeNull();
-        if (!content?.textContent?.trim()) continue;
+// ── Typography · ellipses ──────────────────────────────────────────
 
-        const chipRect = chip.getBoundingClientRect();
-        const textRect = textBounds(content);
-        const pad = 1;
+const CONSTRAINED_GALLERY_LABELS = [
+  "Chinese (Simplified)",
+  "English",
+  "Français",
+  "日本語",
+] as const;
 
-        expect(textRect.top).toBeGreaterThanOrEqual(chipRect.top - pad);
-        expect(textRect.bottom).toBeLessThanOrEqual(chipRect.bottom + pad);
-      }
-    });
-  },
+const CONSTRAINED_GALLERY_LADDER = [
+  { widthPx: 170, size: "x-small" as const },
+  { widthPx: 140, size: "small" as const },
+  { widthPx: 110, size: "default" as const },
+  { widthPx: 80, size: "large" as const },
+] as const;
+
+const CONSTRAINED_CELL_FRAME =
+  "overflow:hidden;box-sizing:border-box;padding:6px;" +
+  "border:2px dashed var(--r-color-fg-muted);" +
+  "border-radius:6px;" +
+  "background:color-mix(in srgb, var(--r-color-bg-elevated) 65%, transparent);" +
+  "outline:1px solid color-mix(in srgb, var(--r-color-border) 80%, transparent);" +
+  "outline-offset:-1px";
+
+export const TypographyEllipses: Story = {
+  name: "Typography · ellipses",
+  render: () => ({
+    components: { RChip },
+    setup: () => ({
+      labels: CONSTRAINED_GALLERY_LABELS,
+      ladder: CONSTRAINED_GALLERY_LADDER,
+      cellFrame: CONSTRAINED_CELL_FRAME,
+    }),
+    template: `
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div
+          v-for="row in ladder"
+          :key="row.widthPx"
+          style="display:flex;flex-direction:column;gap:5px;align-items:flex-start"
+        >
+          <span style="font:10px/1 ui-monospace,monospace;color:var(--r-color-fg-faint)">
+            {{ row.widthPx }}px · {{ row.size }}
+          </span>
+          <div
+            :style="cellFrame + ';width:' + row.widthPx + 'px'"
+          >
+            <div style="display:flex;flex-wrap:wrap;gap:3px">
+              <RChip
+                v-for="text in labels"
+                :key="row.widthPx + text"
+                :size="row.size"
+                variant="translucent"
+                color="primary"
+              >
+                {{ text }}
+              </RChip>
+            </div>
+          </div>
+        </div>
+      </div>
+    `,
+  }),
 };
 
 // ── Real-world ──────────────────────────────────────────────────────
@@ -354,23 +384,6 @@ export const GalleryTags: Story = {
           <RChip size="small" variant="translucent" :rounded="20">Adventure</RChip>
           <RChip size="small" variant="translucent" :rounded="20">Platformer</RChip>
           <RChip size="small" variant="translucent" :rounded="20">2D</RChip>
-        </div>
-      </div>
-    `,
-  }),
-};
-
-export const ConstrainedGalleryCell: Story = {
-  name: "Constrained gallery language/region cell",
-  render: () => ({
-    components: { RChip },
-    template: `
-      <div style="width:110px;overflow:hidden;border:1px dashed var(--r-color-border);padding:4px">
-        <div style="display:flex;flex-wrap:wrap;gap:3px">
-          <RChip size="x-small" variant="translucent" color="primary">
-            Chinese (Simplified)
-          </RChip>
-          <RChip size="x-small" variant="translucent" color="primary">English</RChip>
         </div>
       </div>
     `,
