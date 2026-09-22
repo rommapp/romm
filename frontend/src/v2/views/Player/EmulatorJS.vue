@@ -60,11 +60,11 @@ import { useActivityPresence } from "@/v2/composables/useActivityPresence";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
-import { useInputModality } from "@/v2/composables/useInputModality";
 import {
   hasSharedArrayBuffer,
   useIsolatedLaunch,
 } from "@/v2/composables/useIsolatedLaunch";
+import { usePlayFocus } from "@/v2/composables/usePlayFocus";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
@@ -74,7 +74,6 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { AssetType } from "@/v2/utils/assets";
-import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
 import {
   resolveBezelHost,
   resolveBezelUrl,
@@ -134,17 +133,7 @@ const configStore = storeConfig();
 const { playing } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
-const { modality } = useInputModality();
 const playSession = usePlaySession();
-
-// Ref the Play CTA so we can imperatively focus it on enter (and again
-// when the user comes back from a running session). RBtn forwards to
-// its rendered <button>/<a>, but resolving the DOM node via a class
-// query is simpler and survives the lazy-load of the inner element.
-function focusPlayButton() {
-  const btn = document.querySelector<HTMLElement>(".r-v2-ejs__play");
-  btn?.focus({ preventScroll: true });
-}
 
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
@@ -168,6 +157,12 @@ const {
   relaunching,
   relaunch: relaunchIsolated,
 } = useIsolatedLaunch<LaunchIntent>("ejs", romId, isLaunchIntent);
+
+usePlayFocus(
+  ".r-v2-ejs__play",
+  () => !!rom.value && !relaunching.value,
+  gameRunning,
+);
 
 // The EmulatorJS loader declares top-level classes, so a document it reached
 // cannot host another launch. Tracked from the injection, which a departure
@@ -461,41 +456,16 @@ onMounted(async () => {
     void onPlay();
     return;
   }
-
-  // Land gamepad/keyboard users on the primary action without an extra Tab.
-  if (
-    shouldClaimFocusOnModality(
-      modality.value,
-      document.activeElement,
-      document.body,
-    )
-  ) {
-    await nextTick();
-    focusPlayButton();
-  }
-});
-
-// This view has no spatial navigation for a d-pad to walk, so landing on Play
-// the moment the user picks up a pad is the only entry point into the view.
-watch(modality, (next) => {
-  if (gameRunning.value) return;
-  if (!shouldClaimFocusOnModality(next, document.activeElement, document.body))
-    return;
-  nextTick(focusPlayButton);
 });
 
 // Drive the live-activity lifecycle off the deterministic running state:
-// announce on enter, clear + stop heartbeats on exit. Also restores focus
-// to Play on exit so a Start-Play loop stays on the pad.
+// announce on enter, clear + stop heartbeats on exit.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
     if (rom.value) playSession.start(rom.value);
     presence.start();
   }
-  if (prev && !running) {
-    endSession();
-    nextTick(focusPlayButton);
-  }
+  if (prev && !running) endSession();
 });
 
 // Y toggles the saves/states tab — view-local binding wired through
