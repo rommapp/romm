@@ -726,8 +726,9 @@ async def claim_session(
     # leave a container wedged behind a failed launch.
     resume_state = None
     resume_slot: int | None = None
+    resume_foreign = False
     if req.state_id is not None:
-        resume_state, resume_slot = states.resolve_resume_state(
+        resume_state, resume_slot, resume_foreign = states.resolve_resume_state(
             request.user.id, rom, reference, req.state_id
         )
 

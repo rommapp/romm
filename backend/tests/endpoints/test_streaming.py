@@ -5076,6 +5076,105 @@ def test_resolve_save_archive_still_refuses_when_the_broker_has_no_import_spec(
     assert exc.value.detail == "Save was made by a different emulator"
 
 
+def test_resolve_resume_state_accepts_the_players_own_state(rom: Rom, admin_user: User):
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
+    )
+    resolved, slot, is_foreign = states.resolve_resume_state(
+        admin_user.id, rom, _resolved(_webstation_for(rom)), state.id
+    )
+    assert resolved.id == state.id
+    assert slot == 1
+    assert is_foreign is False
+
+
+def test_resolve_resume_state_rejects_a_state_that_is_not_visible(
+    rom: Rom, admin_user: User, viewer_user: User
+):
+    state = db_state_handler.add_state(
+        _state_for(rom, viewer_user, "Game.01.p2s", "pcsx2")
+    )
+    with pytest.raises(HTTPException) as exc:
+        states.resolve_resume_state(
+            admin_user.id, rom, _resolved(_webstation_for(rom)), state.id
+        )
+    assert exc.value.status_code == 404
+
+
+def test_resolve_resume_state_accepts_a_foreign_pick_on_an_archive_channel(
+    rom: Rom, admin_user: User
+):
+    """A pick from an emulator the container does not natively read is not
+    turned away: the broker's import-spec supplies the slot to resume from."""
+    other = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
+    )
+    spec = webstation.ImportSpec(
+        kinds=(webstation.ImportKindSpec("state", True, 1),),
+        state_channel="archive",
+        state_slot=2,
+    )
+    with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
+        resolved, slot, is_foreign = states.resolve_resume_state(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+        )
+    assert resolved.id == other.id
+    assert slot == 2
+    assert is_foreign is True
+
+
+def test_resolve_resume_state_accepts_a_foreign_pick_on_a_push_channel(
+    rom: Rom, admin_user: User
+):
+    other = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
+    )
+    spec = webstation.ImportSpec(
+        kinds=(webstation.ImportKindSpec("state", True, 1),),
+        state_channel="push",
+        state_slot=1,
+    )
+    with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
+        resolved, slot, is_foreign = states.resolve_resume_state(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+        )
+    assert slot == 1
+    assert is_foreign is True
+
+
+def test_resolve_resume_state_refuses_a_foreign_pick_when_the_channel_is_none(
+    rom: Rom, admin_user: User
+):
+    other = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
+    )
+    spec = webstation.ImportSpec(kinds=(), state_channel="none", state_slot=None)
+    with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
+        with pytest.raises(HTTPException) as exc:
+            states.resolve_resume_state(
+                admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+            )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "State was made by a different emulator"
+
+
+def test_resolve_resume_state_rejects_an_unrecognized_slot_when_no_import_spec(
+    rom: Rom, admin_user: User
+):
+    """A same-emulator state whose filename carries no slot, and no broker
+    import-spec to fall back on, keeps today's exact refusal."""
+    weird = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.state", "pcsx2")
+    )
+    with patch("handler.streaming.states.webstation.import_spec", return_value=None):
+        with pytest.raises(HTTPException) as exc:
+            states.resolve_resume_state(
+                admin_user.id, rom, _resolved(_webstation_for(rom)), weird.id
+            )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "State filename carries no recognizable slot number"
+
+
 def test_claim_hydrates_the_picked_save(
     client, access_token, rom: Rom, admin_user: User
 ):
@@ -5944,7 +6043,8 @@ def test_claim_with_wrong_emulator_state_400(
     state = db_state_handler.add_state(
         _state_for(rom, admin_user, "Game.state", "retroarch")
     )
-    r = _resume_claim(client, access_token, rom, state.id).response
+    with patch("handler.streaming.states.webstation.import_spec", return_value=None):
+        r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
 
 
@@ -5952,7 +6052,8 @@ def test_claim_with_unparseable_slot_400(
     client, access_token, rom: Rom, admin_user: User
 ):
     state = db_state_handler.add_state(_state_for(rom, admin_user, "Game.p2s", "pcsx2"))
-    r = _resume_claim(client, access_token, rom, state.id).response
+    with patch("handler.streaming.states.webstation.import_spec", return_value=None):
+        r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
 
 
