@@ -49,7 +49,7 @@ To exercise loading edge cases (missing files, wrong `Content-Type`, slow assets
 All Storybook-only HTTP paths stay under the single prefix **`/storybook-fixtures/`**, which is easy to audit:
 
 ```bash
-# From repo root — expect hits in .storybook/, *.stories.ts, and docs only
+# From repo root: expect hits in .storybook/, *.stories.ts, and docs only
 rg "storybook-fixtures" frontend
 ```
 

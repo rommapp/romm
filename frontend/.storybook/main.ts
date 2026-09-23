@@ -2,7 +2,7 @@ import type { StorybookConfig } from "@storybook/vue3-vite";
 import { fileURLToPath, URL } from "node:url";
 
 const config: StorybookConfig = {
-  // Only pick up v2 stories — the v1 UI is frozen and does not ship stories.
+  // Only pick up v2 stories; the v1 UI is frozen and does not ship stories.
   stories: ["../src/v2/**/*.stories.@(js|jsx|ts|tsx)", "../src/v2/**/*.mdx"],
   addons: [
     "@storybook/addon-docs",
@@ -16,7 +16,7 @@ const config: StorybookConfig = {
   // Static files copied into storybook-static on build (public if you deploy SB).
   // Policy: frontend/.storybook/STORYBOOK_STATIC.md
   staticDirs: [
-    // Prod-shaped URLs for shipped platform icons only — NOT all of ../assets.
+    // Prod-shaped URLs for shipped platform icons only, not all of ../assets.
     { from: "../assets/platforms", to: "/assets/platforms" },
     // Storybook-only: one row per category → /storybook-fixtures/<category>
     {

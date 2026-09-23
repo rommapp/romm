@@ -16,8 +16,8 @@ import { createChromeLabels } from "../src/v2/utils/chromeLabels";
 
 // Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
 // Static files (platform icons, story fixtures) are mounted only via staticDirs
-// in main.ts — see frontend/.storybook/STORYBOOK_STATIC.md before adding mounts.
-// v2 primitives are Vuetify-free at runtime — Vuetify stays registered only
+// in main.ts. See frontend/.storybook/STORYBOOK_STATIC.md before adding mounts.
+// v2 primitives are Vuetify-free at runtime; Vuetify stays registered only
 // because some shared dependencies still pull it in. The visible theme for
 // v2 stories comes from the `.r-v2-dark` / `.r-v2-light` class toggled on
 // <html> by the theme switcher decorator below.
