@@ -212,10 +212,6 @@ async function dismissAll() {
 
 .r-v2-notification {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-1);
-  padding-right: var(--r-space-2);
   border-radius: var(--r-radius-card);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
@@ -244,12 +240,12 @@ async function dismissAll() {
 }
 
 .r-v2-notification__main {
-  flex: 1;
-  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--r-space-3);
-  padding: var(--r-space-3) var(--r-space-2) var(--r-space-3) var(--r-space-4);
+  /* The right padding keeps the text clear of the dismiss button. */
+  padding: var(--r-space-3) calc(var(--r-space-2) + 36px) var(--r-space-3)
+    var(--r-space-4);
   border-radius: var(--r-radius-card);
   color: inherit;
   text-decoration: none;
@@ -330,8 +326,13 @@ a.r-v2-notification__main:hover {
   color: var(--r-color-fg-secondary);
 }
 
-.r-v2-notification__dismiss {
-  flex-shrink: 0;
+/* Centered by margins rather than a transform, which RBtn's press effect owns. */
+.r-v2-notification .r-v2-notification__dismiss {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: var(--r-space-2);
+  margin-block: auto;
   color: var(--r-color-fg-muted);
 }
 
