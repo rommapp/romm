@@ -413,7 +413,6 @@
   "search-placeholder": "Търси по име, име на файл, хеш…",
   "seek-progress": "{current} от {duration}",
   "select-all": "Избери всички",
-  "select-all-assets": "Избери всички",
   "select-all-disk": "Избери всички за диска",
   "select-asset": "Избери {name}",
   "select-cover-image": "Избери изображение за корица",

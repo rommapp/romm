@@ -413,7 +413,6 @@
   "search-placeholder": "按名称、文件名、哈希值搜索…",
   "seek-progress": "{current} / {duration}",
   "select-all": "选择所有",
-  "select-all-assets": "全选",
   "select-all-disk": "全选用于磁盘",
   "select-asset": "选择 {name}",
   "select-cover-image": "选择封面图片",

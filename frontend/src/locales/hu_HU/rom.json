@@ -413,7 +413,6 @@
   "search-placeholder": "Keresés név, fájlnév, hash szerint…",
   "seek-progress": "{current} / {duration}",
   "select-all": "Összes kijelölése",
-  "select-all-assets": "Összes kijelölése",
   "select-all-disk": "Összes kijelölése a lemezhez",
   "select-asset": "{name} kijelölése",
   "select-cover-image": "Válassz borítóképet",

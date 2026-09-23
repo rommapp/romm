@@ -413,7 +413,6 @@
   "search-placeholder": "Caută după nume, nume fișier, hash…",
   "seek-progress": "{current} din {duration}",
   "select-all": "Selectează toate",
-  "select-all-assets": "Selectează tot",
   "select-all-disk": "Selectează toate pentru disc",
   "select-asset": "Selectează {name}",
   "select-cover-image": "Selectează o imagine de copertă",

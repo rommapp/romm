@@ -14,9 +14,10 @@ const RCheckbox = {
   props: {
     modelValue: { type: Boolean, default: false },
     indeterminate: { type: Boolean, default: false },
+    label: { type: String, default: "" },
   },
   emits: ["update:modelValue"],
-  template: `<input type="checkbox" class="all" :checked="modelValue" :data-indeterminate="indeterminate" @change="$emit('update:modelValue', !modelValue)" />`,
+  template: `<label class="all" :data-indeterminate="indeterminate"><input type="checkbox" :checked="modelValue" @change="$emit('update:modelValue', !modelValue)" />{{ label }}</label>`,
 };
 const RBtn = {
   props: { ariaLabel: { type: String, default: "" } },
@@ -42,16 +43,12 @@ function toolbar(
 
 describe("AssetSelectionToolbar", () => {
   it("counts the list until something is checked, then the selection", () => {
-    expect(toolbar().get(".r-v2-asset-select__status").text()).toBe(
-      "rom.assets-count-n:3",
-    );
+    expect(toolbar().get(".all").text()).toBe("rom.assets-count-n:3");
     expect(toolbar().findAll(".btn")).toHaveLength(0);
 
     const some = toolbar({ count: 2, someChecked: true });
 
-    expect(some.get(".r-v2-asset-select__status").text()).toBe(
-      "rom.assets-selected-of",
-    );
+    expect(some.get(".all").text()).toBe("rom.assets-selected-of");
     expect(some.findAll(".btn").map((b) => b.attributes("aria-label"))).toEqual(
       [
         "rom.add-to-favorites",
@@ -87,7 +84,7 @@ describe("AssetSelectionToolbar", () => {
     const wrapper = toolbar({ count: 1, someChecked: true });
     const buttons = wrapper.findAll(".btn");
 
-    await wrapper.get(".all").trigger("change");
+    await wrapper.get(".all input").trigger("change");
     await buttons[0].trigger("click");
     await buttons[1].trigger("click");
     await buttons[2].trigger("click");

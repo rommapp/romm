@@ -34,6 +34,7 @@ import { formatBytes } from "@/utils";
 import DeleteFirmwareDialog from "@/v2/components/Gallery/DeleteFirmwareDialog.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -49,41 +50,19 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const canWrite = useCan("platform.edit");
 
-const selectedIds = ref<Set<number>>(new Set());
-
 const firmwareList = computed<FirmwareSchema[]>(
   () => props.platform.firmware ?? [],
 );
 
-const selectedFirmware = computed<FirmwareSchema[]>(() =>
-  firmwareList.value.filter((f) => selectedIds.value.has(f.id)),
-);
-
-const allSelected = computed(
-  () =>
-    firmwareList.value.length > 0 &&
-    selectedIds.value.size === firmwareList.value.length,
-);
-const someSelected = computed(
-  () =>
-    selectedIds.value.size > 0 &&
-    selectedIds.value.size < firmwareList.value.length,
-);
-
-function toggleAll() {
-  if (allSelected.value) {
-    selectedIds.value = new Set();
-  } else {
-    selectedIds.value = new Set(firmwareList.value.map((f) => f.id));
-  }
-}
-
-function toggleOne(id: number) {
-  const next = new Set(selectedIds.value);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  selectedIds.value = next;
-}
+// Destructured so the template sees plain refs; a nested one is not unwrapped.
+const {
+  selectedIds,
+  selected: selectedFirmware,
+  allSelected,
+  someSelected,
+  toggle: toggleOne,
+  toggleAll,
+} = useIdSelection(() => firmwareList.value);
 
 // ── Inline upload (no dialog — the dropzone lives in the tab) ──────
 const firmwareDz = ref<InstanceType<typeof RDropzone> | null>(null);

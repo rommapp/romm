@@ -28,24 +28,19 @@ const { t } = useI18n();
 
 <template>
   <div class="r-v2-asset-select" v-bind="$attrs">
-    <label class="r-v2-asset-select__all">
-      <RCheckbox
-        :model-value="allChecked"
-        :indeterminate="someChecked"
-        size="sm"
-        hide-details
-        :aria-label="t('rom.select-all-assets')"
-        @update:model-value="emit('toggleAll')"
-      />
-      <span class="r-v2-asset-select__status">
-        <template v-if="count > 0">
-          {{ t("rom.assets-selected-of", { selected: count, total }) }}
-        </template>
-        <template v-else>
-          {{ t("rom.assets-count-n", total, { named: { n: total } }) }}
-        </template>
-      </span>
-    </label>
+    <RCheckbox
+      class="r-v2-asset-select__all"
+      :model-value="allChecked"
+      :indeterminate="someChecked"
+      size="sm"
+      hide-details
+      :label="
+        count > 0
+          ? t('rom.assets-selected-of', { selected: count, total })
+          : t('rom.assets-count-n', total, { named: { n: total } })
+      "
+      @update:model-value="emit('toggleAll')"
+    />
 
     <div v-if="count > 0" class="r-v2-asset-select__actions">
       <RBtn
@@ -105,16 +100,8 @@ const { t } = useI18n();
   min-height: 36px;
 }
 .r-v2-asset-select__all {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   font-size: 12px;
   color: var(--r-color-fg-muted);
-  cursor: pointer;
-  user-select: none;
-}
-.r-v2-asset-select__status {
-  font-weight: var(--r-font-weight-medium);
 }
 .r-v2-asset-select__actions {
   display: flex;

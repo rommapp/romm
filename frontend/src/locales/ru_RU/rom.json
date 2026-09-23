@@ -413,7 +413,6 @@
   "search-placeholder": "Поиск по названию, имени файла, хешу…",
   "seek-progress": "{current} из {duration}",
   "select-all": "Выбрать все",
-  "select-all-assets": "Выбрать все",
   "select-all-disk": "Выбрать всё для диска",
   "select-asset": "Выбрать {name}",
   "select-cover-image": "Выбрать обложку",

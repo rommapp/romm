@@ -413,7 +413,6 @@
   "search-placeholder": "依名稱、檔案名、雜湊值搜尋…",
   "seek-progress": "{current} / {duration}",
   "select-all": "選擇所有",
-  "select-all-assets": "全選",
   "select-all-disk": "選擇所有以從磁碟刪除",
   "select-asset": "選擇 {name}",
   "select-cover-image": "選擇封面圖片",

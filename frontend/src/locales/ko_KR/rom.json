@@ -413,7 +413,6 @@
   "search-placeholder": "이름, 파일 이름, 해시로 검색…",
   "seek-progress": "{duration} 중 {current}",
   "select-all": "모두 선택",
-  "select-all-assets": "전체 선택",
   "select-all-disk": "디스크용 모두 선택",
   "select-asset": "{name} 선택",
   "select-cover-image": "커버 이미지 선택",

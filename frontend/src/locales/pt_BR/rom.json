@@ -413,7 +413,6 @@
   "search-placeholder": "Buscar por nome, arquivo, hash…",
   "seek-progress": "{current} de {duration}",
   "select-all": "Selecionar todos",
-  "select-all-assets": "Selecionar tudo",
   "select-all-disk": "Selecionar todos para o disco",
   "select-asset": "Selecionar {name}",
   "select-cover-image": "Selecionar uma imagem de capa",

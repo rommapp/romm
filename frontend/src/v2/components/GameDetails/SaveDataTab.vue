@@ -40,6 +40,7 @@ import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
@@ -331,53 +332,22 @@ async function toggleStateVisibility(state: StateSchema) {
 
 // ---------- Bulk selection (own items only) ----------
 // A save and a state can share an id and both panels stay mounted, so each
-// kind keeps its own set rather than one keyed by id alone.
-const checkedSaves = ref<Set<number>>(new Set());
-const checkedStates = ref<Set<number>>(new Set());
+// kind gets its own selection rather than one keyed by id alone.
+const saveSelection = useIdSelection(() => mySaves.value);
+const stateSelection = useIdSelection(() => myStates.value);
 
-function checkedSetFor(type: AssetType) {
-  return type === "save" ? checkedSaves : checkedStates;
-}
-
-// Only count what is still on screen, so an upload or a delete elsewhere
-// cannot leave a stale id inflating the total.
-const checkedSaveList = computed(() =>
-  mySaves.value.filter((s) => checkedSaves.value.has(s.id)),
-);
-const checkedStateList = computed(() =>
-  myStates.value.filter((s) => checkedStates.value.has(s.id)),
-);
-
-function toggleChecked(type: AssetType, asset: AssetSlot) {
-  const set = checkedSetFor(type);
-  const next = new Set(set.value);
-  if (next.has(asset.id)) next.delete(asset.id);
-  else next.add(asset.id);
-  set.value = next;
-}
-
-function toggleAllChecked(type: AssetType) {
-  const set = checkedSetFor(type);
-  const all = type === "save" ? mySaves.value : myStates.value;
-  const checked =
-    type === "save" ? checkedSaveList.value : checkedStateList.value;
-  set.value =
-    checked.length === all.length ? new Set() : new Set(all.map((a) => a.id));
-}
-
-function clearChecked(type: AssetType) {
-  checkedSetFor(type).value = new Set();
+function selectionFor(type: AssetType) {
+  return type === "save" ? saveSelection : stateSelection;
 }
 
 // A selection only makes sense against the list it was made on.
 watch([subTab, () => props.rom.id], () => {
-  checkedSaves.value = new Set();
-  checkedStates.value = new Set();
+  saveSelection.clear();
+  stateSelection.clear();
 });
 
 const allCheckedFavorite = (type: AssetType) => {
-  const assets =
-    type === "save" ? checkedSaveList.value : checkedStateList.value;
+  const assets = selectionFor(type).selected.value;
   return assets.length > 0 && assets.every((a) => a.is_favorite);
 };
 
@@ -404,8 +374,7 @@ async function reportBulk(
 }
 
 async function toggleCheckedFavorite(type: AssetType) {
-  const assets =
-    type === "save" ? checkedSaveList.value : checkedStateList.value;
+  const assets = selectionFor(type).selected.value;
   if (assets.length === 0) return;
   const isFavorite = !allCheckedFavorite(type);
 
@@ -424,8 +393,7 @@ async function toggleCheckedFavorite(type: AssetType) {
 }
 
 async function deleteChecked(type: AssetType) {
-  const assets =
-    type === "save" ? checkedSaveList.value : checkedStateList.value;
+  const assets = selectionFor(type).selected.value;
   if (assets.length === 0) return;
 
   const ok = await confirm({
@@ -440,7 +408,7 @@ async function deleteChecked(type: AssetType) {
   });
   if (!ok) return;
 
-  clearChecked(type);
+  selectionFor(type).clear();
   try {
     if (type === "save") {
       await saveApi.deleteSaves({ saves: assets as SaveSchema[] });
@@ -518,8 +486,7 @@ async function submitLabels(labels: string[]) {
       await refreshRom();
       snackbar.success(t("rom.labels-updated"), { icon: "mdi-check-bold" });
     } else {
-      const assets =
-        target.type === "save" ? checkedSaveList.value : checkedStateList.value;
+      const assets = selectionFor(target.type).selected.value;
       const results = await Promise.allSettled(
         assets.map((asset) =>
           writeLabels(target.type, asset.id, [
@@ -632,21 +599,16 @@ const labelSuggestions = computed(() =>
           >
             <AssetSelectionToolbar
               v-if="mySaves.length > 0"
-              :count="checkedSaveList.length"
+              :count="saveSelection.count.value"
               :total="mySaves.length"
-              :all-checked="
-                mySaves.length > 0 && checkedSaveList.length === mySaves.length
-              "
-              :some-checked="
-                checkedSaveList.length > 0 &&
-                checkedSaveList.length < mySaves.length
-              "
+              :all-checked="saveSelection.allSelected.value"
+              :some-checked="saveSelection.someSelected.value"
               :all-favorite="allCheckedFavorite('save')"
-              @toggle-all="toggleAllChecked('save')"
+              @toggle-all="saveSelection.toggleAll()"
               @toggle-favorite="toggleCheckedFavorite('save')"
               @edit-labels="labelTarget = { kind: 'many', type: 'save' }"
               @delete="deleteChecked('save')"
-              @clear="clearChecked('save')"
+              @clear="saveSelection.clear()"
             />
             <AssetList
               :assets="mySaves"
@@ -654,8 +616,8 @@ const labelSuggestions = computed(() =>
               :selectable="false"
               :scrollable="false"
               checkable
-              :checked-ids="checkedSaves"
-              @toggle="toggleChecked('save', $event)"
+              :checked-ids="saveSelection.selectedIds.value"
+              @toggle="saveSelection.toggle($event.id)"
             >
               <template #actions="{ asset }">
                 <AssetActions
@@ -749,32 +711,26 @@ const labelSuggestions = computed(() =>
           >
             <AssetSelectionToolbar
               v-if="myStates.length > 0"
-              :count="checkedStateList.length"
+              :count="stateSelection.count.value"
               :total="myStates.length"
-              :all-checked="
-                myStates.length > 0 &&
-                checkedStateList.length === myStates.length
-              "
-              :some-checked="
-                checkedStateList.length > 0 &&
-                checkedStateList.length < myStates.length
-              "
+              :all-checked="stateSelection.allSelected.value"
+              :some-checked="stateSelection.someSelected.value"
               :all-favorite="allCheckedFavorite('state')"
-              @toggle-all="toggleAllChecked('state')"
+              @toggle-all="stateSelection.toggleAll()"
               @toggle-favorite="toggleCheckedFavorite('state')"
               @edit-labels="labelTarget = { kind: 'many', type: 'state' }"
               @delete="deleteChecked('state')"
-              @clear="clearChecked('state')"
+              @clear="stateSelection.clear()"
             />
             <AssetStrip
               :assets="myStates"
               type="state"
               :selectable="false"
               checkable
-              :checked-ids="checkedStates"
+              :checked-ids="stateSelection.selectedIds.value"
               layout="flow"
               group-by="emulator"
-              @toggle="toggleChecked('state', $event)"
+              @toggle="stateSelection.toggle($event.id)"
             >
               <template #actions="{ asset }">
                 <AssetActions
