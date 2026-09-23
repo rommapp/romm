@@ -17,6 +17,7 @@ def _bearer(token):
 def _fresh_user_auth(user_id):
     # Mint a token from the user's CURRENT (post-change) projected scopes.
     user = db_user_handler.get_user(user_id)
+    assert user is not None
     return _bearer(
         oauth_handler.create_access_token(
             data={
@@ -189,6 +190,7 @@ def test_delete_group_falls_members_back(client, access_token, viewer_user):
 
     # FK SET NULL -> user falls back to the default (viewer) matrix.
     user = db_user_handler.get_user(viewer_user.id)
+    assert user is not None
     assert user.permission_group_id is None
     actions, _ = _me_actions(client, viewer_user.id)
     assert "collection.create" in actions  # default viewer behaviour restored

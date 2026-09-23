@@ -3,8 +3,8 @@ import hashlib
 import json
 import re
 import secrets
-from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections import Counter, abc
+from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Literal, NamedTuple
@@ -522,9 +522,9 @@ def sorts_by_rom_user_column(order_by: str, user_id: int) -> bool:
     return _resolve_gallery_sort_key(order_by, user_id).source == "rom_user"
 
 
-def with_details(func):
+def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         kwargs["query"] = select(Rom).options(
             # Ensure platform is loaded for main ROM objects
             selectinload(Rom.platform),
@@ -578,7 +578,7 @@ def with_details(func):
     return wrapper
 
 
-def with_simple_details(func):
+def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     """Lightweight eager-load for the `SimpleRomSchema` (v2 gallery card).
 
     Loads only the relationships `SimpleRomSchema` serializes (rom_users,
@@ -589,7 +589,7 @@ def with_simple_details(func):
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.platform),
             selectinload(Rom.rom_users).options(
@@ -858,8 +858,8 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int,
         *,
         session: Session,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
     ) -> dict[int, list[tuple[Rom, bool]]]:
         """Return {rom_id: [(sibling Rom, is_main_sibling), ...]} in a single query.
 
@@ -1397,8 +1397,8 @@ class DBRomsHandler(DBBaseHandler):
         include_related: bool = True,
         include_siblings: bool = True,
         include_notes: bool = True,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Select:
         from handler.scan_handler import MetadataSource
@@ -1897,8 +1897,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_hidden_rom_ids_among(
         self,
         rom_ids: Sequence[int],
-        hidden_platform_ids: Sequence[int] | None,
-        hidden_rom_ids: Sequence[int] | None,
+        hidden_platform_ids: abc.Collection[int] | None,
+        hidden_rom_ids: abc.Collection[int] | None,
         session: Session = None,  # type: ignore
     ) -> set[int]:
         """Of `rom_ids`, the subset hidden from the caller (own hide or platform)."""
@@ -2746,8 +2746,8 @@ class DBRomsHandler(DBBaseHandler):
     def _music_where(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None,
-        hidden_rom_ids: Sequence[int] | None,
+        hidden_platform_ids: abc.Collection[int] | None,
+        hidden_rom_ids: abc.Collection[int] | None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -2811,8 +2811,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_tracks(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -2939,8 +2939,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         *,
         field: str,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -3018,8 +3018,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_stats(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> tuple[int, float]:
         """Total track count and total duration, for the jukebox home cards.
@@ -3048,8 +3048,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_game_genre_facet(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -3130,8 +3130,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_platform_facet(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -3196,8 +3196,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_game_facet(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,

@@ -184,8 +184,8 @@ def get_main_platform_igdb_id(platform: Platform):
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
         else:
-            main_platform = meta_igdb_handler.get_platform(main_platform_slug)
-            main_platform_igdb_id = main_platform["igdb_id"]
+            igdb_platform = meta_igdb_handler.get_platform(main_platform_slug)
+            main_platform_igdb_id = igdb_platform["igdb_id"]
             if not main_platform_igdb_id:
                 main_platform_igdb_id = platform.igdb_id
     else:

@@ -1,5 +1,5 @@
 import functools
-from collections.abc import Sequence
+from collections.abc import Callable, Collection, Sequence
 from datetime import datetime
 
 from sqlalchemy import Select, delete, func, or_, select, update
@@ -12,9 +12,9 @@ from models.rom import Rom
 from .base_handler import DBBaseHandler
 
 
-def with_firmware(func):
+def with_firmware[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         kwargs["query"] = select(Platform).options(
             selectinload(Platform.firmware),
         )
@@ -67,7 +67,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platforms(
         self,
         updated_after: datetime | None = None,
-        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
         query: Select[tuple[Platform]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Sequence[Platform]:
@@ -84,7 +84,7 @@ class DBPlatformsHandler(DBBaseHandler):
     @begin_session
     def get_platform_ids(
         self,
-        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> list[int]:
         """Ids only, deliberately off `with_firmware`: its eager load fires anyway."""

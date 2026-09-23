@@ -1,5 +1,5 @@
 import functools
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
@@ -58,9 +58,9 @@ def _roms_load_options() -> list[Any]:
     ]
 
 
-def with_roms(func):
+def with_roms[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         kwargs["query"] = select(Collection).options(*_roms_load_options())
         return func(*args, **kwargs)
 
@@ -570,14 +570,14 @@ class DBCollectionsHandler(DBBaseHandler):
             user_id=user_id,
             session=session,
         )
-        query = self.build_smart_collection_query(
+        covers_query = self.build_smart_collection_query(
             query=query,
             smart_collection=smart_collection,
             user_id=user_id,
             session=session,
         ).with_only_columns(Rom.id, Rom.path_cover_s, Rom.path_cover_l)
 
-        return session.execute(query).all()
+        return session.execute(covers_query).all()
 
     @begin_session
     def refresh_smart_collection(

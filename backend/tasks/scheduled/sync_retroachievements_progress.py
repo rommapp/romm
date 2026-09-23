@@ -116,7 +116,8 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
         for user in users:
             try:
                 user_progression = await meta_ra_handler.get_user_progression(
-                    user.ra_username,
+                    # `has_ra_username` above filters out users without one
+                    cast(str, user.ra_username),
                     current_progression=cast(
                         RAUserProgression | None, user.ra_progression
                     ),
