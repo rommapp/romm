@@ -13,6 +13,7 @@ from handler.notification_channels.channels import (
     update_channel,
 )
 from handler.notification_channels.config import read_config, seal_config
+from handler.notification_channels.confirmation import CodeCooldownError
 from handler.notification_channels.email import EmailError
 from models.notification import NotificationLevel
 from models.notification_channel import (
@@ -190,6 +191,19 @@ class TestUpdate:
 
         assert updated.confirmed_at is None
         issue.assert_awaited_once_with(4, "b@example.com")
+
+    async def test_a_new_address_whose_code_cannot_go_out_is_not_kept(
+        self, db, email_on, issue
+    ):
+        issue.side_effect = CodeCooldownError("Wait a minute")
+        stored = _stored(NotificationChannelType.EMAIL, address="a@example.com")
+
+        with pytest.raises(CodeCooldownError):
+            await update_channel(
+                stored, USER, {"name": "Mail"}, address="b@example.com"
+            )
+
+        db.update_channel.assert_not_called()
 
     async def test_the_same_address_changes_nothing(self, db, email_on, issue):
         stored = _stored(NotificationChannelType.EMAIL, address="a@example.com")

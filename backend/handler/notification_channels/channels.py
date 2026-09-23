@@ -124,7 +124,8 @@ async def update_channel(
 
     Raises:
         ChannelError: The change can't be made as asked.
-        CodeCooldownError, EmailError: The code for a new address could not go out.
+        CodeCooldownError, EmailError: The code for a new address could not go
+            out, in which case nothing changes.
     """
     changes = dict(changes)
     if changes.get("enabled") and not channel.enabled:
@@ -132,11 +133,11 @@ async def update_channel(
         changes["consecutive_failures"] = 0
 
     config = read_config(channel.config)
-    new_address: str | None = None
     if channel.type == NotificationChannelType.EMAIL:
         if address and address != config.get("address"):
             _require_email()
-            new_address = address
+            # The code goes out first, so an address it can't reach isn't kept.
+            await issue_code(channel.id, address)
             changes["config"] = seal_config(EmailConfig(address=address))
             changes["confirmed_at"] = None
     elif url or format or secret_given:
@@ -158,8 +159,6 @@ async def update_channel(
         if changes
         else channel
     )
-    if new_address:
-        await issue_code(channel.id, new_address)
     return updated or channel
 
 
