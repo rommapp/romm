@@ -109,7 +109,7 @@
   "default": "Implicit",
   "default-version": "Versiune implicită",
   "delete": "Șterge",
-  "delete-assets-body": "Această acțiune nu poate fi anulată.",
+  "delete-assets-body": "Elementele selectate vor fi eliminate permanent din sistemul de fișiere. Această acțiune nu poate fi anulată.",
   "delete-file": "Șterge fișierul",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

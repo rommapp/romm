@@ -109,7 +109,7 @@
   "default": "デフォルト",
   "default-version": "デフォルトバージョン",
   "delete": "削除",
-  "delete-assets-body": "この操作は取り消せません。",
+  "delete-assets-body": "選択したアイテムはファイルシステムから完全に削除されます。この操作は取り消せません。",
   "delete-file": "ファイルを削除",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

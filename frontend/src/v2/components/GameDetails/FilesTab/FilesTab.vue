@@ -354,7 +354,9 @@ const {
 // Reset selection whenever the active subtab or the rom changes —
 // keeping selections across categories would let the user "Download
 // selected" with files invisible to them, which is surprising.
-watch([subTab, () => props.rom.id], clearSelection);
+// Getters, not the refs: `subTab` is a shallowRef, and a shallow source makes
+// Vue fire the watcher on every dependency trigger, refresh included.
+watch([() => subTab.value, () => props.rom.id], clearSelection);
 
 const filteredCount = computed(() => filteredFiles.value.length);
 const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);

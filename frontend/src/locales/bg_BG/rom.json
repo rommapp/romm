@@ -109,7 +109,7 @@
   "default": "Задай по подразбиране",
   "default-version": "Версия по подразбиране",
   "delete": "Изтрий",
-  "delete-assets-body": "Това не може да бъде отменено.",
+  "delete-assets-body": "Избраните елементи ще бъдат окончателно премахнати от файловата система. Това не може да бъде отменено.",
   "delete-file": "Изтрий файла",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

@@ -109,7 +109,7 @@
   "default": "默认",
   "default-version": "默认版本",
   "delete": "删除",
-  "delete-assets-body": "此操作无法撤销。",
+  "delete-assets-body": "选中的项目将从文件系统中永久删除。此操作无法撤销。",
   "delete-file": "删除文件",
   "delete-files-confirm-body": "所选文件将从文件系统中永久删除。",
   "delete-files-confirm-title": "删除 {n} 个文件 | 删除 {n} 个文件",

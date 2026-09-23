@@ -109,7 +109,7 @@
   "default": "기본으로",
   "default-version": "기본 버전",
   "delete": "삭제",
-  "delete-assets-body": "이 작업은 되돌릴 수 없습니다.",
+  "delete-assets-body": "선택한 항목이 파일 시스템에서 영구적으로 제거됩니다. 이 작업은 되돌릴 수 없습니다.",
   "delete-file": "파일 삭제",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

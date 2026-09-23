@@ -109,7 +109,7 @@
   "default": "Alapértelmezettnek beállítva",
   "default-version": "Alapértelmezett verzió",
   "delete": "Törlés",
-  "delete-assets-body": "Ezt nem lehet visszavonni.",
+  "delete-assets-body": "A kijelölt elemek véglegesen törlődnek a fájlrendszerből. Ezt nem lehet visszavonni.",
   "delete-file": "Fájl törlése",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

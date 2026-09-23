@@ -109,7 +109,7 @@
   "default": "Por defecto",
   "default-version": "Versión por defecto",
   "delete": "Eliminar",
-  "delete-assets-body": "Esta acción no se puede deshacer.",
+  "delete-assets-body": "Los elementos seleccionados serán eliminados permanentemente del sistema de archivos. Esta acción no se puede deshacer.",
   "delete-file": "Eliminar archivo",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

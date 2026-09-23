@@ -621,7 +621,9 @@ const fadeIndex = computed(() =>
   align-items: center;
   margin-right: auto;
 }
-.r-asset-strip__tile--checked {
+/* The `--static` hover reset outranks a single class, so it is listed too. */
+.r-asset-strip__tile--checked,
+.r-asset-strip__tile--checked:hover {
   background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
   border-color: color-mix(
     in srgb,

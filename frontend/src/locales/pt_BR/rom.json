@@ -109,7 +109,7 @@
   "default": "Padrão",
   "default-version": "Versão padrão",
   "delete": "Excluir",
-  "delete-assets-body": "Esta ação não pode ser desfeita.",
+  "delete-assets-body": "Os itens selecionados serão removidos permanentemente do sistema de arquivos. Esta ação não pode ser desfeita.",
   "delete-file": "Excluir arquivo",
   "delete-files-confirm-body": "Os arquivos selecionados serão removidos permanentemente do sistema de arquivos.",
   "delete-files-confirm-title": "Excluir {n} arquivo | Excluir {n} arquivos",

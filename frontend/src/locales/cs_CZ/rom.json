@@ -109,7 +109,7 @@
   "default": "Nastavit jako výchozí",
   "default-version": "Výchozí verze",
   "delete": "Smazat",
-  "delete-assets-body": "Tuto akci nelze vrátit zpět.",
+  "delete-assets-body": "Vybrané položky budou trvale odstraněny ze souborového systému. Tuto akci nelze vrátit zpět.",
   "delete-file": "Smazat soubor",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

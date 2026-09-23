@@ -109,7 +109,7 @@
   "default": "По умолчанию",
   "default-version": "Версия по умолчанию",
   "delete": "Удалить",
-  "delete-assets-body": "Это действие нельзя отменить.",
+  "delete-assets-body": "Выбранные элементы будут навсегда удалены из файловой системы. Это действие нельзя отменить.",
   "delete-file": "Удалить файл",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

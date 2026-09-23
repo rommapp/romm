@@ -109,7 +109,7 @@
   "default": "Set default",
   "default-version": "Default version",
   "delete": "Delete",
-  "delete-assets-body": "This can't be undone.",
+  "delete-assets-body": "The selected items will be permanently removed from the filesystem. This can't be undone.",
   "delete-file": "Delete file",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

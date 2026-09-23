@@ -109,7 +109,7 @@
   "default": "Varsayılan olarak ayarla",
   "default-version": "Varsayılan sürüm",
   "delete": "Sil",
-  "delete-assets-body": "Bu işlem geri alınamaz.",
+  "delete-assets-body": "Seçilen öğeler dosya sisteminden kalıcı olarak kaldırılacak. Bu işlem geri alınamaz.",
   "delete-file": "Dosyayı sil",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

@@ -109,7 +109,7 @@
   "default": "Predefinita",
   "default-version": "Versione predefinita",
   "delete": "Elimina",
-  "delete-assets-body": "Questa azione non può essere annullata.",
+  "delete-assets-body": "Gli elementi selezionati verranno rimossi permanentemente dal filesystem. Questa azione non può essere annullata.",
   "delete-file": "Elimina file",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

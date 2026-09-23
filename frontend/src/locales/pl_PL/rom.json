@@ -109,7 +109,7 @@
   "default": "Ustaw jako domyślne",
   "default-version": "Wersja domyślna",
   "delete": "Usuń",
-  "delete-assets-body": "Tej operacji nie można cofnąć.",
+  "delete-assets-body": "Wybrane elementy zostaną trwale usunięte z systemu plików. Tej operacji nie można cofnąć.",
   "delete-file": "Usuń plik",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

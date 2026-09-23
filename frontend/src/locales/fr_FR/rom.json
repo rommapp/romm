@@ -109,7 +109,7 @@
   "default": "Par défaut",
   "default-version": "Version par défaut",
   "delete": "Supprimer",
-  "delete-assets-body": "Cette action est irréversible.",
+  "delete-assets-body": "Les éléments sélectionnés seront définitivement supprimés du système de fichiers. Cette action est irréversible.",
   "delete-file": "Supprimer le fichier",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",

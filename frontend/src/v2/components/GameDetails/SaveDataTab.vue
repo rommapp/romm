@@ -340,8 +340,10 @@ function selectionFor(type: AssetType) {
   return type === "save" ? saveSelection : stateSelection;
 }
 
-// A selection only makes sense against the list it was made on.
-watch([subTab, () => props.rom.id], () => {
+// A selection only makes sense against the list it was made on. Read through
+// getters: `subTab` is a shallowRef, and a shallow source makes Vue fire the
+// watcher on every dependency trigger, so a refresh alone would wipe it.
+watch([() => subTab.value, () => props.rom.id], () => {
   saveSelection.clear();
   stateSelection.clear();
 });
@@ -355,8 +357,8 @@ const allCheckedFavorite = (type: AssetType) => {
 // click would double the traffic and race the refresh.
 const bulkBusy = ref(false);
 
-/** Reports a fanned-out bulk write, which has no single-call route. */
-async function reportBulk(
+/** Reports a fanned-out bulk write, then refreshes if any of it landed. */
+async function reportAndRefreshBulk(
   results: PromiseSettledResult<unknown>[],
   okKey: string,
   failKey: string,
@@ -367,14 +369,12 @@ async function reportBulk(
       icon: "mdi-check-bold",
     });
   }
-  const failed = results.find((r) => r.status === "rejected") as
-    PromiseRejectedResult | undefined;
+  const failed = results.find((r) => r.status === "rejected");
   if (failed) {
     snackbar.error(t(failKey, { error: errorMessage(failed.reason) }), {
       icon: "mdi-close-circle",
     });
   }
-  // Nothing landed, so nothing upstream changed.
   if (ok > 0) await refreshRom();
 }
 
@@ -388,7 +388,7 @@ async function toggleCheckedFavorite(type: AssetType) {
     const results = await Promise.allSettled(
       assets.map((asset) => writeFavorite(type, asset.id, isFavorite)),
     );
-    await reportBulk(
+    await reportAndRefreshBulk(
       results,
       "rom.favorites-updated-n",
       "rom.cant-toggle-favorite",
@@ -505,7 +505,7 @@ async function submitLabels(labels: string[]) {
           ]),
         ),
       );
-      await reportBulk(
+      await reportAndRefreshBulk(
         results,
         "rom.labels-applied-n",
         "rom.cant-update-labels",

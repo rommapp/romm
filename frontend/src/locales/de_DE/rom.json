@@ -109,7 +109,7 @@
   "default": "Standard",
   "default-version": "Standardversion",
   "delete": "Löschen",
-  "delete-assets-body": "Dies kann nicht rückgängig gemacht werden.",
+  "delete-assets-body": "Die ausgewählten Elemente werden dauerhaft aus dem Dateisystem entfernt. Dies kann nicht rückgängig gemacht werden.",
   "delete-file": "Datei löschen",
   "delete-files-confirm-body": "The selected files will be permanently removed from the filesystem.",
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",
