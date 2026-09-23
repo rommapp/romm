@@ -6,11 +6,14 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatTimestamp } from "@/utils";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
+import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
+import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
+  byFavoriteFirst,
   ownerOf,
   screenshotOf,
   staggerIndex,
@@ -68,7 +71,7 @@ function reasonOf(asset: Asset): string | null {
 interface AssetGroup {
   key: string;
   label: string;
-  /** Source order, so a newest-first list reads top-left. */
+  /** Favorites first, then source order, so a newest-first list reads top-left. */
   assets: Asset[];
   /** Every tile disabled: nothing in this group can be picked. */
   disabled: boolean;
@@ -84,7 +87,7 @@ const groups = computed<AssetGroup[]>(() => {
       {
         key: "all",
         label: "",
-        assets: props.assets,
+        assets: [...props.assets].sort(byFavoriteFirst),
         disabled: false,
         newest: "",
         newestId: null,
@@ -113,7 +116,9 @@ const groups = computed<AssetGroup[]>(() => {
       group.newestId = asset.id;
     }
   }
-  return [...byKey.values()].sort(
+  const list = [...byKey.values()];
+  for (const group of list) group.assets.sort(byFavoriteFirst);
+  return list.sort(
     (a, b) =>
       Number(a.disabled) - Number(b.disabled) ||
       b.newest.localeCompare(a.newest),
@@ -186,20 +191,7 @@ const fadeIndex = computed(() =>
               :aria-disabled="reasonOf(asset) ? true : undefined"
               @click="selectable && !reasonOf(asset) && $emit('select', asset)"
             >
-              <!-- List rows trade the screenshot for density, so the selection
-               badge moves out of the thumbnail and leads the row instead. -->
-              <span
-                v-if="layout === 'list'"
-                class="r-asset-strip__mark"
-                aria-hidden="true"
-              >
-                <RIcon
-                  v-if="selectable && asset.id === selectedId"
-                  icon="mdi-check-circle"
-                  size="14"
-                />
-              </span>
-              <div v-else class="r-asset-strip__thumb">
+              <div v-if="layout !== 'list'" class="r-asset-strip__thumb">
                 <div
                   v-if="type === 'state' && screenshotOf(asset)"
                   class="r-asset-strip__thumb-img"
@@ -213,19 +205,26 @@ const fadeIndex = computed(() =>
                     size="28"
                   />
                 </div>
-                <span
-                  v-if="selectable && asset.id === selectedId"
-                  class="r-asset-strip__check"
-                  aria-hidden="true"
-                >
-                  <RIcon icon="mdi-check" size="14" />
-                </span>
+                <AssetFavoriteMark
+                  class="r-asset-strip__fav"
+                  :favorite="selectable && asset.is_favorite"
+                  :size="14"
+                />
               </div>
               <div class="r-asset-strip__body">
                 <div class="r-asset-strip__meta">
                   <p class="r-asset-strip__name">
-                    {{ asset.file_name }}
+                    <span class="r-asset-strip__name-text">
+                      {{ asset.file_name }}
+                    </span>
+                    <!-- The list layout has no thumbnail to ride. -->
+                    <AssetFavoriteMark
+                      v-if="layout === 'list'"
+                      :favorite="selectable && asset.is_favorite"
+                      :size="13"
+                    />
                   </p>
+                  <AssetLabels :asset="asset" />
                   <AssetChips
                     :asset="asset"
                     :latest="
@@ -233,7 +232,7 @@ const fadeIndex = computed(() =>
                       group.assets.length > 1 &&
                       asset.id === group.newestId
                     "
-                    :show-emulator="!groupBy"
+                    :show-emulator="!groupBy && type === 'state'"
                   />
                   <AssetTimestamp
                     :date="asset.updated_at"
@@ -394,14 +393,9 @@ const fadeIndex = computed(() =>
   transform: none;
   background: var(--r-color-surface-hover);
 }
-.r-asset-strip--list .r-asset-strip__tile--active {
+.r-asset-strip--list .r-asset-strip__tile--active,
+.r-asset-strip--list .r-asset-strip__tile--active:hover {
   background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
-}
-.r-asset-strip--list .r-asset-strip__mark {
-  flex: 0 0 14px;
-  display: grid;
-  place-items: center;
-  color: var(--r-color-brand-primary);
 }
 .r-asset-strip--list .r-asset-strip__meta {
   flex: 1;
@@ -459,7 +453,8 @@ const fadeIndex = computed(() =>
   border-color: var(--r-color-border-strong);
   background: var(--r-color-surface);
 }
-.r-asset-strip__tile--active {
+.r-asset-strip__tile--active,
+.r-asset-strip__tile--active:hover {
   border-color: var(--r-color-brand-primary);
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
@@ -517,20 +512,13 @@ const fadeIndex = computed(() =>
   );
 }
 
-.r-asset-strip__check {
+/* Top left, matching the state preview's stage. */
+.r-asset-strip__fav {
   position: absolute;
   top: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  background: var(--r-color-brand-primary);
-  color: white;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px color-mix(in srgb, black 35%, transparent);
+  left: 6px;
+  filter: drop-shadow(0 1px 3px color-mix(in srgb, black 75%, transparent));
 }
-
 .r-asset-strip__body {
   display: flex;
   flex-direction: column;
@@ -557,6 +545,17 @@ const fadeIndex = computed(() =>
   font-size: 11px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
+  overflow-wrap: anywhere;
+}
+/* One line with the heart pinned beside it: only the text truncates, so the
+   mark survives a long filename. */
+.r-asset-strip--list .r-asset-strip__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.r-asset-strip--list .r-asset-strip__name-text {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

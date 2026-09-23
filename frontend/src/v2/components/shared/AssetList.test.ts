@@ -4,7 +4,12 @@ import type { SaveSchema } from "@/__generated__";
 import AssetList from "./AssetList.vue";
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: "en_US" }),
+  useI18n: () => ({
+    // Keeps the pluralisation count, so a wrong one fails the assertion.
+    t: (key: string, count?: number) =>
+      typeof count === "number" ? `${key}:${count}` : key,
+    locale: "en_US",
+  }),
 }));
 
 const RBtn = {
@@ -51,7 +56,13 @@ function library() {
   ];
 }
 
-function mountList(props: { selectedId?: number; type?: "save" | "state" }) {
+function mountList(
+  props: {
+    selectedId?: number;
+    type?: "save" | "state";
+    assets?: SaveSchema[];
+  } = {},
+) {
   return mount(AssetList, {
     props: { assets: library(), type: "save", ...props },
     global: { stubs },
@@ -120,5 +131,36 @@ describe("AssetList slot grouping", () => {
     expect(titles(wrapper)).toEqual([]);
     expect(wrapper.findAll(".fold")).toHaveLength(0);
     expect(names(wrapper)).toHaveLength(6);
+  });
+
+  it("floats a favorited version to the top of its slot, without folding away the newest", async () => {
+    nextId = 1;
+    const newest = save("main_quest", 1);
+    const middle = save("main_quest", 5);
+    const oldest = { ...save("main_quest", 50), is_favorite: true };
+    const wrapper = mountList({ assets: [newest, middle, oldest] });
+
+    expect(names(wrapper)).toEqual(["save_3.srm", "save_1.srm"]);
+    // "Latest" follows the newest save, not whichever row renders first.
+    expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual([
+      "play.latest-version",
+    ]);
+    // Only the middle version is hidden; the count must not include the
+    // favorite and the newest, which stay on screen while folded.
+    expect(wrapper.get(".fold").text()).toBe("play.show-older-versions:1");
+
+    await wrapper.get(".fold").trigger("click");
+
+    expect(names(wrapper)).toEqual(["save_3.srm", "save_1.srm", "save_2.srm"]);
+  });
+
+  it("offers no fold when every version is pinned on screen", () => {
+    nextId = 1;
+    const newest = save("main_quest", 1);
+    const older = { ...save("main_quest", 50), is_favorite: true };
+    const wrapper = mountList({ assets: [newest, older] });
+
+    expect(names(wrapper)).toEqual(["save_2.srm", "save_1.srm"]);
+    expect(wrapper.findAll(".fold")).toHaveLength(0);
   });
 });
