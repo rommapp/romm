@@ -11,7 +11,7 @@ from .base import BaseModel, UTCDatetime
 
 RAProgression = TypedDict(  # type: ignore[misc]
     "RAProgression",
-    {k: NotRequired[v] for k, v in get_type_hints(RAUserProgression).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(RAUserProgression).items()},
     total=False,
 )
 

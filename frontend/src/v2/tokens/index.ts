@@ -182,6 +182,7 @@ export const colorLight = {
   fgSecondary: "rgba(17, 17, 23, 0.82)",
   fgMuted: "rgba(17, 17, 23, 0.74)",
   fgFaint: "rgba(17, 17, 23, 0.58)",
+  fgFaintHard: "rgba(17, 17, 23, 0.2)",
   border: "rgba(0, 0, 0, 0.1)",
   borderStrong: "rgba(0, 0, 0, 0.22)",
   focus: "rgba(0, 0, 0, 0.45)",
@@ -451,10 +452,8 @@ export const layout = {
   collectionCoverHeight: "188px",
   collectionCoverWidthXs: "150px",
   collectionCoverHeightXs: "202px",
-  // AlphaStrip A-Z jump column (gallery). Wider on phones for bigger, more
-  // tappable letters.
+  // AlphaStrip A-Z jump column (gallery).
   alphaStripWidth: "24px",
-  alphaStripWidthXs: "30px",
   // List-mode (table) gallery geometry. `GameListRow`, `GameListHeader`
   // and `GameListSkeletonRow` all derive their pixel sizing from these,
   // and `useGalleryVirtualItems` reads `listRowHeight` so the virtualiser's
@@ -463,6 +462,12 @@ export const layout = {
   // `<GameCard size="xs" />` — no dedicated list-cover token.)
   listRowHeight: "80px",
   listHeaderHeight: "40px",
+  // The row's leading tick column, narrower on phones (see global.css).
+  listSelectWidth: "36px",
+  // Height of a list row's expanded detail panel on phones and tablets,
+  // where the row collapses to two lines and the columns move in here.
+  // Fixed so the virtualiser can offset the rows below it exactly.
+  listRowDetailHeight: "226px",
 } as const;
 
 export const tokens = {

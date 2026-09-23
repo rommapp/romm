@@ -2,16 +2,18 @@
 
 from typing import Any
 
-from handler.filesystem.base_handler import LANGUAGES
+from handler.filesystem.base_handler import LANGUAGES, PROVIDER_LANGUAGES
 from models.rom import Rom
 from models.user import User
 
-# ISO-639-1 codes for the languages RomM recognizes. rom.languages stores names
-# ("French") from filename parsing and shortcodes ("fr") from metadata
-# providers, so both spellings reduce to the same code here; ui_settings.locale
-# stores locale codes ("pt_BR"). A broker maps what it gets to its own dialect.
+# ISO-639-1 codes for the languages RomM recognizes, from both vocabularies so
+# a provider-only language ("Czech") reduces like a filename tag does.
+# rom.languages stores names, ui_settings.locale stores locale codes ("pt_BR"),
+# and a broker maps what it gets to its own dialect.
 _LANGUAGE_NAME_TO_ISO = {
-    name.lower(): code.lower() for code, name in LANGUAGES if code.lower() != "nolang"
+    name.lower(): code.lower()
+    for code, name in (*LANGUAGES, *PROVIDER_LANGUAGES)
+    if code.lower() != "nolang"
 }
 _ISO_CODES = set(_LANGUAGE_NAME_TO_ISO.values())
 

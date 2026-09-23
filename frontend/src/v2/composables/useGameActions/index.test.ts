@@ -13,6 +13,7 @@ const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
 const canPlayPico8 = { value: false };
 const canPlayRuffle = { value: false };
+const canPlayNative = { value: false };
 const streamContainer = { value: null as object | null };
 const joinableSession = {
   value: null as { host_username: string | null } | null,
@@ -78,6 +79,7 @@ vi.mock("@/v2/composables/useCanPlay", () => ({
     canPlayJsDos,
     canPlayPico8,
     canPlayRuffle,
+    canPlayNative,
     canPlayStream: {
       get value() {
         return (
@@ -134,6 +136,7 @@ beforeEach(() => {
   canPlayJsDos.value = false;
   canPlayPico8.value = false;
   canPlayRuffle.value = false;
+  canPlayNative.value = false;
   streamContainer.value = null;
   joinableSession.value = null;
   grantedActions.value = null;
@@ -338,6 +341,34 @@ describe("useGameActions.play — launch confirmation", () => {
     await actions.play();
 
     expect(push).toHaveBeenCalledWith("/rom/1/jsdos");
+  });
+
+  it("opens the play page for a platform only the desktop shell can run", async () => {
+    canPlayEJS.value = false;
+    canPlayNative.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+  });
+
+  // The shell's emulator is offered from the same page a core plays on, so
+  // where both can run the game there is still one route to open.
+  it("opens the same page when a core can run it too", async () => {
+    canPlayNative.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+  });
+
+  it("offers the Play button wherever either route can run the game", () => {
+    canPlayEJS.value = false;
+    expect(useGameActions(() => makeRom()).canPlayLocally.value).toBe(false);
+    canPlayNative.value = true;
+    expect(useGameActions(() => makeRom()).canPlayLocally.value).toBe(true);
   });
 
   it("offers neither streaming nor download without a file behind the rom", () => {

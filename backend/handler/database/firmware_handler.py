@@ -141,7 +141,7 @@ class DBFirmwareHandler(DBBaseHandler):
                         Firmware.file_name.not_in(fs_firmwares_to_keep),
                     )
                 )
-            )  # type: ignore[attr-defined]
+            )
             .unique()
             .all()
         )

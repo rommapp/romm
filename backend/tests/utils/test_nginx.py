@@ -92,7 +92,7 @@ class TestZipResponse:
 
         response = ZipResponse(content_lines=lines, filename="roms.zip")
 
-        assert len(response.body.decode().splitlines()) == 3
+        assert len(bytes(response.body).decode().splitlines()) == 3
         assert response.headers["x-archive-files"] == "zip"
 
     def test_rejects_a_caller_supplied_body(self):

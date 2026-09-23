@@ -41,6 +41,7 @@ import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import type { StatRow } from "@/v2/types/stats";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -162,14 +163,13 @@ const tags = computed<string[]>(() => {
   return out;
 });
 
-type StatRow = { label: string; value: string };
 const platformStats = computed<StatRow[]>(() => {
   const p = currentPlatform.value;
   if (!p) return [];
   const rows: StatRow[] = [
     {
       label: t("platform.in-library"),
-      value: String(p.rom_count ?? total.value),
+      value: p.rom_count ?? total.value,
     },
     { label: t("platform.on-disk"), value: formatBytes(p.fs_size_bytes ?? 0) },
   ];
@@ -178,7 +178,7 @@ const platformStats = computed<StatRow[]>(() => {
   if (usableFirmware.length) {
     rows.push({
       label: t("common.firmware"),
-      value: String(usableFirmware.length),
+      value: usableFirmware.length,
     });
   }
   return rows;

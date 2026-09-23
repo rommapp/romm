@@ -8,8 +8,7 @@ import pytest
 from fastapi import HTTPException, status
 
 from handler.metadata.hltb_handler import HLTBHandler
-from utils import get_version
-from utils.hltb_search import HLTB_BASE_URL, SESSION_MINT_SUFFIX
+from utils.hltb_search import HLTB_BASE_URL, HLTB_USER_AGENT, SESSION_MINT_SUFFIX
 
 SEARCH_URL = f"{HLTB_BASE_URL}/api/search/site"
 
@@ -406,9 +405,9 @@ async def test_heartbeat_sends_the_user_agent_hltb_requires(mock_ctx_httpx_clien
     with patch.object(handler, "is_enabled", return_value=True):
         assert await handler.heartbeat() is True
 
-    # HLTB rejects requests without a recognised user agent.
+    # HLTB's firewall rejects non-browser user agents.
     headers = mock_client.get.await_args.kwargs["headers"]
-    assert headers["User-Agent"] == f"RomM/{get_version()}"
+    assert headers["User-Agent"] == HLTB_USER_AGENT
     assert headers["Referer"] == "https://howlongtobeat.com"
 
 
@@ -564,9 +563,7 @@ async def test_get_rom_by_id_sends_the_user_agent_hltb_requires(
 
     await handler.get_rom_by_id(7169)
 
-    assert (
-        client.get.await_args.kwargs["headers"]["User-Agent"] == f"RomM/{get_version()}"
-    )
+    assert client.get.await_args.kwargs["headers"]["User-Agent"] == HLTB_USER_AGENT
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)

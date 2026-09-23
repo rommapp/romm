@@ -18,7 +18,7 @@ from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
 from fastapi.responses import Response
 from fastapi_pagination import resolve_params
-from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
+from fastapi_pagination.limit_offset import LimitOffsetParams
 from fastapi_pagination.types import GreaterEqualZero
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
@@ -35,10 +35,10 @@ from config import (
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
+from endpoints.responses.base import TypedLimitOffsetPage
 from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
-    RomFiltersDict,
     RomUserSchema,
     SimpleRomSchema,
 )
@@ -58,7 +58,7 @@ from handler.database import (
     db_save_handler,
 )
 from handler.database.base_handler import sync_session
-from handler.database.rom_filters import RomFilterParams
+from handler.database.rom_filters import RomFilterParams, RomFiltersDict
 from handler.database.roms_handler import (
     sorts_by_rom_user_column,
     user_sibling_cache_version,
@@ -412,8 +412,9 @@ class CustomLimitOffsetParams(LimitOffsetParams):
     offset: int = Query(0, ge=0, description="Page offset")
 
 
-class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
-    total: GreaterEqualZero | None
+class CustomLimitOffsetPage[T: BaseModel](TypedLimitOffsetPage[T]):
+    # Null when the caller opts out of the count with `with_total=false`.
+    total: GreaterEqualZero | None  # type: ignore[assignment]
     char_index: dict[str, int]
     rom_id_index: list[int]
     filter_values: RomFiltersDict
@@ -556,8 +557,8 @@ def get_roms(
         order_by=order_by,
         order_dir=order_dir,
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
-        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
+        hidden_platform_ids=perms.hidden_platform_ids,
+        hidden_rom_ids=perms.hidden_rom_ids,
         updated_after=updated_after,
         released_days=parsed_released_days,
         released_before_year=released_before_year,
@@ -627,14 +628,12 @@ def get_roms(
         )
         # `hidden`, the only RomUser column filter values read, already
         # bumps the global version, so no per-user version is embedded.
-        query_filters = db_rom_handler.with_filter_values(
+        filter_values = db_rom_handler.with_filter_values(
             query=filter_query,
             cache_key=build_unscoped_filter_values_cache_key(
                 request.user.id, is_unscoped_scope
             ),
         )
-        # trunk-ignore(mypy/typeddict-item)
-        filter_values = RomFiltersDict(**query_filters)
 
     # The full ordered id list backs virtual scroll, so it's computed over the
     # whole result set. Callers that only need a page (e.g. the home rails) opt
@@ -704,7 +703,7 @@ def get_roms(
                 else None
             )
 
-        params = resolve_params()
+        params: CustomLimitOffsetParams = resolve_params()
         if with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
         else:
@@ -791,8 +790,8 @@ def get_random_rom(
             smart_collection_id=smart_collection_id,
         ),
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
-        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
+        hidden_platform_ids=perms.hidden_platform_ids,
+        hidden_rom_ids=perms.hidden_rom_ids,
         include_related=False,
     )
 
@@ -1088,9 +1087,7 @@ def get_rom_by_hash(
 async def get_rom_filters(request: Request) -> RomFiltersDict:
     from handler.database import db_rom_handler
 
-    filters = db_rom_handler.get_rom_filters()
-    # trunk-ignore(mypy/typeddict-item)
-    return RomFiltersDict(**filters)
+    return db_rom_handler.get_rom_filters()
 
 
 @protected_route(

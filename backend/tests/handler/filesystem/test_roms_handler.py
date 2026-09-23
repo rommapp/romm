@@ -304,6 +304,132 @@ class TestFSRomsHandler:
         assert handler.parse_tags("Game (nl).rom").regions == ["Netherlands"]
         assert handler.parse_tags("Game (no).rom").regions == ["Norway"]
 
+    def test_parse_tags_reads_a_goodtools_translation(self, handler: FSRomsHandler):
+        """A fan translation is playable in the language it targets, so the tag
+        names the language as well as marking the dump."""
+        parsed = handler.parse_tags("Final Fantasy V (Japan) [T+Eng1.1_RPGe].sfc")
+
+        assert parsed.regions == ["Japan"]
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_superseded_translation(self, handler: FSRomsHandler):
+        """GoodTools marks an older patch "T-", which is still a translation."""
+        parsed = handler.parse_tags("Bahamut Lagoon (Japan) [T-Eng0.98_DeJap].sfc")
+
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_two_letter_translation(self, handler: FSRomsHandler):
+        """The code may be the two-letter form, "[T-En]" for "[T-Eng]"."""
+        parsed = handler.parse_tags("Game (Japan) [T-En].sfc")
+
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_non_iso_translation_code(self, handler: FSRomsHandler):
+        """Ge, Sp, Du, Gr and Jp are not ISO codes but do name a language."""
+        parsed = handler.parse_tags("Game (Japan) [T+Ge].sfc")
+
+        assert parsed.languages == ["German"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_leaves_a_hyphenated_word_alone(self, handler: FSRomsHandler):
+        """A suffixless "T-" tag has to name a language, so "T-Rex" is a tag."""
+        parsed = handler.parse_tags("Game (USA) (T-Rex).nes")
+
+        assert parsed.other_tags == ["T-Rex"]
+        assert parsed.languages == []
+
+    def test_parse_tags_reads_a_superseded_patch_of_an_unnamed_language(
+        self, handler: FSRomsHandler
+    ):
+        """Carrying a patch version marks it as GoodTools', not a stray word."""
+        parsed = handler.parse_tags("Game (Japan) [T-Tha1.0_Grp].gba")
+
+        assert parsed.other_tags == ["Translation"]
+        assert parsed.languages == []
+
+    def test_parse_tags_reads_a_spaced_translation(self, handler: FSRomsHandler):
+        """GoodTools also separates with a space, as ScreenScraper spells it."""
+        parsed = handler.parse_tags("Super Mario Bros. (W) [T Fre].nes")
+
+        assert parsed.languages == ["French"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_spaced_form_needs_a_language(self, handler: FSRomsHandler):
+        """The word after a spaced "T" has to name a language."""
+        parsed = handler.parse_tags("Game (USA) (T Rex).nes")
+
+        assert parsed.other_tags == ["T Rex"]
+        assert parsed.languages == []
+
+    def test_parse_tags_reads_a_tosec_translation(self, handler: FSRomsHandler):
+        parsed = handler.parse_tags("Game (1994)(Konami)(JP)[tr fr].tap")
+
+        assert parsed.languages == ["French"]
+        assert "Translation" in parsed.other_tags
+
+    def test_parse_tags_translation_without_a_language(self, handler: FSRomsHandler):
+        """ "(Tr)" names no language, so the dump is marked and nothing more."""
+        parsed = handler.parse_tags("Game (Japan) (Tr).md")
+
+        assert parsed.languages == []
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_translation_does_not_repeat_a_language(
+        self, handler: FSRomsHandler
+    ):
+        """A file carrying both spellings is filed under the language once."""
+        parsed = handler.parse_tags("Seiken Densetsu 3 (Japan) (En) (Translation).sfc")
+
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_leaves_other_tr_tags_alone(self, handler: FSRomsHandler):
+        """A tag merely starting with "tr" is not a translation."""
+        parsed = handler.parse_tags("Game (USA) (Trainer).nes")
+
+        assert parsed.other_tags == ["Trainer"]
+        assert parsed.languages == []
+
+    def test_parse_tags_translation_into_an_unnamed_language(
+        self, handler: FSRomsHandler
+    ):
+        """An unnamed target language still marks the dump as translated."""
+        parsed = handler.parse_tags("Game (Japan) [T+Tha].gba")
+
+        assert parsed.languages == []
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_two_letter_region_codes(self, handler: FSRomsHandler):
+        """TOSEC and similar sets write the provider shortcode, not the GoodTools
+        one, so "(US)" has to read as a region rather than land in tags."""
+        assert handler.parse_tags("Game (US).rom").regions == ["USA"]
+        assert handler.parse_tags("Game (JP).rom").regions == ["Japan"]
+        assert handler.parse_tags("Game (EU).rom").regions == ["Europe"]
+        assert handler.parse_tags("Game (BR).rom").regions == ["Brazil"]
+        assert handler.parse_tags("Game (CZ).rom").regions == ["Czech Republic"]
+
+        parsed = handler.parse_tags("Game (1994)(Konami)(JP).tap")
+        assert parsed.regions == ["Japan"]
+        assert "JP" not in parsed.other_tags
+
+    def test_parse_tags_leaves_the_ambiguous_codes_to_their_own_tables(
+        self, handler: FSRomsHandler
+    ):
+        """A two-letter code a language table claims keeps its old meaning, which
+        is what issue #3026 turned on."""
+        assert handler.parse_tags("Game (De).rom").languages == ["German"]
+        assert handler.parse_tags("Game (Fr).rom").languages == ["French"]
+        assert handler.parse_tags("Game (Pt).rom").languages == ["Portuguese"]
+        assert handler.parse_tags("Game (De).rom").regions == []
+
+        # "(Tr)" marks a translation by dumper convention, never Turkey.
+        parsed = handler.parse_tags("Game (Japan) (Tr).rom")
+        assert parsed.regions == ["Japan"]
+        assert parsed.other_tags == ["Translation"]
+
     def test_parse_tags_language_casing_is_normalized(self, handler: FSRomsHandler):
         """Language names collapse to one canonical spelling regardless of casing."""
         for fs_name in (
@@ -2760,15 +2886,15 @@ class TestExtractCHDHash:
 
         chd_file.write_bytes(header)
 
-        # Remove read permissions
-        chd_file.chmod(0o000)
-
-        try:
+        # Root ignores permission bits, so chmod can't simulate this.
+        with patch(
+            "utils.archives.open",
+            create=True,
+            side_effect=PermissionError(13, "Permission denied"),
+        ):
             result = extract_chd_hash(chd_file)
-            assert result == ""
-        finally:
-            # Restore permissions for cleanup
-            chd_file.chmod(0o644)
+
+        assert result == ""
 
     def test_extract_chd_hash_real_header(self, tmp_path):
         """Test extracting hash from real Pebble Beach Golf Links CHD v5 header

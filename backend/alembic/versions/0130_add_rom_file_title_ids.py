@@ -3,8 +3,8 @@
 Rom-level title_id landed in 0116_sigil_title_ids; these columns hold the
 identity of every file in a multi-part rom, extracted by rom-converto.
 
-Revision ID: 0129_add_rom_file_title_ids
-Revises: 0128_hltb_main_story_column
+Revision ID: 0130_add_rom_file_title_ids
+Revises: 0129_save_state_favorites_labels
 Create Date: 2026-09-03 00:00:00.000000
 
 """
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
 # revision identifiers, used by Alembic.
-revision = "0129_add_rom_file_title_ids"
-down_revision = "0128_hltb_main_story_column"
+revision = "0130_add_rom_file_title_ids"
+down_revision = "0129_save_state_favorites_labels"
 branch_labels = None
 depends_on = None
 

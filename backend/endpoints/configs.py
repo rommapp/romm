@@ -19,6 +19,7 @@ from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
+from handler.filesystem import fs_platform_handler
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -202,6 +203,19 @@ def get_config(request: Request) -> ConfigResponse:
     )
 
 
+async def _reject_ambiguous_folder(fs_slug: str) -> None:
+    """Refuse a mapping that several folders on disk would share."""
+    ambiguous = await fs_platform_handler.find_ambiguous_folders(fs_slug)
+    if ambiguous:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Folders {', '.join(ambiguous)} differ only by case and share a "
+                "single mapping. Rename one to map them to different platforms."
+            ),
+        )
+
+
 @protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])
 async def add_platform_binding(
     request: Request, payload: PlatformBindingPayload
@@ -210,6 +224,7 @@ async def add_platform_binding(
 
     fs_slug = payload.fs_slug
     slug = payload.slug
+    await _reject_ambiguous_folder(fs_slug)
 
     try:
         cm.add_platform_binding(fs_slug, slug)
@@ -241,6 +256,7 @@ async def add_platform_version(
 
     fs_slug = payload.fs_slug
     slug = payload.slug
+    await _reject_ambiguous_folder(fs_slug)
 
     try:
         cm.add_platform_version(fs_slug, slug)

@@ -164,7 +164,7 @@ async def update_permission_group(
     # Grant changes alter every member's effective permissions.
     for member_id in db_permission_handler.get_group_member_ids(id):
         await emit_permissions_changed(member_id)
-    return _group_schema(updated)  # type: ignore[arg-type]
+    return _group_schema(updated)
 
 
 @protected_route(
