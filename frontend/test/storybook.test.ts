@@ -1,10 +1,6 @@
 import { composeStories } from "@storybook/vue3-vite";
 import axe from "axe-core";
 import { describe, expect, it } from "vitest";
-import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
-
-// Match `.storybook/preview.ts` so responsive CSS keyed on html[data-bp] applies in happy-dom.
-installBreakpointAttribute();
 
 type StoryModule = Record<string, unknown>;
 
