@@ -54,6 +54,16 @@ ruleTester.run("no-color-literal", rule, {
       errors: [error("hsl("), error("oklch(")],
     },
     {
+      code: sfc(".a { color: color(display-p3 1 0 0); }"),
+      filename: "A.vue",
+      errors: [error("color(")],
+    },
+    {
+      code: sfc(".a { color: device-cmyk(0 81% 81% 30%); }"),
+      filename: "A.vue",
+      errors: [error("device-cmyk(")],
+    },
+    {
       code: sfc(".a { background: linear-gradient(#000, #111); }"),
       filename: "A.vue",
       errors: [error("#000"), error("#111")],

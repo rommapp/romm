@@ -29,8 +29,6 @@ export default tseslint.config(
     },
   },
   // Global ignore (object with only `ignores` = applies everywhere).
-  // Storybook config files live outside `src/` and aren't part of the
-  // app tsconfig, so type-aware linting can't resolve them.
   {
     ignores: [
       ".storybook/**",
@@ -58,13 +56,14 @@ export default tseslint.config(
       "*.local",
       "*.config.js",
       "src/plugins/*.d.ts",
-      // Typechecked by tsconfig.node.json, outside the app project service.
+      // Typechecked by tsconfig.node.json and covered by its own RuleTester tests.
       "eslint-plugin-romm/**",
     ],
+    // No rule needs type information; a project service would build a
+    // TypeScript program per file for nothing.
     languageOptions: {
       parserOptions: {
         parser: "@typescript-eslint/parser",
-        projectService: true,
         ecmaVersion: 2022,
         extraFileExtensions: [".vue"],
       },
@@ -112,9 +111,19 @@ export default tseslint.config(
       // renders; that edge is resolved at runtime, so it is not a real cycle.
       "import-x/no-cycle": [
         "error",
-        { maxDepth: 15, allowUnsafeDynamicCyclicDependency: true },
+        {
+          maxDepth: 15,
+          allowUnsafeDynamicCyclicDependency: true,
+          ignoreExternal: true,
+        },
       ],
     },
+  },
+  {
+    // vue-tsc checks undefined names; without type info this rule misreads
+    // DOM type names (`EventListener`, `ScrollBehavior`) as undefined.
+    files: ["**/*.vue"],
+    rules: { "no-undef": "off" },
   },
   {
     // Frozen v1: two cycles between the console theme helpers predate the
@@ -194,7 +203,7 @@ export default tseslint.config(
     files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],
     plugins: { romm },
     rules: {
-      "romm/no-em-dash": "error",
+      "romm/no-emdash-in-comment": "error",
       "romm/no-color-literal": "error",
       "romm/no-layout-media-query": "error",
     },

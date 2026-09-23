@@ -6,7 +6,7 @@ import { sfcStyleBlocks } from "../utils/sfcStyles.js";
 const DECLARATION = /(?<=[{;]\s*)(--[\w-]+|[a-z-]+)\s*:([^;{}]*)/gi;
 const URL_CALL = /url\([^)]*\)/gi;
 const COLOR_LITERAL =
-  /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi;
+  /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|device-cmyk)\(/gi;
 
 /** @type {import("eslint").Rule.RuleModule} */
 export default {
