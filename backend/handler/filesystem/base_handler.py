@@ -264,6 +264,11 @@ _TRANSLATION_LANGUAGE_ALIASES = {
 }
 
 
+# The tag a translated dump carries, in place of the group and patch version
+# the raw tag encodes, which would give every translation its own facet value.
+TRANSLATION_TAG = "Translation"
+
+
 def translation_language(code: str) -> str | None:
     """Resolve the language a translation tag targets, or None."""
     tag = code.strip().lower()
