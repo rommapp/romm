@@ -93,16 +93,10 @@ describe("AssetStrip grouped by core", () => {
 });
 
 describe("AssetStrip timestamp", () => {
-  it("sets the times inline on tiles", () => {
-    const wrapper = mountStrip();
-
-    expect(wrapper.findAll(".r-asset-timestamp--inline")).toHaveLength(4);
-  });
-
-  it("keeps them stacked in the list layout's time column", () => {
-    const wrapper = mountStrip({ layout: "list" });
-
-    expect(wrapper.findAll(".r-asset-timestamp")).toHaveLength(4);
-    expect(wrapper.findAll(".r-asset-timestamp--inline")).toHaveLength(0);
+  it("stacks the time only in the list layout's time column", () => {
+    expect(mountStrip().findAll(".r-asset-timestamp--stacked")).toHaveLength(0);
+    expect(
+      mountStrip({ layout: "list" }).findAll(".r-asset-timestamp--stacked"),
+    ).toHaveLength(4);
   });
 });

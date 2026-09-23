@@ -252,7 +252,7 @@ const fadeIndex = computed(() =>
                   />
                   <AssetTimestamp
                     :date="asset.updated_at"
-                    :inline="layout !== 'list'"
+                    :stacked="layout === 'list'"
                     class="r-asset-strip__time"
                   />
                   <AssetOwnerChip
@@ -372,7 +372,6 @@ const fadeIndex = computed(() =>
   padding: 4px 0;
 }
 .r-asset-strip--flow .r-asset-strip__tile {
-  flex: initial;
   scroll-snap-align: none;
 }
 
@@ -441,7 +440,6 @@ const fadeIndex = computed(() =>
 .r-asset-strip--list .r-asset-strip__time {
   order: 1;
   flex: 0 0 96px;
-  align-items: flex-end;
 }
 .r-asset-strip--list .r-asset-strip__owner {
   flex: 0 0 auto;

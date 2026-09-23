@@ -1,15 +1,14 @@
 <script setup lang="ts">
-// When an asset was last written: relative first, the exact moment under it
-// (or beside it when `inline`).
+// When an asset was last written: the relative time beside the exact moment,
+// or stacked flush right for a trailing time column.
 import { useI18n } from "vue-i18n";
 import { formatRelativeDate, formatTimestamp } from "@/utils";
 
 defineOptions({ inheritAttrs: false });
 
-withDefaults(
-  defineProps<{ date: string; align?: "start" | "end"; inline?: boolean }>(),
-  { align: "start", inline: false },
-);
+withDefaults(defineProps<{ date: string; stacked?: boolean }>(), {
+  stacked: false,
+});
 
 const { locale } = useI18n();
 </script>
@@ -17,10 +16,7 @@ const { locale } = useI18n();
 <template>
   <span
     class="r-asset-timestamp"
-    :class="[
-      `r-asset-timestamp--${align}`,
-      { 'r-asset-timestamp--inline': inline },
-    ]"
+    :class="{ 'r-asset-timestamp--stacked': stacked }"
     v-bind="$attrs"
   >
     <span class="r-asset-timestamp__relative">
@@ -35,22 +31,15 @@ const { locale } = useI18n();
 <style scoped>
 .r-asset-timestamp {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
   flex-shrink: 0;
   min-width: 0;
 }
-.r-asset-timestamp--end {
+.r-asset-timestamp--stacked {
+  flex-direction: column;
   align-items: flex-end;
-}
-.r-asset-timestamp--inline {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 6px;
-}
-.r-asset-timestamp--inline.r-asset-timestamp--end {
-  justify-content: flex-end;
 }
 .r-asset-timestamp__relative {
   font-size: 11px;

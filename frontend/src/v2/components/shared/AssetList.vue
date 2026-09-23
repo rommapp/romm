@@ -309,8 +309,7 @@ const fadeIndex = computed(() =>
               <AssetTimestamp
                 class="r-asset-list__time"
                 :date="dateOf(asset, timestamp)"
-                :align="xs ? 'start' : 'end'"
-                :inline="xs"
+                :stacked="!xs"
               />
 
               <span v-if="!selectable" class="r-asset-list__actions">

@@ -201,7 +201,6 @@ const emptyText = computed(() =>
         <AssetTimestamp
           class="r-asset-preview__when"
           :date="dateOf(asset, timestamp)"
-          inline
         />
       </div>
 
