@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PLATFORM_ICON,
   indexShippedPlatformIcons,
+  listShippedPlatformIcons,
+  platformIconSrc,
   resolveShippedPlatformIconUrl,
 } from "./iconCache";
 
@@ -57,5 +60,39 @@ describe("resolveShippedPlatformIconUrl", () => {
     const url = resolveShippedPlatformIconUrl("DC", index);
 
     expect(url).toBe("/assets/platforms/dc.svg");
+  });
+});
+
+describe("platformIconSrc", () => {
+  it("prefers an explicit src", () => {
+    expect(platformIconSrc("dc", "nes", "/custom/icon.png")).toBe(
+      "/custom/icon.png",
+    );
+  });
+
+  it("uses the shipped slug before the filesystem slug", () => {
+    expect(platformIconSrc("dc", "dreamcast")).toBe("/assets/platforms/dc.svg");
+  });
+
+  it("uses the filesystem slug when the canonical slug is unshipped", () => {
+    expect(platformIconSrc("dreamcast", "dc")).toBe("/assets/platforms/dc.svg");
+  });
+
+  it("uses the default when nothing shipped", () => {
+    expect(platformIconSrc("switch_mods")).toBe(DEFAULT_PLATFORM_ICON);
+  });
+});
+
+describe("listShippedPlatformIcons", () => {
+  it("returns sorted slug and url pairs from the build allowlist", () => {
+    const entries = listShippedPlatformIcons();
+
+    expect(entries.length).toBeGreaterThan(10);
+    const slugs = entries.map((e) => e.slug);
+    expect(slugs).toEqual([...slugs].sort((a, b) => a.localeCompare(b)));
+    expect(entries.find((e) => e.slug === "snes")).toEqual({
+      slug: "snes",
+      url: "/assets/platforms/snes.svg",
+    });
   });
 });

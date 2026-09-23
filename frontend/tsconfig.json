@@ -5,7 +5,8 @@
     "src/**/*.vue",
     "src/**/*.d.ts",
     "e2e/**/*.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    ".storybook/**/*.ts"
   ],
   "exclude": ["node_modules"],
   "types": ["node", "lodash", "js-cookie", "vue-router", "vue"],

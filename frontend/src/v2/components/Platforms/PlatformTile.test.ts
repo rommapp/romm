@@ -14,7 +14,7 @@ vi.mock("vue-router", async (importOriginal) => ({
 }));
 
 vi.mock("@v2/lib", () => ({
-  RPlatformIcon: defineComponent({ template: "<i />" }),
+  PlatformIcon: defineComponent({ template: "<i />" }),
 }));
 
 vi.mock("@/v2/composables/usePlatformPlayable", () => ({

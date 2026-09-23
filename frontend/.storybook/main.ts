@@ -13,6 +13,17 @@ const config: StorybookConfig = {
     name: "@storybook/vue3-vite",
     options: {},
   },
+  // Static files copied into storybook-static on build (public if you deploy SB).
+  // Policy: frontend/.storybook/STORYBOOK_STATIC.md
+  staticDirs: [
+    // Prod-shaped URLs for shipped platform icons only — NOT all of ../assets.
+    { from: "../assets/platforms", to: "/assets/platforms" },
+    // Storybook-only: one row per category → /storybook-fixtures/<category>
+    {
+      from: "./fixtures/platform-icons",
+      to: "/storybook-fixtures/platform-icons",
+    },
+  ],
   async viteFinal(cfg) {
     // Ensure path aliases match the main app's Vite config so stories can
     // import from @/ and @v2/ without surprises.

@@ -18,12 +18,13 @@
 // drive rendering from external state (FolderMapping reads from `row`
 // rather than `items` so the cell still renders during loading or
 // when the row points at a slug not in the catalogue).
-import { RAvatar, RIcon, RPlatformIcon, RSelect, RTag } from "@v2/lib";
+import { RAvatar, RIcon, RSelect, RTag } from "@v2/lib";
 import { computed, useSlots } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import { platformCategoryToIcon } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 
 // Per-platform scrapper match indicators — mini avatar per metadata
 // source the platform has an ID for. Mixed `_id` / `_slug` fields
@@ -201,7 +202,7 @@ function onUpdate(v: unknown) {
     <template #selection="slotProps">
       <slot name="selection" v-bind="slotProps">
         <span class="r-v2-platsel__selection">
-          <RPlatformIcon
+          <PlatformIcon
             v-if="platformForValue(slotProps.item.value)"
             :slug="platformForValue(slotProps.item.value)!.slug"
             :fs-slug="platformForValue(slotProps.item.value)!.fs_slug"
@@ -218,11 +219,11 @@ function onUpdate(v: unknown) {
          collapses each selection into a small RTag. PlatformSelect
          renders just the platform icon inside the chip; RSelect
          keeps providing the "+N" overflow pill automatically. The
-         tooltip on RPlatformIcon serves the same role the title
+         tooltip on PlatformIcon serves the same role the title
          text used to (hover the chip → see the platform name). -->
     <template #chip="slotProps">
       <slot name="chip" v-bind="slotProps">
-        <RPlatformIcon
+        <PlatformIcon
           v-if="platformForValue(slotProps.item.value)"
           :slug="platformForValue(slotProps.item.value)!.slug"
           :fs-slug="platformForValue(slotProps.item.value)!.fs_slug"
@@ -239,7 +240,7 @@ function onUpdate(v: unknown) {
     <template #item="slotProps">
       <slot name="item" v-bind="slotProps">
         <li v-bind="slotProps.props" class="r-v2-platsel__row">
-          <RPlatformIcon
+          <PlatformIcon
             :key="(slotProps.item.raw as Platform).slug"
             :slug="(slotProps.item.raw as Platform).slug"
             :fs-slug="(slotProps.item.raw as Platform).fs_slug"

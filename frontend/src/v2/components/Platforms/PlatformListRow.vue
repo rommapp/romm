@@ -1,14 +1,14 @@
 <script setup lang="ts">
 // PlatformListRow — single row of the Platforms list-mode index.
 //
-// Anatomy mirrors GameListRow: thumb (RPlatformIcon) + name stack on the
+// Anatomy mirrors GameListRow: thumb (PlatformIcon) + name stack on the
 // left, game count column on the right. Click navigates to /platform/<id>
 // with the same shared-element morph as PlatformTile so switching between
 // grid and list modes lands on the same destination animation.
-import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
 import { useStaggeredEntrance } from "@/v2/composables/useStaggeredEntrance";
@@ -104,7 +104,7 @@ function onRowClick(e: MouseEvent) {
     @animationend.self="endEntrance"
   >
     <div ref="iconEl" class="plat-list-row__thumb" :style="morphStyle">
-      <RPlatformIcon
+      <PlatformIcon
         :slug="slug"
         :fs-slug="fsSlug"
         :alt="displayName"
@@ -153,7 +153,7 @@ function onRowClick(e: MouseEvent) {
   >
     <div class="plat-list-row__cell plat-list-row__title">
       <div ref="iconEl" class="plat-list-row__thumb" :style="morphStyle">
-        <RPlatformIcon
+        <PlatformIcon
           :slug="slug"
           :fs-slug="fsSlug"
           :alt="displayName"

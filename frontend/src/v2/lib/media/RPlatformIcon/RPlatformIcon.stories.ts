@@ -1,91 +1,238 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, waitFor } from "storybook/test";
+import { DEFAULT_PLATFORM_ICON } from "@/v2/composables/usePlatformIconCache/iconCache";
+import {
+  platformGalleryArgTypes,
+  platformGalleryControlInclude,
+  platformGalleryDefaultArgs,
+  platformGalleryStoryParameters,
+  platformGalleryStyles,
+  platformIconSizesTemplate,
+  platformSizeLadderSteps,
+  platformSizesStoryParameters,
+  platformSizesStoryStyles,
+  rPlatformIconGalleryTemplate,
+  rPlatformIconSizesTemplate,
+  shippedPlatformGalleryEntries,
+} from "../../../../../.storybook/fixtures/platformIconGallery";
+import {
+  MISSING_PROD_SRC,
+  PLATFORM_ICON_SIZE_MAX,
+  PLATFORM_ICON_SIZE_MIN,
+  R_PLATFORM_ICON_SRC_OPTIONS,
+  SHIPPED_GBA_SRC,
+  SHIPPED_NES_SRC,
+  SHIPPED_SNES_SRC,
+  rPlatformIconDefaultArgs,
+  rPlatformIconSrcLabels,
+  rPlatformIconStoryControlInclude,
+} from "../../../../../.storybook/fixtures/platformIconStoryControls";
+import { STORYBOOK_NON_CACHED_ICON_SVG } from "../../../../../.storybook/fixtures/urls";
 import RPlatformIcon from "./RPlatformIcon.vue";
 
-const meta: Meta<typeof RPlatformIcon> = {
+type StoryArgs = {
+  src: (typeof R_PLATFORM_ICON_SRC_OPTIONS)[number];
+  useFallback: boolean;
+  fallbackSrc: typeof DEFAULT_PLATFORM_ICON;
+  size: number;
+  alt: string;
+  title: string;
+  showTooltip: boolean;
+  name?: string;
+  slug?: string;
+  fsSlug?: string;
+};
+
+const meta: Meta<StoryArgs> = {
   title: "Media/RPlatformIcon",
   component: RPlatformIcon,
+  args: rPlatformIconDefaultArgs as StoryArgs,
+  parameters: {
+    controls: { include: [...rPlatformIconStoryControlInclude] },
+  },
   argTypes: {
-    name: { control: "text" },
-    src: { control: "text" },
-    size: { control: "number" },
+    src: {
+      control: "select",
+      options: [...R_PLATFORM_ICON_SRC_OPTIONS],
+      labels: rPlatformIconSrcLabels,
+    },
+    useFallback: { control: "boolean" },
+    fallbackSrc: {
+      control: "select",
+      options: [DEFAULT_PLATFORM_ICON],
+    },
+    size: {
+      control: {
+        type: "range",
+        min: PLATFORM_ICON_SIZE_MIN,
+        max: PLATFORM_ICON_SIZE_MAX,
+        step: 1,
+      },
+    },
+    alt: { control: "text" },
     title: { control: "text" },
     showTooltip: { control: "boolean" },
+    name: { control: false, table: { disable: true } },
+    slug: { control: false, table: { disable: true } },
+    fsSlug: { control: false, table: { disable: true } },
   },
+  render: (args) => ({
+    components: { RPlatformIcon },
+    setup() {
+      const fallbackSrc = args.useFallback ? args.fallbackSrc : undefined;
+      return { args, fallbackSrc };
+    },
+    template: `
+      <RPlatformIcon
+        :src="args.src"
+        :fallback-src="fallbackSrc"
+        :size="args.size"
+        :alt="args.alt"
+        :title="args.title"
+        :show-tooltip="args.showTooltip"
+      />
+    `,
+  }),
 };
 
 export default meta;
 
-type Story = StoryObj<typeof RPlatformIcon>;
+type Story = StoryObj<StoryArgs>;
 
-export const Known: Story = { args: { name: "snes", size: 40 } };
-export const Unknown: Story = { args: { name: "does-not-exist", size: 40 } };
-export const Row: Story = {
+export const Default: Story = {};
+
+export const SrcMissingProdPathFallsBack: Story = {
+  name: "Missing prod src",
+  parameters: { controls: { disable: true } },
+  render: () => ({
+    components: { RPlatformIcon },
+    template: `
+      <RPlatformIcon
+        :src="'${MISSING_PROD_SRC}'"
+        :fallback-src="'${DEFAULT_PLATFORM_ICON}'"
+        :size="40"
+        alt="Missing platform"
+        title="Missing prod asset"
+        :show-tooltip="false"
+      />
+    `,
+  }),
+  play: async ({ canvasElement }) => {
+    const triggerFallback = () => {
+      canvasElement.querySelector("img")?.dispatchEvent(new Event("error"));
+    };
+    triggerFallback();
+    await waitFor(() => {
+      const img = canvasElement.querySelector("img");
+      expect(img?.getAttribute("src")).toBe(DEFAULT_PLATFORM_ICON);
+    });
+  },
+};
+
+export const SrcFixtureNotInGlobPaints: Story = {
+  name: "Fixture src",
+  parameters: { controls: { disable: true } },
+  render: () => ({
+    components: { RPlatformIcon },
+    template: `
+      <RPlatformIcon
+        :src="'${STORYBOOK_NON_CACHED_ICON_SVG}'"
+        :fallback-src="'${DEFAULT_PLATFORM_ICON}'"
+        :size="40"
+        alt="Fixture icon"
+        title="Storybook-only asset"
+        :show-tooltip="false"
+      />
+    `,
+  }),
+  play: async ({ canvasElement }) => {
+    const img = canvasElement.querySelector("img");
+    expect(img?.getAttribute("src")).toMatch(/non-cached-icon\.svg$/);
+  },
+};
+
+export const ShippedIconRow: Story = {
+  name: "Shipped row",
+  parameters: { controls: { disable: true } },
   render: () => ({
     components: { RPlatformIcon },
     template: `
       <div style="display:flex;gap:.5rem;align-items:center">
-        <RPlatformIcon name="snes" />
-        <RPlatformIcon name="nes" />
-        <RPlatformIcon name="gba" />
-        <RPlatformIcon name="ps1" />
-        <RPlatformIcon name="mystery" />
+        <RPlatformIcon :src="'${SHIPPED_SNES_SRC}'" :fallback-src="'${DEFAULT_PLATFORM_ICON}'" title="SNES" :show-tooltip="false" />
+        <RPlatformIcon :src="'${SHIPPED_NES_SRC}'" :fallback-src="'${DEFAULT_PLATFORM_ICON}'" title="NES" :show-tooltip="false" />
+        <RPlatformIcon :src="'${SHIPPED_GBA_SRC}'" :fallback-src="'${DEFAULT_PLATFORM_ICON}'" title="GBA" :show-tooltip="false" />
+        <RPlatformIcon :src="'${MISSING_PROD_SRC}'" :fallback-src="'${DEFAULT_PLATFORM_ICON}'" title="Missing" :show-tooltip="false" />
       </div>
     `,
   }),
 };
 
-// Size ladder — `size` binds directly to width/height inline so the
-// icon honours the requested dimension even inside indefinite flex
-// parents (e.g. RBtn's icon slot). Previously the icon was clamped
-// by `max-width: 100% / max-height: 100%` to whatever the parent
-// gave it, which silently shrunk it when the parent had no defined
-// extent. The badge in GameCard relies on this fix.
-export const SizeLadder: Story = {
-  name: "Size ladder",
-  render: () => ({
-    components: { RPlatformIcon },
-    template: `
-      <div style="display:flex;gap:14px;align-items:center;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <RPlatformIcon name="snes" :size="16" />
-          <span>16</span>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <RPlatformIcon name="snes" :size="22" />
-          <span>22</span>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <RPlatformIcon name="snes" :size="32" />
-          <span>32</span>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <RPlatformIcon name="snes" :size="48" />
-          <span>48</span>
-        </div>
-      </div>
-    `,
-  }),
+type GalleryStoryArgs = StoryArgs & {
+  showLabels: boolean;
+};
+
+export const AllPlatforms: StoryObj<GalleryStoryArgs> = {
+  name: "All platforms",
   parameters: {
-    docs: {
-      description: {
-        story:
-          "`size` is bound to inline `width`/`height` and does not clamp to the parent — useful when the icon sits inside an indefinite-extent flex slot.",
-      },
+    ...platformGalleryStoryParameters,
+    controls: {
+      include: [...platformGalleryControlInclude, "useFallback"],
     },
   },
+  args: {
+    ...platformGalleryDefaultArgs,
+    useFallback: true,
+    fallbackSrc: DEFAULT_PLATFORM_ICON,
+  },
+  argTypes: {
+    ...platformGalleryArgTypes,
+    useFallback: { control: "boolean" },
+    fallbackSrc: { control: false, table: { disable: true } },
+    src: { control: false, table: { disable: true } },
+    alt: { control: false, table: { disable: true } },
+    title: { control: false, table: { disable: true } },
+  },
+  render: (args) => ({
+    components: { RPlatformIcon },
+    setup() {
+      const fallback = args.useFallback ? args.fallbackSrc : undefined;
+      return {
+        args,
+        fallback,
+        icons: shippedPlatformGalleryEntries,
+        styles: platformGalleryStyles,
+      };
+    },
+    template: rPlatformIconGalleryTemplate,
+  }),
 };
 
-// Inside an indefinite flex container — proves the size prop is
-// honoured even when the parent has no defined cross-axis extent.
-// Regression guard for the GameCard platform badge.
+export const Sizes: Story = {
+  name: "Sizes",
+  parameters: platformSizesStoryParameters,
+  render: () => ({
+    components: { RPlatformIcon },
+    setup() {
+      return {
+        icons: shippedPlatformGalleryEntries,
+        sizes: platformSizeLadderSteps,
+        fallback: DEFAULT_PLATFORM_ICON,
+        styles: platformSizesStoryStyles,
+      };
+    },
+    template: rPlatformIconSizesTemplate,
+  }),
+};
+
 export const InsideFlexParent: Story = {
-  name: "Inside indefinite-extent flex parent",
+  name: "Flex parent",
+  parameters: { controls: { disable: true } },
   render: () => ({
     components: { RPlatformIcon },
     template: `
       <div style="display:flex;align-items:center;gap:6px;padding:6px;border:1px dashed var(--r-color-border);border-radius:6px">
-        <span style="font:11px sans-serif;color:var(--r-color-fg-muted)">indefinite flex parent →</span>
-        <RPlatformIcon name="snes" :size="22" />
+        <span style="font:11px sans-serif;color:var(--r-color-fg-muted)">flex parent</span>
+        <RPlatformIcon :src="'${SHIPPED_SNES_SRC}'" :fallback-src="'${DEFAULT_PLATFORM_ICON}'" :size="22" :show-tooltip="false" />
       </div>
     `,
   }),
