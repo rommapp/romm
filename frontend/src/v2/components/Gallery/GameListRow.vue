@@ -777,7 +777,11 @@ function onRowPointerDown(e: PointerEvent) {
   display: grid;
   align-items: center;
   gap: 0 var(--r-space-5);
+  /* Runs to the leading screen edge wherever the shell asks, keeping that
+     gutter as padding so the first column lines up with the toolbar. */
+  margin-inline-start: calc(-1 * var(--r-list-bleed-start, 0px));
   padding: 0 var(--r-space-3);
+  padding-inline-start: var(--r-list-bleed-start, var(--r-space-3));
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
 }

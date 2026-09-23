@@ -923,7 +923,7 @@ defineExpose({
       '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
       '--r-v2-shell-pin-distance': `${pinDistance}px`,
       '--r-cover-ratio': coverAspectRatio,
-      '--r-list-min-w': smAndDown ? 'auto' : `${listMinWidth}px`,
+      '--r-list-min-w': smAndDown ? '0px' : `${listMinWidth}px`,
     }"
   >
     <RVirtualScroller
@@ -1217,6 +1217,11 @@ html[data-bp~="sm-and-down"] .r-v2-shell {
 html[data-bp~="sm-and-down"] .r-v2-shell__list-header {
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
 }
+/* Desktop list mode: the column rows and their header run out to the left
+   screen edge the same way. The right gutter stays, under the AlphaStrip. */
+html[data-bp~="md-and-up"] .r-v2-shell {
+  --r-list-bleed-start: var(--r-row-pad);
+}
 
 /* The horizontal pads live here so all in-flow content (header, toolbar,
    rows) shares one column. */
@@ -1299,12 +1304,15 @@ html[data-bp~="sm-and-down"] .r-v2-shell__list-header {
   position: sticky;
   top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h));
   z-index: 3;
-  /* Match the rows' natural width so the column header scrolls horizontally in
-     step with them when the list is wider than the viewport. */
-  min-width: var(--r-list-min-w);
+  /* Match the rows' natural width (bleed included) so the column header
+     scrolls horizontally in step with them when the list is wider than the
+     viewport. */
+  min-width: calc(var(--r-list-min-w) + var(--r-list-bleed-start, 0px));
 }
-/* Its pinned glass also runs under the strip column, out to the right edge. */
+/* The header already reaches the left edge, so its pinned glass starts there
+   and runs under the strip column, out to the right edge. */
 .r-v2-shell__list-header::before {
+  left: 0;
   right: calc(-1 * (var(--r-row-pad) + var(--r-v2-shell-strip)));
 }
 

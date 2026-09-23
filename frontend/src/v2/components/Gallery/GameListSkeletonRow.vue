@@ -68,7 +68,7 @@ const { smAndDown } = useBreakpoint();
     </div>
   </div>
 
-  <div v-else class="r-glr-skel" :style="gridStyle">
+  <div v-else class="r-glr-skel r-glr-skel--columns" :style="gridStyle">
     <template v-for="col in columns" :key="String(col.key)">
       <div v-if="col.key === 'select'" class="r-glr-skel__cell" />
       <div
@@ -139,6 +139,10 @@ const { smAndDown } = useBreakpoint();
   padding: 0 var(--r-space-3);
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
+}
+.r-glr-skel--columns {
+  margin-inline-start: calc(-1 * var(--r-list-bleed-start, 0px));
+  padding-inline-start: var(--r-list-bleed-start, var(--r-space-3));
 }
 
 .r-glr-skel--compact > .r-glr-skel__select {
