@@ -234,6 +234,42 @@ def normalize_language(tag: str) -> str | None:
     return _LANGUAGE_BY_ALIAS.get(tag.strip().lower())
 
 
+# Codes only a translation tag uses for its target language ("[T+Eng]",
+# "[T-Ge]"). Two-letter ISO codes are absent: normalize_language has those.
+_TRANSLATION_LANGUAGE_ALIASES = {
+    "ara": "Arabic",
+    "chi": "Chinese",
+    "dan": "Danish",
+    "du": "Dutch",
+    "dut": "Dutch",
+    "eng": "English",
+    "fin": "Finnish",
+    "fre": "French",
+    "ge": "German",
+    "ger": "German",
+    "gr": "Greek",
+    "gre": "Greek",
+    "ita": "Italian",
+    "jap": "Japanese",
+    "jp": "Japanese",
+    "kor": "Korean",
+    "nor": "Norwegian",
+    "pol": "Polish",
+    "por": "Portuguese",
+    "rus": "Russian",
+    "ser": "Serbian",
+    "sp": "Spanish",
+    "spa": "Spanish",
+    "swe": "Swedish",
+}
+
+
+def translation_language(code: str) -> str | None:
+    """Resolve the language a translation tag targets, or None."""
+    tag = code.strip().lower()
+    return normalize_language(tag) or _TRANSLATION_LANGUAGE_ALIASES.get(tag)
+
+
 # ISO-639-1 languages with no filename shortcode of their own. Provider-only,
 # because a filename tag reads by dumper convention instead: "(Tr)" marks a
 # translation, not Turkish.

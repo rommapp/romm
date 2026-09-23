@@ -69,6 +69,7 @@ from .base_handler import (
     FSHandler,
     normalize_language,
     normalize_region,
+    translation_language,
 )
 
 # PICO-8 cartridges are often stored as PNG files
@@ -199,6 +200,20 @@ GENERIC_TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)(?:[\s._-](.*)|([.\d].*))", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
 REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
+
+# A fan translation, as GoodTools ("[T+Eng1.1_RPGe]"), TOSEC ("[tr fr]") and
+# plainer sets ("(Translation)") write it. Anchored, so "Trainer" is not one.
+TRANSLATION_TAG_REGEX = re.compile(
+    r"^(?:t(?:(?P<superseded>-)|\+)(?P<goodtools>[a-z]{2,3})(?P<patch>.*)"
+    r"|t[\s_-]+(?P<spaced>[a-z]{2,3}).*"
+    r"|tr(?:[\s_-]+(?P<tosec>[a-z]{2,3}))?"
+    r"|translat(?:ed|ion))$",
+    re.I,
+)
+
+# The tag a translated dump carries, in place of the group and patch version
+# the raw tag encodes, which would give every translation its own facet value.
+TRANSLATION_TAG = "Translation"
 
 
 @dataclass(frozen=True)
@@ -405,6 +420,26 @@ class FSRomsHandler(FSHandler):
             if raw_tag in LANGUAGES_BY_SHORTCODE.keys():
                 languages.append(LANGUAGES_BY_SHORTCODE[raw_tag])
                 continue
+
+            # Read before the language pass: a translated game is playable in
+            # the language its tag names.
+            translation_match = TRANSLATION_TAG_REGEX.match(raw_tag)
+            if translation_match:
+                spaced = translation_match["spaced"]
+                code = spaced or translation_match["goodtools"]
+                code = code or translation_match["tosec"]
+                language = translation_language(code) if code else None
+                # "T Rex" and a suffixless "T-Rex" collide with ordinary words,
+                # so those two spellings only count when the code is a language.
+                bare_superseded = (
+                    translation_match["superseded"] and not translation_match["patch"]
+                )
+                if language or not (spaced or bare_superseded):
+                    if TRANSLATION_TAG not in other_tags:
+                        other_tags.append(TRANSLATION_TAG)
+                    if language and language not in languages:
+                        languages.append(language)
+                    continue
 
             # Region by name, alternate spelling, or differently-cased code.
             # Ahead of the equivalent language pass so a lowercased code that
