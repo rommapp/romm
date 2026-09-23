@@ -278,6 +278,10 @@ class TestDiscNumber:
         assert disc_number(_make_file("G (Disc İ).chd", "chd")) is None
         assert disc_number(_make_file("G (Disc ſ).chd", "chd")) is None
 
+    def test_a_non_breaking_space_still_separates_the_tag(self):
+        assert disc_number(_make_file("G (Disc 2).chd", "chd")) == 2
+        assert disc_number(_make_file("G (Disc B).chd", "chd")) == 2
+
     def test_a_name_that_claims_no_disc(self):
         assert disc_number(_make_file("G (USA).chd", "chd")) is None
 

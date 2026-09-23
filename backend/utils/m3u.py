@@ -24,9 +24,9 @@ COMPANION_EXTENSIONS = frozenset(
 # "(Disc 2)", "(CD 2)", TOSEC's "(Disk 1 of 2)", split "(Disc 2A)", lettered
 # "(Disc B)". A letter needs a space, so "(CDi)" isn't disc 9.
 DISC_TAG_REGEX = re.compile(
-    r"\((?:disc|disk|cd|disque)(?:\s*([0-9]+)[a-z]?|\s+([a-z]))"
+    r"\((?:disc|disk|cd|disque)(?:\s*([0-9]+)[a-z]?|\s+((?a:[a-z])))"
     r"(?:\s+of\s+[0-9]+)?\)",
-    re.I | re.ASCII,
+    re.I,
 )
 
 
