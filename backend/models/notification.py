@@ -41,7 +41,7 @@ NOTIFICATION_TITLE_MAX_LENGTH: Final = 255
 NOTIFICATION_BODY_MAX_LENGTH: Final = 1000
 NOTIFICATION_LINK_MAX_LENGTH: Final = 1000
 NOTIFICATION_ICON_MAX_LENGTH: Final = 64
-# Of `data` serialized as JSON, for what API clients send.
+# Cap on the `data` API clients send, measured as serialized JSON.
 NOTIFICATION_DATA_MAX_LENGTH: Final = 4096
 
 

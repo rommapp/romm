@@ -1269,7 +1269,7 @@ Manages two Socket.IO servers:
 | `socket_handler`         | `/ws`      | Scan progress, general notifications |
 | `netplay_socket_handler` | `/netplay` | Netplay room management              |
 
-Both use Redis as the message queue backend for horizontal scaling.
+Both use Redis as the message queue backend for horizontal scaling, each on its own channel: netplay clients are unauthenticated and name their own rooms, so they must never see the `user:{id}` or `admin` rooms. `socket_handler.emit_to_user(user_id, event, payload)` pushes to one user's open tabs from the web process or a worker.
 
 **Scan Progress Events:**
 

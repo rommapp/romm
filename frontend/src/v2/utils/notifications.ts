@@ -1,6 +1,5 @@
-// RomM's own kinds carry the values behind their text rather than the text, so
-// they read in the language of whoever opens them. Any other kind brings its
-// own title and body.
+// RomM's own kinds are translated from their values, so they read in the
+// language of whoever opens them; any other kind brings its own title and body.
 import type { RouteLocationRaw } from "vue-router";
 import type { NotificationKind, NotificationSchema } from "@/__generated__";
 import i18n from "@/locales";

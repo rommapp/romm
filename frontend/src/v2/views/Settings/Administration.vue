@@ -1,13 +1,15 @@
 <script setup lang="ts">
 // Administration — v2-native page chrome for the admin-only sections.
 // Uses the shared `RTabNav` primitive (same one Library Management
-// uses) to expose Users / Groups / Tasks / Streaming as sibling tabs,
+// uses) to expose Users / Groups / Tasks / Streaming / Notifications as
+// sibling tabs,
 // keeping the `?tab=` query param so deep links survive a reload.
 //
 // Tabs are gated by scope: `users.write` for the groups tab,
 // `tasks.run` for the Tasks tab, `app.admin` for Streaming and
-// Notifications, whose endpoints are admin-only. Users tab is always visible to anyone who can
-// reach this route (route-level guard already checks `app.admin`).
+// Notifications, whose endpoints are admin-only. Users tab is always
+// visible to anyone who can reach this route (route-level guard already
+// checks `app.admin`).
 import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -109,12 +111,11 @@ const tabs = computed<RTabNavItem[]>(() => {
 
 // A tab nobody can see is not one the query param may select: the route
 // admits `users.write` as well, and Streaming would otherwise deep-link them
-// to a panel whose every request 403s. Admin-only tabs appear once
-// permissions load, so a deep link waits for them.
+// to a panel whose every request 403s.
 watch(
   () => [tabs.value, permissions.hydrated] as const,
   ([items, hydrated]) => {
-    if (!hydrated) return;
+    if (!hydrated) return; // Admin-only tabs appear once permissions load.
     if (!items.some((item) => item.id === tab.value)) tab.value = "users";
   },
   { immediate: true },
