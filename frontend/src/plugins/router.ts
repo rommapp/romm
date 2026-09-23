@@ -451,6 +451,19 @@ const routes = [
             },
           },
           {
+            path: "audit-log",
+            name: ROUTES.AUDIT_LOG,
+            meta: {
+              title: "audit.audit-log",
+              bare: true,
+            },
+            components: {
+              // v2-only admin view; v1 has no equivalent so it redirects home.
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.AUDIT_LOG),
+            },
+          },
+          {
             // Controller-debug lives outside the Settings sidebar
             // but reuses the same chrome (sidebar layout + bare
             // body) so the input system inspector reads as another
@@ -558,6 +571,8 @@ const routes = [
 interface RoutePermissions {
   path: string;
   requiredScopes: string[];
+  // Scopes alone can't tell: a permission group can grant `users.read`.
+  adminOnly?: boolean;
 }
 
 const router = createRouter({
@@ -584,6 +599,7 @@ const routePermissions: RoutePermissions[] = [
   { path: ROUTES.SCAN_SETTINGS, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
   { path: ROUTES.LOGS, requiredScopes: ["logs.read"] },
+  { path: ROUTES.AUDIT_LOG, requiredScopes: ["users.read"], adminOnly: true },
 ];
 
 function checkRoutePermissions(route: string, user: User | null): boolean {
@@ -598,6 +614,9 @@ function checkRoutePermissions(route: string, user: User | null): boolean {
   // Check if route has permissions requirements
   const routeConfig = routePermissions.find((config) => config.path === route);
   if (!routeConfig) return true;
+
+  // Runs before the permissions store hydrates, so it reads the role itself.
+  if (routeConfig.adminOnly && user.role !== "admin") return false;
 
   // Check if user has required scopes
   return routeConfig.requiredScopes.every((scope) =>

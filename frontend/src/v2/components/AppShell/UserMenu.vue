@@ -292,6 +292,13 @@ async function onLogout() {
         :label="t('common.logs')"
         @click="open = false"
       />
+      <RMenuItem
+        v-if="isAdmin"
+        :to="{ name: ROUTES.AUDIT_LOG }"
+        icon="mdi-clipboard-text-clock-outline"
+        :label="t('audit.audit-log')"
+        @click="open = false"
+      />
     </div>
 
     <!-- Tools -->

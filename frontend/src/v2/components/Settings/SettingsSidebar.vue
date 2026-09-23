@@ -156,6 +156,12 @@ const groups = computed<Group[]>(() => {
           to: { name: ROUTES.LOGS },
           visible: isAdmin.value && logsViewerEnabled.value,
         },
+        {
+          icon: "mdi-clipboard-text-clock-outline",
+          label: t("audit.audit-log"),
+          to: { name: ROUTES.AUDIT_LOG },
+          visible: isAdmin.value,
+        },
       ],
     },
     {
