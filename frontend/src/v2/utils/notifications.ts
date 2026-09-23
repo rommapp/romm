@@ -6,7 +6,7 @@ import i18n from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 import { TONE_ICONS } from "@/v2/composables/useSnackbar";
 
-export interface NotificationView {
+interface NotificationView {
   icon: string;
   title: string;
   body: string | null;

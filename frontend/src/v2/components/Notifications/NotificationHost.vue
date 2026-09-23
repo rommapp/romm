@@ -44,10 +44,6 @@ function toneFromColor(color: string | undefined): SnackbarTone {
   return "info";
 }
 
-function iconFor(tone: SnackbarTone, fallback?: string): string {
-  return fallback || TONE_ICONS[tone];
-}
-
 let counter = 1;
 
 function push(status: SnackbarStatus) {
@@ -57,7 +53,7 @@ function push(status: SnackbarStatus) {
   const toast: Toast = {
     id,
     msg: status.msg,
-    icon: iconFor(tone, status.icon),
+    icon: status.icon || TONE_ICONS[tone],
     image: status.image,
     tone,
   };

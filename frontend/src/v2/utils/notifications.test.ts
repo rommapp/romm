@@ -3,24 +3,13 @@ import type { NotificationKind, NotificationSchema } from "@/__generated__";
 import { loadLocale } from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 import { describeNotification } from "@/v2/utils/notifications";
+import { makeNotification } from "@/v2/utils/notifications.fixtures";
 
 function notification(
   kind: NotificationKind | string,
   data: NotificationSchema["data"] = {},
 ): NotificationSchema {
-  return {
-    id: 1,
-    kind,
-    level: "info",
-    title: null,
-    body: null,
-    link: null,
-    icon: null,
-    data,
-    actor: null,
-    read_at: null,
-    created_at: "2026-09-23T10:00:00+00:00",
-  };
+  return makeNotification({ kind, data });
 }
 
 beforeAll(async () => {

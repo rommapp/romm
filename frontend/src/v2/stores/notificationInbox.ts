@@ -11,6 +11,10 @@ import notificationApi from "@/services/api/notification";
 // Bumped by reset(), so a list requested for the previous user is dropped.
 let generation = 0;
 
+// Marks what this tab sends, which it already shows, so its push stays quiet.
+// Not crypto.randomUUID: that needs a secure context, and RomM is often plain http.
+const TAB_ID = Math.random().toString(36).slice(2);
+
 // No ids stands for every notification, as it does in the API.
 type NotificationIds = NotificationIdsPayload["ids"];
 
@@ -43,12 +47,17 @@ export default defineStore("v2NotificationInbox", {
       return true;
     },
 
-    /** Notifies the signed-in user and returns what was stored. */
-    async send(
-      payload: Omit<NotificationCreatePayload, "recipients">,
-    ): Promise<NotificationSchema> {
-      const { data } = await notificationApi.create(payload);
-      return data[0];
+    /** Notifies the signed-in user, marked as coming from this tab. */
+    async send(payload: Omit<NotificationCreatePayload, "recipients">) {
+      const { data } = await notificationApi.create({
+        ...payload,
+        data: { ...payload.data, origin_tab: TAB_ID },
+      });
+      this.receive(data[0]);
+    },
+
+    sentFromThisTab(notification: NotificationSchema): boolean {
+      return notification.data.origin_tab === TAB_ID;
     },
 
     // Both leave the list untouched when nothing matches, as when a tab's own

@@ -276,7 +276,7 @@ class TestScanEndNotification:
                 platform_ids=[], metadata_sources=[], started_by_user_id=3
             )
 
-        notify_scan_end.assert_awaited_once_with(3, error="boom")
+        notify_scan_end.assert_awaited_once_with(3, "boom")
 
     async def test_a_stopped_scan_leaves_none(self, patched, notify_scan_end, mocker):
         mocker.patch.object(
@@ -313,7 +313,7 @@ class TestNotifyScanEnd:
         notify_admins.assert_not_awaited()
 
     async def test_the_starter_hears_of_a_failure(self, notify, notify_admins):
-        await scan_module.notify_scan_end(3, error="boom")
+        await scan_module.notify_scan_end(3, "boom")
 
         user_id, kind, _, data = notify.await_args.args
         assert (user_id, kind, data) == (
@@ -339,7 +339,7 @@ class TestNotifyScanEnd:
         notify.assert_not_awaited()
 
     async def test_an_unattended_failure_tells_the_admins(self, notify, notify_admins):
-        await scan_module.notify_scan_end(None, error="boom")
+        await scan_module.notify_scan_end(None, "boom")
 
         assert notify_admins.await_args.args[0] == NotificationKind.SCAN_FAILED
 
@@ -2588,7 +2588,7 @@ class TestReportScanFailure:
         )
 
         notify_scan_end.assert_awaited_once_with(
-            9, error="the worker running it stopped unexpectedly"
+            9, "the worker running it stopped unexpectedly"
         )
 
     def test_swallows_a_report_that_cannot_be_sent(self, emit):

@@ -15,9 +15,7 @@ import asyncio
 import uuid
 from typing import Any, Final
 
-import socketio
-
-from config import DISABLE_LOGS_VIEWER, REDIS_URL
+from config import DISABLE_LOGS_VIEWER
 from endpoints.sockets.activity import store_authenticated_user
 from handler.database import db_user_handler
 from handler.redis_handler import async_cache
@@ -95,9 +93,8 @@ async def start_log_forwarder() -> None:
     pubsub = None
     # Write-only manager for emitting — the same proven path scan/sync use. It
     # publishes the room emit to Redis; the main socket server's read-side
-    # manager resolves `admin` room membership and delivers. Created inside the
-    # running loop (like sync.py) rather than at import time.
-    socket_manager = socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    # manager resolves `admin` room membership and delivers.
+    socket_manager = socket_handler.write_manager()
     try:
         while True:
             got_lock = await async_cache.set(

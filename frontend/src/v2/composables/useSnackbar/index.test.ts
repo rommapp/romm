@@ -2,10 +2,10 @@ import { flushPromises } from "@vue/test-utils";
 import mitt from "mitt";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { NotificationSchema } from "@/__generated__";
 import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
+import { makeNotification } from "@/v2/utils/notifications.fixtures";
 
 const { create, emitter } = vi.hoisted(() => ({
   create: vi.fn(),
@@ -19,19 +19,12 @@ vi.mock("vue", async (importOriginal) => ({
   inject: () => emitter.current,
 }));
 
-const stored: NotificationSchema = {
+const stored = makeNotification({
   id: 9,
-  kind: "custom",
   level: "success",
   title: "Upload finished",
-  body: null,
   link: "/rom/12",
-  icon: null,
-  data: {},
-  actor: null,
-  read_at: null,
-  created_at: "2026-09-23T10:00:00+00:00",
-};
+});
 
 describe("useSnackbar persist", () => {
   const shown = vi.fn();
@@ -55,20 +48,23 @@ describe("useSnackbar persist", () => {
       body: undefined,
       link: "/rom/12",
       icon: undefined,
+      data: { origin_tab: expect.any(String) },
     });
     expect(storeNotificationInbox().notifications).toEqual([stored]);
     expect(shown).toHaveBeenCalledOnce();
     expect(shown.mock.calls[0][0]).not.toHaveProperty("persist");
   });
 
-  it("leaves the toast to the socket push when it got here first", async () => {
-    create.mockResolvedValue({ data: [stored] });
-    storeNotificationInbox().receive(stored);
+  it("shows the toast without waiting for the request", () => {
+    create.mockReturnValue(new Promise(() => {}));
 
-    useSnackbar().success("Upload finished", { persist: true });
-    await flushPromises();
+    useSnackbar().success("Upload finished", { persist: true, timeout: 6000 });
 
-    expect(shown).not.toHaveBeenCalled();
+    expect(shown).toHaveBeenCalledWith({
+      msg: "Upload finished",
+      color: "success",
+      timeout: 6000,
+    });
   });
 
   it("still shows the message when it can't be kept", async () => {

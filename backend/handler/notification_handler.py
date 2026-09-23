@@ -1,6 +1,5 @@
 """Persistent per-user notifications, stored first and then pushed to open tabs."""
 
-import asyncio
 from collections.abc import Sequence
 from typing import Any, Literal
 
@@ -25,14 +24,11 @@ async def deliver(notifications: Sequence[Notification]) -> list[NotificationSch
         (row.user_id, NotificationSchema.model_validate(row))
         for row in db_notification_handler.add_notifications(notifications)
     ]
-    await asyncio.gather(
-        *(
-            socket_handler.emit_to_user(
-                user_id, NOTIFICATIONS_NEW_EVENT, schema.model_dump(mode="json")
-            )
-            for user_id, schema in stored
+    # One after another: concurrent publishes would each open a Redis connection.
+    for user_id, schema in stored:
+        await socket_handler.emit_to_user(
+            user_id, NOTIFICATIONS_NEW_EVENT, schema.model_dump(mode="json")
         )
-    )
     return [schema for _, schema in stored]
 
 

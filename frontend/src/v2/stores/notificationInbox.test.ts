@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NotificationSchema } from "@/__generated__";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
+import { makeNotification } from "@/v2/utils/notifications.fixtures";
 
 const { create, dismiss, dismissAll, getNotifications, markRead } = vi.hoisted(
   () => ({
@@ -21,20 +22,12 @@ function notification(
   id: number,
   overrides: Partial<NotificationSchema> = {},
 ): NotificationSchema {
-  return {
+  return makeNotification({
     id,
     kind: "task_completed",
     level: "success",
-    title: null,
-    body: null,
-    link: null,
-    icon: null,
-    data: {},
-    actor: null,
-    read_at: null,
-    created_at: "2026-09-23T10:00:00+00:00",
     ...overrides,
-  };
+  });
 }
 
 describe("notificationInbox", () => {
@@ -83,17 +76,23 @@ describe("notificationInbox", () => {
     expect(inbox.notifications.map((n) => n.id)).toEqual([2, 1]);
   });
 
-  it("sends a notification to the signed-in user", async () => {
-    create.mockResolvedValue({ data: [notification(5)] });
+  it("sends a notification marked as this tab's own", async () => {
+    create.mockImplementation(async (payload) => ({
+      data: [notification(5, { data: payload.data })],
+    }));
     const inbox = storeNotificationInbox();
 
-    const sent = await inbox.send({ title: "Sync finished", level: "success" });
+    await inbox.send({ title: "Sync finished", level: "success" });
 
     expect(create).toHaveBeenCalledWith({
       title: "Sync finished",
       level: "success",
+      data: { origin_tab: expect.any(String) },
     });
+    const [sent] = inbox.notifications;
     expect(sent.id).toBe(5);
+    expect(inbox.sentFromThisTab(sent)).toBe(true);
+    expect(inbox.sentFromThisTab(notification(6))).toBe(false);
   });
 
   it("marks read what another tab read, or everything for null", () => {

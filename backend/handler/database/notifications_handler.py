@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from decorators.database import begin_session
@@ -30,7 +30,13 @@ class DBNotificationsHandler(DBBaseHandler):
         session.add_all(notifications)
         session.flush()
 
-        for user_id in {n.user_id for n in notifications}:
+        over_cap = session.scalars(
+            select(Notification.user_id)
+            .where(Notification.user_id.in_({n.user_id for n in notifications}))
+            .group_by(Notification.user_id)
+            .having(func.count() > MAX_NOTIFICATIONS_PER_USER)
+        ).all()
+        for user_id in over_cap:
             stale_ids = session.scalars(
                 select(Notification.id)
                 .where(Notification.user_id == user_id)
@@ -70,7 +76,7 @@ class DBNotificationsHandler(DBBaseHandler):
         user_id: int,
         ids: list[int] | None = None,
         session: Session = None,  # type: ignore
-    ) -> int:
+    ) -> None:
         """Mark the user's unread notifications read, all of them when `ids` is None."""
         stmt = update(Notification).where(
             Notification.user_id == user_id, Notification.read_at.is_(None)
@@ -78,12 +84,11 @@ class DBNotificationsHandler(DBBaseHandler):
         if ids is not None:
             stmt = stmt.where(Notification.id.in_(ids))
 
-        result = session.execute(
+        session.execute(
             stmt.values(read_at=datetime.now(timezone.utc)).execution_options(
                 synchronize_session=False
             )
         )
-        return affected_rows(result)
 
     @begin_session
     def delete_notifications(

@@ -7,15 +7,17 @@ import storeAuth from "@/stores/auth";
 import type { User } from "@/stores/users";
 import { installNotificationInbox } from "@/v2/composables/useNotificationInbox";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
+import { makeNotification } from "@/v2/utils/notifications.fixtures";
 
-const { getNotifications, handlers, show } = vi.hoisted(() => ({
+const { create, getNotifications, handlers, show } = vi.hoisted(() => ({
+  create: vi.fn(),
   getNotifications: vi.fn(),
   handlers: new Map<string, (payload: unknown) => void>(),
   show: vi.fn(),
 }));
 
 vi.mock("@/services/api/notification", () => ({
-  default: { getNotifications },
+  default: { create, getNotifications },
 }));
 
 vi.mock("@/v2/composables/useSocketEvent", () => ({
@@ -31,19 +33,11 @@ vi.mock("@/v2/composables/useSnackbar", async (importOriginal) => ({
 }));
 
 function notification(id: number): NotificationSchema {
-  return {
+  return makeNotification({
     id,
-    kind: "custom",
     level: "success",
     title: `Notification ${id}`,
-    body: null,
-    link: null,
-    icon: null,
-    data: {},
-    actor: null,
-    read_at: null,
-    created_at: "2026-09-23T10:00:00+00:00",
-  };
+  });
 }
 
 function signIn(id: number) {
@@ -84,14 +78,20 @@ describe("installNotificationInbox", () => {
     });
   });
 
-  it("leaves the toast to this tab when its own request answered first", async () => {
+  it("doesn't toast again what this tab sent itself", async () => {
+    create.mockImplementation(async (payload) => ({
+      data: [{ ...notification(5), data: payload.data }],
+    }));
     signIn(1);
     scope.run(installNotificationInbox);
     await flushPromises();
-    storeNotificationInbox().receive(notification(5));
+    const inbox = storeNotificationInbox();
+    await inbox.send({ title: "Saved", level: "success" });
+    const ownTab = create.mock.calls[0][0].data;
 
-    push("notifications:new", notification(5));
+    push("notifications:new", { ...notification(6), data: ownTab });
 
+    expect(inbox.notifications.map((n) => n.id)).toEqual([6, 5]);
     expect(show).not.toHaveBeenCalled();
   });
 

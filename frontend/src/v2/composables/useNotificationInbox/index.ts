@@ -36,9 +36,11 @@ export function installNotificationInbox() {
     { immediate: true },
   );
 
-  // Already here when this tab sent it and the request answered first.
+  // This tab already toasted what it sent itself.
   useSocketEvent<NotificationSchema>("notifications:new", (notification) => {
-    if (!inbox.receive(notification)) return;
+    if (!inbox.receive(notification) || inbox.sentFromThisTab(notification)) {
+      return;
+    }
     const view = describeNotification(notification);
     if (view.toast) {
       snackbar.show(notification.level, view.title, { icon: view.icon });

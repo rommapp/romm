@@ -144,7 +144,7 @@ def report_scan_failure(
 
     async def report() -> None:
         await _get_socket_manager().emit("scan:done_ko", reason)
-        await notify_scan_end(job.kwargs.get("started_by_user_id"), error=reason)
+        await notify_scan_end(job.kwargs.get("started_by_user_id"), reason)
 
     try:
         asyncio.run(report())
@@ -265,31 +265,30 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
 
 
 async def notify_scan_end(
-    started_by_user_id: int | None,
-    stats: ScanStats | None = None,
-    error: str | None = None,
+    started_by_user_id: int | None, outcome: ScanStats | str
 ) -> None:
-    """Notify whoever started a scan of how it ended, with `error` if it failed.
+    """Notify whoever started a scan of how it ended.
 
     Args:
         started_by_user_id: None for a scheduled or watcher scan, which notifies
             the admins only when it failed or found something new.
+        outcome: The scan's stats, or why it failed.
     """
-    if error is not None:
+    if isinstance(outcome, str):
         await notify_user_or_admins(
             started_by_user_id,
             NotificationKind.SCAN_FAILED,
             NotificationLevel.ERROR,
-            {"error": error},
+            {"error": outcome},
             admins_too=True,
         )
-    elif stats is not None:
+    else:
         await notify_user_or_admins(
             started_by_user_id,
             NotificationKind.SCAN_COMPLETED,
             NotificationLevel.SUCCESS,
-            stats.to_dict(),
-            admins_too=bool(stats.new_roms or stats.new_platforms),
+            outcome.to_dict(),
+            admins_too=bool(outcome.new_roms or outcome.new_platforms),
         )
 
 
@@ -1183,7 +1182,7 @@ async def scan_platforms(
         await scan_stats.flush(socket_manager)
         await socket_manager.emit(event, payload)
         if event == "scan:done_ko":
-            await notify_scan_end(started_by_user_id, error=payload)
+            await notify_scan_end(started_by_user_id, payload)
         # A stop is the user's own doing, and a rescan of named roms answers a
         # click whose result is already on screen.
         elif not stopped and not roms_ids:

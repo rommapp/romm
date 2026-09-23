@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { NotificationSchema } from "@/__generated__";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
+import { makeNotification } from "@/v2/utils/notifications.fixtures";
 import Notifications from "./Notifications.vue";
 
 const { api, confirm } = vi.hoisted(() => ({
@@ -65,20 +66,7 @@ function notification(
   id: number,
   overrides: Partial<NotificationSchema> = {},
 ): NotificationSchema {
-  return {
-    id,
-    kind: "role_changed",
-    level: "info",
-    title: null,
-    body: null,
-    link: null,
-    icon: null,
-    data: {},
-    actor: null,
-    read_at: null,
-    created_at: "2026-09-23T10:00:00+00:00",
-    ...overrides,
-  };
+  return makeNotification({ id, kind: "role_changed", ...overrides });
 }
 
 function mountWith(notifications: NotificationSchema[]) {

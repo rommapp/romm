@@ -70,25 +70,21 @@ export function useSnackbar() {
   ) {
     const extra = typeof opts.persist === "object" ? opts.persist : {};
     try {
-      const inbox = storeNotificationInbox();
-      const notification = await inbox.send({
+      await storeNotificationInbox().send({
         level: tone,
         title: msg,
         body: extra.body,
         link: extra.link,
         icon: opts.icon,
       });
-      // The socket push can arrive first, and it shows the toast itself.
-      if (!inbox.receive(notification)) return;
     } catch (error) {
       console.error("Could not keep the notification:", error);
     }
-    toast(tone, msg, opts);
   }
 
   function show(tone: SnackbarTone, msg: string, opts: SnackbarOptions = {}) {
+    toast(tone, msg, opts);
     if (opts.persist) void persist(tone, msg, opts);
-    else toast(tone, msg, opts);
   }
 
   return {
