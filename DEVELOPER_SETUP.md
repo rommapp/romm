@@ -181,7 +181,7 @@ npm run storybook
 npm run storybook:test   # composeStories + play() + a11y (v2 /lib stories)
 ```
 
-Responsive layouts use `html[data-bp]` (same as the app). Storybook installs that in `.storybook/preview.ts`; use the viewport toolbar presets from `.storybook/rommViewports.ts`. For compact mobile rows (e.g. save lists), pick a preset **under 600px** wide, not only a handheld with a wider logical width.
+For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.
 
 ## Setting up the linter
 

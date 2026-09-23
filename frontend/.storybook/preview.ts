@@ -63,7 +63,7 @@ setup((app) => {
 
 const preview: Preview = {
   initialGlobals: {
-    viewport: { value: "rommDesktopMd", isRotated: false },
+    viewport: { value: "rommDesktopMd" },
   },
   parameters: {
     layout: "centered",

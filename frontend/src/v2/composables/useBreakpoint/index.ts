@@ -10,8 +10,8 @@
 // Module-level singletons — the media query listeners attach once and
 // every consumer shares them. Composable returns the refs by name.
 //
-// `installBreakpointAttribute()` (called from the root layouts and the
-// Storybook preview) mirrors the active breakpoints onto `data-bp` on `<html>` as a
+// `installBreakpointAttribute()` (called from the root layouts)
+// mirrors the active breakpoints onto `data-bp` on `<html>` as a
 // space-separated list — e.g. `data-bp="sm-and-up md-and-up"` at a
 // 1024px viewport. CSS consumes the attribute with `~=` selectors:
 //   html[data-bp~="xs"] .my-class { … }   // mobile only
@@ -89,7 +89,6 @@ function applyAttribute() {
  *  Called from every top-level layout (AppLayout AND AuthLayout) so the
  *  attribute is present across the whole app, including the auth / setup
  *  flow — otherwise the `html[data-bp~="…"]` rules silently no-op there.
- *  `.storybook/preview.ts` calls it too so stories get the same CSS.
  *
  *  The watcher runs in a DETACHED effect scope, not bound to the calling
  *  component, so it survives a layout swap (AuthLayout ↔ AppLayout) instead

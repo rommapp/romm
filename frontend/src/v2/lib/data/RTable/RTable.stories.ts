@@ -155,7 +155,7 @@ export const Empty: Story = {
 // column label as a per-cell caption. The reflow keys off `html[data-bp~="xs"]`,
 // so the story opens on the phone viewport preset.
 export const MobileCardStack: Story = {
-  globals: { viewport: { value: "rommPhoneXs", isRotated: false } },
+  globals: { viewport: { value: "rommPhoneXs" } },
   parameters: { layout: "fullscreen" },
   args: {
     columns: COLUMNS,

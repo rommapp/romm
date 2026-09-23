@@ -1,19 +1,20 @@
 import { MINIMAL_VIEWPORTS, type ViewportMap } from "storybook/viewport";
 
-/** One preset per useBreakpoint tier (xs <600, sm <960, md <1280), plus handhelds. */
-const ROMM_DEVICE_VIEWPORTS = {
+/** Storybook minimal presets plus one per useBreakpoint tier and the target handhelds. */
+export const ROMM_STORYBOOK_VIEWPORTS = {
+  ...MINIMAL_VIEWPORTS,
   rommPhoneXs: {
-    name: "390×844 · RomM phone (xs, <600)",
+    name: "390×844 · RomM phone (xs)",
     styles: { width: "390px", height: "844px" },
     type: "mobile",
   },
   rommTabletSm: {
-    name: "768×1024 · RomM tablet (sm, 600–959)",
+    name: "768×1024 · RomM tablet (sm)",
     styles: { width: "768px", height: "1024px" },
     type: "tablet",
   },
   rommDesktopMd: {
-    name: "1024×768 · RomM desktop (md, 960–1279)",
+    name: "1024×768 · RomM desktop (md)",
     styles: { width: "1024px", height: "768px" },
     type: "desktop",
   },
@@ -33,8 +34,3 @@ const ROMM_DEVICE_VIEWPORTS = {
     type: "other",
   },
 } satisfies ViewportMap;
-
-export const ROMM_STORYBOOK_VIEWPORTS: ViewportMap = {
-  ...MINIMAL_VIEWPORTS,
-  ...ROMM_DEVICE_VIEWPORTS,
-};
