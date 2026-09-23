@@ -3,6 +3,7 @@ import re
 
 import pytest
 
+from handler.email_handler import EmailError
 from handler.notification_channels import confirmation
 from handler.notification_channels.confirmation import (
     MAX_ATTEMPTS,
@@ -10,7 +11,6 @@ from handler.notification_channels.confirmation import (
     check_code,
     issue_code,
 )
-from handler.notification_channels.email import EmailError
 
 # The cache outlives a test, so each one confirms a channel of its own.
 _channel_ids = itertools.count(900_000)

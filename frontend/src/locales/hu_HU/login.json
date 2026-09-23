@@ -17,6 +17,7 @@
   "reset-link-failed": "A visszaállítási link küldése sikertelen",
   "reset-password": "Jelszó visszaállítása",
   "reset-sent": "Visszaállítási link kiküldve. Lépj kapcsolatba az adminnal.",
+  "reset-sent-email": "Ha a fióknak van e-mail-címe, a visszaállítási link úton van. Ha nincs, kérdezd az admint.",
   "send-reset-link": "Visszaállítási link küldése",
   "setup-wizard": "Beállítási varázsló",
   "unable-to-login": "Nem sikerült bejelentkezni: {error}",

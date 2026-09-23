@@ -14,10 +14,10 @@ from endpoints.responses.notification_channel import (
 )
 from handler.auth.constants import Scope
 from handler.database import db_notification_channel_handler
+from handler.email_handler import EmailError
 from handler.notification_channels import channels
 from handler.notification_channels.channels import ChannelError
 from handler.notification_channels.confirmation import CodeCooldownError
-from handler.notification_channels.email import EmailError
 from models.notification_channel import NotificationChannel, NotificationChannelType
 from models.user import User
 from utils.router import APIRouter

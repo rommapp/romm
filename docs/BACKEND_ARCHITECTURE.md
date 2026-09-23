@@ -811,8 +811,10 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/token`           | No   | OAuth2 token (password, refresh_token grants)  |
 | GET    | `/login/openid`    | No   | OIDC login redirect                            |
 | GET    | `/oauth/openid`    | No   | OIDC callback                                  |
-| POST   | `/forgot-password` | No   | Request password reset                         |
+| POST   | `/forgot-password` | No   | Email a reset link, or log it without email    |
 | POST   | `/reset-password`  | No   | Reset password with token                      |
+
+A reset link is emailed when SMTP is set up, the user has an address and `ROMM_BASE_URL` is shareable, at most once a minute per user; otherwise it goes to the log for an admin to pass on. It is built from `ROMM_BASE_URL`, never the request's `Host`.
 
 ### 6.2 Users (`/api/users`)
 

@@ -6,9 +6,8 @@ import hmac
 import secrets
 from typing import Final
 
+from handler.email_handler import send_email
 from handler.redis_handler import async_cache
-
-from .email import send_email
 
 CODE_TTL_SECONDS: Final = 30 * 60
 RESEND_COOLDOWN_SECONDS: Final = 60

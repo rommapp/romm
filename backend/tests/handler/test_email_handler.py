@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from handler.notification_channels import email
-from handler.notification_channels.email import EmailError, build_message, send_email
+from handler import email_handler
+from handler.email_handler import EmailError, build_message, send_email
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def smtp_settings(mocker):
             "SMTP_PASSWORD": "hunter2",
             "SMTP_SECURITY": security,
         }.items():
-            mocker.patch.object(email.config, name, value)
+            mocker.patch.object(email_handler.config, name, value)
 
     return configure
 
@@ -41,7 +41,7 @@ def test_speaks_the_configured_security(
 ):
     smtp_settings(security=security)
     server = MagicMock()
-    connect = mocker.patch.object(email.smtplib, client, return_value=server)
+    connect = mocker.patch.object(email_handler.smtplib, client, return_value=server)
 
     send_email("a@example.com", "Hi", "There")
 
@@ -54,7 +54,7 @@ def test_speaks_the_configured_security(
 def test_logs_in_only_with_a_username(mocker, smtp_settings):
     smtp_settings(username="")
     server = MagicMock()
-    mocker.patch.object(email.smtplib, "SMTP", return_value=server)
+    mocker.patch.object(email_handler.smtplib, "SMTP", return_value=server)
 
     send_email("a@example.com", "Hi", "There")
 
@@ -64,7 +64,7 @@ def test_logs_in_only_with_a_username(mocker, smtp_settings):
 def test_a_refused_message_is_an_email_error(mocker, smtp_settings):
     smtp_settings()
     mocker.patch.object(
-        email.smtplib, "SMTP", side_effect=ConnectionRefusedError("refused")
+        email_handler.smtplib, "SMTP", side_effect=ConnectionRefusedError("refused")
     )
 
     with pytest.raises(EmailError, match="refused"):
@@ -72,7 +72,7 @@ def test_a_refused_message_is_an_email_error(mocker, smtp_settings):
 
 
 def test_nothing_goes_out_without_a_server(mocker):
-    mocker.patch.object(email.config, "EMAIL_ENABLED", False)
+    mocker.patch.object(email_handler.config, "EMAIL_ENABLED", False)
 
     with pytest.raises(EmailError, match="isn't set up"):
         send_email("a@example.com", "Hi", "There")

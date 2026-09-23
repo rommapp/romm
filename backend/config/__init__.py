@@ -190,7 +190,7 @@ DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
 )
 
-# EMAIL, for notification channels: off until a host and a sender are set
+# EMAIL, for notification channels and password reset links; off until a host and a sender are set
 SMTP_HOST: Final[str] = _get_env("SMTP_HOST", "")
 SMTP_PORT: Final[int] = safe_int(_get_env("SMTP_PORT"), 587)
 SMTP_USERNAME: Final[str] = _get_env("SMTP_USERNAME", "")

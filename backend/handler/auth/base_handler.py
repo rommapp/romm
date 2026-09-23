@@ -13,6 +13,7 @@ from redis.exceptions import RedisError
 from starlette.requests import HTTPConnection
 
 from config import (
+    EMAIL_ENABLED,
     INVITE_TOKEN_EXPIRY_SECONDS,
     OIDC_ALLOW_REGISTRATION,
     OIDC_CLAIM_ROLES,
@@ -28,12 +29,18 @@ from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.email_handler import EmailError, send_email
 from handler.redis_handler import redis_client
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.urls import get_public_base_url
 
 oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+
+# Anyone who knows a username can ask for its reset link, so its inbox gets at
+# most one a minute.
+RESET_EMAIL_COOLDOWN_SECONDS = 60
 
 
 def _romm_username(provided: str, fallback: str) -> str:
@@ -144,7 +151,8 @@ class AuthHandler:
 
         return user
 
-    def generate_password_reset_token(self, user: Any) -> None:
+    def generate_password_reset_token(self, user: Any) -> str:
+        """A single-use reset token for the user, valid for a few minutes."""
         now = datetime.now(timezone.utc)
 
         jti = str(uuid.uuid4())
@@ -166,11 +174,54 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        log.info(
-            f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
-        )
         redis_client.setex(
             f"reset-jti:{jti}", self.reset_passwd_token_expires_in_minutes * 60, "valid"
+        )
+        return token
+
+    def send_password_reset_link(self, user: Any) -> None:
+        """Email the user a reset link, or log it for an admin to pass on.
+
+        The link is built from ROMM_BASE_URL alone, never from the request, so a
+        forged Host header can't point it at another server.
+        """
+        base_url = get_public_base_url()
+        if not (EMAIL_ENABLED and user.email and base_url):
+            self._log_password_reset_link(
+                user, self.generate_password_reset_token(user)
+            )
+            return
+
+        if not redis_client.set(
+            f"reset-email:{user.id}", "1", ex=RESET_EMAIL_COOLDOWN_SECONDS, nx=True
+        ):
+            log.info(
+                f"A reset link went to {hl(user.username, color=CYAN)} less than a minute ago, not sending another"
+            )
+            return
+
+        token = self.generate_password_reset_token(user)
+        try:
+            send_email(
+                user.email,
+                "Reset your RomM password",
+                f"Someone asked to reset the password of your RomM account, "
+                f"{user.username}.\n\nChoose a new one within "
+                f"{self.reset_passwd_token_expires_in_minutes} minutes here:\n"
+                f"{base_url}/reset-password?token={token}\n\n"
+                "If it wasn't you, ignore this email and your password stays as it is.",
+            )
+        except EmailError as exc:
+            log.error(
+                f"Could not email the reset link to {hl(user.username, color=CYAN)}: {exc}"
+            )
+            self._log_password_reset_link(user, token)
+            return
+        log.info(f"Reset password link emailed to {hl(user.username, color=CYAN)}")
+
+    def _log_password_reset_link(self, user: Any, token: str) -> None:
+        log.info(
+            f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
         )
 
     def verify_password_reset_token(self, token: str) -> Any:

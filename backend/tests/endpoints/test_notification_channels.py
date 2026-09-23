@@ -5,8 +5,8 @@ import pytest
 from fastapi import status
 
 from handler.database import db_notification_channel_handler
+from handler.email_handler import EmailError
 from handler.notification_channels import channels, confirmation
-from handler.notification_channels.email import EmailError
 from models.notification_channel import MAX_CONSECUTIVE_DELIVERY_FAILURES
 
 API = "/api/notification-channels"

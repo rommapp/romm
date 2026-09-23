@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from handler.email_handler import EmailError
 from handler.notification_channels import channels
 from handler.notification_channels.channels import (
     ChannelError,
@@ -14,7 +15,6 @@ from handler.notification_channels.channels import (
 )
 from handler.notification_channels.config import read_config, seal_config
 from handler.notification_channels.confirmation import CodeCooldownError
-from handler.notification_channels.email import EmailError
 from models.notification import NotificationLevel
 from models.notification_channel import (
     MAX_NOTIFICATION_CHANNELS_PER_USER,

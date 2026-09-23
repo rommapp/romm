@@ -9,6 +9,7 @@ from rq import Retry, get_current_job
 
 from endpoints.responses.notification import NotificationSchema
 from handler.database import db_notification_channel_handler
+from handler.email_handler import send_email
 from handler.redis_handler import low_prio_queue
 from logger.logger import log
 from models.notification import NotificationKind, NotificationLevel, topic_of
@@ -17,7 +18,6 @@ from utils.secret_box import unseal
 
 from . import webhook
 from .config import WebhookConfig
-from .email import send_email
 from .messages import OutboundMessage, render
 
 # Info and success both mean nothing needs doing.
