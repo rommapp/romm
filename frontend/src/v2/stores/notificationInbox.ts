@@ -11,8 +11,8 @@ import notificationApi from "@/services/api/notification";
 // Bumped by reset(), so a list requested for the previous user is dropped.
 let generation = 0;
 
-// Marks what this tab sends, which it already shows, so its push stays quiet.
-// Not crypto.randomUUID: that needs a secure context, and RomM is often plain http.
+// Marks what this tab sends, so its push stays quiet. Math.random, as
+// crypto.randomUUID needs a secure context and RomM is often served over http.
 const TAB_ID = Math.random().toString(36).slice(2);
 
 // No ids stands for every notification, as it does in the API.
