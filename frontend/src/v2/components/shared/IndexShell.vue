@@ -89,9 +89,8 @@ html[data-bp~="xs"] .r-v2-idx-shell {
   z-index: 3;
 }
 
-/* List mode: the column header and the rows run to the screen edges, out of
-   the shell's gutter. Each keeps that gutter as its own padding, so only the
-   separators and the row fill reach the edge. */
+/* List mode: the column header and the rows run to the screen edges and keep
+   the shell's gutter as padding, so only the separators and row fill move. */
 .r-v2-idx-shell {
   --r-list-bleed: var(--r-row-pad);
 }
