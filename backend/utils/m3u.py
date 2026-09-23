@@ -24,7 +24,7 @@ COMPANION_EXTENSIONS = frozenset(
 # The spellings a dumper writes a disc number with: "(Disc 2)", "(CD 2)", the
 # "(Disk 1 of 2)" TOSEC uses, and the letter a split disc adds, "(Disc 2A)".
 DISC_TAG_REGEX = re.compile(
-    r"\((?:disc|disk|cd|disque)\s*([0-9]{1,2})[a-z]?(?:\s+of\s+[0-9]{1,2})?\)",
+    r"\((?:disc|disk|cd|disque)\s*([0-9]+)[a-z]?(?:\s+of\s+[0-9]+)?\)",
     re.I,
 )
 

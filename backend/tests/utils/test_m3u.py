@@ -253,6 +253,10 @@ class TestDiscNumber:
         assert disc_number(_make_file("G (Disk 1 of 2).adf", "adf")) == 1
         assert disc_number(_make_file("G (Disk 10 of 12).adf", "adf")) == 10
 
+    def test_reads_a_number_of_any_length(self):
+        # An unparsed number would sort as 0, ahead of disc 1.
+        assert disc_number(_make_file("G (Disc 100).chd", "chd")) == 100
+
     def test_a_disc_count_is_not_a_disc_number(self):
         # "(2 CD)" says how many the release had, not which one this is.
         assert disc_number(_make_file("G (2 CD).pbp", "pbp")) is None
