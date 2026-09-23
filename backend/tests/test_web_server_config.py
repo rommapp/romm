@@ -86,3 +86,7 @@ def test_env_template_documents_the_same_keepalive_default() -> None:
     match = re.search(r"^WEB_SERVER_KEEPALIVE=(\d+)", ENV_TEMPLATE.read_text(), re.M)
     assert match, "env.template is missing WEB_SERVER_KEEPALIVE"
     assert int(match.group(1)) == _init_script_keepalive()
+
+
+def test_init_script_records_the_rq_worker_pid_at_launch() -> None:
+    assert 'echo "$!" >"/tmp/${name}.pid"' in INIT_SCRIPT.read_text()

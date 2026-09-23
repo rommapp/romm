@@ -290,11 +290,12 @@ start_rq_worker() {
 		rq worker \
 		--path /backend \
 		--worker-class handler.rq_worker.RomMWorker \
-		--pid "/tmp/${name}.pid" \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		--logging_level "${LOGLEVEL}" \
 		--with-scheduler \
 		"$@" &
+	# RQ writes --pid only after importing the worker class, too late for the watchdog.
+	echo "$!" >"/tmp/${name}.pid"
 }
 
 start_bin_watcher() {
