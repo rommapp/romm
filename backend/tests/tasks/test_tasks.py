@@ -106,41 +106,33 @@ class TestRemoteFilePullTask:
         assert result == b"test content"
 
     @patch("tasks.tasks.ctx_httpx_client")
-    @patch("tasks.tasks.log")
-    async def test_run_http_error(self, mock_log, mock_ctx_httpx_client, task):
-        """Test handling of HTTP errors"""
+    async def test_run_http_error(self, mock_ctx_httpx_client, task):
+        """A download that never lands fails the run, saying why."""
         mock_client = AsyncMock()
-        mock_client.get.side_effect = httpx.HTTPError("Connection failed")
+        mock_client.get.side_effect = httpx.ConnectError("Connection failed")
         mock_ctx_httpx_client.get.return_value = mock_client
 
-        result = await task.run()
-
-        mock_log.error.assert_called()
-        assert result is None
+        with pytest.raises(
+            RuntimeError,
+            match="Could not reach https://example.com/data.json: Connection failed",
+        ):
+            await task.run()
 
     @patch("tasks.tasks.ctx_httpx_client")
-    @patch("tasks.tasks.log")
-    async def test_run_response_error(self, mock_log, mock_ctx_httpx_client, task):
-        """Test handling of response status errors"""
+    async def test_run_response_error(self, mock_ctx_httpx_client, task):
+        """A refused download fails the run with the status."""
         mock_client = AsyncMock()
         mock_response = MagicMock()
-
-        # Create a proper HTTPStatusError
-        http_error = httpx.HTTPStatusError(
-            "404 Not Found", request=MagicMock(), response=MagicMock()
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "404 Not Found", request=MagicMock(), response=MagicMock(status_code=404)
         )
-        mock_response.raise_for_status.side_effect = http_error
         mock_client.get.return_value = mock_response
         mock_ctx_httpx_client.get.return_value = mock_client
 
-        result = await task.run()
-
-        # Verify the specific error logging calls
-        mock_log.error.assert_any_call(
-            "Scheduled remote test task failed", exc_info=True
-        )
-        mock_log.error.assert_any_call(http_error)
-        assert result is None
+        with pytest.raises(
+            RuntimeError, match="https://example.com/data.json answered 404"
+        ):
+            await task.run()
 
     @patch("tasks.tasks.ctx_httpx_client")
     async def test_run_disabled_still_pulls(self, mock_ctx_httpx_client, disabled_task):

@@ -32,6 +32,16 @@ async def deliver(notifications: Sequence[Notification]) -> list[NotificationSch
     return [schema for _, schema in stored]
 
 
+class UnknownRecipientsError(ValueError):
+    """Some of the users a notification names are missing or disabled."""
+
+    def __init__(self, user_ids: set[int]) -> None:
+        self.user_ids = user_ids
+        super().__init__(
+            f"No enabled user with id {', '.join(map(str, sorted(user_ids)))}"
+        )
+
+
 def recipient_ids(recipients: Sequence[int] | Literal["admins", "all"]) -> list[int]:
     """The enabled users among the given ids, or among every admin or user."""
     users = db_user_handler.get_users(
@@ -43,6 +53,61 @@ def recipient_ids(recipients: Sequence[int] | Literal["admins", "all"]) -> list[
         return enabled
     wanted = set(recipients)
     return [user_id for user_id in enabled if user_id in wanted]
+
+
+def resolve_recipients(
+    sender_id: int, recipients: Sequence[int] | Literal["admins", "all"] | None
+) -> list[int]:
+    """Who a notification sent by `sender_id` reaches; None means the sender.
+
+    Raises:
+        UnknownRecipientsError: A named user is missing or disabled.
+    """
+    if recipients is None:
+        return [sender_id]
+    if isinstance(recipients, str):
+        return recipient_ids(recipients)
+    if list(recipients) == [sender_id]:
+        return [sender_id]
+    user_ids = recipient_ids(recipients)
+    missing = set(recipients) - set(user_ids)
+    if missing:
+        raise UnknownRecipientsError(missing)
+    return user_ids
+
+
+async def send(
+    sender_id: int,
+    user_ids: Sequence[int],
+    kind: NotificationKind | str,
+    level: NotificationLevel,
+    data: dict[str, Any],
+    *,
+    title: str | None,
+    body: str | None,
+    link: str | None,
+    icon: str | None,
+) -> list[NotificationSchema]:
+    """Deliver a user's notification, naming them as its sender to everyone else.
+
+    Raises if it can't be stored, unlike `notify`.
+    """
+    return await deliver(
+        [
+            Notification(
+                user_id=user_id,
+                actor_id=sender_id if user_id != sender_id else None,
+                kind=kind,
+                level=level,
+                title=title,
+                body=body,
+                link=link,
+                icon=icon,
+                data=data,
+            )
+            for user_id in user_ids
+        ]
+    )
 
 
 async def _notify_all(

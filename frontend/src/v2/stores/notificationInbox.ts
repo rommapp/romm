@@ -18,6 +18,42 @@ const TAB_ID = Math.random().toString(36).slice(2);
 // No ids stands for every notification, as it does in the API.
 type NotificationIds = NotificationIdsPayload["ids"];
 
+/** An idempotent edit of the list, returning it untouched when nothing matches. */
+type Change = (list: NotificationSchema[]) => NotificationSchema[];
+
+// A fetch's response can predate what changed while it was in flight, so each
+// pending fetch collects those changes and replays them onto its result.
+const pendingFetches = new Set<Change[]>();
+
+function added(notification: NotificationSchema): Change {
+  return (list) => {
+    if (list.some((n) => n.id === notification.id)) return list;
+    const at = list.findIndex((n) => n.id < notification.id);
+    return at === -1
+      ? [...list, notification]
+      : [...list.slice(0, at), notification, ...list.slice(at)];
+  };
+}
+
+function removed(ids: NotificationIds): Change {
+  const targets = ids && new Set(ids);
+  return (list) => {
+    const kept = targets ? list.filter((n) => !targets.has(n.id)) : [];
+    return kept.length === list.length ? list : kept;
+  };
+}
+
+function withReadAt(ids: NotificationIds, readAt: string | null): Change {
+  const targets = ids && new Set(ids);
+  // Marking read touches only the unread; unmarking only what it marked.
+  const matches = (n: NotificationSchema) =>
+    (readAt ? !n.read_at : !!n.read_at) && (!targets || targets.has(n.id));
+  return (list) =>
+    list.some(matches)
+      ? list.map((n) => (matches(n) ? { ...n, read_at: readAt } : n))
+      : list;
+}
+
 export default defineStore("v2NotificationInbox", {
   state: () => ({
     notifications: [] as NotificationSchema[],
@@ -30,12 +66,26 @@ export default defineStore("v2NotificationInbox", {
   },
 
   actions: {
+    apply(change: Change) {
+      this.notifications = change(this.notifications);
+      pendingFetches.forEach((changes) => changes.push(change));
+    },
+
     async fetch() {
       const requested = generation;
-      const { data } = await notificationApi.getNotifications();
-      if (requested !== generation) return;
-      this.notifications = data;
-      this.loaded = true;
+      const changes: Change[] = [];
+      pendingFetches.add(changes);
+      try {
+        const { data } = await notificationApi.getNotifications();
+        if (requested !== generation) return;
+        this.notifications = changes.reduce(
+          (list, change) => change(list),
+          data,
+        );
+        this.loaded = true;
+      } finally {
+        pendingFetches.delete(changes);
+      }
     },
 
     /** Adds a notification; false when it was already here. */
@@ -43,7 +93,7 @@ export default defineStore("v2NotificationInbox", {
       if (this.notifications.some((n) => n.id === notification.id)) {
         return false;
       }
-      this.notifications = [notification, ...this.notifications];
+      this.apply(added(notification));
       return true;
     },
 
@@ -60,41 +110,34 @@ export default defineStore("v2NotificationInbox", {
       return notification.data.origin_tab === TAB_ID;
     },
 
-    // Both leave the list untouched when nothing matches, as when a tab's own
-    // change comes back over the socket, so the view doesn't re-render.
     applyRead(ids: NotificationIds) {
-      const targets = ids && new Set(ids);
-      const matches = (n: NotificationSchema) =>
-        !n.read_at && (!targets || targets.has(n.id));
-      if (!this.notifications.some(matches)) return;
-      const readAt = new Date().toISOString();
-      this.notifications = this.notifications.map((n) =>
-        matches(n) ? { ...n, read_at: readAt } : n,
-      );
+      this.apply(withReadAt(ids, new Date().toISOString()));
     },
 
     applyDismissed(ids: NotificationIds) {
-      const targets = ids && new Set(ids);
-      const kept = targets
-        ? this.notifications.filter((n) => !targets.has(n.id))
-        : [];
-      if (kept.length !== this.notifications.length) this.notifications = kept;
+      this.apply(removed(ids));
     },
 
+    // Optimistic: the rows read at once, and unread again if the server refuses.
     async markRead(ids: number[]) {
       if (ids.length === 0) return;
       this.applyRead(ids);
-      await notificationApi.markRead(ids);
+      try {
+        await notificationApi.markRead(ids);
+      } catch (error) {
+        this.apply(withReadAt(ids, null));
+        throw error;
+      }
     },
 
     // Optimistic: the row goes at once and comes back if the server refuses.
     async dismiss(id: number) {
-      const before = this.notifications;
+      const notification = this.notifications.find((n) => n.id === id);
       this.applyDismissed([id]);
       try {
         await notificationApi.dismiss(id);
       } catch (error) {
-        this.notifications = before;
+        if (notification) this.apply(added(notification));
         throw error;
       }
     },

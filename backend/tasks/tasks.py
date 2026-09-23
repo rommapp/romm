@@ -201,14 +201,18 @@ class RemoteFilePullTask(PeriodicTask, ABC):
         self.url = url
 
     async def run(self) -> Any:
+        """Download the file, raising a failure worded for the user notified of it."""
         log.info(f"Scheduled {self.description} started...")
 
         httpx_client = ctx_httpx_client.get()
         try:
             response = await httpx_client.get(self.url, timeout=120)
             response.raise_for_status()
-            return response.content
-        except httpx.HTTPError as e:
-            log.error(f"Scheduled {self.description} failed", exc_info=True)
-            log.error(e)
-            return None
+        except httpx.HTTPStatusError as exc:
+            raise RuntimeError(
+                f"{self.url} answered {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            reason = str(exc) or type(exc).__name__
+            raise RuntimeError(f"Could not reach {self.url}: {reason}") from exc
+        return response.content

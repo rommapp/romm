@@ -559,9 +559,7 @@ async def record_termination(
 ) -> None:
     """Leave a note for the player whose session was taken away, and push it
     over the socket so the poll isn't the only way that tab finds out. No-op
-    when the session records no owner, since there is nobody to notify.
-
-    Another user ending it also leaves the player a lasting notification."""
+    when the session records no owner, since there is nobody to notify."""
     user_id = session.get("user_id")
     if not isinstance(user_id, int):
         return

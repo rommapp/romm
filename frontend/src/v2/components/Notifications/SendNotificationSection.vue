@@ -19,8 +19,6 @@ import {
 } from "@/v2/utils/notifications";
 import { notBlank } from "@/v2/utils/validation";
 
-defineOptions({ inheritAttrs: false });
-
 type Audience = "all" | "admins" | "users";
 
 const { t } = useI18n();

@@ -99,6 +99,16 @@ describe("NotificationInbox", () => {
     expect(rows[1].classes()).not.toContain("r-v2-notification--unread");
   });
 
+  it("tries a refused mark once a visit rather than in a loop", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    api.markRead.mockRejectedValue(new Error("offline"));
+    const { inbox } = mountWith([notification(2)]);
+    await flushPromises();
+
+    expect(api.markRead).toHaveBeenCalledOnce();
+    expect(inbox.unreadCount).toBe(1);
+  });
+
   it("dismisses one row for good", async () => {
     const { wrapper } = mountWith([notification(2), notification(1)]);
 

@@ -47,8 +47,10 @@ const unreadThisVisit = reactive(new Set<number>());
 watch(
   () => notifications.value.filter((n) => !n.read_at).map((n) => n.id),
   (ids) => {
-    ids.forEach((id) => unreadThisVisit.add(id));
-    inbox.markRead(ids).catch((error) => {
+    // A refused mark leaves its rows unread, so each is tried once a visit.
+    const fresh = ids.filter((id) => !unreadThisVisit.has(id));
+    fresh.forEach((id) => unreadThisVisit.add(id));
+    inbox.markRead(fresh).catch((error) => {
       console.error("Could not mark notifications read:", error);
     });
   },

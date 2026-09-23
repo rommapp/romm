@@ -12,11 +12,11 @@ from handler.database import db_notification_handler
 from handler.notification_handler import (
     NOTIFICATIONS_DISMISSED_EVENT,
     NOTIFICATIONS_READ_EVENT,
-    deliver,
-    recipient_ids,
+    UnknownRecipientsError,
+    resolve_recipients,
+    send,
 )
 from handler.socket_handler import socket_handler
-from models.notification import Notification
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -43,9 +43,7 @@ async def create_notification(
     Other users see the caller as its sender.
     """
     sender_id = request.user.id
-    if payload.recipients is None or payload.recipients == [sender_id]:
-        user_ids = [sender_id]
-    else:
+    if payload.recipients not in (None, [sender_id]):
         assert_admin(request)
         # An admin's token scoped below users.write must not speak for them to others.
         if Scope.USERS_WRITE not in request.auth.scopes:
@@ -53,30 +51,24 @@ async def create_notification(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Notifying other users needs the users.write scope",
             )
-        user_ids = recipient_ids(payload.recipients)
-        if isinstance(payload.recipients, list):
-            missing = set(payload.recipients) - set(user_ids)
-            if missing:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"No enabled user with id {', '.join(map(str, sorted(missing)))}",
-                )
 
-    return await deliver(
-        [
-            Notification(
-                user_id=user_id,
-                actor_id=sender_id if user_id != sender_id else None,
-                kind=payload.kind,
-                level=payload.level,
-                title=payload.title,
-                body=payload.body,
-                link=payload.link,
-                icon=payload.icon,
-                data=payload.data,
-            )
-            for user_id in user_ids
-        ]
+    try:
+        user_ids = resolve_recipients(sender_id, payload.recipients)
+    except UnknownRecipientsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
+    return await send(
+        sender_id,
+        user_ids,
+        payload.kind,
+        payload.level,
+        payload.data,
+        title=payload.title,
+        body=payload.body,
+        link=payload.link,
+        icon=payload.icon,
     )
 
 

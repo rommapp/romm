@@ -120,13 +120,85 @@ describe("notificationInbox", () => {
   it("brings a notification back when the server refuses to dismiss it", async () => {
     dismiss.mockRejectedValue(new Error("offline"));
     const inbox = storeNotificationInbox();
-    inbox.notifications = [notification(1), notification(2)];
+    inbox.notifications = [notification(3), notification(2), notification(1)];
 
-    const pending = inbox.dismiss(1);
-    expect(inbox.notifications.map((n) => n.id)).toEqual([2]);
+    const pending = inbox.dismiss(2);
+    expect(inbox.notifications.map((n) => n.id)).toEqual([3, 1]);
 
     await expect(pending).rejects.toThrow("offline");
-    expect(inbox.notifications.map((n) => n.id)).toEqual([1, 2]);
+    expect(inbox.notifications.map((n) => n.id)).toEqual([3, 2, 1]);
+  });
+
+  it("marks rows unread again when the server refuses", async () => {
+    markRead.mockRejectedValue(new Error("offline"));
+    const inbox = storeNotificationInbox();
+    inbox.notifications = [notification(2), notification(1)];
+
+    await expect(inbox.markRead([2, 1])).rejects.toThrow("offline");
+
+    expect(inbox.unreadCount).toBe(2);
+  });
+
+  describe("a fetch answered after a change", () => {
+    let answer!: (value: unknown) => void;
+
+    beforeEach(() => {
+      getNotifications.mockReturnValue(
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+      );
+    });
+
+    it("keeps a notification pushed meanwhile", async () => {
+      const inbox = storeNotificationInbox();
+      const pending = inbox.fetch();
+
+      inbox.receive(notification(3));
+      answer({ data: [notification(2), notification(1)] });
+      await pending;
+
+      expect(inbox.notifications.map((n) => n.id)).toEqual([3, 2, 1]);
+    });
+
+    it("doesn't bring back one dismissed meanwhile", async () => {
+      dismiss.mockResolvedValue({});
+      const inbox = storeNotificationInbox();
+      inbox.notifications = [notification(2), notification(1)];
+      const pending = inbox.fetch();
+
+      await inbox.dismiss(2);
+      answer({ data: [notification(2), notification(1)] });
+      await pending;
+
+      expect(inbox.notifications.map((n) => n.id)).toEqual([1]);
+    });
+
+    it("keeps what was read meanwhile", async () => {
+      const inbox = storeNotificationInbox();
+      const pending = inbox.fetch();
+
+      inbox.applyRead(null);
+      answer({ data: [notification(2), notification(1)] });
+      await pending;
+
+      expect(inbox.unreadCount).toBe(0);
+    });
+
+    it("replays nothing onto a later fetch", async () => {
+      const inbox = storeNotificationInbox();
+      const first = inbox.fetch();
+      inbox.applyDismissed([1]);
+      answer({ data: [notification(2)] });
+      await first;
+
+      getNotifications.mockResolvedValue({
+        data: [notification(2), notification(1)],
+      });
+      await inbox.fetch();
+
+      expect(inbox.notifications.map((n) => n.id)).toEqual([2, 1]);
+    });
   });
 
   it("sends only the ids it marks read", async () => {

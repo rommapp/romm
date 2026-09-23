@@ -7,10 +7,13 @@ import pytest
 from handler import notification_handler
 from handler.notification_handler import (
     NOTIFICATIONS_NEW_EVENT,
+    UnknownRecipientsError,
     notify,
     notify_admins,
     notify_user_or_admins,
     recipient_ids,
+    resolve_recipients,
+    send,
 )
 from models.notification import Notification, NotificationKind, NotificationLevel
 
@@ -160,3 +163,72 @@ class TestNotifyUserOrAdmins:
 
         notify_mock.assert_not_awaited()
         assert admins_mock.await_count == int(admins_too)
+
+
+class TestResolveRecipients:
+    @pytest.fixture
+    def users(self, mocker):
+        return mocker.patch.object(
+            notification_handler.db_user_handler,
+            "get_users",
+            return_value=[
+                MagicMock(id=1, enabled=True),
+                MagicMock(id=2, enabled=False),
+                MagicMock(id=3, enabled=True),
+            ],
+        )
+
+    @pytest.mark.parametrize("recipients", [None, [3]])
+    def test_the_sender_alone_needs_no_lookup(self, users, recipients):
+        assert resolve_recipients(3, recipients) == [3]
+        users.assert_not_called()
+
+    def test_a_group_is_its_enabled_members(self, users):
+        assert resolve_recipients(1, "all") == [1, 3]
+
+    def test_names_the_users_it_cannot_reach(self, users):
+        with pytest.raises(UnknownRecipientsError) as raised:
+            resolve_recipients(1, [3, 2, 99])
+
+        assert raised.value.user_ids == {2, 99}
+        assert str(raised.value) == "No enabled user with id 2, 99"
+
+
+class TestSend:
+    async def test_names_the_sender_to_everyone_else(self, emit, add_notifications):
+        await send(
+            1,
+            [1, 3],
+            "custom",
+            NotificationLevel.INFO,
+            {},
+            title="Maintenance",
+            body=None,
+            link="/platforms",
+            icon=None,
+        )
+
+        rows = add_notifications.call_args.args[0]
+        assert [(n.user_id, n.actor_id) for n in rows] == [(1, None), (3, 1)]
+        assert {n.link for n in rows} == {"/platforms"}
+        assert emit.await_count == 2
+
+    async def test_a_storage_failure_reaches_the_caller(self, mocker, emit):
+        mocker.patch.object(
+            notification_handler.db_notification_handler,
+            "add_notifications",
+            side_effect=RuntimeError("database gone"),
+        )
+
+        with pytest.raises(RuntimeError):
+            await send(
+                1,
+                [3],
+                "custom",
+                NotificationLevel.INFO,
+                {},
+                title="Maintenance",
+                body=None,
+                link=None,
+                icon=None,
+            )
