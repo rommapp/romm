@@ -34,7 +34,7 @@ lint:
     - checkov@3.3.8
     - git-diff-check
     - isort@8.0.1
-    - mypy@2.3.1
+    - mypy@2.3.0
     - osv-scanner@2.3.3
     - prettier@3.9.5:
         packages:
