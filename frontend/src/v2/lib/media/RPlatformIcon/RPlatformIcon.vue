@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import {
+  DEFAULT_PLATFORM_ICON,
+  shippedPlatformIconUrl,
+} from "@/v2/composables/usePlatformIconCache/iconCache";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -44,35 +48,13 @@ const resolvedSlug = computed(
 );
 const resolvedFsSlug = computed(() => props.fsSlug ?? resolvedSlug.value);
 
-// Ordered candidate URL list. We try each one in sequence; `stepIdx` walks
-// through them until one loads (or we fall back to default.ico).
-const candidates = computed(() => {
-  if (props.src) return [props.src];
-  const fs = resolvedFsSlug.value.toLowerCase().trim();
-  const s = resolvedSlug.value.toLowerCase().trim();
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const base of [s, fs]) {
-    if (!base || seen.has(base)) continue;
-    seen.add(base);
-    out.push(`/assets/platforms/${base}.svg`, `/assets/platforms/${base}.ico`);
-  }
-  out.push("/assets/platforms/default.ico");
-  return out;
-});
-
-const stepIdx = ref(0);
-const currentSrc = computed(() => candidates.value[stepIdx.value] ?? null);
-
-watch(candidates, () => {
-  stepIdx.value = 0;
-});
-
-function onError() {
-  if (stepIdx.value < candidates.value.length - 1) {
-    stepIdx.value += 1;
-  }
-}
+const src = computed(
+  () =>
+    props.src ??
+    shippedPlatformIconUrl(resolvedSlug.value.trim()) ??
+    shippedPlatformIconUrl(resolvedFsSlug.value.trim()) ??
+    DEFAULT_PLATFORM_ICON,
+);
 
 const resolvedSize = computed(() =>
   typeof props.size === "number" ? `${props.size}px` : props.size,
@@ -81,6 +63,19 @@ const resolvedSize = computed(() =>
 const tooltipText = computed(
   () => props.title ?? props.alt ?? resolvedSlug.value ?? "",
 );
+
+const failed = ref(false);
+watch(src, () => {
+  failed.value = false;
+});
+
+const displaySrc = computed(() =>
+  failed.value ? DEFAULT_PLATFORM_ICON : src.value,
+);
+
+function onImgError() {
+  if (displaySrc.value !== DEFAULT_PLATFORM_ICON) failed.value = true;
+}
 </script>
 
 <template>
@@ -90,12 +85,11 @@ const tooltipText = computed(
     :style="{ width: resolvedSize, height: resolvedSize }"
   >
     <img
-      v-if="currentSrc"
-      :key="currentSrc"
-      :src="currentSrc"
+      :key="displaySrc"
+      :src="displaySrc"
       :alt="alt ?? resolvedSlug ?? ''"
       class="r-platform-icon__img"
-      @error="onError"
+      @error="onImgError"
     />
     <RTooltip
       v-if="showTooltip && tooltipText"

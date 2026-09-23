@@ -13,8 +13,8 @@ async function load() {
   return import("./index");
 }
 
-// `prefetchPlatformIcons` runs through `requestIdleCallback` when the
-// environment has one and `setTimeout(0)` otherwise, so settle both.
+// prefetchPlatformIcons runs through requestIdleCallback when the
+// environment has one and setTimeout(0) otherwise, so settle both.
 async function settle() {
   await flushPromises();
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -42,21 +42,7 @@ beforeEach(() => {
 });
 
 describe("prefetchPlatformIcons", () => {
-  it("falls back to .ico when the platform ships no .svg", async () => {
-    respondWith({ "/assets/platforms/saturn.ico": "image/x-icon" });
-    const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();
-
-    prefetchPlatformIcons(["saturn"]);
-    await settle();
-
-    expect(urls()).toEqual([
-      "/assets/platforms/saturn.svg",
-      "/assets/platforms/saturn.ico",
-    ]);
-    expect(getCachedPlatformIcon("saturn")).toBe("blob:cached");
-  });
-
-  it("stops at .svg when that variant resolves", async () => {
+  it("fetches the shipped url for a known slug", async () => {
     respondWith({ "/assets/platforms/dc.svg": "image/svg+xml" });
     const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();
 
@@ -67,55 +53,39 @@ describe("prefetchPlatformIcons", () => {
     expect(getCachedPlatformIcon("dc")).toBe("blob:cached");
   });
 
-  it("ignores a non-image body and keeps probing", async () => {
-    respondWith({
-      "/assets/platforms/dc.svg": "text/html",
-      "/assets/platforms/dc.ico": "image/x-icon",
-    });
-    const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();
-
-    prefetchPlatformIcons(["dc"]);
-    await settle();
-
-    expect(urls()).toEqual([
-      "/assets/platforms/dc.svg",
-      "/assets/platforms/dc.ico",
-    ]);
-    expect(getCachedPlatformIcon("dc")).toBe("blob:cached");
-  });
-
-  it("keeps probing after a candidate fails in transport", async () => {
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.endsWith(".svg")) throw new Error("connection reset");
-      return {
-        ok: true,
-        blob: async () => new Blob(["x"], { type: "image/x-icon" }),
-      };
-    });
-    const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();
-
-    prefetchPlatformIcons(["saturn"]);
-    await settle();
-
-    expect(urls()).toEqual([
-      "/assets/platforms/saturn.svg",
-      "/assets/platforms/saturn.ico",
-    ]);
-    expect(getCachedPlatformIcon("saturn")).toBe("blob:cached");
-  });
-
-  it("caches nothing for a platform with no asset at all", async () => {
+  it("does not fetch an unshipped slug", async () => {
     respondWith({});
     const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();
 
     prefetchPlatformIcons(["singe"]);
     await settle();
 
-    expect(urls()).toEqual([
-      "/assets/platforms/singe.svg",
-      "/assets/platforms/singe.ico",
-    ]);
+    expect(urls()).toEqual([]);
     expect(getCachedPlatformIcon("singe")).toBeUndefined();
+  });
+
+  it("caches nothing when the shipped file is not an image", async () => {
+    respondWith({ "/assets/platforms/dc.svg": "text/html" });
+    const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();
+
+    prefetchPlatformIcons(["dc"]);
+    await settle();
+
+    expect(urls()).toEqual(["/assets/platforms/dc.svg"]);
+    expect(getCachedPlatformIcon("dc")).toBeUndefined();
+  });
+
+  it("caches nothing when the shipped file fails in transport", async () => {
+    fetchMock.mockImplementation(async () => {
+      throw new Error("connection reset");
+    });
+    const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();
+
+    prefetchPlatformIcons(["dc"]);
+    await settle();
+
+    expect(urls()).toEqual(["/assets/platforms/dc.svg"]);
+    expect(getCachedPlatformIcon("dc")).toBeUndefined();
   });
 
   it("does not re-fetch a slug it already cached", async () => {
