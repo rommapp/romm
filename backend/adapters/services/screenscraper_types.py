@@ -104,9 +104,10 @@ class SSGameRom(TypedDict):
     romsha1: NotRequired[str]
     regions: NotRequired[SSRomRegions]
     langues: NotRequired[SSRomLanguages]
+    # Sent as "1"/"0" strings. No `proto`: jeuInfos omits the key entirely,
+    # unlike `demo` and `unl`, which it sends set to zero.
     beta: NotRequired[int]
     demo: NotRequired[int]
-    proto: NotRequired[int]
     trad: NotRequired[int]
     hack: NotRequired[int]
     unl: NotRequired[int]

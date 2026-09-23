@@ -2198,6 +2198,24 @@ class TestExtractFromSSDump:
         for trad in ("0", 0, "", None):
             assert extract_tags_from_ss_dump(cast(SSGameRom, {"trad": trad})) == []
 
+    @pytest.mark.parametrize(
+        ("flag", "tag"),
+        [("hack", "Hack"), ("beta", "Beta"), ("demo", "Demo")],
+    )
+    def test_the_other_flags_spell_their_tag_the_way_a_filename_does(
+        self, flag: str, tag: str
+    ):
+        assert extract_tags_from_ss_dump(cast(SSGameRom, {flag: "1"})) == [tag]
+
+    def test_a_dump_raising_several_flags_carries_each_tag(self):
+        dump = cast(SSGameRom, {"trad": "1", "hack": "1", "beta": "1"})
+
+        assert extract_tags_from_ss_dump(dump) == ["Translation", "Hack", "Beta"]
+
+    def test_unl_is_not_a_tag(self):
+        """No filename tag answers to it, so reading it would split the facet."""
+        assert extract_tags_from_ss_dump(cast(SSGameRom, {"unl": "1"})) == []
+
     def test_a_dump_without_tags_reports_nothing(self):
         dump = cast(SSGameRom, {"id": 1})
 

@@ -720,10 +720,25 @@ def extract_languages_from_ss_dump(dump: SSGameRom) -> list[str]:
     return normalize_provider_languages(code for code in codes if isinstance(code, str))
 
 
+# The dump flags naming something parse_tags spells the same way, so a hash
+# match and a filename land on one facet value rather than two. ScreenScraper
+# also sends `unl`, left out because no filename tag answers to it.
+_SS_DUMP_FLAG_TAGS: Final = (
+    ("trad", TRANSLATION_TAG),
+    ("hack", "Hack"),
+    ("beta", "Beta"),
+    ("demo", "Demo"),
+)
+
+
 def extract_tags_from_ss_dump(dump: SSGameRom) -> list[str]:
-    """Tags of one dump. Only `trad` today, which marks a fan translation."""
+    """Tags of one dump, from the flags it raises."""
     # ScreenScraper sends these flags as "1", not 1.
-    return [TRANSLATION_TAG] if str(dump.get("trad", "")).strip() == "1" else []
+    return [
+        tag
+        for key, tag in _SS_DUMP_FLAG_TAGS
+        if str(dump.get(key, "")).strip() == "1"  # type: ignore[literal-required]
+    ]
 
 
 def _apply_ss_dump(game_rom: SSRom, game: SSGame, file: RomFile | None) -> None:
