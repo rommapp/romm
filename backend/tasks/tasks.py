@@ -1,9 +1,13 @@
+import asyncio
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any
 
 import httpx
 from rq import get_current_job
+from rq.exceptions import AbandonedJobError
+from rq.job import Job
+from rq.timeouts import JobTimeoutException
 
 from config import TASK_TIMEOUT
 from exceptions.task_exceptions import TaskNotFoundException
@@ -26,8 +30,8 @@ async def run_task_by_name(
         name: The key the task is registered under.
         task_kwargs: Forwarded to the task's ``run``, nested so that they cannot
             collide with the name of the task to run.
-        run_by_user_id: Who ran it by hand, notified of how it ended. A run
-            nobody asked for (cron, startup) notifies the admins of a failure.
+        run_by_user_id: Who ran it by hand, notified when it succeeds. A failure
+            is reported by `report_task_failure`.
 
     Returns:
         Whatever the task returns.
@@ -40,14 +44,45 @@ async def run_task_by_name(
     if task is None:
         raise TaskNotFoundException(name)
 
-    try:
-        result = await task.run(**(task_kwargs or {}))
-    except Exception as exc:
-        await _notify_task_end(name, task, run_by_user_id, error=str(exc) or repr(exc))
-        raise
-
+    result = await task.run(**(task_kwargs or {}))
     await _notify_task_end(name, task, run_by_user_id)
     return result
+
+
+def report_task_failure(
+    job: Job, exc_type: type[BaseException], exc_value: BaseException, tb: Any
+) -> None:
+    """RQ exception handler telling whoever ran a task, or the admins, that it failed.
+
+    The worker calls it for a timeout parked in the event loop and for a job a
+    dead worker orphaned too, neither of which unwinds through the task.
+    """
+    try:
+        if job.func_name != f"{__name__}.{run_task_by_name.__name__}":
+            return
+        name = job.kwargs["name"]
+        run_by_user_id = job.kwargs.get("run_by_user_id")
+    except Exception:  # noqa: BLE001 - a job that won't deserialize is RQ's to log
+        return
+
+    from tasks.registry import get_task
+
+    task = get_task(name)
+    if task is None:
+        return
+
+    if issubclass(exc_type, AbandonedJobError):
+        reason = "The worker running it stopped unexpectedly"
+    elif issubclass(exc_type, JobTimeoutException):
+        reason = f"It ran past its {task.timeout}s timeout"
+    else:
+        reason = str(exc_value) or repr(exc_value)
+
+    try:
+        asyncio.run(_notify_task_end(name, task, run_by_user_id, error=reason))
+    except Exception:  # noqa: BLE001
+        # Raising would stop the worker's sweep of the other orphaned jobs.
+        log.error(f"Could not report failed task {job.id}", exc_info=True)
 
 
 async def _notify_task_end(
