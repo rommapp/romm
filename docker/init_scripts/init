@@ -278,8 +278,6 @@ start_bin_rq_scan_worker() {
 # orphaned STARTED jobs and stale workers are still pruned promptly.
 # --with-scheduler releases delayed jobs, which is how the watcher's rescans
 # wait out their delay.
-# The PID is recorded here, not with --pid: RQ writes that file only after
-# importing the worker class, and the watchdog would start a duplicate meanwhile.
 start_rq_worker() {
 	local name="$1"
 	shift
@@ -296,6 +294,8 @@ start_rq_worker() {
 		--logging_level "${LOGLEVEL}" \
 		--with-scheduler \
 		"$@" &
+	# Not --pid: RQ writes that file only once the worker class is imported,
+	# and until then the watchdog would start a duplicate.
 	echo "$!" >"/tmp/${name}.pid"
 }
 
