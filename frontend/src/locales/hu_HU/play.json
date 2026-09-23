@@ -176,7 +176,6 @@
   "resume-from-state": "Folytatás állásból",
   "save-and-quit": "Mentés és Kilépés",
   "save-data": "Mentési adatok",
-  "save-data-detail": "Frissítve {time} · {size}",
   "save-data-none": "Még nincs mentési adat",
   "save-data-none-hint": "A(z) {platform} a játék saját mentésében tárolja a haladást",
   "save-data-none-note": "Játssz, majd ments a játékon belül. A munkamenet végén szinkronizálódik.",

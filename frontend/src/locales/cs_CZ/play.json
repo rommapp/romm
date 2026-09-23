@@ -176,7 +176,6 @@
   "resume-from-state": "Pokračovat ze stavu",
   "save-and-quit": "Uložit a ukončit",
   "save-data": "Uložená data",
-  "save-data-detail": "Aktualizováno {time} · {size}",
   "save-data-none": "Zatím žádná uložená data",
   "save-data-none-hint": "{platform} ukládá postup do vlastní pozice hry",
   "save-data-none-note": "Hrajte a uložte ve hře. Po skončení relace se data synchronizují.",

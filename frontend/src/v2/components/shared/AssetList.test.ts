@@ -30,7 +30,6 @@ const stubs = {
   RTag,
   RCheckbox,
   RIcon: true,
-  RTooltip: true,
   RAvatar: true,
 };
 

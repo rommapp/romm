@@ -11,7 +11,7 @@ const RTag = {
   props: { text: { type: String, default: "" } },
   template: `<span class="tag">{{ text }}</span>`,
 };
-const stubs = { RTag, RIcon: true, RTooltip: true, RExpandTransition: false };
+const stubs = { RTag, RIcon: true, RExpandTransition: false };
 
 function state(id: number, emulator: string | null, updated_at: string) {
   return {

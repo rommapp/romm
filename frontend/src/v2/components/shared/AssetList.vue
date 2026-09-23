@@ -11,11 +11,10 @@
 //   * manage (selectable=false) — Save data subtab. Rows are static; the
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
-import { RBtn, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
+import { RBtn, RCheckbox, REmptyState, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
-import { formatTimestamp } from "@/utils";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
@@ -98,17 +97,13 @@ defineSlots<{
   actions(props: { asset: Asset }): unknown;
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const { xs } = useBreakpoint();
 
 const emptyLabel = computed(() =>
   props.type === "save"
     ? t("play.no-saves-available")
     : t("play.no-states-available"),
-);
-
-const timeLabel = computed(() =>
-  props.timestamp === "created" ? t("rom.created") : t("rom.updated"),
 );
 
 function slotOf(asset: Asset): string | null {
@@ -315,23 +310,6 @@ const fadeIndex = computed(() =>
               <span v-if="!selectable" class="r-asset-list__actions">
                 <slot name="actions" :asset="asset" />
               </span>
-
-              <RTooltip
-                v-if="selectable"
-                activator="parent"
-                location="top"
-                :open-delay="400"
-              >
-                <div class="r-asset-list__tip">
-                  <span class="r-asset-list__tip-name">
-                    {{ asset.file_name }}
-                  </span>
-                  <span class="r-asset-list__tip-sub">
-                    {{ timeLabel }}:
-                    {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
-                  </span>
-                </div>
-              </RTooltip>
             </component>
           </li>
         </ul>
@@ -554,22 +532,6 @@ const fadeIndex = computed(() =>
 
 .r-asset-list__fold {
   align-self: flex-start;
-}
-
-.r-asset-list__tip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 360px;
-}
-.r-asset-list__tip-name {
-  font-size: 12px;
-  font-weight: var(--r-font-weight-semibold);
-  word-break: break-all;
-}
-.r-asset-list__tip-sub {
-  font-size: 11px;
-  opacity: 0.85;
 }
 
 /* Phones give each part its own band, which `display: contents` allows by

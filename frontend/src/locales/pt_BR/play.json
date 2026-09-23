@@ -176,7 +176,6 @@
   "resume-from-state": "Retomar a partir do state",
   "save-and-quit": "Salvar e sair",
   "save-data": "Dados de save",
-  "save-data-detail": "Atualizado {time} · {size}",
   "save-data-none": "Ainda não há dados de save",
   "save-data-none-hint": "{platform} guarda o progresso no save do próprio jogo",
   "save-data-none-note": "Jogue e salve dentro do jogo. A sincronização acontece ao encerrar a sessão.",

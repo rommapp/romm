@@ -7,11 +7,9 @@ import {
   RExpandTransition,
   RIcon,
   RTag,
-  RTooltip,
 } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { formatTimestamp } from "@/utils";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
@@ -70,7 +68,7 @@ defineSlots<{
   actions(props: { asset: Asset }): unknown;
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 
 const emptyLabel = computed(() =>
   props.type === "save"
@@ -278,28 +276,6 @@ const fadeIndex = computed(() =>
                   <slot name="actions" :asset="asset" />
                 </div>
               </div>
-              <RTooltip
-                v-if="selectable"
-                activator="parent"
-                location="top"
-                :open-delay="400"
-              >
-                <div class="r-asset-strip__tip">
-                  <span class="r-asset-strip__tip-name">{{
-                    asset.file_name
-                  }}</span>
-                  <span class="r-asset-strip__tip-sub">
-                    {{ t("rom.updated") }}:
-                    {{ formatTimestamp(asset.updated_at, locale) }}
-                  </span>
-                  <span
-                    v-if="reasonOf(asset)"
-                    class="r-asset-strip__tip-reason"
-                  >
-                    {{ reasonOf(asset) }}
-                  </span>
-                </div>
-              </RTooltip>
             </component>
           </div>
         </div>
@@ -366,7 +342,7 @@ const fadeIndex = computed(() =>
    don't stack a tile too tall. min() lets a lone column shrink on a phone. */
 .r-asset-strip--flow .r-asset-strip__track {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   overflow: visible;
   scroll-snap-type: none;
   padding: 4px 0;
@@ -628,26 +604,6 @@ const fadeIndex = computed(() =>
     var(--r-color-brand-primary) 40%,
     transparent
   );
-}
-
-.r-asset-strip__tip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 360px;
-}
-.r-asset-strip__tip-name {
-  font-size: 12px;
-  font-weight: var(--r-font-weight-semibold);
-  word-break: break-all;
-}
-.r-asset-strip__tip-reason {
-  font-size: 11px;
-  color: var(--r-color-warning);
-}
-.r-asset-strip__tip-sub {
-  font-size: 11px;
-  opacity: 0.85;
 }
 
 html[data-bp~="xs"] .r-asset-strip__tile {
